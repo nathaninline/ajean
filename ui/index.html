@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>jean</title>
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--ok:#3fb950;--warn:#d29922;--err:#f85149;--mag:#bc8cff}
+*{box-sizing:border-box}
+body{margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;font-size:14px}
+.side{width:280px;border-right:1px solid var(--border);padding:16px;overflow-y:auto;flex-shrink:0}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+#menubtn{display:none;position:fixed;top:10px;left:10px;z-index:20;background:var(--panel);border:1px solid var(--border);color:var(--text);width:40px;height:40px;border-radius:6px;font-size:18px;cursor:pointer}
+#backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10}
+@media (max-width:720px){
+  .side{position:fixed;inset:0 auto 0 0;width:80%;max-width:320px;z-index:15;transform:translateX(-100%);transition:transform .2s;background:var(--bg)}
+  .side.open{transform:translateX(0)}
+  #menubtn,#backdrop.open{display:block}
+  body.drawer-open #menubtn{display:none}
+  .main{width:100%}
+  #chat{padding:60px 12px 12px}
+  .msg{max-width:92%}
+  #inputbar{padding:8px;gap:4px}
+  #send,#stop{padding:0 12px}
+  h1{margin-left:48px}
+}
+h1{margin:0 0 4px;font-size:18px;color:var(--accent)}
+h2{margin:20px 0 8px;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;font-weight:600}
+details{margin:8px 0;border-top:1px solid var(--border);padding-top:6px}
+details>summary{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;font-weight:600;cursor:pointer;padding:4px 0;list-style:none;display:flex;justify-content:space-between;align-items:center;user-select:none}
+details>summary::-webkit-details-marker{display:none}
+details>summary::after{content:"▸";transition:transform .15s;color:var(--dim);font-size:10px}
+details[open]>summary::after{transform:rotate(90deg)}
+details>summary:hover{color:var(--text)}
+details>div,details>textarea{margin-top:6px}
+.preset-add{display:none;font-size:14px;padding:0 8px;margin:0 8px 0 auto;line-height:1.4;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer}
+.preset-add:hover{border-color:var(--accent);color:var(--accent)}
+details[open]>summary>.preset-add{display:inline-block}
+.tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;background:var(--panel);border:1px solid var(--border)}
+.tag.ok{color:var(--ok);border-color:var(--ok)}
+.tag.err{color:var(--err);border-color:var(--err)}
+button{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font:inherit;cursor:pointer;margin:2px}
+button:hover{border-color:var(--accent);color:var(--accent)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:4px;flex-wrap:wrap}
+.preset{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border:1px solid var(--border);border-radius:6px;margin:4px 0;cursor:pointer;background:var(--panel)}
+.preset:hover{border-color:var(--accent)}
+.preset.active{border-color:var(--ok);color:var(--ok)}
+.kv{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px}
+.kv span:first-child{color:var(--dim);flex-shrink:0}
+.kv span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:right;min-width:0}
+.bar{height:6px;background:var(--panel);border-radius:3px;overflow:hidden;margin:2px 0}
+.bar>div{height:100%;background:var(--accent)}
+#chat{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px}
+.msg{max-width:80%;padding:10px 14px;border-radius:10px;white-space:pre-wrap;word-wrap:break-word;line-height:1.45}
+.msg.assistant,.msg.reasoning{white-space:normal}
+.msg.user{align-self:flex-end;background:#1f6feb;color:#fff}
+.msg.assistant{align-self:flex-start;background:var(--panel);border:1px solid var(--border)}
+.msg .body>*{margin:1em 0}
+.msg .body>*:first-child{margin-top:0}
+.msg .body>*:last-child{margin-bottom:0}
+.msg .body h1,.msg .body h2,.msg .body h3,.msg .body h4{font-weight:600;line-height:1.25;margin:1.2em 0 .5em}
+.msg .body h1{font-size:1.3em} .msg .body h2{font-size:1.15em} .msg .body h3{font-size:1em} .msg .body h4{font-size:.95em}
+.msg .body ul,.msg .body ol{padding-left:1.4em}
+.msg .body li{margin:.15em 0}
+.msg .body li>p{margin:0}
+.msg.assistant .body code{background:#0d1117;padding:1px 5px;border-radius:3px;font-size:.9em}
+.msg.assistant .body pre{background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:10px;overflow-x:auto;margin:.5em 0}
+.msg.assistant .body pre code{background:transparent;padding:0;font-size:.85em;line-height:1.4}
+.msg.assistant .body blockquote{border-left:3px solid var(--border);padding:0 0 0 10px;margin:.4em 0;color:var(--dim)}
+.msg.assistant .body a{color:var(--accent);text-decoration:none}
+.msg.assistant .body a:hover{text-decoration:underline}
+.msg.assistant .body table{border-collapse:collapse;margin:.5em 0}
+.msg.assistant .body th,.msg.assistant .body td{border:1px solid var(--border);padding:4px 8px}
+.msg.assistant .body hr{border:none;border-top:1px solid var(--border);margin:.6em 0}
+#scrollbtn{position:absolute;bottom:80px;right:20px;background:var(--panel);border:1px solid var(--border);color:var(--accent);width:36px;height:36px;border-radius:50%;cursor:pointer;display:none;font-size:16px;z-index:5}
+#scrollbtn.show{display:block}
+.msg.reasoning{align-self:flex-start;background:transparent;border:1px dashed var(--border);color:var(--mag);font-size:12px;max-width:90%}
+.msg .label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;display:block}
+#inputbar{border-top:1px solid var(--border);padding:12px;display:flex;gap:8px}
+#input{flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;font:inherit;resize:none;min-height:44px;max-height:200px}
+#input:focus{outline:none;border-color:var(--accent)}
+#send{padding:0 20px}
+.muted{color:var(--dim);font-size:12px}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--border);padding:8px 16px;border-radius:6px;opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.show{opacity:1}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+</style></head><body>
+<button id="menubtn" onclick="toggleSide()">☰</button>
+<div id="backdrop" onclick="toggleSide()"></div>
+<div class="side" id="side">
+  <h1>jean</h1>
+  <div id="statusline" class="muted"><span id="status-svc">…</span> <span id="status-preset"></span></div>
+  <details open><summary>GPU</summary>
+    <div id="vram" class="muted">…</div>
+  </details>
+  <details open><summary>Config active</summary>
+    <div id="cfg" class="muted">…</div>
+  </details>
+  <details><summary>Presets<button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter">+</button></summary>
+    <div id="presets"></div>
+  </details>
+  <details><summary>Tools <span id="tools-badge" style="margin-left:auto;font-size:10px"></span></summary>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 0"><input type="checkbox" id="tools-toggle" onchange="toggleTools()"> activer <code style="color:var(--warn);font-size:11px">run_shell</code></label>
+    <div class="muted" style="font-size:11px">⚠️ permet à l'IA d'exécuter des commandes bash sur le serveur (timeout 30s, max 300s)</div>
+  </details>
+  <details><summary>Skills <span id="skills-badge" style="margin-left:auto;font-size:10px"></span><button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openSkill('')" title="ajouter">+</button></summary>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 0"><input type="checkbox" id="skills-toggle" onchange="toggleSkills()"> activer</label>
+    <div id="skills-list" class="muted" style="font-size:12px"></div>
+  </details>
+  <details><summary>System prompt</summary>
+    <textarea id="sysprompt" placeholder="(optionnel) ex: tu es un assistant concis en français" oninput="saveSys()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;min-height:70px;resize:vertical"></textarea>
+  </details>
+  <details><summary>Service</summary>
+    <div class="row">
+      <button onclick="act('start')">start</button>
+      <button onclick="act('restart')">restart</button>
+      <button onclick="act('stop')">stop</button>
+    </div>
+  </details>
+  <details><summary>Actions</summary>
+    <div class="row">
+      <button onclick="loadAll()">↻ refresh</button>
+      <button onclick="resetChat()">⌫ clear chat</button>
+      <button id="btn-bench" onclick="runBenchUI()">⚡ bench</button>
+    </div>
+  </details>
+</div>
+<div class="main" style="position:relative">
+  <div id="chat"></div>
+  <button id="scrollbtn" onclick="jumpBottom()" title="aller en bas">↓</button>
+  <div id="inputbar">
+    <textarea id="input" placeholder="message… (Entrée pour envoyer, Maj+Entrée = nouvelle ligne)" onkeydown="onKey(event)"></textarea>
+    <button id="send" onclick="send()">send</button>
+    <button id="stop" onclick="stopGen()" style="display:none;background:#3d1f23;border-color:var(--err);color:var(--err)">stop</button>
+  </div>
+</div>
+<div id="toast"></div>
+<div id="bench-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:30;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeBenchModal()">
+  <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;width:100%;max-width:480px;display:flex;flex-direction:column">
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <strong>⚡ Benchmark</strong>
+      <button onclick="closeBenchModal()" style="margin:0">×</button>
+    </div>
+    <div id="bench-body" style="padding:18px 20px;display:flex;flex-direction:column;gap:12px"></div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:6px">
+      <button onclick="closeBenchModal()">fermer</button>
+      <button id="bench-rerun" onclick="runBenchUI()" style="border-color:var(--accent);color:var(--accent)">relancer</button>
+    </div>
+  </div>
+</div>
+<div id="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:30;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;width:100%;max-width:700px;max-height:90vh;display:flex;flex-direction:column">
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <strong id="modal-title">Preset</strong>
+      <button onclick="closeModal()" style="margin:0">×</button>
+    </div>
+    <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;overflow:auto;flex:1">
+      <label class="muted">Nom <span style="opacity:.6">(alphanum, ._-)</span></label>
+      <input id="m-name" style="background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit">
+      <div id="m-model-row" style="display:none">
+        <label class="muted">Backend <span style="opacity:.6">(remplace la ligne BIN=)</span></label>
+        <select id="m-backend" onchange="onPickBackend()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;margin:6px 0 10px"></select>
+        <label class="muted">Modèle <span style="opacity:.6">(remplace la ligne MODEL=)</span></label>
+        <select id="m-model" onchange="onPickModel()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;margin-top:6px"></select>
+      </div>
+      <label class="muted">Contenu</label>
+      <textarea id="m-content" spellcheck="false" style="background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;min-height:280px;resize:vertical"></textarea>
+    </div>
+    <div style="padding:14px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap">
+      <button id="m-del" onclick="delItem()" style="background:#3d1f23;border-color:var(--err);color:var(--err)">supprimer</button>
+      <div style="display:flex;gap:6px">
+        <button onclick="closeModal()">annuler</button>
+        <button onclick="saveItem()" style="border-color:var(--accent);color:var(--accent)">enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/marked.min.js"></script>
+<script>
+// marked: GFM on, no auto-breaks (single newlines stay inline).
+marked.setOptions({ gfm: true, breaks: false });
+// Pre-process to fix common LLM markdown mistakes before handing to marked:
+//  - code fences glued to preceding text on the same line ("foo ```ruby ...")
+//  - fences without a closing newline
+//  - 3+ consecutive blank lines collapsed to one (LLMs love padding)
+function fixMd(s){
+  if(!s) return '';
+  // Force a newline before a fence that's been glued to preceding text
+  // (common LLM mistake: "...crée le fichier et```ruby"). We do NOT split
+  // *after* the fence — the part after the fence is the language identifier.
+  s = s.replace(/([^\n])(\s*)(```+|~~~+)(?=\w*\s*\n)/g, '$1\n$3');
+  // Collapse runs of blank lines that LLMs love to emit.
+  s = s.replace(/\n{3,}/g, '\n\n');
+  return s;
+}
+function md(src){ return src ? marked.parse(fixMd(src)) : ''; }
+let msgs = [];
+let busy = false;
+function toggleSide(){ document.getElementById('side').classList.toggle('open'); document.getElementById('backdrop').classList.toggle('open'); document.body.classList.toggle('drawer-open'); }
+function saveSys(){ localStorage.setItem('jean.sys', document.getElementById('sysprompt').value); }
+document.addEventListener('DOMContentLoaded', ()=>{ document.getElementById('sysprompt').value = localStorage.getItem('jean.sys') || ''; });
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
+async function jget(u){ const r=await fetch(u); return r.json(); }
+async function jpost(u,b){ const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})}); return r.json(); }
+async function loadStatus(){
+  const s=await jget('/api/status');
+  const t=s.active?'<span class="tag ok">● active</span>':'<span class="tag err">○ '+s.state+'</span>';
+  document.getElementById('status-svc').innerHTML = t + ' <span class="muted">:'+s.port+'</span>';
+}
+async function loadVram(){
+  const gpus=await jget('/api/vram');
+  document.getElementById('vram').innerHTML = (gpus||[]).map(g=>{
+    const pct=Math.round(g.used*100/g.total);
+    return '<div style="margin:6px 0"><div style="font-size:12px">'+g.name+'</div>'+
+      '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
+      '<div class="muted">'+(g.used/1024).toFixed(1)+' / '+(g.total/1024).toFixed(1)+' GiB · GPU '+g.util+'% · '+g.temp+'°C</div></div>';
+  }).join('') || '<span class="muted">(pas de GPU)</span>';
+}
+async function loadCfg(){
+  const c=await jget('/api/config');
+  const keys=['BIN','MODEL','CTX','BATCH','UBATCH','NGL','PORT'];
+  document.getElementById('cfg').innerHTML = keys.filter(k=>c[k]).map(k=>{
+    let v=c[k]; if(k==='MODEL') v=v.split('/').pop();
+    return '<div class="kv"><span>'+k+'</span><span title="'+v.replace(/"/g,'&quot;')+'">'+v+'</span></div>';
+  }).join('');
+}
+async function loadPresets(){
+  const p=await jget('/api/presets');
+  const act = p.find(x=>x.active);
+  document.getElementById('status-preset').innerHTML = act ? '<span class="tag" style="border-color:var(--accent);color:var(--accent)">'+act.name+'</span>' : '';
+  document.getElementById('presets').innerHTML = p.map((x,i)=>
+    '<div class="preset '+(x.active?'active':'')+'" onclick="switchTo('+(i+1)+',\''+x.name+'\')">'+
+      '<span>'+(x.active?'● ':'')+x.name+'</span>'+
+      '<button onclick="event.stopPropagation();openPreset(\''+x.name+'\')" style="margin:0;padding:2px 8px;font-size:11px">edit</button>'+
+    '</div>'
+  ).join('') || '<span class="muted">(aucun)</span>';
+}
+async function loadSkills(){
+  const s=await jget('/api/skills');
+  document.getElementById('skills-toggle').checked = s.enabled;
+  document.getElementById('skills-badge').innerHTML = s.enabled
+    ? '<span class="tag ok">on</span>' : '<span class="tag" style="opacity:.6">off</span>';
+  document.getElementById('skills-list').innerHTML = (s.skills||[]).length
+    ? s.skills.map(x=>'<div class="preset" style="font-size:12px" onclick="openSkill(\''+x.name+'\')"><span><b style="color:var(--text)">'+x.name+'</b> <span class="muted">— '+x.desc+'</span></span><button onclick="event.stopPropagation();openSkill(\''+x.name+'\')" style="margin:0;padding:2px 8px;font-size:11px">edit</button></div>').join('')
+    : '<div class="muted">(aucun skill)</div>';
+}
+async function toggleSkills(){
+  const on=document.getElementById('skills-toggle').checked;
+  await jpost('/api/skills/toggle',{on}); loadSkills();
+}
+async function loadTools(){
+  const t=await jget('/api/tools');
+  document.getElementById('tools-toggle').checked = t.enabled;
+  document.getElementById('tools-badge').innerHTML = t.enabled
+    ? '<span class="tag ok">on</span>' : '<span class="tag" style="opacity:.6">off</span>';
+}
+async function toggleTools(){
+  const on=document.getElementById('tools-toggle').checked;
+  if(on && !confirm("Activer run_shell ? L'IA pourra exécuter des commandes bash sur le serveur.")){ document.getElementById('tools-toggle').checked=false; return; }
+  await jpost('/api/tools/toggle',{on}); loadTools();
+}
+async function loadAll(){ await Promise.all([loadStatus(),loadVram(),loadCfg(),loadPresets(),loadSkills(),loadTools()]); }
+async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }
+function openBenchModal(){ document.getElementById('bench-modal').style.display = 'flex'; }
+function closeBenchModal(){ document.getElementById('bench-modal').style.display = 'none'; }
+function openBenchModal(){ document.getElementById('bench-modal').style.display = 'flex'; }
+function closeBenchModal(){ document.getElementById('bench-modal').style.display = 'none'; }
+async function runBenchUI(){
+  const btn = document.getElementById('btn-bench');
+  const rerun = document.getElementById('bench-rerun');
+  const body = document.getElementById('bench-body');
+  openBenchModal();
+  btn.disabled = true; btn.textContent = '⏳ bench…';
+  rerun.disabled = true;
+  body.innerHTML =
+    '<div style="text-align:center;padding:20px 0">' +
+    '<div style="font-size:24px;animation:spin 1s linear infinite;display:inline-block">⏳</div>' +
+    '<div class="muted" style="margin-top:8px">prompt 2000 tok + 300 decode<br>~10 secondes…</div>' +
+    '</div>';
+  try{
+    const r = await jget('/api/bench');
+    if(!r.ok){
+      body.innerHTML = '<div style="color:var(--err);text-align:center">erreur: '+r.error+'</div>';
+      return;
+    }
+    const x = r.result;
+    body.innerHTML =
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;text-align:center">' +
+        '<div style="padding:14px;background:var(--panel);border:1px solid var(--border);border-radius:8px">' +
+          '<div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Prefill</div>' +
+          '<div style="font-size:26px;color:var(--accent);font-weight:600;margin:6px 0">'+x.prompt_per_second.toFixed(0)+'</div>' +
+          '<div class="muted">tok/s</div>' +
+          '<div class="muted" style="font-size:11px;margin-top:8px">'+x.prompt_n+' tok · '+(x.prompt_ms/1000).toFixed(2)+'s</div>' +
+        '</div>' +
+        '<div style="padding:14px;background:var(--panel);border:1px solid var(--border);border-radius:8px">' +
+          '<div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Decode</div>' +
+          '<div style="font-size:26px;color:var(--ok);font-weight:600;margin:6px 0">'+x.predicted_per_second.toFixed(1)+'</div>' +
+          '<div class="muted">tok/s</div>' +
+          '<div class="muted" style="font-size:11px;margin-top:8px">'+x.predicted_n+' tok · '+(x.predicted_ms/1000).toFixed(2)+'s</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="muted" style="text-align:center;font-size:11px">total '+x.elapsed_sec.toFixed(2)+'s</div>';
+  } finally {
+    btn.disabled = false; btn.textContent = '⚡ bench';
+    rerun.disabled = false;
+  }
+}
+async function switchTo(n,name){
+  if(!confirm('Basculer vers "'+name+'" et redémarrer le service ?')) return;
+  toast('switching…');
+  const r=await jpost('/api/switch',{n:n});
+  toast(r.ok?'switched':'erreur'); setTimeout(loadAll,2000);
+}
+let editingOld = '', editingKind = 'preset';
+const KINDS = {
+  preset: {label:'Preset', getUrl:'/api/preset', saveUrl:'/api/preset/save', delUrl:'/api/preset/delete', reload:()=>loadPresets()},
+  skill:  {label:'Skill',  getUrl:'/api/skill',  saveUrl:'/api/skill/save',  delUrl:'/api/skill/delete',  reload:()=>loadSkills()},
+};
+async function openItem(kind, name){
+  const K = KINDS[kind];
+  const r = await fetch(K.getUrl + '?name=' + encodeURIComponent(name));
+  const d = await r.json();
+  editingKind = kind; editingOld = name;
+  document.getElementById('modal-title').textContent = name ? (K.label + ' · ' + name) : ('Nouveau ' + K.label.toLowerCase());
+  document.getElementById('m-name').value = name || '';
+  document.getElementById('m-content').value = d.content || '';
+  document.getElementById('m-del').style.display = name ? 'inline-block' : 'none';
+  // Model picker is preset-only: it edits the MODEL= line of config.env.
+  const modelRow = document.getElementById('m-model-row');
+  if(kind === 'preset'){
+    modelRow.style.display = 'block';
+    await Promise.all([populateBackendPicker(), populateModelPicker()]);
+  } else {
+    modelRow.style.display = 'none';
+  }
+  document.getElementById('modal').style.display = 'flex';
+}
+
+// Pretty-print bytes — handy for the dropdown options.
+function fmtSize(b){
+  if(b > 1e9) return (b/1e9).toFixed(1)+' GB';
+  if(b > 1e6) return (b/1e6).toFixed(0)+' MB';
+  if(b > 1e3) return (b/1e3).toFixed(0)+' KB';
+  return b+' B';
+}
+// Read the current MODEL= value out of the textarea, handling quotes / spaces.
+function currentModelInTextarea(){
+  const txt = document.getElementById('m-content').value;
+  const m = txt.match(/^\s*MODEL\s*=\s*"?([^"\n]*)"?\s*$/m);
+  return m ? m[1].trim() : '';
+}
+async function populateModelPicker(){
+  const sel = document.getElementById('m-model');
+  const list = await jget('/api/models');
+  const cur = currentModelInTextarea();
+  // Strip directory; config.env conventionally only stores the file basename.
+  const curBase = (cur.split('/').pop() || '').trim();
+  let html = '<option value="">— choisir un modèle —</option>';
+  let matched = false;
+  for(const m of list){
+    const sel = (m.name === curBase) ? ' selected' : '';
+    if(sel) matched = true;
+    html += '<option value="'+m.name+'"'+sel+'>'+m.name+'  ('+fmtSize(m.size)+')</option>';
+  }
+  // If MODEL points to something not in JEAN_HOME, show it as a disabled hint.
+  if(cur && !matched){
+    html += '<option value="" disabled selected>('+(curBase||cur)+' — introuvable dans JEAN_HOME)</option>';
+  }
+  sel.innerHTML = html;
+}
+function onPickModel(){
+  const val = document.getElementById('m-model').value;
+  if(!val) return;
+  const ta = document.getElementById('m-content');
+  if(/^\s*MODEL\s*=.*$/m.test(ta.value)){
+    ta.value = ta.value.replace(/^\s*MODEL\s*=.*$/m, 'MODEL="'+val+'"');
+  } else {
+    // No MODEL= line yet — prepend so it's visible at the top.
+    ta.value = 'MODEL="'+val+'"\n' + ta.value;
+  }
+  toast('MODEL='+val);
+}
+
+// Backend picker — same pattern as model: list /etc/jean/backends/*, rewrite BIN=.
+function currentBinInTextarea(){
+  const txt = document.getElementById('m-content').value;
+  const m = txt.match(/^\s*BIN\s*=\s*"?([^"\n]*)"?\s*$/m);
+  return m ? m[1].trim() : '';
+}
+async function populateBackendPicker(){
+  const sel = document.getElementById('m-backend');
+  const list = await jget('/api/backends');
+  const cur = currentBinInTextarea();
+  let html = '<option value="">— choisir un backend —</option>';
+  let matched = false;
+  for(const b of list){
+    const isSel = (b.path === cur);
+    if(isSel) matched = true;
+    html += '<option value="'+b.path+'"'+(isSel?' selected':'')+'>'+b.name+'</option>';
+  }
+  if(cur && !matched){
+    html += '<option value="" disabled selected>('+(cur.split('/').slice(-3,-2)[0]||cur)+' — hors /etc/jean/backends)</option>';
+  }
+  sel.innerHTML = html;
+}
+function onPickBackend(){
+  const val = document.getElementById('m-backend').value;
+  if(!val) return;
+  const ta = document.getElementById('m-content');
+  if(/^\s*BIN\s*=.*$/m.test(ta.value)){
+    ta.value = ta.value.replace(/^\s*BIN\s*=.*$/m, 'BIN="'+val+'"');
+  } else {
+    ta.value = 'BIN="'+val+'"\n' + ta.value;
+  }
+  toast('BIN='+val);
+}
+const openPreset = (n)=>openItem('preset', n);
+const openSkill  = (n)=>openItem('skill', n);
+function closeModal(){ document.getElementById('modal').style.display = 'none'; }
+async function saveItem(){
+  const K = KINDS[editingKind];
+  const name = document.getElementById('m-name').value.trim();
+  const content = document.getElementById('m-content').value;
+  if(!name){ toast('nom requis'); return; }
+  const r = await jpost(K.saveUrl, {name, old: editingOld, content});
+  if(!r.ok){ toast('erreur : ' + (r.error||'')); return; }
+  toast('enregistré'); closeModal(); K.reload();
+}
+async function delItem(){
+  if(!editingOld) return;
+  const K = KINDS[editingKind];
+  if(!confirm('Supprimer le ' + K.label.toLowerCase() + ' "' + editingOld + '" ?')) return;
+  const r = await jpost(K.delUrl, {name: editingOld});
+  if(!r.ok){ toast('erreur : ' + (r.error||'')); return; }
+  toast('supprimé'); closeModal(); K.reload();
+}
+// Smart autoscroll: follow the bottom while the user hasn't manually scrolled
+// up. Re-stick when they scroll back near bottom themselves.
+let stickyBottom = true;
+const chatEl = () => document.getElementById('chat');
+function isNearBottom(){
+  const c = chatEl();
+  return c.scrollHeight - c.scrollTop - c.clientHeight < 60;
+}
+function scrollMaybe(){
+  if(stickyBottom){
+    const c = chatEl();
+    c.scrollTop = c.scrollHeight;
+  }
+  document.getElementById('scrollbtn').classList.toggle('show', !stickyBottom);
+}
+function jumpBottom(){ stickyBottom = true; scrollMaybe(); }
+document.addEventListener('DOMContentLoaded', ()=>{
+  const c = chatEl();
+  c.addEventListener('scroll', ()=>{
+    stickyBottom = isNearBottom();
+    document.getElementById('scrollbtn').classList.toggle('show', !stickyBottom);
+  });
+});
+
+function addMsg(role, text){
+  const el=document.createElement('div');
+  el.className='msg '+role;
+  // .body must be a real block so <p>/<pre>/<ul> margins behave properly.
+  el.innerHTML='<span class="label">'+role+'</span><div class="body"></div>';
+  el.querySelector('.body').textContent=text;
+  chatEl().appendChild(el);
+  scrollMaybe();
+  return el;
+}
+function setLabel(el, text){ el.querySelector('.label').textContent = text; }
+function bodyOf(el){ return el.querySelector('.body'); }
+// Render markdown into a message body in place; safe because md() escapes HTML.
+function renderBody(el, text){ bodyOf(el).innerHTML = md(text); scrollMaybe(); }
+function resetChat(){ msgs=[]; document.getElementById('chat').innerHTML=''; toast('chat vidé'); }
+function onKey(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } }
+let abortCtrl=null;
+function stopGen(){ if(abortCtrl){ abortCtrl.abort(); toast('stop'); } }
+async function send(){
+  if(busy) return;
+  const ta=document.getElementById('input'); const text=ta.value.trim();
+  if(!text) return;
+  ta.value=''; busy=true;
+  document.getElementById('send').style.display='none';
+  document.getElementById('stop').style.display='inline-block';
+  addMsg('user', text);
+  msgs.push({role:'user',content:text});
+  let reasonEl=null, contentEl=null, fullContent='', fullReason='';
+  let tokCount=0, reasonTokCount=0, t0=performance.now(), firstTok=0, statsTimer=null;
+  let serverStats=null;
+  const updateStats=(final)=>{
+    if(!contentEl && !reasonEl) return;
+    const el = contentEl || reasonEl;
+    const role = contentEl ? 'assistant' : 'reasoning';
+    // Mid-stream: client-side estimate. Final tick: use the server's exact
+    // timings if it gave us any (more accurate, includes prefill).
+    if(final && serverStats){
+      const s = serverStats;
+      const totalSec = (performance.now() - t0) / 1000;
+      const parts = [role];
+      if(s.prompt_tokens) parts.push('prefill ' + s.prompt_tokens + ' tok · ' + s.prompt_per_second.toFixed(0) + ' tok/s');
+      if(s.gen_tokens) parts.push('decode ' + s.gen_tokens + ' tok · ' + s.gen_per_second.toFixed(1) + ' tok/s');
+      parts.push('total ' + totalSec.toFixed(1) + 's');
+      setLabel(el, parts.join('  ·  '));
+      return;
+    }
+    const n = contentEl ? tokCount : reasonTokCount;
+    const elapsed = (performance.now() - (firstTok||t0)) / 1000;
+    const tps = elapsed > 0.05 ? (n / elapsed) : 0;
+    setLabel(el, role + '  ·  ' + n + ' tok  ·  ' + tps.toFixed(1) + ' tok/s');
+  };
+  abortCtrl = new AbortController();
+  try{
+    const sys=(document.getElementById('sysprompt').value||'').trim();
+    const out = sys ? [{role:'system',content:sys}, ...msgs] : msgs;
+    const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:out}),signal:abortCtrl.signal});
+    const reader=r.body.getReader(); const dec=new TextDecoder(); let buf='';
+    statsTimer = setInterval(updateStats, 250);
+    while(true){
+      const {done,value}=await reader.read(); if(done) break;
+      buf+=dec.decode(value,{stream:true});
+      let i;
+      while((i=buf.indexOf('\n\n'))>=0){
+        const chunk=buf.slice(0,i); buf=buf.slice(i+2);
+        for(const line of chunk.split('\n')){
+          if(!line.startsWith('data:')) continue;
+          const data=line.slice(5).trim();
+          if(data==='[DONE]') continue;
+          try{
+            const o=JSON.parse(data);
+            const d=(o.choices&&o.choices[0]&&o.choices[0].delta)||{};
+            if(d.stats){ serverStats = d.stats; }
+            if(d.tool_used){
+              const ne=addMsg('reasoning','');
+              const icon = d.tool_used.name==='run_shell' ? '⚙️' : '📖';
+              const verb = d.tool_used.name==='run_shell' ? 'exécution' : 'lecture du skill';
+              bodyOf(ne).textContent = icon+' '+verb+' : '+d.tool_used.label;
+              setLabel(ne, 'tool · '+d.tool_used.name);
+            }
+            if(d.reasoning_content){
+              if(!reasonEl) reasonEl=addMsg('reasoning','');
+              if(!firstTok) firstTok=performance.now();
+              reasonTokCount++;
+              fullReason+=d.reasoning_content; renderBody(reasonEl, fullReason);
+            }
+            if(d.content){
+              if(!contentEl){ contentEl=addMsg('assistant',''); firstTok=performance.now(); }
+              tokCount++;
+              fullContent+=d.content; renderBody(contentEl, fullContent);
+            }
+          }catch(e){}
+        }
+      }
+    }
+    msgs.push({role:'assistant',content:fullContent});
+  }catch(e){
+    if(e.name==='AbortError'){
+      if(contentEl) setLabel(contentEl, 'assistant  ·  '+tokCount+' tok  ·  interrompu');
+      if(fullContent) msgs.push({role:'assistant',content:fullContent});
+      else msgs.pop();
+    } else {
+      addMsg('assistant','[erreur] '+e.message); msgs.pop();
+    }
+  }
+  if(statsTimer) clearInterval(statsTimer);
+  updateStats(true);
+  abortCtrl=null; busy=false;
+  document.getElementById('send').style.display='inline-block';
+  document.getElementById('stop').style.display='none';
+  document.getElementById('input').focus();
+}
+loadAll();
+setInterval(loadStatus, 5000);
+setInterval(loadVram, 3000);
+</script></body></html>
