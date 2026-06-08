@@ -148,7 +148,7 @@ La clé API (quand elle est définie avec `jean set-api-key`) est stockée dans 
 Nécessite Go 1.22+. Jean est un binaire 100 % Go (l'UI web est embarquée via `go:embed`) :
 
 ```bash
-git clone https://github.com/jean-llm/jean.git
+git clone https://github.com/nathaninline/jean.git
 cd jean
 CGO_ENABLED=0 go build -o jean .
 
