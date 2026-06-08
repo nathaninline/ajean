@@ -1,0 +1,34 @@
+# Compiled binaries
+/jean
+/jean.exe
+/jean-linux*
+/jean-darwin*
+/jean-windows*
+jean-*-amd64
+jean-*-arm64
+*.exe
+*.out
+
+# Build artifacts
+/dist/
+/build/
+
+# Local secrets / runtime data — never commit
+.env
+*.api_key
+.api_key
+config.env
+
+# Scratch / logs
+*.log
+out.txt
+out*.txt
+err.txt
+err*.txt
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

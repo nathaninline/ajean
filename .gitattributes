@@ -1,0 +1,7 @@
+# Normalize line endings to LF for all text files.
+* text=auto eol=lf
+*.go text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.html text eol=lf
+*.js text eol=lf
