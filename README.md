@@ -36,7 +36,7 @@ Prends un binaire pré-compilé depuis la page [Releases](../../releases), ou [c
 
 ```bash
 # exemple : Linux x86_64
-curl -L -o jean https://github.com/jean-llm/jean/releases/latest/download/jean-linux-amd64
+curl -L -o jean https://github.com/nathaninline/jean/releases/latest/download/jean-linux-amd64
 chmod +x jean
 sudo mv jean /usr/local/bin/jean
 ```
