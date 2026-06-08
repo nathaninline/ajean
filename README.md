@@ -1,168 +1,168 @@
 # Jean
 
-**A single-binary manager for self-hosted [llama.cpp](https://github.com/ggml-org/llama.cpp) servers — plus a built-in web UI, terminal chat, and an auto-detecting backend builder.**
+**Un gestionnaire mono-binaire pour serveurs [llama.cpp](https://github.com/ggml-org/llama.cpp) auto-hébergés — avec une interface web intégrée, un chat terminal, et un compilateur de backend qui détecte automatiquement le matériel.**
 
-Drop one binary on a machine, run `jean llamacpp install`, and Jean clones, configures, and compiles llama.cpp for *that* machine's hardware (CUDA / ROCm / Metal / Vulkan / CPU) — no flags to remember. Then `jean start` and you have an OpenAI-compatible endpoint with a web chat on top.
+Dépose un seul binaire sur une machine, lance `jean llamacpp install`, et Jean clone, configure et compile llama.cpp pour le matériel de *cette* machine (CUDA / ROCm / Metal / Vulkan / CPU) — aucun flag à retenir. Ensuite `jean start` et tu as un endpoint compatible OpenAI avec un chat web par-dessus.
 
 ```
-download binary  →  jean llamacpp install  →  jean edit  →  jean start  →  done
+télécharge le binaire  →  jean llamacpp install  →  jean edit  →  jean start  →  c'est parti
 ```
 
 ---
 
-## Why
+## Pourquoi
 
-Running llama.cpp as a real service usually means: figure out the right CMake flags for your GPU, write a systemd unit, manage an API key, swap models, keep the build up to date… Jean turns all of that into a handful of subcommands behind a single static binary with **no runtime dependencies** (other than llama.cpp itself, which Jean can build for you).
+Faire tourner llama.cpp comme un vrai service, ça veut dire d'habitude : trouver les bons flags CMake pour ton GPU, écrire une unité systemd, gérer une clé API, changer de modèle, garder le build à jour… Jean transforme tout ça en quelques sous-commandes derrière un binaire statique unique, **sans dépendance à l'exécution** (à part llama.cpp lui-même, que Jean peut compiler pour toi).
 
-## Features
+## Fonctionnalités
 
-- **`jean llamacpp install` / `update`** — clones and compiles llama.cpp with the right flags **auto-detected** for the host:
-  - **CUDA** when an NVIDIA GPU + `nvcc` are present (compute capability detected per-GPU via `nvidia-smi`, so multi-GPU machines build for all cards)
-  - **ROCm/HIP** (AMD), **Metal** (macOS / Apple Silicon), **Vulkan**, or **CPU** fallback
-  - `update` pulls the latest commit, stops the service while it rebuilds, then restarts it
-- **systemd integration** — `jean install` writes the unit, a passwordless `systemctl` sudoers rule, and the data dirs
-- **Web UI** (`jean web`) — chat, model/preset switching, skills & tools toggles
-- **Terminal chat** (`jean chat`) — streamed responses
-- **Presets** (`jean switch`) — keep multiple `config.env` profiles and swap between them
-- **API key protection** (`jean set-api-key`) — Bearer auth for exposing the server publicly; the key is stored separately so it survives preset switches
-- **Benchmark** (`jean bench`) — honest prefill/decode tok/s using a varied corpus
-- **Single static binary** — built with `CGO_ENABLED=0`, cross-compiles trivially
+- **`jean llamacpp install` / `update`** — clone et compile llama.cpp avec les bons flags **détectés automatiquement** pour l'hôte :
+  - **CUDA** quand un GPU NVIDIA + `nvcc` sont présents (compute capability détectée par GPU via `nvidia-smi`, donc les machines multi-GPU compilent pour toutes les cartes)
+  - **ROCm/HIP** (AMD), **Metal** (macOS / Apple Silicon), **Vulkan**, ou repli **CPU**
+  - `update` récupère le dernier commit, arrête le service le temps de recompiler, puis le redémarre
+- **Intégration systemd** — `jean install` écrit l'unité, une règle sudoers `systemctl` sans mot de passe, et les dossiers de données
+- **Interface web** (`jean web`) — chat, changement de modèle/preset, activation des skills & tools
+- **Chat terminal** (`jean chat`) — réponses en streaming
+- **Presets** (`jean switch`) — garde plusieurs profils `config.env` et bascule entre eux
+- **Protection par clé API** (`jean set-api-key`) — auth Bearer pour exposer le serveur publiquement ; la clé est stockée à part pour survivre aux changements de preset
+- **Benchmark** (`jean bench`) — tok/s prefill/decode honnêtes avec un corpus varié
+- **Binaire statique unique** — compilé avec `CGO_ENABLED=0`, se cross-compile trivialement
 
-## Quick start
+## Démarrage rapide
 
-### 1. Get the binary
+### 1. Récupère le binaire
 
-Grab a prebuilt binary from the [Releases](../../releases) page, or [build from source](#building-from-source):
+Prends un binaire pré-compilé depuis la page [Releases](../../releases), ou [compile depuis les sources](#compiler-depuis-les-sources) :
 
 ```bash
-# example: Linux x86_64
+# exemple : Linux x86_64
 curl -L -o jean https://github.com/jean-llm/jean/releases/latest/download/jean-linux-amd64
 chmod +x jean
 sudo mv jean /usr/local/bin/jean
 ```
 
-### 2. Install (systemd unit, dirs, sudoers)
+### 2. Installe (unité systemd, dossiers, sudoers)
 
 ```bash
 sudo jean install
 ```
 
-### 3. Build a llama.cpp backend for this machine
+### 3. Compile un backend llama.cpp pour cette machine
 
 ```bash
 jean llamacpp install
 ```
 
-Jean auto-detects your accelerator, compiles `llama-server`, and points the config at the new binary. Requires `git` and `cmake` (plus the matching toolkit, e.g. CUDA, if you want GPU acceleration).
+Jean détecte ton accélérateur, compile `llama-server`, et pointe la config sur le nouveau binaire. Nécessite `git` et `cmake` (plus le toolkit correspondant, ex. CUDA, si tu veux l'accélération GPU).
 
-### 4. Point it at a model and start
+### 4. Pointe-le sur un modèle et démarre
 
 ```bash
-jean edit      # set MODEL=/path/to/your-model.gguf
+jean edit      # règle MODEL=/chemin/vers/ton-modele.gguf
 jean start
-jean test      # verify the model answers
+jean test      # vérifie que le modèle répond
 ```
 
-### 5. (optional) Web UI
+### 5. (optionnel) Interface web
 
 ```bash
-jean web        # http://<host>:8090
+jean web        # http://<hôte>:8090
 ```
 
-## Commands
+## Commandes
 
 ```
-Service:
-  start | stop | restart        manage the systemd service
-  status | logs                 status / live logs
-  enable | disable              start on boot
-  edit                          edit $JEAN_HOME/config.env
-  set-api-key [key]             protect the API (Bearer); empty = generate, "" = remove
-  vram                          GPU/VRAM usage (nvidia-smi)
-  test                          check the model answers (health + completion)
-  bench [N]                     measure prefill + decode tok/s
+Service :
+  start | stop | restart        gérer le service systemd
+  status | logs                 état / logs en direct
+  enable | disable              démarrage au boot
+  edit                          éditer $JEAN_HOME/config.env
+  set-api-key [clé]             protéger l'API (Bearer) ; vide = générer, "" = retirer
+  vram                          utilisation GPU/VRAM (nvidia-smi)
+  test                          vérifie que le modèle répond (health + completion)
+  bench [N]                     mesure prefill + decode tok/s
 
-Presets:
-  switch [N]                    pick a preset from configs/ (interactive or by number)
+Presets :
+  switch [N]                    choisir un preset dans configs/ (interactif ou par numéro)
 
-Interaction:
-  chat [system-prompt]          streamed terminal chat
-  web [PORT]                    web UI (default :8090)
+Interaction :
+  chat [system-prompt]          chat terminal streamé
+  web [PORT]                    interface web (défaut :8090)
 
-LLM-side tooling:
-  skills [on|off|list]          let the model read SKILLS/<name>/SKILL.md
-  tools  [on|off|status]        enable run_shell (model executes shell commands)
+Outils côté LLM :
+  skills [on|off|list]          laisse le modèle lire SKILLS/<nom>/SKILL.md
+  tools  [on|off|status]        active run_shell (le modèle exécute des commandes shell)
 
-Backend (llama.cpp):
-  llamacpp install              clone + build llama.cpp (auto-detect CUDA/ROCm/Metal/CPU), set BIN
-  llamacpp update               git pull + rebuild the existing backend (stops/restarts the service)
-  llamacpp status               current commit, detected backend, commits behind origin
+Backend (llama.cpp) :
+  llamacpp install              clone + compile llama.cpp (détecte CUDA/ROCm/Metal/CPU), règle BIN
+  llamacpp update               git pull + recompile le backend existant (arrête/redémarre le service)
+  llamacpp status               commit courant, backend détecté, commits de retard sur origin
 
-Install:
-  install                       install (systemd unit, sudoers, dirs)
-  uninstall                     uninstall
+Installation :
+  install                       installer (unité systemd, sudoers, dossiers)
+  uninstall                     désinstaller
 ```
 
-### `jean llamacpp` flags
+### Options de `jean llamacpp`
 
 ```
-install [--dir=PATH] [--ref=GIT_REF] [--force] [--no-switch]
-update  [--ref=GIT_REF] [--clean] [--no-restart] [--force]
+install [--dir=CHEMIN] [--ref=REF_GIT] [--force] [--no-switch]
+update  [--ref=REF_GIT] [--clean] [--no-restart] [--force]
 ```
 
-- `--dir=` — where to clone (default `$JEAN_HOME/backends/llama.cpp`)
-- `--ref=` — build a specific branch/tag/commit
-- `--clean` — wipe `build/` and recompile from scratch
-- `--no-switch` — don't touch `config.env` (install only)
-- `--no-restart` — leave the service stopped after updating
+- `--dir=` — où cloner (défaut `$JEAN_HOME/backends/llama.cpp`)
+- `--ref=` — compiler une branche/tag/commit précis
+- `--clean` — vide `build/` et recompile de zéro
+- `--no-switch` — ne touche pas à `config.env` (install seulement)
+- `--no-restart` — laisse le service arrêté après la mise à jour
 
 ## Configuration
 
-Everything lives under **`$JEAN_HOME`** (default `/etc/jean`). The service reads `config.env`:
+Tout vit sous **`$JEAN_HOME`** (défaut `/etc/jean`). Le service lit `config.env` :
 
-| Key | Meaning | Default |
-|-----|---------|---------|
-| `BIN` | path to `llama-server` (set by `llamacpp install`) | — |
-| `MODEL` | path to the `.gguf` model | — |
-| `HOST` / `PORT` | bind address / port | `0.0.0.0` / `8080` |
-| `CTX` | context size | `32768` |
-| `NGL` | GPU layers to offload | `999` |
+| Clé | Signification | Défaut |
+|-----|---------------|--------|
+| `BIN` | chemin vers `llama-server` (réglé par `llamacpp install`) | — |
+| `MODEL` | chemin vers le modèle `.gguf` | — |
+| `HOST` / `PORT` | adresse / port d'écoute | `0.0.0.0` / `8080` |
+| `CTX` | taille du contexte | `32768` |
+| `NGL` | couches à déporter sur le GPU | `999` |
 | `BATCH` / `UBATCH` | batch / micro-batch | `2048` / `512` |
-| `THREADS` / `THREADS_BATCH` | CPU threads | `0` (auto) |
-| `KV_TYPE` (`_K`/`_V`) | KV cache quantization | — |
-| `REASONING` | reasoning mode passthrough | — |
-| `EXTRA_ARGS` | appended verbatim to `llama-server` | — |
+| `THREADS` / `THREADS_BATCH` | threads CPU | `0` (auto) |
+| `KV_TYPE` (`_K`/`_V`) | quantization du cache KV | — |
+| `REASONING` | passthrough du mode raisonnement | — |
+| `EXTRA_ARGS` | ajouté tel quel à `llama-server` | — |
 
-The API key (when set with `jean set-api-key`) is stored in `$JEAN_HOME/.api_key`, separate from `config.env`.
+La clé API (quand elle est définie avec `jean set-api-key`) est stockée dans `$JEAN_HOME/.api_key`, séparément de `config.env`.
 
-### Environment
+### Variables d'environnement
 
-| Var | Meaning | Default |
-|-----|---------|---------|
-| `JEAN_HOME` | data root | `/etc/jean` (or `$HOME/JEAN`) |
-| `JEAN_SERVICE` | systemd unit name | `jean` |
-| `EDITOR` | editor for `jean edit` | `nano` |
+| Variable | Signification | Défaut |
+|----------|---------------|--------|
+| `JEAN_HOME` | racine des données | `/etc/jean` (ou `$HOME/JEAN`) |
+| `JEAN_SERVICE` | nom de l'unité systemd | `jean` |
+| `EDITOR` | éditeur pour `jean edit` | `nano` |
 
-## Building from source
+## Compiler depuis les sources
 
-Requires Go 1.22+. Jean is a pure-Go binary (the web UI is embedded via `go:embed`):
+Nécessite Go 1.22+. Jean est un binaire 100 % Go (l'UI web est embarquée via `go:embed`) :
 
 ```bash
 git clone https://github.com/jean-llm/jean.git
 cd jean
 CGO_ENABLED=0 go build -o jean .
 
-# cross-compile, e.g. Linux from any host:
+# cross-compilation, ex. Linux depuis n'importe quel hôte :
 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o jean-linux-amd64 .
 ```
 
-> Building **Jean** needs only Go. Building the **llama.cpp backend** (`jean llamacpp install`) needs `git`, `cmake`, and your accelerator's toolkit (CUDA, ROCm, etc.).
+> Compiler **Jean** ne nécessite que Go. Compiler le **backend llama.cpp** (`jean llamacpp install`) nécessite `git`, `cmake`, et le toolkit de ton accélérateur (CUDA, ROCm, etc.).
 
-## How it works
+## Comment ça marche
 
-- `jean serve` is the systemd `ExecStart`: it reads `config.env`, builds the `llama-server` argument list, and `exec`s into it so systemd supervises llama.cpp directly.
-- `jean llamacpp` manages the llama.cpp checkout next to wherever `BIN` points, handling the common "relocated build dir" CMake-cache pitfall and stopping the service during a rebuild to avoid *Text file busy*.
+- `jean serve` est l'`ExecStart` de systemd : il lit `config.env`, construit la liste d'arguments de `llama-server`, et fait un `exec` dessus pour que systemd supervise directement llama.cpp.
+- `jean llamacpp` gère le checkout llama.cpp à côté de l'endroit où pointe `BIN`, en gérant le piège classique du « dossier de build relocalisé » (cache CMake) et en arrêtant le service pendant la recompilation pour éviter le *Text file busy*.
 
-## License
+## Licence
 
-[MIT](LICENSE). The bundled `ui/marked.min.js` is [Marked](https://github.com/markedjs/marked), also MIT.
+[MIT](LICENSE). Le fichier `ui/marked.min.js` embarqué est [Marked](https://github.com/markedjs/marked), également MIT.
