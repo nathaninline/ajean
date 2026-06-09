@@ -1,3 +1,3 @@
-module github.com/jean-llm/jean
+module github.com/nathaninline/jean
 
 go 1.22

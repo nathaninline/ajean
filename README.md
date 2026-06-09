@@ -36,7 +36,7 @@ Prends un binaire pré-compilé depuis la page [Releases](../../releases), ou [c
 
 ```bash
 # exemple : Linux x86_64
-curl -L -o jean https://github.com/jean-llm/jean/releases/latest/download/jean-linux-amd64
+curl -L -o jean https://github.com/nathaninline/jean/releases/latest/download/jean-linux-amd64
 chmod +x jean
 sudo mv jean /usr/local/bin/jean
 ```
@@ -171,7 +171,7 @@ La clé API (quand elle est définie avec `jean set-api-key`) est stockée dans 
 Nécessite Go 1.22+. Jean est un binaire 100 % Go (l'UI web est embarquée via `go:embed`) :
 
 ```bash
-git clone https://github.com/jean-llm/jean.git
+git clone https://github.com/nathaninline/jean.git
 cd jean
 CGO_ENABLED=0 go build -o jean .
 
