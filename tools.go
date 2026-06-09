@@ -35,9 +35,10 @@ func setToolsEnabled(on bool) error {
 	return nil
 }
 
-// runShell executes a command via `bash -c` with a clamped timeout, returning
-// a single string formatted "exit: N\n\nstdout:\n...\n\nstderr:\n..." truncated
-// to keep tool output bounded.
+// runShell executes a command via the platform shell (bash -c on Unix, cmd /C
+// on Windows — see newShellCmd in platform_*.go) with a clamped timeout,
+// returning a single string formatted "exit: N\n\nstdout:\n...\n\nstderr:\n..."
+// truncated to keep tool output bounded.
 func runShell(command string, timeoutSec int) string {
 	if timeoutSec <= 0 {
 		timeoutSec = toolDefaultTimeout
@@ -47,7 +48,7 @@ func runShell(command string, timeoutSec int) string {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", command)
+	cmd := newShellCmd(ctx, command)
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

@@ -1,14 +1,18 @@
 package main
 
 import (
+	"bufio"
 	"embed"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 //go:embed ui/index.html ui/marked.min.js
@@ -55,8 +59,91 @@ func cmdWeb(args []string) error {
 	mux.HandleFunc("/api/bench", handleBench)
 	mux.HandleFunc("/api/chat", handleChat)
 	addr := fmt.Sprintf("0.0.0.0:%d", port)
+
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		// Port occupé : on identifie le process qui le tient et on propose de
+		// le terminer pour relancer à sa place.
+		if !resolvePortConflict(port) {
+			return err
+		}
+		if ln, err = net.Listen("tcp", addr); err != nil {
+			return err
+		}
+	}
 	fmt.Printf("[jean web] http://%s  (Ctrl-C pour arrêter)\n", addr)
-	return http.ListenAndServe(addr, mux)
+	return http.Serve(ln, mux)
+}
+
+// resolvePortConflict identifies the process listening on `port`, asks the user
+// whether to terminate it, and (on yes) kills it and waits for the port to free.
+// Returns true if the caller should retry binding.
+func resolvePortConflict(port int) bool {
+	pid, name := pidOnPort(port)
+	if pid == 0 {
+		fmt.Printf("%s port %d déjà utilisé, mais le process n'a pas pu être identifié (essaie en root ?)\n", red("[err]"), port)
+		return false
+	}
+	fmt.Printf("%s le port %d est déjà utilisé par %s (PID %d).\n", yellow("[!]"), port, bold(name), pid)
+	fmt.Print(dim("    terminer ce process et relancer ? [Y/n] "))
+	sc := bufio.NewScanner(os.Stdin)
+	if sc.Scan() && strings.HasPrefix(strings.ToLower(strings.TrimSpace(sc.Text())), "n") {
+		fmt.Println(dim("    annulé."))
+		return false
+	}
+	// SIGTERM d'abord, puis SIGKILL si le port ne se libère pas.
+	_ = exec.Command("kill", "-TERM", strconv.Itoa(pid)).Run()
+	for i := 0; i < 15; i++ {
+		time.Sleep(200 * time.Millisecond)
+		if p, _ := pidOnPort(port); p == 0 {
+			fmt.Printf("%s process %d terminé, redémarrage…\n", green("[ok]"), pid)
+			return true
+		}
+	}
+	_ = exec.Command("kill", "-KILL", strconv.Itoa(pid)).Run()
+	time.Sleep(500 * time.Millisecond)
+	if p, _ := pidOnPort(port); p != 0 {
+		fmt.Printf("%s impossible de libérer le port %d (PID %d toujours présent)\n", red("[err]"), port, p)
+		return false
+	}
+	fmt.Printf("%s process %d terminé (forcé), redémarrage…\n", green("[ok]"), pid)
+	return true
+}
+
+// pidOnPort returns the PID and command name of the process listening on the
+// given TCP port, via `ss` (Linux) with an `lsof` fallback. Returns 0 if none
+// is found or if the tools can't see it (e.g. owned by another user).
+func pidOnPort(port int) (int, string) {
+	redir := regexp.MustCompile(`pid=(\d+)`)
+	if out, err := exec.Command("ss", "-ltnHp", fmt.Sprintf("sport = :%d", port)).Output(); err == nil {
+		if m := redir.FindStringSubmatch(string(out)); m != nil {
+			pid, _ := strconv.Atoi(m[1])
+			return pid, processName(pid)
+		}
+	}
+	if out, err := exec.Command("lsof", "-ti", fmt.Sprintf("tcp:%d", port), "-sTCP:LISTEN").Output(); err == nil {
+		for _, line := range strings.Fields(string(out)) {
+			if pid, err := strconv.Atoi(strings.TrimSpace(line)); err == nil {
+				return pid, processName(pid)
+			}
+		}
+	}
+	return 0, ""
+}
+
+// processName returns a short command name for a PID, or "?" if unknown.
+func processName(pid int) string {
+	if b, err := os.ReadFile(fmt.Sprintf("/proc/%d/comm", pid)); err == nil {
+		if n := strings.TrimSpace(string(b)); n != "" {
+			return n
+		}
+	}
+	if out, err := exec.Command("ps", "-o", "comm=", "-p", strconv.Itoa(pid)).Output(); err == nil {
+		if n := strings.TrimSpace(string(out)); n != "" {
+			return n
+		}
+	}
+	return "?"
 }
 
 func handleIndex(w http.ResponseWriter, r *http.Request) {

@@ -522,11 +522,6 @@ func requireTools(tools ...string) error {
 	return nil
 }
 
-func serviceIsActive() bool {
-	out, _ := exec.Command("systemctl", "is-active", serviceName()).Output()
-	return strings.TrimSpace(string(out)) == "active"
-}
-
 // gitOutput runs a git command in `dir` and returns trimmed stdout (or "").
 func gitOutput(dir string, args ...string) string {
 	cmd := exec.Command("git", args...)

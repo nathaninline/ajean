@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"syscall"
 )
 
 // cmdServe replaces the historic start.sh: read config.env, build the
@@ -21,13 +20,18 @@ func cmdServe(args []string) error {
 		return fmt.Errorf("MODEL non défini dans %s", confPath())
 	}
 
-	// Resolve LD_LIBRARY_PATH the same way start.sh did so that custom llama.cpp
-	// builds with bundled shared libs continue to load their .so neighbours.
-	ld := filepath.Dir(bin)
-	if existing := os.Getenv("LD_LIBRARY_PATH"); existing != "" {
-		ld = ld + ":" + existing
+	// Make sure llama-server can find its bundled shared libraries (the .so/.dll
+	// neighbours of the binary). This is platform-specific: LD_LIBRARY_PATH on
+	// Linux, PATH on Windows — handled inside execServer.
+	setLibraryPath(filepath.Dir(bin))
+
+	// Sélection GPU (jean gpu) : on filtre les devices visibles par llama-server.
+	// CUDA_DEVICE_ORDER=PCI_BUS_ID garantit que les index correspondent à ceux
+	// affichés par nvidia-smi (sinon CUDA réordonne par "device le plus rapide").
+	if v := cfg["CUDA_VISIBLE_DEVICES"]; v != "" {
+		_ = os.Setenv("CUDA_VISIBLE_DEVICES", v)
+		_ = os.Setenv("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
 	}
-	_ = os.Setenv("LD_LIBRARY_PATH", ld)
 
 	get := func(key, fallback string) string {
 		if v, ok := cfg[key]; ok && v != "" {
@@ -80,6 +84,7 @@ func cmdServe(args []string) error {
 	fmt.Fprintf(os.Stderr, "[jean serve] %s  model=%s  port=%s\n",
 		bin, filepath.Base(model), get("PORT", "8080"))
 
-	// exec replaces this process — same as start.sh's `exec`.
-	return syscall.Exec(bin, llmArgs, os.Environ())
+	// Hand off to the llama-server process. On Unix this replaces the current
+	// process (exec); on Windows it runs as a child and waits. See platform_*.go.
+	return execServer(bin, llmArgs)
 }

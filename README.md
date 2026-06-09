@@ -36,7 +36,7 @@ Prends un binaire pré-compilé depuis la page [Releases](../../releases), ou [c
 
 ```bash
 # exemple : Linux x86_64
-curl -L -o jean https://github.com/nathaninline/jean/releases/latest/download/jean-linux-amd64
+curl -L -o jean https://github.com/jean-llm/jean/releases/latest/download/jean-linux-amd64
 chmod +x jean
 sudo mv jean /usr/local/bin/jean
 ```
@@ -69,6 +69,27 @@ jean test      # vérifie que le modèle répond
 jean web        # http://<hôte>:8090
 ```
 
+## Windows
+
+Jean fonctionne aussi sur Windows. Les différences avec Linux :
+
+- **Pas de systemd.** `jean start` lance `jean serve` en arrière-plan (processus détaché), suivi via un fichier PID. `stop` / `restart` / `status` / `logs` agissent dessus — aucun droit administrateur requis. `enable` / `disable` (démarrage au boot) ne sont pas gérés : utilise une tâche planifiée ou `sc.exe` si tu en as besoin.
+- **`JEAN_HOME`** vaut par défaut `%ProgramData%\jean` (repli `%LOCALAPPDATA%\jean`). Surcharge avec la variable d'environnement `JEAN_HOME`.
+- **`jean install`** crée seulement le dossier de données et un `config.env` de départ (pas de sudoers ni de symlink). Ajoute toi-même le dossier de `jean.exe` au `PATH` pour l'appeler de partout.
+- **`jean edit`** ouvre `notepad` par défaut (surchargeable via `%EDITOR%`).
+- **`jean tools`** exécute les commandes via `cmd /C` (au lieu de `bash`).
+
+```powershell
+# depuis PowerShell
+jean install                 # crée %ProgramData%\jean\config.env
+jean edit                    # règle BIN=...\llama-server.exe et MODEL=...\modele.gguf
+jean start
+jean status
+jean logs                    # suit %ProgramData%\jean\jean.log
+```
+
+`jean llamacpp install` peut compiler llama.cpp si `git` et `cmake` sont présents ; sinon récupère un binaire `llama-server.exe` pré-compilé et pointe `BIN` dessus avec `jean edit`.
+
 ## Commandes
 
 ```
@@ -79,6 +100,7 @@ Service :
   edit                          éditer $JEAN_HOME/config.env
   set-api-key [clé]             protéger l'API (Bearer) ; vide = générer, "" = retirer
   vram                          utilisation GPU/VRAM (nvidia-smi)
+  gpu [index…]                  liste les GPU / choisit le(s)quel(s) utiliser (gpu all = tous)
   test                          vérifie que le modèle répond (health + completion)
   bench [N]                     mesure prefill + decode tok/s
 
@@ -118,7 +140,7 @@ update  [--ref=REF_GIT] [--clean] [--no-restart] [--force]
 
 ## Configuration
 
-Tout vit sous **`$JEAN_HOME`** (défaut `/etc/jean`). Le service lit `config.env` :
+Tout vit sous **`$JEAN_HOME`** (défaut `/etc/jean` sur Linux/macOS, `%ProgramData%\jean` sur Windows). Le service lit `config.env` :
 
 | Clé | Signification | Défaut |
 |-----|---------------|--------|
@@ -129,6 +151,7 @@ Tout vit sous **`$JEAN_HOME`** (défaut `/etc/jean`). Le service lit `config.env
 | `NGL` | couches à déporter sur le GPU | `999` |
 | `BATCH` / `UBATCH` | batch / micro-batch | `2048` / `512` |
 | `THREADS` / `THREADS_BATCH` | threads CPU | `0` (auto) |
+| `CUDA_VISIBLE_DEVICES` | GPU à utiliser (réglé par `jean gpu`) | tous |
 | `KV_TYPE` (`_K`/`_V`) | quantization du cache KV | — |
 | `REASONING` | passthrough du mode raisonnement | — |
 | `EXTRA_ARGS` | ajouté tel quel à `llama-server` | — |
@@ -148,7 +171,7 @@ La clé API (quand elle est définie avec `jean set-api-key`) est stockée dans 
 Nécessite Go 1.22+. Jean est un binaire 100 % Go (l'UI web est embarquée via `go:embed`) :
 
 ```bash
-git clone https://github.com/nathaninline/jean.git
+git clone https://github.com/jean-llm/jean.git
 cd jean
 CGO_ENABLED=0 go build -o jean .
 

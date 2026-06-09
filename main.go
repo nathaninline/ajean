@@ -28,6 +28,8 @@ func main() {
 		mustExit(cmdSetAPIKey(args))
 	case "vram":
 		mustExit(showVram())
+	case "gpu":
+		mustExit(cmdGPU(args))
 	case "switch":
 		mustExit(cmdSwitch(args))
 	case "chat":
@@ -67,12 +69,13 @@ func printHelp() {
 Usage: jean <commande> [args]
 
 Service:
-  start | stop | restart        gérer le service systemd
+  start | stop | restart        gérer le service (systemd sous Linux, processus en arrière-plan sous Windows)
   status | logs                 état / logs en direct
   enable | disable              auto-démarrage au boot
   edit                          éditer $JEAN_HOME/config.env
   set-api-key [clé]             protéger l'API (clé Bearer); vide = générer, "" = retirer
   vram                          utilisation GPU/VRAM (nvidia-smi)
+  gpu [index…]                  liste les GPU / choisit le(s)quel(s) utiliser (gpu all = tous)
   test                          vérifie que l'IA répond (health + completion)
   bench [N]                     mesure prefill + decode tok/s (prompt 2000 tok, N=200 par défaut)
 
@@ -96,12 +99,12 @@ Entrypoint (utilisé par jean.service) :
   serve                         lit config.env et exec le binaire llama-server
 
 Installation:
-  install                       installer (systemd unit, sudoers, dossiers)
+  install                       installer (Linux: unité systemd, sudoers, dossiers ; Windows: dossiers + config)
   uninstall                     désinstaller
 
 Env:
-  JEAN_HOME    racine (défaut: $HOME/JEAN, ou /home/<USER>/JEAN si root)
-  EDITOR       éditeur pour 'jean edit' (défaut: nano)
+  JEAN_HOME    racine (défaut: /etc/jean sur Linux/macOS, %%ProgramData%%\jean sur Windows)
+  EDITOR       éditeur pour 'jean edit' (défaut: nano sur Unix, notepad sur Windows)
 
 Config: $JEAN_HOME/config.env
 `, Version)
@@ -114,11 +117,9 @@ func mustExit(err error) {
 	}
 }
 
-// DefaultJeanHome is where everything lives unless overridden.
-const DefaultJeanHome = "/etc/jean"
-
 // JeanHome resolves the JEAN data directory.
-// Precedence: $JEAN_HOME → /etc/default/jean → DefaultJeanHome.
+// Precedence: $JEAN_HOME → /etc/default/jean (unix only) → defaultJeanHome().
+// defaultJeanHome() is platform-specific (see platform_unix.go / platform_windows.go).
 func JeanHome() string {
 	if h := os.Getenv("JEAN_HOME"); h != "" {
 		return h
@@ -126,7 +127,7 @@ func JeanHome() string {
 	if h := readEtcDefault(); h != "" {
 		return h
 	}
-	return DefaultJeanHome
+	return defaultJeanHome()
 }
 
 // readEtcDefault parses /etc/default/jean for JEAN_HOME=<path>. Quiet on errors.
