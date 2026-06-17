@@ -6,7 +6,8 @@
 :root{--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--ok:#3fb950;--warn:#d29922;--err:#f85149;--mag:#bc8cff}
 *{box-sizing:border-box}
 body{margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;font-size:14px}
-.side{width:280px;border-right:1px solid var(--border);padding:16px;overflow-y:auto;flex-shrink:0}
+.side{width:320px;border-right:1px solid var(--border);padding:16px;overflow-y:auto;flex-shrink:0;scrollbar-width:none;-ms-overflow-style:none}
+.side::-webkit-scrollbar{display:none}
 .main{flex:1;display:flex;flex-direction:column;min-width:0}
 #menubtn{display:none;position:fixed;top:10px;left:10px;z-index:20;background:var(--panel);border:1px solid var(--border);color:var(--text);width:40px;height:40px;border-radius:6px;font-size:18px;cursor:pointer}
 #backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10}
@@ -16,11 +17,18 @@ body{margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background
   #menubtn,#backdrop.open{display:block}
   body.drawer-open #menubtn{display:none}
   .main{width:100%}
-  #chat{padding:60px 12px 12px}
+  #chat{padding:60px 8px 12px}
   .msg{max-width:92%}
+  #chat .msg.assistant,#chat .msg.reasoning{max-width:100%}
   #inputbar{padding:8px;gap:4px}
   #send,#stop{padding:0 12px}
   h1{margin-left:48px}
+}
+/* Desktop : menu plus large et bulles (badges) un peu plus grosses. */
+@media (min-width:721px){
+  .side{width:380px}
+  .preset-meta .qtag,.preset-meta .rtag,.preset-meta .btag{font-size:11px;padding:2px 9px;border-radius:9px}
+  .preset-meta .qtag svg,.preset-meta .rtag svg,.preset-meta .btag svg{width:11px;height:11px}
 }
 h1{margin:0 0 4px;font-size:18px;color:var(--accent)}
 h2{margin:20px 0 8px;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;font-weight:600}
@@ -41,9 +49,19 @@ button{background:var(--panel);color:var(--text);border:1px solid var(--border);
 button:hover{border-color:var(--accent);color:var(--accent)}
 button:disabled{opacity:.5;cursor:not-allowed}
 .row{display:flex;gap:4px;flex-wrap:wrap}
-.preset{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border:1px solid var(--border);border-radius:6px;margin:4px 0;cursor:pointer;background:var(--panel)}
+.preset{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;margin:4px 0;cursor:pointer;background:var(--panel)}
 .preset:hover{border-color:var(--accent)}
 .preset.active{border-color:var(--ok);color:var(--ok)}
+.preset>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.preset>button{flex-shrink:0}
+.preset-info{flex:1;min-width:0}
+.preset-name{min-width:0;overflow-wrap:anywhere;word-break:break-word}
+.preset-edit{flex-shrink:0;align-self:flex-start;margin:0;padding:2px 5px;font-size:13px;line-height:1;background:transparent;border:none;opacity:.45}
+.preset-edit:hover{opacity:1;color:var(--accent)}
+.preset-meta{display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap}
+.qtag{flex-shrink:0;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em;text-transform:uppercase}
+.rtag{flex-shrink:0;display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em}
+.btag{flex-shrink:0;display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em}
 .kv{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px}
 .kv span:first-child{color:var(--dim);flex-shrink:0}
 .kv span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:right;min-width:0}
@@ -63,7 +81,11 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .msg .body li{margin:.15em 0}
 .msg .body li>p{margin:0}
 .msg.assistant .body code{background:#0d1117;padding:1px 5px;border-radius:3px;font-size:.9em}
-.msg.assistant .body pre{background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:10px;overflow-x:auto;margin:.5em 0}
+.msg.assistant .body pre{position:relative;background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:10px;overflow-x:auto;margin:.5em 0}
+.copybtn{position:absolute;bottom:6px;right:6px;font-size:11px;padding:3px 8px;margin:0;background:var(--panel);border:1px solid var(--border);color:var(--dim);border-radius:5px;opacity:.5;transition:opacity .15s,color .15s}
+.msg.assistant .body pre:hover .copybtn{opacity:1}
+.copybtn:hover{border-color:var(--accent);color:var(--accent)}
+.copybtn.done{color:var(--ok);border-color:var(--ok);opacity:1}
 .msg.assistant .body pre code{background:transparent;padding:0;font-size:.85em;line-height:1.4}
 .msg.assistant .body blockquote{border-left:3px solid var(--border);padding:0 0 0 10px;margin:.4em 0;color:var(--dim)}
 .msg.assistant .body a{color:var(--accent);text-decoration:none}
@@ -83,6 +105,12 @@ button:disabled{opacity:.5;cursor:not-allowed}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--border);padding:8px 16px;border-radius:6px;opacity:0;transition:opacity .2s;pointer-events:none}
 #toast.show{opacity:1}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+/* iOS Safari auto-zoome au focus sur tout champ < 16px. On force 16px sur les
+   appareils tactiles uniquement (le desktop garde son rendu, le pinch-zoom
+   manuel reste possible). */
+@media (hover:none) and (pointer:coarse){
+  #input,#sysprompt,#modal input,#modal textarea,#modal select{font-size:16px}
+}
 </style></head><body>
 <button id="menubtn" onclick="toggleSide()">☰</button>
 <div id="backdrop" onclick="toggleSide()"></div>
@@ -128,10 +156,11 @@ button:disabled{opacity:.5;cursor:not-allowed}
   <div id="chat"></div>
   <button id="scrollbtn" onclick="jumpBottom()" title="aller en bas">↓</button>
   <div id="inputbar">
-    <textarea id="input" placeholder="message… (Entrée pour envoyer, Maj+Entrée = nouvelle ligne)" onkeydown="onKey(event)"></textarea>
+    <textarea id="input" placeholder="message…" onkeydown="onKey(event)"></textarea>
     <button id="send" onclick="send()">send</button>
     <button id="stop" onclick="stopGen()" style="display:none;background:#3d1f23;border-color:var(--err);color:var(--err)">stop</button>
   </div>
+  <div class="muted" style="padding:2px 12px 6px;font-size:10px;text-align:center;opacity:.7">Entrée pour envoyer · Maj+Entrée = nouvelle ligne</div>
 </div>
 <div id="toast"></div>
 <div id="bench-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:30;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeBenchModal()">
@@ -154,19 +183,30 @@ button:disabled{opacity:.5;cursor:not-allowed}
       <button onclick="closeModal()" style="margin:0">×</button>
     </div>
     <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;overflow:auto;flex:1">
-      <label class="muted">Nom <span style="opacity:.6">(alphanum, ._-)</span></label>
+      <label class="muted">Nom <span style="opacity:.6">(espaces et accents OK, sauf / et \)</span></label>
       <input id="m-name" style="background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit">
       <div id="m-model-row" style="display:none">
         <label class="muted">Backend <span style="opacity:.6">(remplace la ligne BIN=)</span></label>
         <select id="m-backend" onchange="onPickBackend()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;margin:6px 0 10px"></select>
         <label class="muted">Modèle <span style="opacity:.6">(remplace la ligne MODEL=)</span></label>
         <select id="m-model" onchange="onPickModel()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;margin-top:6px"></select>
+        <label class="muted" style="margin-top:10px;display:block">Télécharger depuis Hugging Face <span style="opacity:.6">(lien vers un .gguf)</span></label>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <input id="m-hf-url" placeholder="https://huggingface.co/…/resolve/main/model.gguf" style="flex:1;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit">
+          <button id="m-hf-btn" onclick="startDownload()" style="flex-shrink:0">⬇ télécharger</button>
+        </div>
+        <div id="m-hf-progress" class="muted" style="display:none;font-size:11px;margin-top:6px"></div>
+        <label class="muted" style="margin-top:10px;display:block">Quantization (tag) <span style="opacity:.6">(vide = détection auto depuis le nom du modèle)</span></label>
+        <input id="m-quant" oninput="applyQuant()" placeholder="ex: Q4_K_M, IQ3_XXS, BF16…" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;margin-top:6px">
       </div>
       <label class="muted">Contenu</label>
       <textarea id="m-content" spellcheck="false" style="background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;min-height:280px;resize:vertical"></textarea>
     </div>
     <div style="padding:14px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap">
-      <button id="m-del" onclick="delItem()" style="background:#3d1f23;border-color:var(--err);color:var(--err)">supprimer</button>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <button id="m-del" onclick="delItem()" style="background:#3d1f23;border-color:var(--err);color:var(--err);margin:0">supprimer</button>
+        <label id="m-del-model-wrap" style="display:none;align-items:center;gap:5px;font-size:11px;color:var(--dim)"><input type="checkbox" id="m-del-model"> + le modèle .gguf</label>
+      </div>
       <div style="display:flex;gap:6px">
         <button onclick="closeModal()">annuler</button>
         <button onclick="saveItem()" style="border-color:var(--accent);color:var(--accent)">enregistrer</button>
@@ -199,8 +239,22 @@ function toggleSide(){ document.getElementById('side').classList.toggle('open');
 function saveSys(){ localStorage.setItem('jean.sys', document.getElementById('sysprompt').value); }
 document.addEventListener('DOMContentLoaded', ()=>{ document.getElementById('sysprompt').value = localStorage.getItem('jean.sys') || ''; });
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
-async function jget(u){ const r=await fetch(u); return r.json(); }
-async function jpost(u,b){ const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})}); return r.json(); }
+// Clé de pilotage : envoyée en Authorization: Bearer sur chaque appel /api/*.
+// Sur un 401 on la (re)demande et on rejoue la requête. Stockée en localStorage.
+let TOKEN = localStorage.getItem('jean.key') || '';
+function authHeaders(h){ h = Object.assign({}, h||{}); if(TOKEN) h['Authorization']='Bearer '+TOKEN; return h; }
+async function jfetch(u, opts){
+  opts = opts || {};
+  opts.headers = authHeaders(opts.headers);
+  let r = await fetch(u, opts);
+  if(r.status === 401){
+    const k = prompt('Clé de pilotage jean requise :', '');
+    if(k){ TOKEN = k.trim(); localStorage.setItem('jean.key', TOKEN); opts.headers = authHeaders(opts.headers); r = await fetch(u, opts); }
+  }
+  return r;
+}
+async function jget(u){ const r=await jfetch(u); return r.json(); }
+async function jpost(u,b){ const r=await jfetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})}); return r.json(); }
 async function loadStatus(){
   const s=await jget('/api/status');
   const t=s.active?'<span class="tag ok">● active</span>':'<span class="tag err">○ '+s.state+'</span>';
@@ -226,13 +280,53 @@ async function loadCfg(){
 async function loadPresets(){
   const p=await jget('/api/presets');
   const act = p.find(x=>x.active);
-  document.getElementById('status-preset').innerHTML = act ? '<span class="tag" style="border-color:var(--accent);color:var(--accent)">'+act.name+'</span>' : '';
-  document.getElementById('presets').innerHTML = p.map((x,i)=>
-    '<div class="preset '+(x.active?'active':'')+'" onclick="switchTo('+(i+1)+',\''+x.name+'\')">'+
-      '<span>'+(x.active?'● ':'')+x.name+'</span>'+
-      '<button onclick="event.stopPropagation();openPreset(\''+x.name+'\')" style="margin:0;padding:2px 8px;font-size:11px">edit</button>'+
-    '</div>'
-  ).join('') || '<span class="muted">(aucun)</span>';
+  // Build via DOM (not string concat) so preset names can contain anything —
+  // spaces, accents, quotes, < > & — without breaking markup or handlers.
+  const sp = document.getElementById('status-preset');
+  sp.innerHTML='';
+  if(act){
+    const tag=document.createElement('span');
+    tag.className='tag'; tag.style.borderColor='var(--accent)'; tag.style.color='var(--accent)';
+    tag.textContent=act.name; sp.appendChild(tag);
+  }
+  const cont=document.getElementById('presets');
+  cont.innerHTML='';
+  if(!p.length){ cont.innerHTML='<span class="muted">(aucun)</span>'; return; }
+  p.forEach((x,i)=>{
+    const row=document.createElement('div');
+    row.className='preset'+(x.active?' active':'');
+    row.onclick=()=>switchTo(i+1, x.name);
+    const info=document.createElement('div'); info.className='preset-info';
+    const nm=document.createElement('div'); nm.className='preset-name';
+    nm.textContent=(x.active?'● ':'')+x.name; nm.title=x.name;
+    // Second row: quant tag + bench perf, so the title row stays full-width.
+    const meta=document.createElement('div'); meta.className='preset-meta';
+    if(x.quant){
+      const q=document.createElement('span'); q.className='qtag';
+      q.textContent=x.quant; q.title='quantization';
+      meta.appendChild(q);
+    }
+    if(x.reasoning){
+      const rt=document.createElement('span'); rt.className='rtag';
+      rt.title='raisonnement actif ('+x.reasoning+')';
+      rt.innerHTML='<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>';
+      rt.appendChild(document.createTextNode(x.reasoning));
+      meta.appendChild(rt);
+    }
+    if(x.bench){
+      const bt=document.createElement('span'); bt.className='btag';
+      bt.title='prefill / decode — dernier bench de ce preset';
+      bt.textContent=x.bench.prefill.toFixed(0)+'-'+x.bench.decode.toFixed(0)+' t/s';
+      meta.appendChild(bt);
+    }
+    info.appendChild(nm);
+    if(meta.children.length) info.appendChild(meta);
+    const edit=document.createElement('button');
+    edit.className='preset-edit'; edit.title='éditer'; edit.textContent='✎';
+    edit.onclick=(e)=>{ e.stopPropagation(); openPreset(x.id); };
+    row.appendChild(info); row.appendChild(edit);
+    cont.appendChild(row);
+  });
 }
 async function loadSkills(){
   const s=await jget('/api/skills');
@@ -302,6 +396,7 @@ async function runBenchUI(){
   } finally {
     btn.disabled = false; btn.textContent = '⚡ bench';
     rerun.disabled = false;
+    loadPresets();
   }
 }
 async function switchTo(n,name){
@@ -310,27 +405,39 @@ async function switchTo(n,name){
   const r=await jpost('/api/switch',{n:n});
   toast(r.ok?'switched':'erreur'); setTimeout(loadAll,2000);
 }
-let editingOld = '', editingKind = 'preset';
+// editingKey = the identifier of the item being edited: a preset id (filename)
+// or a skill name. Empty string = creating a new item.
+let editingKey = '', editingKind = 'preset';
 const KINDS = {
-  preset: {label:'Preset', getUrl:'/api/preset', saveUrl:'/api/preset/save', delUrl:'/api/preset/delete', reload:()=>loadPresets()},
-  skill:  {label:'Skill',  getUrl:'/api/skill',  saveUrl:'/api/skill/save',  delUrl:'/api/skill/delete',  reload:()=>loadSkills()},
+  // presets are keyed by `id` (filename) so several can share a display name;
+  // skills keep name-as-identity (param 'name').
+  preset: {label:'Preset', param:'id',   getUrl:'/api/preset', saveUrl:'/api/preset/save', delUrl:'/api/preset/delete', reload:()=>loadPresets()},
+  skill:  {label:'Skill',  param:'name', getUrl:'/api/skill',  saveUrl:'/api/skill/save',  delUrl:'/api/skill/delete',  reload:()=>loadSkills()},
 };
-async function openItem(kind, name){
+async function openItem(kind, key){
   const K = KINDS[kind];
-  const r = await fetch(K.getUrl + '?name=' + encodeURIComponent(name));
+  const r = await jfetch(K.getUrl + '?' + K.param + '=' + encodeURIComponent(key||''));
   const d = await r.json();
-  editingKind = kind; editingOld = name;
-  document.getElementById('modal-title').textContent = name ? (K.label + ' · ' + name) : ('Nouveau ' + K.label.toLowerCase());
-  document.getElementById('m-name').value = name || '';
+  editingKind = kind; editingKey = key || '';
+  const display = d.name || key || '';
+  document.getElementById('modal-title').textContent = key ? (K.label + ' · ' + display) : ('Nouveau ' + K.label.toLowerCase());
+  document.getElementById('m-name').value = display;
   document.getElementById('m-content').value = d.content || '';
-  document.getElementById('m-del').style.display = name ? 'inline-block' : 'none';
+  document.getElementById('m-del').style.display = key ? 'inline-block' : 'none';
   // Model picker is preset-only: it edits the MODEL= line of config.env.
   const modelRow = document.getElementById('m-model-row');
+  const delModelWrap = document.getElementById('m-del-model-wrap');
   if(kind === 'preset'){
     modelRow.style.display = 'block';
+    document.getElementById('m-hf-url').value = '';
+    document.getElementById('m-hf-progress').style.display = 'none';
+    document.getElementById('m-del-model').checked = false;
+    document.getElementById('m-quant').value = currentQuantInTextarea();
+    delModelWrap.style.display = key ? 'inline-flex' : 'none';
     await Promise.all([populateBackendPicker(), populateModelPicker()]);
   } else {
     modelRow.style.display = 'none';
+    delModelWrap.style.display = 'none';
   }
   document.getElementById('modal').style.display = 'flex';
 }
@@ -413,7 +520,23 @@ function onPickBackend(){
   }
   toast('BIN='+val);
 }
-const openPreset = (n)=>openItem('preset', n);
+// Read/write the QUANT= override line in the preset textarea.
+function currentQuantInTextarea(){
+  const m = document.getElementById('m-content').value.match(/^\s*#?\s*QUANT\s*=\s*"?([^"\n]*)"?\s*$/mi);
+  return m ? m[1].trim() : '';
+}
+function applyQuant(){
+  const val = document.getElementById('m-quant').value.trim();
+  const ta = document.getElementById('m-content');
+  const re = /^\s*#?\s*QUANT\s*=.*$/mi;
+  if(val){
+    if(re.test(ta.value)) ta.value = ta.value.replace(re, 'QUANT="'+val+'"');
+    else ta.value = ta.value.replace(/\s*$/,'') + '\nQUANT="'+val+'"\n';
+  } else {
+    ta.value = ta.value.replace(re, '').replace(/\n{3,}/g,'\n\n');
+  }
+}
+const openPreset = (id)=>openItem('preset', id);
 const openSkill  = (n)=>openItem('skill', n);
 function closeModal(){ document.getElementById('modal').style.display = 'none'; }
 async function saveItem(){
@@ -421,17 +544,68 @@ async function saveItem(){
   const name = document.getElementById('m-name').value.trim();
   const content = document.getElementById('m-content').value;
   if(!name){ toast('nom requis'); return; }
-  const r = await jpost(K.saveUrl, {name, old: editingOld, content});
+  // Presets: keyed by id (filename); duplicate display names are allowed.
+  // Skills: keyed by name, rename via `old`.
+  const payload = editingKind==='preset'
+    ? {id: editingKey, name, content}
+    : {name, old: editingKey, content};
+  const r = await jpost(K.saveUrl, payload);
   if(!r.ok){ toast('erreur : ' + (r.error||'')); return; }
   toast('enregistré'); closeModal(); K.reload();
 }
 async function delItem(){
-  if(!editingOld) return;
+  if(!editingKey) return;
   const K = KINDS[editingKind];
-  if(!confirm('Supprimer le ' + K.label.toLowerCase() + ' "' + editingOld + '" ?')) return;
-  const r = await jpost(K.delUrl, {name: editingOld});
+  const name = document.getElementById('m-name').value.trim() || editingKey;
+  const delModel = editingKind==='preset' && document.getElementById('m-del-model').checked;
+  let msg = 'Supprimer le ' + K.label.toLowerCase() + ' "' + name + '" ?';
+  if(delModel) msg += '\n\n⚠️ Le fichier .gguf du modèle sera AUSSI supprimé du disque (irréversible).';
+  if(!confirm(msg)) return;
+  const payload = editingKind==='preset'
+    ? {id: editingKey, deleteModel: delModel}
+    : {name: editingKey};
+  const r = await jpost(K.delUrl, payload);
   if(!r.ok){ toast('erreur : ' + (r.error||'')); return; }
-  toast('supprimé'); closeModal(); K.reload();
+  if(delModel){
+    if(r.modelError) toast('preset supprimé, modèle : ' + r.modelError);
+    else if(r.modelDeleted) toast('preset + modèle supprimés');
+    else toast('supprimé (aucun modèle référencé)');
+  } else { toast('supprimé'); }
+  closeModal(); K.reload();
+}
+// Download a .gguf from Hugging Face, polling progress until done.
+let dlPoll = null;
+async function startDownload(){
+  const url = document.getElementById('m-hf-url').value.trim();
+  if(!url){ toast('colle un lien .gguf'); return; }
+  const btn = document.getElementById('m-hf-btn');
+  const prog = document.getElementById('m-hf-progress');
+  btn.disabled = true;
+  prog.style.display = 'block';
+  prog.textContent = 'démarrage…';
+  const r = await jpost('/api/models/download', {url});
+  if(!r.ok){ prog.innerHTML = '<span style="color:var(--err)">erreur : '+(r.error||'')+'</span>'; btn.disabled=false; return; }
+  const fname = r.filename;
+  if(dlPoll) clearInterval(dlPoll);
+  dlPoll = setInterval(async ()=>{
+    const list = await jget('/api/models/download/status');
+    const st = (list||[]).find(d=>d.filename===fname);
+    if(!st){ return; }
+    if(st.error){
+      prog.innerHTML = '<span style="color:var(--err)">erreur : '+st.error+'</span>';
+      clearInterval(dlPoll); dlPoll=null; btn.disabled=false; return;
+    }
+    if(st.finished){
+      prog.innerHTML = '<span style="color:var(--ok)">✓ '+fname+' téléchargé ('+fmtSize(st.done)+')</span>';
+      clearInterval(dlPoll); dlPoll=null; btn.disabled=false;
+      await populateModelPicker();
+      document.getElementById('m-model').value = fname; onPickModel();
+      return;
+    }
+    const pct = st.total>0 ? Math.round(st.done*100/st.total) : 0;
+    const tot = st.total>0 ? ' / '+fmtSize(st.total)+' ('+pct+'%)' : '';
+    prog.textContent = '⬇ '+fmtSize(st.done)+tot+' — '+fname;
+  }, 800);
 }
 // Smart autoscroll: follow the bottom while the user hasn't manually scrolled
 // up. Re-stick when they scroll back near bottom themselves.
@@ -470,7 +644,24 @@ function addMsg(role, text){
 function setLabel(el, text){ el.querySelector('.label').textContent = text; }
 function bodyOf(el){ return el.querySelector('.body'); }
 // Render markdown into a message body in place; safe because md() escapes HTML.
-function renderBody(el, text){ bodyOf(el).innerHTML = md(text); scrollMaybe(); }
+function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(text); addCopyButtons(b); scrollMaybe(); }
+// Inject a "copier" button into every <pre> code block (idempotent).
+function addCopyButtons(root){
+  root.querySelectorAll('pre').forEach(pre=>{
+    if(pre.querySelector('.copybtn')) return;
+    const btn=document.createElement('button');
+    btn.className='copybtn'; btn.type='button'; btn.textContent='copier';
+    btn.onclick=async(e)=>{
+      e.stopPropagation();
+      const code=pre.querySelector('code'), txt=(code||pre).innerText;
+      try{ await navigator.clipboard.writeText(txt); }
+      catch(_){ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+      btn.textContent='copié ✓'; btn.classList.add('done');
+      setTimeout(()=>{ btn.textContent='copier'; btn.classList.remove('done'); },1500);
+    };
+    pre.appendChild(btn);
+  });
+}
 function resetChat(){ msgs=[]; document.getElementById('chat').innerHTML=''; toast('chat vidé'); }
 function onKey(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } }
 let abortCtrl=null;
@@ -512,7 +703,7 @@ async function send(){
   try{
     const sys=(document.getElementById('sysprompt').value||'').trim();
     const out = sys ? [{role:'system',content:sys}, ...msgs] : msgs;
-    const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:out}),signal:abortCtrl.signal});
+    const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:out}),signal:abortCtrl.signal});
     const reader=r.body.getReader(); const dec=new TextDecoder(); let buf='';
     statsTimer = setInterval(updateStats, 250);
     while(true){

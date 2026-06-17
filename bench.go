@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -124,11 +126,86 @@ func runBench(nPrompt, nPredict int) (*benchResult, error) {
 	}
 	elapsed := time.Since(t0).Seconds()
 	t := parsed.Timings
-	return &benchResult{
+	res := &benchResult{
 		PromptN: t.PromptN, PromptMs: t.PromptMs, PromptPerSecond: t.PromptPerSecond,
 		PredictedN: t.PredictedN, PredictedMs: t.PredictedMs, PredictedPerSec: t.PredictedPerSec,
 		Elapsed: elapsed,
-	}, nil
+	}
+	saveLastBench(res)
+	saveBenchForActivePreset(res)
+	return res, nil
+}
+
+// lastBenchPath stores the most recent benchmark result so the web UI can show
+// it without re-running. Lives in JEAN_HOME so it survives restarts.
+func lastBenchPath() string { return filepath.Join(JeanHome(), ".last_bench.json") }
+
+// savedBench is a benchResult plus the model it was run against and a timestamp.
+type savedBench struct {
+	Result benchResult `json:"result"`
+	Model  string      `json:"model"`
+	At     int64       `json:"at"`
+}
+
+// saveLastBench persists res to JEAN_HOME/.last_bench.json (best-effort).
+func saveLastBench(res *benchResult) {
+	sb := savedBench{Result: *res, Model: filepath.Base(ReadConfig()["MODEL"]), At: time.Now().Unix()}
+	if b, err := json.Marshal(sb); err == nil {
+		_ = os.WriteFile(lastBenchPath(), b, 0o644)
+	}
+}
+
+// loadLastBench reads the persisted benchmark, or nil if none/unreadable.
+func loadLastBench() *savedBench {
+	b, err := os.ReadFile(lastBenchPath())
+	if err != nil {
+		return nil
+	}
+	var sb savedBench
+	if json.Unmarshal(b, &sb) != nil {
+		return nil
+	}
+	return &sb
+}
+
+// benchStorePath holds per-preset benchmark results so the UI can show each
+// preset's measured performance. Keyed by preset name.
+func benchStorePath() string { return filepath.Join(JeanHome(), ".bench_presets.json") }
+
+// loadBenchStore returns the per-preset bench map (empty if none/unreadable).
+func loadBenchStore() map[string]savedBench {
+	m := map[string]savedBench{}
+	b, err := os.ReadFile(benchStorePath())
+	if err != nil {
+		return m
+	}
+	_ = json.Unmarshal(b, &m)
+	return m
+}
+
+// saveBenchForActivePreset records res under the name of the currently active
+// preset (the one whose config.env matches the live config). No-op if no preset
+// matches — the bench still lives in .last_bench.json via saveLastBench.
+func saveBenchForActivePreset(res *benchResult) {
+	list, err := ListPresets()
+	if err != nil {
+		return
+	}
+	id := ""
+	for _, p := range list {
+		if p.Active {
+			id = p.ID
+			break
+		}
+	}
+	if id == "" {
+		return
+	}
+	m := loadBenchStore()
+	m[id] = savedBench{Result: *res, Model: filepath.Base(ReadConfig()["MODEL"]), At: time.Now().Unix()}
+	if b, err := json.Marshal(m); err == nil {
+		_ = os.WriteFile(benchStorePath(), b, 0o644)
+	}
 }
 
 func cmdBench(args []string) error {

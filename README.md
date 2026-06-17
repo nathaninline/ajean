@@ -98,7 +98,8 @@ Service :
   status | logs                 état / logs en direct
   enable | disable              démarrage au boot
   edit                          éditer $JEAN_HOME/config.env
-  set-api-key [clé]             protéger l'API (Bearer) ; vide = générer, "" = retirer
+  set-api-key [clé]             protéger llama-server (Bearer) ; vide = générer, "" = retirer
+  set-web-key [clé]             protéger l'API de pilotage 'jean web' ; vide = générer, "" = retirer
   vram                          utilisation GPU/VRAM (nvidia-smi)
   gpu [index…]                  liste les GPU / choisit le(s)quel(s) utiliser (gpu all = tous)
   test                          vérifie que le modèle répond (health + completion)
@@ -157,6 +158,37 @@ Tout vit sous **`$JEAN_HOME`** (défaut `/etc/jean` sur Linux/macOS, `%ProgramDa
 | `EXTRA_ARGS` | ajouté tel quel à `llama-server` | — |
 
 La clé API (quand elle est définie avec `jean set-api-key`) est stockée dans `$JEAN_HOME/.api_key`, séparément de `config.env`.
+
+### API de pilotage à distance
+
+`jean web` expose une API HTTP pour piloter Jean à distance : status, VRAM, liste/sélection de presets (switch de modèle), démarrage/arrêt/redémarrage du service, chat. Pour l'exposer sur internet en sécurité, protège-la par une clé :
+
+```
+jean set-web-key            # génère une clé aléatoire
+jean web 8090               # sert l'API/UI sur :8090
+```
+
+Chaque appel `/api/*` doit alors présenter la clé (la page HTML/JS, elle, reste publique car sans secret) :
+
+```
+Authorization: Bearer <clé>
+```
+
+Endpoints utiles pour un client :
+
+| Méthode | Endpoint | Rôle |
+|---------|----------|------|
+| GET  | `/api/ping` | vérifie connectivité + validité de la clé (200 / 401) |
+| GET  | `/api/status` | état du service (active, health, port) |
+| GET  | `/api/vram` | usage GPU/VRAM |
+| GET  | `/api/presets` | liste des presets (avec l'actif) |
+| POST | `/api/switch` `{"n":<index 1-based>}` | switch de modèle/preset |
+| POST | `/api/start` · `/api/stop` · `/api/restart` | piloter le service |
+| POST | `/api/chat` `{"messages":[…]}` | chat (flux SSE) |
+
+La clé est stockée dans `$JEAN_HOME/.web_key`, distincte de `.api_key` (pilotage ≠ accès complétions), et relue à chaud à chaque requête. Le pilotage du service est cross-platform (systemd sous Linux, supervision par PID-file sous Windows).
+
+> ⚠️ La clé voyage en clair en HTTP. Pour une exposition publique, place Jean derrière un reverse-proxy HTTPS (Caddy, nginx) ou un tunnel (Tailscale, Cloudflare Tunnel).
 
 ### Variables d'environnement
 

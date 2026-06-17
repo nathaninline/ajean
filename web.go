@@ -29,6 +29,8 @@ func cmdWeb(args []string) error {
 		port = n
 	}
 	mux := http.NewServeMux()
+	// Pages publiques : le HTML et le JS ne contiennent aucun secret. Toute la
+	// donnée et toutes les actions passent par /api/* qui, lui, exige la clé.
 	mux.HandleFunc("/", handleIndex)
 	mux.HandleFunc("/marked.min.js", func(w http.ResponseWriter, r *http.Request) {
 		b, _ := uiFS.ReadFile("ui/marked.min.js")
@@ -36,28 +38,35 @@ func cmdWeb(args []string) error {
 		w.Header().Set("Cache-Control", "public, max-age=86400")
 		w.Write(b)
 	})
-	mux.HandleFunc("/api/status", handleStatus)
-	mux.HandleFunc("/api/vram", handleVram)
-	mux.HandleFunc("/api/config", handleConfigEnv)
-	mux.HandleFunc("/api/models", handleModels)
-	mux.HandleFunc("/api/backends", handleBackends)
-	mux.HandleFunc("/api/presets", handlePresets)
-	mux.HandleFunc("/api/preset", handlePreset)
-	mux.HandleFunc("/api/preset/save", handlePresetSave)
-	mux.HandleFunc("/api/preset/delete", handlePresetDelete)
-	mux.HandleFunc("/api/skills", handleSkills)
-	mux.HandleFunc("/api/skills/toggle", handleSkillsToggle)
-	mux.HandleFunc("/api/skill", handleSkill)
-	mux.HandleFunc("/api/skill/save", handleSkillSave)
-	mux.HandleFunc("/api/skill/delete", handleSkillDelete)
-	mux.HandleFunc("/api/tools", handleTools)
-	mux.HandleFunc("/api/tools/toggle", handleToolsToggle)
-	mux.HandleFunc("/api/switch", handleSwitch)
-	mux.HandleFunc("/api/start", svcHandler("start"))
-	mux.HandleFunc("/api/stop", svcHandler("stop"))
-	mux.HandleFunc("/api/restart", svcHandler("restart"))
-	mux.HandleFunc("/api/bench", handleBench)
-	mux.HandleFunc("/api/chat", handleChat)
+	// api enregistre une route /api/* protégée par la clé de pilotage (webauth.go).
+	api := func(path string, h http.HandlerFunc) { mux.HandleFunc(path, requireWebAuth(h)) }
+	api("/api/ping", handlePing)
+	api("/api/status", handleStatus)
+	api("/api/vram", handleVram)
+	api("/api/config", handleConfigEnv)
+	api("/api/models", handleModels)
+	api("/api/models/delete", handleModelDelete)
+	api("/api/models/download", handleModelDownload)
+	api("/api/models/download/status", handleModelDownloadStatus)
+	api("/api/backends", handleBackends)
+	api("/api/presets", handlePresets)
+	api("/api/preset", handlePreset)
+	api("/api/preset/save", handlePresetSave)
+	api("/api/preset/delete", handlePresetDelete)
+	api("/api/skills", handleSkills)
+	api("/api/skills/toggle", handleSkillsToggle)
+	api("/api/skill", handleSkill)
+	api("/api/skill/save", handleSkillSave)
+	api("/api/skill/delete", handleSkillDelete)
+	api("/api/tools", handleTools)
+	api("/api/tools/toggle", handleToolsToggle)
+	api("/api/switch", handleSwitch)
+	api("/api/start", svcHandler("start"))
+	api("/api/stop", svcHandler("stop"))
+	api("/api/restart", svcHandler("restart"))
+	api("/api/bench", handleBench)
+	api("/api/bench/last", handleBenchLast)
+	api("/api/chat", handleChat)
 	addr := fmt.Sprintf("0.0.0.0:%d", port)
 
 	ln, err := net.Listen("tcp", addr)
@@ -72,6 +81,12 @@ func cmdWeb(args []string) error {
 		}
 	}
 	fmt.Printf("[jean web] http://%s  (Ctrl-C pour arrêter)\n", addr)
+	if readWebKey() == "" {
+		fmt.Printf("%s API de pilotage NON protégée (aucune clé). Avant de l'exposer sur internet :\n", yellow("[!]"))
+		fmt.Printf("       %s\n", bold("jean set-web-key"))
+	} else {
+		fmt.Printf("%s API protégée par clé (Authorization: Bearer …)\n", green("[ok]"))
+	}
 	return http.Serve(ln, mux)
 }
 
@@ -167,13 +182,20 @@ func sendJSON(w http.ResponseWriter, code int, v any) {
 	json.NewEncoder(w).Encode(v)
 }
 
+// handlePing is a lightweight authenticated endpoint a client hits to verify
+// connectivity AND that its key is valid (200 = bonne clé, 401 = mauvaise clé).
+func handlePing(w http.ResponseWriter, r *http.Request) {
+	sendJSON(w, 200, map[string]any{"ok": true, "service": "jean", "version": Version})
+}
+
+// handleStatus reports service state cross-platform via serviceIsActive
+// (systemd sous Linux, supervision par PID-file sous Windows — voir service_*.go).
 func handleStatus(w http.ResponseWriter, r *http.Request) {
-	out, _ := exec.Command("systemctl", "is-active", serviceName()).Output()
-	state := strings.TrimSpace(string(out))
-	if state == "" {
-		state = "unknown"
+	active := serviceIsActive()
+	state := "inactive"
+	if active {
+		state = "active"
 	}
-	active := state == "active"
 	health := false
 	if active {
 		health = healthCheck()
@@ -277,29 +299,56 @@ func handlePresets(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 500, map[string]any{"error": err.Error()})
 		return
 	}
+	store := loadBenchStore()
 	out := []map[string]any{}
 	for _, p := range list {
-		out = append(out, map[string]any{"name": p.Name, "active": p.Active})
+		item := map[string]any{"id": p.ID, "name": p.Name, "active": p.Active}
+		if content, err := ReadPreset(p.ID); err == nil {
+			if q := detectQuant(content); q != "" {
+				item["quant"] = q
+			}
+			if r := presetReasoning(content); reasoningActive(r) {
+				item["reasoning"] = strings.ToLower(r)
+			}
+		}
+		if sb, ok := store[p.ID]; ok {
+			item["bench"] = map[string]any{
+				"prefill": sb.Result.PromptPerSecond,
+				"decode":  sb.Result.PredictedPerSec,
+				"at":      sb.At,
+			}
+		}
+		out = append(out, item)
 	}
 	sendJSON(w, 200, out)
 }
 
 func handlePreset(w http.ResponseWriter, r *http.Request) {
-	name := strings.TrimSpace(r.URL.Query().Get("name"))
-	if name == "" {
+	id := strings.TrimSpace(r.URL.Query().Get("id"))
+	if id == "" {
 		// new preset → seed from current config.env so users can tweak rather than start blank
 		b, _ := os.ReadFile(confPath())
-		sendJSON(w, 200, map[string]any{"name": "", "content": string(b)})
+		sendJSON(w, 200, map[string]any{"id": "", "name": "", "content": string(b)})
 		return
 	}
-	content, err := ReadPreset(name)
+	content, err := ReadPreset(id)
 	if err != nil {
 		sendJSON(w, 404, map[string]any{"error": "not found"})
 		return
 	}
-	sendJSON(w, 200, map[string]any{"name": name, "content": content})
+	sendJSON(w, 200, map[string]any{"id": id, "name": presetDisplayName(content, id), "content": content})
 }
 
+// presetSaveReq is the preset editor payload. `id` identifies an existing
+// preset to update ("" creates a new one); `name` is the display name.
+type presetSaveReq struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Content     string `json:"content"`
+	DeleteModel bool   `json:"deleteModel"`
+}
+
+// saveReq is the skill editor payload (skills keep name-as-identity + rename).
 type saveReq struct {
 	Name    string `json:"name"`
 	Old     string `json:"old"`
@@ -307,29 +356,46 @@ type saveReq struct {
 }
 
 func handlePresetSave(w http.ResponseWriter, r *http.Request) {
-	var req saveReq
+	var req presetSaveReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	if err := SavePreset(req.Name, req.Old, req.Content); err != nil {
+	newID, err := SavePreset(req.ID, req.Name, req.Content)
+	if err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	sendJSON(w, 200, map[string]any{"ok": true, "name": req.Name})
+	sendJSON(w, 200, map[string]any{"ok": true, "id": newID, "name": req.Name})
 }
 
 func handlePresetDelete(w http.ResponseWriter, r *http.Request) {
-	var req saveReq
+	var req presetSaveReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	if err := DeletePreset(req.Name); err != nil {
+	// Capture the referenced model before the preset file disappears, so we can
+	// optionally delete the .gguf alongside it.
+	model := ""
+	if req.DeleteModel {
+		if content, err := ReadPreset(req.ID); err == nil {
+			model = modelFromPresetContent(content)
+		}
+	}
+	if err := DeletePreset(req.ID); err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	sendJSON(w, 200, map[string]any{"ok": true})
+	modelDeleted, modelErr := "", ""
+	if req.DeleteModel && model != "" {
+		if err := deleteModelFile(model); err != nil {
+			modelErr = err.Error()
+		} else {
+			modelDeleted = model
+		}
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "modelDeleted": modelDeleted, "modelError": modelErr})
 }
 
 func handleSkills(w http.ResponseWriter, r *http.Request) {
@@ -434,19 +500,18 @@ func handleSwitch(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true, "preset": target.Name})
 }
 
-// svcHandler returns an HTTP handler that triggers a systemctl action via the
-// passwordless sudo rule installed by `jean install`. Falls back to no-sudo
-// when the web server itself runs as root.
+// svcHandler returns an HTTP handler that triggers a start/stop/restart through
+// the cross-platform serviceAction (systemd sous Linux, supervision PID-file
+// sous Windows — voir service_*.go). C'est ce qui permet à un client distant
+// de relancer Jean.
 func svcHandler(action string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var cmd *exec.Cmd
-		if os.Geteuid() == 0 {
-			cmd = exec.Command("systemctl", action, serviceName())
-		} else {
-			cmd = exec.Command("sudo", "-n", "systemctl", action, serviceName())
+		err := serviceAction(action)
+		msg := "ok"
+		if err != nil {
+			msg = err.Error()
 		}
-		out, err := cmd.CombinedOutput()
-		sendJSON(w, 200, map[string]any{"ok": err == nil, "out": string(out)})
+		sendJSON(w, 200, map[string]any{"ok": err == nil, "out": msg})
 	}
 }
 
@@ -473,6 +538,17 @@ func handleBench(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJSON(w, 200, map[string]any{"ok": true, "result": res})
+}
+
+// handleBenchLast returns the most recent persisted benchmark, or {ok:false}
+// when none has been run yet.
+func handleBenchLast(w http.ResponseWriter, r *http.Request) {
+	sb := loadLastBench()
+	if sb == nil {
+		sendJSON(w, 200, map[string]any{"ok": false})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "result": sb.Result, "model": sb.Model, "at": sb.At})
 }
 
 func handleChat(w http.ResponseWriter, r *http.Request) {

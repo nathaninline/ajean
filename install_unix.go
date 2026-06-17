@@ -48,6 +48,13 @@ ExecStart=%s
 Restart=on-failure
 RestartSec=3
 
+# Priorité CPU : on remonte le process pour qu'il ne soit pas dépriorisé face
+# aux tâches de fond (sampling/orchestration côté CPU pèsent sur le débit même
+# en inference GPU). Nice négatif + scheduling normal réactif.
+Nice=-10
+CPUSchedulingPolicy=other
+CPUAccounting=yes
+
 [Install]
 WantedBy=multi-user.target
 `

@@ -26,6 +26,8 @@ func main() {
 		mustExit(editConfig())
 	case "set-api-key":
 		mustExit(cmdSetAPIKey(args))
+	case "set-web-key":
+		mustExit(cmdSetWebKey(args))
 	case "vram":
 		mustExit(showVram())
 	case "gpu":
@@ -73,7 +75,8 @@ Service:
   status | logs                 état / logs en direct
   enable | disable              auto-démarrage au boot
   edit                          éditer $JEAN_HOME/config.env
-  set-api-key [clé]             protéger l'API (clé Bearer); vide = générer, "" = retirer
+  set-api-key [clé]             protéger llama-server (clé Bearer); vide = générer, "" = retirer
+  set-web-key [clé]             protéger l'API de pilotage 'jean web'; vide = générer, "" = retirer
   vram                          utilisation GPU/VRAM (nvidia-smi)
   gpu [index…]                  liste les GPU / choisit le(s)quel(s) utiliser (gpu all = tous)
   test                          vérifie que l'IA répond (health + completion)

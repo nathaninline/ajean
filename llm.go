@@ -157,8 +157,17 @@ type streamChunk struct {
 // runChat drives the full inference loop including tool calling.
 // On finish_reason="tool_calls" we execute locally, append a "tool" message
 // and call /v1/chat/completions again — up to 8 iterations as a safety cap.
+const thinkClose = "</think>"
+
 func runChat(messages []Message, temperature float64, cb ChatCallback) error {
 	tools := EnabledTools()
+	// Some backends (vanilla llama.cpp builds) don't populate `reasoning_content`
+	// in streaming mode: the model's <think> block (opened by the chat template)
+	// arrives inline in `content`, terminated by a literal </think>. When
+	// reasoning is enabled we split that out ourselves so the UI's reasoning
+	// bubble works regardless of backend. The ik_llama.cpp fork already sends
+	// reasoning_content, in which case we leave content untouched.
+	reasoningOn := reasoningActive(ReadConfig()["REASONING"])
 	for iter := 0; iter < 8; iter++ {
 		payload := map[string]any{
 			"model":       "jean",
@@ -185,6 +194,10 @@ func runChat(messages []Message, temperature float64, cb ChatCallback) error {
 		toolCalls := map[int]*ToolCall{}
 		assistantContent := strings.Builder{}
 		finishReason := ""
+		// Per-completion reasoning-split state (see reasoningOn comment above).
+		sawReasoningField := false
+		thinkOpen := reasoningOn
+		var thinkTail strings.Builder
 		// scanner with a big buffer — some chunks include large arguments JSON
 		sc := bufio.NewScanner(resp.Body)
 		sc.Buffer(make([]byte, 0, 64*1024), 1<<20)
@@ -236,6 +249,9 @@ func runChat(messages []Message, temperature float64, cb ChatCallback) error {
 				continue
 			}
 			if ch.Delta.ReasoningContent != "" {
+				// Backend already separates reasoning — trust it, disable our split.
+				sawReasoningField = true
+				thinkOpen = false
 				if !cb(StreamEvent{Reasoning: ch.Delta.ReasoningContent}) {
 					aborted = true
 					break
@@ -243,11 +259,49 @@ func runChat(messages []Message, temperature float64, cb ChatCallback) error {
 			}
 			if ch.Delta.Content != "" {
 				assistantContent.WriteString(ch.Delta.Content)
-				if !cb(StreamEvent{Content: ch.Delta.Content}) {
-					aborted = true
-					break
+				if !thinkOpen || sawReasoningField {
+					if !cb(StreamEvent{Content: ch.Delta.Content}) {
+						aborted = true
+						break
+					}
+				} else {
+					// Inside the prompt-opened <think> block: stream to the
+					// reasoning bubble until the closing </think>, then switch
+					// the remainder to normal content.
+					thinkTail.WriteString(ch.Delta.Content)
+					s := thinkTail.String()
+					if i := strings.Index(s, thinkClose); i >= 0 {
+						reason := s[:i]
+						after := strings.TrimLeft(s[i+len(thinkClose):], "\r\n")
+						thinkOpen = false
+						thinkTail.Reset()
+						if reason != "" && !cb(StreamEvent{Reasoning: reason}) {
+							aborted = true
+							break
+						}
+						if after != "" && !cb(StreamEvent{Content: after}) {
+							aborted = true
+							break
+						}
+					} else {
+						// Hold back a tail that could be a partial "</think>".
+						keep := len(thinkClose) - 1
+						if len(s) > keep {
+							emit := s[:len(s)-keep]
+							thinkTail.Reset()
+							thinkTail.WriteString(s[len(s)-keep:])
+							if !cb(StreamEvent{Reasoning: emit}) {
+								aborted = true
+								break
+							}
+						}
+					}
 				}
 			}
+		}
+		// Flush any buffered reasoning if the stream ended mid-think.
+		if !aborted && thinkOpen && thinkTail.Len() > 0 {
+			cb(StreamEvent{Reasoning: thinkTail.String()})
 		}
 		resp.Body.Close()
 		if aborted {

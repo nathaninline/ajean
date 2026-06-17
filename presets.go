@@ -11,17 +11,48 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 )
 
+// A preset's IDENTITY is its filename (ID, without the .env suffix), which is
+// always unique. Its DISPLAY name lives in an optional `# NAME=` line inside the
+// file, so several presets can share the same display name without overwriting
+// each other (their filenames differ — see uniquePresetID).
 type Preset struct {
-	Name   string
+	ID     string // filename without .env — stable, unique identity
+	Name   string // display name (# NAME= line, falls back to ID)
 	Path   string
 	Active bool
 }
 
-// ListPresets returns all configs/*.env files sorted by name, marking the one
-// whose contents match the current config.env (by SHA-1).
+var nameLineRe = regexp.MustCompile(`(?mi)^[ \t]*#?[ \t]*NAME[ \t]*=.*$`)
+
+// presetDisplayName extracts the `# NAME=` value from a preset body, falling
+// back to `fallback` (the filename id) when absent — keeps old presets working.
+func presetDisplayName(content, fallback string) string {
+	for _, line := range strings.Split(content, "\n") {
+		s := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "#"))
+		i := strings.IndexByte(s, '=')
+		if i >= 0 && strings.EqualFold(strings.TrimSpace(s[:i]), "NAME") {
+			if v := strings.Trim(strings.TrimSpace(s[i+1:]), `"`); v != "" {
+				return v
+			}
+		}
+	}
+	return fallback
+}
+
+// withDisplayName ensures the body carries a `# NAME=<name>` line (replacing an
+// existing one, or prepended otherwise).
+func withDisplayName(content, name string) string {
+	line := "# NAME=" + name
+	if nameLineRe.MatchString(content) {
+		return nameLineRe.ReplaceAllString(content, line)
+	}
+	return line + "\n" + content
+}
+
+// ListPresets returns all configs/*.env, marking the one whose contents match
+// the current config.env (by SHA-1), sorted by display name.
 func ListPresets() ([]Preset, error) {
 	dir := presetsDir()
 	_ = os.MkdirAll(dir, 0o755)
@@ -45,8 +76,10 @@ func ListPresets() ([]Preset, error) {
 			continue
 		}
 		h := sha1.Sum(b)
+		id := strings.TrimSuffix(e.Name(), ".env")
 		out = append(out, Preset{
-			Name:   strings.TrimSuffix(e.Name(), ".env"),
+			ID:     id,
+			Name:   presetDisplayName(string(b), id),
 			Path:   p,
 			Active: hex.EncodeToString(h[:]) == cur,
 		})
@@ -55,12 +88,53 @@ func ListPresets() ([]Preset, error) {
 	return out, nil
 }
 
-var presetNameRe = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+// uniquePresetID derives a unique filename id from a display name, appending
+// " (2)", " (3)"… on collision so duplicate names never overwrite.
+func uniquePresetID(name string) (string, error) {
+	base := strings.TrimSpace(strings.NewReplacer("/", "-", "\\", "-").Replace(name))
+	if base == "" {
+		base = "preset"
+	}
+	cand := base
+	for n := 2; n < 10000; n++ {
+		p, err := safePresetPath(cand)
+		if err != nil {
+			return "", err
+		}
+		if _, err := os.Stat(p); os.IsNotExist(err) {
+			return cand, nil
+		}
+		cand = fmt.Sprintf("%s (%d)", base, n)
+	}
+	return "", fmt.Errorf("impossible de générer un nom de fichier unique")
+}
+
+// validPresetName accepts any name (spaces, accents, parentheses…) as long as it
+// stays a single safe filename: no path separators, no control chars, and not a
+// reserved directory entry. Path containment is double-checked in safePresetPath.
+func validPresetName(name string) error {
+	if name == "" {
+		return fmt.Errorf("nom vide")
+	}
+	if name == "." || name == ".." {
+		return fmt.Errorf("nom réservé")
+	}
+	if strings.ContainsAny(name, `/\`+"\x00") {
+		return fmt.Errorf(`le nom ne peut pas contenir / ni \`)
+	}
+	for _, r := range name {
+		if r < 0x20 {
+			return fmt.Errorf("le nom contient un caractère de contrôle invalide")
+		}
+	}
+	return nil
+}
 
 // safePresetPath validates name and returns its resolved path inside presetsDir.
 func safePresetPath(name string) (string, error) {
-	if !presetNameRe.MatchString(name) {
-		return "", fmt.Errorf("nom invalide (alphanum, ._-)")
+	name = strings.TrimSpace(name)
+	if err := validPresetName(name); err != nil {
+		return "", err
 	}
 	root, err := filepath.Abs(presetsDir())
 	if err != nil {
@@ -84,14 +158,10 @@ func SwitchToPreset(target string) error {
 	if err != nil {
 		return err
 	}
-	ts := time.Now().Format("20060102-150405")
-	if cur, err := os.ReadFile(confPath()); err == nil {
-		_ = os.WriteFile(confPath()+".bak.switch-"+ts, cur, 0o644)
-	}
 	if err := os.WriteFile(confPath(), src, 0o644); err != nil {
 		return err
 	}
-	fmt.Printf("%s config.env <- %s  (backup .bak.switch-%s)\n", green("[ok]"), filepath.Base(target), ts)
+	fmt.Printf("%s config.env <- %s\n", green("[ok]"), filepath.Base(target))
 	fmt.Println(dim("[info] redémarrage du service..."))
 	return serviceAction("restart")
 }
@@ -134,24 +204,39 @@ func cmdSwitch(args []string) error {
 	return SwitchToPreset(list[n-1].Path)
 }
 
-// SavePreset creates or overwrites a preset, handling rename when old != "".
-func SavePreset(name, old, content string) error {
-	if old != "" && old != name {
-		if of, err := safePresetPath(old); err == nil {
-			_ = os.Remove(of)
-		}
+// SavePreset writes a preset. When id == "" it creates a NEW preset under a
+// freshly-generated unique filename (so duplicate display names never clash).
+// When id != "" it updates that existing preset in place (filename unchanged —
+// only the body and its `# NAME=` line change). Returns the resulting id.
+func SavePreset(id, name, content string) (string, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", fmt.Errorf("nom requis")
 	}
-	p, err := safePresetPath(name)
+	content = withDisplayName(content, name)
+	if id == "" {
+		newID, err := uniquePresetID(name)
+		if err != nil {
+			return "", err
+		}
+		p, err := safePresetPath(newID)
+		if err != nil {
+			return "", err
+		}
+		_ = os.MkdirAll(filepath.Dir(p), 0o755)
+		return newID, os.WriteFile(p, []byte(content), 0o644)
+	}
+	p, err := safePresetPath(id)
 	if err != nil {
-		return err
+		return "", err
 	}
 	_ = os.MkdirAll(filepath.Dir(p), 0o755)
-	return os.WriteFile(p, []byte(content), 0o644)
+	return id, os.WriteFile(p, []byte(content), 0o644)
 }
 
-// DeletePreset removes a preset; refuses if it is the active config.
-func DeletePreset(name string) error {
-	p, err := safePresetPath(name)
+// DeletePreset removes a preset by id; refuses if it is the active config.
+func DeletePreset(id string) error {
+	p, err := safePresetPath(id)
 	if err != nil {
 		return err
 	}
@@ -166,9 +251,9 @@ func DeletePreset(name string) error {
 	return os.Remove(p)
 }
 
-// ReadPreset returns the contents of a preset by name.
-func ReadPreset(name string) (string, error) {
-	p, err := safePresetPath(name)
+// ReadPreset returns the contents of a preset by id (filename).
+func ReadPreset(id string) (string, error) {
+	p, err := safePresetPath(id)
 	if err != nil {
 		return "", err
 	}
