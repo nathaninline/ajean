@@ -23,6 +23,7 @@ Faire tourner llama.cpp comme un vrai service, ça veut dire d'habitude : trouve
 - **Intégration systemd** — `jean install` écrit l'unité, une règle sudoers `systemctl` sans mot de passe, et les dossiers de données
 - **Interface web** (`jean web`) — chat, changement de modèle/preset, activation des skills & tools
 - **Chat terminal** (`jean chat`) — réponses en streaming
+- **Accès distant** (`jean link`) — connecte ce serveur à [ajean.link](https://ajean.link) par une connexion **sortante** (aucun port à ouvrir, marche même en CGNAT) : retrouve l'UI web et un endpoint **compatible OpenAI** depuis n'importe où
 - **Presets** (`jean switch`) — garde plusieurs profils `config.env` et bascule entre eux
 - **Protection par clé API** (`jean set-api-key`) — auth Bearer pour exposer le serveur publiquement ; la clé est stockée à part pour survivre aux changements de preset
 - **Benchmark** (`jean bench`) — tok/s prefill/decode honnêtes avec un corpus varié
@@ -112,9 +113,13 @@ Interaction :
   chat [system-prompt]          chat terminal streamé
   web [PORT]                    interface web (défaut :8090)
 
+Accès distant (ajean.link) :
+  link <token>                  connecte ce Jean au relais (accès web + API OpenAI depuis partout)
+  link status | logout          état du lien / oublier le token
+
 Outils côté LLM :
   skills [on|off|list]          laisse le modèle lire SKILLS/<nom>/SKILL.md
-  tools  [on|off|status]        active run_shell (le modèle exécute des commandes shell)
+  machine [on|off|status]       active l'accès machine (le modèle dispose d'un shell complet sur le serveur)
 
 Backend (llama.cpp) :
   llamacpp install              clone + compile llama.cpp (détecte CUDA/ROCm/Metal/CPU), règle BIN
@@ -189,6 +194,22 @@ Endpoints utiles pour un client :
 La clé est stockée dans `$JEAN_HOME/.web_key`, distincte de `.api_key` (pilotage ≠ accès complétions), et relue à chaud à chaque requête. Le pilotage du service est cross-platform (systemd sous Linux, supervision par PID-file sous Windows).
 
 > ⚠️ La clé voyage en clair en HTTP. Pour une exposition publique, place Jean derrière un reverse-proxy HTTPS (Caddy, nginx) ou un tunnel (Tailscale, Cloudflare Tunnel).
+
+### Accès distant via ajean.link
+
+Plutôt que d'exposer un port, `jean link` ouvre une connexion **sortante** vers le relais [ajean.link](https://ajean.link) : ton serveur reste injoignable depuis l'extérieur, mais tu y accèdes quand même depuis n'importe où — idéal derrière une box ou en CGNAT.
+
+```bash
+jean web                 # l'UI doit tourner localement
+jean link <token>        # token fourni sur ajean.link
+```
+
+Une fois lié, tu retrouves depuis le portail :
+- l'**interface web** de ton serveur, à distance ;
+- un **endpoint compatible OpenAI** (`https://ajean.link/oai/<machine>/v1`, clé = ton token) pour brancher n'importe quel outil (OpenCode, etc.) ;
+- la gestion de **plusieurs serveurs** et d'**agents** depuis un tableau de bord.
+
+C'est un service optionnel et payant ; tout le reste de Jean est et restera open source et gratuit.
 
 ### Variables d'environnement
 

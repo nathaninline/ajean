@@ -72,8 +72,11 @@ func cmdChat(args []string) error {
 			case ev.Stats != nil:
 				stats = ev.Stats
 			case ev.ToolUsed != nil:
-				icon := "📖"
-				verb := "lecture du skill"
+				if ev.ToolUsed.Done || ev.ToolUsed.Typing {
+					break // résultat / frappe live affichés côté web ; en terminal on garde l'annonce seule
+				}
+				icon := "📚"
+				verb := "skill"
 				if ev.ToolUsed.Name == "run_shell" {
 					icon = "⚙️"
 					verb = "exécution"

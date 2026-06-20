@@ -28,6 +28,34 @@ func cmdWeb(args []string) error {
 		}
 		port = n
 	}
+	mux := newWebMux()
+	addr := fmt.Sprintf("0.0.0.0:%d", port)
+
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		// Port occupé : on identifie le process qui le tient et on propose de
+		// le terminer pour relancer à sa place.
+		if !resolvePortConflict(port) {
+			return err
+		}
+		if ln, err = net.Listen("tcp", addr); err != nil {
+			return err
+		}
+	}
+	fmt.Printf("[jean web] http://%s  (Ctrl-C pour arrêter)\n", addr)
+	if readWebKey() == "" {
+		fmt.Printf("%s API de pilotage NON protégée (aucune clé). Avant de l'exposer sur internet :\n", yellow("[!]"))
+		fmt.Printf("       %s\n", bold("jean set-web-key"))
+	} else {
+		fmt.Printf("%s API protégée par clé (Authorization: Bearer …)\n", green("[ok]"))
+	}
+	return http.Serve(ln, mux)
+}
+
+// newWebMux construit le routeur HTTP de l'UI web. Extrait de cmdWeb pour être
+// réutilisé par `jean link`, qui sert ce même mux à travers le tunnel sans
+// repasser par un écouteur TCP local.
+func newWebMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	// Pages publiques : le HTML et le JS ne contiennent aucun secret. Toute la
 	// donnée et toutes les actions passent par /api/* qui, lui, exige la clé.
@@ -67,27 +95,7 @@ func cmdWeb(args []string) error {
 	api("/api/bench", handleBench)
 	api("/api/bench/last", handleBenchLast)
 	api("/api/chat", handleChat)
-	addr := fmt.Sprintf("0.0.0.0:%d", port)
-
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		// Port occupé : on identifie le process qui le tient et on propose de
-		// le terminer pour relancer à sa place.
-		if !resolvePortConflict(port) {
-			return err
-		}
-		if ln, err = net.Listen("tcp", addr); err != nil {
-			return err
-		}
-	}
-	fmt.Printf("[jean web] http://%s  (Ctrl-C pour arrêter)\n", addr)
-	if readWebKey() == "" {
-		fmt.Printf("%s API de pilotage NON protégée (aucune clé). Avant de l'exposer sur internet :\n", yellow("[!]"))
-		fmt.Printf("       %s\n", bold("jean set-web-key"))
-	} else {
-		fmt.Printf("%s API protégée par clé (Authorization: Bearer …)\n", green("[ok]"))
-	}
-	return http.Serve(ln, mux)
+	return mux
 }
 
 // resolvePortConflict identifies the process listening on `port`, asks the user
@@ -200,11 +208,18 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 	if active {
 		health = healthCheck()
 	}
+	ctx := 32768
+	if v := ReadConfig()["CTX"]; v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			ctx = n
+		}
+	}
 	sendJSON(w, 200, map[string]any{
 		"state":  state,
 		"active": active,
 		"health": health,
 		"port":   LLMPort(),
+		"ctx":    ctx,
 	})
 }
 
@@ -584,7 +599,7 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 			return true
 		}
 		if ev.ToolUsed != nil {
-			emit(map[string]any{"tool_used": map[string]any{"name": ev.ToolUsed.Name, "label": ev.ToolUsed.Label}})
+			emit(map[string]any{"tool_used": map[string]any{"name": ev.ToolUsed.Name, "label": ev.ToolUsed.Label, "result": ev.ToolUsed.Result, "done": ev.ToolUsed.Done, "typing": ev.ToolUsed.Typing}})
 			return true
 		}
 		if ev.Stats != nil {

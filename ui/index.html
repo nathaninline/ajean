@@ -96,6 +96,14 @@ button:disabled{opacity:.5;cursor:not-allowed}
 #scrollbtn{position:absolute;bottom:80px;right:20px;background:var(--panel);border:1px solid var(--border);color:var(--accent);width:36px;height:36px;border-radius:50%;cursor:pointer;display:none;font-size:16px;z-index:5}
 #scrollbtn.show{display:block}
 .msg.reasoning{align-self:flex-start;background:transparent;border:1px dashed var(--border);color:var(--mag);font-size:12px;max-width:90%}
+.msg.tool{align-self:flex-start;background:var(--panel);border:1px solid var(--border);max-width:100%;white-space:normal;padding:8px 12px}
+.msg.tool .tool-head{font-size:12px;color:var(--accent);font-weight:600;margin-bottom:6px}
+.msg.tool .tool-sub{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin:8px 0 4px}
+.msg.tool pre{position:relative;background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:8px 10px;overflow:auto;margin:0;max-height:280px}
+.msg.tool pre code{background:transparent;padding:0;font-size:.82em;line-height:1.4;white-space:pre}
+.msg.tool .tool-caret{color:var(--accent);animation:toolblink 1s step-end infinite}
+.msg.tool .tool-wait{font-size:12px;color:var(--dim);margin-top:8px;animation:toolblink 1.2s ease-in-out infinite}
+@keyframes toolblink{0%,100%{opacity:.45}50%{opacity:1}}
 .msg .label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;display:block}
 #inputbar{border-top:1px solid var(--border);padding:12px;display:flex;gap:8px}
 #input{flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;font:inherit;resize:none;min-height:44px;max-height:200px}
@@ -126,9 +134,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
   <details><summary>Presets<button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter">+</button></summary>
     <div id="presets"></div>
   </details>
-  <details><summary>Tools <span id="tools-badge" style="margin-left:auto;font-size:10px"></span></summary>
-    <label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 0"><input type="checkbox" id="tools-toggle" onchange="toggleTools()"> activer <code style="color:var(--warn);font-size:11px">run_shell</code></label>
-    <div class="muted" style="font-size:11px">⚠️ permet à l'IA d'exécuter des commandes bash sur le serveur (timeout 30s, max 300s)</div>
+  <details><summary>Accès machine <span id="tools-badge" style="margin-left:auto;font-size:10px"></span></summary>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 0"><input type="checkbox" id="tools-toggle" onchange="toggleTools()"> activer l'accès machine</label>
+    <div class="muted" style="font-size:11px">⚠️ donne à l'IA un accès shell complet au serveur — elle peut inspecter, lancer des scripts et tout faire via le terminal (timeout 30s, max 300s)</div>
   </details>
   <details><summary>Skills <span id="skills-badge" style="margin-left:auto;font-size:10px"></span><button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openSkill('')" title="ajouter">+</button></summary>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 0"><input type="checkbox" id="skills-toggle" onchange="toggleSkills()"> activer</label>
@@ -155,6 +163,13 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="main" style="position:relative">
   <div id="chat"></div>
   <button id="scrollbtn" onclick="jumpBottom()" title="aller en bas">↓</button>
+  <div id="ctxbar" style="padding:4px 12px 0;font-size:11px;display:flex;align-items:center;gap:8px">
+    <div style="flex:1;height:6px;background:var(--panel);border:1px solid var(--border);border-radius:4px;overflow:hidden">
+      <div id="ctx-fill" style="height:100%;width:0%;background:var(--ok,#3a7);transition:width .3s,background .3s"></div>
+    </div>
+    <span id="ctx-text" class="muted" style="white-space:nowrap">contexte 0 / 0</span>
+    <button id="ctx-compact" onclick="compactContext()" style="display:none;margin:0;padding:2px 10px;font-size:11px;background:#3d2f1f;border-color:var(--warn,#c93)">compacter</button>
+  </div>
   <div id="inputbar">
     <textarea id="input" placeholder="message…" onkeydown="onKey(event)"></textarea>
     <button id="send" onclick="send()">send</button>
@@ -214,7 +229,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
     </div>
   </div>
 </div>
-<script src="/marked.min.js"></script>
+<script src="marked.min.js"></script>
 <script>
 // marked: GFM on, no auto-breaks (single newlines stay inline).
 marked.setOptions({ gfm: true, breaks: false });
@@ -237,15 +252,19 @@ let msgs = [];
 let busy = false;
 function toggleSide(){ document.getElementById('side').classList.toggle('open'); document.getElementById('backdrop').classList.toggle('open'); document.body.classList.toggle('drawer-open'); }
 function saveSys(){ localStorage.setItem('jean.sys', document.getElementById('sysprompt').value); }
-document.addEventListener('DOMContentLoaded', ()=>{ document.getElementById('sysprompt').value = localStorage.getItem('jean.sys') || ''; });
+document.addEventListener('DOMContentLoaded', ()=>{ document.getElementById('sysprompt').value = localStorage.getItem('jean.sys') || ''; restoreChat(); });
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
 // Clé de pilotage : envoyée en Authorization: Bearer sur chaque appel /api/*.
 // Sur un 401 on la (re)demande et on rejoue la requête. Stockée en localStorage.
 let TOKEN = localStorage.getItem('jean.key') || '';
 function authHeaders(h){ h = Object.assign({}, h||{}); if(TOKEN) h['Authorization']='Bearer '+TOKEN; return h; }
+// Base d'URL : "" en local (page à "/"), "/u/<id>" servie via le relais ajean.link.
+// Garde les chemins absolus (/api/…) corrects derrière le tunnel.
+const API_BASE = location.pathname.replace(/\/(index\.html)?$/, '');
 async function jfetch(u, opts){
   opts = opts || {};
   opts.headers = authHeaders(opts.headers);
+  if(u.charAt(0) === '/') u = API_BASE + u;
   let r = await fetch(u, opts);
   if(r.status === 401){
     const k = prompt('Clé de pilotage jean requise :', '');
@@ -259,6 +278,20 @@ async function loadStatus(){
   const s=await jget('/api/status');
   const t=s.active?'<span class="tag ok">● active</span>':'<span class="tag err">○ '+s.state+'</span>';
   document.getElementById('status-svc').innerHTML = t + ' <span class="muted">:'+s.port+'</span>';
+  if(s.ctx){ CTX_MAX=s.ctx; updateCtxMeter(); }
+}
+// Compteur de contexte : CTX_USED estimé via les stats serveur (prefill+decode
+// du dernier tour ≈ taille du prochain prompt). À 90% on propose de compacter.
+let CTX_MAX=0, CTX_USED=0;
+function setCtxUsed(n){ CTX_USED=n||0; updateCtxMeter(); }
+function updateCtxMeter(){
+  if(!CTX_MAX) return;
+  const pct=Math.min(100, Math.round(CTX_USED*100/CTX_MAX));
+  const fill=document.getElementById('ctx-fill');
+  fill.style.width=pct+'%';
+  fill.style.background = pct>=90 ? 'var(--err,#c44)' : pct>=70 ? 'var(--warn,#c93)' : 'var(--ok,#3a7)';
+  document.getElementById('ctx-text').textContent='contexte '+CTX_USED+' / '+CTX_MAX+' ('+pct+'%)';
+  document.getElementById('ctx-compact').style.display = pct>=90 ? 'inline-block' : 'none';
 }
 async function loadVram(){
   const gpus=await jget('/api/vram');
@@ -349,7 +382,7 @@ async function loadTools(){
 }
 async function toggleTools(){
   const on=document.getElementById('tools-toggle').checked;
-  if(on && !confirm("Activer run_shell ? L'IA pourra exécuter des commandes bash sur le serveur.")){ document.getElementById('tools-toggle').checked=false; return; }
+  if(on && !confirm("Activer l'accès machine ? L'IA aura un accès shell complet au serveur.")){ document.getElementById('tools-toggle').checked=false; return; }
   await jpost('/api/tools/toggle',{on}); loadTools();
 }
 async function loadAll(){ await Promise.all([loadStatus(),loadVram(),loadCfg(),loadPresets(),loadSkills(),loadTools()]); }
@@ -645,6 +678,34 @@ function setLabel(el, text){ el.querySelector('.label').textContent = text; }
 function bodyOf(el){ return el.querySelector('.body'); }
 // Render markdown into a message body in place; safe because md() escapes HTML.
 function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(text); addCopyButtons(b); scrollMaybe(); }
+// Render a tool call as its own conversation message: the command the model
+// wrote, then the response it got back. textContent keeps it injection-safe.
+function renderToolMsg(el, tu){
+  const isShell = tu.name==='run_shell';
+  setLabel(el, isShell ? 'terminal' : 'skill');
+  const body=bodyOf(el); body.innerHTML='';
+  const head=document.createElement('div'); head.className='tool-head';
+  head.textContent = isShell ? '⚙️ commande' : '📚 skill';
+  body.appendChild(head);
+  if(tu.label){
+    const pre=document.createElement('pre'); pre.className='tool-cmd';
+    const code=document.createElement('code'); code.textContent=tu.label;
+    if(tu.typing){ const car=document.createElement('span'); car.className='tool-caret'; car.textContent='▋'; code.appendChild(car); }
+    pre.appendChild(code); body.appendChild(pre);
+  }
+  const hasResult = tu.result!==undefined && tu.result!=='';
+  if(hasResult){
+    const sub=document.createElement('div'); sub.className='tool-sub'; sub.textContent='réponse';
+    body.appendChild(sub);
+    const pre=document.createElement('pre');
+    const code=document.createElement('code'); code.textContent=tu.result;
+    pre.appendChild(code); body.appendChild(pre);
+  } else if(!tu.done && !tu.typing){
+    const wait=document.createElement('div'); wait.className='tool-wait'; wait.textContent='⏳ exécution en cours…';
+    body.appendChild(wait);
+  }
+  addCopyButtons(body); scrollMaybe();
+}
 // Inject a "copier" button into every <pre> code block (idempotent).
 function addCopyButtons(root){
   root.querySelectorAll('pre').forEach(pre=>{
@@ -662,7 +723,63 @@ function addCopyButtons(root){
     pre.appendChild(btn);
   });
 }
-function resetChat(){ msgs=[]; document.getElementById('chat').innerHTML=''; toast('chat vidé'); }
+function resetChat(){ msgs=[]; document.getElementById('chat').innerHTML=''; saveChat(); try{localStorage.removeItem('jean.ctxused');}catch(e){} setCtxUsed(0); toast('chat vidé'); }
+// Compaction : on demande à l'IA un résumé de la conversation destiné à la
+// reprendre dans une session neuve, puis on repart d'un contexte propre seedé
+// avec ce résumé. Réduit drastiquement les tokens tout en gardant le fil.
+async function compactContext(){
+  if(busy) return;
+  if(!msgs.length){ toast('rien à compacter'); return; }
+  if(!confirm('Compacter le contexte ? L\'IA va résumer la conversation puis repartir d\'une session propre basée sur ce résumé.')) return;
+  busy=true;
+  const btn=document.getElementById('ctx-compact'); btn.textContent='compaction…'; btn.disabled=true;
+  const instruction='Résume de façon structurée et complète TOUTE notre conversation jusqu\'ici, dans le but de poursuivre le travail dans une nouvelle session sans rien perdre d\'important : objectifs, décisions prises, état actuel, fichiers/commandes/éléments clés, et ce qu\'il reste à faire. Écris uniquement le résumé, sans préambule.';
+  let summary='';
+  try{
+    const sys=(document.getElementById('sysprompt').value||'').trim();
+    const base=[...msgs,{role:'user',content:instruction}];
+    const out = sys ? [{role:'system',content:sys},...base] : base;
+    const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:out})});
+    const reader=r.body.getReader(); const dec=new TextDecoder(); let buf='';
+    while(true){
+      const {done,value}=await reader.read(); if(done) break;
+      buf+=dec.decode(value,{stream:true}); let i;
+      while((i=buf.indexOf('\n\n'))>=0){
+        const chunk=buf.slice(0,i); buf=buf.slice(i+2);
+        for(const line of chunk.split('\n')){
+          if(!line.startsWith('data:')) continue;
+          const data=line.slice(5).trim(); if(data==='[DONE]') continue;
+          try{ const o=JSON.parse(data); const d=(o.choices&&o.choices[0]&&o.choices[0].delta)||{}; if(d.content) summary+=d.content; }catch(e){}
+        }
+      }
+    }
+  }catch(e){ toast('échec compaction: '+e.message); busy=false; btn.textContent='compacter'; btn.disabled=false; return; }
+  summary=summary.trim();
+  if(!summary){ toast('résumé vide'); busy=false; btn.textContent='compacter'; btn.disabled=false; return; }
+  // Session propre seedée avec le résumé.
+  msgs=[{role:'user',content:'Résumé de notre session précédente (reprends le travail à partir de là) :\n\n'+summary},
+        {role:'assistant',content:'Compris, je reprends à partir de ce résumé.'}];
+  document.getElementById('chat').innerHTML='';
+  const note=addMsg('tool',''); note.querySelector('.label').textContent='contexte compacté';
+  renderBody(note, '🗜️ **Contexte compacté.** Résumé de reprise :\n\n'+summary);
+  saveChat();
+  setCtxUsed(0); try{localStorage.removeItem('jean.ctxused');}catch(e){}
+  busy=false; btn.textContent='compacter'; btn.disabled=false;
+  toast('contexte compacté');
+}
+// Persistance de la conversation : on garde user+assistant en localStorage pour
+// survivre à un refresh (les bulles tool/reasoning sont éphémères, non stockées).
+function saveChat(){ try{ localStorage.setItem('jean.chat', JSON.stringify(msgs)); }catch(e){} }
+function restoreChat(){
+  let raw=null; try{ raw=localStorage.getItem('jean.chat'); }catch(e){}
+  if(!raw) return;
+  try{ msgs=JSON.parse(raw)||[]; }catch(e){ msgs=[]; return; }
+  for(const m of msgs){
+    if(m.role==='user') addMsg('user', m.content);
+    else if(m.role==='assistant'){ const el=addMsg('assistant',''); renderBody(el, m.content||''); }
+  }
+  const cu=parseInt(localStorage.getItem('jean.ctxused')||'0',10); if(cu>0) setCtxUsed(cu);
+}
 function onKey(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } }
 let abortCtrl=null;
 function stopGen(){ if(abortCtrl){ abortCtrl.abort(); toast('stop'); } }
@@ -674,8 +791,8 @@ async function send(){
   document.getElementById('send').style.display='none';
   document.getElementById('stop').style.display='inline-block';
   addMsg('user', text);
-  msgs.push({role:'user',content:text});
-  let reasonEl=null, contentEl=null, fullContent='', fullReason='';
+  msgs.push({role:'user',content:text}); saveChat();
+  let reasonEl=null, contentEl=null, pendingToolEl=null, fullContent='', fullReason='';
   let tokCount=0, reasonTokCount=0, t0=performance.now(), firstTok=0, statsTimer=null;
   let serverStats=null;
   const updateStats=(final)=>{
@@ -721,20 +838,33 @@ async function send(){
             const d=(o.choices&&o.choices[0]&&o.choices[0].delta)||{};
             if(d.stats){ serverStats = d.stats; }
             if(d.tool_used){
-              const ne=addMsg('reasoning','');
-              const icon = d.tool_used.name==='run_shell' ? '⚙️' : '📖';
-              const verb = d.tool_used.name==='run_shell' ? 'exécution' : 'lecture du skill';
-              bodyOf(ne).textContent = icon+' '+verb+' : '+d.tool_used.label;
-              setLabel(ne, 'tool · '+d.tool_used.name);
+              // Close out the current assistant/reasoning bubbles so any text the
+              // model streams *after* the tool call starts a fresh bubble BELOW it
+              // (and isn't appended above, into the pre-call bubble).
+              contentEl=null; reasonEl=null;
+              const tu=d.tool_used;
+              // One bubble per call: the live "typing" updates, the "en cours"
+              // spinner, and the final result all re-render the SAME element.
+              if(!pendingToolEl) pendingToolEl=addMsg('tool','');
+              renderToolMsg(pendingToolEl, tu);
+              if(tu.done){
+                pendingToolEl=null;
+                // L'IA gère ses skills elle-même : rafraîchir le menu en direct
+                // dès qu'un skill est créé/modifié/supprimé (pas besoin de F5).
+                if(tu.name==='skill') loadSkills();
+              }
             }
             if(d.reasoning_content){
-              if(!reasonEl) reasonEl=addMsg('reasoning','');
+              // Start a fresh buffer per bubble — otherwise a reasoning block that
+              // follows a tool call re-renders ALL previously accumulated reasoning
+              // into the new bubble (duplicated dozens of times over a turn).
+              if(!reasonEl){ reasonEl=addMsg('reasoning',''); fullReason=''; }
               if(!firstTok) firstTok=performance.now();
               reasonTokCount++;
               fullReason+=d.reasoning_content; renderBody(reasonEl, fullReason);
             }
             if(d.content){
-              if(!contentEl){ contentEl=addMsg('assistant',''); firstTok=performance.now(); }
+              if(!contentEl){ contentEl=addMsg('assistant',''); fullContent=''; firstTok=performance.now(); }
               tokCount++;
               fullContent+=d.content; renderBody(contentEl, fullContent);
             }
@@ -742,7 +872,11 @@ async function send(){
         }
       }
     }
-    msgs.push({role:'assistant',content:fullContent});
+    msgs.push({role:'assistant',content:fullContent}); saveChat();
+    // Le KV cache s'accumule : chaque tour ajoute les tokens NOUVELLEMENT traités
+    // (prompt_tokens, le préfixe caché n'est pas recompté) + ceux générés. La
+    // taille réelle du contexte = somme cumulée, donc monotone croissante.
+    if(serverStats){ setCtxUsed(CTX_USED + (serverStats.prompt_tokens||0) + (serverStats.gen_tokens||0)); try{ localStorage.setItem('jean.ctxused', CTX_USED); }catch(e){} }
   }catch(e){
     if(e.name==='AbortError'){
       if(contentEl) setLabel(contentEl, 'assistant  ·  '+tokCount+' tok  ·  interrompu');
@@ -751,6 +885,7 @@ async function send(){
     } else {
       addMsg('assistant','[erreur] '+e.message); msgs.pop();
     }
+    saveChat();
   }
   if(statsTimer) clearInterval(statsTimer);
   updateStats(true);

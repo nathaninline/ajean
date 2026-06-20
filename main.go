@@ -38,9 +38,11 @@ func main() {
 		mustExit(cmdChat(args))
 	case "web":
 		mustExit(cmdWeb(args))
+	case "link":
+		mustExit(cmdLink(args))
 	case "skills":
 		mustExit(cmdSkills(args))
-	case "tools":
+	case "machine", "tools":
 		mustExit(cmdTools(args))
 	case "serve":
 		mustExit(cmdServe(args))
@@ -89,9 +91,13 @@ Interaction:
   chat [system-prompt]          chat terminal streamé
   web [PORT]                    UI web (défaut :8090) — chat + presets + skills + tools
 
+Accès distant (ajean.link) :
+  link <token>                  connecte ce Jean au relais public (accès web depuis partout, sans ouvrir de port)
+  link status | logout          état du lien / oublier le token
+
 LLM-side outils:
   skills [on|off|list]          active la lecture de SKILLS/<nom>/SKILL.md par l'IA
-  tools  [on|off|status]        active run_shell (l'IA exécute des commandes bash)
+  machine [on|off|status]       active l'accès machine (l'IA dispose d'un shell complet sur le serveur)
 
 Backend llama.cpp :
   llamacpp install              clone + compile llama.cpp (détecte CUDA/ROCm/Metal/CPU), pointe BIN dessus

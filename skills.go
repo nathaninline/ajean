@@ -117,6 +117,32 @@ func SaveSkill(name, old, content string) error {
 	return os.WriteFile(filepath.Join(d, "SKILL.md"), []byte(content), 0o644)
 }
 
+// AppendSkill ajoute du contenu à la fin de SKILL.md (le crée si absent).
+// C'est le mode "offset" : l'IA peut consigner une solution trouvée sans
+// réécrire tout le skill.
+func AppendSkill(name, content string) error {
+	d, err := safeSkillDir(name)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(d, 0o755); err != nil {
+		return err
+	}
+	p := filepath.Join(d, "SKILL.md")
+	existing, _ := os.ReadFile(p)
+	var b strings.Builder
+	if len(existing) > 0 {
+		b.Write(existing)
+		if !strings.HasSuffix(string(existing), "\n") {
+			b.WriteString("\n")
+		}
+		b.WriteString("\n")
+	}
+	b.WriteString(strings.TrimRight(content, "\n"))
+	b.WriteString("\n")
+	return os.WriteFile(p, []byte(b.String()), 0o644)
+}
+
 func DeleteSkill(name string) error {
 	d, err := safeSkillDir(name)
 	if err != nil {
@@ -135,14 +161,13 @@ func skillsSystemPrompt() string {
 		return ""
 	}
 	list := ListSkills()
-	if len(list) == 0 {
-		return ""
-	}
 	var b strings.Builder
-	b.WriteString(`Tu as accès à des skills (guides spécialisés). Pour lire le contenu détaillé d'un skill quand c'est pertinent, appelle la fonction read_skill(name="<nom>"). N'appelle pas read_skill si la question est sans rapport avec un skill listé.
-
-Skills disponibles :
-`)
+	b.WriteString(`Skills = guides Markdown que tu gères toi-même via le tool skill(action, name, content) : read=lire, write=créer/remplacer, append=ajouter à la fin sans réécrire, delete=supprimer. De ta propre initiative, crée ou enrichis un skill quand tu découvres une solution réutilisable (problème enfin résolu, procédure, astuce) ; sa 1re ligne est un titre court (#) servant de description. N'utilise read que si la question concerne un skill listé.`)
+	if len(list) == 0 {
+		b.WriteString("\nAucun skill pour l'instant.")
+		return b.String()
+	}
+	b.WriteString("\nSkills :\n")
 	for _, s := range list {
 		fmt.Fprintf(&b, "- %s: %s\n", s.Name, s.Desc)
 	}

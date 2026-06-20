@@ -42,18 +42,22 @@ type ToolFunction struct {
 
 // readSkillTool / runShellTool: OpenAI-shaped function definitions advertised
 // to the model when the corresponding feature flag is on.
-func readSkillTool() Tool {
+// skillTool : un seul outil pour toute la gestion des skills (lecture +
+// auto-gestion création/maj/suppression), ce qui évite d'envoyer trois schémas.
+func skillTool() Tool {
 	return Tool{
 		Type: "function",
 		Function: ToolFunction{
-			Name:        "read_skill",
-			Description: "Lit le contenu détaillé d'un skill listé dans le system prompt.",
+			Name:        "skill",
+			Description: "Gère tes skills (guides Markdown réutilisables). action: read=lire, write=créer/remplacer, append=ajouter à la fin sans réécrire, delete=supprimer. content requis pour write/append (1re ligne = titre court #).",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"name": map[string]any{"type": "string", "description": "Nom exact du skill"},
+					"action":  map[string]any{"type": "string", "enum": []string{"read", "write", "append", "delete"}},
+					"name":    map[string]any{"type": "string", "description": "Nom du skill (alphanum, ._-)"},
+					"content": map[string]any{"type": "string", "description": "Contenu Markdown (write/append)"},
 				},
-				"required": []string{"name"},
+				"required": []string{"action", "name"},
 			},
 		},
 	}
@@ -64,12 +68,12 @@ func runShellTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "run_shell",
-			Description: "Exécute une commande shell sur le serveur (bash). Retourne stdout, stderr et le code de sortie. Utilise-le pour inspecter le système, lancer des scripts, consulter des logs. Évite les commandes destructrices sauf si l'utilisateur le demande explicitement.",
+			Description: "Exécute une commande shell (bash) sur cette machine et retourne stdout, stderr et le code de sortie. Pour inspecter le système, lancer des scripts, lire des logs. Évite les commandes destructrices sauf demande explicite.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"command": map[string]any{"type": "string", "description": "La commande bash à exécuter"},
-					"timeout": map[string]any{"type": "integer", "description": fmt.Sprintf("Timeout en secondes (défaut %d, max %d)", toolDefaultTimeout, toolMaxTimeout)},
+					"command": map[string]any{"type": "string", "description": "La commande bash"},
+					"timeout": map[string]any{"type": "integer", "description": fmt.Sprintf("Timeout s (défaut %d, max %d)", toolDefaultTimeout, toolMaxTimeout)},
 				},
 				"required": []string{"command"},
 			},
@@ -77,26 +81,34 @@ func runShellTool() Tool {
 	}
 }
 
-// InjectSkills prepends the lightweight skills directory message to msgs when
-// skills are enabled. Merges with an existing system message if present.
+// InjectSkills prepends context system messages to msgs: the machine briefing
+// (when machine access is enabled) and the lightweight skills directory (when
+// skills are enabled). Merges with an existing system message if present.
 func InjectSkills(msgs []Message) []Message {
-	sp := skillsSystemPrompt()
-	if sp == "" {
+	var parts []string
+	if mp := machineSystemPrompt(); mp != "" {
+		parts = append(parts, mp)
+	}
+	if sp := skillsSystemPrompt(); sp != "" {
+		parts = append(parts, sp)
+	}
+	if len(parts) == 0 {
 		return msgs
 	}
+	prefix := strings.Join(parts, "\n\n")
 	if len(msgs) > 0 && msgs[0].Role == "system" {
 		existing, _ := msgs[0].Content.(string)
-		merged := append([]Message{{Role: "system", Content: sp + "\n\n" + existing}}, msgs[1:]...)
+		merged := append([]Message{{Role: "system", Content: prefix + "\n\n" + existing}}, msgs[1:]...)
 		return merged
 	}
-	return append([]Message{{Role: "system", Content: sp}}, msgs...)
+	return append([]Message{{Role: "system", Content: prefix}}, msgs...)
 }
 
 // EnabledTools returns the tools to advertise on the next inference call.
 func EnabledTools() []Tool {
 	tools := []Tool{}
-	if skillsEnabled() && len(ListSkills()) > 0 {
-		tools = append(tools, readSkillTool())
+	if skillsEnabled() {
+		tools = append(tools, skillTool())
 	}
 	if toolsEnabled() {
 		tools = append(tools, runShellTool())
@@ -114,8 +126,58 @@ type StreamEvent struct {
 	Err       error
 }
 type ToolUsedEvent struct {
-	Name  string
-	Label string // user-visible summary (skill name or first ~80 chars of command)
+	Name   string
+	Label  string // user-visible summary (skill name or the command)
+	Result string // tool output (stdout/stderr/exit for run_shell, skill body for read_skill)
+	Done   bool   // false = call announced (command only); true = result is ready
+	Typing bool   // true = command still being written (partial), no spinner yet
+}
+
+// previewArg pulls the (possibly incomplete) string value of key out of a
+// streaming tool-call arguments JSON, so the UI can show the command being
+// typed live. Best-effort: it tolerates a truncated tail and basic escapes.
+func previewArg(args, key string) string {
+	i := strings.Index(args, "\""+key+"\"")
+	if i < 0 {
+		return ""
+	}
+	rest := args[i+len(key)+2:]
+	if j := strings.Index(rest, ":"); j >= 0 {
+		rest = rest[j+1:]
+	} else {
+		return ""
+	}
+	q := strings.Index(rest, "\"")
+	if q < 0 {
+		return ""
+	}
+	rest = rest[q+1:]
+	var b strings.Builder
+	for x := 0; x < len(rest); x++ {
+		c := rest[x]
+		if c == '\\' && x+1 < len(rest) {
+			switch rest[x+1] {
+			case 'n':
+				b.WriteByte('\n')
+			case 't':
+				b.WriteByte('\t')
+			case 'r':
+			case '"':
+				b.WriteByte('"')
+			case '\\':
+				b.WriteByte('\\')
+			default:
+				b.WriteByte(rest[x+1])
+			}
+			x++
+			continue
+		}
+		if c == '"' {
+			break
+		}
+		b.WriteByte(c)
+	}
+	return b.String()
 }
 
 // StatsEvent carries llama.cpp's per-completion timing (final chunk).
@@ -168,6 +230,10 @@ func runChat(messages []Message, temperature float64, cb ChatCallback) error {
 	// bubble works regardless of backend. The ik_llama.cpp fork already sends
 	// reasoning_content, in which case we leave content untouched.
 	reasoningOn := reasoningActive(ReadConfig()["REASONING"])
+	// When llama.cpp fails to parse a model-generated tool call (HTTP 500), we
+	// retry the same turn once with tools removed so the model answers in plain
+	// text from the tool results already gathered, instead of dying mid-chat.
+	disableTools := false
 	for iter := 0; iter < 8; iter++ {
 		payload := map[string]any{
 			"model":       "jean",
@@ -175,8 +241,13 @@ func runChat(messages []Message, temperature float64, cb ChatCallback) error {
 			"stream":      true,
 			"temperature": temperature,
 		}
-		if len(tools) > 0 {
+		if len(tools) > 0 && !disableTools {
 			payload["tools"] = tools
+			// The model sometimes emits parallel tool calls, which this llama.cpp
+			// build serialises as two concatenated JSON objects in one arguments
+			// string ("{...}{...}") and then fails to parse (HTTP 500). Forcing a
+			// single tool call per turn avoids that.
+			payload["parallel_tool_calls"] = false
 		}
 		body, _ := json.Marshal(payload)
 		url := fmt.Sprintf("http://localhost:%d/v1/chat/completions", LLMPort())
@@ -191,9 +262,36 @@ func runChat(messages []Message, temperature float64, cb ChatCallback) error {
 			cb(StreamEvent{Err: err})
 			return err
 		}
+		// A non-200 here (e.g. context window exceeded after several large tool
+		// outputs) is NOT valid SSE: without this check we'd scan an empty/HTML
+		// body, find no data lines, and return silently — the chat just stops
+		// with no answer. Surface the body so the cause is visible instead.
+		if resp.StatusCode != http.StatusOK {
+			b, _ := io.ReadAll(io.LimitReader(resp.Body, 2000))
+			resp.Body.Close()
+			msg := strings.TrimSpace(string(b))
+			if msg == "" {
+				msg = resp.Status
+			}
+			// Most common 500 here: llama.cpp couldn't parse a malformed tool call
+			// the model emitted. Retry the turn once without tools so it answers
+			// in plain text rather than leaving the chat dead.
+			if !disableTools && len(tools) > 0 {
+				disableTools = true
+				// Nudge the model to answer in plain text from what it already
+				// gathered, so it doesn't immediately re-emit a tool call that
+				// llama.cpp would again fail to parse.
+				messages = append(messages, Message{Role: "system", Content: "N'appelle plus d'outil. Réponds maintenant directement en français à partir des informations déjà obtenues."})
+				continue
+			}
+			err := fmt.Errorf("llama-server a renvoyé %d : %s", resp.StatusCode, msg)
+			cb(StreamEvent{Err: err})
+			return err
+		}
 		toolCalls := map[int]*ToolCall{}
 		assistantContent := strings.Builder{}
 		finishReason := ""
+		lastPreview := "" // last command preview emitted (to stream the typing)
 		// Per-completion reasoning-split state (see reasoningOn comment above).
 		sawReasoningField := false
 		thinkOpen := reasoningOn
@@ -245,6 +343,21 @@ func runChat(messages []Message, temperature float64, cb ChatCallback) error {
 						cur.Function.Name = tc.Function.Name
 					}
 					cur.Function.Arguments += tc.Function.Arguments
+				}
+				// Stream the command being typed: extract the partial value and
+				// emit it whenever it grows, so the UI shows it appear live.
+				if cur := toolCalls[0]; cur != nil {
+					key := "command"
+					if cur.Function.Name == "skill" {
+						key = "name"
+					}
+					if p := previewArg(cur.Function.Arguments, key); p != "" && p != lastPreview {
+						lastPreview = p
+						if !cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: cur.Function.Name, Label: p, Typing: true}}) {
+							aborted = true
+							break
+						}
+					}
 				}
 				continue
 			}
@@ -308,7 +421,10 @@ func runChat(messages []Message, temperature float64, cb ChatCallback) error {
 			return nil
 		}
 
-		if finishReason == "tool_calls" && len(toolCalls) > 0 {
+		// Treat any accumulated tool calls as a tool turn even if the backend set
+		// finish_reason to "stop" instead of "tool_calls" (some llama.cpp builds
+		// do this) — otherwise we'd skip execution AND skip answering.
+		if len(toolCalls) > 0 {
 			// 1. Append assistant message with tool_calls so the model sees its own decision next turn.
 			idxs := make([]int, 0, len(toolCalls))
 			for k := range toolCalls {
@@ -335,19 +451,52 @@ func runChat(messages []Message, temperature float64, cb ChatCallback) error {
 			for _, tc := range tcs {
 				var args map[string]any
 				_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
-				result := ""
+				// Derive the human label (command / skill name) up front so we can
+				// announce the call BEFORE running it — otherwise the UI shows
+				// nothing while a slow shell command runs and looks frozen.
 				label := ""
 				switch tc.Function.Name {
-				case "read_skill":
-					name, _ := args["name"].(string)
-					label = name
-					if c := SkillContent(name); c != "" {
-						result = c
-					} else {
-						result = fmt.Sprintf("[erreur] skill '%s' introuvable", name)
+				case "skill":
+					label, _ = args["name"].(string)
+				case "run_shell":
+					label, _ = args["command"].(string)
+				}
+				cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label}})
+
+				result := ""
+				switch tc.Function.Name {
+				case "skill":
+					action, _ := args["action"].(string)
+					content, _ := args["content"].(string)
+					switch action {
+					case "read":
+						if c := SkillContent(label); c != "" {
+							result = c
+						} else {
+							result = fmt.Sprintf("[erreur] skill '%s' introuvable", label)
+						}
+					case "write":
+						if werr := SaveSkill(label, "", content); werr != nil {
+							result = "[erreur] " + werr.Error()
+						} else {
+							result = fmt.Sprintf("[ok] skill '%s' enregistré", label)
+						}
+					case "append":
+						if werr := AppendSkill(label, content); werr != nil {
+							result = "[erreur] " + werr.Error()
+						} else {
+							result = fmt.Sprintf("[ok] skill '%s' enrichi (append)", label)
+						}
+					case "delete":
+						if derr := DeleteSkill(label); derr != nil {
+							result = "[erreur] " + derr.Error()
+						} else {
+							result = fmt.Sprintf("[ok] skill '%s' supprimé", label)
+						}
+					default:
+						result = "[erreur] action skill inconnue: " + action
 					}
 				case "run_shell":
-					cmd, _ := args["command"].(string)
 					to := 0
 					switch v := args["timeout"].(type) {
 					case float64:
@@ -355,18 +504,24 @@ func runChat(messages []Message, temperature float64, cb ChatCallback) error {
 					case int:
 						to = v
 					}
-					label = cmd
-					if len(label) > 80 {
-						label = label[:80] + "…"
-					}
-					result = runShell(cmd, to)
+					result = runShell(label, to)
 				default:
 					result = "[erreur] outil inconnu: " + tc.Function.Name
 				}
-				cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label}})
+				shown := result
+				if r := []rune(shown); len(r) > 4000 {
+					shown = string(r[:4000]) + "\n…[tronqué]"
+				}
+				cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label, Result: shown, Done: true}})
 				messages = append(messages, Message{Role: "tool", ToolCallID: tc.ID, Content: result})
 			}
 			continue
+		}
+		// Normal end of turn. If the model produced no visible answer at all
+		// (empty content, e.g. it stopped right after a tool result), say so
+		// instead of leaving the user staring at a silent, finished chat.
+		if strings.TrimSpace(assistantContent.String()) == "" {
+			cb(StreamEvent{Content: "_(le modèle n'a pas produit de réponse — finish: " + finishReason + ")_"})
 		}
 		return nil
 	}

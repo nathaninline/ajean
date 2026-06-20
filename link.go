@@ -1,0 +1,228 @@
+package main
+
+// link.go — `jean link <token>` : connecte ce serveur Jean au relais public
+// (ajean.link) par une connexion SORTANTE persistante, pour qu'un utilisateur
+// y accède depuis n'importe où sans ouvrir de port (CGNAT, box, etc.).
+//
+// Principe : l'agent ouvre un WebSocket vers le relais, l'authentifie avec le
+// token d'abonnement, puis multiplexe (yamux) ce lien unique en un stream par
+// requête navigateur. Chaque stream est reverse-proxyfié vers le `jean web`
+// local. Keepalive + reconnexion automatique avec backoff.
+//
+// Le token est fourni par la boutique à l'achat. Il est mémorisé dans
+// $JEAN_HOME/.link_token pour que `jean link` (sans argument) reprenne la
+// connexion.
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/coder/websocket"
+	"github.com/hashicorp/yamux"
+)
+
+// defaultRelayURL est l'endpoint WebSocket du relais. Surchageable via
+// $JEAN_LINK_URL (utile pour tester contre un relais local).
+const defaultRelayURL = "wss://ajean.link/agent"
+
+func linkTokenPath() string   { return filepath.Join(JeanHome(), ".link_token") }
+func linkMachinePath() string { return filepath.Join(JeanHome(), ".link_machine") }
+
+// machineID returns a stable per-machine identifier, creating one on first use.
+// Permet au relais de regrouper les connexions d'une même machine sous le compte.
+func machineID() string {
+	if b, err := os.ReadFile(linkMachinePath()); err == nil {
+		if id := strings.TrimSpace(string(b)); id != "" {
+			return id
+		}
+	}
+	buf := make([]byte, 8)
+	_, _ = rand.Read(buf)
+	id := hex.EncodeToString(buf)
+	_ = os.MkdirAll(JeanHome(), 0o755)
+	_ = os.WriteFile(linkMachinePath(), []byte(id+"\n"), 0o600)
+	return id
+}
+
+// readLinkToken returns the saved subscription token, or "".
+func readLinkToken() string {
+	b, err := os.ReadFile(linkTokenPath())
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
+}
+
+func saveLinkToken(tok string) error {
+	if err := os.MkdirAll(JeanHome(), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(linkTokenPath(), []byte(tok+"\n"), 0o600)
+}
+
+// relayURL resolves the relay WebSocket endpoint (env override → default).
+func relayURL() string {
+	if u := strings.TrimSpace(os.Getenv("JEAN_LINK_URL")); u != "" {
+		return u
+	}
+	return defaultRelayURL
+}
+
+func cmdLink(args []string) error {
+	// Sous-commandes utilitaires.
+	if len(args) > 0 {
+		switch args[0] {
+		case "status":
+			tok := readLinkToken()
+			if tok == "" {
+				fmt.Println(yellow("[info]") + " aucun token enregistré — lance: jean link <token>")
+				return nil
+			}
+			fmt.Printf("%s token enregistré (%s…), relais: %s\n", green("[ok]"), tok[:min(8, len(tok))], relayURL())
+			return nil
+		case "logout":
+			_ = os.Remove(linkTokenPath())
+			fmt.Println(green("[ok]") + " token supprimé")
+			return nil
+		}
+	}
+
+	token := readLinkToken()
+	if len(args) > 0 && args[0] != "" {
+		token = strings.TrimSpace(args[0])
+		if err := saveLinkToken(token); err != nil {
+			return err
+		}
+	}
+	if token == "" {
+		return fmt.Errorf("aucun token. Usage: jean link <token>  (token fourni à l'achat sur la boutique)")
+	}
+
+	fmt.Printf("%s connexion au relais %s …\n", cyan("[link]"), relayURL())
+	fmt.Printf("       (UI Jean + endpoint OpenAI servis dans le tunnel — pas besoin de 'jean web')\n")
+
+	// On construit le handler une seule fois ; il est servi à travers chaque tunnel.
+	handler := newLinkHandler()
+
+	backoff := time.Second
+	for {
+		err := runLinkSession(token, handler)
+		if err != nil {
+			fmt.Printf("%s lien perdu: %v — reconnexion dans %s\n", yellow("[link]"), err, backoff)
+		}
+		time.Sleep(backoff)
+		if backoff < 30*time.Second {
+			backoff *= 2
+			if backoff > 30*time.Second {
+				backoff = 30 * time.Second
+			}
+		}
+	}
+}
+
+// newLinkHandler construit le handler servi à travers le tunnel :
+//   - /v1/*, /health, /props, /metrics, /slots → llama-server local (endpoint
+//     compatible OpenAI, avec injection de la clé API locale) → permet de
+//     brancher OpenCode, Hermes, etc. sur ajean.link/oai/<machine>/v1
+//   - tout le reste → l'UI web de Jean (avec injection de la clé de pilotage)
+func newLinkHandler() http.Handler {
+	web := withLocalAuth(newWebMux())
+	llama := &url.URL{Scheme: "http", Host: fmt.Sprintf("127.0.0.1:%d", LLMPort())}
+	lp := httputil.NewSingleHostReverseProxy(llama)
+	lp.FlushInterval = -1 // streaming SSE des complétions
+	apiKey := readAPIKey()
+	base := lp.Director
+	lp.Director = func(req *http.Request) {
+		base(req)
+		// Le client distant n'a pas la clé API de llama-server ; on l'injecte ici
+		// (l'auth réelle est faite par le relais via la clé de liaison du compte).
+		if apiKey != "" {
+			req.Header.Set("Authorization", "Bearer "+apiKey)
+		}
+	}
+	lp.ErrorHandler = func(w http.ResponseWriter, r *http.Request, e error) {
+		http.Error(w, "llama-server injoignable: "+e.Error(), http.StatusBadGateway)
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p := r.URL.Path
+		if strings.HasPrefix(p, "/v1") || p == "/health" || p == "/props" || p == "/metrics" || strings.HasPrefix(p, "/slots") {
+			lp.ServeHTTP(w, r)
+			return
+		}
+		web.ServeHTTP(w, r)
+	})
+}
+
+// withLocalAuth injecte la clé de pilotage locale dans chaque requête arrivant
+// par le tunnel. Le navigateur distant ne connaît que le token (vérifié par le
+// relais) ; c'est ici, en local, qu'on satisfait l'auth de l'API web sans
+// exposer la clé au client.
+func withLocalAuth(next http.Handler) http.Handler {
+	webKey := readWebKey()
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if webKey != "" && r.Header.Get("Authorization") == "" {
+			r.Header.Set("Authorization", "Bearer "+webKey)
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// runLinkSession opens one WebSocket→yamux session and serves it until it dies.
+// It blocks for the lifetime of the connection and returns the error that ended
+// it (so the caller can reconnect).
+func runLinkSession(token string, handler http.Handler) error {
+	ctx := context.Background()
+	dialCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+
+	// Identifie la machine auprès du relais (id stable + hostname).
+	host, _ := os.Hostname()
+	dialURL := relayURL()
+	q := url.Values{"m": {machineID()}, "h": {host}}
+	if strings.Contains(dialURL, "?") {
+		dialURL += "&" + q.Encode()
+	} else {
+		dialURL += "?" + q.Encode()
+	}
+
+	c, _, err := websocket.Dial(dialCtx, dialURL, &websocket.DialOptions{
+		HTTPHeader: http.Header{"Authorization": {"Bearer " + token}},
+	})
+	if err != nil {
+		return fmt.Errorf("dial: %w", err)
+	}
+	// Pas de limite de taille : on fait passer des streams arbitraires (SSE).
+	c.SetReadLimit(-1)
+	conn := websocket.NetConn(ctx, c, websocket.MessageBinary)
+
+	// L'agent est le côté "serveur" yamux : c'est le relais qui ouvre un stream
+	// par requête navigateur, et nous on les accepte.
+	ycfg := yamux.DefaultConfig()
+	ycfg.EnableKeepAlive = true
+	ycfg.KeepAliveInterval = 25 * time.Second
+	ycfg.ConnectionWriteTimeout = 30 * time.Second
+	ycfg.LogOutput = io.Discard
+	sess, err := yamux.Server(conn, ycfg)
+	if err != nil {
+		return fmt.Errorf("yamux: %w", err)
+	}
+	defer sess.Close()
+
+	fmt.Printf("%s lien établi ✓\n", green("[link]"))
+
+	// sess implémente net.Listener : chaque Accept() = un stream = une requête.
+	// On sert directement l'UI Jean (le handler gère lui-même le flush SSE).
+	srv := &http.Server{Handler: handler}
+	return srv.Serve(sess)
+}
+
