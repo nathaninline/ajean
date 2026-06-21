@@ -160,6 +160,7 @@ Tout vit sous **`$JEAN_HOME`** (défaut `/etc/jean` sur Linux/macOS, `%ProgramDa
 | `CUDA_VISIBLE_DEVICES` | GPU à utiliser (réglé par `jean gpu`) | tous |
 | `KV_TYPE` (`_K`/`_V`) | quantization du cache KV | — |
 | `REASONING` | passthrough du mode raisonnement | — |
+| `REASONING_BUDGET` | plafond de tokens de réflexion (anti-boucle) ; `-1` = illimité | `2048` |
 | `EXTRA_ARGS` | ajouté tel quel à `llama-server` | — |
 
 La clé API (quand elle est définie avec `jean set-api-key`) est stockée dans `$JEAN_HOME/.api_key`, séparément de `config.env`.

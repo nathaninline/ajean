@@ -86,6 +86,8 @@ func runShellTool() Tool {
 // skills are enabled). Merges with an existing system message if present.
 func InjectSkills(msgs []Message) []Message {
 	var parts []string
+	// Always-on decisive-agent preamble (anti-loop). See baseSystemPrompt.
+	parts = append(parts, baseSystemPrompt())
 	if mp := machineSystemPrompt(); mp != "" {
 		parts = append(parts, mp)
 	}
@@ -234,6 +236,10 @@ func runChat(messages []Message, temperature float64, cb ChatCallback) error {
 	// retry the same turn once with tools removed so the model answers in plain
 	// text from the tool results already gathered, instead of dying mid-chat.
 	disableTools := false
+	// Anti-loop net: if the model re-emits the exact same tool call (name+args)
+	// several times, it's stuck — break instead of spinning to the iteration cap.
+	lastSig := ""
+	repeatSig := 0
 	for iter := 0; iter < 8; iter++ {
 		payload := map[string]any{
 			"model":       "jean",
@@ -447,6 +453,25 @@ func runChat(messages []Message, temperature float64, cb ChatCallback) error {
 				assistant.Content = s
 			}
 			messages = append(messages, assistant)
+			// Loop guard: same exact call(s) as last turn? Count it; on the 3rd
+			// identical turn, stop so we don't churn the same command forever.
+			sig := strings.Builder{}
+			for _, tc := range tcs {
+				sig.WriteString(tc.Function.Name)
+				sig.WriteByte('\x00')
+				sig.WriteString(tc.Function.Arguments)
+				sig.WriteByte('\n')
+			}
+			if s := sig.String(); s == lastSig {
+				repeatSig++
+				if repeatSig >= 2 {
+					cb(StreamEvent{Content: "\n\n[stop: appel d'outil répété en boucle — " + tcs[0].Function.Name + "]"})
+					return nil
+				}
+			} else {
+				lastSig = s
+				repeatSig = 0
+			}
 			// 2. Execute each tool locally and append a "tool" reply.
 			for _, tc := range tcs {
 				var args map[string]any

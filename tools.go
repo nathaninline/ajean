@@ -37,6 +37,30 @@ func setToolsEnabled(on bool) error {
 	return nil
 }
 
+// baseSystemPrompt is the always-on system preamble. Structured like pi's
+// proven prompt (identity → method → guidelines → concision → date): a concrete,
+// procedural prompt gives the model rails so it stops deliberating forever
+// ("Wait, let me check… Wait, I'll just run it…") and commits to an action.
+// The per-tool "Outil disponible" sections live in machine/skills prompts so
+// they only appear when the matching feature is on.
+func baseSystemPrompt() string {
+	var b strings.Builder
+	b.WriteString("Tu es un assistant expert opérant dans jean, un agent qui agit directement sur cette machine. Tu aides l'utilisateur en inspectant le système, en exécutant des commandes et en gérant des skills réutilisables.\n\n")
+	b.WriteString("Méthode :\n")
+	for _, l := range []string{
+		"Raisonne brièvement (1 à 2 phrases) puis AGIS. Dès qu'une action est possible, appelle l'outil immédiatement — ne l'annonce pas, fais-le.",
+		"Ne répète JAMAIS deux fois la même étape de réflexion ni le même appel d'outil. Si tu hésites (« je devrais peut-être vérifier… »), arrête de réfléchir et appelle l'outil maintenant.",
+		"Pour toute question système (fichiers, process, réseau, OS), utilise tes outils au lieu de supposer — tu as un accès réel, ne demande pas la permission pour inspecter.",
+		"Quand la tâche est faite, donne une réponse finale courte et arrête-toi. N'enchaîne pas d'outils inutiles.",
+		"Sois concis dans tes réponses.",
+		"Affiche clairement les chemins de fichiers quand tu travailles dessus.",
+	} {
+		b.WriteString("- " + l + "\n")
+	}
+	b.WriteString("\nDate du jour : " + time.Now().Format("2006-01-02"))
+	return b.String()
+}
+
 // machineSystemPrompt returns a short briefing about the host the model is
 // running on, so that when machine access is enabled it knows *which* machine
 // run_shell acts upon (and doesn't claim it has no access to "your PC").
@@ -56,7 +80,16 @@ func machineSystemPrompt() string {
 	cwd, _ := os.Getwd()
 
 	var b strings.Builder
-	b.WriteString("Accès machine actif : le tool run_shell exécute des commandes sur cette machine — c'est ton accès réel, ne dis jamais que tu n'y as pas accès. Pour toute question système (OS, disque, process, fichiers, réseau), utilise-le au lieu de supposer.\n")
+	b.WriteString("Outil disponible — run_shell(command, timeout) : exécute une commande shell sur CETTE machine et renvoie stdout, stderr et le code de sortie. C'est ton accès réel ; ne dis jamais que tu n'y as pas accès.\n")
+	b.WriteString("Conseils run_shell :\n")
+	for _, l := range []string{
+		"Sers-t'en pour toute question système (OS, disque, process, fichiers, réseau, lire un script) plutôt que de supposer.",
+		"Préfère des commandes ciblées et non-interactives ; chaîne-les avec && quand elles sont dépendantes.",
+		"Évite les commandes destructrices (rm -rf, mkfs, dd…) sauf demande explicite de l'utilisateur.",
+		"Si une commande échoue, lis stderr et le code de sortie, puis corrige — ne relance pas la même commande à l'identique.",
+	} {
+		b.WriteString("- " + l + "\n")
+	}
 	b.WriteString(fmt.Sprintf("Machine : hôte=%s, %s/%s", host, runtime.GOOS, runtime.GOARCH))
 	if who != "" {
 		b.WriteString(", user=" + who)

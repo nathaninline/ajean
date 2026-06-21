@@ -61,11 +61,12 @@ func cmdServe(args []string) error {
 		llmArgs = append(llmArgs, "-ctv", vtv)
 	}
 	if r := cfg["REASONING"]; r != "" {
-		// budget -1 = thinking illimité (défaut). NE PAS forcer 0 : sur llama.cpp
-		// vanilla, 0 = "immediate end" → coupe le raisonnement net (le fork
-		// ik_llama.cpp, lui, l'ignore, d'où l'ancien comportement trompeur).
-		// Configurable via REASONING_BUDGET (ex: 2048 pour plafonner).
-		llmArgs = append(llmArgs, "--reasoning", r, "--reasoning-budget", get("REASONING_BUDGET", "-1"))
+		// budget plafonné par défaut (2048) : une réflexion qui part en boucle est
+		// coupée net au lieu de tourner à l'infini — c'est le comportement de pi.
+		// NE PAS forcer 0 : sur llama.cpp vanilla, 0 = "immediate end" → coupe tout
+		// le raisonnement (le fork ik_llama.cpp l'ignore). Mettre -1 pour illimité.
+		// Configurable via REASONING_BUDGET.
+		llmArgs = append(llmArgs, "--reasoning", r, "--reasoning-budget", get("REASONING_BUDGET", "2048"))
 	}
 	// API_KEY protège le serveur quand il est exposé sur internet : llama-server
 	// exige alors l'en-tête "Authorization: Bearer <clé>". La clé est lue depuis
