@@ -23,7 +23,7 @@ Faire tourner llama.cpp comme un vrai service, ça veut dire d'habitude : trouve
 - **Intégration systemd** — `jean install` écrit l'unité, une règle sudoers `systemctl` sans mot de passe, et les dossiers de données
 - **Interface web** (`jean web`) — chat, changement de modèle/preset, activation des skills & tools
 - **Chat terminal** (`jean chat`) — réponses en streaming
-- **Accès distant** (`jean link`) — connecte ce serveur à [ajean.link](https://ajean.link) par une connexion **sortante** (aucun port à ouvrir, marche même en CGNAT) : retrouve l'UI web et un endpoint **compatible OpenAI** depuis n'importe où
+- **Accès distant chiffré** (`jean link`) — connecte ce serveur à [ajean.link](https://ajean.link) par une connexion **sortante** (aucun port à ouvrir, marche même en CGNAT). Le chat est **chiffré de bout en bout** : le relais ne voit jamais tes conversations (voir [Sécurité — boîte noire](#sécurité--boîte-noire))
 - **Presets** (`jean switch`) — garde plusieurs profils `config.env` et bascule entre eux
 - **Protection par clé API** (`jean set-api-key`) — auth Bearer pour exposer le serveur publiquement ; la clé est stockée à part pour survivre aux changements de preset
 - **Benchmark** (`jean bench`) — tok/s prefill/decode honnêtes avec un corpus varié
@@ -114,7 +114,7 @@ Interaction :
   web [PORT]                    interface web (défaut :8090)
 
 Accès distant (ajean.link) :
-  link <token>                  connecte ce Jean au relais (accès web + API OpenAI depuis partout)
+  link <token>                  connecte ce Jean au relais (accès web chiffré E2E ; API OpenAI en option)
   link status | logout          état du lien / oublier le token
 
 Outils côté LLM :
@@ -206,11 +206,38 @@ jean link <token>        # token fourni sur ajean.link
 ```
 
 Une fois lié, tu retrouves depuis le portail :
-- l'**interface web** de ton serveur, à distance ;
-- un **endpoint compatible OpenAI** (`https://ajean.link/oai/<machine>/v1`, clé = ton token) pour brancher n'importe quel outil (OpenCode, etc.) ;
-- la gestion de **plusieurs serveurs** et d'**agents** depuis un tableau de bord.
+- l'**interface web** de ton serveur, à distance, avec un **chat chiffré de bout en bout** ;
+- la gestion de **plusieurs serveurs** et d'**agents** depuis un tableau de bord ;
+- en option, un **endpoint compatible OpenAI** (voir ci-dessous).
 
 C'est un service optionnel et payant ; tout le reste de Jean est et restera open source et gratuit.
+
+### Sécurité — boîte noire
+
+`jean link` est conçu pour que le relais ajean.link soit un **pur tube aveugle** : il transporte tes données mais ne peut pas les lire.
+
+- **Chat chiffré de bout en bout.** Le chat entre ton navigateur et ton serveur Jean est chiffré (X25519 + AES-GCM) : le relais ne voit ni tes prompts ni les réponses, seulement de l'opaque. La clé est dérivée de ton mot de passe (protocole **OPAQUE**) et ne quitte jamais ton navigateur.
+- **Empreinte vérifiée.** Au premier `jean link`, Jean affiche une empreinte de la clé de la machine, à confirmer une fois dans le portail — ça défait toute tentative d'interception par le relais.
+- **Aucun chat en clair par le relais.** L'ancien chemin en clair est refusé à travers le tunnel ; seul le chemin chiffré transporte du contenu.
+- **Code servi hors du relais.** Le portail web est livré par une origine indépendante (GitHub Pages), pas par le relais — donc même compromis, le relais ne peut pas injecter de code piégé pour voler ta clé.
+
+> Reste visible du relais : des métadonnées techniques sans contenu (machine en ligne, nom du modèle chargé, VRAM) — jamais tes conversations.
+
+#### Endpoint OpenAI (`/oai`) — opt-in
+
+Pour brancher des outils tiers (OpenCode, etc.), Jean peut exposer un endpoint compatible OpenAI (`https://ajean.link/oai/<machine>/v1`, clé = une clé de liaison du compte). Mais ces outils ne font pas le chiffrement navigateur : ce flux transiterait **en clair** par le relais. Il est donc **désactivé par défaut**.
+
+Pour l'activer en assumant ce compromis, il faut les **deux** côtés :
+
+```bash
+# côté serveur jean (au lancement de `jean link`)
+JEAN_LINK_ALLOW_OAI=1 jean link <token>
+
+# côté relais (variable d'environnement du service jean-relay)
+JEAN_RELAY_ALLOW_OAI=1
+```
+
+Sans ces variables, l'endpoint répond `403`.
 
 ### Variables d'environnement
 
