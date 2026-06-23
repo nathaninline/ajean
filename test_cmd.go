@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -23,7 +24,7 @@ func cmdTest(args []string) error {
 	t0 := time.Now()
 	var firstTok time.Time
 	tokens := 0
-	err := runChat(msgs, 0, func(ev StreamEvent) bool {
+	err := runChat(context.Background(), msgs, 0, Caps{}, func(ev StreamEvent) bool {
 		if ev.Content != "" {
 			if firstTok.IsZero() {
 				firstTok = time.Now()

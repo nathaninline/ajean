@@ -156,8 +156,8 @@ func DeleteSkill(name string) error {
 
 // skillsSystemPrompt returns the lightweight skills directory message to
 // prepend to the conversation when skills are enabled.
-func skillsSystemPrompt() string {
-	if !skillsEnabled() {
+func skillsSystemPrompt(caps Caps) string {
+	if !caps.Skills {
 		return ""
 	}
 	list := ListSkills()

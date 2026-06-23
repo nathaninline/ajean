@@ -43,7 +43,13 @@ func setToolsEnabled(on bool) error {
 // ("Wait, let me check… Wait, I'll just run it…") and commits to an action.
 // The per-tool "Outil disponible" sections live in machine/skills prompts so
 // they only appear when the matching feature is on.
-func baseSystemPrompt() string {
+func baseSystemPrompt(caps Caps) string {
+	// No tool access → no agentic preamble. A plain chat model told to "call
+	// tools immediately" hallucinates textual tool calls (e.g. default_api:bash)
+	// that leak into the answer. Let the user's own system prompt stand alone.
+	if !caps.Tools && !caps.Skills {
+		return ""
+	}
 	var b strings.Builder
 	b.WriteString("Tu es un assistant expert opérant dans jean, un agent qui agit directement sur cette machine. Tu aides l'utilisateur en inspectant le système, en exécutant des commandes et en gérant des skills réutilisables.\n\n")
 	b.WriteString("Méthode :\n")
@@ -65,8 +71,8 @@ func baseSystemPrompt() string {
 // running on, so that when machine access is enabled it knows *which* machine
 // run_shell acts upon (and doesn't claim it has no access to "your PC").
 // Returns "" when machine access is off.
-func machineSystemPrompt() string {
-	if !toolsEnabled() {
+func machineSystemPrompt(caps Caps) string {
+	if !caps.Tools {
 		return ""
 	}
 	host, _ := os.Hostname()

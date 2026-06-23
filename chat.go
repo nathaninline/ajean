@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -65,7 +66,8 @@ func cmdChat(args []string) error {
 		var stats *StatsEvent
 		// Print the assistant prefix once; reasoning is shown inline with a tag.
 		fmt.Print(cyan("jean") + " > ")
-		err := runChat(InjectSkills(msgs), 0.7, func(ev StreamEvent) bool {
+		caps := globalCaps()
+		err := runChat(context.Background(), InjectSkills(msgs, caps), 0.7, caps, func(ev StreamEvent) bool {
 			switch {
 			case ev.Err != nil:
 				fmt.Printf("\n%s\n", red("[erreur] "+ev.Err.Error()))

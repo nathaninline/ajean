@@ -111,6 +111,13 @@ func cmdLink(args []string) error {
 	fmt.Printf("%s connexion au relais %s …\n", cyan("[link]"), relayURL())
 	fmt.Printf("       (UI Jean + endpoint OpenAI servis dans le tunnel — pas besoin de 'jean web')\n")
 
+	// Empreinte E2E : à confirmer UNE FOIS dans le portail. Garantit que le chat
+	// est chiffré vers CET agent et pas vers un relais qui se ferait passer pour lui.
+	if fp := e2eFingerprint(); fp != "" {
+		fmt.Printf("\n%s empreinte E2E de cette machine :\n       %s\n", green("[e2e]"), bold(fp))
+		fmt.Printf("       Confirme-la dans le portail (Mon compte → serveur) pour activer la boîte noire.\n\n")
+	}
+
 	// On construit le handler une seule fois ; il est servi à travers chaque tunnel.
 	handler := newLinkHandler()
 
@@ -153,9 +160,23 @@ func newLinkHandler() http.Handler {
 	lp.ErrorHandler = func(w http.ResponseWriter, r *http.Request, e error) {
 		http.Error(w, "llama-server injoignable: "+e.Error(), http.StatusBadGateway)
 	}
+	// Boîte noire : tout ce qui est servi ici transite par le relais. On REFUSE
+	// donc tout chemin qui ferait passer des prompts/réponses EN CLAIR. Seul le
+	// chat chiffré de bout en bout (/api/e2e/chat) est autorisé à porter du contenu.
+	oaiAllowed := os.Getenv("JEAN_LINK_ALLOW_OAI") == "1"
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := r.URL.Path
+		if p == "/api/chat" {
+			http.Error(w, "chat en clair refusé via le relais : utilise le chat chiffré (boîte noire)", http.StatusForbidden)
+			return
+		}
 		if strings.HasPrefix(p, "/v1") || p == "/health" || p == "/props" || p == "/metrics" || strings.HasPrefix(p, "/slots") {
+			// L'endpoint OpenAI (OpenCode/Hermes) ne peut pas être chiffré navigateur :
+			// il transiterait en clair par le relais. Désactivé par défaut.
+			if !oaiAllowed {
+				http.Error(w, "endpoint OpenAI désactivé via le relais (transiterait en clair) ; JEAN_LINK_ALLOW_OAI=1 pour l'autoriser", http.StatusForbidden)
+				return
+			}
 			lp.ServeHTTP(w, r)
 			return
 		}
@@ -189,6 +210,9 @@ func runLinkSession(token string, handler http.Handler) error {
 	host, _ := os.Hostname()
 	dialURL := relayURL()
 	q := url.Values{"m": {machineID()}, "h": {host}}
+	if pk := e2ePubHex(); pk != "" {
+		q.Set("pk", pk) // clé publique E2E → publiée au relais pour le scellement navigateur
+	}
 	if strings.Contains(dialURL, "?") {
 		dialURL += "&" + q.Encode()
 	} else {

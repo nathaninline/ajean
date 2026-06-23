@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -81,17 +82,37 @@ func runShellTool() Tool {
 	}
 }
 
-// InjectSkills prepends context system messages to msgs: the machine briefing
-// (when machine access is enabled) and the lightweight skills directory (when
-// skills are enabled). Merges with an existing system message if present.
-func InjectSkills(msgs []Message) []Message {
+// Caps are the per-request capabilities (tool access) for a chat turn. They let
+// a caller (e.g. an ajean.link agent with its own tools/skills toggles) scope
+// what the model can do for this conversation, instead of always inheriting the
+// machine's global config. Use globalCaps() to fall back to the global config.
+type Caps struct {
+	Tools  bool
+	Skills bool
+}
+
+// globalCaps reads the machine-wide config — the default when a request doesn't
+// specify its own capabilities.
+func globalCaps() Caps {
+	return Caps{Tools: toolsEnabled(), Skills: skillsEnabled()}
+}
+
+// InjectSkills prepends context system messages to msgs: the decisive-agent
+// preamble + machine briefing (when tools are enabled) and the lightweight
+// skills directory (when skills are enabled). Merges with an existing system
+// message if present.
+func InjectSkills(msgs []Message, caps Caps) []Message {
 	var parts []string
-	// Always-on decisive-agent preamble (anti-loop). See baseSystemPrompt.
-	parts = append(parts, baseSystemPrompt())
-	if mp := machineSystemPrompt(); mp != "" {
+	// Decisive-agent preamble (anti-loop) — only when the model actually has
+	// tools, otherwise it nudges a plain chat model to "call tools" it doesn't
+	// have, which leaks malformed tool-call text into the answer.
+	if bp := baseSystemPrompt(caps); bp != "" {
+		parts = append(parts, bp)
+	}
+	if mp := machineSystemPrompt(caps); mp != "" {
 		parts = append(parts, mp)
 	}
-	if sp := skillsSystemPrompt(); sp != "" {
+	if sp := skillsSystemPrompt(caps); sp != "" {
 		parts = append(parts, sp)
 	}
 	if len(parts) == 0 {
@@ -107,12 +128,12 @@ func InjectSkills(msgs []Message) []Message {
 }
 
 // EnabledTools returns the tools to advertise on the next inference call.
-func EnabledTools() []Tool {
+func EnabledTools(caps Caps) []Tool {
 	tools := []Tool{}
-	if skillsEnabled() {
+	if caps.Skills {
 		tools = append(tools, skillTool())
 	}
-	if toolsEnabled() {
+	if caps.Tools {
 		tools = append(tools, runShellTool())
 	}
 	return tools
@@ -223,8 +244,8 @@ type streamChunk struct {
 // and call /v1/chat/completions again — up to 8 iterations as a safety cap.
 const thinkClose = "</think>"
 
-func runChat(messages []Message, temperature float64, cb ChatCallback) error {
-	tools := EnabledTools()
+func runChat(ctx context.Context, messages []Message, temperature float64, caps Caps, cb ChatCallback) error {
+	tools := EnabledTools(caps)
 	// Some backends (vanilla llama.cpp builds) don't populate `reasoning_content`
 	// in streaming mode: the model's <think> block (opened by the chat template)
 	// arrives inline in `content`, terminated by a literal </think>. When
@@ -257,7 +278,7 @@ func runChat(messages []Message, temperature float64, cb ChatCallback) error {
 		}
 		body, _ := json.Marshal(payload)
 		url := fmt.Sprintf("http://localhost:%d/v1/chat/completions", LLMPort())
-		req, err := http.NewRequest("POST", url, bytes.NewReader(body))
+		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 		if err != nil {
 			return err
 		}

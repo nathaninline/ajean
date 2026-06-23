@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -95,6 +96,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/bench", handleBench)
 	api("/api/bench/last", handleBenchLast)
 	api("/api/chat", handleChat)
+	api("/api/e2e/chat", handleE2EChat) // chat chiffré E2E (boîte noire via le relais)
 	return mux
 }
 
@@ -566,17 +568,56 @@ func handleBenchLast(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true, "result": sb.Result, "model": sb.Model, "at": sb.At})
 }
 
-func handleChat(w http.ResponseWriter, r *http.Request) {
-	var body struct {
-		Messages    []Message `json:"messages"`
-		Temperature float64   `json:"temperature"`
+// chatReq est le corps d'une requête de chat (commun au chat clair et au chat E2E).
+type chatReq struct {
+	Messages    []Message `json:"messages"`
+	Temperature float64   `json:"temperature"`
+	// Optional per-request capability overrides (used by ajean.link agents,
+	// which carry their own tools/skills toggles). nil = inherit the
+	// machine's global config.
+	Tools  *bool `json:"tools"`
+	Skills *bool `json:"skills"`
+}
+
+// runChatStream exécute le chat et pousse chaque événement (delta) via emit, qui
+// renvoie false pour interrompre. Partagé par handleChat et handleE2EChat.
+func runChatStream(ctx context.Context, body chatReq, emit func(map[string]any) bool) {
+	if body.Temperature == 0 {
+		body.Temperature = 0.7
 	}
+	caps := globalCaps()
+	if body.Tools != nil {
+		caps.Tools = *body.Tools
+	}
+	if body.Skills != nil {
+		caps.Skills = *body.Skills
+	}
+	msgs := InjectSkills(body.Messages, caps)
+	_ = runChat(ctx, msgs, body.Temperature, caps, func(ev StreamEvent) bool {
+		if ev.Err != nil {
+			return emit(map[string]any{"error": ev.Err.Error()})
+		}
+		if ev.ToolUsed != nil {
+			return emit(map[string]any{"tool_used": map[string]any{"name": ev.ToolUsed.Name, "label": ev.ToolUsed.Label, "result": ev.ToolUsed.Result, "done": ev.ToolUsed.Done, "typing": ev.ToolUsed.Typing}})
+		}
+		if ev.Stats != nil {
+			return emit(map[string]any{"stats": ev.Stats})
+		}
+		if ev.Reasoning != "" {
+			return emit(map[string]any{"reasoning_content": ev.Reasoning})
+		}
+		if ev.Content != "" {
+			return emit(map[string]any{"content": ev.Content})
+		}
+		return true
+	})
+}
+
+func handleChat(w http.ResponseWriter, r *http.Request) {
+	var body chatReq
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, err.Error(), 400)
 		return
-	}
-	if body.Temperature == 0 {
-		body.Temperature = 0.7
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -592,27 +633,6 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 		}
 		return true
 	}
-	msgs := InjectSkills(body.Messages)
-	_ = runChat(msgs, body.Temperature, func(ev StreamEvent) bool {
-		if ev.Err != nil {
-			emit(map[string]any{"error": ev.Err.Error()})
-			return true
-		}
-		if ev.ToolUsed != nil {
-			emit(map[string]any{"tool_used": map[string]any{"name": ev.ToolUsed.Name, "label": ev.ToolUsed.Label, "result": ev.ToolUsed.Result, "done": ev.ToolUsed.Done, "typing": ev.ToolUsed.Typing}})
-			return true
-		}
-		if ev.Stats != nil {
-			emit(map[string]any{"stats": ev.Stats})
-			return true
-		}
-		if ev.Reasoning != "" {
-			return emit(map[string]any{"reasoning_content": ev.Reasoning})
-		}
-		if ev.Content != "" {
-			return emit(map[string]any{"content": ev.Content})
-		}
-		return true
-	})
+	runChatStream(r.Context(), body, emit)
 }
 

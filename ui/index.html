@@ -70,6 +70,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 #chat{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px}
 .msg{max-width:80%;padding:10px 14px;border-radius:10px;white-space:pre-wrap;word-wrap:break-word;line-height:1.45}
 .msg.assistant,.msg.reasoning{white-space:normal}
+.msg .body{overflow-wrap:anywhere;word-break:break-word}
 .msg.user{align-self:flex-end;background:#1f6feb;color:#fff}
 .msg.assistant{align-self:flex-start;background:var(--panel);border:1px solid var(--border)}
 .msg .body>*{margin:1em 0}
@@ -80,13 +81,13 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .msg .body ul,.msg .body ol{padding-left:1.4em}
 .msg .body li{margin:.15em 0}
 .msg .body li>p{margin:0}
-.msg.assistant .body code{background:#0d1117;padding:1px 5px;border-radius:3px;font-size:.9em}
-.msg.assistant .body pre{position:relative;background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:10px;overflow-x:auto;margin:.5em 0}
+.msg.assistant .body code{background:#0d1117;padding:1px 5px;border-radius:3px;font-size:.9em;overflow-wrap:anywhere;word-break:break-word}
+.msg.assistant .body pre,.msg.reasoning .body pre{position:relative;background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:10px;overflow-x:auto;max-width:100%;margin:.5em 0}
 .copybtn{position:absolute;bottom:6px;right:6px;font-size:11px;padding:3px 8px;margin:0;background:var(--panel);border:1px solid var(--border);color:var(--dim);border-radius:5px;opacity:.5;transition:opacity .15s,color .15s}
-.msg.assistant .body pre:hover .copybtn{opacity:1}
+.msg.assistant .body pre:hover .copybtn,.msg.reasoning .body pre:hover .copybtn{opacity:1}
 .copybtn:hover{border-color:var(--accent);color:var(--accent)}
 .copybtn.done{color:var(--ok);border-color:var(--ok);opacity:1}
-.msg.assistant .body pre code{background:transparent;padding:0;font-size:.85em;line-height:1.4}
+.msg.assistant .body pre code,.msg.reasoning .body pre code{background:transparent;padding:0;font-size:.85em;line-height:1.4}
 .msg.assistant .body blockquote{border-left:3px solid var(--border);padding:0 0 0 10px;margin:.4em 0;color:var(--dim)}
 .msg.assistant .body a{color:var(--accent);text-decoration:none}
 .msg.assistant .body a:hover{text-decoration:underline}
@@ -95,7 +96,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .msg.assistant .body hr{border:none;border-top:1px solid var(--border);margin:.6em 0}
 #scrollbtn{position:absolute;bottom:80px;right:20px;background:var(--panel);border:1px solid var(--border);color:var(--accent);width:36px;height:36px;border-radius:50%;cursor:pointer;display:none;font-size:16px;z-index:5}
 #scrollbtn.show{display:block}
-.msg.reasoning{align-self:flex-start;background:transparent;border:1px dashed var(--border);color:var(--mag);font-size:12px;max-width:90%}
+.msg.reasoning{align-self:flex-start;background:transparent;border:1px dashed var(--border);color:var(--mag);font-size:12px;max-width:90%;overflow-wrap:anywhere;word-break:break-word}
 .msg.tool{align-self:flex-start;background:var(--panel);border:1px solid var(--border);max-width:100%;white-space:normal;padding:8px 12px}
 .msg.tool .tool-head{font-size:12px;color:var(--accent);font-weight:600;margin-bottom:6px}
 .msg.tool .tool-sub{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin:8px 0 4px}
