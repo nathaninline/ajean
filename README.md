@@ -227,17 +227,13 @@ C'est un service optionnel et payant ; tout le reste de Jean est et restera open
 
 Pour brancher des outils tiers (OpenCode, etc.), Jean peut exposer un endpoint compatible OpenAI (`https://ajean.link/oai/<machine>/v1`, clé = une clé de liaison du compte). Mais ces outils ne font pas le chiffrement navigateur : ce flux transiterait **en clair** par le relais. Il est donc **désactivé par défaut**.
 
-Pour l'activer en assumant ce compromis, il faut les **deux** côtés :
+Côté **ton serveur**, tu l'autorises en lançant `jean link` avec cette variable :
 
 ```bash
-# côté serveur jean (au lancement de `jean link`)
 JEAN_LINK_ALLOW_OAI=1 jean link <token>
-
-# côté relais (variable d'environnement du service jean-relay)
-JEAN_RELAY_ALLOW_OAI=1
 ```
 
-Sans ces variables, l'endpoint répond `403`.
+Sans elle, ton agent refuse l'endpoint (`403`). L'accès `/oai` à travers **ajean.link** dépend ensuite du service (le relais est la partie hébergée d'ajean.link, que tu ne gères pas) : la fonctionnalité doit y être ouverte pour ton compte. Assume le compromis avant de l'activer — pour ce canal, le relais voit le trafic en clair.
 
 ### Variables d'environnement
 
