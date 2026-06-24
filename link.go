@@ -160,14 +160,24 @@ func newLinkHandler() http.Handler {
 	lp.ErrorHandler = func(w http.ResponseWriter, r *http.Request, e error) {
 		http.Error(w, "llama-server injoignable: "+e.Error(), http.StatusBadGateway)
 	}
-	// Boîte noire : tout ce qui est servi ici transite par le relais. On REFUSE
-	// donc tout chemin qui ferait passer des prompts/réponses EN CLAIR. Seul le
-	// chat chiffré de bout en bout (/api/e2e/chat) est autorisé à porter du contenu.
+	// Boîte noire « zéro exception » : TOUTE l'API (chat ET contrôle) ne transite
+	// que chiffrée de bout en bout. Le relais ne voit jamais de clair.
+	//   - /api/e2e/chat : chat chiffré (streaming SSE chiffré).
+	//   - /api/e2e/req  : proxy de contrôle chiffré (presets, VRAM, skills, service…).
+	// Tout autre /api/* en clair est REFUSÉ via le tunnel.
 	oaiAllowed := os.Getenv("JEAN_LINK_ALLOW_OAI") == "1"
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := r.URL.Path
-		if p == "/api/chat" {
-			http.Error(w, "chat en clair refusé via le relais : utilise le chat chiffré (boîte noire)", http.StatusForbidden)
+		if strings.HasPrefix(p, "/api/e2e/") {
+			if p == "/api/e2e/req" {
+				handleE2EReq(w, r, web) // dispatche dans le handler local authentifié
+				return
+			}
+			web.ServeHTTP(w, r) // /api/e2e/chat est routé par le mux
+			return
+		}
+		if strings.HasPrefix(p, "/api/") {
+			http.Error(w, "via le relais : seuls les endpoints chiffrés /api/e2e/* sont autorisés (boîte noire)", http.StatusForbidden)
 			return
 		}
 		if strings.HasPrefix(p, "/v1") || p == "/health" || p == "/props" || p == "/metrics" || strings.HasPrefix(p, "/slots") {

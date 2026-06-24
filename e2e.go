@@ -13,6 +13,7 @@ package main
 // Aucune dépendance externe : crypto/ecdh (X25519) + AES-GCM de la stdlib.
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdh"
@@ -22,7 +23,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -231,6 +234,96 @@ func handleE2EChat(w http.ResponseWriter, r *http.Request) {
 		return true
 	}
 	runChatStream(r.Context(), body, emit)
+}
+
+// handleE2EReq : proxy de CONTRÔLE chiffré de bout en bout. Même enveloppe que le
+// chat, mais le clair décrit un appel d'API interne {method, path, body}. On le
+// redispatche dans le handler web LOCAL (inner, déjà authentifié), puis on chiffre
+// la réponse {status, body}. Résultat : toute la gestion du serveur (presets, VRAM,
+// skills, service…) transite par le relais SANS qu'il en voie le contenu. « Zéro
+// exception » : le tunnel refuse tout /api/* en clair, seuls /api/e2e/* passent.
+func handleE2EReq(w http.ResponseWriter, r *http.Request, inner http.Handler) {
+	var env struct{ Kid, SealedR, Iv, Ct string }
+	if err := json.NewDecoder(r.Body).Decode(&env); err != nil {
+		http.Error(w, "e2e: enveloppe invalide", 400)
+		return
+	}
+	var sealed []byte
+	if env.SealedR != "" {
+		sealed, _ = base64.StdEncoding.DecodeString(env.SealedR)
+	}
+	root, err := e2eResolveRoot(env.Kid, sealed)
+	if err != nil {
+		http.Error(w, "e2e: "+err.Error(), 400)
+		return
+	}
+	gcm, err := newGCM(chatKey(root))
+	if err != nil {
+		http.Error(w, "e2e: clé", 500)
+		return
+	}
+	iv, _ := base64.StdEncoding.DecodeString(env.Iv)
+	ct, _ := base64.StdEncoding.DecodeString(env.Ct)
+	plain, err := gcm.Open(nil, iv, ct, nil)
+	if err != nil {
+		http.Error(w, "e2e: déchiffrement", 400)
+		return
+	}
+	var req struct {
+		Method string          `json:"method"`
+		Path   string          `json:"path"`
+		Body   json.RawMessage `json:"body"`
+	}
+	if err := json.Unmarshal(plain, &req); err != nil {
+		writeE2EResp(w, gcm, 400, []byte(`{"error":"requête invalide"}`))
+		return
+	}
+	// Sécurité : on ne dispatche QUE des chemins d'API internes, jamais /api/e2e/*
+	// (pas de récursion) ni autre chose (pas d'accès à l'UI/aux assets par ce biais).
+	if !strings.HasPrefix(req.Path, "/api/") || strings.HasPrefix(req.Path, "/api/e2e") {
+		writeE2EResp(w, gcm, 403, []byte(`{"error":"chemin interdit"}`))
+		return
+	}
+	method := req.Method
+	if method == "" {
+		method = "GET"
+	}
+	// Un chemin/méthode mal formé ferait paniquer httptest.NewRequest : on récupère.
+	defer func() {
+		if rec := recover(); rec != nil {
+			writeE2EResp(w, gcm, 400, []byte(`{"error":"requête malformée"}`))
+		}
+	}()
+	var bodyReader io.Reader
+	if len(req.Body) > 0 && string(req.Body) != "null" {
+		bodyReader = bytes.NewReader(req.Body)
+	}
+	ir := httptest.NewRequest(method, req.Path, bodyReader)
+	ir.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	inner.ServeHTTP(rec, ir)
+	respBody := rec.Body.Bytes()
+	if len(respBody) == 0 {
+		respBody = []byte("null")
+	} else if !json.Valid(respBody) {
+		// Réponse non-JSON (ex : http.Error en texte) : on l'enveloppe en chaîne.
+		respBody, _ = json.Marshal(string(respBody))
+	}
+	writeE2EResp(w, gcm, rec.Code, respBody)
+}
+
+// writeE2EResp chiffre {status, body} avec la clé du chat et l'écrit en base64
+// (nonce||ct). Le relais ne voit que de l'opaque.
+func writeE2EResp(w http.ResponseWriter, gcm cipher.AEAD, status int, body []byte) {
+	out, _ := json.Marshal(map[string]any{"status": status, "body": json.RawMessage(body)})
+	nonce := make([]byte, 12)
+	if _, err := rand.Read(nonce); err != nil {
+		http.Error(w, "e2e: nonce", 500)
+		return
+	}
+	sealed := append(nonce, gcm.Seal(nil, nonce, out, nil)...)
+	w.Header().Set("Content-Type", "text/plain")
+	_, _ = w.Write([]byte(base64.StdEncoding.EncodeToString(sealed)))
 }
 
 // e2eSeal (côté agent : utilisé uniquement pour les tests) scelle un secret vers
