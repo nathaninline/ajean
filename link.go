@@ -115,8 +115,11 @@ func cmdLink(args []string) error {
 	// est chiffré vers CET agent et pas vers un relais qui se ferait passer pour lui.
 	if fp := e2eFingerprint(); fp != "" {
 		fmt.Printf("\n%s empreinte E2E de cette machine :\n       %s\n", green("[e2e]"), bold(fp))
-		fmt.Printf("       Confirme-la dans le portail (Mon compte → serveur) pour activer la boîte noire.\n\n")
+		fmt.Printf("       Confirme-la dans le portail (Mon compte → serveur) pour activer la boîte noire.\n")
 	}
+	// Code d'appairage : à saisir UNE FOIS dans le portail. Authentifie TON navigateur
+	// auprès de l'agent → même un relais compromis ne peut pas émettre de commandes.
+	fmt.Printf("       Code d'appairage (à saisir une fois dans le portail) : %s\n\n", bold(currentPairCode()))
 
 	// On construit le handler une seule fois ; il est servi à travers chaque tunnel.
 	handler := newLinkHandler()
@@ -171,6 +174,10 @@ func newLinkHandler() http.Handler {
 		if strings.HasPrefix(p, "/api/e2e/") {
 			if p == "/api/e2e/req" {
 				handleE2EReq(w, r, web) // dispatche dans le handler local authentifié
+				return
+			}
+			if p == "/api/e2e/pair" {
+				handleE2EPair(w, r) // appairage d'une identité utilisateur (code hors-bande)
 				return
 			}
 			web.ServeHTTP(w, r) // /api/e2e/chat est routé par le mux

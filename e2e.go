@@ -38,10 +38,6 @@ var (
 	e2eOnce sync.Once
 	e2eKey  *ecdh.PrivateKey
 	e2eErr  error
-	// rCache : racines R déjà descellées, indexées par kid (évite de resceller/ouvrir
-	// à chaque requête). Protégé par mu.
-	e2eMu     sync.Mutex
-	e2eRoots  = map[string][]byte{}
 )
 
 // e2ePrivateKey charge (ou crée puis persiste) la clé privée X25519 de l'agent.
@@ -132,20 +128,6 @@ func sealKey(shared, ephPub, agentPub []byte) []byte {
 	return h.Sum(nil)
 }
 
-// chatKey dérive la clé AES-GCM du chat depuis la racine R.
-func chatKey(r []byte) []byte {
-	h := sha256.New()
-	h.Write(r)
-	h.Write([]byte("ajean-chat-v1"))
-	return h.Sum(nil)
-}
-
-// kidOf identifie une racine R (8 premiers octets de SHA-256(R), hex).
-func kidOf(r []byte) string {
-	h := sha256.Sum256(r)
-	return hex.EncodeToString(h[:8])
-}
-
 func newGCM(key []byte) (cipher.AEAD, error) {
 	blk, err := aes.NewCipher(key)
 	if err != nil {
@@ -154,59 +136,19 @@ func newGCM(key []byte) (cipher.AEAD, error) {
 	return cipher.NewGCM(blk)
 }
 
-// e2eResolveRoot retourne la racine R pour ce kid, en la descellant si besoin et
-// en la mémorisant. sealedR peut être vide si R est déjà connue.
-func e2eResolveRoot(kid string, sealed []byte) ([]byte, error) {
-	e2eMu.Lock()
-	if r, ok := e2eRoots[kid]; ok {
-		e2eMu.Unlock()
-		return r, nil
-	}
-	e2eMu.Unlock()
-	if len(sealed) == 0 {
-		return nil, fmt.Errorf("racine inconnue et aucun sceau fourni")
-	}
-	r, err := e2eOpenSeal(sealed)
-	if err != nil {
-		return nil, err
-	}
-	if kidOf(r) != kid {
-		return nil, fmt.Errorf("kid ne correspond pas au sceau")
-	}
-	e2eMu.Lock()
-	e2eRoots[kid] = r
-	e2eMu.Unlock()
-	return r, nil
-}
-
-// handleE2EChat : chat chiffré de bout en bout. Reçoit une enveloppe scellée,
-// déchiffre la requête avec la clé dérivée de R, exécute le chat, et chiffre
-// CHAQUE événement SSE. Le relais ne voit que de l'opaque.
+// handleE2EChat : chat chiffré de bout en bout, AUTHENTIFIÉ. L'enveloppe est
+// déchiffrée avec la clé du canal authentifié (liée à l'identité appairée de
+// l'utilisateur) — un relais ne peut ni la lire ni la forger. Chaque événement SSE
+// est chiffré. Le relais ne voit que de l'opaque.
 func handleE2EChat(w http.ResponseWriter, r *http.Request) {
-	var env struct{ Kid, SealedR, Iv, Ct string }
-	if err := json.NewDecoder(r.Body).Decode(&env); err != nil {
-		http.Error(w, "e2e: enveloppe invalide", 400)
-		return
-	}
-	var sealed []byte
-	if env.SealedR != "" {
-		sealed, _ = base64.StdEncoding.DecodeString(env.SealedR)
-	}
-	root, err := e2eResolveRoot(env.Kid, sealed)
+	plain, key, err := e2eAuthOpenReq(r)
 	if err != nil {
-		http.Error(w, "e2e: "+err.Error(), 400)
+		http.Error(w, "e2e: "+err.Error(), http.StatusForbidden)
 		return
 	}
-	gcm, err := newGCM(chatKey(root))
+	gcm, err := newGCM(key)
 	if err != nil {
 		http.Error(w, "e2e: clé", 500)
-		return
-	}
-	iv, _ := base64.StdEncoding.DecodeString(env.Iv)
-	ct, _ := base64.StdEncoding.DecodeString(env.Ct)
-	plain, err := gcm.Open(nil, iv, ct, nil)
-	if err != nil {
-		http.Error(w, "e2e: déchiffrement", 400)
 		return
 	}
 	var body chatReq
@@ -243,30 +185,14 @@ func handleE2EChat(w http.ResponseWriter, r *http.Request) {
 // skills, service…) transite par le relais SANS qu'il en voie le contenu. « Zéro
 // exception » : le tunnel refuse tout /api/* en clair, seuls /api/e2e/* passent.
 func handleE2EReq(w http.ResponseWriter, r *http.Request, inner http.Handler) {
-	var env struct{ Kid, SealedR, Iv, Ct string }
-	if err := json.NewDecoder(r.Body).Decode(&env); err != nil {
-		http.Error(w, "e2e: enveloppe invalide", 400)
-		return
-	}
-	var sealed []byte
-	if env.SealedR != "" {
-		sealed, _ = base64.StdEncoding.DecodeString(env.SealedR)
-	}
-	root, err := e2eResolveRoot(env.Kid, sealed)
+	plain, key, err := e2eAuthOpenReq(r)
 	if err != nil {
-		http.Error(w, "e2e: "+err.Error(), 400)
+		http.Error(w, "e2e: "+err.Error(), http.StatusForbidden)
 		return
 	}
-	gcm, err := newGCM(chatKey(root))
+	gcm, err := newGCM(key)
 	if err != nil {
 		http.Error(w, "e2e: clé", 500)
-		return
-	}
-	iv, _ := base64.StdEncoding.DecodeString(env.Iv)
-	ct, _ := base64.StdEncoding.DecodeString(env.Ct)
-	plain, err := gcm.Open(nil, iv, ct, nil)
-	if err != nil {
-		http.Error(w, "e2e: déchiffrement", 400)
 		return
 	}
 	var req struct {
