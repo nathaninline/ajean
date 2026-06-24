@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -56,6 +57,82 @@ func cudaLibDirs() []string {
 	}
 	return dirs
 }
+
+// autoInstallTool installs a missing build tool with the system package manager
+// (apt/dnf/pacman on Linux, brew on macOS). Best-effort: returns an error when no
+// known manager is available or the install fails. Uses sudo on Linux when not
+// already root (brew refuses to run as root).
+func autoInstallTool(name string) error {
+	managers := []struct {
+		bin     string
+		install []string // args before the package name
+	}{
+		{"apt-get", []string{"install", "-y"}},
+		{"dnf", []string{"install", "-y"}},
+		{"pacman", []string{"-S", "--noconfirm"}},
+		{"brew", []string{"install"}},
+	}
+	for _, m := range managers {
+		if _, err := exec.LookPath(m.bin); err != nil {
+			continue
+		}
+		argv := append(append([]string{m.bin}, m.install...), name)
+		if m.bin != "brew" && os.Geteuid() != 0 {
+			if _, err := exec.LookPath("sudo"); err != nil {
+				return fmt.Errorf("%s requiert root (ni root ni sudo disponibles)", m.bin)
+			}
+			argv = append([]string{"sudo"}, argv...)
+		}
+		cmd := exec.Command(argv[0], argv[1:]...)
+		cmd.Stdout, cmd.Stderr, cmd.Stdin = os.Stdout, os.Stderr, os.Stdin
+		return cmd.Run()
+	}
+	return fmt.Errorf("aucun gestionnaire de paquets connu — installe %s manuellement", name)
+}
+
+// msvcGenerator is Windows-only; on Unix the default CMake generator (Unix
+// Makefiles) is correct, so detectBuildPlan never calls this for real. Present
+// only so the shared code compiles.
+func msvcGenerator() string { return "" }
+
+// ensureCompiler makes sure a C/C++ toolchain (cc + c++ + make) is present,
+// installing it via the system package manager when missing. build-essential on
+// Debian/Ubuntu pulls the lot; elsewhere we fall back to individual packages.
+func ensureCompiler() error {
+	haveCC := hasTool("cc") || hasTool("gcc") || hasTool("clang")
+	haveCXX := hasTool("c++") || hasTool("g++") || hasTool("clang++")
+	if haveCC && haveCXX && hasTool("make") {
+		return nil
+	}
+	candidates := []string{"build-essential", "gcc", "g++", "make"}
+	if _, err := exec.LookPath("apt-get"); err != nil {
+		// Non-Debian: build-essential n'existe pas, on vise les paquets directs.
+		candidates = []string{"gcc", "gcc-c++", "make"}
+	}
+	fmt.Println(yellow("[info]") + " compilateur C/C++ absent — installation via le gestionnaire de paquets…")
+	for _, pkg := range candidates {
+		_ = autoInstallTool(pkg) // best-effort, paquets variables selon la distro
+	}
+	if (hasTool("cc") || hasTool("gcc")) && (hasTool("c++") || hasTool("g++")) && hasTool("make") {
+		fmt.Println(green("✓") + " compilateur C/C++ prêt.")
+		return nil
+	}
+	return fmt.Errorf("compilateur C/C++ introuvable — installe gcc/g++/make (ou build-essential) manuellement")
+}
+
+// cudaPathEnv is Windows-specific (the MSBuild CUDA integration needs CUDA_PATH);
+// on Unix the Makefiles/Ninja generators find nvcc via PATH/CUDACXX, so there's
+// nothing extra to inject.
+func cudaPathEnv(toolkitDir string) []string { return nil }
+
+// ensureAccelerator is a no-op on Unix: CUDA/ROCm toolkits are installed through
+// the distro (their layout is already probed by findNvcc / detectBuildPlan), and
+// auto-installing multi-GB GPU toolkits across distros is too varied to do safely.
+func ensureAccelerator() {}
+
+// refreshToolPath is a no-op on Unix: package managers install into directories
+// already on PATH (/usr/bin, /usr/local/bin), unlike Windows.
+func refreshToolPath() {}
 
 // execServer replaces the current process with llama-server (so systemd
 // supervises llama-server directly, as the old start.sh did with `exec`).

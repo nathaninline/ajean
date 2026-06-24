@@ -268,6 +268,9 @@ func handleBackends(w http.ResponseWriter, r *http.Request) {
 	subpaths := []string{
 		"build/bin/llama-server", "build-sm120/bin/llama-server",
 		"build/llama-server", "bin/llama-server", "llama-server",
+		// Layout du générateur Visual Studio (multi-config) + suffixe .exe Windows.
+		"build/bin/Release/llama-server.exe", "build/bin/llama-server.exe",
+		"build/bin/Release/llama-server", "llama-server.exe",
 	}
 	out := []map[string]any{}
 	for _, e := range entries {

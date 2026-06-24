@@ -1,13 +1,18 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 )
 
 // llamacpp.go — gestion du backend llama.cpp (clone, build, mise à jour).
@@ -29,6 +34,8 @@ type buildPlan struct {
 	cudaCXX  string   // chemin de nvcc quand backend == cuda
 	flags    []string // flags -D… passés à `cmake -B build`
 	jobs     int      // parallélisme du build
+	gen      string   // générateur CMake (-G), vide => défaut de la plateforme
+	genArch  string   // architecture du générateur (-A), ex. "x64" (VS uniquement)
 }
 
 func cmdLlamacpp(args []string) error {
@@ -116,6 +123,10 @@ func llamacppInstall(args []string) error {
 	if err := requireTools("git", "cmake"); err != nil {
 		return err
 	}
+	if err := ensureCompiler(); err != nil {
+		return err
+	}
+	ensureAccelerator() // best-effort : installe le toolkit GPU si une carte est détectée
 
 	// Dépôt déjà présent ? On bascule sur update plutôt que de re-cloner.
 	if isDir(filepath.Join(repo, ".git")) {
@@ -153,9 +164,9 @@ func llamacppInstall(args []string) error {
 		return err
 	}
 
-	bin := filepath.Join(repo, "build", "bin", "llama-server")
-	if !isFile(bin) {
-		return fmt.Errorf("build terminé mais binaire introuvable: %s", bin)
+	bin := llamaServerBin(repo)
+	if bin == "" {
+		return fmt.Errorf("build terminé mais binaire introuvable sous %s", filepath.Join(repo, "build"))
 	}
 	fmt.Printf("\n%s binaire compilé : %s\n", green("✓"), bin)
 
@@ -199,6 +210,10 @@ func llamacppUpdate(args []string) error {
 	if err := requireTools("git", "cmake"); err != nil {
 		return err
 	}
+	if err := ensureCompiler(); err != nil {
+		return err
+	}
+	ensureAccelerator() // best-effort : installe le toolkit GPU si une carte est détectée
 
 	repo := llamacppRepoDir()
 	if !isDir(filepath.Join(repo, ".git")) {
@@ -224,8 +239,7 @@ func llamacppUpdate(args []string) error {
 	// Déjà à jour ? On s'arrête (sauf --clean / --force qui forcent un rebuild).
 	localRev := gitOutput(repo, "rev-parse", "HEAD")
 	remoteRev := gitOutput(repo, "rev-parse", "origin/"+branch)
-	bin := filepath.Join(repo, "build", "bin", "llama-server")
-	if localRev != "" && localRev == remoteRev && !clean && !force && isFile(bin) {
+	if localRev != "" && localRev == remoteRev && !clean && !force && llamaServerBin(repo) != "" {
 		fmt.Printf("%s déjà à jour (%s) — rien à faire\n", green("[ok]"), oldCommit)
 		fmt.Printf("       (utilise %s pour forcer une recompilation)\n", dim("--force"))
 		return nil
@@ -263,8 +277,12 @@ func llamacppUpdate(args []string) error {
 		}
 		return err
 	}
-	if !isFile(bin) {
-		return fmt.Errorf("build terminé mais binaire introuvable: %s", bin)
+	bin := llamaServerBin(repo)
+	if bin == "" {
+		return fmt.Errorf("build terminé mais binaire introuvable sous %s", filepath.Join(repo, "build"))
+	}
+	if err := SetConfigKey("BIN", bin); err != nil {
+		return fmt.Errorf("build ok mais échec écriture BIN dans config.env: %w", err)
 	}
 
 	fmt.Printf("\n%s mis à jour : %s → %s\n", green("✓"), oldCommit, newCommit)
@@ -298,8 +316,7 @@ func llamacppStatus(args []string) error {
 	fmt.Printf("  branche  : %s\n", branch)
 	fmt.Printf("  commit   : %s\n", commit)
 
-	bin := filepath.Join(repo, "build", "bin", "llama-server")
-	if isFile(bin) {
+	if bin := llamaServerBin(repo); bin != "" {
 		fmt.Printf("  binaire  : %s\n", green(bin))
 	} else {
 		fmt.Printf("  binaire  : %s (pas encore compilé)\n", yellow("absent"))
@@ -331,6 +348,29 @@ func detectBuildPlan() buildPlan {
 	p.flags = []string{
 		"-DCMAKE_BUILD_TYPE=Release",
 		"-DGGML_NATIVE=ON",
+		// L'UI web embarquée de llama-server exige npm (ou un téléchargement
+		// d'assets pré-compilés depuis HuggingFace) pour générer un service-worker
+		// PWA — une dépendance lourde qui casse le build sur une machine sans node.
+		// jean fournit sa propre UI, donc on la désactive : build plus rapide et
+		// sans dépendance réseau/npm. BUILD_UI=OFF coupe npm ; USE_PREBUILT_UI=OFF
+		// coupe le téléchargement d'assets pré-compilés depuis HuggingFace (qui
+		// échoue sur un réseau restreint et fait planter l'embed). Sur un checkout
+		// neuf le dist est vide → llama-server embarque une UI vide sans erreur.
+		// Voir scripts/ui-assets.cmake côté llama.cpp.
+		"-DLLAMA_BUILD_UI=OFF",
+		"-DLLAMA_USE_PREBUILT_UI=OFF",
+	}
+
+	// Sur Windows, le générateur CMake par défaut est « NMake Makefiles », qui
+	// suppose un Developer Command Prompt MSVC. On force le générateur Visual
+	// Studio : il localise le toolchain MSVC tout seul via le registre, sans
+	// vcvars, depuis un shell ordinaire.
+	if runtime.GOOS == "windows" {
+		p.gen = msvcGenerator()
+		p.genArch = "x64"
+		if runtime.GOARCH == "arm64" {
+			p.genArch = "ARM64"
+		}
 	}
 
 	if runtime.GOOS == "darwin" {
@@ -344,7 +384,10 @@ func detectBuildPlan() buildPlan {
 	if nvcc := findNvcc(); nvcc != "" && hasNvidiaGPU() {
 		p.backend = "cuda"
 		p.cudaCXX = nvcc
-		p.flags = append(p.flags, "-DGGML_CUDA=ON", "-DGGML_CUDA_F16=ON", "-DGGML_CUDA_FA_ALL_QUANTS=ON")
+		// NB : on n'active PAS GGML_CUDA_FA_ALL_QUANTS — il compile les kernels
+		// Flash-Attention pour toutes les combinaisons de quant (des centaines de
+		// .cu), ce qui explose le temps de build pour un gain d'inférence marginal.
+		p.flags = append(p.flags, "-DGGML_CUDA=ON", "-DGGML_CUDA_F16=ON")
 		if arch := detectCudaArch(); arch != "" {
 			p.cudaArch = arch
 			p.flags = append(p.flags, "-DCMAKE_CUDA_ARCHITECTURES="+arch)
@@ -391,17 +434,40 @@ func buildLlamacpp(repo string, p buildPlan, clean bool) error {
 	env := ""
 	if p.backend == "cuda" && p.cudaCXX != "" {
 		cudaBin := filepath.Dir(p.cudaCXX)
-		env = "CUDACXX=" + p.cudaCXX + "\x00PATH=" + cudaBin + string(os.PathListSeparator) + os.Getenv("PATH")
+		parts := []string{
+			"CUDACXX=" + p.cudaCXX,
+			"PATH=" + cudaBin + string(os.PathListSeparator) + os.Getenv("PATH"),
+		}
+		// L'intégration MSBuild CUDA (générateur Visual Studio) résout
+		// CudaToolkitDir depuis CUDA_PATH / CUDA_PATH_Vx_y. L'installeur les pose
+		// dans l'environnement persistant, mais pas dans ce process déjà lancé —
+		// on les réinjecte sinon le configure échoue sur « CUDA Toolkit directory '' ».
+		parts = append(parts, cudaPathEnv(filepath.Dir(cudaBin))...)
+		env = strings.Join(parts, "\x00")
 	}
 
-	cfgArgs := append([]string{"-B", "build", "-S", "."}, p.flags...)
-	if err := runStepEnv("cmake configure", repo, env, "cmake", cfgArgs...); err != nil {
+	cfgArgs := []string{"-B", "build", "-S", "."}
+	if p.gen != "" {
+		cfgArgs = append(cfgArgs, "-G", p.gen)
+		if p.genArch != "" {
+			cfgArgs = append(cfgArgs, "-A", p.genArch)
+		}
+	}
+	cfgArgs = append(cfgArgs, p.flags...)
+	cfgLog := filepath.Join(repo, "configure.log")
+	if err := runBuildStep("cmake configure", repo, env, "cmake", cfgLog, cfgArgs...); err != nil {
 		return fmt.Errorf("configuration CMake échouée: %w", err)
 	}
 
 	buildArgs := []string{"--build", "build", "--config", "Release",
 		"-j", fmt.Sprintf("%d", p.jobs), "--target", "llama-server"}
-	if err := runStepEnv("cmake build", repo, env, "cmake", buildArgs...); err != nil {
+	// Générateur Visual Studio : MSBuild réaffiche par défaut la ligne de commande
+	// nvcc complète de chaque kernel (des pavés illisibles). On le passe en
+	// verbosité minimale via les args natifs après « -- ».
+	if strings.HasPrefix(p.gen, "Visual Studio") {
+		buildArgs = append(buildArgs, "--", "/nologo", "/verbosity:minimal")
+	}
+	if err := runBuildStep("cmake build", repo, env, "cmake", filepath.Join(repo, "build.log"), buildArgs...); err != nil {
 		return fmt.Errorf("compilation échouée: %w", err)
 	}
 	return nil
@@ -437,6 +503,26 @@ func cacheStale(build, repo string) bool {
 func findNvcc() string {
 	if p, err := exec.LookPath("nvcc"); err == nil {
 		return p
+	}
+	if runtime.GOOS == "windows" {
+		// CUDA_PATH est posé par l'installeur officiel.
+		if cp := os.Getenv("CUDA_PATH"); cp != "" {
+			if p := filepath.Join(cp, "bin", "nvcc.exe"); isFile(p) {
+				return p
+			}
+		}
+		// Layout standard : …\NVIDIA GPU Computing Toolkit\CUDA\v12.x\bin\nvcc.exe
+		for _, base := range []string{os.Getenv("ProgramFiles"), `C:\Program Files`} {
+			if base == "" {
+				continue
+			}
+			matches, _ := filepath.Glob(filepath.Join(base, "NVIDIA GPU Computing Toolkit", "CUDA", "v*", "bin", "nvcc.exe"))
+			if len(matches) > 0 {
+				sort.Strings(matches) // v12.2 < v12.8 → on prend le plus récent
+				return matches[len(matches)-1]
+			}
+		}
+		return ""
 	}
 	if p := "/usr/local/cuda/bin/nvcc"; isFile(p) {
 		return p
@@ -504,22 +590,66 @@ func isDir(p string) bool {
 	return err == nil && fi.IsDir()
 }
 
+// llamaServerBin returns the path to the built llama-server binary under repo,
+// probing the layouts the different CMake generators emit: the Visual Studio
+// multi-config generator nests it under build/bin/Release/ and Windows adds a
+// .exe suffix, whereas the Unix Makefiles generator drops it in build/bin/.
+// Returns "" when no binary is found.
+func llamaServerBin(repo string) string {
+	ext := ""
+	if runtime.GOOS == "windows" {
+		ext = ".exe"
+	}
+	for _, rel := range []string{
+		filepath.Join("build", "bin", "Release", "llama-server"+ext),
+		filepath.Join("build", "bin", "llama-server"+ext),
+		filepath.Join("build", "Release", "llama-server"+ext),
+		filepath.Join("build", "llama-server"+ext),
+	} {
+		if p := filepath.Join(repo, rel); isFile(p) {
+			return p
+		}
+	}
+	return ""
+}
+
 func hasTool(name string) bool {
 	_, err := exec.LookPath(name)
 	return err == nil
 }
 
 func requireTools(tools ...string) error {
+	missing := missingTools(tools)
+	if len(missing) == 0 {
+		return nil
+	}
+
+	// Tentative d'installation automatique (winget sur Windows, apt/brew/dnf sur
+	// Unix). On rafraîchit ensuite le PATH du process car un installeur système
+	// écrit le PATH machine sans toucher l'environnement déjà chargé.
+	fmt.Printf("%s outils manquants: %s — installation automatique…\n", yellow("[info]"), strings.Join(missing, ", "))
+	for _, t := range missing {
+		if err := autoInstallTool(t); err != nil {
+			fmt.Printf("  %s %s: %v\n", dim("•"), t, err)
+		}
+	}
+	refreshToolPath()
+
+	if still := missingTools(tools); len(still) > 0 {
+		return fmt.Errorf("outils toujours manquants après tentative d'install: %s — installe-les à la main puis réessaie", strings.Join(still, ", "))
+	}
+	fmt.Printf("%s outils installés.\n", green("✓"))
+	return nil
+}
+
+func missingTools(tools []string) []string {
 	var missing []string
 	for _, t := range tools {
 		if !hasTool(t) {
 			missing = append(missing, t)
 		}
 	}
-	if len(missing) > 0 {
-		return fmt.Errorf("outils manquants: %s — installe-les puis réessaie", strings.Join(missing, ", "))
-	}
-	return nil
+	return missing
 }
 
 // gitOutput runs a git command in `dir` and returns trimmed stdout (or "").
@@ -558,6 +688,199 @@ func runStepEnv(name, dir, extraEnv, bin string, args ...string) error {
 		cmd.Env = env
 	}
 	return cmd.Run()
+}
+
+// runBuildStep runs a compile step while keeping the terminal clean: the full
+// output goes to logPath, and the screen shows only a single self-rewriting
+// progress line (spinner + compiled-file count) plus any real compiler
+// diagnostics. The hundreds of per-file nvcc/cl command echoes are hidden. On
+// failure the tail of the log is printed so the actual error is never lost.
+func runBuildStep(name, dir, extraEnv, bin, logPath string, args ...string) error {
+	fmt.Printf("\n%s %s\n", cyan("▶"), name)
+	cmd := exec.Command(bin, args...)
+	cmd.Dir = dir
+	if extraEnv != "" {
+		env := os.Environ()
+		for _, kv := range strings.Split(extraEnv, "\x00") {
+			if kv != "" {
+				env = upsertEnv(env, kv)
+			}
+		}
+		cmd.Env = env
+	}
+
+	var logf *os.File
+	if logPath != "" {
+		if f, err := os.Create(logPath); err == nil {
+			logf = f
+			defer logf.Close()
+		}
+	}
+
+	pr, pw := io.Pipe()
+	cmd.Stdout = pw
+	cmd.Stderr = pw
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	frames := []rune{'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
+	var (
+		mu    sync.Mutex
+		count int
+		label = "préparation…"
+		fi    int
+	)
+	clearLine := func() {
+		if colorOn {
+			fmt.Print("\r\033[K")
+		}
+	}
+	// draw redessine la ligne d'état ; appelé par une horloge pour rester animé
+	// même quand un seul gros fichier compile pendant plusieurs minutes.
+	draw := func() {
+		if !colorOn {
+			return
+		}
+		mu.Lock()
+		fi = (fi + 1) % len(frames)
+		fmt.Printf("\r\033[K  %c %s", frames[fi], label)
+		mu.Unlock()
+	}
+
+	done := make(chan struct{})
+	go func() {
+		sc := bufio.NewScanner(pr)
+		sc.Buffer(make([]byte, 1<<20), 1<<20) // les échos de commande sont énormes
+		for sc.Scan() {
+			line := sc.Text()
+			if logf != nil {
+				fmt.Fprintln(logf, line)
+			}
+			mu.Lock()
+			if f := compiledFile(line); f != "" {
+				count++
+				label = fmt.Sprintf("compilation… %d fichiers  %s", count, dim("("+f+")"))
+				mu.Unlock()
+				continue
+			}
+			if p := phaseLabel(line); p != "" {
+				label = p
+			}
+			mu.Unlock()
+			// On ne fait remonter que les vraies ERREURS (les warnings MSVC/linker
+			// d'un projet tiers sont du bruit ; ils restent dans le log). Les CMake
+			// Error de la phase configure sont aussi affichés.
+			if reBuildError.MatchString(line) || strings.HasPrefix(strings.TrimSpace(line), "CMake Error") {
+				mu.Lock()
+				clearLine()
+				fmt.Println("  " + strings.TrimSpace(line))
+				mu.Unlock()
+			}
+		}
+		close(done)
+	}()
+
+	// Horloge d'animation, indépendante du flux de sortie.
+	stop := make(chan struct{})
+	tickerDone := make(chan struct{})
+	go func() {
+		defer close(tickerDone)
+		t := time.NewTicker(120 * time.Millisecond)
+		defer t.Stop()
+		for {
+			select {
+			case <-stop:
+				return
+			case <-t.C:
+				draw()
+			}
+		}
+	}()
+
+	err := cmd.Wait()
+	_ = pw.Close()
+	<-done
+	close(stop)
+	<-tickerDone
+	clearLine()
+	if err == nil && count > 0 {
+		fmt.Printf("  %s %d fichiers compilés\n", green("✓"), count)
+	}
+	if err != nil && logPath != "" {
+		fmt.Printf("%s étape échouée — log complet : %s\n", yellow("[err]"), logPath)
+		printLogTail(logPath, 30)
+	}
+	return err
+}
+
+// phaseLabel maps a non-compile output line to a short status label, or "" to
+// leave the current label unchanged. Keeps the spinner informative during the
+// CMake configure phase and the final link.
+func phaseLabel(line string) string {
+	t := strings.TrimSpace(line)
+	switch {
+	case strings.HasPrefix(t, "-- "):
+		return "configuration… " + truncLabel(strings.TrimPrefix(t, "-- "), 50)
+	case strings.Contains(t, "Linking") || strings.Contains(t, "Build files have been written"):
+		return "édition de liens…"
+	}
+	return ""
+}
+
+func truncLabel(s string, n int) string {
+	s = strings.TrimSpace(s)
+	if len(s) > n {
+		return s[:n-1] + "…"
+	}
+	return s
+}
+
+var (
+	// MSBuild (Windows) : « Compiling CUDA source file …\foo.cu… » ou nom de
+	// source seul « foo.cpp » imprimé par cl.
+	reCompilingCUDA = regexp.MustCompile(`Compiling .*?([\w.\-]+\.cu)\b`)
+	reBareSource    = regexp.MustCompile(`^[\w.\-]+\.(c|cc|cpp|cxx|cu|cuh)$`)
+	// Make / Ninja (Linux, macOS) : « [ 45%] Building CXX object …/foo.cpp.o » ou
+	// « [12/345] Building CUDA object …/foo.cu.o ».
+	reBuildingObj = regexp.MustCompile(`Building (?:C|CXX|CUDA|ASM)\w* object .*?/([^/]+?)\.o(?:bj)?\b`)
+	// Vraies erreurs : « foo.cpp(12): error C2065 » (MSVC), « foo.cpp:12:5: error: »
+	// (gcc/clang), « LINK : fatal error LNK1104 ». On exige le « : » devant le
+	// mot-clé pour ne PAS matcher les flags type -D_CRT_SECURE_NO_WARNINGS dans les
+	// lignes de commande. Les warnings (bruit d'un projet tiers) sont exclus.
+	reBuildError = regexp.MustCompile(`(?i):\s*(fatal error|error)\b`)
+)
+
+// compiledFile returns the source filename a build line announces compiling, or
+// "" if the line isn't a compile-progress marker. Handles both the MSBuild
+// (Windows) and Make/Ninja (Unix) output formats.
+func compiledFile(line string) string {
+	t := strings.TrimSpace(line)
+	if m := reCompilingCUDA.FindStringSubmatch(t); m != nil {
+		return m[1]
+	}
+	if m := reBuildingObj.FindStringSubmatch(t); m != nil {
+		return m[1]
+	}
+	if reBareSource.MatchString(t) {
+		return t
+	}
+	return ""
+}
+
+// printLogTail prints the last n lines of the log file (best-effort).
+func printLogTail(path string, n int) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	lines := strings.Split(strings.TrimRight(string(b), "\n"), "\n")
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	for _, l := range lines {
+		fmt.Println("  " + dim(l))
+	}
 }
 
 // upsertEnv replaces KEY=… in env if present, else appends kv (kv is "KEY=VAL").

@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const Version = "0.2.4"
+const Version = "0.2.5"
 
 func main() {
 	args := os.Args[1:]
