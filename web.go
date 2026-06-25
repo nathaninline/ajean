@@ -630,7 +630,7 @@ func runChatStream(ctx context.Context, body chatReq, emit func(map[string]any) 
 		caps.Skills = *body.Skills
 	}
 	msgs := InjectSkills(body.Messages, caps)
-	_ = runChat(ctx, msgs, body.Temperature, caps, func(ev StreamEvent) bool {
+	extra, _ := runChat(ctx, msgs, body.Temperature, caps, func(ev StreamEvent) bool {
 		if ev.Err != nil {
 			return emit(map[string]any{"error": ev.Err.Error()})
 		}
@@ -648,6 +648,13 @@ func runChatStream(ctx context.Context, body chatReq, emit func(map[string]any) 
 		}
 		return true
 	})
+	// Surface the tool-turn messages (assistant tool_calls + tool results) as a
+	// final event so the stateless web client can store them in its history,
+	// BEFORE the final assistant text. Without this the browser only keeps the
+	// final answer and the model re-invokes the same skill/command every turn.
+	if len(extra) > 0 {
+		emit(map[string]any{"tool_messages": extra})
+	}
 }
 
 func handleChat(w http.ResponseWriter, r *http.Request) {

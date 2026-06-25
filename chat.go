@@ -67,7 +67,7 @@ func cmdChat(args []string) error {
 		// Print the assistant prefix once; reasoning is shown inline with a tag.
 		fmt.Print(cyan("jean") + " > ")
 		caps := globalCaps()
-		err := runChat(context.Background(), InjectSkills(msgs, caps), 0.7, caps, func(ev StreamEvent) bool {
+		extra, err := runChat(context.Background(), InjectSkills(msgs, caps), 0.7, caps, func(ev StreamEvent) bool {
 			switch {
 			case ev.Err != nil:
 				fmt.Printf("\n%s\n", red("[erreur] "+ev.Err.Error()))
@@ -114,6 +114,10 @@ func cmdChat(args []string) error {
 		}
 		fmt.Println()
 		if err == nil {
+			// Persist the tool turns (skill reads, shell runs) BEFORE the final
+			// answer, so next turn the model remembers it already did them instead
+			// of re-invoking the same skill/command from scratch.
+			msgs = append(msgs, extra...)
 			msgs = append(msgs, Message{Role: "assistant", Content: full.String()})
 		}
 	}

@@ -24,7 +24,7 @@ func cmdTest(args []string) error {
 	t0 := time.Now()
 	var firstTok time.Time
 	tokens := 0
-	err := runChat(context.Background(), msgs, 0, Caps{}, func(ev StreamEvent) bool {
+	_, err := runChat(context.Background(), msgs, 0, Caps{}, func(ev StreamEvent) bool {
 		if ev.Content != "" {
 			if firstTok.IsZero() {
 				firstTok = time.Now()

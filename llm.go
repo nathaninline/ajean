@@ -244,7 +244,14 @@ type streamChunk struct {
 // and call /v1/chat/completions again — up to 8 iterations as a safety cap.
 const thinkClose = "</think>"
 
-func runChat(ctx context.Context, messages []Message, temperature float64, caps Caps, cb ChatCallback) error {
+// runChat returns `extra`: the tool-turn messages (assistant-with-tool_calls and
+// their tool results) it appended during the agentic loop. The caller persists
+// these into the durable history BEFORE the final assistant text, so the model
+// keeps the trace of what it already read/ran across user turns — otherwise it
+// re-invokes the same skill/command every turn (it has no memory of having done
+// it) and can confabulate paths/results it can no longer see.
+func runChat(ctx context.Context, messages []Message, temperature float64, caps Caps, cb ChatCallback) ([]Message, error) {
+	var extra []Message
 	tools := EnabledTools(caps)
 	// Some backends (vanilla llama.cpp builds) don't populate `reasoning_content`
 	// in streaming mode: the model's <think> block (opened by the chat template)
@@ -280,14 +287,14 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		url := fmt.Sprintf("http://localhost:%d/v1/chat/completions", LLMPort())
 		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 		if err != nil {
-			return err
+			return extra, err
 		}
 		req.Header.Set("Content-Type", "application/json")
 		authHeader(req)
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			cb(StreamEvent{Err: err})
-			return err
+			return extra, err
 		}
 		// A non-200 here (e.g. context window exceeded after several large tool
 		// outputs) is NOT valid SSE: without this check we'd scan an empty/HTML
@@ -313,7 +320,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			}
 			err := fmt.Errorf("llama-server a renvoyé %d : %s", resp.StatusCode, msg)
 			cb(StreamEvent{Err: err})
-			return err
+			return extra, err
 		}
 		toolCalls := map[int]*ToolCall{}
 		assistantContent := strings.Builder{}
@@ -445,7 +452,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		}
 		resp.Body.Close()
 		if aborted {
-			return nil
+			return extra, nil
 		}
 
 		// Treat any accumulated tool calls as a tool turn even if the backend set
@@ -474,6 +481,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				assistant.Content = s
 			}
 			messages = append(messages, assistant)
+			extra = append(extra, assistant)
 			// Loop guard: same exact call(s) as last turn? Count it; on the 3rd
 			// identical turn, stop so we don't churn the same command forever.
 			sig := strings.Builder{}
@@ -487,7 +495,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				repeatSig++
 				if repeatSig >= 2 {
 					cb(StreamEvent{Content: "\n\n[stop: appel d'outil répété en boucle — " + tcs[0].Function.Name + "]"})
-					return nil
+					return extra, nil
 				}
 			} else {
 				lastSig = s
@@ -559,7 +567,9 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					shown = string(r[:4000]) + "\n…[tronqué]"
 				}
 				cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label, Result: shown, Done: true}})
-				messages = append(messages, Message{Role: "tool", ToolCallID: tc.ID, Content: result})
+				toolMsg := Message{Role: "tool", ToolCallID: tc.ID, Content: result}
+				messages = append(messages, toolMsg)
+				extra = append(extra, toolMsg)
 			}
 			continue
 		}
@@ -569,10 +579,10 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		if strings.TrimSpace(assistantContent.String()) == "" {
 			cb(StreamEvent{Content: "_(le modèle n'a pas produit de réponse — finish: " + finishReason + ")_"})
 		}
-		return nil
+		return extra, nil
 	}
 	cb(StreamEvent{Content: "\n\n[stop: trop d'appels d'outils]"})
-	return nil
+	return extra, nil
 }
 
 // healthCheck pings llama.cpp's /health endpoint.

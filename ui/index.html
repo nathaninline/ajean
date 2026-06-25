@@ -776,8 +776,15 @@ function restoreChat(){
   if(!raw) return;
   try{ msgs=JSON.parse(raw)||[]; }catch(e){ msgs=[]; return; }
   for(const m of msgs){
+    // Les messages d'outil (role 'tool' et assistant porteur de tool_calls sans
+    // texte) font partie de l'historique envoyé au modèle mais ne s'affichent pas :
+    // on saute pour ne pas créer de bulles vides au rechargement.
+    if(m.role==='tool') continue;
     if(m.role==='user') addMsg('user', m.content);
-    else if(m.role==='assistant'){ const el=addMsg('assistant',''); renderBody(el, m.content||''); }
+    else if(m.role==='assistant'){
+      if(!m.content && m.tool_calls) continue;
+      const el=addMsg('assistant',''); renderBody(el, m.content||'');
+    }
   }
   const cu=parseInt(localStorage.getItem('jean.ctxused')||'0',10); if(cu>0) setCtxUsed(cu);
 }
@@ -793,7 +800,7 @@ async function send(){
   document.getElementById('stop').style.display='inline-block';
   addMsg('user', text);
   msgs.push({role:'user',content:text}); saveChat();
-  let reasonEl=null, contentEl=null, pendingToolEl=null, fullContent='', fullReason='';
+  let reasonEl=null, contentEl=null, pendingToolEl=null, fullContent='', fullReason='', toolMsgs=null;
   let tokCount=0, reasonTokCount=0, t0=performance.now(), firstTok=0, statsTimer=null;
   let serverStats=null;
   const updateStats=(final)=>{
@@ -838,6 +845,11 @@ async function send(){
             const o=JSON.parse(data);
             const d=(o.choices&&o.choices[0]&&o.choices[0].delta)||{};
             if(d.stats){ serverStats = d.stats; }
+            // Tool-turn messages (assistant tool_calls + tool results) sent at the
+            // end of the stream. On les garde pour les réinjecter dans msgs AVANT
+            // la réponse finale, sinon le modèle re-déclenche le même skill/commande
+            // à chaque tour (aucune trace de l'avoir déjà fait).
+            if(d.tool_messages){ toolMsgs = d.tool_messages; }
             if(d.tool_used){
               // Close out the current assistant/reasoning bubbles so any text the
               // model streams *after* the tool call starts a fresh bubble BELOW it
@@ -873,6 +885,7 @@ async function send(){
         }
       }
     }
+    if(toolMsgs) msgs.push(...toolMsgs);
     msgs.push({role:'assistant',content:fullContent}); saveChat();
     // Le KV cache s'accumule : chaque tour ajoute les tokens NOUVELLEMENT traités
     // (prompt_tokens, le préfixe caché n'est pas recompté) + ceux générés. La
@@ -881,8 +894,9 @@ async function send(){
   }catch(e){
     if(e.name==='AbortError'){
       if(contentEl) setLabel(contentEl, 'assistant  ·  '+tokCount+' tok  ·  interrompu');
+      if(toolMsgs) msgs.push(...toolMsgs);
       if(fullContent) msgs.push({role:'assistant',content:fullContent});
-      else msgs.pop();
+      else if(!toolMsgs) msgs.pop();
     } else {
       addMsg('assistant','[erreur] '+e.message); msgs.pop();
     }
