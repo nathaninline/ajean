@@ -137,13 +137,18 @@ func cmdLink(args []string) error {
 	if readLinkToken() == "" {
 		return fmt.Errorf("aucun token. Usage: jean link <token>  (token fourni à l'achat sur la boutique)")
 	}
-	// Un nouveau token n'est pris en compte qu'au redémarrage du worker.
-	action := "start"
-	if gotToken {
-		action = "restart"
-	}
-	if err := linkServiceCtl(action); err != nil {
-		return err
+	switch {
+	case gotToken:
+		// Un nouveau token n'est pris en compte qu'au redémarrage du worker.
+		if err := linkServiceCtl("restart"); err != nil {
+			return err
+		}
+	case linkServiceActive():
+		fmt.Printf("%s service %s déjà en cours — « jean link restart » pour le relancer\n", yellow("[info]"), linkServiceName)
+	default:
+		if err := linkServiceCtl("start"); err != nil {
+			return err
+		}
 	}
 	return linkPrintIdentity()
 }
