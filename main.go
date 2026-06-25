@@ -1,4 +1,11 @@
 // jean — single-binary LLM server manager + web UI for llama.cpp deployments.
+//
+// Les directives ci-dessous embarquent les métadonnées Windows (éditeur, version,
+// description) dans le .exe pour réduire les faux positifs antivirus. Régénère
+// les .syso après avoir bumpé la version : `go generate ./...`
+// (nécessite : go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest)
+//go:generate goversioninfo -64 -o resource_windows_amd64.syso versioninfo.json
+//go:generate goversioninfo -64 -arm -o resource_windows_arm64.syso versioninfo.json
 package main
 
 import (

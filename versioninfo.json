@@ -1,0 +1,37 @@
+{
+  "FixedFileInfo": {
+    "FileVersion": {
+      "Major": 0,
+      "Minor": 2,
+      "Patch": 7,
+      "Build": 0
+    },
+    "ProductVersion": {
+      "Major": 0,
+      "Minor": 2,
+      "Patch": 7,
+      "Build": 0
+    },
+    "FileFlagsMask": "3f",
+    "FileFlags": "00",
+    "FileOS": "040004",
+    "FileType": "01",
+    "FileSubType": "00"
+  },
+  "StringFileInfo": {
+    "CompanyName": "Jean contributors",
+    "FileDescription": "Jean — gestionnaire mono-binaire de serveurs llama.cpp auto-hébergés",
+    "InternalName": "jean",
+    "LegalCopyright": "Copyright (c) 2026 Jean contributors. MIT License.",
+    "OriginalFilename": "jean.exe",
+    "ProductName": "Jean",
+    "ProductVersion": "0.2.7",
+    "Comments": "https://github.com/nathaninline/jean — projet open source (MIT)"
+  },
+  "VarFileInfo": {
+    "Translation": {
+      "LangID": "040C",
+      "CharsetID": "04B0"
+    }
+  }
+}
