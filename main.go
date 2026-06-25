@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const Version = "0.2.6"
+const Version = "0.2.7"
 
 func main() {
 	args := os.Args[1:]
@@ -92,10 +92,11 @@ Interaction:
   web [PORT]                    UI web (défaut :8090) — chat + presets + skills + tools
 
 Accès distant (ajean.link) :
-  link [token]                  démarre le lien au relais en arrière-plan (service) ; token = 1re fois / pour le changer
-  link restart | stop           redémarre / arrête le service de lien
+  link <token>                  enregistre le token et démarre le lien au relais (token = 1re fois / pour le changer)
+  link start | restart | stop   démarre / redémarre / arrête le service de lien
   link code                     génère un code d'appairage (valable 10 min, à usage unique) pour le portail
   link status | logout          état du lien / oublier le token
+  link                          (sans argument) affiche l'aide des sous-commandes link
   link serve                    exécute le worker au premier plan (utilisé par jean-link.service ; pendant de 'jean serve')
 
 LLM-side outils:

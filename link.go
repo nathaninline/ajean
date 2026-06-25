@@ -89,10 +89,17 @@ func cmdLink(args []string) error {
 		sub = args[0]
 	}
 	switch sub {
+	case "":
+		// `jean link` seul : afficher l'aide des sous-commandes (NE démarre pas —
+		// éviter de prendre un mot pour un token et d'écraser le vrai).
+		printLinkHelp()
+		return nil
 	case "serve", "--foreground", "fg":
 		// Le worker réel (boucle de connexion au relais), pendant de `jean serve`.
 		// C'est ce que lance l'unité systemd ; il NE doit PAS rendre la main.
 		return runLinkForeground()
+	case "start":
+		return startLink(false)
 	case "status":
 		tok := readLinkToken()
 		if tok == "" {
@@ -126,20 +133,30 @@ func cmdLink(args []string) error {
 		return nil
 	}
 
-	// Sans sous-commande : (optionnellement) enregistrer le token, puis DÉMARRER le
-	// service en arrière-plan (ne bloque pas le terminal) et afficher empreinte + code.
-	gotToken := sub != ""
-	if gotToken {
-		if err := saveLinkToken(strings.TrimSpace(sub)); err != nil {
-			return err
-		}
+	// Un argument restant n'est traité comme TOKEN que s'il en a la forme (`jl_…`).
+	// Sinon c'est une faute de frappe / sous-commande inconnue : on REFUSE, sans
+	// jamais écraser le token enregistré (le bug qui rendait le serveur injoignable).
+	if !strings.HasPrefix(sub, "jl_") {
+		fmt.Fprintf(os.Stderr, "%s sous-commande inconnue : %q\n\n", yellow("[link]"), sub)
+		printLinkHelp()
+		return fmt.Errorf("sous-commande link inconnue: %s", sub)
 	}
+	if err := saveLinkToken(strings.TrimSpace(sub)); err != nil {
+		return err
+	}
+	// Nouveau token → on (re)démarre le worker pour qu'il le prenne en compte.
+	return startLink(true)
+}
+
+// startLink démarre (ou redémarre si force) le service de lien puis affiche
+// l'identité (empreinte + code). Si le service tourne déjà et qu'on ne force pas,
+// on le signale au lieu d'un faux « démarré ».
+func startLink(force bool) error {
 	if readLinkToken() == "" {
 		return fmt.Errorf("aucun token. Usage: jean link <token>  (token fourni à l'achat sur la boutique)")
 	}
 	switch {
-	case gotToken:
-		// Un nouveau token n'est pris en compte qu'au redémarrage du worker.
+	case force:
 		if err := linkServiceCtl("restart"); err != nil {
 			return err
 		}
@@ -151,6 +168,23 @@ func cmdLink(args []string) error {
 		}
 	}
 	return linkPrintIdentity()
+}
+
+// printLinkHelp liste les sous-commandes de `jean link`.
+func printLinkHelp() {
+	fmt.Print(`jean link — accès distant via le relais ajean.link
+
+Usage :
+  jean link <token>     enregistre le token (1re fois / pour le changer) et démarre le lien
+  jean link start       démarre le lien en arrière-plan (service)
+  jean link restart     redémarre le service de lien
+  jean link stop        arrête le service de lien
+  jean link status      état du token et du service
+  jean link code        génère un code d'appairage (valable 10 min, à usage unique)
+  jean link logout      oublie le token enregistré
+
+Le token est fourni sur ajean.link. « jean link » seul affiche cette aide.
+`)
 }
 
 // linkPrintIdentity affiche l'empreinte E2E (à confirmer une fois) et un code
