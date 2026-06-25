@@ -160,6 +160,8 @@ func handleE2EChat(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("X-Accel-Buffering", "no")
 	flusher, _ := w.(http.Flusher)
+	mu, stop := sseHeartbeat(w, flusher)
+	defer stop()
 	emit := func(obj map[string]any) bool {
 		b, _ := json.Marshal(map[string]any{"choices": []any{map[string]any{"delta": obj}}})
 		nonce := make([]byte, 12)
@@ -167,6 +169,8 @@ func handleE2EChat(w http.ResponseWriter, r *http.Request) {
 			return false
 		}
 		sealedEv := append(nonce, gcm.Seal(nil, nonce, b, nil)...)
+		mu.Lock()
+		defer mu.Unlock()
 		if _, err := w.Write([]byte("data: " + base64.StdEncoding.EncodeToString(sealedEv) + "\n\n")); err != nil {
 			return false
 		}

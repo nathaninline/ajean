@@ -23,7 +23,9 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -78,48 +80,103 @@ func relayURL() string {
 	return defaultRelayURL
 }
 
+// linkServiceName est l'unité systemd qui exécute le worker « jean link --foreground ».
+const linkServiceName = "jean-link"
+
 func cmdLink(args []string) error {
-	// Sous-commandes utilitaires.
+	sub := ""
 	if len(args) > 0 {
-		switch args[0] {
-		case "status":
-			tok := readLinkToken()
-			if tok == "" {
-				fmt.Println(yellow("[info]") + " aucun token enregistré — lance: jean link <token>")
-				return nil
-			}
-			fmt.Printf("%s token enregistré (%s…), relais: %s\n", green("[ok]"), tok[:min(8, len(tok))], relayURL())
-			return nil
-		case "logout":
-			_ = os.Remove(linkTokenPath())
-			fmt.Println(green("[ok]") + " token supprimé")
+		sub = args[0]
+	}
+	switch sub {
+	case "serve", "--foreground", "fg":
+		// Le worker réel (boucle de connexion au relais), pendant de `jean serve`.
+		// C'est ce que lance l'unité systemd ; il NE doit PAS rendre la main.
+		return runLinkForeground()
+	case "status":
+		tok := readLinkToken()
+		if tok == "" {
+			fmt.Println(yellow("[info]") + " aucun token enregistré — lance: jean link <token>")
 			return nil
 		}
+		fmt.Printf("%s token enregistré (%s…), relais: %s\n", green("[ok]"), tok[:min(8, len(tok))], relayURL())
+		if linkServiceActive() {
+			fmt.Printf("%s service %s: actif\n", green("[ok]"), linkServiceName)
+		} else {
+			fmt.Printf("%s service %s: arrêté (jean link pour démarrer)\n", yellow("[info]"), linkServiceName)
+		}
+		return nil
+	case "logout":
+		_ = os.Remove(linkTokenPath())
+		fmt.Println(green("[ok]") + " token supprimé")
+		return nil
+	case "stop":
+		return linkServiceCtl("stop")
+	case "restart":
+		if err := linkServiceCtl("restart"); err != nil {
+			return err
+		}
+		return linkPrintIdentity()
+	case "code":
+		code, err := newPairCode()
+		if err != nil {
+			return fmt.Errorf("génération du code (droits sur %s ?): %w", JeanHome(), err)
+		}
+		fmt.Printf("%s code d'appairage (valable 10 min, à usage unique) :\n       %s\n", green("[link]"), bold(code))
+		return nil
 	}
 
-	token := readLinkToken()
-	if len(args) > 0 && args[0] != "" {
-		token = strings.TrimSpace(args[0])
-		if err := saveLinkToken(token); err != nil {
+	// Sans sous-commande : (optionnellement) enregistrer le token, puis DÉMARRER le
+	// service en arrière-plan (ne bloque pas le terminal) et afficher empreinte + code.
+	gotToken := sub != ""
+	if gotToken {
+		if err := saveLinkToken(strings.TrimSpace(sub)); err != nil {
 			return err
 		}
 	}
-	if token == "" {
+	if readLinkToken() == "" {
 		return fmt.Errorf("aucun token. Usage: jean link <token>  (token fourni à l'achat sur la boutique)")
 	}
+	// Un nouveau token n'est pris en compte qu'au redémarrage du worker.
+	action := "start"
+	if gotToken {
+		action = "restart"
+	}
+	if err := linkServiceCtl(action); err != nil {
+		return err
+	}
+	return linkPrintIdentity()
+}
 
-	fmt.Printf("%s connexion au relais %s …\n", cyan("[link]"), relayURL())
-	fmt.Printf("       (UI Jean + endpoint OpenAI servis dans le tunnel — pas besoin de 'jean web')\n")
-
-	// Empreinte E2E : à confirmer UNE FOIS dans le portail. Garantit que le chat
-	// est chiffré vers CET agent et pas vers un relais qui se ferait passer pour lui.
+// linkPrintIdentity affiche l'empreinte E2E (à confirmer une fois) et un code
+// d'appairage frais (à saisir une fois) pour le portail.
+func linkPrintIdentity() error {
 	if fp := e2eFingerprint(); fp != "" {
 		fmt.Printf("\n%s empreinte E2E de cette machine :\n       %s\n", green("[e2e]"), bold(fp))
 		fmt.Printf("       Confirme-la dans le portail (Mon compte → serveur) pour activer la boîte noire.\n")
 	}
-	// Code d'appairage : à saisir UNE FOIS dans le portail. Authentifie TON navigateur
-	// auprès de l'agent → même un relais compromis ne peut pas émettre de commandes.
-	fmt.Printf("       Code d'appairage (à saisir une fois dans le portail) : %s\n\n", bold(currentPairCode()))
+	code, err := newPairCode()
+	if err != nil {
+		fmt.Printf("%s code d'appairage indisponible (droits sur %s ?): %v\n", yellow("[link]"), JeanHome(), err)
+		fmt.Printf("       Réessaie : sudo jean link code\n")
+		return nil
+	}
+	fmt.Printf("       Code d'appairage (valable 10 min, usage unique) : %s\n\n", bold(code))
+	return nil
+}
+
+// runLinkForeground exécute la boucle de connexion au relais (le worker supervisé
+// par systemd). Reconnexion automatique avec backoff. Ne rend jamais la main.
+func runLinkForeground() error {
+	token := readLinkToken()
+	if token == "" {
+		return fmt.Errorf("aucun token. Usage: jean link <token>")
+	}
+	fmt.Printf("%s connexion au relais %s …\n", cyan("[link]"), relayURL())
+	fmt.Printf("       (UI Jean + endpoint OpenAI servis dans le tunnel — pas besoin de 'jean web')\n")
+	if fp := e2eFingerprint(); fp != "" {
+		fmt.Printf("%s empreinte E2E : %s   (code d'appairage : jean link code)\n", green("[e2e]"), bold(fp))
+	}
 
 	// On construit le handler une seule fois ; il est servi à travers chaque tunnel.
 	handler := newLinkHandler()
@@ -138,6 +195,39 @@ func cmdLink(args []string) error {
 			}
 		}
 	}
+}
+
+// linkServiceCtl pilote l'unité systemd jean-link (start/stop/restart), avec sudo
+// non interactif si on n'est pas root. Linux uniquement (le relais cible est Linux).
+func linkServiceCtl(action string) error {
+	if runtime.GOOS != "linux" {
+		return fmt.Errorf("gestion du service %s : Linux/systemd uniquement (lance « jean link --foreground » directement)", linkServiceName)
+	}
+	bin, pre := "systemctl", []string{}
+	if os.Geteuid() != 0 {
+		bin, pre = "sudo", []string{"-n", "systemctl"}
+	}
+	cmd := exec.Command(bin, append(pre, action, linkServiceName)...)
+	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("systemctl %s %s: %w", action, linkServiceName, err)
+	}
+	switch action {
+	case "start", "restart":
+		fmt.Printf("%s service %s %s\n", green("[ok]"), linkServiceName, action+"é")
+	case "stop":
+		fmt.Printf("%s service %s arrêté\n", green("[ok]"), linkServiceName)
+	}
+	return nil
+}
+
+// linkServiceActive indique si l'unité systemd jean-link tourne.
+func linkServiceActive() bool {
+	if runtime.GOOS != "linux" {
+		return false
+	}
+	out, _ := exec.Command("systemctl", "is-active", linkServiceName).Output()
+	return strings.TrimSpace(string(out)) == "active"
 }
 
 // newLinkHandler construit le handler servi à travers le tunnel :

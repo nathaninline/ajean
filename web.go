@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -582,6 +583,39 @@ type chatReq struct {
 	Skills *bool `json:"skills"`
 }
 
+// sseHeartbeat garde la réponse SSE active en écrivant un commentaire (`: ping`,
+// ignoré par le parseur côté navigateur, aucun contenu donc rien à chiffrer)
+// toutes les ~15 s. Sans ça, un long silence (exécution d'outil en mode agent,
+// gros prefill) laisse la réponse inactive et un proxy intermédiaire (Cloudflare,
+// ~100 s) la coupe → le fetch navigateur échoue (« Load failed »). Retourne un
+// mutex à partager avec l'émetteur (writes concurrents sur le même w) et une
+// fonction d'arrêt à différer.
+func sseHeartbeat(w http.ResponseWriter, flusher http.Flusher) (*sync.Mutex, func()) {
+	mu := &sync.Mutex{}
+	done := make(chan struct{})
+	go func() {
+		t := time.NewTicker(15 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-t.C:
+				mu.Lock()
+				_, err := w.Write([]byte(": ping\n\n"))
+				if flusher != nil {
+					flusher.Flush()
+				}
+				mu.Unlock()
+				if err != nil {
+					return
+				}
+			}
+		}
+	}()
+	return mu, func() { close(done) }
+}
+
 // runChatStream exécute le chat et pousse chaque événement (delta) via emit, qui
 // renvoie false pour interrompre. Partagé par handleChat et handleE2EChat.
 func runChatStream(ctx context.Context, body chatReq, emit func(map[string]any) bool) {
@@ -626,8 +660,12 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("X-Accel-Buffering", "no")
 	flusher, _ := w.(http.Flusher)
+	mu, stop := sseHeartbeat(w, flusher)
+	defer stop()
 	emit := func(obj map[string]any) bool {
 		b, _ := json.Marshal(map[string]any{"choices": []any{map[string]any{"delta": obj}}})
+		mu.Lock()
+		defer mu.Unlock()
 		if _, err := w.Write([]byte("data: " + string(b) + "\n\n")); err != nil {
 			return false
 		}

@@ -114,7 +114,9 @@ Interaction :
   web [PORT]                    interface web (défaut :8090)
 
 Accès distant (ajean.link) :
-  link <token>                  connecte ce Jean au relais (accès web chiffré E2E ; API OpenAI en option)
+  link [token]                  démarre le lien au relais en arrière-plan (token = 1re fois / pour le changer)
+  link restart | stop           redémarre / arrête le service de lien
+  link code                     génère un code d'appairage (valable 10 min, usage unique) pour le portail
   link status | logout          état du lien / oublier le token
 
 Outils côté LLM :
@@ -201,9 +203,11 @@ La clé est stockée dans `$JEAN_HOME/.web_key`, distincte de `.api_key` (pilota
 Plutôt que d'exposer un port, `jean link` ouvre une connexion **sortante** vers le relais [ajean.link](https://ajean.link) : ton serveur reste injoignable depuis l'extérieur, mais tu y accèdes quand même depuis n'importe où — idéal derrière une box ou en CGNAT.
 
 ```bash
-jean web                 # l'UI doit tourner localement
-jean link <token>        # token fourni sur ajean.link
+jean link <token>        # token fourni sur ajean.link ; démarre le lien en arrière-plan
+jean link code           # un code d'appairage à saisir une fois dans le portail
 ```
+
+`jean link` tourne comme un **service** (au même titre que `jean` lui-même) : la commande rend la main aussitôt, le lien continue en tâche de fond. Gestion : `jean link restart`, `jean link stop`, `jean link status`. (Pas besoin de `jean web` : l'UI est servie dans le tunnel.)
 
 Une fois lié, tu retrouves depuis le portail :
 - l'**interface web** de ton serveur, à distance, avec un **chat chiffré de bout en bout** ;
@@ -217,7 +221,8 @@ C'est un service optionnel et payant ; tout le reste de Jean est et restera open
 `jean link` est conçu pour que le relais ajean.link soit un **pur tube aveugle** : il transporte tes données mais ne peut pas les lire.
 
 - **Chat chiffré de bout en bout.** Le chat entre ton navigateur et ton serveur Jean est chiffré (X25519 + AES-GCM) : le relais ne voit ni tes prompts ni les réponses, seulement de l'opaque. La clé est dérivée de ton mot de passe (protocole **OPAQUE**) et ne quitte jamais ton navigateur.
-- **Empreinte vérifiée.** Au premier `jean link`, Jean affiche une empreinte de la clé de la machine, à confirmer une fois dans le portail — ça défait toute tentative d'interception par le relais.
+- **Empreinte vérifiée.** `jean link` affiche une empreinte de la clé de la machine, à confirmer une fois dans le portail — ça défait toute tentative d'interception par le relais.
+- **Appairage authentifié.** En plus de l'empreinte, tu autorises ton navigateur avec un **code d'appairage** (`jean link code`) : à usage unique et valable 10 min, il garantit que seul *ton* navigateur peut piloter le serveur — même un relais compromis ne peut pas forger de commande.
 - **Aucun chat en clair par le relais.** L'ancien chemin en clair est refusé à travers le tunnel ; seul le chemin chiffré transporte du contenu.
 - **Code servi hors du relais.** Le portail web est livré par une origine indépendante (GitHub Pages), pas par le relais — donc même compromis, le relais ne peut pas injecter de code piégé pour voler ta clé.
 
@@ -227,10 +232,10 @@ C'est un service optionnel et payant ; tout le reste de Jean est et restera open
 
 Pour brancher des outils tiers (OpenCode, etc.), Jean peut exposer un endpoint compatible OpenAI (`https://ajean.link/oai/<machine>/v1`, clé = une clé de liaison du compte). Mais ces outils ne font pas le chiffrement navigateur : ce flux transiterait **en clair** par le relais. Il est donc **désactivé par défaut**.
 
-Côté **ton serveur**, tu l'autorises en lançant `jean link` avec cette variable :
+Côté **ton serveur**, tu l'autorises avec la variable `JEAN_LINK_ALLOW_OAI=1`. Comme le lien tourne en service, place-la dans l'environnement du service (et non en préfixe d'une commande), par ex. dans `/etc/default/jean` ou via `systemctl edit jean-link`, puis :
 
 ```bash
-JEAN_LINK_ALLOW_OAI=1 jean link <token>
+jean link restart
 ```
 
 Sans elle, ton agent refuse l'endpoint (`403`). L'accès `/oai` à travers **ajean.link** dépend ensuite du service (le relais est la partie hébergée d'ajean.link, que tu ne gères pas) : la fonctionnalité doit y être ouverte pour ton compte. Assume le compromis avant de l'activer — pour ce canal, le relais voit le trafic en clair.

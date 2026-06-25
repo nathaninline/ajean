@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const Version = "0.2.5"
+const Version = "0.2.6"
 
 func main() {
 	args := os.Args[1:]
@@ -92,8 +92,11 @@ Interaction:
   web [PORT]                    UI web (défaut :8090) — chat + presets + skills + tools
 
 Accès distant (ajean.link) :
-  link <token>                  connecte ce Jean au relais public (accès web depuis partout, sans ouvrir de port)
+  link [token]                  démarre le lien au relais en arrière-plan (service) ; token = 1re fois / pour le changer
+  link restart | stop           redémarre / arrête le service de lien
+  link code                     génère un code d'appairage (valable 10 min, à usage unique) pour le portail
   link status | logout          état du lien / oublier le token
+  link serve                    exécute le worker au premier plan (utilisé par jean-link.service ; pendant de 'jean serve')
 
 LLM-side outils:
   skills [on|off|list]          active la lecture de SKILLS/<nom>/SKILL.md par l'IA
