@@ -50,12 +50,12 @@ func memSearchTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "mem_search",
-			Description: "Cherche dans ta mémoire (pages Markdown sous MEMORY/). Renvoie une liste classée {fichier, titre, extrait}. À utiliser EN PREMIER quand l'utilisateur évoque qqch que tu pourrais déjà savoir (préférences, projets en cours, décisions passées). Complète avec mem_read sur la page la plus pertinente.",
+			Description: "Search your memory (Markdown pages under MEMORY/). Returns a ranked list of {file, title, snippet}. Use it FIRST when the user mentions something you might already know (preferences, ongoing projects, past decisions). Follow up with mem_read on the most relevant page.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"query": map[string]any{"type": "string", "description": "Mots-clés ou courte phrase"},
-					"limit": map[string]any{"type": "integer", "description": "Nb max de résultats (défaut 8, max 30)"},
+					"query": map[string]any{"type": "string", "description": "Keywords or a short phrase"},
+					"limit": map[string]any{"type": "integer", "description": "Max results (default 8, max 30)"},
 				},
 				"required": []string{"query"},
 			},
@@ -68,13 +68,13 @@ func memReadTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "mem_read",
-			Description: "Lit une page mémoire (fichier Markdown). Sortie 1-indexée, lignes préfixées du numéro. offset/limit pour les longues pages.",
+			Description: "Read a memory page (Markdown file). 1-indexed output, lines prefixed with their number. offset/limit for long pages.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"file":   map[string]any{"type": "string", "description": "Nom de la page (ex: docker-notes.md)"},
-					"offset": map[string]any{"type": "integer", "description": "Ligne de départ (1-indexé, défaut 1)"},
-					"limit":  map[string]any{"type": "integer", "description": "Nb de lignes (défaut 500, max 500)"},
+					"file":   map[string]any{"type": "string", "description": "Page name (e.g. docker-notes.md)"},
+					"offset": map[string]any{"type": "integer", "description": "Start line (1-indexed, default 1)"},
+					"limit":  map[string]any{"type": "integer", "description": "Number of lines (default 500, max 500)"},
 				},
 				"required": []string{"file"},
 			},
@@ -87,12 +87,12 @@ func memAddTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "mem_add",
-			Description: "Crée une nouvelle page mémoire (Markdown). Un seul sujet par page, nom descriptif en kebab-case. 1re ligne = titre court (#). Refuse d'écraser une page existante (utilise mem_edit).",
+			Description: "Create a new memory page (Markdown). One topic per page, descriptive kebab-case name. First line = short title (#). Refuses to overwrite an existing page (use mem_edit).",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"file":    map[string]any{"type": "string", "description": "Nom de la page (ex: docker-notes.md)"},
-					"content": map[string]any{"type": "string", "description": "Contenu Markdown (1re ligne = titre #)"},
+					"file":    map[string]any{"type": "string", "description": "Page name (e.g. docker-notes.md)"},
+					"content": map[string]any{"type": "string", "description": "Markdown content (first line = title #)"},
 				},
 				"required": []string{"file", "content"},
 			},
@@ -105,13 +105,13 @@ func memEditTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "mem_edit",
-			Description: "Édite une page mémoire par remplacement exact : old → new. old doit apparaître EXACTEMENT une fois dans la page (ajoute du contexte pour le rendre unique). Pour ajouter du contenu, mets l'ancienne fin de page dans old et la version augmentée dans new.",
+			Description: "Edit a memory page by exact replacement: old → new. old must appear EXACTLY once in the page (add context to make it unique). To append, put the current end of the page in old and the extended version in new.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"file": map[string]any{"type": "string", "description": "Nom de la page"},
-					"old":  map[string]any{"type": "string", "description": "Texte exact à remplacer (unique dans la page)"},
-					"new":  map[string]any{"type": "string", "description": "Texte de remplacement"},
+					"file": map[string]any{"type": "string", "description": "Page name"},
+					"old":  map[string]any{"type": "string", "description": "Exact text to replace (unique in the page)"},
+					"new":  map[string]any{"type": "string", "description": "Replacement text"},
 				},
 				"required": []string{"file", "old", "new"},
 			},
@@ -124,13 +124,13 @@ func editTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "edit",
-			Description: "Modifie un fichier sur le disque par remplacement exact : old → new. old doit apparaître EXACTEMENT une fois dans le fichier (ajoute du contexte autour pour le rendre unique). Préfère cet outil à la réécriture complète du fichier — il évite de tout retaper.",
+			Description: "Modify a file on disk by exact replacement: old → new. old must appear EXACTLY once in the file (add surrounding context to make it unique). Prefer this over rewriting the whole file — it avoids retyping everything.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"file": map[string]any{"type": "string", "description": "Chemin du fichier à modifier"},
-					"old":  map[string]any{"type": "string", "description": "Texte exact à remplacer (unique dans le fichier)"},
-					"new":  map[string]any{"type": "string", "description": "Texte de remplacement"},
+					"file": map[string]any{"type": "string", "description": "Path of the file to modify"},
+					"old":  map[string]any{"type": "string", "description": "Exact text to replace (unique in the file)"},
+					"new":  map[string]any{"type": "string", "description": "Replacement text"},
 				},
 				"required": []string{"file", "old", "new"},
 			},
@@ -143,12 +143,12 @@ func bashTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "bash",
-			Description: "Exécute une commande shell (bash) sur cette machine et retourne stdout, stderr et le code de sortie. Pour inspecter le système, lancer des scripts, lire/éditer des fichiers, lire des logs. Évite les commandes destructrices sauf demande explicite.",
+			Description: "Execute a shell command (bash) on this machine and return stdout, stderr and the exit code. For inspecting the system, running scripts, reading/editing files, reading logs. Avoid destructive commands unless explicitly asked.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"command": map[string]any{"type": "string", "description": "La commande bash"},
-					"timeout": map[string]any{"type": "integer", "description": fmt.Sprintf("Timeout s (défaut %d, max %d)", toolDefaultTimeout, toolMaxTimeout)},
+					"command": map[string]any{"type": "string", "description": "The bash command"},
+					"timeout": map[string]any{"type": "integer", "description": fmt.Sprintf("Timeout s (default %d, max %d)", toolDefaultTimeout, toolMaxTimeout)},
 				},
 				"required": []string{"command"},
 			},
@@ -716,7 +716,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				cb(StreamEvent{DropReasoning: true})
 				messages = append(messages, Message{
 					Role:    "user",
-					Content: "Tu as réfléchi mais tu n'as ni appelé d'outil ni répondu. Agis MAINTENANT : appelle directement l'outil approprié (par ex. mem_search/mem_read/bash), ou donne ta réponse finale si tu as déjà l'information. N'explique pas, agis.",
+					Content: "You reasoned but did not call a tool or answer. Act NOW: call the appropriate tool directly (e.g. mem_search/mem_read/bash), or give your final answer if you already have the info. Don't explain, act.",
 				})
 				continue
 			}
