@@ -97,7 +97,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 #scrollbtn{position:absolute;bottom:80px;right:20px;background:var(--panel);border:1px solid var(--border);color:var(--accent);width:36px;height:36px;border-radius:50%;cursor:pointer;display:none;font-size:16px;z-index:5}
 #scrollbtn.show{display:block}
 .msg.reasoning{align-self:flex-start;background:transparent;border:1px dashed var(--border);color:var(--mag);font-size:12px;max-width:90%;overflow-wrap:anywhere;word-break:break-word}
-.msg.tool{align-self:flex-start;background:var(--panel);border:1px solid var(--border);max-width:100%;white-space:normal;padding:8px 12px}
+.msg.tool{align-self:flex-start;background:transparent;border:1px dashed var(--border);max-width:90%;white-space:normal;padding:8px 12px;font-size:12px;overflow-wrap:anywhere;word-break:break-word}
 .msg.tool .tool-head{font-size:12px;color:var(--accent);font-weight:600;margin-bottom:6px}
 .msg.tool .tool-sub{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin:8px 0 4px}
 .msg.tool pre{position:relative;background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:8px 10px;overflow:auto;margin:0;max-height:280px}
@@ -106,7 +106,28 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .msg.tool .tool-wait{font-size:12px;color:var(--dim);margin-top:8px;animation:toolblink 1.2s ease-in-out infinite}
 @keyframes toolblink{0%,100%{opacity:.45}50%{opacity:1}}
 .msg .label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;display:block}
-#inputbar{border-top:1px solid var(--border);padding:12px;display:flex;gap:8px}
+/* Bulles repliables (reasoning / tool) : une fois la réponse arrivée, on les
+   replie en douceur pour désencombrer le fil, tout en gardant le label (et son
+   compteur de tokens) cliquable pour redéplier. */
+.msg.collapsible .label{cursor:pointer;user-select:none;margin-bottom:0}
+/* Hauteur animée en JS (mesure scrollHeight → 0) plutôt que grid 1fr→0fr qui
+   peut « dépasser ». overflow:hidden clippe le contenu pendant tout le repli.
+   width revient à auto SANS délai à l'ouverture (pas de saut), et passe à 0
+   APRÈS le fold (width 0s .3s) à la fermeture pour rétrécir la bulle au label. */
+/* height ET width sont animées (en px, pilotées en JS via scrollHeight/scrollWidth)
+   → repli/dépli fluide en diagonale. overflow:hidden clippe pendant l'animation. */
+.msg.collapsible .bodywrap{overflow:hidden;transition:height .42s cubic-bezier(.4,0,.2,1),width .42s cubic-bezier(.4,0,.2,1),opacity .3s ease,margin-top .42s cubic-bezier(.4,0,.2,1);opacity:1;margin-top:4px}
+.msg.collapsible .bodywrap>.body{min-width:0}
+.msg.collapsible.collapsed .bodywrap{opacity:0;margin-top:0}
+/* Composer = un seul bloc cohérent : barre de contexte intégrée en tête (fine
+   ligne de progression pleine largeur affleurant le bord) + zone de saisie. */
+#composer{border-top:1px solid var(--border);background:var(--panel-2,rgba(255,255,255,.02))}
+#ctxtrack{height:3px;width:100%;background:var(--panel);overflow:hidden}
+#ctx-fill{height:100%;width:0%;background:var(--ok,#3a7);transition:width .3s,background .3s}
+#ctxmeta{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:5px 12px 0}
+#ctx-text{font-size:10px;letter-spacing:.03em;white-space:nowrap}
+#ctx-compact{display:none;margin:0;padding:2px 10px;font-size:10px;background:#3d2f1f;border-color:var(--warn,#c93)}
+#inputbar{padding:8px 12px;display:flex;gap:8px}
 #input{flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;font:inherit;resize:none;min-height:44px;max-height:200px}
 #input:focus{outline:none;border-color:var(--accent)}
 #send{padding:0 20px}
@@ -164,19 +185,19 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="main" style="position:relative">
   <div id="chat"></div>
   <button id="scrollbtn" onclick="jumpBottom()" title="aller en bas">↓</button>
-  <div id="ctxbar" style="padding:4px 12px 0;font-size:11px;display:flex;align-items:center;gap:8px">
-    <div style="flex:1;height:6px;background:var(--panel);border:1px solid var(--border);border-radius:4px;overflow:hidden">
-      <div id="ctx-fill" style="height:100%;width:0%;background:var(--ok,#3a7);transition:width .3s,background .3s"></div>
+  <div id="composer">
+    <div id="ctxtrack"><div id="ctx-fill"></div></div>
+    <div id="ctxmeta">
+      <span id="ctx-text" class="muted">contexte 0 / 0</span>
+      <button id="ctx-compact" onclick="compactContext()">compacter</button>
     </div>
-    <span id="ctx-text" class="muted" style="white-space:nowrap">contexte 0 / 0</span>
-    <button id="ctx-compact" onclick="compactContext()" style="display:none;margin:0;padding:2px 10px;font-size:11px;background:#3d2f1f;border-color:var(--warn,#c93)">compacter</button>
+    <div id="inputbar">
+      <textarea id="input" placeholder="message…" onkeydown="onKey(event)"></textarea>
+      <button id="send" onclick="send()">send</button>
+      <button id="stop" onclick="stopGen()" style="display:none;background:#3d1f23;border-color:var(--err);color:var(--err)">stop</button>
+    </div>
+    <div class="muted" style="padding:0 12px 6px;font-size:10px;text-align:center;opacity:.7">Entrée pour envoyer · Maj+Entrée = nouvelle ligne</div>
   </div>
-  <div id="inputbar">
-    <textarea id="input" placeholder="message…" onkeydown="onKey(event)"></textarea>
-    <button id="send" onclick="send()">send</button>
-    <button id="stop" onclick="stopGen()" style="display:none;background:#3d1f23;border-color:var(--err);color:var(--err)">stop</button>
-  </div>
-  <div class="muted" style="padding:2px 12px 6px;font-size:10px;text-align:center;opacity:.7">Entrée pour envoyer · Maj+Entrée = nouvelle ligne</div>
 </div>
 <div id="toast"></div>
 <div id="bench-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:30;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeBenchModal()">
@@ -668,13 +689,46 @@ document.addEventListener('DOMContentLoaded', ()=>{
 function addMsg(role, text){
   const el=document.createElement('div');
   el.className='msg '+role;
+  const collapsible = (role==='reasoning' || role==='tool');
   // .body must be a real block so <p>/<pre>/<ul> margins behave properly.
-  el.innerHTML='<span class="label">'+role+'</span><div class="body"></div>';
+  if(collapsible){
+    el.classList.add('collapsible');
+    el.innerHTML='<span class="label">'+role+'</span><div class="bodywrap"><div class="body"></div></div>';
+    el.querySelector('.label').onclick=()=>toggleCollapse(el);
+  } else {
+    el.innerHTML='<span class="label">'+role+'</span><div class="body"></div>';
+  }
   el.querySelector('.body').textContent=text;
   chatEl().appendChild(el);
   scrollMaybe();
   return el;
 }
+// Replie/déplie en douceur les bulles reasoning/tool. Hauteur animée en JS :
+// on fige scrollHeight puis on va à 0 (fermeture) ou de 0 vers scrollHeight
+// (ouverture), sans jamais dépasser. overflow:hidden clippe pendant l'animation.
+function collapseBody(el){
+  const bw=el.querySelector('.bodywrap'); if(!bw || el.classList.contains('collapsed')) return;
+  bw.style.height = bw.scrollHeight+'px';   // fige les dimensions courantes
+  bw.style.width  = bw.scrollWidth+'px';
+  void bw.offsetHeight;                      // reflow pour que la transition parte de là
+  el.classList.add('collapsed');
+  bw.style.height = '0px';                    // → anime height ET width vers 0
+  bw.style.width  = '0px';
+}
+function expandBody(el){
+  const bw=el.querySelector('.bodywrap'); if(!bw) return;
+  el.classList.remove('collapsed');
+  bw.style.height=''; bw.style.width='';      // mesure les dimensions naturelles…
+  const h=bw.scrollHeight, w=bw.scrollWidth;
+  bw.style.height='0px'; bw.style.width='0px';// …repart de 0 (pas de flash, même frame)
+  void bw.offsetHeight;
+  bw.style.height=h+'px'; bw.style.width=w+'px';
+  const done=e=>{ if(e.propertyName!=='height') return; bw.style.height=''; bw.style.width=''; bw.removeEventListener('transitionend',done); };
+  bw.addEventListener('transitionend',done);
+}
+function toggleCollapse(el){ el.classList.contains('collapsed') ? expandBody(el) : collapseBody(el); }
+// Replie toutes les bulles d'un tour une fois la réponse finale entamée.
+function collapseAll(list){ for(const el of list){ if(el) collapseBody(el); } list.length=0; }
 function setLabel(el, text){ el.querySelector('.label').textContent = text; }
 function bodyOf(el){ return el.querySelector('.body'); }
 // Render markdown into a message body in place; safe because md() escapes HTML.
@@ -683,7 +737,10 @@ function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(text); addCo
 // wrote, then the response it got back. textContent keeps it injection-safe.
 function renderToolMsg(el, tu){
   const isShell = tu.name==='run_shell';
-  setLabel(el, isShell ? 'terminal' : 'skill');
+  let lbl = isShell ? 'terminal' : 'skill';
+  // Indication du volume de la réponse de l'outil (~tokens, estimation 1 tok ≈ 4 car).
+  if(tu.result){ lbl += '  ·  ~' + Math.max(1, Math.round(tu.result.length/4)) + ' tok'; }
+  setLabel(el, lbl);
   const body=bodyOf(el); body.innerHTML='';
   const head=document.createElement('div'); head.className='tool-head';
   head.textContent = isShell ? '⚙️ commande' : '📚 skill';
@@ -801,6 +858,7 @@ async function send(){
   addMsg('user', text);
   msgs.push({role:'user',content:text}); saveChat();
   let reasonEl=null, contentEl=null, pendingToolEl=null, fullContent='', fullReason='', toolMsgs=null;
+  let turnCollapsibles=[]; // bulles reasoning/tool à replier dès la réponse finale
   let tokCount=0, reasonTokCount=0, t0=performance.now(), firstTok=0, statsTimer=null;
   let serverStats=null;
   const updateStats=(final)=>{
@@ -813,7 +871,10 @@ async function send(){
       const s = serverStats;
       const totalSec = (performance.now() - t0) / 1000;
       const parts = [role];
-      if(s.prompt_tokens) parts.push('prefill ' + s.prompt_tokens + ' tok · ' + s.prompt_per_second.toFixed(0) + ' tok/s');
+      // prompt_tokens_total = taille réelle du prompt (system inclus, même si en
+      // cache) ; repli sur prompt_tokens (neuf traité) si le backend n'envoie pas l'usage.
+      const pt = s.prompt_tokens_total || s.prompt_tokens;
+      if(pt) parts.push('prefill ' + pt + ' tok · ' + (s.prompt_per_second||0).toFixed(0) + ' tok/s');
       if(s.gen_tokens) parts.push('decode ' + s.gen_tokens + ' tok · ' + s.gen_per_second.toFixed(1) + ' tok/s');
       parts.push('total ' + totalSec.toFixed(1) + 's');
       setLabel(el, parts.join('  ·  '));
@@ -858,7 +919,9 @@ async function send(){
               const tu=d.tool_used;
               // One bubble per call: the live "typing" updates, the "en cours"
               // spinner, and the final result all re-render the SAME element.
-              if(!pendingToolEl) pendingToolEl=addMsg('tool','');
+              // Chaînage : replie les étapes précédentes (reasoning/outils déjà
+              // finis) dès qu'une nouvelle démarre — seule l'étape en cours reste ouverte.
+              if(!pendingToolEl){ collapseAll(turnCollapsibles); pendingToolEl=addMsg('tool',''); turnCollapsibles.push(pendingToolEl); }
               renderToolMsg(pendingToolEl, tu);
               if(tu.done){
                 pendingToolEl=null;
@@ -871,13 +934,13 @@ async function send(){
               // Start a fresh buffer per bubble — otherwise a reasoning block that
               // follows a tool call re-renders ALL previously accumulated reasoning
               // into the new bubble (duplicated dozens of times over a turn).
-              if(!reasonEl){ reasonEl=addMsg('reasoning',''); fullReason=''; }
+              if(!reasonEl){ collapseAll(turnCollapsibles); reasonEl=addMsg('reasoning',''); fullReason=''; turnCollapsibles.push(reasonEl); }
               if(!firstTok) firstTok=performance.now();
               reasonTokCount++;
               fullReason+=d.reasoning_content; renderBody(reasonEl, fullReason);
             }
             if(d.content){
-              if(!contentEl){ contentEl=addMsg('assistant',''); fullContent=''; firstTok=performance.now(); }
+              if(!contentEl){ collapseAll(turnCollapsibles); contentEl=addMsg('assistant',''); fullContent=''; firstTok=performance.now(); }
               tokCount++;
               fullContent+=d.content; renderBody(contentEl, fullContent);
             }
@@ -890,7 +953,14 @@ async function send(){
     // Le KV cache s'accumule : chaque tour ajoute les tokens NOUVELLEMENT traités
     // (prompt_tokens, le préfixe caché n'est pas recompté) + ceux générés. La
     // taille réelle du contexte = somme cumulée, donc monotone croissante.
-    if(serverStats){ setCtxUsed(CTX_USED + (serverStats.prompt_tokens||0) + (serverStats.gen_tokens||0)); try{ localStorage.setItem('jean.ctxused', CTX_USED); }catch(e){} }
+    if(serverStats){
+      // prompt_tokens_total (usage) = taille TOTALE du prompt ce tour (system +
+      // historique, préfixe caché compris) → contexte ABSOLU et exact. Sinon repli
+      // sur l'ancienne accumulation (prompt_tokens = seulement le neuf traité).
+      if(serverStats.prompt_tokens_total){ setCtxUsed((serverStats.prompt_tokens_total||0) + (serverStats.gen_tokens||0)); }
+      else { setCtxUsed(CTX_USED + (serverStats.prompt_tokens||0) + (serverStats.gen_tokens||0)); }
+      try{ localStorage.setItem('jean.ctxused', CTX_USED); }catch(e){}
+    }
   }catch(e){
     if(e.name==='AbortError'){
       if(contentEl) setLabel(contentEl, 'assistant  ·  '+tokCount+' tok  ·  interrompu');

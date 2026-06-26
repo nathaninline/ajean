@@ -205,12 +205,15 @@ func previewArg(args, key string) string {
 
 // StatsEvent carries llama.cpp's per-completion timing (final chunk).
 type StatsEvent struct {
-	PromptTokens    int     `json:"prompt_tokens"`
-	PromptPerSecond float64 `json:"prompt_per_second"`
-	PromptMs        float64 `json:"prompt_ms"`
-	GenTokens       int     `json:"gen_tokens"`
-	GenPerSecond    float64 `json:"gen_per_second"`
-	GenMs           float64 `json:"gen_ms"`
+	PromptTokens    int     `json:"prompt_tokens,omitempty"`
+	PromptPerSecond float64 `json:"prompt_per_second,omitempty"`
+	PromptMs        float64 `json:"prompt_ms,omitempty"`
+	GenTokens       int     `json:"gen_tokens,omitempty"`
+	GenPerSecond    float64 `json:"gen_per_second,omitempty"`
+	GenMs           float64 `json:"gen_ms,omitempty"`
+	// Taille TOTALE du prompt traité ce tour (préfixe caché compris), issue de
+	// `usage.prompt_tokens`. 0 si le backend ne renvoie pas d'usage.
+	PromptTokensTotal int `json:"prompt_tokens_total,omitempty"`
 }
 
 // ChatCallback receives stream events. Return false to abort the stream.
@@ -237,6 +240,12 @@ type streamChunk struct {
 		PredictedMs      float64 `json:"predicted_ms"`
 		PredictedPerSec  float64 `json:"predicted_per_second"`
 	} `json:"timings"`
+	// Chunk final (include_usage) : taille totale du prompt, hors choices.
+	Usage *struct {
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		TotalTokens      int `json:"total_tokens"`
+	} `json:"usage"`
 }
 
 // runChat drives the full inference loop including tool calling.
@@ -274,6 +283,11 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			"messages":    messages,
 			"stream":      true,
 			"temperature": temperature,
+			// include_usage → chunk final avec `usage.prompt_tokens` = taille TOTALE
+			// du prompt (préfixe caché compris), contrairement à timings.prompt_n qui
+			// ne compte que les tokens nouvellement traités. Sert au comptage exact du
+			// contexte (sinon le system prompt déjà en cache n'est pas recompté).
+			"stream_options": map[string]any{"include_usage": true},
 		}
 		if len(tools) > 0 && !disableTools {
 			payload["tools"] = tools
@@ -325,6 +339,10 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		toolCalls := map[int]*ToolCall{}
 		assistantContent := strings.Builder{}
 		finishReason := ""
+		// Accumulateur de stats : timings (prefill/decode) puis usage (total prompt)
+		// arrivent sur des chunks séparés ; on émet une copie complète à chaque MAJ
+		// pour que les consommateurs (terminal, web) aient toujours tout.
+		var stats StatsEvent
 		lastPreview := "" // last command preview emitted (to stream the typing)
 		// Per-completion reasoning-split state (see reasoningOn comment above).
 		sawReasoningField := false
@@ -344,7 +362,17 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				continue
 			}
 			var chunk streamChunk
-			if err := json.Unmarshal([]byte(data), &chunk); err != nil || len(chunk.Choices) == 0 {
+			if err := json.Unmarshal([]byte(data), &chunk); err != nil {
+				continue
+			}
+			// Le chunk d'usage (include_usage) arrive seul, sans choices : on l'émet
+			// avant le guard pour ne pas le perdre.
+			if chunk.Usage != nil && chunk.Usage.PromptTokens > 0 {
+				stats.PromptTokensTotal = chunk.Usage.PromptTokens
+				s := stats
+				cb(StreamEvent{Stats: &s})
+			}
+			if len(chunk.Choices) == 0 {
 				continue
 			}
 			ch := chunk.Choices[0]
@@ -352,14 +380,14 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				finishReason = ch.FinishReason
 			}
 			if chunk.Timings != nil {
-				cb(StreamEvent{Stats: &StatsEvent{
-					PromptTokens:    chunk.Timings.PromptN,
-					PromptPerSecond: chunk.Timings.PromptPerSecond,
-					PromptMs:        chunk.Timings.PromptMs,
-					GenTokens:       chunk.Timings.PredictedN,
-					GenPerSecond:    chunk.Timings.PredictedPerSec,
-					GenMs:           chunk.Timings.PredictedMs,
-				}})
+				stats.PromptTokens = chunk.Timings.PromptN
+				stats.PromptPerSecond = chunk.Timings.PromptPerSecond
+				stats.PromptMs = chunk.Timings.PromptMs
+				stats.GenTokens = chunk.Timings.PredictedN
+				stats.GenPerSecond = chunk.Timings.PredictedPerSec
+				stats.GenMs = chunk.Timings.PredictedMs
+				s := stats
+				cb(StreamEvent{Stats: &s})
 			}
 			if len(ch.Delta.ToolCalls) > 0 {
 				for i, tc := range ch.Delta.ToolCalls {
