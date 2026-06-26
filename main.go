@@ -15,9 +15,13 @@ import (
 	"strings"
 )
 
-const Version = "0.2.10"
+const Version = "0.2.11"
 
 func main() {
+	// Migration one-shot des anciens skills (SKILLS/<nom>/SKILL.md) vers la
+	// nouvelle mémoire (MEMORY/<nom>.md). Idempotente, silencieuse si rien à faire.
+	migrateSkillsToMemory()
+
 	args := os.Args[1:]
 	cmd := "help"
 	if len(args) > 0 {
@@ -176,6 +180,7 @@ func readEtcDefault() string {
 func confPath() string    { return filepath.Join(JeanHome(), "config.env") }
 func presetsDir() string  { return filepath.Join(JeanHome(), "configs") }
 func skillsDir() string   { return filepath.Join(JeanHome(), "SKILLS") }
+func memoryDir() string   { return filepath.Join(JeanHome(), "MEMORY") }
 func agentFlag() string   { return filepath.Join(JeanHome(), ".agent_enabled") }
 // Anciens drapeaux séparés, conservés pour la migration vers le mode agent unifié.
 func legacySkillsFlag() string { return filepath.Join(skillsDir(), ".enabled") }

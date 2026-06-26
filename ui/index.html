@@ -185,9 +185,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
   </details>
   <details><summary>Mode agent <span id="agent-badge" style="margin-left:auto;font-size:10px"></span></summary>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="agent-toggle" onchange="toggleAgent()"><span class="slider"></span></span> activer le mode agent</label>
-    <div class="muted" style="font-size:11px">⚠️ active l'<b>accès machine</b> (shell complet sur le serveur) <b>et</b> les <b>skills</b> — l'IA peut inspecter, lancer des scripts et exécuter ses skills (timeout 30s, max 300s)</div>
-    <div class="skillshead"><span>Skills</span><button class="addbtn" onclick="event.preventDefault();event.stopPropagation();openSkill('')" title="ajouter un skill">+ ajouter</button></div>
-    <div id="skills-list" class="muted" style="font-size:12px"></div>
+    <div class="muted" style="font-size:11px">⚠️ active l'<b>accès machine</b> (shell complet via <b>bash</b> sur le serveur) <b>et</b> la <b>mémoire</b> — l'IA peut inspecter, lancer des scripts et lire/écrire ses pages mémoire (timeout 30s, max 300s)</div>
+    <div class="skillshead"><span>Mémoire</span><button class="addbtn" onclick="event.preventDefault();event.stopPropagation();openMem('')" title="ajouter une page mémoire">+ ajouter</button></div>
+    <div id="mem-list" class="muted" style="font-size:12px"></div>
   </details>
   <details><summary>System prompt</summary>
     <textarea id="sysprompt" placeholder="(optionnel) ex: tu es un assistant concis en français" oninput="saveSys()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;min-height:70px;resize:vertical"></textarea>
@@ -417,15 +417,16 @@ async function loadAgent(){
   document.getElementById('agent-badge').innerHTML = on
     ? '<span class="tag ok">on</span>' : '<span class="tag" style="opacity:.6">off</span>';
   document.getElementById('brand').classList.toggle('agent', on);
-  document.getElementById('skills-list').innerHTML = (s.skills||[]).length
-    ? s.skills.map(x=>'<div class="preset" style="font-size:12px" onclick="openSkill(\''+x.name+'\')"><span><b style="color:var(--text)">'+x.name+'</b> <span class="muted">— '+x.desc+'</span></span><button onclick="event.stopPropagation();openSkill(\''+x.name+'\')" style="margin:0;padding:2px 8px;font-size:11px">edit</button></div>').join('')
-    : '<div class="muted">(aucun skill)</div>';
+  const pages = s.pages || s.skills || [];
+  document.getElementById('mem-list').innerHTML = pages.length
+    ? pages.map(x=>'<div class="preset" style="font-size:12px" onclick="openMem(\''+x.name+'\')"><span><b style="color:var(--text)">'+x.name+'</b> <span class="muted">— '+x.desc+'</span></span><button onclick="event.stopPropagation();openMem(\''+x.name+'\')" style="margin:0;padding:2px 8px;font-size:11px">edit</button></div>').join('')
+    : '<div class="muted">(aucune page mémoire)</div>';
 }
-// alias : plusieurs appelants rafraîchissent juste la liste des skills
-const loadSkills = loadAgent;
+// alias : plusieurs appelants rafraîchissent juste la liste des pages mémoire
+const loadMem = loadAgent;
 async function toggleAgent(){
   const on=document.getElementById('agent-toggle').checked;
-  if(on && !confirm("Activer le mode agent ? L'IA aura un accès shell complet au serveur et pourra exécuter ses skills.")){ document.getElementById('agent-toggle').checked=false; return; }
+  if(on && !confirm("Activer le mode agent ? L'IA aura un accès shell complet au serveur (bash) et pourra lire/écrire sa mémoire.")){ document.getElementById('agent-toggle').checked=false; return; }
   await jpost('/api/agent/toggle',{on});
   loadAgent();
 }
@@ -489,7 +490,7 @@ const KINDS = {
   // presets are keyed by `id` (filename) so several can share a display name;
   // skills keep name-as-identity (param 'name').
   preset: {label:'Preset', param:'id',   getUrl:'/api/preset', saveUrl:'/api/preset/save', delUrl:'/api/preset/delete', reload:()=>loadPresets()},
-  skill:  {label:'Skill',  param:'name', getUrl:'/api/skill',  saveUrl:'/api/skill/save',  delUrl:'/api/skill/delete',  reload:()=>loadSkills()},
+  mem:    {label:'Page',   param:'name', getUrl:'/api/mem',    saveUrl:'/api/mem/save',    delUrl:'/api/mem/delete',    reload:()=>loadMem()},
 };
 async function openItem(kind, key){
   const K = KINDS[kind];
@@ -614,7 +615,7 @@ function applyQuant(){
   }
 }
 const openPreset = (id)=>openItem('preset', id);
-const openSkill  = (n)=>openItem('skill', n);
+const openMem    = (n)=>openItem('mem', n);
 function closeModal(){ document.getElementById('modal').style.display = 'none'; }
 async function saveItem(){
   const K = KINDS[editingKind];
@@ -758,14 +759,15 @@ function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(text); addCo
 // Render a tool call as its own conversation message: the command the model
 // wrote, then the response it got back. textContent keeps it injection-safe.
 function renderToolMsg(el, tu){
-  const isShell = tu.name==='run_shell';
-  let lbl = isShell ? 'terminal' : 'skill';
+  const isShell = tu.name==='bash';
+  const isEdit = tu.name==='edit';
+  let lbl = isShell ? 'terminal' : (isEdit ? 'édition' : 'mémoire');
   // Indication du volume de la réponse de l'outil (~tokens, estimation 1 tok ≈ 4 car).
   if(tu.result){ lbl += '  ·  ~' + Math.max(1, Math.round(tu.result.length/4)) + ' tok'; }
   setLabel(el, lbl);
   const body=bodyOf(el); body.innerHTML='';
   const head=document.createElement('div'); head.className='tool-head';
-  head.textContent = isShell ? '⚙️ commande' : '📚 skill';
+  head.textContent = isShell ? '⚙️ commande' : (isEdit ? '✏️ édition' : '🧠 mémoire');
   body.appendChild(head);
   if(tu.label){
     const pre=document.createElement('pre'); pre.className='tool-cmd';
@@ -947,9 +949,9 @@ async function send(){
               renderToolMsg(pendingToolEl, tu);
               if(tu.done){
                 pendingToolEl=null;
-                // L'IA gère ses skills elle-même : rafraîchir le menu en direct
-                // dès qu'un skill est créé/modifié/supprimé (pas besoin de F5).
-                if(tu.name==='skill') loadSkills();
+                // L'IA gère sa mémoire elle-même : rafraîchir le menu en direct
+                // dès qu'une page est créée/modifiée (pas besoin de F5).
+                if(tu.name==='mem_add' || tu.name==='mem_edit') loadMem();
               }
             }
             if(d.reasoning_content){

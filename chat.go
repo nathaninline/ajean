@@ -77,11 +77,15 @@ func cmdChat(args []string) error {
 				if ev.ToolUsed.Done || ev.ToolUsed.Typing {
 					break // résultat / frappe live affichés côté web ; en terminal on garde l'annonce seule
 				}
-				icon := "📚"
-				verb := "skill"
-				if ev.ToolUsed.Name == "run_shell" {
+				icon := "🧠"
+				verb := "mémoire"
+				switch ev.ToolUsed.Name {
+				case "bash":
 					icon = "⚙️"
 					verb = "exécution"
+				case "edit":
+					icon = "✏️"
+					verb = "édition"
 				}
 				if inReason {
 					fmt.Print("\n")

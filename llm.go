@@ -41,35 +41,109 @@ type ToolFunction struct {
 	Parameters  any    `json:"parameters"`
 }
 
-// readSkillTool / runShellTool: OpenAI-shaped function definitions advertised
-// to the model when the corresponding feature flag is on.
-// skillTool : un seul outil pour toute la gestion des skills (lecture +
-// auto-gestion création/maj/suppression), ce qui évite d'envoyer trois schémas.
-func skillTool() Tool {
+// Tool definitions: OpenAI-shaped function schemas advertised to the model when
+// the agent mode is on. The memory tools (mem_*) let the model keep persistent
+// Markdown notes across sessions; bash is its real access to the machine.
+
+func memSearchTool() Tool {
 	return Tool{
 		Type: "function",
 		Function: ToolFunction{
-			Name:        "skill",
-			Description: "Gère tes skills (guides Markdown réutilisables). action: read=lire, write=créer/remplacer, append=ajouter à la fin sans réécrire, delete=supprimer. content requis pour write/append (1re ligne = titre court #).",
+			Name:        "mem_search",
+			Description: "Cherche dans ta mémoire (pages Markdown sous MEMORY/). Renvoie une liste classée {fichier, titre, extrait}. À utiliser EN PREMIER quand l'utilisateur évoque qqch que tu pourrais déjà savoir (préférences, projets en cours, décisions passées). Complète avec mem_read sur la page la plus pertinente.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"action":  map[string]any{"type": "string", "enum": []string{"read", "write", "append", "delete"}},
-					"name":    map[string]any{"type": "string", "description": "Nom du skill (alphanum, ._-)"},
-					"content": map[string]any{"type": "string", "description": "Contenu Markdown (write/append)"},
+					"query": map[string]any{"type": "string", "description": "Mots-clés ou courte phrase"},
+					"limit": map[string]any{"type": "integer", "description": "Nb max de résultats (défaut 8, max 30)"},
 				},
-				"required": []string{"action", "name"},
+				"required": []string{"query"},
 			},
 		},
 	}
 }
 
-func runShellTool() Tool {
+func memReadTool() Tool {
 	return Tool{
 		Type: "function",
 		Function: ToolFunction{
-			Name:        "run_shell",
-			Description: "Exécute une commande shell (bash) sur cette machine et retourne stdout, stderr et le code de sortie. Pour inspecter le système, lancer des scripts, lire des logs. Évite les commandes destructrices sauf demande explicite.",
+			Name:        "mem_read",
+			Description: "Lit une page mémoire (fichier Markdown). Sortie 1-indexée, lignes préfixées du numéro. offset/limit pour les longues pages.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"file":   map[string]any{"type": "string", "description": "Nom de la page (ex: docker-notes.md)"},
+					"offset": map[string]any{"type": "integer", "description": "Ligne de départ (1-indexé, défaut 1)"},
+					"limit":  map[string]any{"type": "integer", "description": "Nb de lignes (défaut 500, max 500)"},
+				},
+				"required": []string{"file"},
+			},
+		},
+	}
+}
+
+func memAddTool() Tool {
+	return Tool{
+		Type: "function",
+		Function: ToolFunction{
+			Name:        "mem_add",
+			Description: "Crée une nouvelle page mémoire (Markdown). Un seul sujet par page, nom descriptif en kebab-case. 1re ligne = titre court (#). Refuse d'écraser une page existante (utilise mem_edit).",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"file":    map[string]any{"type": "string", "description": "Nom de la page (ex: docker-notes.md)"},
+					"content": map[string]any{"type": "string", "description": "Contenu Markdown (1re ligne = titre #)"},
+				},
+				"required": []string{"file", "content"},
+			},
+		},
+	}
+}
+
+func memEditTool() Tool {
+	return Tool{
+		Type: "function",
+		Function: ToolFunction{
+			Name:        "mem_edit",
+			Description: "Édite une page mémoire par remplacement exact : old → new. old doit apparaître EXACTEMENT une fois dans la page (ajoute du contexte pour le rendre unique). Pour ajouter du contenu, mets l'ancienne fin de page dans old et la version augmentée dans new.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"file": map[string]any{"type": "string", "description": "Nom de la page"},
+					"old":  map[string]any{"type": "string", "description": "Texte exact à remplacer (unique dans la page)"},
+					"new":  map[string]any{"type": "string", "description": "Texte de remplacement"},
+				},
+				"required": []string{"file", "old", "new"},
+			},
+		},
+	}
+}
+
+func editTool() Tool {
+	return Tool{
+		Type: "function",
+		Function: ToolFunction{
+			Name:        "edit",
+			Description: "Modifie un fichier sur le disque par remplacement exact : old → new. old doit apparaître EXACTEMENT une fois dans le fichier (ajoute du contexte autour pour le rendre unique). Préfère cet outil à la réécriture complète du fichier — il évite de tout retaper.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"file": map[string]any{"type": "string", "description": "Chemin du fichier à modifier"},
+					"old":  map[string]any{"type": "string", "description": "Texte exact à remplacer (unique dans le fichier)"},
+					"new":  map[string]any{"type": "string", "description": "Texte de remplacement"},
+				},
+				"required": []string{"file", "old", "new"},
+			},
+		},
+	}
+}
+
+func bashTool() Tool {
+	return Tool{
+		Type: "function",
+		Function: ToolFunction{
+			Name:        "bash",
+			Description: "Exécute une commande shell (bash) sur cette machine et retourne stdout, stderr et le code de sortie. Pour inspecter le système, lancer des scripts, lire/éditer des fichiers, lire des logs. Évite les commandes destructrices sauf demande explicite.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -113,9 +187,6 @@ func InjectSkills(msgs []Message, caps Caps) []Message {
 	if mp := machineSystemPrompt(caps); mp != "" {
 		parts = append(parts, mp)
 	}
-	if sp := skillsSystemPrompt(caps); sp != "" {
-		parts = append(parts, sp)
-	}
 	if len(parts) == 0 {
 		return msgs
 	}
@@ -132,7 +203,7 @@ func InjectSkills(msgs []Message, caps Caps) []Message {
 func EnabledTools(caps Caps) []Tool {
 	tools := []Tool{}
 	if caps.Agent {
-		tools = append(tools, skillTool(), runShellTool())
+		tools = append(tools, bashTool(), editTool(), memSearchTool(), memReadTool(), memAddTool(), memEditTool())
 	}
 	return tools
 }
@@ -408,8 +479,11 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				// emit it whenever it grows, so the UI shows it appear live.
 				if cur := toolCalls[0]; cur != nil {
 					key := "command"
-					if cur.Function.Name == "skill" {
-						key = "name"
+					switch cur.Function.Name {
+					case "mem_search":
+						key = "query"
+					case "mem_read", "mem_add", "mem_edit", "edit":
+						key = "file"
 					}
 					if p := previewArg(cur.Function.Arguments, key); p != "" && p != lastPreview {
 						lastPreview = p
@@ -536,47 +610,65 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				// nothing while a slow shell command runs and looks frozen.
 				label := ""
 				switch tc.Function.Name {
-				case "skill":
-					label, _ = args["name"].(string)
-				case "run_shell":
+				case "mem_search":
+					label, _ = args["query"].(string)
+				case "mem_read", "mem_add", "mem_edit", "edit":
+					label, _ = args["file"].(string)
+				case "bash":
 					label, _ = args["command"].(string)
 				}
 				cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label}})
 
 				result := ""
 				switch tc.Function.Name {
-				case "skill":
-					action, _ := args["action"].(string)
-					content, _ := args["content"].(string)
-					switch action {
-					case "read":
-						if c := SkillContent(label); c != "" {
-							result = c
-						} else {
-							result = fmt.Sprintf("[erreur] skill '%s' introuvable", label)
-						}
-					case "write":
-						if werr := SaveSkill(label, "", content); werr != nil {
-							result = "[erreur] " + werr.Error()
-						} else {
-							result = fmt.Sprintf("[ok] skill '%s' enregistré", label)
-						}
-					case "append":
-						if werr := AppendSkill(label, content); werr != nil {
-							result = "[erreur] " + werr.Error()
-						} else {
-							result = fmt.Sprintf("[ok] skill '%s' enrichi (append)", label)
-						}
-					case "delete":
-						if derr := DeleteSkill(label); derr != nil {
-							result = "[erreur] " + derr.Error()
-						} else {
-							result = fmt.Sprintf("[ok] skill '%s' supprimé", label)
-						}
-					default:
-						result = "[erreur] action skill inconnue: " + action
+				case "mem_search":
+					lim := 0
+					if v, ok := args["limit"].(float64); ok {
+						lim = int(v)
 					}
-				case "run_shell":
+					hits := MemSearch(label, lim)
+					if len(hits) == 0 {
+						result = "[aucun résultat]"
+					} else {
+						var b strings.Builder
+						for _, h := range hits {
+							fmt.Fprintf(&b, "- %s — %s\n  %s\n", h.File, h.Title, h.Snippet)
+						}
+						result = strings.TrimRight(b.String(), "\n")
+					}
+				case "mem_read":
+					off, lim := 0, 0
+					if v, ok := args["offset"].(float64); ok {
+						off = int(v)
+					}
+					if v, ok := args["limit"].(float64); ok {
+						lim = int(v)
+					}
+					if c, rerr := MemRead(label, off, lim); rerr != nil {
+						result = "[erreur] " + rerr.Error()
+					} else {
+						result = c
+					}
+				case "mem_add":
+					content, _ := args["content"].(string)
+					if werr := MemAdd(label, content); werr != nil {
+						result = "[erreur] " + werr.Error()
+					} else {
+						result = fmt.Sprintf("[ok] page '%s' créée", label)
+					}
+				case "mem_edit":
+					oldText, _ := args["old"].(string)
+					newText, _ := args["new"].(string)
+					if werr := MemEdit(label, oldText, newText); werr != nil {
+						result = "[erreur] " + werr.Error()
+					} else {
+						result = fmt.Sprintf("[ok] page '%s' modifiée", label)
+					}
+				case "edit":
+					oldText, _ := args["old"].(string)
+					newText, _ := args["new"].(string)
+					result = fileEdit(label, oldText, newText)
+				case "bash":
 					to := 0
 					switch v := args["timeout"].(type) {
 					case float64:

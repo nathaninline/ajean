@@ -142,20 +142,12 @@ func skillsSystemPrompt(caps Caps) string {
 	}
 	list := ListSkills()
 	var b strings.Builder
-	b.WriteString("Outil disponible — skill(action, name, content) : gère tes guides Markdown réutilisables. action: read=lire, write=créer/remplacer, append=ajouter à la fin, delete=supprimer.\n")
-	b.WriteString("Conseils skill :\n")
-	for _, l := range []string{
-		"De ta propre initiative, crée ou enrichis un skill quand tu découvres une solution réutilisable (problème résolu, procédure, astuce).",
-		"La 1re ligne du contenu est un titre court (#) qui sert de description.",
-		"N'utilise read que si la question concerne un skill listé ci-dessous — sinon n'appelle pas l'outil.",
-	} {
-		b.WriteString("- " + l + "\n")
-	}
+	b.WriteString("Skill tips: the first content line is a short title (#) used as the description. Only use read when the question concerns a skill listed below — otherwise don't call the tool.\n")
 	if len(list) == 0 {
-		b.WriteString("Skills : aucun pour l'instant.")
+		b.WriteString("Skills: none yet.")
 		return b.String()
 	}
-	b.WriteString("Skills :\n")
+	b.WriteString("Skills:\n")
 	for _, s := range list {
 		fmt.Fprintf(&b, "- %s: %s\n", s.Name, s.Desc)
 	}

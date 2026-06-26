@@ -95,6 +95,9 @@ func newWebMux() *http.ServeMux {
 	api("/api/skill", handleSkill)
 	api("/api/skill/save", handleSkillSave)
 	api("/api/skill/delete", handleSkillDelete)
+	api("/api/mem", handleMem)
+	api("/api/mem/save", handleMemSave)
+	api("/api/mem/delete", handleMemDelete)
 	api("/api/switch", handleSwitch)
 	api("/api/start", svcHandler("start"))
 	api("/api/stop", svcHandler("stop"))
@@ -424,15 +427,16 @@ func handlePresetDelete(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true, "modelDeleted": modelDeleted, "modelError": modelErr})
 }
 
-// handleAgent renvoie l'état du mode agent ET la liste des skills (qui sont des
-// outils gérés sous ce même interrupteur) — un seul aller-retour pour l'UI.
+// handleAgent renvoie l'état du mode agent ET la liste des pages mémoire (que
+// l'IA gère via les outils mem_*) — un seul aller-retour pour l'UI. La clé
+// "skills" est conservée en miroir de "pages" pour l'ancien portail ajean.link.
 func handleAgent(w http.ResponseWriter, r *http.Request) {
-	sk := ListSkills()
+	pages := MemList()
 	out := []map[string]any{}
-	for _, s := range sk {
-		out = append(out, map[string]any{"name": s.Name, "desc": s.Desc})
+	for _, p := range pages {
+		out = append(out, map[string]any{"name": p.Name, "desc": p.Title})
 	}
-	sendJSON(w, 200, map[string]any{"enabled": agentEnabled(), "skills": out})
+	sendJSON(w, 200, map[string]any{"enabled": agentEnabled(), "pages": out, "skills": out})
 }
 
 func handleAgentToggle(w http.ResponseWriter, r *http.Request) {
@@ -481,6 +485,49 @@ func handleSkillDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := DeleteSkill(req.Name); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
+// handleMem / handleMemSave / handleMemDelete : éditeur web des pages mémoire
+// (MEMORY/<nom>.md). Mêmes payloads que l'éditeur de skills (name/old/content)
+// pour réutiliser l'UI ; "name" = nom de fichier de la page.
+func handleMem(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimSpace(r.URL.Query().Get("name"))
+	if name == "" {
+		sendJSON(w, 200, map[string]any{"name": "", "content": "# nouvelle page\n\nNote ici ce que jean doit retenir entre les sessions.\n"})
+		return
+	}
+	c := MemContent(name)
+	if c == "" {
+		sendJSON(w, 404, map[string]any{"error": "not found"})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"name": name, "content": c})
+}
+
+func handleMemSave(w http.ResponseWriter, r *http.Request) {
+	var req saveReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if err := MemSave(req.Name, req.Old, req.Content); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "name": req.Name})
+}
+
+func handleMemDelete(w http.ResponseWriter, r *http.Request) {
+	var req saveReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if err := MemDelete(req.Name); err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}

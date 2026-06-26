@@ -54,7 +54,7 @@ func cmdAgent(args []string) error {
 		if err := setAgentEnabled(true); err != nil {
 			return err
 		}
-		fmt.Println(green("[ok]") + " mode agent activé — l'IA dispose du shell complet et de ses skills")
+		fmt.Println(green("[ok]") + " mode agent activé — l'IA dispose du shell complet (bash) et de sa mémoire")
 	case "off":
 		if err := setAgentEnabled(false); err != nil {
 			return err
@@ -66,15 +66,15 @@ func cmdAgent(args []string) error {
 			state = green("on")
 		}
 		fmt.Printf("%s  état: %s\n", cyan("Mode agent"), state)
-		fmt.Printf("  outils : run_shell (timeout %ds, max %ds) + skill (read/write/append/delete)\n", toolDefaultTimeout, toolMaxTimeout)
-		sk := ListSkills()
-		if len(sk) == 0 {
-			fmt.Printf("  skills : aucun — crée %s/<nom>/SKILL.md\n", skillsDir())
+		fmt.Printf("  outils : bash (timeout %ds, max %ds) + mémoire (mem_search/mem_read/mem_add/mem_edit)\n", toolDefaultTimeout, toolMaxTimeout)
+		mem := MemList()
+		if len(mem) == 0 {
+			fmt.Printf("  mémoire : aucune page — crée %s/<nom>.md\n", memoryDir())
 			return nil
 		}
-		fmt.Printf("  skills (%s) :\n", skillsDir())
-		for _, s := range sk {
-			fmt.Printf("    %s  %s\n", bold(s.Name), s.Desc)
+		fmt.Printf("  mémoire (%s) :\n", memoryDir())
+		for _, p := range mem {
+			fmt.Printf("    %s  %s\n", bold(p.Name), p.Title)
 		}
 	default:
 		return fmt.Errorf("usage: jean agent [on|off|status]")
