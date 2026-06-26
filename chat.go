@@ -73,6 +73,13 @@ func cmdChat(args []string) error {
 				fmt.Printf("\n%s\n", red("[erreur] "+ev.Err.Error()))
 			case ev.Stats != nil:
 				stats = ev.Stats
+			case ev.DropReasoning:
+				// Le tour a « pensé sans agir » : on relance. Impossible d'effacer le
+				// texte déjà imprimé en terminal — on referme juste la ligne reasoning.
+				if inReason {
+					fmt.Print("\n")
+					inReason = false
+				}
 			case ev.ToolUsed != nil:
 				if ev.ToolUsed.Done || ev.ToolUsed.Typing {
 					break // résultat / frappe live affichés côté web ; en terminal on garde l'annonce seule

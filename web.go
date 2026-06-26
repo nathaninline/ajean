@@ -680,6 +680,9 @@ func runChatStream(ctx context.Context, body chatReq, emit func(map[string]any) 
 		if ev.Stats != nil {
 			return emit(map[string]any{"stats": ev.Stats})
 		}
+		if ev.DropReasoning {
+			return emit(map[string]any{"drop_reasoning": true})
+		}
 		if ev.Reasoning != "" {
 			return emit(map[string]any{"reasoning_content": ev.Reasoning})
 		}

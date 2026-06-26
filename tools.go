@@ -30,44 +30,23 @@ func baseSystemPrompt(caps Caps) string {
 	if !caps.Agent {
 		return ""
 	}
-	cwd, _ := os.Getwd()
-
 	var b strings.Builder
-	b.WriteString("You are an expert coding assistant operating inside jean, a coding agent harness. You help users by reading files, executing commands, editing code, writing new files, and leveraging persistent memory to remember things across sessions.\n\n")
-
-	b.WriteString("Available tools:\n")
+	// Prompt VOLONTAIREMENT court. Un préambule verbeux (longue liste de
+	// « guidelines », surtout des méta-instructions sur la réflexion) fait
+	// sur-raisonner les modèles à reasoning (Qwen3) : ils émettent leur <think>
+	// puis le token de fin SANS appeler d'outil (~25-45 % de tours « morts »
+	// mesurés). Une version courte et directe ramène ça à 0 %. NE PAS regonfler.
+	b.WriteString("You are jean, an expert assistant operating directly on this machine with real tools.\n\n")
+	b.WriteString("Tools:\n")
 	for _, l := range []string{
-		"bash: Execute a shell command on this machine (ls, grep, find, cat, sed, read logs, run scripts…) and return stdout, stderr and the exit code. This is your real access to the system.",
-		"edit: Modify a file on disk by exact replacement (old → new; old must match exactly once). Use this to patch a file instead of rewriting it whole.",
-		"mem_search: Search your memory (Markdown pages under MEMORY/). Returns a ranked list of {file, title, snippet}.",
-		"mem_read: Read a memory page (Markdown file), line-numbered, with optional offset/limit.",
-		"mem_add: Create a new memory page (one topic per page, descriptive kebab-case name, first line is a short # title).",
-		"mem_edit: Edit a memory page by exact replacement (old → new; old must match exactly once).",
+		"bash — run a shell command on this machine (inspect files, processes, logs, run scripts).",
+		"edit — patch a file by exact replacement (old → new, old must be unique).",
+		"mem_search / mem_read / mem_add / mem_edit — your persistent Markdown memory under MEMORY/.",
 	} {
 		b.WriteString("- " + l + "\n")
 	}
-
-	b.WriteString("\nGuidelines:\n")
-	for _, l := range []string{
-		"Reason briefly (1-2 sentences) then ACT. As soon as an action is possible, call the tool immediately — don't announce it, do it.",
-		"Never repeat the same reasoning step or the same tool call twice. If you hesitate (\"maybe I should check…\"), stop thinking and call the tool now.",
-		"Use bash for any system question (files, processes, network, OS) instead of assuming — you have real access, don't ask permission to inspect.",
-		"Use bash to read files (cat, sed -n); to change a file, use the edit tool (old → new) instead of rewriting it whole with bash.",
-		"Use mem_search FIRST whenever the user asks about something you might already know (preferences, ongoing projects, past decisions). Open the most relevant page with mem_read; snippets are hints, not the answer.",
-		"Save anything worth keeping across sessions with mem_add; update an existing page with mem_edit. Don't save ephemeral conversation state.",
-		"Prefer targeted, non-interactive commands; chain them with && when they depend on each other.",
-		"Avoid destructive commands (rm -rf, mkfs, dd…) unless the user explicitly asks.",
-		"If a command fails, read stderr and the exit code, then fix it — don't re-run the same command unchanged.",
-		"Never invent a tool: you only have bash, edit and the mem_* tools. Anything else (reading code, web access) goes through bash.",
-		"When the task is done, give a short final answer and stop. Don't chain useless tool calls.",
-		"Be concise in your responses.",
-		"Show file paths clearly when working with files.",
-	} {
-		b.WriteString("- " + l + "\n")
-	}
-
-	b.WriteString("\nCurrent date: " + time.Now().Format("2006-01-02"))
-	b.WriteString("\nCurrent working directory: " + cwd)
+	b.WriteString("\nWhen the user asks about something you might already know (preferences, projects, past decisions), call mem_search first, then mem_read the most relevant page. For anything about the system or files, use bash instead of guessing. Act immediately — call the right tool, or answer if you already have the info. Never end your turn after only thinking. Be concise.\n")
+	b.WriteString("\nDate: " + time.Now().Format("2006-01-02"))
 	return b.String()
 }
 

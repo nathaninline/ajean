@@ -209,13 +209,18 @@ func EnabledTools(caps Caps) []Tool {
 }
 
 // StreamEvent is what a ChatCallback receives for each piece of streamed output.
-// Exactly one of {Content, Reasoning, ToolUsed, Stats, Err} is set per call.
+// Exactly one of {Content, Reasoning, ToolUsed, Stats, Err, DropReasoning} is set
+// per call.
 type StreamEvent struct {
 	Content   string
 	Reasoning string
 	ToolUsed  *ToolUsedEvent
 	Stats     *StatsEvent
 	Err       error
+	// DropReasoning demande à l'UI de retirer la dernière bulle de raisonnement :
+	// le modèle a « pensé sans agir » et on relance le tour, ce raisonnement-là
+	// est mort-né et ne doit pas rester à l'écran (sinon double raisonnement).
+	DropReasoning bool
 }
 type ToolUsedEvent struct {
 	Name   string
@@ -346,6 +351,11 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 	// several times, it's stuck — break instead of spinning to the iteration cap.
 	lastSig := ""
 	repeatSig := 0
+	// Garde-fou « pensé sans agir » : certains modèles à reasoning planifient un
+	// appel d'outil dans leur <think> puis émettent le token de fin SANS l'émettre
+	// (ni réponse, ni tool_call). On relance alors UNE fois le tour avec un nudge
+	// explicite au lieu d'afficher « pas de réponse ».
+	nudged := false
 	for iter := 0; iter < 8; iter++ {
 		payload := map[string]any{
 			"model":       "jean",
@@ -695,6 +705,21 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		// (empty content, e.g. it stopped right after a tool result), say so
 		// instead of leaving the user staring at a silent, finished chat.
 		if strings.TrimSpace(assistantContent.String()) == "" {
+			// Filet de sécurité (le vrai fix est le prompt court, voir baseSystemPrompt) :
+			// si un modèle « pense sans agir » malgré tout, on le relance UNE fois avec
+			// une consigne impérative au lieu d'afficher « pas de réponse ».
+			if len(tools) > 0 && !disableTools && !nudged {
+				nudged = true
+				// Le raisonnement de ce tour avorté ne mène à rien : on demande à
+				// l'UI de l'effacer avant de relancer, pour ne pas afficher deux
+				// blocs de réflexion successifs.
+				cb(StreamEvent{DropReasoning: true})
+				messages = append(messages, Message{
+					Role:    "user",
+					Content: "Tu as réfléchi mais tu n'as ni appelé d'outil ni répondu. Agis MAINTENANT : appelle directement l'outil approprié (par ex. mem_search/mem_read/bash), ou donne ta réponse finale si tu as déjà l'information. N'explique pas, agis.",
+				})
+				continue
+			}
 			cb(StreamEvent{Content: "_(le modèle n'a pas produit de réponse — finish: " + finishReason + ")_"})
 		}
 		return extra, nil

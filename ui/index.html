@@ -954,6 +954,14 @@ async function send(){
                 if(tu.name==='mem_add' || tu.name==='mem_edit') loadMem();
               }
             }
+            if(d.drop_reasoning){
+              // Le modèle a « pensé sans agir » : on relance le tour. Le
+              // raisonnement mort-né est retiré pour ne pas afficher un double bloc.
+              if(reasonEl){
+                const i=turnCollapsibles.indexOf(reasonEl); if(i>=0) turnCollapsibles.splice(i,1);
+                reasonEl.remove(); reasonEl=null; fullReason='';
+              }
+            }
             if(d.reasoning_content){
               // Start a fresh buffer per bubble — otherwise a reasoning block that
               // follows a tool call re-renders ALL previously accumulated reasoning
