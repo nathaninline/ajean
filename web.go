@@ -83,13 +83,18 @@ func newWebMux() *http.ServeMux {
 	api("/api/preset", handlePreset)
 	api("/api/preset/save", handlePresetSave)
 	api("/api/preset/delete", handlePresetDelete)
-	api("/api/skills", handleSkills)
-	api("/api/skills/toggle", handleSkillsToggle)
+	api("/api/agent", handleAgent)
+	api("/api/agent/toggle", handleAgentToggle)
+	// Alias rétro-compat : l'ancien portail ajean.link (dépôt jean-relay) pilote
+	// encore l'agent via /api/tools* et /api/skills/toggle à travers le tunnel E2E.
+	// On les mappe sur le mode agent unifié le temps que le portail soit mis à jour.
+	api("/api/tools", handleAgent)
+	api("/api/tools/toggle", handleAgentToggle)
+	api("/api/skills", handleAgent)
+	api("/api/skills/toggle", handleAgentToggle)
 	api("/api/skill", handleSkill)
 	api("/api/skill/save", handleSkillSave)
 	api("/api/skill/delete", handleSkillDelete)
-	api("/api/tools", handleTools)
-	api("/api/tools/toggle", handleToolsToggle)
 	api("/api/switch", handleSwitch)
 	api("/api/start", svcHandler("start"))
 	api("/api/stop", svcHandler("stop"))
@@ -419,25 +424,27 @@ func handlePresetDelete(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true, "modelDeleted": modelDeleted, "modelError": modelErr})
 }
 
-func handleSkills(w http.ResponseWriter, r *http.Request) {
+// handleAgent renvoie l'état du mode agent ET la liste des skills (qui sont des
+// outils gérés sous ce même interrupteur) — un seul aller-retour pour l'UI.
+func handleAgent(w http.ResponseWriter, r *http.Request) {
 	sk := ListSkills()
 	out := []map[string]any{}
 	for _, s := range sk {
 		out = append(out, map[string]any{"name": s.Name, "desc": s.Desc})
 	}
-	sendJSON(w, 200, map[string]any{"enabled": skillsEnabled(), "skills": out})
+	sendJSON(w, 200, map[string]any{"enabled": agentEnabled(), "skills": out})
 }
 
-func handleSkillsToggle(w http.ResponseWriter, r *http.Request) {
+func handleAgentToggle(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		On bool `json:"on"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
-	if err := setSkillsEnabled(req.On); err != nil {
+	if err := setAgentEnabled(req.On); err != nil {
 		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	sendJSON(w, 200, map[string]any{"ok": true, "enabled": skillsEnabled()})
+	sendJSON(w, 200, map[string]any{"ok": true, "enabled": agentEnabled()})
 }
 
 func handleSkill(w http.ResponseWriter, r *http.Request) {
@@ -478,22 +485,6 @@ func handleSkillDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJSON(w, 200, map[string]any{"ok": true})
-}
-
-func handleTools(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, 200, map[string]any{"enabled": toolsEnabled()})
-}
-
-func handleToolsToggle(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		On bool `json:"on"`
-	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
-	if err := setToolsEnabled(req.On); err != nil {
-		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
-		return
-	}
-	sendJSON(w, 200, map[string]any{"ok": true, "enabled": toolsEnabled()})
 }
 
 func handleSwitch(w http.ResponseWriter, r *http.Request) {
@@ -576,9 +567,11 @@ func handleBenchLast(w http.ResponseWriter, r *http.Request) {
 type chatReq struct {
 	Messages    []Message `json:"messages"`
 	Temperature float64   `json:"temperature"`
-	// Optional per-request capability overrides (used by ajean.link agents,
-	// which carry their own tools/skills toggles). nil = inherit the
-	// machine's global config.
+	// Optional per-request override of the agent mode (used by ajean.link
+	// agents, which carry their own toggle). nil = inherit the machine's
+	// global config. Tools/Skills sont conservés pour la rétro-compat des
+	// anciens clients relais : l'un OU l'autre à true active le mode agent.
+	Agent  *bool `json:"agent"`
 	Tools  *bool `json:"tools"`
 	Skills *bool `json:"skills"`
 }
@@ -623,11 +616,11 @@ func runChatStream(ctx context.Context, body chatReq, emit func(map[string]any) 
 		body.Temperature = 0.7
 	}
 	caps := globalCaps()
-	if body.Tools != nil {
-		caps.Tools = *body.Tools
-	}
-	if body.Skills != nil {
-		caps.Skills = *body.Skills
+	if body.Agent != nil {
+		caps.Agent = *body.Agent
+	} else if body.Tools != nil || body.Skills != nil {
+		// rétro-compat : anciens clients qui envoyaient deux drapeaux séparés
+		caps.Agent = (body.Tools != nil && *body.Tools) || (body.Skills != nil && *body.Skills)
 	}
 	msgs := InjectSkills(body.Messages, caps)
 	extra, _ := runChat(ctx, msgs, body.Temperature, caps, func(ev StreamEvent) bool {

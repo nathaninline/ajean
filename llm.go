@@ -87,14 +87,15 @@ func runShellTool() Tool {
 // what the model can do for this conversation, instead of always inheriting the
 // machine's global config. Use globalCaps() to fall back to the global config.
 type Caps struct {
-	Tools  bool
-	Skills bool
+	// Agent = mode agent actif : un seul interrupteur qui débloque TOUS les
+	// outils de l'IA (shell + skills). Un skill est un outil comme un autre.
+	Agent bool
 }
 
 // globalCaps reads the machine-wide config — the default when a request doesn't
 // specify its own capabilities.
 func globalCaps() Caps {
-	return Caps{Tools: toolsEnabled(), Skills: skillsEnabled()}
+	return Caps{Agent: agentEnabled()}
 }
 
 // InjectSkills prepends context system messages to msgs: the decisive-agent
@@ -130,11 +131,8 @@ func InjectSkills(msgs []Message, caps Caps) []Message {
 // EnabledTools returns the tools to advertise on the next inference call.
 func EnabledTools(caps Caps) []Tool {
 	tools := []Tool{}
-	if caps.Skills {
-		tools = append(tools, skillTool())
-	}
-	if caps.Tools {
-		tools = append(tools, runShellTool())
+	if caps.Agent {
+		tools = append(tools, skillTool(), runShellTool())
 	}
 	return tools
 }

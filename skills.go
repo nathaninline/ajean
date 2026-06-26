@@ -15,26 +15,6 @@ type Skill struct {
 	Content string
 }
 
-func skillsEnabled() bool {
-	_, err := os.Stat(skillsFlag())
-	return err == nil
-}
-
-func setSkillsEnabled(on bool) error {
-	_ = os.MkdirAll(skillsDir(), 0o755)
-	if on {
-		f, err := os.Create(skillsFlag())
-		if err != nil {
-			return err
-		}
-		return f.Close()
-	}
-	if err := os.Remove(skillsFlag()); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	return nil
-}
-
 // ListSkills walks SKILLS/<name>/SKILL.md, returning name+desc+full content.
 func ListSkills() []Skill {
 	entries, err := os.ReadDir(skillsDir())
@@ -157,7 +137,7 @@ func DeleteSkill(name string) error {
 // skillsSystemPrompt returns the lightweight skills directory message to
 // prepend to the conversation when skills are enabled.
 func skillsSystemPrompt(caps Caps) string {
-	if !caps.Skills {
+	if !caps.Agent {
 		return ""
 	}
 	list := ListSkills()
@@ -180,40 +160,4 @@ func skillsSystemPrompt(caps Caps) string {
 		fmt.Fprintf(&b, "- %s: %s\n", s.Name, s.Desc)
 	}
 	return strings.TrimRight(b.String(), "\n")
-}
-
-func cmdSkills(args []string) error {
-	sub := ""
-	if len(args) > 0 {
-		sub = args[0]
-	}
-	switch sub {
-	case "on":
-		if err := setSkillsEnabled(true); err != nil {
-			return err
-		}
-		fmt.Println(green("[ok]") + " skills activés")
-	case "off":
-		if err := setSkillsEnabled(false); err != nil {
-			return err
-		}
-		fmt.Println(green("[ok]") + " skills désactivés")
-	case "", "list":
-		state := dim("off")
-		if skillsEnabled() {
-			state = green("on")
-		}
-		fmt.Printf("%s  (%s)  état: %s\n", cyan("Skills"), skillsDir(), state)
-		sk := ListSkills()
-		if len(sk) == 0 {
-			fmt.Printf("  (aucun — crée %s/<nom>/SKILL.md)\n", skillsDir())
-			return nil
-		}
-		for _, s := range sk {
-			fmt.Printf("  %s  %s\n", bold(s.Name), s.Desc)
-		}
-	default:
-		return fmt.Errorf("usage: jean skills [on|off|list]")
-	}
-	return nil
 }

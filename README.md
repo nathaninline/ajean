@@ -21,7 +21,7 @@ Faire tourner llama.cpp comme un vrai service, ça veut dire d'habitude : trouve
   - **ROCm/HIP** (AMD), **Metal** (macOS / Apple Silicon), **Vulkan**, ou repli **CPU**
   - `update` récupère le dernier commit, arrête le service le temps de recompiler, puis le redémarre
 - **Intégration systemd** — `jean install` écrit l'unité, une règle sudoers `systemctl` sans mot de passe, et les dossiers de données
-- **Interface web** (`jean web`) — chat, changement de modèle/preset, activation des skills & tools
+- **Interface web** (`jean web`) — chat, changement de modèle/preset, activation du mode agent
 - **Chat terminal** (`jean chat`) — réponses en streaming
 - **Accès distant chiffré** (`jean link`) — connecte ce serveur à [ajean.link](https://ajean.link) par une connexion **sortante** (aucun port à ouvrir, marche même en CGNAT). Le chat est **chiffré de bout en bout** : le relais ne voit jamais tes conversations (voir [Sécurité — boîte noire](#sécurité--boîte-noire))
 - **Presets** (`jean switch`) — garde plusieurs profils `config.env` et bascule entre eux
@@ -119,9 +119,8 @@ Accès distant (ajean.link) :
   link code                     génère un code d'appairage (valable 10 min, usage unique) pour le portail
   link status | logout          état du lien / oublier le token
 
-Outils côté LLM :
-  skills [on|off|list]          laisse le modèle lire SKILLS/<nom>/SKILL.md
-  machine [on|off|status]       active l'accès machine (le modèle dispose d'un shell complet sur le serveur)
+Mode agent :
+  agent [on|off|status]         active TOUS les outils du modèle (shell complet + skills) — un seul interrupteur
 
 Backend (llama.cpp) :
   llamacpp install              clone + compile llama.cpp (détecte CUDA/ROCm/Metal/CPU), règle BIN

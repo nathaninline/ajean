@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-const Version = "0.2.9"
+const Version = "0.2.10"
 
 func main() {
 	args := os.Args[1:]
@@ -47,10 +47,11 @@ func main() {
 		mustExit(cmdWeb(args))
 	case "link":
 		mustExit(cmdLink(args))
-	case "skills":
-		mustExit(cmdSkills(args))
-	case "machine", "tools":
-		mustExit(cmdTools(args))
+	case "agent", "skills", "machine", "tools":
+		// « mode agent » unifie l'ancien couple machine + skills : un seul
+		// interrupteur active TOUS les outils de l'IA (shell + skills). Les
+		// anciens noms restent acceptés comme alias rétro-compatibles.
+		mustExit(cmdAgent(args))
 	case "serve":
 		mustExit(cmdServe(args))
 	case "test":
@@ -96,7 +97,7 @@ Presets:
 
 Interaction:
   chat [system-prompt]          chat terminal streamé
-  web [PORT]                    UI web (défaut :8090) — chat + presets + skills + tools
+  web [PORT]                    UI web (défaut :8090) — chat + presets + mode agent
 
 Accès distant (ajean.link) :
   link <token>                  enregistre le token et démarre le lien au relais (token = 1re fois / pour le changer)
@@ -106,9 +107,8 @@ Accès distant (ajean.link) :
   link                          (sans argument) affiche l'aide des sous-commandes link
   link serve                    exécute le worker au premier plan (utilisé par jean-link.service ; pendant de 'jean serve')
 
-LLM-side outils:
-  skills [on|off|list]          active la lecture de SKILLS/<nom>/SKILL.md par l'IA
-  machine [on|off|status]       active l'accès machine (l'IA dispose d'un shell complet sur le serveur)
+Mode agent:
+  agent [on|off|status]         active TOUS les outils de l'IA (shell complet + skills) — un seul interrupteur
 
 Backend llama.cpp :
   llamacpp install              clone + compile llama.cpp (détecte CUDA/ROCm/Metal/CPU), pointe BIN dessus
@@ -176,8 +176,10 @@ func readEtcDefault() string {
 func confPath() string    { return filepath.Join(JeanHome(), "config.env") }
 func presetsDir() string  { return filepath.Join(JeanHome(), "configs") }
 func skillsDir() string   { return filepath.Join(JeanHome(), "SKILLS") }
-func skillsFlag() string  { return filepath.Join(skillsDir(), ".enabled") }
-func toolsFlag() string   { return filepath.Join(JeanHome(), ".tools_enabled") }
+func agentFlag() string   { return filepath.Join(JeanHome(), ".agent_enabled") }
+// Anciens drapeaux séparés, conservés pour la migration vers le mode agent unifié.
+func legacySkillsFlag() string { return filepath.Join(skillsDir(), ".enabled") }
+func legacyToolsFlag() string  { return filepath.Join(JeanHome(), ".tools_enabled") }
 func apiKeyPath() string  { return filepath.Join(JeanHome(), ".api_key") }
 func serviceName() string {
 	if n := os.Getenv("JEAN_SERVICE"); n != "" {

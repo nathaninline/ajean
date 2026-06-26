@@ -17,26 +17,6 @@ const (
 	toolMaxOutput      = 8000 // characters of stdout/stderr returned to the model
 )
 
-func toolsEnabled() bool {
-	_, err := os.Stat(toolsFlag())
-	return err == nil
-}
-
-func setToolsEnabled(on bool) error {
-	_ = os.MkdirAll(JeanHome(), 0o755)
-	if on {
-		f, err := os.Create(toolsFlag())
-		if err != nil {
-			return err
-		}
-		return f.Close()
-	}
-	if err := os.Remove(toolsFlag()); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	return nil
-}
-
 // baseSystemPrompt is the always-on system preamble. Structured like pi's
 // proven prompt (identity → method → guidelines → concision → date): a concrete,
 // procedural prompt gives the model rails so it stops deliberating forever
@@ -47,7 +27,7 @@ func baseSystemPrompt(caps Caps) string {
 	// No tool access → no agentic preamble. A plain chat model told to "call
 	// tools immediately" hallucinates textual tool calls (e.g. default_api:bash)
 	// that leak into the answer. Let the user's own system prompt stand alone.
-	if !caps.Tools && !caps.Skills {
+	if !caps.Agent {
 		return ""
 	}
 	var b strings.Builder
@@ -72,7 +52,7 @@ func baseSystemPrompt(caps Caps) string {
 // run_shell acts upon (and doesn't claim it has no access to "your PC").
 // Returns "" when machine access is off.
 func machineSystemPrompt(caps Caps) string {
-	if !caps.Tools {
+	if !caps.Agent {
 		return ""
 	}
 	host, _ := os.Hostname()
@@ -155,33 +135,4 @@ func tailRunes(s string, n int) string {
 		return s
 	}
 	return string(r[len(r)-n:])
-}
-
-func cmdTools(args []string) error {
-	sub := ""
-	if len(args) > 0 {
-		sub = args[0]
-	}
-	switch sub {
-	case "on":
-		if err := setToolsEnabled(true); err != nil {
-			return err
-		}
-		fmt.Println(green("[ok]") + " accès machine activé — l'IA dispose d'un shell complet sur le serveur")
-	case "off":
-		if err := setToolsEnabled(false); err != nil {
-			return err
-		}
-		fmt.Println(green("[ok]") + " accès machine désactivé")
-	case "", "status":
-		state := dim("off")
-		if toolsEnabled() {
-			state = green("on")
-		}
-		fmt.Printf("%s  état: %s\n", cyan("Accès machine"), state)
-		fmt.Printf("  timeout défaut: %ds, max: %ds\n", toolDefaultTimeout, toolMaxTimeout)
-	default:
-		return fmt.Errorf("usage: jean machine [on|off|status]")
-	}
-	return nil
 }
