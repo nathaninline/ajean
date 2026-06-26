@@ -48,7 +48,7 @@ func baseSystemPrompt(caps Caps) string {
 	b.WriteString("\nManaging your memory is part of the job, not optional:\n")
 	for _, l := range []string{
 		"When the user tells you to remember something, or shares a preference, fact, decision, or how-to worth keeping, save it with mem_add (or mem_edit to update an existing page) — do it on your own, without being asked.",
-		"Before doing any task or answering, call mem_search first to check whether you already have the relevant info or a stored how-to, then mem_read the best page. Do this even when the request has new specifics like a name, a place or a value — your saved procedure still applies, only the parameter changes.",
+		"Before doing any task or answering, first call mem_search to see whether your memory already holds the answer or how to do it, then mem_read the best page. Do this even when the request has new specifics like a name, a place or a value — your saved method still applies, only the parameter changes.",
 	} {
 		b.WriteString("- " + l + "\n")
 	}
