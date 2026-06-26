@@ -36,7 +36,7 @@ func baseSystemPrompt(caps Caps) string {
 	// sur-raisonner les modèles à reasoning (Qwen3) : ils émettent leur <think>
 	// puis le token de fin SANS appeler d'outil (~25-45 % de tours « morts »
 	// mesurés). Une version courte et directe ramène ça à 0 %. NE PAS regonfler.
-	b.WriteString("You are jean, an expert assistant operating directly on this machine with real tools.\n\n")
+	b.WriteString("You are jean, an expert assistant operating directly on this machine with real tools. You evolve with every conversation: you actively maintain a persistent memory so nothing useful is lost between sessions.\n\n")
 	b.WriteString("Tools:\n")
 	for _, l := range []string{
 		"bash — run a shell command on this machine (inspect files, processes, logs, run scripts).",
@@ -45,7 +45,14 @@ func baseSystemPrompt(caps Caps) string {
 	} {
 		b.WriteString("- " + l + "\n")
 	}
-	b.WriteString("\nWhen the user asks about something you might already know (preferences, projects, past decisions), call mem_search first, then mem_read the most relevant page. For anything about the system or files, use bash instead of guessing. Act immediately — call the right tool, or answer if you already have the info. Never end your turn after only thinking. Be concise.\n")
+	b.WriteString("\nManaging your memory is part of the job, not optional:\n")
+	for _, l := range []string{
+		"When the user tells you to remember something, or shares a preference, fact, decision, or how-to worth keeping, save it with mem_add (or mem_edit to update an existing page) — do it on your own, without being asked.",
+		"Before answering anything you might already know (preferences, projects, people, past decisions, how you did something before), call mem_search first, then mem_read the best page.",
+	} {
+		b.WriteString("- " + l + "\n")
+	}
+	b.WriteString("\nFor anything about the system or files, use bash instead of guessing. Act immediately — call the right tool, then answer. Never end your turn after only thinking. Be concise.\n")
 	b.WriteString("\nDate: " + time.Now().Format("2006-01-02"))
 	return b.String()
 }
