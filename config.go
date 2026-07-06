@@ -139,6 +139,27 @@ func SetConfigKey(key, value string) error {
 	return os.WriteFile(confPath(), []byte(content), 0o644)
 }
 
+// toolLimitEnabled reports whether the per-turn tool-call cap is active.
+// Default: true (limité). Only an explicit "off"/"false"/"0"/"no" in config.env
+// (TOOL_LIMIT) disables it — anything else keeps the safety cap on.
+func toolLimitEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(ReadConfig()["TOOL_LIMIT"])) {
+	case "off", "false", "0", "no", "non":
+		return false
+	}
+	return true
+}
+
+// toolCallLimit returns the max number of agentic tool-call iterations per turn.
+// 8 when the limit is on (default), a very high ceiling when the user disabled it
+// from the web UI — the repeated-call anti-loop still guards against runaways.
+func toolCallLimit() int {
+	if toolLimitEnabled() {
+		return 8
+	}
+	return 1000
+}
+
 // LLMPort returns the configured server port (config.env PORT), default 8080.
 func LLMPort() int {
 	if p, ok := ReadConfig()["PORT"]; ok {

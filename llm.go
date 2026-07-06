@@ -356,7 +356,12 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 	// (ni réponse, ni tool_call). On relance alors UNE fois le tour avec un nudge
 	// explicite au lieu d'afficher « pas de réponse ».
 	nudged := false
-	for iter := 0; iter < 8; iter++ {
+	// Plafond d'itérations d'appels d'outils. Activé par défaut (8) pour éviter
+	// qu'un modèle parti en vrille n'enchaîne les appels indéfiniment ; l'anti-
+	// boucle (lastSig) protège toujours même quand la limite est désactivée via
+	// l'UI (TOOL_LIMIT=off → plafond très haut, quasi illimité).
+	maxIter := toolCallLimit()
+	for iter := 0; iter < maxIter; iter++ {
 		payload := map[string]any{
 			"model":       "jean",
 			"messages":    messages,

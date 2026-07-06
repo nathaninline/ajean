@@ -85,6 +85,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/preset/delete", handlePresetDelete)
 	api("/api/agent", handleAgent)
 	api("/api/agent/toggle", handleAgentToggle)
+	api("/api/agent/tool-limit", handleToolLimitToggle)
 	// Alias rétro-compat : l'ancien portail ajean.link (dépôt jean-relay) pilote
 	// encore l'agent via /api/tools* et /api/skills/toggle à travers le tunnel E2E.
 	// On les mappe sur le mode agent unifié le temps que le portail soit mis à jour.
@@ -436,7 +437,25 @@ func handleAgent(w http.ResponseWriter, r *http.Request) {
 	for _, p := range pages {
 		out = append(out, map[string]any{"name": p.Name, "desc": p.Title})
 	}
-	sendJSON(w, 200, map[string]any{"enabled": agentEnabled(), "pages": out, "skills": out})
+	sendJSON(w, 200, map[string]any{"enabled": agentEnabled(), "tool_limit": toolLimitEnabled(), "pages": out, "skills": out})
+}
+
+// handleToolLimitToggle active/désactive le plafond d'appels d'outils par tour
+// (config.env TOOL_LIMIT). On=limité (défaut), off=quasi illimité.
+func handleToolLimitToggle(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		On bool `json:"on"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	val := ""
+	if !req.On {
+		val = "off"
+	}
+	if err := SetConfigKey("TOOL_LIMIT", val); err != nil {
+		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "tool_limit": toolLimitEnabled()})
 }
 
 func handleAgentToggle(w http.ResponseWriter, r *http.Request) {
