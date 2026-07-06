@@ -44,6 +44,12 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 .skillshead>span{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;font-weight:600}
 .addbtn{font-size:11px;padding:3px 11px 4px;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer;line-height:1.2}
 .addbtn:hover{border-color:var(--accent);color:var(--accent)}
+.mem-count{font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:4px}
+.mem-search{width:100%;box-sizing:border-box;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 9px;font:inherit;font-size:12px;margin:0 0 6px}
+.mem-search:focus{outline:none;border-color:var(--accent)}
+.mem-list{max-height:240px;overflow-y:auto;overscroll-behavior:contain}
+.mem-list .preset{margin:3px 0;padding:5px 9px}
+.mem-more{font-size:11px;color:var(--dim);text-align:center;padding:6px 0 2px}
 #brand-a{display:inline-block;line-height:1;max-width:0;opacity:0;overflow:hidden;color:#fff;transition:max-width .35s ease,opacity .35s ease}
 #brand.agent #brand-a{max-width:1ch;opacity:1;margin-right:.04em}
 /* interrupteur (switch) */
@@ -188,8 +194,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
     <div class="muted" style="font-size:11px">⚠️ active l'<b>accès machine</b> (shell complet via <b>bash</b> sur le serveur) <b>et</b> la <b>mémoire</b> — l'IA peut inspecter, lancer des scripts et lire/écrire ses pages mémoire (timeout 30s, max 300s)</div>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="toollimit-toggle" onchange="toggleToolLimit()"><span class="slider"></span></span> limiter les appels d'outils par tour</label>
     <div class="muted" style="font-size:11px">activé par défaut : coupe l'IA après ~8 appels d'outils (message <code>[stop: trop d'appels d'outils]</code>). Désactive-le si tu veux la laisser enchaîner sans plafond (l'anti-boucle reste actif).</div>
-    <div class="skillshead"><span>Mémoire</span><button class="addbtn" onclick="event.preventDefault();event.stopPropagation();openMem('')" title="ajouter une page mémoire">+ ajouter</button></div>
-    <div id="mem-list" class="muted" style="font-size:12px"></div>
+    <div class="skillshead"><span>Mémoire <span id="mem-count" class="mem-count"></span></span><button class="addbtn" onclick="event.preventDefault();event.stopPropagation();openMem('')" title="ajouter une page mémoire">+ ajouter</button></div>
+    <input id="mem-search" class="mem-search" type="search" placeholder="filtrer la mémoire…" oninput="renderMemList()" style="display:none">
+    <div id="mem-list" class="mem-list muted" style="font-size:12px"></div>
   </details>
   <details><summary>System prompt</summary>
     <textarea id="sysprompt" placeholder="(optionnel) ex: tu es un assistant concis en français" oninput="saveSys()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;min-height:70px;resize:vertical"></textarea>
@@ -420,10 +427,40 @@ async function loadAgent(){
   document.getElementById('agent-badge').innerHTML = on
     ? '<span class="tag ok">on</span>' : '<span class="tag" style="opacity:.6">off</span>';
   document.getElementById('brand').classList.toggle('agent', on);
-  const pages = s.pages || s.skills || [];
-  document.getElementById('mem-list').innerHTML = pages.length
-    ? pages.map(x=>'<div class="preset" style="font-size:12px" onclick="openMem(\''+x.name+'\')"><span><b style="color:var(--text)">'+x.name+'</b> <span class="muted">— '+x.desc+'</span></span><button onclick="event.stopPropagation();openMem(\''+x.name+'\')" style="margin:0;padding:2px 8px;font-size:11px">edit</button></div>').join('')
-    : '<div class="muted">(aucune page mémoire)</div>';
+  memPages = (s.pages || s.skills || []).slice().sort((a,b)=>a.name.localeCompare(b.name));
+  memShown = MEM_PAGE;
+  document.getElementById('mem-count').textContent = memPages.length ? '('+memPages.length+')' : '';
+  document.getElementById('mem-search').style.display = memPages.length > MEM_PAGE ? '' : 'none';
+  renderMemList();
+}
+// Liste mémoire scalable : recherche + rendu plafonné (les milliers de pages ne
+// déroulent plus une barre géante). memShown grimpe par paliers via « voir plus ».
+let memPages=[], memShown=0; const MEM_PAGE=50;
+function renderMemList(){
+  const q=(document.getElementById('mem-search').value||'').trim().toLowerCase();
+  const list=document.getElementById('mem-list');
+  list.textContent='';
+  if(!memPages.length){ list.innerHTML='<div class="muted">(aucune page mémoire)</div>'; return; }
+  const matches = q ? memPages.filter(x=>(x.name+' '+(x.desc||'')).toLowerCase().includes(q)) : memPages;
+  if(!matches.length){ list.innerHTML='<div class="muted">(aucun résultat pour « '+q.replace(/[<>&]/g,'')+' »)</div>'; return; }
+  const shown = matches.slice(0, memShown);
+  shown.forEach(x=>{
+    const row=document.createElement('div'); row.className='preset'; row.style.fontSize='12px';
+    row.onclick=()=>openMem(x.name);
+    const span=document.createElement('span');
+    const b=document.createElement('b'); b.style.color='var(--text)'; b.textContent=x.name; span.appendChild(b);
+    if(x.desc){ const d=document.createElement('span'); d.className='muted'; d.textContent=' — '+x.desc; span.appendChild(d); }
+    const btn=document.createElement('button'); btn.textContent='edit'; btn.style.cssText='margin:0;padding:2px 8px;font-size:11px';
+    btn.onclick=e=>{ e.stopPropagation(); openMem(x.name); };
+    row.appendChild(span); row.appendChild(btn); list.appendChild(row);
+  });
+  if(matches.length > shown.length){
+    const more=document.createElement('div'); more.className='mem-more';
+    more.textContent='+ voir plus ('+(matches.length-shown.length)+' de plus)';
+    more.style.cursor='pointer';
+    more.onclick=()=>{ memShown+=MEM_PAGE; renderMemList(); };
+    list.appendChild(more);
+  }
 }
 // alias : plusieurs appelants rafraîchissent juste la liste des pages mémoire
 const loadMem = loadAgent;
