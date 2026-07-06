@@ -97,7 +97,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .preset>button{flex-shrink:0}
 .preset-info{flex:1;min-width:0}
 .preset-name{min-width:0;overflow-wrap:anywhere;word-break:break-word}
-.preset-edit{flex-shrink:0;align-self:flex-start;margin:0;padding:2px 5px;font-size:13px;line-height:1;background:transparent;border:none;opacity:.45}
+.preset-edit{flex-shrink:0;align-self:flex-start;margin:-3px -4px 0 0;padding:2px 4px;font-size:13px;line-height:1;background:transparent;border:none;opacity:.45}
 .preset-edit:hover{opacity:1;color:var(--accent)}
 .preset-meta{display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap}
 .qtag{flex-shrink:0;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em;text-transform:uppercase}
@@ -200,7 +200,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
   <details><summary>Presets<button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter">+</button></summary>
     <div id="presets"></div>
   </details>
-  <details><summary>Mode agent <span id="agent-badge" style="margin-left:auto;font-size:10px"></span></summary>
+  <details><summary>Mode agent <span id="agent-badge" style="margin-left:auto;margin-right:12px;font-size:10px"></span></summary>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="agent-toggle" onchange="toggleAgent()"><span class="slider"></span></span> activer le mode agent</label>
     <div class="muted" style="font-size:11px">⚠️ active l'<b>accès machine</b> (shell complet via <b>bash</b> sur le serveur) <b>et</b> la <b>mémoire</b> — l'IA peut inspecter, lancer des scripts et lire/écrire ses pages mémoire (timeout 30s, max 300s)</div>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="toollimit-toggle" onchange="toggleToolLimit()"><span class="slider"></span></span> limiter les appels d'outils par tour</label>
