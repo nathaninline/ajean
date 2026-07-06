@@ -50,6 +50,17 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 .mem-list{max-height:240px;overflow-y:auto;overscroll-behavior:contain}
 .mem-list .preset{margin:3px 0;padding:5px 9px}
 .mem-more{font-size:11px;color:var(--dim);text-align:center;padding:6px 0 2px}
+.ask-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px}
+.ask-box{background:var(--bg);border:1px solid var(--border);border-radius:10px;width:100%;max-width:420px;padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.5);animation:askpop .12s ease-out}
+@keyframes askpop{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:none}}
+.ask-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px}
+.ask-msg{font-size:13px;color:var(--dim);line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.ask-input{width:100%;box-sizing:border-box;margin-top:12px;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:9px 11px;font:inherit;font-size:13px}
+.ask-input:focus{outline:none;border-color:var(--accent)}
+.ask-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.ask-actions button{margin:0;padding:7px 16px}
+.ask-ok{border-color:var(--accent);color:var(--accent)}
+.ask-ok.danger{border-color:var(--err);color:var(--err)}
 #brand-a{display:inline-block;line-height:1;max-width:0;opacity:0;overflow:hidden;color:#fff;transition:max-width .35s ease,opacity .35s ease}
 #brand.agent #brand-a{max-width:1ch;opacity:1;margin-right:.04em}
 /* interrupteur (switch) */
@@ -250,6 +261,17 @@ button:disabled{opacity:.5;cursor:not-allowed}
     </div>
   </div>
 </div>
+<div id="ask-modal" class="ask-overlay" style="display:none" onclick="if(event.target===this)askResolve(false)">
+  <div class="ask-box">
+    <div id="ask-title" class="ask-title"></div>
+    <div id="ask-msg" class="ask-msg"></div>
+    <input id="ask-input" class="ask-input" style="display:none">
+    <div class="ask-actions">
+      <button id="ask-cancel" onclick="askResolve(false)">Annuler</button>
+      <button id="ask-ok" class="ask-ok" onclick="askResolve(true)">Confirmer</button>
+    </div>
+  </div>
+</div>
 <div id="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:30;align-items:center;justify-content:center;padding:20px">
   <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;width:100%;max-width:700px;max-height:90vh;display:flex;flex-direction:column">
     <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
@@ -313,6 +335,48 @@ function toggleSide(){ document.getElementById('side').classList.toggle('open');
 function saveSys(){ localStorage.setItem('jean.sys', document.getElementById('sysprompt').value); }
 document.addEventListener('DOMContentLoaded', ()=>{ document.getElementById('sysprompt').value = localStorage.getItem('jean.sys') || ''; restoreChat(); });
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
+// Modales natives (askConfirm/askPrompt/askAlert) — remplacent confirm()/prompt()/
+// alert() par de vraies boîtes stylées. Chacune renvoie une Promise : askConfirm →
+// bool, askPrompt → string|null (null si annulé), askAlert → void. Échap/clic dehors
+// = annuler ; Entrée = valider (sur prompt aussi).
+let _askResolver=null, _askKind='confirm';
+function askResolve(ok){
+  if(!_askResolver) return;
+  const r=_askResolver; _askResolver=null;
+  document.getElementById('ask-modal').style.display='none';
+  document.removeEventListener('keydown', _askKey, true);
+  if(_askKind==='prompt') r(ok ? document.getElementById('ask-input').value : null);
+  else r(ok);
+}
+function _askKey(e){
+  if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); askResolve(false); }
+  else if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); askResolve(true); }
+}
+function _openAsk(kind, message, opts){
+  // Compat 2 conventions : (message, opts) [UI jean] ET l'objet unique
+  // {title,msg,yes,no,placeholder} passé par e2e.js sur ajean.link (server.html,
+  // où cette fonction remplace le window.askConfirm du bootstrap boîte noire).
+  if(message && typeof message==='object'){ const o=message; opts={title:o.title, okText:o.yes, cancelText:o.no, placeholder:o.placeholder, default:o.default, danger:o.danger}; message=o.msg||''; }
+  opts=opts||{};
+  _askKind=kind;
+  document.getElementById('ask-title').textContent = opts.title || (kind==='alert'?'Info':kind==='prompt'?'Saisie':'Confirmation');
+  document.getElementById('ask-msg').textContent = message||'';
+  const inp=document.getElementById('ask-input');
+  if(kind==='prompt'){ inp.style.display=''; inp.value=opts.default||''; inp.placeholder=opts.placeholder||''; }
+  else inp.style.display='none';
+  const cancel=document.getElementById('ask-cancel'), ok=document.getElementById('ask-ok');
+  cancel.style.display = kind==='alert' ? 'none' : '';
+  cancel.textContent = opts.cancelText || 'Annuler';
+  ok.textContent = opts.okText || (kind==='alert'?'OK':kind==='prompt'?'Valider':'Confirmer');
+  ok.classList.toggle('danger', !!opts.danger);
+  document.getElementById('ask-modal').style.display='flex';
+  document.addEventListener('keydown', _askKey, true);
+  setTimeout(()=>{ const f = kind==='prompt'?inp:ok; f.focus(); if(kind==='prompt') inp.select(); }, 30);
+  return new Promise(res=>{ _askResolver=res; });
+}
+function askConfirm(message,opts){ return _openAsk('confirm',message,opts); }
+function askPrompt(message,opts){ return _openAsk('prompt',message,opts); }
+function askAlert(message,opts){ return _openAsk('alert',message,opts); }
 // Clé de pilotage : envoyée en Authorization: Bearer sur chaque appel /api/*.
 // Sur un 401 on la (re)demande et on rejoue la requête. Stockée en localStorage.
 let TOKEN = localStorage.getItem('jean.key') || '';
@@ -326,7 +390,7 @@ async function jfetch(u, opts){
   if(u.charAt(0) === '/') u = API_BASE + u;
   let r = await fetch(u, opts);
   if(r.status === 401){
-    const k = prompt('Clé de pilotage jean requise :', '');
+    const k = await askPrompt('Clé de pilotage jean requise :', {title:'Authentification', placeholder:'clé…'});
     if(k){ TOKEN = k.trim(); localStorage.setItem('jean.key', TOKEN); opts.headers = authHeaders(opts.headers); r = await fetch(u, opts); }
   }
   return r;
@@ -466,7 +530,7 @@ function renderMemList(){
 const loadMem = loadAgent;
 async function toggleAgent(){
   const on=document.getElementById('agent-toggle').checked;
-  if(on && !confirm("Activer le mode agent ? L'IA aura un accès shell complet au serveur (bash) et pourra lire/écrire sa mémoire.")){ document.getElementById('agent-toggle').checked=false; return; }
+  if(on && !await askConfirm("L'IA aura un accès shell complet au serveur (bash) et pourra lire/écrire sa mémoire.", {title:'Activer le mode agent ?', okText:'Activer', danger:true})){ document.getElementById('agent-toggle').checked=false; return; }
   await jpost('/api/agent/toggle',{on});
   loadAgent();
 }
@@ -523,7 +587,7 @@ async function runBenchUI(){
   }
 }
 async function switchTo(n,name){
-  if(!confirm('Basculer vers "'+name+'" et redémarrer le service ?')) return;
+  if(!await askConfirm('Basculer vers « '+name+' » et redémarrer le service ?', {title:'Changer de preset', okText:'Basculer'})) return;
   toast('switching…');
   const r=await jpost('/api/switch',{n:n});
   toast(r.ok?'switched':'erreur'); setTimeout(loadAll,2000);
@@ -681,9 +745,9 @@ async function delItem(){
   const K = KINDS[editingKind];
   const name = document.getElementById('m-name').value.trim() || editingKey;
   const delModel = editingKind==='preset' && document.getElementById('m-del-model').checked;
-  let msg = 'Supprimer le ' + K.label.toLowerCase() + ' "' + name + '" ?';
+  let msg = 'Supprimer le ' + K.label.toLowerCase() + ' « ' + name + ' » ?';
   if(delModel) msg += '\n\n⚠️ Le fichier .gguf du modèle sera AUSSI supprimé du disque (irréversible).';
-  if(!confirm(msg)) return;
+  if(!await askConfirm(msg, {title:'Suppression', okText:'Supprimer', danger:true})) return;
   const payload = editingKind==='preset'
     ? {id: editingKey, deleteModel: delModel}
     : {name: editingKey};
@@ -857,7 +921,7 @@ function resetChat(){ msgs=[]; document.getElementById('chat').innerHTML=''; sav
 async function compactContext(){
   if(busy) return;
   if(!msgs.length){ toast('rien à compacter'); return; }
-  if(!confirm('Compacter le contexte ? L\'IA va résumer la conversation puis repartir d\'une session propre basée sur ce résumé.')) return;
+  if(!await askConfirm('L\'IA va résumer la conversation puis repartir d\'une session propre basée sur ce résumé.', {title:'Compacter le contexte ?', okText:'Compacter'})) return;
   busy=true;
   const btn=document.getElementById('ctx-compact'); btn.textContent='compaction…'; btn.disabled=true;
   const instruction='Résume de façon structurée et complète TOUTE notre conversation jusqu\'ici, dans le but de poursuivre le travail dans une nouvelle session sans rien perdre d\'important : objectifs, décisions prises, état actuel, fichiers/commandes/éléments clés, et ce qu\'il reste à faire. Écris uniquement le résumé, sans préambule.';
