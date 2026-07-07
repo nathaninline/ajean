@@ -456,6 +456,7 @@ func buildLlamacpp(repo string, p buildPlan, clean bool) error {
 	cfgArgs = append(cfgArgs, p.flags...)
 	cfgLog := filepath.Join(repo, "configure.log")
 	if err := runBuildStep("cmake configure", repo, env, "cmake", cfgLog, cfgArgs...); err != nil {
+		hintMissingBuildDep(p, cfgLog)
 		return fmt.Errorf("configuration CMake échouée: %w", err)
 	}
 
@@ -471,6 +472,50 @@ func buildLlamacpp(repo string, p buildPlan, clean bool) error {
 		return fmt.Errorf("compilation échouée: %w", err)
 	}
 	return nil
+}
+
+// hintMissingBuildDep scanne le log de configuration CMake à la recherche de
+// dépendances manquantes CONNUES et affiche un indice d'installation adapté à la
+// distribution, plutôt que de laisser l'utilisateur face à l'erreur CMake brute.
+// Best-effort : silencieux si rien de reconnu. (Issue #6 : backend Vulkan qui
+// échoue sur « Could not find ... SPIRV-Headers ».)
+func hintMissingBuildDep(p buildPlan, cfgLog string) {
+	data, err := os.ReadFile(cfgLog)
+	if err != nil {
+		return
+	}
+	log := string(data)
+	// Backend Vulkan : les en-têtes SPIR-V (paquet SPIRV-Headers) sont requis par
+	// la config CMake de ggml-vulkan, mais absents par défaut sur beaucoup de
+	// distros même quand glslc/libvulkan sont là.
+	if p.backend == "vulkan" && strings.Contains(log, "SPIRV-Headers") {
+		fmt.Printf("\n%s dépendance manquante pour le backend %s : les en-têtes SPIR-V (paquet « SPIRV-Headers ») sont introuvables.\n",
+			yellow("[dépendance]"), green("Vulkan"))
+		if cmd := pkgInstallHint("spirv-headers"); cmd != "" {
+			fmt.Printf("            installe-les puis relance %s : %s\n", bold("jean llamacpp install"), bold(cmd))
+		} else {
+			fmt.Printf("            installe le paquet de développement « SPIRV-Headers » de ta distribution, puis relance %s.\n", bold("jean llamacpp install"))
+		}
+	}
+}
+
+// pkgInstallHint renvoie la commande d'installation d'un paquet adaptée au
+// gestionnaire de paquets présent sur la machine (best-effort ; "" si aucun
+// gestionnaire connu n'est trouvé). Sert uniquement à afficher un indice — on
+// n'exécute rien automatiquement.
+func pkgInstallHint(pkg string) string {
+	for _, m := range []struct{ bin, cmd string }{
+		{"pacman", "sudo pacman -S " + pkg},
+		{"apt-get", "sudo apt-get install -y " + pkg},
+		{"dnf", "sudo dnf install -y " + pkg},
+		{"zypper", "sudo zypper install -y " + pkg},
+		{"brew", "brew install " + pkg},
+	} {
+		if _, err := exec.LookPath(m.bin); err == nil {
+			return m.cmd
+		}
+	}
+	return ""
 }
 
 // cacheStale reports whether build/CMakeCache.txt was generated for a different
