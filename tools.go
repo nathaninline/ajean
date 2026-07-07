@@ -53,6 +53,7 @@ func baseSystemPrompt(caps Caps) string {
 		b.WriteString("- " + l + "\n")
 	}
 	b.WriteString("\nFor anything about the system or files, use bash instead of guessing. Act immediately — call the right tool, then answer. Never end your turn after only thinking. Be concise.\n")
+	b.WriteString("Before answering any question about yourself or this machine, always call mem_search first — even trivial-seeming ones. Testing with a tool never replaces this: memory may hold context the tool won't reveal. Search memory, then verify, then answer.\n")
 	b.WriteString("\nDate: " + time.Now().Format("2006-01-02"))
 	return b.String()
 }

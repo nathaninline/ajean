@@ -678,6 +678,13 @@ func sseHeartbeat(w http.ResponseWriter, flusher http.Flusher) (*sync.Mutex, fun
 // runChatStream exécute le chat et pousse chaque événement (delta) via emit, qui
 // renvoie false pour interrompre. Partagé par handleChat et handleE2EChat.
 func runChatStream(ctx context.Context, body chatReq, emit func(map[string]any) bool) {
+	// Garde-fou : si le modèle n'est pas encore chargé, llama-server répond 503
+	// ("loading model") et le tour partirait dans le vide (aucune réponse, l'user
+	// renvoie en boucle). On renvoie une erreur explicite affichée dans le chat.
+	if !healthCheck() {
+		emit(map[string]any{"error": "⏳ Le modèle est encore en train de charger — patiente quelques secondes puis renvoie ton message."})
+		return
+	}
 	if body.Temperature == 0 {
 		body.Temperature = 0.7
 	}
