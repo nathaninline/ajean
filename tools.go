@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"os/user"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -24,10 +25,12 @@ const (
 // The per-tool "Outil disponible" sections live in machine/skills prompts so
 // they only appear when the matching feature is on.
 func baseSystemPrompt(caps Caps) string {
-	// No tool access → no agentic preamble. A plain chat model told to "call
-	// tools immediately" hallucinates textual tool calls (e.g. default_api:bash)
-	// that leak into the answer. Let the user's own system prompt stand alone.
-	if !caps.Agent {
+	hasMem := caps.Mem != MemOff
+	// No tool access at all → no agentic preamble. A plain chat model told to
+	// "call tools immediately" hallucinates textual tool calls (e.g.
+	// default_api:bash) that leak into the answer. Let the user's own system
+	// prompt stand alone. (Internet requiert l'agent, donc pas testé ici.)
+	if !caps.Agent && !hasMem {
 		return ""
 	}
 	var b strings.Builder
@@ -36,26 +39,51 @@ func baseSystemPrompt(caps Caps) string {
 	// sur-raisonner les modèles à reasoning (Qwen3) : ils émettent leur <think>
 	// puis le token de fin SANS appeler d'outil (~25-45 % de tours « morts »
 	// mesurés). Une version courte et directe ramène ça à 0 %. NE PAS regonfler.
-	b.WriteString("You are jean, an expert assistant operating directly on this machine with real tools. You evolve with every conversation: you actively maintain a persistent memory so nothing useful is lost between sessions.\n\n")
-	b.WriteString("Tools:\n")
-	for _, l := range []string{
-		"bash — run a shell command on this machine (inspect files, processes, logs, run scripts).",
-		"edit — patch a file by exact replacement (old → new, old must be unique).",
-		"mem_search / mem_read / mem_add / mem_edit — your persistent Markdown memory under MEMORY/.",
-	} {
-		b.WriteString("- " + l + "\n")
+	b.WriteString("You are jean, an expert assistant operating directly on this machine with real tools.")
+	if caps.Mem == MemAlways {
+		b.WriteString(" You evolve with every conversation: you actively maintain a persistent memory so nothing useful is lost between sessions.")
 	}
-	b.WriteString("\nManaging your memory is part of the job, not optional:\n")
-	for _, l := range []string{
-		"When the user tells you to remember something, or shares a preference, fact, decision, or how-to worth keeping, save it with mem_add (or mem_edit to update an existing page) — do it on your own, without being asked.",
-		"Before doing any task or answering, first call mem_search to see whether your memory already holds the answer or how to do it, then mem_read the best page. Do this even when the request has new specifics like a name, a place or a value — your saved method still applies, only the parameter changes.",
-	} {
-		b.WriteString("- " + l + "\n")
+	b.WriteString("\n\nTools:\n")
+	if caps.Agent {
+		b.WriteString("- bash — run a shell command on this machine (inspect files, processes, logs, run scripts).\n")
+		b.WriteString("- edit — patch a file by exact replacement (old → new, old must be unique).\n")
 	}
-	b.WriteString("\nFor anything about the system or files, use bash instead of guessing. Act immediately — call the right tool, then answer. Never end your turn after only thinking. Be concise.\n")
-	b.WriteString("Before answering any question about yourself or this machine, always call mem_search first — even trivial-seeming ones. Testing with a tool never replaces this: memory may hold context the tool won't reveal. Search memory, then verify, then answer.\n")
+	if hasMem {
+		b.WriteString("- mem_search / mem_read / mem_add / mem_edit — your persistent Markdown memory under MEMORY/.\n")
+	}
+	// Politique d'usage de la mémoire selon le mode.
+	switch caps.Mem {
+	case MemAlways:
+		b.WriteString("\nManaging your memory is part of the job, not optional:\n")
+		b.WriteString("- When the user tells you to remember something, or shares a preference, fact, decision, or how-to worth keeping, save it with mem_add (or mem_edit to update an existing page) — do it on your own, without being asked.\n")
+		b.WriteString("- Before doing any task or answering, first call mem_search to see whether your memory already holds the answer or how to do it, then mem_read the best page. Do this even when the request has new specifics like a name, a place or a value — your saved method still applies, only the parameter changes.\n")
+	case MemOnDemand:
+		b.WriteString("\nMemory is ON-DEMAND: you have the mem_* tools but do NOT read or write memory on your own. Call mem_search/mem_read only when the user explicitly asks you to recall or look something up, and mem_add/mem_edit only when the user explicitly asks you to remember something. Otherwise leave memory untouched and answer directly.\n")
+	}
+	if caps.Agent {
+		b.WriteString("\nFor anything about the system or files, use bash instead of guessing. Act immediately — call the right tool, then answer. Never end your turn after only thinking. Be concise.\n")
+		if caps.Mem == MemAlways {
+			b.WriteString("Before answering any question about yourself or this machine, always call mem_search first — even trivial-seeming ones. Testing with a tool never replaces this: memory may hold context the tool won't reveal. Search memory, then verify, then answer.\n")
+		}
+	}
+	if caps.Internet {
+		b.WriteString("\nWeb access (Crawl4AI): web_search (DuckDuckGo), web_open (fetch a URL → metadata + outline), web_read (read a line range of an opened URL), web_grep (regex in an opened URL). Workflow: web_open first, then web_read/web_grep.\n")
+		year := time.Now().Format("2006")
+		b.WriteString("Your training data is stale. For ANY question about recent/latest/current things (releases, versions, news, prices, scores, fixtures, 'since when') call web_search BEFORE writing any date or version. Your answer must match the dates/facts you actually read.\n")
+		b.WriteString("SEARCH QUERY YEAR RULE: today is in " + year + ". If your query includes a year, use ONLY " + year + " — NEVER write a past year like " + prevYear(year) + " that you remember from training; it silently biases results toward stale pages. Default: put no year at all and let the freshest result win. Don't hedge ('probably', 'I think') about a fact a tool can verify — search instead.\n")
+	}
 	b.WriteString("\nDate: " + time.Now().Format("2006-01-02"))
 	return b.String()
+}
+
+// prevYear returns the year before the given "2006"-formatted year string, used
+// to name explicitly the stale year the model must NOT put in search queries.
+func prevYear(year string) string {
+	n, err := strconv.Atoi(year)
+	if err != nil {
+		return year
+	}
+	return strconv.Itoa(n - 1)
 }
 
 // machineSystemPrompt returns a short briefing about the host the model is

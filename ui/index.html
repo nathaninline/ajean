@@ -245,12 +245,29 @@ button:disabled{opacity:.5;cursor:not-allowed}
   </details>
   <details><summary>Mode agent <span id="agent-badge" style="margin-left:auto;margin-right:12px;font-size:10px"></span></summary>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="agent-toggle" onchange="toggleAgent()"><span class="slider"></span></span> activer le mode agent</label>
-    <div class="muted" style="font-size:11px">⚠️ active l'<b>accès machine</b> (shell complet via <b>bash</b> sur le serveur) <b>et</b> la <b>mémoire</b> — l'IA peut inspecter, lancer des scripts et lire/écrire ses pages mémoire (timeout 30s, max 300s)</div>
+    <div class="muted" style="font-size:11px">⚠️ active l'<b>accès machine</b> (shell complet via <b>bash</b> sur le serveur) — l'IA peut inspecter, lancer des scripts, lire/éditer des fichiers (timeout 30s, max 300s). La mémoire se règle séparément ci-dessous.</div>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="toollimit-toggle" onchange="toggleToolLimit()"><span class="slider"></span></span> limiter les appels d'outils par tour</label>
     <div class="muted" style="font-size:11px">activé par défaut : coupe l'IA après ~8 appels d'outils (message <code>[stop: trop d'appels d'outils]</code>). Désactive-le si tu veux la laisser enchaîner sans plafond (l'anti-boucle reste actif).</div>
-    <div class="skillshead"><span>Mémoire <span id="mem-count" class="mem-count"></span></span><button class="addbtn" onclick="event.preventDefault();event.stopPropagation();openMem('')" title="ajouter une page mémoire">+ ajouter</button></div>
+    <label class="switchrow" style="justify-content:space-between;gap:10px"><span>Mémoire</span>
+      <select id="mem-mode" onchange="setMemMode()" style="background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px">
+        <option value="always">auto (proactive)</option>
+        <option value="ondemand">sur demande</option>
+        <option value="off">désactivée</option>
+      </select>
+    </label>
+    <div id="mem-mode-desc" class="muted" style="font-size:11px"></div>
+    <div class="skillshead"><span>Pages <span id="mem-count" class="mem-count"></span></span><button class="addbtn" onclick="event.preventDefault();event.stopPropagation();openMem('')" title="ajouter une page mémoire">+ ajouter</button></div>
     <input id="mem-search" class="mem-search" type="search" placeholder="filtrer la mémoire…" oninput="renderMemList()" style="display:none">
     <div id="mem-list" class="mem-list muted" style="font-size:12px"></div>
+  </details>
+  <details><summary>Accès internet <span id="internet-badge" style="margin-left:auto;margin-right:12px;font-size:10px"></span></summary>
+    <label class="switchrow"><span class="switch"><input type="checkbox" id="internet-toggle" onchange="toggleInternet()"><span class="slider"></span></span> donner internet à l'IA</label>
+    <div class="muted" style="font-size:11px">nécessite le <b>mode agent</b>. Ajoute les outils <b>web_search / web_open / web_read / web_grep</b> via un serveur <b>Crawl4AI</b>. Actifs seulement si le serveur répond.</div>
+    <div class="row" style="margin-top:6px">
+      <input id="crawl-url" type="text" placeholder="http://localhost:11235" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit" onchange="saveCrawlUrl()">
+      <button onclick="saveCrawlUrl()">enregistrer</button>
+    </div>
+    <div id="internet-status" class="muted" style="font-size:11px;margin-top:4px"></div>
   </details>
   <details><summary>System prompt</summary>
     <textarea id="sysprompt" placeholder="(optionnel) ex: tu es un assistant concis en français" oninput="saveSys()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;min-height:70px;resize:vertical"></textarea>
@@ -540,6 +557,7 @@ async function loadAgent(){
   document.getElementById('agent-badge').innerHTML = on
     ? '<span class="tag ok">on</span>' : '<span class="tag" style="opacity:.6">off</span>';
   document.getElementById('brand').classList.toggle('agent', on);
+  if(s.mem_mode){ document.getElementById('mem-mode').value = s.mem_mode; renderMemModeDesc(s.mem_mode); }
   memPages = (s.pages || s.skills || []).slice().sort((a,b)=>a.name.localeCompare(b.name));
   memShown = MEM_PAGE;
   document.getElementById('mem-count').textContent = memPages.length ? '('+memPages.length+')' : '';
@@ -588,7 +606,44 @@ async function toggleToolLimit(){
   await jpost('/api/agent/tool-limit',{on});
   loadAgent();
 }
-async function loadAll(){ await Promise.all([loadStatus(),loadVram(),loadCfg(),loadPresets(),loadAgent()]); }
+// Mode mémoire (3 états) — indépendant du mode agent.
+const MEM_DESC={
+  always:'L\'IA cherche dans sa mémoire avant de répondre et sauve d\'elle-même ce qui mérite d\'être retenu.',
+  ondemand:'Les outils mémoire existent mais l\'IA ne les utilise QUE si tu le demandes (« souviens-toi de… », « qu\'avais-tu retenu sur… »).',
+  off:'Mémoire coupée : aucun accès en lecture ni écriture, l\'IA répond sans mémoire.'
+};
+function renderMemModeDesc(m){ const d=document.getElementById('mem-mode-desc'); if(d) d.textContent=MEM_DESC[m]||''; }
+async function setMemMode(){
+  const mode=document.getElementById('mem-mode').value;
+  const r=await jpost('/api/memory',{mode});
+  renderMemModeDesc(r.mode||mode);
+}
+// Accès internet : serveur Crawl4AI + drapeau. Actif ET fonctionnel = pastille verte.
+let internetOn=false;
+function renderInternet(s){
+  internetOn = !!s.enabled;
+  document.getElementById('internet-toggle').checked = internetOn;
+  if(document.activeElement !== document.getElementById('crawl-url'))
+    document.getElementById('crawl-url').value = s.url || '';
+  document.getElementById('internet-badge').innerHTML = internetOn
+    ? '<span class="tag ok">on</span>' : '<span class="tag" style="opacity:.6">off</span>';
+  const st=document.getElementById('internet-status');
+  if(!s.url){ st.textContent='serveur non configuré'; st.style.color=''; }
+  else if(s.reachable){ st.innerHTML='✅ serveur joignable — outils web actifs'; }
+  else { st.innerHTML='⚠️ serveur injoignable — les outils web ne seront pas proposés'; }
+}
+async function loadInternet(){ renderInternet(await jget('/api/internet')); }
+async function toggleInternet(){
+  const on=document.getElementById('internet-toggle').checked;
+  const url=document.getElementById('crawl-url').value.trim();
+  if(on && !url){ toast('renseigne d\'abord l\'URL du serveur Crawl4AI'); document.getElementById('internet-toggle').checked=false; return; }
+  renderInternet(await jpost('/api/internet',{enabled:on, url}));
+}
+async function saveCrawlUrl(){
+  const url=document.getElementById('crawl-url').value.trim();
+  renderInternet(await jpost('/api/internet',{url}));
+}
+async function loadAll(){ await Promise.all([loadStatus(),loadVram(),loadCfg(),loadPresets(),loadAgent(),loadInternet()]); }
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }
 function openBenchModal(){ document.getElementById('bench-modal').style.display = 'flex'; }
 function closeBenchModal(){ document.getElementById('bench-modal').style.display = 'none'; }
@@ -917,15 +972,24 @@ function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(text); addCo
 // Render a tool call as its own conversation message: the command the model
 // wrote, then the response it got back. textContent keeps it injection-safe.
 function renderToolMsg(el, tu){
-  const isShell = tu.name==='bash';
-  const isEdit = tu.name==='edit';
-  let lbl = isShell ? 'terminal' : (isEdit ? 'édition' : 'mémoire');
+  // Métadonnées d'affichage par outil : nom court + en-tête avec icône. Les outils
+  // web (web_search/open/read/grep) doivent afficher 🌐, pas le fallback mémoire.
+  const META = {
+    bash:       {lbl:'terminal',  head:'⚙️ commande'},
+    edit:       {lbl:'édition',   head:'✏️ édition'},
+    web_search: {lbl:'recherche', head:'🌐 recherche web'},
+    web_open:   {lbl:'page web',  head:'🌐 ouverture'},
+    web_read:   {lbl:'page web',  head:'🌐 lecture'},
+    web_grep:   {lbl:'page web',  head:'🌐 recherche'},
+  };
+  const meta = META[tu.name] || {lbl:'mémoire', head:'🧠 mémoire'};
+  let lbl = meta.lbl;
   // Indication du volume de la réponse de l'outil (~tokens, estimation 1 tok ≈ 4 car).
   if(tu.result){ lbl += '  ·  ~' + Math.max(1, Math.round(tu.result.length/4)) + ' tok'; }
   setLabel(el, lbl);
   const body=bodyOf(el); body.innerHTML='';
   const head=document.createElement('div'); head.className='tool-head';
-  head.textContent = isShell ? '⚙️ commande' : (isEdit ? '✏️ édition' : '🧠 mémoire');
+  head.textContent = meta.head;
   body.appendChild(head);
   if(tu.label){
     const pre=document.createElement('pre'); pre.className='tool-cmd';

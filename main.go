@@ -4,6 +4,7 @@
 // description) dans le .exe pour réduire les faux positifs antivirus. Régénère
 // les .syso après avoir bumpé la version : `go generate ./...`
 // (nécessite : go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest)
+//
 //go:generate goversioninfo -64 -o resource_windows_amd64.syso versioninfo.json
 //go:generate goversioninfo -64 -arm -o resource_windows_arm64.syso versioninfo.json
 package main
@@ -15,7 +16,7 @@ import (
 	"strings"
 )
 
-const Version = "0.2.16"
+const Version = "0.2.17"
 
 func main() {
 	// Migration one-shot des anciens skills (SKILLS/<nom>/SKILL.md) vers la
@@ -56,6 +57,10 @@ func main() {
 		// interrupteur active TOUS les outils de l'IA (shell + skills). Les
 		// anciens noms restent acceptés comme alias rétro-compatibles.
 		mustExit(cmdAgent(args))
+	case "internet", "web-access":
+		mustExit(cmdInternet(args))
+	case "memory", "mem":
+		mustExit(cmdMemory(args))
 	case "serve":
 		mustExit(cmdServe(args))
 	case "test":
@@ -102,6 +107,8 @@ Presets:
 Interaction:
   chat [system-prompt]          chat terminal streamé
   web [PORT]                    UI web (défaut :8090) — chat + presets + mode agent
+  internet [on|off|status|url <url>]  accès web de l'IA via un serveur Crawl4AI (web_search/open/read/grep)
+  memory [off|ondemand|always|status]  mode mémoire de l'IA (off / sur demande / auto)
 
 Accès distant (ajean.link) :
   link <token>                  enregistre le token et démarre le lien au relais (token = 1re fois / pour le changer)
@@ -177,15 +184,17 @@ func readEtcDefault() string {
 	return ""
 }
 
-func confPath() string    { return filepath.Join(JeanHome(), "config.env") }
-func presetsDir() string  { return filepath.Join(JeanHome(), "configs") }
-func skillsDir() string   { return filepath.Join(JeanHome(), "SKILLS") }
-func memoryDir() string   { return filepath.Join(JeanHome(), "MEMORY") }
-func agentFlag() string   { return filepath.Join(JeanHome(), ".agent_enabled") }
+func confPath() string     { return filepath.Join(JeanHome(), "config.env") }
+func presetsDir() string   { return filepath.Join(JeanHome(), "configs") }
+func skillsDir() string    { return filepath.Join(JeanHome(), "SKILLS") }
+func memoryDir() string    { return filepath.Join(JeanHome(), "MEMORY") }
+func agentFlag() string    { return filepath.Join(JeanHome(), ".agent_enabled") }
+func internetFlag() string { return filepath.Join(JeanHome(), ".internet_enabled") }
+
 // Anciens drapeaux séparés, conservés pour la migration vers le mode agent unifié.
 func legacySkillsFlag() string { return filepath.Join(skillsDir(), ".enabled") }
 func legacyToolsFlag() string  { return filepath.Join(JeanHome(), ".tools_enabled") }
-func apiKeyPath() string  { return filepath.Join(JeanHome(), ".api_key") }
+func apiKeyPath() string       { return filepath.Join(JeanHome(), ".api_key") }
 func serviceName() string {
 	if n := os.Getenv("JEAN_SERVICE"); n != "" {
 		return n
@@ -202,12 +211,12 @@ func col(code, s string) string {
 	}
 	return "\033[" + code + "m" + s + "\033[0m"
 }
-func bold(s string) string  { return col("1", s) }
-func cyan(s string) string  { return col("1;36", s) }
-func green(s string) string { return col("32", s) }
-func red(s string) string   { return col("31", s) }
-func dim(s string) string   { return col("2", s) }
-func yellow(s string) string { return col("33", s) }
+func bold(s string) string    { return col("1", s) }
+func cyan(s string) string    { return col("1;36", s) }
+func green(s string) string   { return col("32", s) }
+func red(s string) string     { return col("31", s) }
+func dim(s string) string     { return col("2", s) }
+func yellow(s string) string  { return col("33", s) }
 func magenta(s string) string { return col("35", s) }
 
 // trimSplit splits and drops empty tokens.

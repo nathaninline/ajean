@@ -93,6 +93,9 @@ func cmdChat(args []string) error {
 				case "edit":
 					icon = "✏️"
 					verb = "édition"
+				case "web_search", "web_open", "web_read", "web_grep":
+					icon = "🌐"
+					verb = "web"
 				}
 				if inReason {
 					fmt.Print("\n")

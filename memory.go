@@ -330,6 +330,76 @@ func migrateSkillsToMemory() {
 	_ = os.WriteFile(flag, []byte(fmt.Sprintf("%d skills migrés\n", migrated)), 0o644)
 }
 
+// MemMode gouverne l'accès de l'IA à sa mémoire persistante, indépendamment du
+// mode agent (shell). Trois modes :
+//   - MemOff      : mémoire coupée (aucun outil mem_*, aucune consigne).
+//   - MemOnDemand : outils mem_* disponibles, mais l'IA ne les utilise QUE si
+//     l'utilisateur le demande explicitement (pas de recherche/écriture spontanée).
+//   - MemAlways   : comportement proactif historique (cherche avant de répondre, sauve d'elle-même).
+type MemMode string
+
+const (
+	MemOff      MemMode = "off"
+	MemOnDemand MemMode = "ondemand"
+	MemAlways   MemMode = "always"
+)
+
+// memMode lit MEM_MODE dans config.env. Défaut = always (préserve le comportement
+// actuel). Toute valeur inconnue retombe sur always.
+func memMode() MemMode {
+	switch strings.ToLower(strings.TrimSpace(ReadConfig()["MEM_MODE"])) {
+	case "off", "0", "false", "none", "no", "non":
+		return MemOff
+	case "ondemand", "on-demand", "demand", "manual", "manuel":
+		return MemOnDemand
+	default: // "always", "auto", "" et inconnus
+		return MemAlways
+	}
+}
+
+// setMemMode persiste le mode mémoire dans config.env.
+func setMemMode(m MemMode) error {
+	return SetConfigKey("MEM_MODE", string(m))
+}
+
+// cmdMemory : jean memory [off|ondemand|always|status]
+func cmdMemory(args []string) error {
+	sub := ""
+	if len(args) > 0 {
+		sub = strings.ToLower(strings.TrimSpace(args[0]))
+	}
+	label := map[MemMode]string{
+		MemOff:      "désactivée (l'IA n'a aucun accès mémoire)",
+		MemOnDemand: "sur demande (outils dispo, utilisés seulement si tu le demandes)",
+		MemAlways:   "auto (l'IA cherche et sauve d'elle-même)",
+	}
+	switch sub {
+	case "off", "none", "0", "false":
+		if err := setMemMode(MemOff); err != nil {
+			return err
+		}
+	case "ondemand", "on-demand", "demand", "manual", "manuel":
+		if err := setMemMode(MemOnDemand); err != nil {
+			return err
+		}
+	case "always", "auto", "on":
+		if err := setMemMode(MemAlways); err != nil {
+			return err
+		}
+	case "", "status", "list":
+		m := memMode()
+		fmt.Printf("%s  mode: %s — %s\n", cyan("Mémoire"), bold(string(m)), label[m])
+		pages := MemList()
+		fmt.Printf("  %d page(s) sous %s\n", len(pages), memoryDir())
+		return nil
+	default:
+		return fmt.Errorf("usage: jean memory [off|ondemand|always|status]")
+	}
+	m := memMode()
+	fmt.Printf("%s mémoire : %s — %s\n", green("[ok]"), bold(string(m)), label[m])
+	return nil
+}
+
 // memorySystemPrompt liste les pages mémoire à injecter quand le mode agent est
 // actif, pour que l'IA sache ce qu'elle a déjà retenu.
 func memorySystemPrompt(caps Caps) string {

@@ -86,6 +86,8 @@ func newWebMux() *http.ServeMux {
 	api("/api/agent", handleAgent)
 	api("/api/agent/toggle", handleAgentToggle)
 	api("/api/agent/tool-limit", handleToolLimitToggle)
+	api("/api/internet", handleInternet)
+	api("/api/memory", handleMemoryMode)
 	// Alias rétro-compat : l'ancien portail ajean.link (dépôt jean-relay) pilote
 	// encore l'agent via /api/tools* et /api/skills/toggle à travers le tunnel E2E.
 	// On les mappe sur le mode agent unifié le temps que le portail soit mis à jour.
@@ -437,7 +439,36 @@ func handleAgent(w http.ResponseWriter, r *http.Request) {
 	for _, p := range pages {
 		out = append(out, map[string]any{"name": p.Name, "desc": p.Title})
 	}
-	sendJSON(w, 200, map[string]any{"enabled": agentEnabled(), "tool_limit": toolLimitEnabled(), "pages": out, "skills": out})
+	sendJSON(w, 200, map[string]any{"enabled": agentEnabled(), "tool_limit": toolLimitEnabled(), "mem_mode": string(memMode()), "pages": out, "skills": out})
+}
+
+// handleMemoryMode lit/écrit le mode mémoire (off / ondemand / always).
+//
+//	GET  → {mode}
+//	POST {mode} → persiste MEM_MODE
+func handleMemoryMode(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		var req struct {
+			Mode string `json:"mode"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		// On normalise via memMode() en réinjectant la valeur : toute entrée
+		// inconnue retombe sur "always", donc on valide en passant par le parseur.
+		m := MemAlways
+		switch MemMode(strings.ToLower(strings.TrimSpace(req.Mode))) {
+		case MemOff:
+			m = MemOff
+		case MemOnDemand:
+			m = MemOnDemand
+		case MemAlways:
+			m = MemAlways
+		}
+		if err := setMemMode(m); err != nil {
+			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "mode": string(memMode())})
 }
 
 // handleToolLimitToggle active/désactive le plafond d'appels d'outils par tour
@@ -468,6 +499,42 @@ func handleAgentToggle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJSON(w, 200, map[string]any{"ok": true, "enabled": agentEnabled()})
+}
+
+// handleInternet pilote l'accès web de l'IA (serveur Crawl4AI).
+//
+//	GET  → {enabled, url, reachable}
+//	POST {enabled, url} → enregistre CRAWL4AI_URL + le drapeau .internet_enabled
+func handleInternet(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		var req struct {
+			Enabled *bool   `json:"enabled"`
+			URL     *string `json:"url"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.URL != nil {
+			u := strings.TrimRight(strings.TrimSpace(*req.URL), "/")
+			if err := SetConfigKey("CRAWL4AI_URL", u); err != nil {
+				sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+				return
+			}
+			reachMu.Lock()
+			reachURL = "" // invalide le cache de reachability
+			reachMu.Unlock()
+		}
+		if req.Enabled != nil {
+			if err := setInternetEnabled(*req.Enabled); err != nil {
+				sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+				return
+			}
+		}
+	}
+	sendJSON(w, 200, map[string]any{
+		"ok":        true,
+		"enabled":   internetEnabled(),
+		"url":       crawl4aiURL(),
+		"reachable": crawlReachable(),
+	})
 }
 
 func handleSkill(w http.ResponseWriter, r *http.Request) {
@@ -640,6 +707,8 @@ type chatReq struct {
 	Agent  *bool `json:"agent"`
 	Tools  *bool `json:"tools"`
 	Skills *bool `json:"skills"`
+	// Override par requête de l'accès internet (outils web). nil = config machine.
+	Internet *bool `json:"internet"`
 }
 
 // sseHeartbeat garde la réponse SSE active en écrivant un commentaire (`: ping`,
@@ -694,6 +763,10 @@ func runChatStream(ctx context.Context, body chatReq, emit func(map[string]any) 
 	} else if body.Tools != nil || body.Skills != nil {
 		// rétro-compat : anciens clients qui envoyaient deux drapeaux séparés
 		caps.Agent = (body.Tools != nil && *body.Tools) || (body.Skills != nil && *body.Skills)
+	}
+	if body.Internet != nil {
+		// On garde la cohérence prompt/outils : internet demandé ET serveur joignable.
+		caps.Internet = *body.Internet && crawlReachable()
 	}
 	msgs := InjectSkills(body.Messages, caps)
 	extra, _ := runChat(ctx, msgs, body.Temperature, caps, func(ev StreamEvent) bool {
@@ -752,4 +825,3 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 	runChatStream(r.Context(), body, emit)
 }
-

@@ -164,12 +164,22 @@ type Caps struct {
 	// Agent = mode agent actif : un seul interrupteur qui débloque TOUS les
 	// outils de l'IA (shell + skills). Un skill est un outil comme un autre.
 	Agent bool
+	// Internet = accès web actif (serveur Crawl4AI configuré + joignable) : ajoute
+	// les outils web_search/web_open/web_read/web_grep. Requiert aussi Agent.
+	Internet bool
+	// Mem = mode d'accès à la mémoire persistante (off / ondemand / always),
+	// indépendant du mode agent. Voir MemMode.
+	Mem MemMode
 }
 
 // globalCaps reads the machine-wide config — the default when a request doesn't
 // specify its own capabilities.
 func globalCaps() Caps {
-	return Caps{Agent: agentEnabled()}
+	// Internet inclut la joignabilité du serveur Crawl4AI : « actif ET fonctionnel ».
+	// Ainsi le prompt système (tools.go) et les outils fournis (EnabledTools) sont
+	// gouvernés par la MÊME condition — sinon le prompt promet web_search alors que
+	// l'outil n'existe pas, et le modèle le tape en bash (command not found).
+	return Caps{Agent: agentEnabled(), Internet: internetEnabled() && crawlReachable(), Mem: memMode()}
 }
 
 // InjectSkills prepends context system messages to msgs: the decisive-agent
@@ -203,7 +213,18 @@ func InjectSkills(msgs []Message, caps Caps) []Message {
 func EnabledTools(caps Caps) []Tool {
 	tools := []Tool{}
 	if caps.Agent {
-		tools = append(tools, bashTool(), editTool(), memSearchTool(), memReadTool(), memAddTool(), memEditTool())
+		tools = append(tools, bashTool(), editTool())
+	}
+	// Mémoire = axe indépendant du mode agent : les outils mem_* sont fournis dès
+	// que le mode mémoire n'est pas « off » (que l'agent soit actif ou non).
+	if caps.Mem != MemOff {
+		tools = append(tools, memSearchTool(), memReadTool(), memAddTool(), memEditTool())
+	}
+	// Outils web : seulement si le mode agent ET l'accès internet sont actifs.
+	// caps.Internet intègre déjà la joignabilité (globalCaps / override web.go),
+	// donc prompt et outils restent cohérents — pas de web_search halluciné.
+	if caps.Agent && caps.Internet {
+		tools = append(tools, webSearchTool(), webOpenTool(), webReadTool(), webGrepTool())
 	}
 	return tools
 }
@@ -307,12 +328,12 @@ type streamChunk struct {
 	// llama.cpp's "timings" appears on the final chunk and on intermediate
 	// /completion endpoint responses. Snake-case mapping per llama.cpp source.
 	Timings *struct {
-		PromptN          int     `json:"prompt_n"`
-		PromptMs         float64 `json:"prompt_ms"`
-		PromptPerSecond  float64 `json:"prompt_per_second"`
-		PredictedN       int     `json:"predicted_n"`
-		PredictedMs      float64 `json:"predicted_ms"`
-		PredictedPerSec  float64 `json:"predicted_per_second"`
+		PromptN         int     `json:"prompt_n"`
+		PromptMs        float64 `json:"prompt_ms"`
+		PromptPerSecond float64 `json:"prompt_per_second"`
+		PredictedN      int     `json:"predicted_n"`
+		PredictedMs     float64 `json:"predicted_ms"`
+		PredictedPerSec float64 `json:"predicted_per_second"`
 	} `json:"timings"`
 	// Chunk final (include_usage) : taille totale du prompt, hors choices.
 	Usage *struct {
@@ -495,10 +516,12 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				if cur := toolCalls[0]; cur != nil {
 					key := "command"
 					switch cur.Function.Name {
-					case "mem_search":
+					case "mem_search", "web_search":
 						key = "query"
 					case "mem_read", "mem_add", "mem_edit", "edit":
 						key = "file"
+					case "web_open", "web_read", "web_grep":
+						key = "url"
 					}
 					if p := previewArg(cur.Function.Arguments, key); p != "" && p != lastPreview {
 						lastPreview = p
@@ -625,12 +648,18 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				// nothing while a slow shell command runs and looks frozen.
 				label := ""
 				switch tc.Function.Name {
-				case "mem_search":
+				case "mem_search", "web_search":
 					label, _ = args["query"].(string)
 				case "mem_read", "mem_add", "mem_edit", "edit":
 					label, _ = args["file"].(string)
 				case "bash":
 					label, _ = args["command"].(string)
+				case "web_open", "web_read":
+					label, _ = args["url"].(string)
+				case "web_grep":
+					u, _ := args["url"].(string)
+					p, _ := args["pattern"].(string)
+					label = p + " @ " + u
 				}
 				cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label}})
 
@@ -692,6 +721,14 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 						to = v
 					}
 					result = runShell(label, to)
+				case "web_search":
+					result = toolWebSearch(args)
+				case "web_open":
+					result = toolWebOpen(args)
+				case "web_read":
+					result = toolWebRead(args)
+				case "web_grep":
+					result = toolWebGrep(args)
 				default:
 					result = "[erreur] outil inconnu: " + tc.Function.Name
 				}
