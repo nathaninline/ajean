@@ -23,6 +23,8 @@ Faire tourner llama.cpp comme un vrai service, ça veut dire d'habitude : trouve
 - **Intégration systemd** — `jean install` écrit l'unité, une règle sudoers `systemctl` sans mot de passe, et les dossiers de données
 - **Interface web** (`jean web`) — chat, changement de modèle/preset, activation du mode agent
 - **Chat terminal** (`jean chat`) — réponses en streaming
+- **Accès internet** (`jean internet`) — branche un serveur [Crawl4AI](https://github.com/unclecode/crawl4ai) et l'IA gagne 4 outils web (`web_search` DuckDuckGo, `web_open`, `web_read`, `web_grep`), actifs seulement si le mode agent est actif et le serveur joignable
+- **Mémoire persistante à 3 modes** (`jean memory`) — l'IA garde des notes Markdown entre les sessions ; réglable en `off` / `ondemand` (utilisée seulement quand tu le demandes) / `always` (proactive)
 - **Accès distant chiffré** (`jean link`) — connecte ce serveur à [ajean.link](https://ajean.link) par une connexion **sortante** (aucun port à ouvrir, marche même en CGNAT). Le chat est **chiffré de bout en bout** : le relais ne voit jamais tes conversations (voir [Sécurité — boîte noire](#sécurité--boîte-noire))
 - **Presets** (`jean switch`) — garde plusieurs profils `config.env` et bascule entre eux
 - **Protection par clé API** (`jean set-api-key`) — auth Bearer pour exposer le serveur publiquement ; la clé est stockée à part pour survivre aux changements de preset
@@ -112,6 +114,8 @@ Presets :
 Interaction :
   chat [system-prompt]          chat terminal streamé
   web [PORT]                    interface web (défaut :8090)
+  internet [on|off|status|url <url>]   accès web de l'IA via un serveur Crawl4AI
+  memory [off|ondemand|always|status]  mode mémoire de l'IA (off / sur demande / auto)
 
 Accès distant (ajean.link) :
   link [token]                  démarre le lien au relais en arrière-plan (token = 1re fois / pour le changer)
@@ -162,6 +166,8 @@ Tout vit sous **`$JEAN_HOME`** (défaut `/etc/jean` sur Linux/macOS, `%ProgramDa
 | `KV_TYPE` (`_K`/`_V`) | quantization du cache KV | — |
 | `REASONING` | passthrough du mode raisonnement | — |
 | `REASONING_BUDGET` | plafond de tokens de réflexion (anti-boucle) ; `-1` = illimité | `2048` |
+| `CRAWL4AI_URL` | URL du serveur Crawl4AI pour l'accès internet (réglé par `jean internet url`) | — |
+| `MEM_MODE` | mode mémoire de l'IA : `off` / `ondemand` / `always` (réglé par `jean memory`) | `always` |
 | `EXTRA_ARGS` | ajouté tel quel à `llama-server` | — |
 
 La clé API (quand elle est définie avec `jean set-api-key`) est stockée dans `$JEAN_HOME/.api_key`, séparément de `config.env`.
@@ -196,6 +202,29 @@ Endpoints utiles pour un client :
 La clé est stockée dans `$JEAN_HOME/.web_key`, distincte de `.api_key` (pilotage ≠ accès complétions), et relue à chaud à chaque requête. Le pilotage du service est cross-platform (systemd sous Linux, supervision par PID-file sous Windows).
 
 > ⚠️ La clé voyage en clair en HTTP. Pour une exposition publique, place Jean derrière un reverse-proxy HTTPS (Caddy, nginx) ou un tunnel (Tailscale, Cloudflare Tunnel).
+
+### Accès internet de l'IA (Crawl4AI)
+
+Par défaut l'IA n'a pas accès au web. En branchant un serveur [Crawl4AI](https://github.com/unclecode/crawl4ai) (Chrome headless), elle gagne quatre outils : `web_search` (DuckDuckGo), `web_open` (récupère une page → métadonnées + plan), `web_read` (lit une plage de lignes) et `web_grep` (regex dans une page ouverte).
+
+```bash
+jean internet url http://localhost:11235   # URL de ton serveur Crawl4AI
+jean internet on                           # active l'accès web
+jean internet status                       # vérifie que le serveur est joignable
+```
+
+Les outils web ne sont proposés au modèle que si **trois conditions** sont réunies : le **mode agent** est actif (`jean agent on`), l'accès internet est activé, **et** le serveur Crawl4AI répond. Sinon ils n'apparaissent pas — le modèle ne peut donc pas les inventer. Réglable aussi depuis l'interface web (section « Accès internet ») et disponible à distance via ajean.link (les outils s'exécutent sur ton serveur, à travers la boîte noire chiffrée).
+
+### Mémoire de l'IA (3 modes)
+
+L'IA peut tenir une mémoire persistante — des pages Markdown sous `$JEAN_HOME/MEMORY/` qu'elle relit et met à jour entre les sessions. Le comportement se règle en trois modes, indépendamment du mode agent :
+
+```bash
+jean memory always     # (défaut) l'IA cherche avant de répondre et sauve d'elle-même
+jean memory ondemand   # outils dispo, mais utilisés seulement quand tu le demandes
+jean memory off        # mémoire coupée : aucun accès en lecture ni écriture
+jean memory status
+```
 
 ### Accès distant via ajean.link
 
