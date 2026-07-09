@@ -151,15 +151,30 @@ func safePresetPath(name string) (string, error) {
 	return abs, nil
 }
 
+// preservedKeys sont des réglages « appareil » (préférences utilisateur, pas des
+// paramètres de modèle) qui doivent survivre à un changement de preset. Sans ça,
+// écraser config.env avec le preset ré-imposerait le mode mémoire et effacerait
+// l'URL du serveur internet à chaque bascule — ce qui obligeait à tout remettre.
+var preservedKeys = []string{"MEM_MODE", "CRAWL4AI_URL"}
+
 // SwitchToPreset backs up the current config and copies the target into place,
-// then restarts the service.
+// then restarts the service. Les réglages « appareil » (preservedKeys) sont
+// conservés à travers la bascule.
 func SwitchToPreset(target string) error {
 	src, err := os.ReadFile(target)
 	if err != nil {
 		return err
 	}
+	// Capture les réglages appareil AVANT d'écraser config.env.
+	cur := ReadConfig()
 	if err := os.WriteFile(confPath(), src, 0o644); err != nil {
 		return err
+	}
+	// Ré-applique les réglages appareil par-dessus le preset fraîchement copié.
+	for _, k := range preservedKeys {
+		if v, ok := cur[k]; ok {
+			_ = SetConfigKey(k, v)
+		}
 	}
 	fmt.Printf("%s config.env <- %s\n", green("[ok]"), filepath.Base(target))
 	fmt.Println(dim("[info] redémarrage du service..."))

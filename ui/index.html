@@ -6,18 +6,31 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="ajean">
-<title>jean</title>
+<meta name="apple-mobile-web-app-title" content="Jean">
+<title>Jean</title>
+<!-- Favicon (même marque « ajean » que la landing/portail) + icône PWA (écran d'accueil
+     iOS). SVG inline pour le favicon, PNG 180×180 en data-URI pour apple-touch-icon
+     (iOS n'accepte pas le SVG pour l'icône d'accueil). Aucun fichier externe requis. -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect width='12' height='12' rx='2' ry='2' fill='%231f6feb'/><rect x='6' y='3' width='2' height='2' fill='%23fff'/><rect x='6' y='5' width='2' height='2' fill='%23fff'/><rect x='4' y='7' width='2' height='2' fill='%23fff'/></svg>">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAABa0lEQVR42u3dsQ2AIBBAUSCOYA8b4iiMSI9D2FpYGTEheW8AisvPUV7MdQR4kowAcSAOxIE4EAfiQByIA3EgDhAH4kAciANxIA7EgTgQB+IAcSAOxIE4EAfiQByIA3EgDhAH4kAciANxIA7EgTgQB+JAHCAOxMEHNiO4622f9HI5TpsD3wriQBwgDsSBOBAH4kAciANxIA7EAeJAHIgDcSAOxIE4EAfiQBwgDsSBOBAH4kAciANxIA7EgThAHIgDcSAOxIE4EAfiQByIA8SBOBAH4kAciANxIA7EgThAHIgDcSAO/rLkLXsX520OxIE4EAfiQByIA8SBOBAH4kAciANxIA7EgThAHIgDcSAOxIE4EAfiQByIA8SBOHgl5jpMAZsDcSAOxIE4EAfiQByIA3GAOBAH4kAciANxIA7EgTgQB4gDcSAOxIE4EAfiQByIA3EgDhAH4kAciANxIA7EgTgQB+IAcSAOxME0F8YvCl24O02KAAAAAElFTkSuQmCC">
+<!-- Applique le thème AVANT le rendu (pas de flash) : lit le choix persisté. -->
+<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('jean-theme')||'dark')}catch(e){document.documentElement.setAttribute('data-theme','dark')}</script>
 <style>
-:root{--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--ok:#3fb950;--warn:#d29922;--err:#f85149;--mag:#bc8cff}
+/* ===== Thèmes =====================================================
+   Toutes les couleurs de l'UI passent par ces variables. Pour AJOUTER un
+   thème plus tard : 1) copier un bloc [data-theme="…"] ci-dessous en changeant
+   les valeurs, 2) ajouter son {id,label} au registre THEMES (voir le JS). Le
+   reste (sélecteur, persistance, application) est automatique. */
+:root{color-scheme:dark;--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--ok:#58a6ff;--warn:#d29922;--err:#f85149;--mag:#bc8cff;--code-bg:#0d1117;--danger-bg:#3d1f23;--warn-bg:#3d2f1f}
+[data-theme="dark"]{color-scheme:dark;--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--ok:#58a6ff;--warn:#d29922;--err:#f85149;--mag:#bc8cff;--code-bg:#0d1117;--danger-bg:#3d1f23;--warn-bg:#3d2f1f}
+[data-theme="light"]{color-scheme:light;--bg:#f0f1f4;--panel:#f8f9fb;--border:#d7dbe1;--text:#24292f;--dim:#636b74;--accent:#0969da;--ok:#0969da;--warn:#9a6700;--err:#cf222e;--mag:#8250df;--code-bg:#e6e9ee;--danger-bg:#fbe6e6;--warn-bg:#fbefda}
 *{box-sizing:border-box}
 body{margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;font-size:14px}
 /* PWA plein écran (viewport-fit=cover) : on décale le contenu des bords pour ne
    pas passer sous l'encoche / la barre système / l'indicateur d'accueil. Les
    env(safe-area-inset-*) valent 0 hors PWA, donc aucun impact ailleurs. */
 body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
-.side{width:320px;border-right:1px solid var(--border);padding:16px;overflow-y:auto;flex-shrink:0;scrollbar-width:none;-ms-overflow-style:none}
-.side::-webkit-scrollbar{display:none}
+.side{width:320px;border-right:1px solid var(--border);padding:16px;overflow-y:auto;flex-shrink:0}
 .main{flex:1;display:flex;flex-direction:column;min-width:0}
 #menubtn{display:none;position:fixed;top:calc(10px + env(safe-area-inset-top));left:calc(10px + env(safe-area-inset-left));z-index:20;background:var(--panel);border:1px solid var(--border);color:var(--text);width:40px;height:40px;border-radius:6px;font-size:18px;cursor:pointer}
 #backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10}
@@ -45,7 +58,7 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 .sidehead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:18px}
 /* pastille d'état service, en haut à droite de la barre latérale */
 .statuspill{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid var(--border);background:var(--panel);color:var(--dim);font-weight:600;white-space:nowrap}
-.statuspill.ok{color:var(--ok);border-color:rgba(63,185,80,.45);background:rgba(63,185,80,.10)}
+.statuspill.ok{color:var(--ok);border-color:rgba(88,166,255,.45);background:rgba(88,166,255,.10)}
 .statuspill.err{color:var(--err);border-color:rgba(248,81,73,.45);background:rgba(248,81,73,.10)}
 .statuspill.loading{color:var(--warn);border-color:rgba(210,153,34,.45);background:rgba(210,153,34,.10)}
 .statuspill.loading .dot{animation:pulse 1s ease-in-out infinite}
@@ -58,6 +71,16 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 .addbtn{font-size:11px;padding:3px 11px 4px;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer;line-height:1.2}
 .addbtn:hover{border-color:var(--accent);color:var(--accent)}
 .mem-count{font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:4px}
+/* Titre de sous-section (Mémoire / Accès internet) : simple libellé, PAS de trait
+   (le trait est réservé aux sections principales — cf. `details`). La séparation
+   visuelle vient de la carte englobante .gated-block. */
+.subhead{position:relative;display:flex;align-items:center;font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--accent);font-weight:600;margin:0 0 6px}
+/* Barre repliable « Pages » : un seul chevron, bouton + ajouter aligné à droite. */
+.pages-bar{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:7px 0;margin-top:4px}
+.pages-bar .pages-caret{flex-shrink:0;font-size:9px;color:var(--dim);transition:transform .12s}
+.pages-bar.open .pages-caret{transform:rotate(90deg)}
+.pages-bar .pages-title{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);font-weight:600}
+.pages-bar .addbtn{margin-left:auto}
 .mem-search{width:100%;box-sizing:border-box;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 9px;font:inherit;font-size:12px;margin:0 0 6px}
 .mem-search:focus{outline:none;border-color:var(--accent)}
 .mem-list{max-height:240px;overflow-y:auto;overscroll-behavior:contain}
@@ -74,10 +97,16 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 .ask-actions button{margin:0;padding:7px 16px}
 .ask-ok{border-color:var(--accent);color:var(--accent)}
 .ask-ok.danger{border-color:var(--err);color:var(--err)}
-#brand-a{display:inline-block;line-height:1;max-width:0;opacity:0;overflow:hidden;color:#fff;transition:max-width .35s ease,opacity .35s ease}
+#brand-a{display:inline-block;line-height:1;max-width:0;opacity:0;overflow:hidden;color:var(--text);transition:max-width .35s ease,opacity .35s ease}
 #brand.agent #brand-a{max-width:1ch;opacity:1;margin-right:.04em}
 /* interrupteur (switch) */
-.switchrow{display:flex;align-items:center;gap:9px;font-size:12px;padding:6px 0;cursor:pointer;user-select:none}
+.switchrow{position:relative;display:flex;align-items:center;gap:9px;font-size:12px;padding:6px 0;cursor:pointer;user-select:none}
+/* Sous-réglage du mode agent inaccessible quand l'agent est off : grisé + inerte. */
+/* Sous-réglages du mode agent présentés en CARTES (bordure + fond) pour ne pas
+   les confondre avec les traits des sections principales. */
+.gated-block{margin-top:10px;border:1px solid var(--border);border-radius:8px;padding:9px 11px;background:var(--panel);transition:opacity .15s}
+.gated-block>.switchrow:first-of-type{padding-top:0}
+.gated-block.gated{opacity:.4;pointer-events:none;filter:grayscale(.4)}
 .switch{position:relative;display:inline-block;width:36px;height:20px;flex:none}
 .switch input{position:absolute;opacity:0;width:0;height:0}
 .switch .slider{position:absolute;inset:0;background:var(--border);border-radius:999px;transition:background .25s ease}
@@ -116,6 +145,13 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .qtag{flex-shrink:0;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em;text-transform:uppercase}
 .rtag{flex-shrink:0;display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em}
 .btag{flex-shrink:0;display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em}
+/* Petit « ? » d'aide : bulle au survol/clic au lieu d'un pavé de texte permanent. */
+.help{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;margin-left:6px;flex-shrink:0;font-size:10px;font-weight:600;line-height:1;color:var(--dim);border:1px solid var(--border);border-radius:50%;cursor:help;user-select:none;vertical-align:middle}
+.help:hover{color:var(--accent);border-color:var(--accent)}
+/* La bulle est ancrée à la ligne (.switchrow position:relative), pas au « ? »,
+   pour rester alignée au bord gauche du panneau et ne pas déborder. */
+.help>.tip{display:none;position:absolute;z-index:40;left:0;right:0;top:calc(100% + 2px);padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:11px;font-weight:400;line-height:1.4;color:var(--text);box-shadow:0 4px 16px rgba(0,0,0,.4);white-space:normal;text-align:left;text-transform:none;letter-spacing:normal;cursor:auto}
+.help:hover>.tip,.help:focus>.tip,.help.open>.tip{display:block}
 .kv{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px}
 .kv span:first-child{color:var(--dim);flex-shrink:0}
 .kv span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:right;min-width:0}
@@ -137,8 +173,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .msg .body ul,.msg .body ol{padding-left:1.4em}
 .msg .body li{margin:.15em 0}
 .msg .body li>p{margin:0}
-.msg.assistant .body code{background:#0d1117;padding:1px 5px;border-radius:3px;font-size:.9em;overflow-wrap:anywhere;word-break:break-word}
-.msg.assistant .body pre,.msg.reasoning .body pre{position:relative;background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:10px;overflow-x:auto;max-width:100%;margin:.5em 0}
+.msg.assistant .body code{background:var(--code-bg);padding:1px 5px;border-radius:3px;font-size:.9em;overflow-wrap:anywhere;word-break:break-word}
+.msg.assistant .body pre,.msg.reasoning .body pre{position:relative;background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:10px;overflow-x:auto;max-width:100%;margin:.5em 0}
 .copybtn{position:absolute;bottom:6px;right:6px;font-size:11px;padding:3px 8px;margin:0;background:var(--panel);border:1px solid var(--border);color:var(--dim);border-radius:5px;opacity:.5;transition:opacity .15s,color .15s}
 .msg.assistant .body pre:hover .copybtn,.msg.reasoning .body pre:hover .copybtn{opacity:1}
 .copybtn:hover{border-color:var(--accent);color:var(--accent)}
@@ -156,7 +192,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .msg.tool{align-self:flex-start;background:transparent;border:1px dashed var(--border);max-width:90%;white-space:normal;padding:8px 12px;font-size:12px;overflow-wrap:anywhere;word-break:break-word}
 .msg.tool .tool-head{font-size:12px;color:var(--accent);font-weight:600;margin-bottom:6px}
 .msg.tool .tool-sub{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin:8px 0 4px}
-.msg.tool pre{position:relative;background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:8px 10px;overflow:auto;margin:0;max-height:280px}
+.msg.tool pre{position:relative;background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;overflow:auto;margin:0;max-height:280px}
 .msg.tool pre code{background:transparent;padding:0;font-size:.82em;line-height:1.4;white-space:pre}
 .msg.tool .tool-caret{color:var(--accent);animation:toolblink 1s step-end infinite}
 .msg.tool .tool-wait{font-size:12px;color:var(--dim);margin-top:8px;animation:toolblink 1.2s ease-in-out infinite}
@@ -182,7 +218,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 #ctx-fill{height:100%;width:0%;background:var(--ok,#3a7);transition:width .3s,background .3s}
 #ctxmeta{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:5px 12px 0}
 #ctx-text{font-size:10px;letter-spacing:.03em;white-space:nowrap}
-#ctx-compact{display:none;margin:0;padding:2px 10px;font-size:10px;background:#3d2f1f;border-color:var(--warn,#c93)}
+#ctx-compact{display:none;margin:0;padding:2px 10px;font-size:10px;background:var(--warn-bg);border-color:var(--warn,#c93)}
 #inputbar{padding:8px 12px;display:flex;gap:8px}
 #input{flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;font:inherit;resize:none;min-height:44px;max-height:200px}
 #input:focus{outline:none;border-color:var(--accent)}
@@ -244,30 +280,45 @@ button:disabled{opacity:.5;cursor:not-allowed}
     <div id="presets"></div>
   </details>
   <details><summary>Mode agent <span id="agent-badge" style="margin-left:auto;margin-right:12px;font-size:10px"></span></summary>
-    <label class="switchrow"><span class="switch"><input type="checkbox" id="agent-toggle" onchange="toggleAgent()"><span class="slider"></span></span> activer le mode agent</label>
-    <div class="muted" style="font-size:11px">⚠️ active l'<b>accès machine</b> (shell complet via <b>bash</b> sur le serveur) — l'IA peut inspecter, lancer des scripts, lire/éditer des fichiers (timeout 30s, max 300s). La mémoire se règle séparément ci-dessous.</div>
-    <label class="switchrow"><span class="switch"><input type="checkbox" id="toollimit-toggle" onchange="toggleToolLimit()"><span class="slider"></span></span> limiter les appels d'outils par tour</label>
-    <div class="muted" style="font-size:11px">activé par défaut : coupe l'IA après ~8 appels d'outils (message <code>[stop: trop d'appels d'outils]</code>). Désactive-le si tu veux la laisser enchaîner sans plafond (l'anti-boucle reste actif).</div>
-    <label class="switchrow" style="justify-content:space-between;gap:10px"><span>Mémoire</span>
-      <select id="mem-mode" onchange="setMemMode()" style="background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px">
-        <option value="always">auto (proactive)</option>
-        <option value="ondemand">sur demande</option>
-        <option value="off">désactivée</option>
-      </select>
-    </label>
-    <div id="mem-mode-desc" class="muted" style="font-size:11px"></div>
-    <div class="skillshead"><span>Pages <span id="mem-count" class="mem-count"></span></span><button class="addbtn" onclick="event.preventDefault();event.stopPropagation();openMem('')" title="ajouter une page mémoire">+ ajouter</button></div>
-    <input id="mem-search" class="mem-search" type="search" placeholder="filtrer la mémoire…" oninput="renderMemList()" style="display:none">
-    <div id="mem-list" class="mem-list muted" style="font-size:12px"></div>
-  </details>
-  <details><summary>Accès internet <span id="internet-badge" style="margin-left:auto;margin-right:12px;font-size:10px"></span></summary>
-    <label class="switchrow"><span class="switch"><input type="checkbox" id="internet-toggle" onchange="toggleInternet()"><span class="slider"></span></span> donner internet à l'IA</label>
-    <div class="muted" style="font-size:11px">nécessite le <b>mode agent</b>. Ajoute les outils <b>web_search / web_open / web_read / web_grep</b> via un serveur <b>Crawl4AI</b>. Actifs seulement si le serveur répond.</div>
-    <div class="row" style="margin-top:6px">
-      <input id="crawl-url" type="text" placeholder="http://localhost:11235" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit" onchange="saveCrawlUrl()">
-      <button onclick="saveCrawlUrl()">enregistrer</button>
+    <label class="switchrow"><span class="switch"><input type="checkbox" id="agent-toggle" onchange="toggleAgent()"><span class="slider"></span></span> activer le mode agent<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">⚠️ active l'<b>accès machine</b> (shell complet via <b>bash</b> sur le serveur) — l'IA peut inspecter, lancer des scripts, lire/éditer des fichiers (timeout 30s, max 300s). Mémoire et accès internet ci-dessous ne fonctionnent que si le mode agent est activé.</span></span></label>
+    <!-- Mémoire / Accès internet / Paramètres : sous-réglages du mode agent, en cartes. Grisés/inertes quand l'agent est off (voir setAgentGate). -->
+    <div id="mem-block" class="gated-block">
+      <div class="subhead">Mémoire<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span id="mem-mode-desc" class="tip"></span></span></div>
+      <label class="switchrow" style="justify-content:flex-start;gap:12px"><span>mode</span>
+        <select id="mem-mode" onchange="setMemMode()" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px">
+          <option value="always">auto (proactive)</option>
+          <option value="ondemand">sur demande</option>
+          <option value="off">désactivée</option>
+        </select>
+      </label>
+      <div id="mem-pages-bar" class="pages-bar" onclick="toggleMemPages()">
+        <span class="pages-caret">▸</span>
+        <span class="pages-title">Pages <span id="mem-count" class="mem-count"></span></span>
+        <button class="addbtn" onclick="event.stopPropagation();openMem('')" title="ajouter une page mémoire">+ ajouter</button>
+      </div>
+      <div id="mem-pages-body" hidden>
+        <input id="mem-search" class="mem-search" type="search" placeholder="filtrer la mémoire…" oninput="renderMemList()" style="display:none">
+        <div id="mem-list" class="mem-list muted" style="font-size:12px"></div>
+      </div>
     </div>
-    <div id="internet-status" class="muted" style="font-size:11px;margin-top:4px"></div>
+    <div id="net-block" class="gated-block">
+      <div class="subhead">Accès internet<span id="internet-badge" style="margin-left:6px;font-size:10px"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Ajoute les outils <b>web_search / web_open / web_read / web_grep</b> via un serveur <b>Crawl4AI</b>. Actifs seulement si le serveur répond.</span></span></div>
+      <label class="switchrow"><span class="switch"><input type="checkbox" id="internet-toggle" onchange="toggleInternet()"><span class="slider"></span></span> donner internet à l'IA</label>
+      <div class="row" style="margin-top:6px">
+        <input id="crawl-url" type="text" placeholder="http://localhost:11235" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit" onchange="saveCrawlUrl()">
+        <button onclick="saveCrawlUrl()">enregistrer</button>
+      </div>
+      <div id="internet-status" class="muted" style="font-size:11px;margin-top:4px"></div>
+    </div>
+    <div id="param-block" class="gated-block">
+      <div class="subhead">Paramètres</div>
+      <label class="switchrow"><span class="switch"><input type="checkbox" id="toollimit-toggle" onchange="toggleToolLimit()"><span class="slider"></span></span> limiter les appels d'outils par tour<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : coupe l'IA après ~8 appels d'outils (message <code>[stop: trop d'appels d'outils]</code>). Désactive-le si tu veux la laisser enchaîner sans plafond (l'anti-boucle reste actif).</span></span></label>
+    </div>
+  </details>
+  <details><summary>Apparence</summary>
+    <label class="switchrow" style="justify-content:space-between;gap:12px"><span>thème</span>
+      <select id="theme-select" onchange="applyTheme(this.value)" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px"></select>
+    </label>
   </details>
   <details><summary>System prompt</summary>
     <textarea id="sysprompt" placeholder="(optionnel) ex: tu es un assistant concis en français" oninput="saveSys()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;min-height:70px;resize:vertical"></textarea>
@@ -302,7 +353,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
     <div id="inputbar">
       <textarea id="input" placeholder="message…" onkeydown="onKey(event)"></textarea>
       <button id="send" onclick="send()">send</button>
-      <button id="stop" onclick="stopGen()" style="display:none;background:#3d1f23;border-color:var(--err);color:var(--err)">stop</button>
+      <button id="stop" onclick="stopGen()" style="display:none;background:var(--danger-bg);border-color:var(--err);color:var(--err)">stop</button>
     </div>
     <div class="muted" style="padding:0 12px 6px;font-size:10px;text-align:center;opacity:.7">Entrée pour envoyer · Maj+Entrée = nouvelle ligne</div>
   </div>
@@ -360,7 +411,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
     </div>
     <div style="padding:14px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <button id="m-del" onclick="delItem()" style="background:#3d1f23;border-color:var(--err);color:var(--err);margin:0">supprimer</button>
+        <button id="m-del" onclick="delItem()" style="background:var(--danger-bg);border-color:var(--err);color:var(--err);margin:0">supprimer</button>
         <label id="m-del-model-wrap" style="display:none;align-items:center;gap:5px;font-size:11px;color:var(--dim)"><input type="checkbox" id="m-del-model"> + le modèle .gguf</label>
       </div>
       <div style="display:flex;gap:6px">
@@ -393,7 +444,26 @@ let msgs = [];
 let busy = false;
 function toggleSide(){ document.getElementById('side').classList.toggle('open'); document.getElementById('backdrop').classList.toggle('open'); document.body.classList.toggle('drawer-open'); }
 function saveSys(){ localStorage.setItem('jean.sys', document.getElementById('sysprompt').value); }
-document.addEventListener('DOMContentLoaded', ()=>{ document.getElementById('sysprompt').value = localStorage.getItem('jean.sys') || ''; restoreChat(); });
+// ===== Thèmes ================================================================
+// Registre des thèmes disponibles. Pour en AJOUTER un : ajouter un bloc
+// [data-theme="…"] dans le <style> puis une entrée {id,label} ici — le reste
+// (menu déroulant, persistance localStorage, application) est automatique.
+const THEMES=[{id:'dark',label:'sombre'},{id:'light',label:'clair'}];
+function applyTheme(id){
+  if(!THEMES.some(t=>t.id===id)) id='dark';
+  document.documentElement.setAttribute('data-theme', id);
+  try{ localStorage.setItem('jean-theme', id); }catch(e){}
+  const sel=document.getElementById('theme-select'); if(sel) sel.value=id;
+}
+function initTheme(){
+  const sel=document.getElementById('theme-select');
+  if(sel && !sel.options.length){
+    THEMES.forEach(t=>{ const o=document.createElement('option'); o.value=t.id; o.textContent=t.label; sel.appendChild(o); });
+  }
+  let id='dark'; try{ id=localStorage.getItem('jean-theme')||'dark'; }catch(e){}
+  applyTheme(id);
+}
+document.addEventListener('DOMContentLoaded', ()=>{ initTheme(); document.getElementById('sysprompt').value = localStorage.getItem('jean.sys') || ''; restoreChat(); });
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
 // Modales natives (askConfirm/askPrompt/askAlert) — remplacent confirm()/prompt()/
 // alert() par de vraies boîtes stylées. Chacune renvoie une Promise : askConfirm →
@@ -557,12 +627,29 @@ async function loadAgent(){
   document.getElementById('agent-badge').innerHTML = on
     ? '<span class="tag ok">on</span>' : '<span class="tag" style="opacity:.6">off</span>';
   document.getElementById('brand').classList.toggle('agent', on);
+  setAgentGate(on);
   if(s.mem_mode){ document.getElementById('mem-mode').value = s.mem_mode; renderMemModeDesc(s.mem_mode); }
   memPages = (s.pages || s.skills || []).slice().sort((a,b)=>a.name.localeCompare(b.name));
   memShown = MEM_PAGE;
   document.getElementById('mem-count').textContent = memPages.length ? '('+memPages.length+')' : '';
   document.getElementById('mem-search').style.display = memPages.length > MEM_PAGE ? '' : 'none';
   renderMemList();
+}
+// Mémoire + accès internet sont des sous-réglages du mode agent : sans agent, ni
+// les outils mem_* ni les outils web ne sont fournis (voir globalCaps côté Go). On
+// grise donc ces blocs quand l'agent est off pour que l'UI ne mente pas.
+function setAgentGate(on){
+  ['mem-block','net-block','param-block'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.classList.toggle('gated', !on);
+  });
+}
+// Repli/dépli de la liste des pages mémoire (fermée par défaut → gagne de la place).
+function toggleMemPages(){
+  const body=document.getElementById('mem-pages-body');
+  const bar=document.getElementById('mem-pages-bar');
+  const open=body.hasAttribute('hidden');
+  if(open){ body.removeAttribute('hidden'); bar.classList.add('open'); }
+  else { body.setAttribute('hidden',''); bar.classList.remove('open'); }
 }
 // Liste mémoire scalable : recherche + rendu plafonné (les milliers de pages ne
 // déroulent plus une barre géante). memShown grimpe par paliers via « voir plus ».
@@ -629,7 +716,7 @@ function renderInternet(s){
     ? '<span class="tag ok">on</span>' : '<span class="tag" style="opacity:.6">off</span>';
   const st=document.getElementById('internet-status');
   if(!s.url){ st.textContent='serveur non configuré'; st.style.color=''; }
-  else if(s.reachable){ st.innerHTML='✅ serveur joignable — outils web actifs'; }
+  else if(s.reachable){ st.innerHTML='<span style="color:var(--accent)">✓</span> serveur joignable — outils web actifs'; }
   else { st.innerHTML='⚠️ serveur injoignable — les outils web ne seront pas proposés'; }
 }
 async function loadInternet(){ renderInternet(await jget('/api/internet')); }
