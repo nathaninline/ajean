@@ -1,5 +1,7 @@
 # Jean
 
+![Interface web de Jean](docs/ui.png)
+
 **Un gestionnaire mono-binaire pour serveurs [llama.cpp](https://github.com/ggml-org/llama.cpp) auto-hébergés — avec une interface web intégrée, un chat terminal, et un compilateur de backend qui détecte automatiquement le matériel.**
 
 Dépose un seul binaire sur une machine, lance `jean llamacpp install`, et Jean clone, configure et compile llama.cpp pour le matériel de *cette* machine (CUDA / ROCm / Metal / Vulkan / CPU) — aucun flag à retenir. Ensuite `jean start` et tu as un endpoint compatible OpenAI avec un chat web par-dessus.
