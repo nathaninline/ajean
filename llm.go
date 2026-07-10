@@ -478,8 +478,20 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			if err := json.Unmarshal([]byte(data), &chunk); err != nil {
 				continue
 			}
-			// Le chunk d'usage (include_usage) arrive seul, sans choices : on l'émet
-			// avant le guard pour ne pas le perdre.
+			// Timings ET usage (include_usage) arrivent sur le CHUNK FINAL qui, sur ce
+			// build llama.cpp (MTP/spéculatif), a `choices:[]` — on les traite AVANT le
+			// garde de choices, sinon `gen_tokens`/`gen_per_second` (decode) sont jetés
+			// et l'UI retombe à « 0 tok/s » à la fin de la génération.
+			if chunk.Timings != nil {
+				stats.PromptTokens = chunk.Timings.PromptN
+				stats.PromptPerSecond = chunk.Timings.PromptPerSecond
+				stats.PromptMs = chunk.Timings.PromptMs
+				stats.GenTokens = chunk.Timings.PredictedN
+				stats.GenPerSecond = chunk.Timings.PredictedPerSec
+				stats.GenMs = chunk.Timings.PredictedMs
+				s := stats
+				cb(StreamEvent{Stats: &s})
+			}
 			if chunk.Usage != nil && chunk.Usage.PromptTokens > 0 {
 				stats.PromptTokensTotal = chunk.Usage.PromptTokens
 				s := stats
@@ -491,16 +503,6 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			ch := chunk.Choices[0]
 			if ch.FinishReason != "" {
 				finishReason = ch.FinishReason
-			}
-			if chunk.Timings != nil {
-				stats.PromptTokens = chunk.Timings.PromptN
-				stats.PromptPerSecond = chunk.Timings.PromptPerSecond
-				stats.PromptMs = chunk.Timings.PromptMs
-				stats.GenTokens = chunk.Timings.PredictedN
-				stats.GenPerSecond = chunk.Timings.PredictedPerSec
-				stats.GenMs = chunk.Timings.PredictedMs
-				s := stats
-				cb(StreamEvent{Stats: &s})
 			}
 			if len(ch.Delta.ToolCalls) > 0 {
 				for i, tc := range ch.Delta.ToolCalls {
