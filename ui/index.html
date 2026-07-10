@@ -197,6 +197,12 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .msg.tool .tool-caret{color:var(--accent);animation:toolblink 1s step-end infinite}
 .msg.tool .tool-wait{font-size:12px;color:var(--dim);margin-top:8px;animation:toolblink 1.2s ease-in-out infinite}
 @keyframes toolblink{0%,100%{opacity:.45}50%{opacity:1}}
+/* Indicateur « le modèle réfléchit » : 3 points animés avant le 1er token. */
+.msg.typing{display:inline-flex;gap:5px;align-items:center;padding:14px 16px}
+.msg.typing span{width:7px;height:7px;border-radius:50%;background:var(--dim);animation:typingdot 1.2s infinite ease-in-out}
+.msg.typing span:nth-child(2){animation-delay:.16s}
+.msg.typing span:nth-child(3){animation-delay:.32s}
+@keyframes typingdot{0%,70%,100%{opacity:.25;transform:translateY(0)}35%{opacity:1;transform:translateY(-4px)}}
 .msg .label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;display:block}
 /* Bulles repliables (reasoning / tool) : une fois la réponse arrivée, on les
    replie en douceur pour désencombrer le fil, tout en gardant le label (et son
@@ -1026,6 +1032,14 @@ function addMsg(role, text){
   scrollMaybe();
   return el;
 }
+// Bulle « … » animée affichée dès l'envoi, retirée au 1er token/outil/erreur.
+function addTyping(){
+  const el=document.createElement('div');
+  el.className='msg assistant typing';
+  el.innerHTML='<span></span><span></span><span></span>';
+  chatEl().appendChild(el); scrollMaybe();
+  return el;
+}
 // Replie/déplie en douceur les bulles reasoning/tool. Hauteur animée en JS :
 // on fige scrollHeight puis on va à 0 (fermeture) ou de 0 vers scrollHeight
 // (ouverture), sans jamais dépasser. overflow:hidden clippe pendant l'animation.
@@ -1190,6 +1204,8 @@ async function send(){
   document.getElementById('stop').style.display='inline-block';
   addMsg('user', text);
   msgs.push({role:'user',content:text}); saveChat();
+  let typingEl=addTyping();
+  const killTyping=()=>{ if(typingEl){ typingEl.remove(); typingEl=null; } };
   let reasonEl=null, contentEl=null, pendingToolEl=null, fullContent='', fullReason='', toolMsgs=null;
   let turnCollapsibles=[]; // bulles reasoning/tool à replier dès la réponse finale
   let tokCount=0, reasonTokCount=0, t0=performance.now(), firstTok=0, statsTimer=null;
@@ -1204,9 +1220,13 @@ async function send(){
       const s = serverStats;
       const totalSec = (performance.now() - t0) / 1000;
       const parts = [role];
-      // prompt_tokens_total = taille réelle du prompt (system inclus, même si en
-      // cache) ; repli sur prompt_tokens (neuf traité) si le backend n'envoie pas l'usage.
-      const pt = s.prompt_tokens_total || s.prompt_tokens;
+      // prefill = tokens RÉELLEMENT traités ce tour (timings.prompt_n) : gros au 1er
+      // tour (system prompt), petit ensuite car le préfixe est en cache. On NE prend
+      // PAS prompt_tokens_total (taille totale du prompt ≈ tout le contexte à chaque
+      // tour) — ça donnait un prefill quasi constant, incohérent avec la vitesse
+      // affichée (prompt_per_second, qui mesure justement prompt_n). Repli sur le
+      // total seulement si le backend n'a pas envoyé de timings.
+      const pt = s.prompt_tokens || s.prompt_tokens_total;
       if(pt) parts.push('prefill ' + pt + ' tok · ' + (s.prompt_per_second||0).toFixed(0) + ' tok/s');
       if(s.gen_tokens) parts.push('decode ' + s.gen_tokens + ' tok · ' + s.gen_per_second.toFixed(1) + ' tok/s');
       parts.push('total ' + totalSec.toFixed(1) + 's');
@@ -1239,6 +1259,7 @@ async function send(){
             const o=JSON.parse(data);
             const d=(o.choices&&o.choices[0]&&o.choices[0].delta)||{};
             if(d.error){
+              killTyping();
               // Erreur serveur (ex : modèle en cours de chargement → 503). On
               // l'affiche, on retire le message user de l'historique et on le
               // remet dans l'input pour renvoyer d'un clic une fois prêt.
@@ -1258,6 +1279,7 @@ async function send(){
             // à chaque tour (aucune trace de l'avoir déjà fait).
             if(d.tool_messages){ toolMsgs = d.tool_messages; }
             if(d.tool_used){
+              killTyping();
               // Close out the current assistant/reasoning bubbles so any text the
               // model streams *after* the tool call starts a fresh bubble BELOW it
               // (and isn't appended above, into the pre-call bubble).
@@ -1285,6 +1307,7 @@ async function send(){
               }
             }
             if(d.reasoning_content){
+              killTyping();
               // Start a fresh buffer per bubble — otherwise a reasoning block that
               // follows a tool call re-renders ALL previously accumulated reasoning
               // into the new bubble (duplicated dozens of times over a turn).
@@ -1294,6 +1317,7 @@ async function send(){
               fullReason+=d.reasoning_content; renderBody(reasonEl, fullReason);
             }
             if(d.content){
+              killTyping();
               if(!contentEl){ collapseAll(turnCollapsibles); contentEl=addMsg('assistant',''); fullContent=''; firstTok=performance.now(); }
               tokCount++;
               fullContent+=d.content; renderBody(contentEl, fullContent);
@@ -1330,6 +1354,7 @@ async function send(){
     }
     saveChat();
   }
+  killTyping();
   if(statsTimer) clearInterval(statsTimer);
   updateStats(true);
   abortCtrl=null; busy=false;
