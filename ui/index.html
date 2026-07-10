@@ -21,9 +21,9 @@
    thème plus tard : 1) copier un bloc [data-theme="…"] ci-dessous en changeant
    les valeurs, 2) ajouter son {id,label} au registre THEMES (voir le JS). Le
    reste (sélecteur, persistance, application) est automatique. */
-:root{color-scheme:dark;--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--ok:#58a6ff;--warn:#d29922;--err:#f85149;--mag:#bc8cff;--code-bg:#0d1117;--danger-bg:#3d1f23;--warn-bg:#3d2f1f}
-[data-theme="dark"]{color-scheme:dark;--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--ok:#58a6ff;--warn:#d29922;--err:#f85149;--mag:#bc8cff;--code-bg:#0d1117;--danger-bg:#3d1f23;--warn-bg:#3d2f1f}
-[data-theme="light"]{color-scheme:light;--bg:#f0f1f4;--panel:#f8f9fb;--border:#d7dbe1;--text:#24292f;--dim:#636b74;--accent:#0969da;--ok:#0969da;--warn:#9a6700;--err:#cf222e;--mag:#8250df;--code-bg:#e6e9ee;--danger-bg:#fbe6e6;--warn-bg:#fbefda}
+:root{color-scheme:dark;--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--accent-bg:rgba(88,166,255,.12);--ok:#58a6ff;--warn:#d29922;--err:#f85149;--mag:#bc8cff;--code-bg:#0d1117;--danger-bg:#3d1f23;--warn-bg:#3d2f1f}
+[data-theme="dark"]{color-scheme:dark;--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--accent-bg:rgba(88,166,255,.12);--ok:#58a6ff;--warn:#d29922;--err:#f85149;--mag:#bc8cff;--code-bg:#0d1117;--danger-bg:#3d1f23;--warn-bg:#3d2f1f}
+[data-theme="light"]{color-scheme:light;--bg:#f0f1f4;--panel:#f8f9fb;--border:#d7dbe1;--text:#24292f;--dim:#636b74;--accent:#0969da;--accent-bg:rgba(9,105,218,.10);--ok:#0969da;--warn:#9a6700;--err:#cf222e;--mag:#8250df;--code-bg:#e6e9ee;--danger-bg:#fbe6e6;--warn-bg:#fbefda}
 *{box-sizing:border-box}
 body{margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;font-size:14px}
 /* PWA plein écran (viewport-fit=cover) : on décale le contenu des bords pour ne
@@ -134,7 +134,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .row{display:flex;gap:4px;flex-wrap:wrap}
 .preset{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;margin:4px 0;cursor:pointer;background:var(--panel)}
 .preset:hover{border-color:var(--accent)}
-.preset.active{border-color:var(--ok);color:var(--ok)}
+.preset.active{border-color:var(--accent);color:var(--accent);border-width:1.5px;padding:5.5px 9.5px}
 .preset>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .preset>button{flex-shrink:0}
 .preset-info{flex:1;min-width:0}

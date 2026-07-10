@@ -16,7 +16,7 @@ import (
 	"strings"
 )
 
-const Version = "0.2.18"
+const Version = "0.2.19"
 
 func main() {
 	// Migration one-shot des anciens skills (SKILLS/<nom>/SKILL.md) vers la

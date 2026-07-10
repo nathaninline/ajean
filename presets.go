@@ -51,15 +51,51 @@ func withDisplayName(content, name string) string {
 	return line + "\n" + content
 }
 
+// presetFingerprint hashes config content while IGNORING the device-level keys
+// (preservedKeys) that SwitchToPreset re-applies on top of a freshly copied
+// preset. Without this, those injected MEM_MODE/CRAWL4AI_URL lines make
+// config.env differ from every preset file, so no preset is ever detected as
+// active (regression introduced when preservedKeys were added). We strip those
+// assignment lines symmetrically from both sides before hashing so a plain
+// content match still identifies the active preset.
+func presetFingerprint(content []byte) string {
+	var b strings.Builder
+	for _, line := range strings.Split(string(content), "\n") {
+		if isPreservedAssignment(line) {
+			continue
+		}
+		b.WriteString(line)
+		b.WriteByte('\n')
+	}
+	h := sha1.Sum([]byte(b.String()))
+	return hex.EncodeToString(h[:])
+}
+
+// isPreservedAssignment reports whether a line assigns one of the preservedKeys
+// (commented or not), e.g. `MEM_MODE=off` or `# CRAWL4AI_URL=...`.
+func isPreservedAssignment(line string) bool {
+	t := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "#"))
+	eq := strings.IndexByte(t, '=')
+	if eq < 0 {
+		return false
+	}
+	key := strings.TrimSpace(t[:eq])
+	for _, k := range preservedKeys {
+		if key == k {
+			return true
+		}
+	}
+	return false
+}
+
 // ListPresets returns all configs/*.env, marking the one whose contents match
-// the current config.env (by SHA-1), sorted by display name.
+// the current config.env (ignoring device-level preservedKeys), sorted by name.
 func ListPresets() ([]Preset, error) {
 	dir := presetsDir()
 	_ = os.MkdirAll(dir, 0o755)
 	cur := ""
 	if b, err := os.ReadFile(confPath()); err == nil {
-		h := sha1.Sum(b)
-		cur = hex.EncodeToString(h[:])
+		cur = presetFingerprint(b)
 	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -75,13 +111,12 @@ func ListPresets() ([]Preset, error) {
 		if err != nil {
 			continue
 		}
-		h := sha1.Sum(b)
 		id := strings.TrimSuffix(e.Name(), ".env")
 		out = append(out, Preset{
 			ID:     id,
 			Name:   presetDisplayName(string(b), id),
 			Path:   p,
-			Active: hex.EncodeToString(h[:]) == cur,
+			Active: presetFingerprint(b) == cur,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
