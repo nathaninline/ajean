@@ -6,7 +6,6 @@ require (
 	github.com/caddyserver/certmagic v0.25.4
 	github.com/coder/websocket v1.8.15
 	github.com/hashicorp/yamux v0.1.2
-	github.com/libdns/cloudflare v0.2.2
 )
 
 require (

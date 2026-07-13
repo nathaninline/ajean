@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -21,7 +22,6 @@ import (
 	"time"
 
 	"github.com/caddyserver/certmagic"
-	"github.com/libdns/cloudflare"
 )
 
 // oai.go — front TLS de l'accès OpenAI public "VPS aveugle" (SNI passthrough).
@@ -32,9 +32,13 @@ import (
 // la clé privée ne quitte JAMAIS cette machine — puis proxifié vers llama-server
 // local (/v1). Un attaquant qui possède le VPS ne voit donc que du chiffré.
 //
-// Le certificat est obtenu par Let's Encrypt via challenge DNS-01 Cloudflare
-// (l'agent est derrière CGNAT → pas de HTTP-01). En test local, on retombe sur
-// un certificat auto-signé.
+// Certificat : Let's Encrypt via challenge TLS-ALPN-01 servi À TRAVERS LE TUNNEL
+// (l'agent est derrière CGNAT, mais le VPS forwarde la validation jusqu'à lui).
+// Aucun secret DNS nulle part : le seul DNS est un wildcard *.oai.ajean.link
+// statique posé une fois par l'opérateur.
+
+// oaiSuffix est le domaine sous lequel on autorise l'émission de certificats.
+const oaiSuffix = ".oai.ajean.link"
 
 // oaiHandler construit le reverse-proxy vers llama-server, restreint à la surface
 // compatible OpenAI. On NE touche PAS à l'en-tête Authorization : le SaaS envoie
@@ -68,47 +72,98 @@ func runOAIFront(rawLn net.Listener, tlsCfg *tls.Config) error {
 	return srv.Serve(tls.NewListener(rawLn, tlsCfg))
 }
 
-// cfToken lit le token API Cloudflare (permission DNS edit sur la zone ajean.link)
-// depuis $JEAN_CF_TOKEN ou $JEAN_HOME/.cf_token. Sert au challenge DNS-01.
-func cfToken() string {
-	if t := strings.TrimSpace(os.Getenv("JEAN_CF_TOKEN")); t != "" {
-		return t
-	}
-	b, _ := os.ReadFile(filepath.Join(JeanHome(), ".cf_token"))
-	return strings.TrimSpace(string(b))
-}
-
-// newCertmagic configure certmagic pour émettre/renouveler via Cloudflare DNS-01,
-// avec stockage persistant dans $JEAN_HOME/certs (la clé privée reste locale).
-func newCertmagic(token string) (*certmagic.Config, error) {
-	if token == "" {
-		return nil, fmt.Errorf("token Cloudflare absent (JEAN_CF_TOKEN ou %s)", filepath.Join(JeanHome(), ".cf_token"))
+// oaiTLSConfig renvoie une config TLS qui, à la demande, obtient/renouvelle via
+// Let's Encrypt (TLS-ALPN-01) le certificat de tout nom en *.oai.ajean.link, et
+// répond elle-même aux challenges ACME. La clé privée est stockée dans
+// $JEAN_HOME/certs et ne quitte jamais la machine. Renvoie nil si l'accès OpenAI
+// public n'est pas autorisé (JEAN_LINK_ALLOW_OAI != 1).
+func oaiTLSConfig() *tls.Config {
+	if os.Getenv("JEAN_LINK_ALLOW_OAI") != "1" {
+		return nil
 	}
 	certmagic.Default.Storage = &certmagic.FileStorage{Path: filepath.Join(JeanHome(), "certs")}
 	certmagic.DefaultACME.Agreed = true
 	certmagic.DefaultACME.Email = strings.TrimSpace(os.Getenv("JEAN_ACME_EMAIL"))
-	certmagic.DefaultACME.DNS01Solver = &certmagic.DNS01Solver{
-		DNSManager: certmagic.DNSManager{
-			DNSProvider: &cloudflare.Provider{APIToken: token},
+	certmagic.DefaultACME.DisableHTTPChallenge = true // pas de :80 accessible (CGNAT) → TLS-ALPN uniquement
+	magic := certmagic.NewDefault()
+	magic.OnDemand = &certmagic.OnDemandConfig{
+		DecisionFunc: func(_ context.Context, name string) error {
+			if strings.HasSuffix(name, oaiSuffix) {
+				return nil
+			}
+			return fmt.Errorf("nom non autorisé pour l'accès OpenAI: %s", name)
 		},
 	}
-	return certmagic.NewDefault(), nil
+	cfg := magic.TLSConfig() // GetCertificate (on-demand) + gère l'ALPN acme-tls/1
+	cfg.MinVersion = tls.VersionTLS12
+	return cfg
 }
 
-// acmeTLSConfig émet (ou charge le cache) le cert LE pour domain via DNS-01
-// Cloudflare et renvoie un *tls.Config qui le sert.
-func acmeTLSConfig(domain string) (*tls.Config, error) {
-	cfg, err := newCertmagic(cfToken())
-	if err != nil {
-		return nil, err
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-	defer cancel()
-	if err := cfg.ManageSync(ctx, []string{domain}); err != nil {
-		return nil, err
-	}
-	return &tls.Config{GetCertificate: cfg.GetCertificate, MinVersion: tls.VersionTLS12}, nil
+// --- démultiplexeur du tunnel ------------------------------------------------
+// Le relais ouvre soit un stream HTTP normal (UI / E2E), soit un stream "brut"
+// qui porte une session TLS de bout en bout (accès OpenAI). On les distingue au
+// 1er octet : un enregistrement TLS commence par 0x16 (handshake), une requête
+// HTTP par une lettre ASCII (GET/POST/…). Voir demuxTunnelStream dans link.go.
+
+// peekedConn rend un net.Conn dont on a déjà consulté le début, sans perdre ces
+// octets (ils restent dans le bufio.Reader).
+type peekedConn struct {
+	net.Conn
+	r *bufio.Reader
 }
+
+func (p *peekedConn) Read(b []byte) (int, error) { return p.r.Read(b) }
+
+// chanListener est un net.Listener alimenté à la main (push), pour injecter dans
+// http.Server / tls.NewListener des conns déjà acceptées ailleurs (les streams
+// démultiplexés du tunnel).
+type chanListener struct {
+	ch   chan net.Conn
+	done chan struct{}
+	addr net.Addr
+}
+
+func newChanListener(addr net.Addr) *chanListener {
+	return &chanListener{ch: make(chan net.Conn), done: make(chan struct{}), addr: addr}
+}
+
+func (l *chanListener) push(c net.Conn) {
+	select {
+	case l.ch <- c:
+	case <-l.done:
+		c.Close()
+	}
+}
+
+func (l *chanListener) Accept() (net.Conn, error) {
+	select {
+	case c := <-l.ch:
+		return c, nil
+	case <-l.done:
+		return nil, net.ErrClosed
+	}
+}
+
+func (l *chanListener) Close() error {
+	select {
+	case <-l.done:
+	default:
+		close(l.done)
+	}
+	return nil
+}
+
+func (l *chanListener) Addr() net.Addr {
+	if l.addr != nil {
+		return l.addr
+	}
+	return dummyAddr{}
+}
+
+type dummyAddr struct{}
+
+func (dummyAddr) Network() string { return "tunnel" }
+func (dummyAddr) String() string  { return "tunnel" }
 
 // selfSignedTLSConfig fabrique un *tls.Config auto-signé pour host. Tests locaux
 // uniquement (curl -k) avant de brancher Let's Encrypt.
@@ -142,11 +197,8 @@ func selfSignedTLSConfig(host string) (*tls.Config, error) {
 
 // cmdOAI pilote l'accès OpenAI public côté agent.
 //
-//	jean oai cert <domaine>         émet/charge le cert Let's Encrypt (DNS-01 CF)
-//	                                et s'arrête — pour tester l'émission.
-//	jean oai serve [port] [domaine] termine le TLS sur :port et proxifie vers
-//	                                llama /v1. Avec un domaine réel + token CF →
-//	                                cert Let's Encrypt ; sinon cert auto-signé.
+//	jean oai serve [port] [host]   (test local) termine le TLS sur :port avec un
+//	                               cert auto-signé et proxifie vers llama /v1.
 func cmdOAI(args []string) error {
 	sub := ""
 	if len(args) > 0 {
@@ -154,17 +206,6 @@ func cmdOAI(args []string) error {
 		args = args[1:]
 	}
 	switch sub {
-	case "cert":
-		if len(args) == 0 || args[0] == "" {
-			return fmt.Errorf("usage: jean oai cert <domaine>")
-		}
-		domain := args[0]
-		fmt.Printf("[jean oai] émission du certificat pour %s (Let's Encrypt, DNS-01 Cloudflare)…\n", bold(domain))
-		if _, err := acmeTLSConfig(domain); err != nil {
-			return err
-		}
-		fmt.Printf("%s certificat prêt (stocké dans %s)\n", green("[ok]"), filepath.Join(JeanHome(), "certs"))
-		return nil
 	case "serve":
 		port := 8443
 		if len(args) > 0 && args[0] != "" {
@@ -174,23 +215,11 @@ func cmdOAI(args []string) error {
 			}
 			port = n
 		}
-		domain := ""
-		if len(args) > 1 {
-			domain = args[1]
+		host := "localhost"
+		if len(args) > 1 && args[1] != "" {
+			host = args[1]
 		}
-		var tlsCfg *tls.Config
-		var err error
-		mode := "auto-signé (test)"
-		if domain != "" && net.ParseIP(domain) == nil && cfToken() != "" {
-			tlsCfg, err = acmeTLSConfig(domain)
-			mode = "Let's Encrypt " + domain
-		} else {
-			host := domain
-			if host == "" {
-				host = "localhost"
-			}
-			tlsCfg, err = selfSignedTLSConfig(host)
-		}
+		tlsCfg, err := selfSignedTLSConfig(host)
 		if err != nil {
 			return err
 		}
@@ -198,12 +227,12 @@ func cmdOAI(args []string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("[jean oai] front TLS :%d [%s] → llama /v1 :%d\n", port, mode, LLMPort())
+		fmt.Printf("[jean oai] front TLS (test, auto-signé) https://%s:%d/v1 → llama :%d\n", host, port, LLMPort())
 		return runOAIFront(ln, tlsCfg)
 	default:
-		fmt.Println("usage:")
-		fmt.Println("  jean oai cert <domaine>          émet le cert Let's Encrypt (DNS-01 Cloudflare) et s'arrête")
-		fmt.Println("  jean oai serve [port] [domaine]  front TLS → llama /v1 (domaine réel = Let's Encrypt, sinon auto-signé)")
+		fmt.Println("usage: jean oai serve [port] [host]   (front TLS de test → llama /v1)")
+		fmt.Println("  en prod, le front TLS est servi automatiquement dans le tunnel (jean link)")
+		fmt.Println("  quand JEAN_LINK_ALLOW_OAI=1 ; cert Let's Encrypt via TLS-ALPN-01.")
 		return nil
 	}
 }

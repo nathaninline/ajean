@@ -14,11 +14,14 @@ package main
 // connexion.
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -219,10 +222,16 @@ func runLinkForeground() error {
 
 	// On construit le handler une seule fois ; il est servi à travers chaque tunnel.
 	handler := newLinkHandler()
+	// Front TLS de l'accès OpenAI public (nil si JEAN_LINK_ALLOW_OAI != 1). Le
+	// certificat est obtenu à la demande via TLS-ALPN-01 à travers le tunnel.
+	oaiTLS := oaiTLSConfig()
+	if oaiTLS != nil {
+		fmt.Printf("%s accès OpenAI public activé (TLS terminé ici, cert Let's Encrypt à la demande)\n", green("[oai]"))
+	}
 
 	backoff := time.Second
 	for {
-		err := runLinkSession(token, handler)
+		err := runLinkSession(token, handler, oaiTLS)
 		if err != nil {
 			fmt.Printf("%s lien perdu: %v — reconnexion dans %s\n", yellow("[link]"), err, backoff)
 		}
@@ -347,7 +356,7 @@ func withLocalAuth(next http.Handler) http.Handler {
 // runLinkSession opens one WebSocket→yamux session and serves it until it dies.
 // It blocks for the lifetime of the connection and returns the error that ended
 // it (so the caller can reconnect).
-func runLinkSession(token string, handler http.Handler) error {
+func runLinkSession(token string, handler http.Handler, oaiTLS *tls.Config) error {
 	ctx := context.Background()
 	dialCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
@@ -390,9 +399,46 @@ func runLinkSession(token string, handler http.Handler) error {
 
 	fmt.Printf("%s lien établi ✓\n", green("[link]"))
 
-	// sess implémente net.Listener : chaque Accept() = un stream = une requête.
-	// On sert directement l'UI Jean (le handler gère lui-même le flush SSE).
+	// Chaque Accept() = un stream. Deux natures possibles :
+	//   - requête HTTP normale (UI Jean / E2E) → servie par `handler` ;
+	//   - session TLS brute (accès OpenAI public) → terminée par le front TLS.
+	// On les distingue au 1er octet (0x16 = handshake TLS). Sans OAI activé, tout
+	// va au HTTP (comportement historique inchangé).
+	httpLn := newChanListener(sess.Addr())
+	defer httpLn.Close()
 	srv := &http.Server{Handler: handler}
-	return srv.Serve(sess)
+	go srv.Serve(httpLn)
+
+	var oaiLn *chanListener
+	if oaiTLS != nil {
+		oaiLn = newChanListener(sess.Addr())
+		defer oaiLn.Close()
+		go runOAIFront(oaiLn, oaiTLS)
+	}
+
+	for {
+		stream, err := sess.Accept()
+		if err != nil {
+			return fmt.Errorf("accept: %w", err)
+		}
+		go demuxTunnelStream(stream, httpLn, oaiLn)
+	}
+}
+
+// demuxTunnelStream aiguille un stream du tunnel selon son 1er octet : 0x16 (TLS)
+// → front OAI ; sinon → HTTP. On consulte l'octet sans le consommer (peekedConn).
+func demuxTunnelStream(stream net.Conn, httpLn, oaiLn *chanListener) {
+	br := bufio.NewReader(stream)
+	b, err := br.Peek(1)
+	if err != nil {
+		stream.Close()
+		return
+	}
+	pc := &peekedConn{Conn: stream, r: br}
+	if oaiLn != nil && b[0] == 0x16 {
+		oaiLn.push(pc)
+		return
+	}
+	httpLn.push(pc)
 }
 
