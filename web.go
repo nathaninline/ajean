@@ -87,6 +87,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/agent/toggle", handleAgentToggle)
 	api("/api/agent/tool-limit", handleToolLimitToggle)
 	api("/api/apikey", handleAPIKey)
+	api("/api/oai/public", handleOAIPublic)
 	api("/api/internet", handleInternet)
 	api("/api/memory", handleMemoryMode)
 	// Alias rétro-compat : l'ancien portail ajean.link (dépôt jean-relay) pilote
@@ -550,8 +551,34 @@ func handleAPIKey(w http.ResponseWriter, r *http.Request) {
 		"host":   localIP(),
 		// Accès OpenAI PUBLIC via ajean.link (passthrough SNI, VPS aveugle) : si
 		// activé, l'URL publique est https://<machine>.oai.ajean.link/v1.
-		"oai_public": os.Getenv("JEAN_LINK_ALLOW_OAI") == "1",
+		"oai_public": oaiPublicEnabled(),
 		"machine":    machineID(),
+	})
+}
+
+// handleOAIPublic pilote le drapeau d'accès OpenAI public (exposition via
+// ajean.link). GET renvoie l'état ; POST {enabled} l'active/coupe en direct
+// (aucun redémarrage : le démux du tunnel relit le drapeau à chaque connexion).
+func handleOAIPublic(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		var req struct {
+			Enabled *bool `json:"enabled"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		if req.Enabled != nil {
+			if err := setOAIPublic(*req.Enabled); err != nil {
+				sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+				return
+			}
+		}
+	}
+	sendJSON(w, 200, map[string]any{
+		"ok":      true,
+		"enabled": oaiPublicEnabled(),
+		"machine": machineID(),
 	})
 }
 

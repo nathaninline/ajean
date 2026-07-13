@@ -222,12 +222,11 @@ func runLinkForeground() error {
 
 	// On construit le handler une seule fois ; il est servi à travers chaque tunnel.
 	handler := newLinkHandler()
-	// Front TLS de l'accès OpenAI public (nil si JEAN_LINK_ALLOW_OAI != 1). Le
-	// certificat est obtenu à la demande via TLS-ALPN-01 à travers le tunnel.
+	// Front TLS de l'accès OpenAI public. Toujours prêt ; c'est le drapeau
+	// oaiPublicEnabled (piloté par l'UI, lu en direct au démux) qui autorise ou non
+	// le trafic. Cert obtenu à la demande via TLS-ALPN-01 à travers le tunnel.
 	oaiTLS := oaiTLSConfig()
-	if oaiTLS != nil {
-		fmt.Printf("%s accès OpenAI public activé (TLS terminé ici, cert Let's Encrypt à la demande)\n", green("[oai]"))
-	}
+	fmt.Printf("%s front OpenAI public prêt (activation en direct via l'UI ; état: %v)\n", green("[oai]"), oaiPublicEnabled())
 
 	backoff := time.Second
 	for {
@@ -435,8 +434,12 @@ func demuxTunnelStream(stream net.Conn, httpLn, oaiLn *chanListener) {
 		return
 	}
 	pc := &peekedConn{Conn: stream, r: br}
-	if oaiLn != nil && b[0] == 0x16 {
-		oaiLn.push(pc)
+	if b[0] == 0x16 { // handshake TLS = accès OpenAI public
+		if oaiLn != nil && oaiPublicEnabled() {
+			oaiLn.push(pc)
+		} else {
+			stream.Close() // public désactivé → on refuse (fail-closed)
+		}
 		return
 	}
 	httpLn.push(pc)

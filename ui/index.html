@@ -331,6 +331,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
   </details>
   <details><summary>Accès OpenAI</summary>
     <div class="subhead">Endpoint compatible OpenAI<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Branche n'importe quel client compatible OpenAI (OpenCode, Continue, Cursor…) sur cette URL. Modèle : <code>jean</code>. Si une clé est définie, le client doit envoyer <code>Authorization: Bearer &lt;clé&gt;</code>.</span></span></div>
+    <label class="switchrow" style="margin-top:6px"><span class="switch"><input type="checkbox" id="oai-public-toggle" onchange="toggleOAIPublic()"><span class="slider"></span></span> exposer en public (ajean.link)<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Rend ton IA joignable depuis <b>n'importe où</b> via <code>https://&lt;machine&gt;.oai.ajean.link/v1</code> (pour brancher un SaaS). Le trafic est chiffré <b>de bout en bout</b> jusqu'à ce serveur — le relais ajean.link ne voit rien. Nécessite un abonnement ajean.link actif.</span></span></label>
     <div id="oai-public-wrap" style="display:none;margin-top:4px">
       <div class="muted" style="font-size:11px;margin-bottom:2px">🌍 public (ajean.link) — accessible partout, TLS de bout en bout jusqu'à ce serveur</div>
       <div class="row">
@@ -773,6 +774,8 @@ function renderApiKey(d){
   const host = d.host || location.hostname;
   document.getElementById('oai-url').value = 'http://'+host+':'+d.port+'/v1';
   // Endpoint PUBLIC (ajean.link) : affiché seulement si l'accès public est activé.
+  const tg = document.getElementById('oai-public-toggle');
+  if(tg) tg.checked = !!d.oai_public;
   const pubWrap = document.getElementById('oai-public-wrap');
   if(d.oai_public && d.machine){
     document.getElementById('oai-public-url').value = 'https://'+d.machine+'.oai.ajean.link/v1';
@@ -793,6 +796,12 @@ async function apiKeyAction(action){
   OAI_REVEAL=(action==='generate'); // révèle la clé fraîche pour qu'on puisse la copier
   toast('application…');
   renderApiKey(await jpost('/api/apikey', {action}));
+}
+async function toggleOAIPublic(){
+  const on = document.getElementById('oai-public-toggle').checked;
+  await jpost('/api/oai/public', {enabled:on});
+  toast(on ? 'accès public activé' : 'accès public coupé');
+  loadApiKey();
 }
 async function apiKeySet(){
   const k = await askPrompt('Colle ta clé API (ou laisse vide pour annuler) :', {title:'Définir la clé API', placeholder:'sk-…'});

@@ -72,15 +72,35 @@ func runOAIFront(rawLn net.Listener, tlsCfg *tls.Config) error {
 	return srv.Serve(tls.NewListener(rawLn, tlsCfg))
 }
 
+// oaiPublicPath est le drapeau qui active l'accès OpenAI public (piloté par l'UI,
+// lu en direct → activable/coupable sans redémarrer le service de lien).
+func oaiPublicPath() string { return filepath.Join(JeanHome(), ".oai_public") }
+
+// oaiPublicEnabled indique si l'accès OpenAI public est activé pour cette machine.
+func oaiPublicEnabled() bool {
+	if _, err := os.Stat(oaiPublicPath()); err == nil {
+		return true
+	}
+	return os.Getenv("JEAN_LINK_ALLOW_OAI") == "1" // rétro-compat (ancien drapeau env)
+}
+
+// setOAIPublic active (on) ou coupe (off) l'accès OpenAI public.
+func setOAIPublic(on bool) error {
+	if on {
+		return os.WriteFile(oaiPublicPath(), []byte("1\n"), 0o600)
+	}
+	if err := os.Remove(oaiPublicPath()); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
 // oaiTLSConfig renvoie une config TLS qui, à la demande, obtient/renouvelle via
 // Let's Encrypt (TLS-ALPN-01) le certificat de tout nom en *.oai.ajean.link, et
 // répond elle-même aux challenges ACME. La clé privée est stockée dans
-// $JEAN_HOME/certs et ne quitte jamais la machine. Renvoie nil si l'accès OpenAI
-// public n'est pas autorisé (JEAN_LINK_ALLOW_OAI != 1).
+// $JEAN_HOME/certs et ne quitte jamais la machine. Toujours construite ; c'est le
+// démux (oaiPublicEnabled, lu en direct) qui décide de router ou non le trafic.
 func oaiTLSConfig() *tls.Config {
-	if os.Getenv("JEAN_LINK_ALLOW_OAI") != "1" {
-		return nil
-	}
 	certmagic.Default.Storage = &certmagic.FileStorage{Path: filepath.Join(JeanHome(), "certs")}
 	certmagic.DefaultACME.Agreed = true
 	certmagic.DefaultACME.Email = strings.TrimSpace(os.Getenv("JEAN_ACME_EMAIL"))
