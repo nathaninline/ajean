@@ -52,6 +52,8 @@ func main() {
 		mustExit(cmdWeb(args))
 	case "link":
 		mustExit(cmdLink(args))
+	case "oai":
+		mustExit(cmdOAI(args))
 	case "agent", "skills", "machine", "tools":
 		// « mode agent » unifie l'ancien couple machine + skills : un seul
 		// interrupteur active TOUS les outils de l'IA (shell + skills). Les
