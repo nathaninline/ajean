@@ -329,6 +329,25 @@ button:disabled{opacity:.5;cursor:not-allowed}
   <details><summary>System prompt</summary>
     <textarea id="sysprompt" placeholder="(optionnel) ex: tu es un assistant concis en français" oninput="saveSys()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;min-height:70px;resize:vertical"></textarea>
   </details>
+  <details><summary>Accès OpenAI</summary>
+    <div class="subhead">Endpoint compatible OpenAI<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Branche n'importe quel client compatible OpenAI (OpenCode, Continue, Cursor…) sur cette URL. Modèle : <code>jean</code>. Si une clé est définie, le client doit envoyer <code>Authorization: Bearer &lt;clé&gt;</code>.</span></span></div>
+    <div class="row" style="margin-top:4px">
+      <input id="oai-url" readonly style="flex:1;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit;font-size:12px">
+      <button onclick="copyText(document.getElementById('oai-url').value,'URL copiée')" title="copier">⧉</button>
+    </div>
+    <div class="muted" style="font-size:11px;margin-top:3px">modèle : <code>jean</code></div>
+    <div class="subhead" style="margin-top:12px">Clé API<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Protège l'endpoint des complétions (llama-server). Indispensable avant d'exposer le serveur sur internet. Modifier la clé <b>redémarre</b> le service.</span></span></div>
+    <div class="row" style="margin-top:4px">
+      <input id="oai-key" readonly style="flex:1;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit;font-size:12px">
+      <button id="oai-key-eye" onclick="toggleKeyReveal()" title="afficher / masquer">👁</button>
+      <button onclick="copyApiKey()" title="copier la clé">⧉</button>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <button onclick="apiKeyAction('generate')">générer</button>
+      <button onclick="apiKeySet()">définir…</button>
+      <button onclick="apiKeyAction('clear')">retirer</button>
+    </div>
+  </details>
   <details><summary>Service</summary>
     <div class="row">
       <button onclick="act('start')">start</button>
@@ -726,6 +745,40 @@ function renderInternet(s){
   else { st.innerHTML='⚠️ serveur injoignable — les outils web ne seront pas proposés'; }
 }
 async function loadInternet(){ renderInternet(await jget('/api/internet')); }
+// --- Accès OpenAI (endpoint /v1 + clé API des complétions) -----------------
+let OAI_KEY='', OAI_REVEAL=false;
+async function copyText(txt, msg){
+  if(!txt){ toast('rien à copier'); return; }
+  try{ await navigator.clipboard.writeText(txt); }
+  catch(_){ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+  toast(msg||'copié');
+}
+function copyApiKey(){ copyText(OAI_KEY, OAI_KEY?'clé copiée':'aucune clé'); }
+function renderApiKey(d){
+  OAI_KEY = d.key || '';
+  // URL de l'endpoint : llama-server tourne sur d.port (≠ port de l'UI web).
+  const proto = location.protocol==='https:' ? 'https:' : 'http:';
+  document.getElementById('oai-url').value = proto+'//'+location.hostname+':'+d.port+'/v1';
+  const inp=document.getElementById('oai-key');
+  if(!d.set){ inp.value='(aucune clé — serveur ouvert)'; inp.style.opacity=.6; }
+  else { inp.style.opacity=1; inp.value = OAI_REVEAL ? OAI_KEY : d.masked; }
+  document.getElementById('oai-key-eye').style.display = d.set ? '' : 'none';
+}
+async function loadApiKey(){ renderApiKey(await jget('/api/apikey')); }
+function toggleKeyReveal(){ OAI_REVEAL=!OAI_REVEAL; const inp=document.getElementById('oai-key'); if(OAI_KEY) inp.value = OAI_REVEAL ? OAI_KEY : (OAI_KEY.slice(0,8)+'…'+OAI_KEY.slice(-4)); }
+async function apiKeyAction(action){
+  if(action==='clear' && !await askConfirm('Retirer la clé rend l\'endpoint OpenAI accessible SANS authentification. Le service va redémarrer.', {title:'Retirer la clé API ?', okText:'Retirer'})) return;
+  if(action==='generate' && OAI_KEY && !await askConfirm('Générer une nouvelle clé invalide l\'ancienne (les clients devront être mis à jour). Le service va redémarrer.', {title:'Régénérer la clé ?', okText:'Générer'})) return;
+  OAI_REVEAL=(action==='generate'); // révèle la clé fraîche pour qu'on puisse la copier
+  toast('application…');
+  renderApiKey(await jpost('/api/apikey', {action}));
+}
+async function apiKeySet(){
+  const k = await askPrompt('Colle ta clé API (ou laisse vide pour annuler) :', {title:'Définir la clé API', placeholder:'sk-…'});
+  if(!k || !k.trim()) return;
+  OAI_REVEAL=true; toast('application…');
+  renderApiKey(await jpost('/api/apikey', {action:'set', key:k.trim()}));
+}
 async function toggleInternet(){
   const on=document.getElementById('internet-toggle').checked;
   const url=document.getElementById('crawl-url').value.trim();
@@ -736,7 +789,7 @@ async function saveCrawlUrl(){
   const url=document.getElementById('crawl-url').value.trim();
   renderInternet(await jpost('/api/internet',{url}));
 }
-async function loadAll(){ await Promise.all([loadStatus(),loadVram(),loadCfg(),loadPresets(),loadAgent(),loadInternet()]); }
+async function loadAll(){ await Promise.all([loadStatus(),loadVram(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadApiKey()]); }
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }
 function openBenchModal(){ document.getElementById('bench-modal').style.display = 'flex'; }
 function closeBenchModal(){ document.getElementById('bench-modal').style.display = 'none'; }

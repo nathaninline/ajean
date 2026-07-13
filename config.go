@@ -31,6 +31,40 @@ func authHeader(req *http.Request) {
 	}
 }
 
+// genAPIKey returns a fresh random OpenAI-style completion key.
+func genAPIKey() string {
+	buf := make([]byte, 24)
+	_, _ = rand.Read(buf)
+	return "sk-jean-" + hex.EncodeToString(buf)
+}
+
+// writeAPIKey persists (key != "") or clears (key == "") the completion API key
+// in $JEAN_HOME/.api_key. It also wipes any residual API_KEY in config.env to
+// avoid ambiguity. It does NOT restart the service — callers decide when to
+// apply (llama-server only reads --api-key at launch).
+func writeAPIKey(key string) error {
+	_ = SetConfigKey("API_KEY", "")
+	if key == "" {
+		if err := os.Remove(apiKeyPath()); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		return nil
+	}
+	return os.WriteFile(apiKeyPath(), []byte(key+"\n"), 0o600)
+}
+
+// maskAPIKey renders a key for display: keep the "sk-jean-" prefix and last 4
+// chars, elide the middle. Empty in → empty out.
+func maskAPIKey(k string) string {
+	if k == "" {
+		return ""
+	}
+	if len(k) <= 12 {
+		return "…" + k[len(k)-2:]
+	}
+	return k[:8] + "…" + k[len(k)-4:]
+}
+
 // cmdSetAPIKey sets (or clears) the API key stored in $JEAN_HOME/.api_key. When
 // exposed on the internet, llama-server requires "Authorization: Bearer <clé>"
 // for every call.
@@ -42,11 +76,7 @@ func cmdSetAPIKey(args []string) error {
 	var key string
 	switch {
 	case len(args) == 0:
-		buf := make([]byte, 24)
-		if _, err := rand.Read(buf); err != nil {
-			return err
-		}
-		key = "sk-jean-" + hex.EncodeToString(buf)
+		key = genAPIKey()
 		fmt.Printf("%s clé générée : %s\n", green("[ok]"), bold(key))
 	case args[0] == "" || args[0] == "off" || args[0] == "none":
 		key = ""
@@ -55,12 +85,7 @@ func cmdSetAPIKey(args []string) error {
 	}
 	// Stocke dans le fichier dédié (survit aux switches de preset). On nettoie
 	// aussi un éventuel API_KEY résiduel dans config.env pour éviter la confusion.
-	_ = SetConfigKey("API_KEY", "")
-	if key == "" {
-		if err := os.Remove(apiKeyPath()); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-	} else if err := os.WriteFile(apiKeyPath(), []byte(key+"\n"), 0o600); err != nil {
+	if err := writeAPIKey(key); err != nil {
 		return err
 	}
 	if key == "" {

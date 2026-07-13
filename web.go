@@ -86,6 +86,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/agent", handleAgent)
 	api("/api/agent/toggle", handleAgentToggle)
 	api("/api/agent/tool-limit", handleToolLimitToggle)
+	api("/api/apikey", handleAPIKey)
 	api("/api/internet", handleInternet)
 	api("/api/memory", handleMemoryMode)
 	// Alias rétro-compat : l'ancien portail ajean.link (dépôt jean-relay) pilote
@@ -505,6 +506,50 @@ func handleAgentToggle(w http.ResponseWriter, r *http.Request) {
 //
 //	GET  → {enabled, url, reachable}
 //	POST {enabled, url} → enregistre CRAWL4AI_URL + le drapeau .internet_enabled
+// handleAPIKey expose et pilote la clé d'accès à l'endpoint compatible OpenAI
+// (llama-server /v1). GET renvoie l'état ; POST {action:"generate"|"set"|"clear",
+// key?} l'écrit puis redémarre le service (llama-server lit --api-key au lancement).
+func handleAPIKey(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		var req struct {
+			Action string `json:"action"`
+			Key    string `json:"key"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		var key string
+		switch req.Action {
+		case "generate":
+			key = genAPIKey()
+		case "set":
+			key = strings.TrimSpace(req.Key)
+		case "clear":
+			key = ""
+		default:
+			sendJSON(w, 400, map[string]any{"ok": false, "error": "action inconnue"})
+			return
+		}
+		if err := writeAPIKey(key); err != nil {
+			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		// La clé n'est appliquée qu'au (re)démarrage de llama-server.
+		if serviceIsActive() {
+			_ = serviceAction("restart")
+		}
+	}
+	k := readAPIKey()
+	sendJSON(w, 200, map[string]any{
+		"ok":     true,
+		"set":    k != "",
+		"key":    k,
+		"masked": maskAPIKey(k),
+		"port":   LLMPort(),
+	})
+}
+
 func handleInternet(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		var req struct {
