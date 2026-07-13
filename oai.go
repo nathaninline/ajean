@@ -95,6 +95,10 @@ func oaiTLSConfig() *tls.Config {
 		},
 	}
 	cfg := magic.TLSConfig() // GetCertificate (on-demand) + gère l'ALPN acme-tls/1
+	// certmagic ne met QUE "acme-tls/1" dans NextProtos ; sans "http/1.1" les
+	// clients normaux sont rejetés (« unsupported application protocols »). On
+	// préfixe http/1.1 tout en gardant acme-tls/1 pour les challenges.
+	cfg.NextProtos = append([]string{"http/1.1"}, cfg.NextProtos...)
 	cfg.MinVersion = tls.VersionTLS12
 	return cfg
 }
