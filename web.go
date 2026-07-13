@@ -548,6 +548,10 @@ func handleAPIKey(w http.ResponseWriter, r *http.Request) {
 		"masked": maskAPIKey(k),
 		"port":   LLMPort(),
 		"host":   localIP(),
+		// Accès OpenAI PUBLIC via ajean.link (passthrough SNI, VPS aveugle) : si
+		// activé, l'URL publique est https://<machine>.oai.ajean.link/v1.
+		"oai_public": os.Getenv("JEAN_LINK_ALLOW_OAI") == "1",
+		"machine":    machineID(),
 	})
 }
 

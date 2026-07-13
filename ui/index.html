@@ -331,9 +331,19 @@ button:disabled{opacity:.5;cursor:not-allowed}
   </details>
   <details><summary>Accès OpenAI</summary>
     <div class="subhead">Endpoint compatible OpenAI<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Branche n'importe quel client compatible OpenAI (OpenCode, Continue, Cursor…) sur cette URL. Modèle : <code>jean</code>. Si une clé est définie, le client doit envoyer <code>Authorization: Bearer &lt;clé&gt;</code>.</span></span></div>
-    <div class="row" style="margin-top:4px">
-      <input id="oai-url" readonly style="flex:1;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit;font-size:12px">
-      <button onclick="copyText(document.getElementById('oai-url').value,'URL copiée')" title="copier">⧉</button>
+    <div id="oai-public-wrap" style="display:none;margin-top:4px">
+      <div class="muted" style="font-size:11px;margin-bottom:2px">🌍 public (ajean.link) — accessible partout, TLS de bout en bout jusqu'à ce serveur</div>
+      <div class="row">
+        <input id="oai-public-url" readonly style="flex:1;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit;font-size:12px">
+        <button onclick="copyText(document.getElementById('oai-public-url').value,'URL publique copiée')" title="copier">⧉</button>
+      </div>
+    </div>
+    <div id="oai-local-wrap" style="margin-top:4px">
+      <div class="muted" style="font-size:11px;margin-bottom:2px">🏠 local (réseau)</div>
+      <div class="row">
+        <input id="oai-url" readonly style="flex:1;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit;font-size:12px">
+        <button onclick="copyText(document.getElementById('oai-url').value,'URL copiée')" title="copier">⧉</button>
+      </div>
     </div>
     <div class="muted" style="font-size:11px;margin-top:3px">modèle : <code>jean</code></div>
     <div class="subhead" style="margin-top:12px">Clé API<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Protège l'endpoint des complétions (llama-server). Indispensable avant d'exposer le serveur sur internet. Modifier la clé <b>redémarre</b> le service.</span></span></div>
@@ -762,6 +772,14 @@ function renderApiKey(d){
   // l'accès OpenAI reste TOUJOURS l'adresse locale de la machine.
   const host = d.host || location.hostname;
   document.getElementById('oai-url').value = 'http://'+host+':'+d.port+'/v1';
+  // Endpoint PUBLIC (ajean.link) : affiché seulement si l'accès public est activé.
+  const pubWrap = document.getElementById('oai-public-wrap');
+  if(d.oai_public && d.machine){
+    document.getElementById('oai-public-url').value = 'https://'+d.machine+'.oai.ajean.link/v1';
+    pubWrap.style.display = '';
+  } else {
+    pubWrap.style.display = 'none';
+  }
   const inp=document.getElementById('oai-key');
   if(!d.set){ inp.value='(aucune clé — serveur ouvert)'; inp.style.opacity=.6; }
   else { inp.style.opacity=1; inp.value = OAI_REVEAL ? OAI_KEY : d.masked; }
