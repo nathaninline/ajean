@@ -757,8 +757,11 @@ function copyApiKey(){ copyText(OAI_KEY, OAI_KEY?'clé copiée':'aucune clé'); 
 function renderApiKey(d){
   OAI_KEY = d.key || '';
   // URL de l'endpoint : llama-server tourne sur d.port (≠ port de l'UI web).
-  const proto = location.protocol==='https:' ? 'https:' : 'http:';
-  document.getElementById('oai-url').value = proto+'//'+location.hostname+':'+d.port+'/v1';
+  // On prend l'hôte annoncé par le serveur (IP LAN détectée côté Go) : dans le
+  // tunnel ajean.link, location.hostname serait le domaine du relais (faux) —
+  // l'accès OpenAI reste TOUJOURS l'adresse locale de la machine.
+  const host = d.host || location.hostname;
+  document.getElementById('oai-url').value = 'http://'+host+':'+d.port+'/v1';
   const inp=document.getElementById('oai-key');
   if(!d.set){ inp.value='(aucune clé — serveur ouvert)'; inp.style.opacity=.6; }
   else { inp.style.opacity=1; inp.value = OAI_REVEAL ? OAI_KEY : d.masked; }

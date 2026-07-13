@@ -547,7 +547,24 @@ func handleAPIKey(w http.ResponseWriter, r *http.Request) {
 		"key":    k,
 		"masked": maskAPIKey(k),
 		"port":   LLMPort(),
+		"host":   localIP(),
 	})
+}
+
+// localIP best-effort renvoie l'IPv4 LAN primaire de la machine (l'IP source du
+// trafic sortant), ou "localhost" à défaut. Sert à annoncer l'endpoint OpenAI
+// avec une adresse correcte sur le réseau local MÊME quand l'UI est atteinte via
+// le tunnel ajean.link (où location.hostname serait le domaine du relais, faux).
+func localIP() string {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		return "localhost"
+	}
+	defer conn.Close()
+	if a, ok := conn.LocalAddr().(*net.UDPAddr); ok && a.IP != nil {
+		return a.IP.String()
+	}
+	return "localhost"
 }
 
 func handleInternet(w http.ResponseWriter, r *http.Request) {
