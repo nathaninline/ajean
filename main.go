@@ -16,12 +16,14 @@ import (
 	"strings"
 )
 
-const Version = "0.3.1"
+const Version = "0.3.2"
 
 func main() {
 	// Migration one-shot des anciens skills (SKILLS/<nom>/SKILL.md) vers la
 	// nouvelle mémoire (MEMORY/<nom>.md). Idempotente, silencieuse si rien à faire.
 	migrateSkillsToMemory()
+	// Nettoie un éventuel binaire .old laissé par une mise à jour Windows.
+	cleanupOldBinary()
 
 	args := os.Args[1:]
 	cmd := "help"
@@ -71,6 +73,8 @@ func main() {
 		mustExit(cmdBench(args))
 	case "llamacpp", "llama":
 		mustExit(cmdLlamacpp(args))
+	case "update", "upgrade", "self-update":
+		mustExit(cmdUpdate(args))
 	case "install":
 		mustExit(cmdInstall(args))
 	case "uninstall":
@@ -134,6 +138,7 @@ Entrypoint (utilisé par jean.service) :
 Installation:
   install                       installer (Linux: unité systemd, sudoers, dossiers ; Windows: dossiers + config)
   uninstall                     désinstaller
+  update [--check]              mettre à jour jean depuis les releases GitHub (--check = signale sans installer)
 
 Env:
   JEAN_HOME    racine (défaut: /etc/jean sur Linux/macOS, %%ProgramData%%\jean sur Windows)
