@@ -98,9 +98,6 @@ func newWebMux() *http.ServeMux {
 	api("/api/tools/toggle", handleAgentToggle)
 	api("/api/skills", handleAgent)
 	api("/api/skills/toggle", handleAgentToggle)
-	api("/api/skill", handleSkill)
-	api("/api/skill/save", handleSkillSave)
-	api("/api/skill/delete", handleSkillDelete)
 	api("/api/mem", handleMem)
 	api("/api/mem/save", handleMemSave)
 	api("/api/mem/delete", handleMemDelete)
@@ -631,49 +628,9 @@ func handleInternet(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func handleSkill(w http.ResponseWriter, r *http.Request) {
-	name := strings.TrimSpace(r.URL.Query().Get("name"))
-	if name == "" {
-		sendJSON(w, 200, map[string]any{"name": "", "content": "# nouveau skill\n\nDécris ici quand et comment l'IA doit utiliser ce skill.\n"})
-		return
-	}
-	c := SkillContent(name)
-	if c == "" {
-		sendJSON(w, 404, map[string]any{"error": "not found"})
-		return
-	}
-	sendJSON(w, 200, map[string]any{"name": name, "content": c})
-}
-
-func handleSkillSave(w http.ResponseWriter, r *http.Request) {
-	var req saveReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
-		return
-	}
-	if err := SaveSkill(req.Name, req.Old, req.Content); err != nil {
-		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
-		return
-	}
-	sendJSON(w, 200, map[string]any{"ok": true, "name": req.Name})
-}
-
-func handleSkillDelete(w http.ResponseWriter, r *http.Request) {
-	var req saveReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
-		return
-	}
-	if err := DeleteSkill(req.Name); err != nil {
-		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
-		return
-	}
-	sendJSON(w, 200, map[string]any{"ok": true})
-}
-
 // handleMem / handleMemSave / handleMemDelete : éditeur web des pages mémoire
-// (MEMORY/<nom>.md). Mêmes payloads que l'éditeur de skills (name/old/content)
-// pour réutiliser l'UI ; "name" = nom de fichier de la page.
+// (MEMORY/<nom>.md). Payload partagé saveReq (name/old/content) ; "name" = nom
+// de fichier de la page.
 func handleMem(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(r.URL.Query().Get("name"))
 	if name == "" {

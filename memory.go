@@ -255,7 +255,7 @@ func MemContent(name string) string {
 
 // MemSave écrit (crée ou écrase) une page mémoire. Si old est fourni et diffère
 // du nouveau nom, l'ancienne page est renommée (supprimée). Utilisé par l'éditeur
-// web — pendant de SaveSkill.
+// web.
 func MemSave(name, old, content string) error {
 	if old != "" {
 		if oldFn, e1 := memFileName(old); e1 == nil {
