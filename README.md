@@ -31,6 +31,7 @@ Faire tourner llama.cpp comme un vrai service, ça veut dire d'habitude : trouve
 - **Presets** (`jean switch`) — garde plusieurs profils `config.env` et bascule entre eux
 - **Protection par clé API** (`jean set-api-key`) — auth Bearer pour exposer le serveur publiquement ; la clé est stockée à part pour survivre aux changements de preset
 - **Benchmark** (`jean bench`) — tok/s prefill/decode honnêtes avec un corpus varié
+- **Auto-mise à jour** (`jean update`) — récupère la dernière release GitHub et remplace le binaire en place (`--check` pour seulement vérifier)
 - **Binaire statique unique** — compilé avec `CGO_ENABLED=0`, se cross-compile trivialement
 
 ## Démarrage rapide
@@ -136,6 +137,7 @@ Backend (llama.cpp) :
 Installation :
   install                       installer (unité systemd, sudoers, dossiers)
   uninstall                     désinstaller
+  update [--check]              mettre à jour jean depuis les releases GitHub (--check = signale sans installer)
 ```
 
 ### Options de `jean llamacpp`
