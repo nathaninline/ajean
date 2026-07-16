@@ -23,7 +23,7 @@ Faire tourner llama.cpp comme un vrai service, ça veut dire d'habitude : trouve
   - **ROCm/HIP** (AMD), **Metal** (macOS / Apple Silicon), **Vulkan**, ou repli **CPU**
   - `update` récupère le dernier commit, arrête le service le temps de recompiler, puis le redémarre
 - **Intégration systemd** — `jean install` écrit l'unité, une règle sudoers `systemctl` sans mot de passe, et les dossiers de données
-- **Interface web** (`jean web`) — chat, changement de modèle/preset, activation du mode agent
+- **Interface web** (`jean web`) — chat, changement de modèle/preset, mode agent, accès internet/mémoire, panneau « Accès OpenAI », et réglages d'apparence (thème sombre/clair/doux, mode complet/simple) synchronisés entre appareils
 - **Chat terminal** (`jean chat`) — réponses en streaming
 - **Accès internet** (`jean internet`) — branche un serveur [Crawl4AI](https://github.com/unclecode/crawl4ai) et l'IA gagne 4 outils web (`web_search` DuckDuckGo, `web_open`, `web_read`, `web_grep`), actifs seulement si le mode agent est actif et le serveur joignable
 - **Mémoire persistante à 3 modes** (`jean memory`) — l'IA garde des notes Markdown entre les sessions ; réglable en `off` / `ondemand` (utilisée seulement quand tu le demandes) / `always` (proactive)
@@ -122,7 +122,7 @@ Interaction :
 
 Accès distant (ajean.link) :
   link [token]                  démarre le lien au relais en arrière-plan (token = 1re fois / pour le changer)
-  link restart | stop           redémarre / arrête le service de lien
+  link start | restart | stop   démarre / redémarre / arrête le service de lien
   link code                     génère un code d'appairage (valable 10 min, usage unique) pour le portail
   link status | logout          état du lien / oublier le token
 
@@ -138,6 +138,7 @@ Installation :
   install                       installer (unité systemd, sudoers, dossiers)
   uninstall                     désinstaller
   update [--check]              mettre à jour jean depuis les releases GitHub (--check = signale sans installer)
+  version                       affiche la version installée
 ```
 
 ### Options de `jean llamacpp`
@@ -169,7 +170,8 @@ Tout vit sous **`$JEAN_HOME`** (défaut `/etc/jean` sur Linux/macOS, `%ProgramDa
 | `CUDA_VISIBLE_DEVICES` | GPU à utiliser (réglé par `jean gpu`) | tous |
 | `KV_TYPE` (`_K`/`_V`) | quantization du cache KV | — |
 | `REASONING` | passthrough du mode raisonnement | — |
-| `REASONING_BUDGET` | plafond de tokens de réflexion (anti-boucle) ; `-1` = illimité | `2048` |
+| `REASONING_BUDGET` | plafond de tokens de réflexion passé à llama-server ; `-1` = illimité (l'anti-boucle est géré côté agent) | `-1` |
+| `TOOL_LIMIT` | plafond d'appels d'outils par tour en mode agent ; `off` = quasi illimité (réglable aussi depuis l'UI) | activé |
 | `CRAWL4AI_URL` | URL du serveur Crawl4AI pour l'accès internet (réglé par `jean internet url`) | — |
 | `MEM_MODE` | mode mémoire de l'IA : `off` / `ondemand` / `always` (réglé par `jean memory`) | `always` |
 | `EXTRA_ARGS` | ajouté tel quel à `llama-server` | — |
@@ -260,17 +262,13 @@ C'est un service optionnel et payant ; tout le reste de Jean est et restera open
 
 > Reste visible du relais : des métadonnées techniques sans contenu (machine en ligne, nom du modèle chargé, VRAM) — jamais tes conversations.
 
-#### Endpoint OpenAI (`/oai`) — opt-in
+#### Endpoint OpenAI (`<machine>.oai.ajean.link`) — opt-in
 
-Pour brancher des outils tiers (OpenCode, etc.), Jean peut exposer un endpoint compatible OpenAI (`https://ajean.link/oai/<machine>/v1`, clé = une clé de liaison du compte). Mais ces outils ne font pas le chiffrement navigateur : ce flux transiterait **en clair** par le relais. Il est donc **désactivé par défaut**.
+Pour brancher des outils tiers (OpenCode, etc.), Jean peut exposer un endpoint compatible OpenAI **par machine** : `https://<machine>.oai.ajean.link/v1`. L'authentification est la clé API de ton `llama-server` (`jean set-api-key`), présentée en `Authorization: Bearer <clé>`. C'est **désactivé par défaut**.
 
-Côté **ton serveur**, tu l'autorises avec la variable `JEAN_LINK_ALLOW_OAI=1`. Comme le lien tourne en service, place-la dans l'environnement du service (et non en préfixe d'une commande), par ex. dans `/etc/default/jean` ou via `systemctl edit jean-link`, puis :
+Tu l'actives par machine depuis l'**interface web** (panneau « Accès OpenAI ») : le drapeau est relu **en direct** par le tunnel, sans redémarrage. *(Ancien mécanisme : la variable d'environnement `JEAN_LINK_ALLOW_OAI=1` sur le service — encore acceptée pour rétro-compatibilité, mais le toggle de l'UI est désormais la voie recommandée.)*
 
-```bash
-jean link restart
-```
-
-Sans elle, ton agent refuse l'endpoint (`403`). L'accès `/oai` à travers **ajean.link** dépend ensuite du service (le relais est la partie hébergée d'ajean.link, que tu ne gères pas) : la fonctionnalité doit y être ouverte pour ton compte. Assume le compromis avant de l'activer — pour ce canal, le relais voit le trafic en clair.
+Contrairement aux premières versions, ce flux **n'est pas en clair chez le relais** : le VPS fait un simple **passthrough SNI** et le TLS est terminé sur *ta* machine (certificat Let's Encrypt obtenu par l'agent en TLS-ALPN-01, à travers le tunnel). Le relais ne voit donc que des octets chiffrés. L'accès reste soumis au service ajean.link (partie hébergée) : la fonctionnalité doit être ouverte pour ton compte.
 
 ### Variables d'environnement
 
@@ -282,7 +280,7 @@ Sans elle, ton agent refuse l'endpoint (`403`). L'accès `/oai` à travers **aje
 
 ## Compiler depuis les sources
 
-Nécessite Go 1.22+. Jean est un binaire 100 % Go (l'UI web est embarquée via `go:embed`) :
+Nécessite Go 1.25+. Jean est un binaire 100 % Go (l'UI web est embarquée via `go:embed`) :
 
 ```bash
 git clone https://github.com/nathaninline/jean.git
