@@ -6,9 +6,10 @@ import (
 )
 
 // Le « mode agent » est l'unique interrupteur qui donne à l'IA l'accès à ses
-// outils. Un skill est un outil comme un autre : quand le mode agent est actif,
-// l'IA dispose à la fois du shell (run_shell) et de la gestion des skills.
-// Plus de drapeaux machine/skills séparés — un seul fichier .agent_enabled.
+// outils. Quand il est actif, l'IA dispose du shell (run_shell) et de sa
+// mémoire (mem_search/mem_read/mem_add/mem_edit) — les anciens « skills » ont
+// été fondus dans la mémoire. Plus de drapeaux machine/skills séparés : un seul
+// fichier .agent_enabled.
 
 func agentEnabled() bool {
 	if _, err := os.Stat(agentFlag()); err == nil {

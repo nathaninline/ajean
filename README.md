@@ -127,7 +127,7 @@ Accès distant (ajean.link) :
   link status | logout          état du lien / oublier le token
 
 Mode agent :
-  agent [on|off|status]         active TOUS les outils du modèle (shell complet + skills) — un seul interrupteur
+  agent [on|off|status]         active TOUS les outils du modèle (shell complet + mémoire) — un seul interrupteur
 
 Backend (llama.cpp) :
   llamacpp install              clone + compile llama.cpp (détecte CUDA/ROCm/Metal/CPU), règle BIN

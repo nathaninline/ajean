@@ -58,8 +58,9 @@ func main() {
 		mustExit(cmdOAI(args))
 	case "agent", "skills", "machine", "tools":
 		// « mode agent » unifie l'ancien couple machine + skills : un seul
-		// interrupteur active TOUS les outils de l'IA (shell + skills). Les
-		// anciens noms restent acceptés comme alias rétro-compatibles.
+		// interrupteur active TOUS les outils de l'IA (shell + mémoire ; les
+		// skills ont été fondus dans la mémoire). Les anciens noms restent
+		// acceptés comme alias rétro-compatibles.
 		mustExit(cmdAgent(args))
 	case "internet", "web-access":
 		mustExit(cmdInternet(args))
@@ -125,7 +126,7 @@ Accès distant (ajean.link) :
   link serve                    exécute le worker au premier plan (utilisé par jean-link.service ; pendant de 'jean serve')
 
 Mode agent:
-  agent [on|off|status]         active TOUS les outils de l'IA (shell complet + skills) — un seul interrupteur
+  agent [on|off|status]         active TOUS les outils de l'IA (shell complet + mémoire) — un seul interrupteur
 
 Backend llama.cpp :
   llamacpp install              clone + compile llama.cpp (détecte CUDA/ROCm/Metal/CPU), pointe BIN dessus
