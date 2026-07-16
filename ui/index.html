@@ -14,18 +14,22 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect width='12' height='12' rx='2' ry='2' fill='%231f6feb'/><rect x='6' y='3' width='2' height='2' fill='%23fff'/><rect x='6' y='5' width='2' height='2' fill='%23fff'/><rect x='4' y='7' width='2' height='2' fill='%23fff'/></svg>">
 <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAABa0lEQVR42u3dsQ2AIBBAUSCOYA8b4iiMSI9D2FpYGTEheW8AisvPUV7MdQR4kowAcSAOxIE4EAfiQByIA3EgDhAH4kAciANxIA7EgTgQB+IAcSAOxIE4EAfiQByIA3EgDhAH4kAciANxIA7EgTgQB+JAHCAOxMEHNiO4622f9HI5TpsD3wriQBwgDsSBOBAH4kAciANxIA7EAeJAHIgDcSAOxIE4EAfiQBwgDsSBOBAH4kAciANxIA7EgThAHIgDcSAOxIE4EAfiQByIA8SBOBAH4kAciANxIA7EgThAHIgDcSAO/rLkLXsX520OxIE4EAfiQByIA8SBOBAH4kAciANxIA7EgThAHIgDcSAOxIE4EAfiQByIA8SBOHgl5jpMAZsDcSAOxIE4EAfiQByIA3GAOBAH4kAciANxIA7EgTgQB4gDcSAOxIE4EAfiQByIA3EgDhAH4kAciANxIA7EgTgQB+IAcSAOxME0F8YvCl24O02KAAAAAElFTkSuQmCC">
 <!-- Applique le thème AVANT le rendu (pas de flash) : lit le choix persisté. -->
-<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('jean-theme')||'dark')}catch(e){document.documentElement.setAttribute('data-theme','dark')}</script>
+<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('jean-theme')||'dark');document.documentElement.setAttribute('data-display',localStorage.getItem('jean-display')||'full')}catch(e){document.documentElement.setAttribute('data-theme','dark');document.documentElement.setAttribute('data-display','full')}</script>
 <style>
 /* ===== Thèmes =====================================================
    Toutes les couleurs de l'UI passent par ces variables. Pour AJOUTER un
    thème plus tard : 1) copier un bloc [data-theme="…"] ci-dessous en changeant
    les valeurs, 2) ajouter son {id,label} au registre THEMES (voir le JS). Le
    reste (sélecteur, persistance, application) est automatique. */
-:root{color-scheme:dark;--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--accent-bg:rgba(88,166,255,.12);--ok:#58a6ff;--warn:#d29922;--err:#f85149;--mag:#bc8cff;--code-bg:#0d1117;--danger-bg:#3d1f23;--warn-bg:#3d2f1f}
+/* --font : police par défaut (mono). Un thème peut la surcharger (voir "soft").
+   Les blocs plus spécifiques qui ne redéfinissent pas --font héritent de :root. */
+:root{color-scheme:dark;--font:ui-monospace,SFMono-Regular,Menlo,monospace;--bubble:#1f6feb;--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--accent-bg:rgba(88,166,255,.12);--ok:#58a6ff;--warn:#d29922;--err:#f85149;--mag:#bc8cff;--code-bg:#0d1117;--danger-bg:#3d1f23;--warn-bg:#3d2f1f}
 [data-theme="dark"]{color-scheme:dark;--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--accent-bg:rgba(88,166,255,.12);--ok:#58a6ff;--warn:#d29922;--err:#f85149;--mag:#bc8cff;--code-bg:#0d1117;--danger-bg:#3d1f23;--warn-bg:#3d2f1f}
 [data-theme="light"]{color-scheme:light;--bg:#f0f1f4;--panel:#f8f9fb;--border:#d7dbe1;--text:#24292f;--dim:#636b74;--accent:#0969da;--accent-bg:rgba(9,105,218,.10);--ok:#0969da;--warn:#9a6700;--err:#cf222e;--mag:#8250df;--code-bg:#e6e9ee;--danger-bg:#fbe6e6;--warn-bg:#fbefda}
+/* "doux" — thème clair chaud + police Lexend (lecture agréable). */
+[data-theme="soft"]{color-scheme:light;--font:'Lexend',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--bubble:#c2611f;--bg:#faf8f4;--panel:#ffffff;--border:#e8e3d9;--text:#2c2a26;--dim:#8c8577;--accent:#c2611f;--accent-bg:rgba(194,97,31,.10);--ok:#c2611f;--warn:#b45309;--err:#dc2626;--mag:#9a5bd6;--code-bg:#f3f0ea;--danger-bg:#fbe9e7;--warn-bg:#fbf1e0}
 *{box-sizing:border-box}
-body{margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;font-size:14px}
+body{margin:0;font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;font-size:14px}
 /* PWA plein écran (viewport-fit=cover) : on décale le contenu des bords pour ne
    pas passer sous l'encoche / la barre système / l'indicateur d'accueil. Les
    env(safe-area-inset-*) valent 0 hors PWA, donc aucun impact ailleurs. */
@@ -58,9 +62,9 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 .sidehead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:18px}
 /* pastille d'état service, en haut à droite de la barre latérale */
 .statuspill{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid var(--border);background:var(--panel);color:var(--dim);font-weight:600;white-space:nowrap}
-.statuspill.ok{color:var(--ok);border-color:rgba(88,166,255,.45);background:rgba(88,166,255,.10)}
-.statuspill.err{color:var(--err);border-color:rgba(248,81,73,.45);background:rgba(248,81,73,.10)}
-.statuspill.loading{color:var(--warn);border-color:rgba(210,153,34,.45);background:rgba(210,153,34,.10)}
+.statuspill.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent);background:color-mix(in srgb,var(--ok) 12%,transparent)}
+.statuspill.err{color:var(--err);border-color:color-mix(in srgb,var(--err) 45%,transparent);background:color-mix(in srgb,var(--err) 12%,transparent)}
+.statuspill.loading{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)}
 .statuspill.loading .dot{animation:pulse 1s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
 .statuspill .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
@@ -161,7 +165,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .msg{max-width:80%;padding:10px 14px;border-radius:10px;white-space:pre-wrap;word-wrap:break-word;line-height:1.45}
 .msg.assistant,.msg.reasoning{white-space:normal}
 .msg .body{overflow-wrap:anywhere;word-break:break-word}
-.msg.user{align-self:flex-end;background:#1f6feb;color:#fff}
+.msg.user{align-self:flex-end;background:var(--bubble);color:#fff}
 .msg.user .label{color:rgba(255,255,255,.8)}
 .msg.assistant{align-self:flex-start;background:var(--panel);border:1px solid var(--border)}
 .msg.assistant.errmsg{border-color:rgba(248,81,73,.55);background:rgba(248,81,73,.08);color:var(--err)}
@@ -208,6 +212,17 @@ button:disabled{opacity:.5;cursor:not-allowed}
    replie en douceur pour désencombrer le fil, tout en gardant le label (et son
    compteur de tokens) cliquable pour redéplier. */
 .msg.collapsible .label{cursor:pointer;user-select:none;margin-bottom:0}
+/* ===== Affichage simple ==========================================
+   Mode "simple" (Apparence) : masque le raisonnement, les appels d'outils,
+   les détails de vitesse sur les bulles et la config active à gauche. Piloté
+   par [data-display="simple"] sur <html> (persisté dans 'jean-display'). */
+/* En simple, raisonnement et outils sont masqués. L'activité est signalée par le
+   VRAI indicateur de frappe (.msg.typing, mêmes 3 points animés qu'avant la
+   réponse), maintenu en bas pendant tout le tour côté JS — animation identique. */
+[data-display="simple"] #chat .msg.reasoning,
+[data-display="simple"] #chat .msg.tool{display:none}
+[data-display="simple"] #chat .msg .label{display:none}
+[data-display="simple"] #cfg-details{display:none}
 /* Hauteur animée en JS (mesure scrollHeight → 0) plutôt que grid 1fr→0fr qui
    peut « dépasser ». overflow:hidden clippe le contenu pendant tout le repli.
    width revient à auto SANS délai à l'ouverture (pas de saut), et passe à 0
@@ -279,7 +294,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
   <details open><summary>GPU</summary>
     <div id="vram" class="muted">…</div>
   </details>
-  <details open><summary>Config active</summary>
+  <details open id="cfg-details"><summary>Config active</summary>
     <div id="cfg" class="muted">…</div>
   </details>
   <details><summary>Presets<button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter">+</button></summary>
@@ -323,7 +338,13 @@ button:disabled{opacity:.5;cursor:not-allowed}
   </details>
   <details><summary>Apparence</summary>
     <label class="switchrow" style="justify-content:space-between;gap:12px"><span>thème</span>
-      <select id="theme-select" onchange="applyTheme(this.value)" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px"></select>
+      <select id="theme-select" onchange="applyTheme(this.value);savePrefs()" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px"></select>
+    </label>
+    <label class="switchrow" style="justify-content:space-between;gap:12px;margin-top:8px"><span>affichage<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip"><b>Complet</b> : tout est visible (raisonnement, appels d'outils, vitesse, config active). <b>Simple</b> : masque le raisonnement, les appels d'outils, les détails de vitesse sur les bulles et la config active à gauche.</span></span></span>
+      <select id="display-select" onchange="applyDisplay(this.value);savePrefs()" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px">
+        <option value="full">complet</option>
+        <option value="simple">simple</option>
+      </select>
     </label>
   </details>
   <details><summary>System prompt</summary>
@@ -484,9 +505,20 @@ function saveSys(){ localStorage.setItem('jean.sys', document.getElementById('sy
 // Registre des thèmes disponibles. Pour en AJOUTER un : ajouter un bloc
 // [data-theme="…"] dans le <style> puis une entrée {id,label} ici — le reste
 // (menu déroulant, persistance localStorage, application) est automatique.
-const THEMES=[{id:'dark',label:'sombre'},{id:'light',label:'clair'}];
+const THEMES=[{id:'dark',label:'sombre'},{id:'light',label:'clair'},{id:'soft',label:'doux'}];
+// Lexend (thème "doux") n'est chargé QUE si ce thème est choisi : aucune requête
+// externe (Google Fonts) tant qu'on reste en sombre/clair — jean reste local par
+// défaut. Fallback système sans-serif si hors ligne.
+function ensureSoftFont(){
+  if(document.getElementById('lexend-font')) return;
+  const l=document.createElement('link');
+  l.id='lexend-font'; l.rel='stylesheet';
+  l.href='https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap';
+  document.head.appendChild(l);
+}
 function applyTheme(id){
   if(!THEMES.some(t=>t.id===id)) id='dark';
+  if(id==='soft') ensureSoftFont();
   document.documentElement.setAttribute('data-theme', id);
   try{ localStorage.setItem('jean-theme', id); }catch(e){}
   const sel=document.getElementById('theme-select'); if(sel) sel.value=id;
@@ -499,7 +531,39 @@ function initTheme(){
   let id='dark'; try{ id=localStorage.getItem('jean-theme')||'dark'; }catch(e){}
   applyTheme(id);
 }
-document.addEventListener('DOMContentLoaded', ()=>{ initTheme(); document.getElementById('sysprompt').value = localStorage.getItem('jean.sys') || ''; restoreChat(); });
+// ===== Mode d'affichage (complet / simple) ==================================
+// "simple" masque raisonnement, appels d'outils, détails de vitesse et config
+// active (via [data-display] + CSS). Persisté dans 'jean-display'.
+function applyDisplay(mode){
+  if(mode!=='simple') mode='full';
+  document.documentElement.setAttribute('data-display', mode);
+  try{ localStorage.setItem('jean-display', mode); }catch(e){}
+  const sel=document.getElementById('display-select'); if(sel) sel.value=mode;
+}
+function initDisplay(){
+  let m='full'; try{ m=localStorage.getItem('jean-display')||'full'; }catch(e){}
+  applyDisplay(m);
+}
+// ===== Persistance côté serveur (partagée entre appareils) ==================
+// L'apparence est aussi enregistrée sur la machine jean (/api/prefs) : ainsi le
+// thème/affichage choisi sur un appareil se retrouve sur tous les autres. Le
+// localStorage reste utilisé pour appliquer instantanément au chargement (sans
+// flash), puis loadPrefs() aligne sur la valeur du serveur (source de vérité).
+function savePrefs(){
+  let theme='dark', display='full';
+  try{ theme=localStorage.getItem('jean-theme')||'dark'; display=localStorage.getItem('jean-display')||'full'; }catch(e){}
+  jpost('/api/prefs', {theme, display}).catch(()=>{});
+}
+async function loadPrefs(){
+  try{
+    const p=await jget('/api/prefs');
+    if(p && p.ok && p.prefs){
+      if(p.prefs.theme) applyTheme(p.prefs.theme);
+      if(p.prefs.display) applyDisplay(p.prefs.display);
+    }
+  }catch(e){}
+}
+document.addEventListener('DOMContentLoaded', ()=>{ initTheme(); initDisplay(); document.getElementById('sysprompt').value = localStorage.getItem('jean.sys') || ''; restoreChat(); });
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
 // Modales natives (askConfirm/askPrompt/askAlert) — remplacent confirm()/prompt()/
 // alert() par de vraies boîtes stylées. Chacune renvoie une Promise : askConfirm →
@@ -819,7 +883,7 @@ async function saveCrawlUrl(){
   const url=document.getElementById('crawl-url').value.trim();
   renderInternet(await jpost('/api/internet',{url}));
 }
-async function loadAll(){ await Promise.all([loadStatus(),loadVram(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadApiKey()]); }
+async function loadAll(){ await Promise.all([loadStatus(),loadVram(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadApiKey(),loadPrefs()]); }
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }
 function openBenchModal(){ document.getElementById('bench-modal').style.display = 'flex'; }
 function closeBenchModal(){ document.getElementById('bench-modal').style.display = 'none'; }
@@ -1288,7 +1352,21 @@ async function send(){
   addMsg('user', text);
   msgs.push({role:'user',content:text}); saveChat();
   let typingEl=addTyping();
-  const killTyping=()=>{ if(typingEl){ typingEl.remove(); typingEl=null; } };
+  const simpleMode=()=>document.documentElement.getAttribute('data-display')==='simple';
+  // Retire définitivement l'indicateur de frappe (fin de tour).
+  const removeTyping=()=>{ if(typingEl){ typingEl.remove(); typingEl=null; } };
+  // En mode COMPLET : on retire l'indicateur dès qu'une bulle prend le relais.
+  // En mode SIMPLE : raisonnement/outils sont masqués, donc on GARDE le même
+  // indicateur (mêmes points animés) vivant tout le tour, remis en bas.
+  // COMPLET : retire l'indicateur dès qu'une bulle prend le relais.
+  // SIMPLE : on le GARDE (raisonnement/outils masqués) — sans le toucher, pour
+  // ne PAS redémarrer son animation CSS (déplacer le nœud la remettrait à zéro).
+  const killTyping=()=>{ if(!typingEl) return; if(simpleMode()) return; removeTyping(); };
+  // SIMPLE : garantit l'indicateur (le recrée s'il manque) et le remet en bas
+  // UNIQUEMENT s'il n'y est pas déjà — idempotent, donc l'animation ne se
+  // réinitialise pas à chaque token pendant que l'IA raisonne / appelle un outil.
+  const showTyping=()=>{ if(!simpleMode()) return; const c=document.getElementById('chat');
+    if(!typingEl){ typingEl=addTyping(); } else if(c.lastElementChild!==typingEl){ c.appendChild(typingEl); } };
   let reasonEl=null, contentEl=null, pendingToolEl=null, fullContent='', fullReason='', toolMsgs=null;
   let turnCollapsibles=[]; // bulles reasoning/tool à replier dès la réponse finale
   let tokCount=0, reasonTokCount=0, t0=performance.now(), firstTok=0, statsTimer=null;
@@ -1342,7 +1420,7 @@ async function send(){
             const o=JSON.parse(data);
             const d=(o.choices&&o.choices[0]&&o.choices[0].delta)||{};
             if(d.error){
-              killTyping();
+              removeTyping();
               // Erreur serveur (ex : modèle en cours de chargement → 503). On
               // l'affiche, on retire le message user de l'historique et on le
               // remet dans l'input pour renvoyer d'un clic une fois prêt.
@@ -1374,6 +1452,7 @@ async function send(){
               // finis) dès qu'une nouvelle démarre — seule l'étape en cours reste ouverte.
               if(!pendingToolEl){ collapseAll(turnCollapsibles); pendingToolEl=addMsg('tool',''); turnCollapsibles.push(pendingToolEl); }
               renderToolMsg(pendingToolEl, tu);
+              if(!tu.done) showTyping(); // simple : points animés pendant l'appel d'outil
               if(tu.done){
                 pendingToolEl=null;
                 // L'IA gère sa mémoire elle-même : rafraîchir le menu en direct
@@ -1395,12 +1474,13 @@ async function send(){
               // follows a tool call re-renders ALL previously accumulated reasoning
               // into the new bubble (duplicated dozens of times over a turn).
               if(!reasonEl){ collapseAll(turnCollapsibles); reasonEl=addMsg('reasoning',''); fullReason=''; turnCollapsibles.push(reasonEl); }
+              showTyping(); // simple : points animés pendant que l'IA raisonne
               if(!firstTok) firstTok=performance.now();
               reasonTokCount++;
               fullReason+=d.reasoning_content; renderBody(reasonEl, fullReason);
             }
             if(d.content){
-              killTyping();
+              removeTyping(); // la réponse prend le relais : plus de points (comme en complet)
               if(!contentEl){ collapseAll(turnCollapsibles); contentEl=addMsg('assistant',''); fullContent=''; firstTok=performance.now(); }
               tokCount++;
               fullContent+=d.content; renderBody(contentEl, fullContent);
@@ -1437,7 +1517,7 @@ async function send(){
     }
     saveChat();
   }
-  killTyping();
+  removeTyping();
   if(statsTimer) clearInterval(statsTimer);
   updateStats(true);
   abortCtrl=null; busy=false;

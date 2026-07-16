@@ -90,6 +90,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/oai/public", handleOAIPublic)
 	api("/api/internet", handleInternet)
 	api("/api/memory", handleMemoryMode)
+	api("/api/prefs", handleWebPrefs)
 	// Alias rétro-compat : l'ancien portail ajean.link (dépôt jean-relay) pilote
 	// encore l'agent via /api/tools* et /api/skills/toggle à travers le tunnel E2E.
 	// On les mappe sur le mode agent unifié le temps que le portail soit mis à jour.
