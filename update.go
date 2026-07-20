@@ -69,32 +69,46 @@ func fetchLatestRelease() (*ghRelease, error) {
 	return &rel, nil
 }
 
-func cmdUpdate(args []string) error {
-	checkOnly := false
-	for _, a := range args {
-		if a == "--check" || a == "-check" || a == "check" {
-			checkOnly = true
-		}
-	}
-	fmt.Println("recherche de la dernière version…")
+// updateInfo décrit l'état de mise à jour (partagé CLI + UI web).
+type updateInfo struct {
+	Current   string `json:"current"`
+	Latest    string `json:"latest"`
+	Available bool   `json:"available"`
+	URL       string `json:"url"`
+}
+
+// checkForUpdate interroge GitHub et compare à la version courante. Réutilisé
+// par `jean update` (CLI) et par l'endpoint web /api/update.
+func checkForUpdate() (updateInfo, error) {
+	info := updateInfo{Current: Version}
 	rel, err := fetchLatestRelease()
 	if err != nil {
-		return fmt.Errorf("impossible de contacter GitHub : %w", err)
+		return info, err
 	}
 	latest := ensureV(rel.TagName)
-	cur := ensureV(Version)
 	if !semver.IsValid(latest) {
-		return fmt.Errorf("tag de release inattendu : %q", rel.TagName)
+		return info, fmt.Errorf("tag de release inattendu : %q", rel.TagName)
 	}
-	if semver.Compare(latest, cur) <= 0 {
-		fmt.Printf("jean est déjà à jour (%s).\n", Version)
-		return nil
+	info.Latest = strings.TrimPrefix(latest, "v")
+	info.URL = rel.HTMLURL
+	info.Available = semver.Compare(latest, ensureV(Version)) > 0
+	return info, nil
+}
+
+// applyUpdate télécharge et installe le binaire de la dernière release pour
+// l'OS/arch courant. Renvoie la nouvelle version. Ne redémarre AUCUN service
+// (voir printRestartHint / le message renvoyé à l'UI).
+func applyUpdate() (string, error) {
+	rel, err := fetchLatestRelease()
+	if err != nil {
+		return "", fmt.Errorf("impossible de contacter GitHub : %w", err)
 	}
-	fmt.Printf("nouvelle version disponible : %s  (actuelle : %s)\n", strings.TrimPrefix(latest, "v"), Version)
-	fmt.Printf("  %s\n", rel.HTMLURL)
-	if checkOnly {
-		fmt.Println("lance 'jean update' pour l'installer.")
-		return nil
+	latest := ensureV(rel.TagName)
+	if !semver.IsValid(latest) {
+		return "", fmt.Errorf("tag de release inattendu : %q", rel.TagName)
+	}
+	if semver.Compare(latest, ensureV(Version)) <= 0 {
+		return Version, fmt.Errorf("déjà à jour (%s)", Version)
 	}
 
 	want := updateAssetName()
@@ -107,45 +121,71 @@ func cmdUpdate(args []string) error {
 		}
 	}
 	if url == "" {
-		return fmt.Errorf("aucun binaire %q dans la release %s (os/arch %s/%s)", want, latest, runtime.GOOS, runtime.GOARCH)
+		return "", fmt.Errorf("aucun binaire %q dans la release %s (os/arch %s/%s)", want, latest, runtime.GOOS, runtime.GOARCH)
 	}
 
 	exe, err := os.Executable()
 	if err != nil {
-		return err
+		return "", err
 	}
 	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
 		exe = resolved
 	}
-	dir := filepath.Dir(exe)
-	tmp := filepath.Join(dir, ".jean-update.tmp")
+	tmp := filepath.Join(filepath.Dir(exe), ".jean-update.tmp")
 
-	fmt.Printf("téléchargement de %s (%.1f Mo)…\n", want, float64(size)/1e6)
 	if err := downloadTo(url, tmp); err != nil {
-		return fmt.Errorf("téléchargement : %w", err)
+		return "", fmt.Errorf("téléchargement : %w", err)
 	}
-	// Conserver les permissions du binaire existant (sinon 0755 par défaut).
 	mode := os.FileMode(0o755)
 	if fi, err := os.Stat(exe); err == nil {
 		mode = fi.Mode()
 	}
 	if err := os.Chmod(tmp, mode); err != nil {
 		os.Remove(tmp)
-		return err
+		return "", err
 	}
 	if got := fileSize(tmp); size > 0 && got != size {
 		os.Remove(tmp)
-		return fmt.Errorf("taille inattendue (%d o reçus, %d attendus) — mise à jour annulée", got, size)
+		return "", fmt.Errorf("taille inattendue (%d o reçus, %d attendus) — mise à jour annulée", got, size)
 	}
-
 	if err := replaceBinary(exe, tmp); err != nil {
 		os.Remove(tmp)
 		if os.IsPermission(err) {
-			return fmt.Errorf("droits insuffisants pour écrire %s — relance avec privilèges (ex : sudo jean update)", exe)
+			return "", fmt.Errorf("droits insuffisants pour écrire %s — relance avec privilèges (ex : sudo jean update)", exe)
 		}
+		return "", err
+	}
+	return strings.TrimPrefix(latest, "v"), nil
+}
+
+func cmdUpdate(args []string) error {
+	checkOnly := false
+	for _, a := range args {
+		if a == "--check" || a == "-check" || a == "check" {
+			checkOnly = true
+		}
+	}
+	fmt.Println("recherche de la dernière version…")
+	info, err := checkForUpdate()
+	if err != nil {
+		return fmt.Errorf("impossible de contacter GitHub : %w", err)
+	}
+	if !info.Available {
+		fmt.Printf("jean est déjà à jour (%s).\n", Version)
+		return nil
+	}
+	fmt.Printf("nouvelle version disponible : %s  (actuelle : %s)\n", info.Latest, Version)
+	fmt.Printf("  %s\n", info.URL)
+	if checkOnly {
+		fmt.Println("lance 'jean update' pour l'installer.")
+		return nil
+	}
+	fmt.Printf("téléchargement de %s…\n", updateAssetName())
+	newVer, err := applyUpdate()
+	if err != nil {
 		return err
 	}
-	fmt.Printf("✓ jean mis à jour en %s\n", strings.TrimPrefix(latest, "v"))
+	fmt.Printf("✓ jean mis à jour en %s\n", newVer)
 	printRestartHint()
 	return nil
 }
@@ -212,10 +252,32 @@ func cleanupOldBinary() {
 	}
 }
 
-func printRestartHint() {
-	if runtime.GOOS == "windows" {
-		fmt.Println("redémarre les process jean en cours (jean web, etc.) pour appliquer la mise à jour.")
+// handleUpdateCheck (GET /api/update) : renvoie l'état de mise à jour pour l'UI.
+func handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
+	info, err := checkForUpdate()
+	if err != nil {
+		sendJSON(w, 200, map[string]any{"current": Version, "available": false, "error": err.Error()})
 		return
 	}
-	fmt.Println("pense à redémarrer les services : sudo systemctl restart jean jean-link  (+ relancer 'jean web' si utilisé).")
+	sendJSON(w, 200, info)
 }
+
+// handleUpdateApply (POST /api/update/apply) : télécharge et installe la dernière
+// version, puis renvoie la version installée + l'indice de redémarrage.
+func handleUpdateApply(w http.ResponseWriter, r *http.Request) {
+	newVer, err := applyUpdate()
+	if err != nil {
+		sendJSON(w, 200, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "version": newVer, "restart": restartHintText()})
+}
+
+func restartHintText() string {
+	if runtime.GOOS == "windows" {
+		return "Redémarre Jean (quitte puis relance) pour appliquer la mise à jour."
+	}
+	return "Redémarre les services pour appliquer : sudo systemctl restart jean jean-link"
+}
+
+func printRestartHint() { fmt.Println(restartHintText()) }

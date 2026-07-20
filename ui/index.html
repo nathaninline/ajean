@@ -395,6 +395,11 @@ button:disabled{opacity:.5;cursor:not-allowed}
       <button id="btn-bench" onclick="runBenchUI()">⚡ bench</button>
     </div>
   </details>
+  <details id="upd-details"><summary>Mise à jour</summary>
+    <div class="muted" style="font-size:12px;margin-bottom:8px">Version installée : <b id="upd-cur">…</b></div>
+    <div class="row"><button id="upd-check" onclick="checkUpdate()">↻ Vérifier les mises à jour</button></div>
+    <div id="upd-msg" class="muted" style="font-size:12px;margin-top:8px;line-height:1.5"></div>
+  </details>
 </div>
 <div class="main" style="position:relative">
   <div id="chat"></div>
@@ -640,7 +645,34 @@ async function loadStatus(){
   el.innerHTML='<span class="dot"></span>'+txt+' <span class="port">:'+s.port+'</span>';
   MODEL_READY = !!(s.active && s.health);
   if(s.ctx){ CTX_MAX=s.ctx; updateCtxMeter(); }
-  if(s.version){ document.getElementById('ver').textContent='v'+s.version; }
+  if(s.version){
+    document.getElementById('ver').textContent='v'+s.version;
+    const uc=document.getElementById('upd-cur'); if(uc) uc.textContent='v'+s.version;
+  }
+}
+async function checkUpdate(){
+  const b=document.getElementById('upd-check'), msg=document.getElementById('upd-msg');
+  b.disabled=true; msg.textContent='Vérification…';
+  try{
+    const r=await jget('/api/update');
+    if(r.current){ document.getElementById('upd-cur').textContent='v'+r.current; }
+    if(r.error){ msg.textContent='Erreur : '+r.error; }
+    else if(r.available){
+      msg.innerHTML='Nouvelle version <b>v'+r.latest+'</b> disponible. ';
+      const btn=document.createElement('button'); btn.textContent='Mettre à jour'; btn.onclick=applyUpdate;
+      msg.appendChild(btn);
+    } else { msg.textContent='Jean est à jour ✓'; }
+  }catch(e){ msg.textContent='Erreur réseau'; }
+  b.disabled=false;
+}
+async function applyUpdate(){
+  const msg=document.getElementById('upd-msg');
+  msg.textContent='Téléchargement et installation…';
+  try{
+    const r=await jpost('/api/update/apply',{});
+    if(r.ok){ msg.innerHTML='✓ Installé en <b>v'+r.version+'</b>.<br>'+(r.restart||''); }
+    else { msg.textContent='Échec : '+(r.error||'inconnu'); }
+  }catch(e){ msg.textContent='Erreur pendant la mise à jour (réessaie).'; }
 }
 // Compteur de contexte : CTX_USED estimé via les stats serveur (prefill+decode
 // du dernier tour ≈ taille du prochain prompt). À 90% on propose de compacter.

@@ -75,6 +75,8 @@ func newWebMux() *http.ServeMux {
 	api("/api/vram", handleVram)
 	api("/api/config", handleConfigEnv)
 	api("/api/catalog", handleCatalog)
+	api("/api/update", handleUpdateCheck)
+	api("/api/update/apply", handleUpdateApply)
 	api("/api/models", handleModels)
 	api("/api/models/delete", handleModelDelete)
 	api("/api/models/download", handleModelDownload)
