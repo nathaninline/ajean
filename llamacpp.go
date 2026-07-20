@@ -584,7 +584,7 @@ func hasNvidiaGPU() bool {
 	if !hasTool("nvidia-smi") {
 		return false
 	}
-	out, err := exec.Command("nvidia-smi", "-L").Output()
+	out, err := hideCmd(exec.Command("nvidia-smi", "-L")).Output()
 	return err == nil && strings.Contains(string(out), "GPU")
 }
 
@@ -593,7 +593,7 @@ func hasNvidiaGPU() bool {
 // joined with ';'. Empty when the driver is too old to report it (CMake then
 // falls back to native detection).
 func detectCudaArch() string {
-	out, err := exec.Command("nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader").Output()
+	out, err := hideCmd(exec.Command("nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader")).Output()
 	if err != nil {
 		return ""
 	}

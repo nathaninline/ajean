@@ -8,7 +8,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 )
@@ -19,6 +21,54 @@ func defaultJeanHome() string { return "/etc/jean" }
 
 // defaultEditor is used by `jean edit` when $EDITOR is unset.
 func defaultEditor() string { return "nano" }
+
+// hideCmd : no-op sur Unix (pas de fenêtre de console à masquer).
+func hideCmd(cmd *exec.Cmd) *exec.Cmd { return cmd }
+
+// openBrowser ouvre l'URL dans le navigateur par défaut (macOS: open, Linux:
+// xdg-open). Best-effort.
+func openBrowser(url string) error {
+	bin := "xdg-open"
+	if runtime.GOOS == "darwin" {
+		bin = "open"
+	}
+	return exec.Command(bin, url).Start()
+}
+
+// totalRAMGB renvoie la RAM physique totale en Go (Linux: /proc/meminfo,
+// macOS: sysctl hw.memsize).
+func totalRAMGB() float64 {
+	if runtime.GOOS == "darwin" {
+		out, err := exec.Command("sysctl", "-n", "hw.memsize").Output()
+		if err != nil {
+			return 0
+		}
+		if v, err := strconv.ParseFloat(strings.TrimSpace(string(out)), 64); err == nil {
+			return v / (1024 * 1024 * 1024)
+		}
+		return 0
+	}
+	b, err := os.ReadFile("/proc/meminfo")
+	if err != nil {
+		return 0
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		if strings.HasPrefix(line, "MemTotal:") {
+			f := strings.Fields(line)
+			if len(f) >= 2 {
+				if kb, err := strconv.ParseFloat(f[1], 64); err == nil {
+					return kb / (1024 * 1024) // kB → Go
+				}
+			}
+		}
+	}
+	return 0
+}
+
+// launchedByDoubleClick : sur Unix, jean tourne en service/CLI, on ne déclenche
+// jamais le mode app sur un simple no-arg (éviterait de surprendre un serveur).
+// L'expérience app double-clic est propre à Windows/macOS (coque native, phase 3).
+func launchedByDoubleClick() bool { return false }
 
 // setLibraryPath ensures llama-server can load shared libs bundled next to the
 // binary by prepending dir to LD_LIBRARY_PATH. It also appends the CUDA runtime

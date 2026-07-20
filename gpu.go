@@ -131,9 +131,9 @@ func detectGPUs() ([]gpuInfo, error) {
 	if !hasTool("nvidia-smi") {
 		return nil, fmt.Errorf("nvidia-smi introuvable — sélection GPU disponible uniquement sur NVIDIA")
 	}
-	out, err := exec.Command("nvidia-smi",
+	out, err := hideCmd(exec.Command("nvidia-smi",
 		"--query-gpu=index,name,memory.total,memory.used,compute_cap",
-		"--format=csv,noheader,nounits").Output()
+		"--format=csv,noheader,nounits")).Output()
 	if err != nil {
 		return nil, fmt.Errorf("nvidia-smi a échoué: %w", err)
 	}

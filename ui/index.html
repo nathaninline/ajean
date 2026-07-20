@@ -59,6 +59,7 @@ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-i
 }
 h1{margin:0;font-size:18px;color:var(--accent)}
 #brand{display:inline-flex;align-items:baseline}
+#ver{font-size:10px;font-weight:400;color:var(--dim);margin-left:5px;letter-spacing:0}
 .sidehead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:18px}
 /* pastille d'état service, en haut à droite de la barre latérale */
 .statuspill{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid var(--border);background:var(--panel);color:var(--dim);font-weight:600;white-space:nowrap}
@@ -288,7 +289,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div id="backdrop" onclick="toggleSide()"></div>
 <div class="side" id="side">
   <div class="sidehead">
-    <h1 id="brand"><span id="brand-a">a</span>jean</h1>
+    <h1 id="brand"><span id="brand-a">a</span>jean<span id="ver"></span></h1>
     <span id="status-svc" class="statuspill">…</span>
   </div>
   <details open><summary>GPU</summary>
@@ -639,6 +640,7 @@ async function loadStatus(){
   el.innerHTML='<span class="dot"></span>'+txt+' <span class="port">:'+s.port+'</span>';
   MODEL_READY = !!(s.active && s.health);
   if(s.ctx){ CTX_MAX=s.ctx; updateCtxMeter(); }
+  if(s.version){ document.getElementById('ver').textContent='v'+s.version; }
 }
 // Compteur de contexte : CTX_USED estimé via les stats serveur (prefill+decode
 // du dernier tour ≈ taille du prochain prompt). À 90% on propose de compacter.

@@ -36,9 +36,9 @@ func editConfig() error {
 // nvidia-smi is available on both Linux and Windows when an NVIDIA driver is
 // installed, so this is platform-neutral.
 func showVram() error {
-	out, err := exec.Command("nvidia-smi",
+	out, err := hideCmd(exec.Command("nvidia-smi",
 		"--query-gpu=name,memory.used,memory.total,utilization.gpu,temperature.gpu",
-		"--format=csv,noheader,nounits").Output()
+		"--format=csv,noheader,nounits")).Output()
 	if err != nil {
 		return fmt.Errorf("nvidia-smi indisponible: %w", err)
 	}

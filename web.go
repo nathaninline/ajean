@@ -74,6 +74,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/status", handleStatus)
 	api("/api/vram", handleVram)
 	api("/api/config", handleConfigEnv)
+	api("/api/catalog", handleCatalog)
 	api("/api/models", handleModels)
 	api("/api/models/delete", handleModelDelete)
 	api("/api/models/download", handleModelDownload)
@@ -229,18 +230,19 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	sendJSON(w, 200, map[string]any{
-		"state":  state,
-		"active": active,
-		"health": health,
-		"port":   LLMPort(),
-		"ctx":    ctx,
+		"state":   state,
+		"active":  active,
+		"health":  health,
+		"port":    LLMPort(),
+		"ctx":     ctx,
+		"version": Version,
 	})
 }
 
 func handleVram(w http.ResponseWriter, r *http.Request) {
-	out, err := exec.Command("nvidia-smi",
+	out, err := hideCmd(exec.Command("nvidia-smi",
 		"--query-gpu=name,memory.used,memory.total,utilization.gpu,temperature.gpu",
-		"--format=csv,noheader,nounits").Output()
+		"--format=csv,noheader,nounits")).Output()
 	gpus := []map[string]any{}
 	if err == nil {
 		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {

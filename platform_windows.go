@@ -55,6 +55,61 @@ func defaultJeanHome() string {
 // defaultEditor is used by `jean edit` when $EDITOR is unset.
 func defaultEditor() string { return "notepad" }
 
+// openBrowser ouvre l'URL dans le navigateur par défaut. rundll32 évite les
+// pièges de quoting de `cmd /c start`.
+func openBrowser(url string) error {
+	return exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+}
+
+// hideCmd empêche une commande externe d'ouvrir une fenêtre de console
+// (CREATE_NO_WINDOW). Indispensable quand Jean tourne sans console (mode app) :
+// sinon chaque `nvidia-smi`/`git`/… ferait clignoter une fenêtre noire. Fusionne
+// avec les flags déjà présents pour ne pas écraser un éventuel détachement.
+func hideCmd(cmd *exec.Cmd) *exec.Cmd {
+	const createNoWindow = 0x08000000
+	if cmd.SysProcAttr == nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+	}
+	cmd.SysProcAttr.HideWindow = true
+	cmd.SysProcAttr.CreationFlags |= createNoWindow
+	return cmd
+}
+
+// totalRAMGB renvoie la RAM physique totale en Go (GlobalMemoryStatusEx).
+func totalRAMGB() float64 {
+	var m struct {
+		dwLength                uint32
+		dwMemoryLoad            uint32
+		ullTotalPhys            uint64
+		ullAvailPhys            uint64
+		ullTotalPageFile        uint64
+		ullAvailPageFile        uint64
+		ullTotalVirtual         uint64
+		ullAvailVirtual         uint64
+		ullAvailExtendedVirtual uint64
+	}
+	m.dwLength = uint32(unsafe.Sizeof(m))
+	kernel32 := syscall.NewLazyDLL("kernel32.dll")
+	r, _, _ := kernel32.NewProc("GlobalMemoryStatusEx").Call(uintptr(unsafe.Pointer(&m)))
+	if r == 0 {
+		return 0
+	}
+	return float64(m.ullTotalPhys) / (1024 * 1024 * 1024)
+}
+
+// launchedByDoubleClick indique qu'on a été lancé par un double-clic (Explorer)
+// et non depuis un shell existant. GetConsoleProcessList renvoie le nombre de
+// process attachés à la console : 1 = on possède une console fraîche (double-
+// clic), >1 = on a hérité de la console d'un shell (cmd/PowerShell), auquel cas
+// l'utilisateur veut la CLI, pas l'app.
+func launchedByDoubleClick() bool {
+	kernel32 := syscall.NewLazyDLL("kernel32.dll")
+	proc := kernel32.NewProc("GetConsoleProcessList")
+	var pids [4]uint32
+	r, _, _ := proc.Call(uintptr(unsafe.Pointer(&pids[0])), uintptr(len(pids)))
+	return r == 1
+}
+
 // setLibraryPath ensures llama-server can load its dependent DLLs. Windows
 // resolves them via PATH (and the binary's own directory), so we prepend dir.
 // For a CUDA build we must also add the CUDA Toolkit's bin: ggml-cuda.dll links
@@ -256,7 +311,8 @@ func cudaPathEnv(toolkitDir string) []string {
 	return out
 }
 
-// newShellCmd builds the command used by the run_shell tool.
+// newShellCmd builds the command used by the run_shell tool. hideCmd évite un
+// flash de console à chaque commande d'agent quand Jean tourne en mode app.
 func newShellCmd(ctx context.Context, command string) *exec.Cmd {
-	return exec.CommandContext(ctx, "cmd", "/C", command)
+	return hideCmd(exec.CommandContext(ctx, "cmd", "/C", command))
 }

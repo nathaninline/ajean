@@ -12,6 +12,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unsafe"
 )
 
 // On Windows there is no systemd, so "the service" is a background copy of
@@ -108,7 +109,7 @@ func svcStop(verbose bool) error {
 		return nil
 	}
 	// taskkill /T tue aussi le processus enfant llama-server.
-	cmd := exec.Command("taskkill", "/PID", strconv.Itoa(pid), "/T", "/F")
+	cmd := hideCmd(exec.Command("taskkill", "/PID", strconv.Itoa(pid), "/T", "/F"))
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("arrêt du PID %d: %w\n%s", pid, err, string(out))
@@ -175,18 +176,31 @@ func readServicePID() int {
 	return pid
 }
 
-// processAlive reports whether a PID is currently running, via tasklist (always
-// present on Windows, needs no special privileges).
+// processAlive reports whether a PID is currently running. On utilise l'API
+// Win32 (OpenProcess + GetExitCodeProcess) plutôt que `tasklist` : l'ancien
+// appel externe faisait CLIGNOTER une fenêtre de console à CHAQUE vérification,
+// or l'UI web poll le statut en boucle → rafale de fenêtres noires. L'API ne
+// lance aucun process.
 func processAlive(pid int) bool {
-	out, err := exec.Command("tasklist", "/FI", "PID eq "+strconv.Itoa(pid), "/NH").Output()
-	if err != nil {
+	if pid <= 0 {
 		return false
 	}
-	s := string(out)
-	if strings.Contains(s, "No tasks") {
+	const (
+		queryLimitedInfo = 0x1000
+		stillActive      = 259
+	)
+	k := syscall.NewLazyDLL("kernel32.dll")
+	h, _, _ := k.NewProc("OpenProcess").Call(queryLimitedInfo, 0, uintptr(pid))
+	if h == 0 {
 		return false
 	}
-	return strings.Contains(s, strconv.Itoa(pid))
+	defer k.NewProc("CloseHandle").Call(h)
+	var code uint32
+	r, _, _ := k.NewProc("GetExitCodeProcess").Call(h, uintptr(unsafe.Pointer(&code)))
+	if r == 0 {
+		return false
+	}
+	return code == stillActive
 }
 
 // tailFile returns the last n lines of the file at path (best-effort).

@@ -5,8 +5,8 @@
 // les .syso après avoir bumpé la version : `go generate ./...`
 // (nécessite : go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest)
 //
-//go:generate goversioninfo -64 -o resource_windows_amd64.syso versioninfo.json
-//go:generate goversioninfo -64 -arm -o resource_windows_arm64.syso versioninfo.json
+//go:generate goversioninfo -64 -icon=icon.ico -o resource_windows_amd64.syso versioninfo.json
+//go:generate goversioninfo -64 -arm -icon=icon.ico -o resource_windows_arm64.syso versioninfo.json
 package main
 
 import (
@@ -16,7 +16,7 @@ import (
 	"strings"
 )
 
-const Version = "0.3.2"
+const Version = "0.3.3"
 
 func main() {
 	// Migration one-shot des anciens skills (SKILLS/<nom>/SKILL.md) vers la
@@ -26,12 +26,23 @@ func main() {
 	cleanupOldBinary()
 
 	args := os.Args[1:]
+	noArgs := len(args) == 0
 	cmd := "help"
 	if len(args) > 0 {
 		cmd = args[0]
 		args = args[1:]
 	}
+	// Double-clic sur le binaire (aucun argument, console fraîche) → on lance
+	// l'expérience « application » (UI web + navigateur) plutôt que d'afficher
+	// l'aide dans une console qui se referme aussitôt. Lancé depuis un shell,
+	// `jean` sans argument garde son comportement d'aide.
+	if noArgs && launchedByDoubleClick() {
+		relaunchDetachedApp() // relance sans console (ne revient pas), puis quitte l'original
+		return
+	}
 	switch cmd {
+	case "app":
+		mustExit(cmdApp(args))
 	case "start", "stop", "restart", "status", "enable", "disable":
 		mustExit(serviceAction(cmd))
 	case "logs":
@@ -95,6 +106,9 @@ func printHelp() {
 	fmt.Printf(`jean %s — manager llama.cpp + UI web (single binary)
 
 Usage: jean <commande> [args]
+
+Application:
+  app                           lance l'UI web + ouvre le navigateur (auto au double-clic du binaire)
 
 Service:
   start | stop | restart        gérer le service (systemd sous Linux, processus en arrière-plan sous Windows)
