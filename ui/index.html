@@ -389,17 +389,15 @@ button:disabled{opacity:.5;cursor:not-allowed}
       <button onclick="act('stop')">stop</button>
     </div>
   </details>
-  <details id="upd-details"><summary>Mise à jour</summary>
-    <div class="muted" style="font-size:12px;margin-bottom:8px">Version installée : <b id="upd-cur">…</b></div>
-    <div class="row"><button id="upd-check" onclick="checkUpdate()">↻ Vérifier les mises à jour</button></div>
-    <div id="upd-msg" class="muted" style="font-size:12px;margin-top:8px;line-height:1.5"></div>
-  </details>
-  <details><summary>Actions</summary>
+  <details id="upd-details"><summary>Actions</summary>
     <div class="row">
       <button onclick="loadAll()">↻ refresh</button>
       <button onclick="resetChat()">⌫ clear chat</button>
       <button id="btn-bench" onclick="runBenchUI()">⚡ bench</button>
     </div>
+    <div class="row" style="margin-top:6px"><button id="upd-check" onclick="checkUpdate()">↻ Vérifier les mises à jour</button></div>
+    <div class="muted" style="font-size:11px;margin-top:6px">Version installée : <b id="upd-cur">…</b></div>
+    <div id="upd-msg" class="muted" style="font-size:12px;margin-top:6px;line-height:1.5"></div>
   </details>
 </div>
 <div class="main" style="position:relative">
@@ -419,7 +417,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
       <button id="send" onclick="send()">send</button>
       <button id="stop" onclick="stopGen()" style="display:none;background:var(--danger-bg);border-color:var(--err);color:var(--err)">stop</button>
     </div>
-    <div class="muted" style="padding:0 12px 6px;font-size:10px;text-align:center;opacity:.7">Entrée pour envoyer · Maj+Entrée = nouvelle ligne</div>
   </div>
 </div>
 <div id="toast"></div>
