@@ -96,11 +96,22 @@ func estimateTokens(msgs []Message) int {
 // proactif. Renvoie l'historique (compacté ou inchangé) et un booléen indiquant
 // s'il a changé. À appeler sur l'historique BRUT (avant InjectSkills) pour que
 // le résultat puisse être renvoyé au client sans le préfixe système injecté.
-func MaybeCompact(ctx context.Context, msgs []Message, caps Caps) ([]Message, bool) {
+//
+// knownTokens = taille RÉELLE du contexte au tour précédent (usage.prompt_tokens
+// + tokens générés), telle que rapportée par llama.cpp et affichée par l'UI. On
+// la préfère à estimateTokens() car cette dernière n'est qu'une heuristique et,
+// surtout, ne « voit » pas le prompt système injecté (machine briefing) ni le
+// gabarit de chat — donc elle sous-estime largement le vrai contexte. 0 = inconnu
+// (clients sans compteur, ex. terminal) → repli sur l'estimation.
+func MaybeCompact(ctx context.Context, msgs []Message, caps Caps, knownTokens int) ([]Message, bool) {
 	if !compactEnabled() {
 		return msgs, false
 	}
-	if estimateTokens(msgs) < int(float64(ctxWindow())*compactTriggerFrac) {
+	used := knownTokens
+	if used <= 0 {
+		used = estimateTokens(msgs)
+	}
+	if used < int(float64(ctxWindow())*compactTriggerFrac) {
 		return msgs, false
 	}
 	return compactMessages(ctx, msgs, caps)

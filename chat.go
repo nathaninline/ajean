@@ -69,7 +69,7 @@ func cmdChat(args []string) error {
 		caps := globalCaps()
 		// Compaction proactive (façon Hermes) : on résume les vieux tours quand
 		// l'historique dépasse le seuil, au lieu d'imposer un /reset.
-		if compacted, changed := MaybeCompact(context.Background(), msgs, caps); changed {
+		if compacted, changed := MaybeCompact(context.Background(), msgs, caps, 0); changed {
 			msgs = compacted
 			fmt.Println(dim("[contexte compacté pour tenir dans la fenêtre]"))
 		}

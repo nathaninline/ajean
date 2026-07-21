@@ -1445,7 +1445,7 @@ async function send(){
   try{
     const sys=(document.getElementById('sysprompt').value||'').trim();
     const out = sys ? [{role:'system',content:sys}, ...msgs] : msgs;
-    const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:out}),signal:abortCtrl.signal});
+    const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:out,ctx_used:CTX_USED}),signal:abortCtrl.signal});
     const reader=r.body.getReader(); const dec=new TextDecoder(); let buf='';
     statsTimer = setInterval(updateStats, 250);
     while(true){

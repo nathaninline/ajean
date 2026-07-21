@@ -783,6 +783,10 @@ type chatReq struct {
 	Skills *bool `json:"skills"`
 	// Override par requête de l'accès internet (outils web). nil = config machine.
 	Internet *bool `json:"internet"`
+	// Taille réelle du contexte au tour précédent (usage.prompt_tokens + tokens
+	// générés), rapportée par le client qui l'affiche déjà. Sert à décider du
+	// compactage sur le VRAI décompte plutôt qu'une estimation. 0 = inconnu.
+	CtxUsed int `json:"ctx_used"`
 }
 
 // sseHeartbeat garde la réponse SSE active en écrivant un commentaire (`: ping`,
@@ -846,7 +850,7 @@ func runChatStream(ctx context.Context, body chatReq, emit func(map[string]any) 
 	// le résume AVANT le tour et on renvoie l'historique compacté au client pour
 	// qu'il remplace le sien — évite de re-renvoyer tout à chaque tour.
 	hist := body.Messages
-	if compacted, changed := MaybeCompact(ctx, hist, caps); changed {
+	if compacted, changed := MaybeCompact(ctx, hist, caps, body.CtxUsed); changed {
 		hist = compacted
 		emit(map[string]any{"history_replace": hist})
 	}
