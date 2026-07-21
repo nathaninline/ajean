@@ -67,6 +67,12 @@ func cmdChat(args []string) error {
 		// Print the assistant prefix once; reasoning is shown inline with a tag.
 		fmt.Print(cyan("jean") + " > ")
 		caps := globalCaps()
+		// Compaction proactive (façon Hermes) : on résume les vieux tours quand
+		// l'historique dépasse le seuil, au lieu d'imposer un /reset.
+		if compacted, changed := MaybeCompact(context.Background(), msgs, caps); changed {
+			msgs = compacted
+			fmt.Println(dim("[contexte compacté pour tenir dans la fenêtre]"))
+		}
 		extra, err := runChat(context.Background(), InjectSkills(msgs, caps), 0.7, caps, func(ev StreamEvent) bool {
 			switch {
 			case ev.Err != nil:

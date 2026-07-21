@@ -376,6 +376,10 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 	// retry the same turn once with tools removed so the model answers in plain
 	// text from the tool results already gathered, instead of dying mid-chat.
 	disableTools := false
+	// Filet réactif (façon Hermes) : si llama-server refuse le prompt (souvent un
+	// dépassement de la fenêtre de contexte après de gros résultats d'outils), on
+	// compacte l'historique en vol et on rejoue le tour — une seule fois.
+	compactedRetry := false
 	// Anti-loop net: if the model re-emits the exact same tool call (name+args)
 	// several times, it's stuck — break instead of spinning to the iteration cap.
 	lastSig := ""
@@ -433,6 +437,16 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			msg := strings.TrimSpace(string(b))
 			if msg == "" {
 				msg = resp.Status
+			}
+			// Le prompt a peut-être dépassé la fenêtre de contexte : on tente une
+			// compaction en vol et on rejoue le tour (une seule fois) avant tout le
+			// reste. C'est le filet de secours à la Hermes.
+			if compactEnabled() && !compactedRetry {
+				if c, changed := compactMessages(ctx, messages, caps); changed {
+					compactedRetry = true
+					messages = c
+					continue
+				}
 			}
 			// Most common 500 here: llama.cpp couldn't parse a malformed tool call
 			// the model emitted. Retry the turn once without tools so it answers

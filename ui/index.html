@@ -336,6 +336,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
       <div class="subhead">Paramètres</div>
       <label class="switchrow"><span class="switch"><input type="checkbox" id="toollimit-toggle" onchange="toggleToolLimit()"><span class="slider"></span></span> limiter les appels d'outils par tour<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : coupe l'IA après ~8 appels d'outils (message <code>[stop: trop d'appels d'outils]</code>). Désactive-le si tu veux la laisser enchaîner sans plafond (l'anti-boucle reste actif).</span></span></label>
     </div>
+    <div style="margin-top:8px">
+      <label class="switchrow"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> compactage automatique du contexte<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
+    </div>
   </details>
   <details><summary>Apparence</summary>
     <label class="switchrow" style="justify-content:space-between;gap:12px"><span>thème</span>
@@ -758,6 +761,7 @@ async function loadAgent(){
   const on = s.enabled;
   document.getElementById('agent-toggle').checked = on;
   document.getElementById('toollimit-toggle').checked = (s.tool_limit !== false);
+  document.getElementById('compact-toggle').checked = (s.compact !== false);
   document.getElementById('agent-badge').innerHTML = on
     ? '<span class="tag ok">on</span>' : '<span class="tag" style="opacity:.6">off</span>';
   document.getElementById('brand').classList.toggle('agent', on);
@@ -826,6 +830,10 @@ async function toggleToolLimit(){
   const on=document.getElementById('toollimit-toggle').checked;
   await jpost('/api/agent/tool-limit',{on});
   loadAgent();
+}
+async function toggleCompact(){
+  const on=document.getElementById('compact-toggle').checked;
+  await jpost('/api/agent/compact',{on});
 }
 // Mode mémoire (3 états) — indépendant du mode agent.
 const MEM_DESC={
@@ -1401,7 +1409,7 @@ async function send(){
   // réinitialise pas à chaque token pendant que l'IA raisonne / appelle un outil.
   const showTyping=()=>{ if(!simpleMode()) return; const c=document.getElementById('chat');
     if(!typingEl){ typingEl=addTyping(); } else if(c.lastElementChild!==typingEl){ c.appendChild(typingEl); } };
-  let reasonEl=null, contentEl=null, pendingToolEl=null, fullContent='', fullReason='', toolMsgs=null;
+  let reasonEl=null, contentEl=null, pendingToolEl=null, fullContent='', fullReason='', toolMsgs=null, compacted=false;
   let turnCollapsibles=[]; // bulles reasoning/tool à replier dès la réponse finale
   let tokCount=0, reasonTokCount=0, t0=performance.now(), firstTok=0, statsTimer=null;
   let serverStats=null, streamErr=false;
@@ -1473,6 +1481,15 @@ async function send(){
             // la réponse finale, sinon le modèle re-déclenche le même skill/commande
             // à chaque tour (aucune trace de l'avoir déjà fait).
             if(d.tool_messages){ toolMsgs = d.tool_messages; }
+            if(d.history_replace){
+              // Compaction côté serveur (façon Hermes) : on remplace notre
+              // historique par la version résumée. msgs ne contient jamais le
+              // system prompt (ajouté seulement à l'envoi), donc on retire les
+              // éventuels messages système de tête pour ne pas les dupliquer.
+              let h=d.history_replace.slice();
+              while(h.length && h[0].role==='system') h.shift();
+              msgs=h; saveChat(); compacted=true;
+            }
             if(d.tool_used){
               killTyping();
               // Close out the current assistant/reasoning bubbles so any text the
@@ -1529,6 +1546,7 @@ async function send(){
       if(toolMsgs) msgs.push(...toolMsgs);
       msgs.push({role:'assistant',content:fullContent}); saveChat();
     }
+    if(compacted) toast('contexte compacté — les vieux tours ont été résumés');
     // Le KV cache s'accumule : chaque tour ajoute les tokens NOUVELLEMENT traités
     // (prompt_tokens, le préfixe caché n'est pas recompté) + ceux générés. La
     // taille réelle du contexte = somme cumulée, donc monotone croissante.

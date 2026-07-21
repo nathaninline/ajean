@@ -89,6 +89,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/agent", handleAgent)
 	api("/api/agent/toggle", handleAgentToggle)
 	api("/api/agent/tool-limit", handleToolLimitToggle)
+	api("/api/agent/compact", handleCompactToggle)
 	api("/api/apikey", handleAPIKey)
 	api("/api/oai/public", handleOAIPublic)
 	api("/api/internet", handleInternet)
@@ -443,7 +444,7 @@ func handleAgent(w http.ResponseWriter, r *http.Request) {
 	for _, p := range pages {
 		out = append(out, map[string]any{"name": p.Name, "desc": p.Title})
 	}
-	sendJSON(w, 200, map[string]any{"enabled": agentEnabled(), "tool_limit": toolLimitEnabled(), "mem_mode": string(memMode()), "pages": out, "skills": out})
+	sendJSON(w, 200, map[string]any{"enabled": agentEnabled(), "tool_limit": toolLimitEnabled(), "compact": compactEnabled(), "mem_mode": string(memMode()), "pages": out, "skills": out})
 }
 
 // handleMemoryMode lit/écrit le mode mémoire (off / ondemand / always).
@@ -491,6 +492,24 @@ func handleToolLimitToggle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJSON(w, 200, map[string]any{"ok": true, "tool_limit": toolLimitEnabled()})
+}
+
+// handleCompactToggle active/désactive le compactage automatique du contexte
+// (config.env COMPACT). On=compacte (défaut), off=jamais.
+func handleCompactToggle(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		On bool `json:"on"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	val := ""
+	if !req.On {
+		val = "off"
+	}
+	if err := SetConfigKey("COMPACT", val); err != nil {
+		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "compact": compactEnabled()})
 }
 
 func handleAgentToggle(w http.ResponseWriter, r *http.Request) {
@@ -823,7 +842,15 @@ func runChatStream(ctx context.Context, body chatReq, emit func(map[string]any) 
 		// On garde la cohérence prompt/outils : internet demandé ET serveur joignable.
 		caps.Internet = *body.Internet && crawlReachable()
 	}
-	msgs := InjectSkills(body.Messages, caps)
+	// Compaction proactive (façon Hermes) : si l'historique dépasse le seuil, on
+	// le résume AVANT le tour et on renvoie l'historique compacté au client pour
+	// qu'il remplace le sien — évite de re-renvoyer tout à chaque tour.
+	hist := body.Messages
+	if compacted, changed := MaybeCompact(ctx, hist, caps); changed {
+		hist = compacted
+		emit(map[string]any{"history_replace": hist})
+	}
+	msgs := InjectSkills(hist, caps)
 	extra, _ := runChat(ctx, msgs, body.Temperature, caps, func(ev StreamEvent) bool {
 		if ev.Err != nil {
 			return emit(map[string]any{"error": ev.Err.Error()})
