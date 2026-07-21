@@ -1432,9 +1432,14 @@ function labelTokens(el, role, n, firstTs, lastTs){
   if(secs>0.05 && n>1){ setLabel(el, role+'  ·  '+n+' tok  ·  '+(n/secs).toFixed(1)+' tok/s'); }
   else { setLabel(el, role+'  ·  '+n+' tok'); }
 }
-function setBusy(on){ busy=on;
-  document.getElementById('send').style.display=on?'none':'inline-block';
-  document.getElementById('stop').style.display=on?'inline-block':'none'; }
+// Pendant le replay on met à jour l'état `busy` mais on NE touche PAS aux boutons
+// (sinon user→stop puis turn_done→send à chaque tour rejoué = flottement visible).
+// L'état final est appliqué une seule fois au caught_up via syncSendBtn().
+function setBusy(on){ busy=on; if(!REPLAYING) syncSendBtn(); }
+function syncSendBtn(){
+  document.getElementById('send').style.display=busy?'none':'inline-block';
+  document.getElementById('stop').style.display=busy?'inline-block':'none';
+}
 // Traite UN événement du flux — même sémantique que l'ancien switch inline, mais
 // piloté par le serveur et rejouable à l'identique.
 function handleDelta(d){
@@ -1442,7 +1447,7 @@ function handleDelta(d){
   if(d.caught_up){
     // Fin du replay initial : on saute en bas puis on révèle (une seule fois — pas
     // sur les reconnexions, pour ne pas te ramener en bas si tu lisais plus haut).
-    if(REPLAYING){ REPLAYING=false; jumpBottom(); const c=chatEl(); c.style.transition='opacity .15s'; c.style.opacity='1'; }
+    if(REPLAYING){ REPLAYING=false; jumpBottom(); syncSendBtn(); const c=chatEl(); c.style.transition='opacity .15s'; c.style.opacity='1'; }
     return; }
   if(d.reset!==undefined){ document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
   if(d.user!==undefined){ newTurn(); addMsg('user', d.user); setBusy(true); T.typingEl=addTyping(); return; }
