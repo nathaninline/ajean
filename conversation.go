@@ -244,13 +244,66 @@ func (c *Conversation) Reset() {
 	c.persist()
 }
 
-// Subscribe diffuse les événements au client via emit, en commençant par le
-// replay de Log[from:] puis en suivant le direct. Bloque jusqu'à ce que ctx (la
-// connexion HTTP) soit annulé — la génération, elle, continue indépendamment.
-// emit renvoie false si l'écriture échoue (client parti) → on sort.
+// coalesceReplay fusionne les deltas texte consécutifs (content / reasoning_content)
+// d'un même bloc en UN seul événement, pour que le replay au chargement soit léger
+// (quelques événements par tour au lieu de milliers de tokens). On conserve le
+// nombre de tokens fusionnés (toks) et les bornes d'horodatage (ts0→ts) pour que le
+// client reconstitue le compteur ET la vitesse. Les événements non-texte (user,
+// tool_used, stats, turn_done…) passent tels quels.
+func coalesceReplay(events []LogEvent, from int) []map[string]any {
+	var out []map[string]any
+	var buf strings.Builder
+	bufKey := ""
+	var bufSeq, bufToks int
+	var bufTs0, bufTs int64
+	flush := func() {
+		if bufKey == "" {
+			return
+		}
+		out = append(out, map[string]any{bufKey: buf.String(), "seq": bufSeq, "ts": bufTs, "ts0": bufTs0, "toks": bufToks})
+		buf.Reset()
+		bufKey, bufSeq, bufToks, bufTs0, bufTs = "", 0, 0, 0, 0
+	}
+	for _, ev := range events {
+		if ev.Seq <= from {
+			continue
+		}
+		// Delta texte ? (une seule clé content ou reasoning_content, valeur string)
+		key := ""
+		if s, ok := ev.Delta["content"].(string); ok {
+			key, _ = "content", s
+		} else if s, ok := ev.Delta["reasoning_content"].(string); ok {
+			key, _ = "reasoning_content", s
+		}
+		if key != "" {
+			if bufKey != "" && bufKey != key {
+				flush()
+			}
+			if bufKey == "" {
+				bufKey, bufTs0 = key, ev.TS
+			}
+			buf.WriteString(ev.Delta[key].(string))
+			bufSeq, bufTs = ev.Seq, ev.TS
+			bufToks++
+			continue
+		}
+		flush()
+		m := map[string]any{"seq": ev.Seq, "ts": ev.TS}
+		for k, v := range ev.Delta {
+			m[k] = v
+		}
+		out = append(out, m)
+	}
+	flush()
+	return out
+}
+
+// Subscribe diffuse les événements au client via emit : d'abord un REPLAY coalescé
+// de Log[from:] (léger), puis un caught_up, puis le DIRECT événement par événement.
+// Bloque jusqu'à ce que ctx (la connexion HTTP) soit annulé — la génération, elle,
+// continue indépendamment. emit renvoie false si l'écriture échoue (client parti).
 func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[string]any) bool) {
-	// Réveille les attentes de cond quand la connexion se ferme (sinon cond.Wait
-	// resterait bloqué faute de nouvel événement).
+	// Réveille les attentes de cond quand la connexion se ferme.
 	go func() {
 		<-ctx.Done()
 		c.mu.Lock()
@@ -258,17 +311,35 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[st
 		c.mu.Unlock()
 	}()
 
+	// 1. Replay coalescé (snapshot hors verrou pour ne pas bloquer la génération).
 	c.mu.Lock()
-	last := from
+	snapshot := append([]LogEvent(nil), c.Log...)
 	epoch := c.epoch
-	announced := false // a-t-on signalé la fin du replay (caught_up) ?
+	c.mu.Unlock()
+	last := from
+	for _, ev := range coalesceReplay(snapshot, from) {
+		if ctx.Err() != nil {
+			return
+		}
+		if !emit(ev) {
+			return
+		}
+		if s, ok := ev["seq"].(int); ok {
+			last = s
+		}
+	}
+	if !emit(map[string]any{"caught_up": true}) {
+		return
+	}
+
+	// 2. Direct : événements granulaires au-delà de `last`.
+	c.mu.Lock()
 	for {
 		if ctx.Err() != nil {
 			c.mu.Unlock()
 			return
 		}
-		// Un reset a eu lieu : on ordonne au client de nettoyer et on repart de 0.
-		if c.epoch != epoch {
+		if c.epoch != epoch { // reset → on ordonne au client de nettoyer et on repart
 			epoch = c.epoch
 			last = 0
 			c.mu.Unlock()
@@ -278,7 +349,6 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[st
 			c.mu.Lock()
 			continue
 		}
-		// Envoie tout ce qui est plus récent que `last`.
 		sent := false
 		for _, ev := range c.Log {
 			if ev.Seq <= last {
@@ -303,20 +373,8 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[st
 			}
 		}
 		if sent {
-			continue // il peut y avoir eu de nouveaux événements pendant l'envoi
-		}
-		// Replay drainé : on le signale UNE fois au client (il replie alors
-		// instantanément les vieilles bulles, sans animation), avant de suivre le
-		// direct. Événement synthétique, non journalisé.
-		if !announced {
-			announced = true
-			c.mu.Unlock()
-			if !emit(map[string]any{"caught_up": true}) {
-				return
-			}
-			c.mu.Lock()
 			continue
 		}
-		c.cond.Wait() // rien de neuf : dort jusqu'au prochain Broadcast (ou ctx annulé)
+		c.cond.Wait()
 	}
 }

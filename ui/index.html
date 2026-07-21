@@ -1458,14 +1458,16 @@ function handleDelta(d){
     killTyping();
     if(!T.reasonEl){ collapseAll(T.turnCollapsibles); T.reasonEl=addMsg('reasoning',''); if(REPLAYING) collapseInstant(T.reasonEl); T.fullReason=''; T.turnCollapsibles.push(T.reasonEl); }
     showTyping(); T.fullReason+=d.reasoning_content; renderBody(T.reasonEl, T.fullReason);
-    if(!T.reasonFirstTs) T.reasonFirstTs=d.ts||0; T.reasonLastTs=d.ts||T.reasonLastTs; T.reasonTok++;
+    // d.toks/d.ts0 présents quand l'événement est coalescé (replay) : plusieurs
+    // tokens d'un coup. Sinon (direct), 1 token, ts0=ts.
+    if(!T.reasonFirstTs) T.reasonFirstTs=d.ts0||d.ts||0; T.reasonLastTs=d.ts||T.reasonLastTs; T.reasonTok+=(d.toks||1);
     labelTokens(T.reasonEl, 'reasoning', T.reasonTok, T.reasonFirstTs, T.reasonLastTs);
     return; }
   if(d.content){
     removeTyping();
     if(!T.contentEl){ collapseAll(T.turnCollapsibles); T.contentEl=addMsg('assistant',''); T.fullContent=''; }
     T.fullContent+=d.content; renderBody(T.contentEl, T.fullContent);
-    if(!T.contentFirstTs) T.contentFirstTs=d.ts||0; T.contentLastTs=d.ts||T.contentLastTs; T.contentTok++;
+    if(!T.contentFirstTs) T.contentFirstTs=d.ts0||d.ts||0; T.contentLastTs=d.ts||T.contentLastTs; T.contentTok+=(d.toks||1);
     labelTokens(T.contentEl, 'assistant', T.contentTok, T.contentFirstTs, T.contentLastTs);
     return; }
 }
@@ -1489,22 +1491,32 @@ async function connectStream(){
           }
         }
       }
-    }catch(e){ /* coupure : on reconnecte */ }
-    await new Promise(res=>setTimeout(res, 1200));
+    }catch(e){ /* coupure : on reconnecte silencieusement */ }
+    await new Promise(res=>setTimeout(res, 600));
   }
 }
-function stopGen(){ jfetch('/api/chat/stop',{method:'POST'}).catch(()=>{}); toast('stop'); }
+// Envoi RÉSILIENT : sur le tunnel E2E, un aller-retour peut échouer transitoirement
+// alors qu'il a en fait abouti (la génération démarre). On réessaie, et un 409
+// (« déjà en cours ») = succès (c'est notre envoi qui est passé). On ne montre une
+// erreur qu'après plusieurs échecs ET vérification que rien ne tourne — plus de
+// « network error » alarmiste alors que l'IA répond quand même.
 async function send(){
   if(busy) return;
   const ta=document.getElementById('input'); const text=ta.value.trim();
   if(!text) return;
   ta.value='';
-  try{
-    const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,ctx_used:CTX_USED})});
-    if(r.status===409){ toast('génération déjà en cours'); ta.value=text; return; }
-    if(!r.ok){ let m='erreur'; try{ m=(await r.json()).error||m; }catch(_){} toast(m); ta.value=text; return; }
-    // La bulle utilisateur et les tokens arrivent par le flux d'abonnement.
-  }catch(e){ toast('échec envoi: '+e.message); ta.value=text; }
+  for(let attempt=0; attempt<3; attempt++){
+    try{
+      const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,ctx_used:CTX_USED})});
+      if(r.status===409) return;               // déjà en cours (notre envoi a abouti) → OK
+      if(r.ok) return;                          // la bulle + les tokens arrivent par le flux
+      if(r.status<500){ let m='erreur'; try{ m=(await r.json()).error||m; }catch(_){} toast(m); ta.value=text; return; }
+    }catch(e){ /* réseau : on retente */ }
+    await new Promise(res=>setTimeout(res, 600));
+  }
+  // Après plusieurs échecs : le serveur a peut-être quand même reçu le message.
+  try{ const s=await (await jfetch('/api/chat/state')).json(); if(s.generating) return; }catch(_){}
+  toast('échec de l\'envoi — réessaie'); ta.value=text;
 }
 loadAll();
 setInterval(loadStatus, 5000);
