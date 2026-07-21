@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 // État de conversation CÔTÉ SERVEUR — une seule conversation partagée par tous
@@ -30,9 +31,12 @@ import (
 const maxLogEvents = 5000
 
 // LogEvent = un événement d'affichage rejouable (un delta SSE + son numéro de
-// séquence monotone).
+// séquence monotone + un horodatage serveur en ms). Le TS permet au client de
+// calculer la vitesse (tok/s) à partir du temps RÉEL de génération — correct
+// aussi bien en direct qu'au replay (où tout arrive d'un bloc côté client).
 type LogEvent struct {
 	Seq   int            `json:"seq"`
+	TS    int64          `json:"ts"`
 	Delta map[string]any `json:"delta"`
 }
 
@@ -100,7 +104,7 @@ func (c *Conversation) persist() {
 func (c *Conversation) appendDelta(delta map[string]any) {
 	c.mu.Lock()
 	c.Seq++
-	c.Log = append(c.Log, LogEvent{Seq: c.Seq, Delta: delta})
+	c.Log = append(c.Log, LogEvent{Seq: c.Seq, TS: time.Now().UnixMilli(), Delta: delta})
 	if len(c.Log) > maxLogEvents {
 		c.Log = c.Log[len(c.Log)-maxLogEvents:]
 	}
@@ -281,8 +285,9 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[st
 			}
 			last = ev.Seq
 			delta := ev.Delta
+			ts := ev.TS
 			c.mu.Unlock()
-			out := map[string]any{"seq": ev.Seq}
+			out := map[string]any{"seq": ev.Seq, "ts": ts}
 			for k, v := range delta {
 				out[k] = v
 			}
