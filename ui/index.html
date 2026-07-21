@@ -1317,11 +1317,16 @@ function addCopyButtons(root){
     pre.appendChild(btn);
   });
 }
-function resetChat(){ msgs=[]; document.getElementById('chat').innerHTML=''; saveChat(); try{localStorage.removeItem('jean.ctxused');}catch(e){} setCtxUsed(0); toast('chat vidé'); }
+// Nouvelle conversation POUR TOUS LES APPAREILS : le serveur vide le fil et
+// diffuse un {reset} ; le flux d'abonnement nettoie alors l'affichage.
+function resetChat(){ jfetch('/api/chat/reset',{method:'POST'}).catch(()=>{}); toast('nouvelle conversation'); }
 // Compaction : on demande à l'IA un résumé de la conversation destiné à la
 // reprendre dans une session neuve, puis on repart d'un contexte propre seedé
 // avec ce résumé. Réduit drastiquement les tokens tout en gardant le fil.
 async function compactContext(){
+  // Le compactage est désormais AUTOMATIQUE côté serveur (façon Hermes) : ce
+  // bouton manuel n'a plus d'objet et est neutralisé.
+  toast('le compactage est automatique (façon Hermes)'); return;
   if(busy) return;
   if(!msgs.length){ toast('rien à compacter'); return; }
   if(!await askConfirm('L\'IA va résumer la conversation puis repartir d\'une session propre basée sur ce résumé.', {title:'Compacter le contexte ?', okText:'Compacter'})) return;
@@ -1364,218 +1369,110 @@ async function compactContext(){
 // Persistance de la conversation : on garde user+assistant en localStorage pour
 // survivre à un refresh (les bulles tool/reasoning sont éphémères, non stockées).
 function saveChat(){ try{ localStorage.setItem('jean.chat', JSON.stringify(msgs)); }catch(e){} }
-function restoreChat(){
-  let raw=null; try{ raw=localStorage.getItem('jean.chat'); }catch(e){}
-  if(!raw) return;
-  try{ msgs=JSON.parse(raw)||[]; }catch(e){ msgs=[]; return; }
-  for(const m of msgs){
-    // Les messages d'outil (role 'tool' et assistant porteur de tool_calls sans
-    // texte) font partie de l'historique envoyé au modèle mais ne s'affichent pas :
-    // on saute pour ne pas créer de bulles vides au rechargement.
-    if(m.role==='tool') continue;
-    if(m.role==='user') addMsg('user', m.content);
-    else if(m.role==='assistant'){
-      if(!m.content && m.tool_calls) continue;
-      const el=addMsg('assistant',''); renderBody(el, m.content||'');
-    }
-  }
-  const cu=parseInt(localStorage.getItem('jean.ctxused')||'0',10); if(cu>0) setCtxUsed(cu);
-}
+// Source de vérité = SERVEUR. Au chargement on ouvre le flux d'abonnement
+// permanent (connectStream), qui rejoue tout le fil depuis le serveur — texte,
+// appels d'outils, vitesses, raisonnement — puis suit le direct. Plus de
+// localStorage : le même contexte est partagé par tous les appareils.
+function restoreChat(){ connectStream(); }
 function onKey(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } }
-let abortCtrl=null;
-function stopGen(){ if(abortCtrl){ abortCtrl.abort(); toast('stop'); } }
+// ===== Conversation SERVEUR (source de vérité, partagée entre appareils) =====
+// L'historique et la génération vivent sur le serveur jean. Le client ouvre un
+// flux d'ABONNEMENT permanent (SSE) qui rejoue le journal depuis lastSeq puis
+// suit le direct. Fermer l'onglet n'arrête plus la génération (détachée côté
+// serveur) ; se reconnecter rejoue tout le fil, détails compris.
+let lastSeq=0, streamAbort=null;
+// État de rendu du tour courant, délimité par les événements user / turn_done.
+let T=null;
+function newTurn(){ T={ reasonEl:null, contentEl:null, pendingToolEl:null, typingEl:null, fullContent:'', fullReason:'', turnCollapsibles:[], serverStats:null }; }
+newTurn();
+const simpleMode=()=>document.documentElement.getAttribute('data-display')==='simple';
+function removeTyping(){ if(T.typingEl){ T.typingEl.remove(); T.typingEl=null; } }
+function killTyping(){ if(!T.typingEl) return; if(simpleMode()) return; removeTyping(); }
+function showTyping(){ if(!simpleMode()) return; const c=document.getElementById('chat');
+  if(!T.typingEl){ T.typingEl=addTyping(); } else if(c.lastElementChild!==T.typingEl){ c.appendChild(T.typingEl); } }
+// Label de vitesse rendu depuis les valeurs (fonctionne aussi bien en direct
+// qu'au replay — pas de timer performance.now, qui n'a pas de sens hors-ligne).
+function renderStats(el, s){
+  if(!el||!s) return;
+  const role=(el===T.contentEl)?'assistant':'reasoning';
+  const parts=[role];
+  const pt=s.prompt_tokens||s.prompt_tokens_total;
+  if(pt) parts.push('prefill '+pt+' tok · '+(s.prompt_per_second||0).toFixed(0)+' tok/s');
+  if(s.gen_tokens) parts.push('decode '+s.gen_tokens+' tok · '+(s.gen_per_second||0).toFixed(1)+' tok/s');
+  setLabel(el, parts.join('  ·  '));
+}
+function setBusy(on){ busy=on;
+  document.getElementById('send').style.display=on?'none':'inline-block';
+  document.getElementById('stop').style.display=on?'inline-block':'none'; }
+// Traite UN événement du flux — même sémantique que l'ancien switch inline, mais
+// piloté par le serveur et rejouable à l'identique.
+function handleDelta(d){
+  if(typeof d.seq==='number' && d.seq>lastSeq) lastSeq=d.seq;
+  if(d.reset!==undefined){ document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
+  if(d.user!==undefined){ newTurn(); addMsg('user', d.user); setBusy(true); T.typingEl=addTyping(); return; }
+  if(d.turn_done){ removeTyping(); collapseAll(T.turnCollapsibles); if(T.serverStats) renderStats(T.contentEl||T.reasonEl, T.serverStats); setBusy(false); return; }
+  if(d.error){ removeTyping(); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
+  if(d.compacted){ toast('contexte compacté — les vieux tours ont été résumés'); return; }
+  if(d.stats){ T.serverStats=d.stats;
+    if(d.stats.prompt_tokens_total){ setCtxUsed((d.stats.prompt_tokens_total||0)+(d.stats.gen_tokens||0)); }
+    if(T.contentEl||T.reasonEl) renderStats(T.contentEl||T.reasonEl, d.stats); return; }
+  if(d.tool_used){
+    killTyping(); T.contentEl=null; T.reasonEl=null; const tu=d.tool_used;
+    if(!T.pendingToolEl){ collapseAll(T.turnCollapsibles); T.pendingToolEl=addMsg('tool',''); T.turnCollapsibles.push(T.pendingToolEl); }
+    renderToolMsg(T.pendingToolEl, tu);
+    if(!tu.done) showTyping();
+    if(tu.done){ T.pendingToolEl=null; if(tu.name==='mem_add'||tu.name==='mem_edit') loadMem(); }
+    return; }
+  if(d.drop_reasoning){
+    if(T.reasonEl){ const i=T.turnCollapsibles.indexOf(T.reasonEl); if(i>=0) T.turnCollapsibles.splice(i,1); T.reasonEl.remove(); T.reasonEl=null; T.fullReason=''; }
+    return; }
+  if(d.reasoning_content){
+    killTyping();
+    if(!T.reasonEl){ collapseAll(T.turnCollapsibles); T.reasonEl=addMsg('reasoning',''); T.fullReason=''; T.turnCollapsibles.push(T.reasonEl); }
+    showTyping(); T.fullReason+=d.reasoning_content; renderBody(T.reasonEl, T.fullReason);
+    return; }
+  if(d.content){
+    removeTyping();
+    if(!T.contentEl){ collapseAll(T.turnCollapsibles); T.contentEl=addMsg('assistant',''); T.fullContent=''; }
+    T.fullContent+=d.content; renderBody(T.contentEl, T.fullContent);
+    return; }
+}
+// Flux d'abonnement permanent + reconnexion auto (from=lastSeq → pas de
+// re-téléchargement complet après une coupure / bascule d'appareil).
+async function connectStream(){
+  while(true){
+    streamAbort=new AbortController();
+    try{
+      const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:lastSeq}),signal:streamAbort.signal});
+      const reader=r.body.getReader(); const dec=new TextDecoder(); let buf='';
+      while(true){
+        const {done,value}=await reader.read(); if(done) break;
+        buf+=dec.decode(value,{stream:true}); let i;
+        while((i=buf.indexOf('\n\n'))>=0){
+          const chunk=buf.slice(0,i); buf=buf.slice(i+2);
+          for(const line of chunk.split('\n')){
+            if(!line.startsWith('data:')) continue;
+            const data=line.slice(5).trim(); if(data===''||data==='[DONE]') continue;
+            try{ const o=JSON.parse(data); const d=(o.choices&&o.choices[0]&&o.choices[0].delta)||{}; handleDelta(d); }catch(e){}
+          }
+        }
+      }
+    }catch(e){ /* coupure : on reconnecte */ }
+    await new Promise(res=>setTimeout(res, 1200));
+  }
+}
+function stopGen(){ jfetch('/api/chat/stop',{method:'POST'}).catch(()=>{}); toast('stop'); }
 async function send(){
   if(busy) return;
   const ta=document.getElementById('input'); const text=ta.value.trim();
   if(!text) return;
-  ta.value=''; busy=true;
-  document.getElementById('send').style.display='none';
-  document.getElementById('stop').style.display='inline-block';
-  addMsg('user', text);
-  msgs.push({role:'user',content:text}); saveChat();
-  let typingEl=addTyping();
-  const simpleMode=()=>document.documentElement.getAttribute('data-display')==='simple';
-  // Retire définitivement l'indicateur de frappe (fin de tour).
-  const removeTyping=()=>{ if(typingEl){ typingEl.remove(); typingEl=null; } };
-  // En mode COMPLET : on retire l'indicateur dès qu'une bulle prend le relais.
-  // En mode SIMPLE : raisonnement/outils sont masqués, donc on GARDE le même
-  // indicateur (mêmes points animés) vivant tout le tour, remis en bas.
-  // COMPLET : retire l'indicateur dès qu'une bulle prend le relais.
-  // SIMPLE : on le GARDE (raisonnement/outils masqués) — sans le toucher, pour
-  // ne PAS redémarrer son animation CSS (déplacer le nœud la remettrait à zéro).
-  const killTyping=()=>{ if(!typingEl) return; if(simpleMode()) return; removeTyping(); };
-  // SIMPLE : garantit l'indicateur (le recrée s'il manque) et le remet en bas
-  // UNIQUEMENT s'il n'y est pas déjà — idempotent, donc l'animation ne se
-  // réinitialise pas à chaque token pendant que l'IA raisonne / appelle un outil.
-  const showTyping=()=>{ if(!simpleMode()) return; const c=document.getElementById('chat');
-    if(!typingEl){ typingEl=addTyping(); } else if(c.lastElementChild!==typingEl){ c.appendChild(typingEl); } };
-  let reasonEl=null, contentEl=null, pendingToolEl=null, fullContent='', fullReason='', toolMsgs=null, compacted=false;
-  let turnCollapsibles=[]; // bulles reasoning/tool à replier dès la réponse finale
-  let tokCount=0, reasonTokCount=0, t0=performance.now(), firstTok=0, statsTimer=null;
-  let serverStats=null, streamErr=false;
-  const updateStats=(final)=>{
-    if(!contentEl && !reasonEl) return;
-    const el = contentEl || reasonEl;
-    const role = contentEl ? 'assistant' : 'reasoning';
-    // Mid-stream: client-side estimate. Final tick: use the server's exact
-    // timings if it gave us any (more accurate, includes prefill).
-    if(final && serverStats){
-      const s = serverStats;
-      const totalSec = (performance.now() - t0) / 1000;
-      const parts = [role];
-      // prefill = tokens RÉELLEMENT traités ce tour (timings.prompt_n) : gros au 1er
-      // tour (system prompt), petit ensuite car le préfixe est en cache. On NE prend
-      // PAS prompt_tokens_total (taille totale du prompt ≈ tout le contexte à chaque
-      // tour) — ça donnait un prefill quasi constant, incohérent avec la vitesse
-      // affichée (prompt_per_second, qui mesure justement prompt_n). Repli sur le
-      // total seulement si le backend n'a pas envoyé de timings.
-      const pt = s.prompt_tokens || s.prompt_tokens_total;
-      if(pt) parts.push('prefill ' + pt + ' tok · ' + (s.prompt_per_second||0).toFixed(0) + ' tok/s');
-      if(s.gen_tokens) parts.push('decode ' + s.gen_tokens + ' tok · ' + s.gen_per_second.toFixed(1) + ' tok/s');
-      parts.push('total ' + totalSec.toFixed(1) + 's');
-      setLabel(el, parts.join('  ·  '));
-      return;
-    }
-    const n = contentEl ? tokCount : reasonTokCount;
-    const elapsed = (performance.now() - (firstTok||t0)) / 1000;
-    const tps = elapsed > 0.05 ? (n / elapsed) : 0;
-    setLabel(el, role + '  ·  ' + n + ' tok  ·  ' + tps.toFixed(1) + ' tok/s');
-  };
-  abortCtrl = new AbortController();
+  ta.value='';
   try{
-    const sys=(document.getElementById('sysprompt').value||'').trim();
-    const out = sys ? [{role:'system',content:sys}, ...msgs] : msgs;
-    const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:out,ctx_used:CTX_USED}),signal:abortCtrl.signal});
-    const reader=r.body.getReader(); const dec=new TextDecoder(); let buf='';
-    statsTimer = setInterval(updateStats, 250);
-    while(true){
-      const {done,value}=await reader.read(); if(done) break;
-      buf+=dec.decode(value,{stream:true});
-      let i;
-      while((i=buf.indexOf('\n\n'))>=0){
-        const chunk=buf.slice(0,i); buf=buf.slice(i+2);
-        for(const line of chunk.split('\n')){
-          if(!line.startsWith('data:')) continue;
-          const data=line.slice(5).trim();
-          if(data==='[DONE]') continue;
-          try{
-            const o=JSON.parse(data);
-            const d=(o.choices&&o.choices[0]&&o.choices[0].delta)||{};
-            if(d.error){
-              removeTyping();
-              // Erreur serveur (ex : modèle en cours de chargement → 503). On
-              // l'affiche, on retire le message user de l'historique et on le
-              // remet dans l'input pour renvoyer d'un clic une fois prêt.
-              contentEl=null; reasonEl=null;
-              const eb=addMsg('assistant',''); eb.classList.add('errmsg');
-              renderBody(eb, d.error);
-              if(msgs.length && msgs[msgs.length-1].role==='user'){ ta.value=msgs[msgs.length-1].content; msgs.pop(); }
-              saveChat();
-              streamErr=true;
-              try{ reader.cancel(); }catch(_){}
-              break;
-            }
-            if(d.stats){ serverStats = d.stats; }
-            // Tool-turn messages (assistant tool_calls + tool results) sent at the
-            // end of the stream. On les garde pour les réinjecter dans msgs AVANT
-            // la réponse finale, sinon le modèle re-déclenche le même skill/commande
-            // à chaque tour (aucune trace de l'avoir déjà fait).
-            if(d.tool_messages){ toolMsgs = d.tool_messages; }
-            if(d.history_replace){
-              // Compaction côté serveur (façon Hermes) : on remplace notre
-              // historique par la version résumée. msgs ne contient jamais le
-              // system prompt (ajouté seulement à l'envoi), donc on retire les
-              // éventuels messages système de tête pour ne pas les dupliquer.
-              let h=d.history_replace.slice();
-              while(h.length && h[0].role==='system') h.shift();
-              msgs=h; saveChat(); compacted=true;
-            }
-            if(d.tool_used){
-              killTyping();
-              // Close out the current assistant/reasoning bubbles so any text the
-              // model streams *after* the tool call starts a fresh bubble BELOW it
-              // (and isn't appended above, into the pre-call bubble).
-              contentEl=null; reasonEl=null;
-              const tu=d.tool_used;
-              // One bubble per call: the live "typing" updates, the "en cours"
-              // spinner, and the final result all re-render the SAME element.
-              // Chaînage : replie les étapes précédentes (reasoning/outils déjà
-              // finis) dès qu'une nouvelle démarre — seule l'étape en cours reste ouverte.
-              if(!pendingToolEl){ collapseAll(turnCollapsibles); pendingToolEl=addMsg('tool',''); turnCollapsibles.push(pendingToolEl); }
-              renderToolMsg(pendingToolEl, tu);
-              if(!tu.done) showTyping(); // simple : points animés pendant l'appel d'outil
-              if(tu.done){
-                pendingToolEl=null;
-                // L'IA gère sa mémoire elle-même : rafraîchir le menu en direct
-                // dès qu'une page est créée/modifiée (pas besoin de F5).
-                if(tu.name==='mem_add' || tu.name==='mem_edit') loadMem();
-              }
-            }
-            if(d.drop_reasoning){
-              // Le modèle a « pensé sans agir » : on relance le tour. Le
-              // raisonnement mort-né est retiré pour ne pas afficher un double bloc.
-              if(reasonEl){
-                const i=turnCollapsibles.indexOf(reasonEl); if(i>=0) turnCollapsibles.splice(i,1);
-                reasonEl.remove(); reasonEl=null; fullReason='';
-              }
-            }
-            if(d.reasoning_content){
-              killTyping();
-              // Start a fresh buffer per bubble — otherwise a reasoning block that
-              // follows a tool call re-renders ALL previously accumulated reasoning
-              // into the new bubble (duplicated dozens of times over a turn).
-              if(!reasonEl){ collapseAll(turnCollapsibles); reasonEl=addMsg('reasoning',''); fullReason=''; turnCollapsibles.push(reasonEl); }
-              showTyping(); // simple : points animés pendant que l'IA raisonne
-              if(!firstTok) firstTok=performance.now();
-              reasonTokCount++;
-              fullReason+=d.reasoning_content; renderBody(reasonEl, fullReason);
-            }
-            if(d.content){
-              removeTyping(); // la réponse prend le relais : plus de points (comme en complet)
-              if(!contentEl){ collapseAll(turnCollapsibles); contentEl=addMsg('assistant',''); fullContent=''; firstTok=performance.now(); }
-              tokCount++;
-              fullContent+=d.content; renderBody(contentEl, fullContent);
-            }
-          }catch(e){}
-        }
-        if(streamErr) break;
-      }
-      if(streamErr) break;
-    }
-    if(!streamErr){
-      if(toolMsgs) msgs.push(...toolMsgs);
-      msgs.push({role:'assistant',content:fullContent}); saveChat();
-    }
-    if(compacted) toast('contexte compacté — les vieux tours ont été résumés');
-    // Le KV cache s'accumule : chaque tour ajoute les tokens NOUVELLEMENT traités
-    // (prompt_tokens, le préfixe caché n'est pas recompté) + ceux générés. La
-    // taille réelle du contexte = somme cumulée, donc monotone croissante.
-    if(serverStats){
-      // prompt_tokens_total (usage) = taille TOTALE du prompt ce tour (system +
-      // historique, préfixe caché compris) → contexte ABSOLU et exact. Sinon repli
-      // sur l'ancienne accumulation (prompt_tokens = seulement le neuf traité).
-      if(serverStats.prompt_tokens_total){ setCtxUsed((serverStats.prompt_tokens_total||0) + (serverStats.gen_tokens||0)); }
-      else { setCtxUsed(CTX_USED + (serverStats.prompt_tokens||0) + (serverStats.gen_tokens||0)); }
-      try{ localStorage.setItem('jean.ctxused', CTX_USED); }catch(e){}
-    }
-  }catch(e){
-    if(e.name==='AbortError'){
-      if(contentEl) setLabel(contentEl, 'assistant  ·  '+tokCount+' tok  ·  interrompu');
-      if(toolMsgs) msgs.push(...toolMsgs);
-      if(fullContent) msgs.push({role:'assistant',content:fullContent});
-      else if(!toolMsgs) msgs.pop();
-    } else {
-      addMsg('assistant','[erreur] '+e.message); msgs.pop();
-    }
-    saveChat();
-  }
-  removeTyping();
-  if(statsTimer) clearInterval(statsTimer);
-  updateStats(true);
-  abortCtrl=null; busy=false;
-  document.getElementById('send').style.display='inline-block';
-  document.getElementById('stop').style.display='none';
-  document.getElementById('input').focus();
+    const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,ctx_used:CTX_USED})});
+    if(r.status===409){ toast('génération déjà en cours'); ta.value=text; return; }
+    if(!r.ok){ let m='erreur'; try{ m=(await r.json()).error||m; }catch(_){} toast(m); ta.value=text; return; }
+    // La bulle utilisateur et les tokens arrivent par le flux d'abonnement.
+  }catch(e){ toast('échec envoi: '+e.message); ta.value=text; }
 }
 loadAll();
 setInterval(loadStatus, 5000);

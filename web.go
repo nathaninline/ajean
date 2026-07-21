@@ -57,7 +57,12 @@ func cmdWeb(args []string) error {
 // newWebMux construit le routeur HTTP de l'UI web. Extrait de cmdWeb pour être
 // réutilisé par `jean link`, qui sert ce même mux à travers le tunnel sans
 // repasser par un écouteur TCP local.
+var convLoadOnce sync.Once
+
 func newWebMux() *http.ServeMux {
+	// Charge l'état de conversation persisté (une fois par process : jean web ET
+	// jean link serve appellent newWebMux).
+	convLoadOnce.Do(LoadConversation)
 	mux := http.NewServeMux()
 	// Pages publiques : le HTML et le JS ne contiennent aucun secret. Toute la
 	// donnée et toutes les actions passent par /api/* qui, lui, exige la clé.
@@ -111,8 +116,12 @@ func newWebMux() *http.ServeMux {
 	api("/api/restart", svcHandler("restart"))
 	api("/api/bench", handleBench)
 	api("/api/bench/last", handleBenchLast)
-	api("/api/chat", handleChat)
-	api("/api/e2e/chat", handleE2EChat) // chat chiffré E2E (boîte noire via le relais)
+	api("/api/chat", handleChat)                 // flux d'ABONNEMENT (SSE) : rejoue + suit le fil
+	api("/api/chat/send", handleChatSend)        // envoie un message (lance la génération détachée)
+	api("/api/chat/stop", handleChatStop)        // interrompt la génération en cours
+	api("/api/chat/reset", handleChatReset)      // nouvelle conversation (pour tous les appareils)
+	api("/api/chat/state", handleChatState)      // instantané léger {seq, generating, ctx_used}
+	api("/api/e2e/chat", handleE2EChat)          // même flux mais chiffré E2E (boîte noire via le relais)
 	return mux
 }
 
@@ -787,6 +796,27 @@ type chatReq struct {
 	// générés), rapportée par le client qui l'affiche déjà. Sert à décider du
 	// compactage sur le VRAI décompte plutôt qu'une estimation. 0 = inconnu.
 	CtxUsed int `json:"ctx_used"`
+	// Nouveau modèle « conversation serveur » : Message = texte du tour à lancer
+	// (via /api/chat/send) ; From = dernier Seq déjà vu par le client (le flux
+	// d'abonnement rejoue Log[From:] puis suit le direct).
+	Message string `json:"message"`
+	From    int    `json:"from"`
+}
+
+// capsFromBody dérive les capacités du tour à partir des overrides éventuels du
+// corps de requête (agents ajean.link portant leurs propres toggles), sinon la
+// config machine.
+func capsFromBody(body chatReq) Caps {
+	caps := globalCaps()
+	if body.Agent != nil {
+		caps.Agent = *body.Agent
+	} else if body.Tools != nil || body.Skills != nil {
+		caps.Agent = (body.Tools != nil && *body.Tools) || (body.Skills != nil && *body.Skills)
+	}
+	if body.Internet != nil {
+		caps.Internet = *body.Internet && crawlReachable()
+	}
+	return caps
 }
 
 // sseHeartbeat garde la réponse SSE active en écrivant un commentaire (`: ping`,
@@ -822,67 +852,52 @@ func sseHeartbeat(w http.ResponseWriter, flusher http.Flusher) (*sync.Mutex, fun
 	return mu, func() { close(done) }
 }
 
-// runChatStream exécute le chat et pousse chaque événement (delta) via emit, qui
-// renvoie false pour interrompre. Partagé par handleChat et handleE2EChat.
+// runChatStream est désormais un pur ABONNÉ au journal de la conversation serveur :
+// il rejoue Log[body.From:] puis suit le direct, jusqu'à ce que la connexion (ctx)
+// se ferme. La GÉNÉRATION est lancée séparément par /api/chat/send dans une
+// goroutine détachée — fermer le navigateur n'arrête donc plus rien. Partagé par
+// handleChat (clair) et handleE2EChat (chiffré).
 func runChatStream(ctx context.Context, body chatReq, emit func(map[string]any) bool) {
-	// Garde-fou : si le modèle n'est pas encore chargé, llama-server répond 503
-	// ("loading model") et le tour partirait dans le vide (aucune réponse, l'user
-	// renvoie en boucle). On renvoie une erreur explicite affichée dans le chat.
-	if !healthCheck() {
-		emit(map[string]any{"error": "⏳ Le modèle est encore en train de charger — patiente quelques secondes puis renvoie ton message."})
+	conv.Subscribe(ctx, body.From, emit)
+}
+
+// handleChatSend ajoute un message et lance la génération en arrière-plan. Réponse
+// req/resp (les événements arrivent par le flux d'abonnement). Passe par le proxy
+// tunnel /api/e2e/req pour app.ajean.link — aucun code E2E spécifique requis.
+func handleChatSend(w http.ResponseWriter, r *http.Request) {
+	var body chatReq
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	if body.Temperature == 0 {
-		body.Temperature = 0.7
+	if strings.TrimSpace(body.Message) == "" {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "message vide"})
+		return
 	}
-	caps := globalCaps()
-	if body.Agent != nil {
-		caps.Agent = *body.Agent
-	} else if body.Tools != nil || body.Skills != nil {
-		// rétro-compat : anciens clients qui envoyaient deux drapeaux séparés
-		caps.Agent = (body.Tools != nil && *body.Tools) || (body.Skills != nil && *body.Skills)
+	if err := conv.StartTurn(body.Message, capsFromBody(body), body.Temperature); err != nil {
+		// 409 = occupé (génération en cours) ; 503 = modèle pas prêt.
+		code := 503
+		if err == ErrBusy {
+			code = 409
+		}
+		sendJSON(w, code, map[string]any{"ok": false, "error": err.Error()})
+		return
 	}
-	if body.Internet != nil {
-		// On garde la cohérence prompt/outils : internet demandé ET serveur joignable.
-		caps.Internet = *body.Internet && crawlReachable()
-	}
-	// Compaction proactive (façon Hermes) : si l'historique dépasse le seuil, on
-	// le résume AVANT le tour et on renvoie l'historique compacté au client pour
-	// qu'il remplace le sien — évite de re-renvoyer tout à chaque tour.
-	hist := body.Messages
-	if compacted, changed := MaybeCompact(ctx, hist, caps, body.CtxUsed); changed {
-		hist = compacted
-		emit(map[string]any{"history_replace": hist})
-	}
-	msgs := InjectSkills(hist, caps)
-	extra, _ := runChat(ctx, msgs, body.Temperature, caps, func(ev StreamEvent) bool {
-		if ev.Err != nil {
-			return emit(map[string]any{"error": ev.Err.Error()})
-		}
-		if ev.ToolUsed != nil {
-			return emit(map[string]any{"tool_used": map[string]any{"name": ev.ToolUsed.Name, "label": ev.ToolUsed.Label, "result": ev.ToolUsed.Result, "done": ev.ToolUsed.Done, "typing": ev.ToolUsed.Typing}})
-		}
-		if ev.Stats != nil {
-			return emit(map[string]any{"stats": ev.Stats})
-		}
-		if ev.DropReasoning {
-			return emit(map[string]any{"drop_reasoning": true})
-		}
-		if ev.Reasoning != "" {
-			return emit(map[string]any{"reasoning_content": ev.Reasoning})
-		}
-		if ev.Content != "" {
-			return emit(map[string]any{"content": ev.Content})
-		}
-		return true
-	})
-	// Surface the tool-turn messages (assistant tool_calls + tool results) as a
-	// final event so the stateless web client can store them in its history,
-	// BEFORE the final assistant text. Without this the browser only keeps the
-	// final answer and the model re-invokes the same skill/command every turn.
-	if len(extra) > 0 {
-		emit(map[string]any{"tool_messages": extra})
-	}
+	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
+func handleChatStop(w http.ResponseWriter, r *http.Request) {
+	conv.Stop()
+	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
+func handleChatReset(w http.ResponseWriter, r *http.Request) {
+	conv.Reset()
+	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
+func handleChatState(w http.ResponseWriter, r *http.Request) {
+	sendJSON(w, 200, conv.state())
 }
 
 func handleChat(w http.ResponseWriter, r *http.Request) {
