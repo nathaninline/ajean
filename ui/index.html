@@ -50,6 +50,9 @@ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-i
   #inputbar{padding:8px;gap:4px}
   #send,#stop{padding:0 12px}
   h1{margin-left:48px}
+  /* Petit écran (menu replié en tiroir) : on masque l'aide clavier — inutile et
+     ça prend de la place. Elle reste visible sur desktop. */
+  #sendhint{display:none}
 }
 /* Desktop : menu plus large et bulles (badges) un peu plus grosses. */
 @media (min-width:721px){
@@ -417,6 +420,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
       <button id="send" onclick="send()">send</button>
       <button id="stop" onclick="stopGen()" style="display:none;background:var(--danger-bg);border-color:var(--err);color:var(--err)">stop</button>
     </div>
+    <div id="sendhint" class="muted" style="padding:0 12px 6px;font-size:10px;text-align:center;opacity:.7">Entrée pour envoyer · Maj+Entrée = nouvelle ligne</div>
   </div>
 </div>
 <div id="toast"></div>
