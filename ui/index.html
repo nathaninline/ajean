@@ -335,9 +335,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
     <div id="param-block" class="gated-block">
       <div class="subhead">Paramètres</div>
       <label class="switchrow"><span class="switch"><input type="checkbox" id="toollimit-toggle" onchange="toggleToolLimit()"><span class="slider"></span></span> limiter les appels d'outils par tour<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : coupe l'IA après ~8 appels d'outils (message <code>[stop: trop d'appels d'outils]</code>). Désactive-le si tu veux la laisser enchaîner sans plafond (l'anti-boucle reste actif).</span></span></label>
-    </div>
-    <div style="margin-top:8px">
-      <label class="switchrow"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> compactage automatique du contexte<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
+      <label class="switchrow" style="margin-top:8px"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> compactage automatique du contexte<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
     </div>
   </details>
   <details><summary>Apparence</summary>
@@ -391,17 +389,17 @@ button:disabled{opacity:.5;cursor:not-allowed}
       <button onclick="act('stop')">stop</button>
     </div>
   </details>
+  <details id="upd-details"><summary>Mise à jour</summary>
+    <div class="muted" style="font-size:12px;margin-bottom:8px">Version installée : <b id="upd-cur">…</b></div>
+    <div class="row"><button id="upd-check" onclick="checkUpdate()">↻ Vérifier les mises à jour</button></div>
+    <div id="upd-msg" class="muted" style="font-size:12px;margin-top:8px;line-height:1.5"></div>
+  </details>
   <details><summary>Actions</summary>
     <div class="row">
       <button onclick="loadAll()">↻ refresh</button>
       <button onclick="resetChat()">⌫ clear chat</button>
       <button id="btn-bench" onclick="runBenchUI()">⚡ bench</button>
     </div>
-  </details>
-  <details id="upd-details"><summary>Mise à jour</summary>
-    <div class="muted" style="font-size:12px;margin-bottom:8px">Version installée : <b id="upd-cur">…</b></div>
-    <div class="row"><button id="upd-check" onclick="checkUpdate()">↻ Vérifier les mises à jour</button></div>
-    <div id="upd-msg" class="muted" style="font-size:12px;margin-top:8px;line-height:1.5"></div>
   </details>
 </div>
 <div class="main" style="position:relative">
@@ -1255,6 +1253,17 @@ function expandBody(el){
 function toggleCollapse(el){ el.classList.contains('collapsed') ? expandBody(el) : collapseBody(el); }
 // Replie toutes les bulles d'un tour une fois la réponse finale entamée.
 function collapseAll(list){ for(const el of list){ if(el) collapseBody(el); } list.length=0; }
+// Replie une bulle INSTANTANÉMENT (sans animation) — utilisé pendant le replay au
+// chargement pour que les vieilles bulles apparaissent déjà fermées. La classe
+// 'collapsed' seule ne gère que l'opacité ; la hauteur est en style inline, donc
+// on la met à 0 transition désactivée.
+function collapseInstant(el){
+  const bw=el.querySelector('.bodywrap'); if(!bw) return;
+  el.classList.add('collapsed');
+  const t=bw.style.transition; bw.style.transition='none';
+  bw.style.height='0px'; bw.style.width='0px';
+  void bw.offsetHeight; bw.style.transition=t;
+}
 function setLabel(el, text){ el.querySelector('.label').textContent = text; }
 function bodyOf(el){ return el.querySelector('.body'); }
 // Render markdown into a message body in place; safe because md() escapes HTML.
@@ -1384,6 +1393,11 @@ function onKey(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(
 // suit le direct. Fermer l'onglet n'arrête plus la génération (détachée côté
 // serveur) ; se reconnecter rejoue tout le fil, détails compris.
 let lastSeq=0, streamAbort=null;
+// REPLAYING = on est dans le replay initial (rejeu du journal au chargement).
+// Pendant ce temps, les bulles raisonnement/outil sont créées DÉJÀ repliées →
+// pas d'animation d'ouverture/fermeture au refresh. Le serveur envoie {caught_up}
+// quand le replay est fini, on repasse alors en direct.
+let REPLAYING=true;
 // État de rendu du tour courant, délimité par les événements user / turn_done.
 let T=null;
 function newTurn(){ T={ reasonEl:null, contentEl:null, pendingToolEl:null, typingEl:null, fullContent:'', fullReason:'', turnCollapsibles:[], serverStats:null, reasonTok:0, contentTok:0, reasonFirstTs:0, reasonLastTs:0, contentFirstTs:0, contentLastTs:0 }; }
@@ -1421,6 +1435,7 @@ function setBusy(on){ busy=on;
 // piloté par le serveur et rejouable à l'identique.
 function handleDelta(d){
   if(typeof d.seq==='number' && d.seq>lastSeq) lastSeq=d.seq;
+  if(d.caught_up){ REPLAYING=false; return; }
   if(d.reset!==undefined){ document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
   if(d.user!==undefined){ newTurn(); addMsg('user', d.user); setBusy(true); T.typingEl=addTyping(); return; }
   if(d.turn_done){ removeTyping(); collapseAll(T.turnCollapsibles); if(T.serverStats) renderStats(T.contentEl||T.reasonEl, T.serverStats); setBusy(false); return; }
@@ -1431,7 +1446,7 @@ function handleDelta(d){
     if(T.contentEl||T.reasonEl) renderStats(T.contentEl||T.reasonEl, d.stats); return; }
   if(d.tool_used){
     killTyping(); T.contentEl=null; T.reasonEl=null; const tu=d.tool_used;
-    if(!T.pendingToolEl){ collapseAll(T.turnCollapsibles); T.pendingToolEl=addMsg('tool',''); T.turnCollapsibles.push(T.pendingToolEl); }
+    if(!T.pendingToolEl){ collapseAll(T.turnCollapsibles); T.pendingToolEl=addMsg('tool',''); if(REPLAYING) collapseInstant(T.pendingToolEl); T.turnCollapsibles.push(T.pendingToolEl); }
     renderToolMsg(T.pendingToolEl, tu);
     if(!tu.done) showTyping();
     if(tu.done){ T.pendingToolEl=null; if(tu.name==='mem_add'||tu.name==='mem_edit') loadMem(); }
@@ -1441,7 +1456,7 @@ function handleDelta(d){
     return; }
   if(d.reasoning_content){
     killTyping();
-    if(!T.reasonEl){ collapseAll(T.turnCollapsibles); T.reasonEl=addMsg('reasoning',''); T.fullReason=''; T.turnCollapsibles.push(T.reasonEl); }
+    if(!T.reasonEl){ collapseAll(T.turnCollapsibles); T.reasonEl=addMsg('reasoning',''); if(REPLAYING) collapseInstant(T.reasonEl); T.fullReason=''; T.turnCollapsibles.push(T.reasonEl); }
     showTyping(); T.fullReason+=d.reasoning_content; renderBody(T.reasonEl, T.fullReason);
     if(!T.reasonFirstTs) T.reasonFirstTs=d.ts||0; T.reasonLastTs=d.ts||T.reasonLastTs; T.reasonTok++;
     labelTokens(T.reasonEl, 'reasoning', T.reasonTok, T.reasonFirstTs, T.reasonLastTs);

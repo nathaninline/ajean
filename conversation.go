@@ -261,6 +261,7 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[st
 	c.mu.Lock()
 	last := from
 	epoch := c.epoch
+	announced := false // a-t-on signalé la fin du replay (caught_up) ?
 	for {
 		if ctx.Err() != nil {
 			c.mu.Unlock()
@@ -303,6 +304,18 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[st
 		}
 		if sent {
 			continue // il peut y avoir eu de nouveaux événements pendant l'envoi
+		}
+		// Replay drainé : on le signale UNE fois au client (il replie alors
+		// instantanément les vieilles bulles, sans animation), avant de suivre le
+		// direct. Événement synthétique, non journalisé.
+		if !announced {
+			announced = true
+			c.mu.Unlock()
+			if !emit(map[string]any{"caught_up": true}) {
+				return
+			}
+			c.mu.Lock()
+			continue
 		}
 		c.cond.Wait() // rien de neuf : dort jusqu'au prochain Broadcast (ou ctx annulé)
 	}
