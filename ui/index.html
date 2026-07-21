@@ -1512,6 +1512,9 @@ async function connectStream(){
     await new Promise(res=>setTimeout(res, 600));
   }
 }
+// Interrompt la génération en cours côté serveur (la goroutine détachée est
+// annulée). Le serveur émet alors turn_done → le bouton repasse en « send ».
+function stopGen(){ jfetch('/api/chat/stop',{method:'POST'}).catch(()=>{}); toast('stop'); }
 // Envoi RÉSILIENT : sur le tunnel E2E, un aller-retour peut échouer transitoirement
 // alors qu'il a en fait abouti (la génération démarre). On réessaie, et un 409
 // (« déjà en cours ») = succès (c'est notre envoi qui est passé). On ne montre une
