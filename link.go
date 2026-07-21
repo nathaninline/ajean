@@ -220,8 +220,15 @@ func runLinkForeground() error {
 		fmt.Printf("%s empreinte E2E : %s   (code d'appairage : jean link code)\n", green("[e2e]"), bold(fp))
 	}
 
+	// UNE seule instance du mux web → UNE seule conversation en mémoire, PARTAGÉE
+	// entre l'UI locale (:8090, jean.example.org) et le tunnel (app.ajean.link). Avant,
+	// `jean web` et `jean link` étaient deux process distincts avec chacun leur
+	// historique → confusion. Désormais le process jean-link est l'unique
+	// propriétaire de la conversation et sert les DEUX surfaces.
+	webMux := newWebMux()
+	go serveLocalWebMux(webMux)
 	// On construit le handler une seule fois ; il est servi à travers chaque tunnel.
-	handler := newLinkHandler()
+	handler := newLinkHandler(webMux)
 	// Front TLS de l'accès OpenAI public. Toujours prêt ; c'est le drapeau
 	// oaiPublicEnabled (piloté par l'UI, lu en direct au démux) qui autorise ou non
 	// le trafic. Cert obtenu à la demande via TLS-ALPN-01 à travers le tunnel.
@@ -242,6 +249,21 @@ func runLinkForeground() error {
 			}
 		}
 	}
+}
+
+// serveLocalWebMux sert l'UI web locale sur :8090 avec le mux fourni — le MÊME
+// que celui exposé dans le tunnel. Le process jean-link devient ainsi l'unique
+// propriétaire de la conversation, partagée entre l'accès local et l'accès
+// distant. Remplace le `jean web` autonome (à ne plus lancer séparément).
+func serveLocalWebMux(mux *http.ServeMux) {
+	addr := "0.0.0.0:8090"
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		fmt.Printf("%s UI locale non démarrée (%s occupé ? tue le vieux « jean web ») : %v\n", yellow("[web]"), addr, err)
+		return
+	}
+	fmt.Printf("%s UI locale sur http://%s (même conversation que le tunnel)\n", green("[web]"), addr)
+	_ = http.Serve(ln, mux)
 }
 
 // linkServiceCtl pilote l'unité systemd jean-link (start/stop/restart), avec sudo
@@ -282,8 +304,8 @@ func linkServiceActive() bool {
 //     compatible OpenAI, avec injection de la clé API locale) → permet de
 //     brancher OpenCode, Hermes, etc. sur ajean.link/oai/<machine>/v1
 //   - tout le reste → l'UI web de Jean (avec injection de la clé de pilotage)
-func newLinkHandler() http.Handler {
-	web := withLocalAuth(newWebMux())
+func newLinkHandler(mux *http.ServeMux) http.Handler {
+	web := withLocalAuth(mux)
 	llama := &url.URL{Scheme: "http", Host: fmt.Sprintf("127.0.0.1:%d", LLMPort())}
 	lp := httputil.NewSingleHostReverseProxy(llama)
 	lp.FlushInterval = -1 // streaming SSE des complétions
