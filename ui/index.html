@@ -1373,17 +1373,25 @@ function saveChat(){ try{ localStorage.setItem('jean.chat', JSON.stringify(msgs)
 // permanent (connectStream), qui rejoue tout le fil depuis le serveur — texte,
 // appels d'outils, vitesses, raisonnement — puis suit le direct. Plus de
 // localStorage : le même contexte est partagé par tous les appareils.
-function restoreChat(){ connectStream(); }
+async function restoreChat(){
+  // On note où en est le serveur : tout ce qui existe déjà sera rejoué d'un bloc
+  // (replay, sans vitesse) ; ce qui vient après est du direct (avec vitesse).
+  try{ const s=await (await jfetch('/api/chat/state')).json(); replayTarget=s.seq||0; }catch(e){}
+  connectStream();
+}
 function onKey(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } }
 // ===== Conversation SERVEUR (source de vérité, partagée entre appareils) =====
 // L'historique et la génération vivent sur le serveur jean. Le client ouvre un
 // flux d'ABONNEMENT permanent (SSE) qui rejoue le journal depuis lastSeq puis
 // suit le direct. Fermer l'onglet n'arrête plus la génération (détachée côté
 // serveur) ; se reconnecter rejoue tout le fil, détails compris.
-let lastSeq=0, streamAbort=null;
+// replayTarget = dernier Seq déjà présent sur le serveur au moment où l'on se
+// (re)connecte. Les événements jusque-là sont du REPLAY (arrivent d'un bloc) →
+// on n'affiche PAS de vitesse (elle serait absurde). Au-delà = direct → vitesse.
+let lastSeq=0, streamAbort=null, replayTarget=0;
 // État de rendu du tour courant, délimité par les événements user / turn_done.
 let T=null;
-function newTurn(){ T={ reasonEl:null, contentEl:null, pendingToolEl:null, typingEl:null, fullContent:'', fullReason:'', turnCollapsibles:[], serverStats:null }; }
+function newTurn(){ T={ reasonEl:null, contentEl:null, pendingToolEl:null, typingEl:null, fullContent:'', fullReason:'', turnCollapsibles:[], serverStats:null, reasonTok:0, contentTok:0, reasonStart:0, contentStart:0 }; }
 newTurn();
 const simpleMode=()=>document.documentElement.getAttribute('data-display')==='simple';
 function removeTyping(){ if(T.typingEl){ T.typingEl.remove(); T.typingEl=null; } }
@@ -1400,6 +1408,15 @@ function renderStats(el, s){
   if(pt) parts.push('prefill '+pt+' tok · '+(s.prompt_per_second||0).toFixed(0)+' tok/s');
   if(s.gen_tokens) parts.push('decode '+s.gen_tokens+' tok · '+(s.gen_per_second||0).toFixed(1)+' tok/s');
   setLabel(el, parts.join('  ·  '));
+}
+// Label LIVE d'une bulle : nombre de tokens + vitesse mesurée côté client au fil
+// des deltas (comme avant la refonte). En replay (seq<=replayTarget), on n'affiche
+// que le nombre de tokens — pas la vitesse, car tout arrive d'un bloc.
+function labelTokens(el, role, n, start, seq){
+  if(!el) return;
+  if(seq && seq<=replayTarget){ setLabel(el, role+'  ·  '+n+' tok'); return; }
+  const secs=(performance.now()-start)/1000; const tps= secs>0.05 ? (n/secs):0;
+  setLabel(el, role+'  ·  '+n+' tok  ·  '+tps.toFixed(1)+' tok/s');
 }
 function setBusy(on){ busy=on;
   document.getElementById('send').style.display=on?'none':'inline-block';
@@ -1430,11 +1447,15 @@ function handleDelta(d){
     killTyping();
     if(!T.reasonEl){ collapseAll(T.turnCollapsibles); T.reasonEl=addMsg('reasoning',''); T.fullReason=''; T.turnCollapsibles.push(T.reasonEl); }
     showTyping(); T.fullReason+=d.reasoning_content; renderBody(T.reasonEl, T.fullReason);
+    if(!T.reasonStart) T.reasonStart=performance.now(); T.reasonTok++;
+    labelTokens(T.reasonEl, 'reasoning', T.reasonTok, T.reasonStart, d.seq);
     return; }
   if(d.content){
     removeTyping();
     if(!T.contentEl){ collapseAll(T.turnCollapsibles); T.contentEl=addMsg('assistant',''); T.fullContent=''; }
     T.fullContent+=d.content; renderBody(T.contentEl, T.fullContent);
+    if(!T.contentStart) T.contentStart=performance.now(); T.contentTok++;
+    labelTokens(T.contentEl, 'assistant', T.contentTok, T.contentStart, d.seq);
     return; }
 }
 // Flux d'abonnement permanent + reconnexion auto (from=lastSeq → pas de
