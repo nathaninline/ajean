@@ -1382,7 +1382,14 @@ function saveChat(){ try{ localStorage.setItem('jean.chat', JSON.stringify(msgs)
 // Source de vérité = SERVEUR : on ouvre le flux d'abonnement permanent qui rejoue
 // tout le fil (texte, outils, vitesses via les horodatages serveur, raisonnement)
 // puis suit le direct. Partagé par tous les appareils.
-function restoreChat(){ connectStream(); }
+function restoreChat(){
+  // On masque le chat le temps du replay pour ne pas voir défiler le haut puis
+  // sauter en bas (effet de clignotement). Il est révélé, positionné en bas, au
+  // signal {caught_up}. Filet de sécurité : révélé quoi qu'il arrive après 2s.
+  const c=chatEl(); c.style.opacity='0';
+  setTimeout(()=>{ c.style.transition='opacity .15s'; c.style.opacity='1'; }, 2000);
+  connectStream();
+}
 function onKey(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } }
 // ===== Conversation SERVEUR (source de vérité, partagée entre appareils) =====
 // L'historique et la génération vivent sur le serveur jean. Le client ouvre un
@@ -1432,7 +1439,11 @@ function setBusy(on){ busy=on;
 // piloté par le serveur et rejouable à l'identique.
 function handleDelta(d){
   if(typeof d.seq==='number' && d.seq>lastSeq) lastSeq=d.seq;
-  if(d.caught_up){ REPLAYING=false; return; }
+  if(d.caught_up){
+    // Fin du replay initial : on saute en bas puis on révèle (une seule fois — pas
+    // sur les reconnexions, pour ne pas te ramener en bas si tu lisais plus haut).
+    if(REPLAYING){ REPLAYING=false; jumpBottom(); const c=chatEl(); c.style.transition='opacity .15s'; c.style.opacity='1'; }
+    return; }
   if(d.reset!==undefined){ document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
   if(d.user!==undefined){ newTurn(); addMsg('user', d.user); setBusy(true); T.typingEl=addTyping(); return; }
   if(d.turn_done){ removeTyping(); collapseAll(T.turnCollapsibles); if(T.serverStats) renderStats(T.contentEl||T.reasonEl, T.serverStats); setBusy(false); return; }
