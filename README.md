@@ -298,6 +298,10 @@ GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o jean-linux-amd64 .
 - `jean serve` est l'`ExecStart` de systemd : il lit `config.env`, construit la liste d'arguments de `llama-server`, et fait un `exec` dessus pour que systemd supervise directement llama.cpp.
 - `jean llamacpp` gère le checkout llama.cpp à côté de l'endroit où pointe `BIN`, en gérant le piège classique du « dossier de build relocalisé » (cache CMake) et en arrêtant le service pendant la recompilation pour éviter le *Text file busy*.
 
+## UI web (`ui/`)
+
+`ui/index.html` est **généré** : les sources vivent dans `ui/src/` (`styles.css`, `js/NN-*.js` concaténés dans l'ordre alphabétique, `index.tmpl.html`). Pour modifier l'UI : éditer `ui/src/` puis lancer `ui/assemble.ps1` (le fichier assemblé reste committé car `go:embed` et `ajean-app/build-server-ui.ps1` le lisent tel quel).
+
 ## Licence
 
 [MIT](LICENSE). Le fichier `ui/marked.min.js` embarqué est [Marked](https://github.com/markedjs/marked), également MIT.
