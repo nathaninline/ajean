@@ -16,6 +16,7 @@ import (
 	"time"
 )
 
+//go:generate go run ../../tools/assemble-ui ui
 //go:embed ui/index.html ui/marked.min.js
 var uiFS embed.FS
 

@@ -302,7 +302,7 @@ GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o jean-linux-amd64 ./cmd/jean
 
 - `cmd/jean/` — point d'entrée (`main()`) + ressources Windows (.syso, icône, versioninfo).
 - `internal/jean/` — tout le code, fichiers préfixés par domaine (`web_*`, `chat_*`, `llm_*`, `backend_*`, `relay_*`, `sys_*` — carte dans `doc.go`).
-- `internal/jean/ui/` — UI web embarquée. `index.html` est **généré** : les sources vivent dans `ui/src/` (`styles.css`, `js/NN-*.js` concaténés dans l'ordre alphabétique, `index.tmpl.html`). Pour modifier l'UI : éditer `ui/src/` puis lancer `ui/assemble.ps1` (le fichier assemblé reste committé car `go:embed` et `ajean-app/build-server-ui.ps1` le lisent tel quel).
+- `internal/jean/ui/` — UI web embarquée. `index.html` est **généré** : les sources vivent dans `ui/src/` (`styles.css`, `js/NN-*.js` concaténés dans l'ordre alphabétique, `index.tmpl.html`). Pour modifier l'UI : éditer `ui/src/` puis lancer `go generate ./internal/jean` (outil `tools/assemble-ui`, multiplateforme ; le fichier assemblé reste committé car `go:embed` et `ajean-app/build-server-ui.ps1` le lisent tel quel).
 
 ## Licence
 
