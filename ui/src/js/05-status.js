@@ -1,0 +1,74 @@
+async function loadStatus(){
+  const s=await jget('/api/status');
+  const el=document.getElementById('status-svc');
+  // Trois états : service coupé (err) · service actif mais modèle pas encore
+  // chargé (loading, llama-server renvoie 503) · modèle prêt (ok).
+  let cls='err', txt=s.state;
+  if(s.active && s.health){ cls='ok'; txt='prêt'; }
+  else if(s.active){ cls='loading'; txt='chargement…'; }
+  el.className='statuspill '+cls;
+  el.innerHTML='<span class="dot"></span>'+txt+' <span class="port">:'+s.port+'</span>';
+  MODEL_READY = !!(s.active && s.health);
+  if(s.ctx){ CTX_MAX=s.ctx; updateCtxMeter(); }
+  if(s.version){
+    document.getElementById('ver').textContent='v'+s.version;
+  }
+}
+async function checkUpdate(){
+  const b=document.getElementById('upd-check'), msg=document.getElementById('upd-msg');
+  b.disabled=true; msg.textContent='Vérification…';
+  try{
+    const r=await jget('/api/update');
+    if(r.error){ msg.textContent='Erreur : '+r.error; }
+    else if(r.available){
+      msg.innerHTML='Nouvelle version <b>v'+r.latest+'</b> disponible. ';
+      const btn=document.createElement('button'); btn.textContent='Mettre à jour'; btn.onclick=applyUpdate;
+      msg.appendChild(btn);
+    } else { msg.textContent='Jean est à jour ✓'; }
+  }catch(e){ msg.textContent='Erreur réseau'; }
+  b.disabled=false;
+}
+async function applyUpdate(){
+  const msg=document.getElementById('upd-msg');
+  msg.textContent='Téléchargement et installation…';
+  try{
+    const r=await jpost('/api/update/apply',{});
+    if(r.ok){
+      msg.innerHTML='✓ Installé en <b>v'+r.version+'</b>.<br>'+(r.restart||'');
+      // Redémarrage auto du service côté serveur : le flux va se couper puis
+      // reconnecter tout seul (connectStream boucle). On rafraîchit l'état après.
+      if(r.restarting){ toast('mise à jour appliquée — reconnexion…'); setTimeout(loadAll, 6000); }
+    }
+    else { msg.textContent='Échec : '+(r.error||'inconnu'); }
+  }catch(e){ msg.textContent='Erreur pendant la mise à jour (réessaie).'; }
+}
+// Compteur de contexte : CTX_USED estimé via les stats serveur (prefill+decode
+// du dernier tour ≈ taille du prochain prompt). À 90% on propose de compacter.
+let CTX_MAX=0, CTX_USED=0, MODEL_READY=false;
+function setCtxUsed(n){ CTX_USED=n||0; updateCtxMeter(); }
+function updateCtxMeter(){
+  if(!CTX_MAX) return;
+  const pct=Math.min(100, Math.round(CTX_USED*100/CTX_MAX));
+  const fill=document.getElementById('ctx-fill');
+  fill.style.width=pct+'%';
+  fill.style.background = pct>=90 ? 'var(--err,#c44)' : pct>=70 ? 'var(--warn,#c93)' : 'var(--ok,#3a7)';
+  document.getElementById('ctx-text').textContent='contexte '+CTX_USED+' / '+CTX_MAX+' ('+pct+'%)';
+  document.getElementById('ctx-compact').style.display = pct>=90 ? 'inline-block' : 'none';
+}
+async function loadVram(){
+  const gpus=await jget('/api/vram');
+  document.getElementById('vram').innerHTML = (gpus||[]).map(g=>{
+    const pct=Math.round(g.used*100/g.total);
+    return '<div style="margin:6px 0"><div style="font-size:12px">'+g.name+'</div>'+
+      '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
+      '<div class="muted">'+(g.used/1024).toFixed(1)+' / '+(g.total/1024).toFixed(1)+' GiB · GPU '+g.util+'% · '+g.temp+'°C</div></div>';
+  }).join('') || '<span class="muted">(pas de GPU)</span>';
+}
+async function loadCfg(){
+  const c=await jget('/api/config');
+  const keys=['BIN','MODEL','CTX','BATCH','UBATCH','NGL','PORT'];
+  document.getElementById('cfg').innerHTML = keys.filter(k=>c[k]).map(k=>{
+    let v=c[k]; if(k==='MODEL') v=v.split('/').pop();
+    return '<div class="kv"><span>'+k+'</span><span title="'+v.replace(/"/g,'&quot;')+'">'+v+'</span></div>';
+  }).join('');
+}

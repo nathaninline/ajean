@@ -1,0 +1,271 @@
+/* ===== Thèmes =====================================================
+   Toutes les couleurs de l'UI passent par ces variables. Pour AJOUTER un
+   thème plus tard : 1) copier un bloc [data-theme="…"] ci-dessous en changeant
+   les valeurs, 2) ajouter son {id,label} au registre THEMES (voir le JS). Le
+   reste (sélecteur, persistance, application) est automatique. */
+/* --font : police par défaut (mono). Un thème peut la surcharger (voir "soft").
+   Les blocs plus spécifiques qui ne redéfinissent pas --font héritent de :root. */
+:root{color-scheme:dark;--font:ui-monospace,SFMono-Regular,Menlo,monospace;--bubble:#1f6feb;--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--accent-bg:rgba(88,166,255,.12);--ok:#58a6ff;--warn:#d29922;--err:#f85149;--mag:#bc8cff;--code-bg:#0d1117;--danger-bg:#3d1f23;--warn-bg:#3d2f1f}
+[data-theme="dark"]{color-scheme:dark;--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--accent-bg:rgba(88,166,255,.12);--ok:#58a6ff;--warn:#d29922;--err:#f85149;--mag:#bc8cff;--code-bg:#0d1117;--danger-bg:#3d1f23;--warn-bg:#3d2f1f}
+[data-theme="light"]{color-scheme:light;--bg:#f0f1f4;--panel:#f8f9fb;--border:#d7dbe1;--text:#24292f;--dim:#636b74;--accent:#0969da;--accent-bg:rgba(9,105,218,.10);--ok:#0969da;--warn:#9a6700;--err:#cf222e;--mag:#8250df;--code-bg:#e6e9ee;--danger-bg:#fbe6e6;--warn-bg:#fbefda}
+/* "doux" — thème clair chaud + police Lexend (lecture agréable). */
+[data-theme="soft"]{color-scheme:light;--font:'Lexend',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--bubble:#c2611f;--bg:#faf8f4;--panel:#ffffff;--border:#e8e3d9;--text:#2c2a26;--dim:#8c8577;--accent:#c2611f;--accent-bg:rgba(194,97,31,.10);--ok:#c2611f;--warn:#b45309;--err:#dc2626;--mag:#9a5bd6;--code-bg:#f3f0ea;--danger-bg:#fbe9e7;--warn-bg:#fbf1e0}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;font-size:14px}
+/* PWA plein écran (viewport-fit=cover) : on décale le contenu des bords pour ne
+   pas passer sous l'encoche / la barre système / l'indicateur d'accueil. Les
+   env(safe-area-inset-*) valent 0 hors PWA, donc aucun impact ailleurs. */
+body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.side{width:320px;border-right:1px solid var(--border);padding:16px;overflow-y:auto;flex-shrink:0}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+#menubtn{display:none;position:fixed;top:calc(10px + env(safe-area-inset-top));left:calc(10px + env(safe-area-inset-left));z-index:20;background:var(--panel);border:1px solid var(--border);color:var(--text);width:40px;height:40px;border-radius:6px;font-size:18px;cursor:pointer}
+#backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10}
+@media (max-width:720px){
+  .side{position:fixed;inset:0 auto 0 0;width:80%;max-width:320px;z-index:15;transform:translateX(-100%);transition:transform .2s;background:var(--bg);padding-top:calc(16px + env(safe-area-inset-top));padding-left:calc(16px + env(safe-area-inset-left))}
+  .side.open{transform:translateX(0)}
+  #menubtn,#backdrop.open{display:block}
+  body.drawer-open #menubtn{display:none}
+  .main{width:100%}
+  #chat{padding:60px 8px 12px}
+  .msg{max-width:92%}
+  #chat .msg.assistant,#chat .msg.reasoning{max-width:100%}
+  #inputbar{padding:8px;gap:4px}
+  #send,#stop{padding:0 12px}
+  h1{margin-left:48px}
+  /* Petit écran (menu replié en tiroir) : on masque l'aide clavier — inutile et
+     ça prend de la place. Elle reste visible sur desktop. */
+  #sendhint{display:none}
+}
+/* Desktop : menu plus large et bulles (badges) un peu plus grosses. */
+@media (min-width:721px){
+  .side{width:380px}
+  .preset-meta .qtag,.preset-meta .rtag,.preset-meta .btag{font-size:11px;padding:2px 9px;border-radius:9px}
+  .preset-meta .qtag svg,.preset-meta .rtag svg,.preset-meta .btag svg{width:11px;height:11px}
+}
+h1{margin:0;font-size:18px;color:var(--accent)}
+#brand{display:inline-flex;align-items:baseline}
+#ver{font-size:10px;font-weight:400;color:var(--dim);margin-left:5px;letter-spacing:0}
+.sidehead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:18px}
+/* pastille d'état service, en haut à droite de la barre latérale */
+.statuspill{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid var(--border);background:var(--panel);color:var(--dim);font-weight:600;white-space:nowrap}
+.statuspill.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent);background:color-mix(in srgb,var(--ok) 12%,transparent)}
+.statuspill.err{color:var(--err);border-color:color-mix(in srgb,var(--err) 45%,transparent);background:color-mix(in srgb,var(--err) 12%,transparent)}
+.statuspill.loading{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.statuspill.loading .dot{animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.statuspill .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.statuspill .port{opacity:.6;font-weight:400}
+/* en-tête + bouton d'ajout de skill (toujours visible) */
+.skillshead{display:flex;align-items:center;justify-content:space-between;margin:12px 0 5px}
+.skillshead>span{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.addbtn{font-size:11px;padding:3px 11px 4px;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer;line-height:1.2}
+.addbtn:hover{border-color:var(--accent);color:var(--accent)}
+.mem-count{font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:4px}
+/* Titre de sous-section (Mémoire / Accès internet) : simple libellé, PAS de trait
+   (le trait est réservé aux sections principales — cf. `details`). La séparation
+   visuelle vient de la carte englobante .gated-block. */
+.subhead{position:relative;display:flex;align-items:center;font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--accent);font-weight:600;margin:0 0 6px}
+/* Barre repliable « Pages » : un seul chevron, bouton + ajouter aligné à droite. */
+.pages-bar{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:7px 0;margin-top:4px}
+.pages-bar .pages-caret{flex-shrink:0;font-size:9px;color:var(--dim);transition:transform .12s}
+.pages-bar.open .pages-caret{transform:rotate(90deg)}
+.pages-bar .pages-title{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);font-weight:600}
+.pages-bar .addbtn{margin-left:auto}
+.mem-search{width:100%;box-sizing:border-box;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 9px;font:inherit;font-size:12px;margin:0 0 6px}
+.mem-search:focus{outline:none;border-color:var(--accent)}
+.mem-list{max-height:240px;overflow-y:auto;overscroll-behavior:contain}
+.mem-list .preset{margin:3px 0;padding:5px 9px}
+.mem-more{font-size:11px;color:var(--dim);text-align:center;padding:6px 0 2px}
+.ask-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px}
+.ask-box{background:var(--bg);border:1px solid var(--border);border-radius:10px;width:100%;max-width:420px;padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.5);animation:askpop .12s ease-out}
+@keyframes askpop{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:none}}
+.ask-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px}
+.ask-msg{font-size:13px;color:var(--dim);line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.ask-input{width:100%;box-sizing:border-box;margin-top:12px;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:9px 11px;font:inherit;font-size:13px}
+.ask-input:focus{outline:none;border-color:var(--accent)}
+.ask-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.ask-actions button{margin:0;padding:7px 16px}
+.ask-ok{border-color:var(--accent);color:var(--accent)}
+.ask-ok.danger{border-color:var(--err);color:var(--err)}
+#brand-a{display:inline-block;line-height:1;max-width:0;opacity:0;overflow:hidden;color:var(--text);transition:max-width .35s ease,opacity .35s ease}
+#brand.agent #brand-a{max-width:1ch;opacity:1;margin-right:.04em}
+/* interrupteur (switch) */
+.switchrow{position:relative;display:flex;align-items:center;gap:9px;font-size:12px;padding:6px 0;cursor:pointer;user-select:none}
+/* Sous-réglage du mode agent inaccessible quand l'agent est off : grisé + inerte. */
+/* Sous-réglages du mode agent présentés en CARTES (bordure + fond) pour ne pas
+   les confondre avec les traits des sections principales. */
+.gated-block{margin-top:10px;border:1px solid var(--border);border-radius:8px;padding:9px 11px;background:var(--panel);transition:opacity .15s}
+.gated-block>.switchrow:first-of-type{padding-top:0}
+.gated-block.gated{opacity:.4;pointer-events:none;filter:grayscale(.4)}
+.switch{position:relative;display:inline-block;width:36px;height:20px;flex:none}
+.switch input{position:absolute;opacity:0;width:0;height:0}
+.switch .slider{position:absolute;inset:0;background:var(--border);border-radius:999px;transition:background .25s ease}
+.switch .slider::before{content:"";position:absolute;width:14px;height:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .25s ease;box-shadow:0 1px 2px rgba(0,0,0,.4)}
+.switch input:checked + .slider{background:var(--accent)}
+.switch input:checked + .slider::before{transform:translateX(16px)}
+.switch input:focus-visible + .slider{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--accent)}
+h2{margin:20px 0 8px;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;font-weight:600}
+details{margin:7px 0;border-top:1px solid var(--border);padding-top:4px}
+details>summary{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;font-weight:600;cursor:pointer;padding:3px 0;list-style:none;display:flex;justify-content:space-between;align-items:center;user-select:none}
+details>summary::-webkit-details-marker{display:none}
+details>summary::after{content:"▸";transition:transform .15s;color:var(--dim);font-size:10px}
+details[open]>summary::after{transform:rotate(90deg)}
+details>summary:hover{color:var(--text)}
+details>div,details>textarea{margin-top:6px}
+.preset-add{display:none;font-size:14px;padding:0 8px;margin:0 8px 0 auto;line-height:1.4;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer}
+.preset-add:hover{border-color:var(--accent);color:var(--accent)}
+details[open]>summary>.preset-add{display:inline-block}
+.tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;background:var(--panel);border:1px solid var(--border)}
+.tag.ok{color:var(--ok);border-color:var(--ok)}
+.tag.err{color:var(--err);border-color:var(--err)}
+button{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font:inherit;cursor:pointer;margin:2px}
+button:hover{border-color:var(--accent);color:var(--accent)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:4px;flex-wrap:wrap}
+.preset{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;margin:4px 0;cursor:pointer;background:var(--panel)}
+.preset:hover{border-color:var(--accent)}
+.preset.active{border-color:var(--accent);color:var(--accent);border-width:1.5px;padding:5.5px 9.5px}
+.preset>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.preset>button{flex-shrink:0}
+.preset-info{flex:1;min-width:0}
+.preset-name{min-width:0;overflow-wrap:anywhere;word-break:break-word}
+.preset-edit{flex-shrink:0;align-self:flex-start;margin:-3px -4px 0 0;padding:2px 4px;font-size:13px;line-height:1;background:transparent;border:none;opacity:.45}
+.preset-edit:hover{opacity:1;color:var(--accent)}
+.preset-meta{display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap}
+.qtag{flex-shrink:0;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em;text-transform:uppercase}
+.rtag{flex-shrink:0;display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em}
+.btag{flex-shrink:0;display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em}
+/* Petit « ? » d'aide : bulle au survol/clic au lieu d'un pavé de texte permanent. */
+.help{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;margin-left:6px;flex-shrink:0;font-size:10px;font-weight:600;line-height:1;color:var(--dim);border:1px solid var(--border);border-radius:50%;cursor:help;user-select:none;vertical-align:middle}
+.help:hover{color:var(--accent);border-color:var(--accent)}
+/* La bulle est ancrée à la ligne (.switchrow position:relative), pas au « ? »,
+   pour rester alignée au bord gauche du panneau et ne pas déborder. */
+.help>.tip{display:none;position:absolute;z-index:40;left:0;right:0;top:calc(100% + 2px);padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:11px;font-weight:400;line-height:1.4;color:var(--text);box-shadow:0 4px 16px rgba(0,0,0,.4);white-space:normal;text-align:left;text-transform:none;letter-spacing:normal;cursor:auto}
+.help:hover>.tip,.help:focus>.tip,.help.open>.tip{display:block}
+.kv{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px}
+.kv span:first-child{color:var(--dim);flex-shrink:0}
+.kv span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:right;min-width:0}
+.bar{height:6px;background:var(--panel);border-radius:3px;overflow:hidden;margin:2px 0}
+.bar>div{height:100%;background:var(--accent)}
+#chat{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px}
+.msg{max-width:80%;padding:10px 14px;border-radius:10px;white-space:pre-wrap;word-wrap:break-word;line-height:1.45}
+.msg.assistant,.msg.reasoning{white-space:normal}
+.msg .body{overflow-wrap:anywhere;word-break:break-word}
+.msg.user{align-self:flex-end;background:var(--bubble);color:#fff}
+.msg.user .label{color:rgba(255,255,255,.8)}
+.msg.assistant{align-self:flex-start;background:var(--panel);border:1px solid var(--border)}
+.msg.assistant.errmsg{border-color:rgba(248,81,73,.55);background:rgba(248,81,73,.08);color:var(--err)}
+.msg .body>*{margin:1em 0}
+.msg .body>*:first-child{margin-top:0}
+.msg .body>*:last-child{margin-bottom:0}
+.msg .body h1,.msg .body h2,.msg .body h3,.msg .body h4{font-weight:600;line-height:1.25;margin:1.2em 0 .5em}
+.msg .body h1{font-size:1.3em} .msg .body h2{font-size:1.15em} .msg .body h3{font-size:1em} .msg .body h4{font-size:.95em}
+.msg .body ul,.msg .body ol{padding-left:1.4em}
+.msg .body li{margin:.15em 0}
+.msg .body li>p{margin:0}
+.msg.assistant .body code{background:var(--code-bg);padding:1px 5px;border-radius:3px;font-size:.9em;overflow-wrap:anywhere;word-break:break-word}
+.msg.assistant .body pre,.msg.reasoning .body pre{position:relative;background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:10px;overflow-x:auto;max-width:100%;margin:.5em 0}
+.copybtn{position:absolute;bottom:6px;right:6px;font-size:11px;padding:3px 8px;margin:0;background:var(--panel);border:1px solid var(--border);color:var(--dim);border-radius:5px;opacity:.5;transition:opacity .15s,color .15s}
+.msg.assistant .body pre:hover .copybtn,.msg.reasoning .body pre:hover .copybtn{opacity:1}
+.copybtn:hover{border-color:var(--accent);color:var(--accent)}
+.copybtn.done{color:var(--ok);border-color:var(--ok);opacity:1}
+.msg.assistant .body pre code,.msg.reasoning .body pre code{background:transparent;padding:0;font-size:.85em;line-height:1.4}
+.msg.assistant .body blockquote{border-left:3px solid var(--border);padding:0 0 0 10px;margin:.4em 0;color:var(--dim)}
+.msg.assistant .body a{color:var(--accent);text-decoration:none}
+.msg.assistant .body a:hover{text-decoration:underline}
+.msg.assistant .body table{border-collapse:collapse;margin:.5em 0}
+.msg.assistant .body th,.msg.assistant .body td{border:1px solid var(--border);padding:4px 8px}
+.msg.assistant .body hr{border:none;border-top:1px solid var(--border);margin:.6em 0}
+#scrollbtn{position:absolute;bottom:80px;right:20px;background:var(--panel);border:1px solid var(--border);color:var(--accent);width:36px;height:36px;border-radius:50%;cursor:pointer;display:none;font-size:16px;z-index:5}
+#scrollbtn.show{display:block}
+.msg.reasoning{align-self:flex-start;background:transparent;border:1px dashed var(--border);color:var(--mag);font-size:12px;max-width:90%;overflow-wrap:anywhere;word-break:break-word}
+.msg.tool{align-self:flex-start;background:transparent;border:1px dashed var(--border);max-width:90%;white-space:normal;padding:8px 12px;font-size:12px;overflow-wrap:anywhere;word-break:break-word}
+.msg.tool .tool-head{font-size:12px;color:var(--accent);font-weight:600;margin-bottom:6px}
+.msg.tool .tool-sub{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin:8px 0 4px}
+.msg.tool pre{position:relative;background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;overflow:auto;margin:0;max-height:280px}
+.msg.tool pre code{background:transparent;padding:0;font-size:.82em;line-height:1.4;white-space:pre}
+.msg.tool .tool-caret{color:var(--accent);animation:toolblink 1s step-end infinite}
+.msg.tool .tool-wait{font-size:12px;color:var(--dim);margin-top:8px;animation:toolblink 1.2s ease-in-out infinite}
+@keyframes toolblink{0%,100%{opacity:.45}50%{opacity:1}}
+/* Indicateur « le modèle réfléchit » : 3 points animés avant le 1er token. */
+.msg.typing{display:inline-flex;gap:5px;align-items:center;padding:14px 16px}
+.msg.typing span{width:7px;height:7px;border-radius:50%;background:var(--dim);animation:typingdot 1.2s infinite ease-in-out}
+.msg.typing span:nth-child(2){animation-delay:.16s}
+.msg.typing span:nth-child(3){animation-delay:.32s}
+@keyframes typingdot{0%,70%,100%{opacity:.25;transform:translateY(0)}35%{opacity:1;transform:translateY(-4px)}}
+.msg .label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;display:block}
+/* Bulles repliables (reasoning / tool) : une fois la réponse arrivée, on les
+   replie en douceur pour désencombrer le fil, tout en gardant le label (et son
+   compteur de tokens) cliquable pour redéplier. */
+.msg.collapsible .label{cursor:pointer;user-select:none;margin-bottom:0}
+/* ===== Affichage simple ==========================================
+   Mode "simple" (Apparence) : masque le raisonnement, les appels d'outils,
+   les détails de vitesse sur les bulles et la config active à gauche. Piloté
+   par [data-display="simple"] sur <html> (persisté dans 'jean-display'). */
+/* En simple, raisonnement et outils sont masqués. L'activité est signalée par le
+   VRAI indicateur de frappe (.msg.typing, mêmes 3 points animés qu'avant la
+   réponse), maintenu en bas pendant tout le tour côté JS — animation identique. */
+[data-display="simple"] #chat .msg.reasoning,
+[data-display="simple"] #chat .msg.tool{display:none}
+[data-display="simple"] #chat .msg .label{display:none}
+[data-display="simple"] #cfg-details{display:none}
+/* Hauteur animée en JS (mesure scrollHeight → 0) plutôt que grid 1fr→0fr qui
+   peut « dépasser ». overflow:hidden clippe le contenu pendant tout le repli.
+   width revient à auto SANS délai à l'ouverture (pas de saut), et passe à 0
+   APRÈS le fold (width 0s .3s) à la fermeture pour rétrécir la bulle au label. */
+/* height ET width sont animées (en px, pilotées en JS via scrollHeight/scrollWidth)
+   → repli/dépli fluide en diagonale. overflow:hidden clippe pendant l'animation. */
+.msg.collapsible .bodywrap{overflow:hidden;transition:height .42s cubic-bezier(.4,0,.2,1),width .42s cubic-bezier(.4,0,.2,1),opacity .3s ease,margin-top .42s cubic-bezier(.4,0,.2,1);opacity:1;margin-top:4px}
+.msg.collapsible .bodywrap>.body{min-width:0}
+.msg.collapsible.collapsed .bodywrap{opacity:0;margin-top:0}
+/* Composer = un seul bloc cohérent : barre de contexte intégrée en tête (fine
+   ligne de progression pleine largeur affleurant le bord) + zone de saisie. */
+#composer{border-top:1px solid var(--border);background:var(--panel-2,rgba(255,255,255,.02))}
+#ctxtrack{height:3px;width:100%;background:var(--panel);overflow:hidden}
+#ctx-fill{height:100%;width:0%;background:var(--ok,#3a7);transition:width .3s,background .3s}
+#ctxmeta{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:5px 12px 0}
+#ctx-text{font-size:10px;letter-spacing:.03em;white-space:nowrap}
+#ctx-compact{display:none;margin:0;padding:2px 10px;font-size:10px;background:var(--warn-bg);border-color:var(--warn,#c93)}
+#inputbar{padding:8px 12px;display:flex;gap:8px}
+#input{flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;font:inherit;resize:none;min-height:44px;max-height:200px}
+#input:focus{outline:none;border-color:var(--accent)}
+#send{padding:0 20px}
+.muted{color:var(--dim);font-size:12px}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--border);padding:8px 16px;border-radius:6px;opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.show{opacity:1}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+/* iOS Safari auto-zoome au focus sur tout champ < 16px. On force 16px sur les
+   appareils tactiles uniquement (le desktop garde son rendu, le pinch-zoom
+   manuel reste possible). */
+@media (hover:none) and (pointer:coarse){
+  #input,#sysprompt,#modal input,#modal textarea,#modal select{font-size:16px}
+}
+/* Appareil TACTILE en PAYSAGE : on réduit nettement tout pour gagner de la place
+   (interface « un peu grosse » en horizontal, utile pour enregistrer des démos).
+   Détection par (hover:none)+(pointer:coarse)+landscape : infaillible sur tout
+   téléphone couché, sans dépendre d'un seuil de largeur/hauteur en pixels (les
+   iPhone Pro Max font 932px de large et ~430px de haut, ce qui piégeait les
+   seuils précédents). Le desktop (souris) n'est jamais touché.
+   NB : la règle iOS 16px anti-zoom plus haut est surchargée ici volontairement
+   pour #input — on garde une saisie compacte (le pinch-zoom manuel reste dispo). */
+@media (hover:none) and (pointer:coarse) and (orientation:landscape){
+  body{font-size:11.5px}
+  /* Tiroir latéral : on décale le TIROIR ENTIER après l'encoche (left = inset)
+     au lieu de padder à l'intérieur — sinon grosse bordure vide à gauche qui
+     rétrécit le contenu. Padding interne normal → largeur utile pleine. */
+  .side{width:300px;max-width:300px;left:env(safe-area-inset-left);padding:calc(14px + env(safe-area-inset-top)) 14px 14px 14px}
+  #chat{padding:48px 10px 6px;gap:7px}
+  .msg{padding:6px 10px;border-radius:8px;max-width:78%}
+  #chat .msg.assistant,#chat .msg.reasoning{max-width:88%}
+  #inputbar{padding:5px 8px;gap:6px}
+  /* PAS de font-size < 16px ici : iOS Safari zoome à la sélection du champ. On
+     garde 16px (hérité de la règle anti-zoom) et on compacte via hauteur/padding. */
+  #input{min-height:34px;max-height:120px;padding:6px 9px}
+  #send,#stop{padding:0 14px}
+  #composer .muted{display:none}
+  #ctxmeta{padding:3px 10px 0}
+  #ctx-text{font-size:9px}
+  h1{font-size:15px}
+  h2,details>summary{font-size:10px}
+  #menubtn{width:32px;height:32px;font-size:15px;top:calc(6px + env(safe-area-inset-top))}
+}
