@@ -393,14 +393,13 @@ button:disabled{opacity:.5;cursor:not-allowed}
     </div>
   </details>
   <details id="upd-details"><summary>Actions</summary>
-    <div class="row">
+    <div class="row"><button id="upd-check" onclick="checkUpdate()">⬆️ Vérifier les mises à jour</button></div>
+    <div id="upd-msg" class="muted" style="font-size:12px;margin-top:6px;line-height:1.5"></div>
+    <div class="row" style="margin-top:6px">
       <button onclick="loadAll()">↻ refresh</button>
       <button onclick="resetChat()">⌫ clear chat</button>
       <button id="btn-bench" onclick="runBenchUI()">⚡ bench</button>
     </div>
-    <div class="row" style="margin-top:6px"><button id="upd-check" onclick="checkUpdate()">↻ Vérifier les mises à jour</button></div>
-    <div class="muted" style="font-size:11px;margin-top:6px">Version installée : <b id="upd-cur">…</b></div>
-    <div id="upd-msg" class="muted" style="font-size:12px;margin-top:6px;line-height:1.5"></div>
   </details>
 </div>
 <div class="main" style="position:relative">
@@ -649,7 +648,6 @@ async function loadStatus(){
   if(s.ctx){ CTX_MAX=s.ctx; updateCtxMeter(); }
   if(s.version){
     document.getElementById('ver').textContent='v'+s.version;
-    const uc=document.getElementById('upd-cur'); if(uc) uc.textContent='v'+s.version;
   }
 }
 async function checkUpdate(){
@@ -657,7 +655,6 @@ async function checkUpdate(){
   b.disabled=true; msg.textContent='Vérification…';
   try{
     const r=await jget('/api/update');
-    if(r.current){ document.getElementById('upd-cur').textContent='v'+r.current; }
     if(r.error){ msg.textContent='Erreur : '+r.error; }
     else if(r.available){
       msg.innerHTML='Nouvelle version <b>v'+r.latest+'</b> disponible. ';
