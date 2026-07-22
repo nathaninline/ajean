@@ -158,6 +158,14 @@ func handleLlamacpp(w http.ResponseWriter, r *http.Request) {
 		"arch":    plan.cudaArch,
 		"jobs":    plan.jobs,
 	}
+	// Mode « binaires précompilés » : installé ? utilisé par la config ?
+	pbTag, _ := prebuiltVersion()
+	pbBin := prebuiltServerBin()
+	out["prebuilt"] = map[string]any{
+		"tag":    pbTag,
+		"bin":    pbBin,
+		"in_use": pbBin != "" && samePath(pbBin, cfgBin),
+	}
 	out["job"] = lcJobSnapshot(0, false)
 	sendJSON(w, 200, out)
 }
@@ -236,6 +244,73 @@ func handleLlamacppUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
+// handleLlamacppPrebuiltCheck interroge la dernière release officielle de
+// llama.cpp et la compare à la version précompilée installée. Synchrone.
+func handleLlamacppPrebuiltCheck(w http.ResponseWriter, r *http.Request) {
+	tag, assets, err := fetchLlamaLatest()
+	if err != nil {
+		sendJSON(w, 200, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	main, _, label, _, err := pickPrebuilt(assets)
+	if err != nil {
+		sendJSON(w, 200, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	cur, _ := prebuiltVersion()
+	sendJSON(w, 200, map[string]any{
+		"ok":      true,
+		"latest":  tag,
+		"current": cur,
+		"variant": label,
+		"size_mb": main.Size / 1_000_000,
+		"update":  cur != tag || prebuiltServerBin() == "",
+	})
+}
+
+// handleLlamacppPrebuilt lance le job de téléchargement / mise à jour des
+// binaires précompilés officiels (pas de compilation).
+func handleLlamacppPrebuilt(w http.ResponseWriter, r *http.Request) {
+	if err := startLcJob("prebuilt", lcRunPrebuilt); err != nil {
+		sendJSON(w, 409, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
+// lcRunPrebuilt : télécharge les binaires officiels, pointe BIN dessus, en
+// stoppant le service pendant le remplacement (binaire verrouillé en cours
+// d'exécution) puis en le relançant.
+func lcRunPrebuilt() {
+	svcWasUp := serviceIsActive()
+	if svcWasUp {
+		lcPhase("arrêt du service le temps de l'installation…")
+		if err := serviceAction("stop"); err != nil {
+			lcAppend("[warn] impossible d'arrêter le service : " + err.Error())
+		}
+	}
+	bin, err := prebuiltInstall(lcAppend, lcPhase)
+	if err == nil {
+		if serr := SetConfigKey("BIN", bin); serr != nil {
+			err = fmt.Errorf("binaires installés mais échec écriture BIN dans config.env : %w", serr)
+		} else {
+			lcAppend("BIN mis à jour dans " + confPath())
+		}
+	}
+	if svcWasUp {
+		lcPhase("redémarrage du service…")
+		if serr := serviceAction("start"); serr != nil {
+			lcAppend("[warn] redémarrage du service échoué : " + serr.Error())
+		}
+	}
+	if err != nil {
+		lcFail(err)
+		return
+	}
+	tag, _ := prebuiltVersion()
+	lcDone("binaires précompilés installés (" + tag + ")")
 }
 
 // handleLlamacppJob renvoie l'état du job courant + les lignes de log depuis

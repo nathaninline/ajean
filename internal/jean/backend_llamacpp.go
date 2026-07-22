@@ -43,8 +43,22 @@ func cmdLlamacpp(args []string) error {
 		return llamacppUpdate(args)
 	case "status", "info", "":
 		return llamacppStatus(args)
+	case "prebuilt":
+		// Binaires officiels précompilés (aucune compilation) — voir backend_prebuilt.go.
+		bin, err := prebuiltInstall(
+			func(s string) { fmt.Println("  " + s) },
+			func(s string) { fmt.Printf("%s %s\n", cyan("▶"), s) },
+		)
+		if err != nil {
+			return err
+		}
+		if err := SetConfigKey("BIN", bin); err != nil {
+			return fmt.Errorf("binaires installés mais échec écriture BIN dans config.env: %w", err)
+		}
+		fmt.Printf("%s BIN mis à jour dans %s — %s pour appliquer\n", green("✓"), confPath(), bold("jean restart"))
+		return nil
 	default:
-		return fmt.Errorf("sous-commande inconnue: %s (install | update | status)", sub)
+		return fmt.Errorf("sous-commande inconnue: %s (install | update | prebuilt | status)", sub)
 	}
 }
 

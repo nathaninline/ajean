@@ -119,7 +119,8 @@
   <details id="lc-details"><summary>Backend llama.cpp <span id="lc-badge" style="margin-left:auto;margin-right:12px;font-size:10px"></span></summary>
     <div id="lc-status" class="muted" style="font-size:12px;line-height:1.6">…</div>
     <div class="row" id="lc-actions" style="margin-top:8px;flex-wrap:wrap">
-      <button id="lc-install" onclick="lcInstall()" style="display:none;border-color:var(--accent);color:var(--accent)">⬇ installer</button>
+      <button id="lc-prebuilt" onclick="lcPrebuilt()" style="border-color:var(--accent);color:var(--accent)">⚡ binaires précompilés</button>
+      <button id="lc-install" onclick="lcInstall()" style="display:none">🔧 compiler (sources)</button>
       <button id="lc-check" onclick="lcCheck()">↥ vérifier les maj</button>
       <button id="lc-update" onclick="lcUpdate(false)" style="display:none;border-color:var(--accent);color:var(--accent)">⬆ mettre à jour</button>
       <button id="lc-rebuild" onclick="lcUpdate(true)" style="display:none">🔧 recompiler</button>

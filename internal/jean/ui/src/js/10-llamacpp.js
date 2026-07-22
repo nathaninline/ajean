@@ -31,11 +31,20 @@ async function loadLlamacpp(){
     const p = s.plan;
     parts.push('accélérateur détecté : <b style="color:var(--text)">'+p.backend.toUpperCase()+'</b>'+(p.arch?' <span style="opacity:.7">(arch '+p.arch+')</span>':'')+' · '+p.jobs+' jobs');
   }
+  // Mode actif : binaires officiels précompilés vs build local.
+  const pb = s.prebuilt || {};
+  if(pb.in_use){
+    parts.push('mode : <b style="color:var(--accent)">⚡ binaires précompilés officiels</b>'+(pb.tag?' <span style="opacity:.7">('+pb.tag+')</span>':''));
+    lcBadge('<span class="tag ok">précompilé</span>');
+  } else if(s.installed && s.in_use){
+    parts.push('mode : <b style="color:var(--text)">🔧 compilé depuis les sources</b>'+(pb.tag?' <span style="opacity:.6">(précompilé '+pb.tag+' aussi installé)</span>':''));
+  }
   st.innerHTML = parts.join('<br>');
   document.getElementById('lc-install').style.display = s.installed ? 'none' : '';
-  document.getElementById('lc-check').style.display = s.installed ? '' : 'none';
-  document.getElementById('lc-update').style.display = (s.installed && (s.behind>0 || !s.bin)) ? '' : 'none';
-  document.getElementById('lc-rebuild').style.display = s.installed ? '' : 'none';
+  document.getElementById('lc-check').style.display = (s.installed || pb.in_use) ? '' : 'none';
+  document.getElementById('lc-update').style.display = (s.installed && !pb.in_use && (s.behind>0 || !s.bin)) ? '' : 'none';
+  document.getElementById('lc-rebuild').style.display = (s.installed && !pb.in_use) ? '' : 'none';
+  document.getElementById('lc-prebuilt').textContent = pb.in_use ? '⚡ maj binaires précompilés' : '⚡ binaires précompilés';
   // Job en cours (page rechargée pendant un build) → on raccroche le polling.
   if(s.job && s.job.exists && s.job.running && !lcPoll){
     document.getElementById('lc-details').open = true;
@@ -47,6 +56,20 @@ async function lcCheck(){
   const btn = document.getElementById('lc-check');
   const msg = document.getElementById('lc-check-msg');
   btn.disabled = true; btn.textContent = '⏳ vérification…';
+  // Mode précompilé : on compare à la dernière release officielle, pas au git.
+  if(lcState && lcState.prebuilt && lcState.prebuilt.in_use){
+    try{
+      const r = await jpost('/api/llamacpp/prebuilt/check');
+      if(!r.ok){ msg.innerHTML = '<span style="color:var(--err)">'+(r.error||'erreur')+'</span>'; return; }
+      if(r.update){
+        msg.innerHTML = 'nouvelle release officielle : <b style="color:var(--accent)">'+r.latest+'</b> (installée : '+(r.current||'aucune')+')<br><span style="opacity:.8">'+String(r.variant||'').replace(/[<>&]/g,'')+' · ~'+r.size_mb+' Mo</span>';
+        lcBadge('<span class="tag" style="color:var(--accent);border-color:var(--accent)">maj dispo</span>');
+      } else {
+        msg.innerHTML = '<span style="color:var(--ok)">✓ à jour</span> ('+r.current+')';
+      }
+    } finally { btn.disabled = false; btn.textContent = '↥ vérifier les maj'; }
+    return;
+  }
   try{
     const r = await jpost('/api/llamacpp/check');
     if(!r.ok){ msg.innerHTML = '<span style="color:var(--err)">'+(r.error||'erreur')+'</span>'; return; }
@@ -70,6 +93,17 @@ async function lcInstall(){
   lcStartPolling();
 }
 
+async function lcPrebuilt(){
+  const inUse = lcState && lcState.prebuilt && lcState.prebuilt.in_use;
+  const msg = inUse
+    ? 'Télécharger la dernière release officielle précompilée de llama.cpp (~2 min, aucune compilation). Le service sera arrêté pendant le remplacement puis redémarré.'
+    : 'Télécharger les binaires OFFICIELS précompilés de llama.cpp au lieu de compiler (~2 min). Le variant est choisi automatiquement (CUDA / Vulkan / Metal / CPU) et BIN pointera dessus. Le build local, s\'il existe, reste sur le disque — tu peux y revenir via l\'éditeur de preset. Note : builds génériques (pas de tuning natif) ; sous Linux il n\'existe pas de build CUDA officiel (variant Vulkan).';
+  if(!await askConfirm(msg, {title: inUse ? 'Mettre à jour les binaires précompilés ?' : 'Passer aux binaires précompilés ?', okText: inUse ? 'Mettre à jour' : 'Télécharger'})) return;
+  const r = await jpost('/api/llamacpp/prebuilt', {});
+  if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
+  lcStartPolling();
+}
+
 async function lcUpdate(clean){
   const msg = clean
     ? 'Recompiler llama.cpp from scratch (build/ supprimé). Le service sera arrêté pendant le build puis redémarré.'
@@ -81,7 +115,7 @@ async function lcUpdate(clean){
 }
 
 function lcSetButtons(disabled){
-  ['lc-install','lc-check','lc-update','lc-rebuild'].forEach(id=>{
+  ['lc-install','lc-check','lc-update','lc-rebuild','lc-prebuilt'].forEach(id=>{
     const b=document.getElementById(id); if(b) b.disabled = disabled;
   });
 }
