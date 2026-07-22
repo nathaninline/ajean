@@ -21,8 +21,8 @@ func newTestConv() *Conversation {
 // et se terminer quand le contexte (la connexion) est annulé.
 func TestSubscribeReplayAndLive(t *testing.T) {
 	c := newTestConv()
-	c.appendDelta(map[string]any{"user": "salut"})
-	c.appendDelta(map[string]any{"content": "bon"})
+	c.appendDelta(c.epoch, map[string]any{"user": "salut"})
+	c.appendDelta(c.epoch, map[string]any{"content": "bon"})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -38,15 +38,15 @@ func TestSubscribeReplayAndLive(t *testing.T) {
 	waitSeq(t, got, 1)
 	waitSeq(t, got, 2)
 	// Un événement en direct après abonnement.
-	c.appendDelta(map[string]any{"content": "jour"})
+	c.appendDelta(c.epoch, map[string]any{"content": "jour"})
 	waitSeq(t, got, 3)
 }
 
 // Un abonné qui démarre à from=N ne reçoit que ce qui est plus récent que N.
 func TestSubscribeFromOffset(t *testing.T) {
 	c := newTestConv()
-	c.appendDelta(map[string]any{"user": "a"})
-	c.appendDelta(map[string]any{"user": "b"})
+	c.appendDelta(c.epoch, map[string]any{"user": "a"})
+	c.appendDelta(c.epoch, map[string]any{"user": "b"})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -64,7 +64,7 @@ func TestSubscribeFromOffset(t *testing.T) {
 // Reset bump l'epoch et pousse un {reset:true} aux abonnés, qui repartent de 0.
 func TestResetNotifiesSubscribers(t *testing.T) {
 	c := newTestConv()
-	c.appendDelta(map[string]any{"user": "x"})
+	c.appendDelta(c.epoch, map[string]any{"user": "x"})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	resetSeen := make(chan bool, 4)
@@ -84,6 +84,24 @@ func TestResetNotifiesSubscribers(t *testing.T) {
 	}
 	if c.Seq != 0 || len(c.Log) != 0 {
 		t.Fatalf("après Reset: Seq=%d len(Log)=%d, attendu 0/0", c.Seq, len(c.Log))
+	}
+}
+
+// Un Reset survenu pendant un tour invalide l'epoch : les deltas du tour en
+// cours sont jetés au lieu de polluer la nouvelle conversation (Seq repartis
+// de zéro, messages fantômes).
+func TestAppendDeltaStaleEpochDropped(t *testing.T) {
+	c := newTestConv()
+	epoch := c.epoch // capturé comme au début d'un tour
+	c.appendDelta(epoch, map[string]any{"user": "avant"})
+	c.Reset()
+	c.appendDelta(epoch, map[string]any{"content": "fantôme"}) // tour périmé
+	if c.Seq != 0 || len(c.Log) != 0 {
+		t.Fatalf("delta périmé accepté après Reset: Seq=%d len(Log)=%d", c.Seq, len(c.Log))
+	}
+	c.appendDelta(c.epoch, map[string]any{"user": "nouveau"}) // nouveau tour
+	if c.Seq != 1 || len(c.Log) != 1 {
+		t.Fatalf("delta du nouvel epoch refusé: Seq=%d len(Log)=%d", c.Seq, len(c.Log))
 	}
 }
 

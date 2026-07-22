@@ -53,20 +53,15 @@ func requireWebAuth(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// checkBearer reports whether the request carries the expected key, either as an
-// "Authorization: Bearer <clé>" header (cas normal) or as a ?key=<clé>
-// query param (repli pour les clients qui ne peuvent pas poser d'en-tête, p.ex.
-// une URL ouverte directement). La comparaison est à temps constant.
+// checkBearer reports whether the request carries the expected key as an
+// "Authorization: Bearer <clé>" header. La comparaison est à temps constant.
+// PAS de repli ?key=<clé> en query string : une clé dans l'URL finit dans les
+// logs des proxys (Caddy, Cloudflare), l'historique navigateur et les Referer.
 func checkBearer(r *http.Request, key string) bool {
 	want := []byte(key)
 	if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
 		got := []byte(strings.TrimSpace(h[len("Bearer "):]))
 		if subtle.ConstantTimeCompare(got, want) == 1 {
-			return true
-		}
-	}
-	if q := r.URL.Query().Get("key"); q != "" {
-		if subtle.ConstantTimeCompare([]byte(q), want) == 1 {
 			return true
 		}
 	}

@@ -1,6 +1,8 @@
 package jean
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -137,6 +139,10 @@ func applyUpdate() (string, error) {
 	if err := downloadTo(url, tmp); err != nil {
 		return "", fmt.Errorf("téléchargement : %w", err)
 	}
+	if err := verifyChecksum(rel, want, tmp); err != nil {
+		os.Remove(tmp)
+		return "", err
+	}
 	mode := os.FileMode(0o755)
 	if fi, err := os.Stat(exe); err == nil {
 		mode = fi.Mode()
@@ -214,6 +220,63 @@ func downloadTo(url, dst string) error {
 	return cErr
 }
 
+// verifyChecksum vérifie le SHA-256 du binaire téléchargé contre le fichier
+// SHA256SUMS publié dans la release (format `sha256sum` : "<hex>  <nom>").
+// Si la release n'en publie pas (anciennes versions), on ne vérifie rien —
+// le contrôle de taille reste le seul garde-fou, comme avant.
+func verifyChecksum(rel *ghRelease, assetName, path string) error {
+	var sumsURL string
+	for _, a := range rel.Assets {
+		switch a.Name {
+		case "SHA256SUMS", "SHA256SUMS.txt", "checksums.txt":
+			sumsURL = a.BrowserDownloadURL
+		}
+	}
+	if sumsURL == "" {
+		return nil
+	}
+	req, _ := http.NewRequest("GET", sumsURL, nil)
+	req.Header.Set("User-Agent", "jean-update")
+	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+	if err != nil {
+		return fmt.Errorf("téléchargement des sommes de contrôle : %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("sommes de contrôle : GitHub a répondu %s", resp.Status)
+	}
+	b, err := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+	if err != nil {
+		return err
+	}
+	want := ""
+	for _, line := range strings.Split(string(b), "\n") {
+		f := strings.Fields(line)
+		// sha256sum peut préfixer le nom de "*" (mode binaire).
+		if len(f) == 2 && strings.TrimPrefix(f[1], "*") == assetName {
+			want = strings.ToLower(f[0])
+			break
+		}
+	}
+	if want == "" {
+		return fmt.Errorf("SHA256SUMS présent mais sans entrée pour %q — mise à jour annulée", assetName)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return err
+	}
+	got := hex.EncodeToString(h.Sum(nil))
+	if got != want {
+		return fmt.Errorf("somme SHA-256 invalide (%s reçu, %s attendu) — mise à jour annulée", got, want)
+	}
+	return nil
+}
+
 func fileSize(p string) int64 {
 	if fi, err := os.Stat(p); err == nil {
 		return fi.Size()
@@ -270,7 +333,8 @@ func handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
 func handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 	newVer, err := applyUpdate()
 	if err != nil {
-		sendJSON(w, 200, map[string]any{"ok": false, "error": err.Error()})
+		// 500 : un client script peut tester le statut HTTP ; l'UI, elle, lit le JSON.
+		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
 	restarting, msg := restartAfterUpdate()

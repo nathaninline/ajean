@@ -101,8 +101,15 @@ func (c *Conversation) persist() {
 }
 
 // appendDelta journalise un événement d'affichage et réveille les abonnés.
-func (c *Conversation) appendDelta(delta map[string]any) {
+// epoch est celui capturé au début du tour : si un Reset est passé entre-temps,
+// l'événement appartient à l'ancienne conversation et est jeté (sinon il
+// polluerait le journal tout neuf avec des Seq repartis de zéro).
+func (c *Conversation) appendDelta(epoch int, delta map[string]any) {
 	c.mu.Lock()
+	if c.epoch != epoch {
+		c.mu.Unlock()
+		return
+	}
 	c.Seq++
 	c.Log = append(c.Log, LogEvent{Seq: c.Seq, TS: time.Now().UnixMilli(), Delta: delta})
 	if len(c.Log) > maxLogEvents {
@@ -138,26 +145,37 @@ func (c *Conversation) StartTurn(text string, caps Caps, temperature float64) er
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
 	c.Messages = append(c.Messages, Message{Role: "user", Content: text})
+	epoch := c.epoch
 	c.mu.Unlock()
 
-	// Borne de tour + bulle utilisateur (rejouables).
-	c.appendDelta(map[string]any{"user": text})
+	// Borne de tour + bulle utilisateur (rejouables). Persistée tout de suite :
+	// si le process meurt en pleine génération (crash, restart après MAJ), le
+	// message de l'utilisateur survit au lieu de disparaître avec le tour.
+	c.appendDelta(epoch, map[string]any{"user": text})
+	c.persist()
 	if temperature == 0 {
 		temperature = 0.7
 	}
-	go c.generate(ctx, caps, temperature)
+	go c.generate(ctx, caps, temperature, epoch)
 	return nil
 }
 
 // generate exécute un tour complet et journalise chaque événement. Détaché : la
 // fermeture du navigateur n'a aucun effet ici, seul /stop (cancel) l'interrompt.
-func (c *Conversation) generate(ctx context.Context, caps Caps, temperature float64) {
+// epoch est capturé au StartTurn : si un Reset survient pendant la génération,
+// tout ce que ce tour produirait ensuite (deltas, messages, persistance) est
+// abandonné au lieu de ressusciter des morceaux de l'ancienne conversation.
+func (c *Conversation) generate(ctx context.Context, caps Caps, temperature float64, epoch int) {
 	defer func() {
 		c.mu.Lock()
 		c.Generating = false
 		c.cancel = nil
+		stale := c.epoch != epoch
 		c.mu.Unlock()
-		c.appendDelta(map[string]any{"turn_done": true})
+		if stale {
+			return // Reset pendant le tour : Reset a déjà persisté l'état vide
+		}
+		c.appendDelta(epoch, map[string]any{"turn_done": true})
 		c.persist()
 	}()
 
@@ -172,9 +190,11 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 	if compacted, changed := MaybeCompact(ctx, msgs, caps, ctxUsed); changed {
 		msgs = compacted
 		c.mu.Lock()
-		c.Messages = compacted
+		if c.epoch == epoch {
+			c.Messages = compacted
+		}
 		c.mu.Unlock()
-		c.appendDelta(map[string]any{"compacted": true})
+		c.appendDelta(epoch, map[string]any{"compacted": true})
 	}
 
 	// Prompt système personnalisé (UI → /api/sysprompt, fichier côté serveur).
@@ -189,9 +209,9 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 	extra, _ := runChat(ctx, InjectSkills(final, caps), temperature, caps, func(ev StreamEvent) bool {
 		switch {
 		case ev.Err != nil:
-			c.appendDelta(map[string]any{"error": ev.Err.Error()})
+			c.appendDelta(epoch, map[string]any{"error": ev.Err.Error()})
 		case ev.ToolUsed != nil:
-			c.appendDelta(map[string]any{"tool_used": map[string]any{
+			c.appendDelta(epoch, map[string]any{"tool_used": map[string]any{
 				"name": ev.ToolUsed.Name, "label": ev.ToolUsed.Label,
 				"result": ev.ToolUsed.Result, "done": ev.ToolUsed.Done, "typing": ev.ToolUsed.Typing,
 			}})
@@ -200,28 +220,33 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 			// et la décision de compactage au tour suivant.
 			if ev.Stats.PromptTokensTotal > 0 {
 				c.mu.Lock()
-				c.CtxUsed = ev.Stats.PromptTokensTotal + ev.Stats.GenTokens
+				if c.epoch == epoch {
+					c.CtxUsed = ev.Stats.PromptTokensTotal + ev.Stats.GenTokens
+				}
 				c.mu.Unlock()
 			}
-			c.appendDelta(map[string]any{"stats": ev.Stats})
+			c.appendDelta(epoch, map[string]any{"stats": ev.Stats})
 		case ev.DropReasoning:
-			c.appendDelta(map[string]any{"drop_reasoning": true})
+			c.appendDelta(epoch, map[string]any{"drop_reasoning": true})
 		case ev.Reasoning != "":
-			c.appendDelta(map[string]any{"reasoning_content": ev.Reasoning})
+			c.appendDelta(epoch, map[string]any{"reasoning_content": ev.Reasoning})
 		case ev.Content != "":
 			content.WriteString(ev.Content)
-			c.appendDelta(map[string]any{"content": ev.Content})
+			c.appendDelta(epoch, map[string]any{"content": ev.Content})
 		}
 		return true // génération détachée : on ne s'interrompt jamais sur un abonné
 	})
 
 	// Persiste la vue modèle : messages d'outils (assistant tool_calls + résultats)
 	// PUIS la réponse finale — même ordre que l'ancien client, pour que le modèle
-	// garde la trace de ce qu'il a fait.
+	// garde la trace de ce qu'il a fait. Sauf si un Reset est passé entre-temps :
+	// la nouvelle conversation vide ne doit pas hériter de la fin de l'ancienne.
 	c.mu.Lock()
-	c.Messages = append(c.Messages, extra...)
-	if s := content.String(); strings.TrimSpace(s) != "" {
-		c.Messages = append(c.Messages, Message{Role: "assistant", Content: s})
+	if c.epoch == epoch {
+		c.Messages = append(c.Messages, extra...)
+		if s := content.String(); strings.TrimSpace(s) != "" {
+			c.Messages = append(c.Messages, Message{Role: "assistant", Content: s})
+		}
 	}
 	c.mu.Unlock()
 }
@@ -407,32 +432,30 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[st
 			c.mu.Lock()
 			continue
 		}
-		sent := false
+		// Copie des événements en attente SOUS verrou, émission HORS verrou : on
+		// n'itère jamais sur c.Log pendant que la génération peut y écrire ou que
+		// la troncature (maxLogEvents) peut le déplacer.
+		var pending []LogEvent
 		for _, ev := range c.Log {
-			if ev.Seq <= last {
-				continue
+			if ev.Seq > last {
+				pending = append(pending, ev)
 			}
-			last = ev.Seq
-			delta := ev.Delta
-			ts := ev.TS
-			c.mu.Unlock()
-			out := map[string]any{"seq": ev.Seq, "ts": ts}
-			for k, v := range delta {
+		}
+		if len(pending) == 0 {
+			c.cond.Wait()
+			continue
+		}
+		last = pending[len(pending)-1].Seq
+		c.mu.Unlock()
+		for _, ev := range pending {
+			out := map[string]any{"seq": ev.Seq, "ts": ev.TS}
+			for k, v := range ev.Delta {
 				out[k] = v
 			}
 			if !emit(out) {
 				return
 			}
-			c.mu.Lock()
-			sent = true
-			if ctx.Err() != nil {
-				c.mu.Unlock()
-				return
-			}
 		}
-		if sent {
-			continue
-		}
-		c.cond.Wait()
+		c.mu.Lock()
 	}
 }

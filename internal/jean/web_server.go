@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -142,8 +143,8 @@ func resolvePortConflict(port int) bool {
 		fmt.Println(dim("    annulé."))
 		return false
 	}
-	// SIGTERM d'abord, puis SIGKILL si le port ne se libère pas.
-	_ = exec.Command("kill", "-TERM", strconv.Itoa(pid)).Run()
+	// Arrêt poli d'abord, puis forcé si le port ne se libère pas.
+	killPid(pid, false)
 	for i := 0; i < 15; i++ {
 		time.Sleep(200 * time.Millisecond)
 		if p, _ := pidOnPort(port); p == 0 {
@@ -151,7 +152,7 @@ func resolvePortConflict(port int) bool {
 			return true
 		}
 	}
-	_ = exec.Command("kill", "-KILL", strconv.Itoa(pid)).Run()
+	killPid(pid, true)
 	time.Sleep(500 * time.Millisecond)
 	if p, _ := pidOnPort(port); p != 0 {
 		fmt.Printf("%s impossible de libérer le port %d (PID %d toujours présent)\n", red("[err]"), port, p)
@@ -161,10 +162,47 @@ func resolvePortConflict(port int) bool {
 	return true
 }
 
+// killPid termine un process : kill TERM/KILL sous Unix, taskkill sous Windows
+// (où il n'existe pas d'arrêt « poli » générique — taskkill sans /F échoue sur
+// les process console, donc le second essai passe en forcé).
+func killPid(pid int, force bool) {
+	if runtime.GOOS == "windows" {
+		args := []string{"/PID", strconv.Itoa(pid)}
+		if force {
+			args = append(args, "/F")
+		}
+		_ = exec.Command("taskkill", args...).Run()
+		return
+	}
+	sig := "-TERM"
+	if force {
+		sig = "-KILL"
+	}
+	_ = exec.Command("kill", sig, strconv.Itoa(pid)).Run()
+}
+
 // pidOnPort returns the PID and command name of the process listening on the
-// given TCP port, via `ss` (Linux) with an `lsof` fallback. Returns 0 if none
-// is found or if the tools can't see it (e.g. owned by another user).
+// given TCP port, via `ss` (Linux) with an `lsof` fallback, or `netstat -ano`
+// on Windows. Returns 0 if none is found or if the tools can't see it (e.g.
+// owned by another user).
 func pidOnPort(port int) (int, string) {
+	if runtime.GOOS == "windows" {
+		// netstat -ano : "  TCP    0.0.0.0:8090   0.0.0.0:0   LISTENING   1234"
+		out, err := exec.Command("netstat", "-ano", "-p", "tcp").Output()
+		if err != nil {
+			return 0, ""
+		}
+		suffix := ":" + strconv.Itoa(port)
+		for _, line := range strings.Split(string(out), "\n") {
+			f := strings.Fields(line)
+			if len(f) >= 5 && f[0] == "TCP" && strings.HasSuffix(f[1], suffix) && f[3] == "LISTENING" {
+				if pid, err := strconv.Atoi(f[4]); err == nil && pid > 0 {
+					return pid, processName(pid)
+				}
+			}
+		}
+		return 0, ""
+	}
 	redir := regexp.MustCompile(`pid=(\d+)`)
 	if out, err := exec.Command("ss", "-ltnHp", fmt.Sprintf("sport = :%d", port)).Output(); err == nil {
 		if m := redir.FindStringSubmatch(string(out)); m != nil {
@@ -184,6 +222,16 @@ func pidOnPort(port int) (int, string) {
 
 // processName returns a short command name for a PID, or "?" if unknown.
 func processName(pid int) string {
+	if runtime.GOOS == "windows" {
+		// tasklist CSV : "jean.exe","1234","Console","1","12 345 K"
+		out, err := exec.Command("tasklist", "/FI", "PID eq "+strconv.Itoa(pid), "/FO", "CSV", "/NH").Output()
+		if err == nil {
+			if f := strings.SplitN(strings.TrimSpace(string(out)), "\",\"", 2); len(f) == 2 {
+				return strings.TrimPrefix(f[0], "\"")
+			}
+		}
+		return "?"
+	}
 	if b, err := os.ReadFile(fmt.Sprintf("/proc/%d/comm", pid)); err == nil {
 		if n := strings.TrimSpace(string(b)); n != "" {
 			return n

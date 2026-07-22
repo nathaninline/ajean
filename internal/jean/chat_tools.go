@@ -180,7 +180,12 @@ func fileEdit(path, oldText, newText string) string {
 		return fmt.Sprintf("[erreur] old apparaît %d fois — ajoute du contexte pour le rendre unique", n)
 	}
 	updated := strings.Replace(content, oldText, newText, 1)
-	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
+	// Préserve les permissions d'origine (un script 0755 doit rester exécutable).
+	mode := os.FileMode(0o644)
+	if fi, err := os.Stat(path); err == nil {
+		mode = fi.Mode()
+	}
+	if err := os.WriteFile(path, []byte(updated), mode); err != nil {
 		return "[erreur] " + err.Error()
 	}
 	return fmt.Sprintf("[ok] %s modifié (1 remplacement)", path)
