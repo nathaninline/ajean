@@ -1188,6 +1188,11 @@ function isNearBottom(){
   return c.scrollHeight - c.scrollTop - c.clientHeight < 60;
 }
 function scrollMaybe(){
+  // Pendant le replay initial on NE force AUCUN reflow : lire scrollHeight à chaque
+  // événement rejoué = un layout synchrone forcé sur un DOM qui grossit → coût
+  // quadratique (20-30 s de rendu au refresh sur un long fil). Le scroll est fait
+  // une seule fois à la fin du replay, via jumpBottom() au signal {caught_up}.
+  if(REPLAYING) return;
   if(stickyBottom){
     const c = chatEl();
     c.scrollTop = c.scrollHeight;
@@ -1261,9 +1266,12 @@ function collapseAll(list){ for(const el of list){ if(el) collapseBody(el); } li
 function collapseInstant(el){
   const bw=el.querySelector('.bodywrap'); if(!bw) return;
   el.classList.add('collapsed');
-  const t=bw.style.transition; bw.style.transition='none';
+  // Pas de `void bw.offsetHeight` ici : la bulle vient d'être créée et n'a jamais
+  // été peinte dépliée, donc poser height:0 n'anime pas — inutile de forcer un
+  // reflow par bulle (ce qui, multiplié par le replay, coûtait très cher).
+  bw.style.transition='none';
   bw.style.height='0px'; bw.style.width='0px';
-  void bw.offsetHeight; bw.style.transition=t;
+  requestAnimationFrame(()=>{ bw.style.transition=''; });
 }
 function setLabel(el, text){ el.querySelector('.label').textContent = text; }
 function bodyOf(el){ return el.querySelector('.body'); }
@@ -1391,7 +1399,10 @@ function restoreChat(){
   // sauter en bas (effet de clignotement). Il est révélé, positionné en bas, au
   // signal {caught_up}. Filet de sécurité : révélé quoi qu'il arrive après 2s.
   const c=chatEl(); c.style.opacity='0';
-  setTimeout(()=>{ c.style.transition='opacity .15s'; c.style.opacity='1'; }, 2000);
+  // Si {caught_up} tarde au-delà de 2s (replay anormalement long), on révèle quand
+  // même — et on saute en bas DIRECTEMENT (scrollMaybe est neutralisé tant que
+  // REPLAYING, donc on force ici le positionnement).
+  setTimeout(()=>{ c.style.transition='opacity .15s'; c.style.opacity='1'; c.scrollTop=c.scrollHeight; }, 2000);
   connectStream();
 }
 function onKey(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } }
