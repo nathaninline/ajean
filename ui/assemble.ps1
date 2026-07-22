@@ -18,10 +18,13 @@ $css  = [IO.File]::ReadAllText((Join-Path $src 'styles.css'))
 $js   = (Get-ChildItem (Join-Path $src 'js') -Filter '*.js' | Sort-Object Name |
          ForEach-Object { [IO.File]::ReadAllText($_.FullName) }) -join ''
 
+# le marqueur et SA fin de ligne sont remplacés (LF ou CRLF selon le checkout) ;
+# chaque source apporte ses propres fins de ligne → sortie byte-stable.
 foreach ($m in '@@CSS@@', '@@JS@@') {
-  if (-not $tmpl.Contains("$m`n")) { throw "marqueur $m introuvable dans index.tmpl.html" }
+  if ($tmpl -notmatch "$m`r?`n") { throw "marqueur $m introuvable dans index.tmpl.html" }
 }
-$html = $tmpl.Replace("@@CSS@@`n", $css).Replace("@@JS@@`n", $js)
+$html = [regex]::Replace($tmpl, "@@CSS@@`r?`n", { $css })
+$html = [regex]::Replace($html, "@@JS@@`r?`n",  { $js })
 
 [IO.File]::WriteAllText($dst, $html, [Text.UTF8Encoding]::new($false))
 Write-Host "OK -> $dst ($([IO.File]::ReadAllBytes($dst).Length) octets)"
