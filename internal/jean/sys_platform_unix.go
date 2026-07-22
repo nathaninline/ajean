@@ -175,6 +175,10 @@ func ensureCompiler() error {
 // nothing extra to inject.
 func cudaPathEnv(toolkitDir string) []string { return nil }
 
+// ensureCudaVSIntegration is Windows-specific (MSBuild CUDA integration check);
+// no-op on Unix.
+func ensureCudaVSIntegration(toolkitDir string) error { return nil }
+
 // ensureAccelerator is a no-op on Unix: CUDA/ROCm toolkits are installed through
 // the distro (their layout is already probed by findNvcc / detectBuildPlan), and
 // auto-installing multi-GB GPU toolkits across distros is too varied to do safely.

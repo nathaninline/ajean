@@ -297,6 +297,71 @@ func ensureAccelerator() {
 	}
 }
 
+// ensureCudaVSIntegration vérifie que l'intégration MSBuild de CUDA (fichiers
+// « CUDA x.y.props/targets » dans BuildCustomizations de Visual Studio) est en
+// place — sans elle, le générateur Visual Studio échoue sur le cryptique
+// « No CUDA toolset found » (CMakeDetermineCompilerId). Cas typiques : CUDA
+// installé dans un chemin custom (ex. F:\Cuda) sans cocher « Visual Studio
+// Integration », ou VS (ré)installé APRÈS CUDA — l'installeur NVIDIA n'intègre
+// que les VS présents au moment où il tourne. On tente d'abord de copier les
+// fichiers depuis le toolkit (extras\visual_studio_integration\MSBuildExtensions) ;
+// si ça échoue (droits), on explique quoi faire au lieu de laisser l'erreur
+// CMake brute. Best-effort : sans vswhere/VS détectable on laisse cmake juger.
+func ensureCudaVSIntegration(toolkitDir string) error {
+	vs := vswherePath()
+	if _, err := os.Stat(vs); err != nil {
+		return nil
+	}
+	out, err := exec.Command(vs, "-latest", "-products", "*",
+		"-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+		"-property", "installationPath").Output()
+	if err != nil {
+		return nil
+	}
+	installPath := strings.TrimSpace(string(out))
+	if installPath == "" {
+		return nil
+	}
+	dsts, _ := filepath.Glob(filepath.Join(installPath, "MSBuild", "Microsoft", "VC", "*", "BuildCustomizations"))
+	for _, d := range dsts {
+		if m, _ := filepath.Glob(filepath.Join(d, "CUDA *.props")); len(m) > 0 {
+			return nil // intégration déjà en place
+		}
+	}
+	// Absente : tentative de réparation depuis le toolkit lui-même.
+	src := filepath.Join(toolkitDir, "extras", "visual_studio_integration", "MSBuildExtensions")
+	files, _ := filepath.Glob(filepath.Join(src, "*"))
+	copied := 0
+	for _, dst := range dsts {
+		ok := len(files) > 0
+		for _, f := range files {
+			b, err := os.ReadFile(f)
+			if err != nil {
+				ok = false
+				break
+			}
+			if err := os.WriteFile(filepath.Join(dst, filepath.Base(f)), b, 0o644); err != nil {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			copied++
+		}
+	}
+	if copied > 0 {
+		fmt.Printf("%s intégration Visual Studio de CUDA absente — réparée (fichiers copiés depuis %s)\n", yellow("[fix]"), src)
+		return nil
+	}
+	return fmt.Errorf(`l'intégration Visual Studio de CUDA est absente : aucun fichier « CUDA x.y.props » sous
+  %s\MSBuild\Microsoft\VC\<version>\BuildCustomizations
+Sans elle, CMake échoue sur « No CUDA toolset found ». Pour corriger, au choix :
+  1. relance l'installeur du CUDA Toolkit (installation personnalisée) et coche « CUDA → Visual Studio Integration » — Visual Studio doit déjà être installé à ce moment-là ;
+  2. ou copie (en admin) les fichiers de
+       %s
+     vers le dossier BuildCustomizations ci-dessus, puis relance jean llamacpp install`, installPath, src)
+}
+
 // cudaPathEnv returns the CUDA toolkit env vars the MSBuild CUDA integration
 // needs (CUDA_PATH and the version-specific CUDA_PATH_Vx_y), derived from the
 // toolkit root, e.g. "...\CUDA\v13.3" → CUDA_PATH_V13_3. Returns NUL-free

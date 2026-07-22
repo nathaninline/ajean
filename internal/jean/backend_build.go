@@ -120,6 +120,15 @@ func buildLlamacpp(repo string, p buildPlan, clean bool) error {
 		// on les réinjecte sinon le configure échoue sur « CUDA Toolkit directory '' ».
 		parts = append(parts, cudaPathEnv(filepath.Dir(cudaBin))...)
 		env = strings.Join(parts, "\x00")
+		// Générateur Visual Studio : vérifie (et répare si possible) l'intégration
+		// MSBuild de CUDA AVANT de configurer — sinon CMake échoue sur le cryptique
+		// « No CUDA toolset found » (cf. issue #10 : CUDA dans un chemin custom sans
+		// l'option « Visual Studio Integration », ou VS installé après CUDA).
+		if strings.HasPrefix(p.gen, "Visual Studio") {
+			if err := ensureCudaVSIntegration(filepath.Dir(cudaBin)); err != nil {
+				return err
+			}
+		}
 	}
 
 	cfgArgs := []string{"-B", "build", "-S", "."}
@@ -164,6 +173,17 @@ func hintMissingBuildDep(p buildPlan, cfgLog string) {
 	// Backend Vulkan : les en-têtes SPIR-V (paquet SPIRV-Headers) sont requis par
 	// la config CMake de ggml-vulkan, mais absents par défaut sur beaucoup de
 	// distros même quand glslc/libvulkan sont là.
+	// Windows/CUDA : « No CUDA toolset found » = intégration MSBuild de CUDA
+	// absente de Visual Studio. Normalement intercepté AVANT le configure par
+	// ensureCudaVSIntegration ; ce filet sert aux cas où la détection n'a pas pu
+	// conclure (vswhere absent, install VS non standard).
+	if p.backend == "cuda" && strings.Contains(log, "No CUDA toolset found") {
+		fmt.Printf("\n%s l'intégration Visual Studio de CUDA est absente (« No CUDA toolset found »).\n", yellow("[dépendance]"))
+		fmt.Printf("            Relance l'installeur du CUDA Toolkit (installation personnalisée) en cochant « CUDA → Visual Studio Integration »\n")
+		fmt.Printf("            (Visual Studio avec le workload C++ doit déjà être installé), ou copie les fichiers de\n")
+		fmt.Printf("            <toolkit>\\extras\\visual_studio_integration\\MSBuildExtensions vers\n")
+		fmt.Printf("            <VS>\\MSBuild\\Microsoft\\VC\\<version>\\BuildCustomizations, puis relance %s.\n", bold("jean llamacpp install"))
+	}
 	if p.backend == "vulkan" && strings.Contains(log, "SPIRV-Headers") {
 		fmt.Printf("\n%s dépendance manquante pour le backend %s : les en-têtes SPIR-V (paquet « SPIRV-Headers ») sont introuvables.\n",
 			yellow("[dépendance]"), green("Vulkan"))
