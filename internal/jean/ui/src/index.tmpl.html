@@ -208,8 +208,17 @@
       <label class="muted">Nom <span style="opacity:.6">(espaces et accents OK, sauf / et \)</span></label>
       <input id="m-name" style="background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit">
       <div id="m-model-row" style="display:none">
-        <label class="muted">Backend <span style="opacity:.6">(remplace la ligne BIN=)</span></label>
-        <select id="m-backend" onchange="onPickBackend()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;margin:6px 0 10px"></select>
+        <label class="muted">Moteur (backend) <span style="opacity:.6">— quel llama.cpp fait tourner ce modèle</span></label>
+        <div class="be-opts">
+          <label class="be-opt"><input type="radio" name="m-be" value="fast" onchange="onBackendMode('fast')"><span>⚡ Rapide</span><span class="be-note" id="be-fast-note"></span></label>
+          <label class="be-opt"><input type="radio" name="m-be" value="opt" onchange="onBackendMode('opt')"><span>🔧 Optimisé</span><span class="be-note" id="be-opt-note"></span></label>
+          <label class="be-opt"><input type="radio" name="m-be" value="custom" onchange="onBackendMode('custom')"><span>📁 Personnalisé</span></label>
+        </div>
+        <div id="m-backend-custom" style="display:none;margin:0 0 10px">
+          <input id="m-backend-path" oninput="onCustomPath()" placeholder="chemin vers llama-server(.exe)" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit">
+          <select id="m-backend-detected" onchange="onPickDetected()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;margin-top:6px"></select>
+          <div class="muted" id="be-drop-hint" style="font-size:11px;margin-top:4px"></div>
+        </div>
         <label class="muted">Modèle <span style="opacity:.6">(remplace la ligne MODEL=)</span></label>
         <select id="m-model" onchange="onPickModel()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;margin-top:6px"></select>
         <label class="muted" style="margin-top:10px;display:block">Télécharger depuis Hugging Face <span style="opacity:.6">(lien vers un .gguf)</span></label>

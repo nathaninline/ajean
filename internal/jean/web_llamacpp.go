@@ -166,6 +166,7 @@ func handleLlamacpp(w http.ResponseWriter, r *http.Request) {
 		"bin":    pbBin,
 		"in_use": pbBin != "" && samePath(pbBin, cfgBin),
 	}
+	out["backends_dir"] = filepath.Join(JeanHome(), "backends")
 	out["job"] = lcJobSnapshot(0, false)
 	sendJSON(w, 200, out)
 }

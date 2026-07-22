@@ -296,7 +296,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .lc-modes.busy{opacity:.5;pointer-events:none}
 .lc-mode{border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:border-color .12s,background .12s}
 .lc-mode:hover{border-color:var(--accent)}
-.lc-mode.active{border-color:var(--accent);background:var(--panel);cursor:default}
+.lc-mode.installed{border-color:var(--accent)}
 .lc-mode-t{font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px}
 .lc-reco{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);border:1px solid var(--accent);border-radius:8px;padding:1px 6px}
 .lc-mode-d{font-size:11px;color:var(--dim);margin-top:3px}
@@ -305,6 +305,11 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .lc-mode-active-tag{color:var(--accent);font-weight:600}
 .lc-update-link{color:var(--dim);text-decoration:underline;cursor:pointer}
 .lc-update-link:hover{color:var(--accent)}
+/* Choix du moteur dans l'éditeur de modèle (3 options : rapide/optimisé/perso) */
+.be-opts{display:flex;flex-direction:column;gap:7px;margin:6px 0 8px}
+.be-opt{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer}
+.be-opt input{margin:0;flex-shrink:0}
+.be-note{font-size:11px;color:var(--dim);margin-left:auto}
 .lc-logbar{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;font-weight:600;padding:6px 0;margin-top:4px}
 .lc-logbar #lc-log-caret{font-size:9px;transition:transform .12s;display:inline-block}
 .lc-logbar.open #lc-log-caret{transform:rotate(90deg)}
@@ -500,8 +505,17 @@ button:disabled{opacity:.5;cursor:not-allowed}
       <label class="muted">Nom <span style="opacity:.6">(espaces et accents OK, sauf / et \)</span></label>
       <input id="m-name" style="background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit">
       <div id="m-model-row" style="display:none">
-        <label class="muted">Backend <span style="opacity:.6">(remplace la ligne BIN=)</span></label>
-        <select id="m-backend" onchange="onPickBackend()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;margin:6px 0 10px"></select>
+        <label class="muted">Moteur (backend) <span style="opacity:.6">— quel llama.cpp fait tourner ce modèle</span></label>
+        <div class="be-opts">
+          <label class="be-opt"><input type="radio" name="m-be" value="fast" onchange="onBackendMode('fast')"><span>⚡ Rapide</span><span class="be-note" id="be-fast-note"></span></label>
+          <label class="be-opt"><input type="radio" name="m-be" value="opt" onchange="onBackendMode('opt')"><span>🔧 Optimisé</span><span class="be-note" id="be-opt-note"></span></label>
+          <label class="be-opt"><input type="radio" name="m-be" value="custom" onchange="onBackendMode('custom')"><span>📁 Personnalisé</span></label>
+        </div>
+        <div id="m-backend-custom" style="display:none;margin:0 0 10px">
+          <input id="m-backend-path" oninput="onCustomPath()" placeholder="chemin vers llama-server(.exe)" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit">
+          <select id="m-backend-detected" onchange="onPickDetected()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;margin-top:6px"></select>
+          <div class="muted" id="be-drop-hint" style="font-size:11px;margin-top:4px"></div>
+        </div>
         <label class="muted">Modèle <span style="opacity:.6">(remplace la ligne MODEL=)</span></label>
         <select id="m-model" onchange="onPickModel()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;margin-top:6px"></select>
         <label class="muted" style="margin-top:10px;display:block">Télécharger depuis Hugging Face <span style="opacity:.6">(lien vers un .gguf)</span></label>
@@ -1064,7 +1078,7 @@ async function openItem(kind, key){
     document.getElementById('m-del-model').checked = false;
     document.getElementById('m-quant').value = currentQuantInTextarea();
     delModelWrap.style.display = key ? 'inline-flex' : 'none';
-    await Promise.all([populateBackendPicker(), populateModelPicker()]);
+    await Promise.all([populateBackend(), populateModelPicker()]);
   } else {
     modelRow.style.display = 'none';
     delModelWrap.style.display = 'none';
@@ -1117,38 +1131,75 @@ function onPickModel(){
   toast('MODEL='+val);
 }
 
-// Backend picker — same pattern as model: list /etc/jean/backends/*, rewrite BIN=.
+// Choix du moteur PAR MODÈLE : 3 options (rapide / optimisé / personnalisé)
+// qui réécrivent la ligne BIN= du preset. C'est LE point où on décide quel
+// backend fait tourner ce modèle — la barre latérale ne fait qu'installer.
 function currentBinInTextarea(){
   const txt = document.getElementById('m-content').value;
   const m = txt.match(/^\s*BIN\s*=\s*"?([^"\n]*)"?\s*$/m);
   return m ? m[1].trim() : '';
 }
-async function populateBackendPicker(){
-  const sel = document.getElementById('m-backend');
-  const list = await jget('/api/backends');
-  const cur = currentBinInTextarea();
-  let html = '<option value="">— choisir un backend —</option>';
-  let matched = false;
-  for(const b of list){
-    const isSel = (b.path === cur);
-    if(isSel) matched = true;
-    html += '<option value="'+b.path+'"'+(isSel?' selected':'')+'>'+b.name+'</option>';
-  }
-  if(cur && !matched){
-    html += '<option value="" disabled selected>('+(cur.split('/').slice(-3,-2)[0]||cur)+' — hors /etc/jean/backends)</option>';
-  }
-  sel.innerHTML = html;
+// Compare deux chemins de binaire en neutralisant séparateurs et casse (Windows).
+function sameBinPath(a, b){
+  const n = x => String(x||'').replace(/\\/g,'/').replace(/\/+$/,'').toLowerCase();
+  return !!a && !!b && n(a) === n(b);
 }
-function onPickBackend(){
-  const val = document.getElementById('m-backend').value;
-  if(!val) return;
+// Écrit (ou remplace) la ligne BIN= dans le contenu du preset.
+function setBinInTextarea(val){
   const ta = document.getElementById('m-content');
-  if(/^\s*BIN\s*=.*$/m.test(ta.value)){
-    ta.value = ta.value.replace(/^\s*BIN\s*=.*$/m, 'BIN="'+val+'"');
-  } else {
-    ta.value = 'BIN="'+val+'"\n' + ta.value;
+  if(/^\s*BIN\s*=.*$/m.test(ta.value)) ta.value = ta.value.replace(/^\s*BIN\s*=.*$/m, 'BIN="'+val+'"');
+  else ta.value = 'BIN="'+val+'"\n' + ta.value;
+}
+let beFastPath = '', beOptPath = '';
+async function populateBackend(){
+  // Chemins des deux moteurs gérés + liste des backends détectés (dossier jean).
+  let lc = {}; try{ lc = await jget('/api/llamacpp'); }catch(_){}
+  beFastPath = (lc.prebuilt && lc.prebuilt.bin) || '';
+  beOptPath  = lc.bin || '';
+  document.getElementById('be-fast-note').textContent = beFastPath ? '' : 'non installée';
+  document.getElementById('be-opt-note').textContent  = beOptPath  ? '' : 'non installée';
+  // Menu « backend détecté » du mode personnalisé : tout ce qu'on trouve dans
+  // le dossier backends de jean (l'utilisateur peut y déposer son propre build).
+  const detected = await jget('/api/backends');
+  const sel = document.getElementById('m-backend-detected');
+  let html = '<option value="">— ou choisir un backend détecté —</option>';
+  for(const b of (detected||[])) html += '<option value="'+b.path+'">'+b.name+'</option>';
+  sel.innerHTML = html;
+  document.getElementById('be-drop-hint').textContent = lc.backends_dir
+    ? ('Astuce : dépose ton binaire dans un sous-dossier de '+lc.backends_dir+' pour le voir apparaître ci-dessus.') : '';
+  // Sélectionne l'option correspondant au BIN actuel du preset.
+  const cur = currentBinInTextarea();
+  let mode = 'custom';
+  if(sameBinPath(cur, beFastPath)) mode = 'fast';
+  else if(sameBinPath(cur, beOptPath)) mode = 'opt';
+  const radio = document.querySelector('input[name=m-be][value='+mode+']');
+  if(radio) radio.checked = true;
+  toggleBackendCustom(mode);
+  if(mode === 'custom') document.getElementById('m-backend-path').value = cur;
+}
+function toggleBackendCustom(mode){
+  document.getElementById('m-backend-custom').style.display = (mode==='custom') ? 'block' : 'none';
+}
+function onBackendMode(mode){
+  toggleBackendCustom(mode);
+  if(mode === 'fast'){
+    if(!beFastPath){ toast('installe d\'abord la version rapide (section Backend llama.cpp)'); return; }
+    setBinInTextarea(beFastPath); toast('moteur : rapide');
+  } else if(mode === 'opt'){
+    if(!beOptPath){ toast('installe d\'abord la version optimisée (section Backend llama.cpp)'); return; }
+    setBinInTextarea(beOptPath); toast('moteur : optimisé');
   }
-  toast('BIN='+val);
+  // custom : on attend que l'utilisateur saisisse un chemin / choisisse un backend
+}
+function onCustomPath(){
+  const v = document.getElementById('m-backend-path').value.trim();
+  if(v) setBinInTextarea(v);
+}
+function onPickDetected(){
+  const v = document.getElementById('m-backend-detected').value;
+  if(!v) return;
+  document.getElementById('m-backend-path').value = v;
+  setBinInTextarea(v); toast('moteur personnalisé');
 }
 // Read/write the QUANT= override line in the preset textarea.
 function currentQuantInTextarea(){
@@ -1610,11 +1661,12 @@ async function send(){
 loadAll();
 setInterval(loadStatus, 5000);
 setInterval(loadVram, 3000);
-// Backend llama.cpp — vue simple : deux modes au choix.
+// Backend llama.cpp — la barre latérale sert UNIQUEMENT à installer les moteurs.
 //   ⚡ Version rapide    = binaires officiels précompilés (aucune compilation)
 //   🔧 Version optimisée = compilée pour la machine
-// Un clic sur une carte l'installe (ou l'active si déjà installée). La carte
-// active propose « mettre à jour ». Aucun détail technique affiché.
+// Le CHOIX du moteur utilisé se fait par modèle (preset), pas ici — voir la
+// section « Moteur » dans l'éditeur de modèle. Ça évite que la barre latérale
+// et les presets se battent pour la ligne BIN.
 let lcState = null, lcPoll = null, lcLogNext = 0;
 
 async function loadLlamacpp(){
@@ -1622,19 +1674,17 @@ async function loadLlamacpp(){
   try{ s = await jget('/api/llamacpp'); }catch(_){ return; }
   lcState = s;
   const pb = s.prebuilt || {};
-  const fastActive = !!pb.in_use;
-  const optActive  = s.installed && s.in_use && !pb.in_use;
+  const fastInstalled = !!pb.bin;
+  const optInstalled  = !!s.bin;
 
   const head = document.getElementById('lc-status');
-  if(!fastActive && !optActive){
-    head.innerHTML = 'Le moteur d\'IA n\'est pas encore installé. Choisis une version ci-dessous — la <b>rapide</b> convient à presque tout le monde.';
-  } else if(fastActive){
-    head.innerHTML = 'Moteur actif : <b style="color:var(--accent)">version rapide</b>.';
+  if(!fastInstalled && !optInstalled){
+    head.innerHTML = 'Installe le moteur d\'IA. La <b>version rapide</b> convient à presque tout le monde.';
   } else {
-    head.innerHTML = 'Moteur actif : <b style="color:var(--accent)">version optimisée</b>.';
+    head.innerHTML = 'Installe les moteurs ici. Tu choisis lequel utiliser quand tu édites un modèle (bouton <b>✎</b>).';
   }
-  lcRenderMode('fast', fastActive, !!pb.bin);
-  lcRenderMode('opt', optActive, !!s.bin);
+  lcRenderMode('fast', fastInstalled);
+  lcRenderMode('opt', optInstalled);
 
   // Job en cours (page rechargée pendant une install) → on raccroche l'affichage.
   if(s.job && s.job.exists && s.job.running && !lcPoll){
@@ -1643,64 +1693,46 @@ async function loadLlamacpp(){
   }
 }
 
-function lcRenderMode(mode, active, installed){
+function lcRenderMode(mode, installed){
   const card  = document.getElementById(mode==='fast' ? 'lc-mode-fast' : 'lc-mode-opt');
   const state = document.getElementById(mode==='fast' ? 'lc-fast-state' : 'lc-opt-state');
-  card.classList.toggle('active', active);
-  if(active){
-    state.innerHTML = '<span class="lc-mode-active-tag">✓ Actif</span>'
-      + '<span class="lc-update-link" onclick="event.stopPropagation();lcUpdateActive()">↻ mettre à jour</span>';
-  } else if(installed){
-    state.innerHTML = '<span class="lc-mode-go">→ cliquer pour l\'activer</span>';
+  card.classList.toggle('installed', installed);
+  if(installed){
+    state.innerHTML = '<span class="lc-mode-active-tag">✓ installée</span>'
+      + '<span class="lc-update-link" onclick="event.stopPropagation();lcUpdate(\''+mode+'\')">↻ mettre à jour</span>';
   } else {
     state.innerHTML = '<span class="lc-mode-go">→ cliquer pour installer</span>';
   }
 }
 
-// Clic sur une carte : activer / installer le mode correspondant.
+// Clic sur une carte : installer le moteur (s'il ne l'est pas déjà).
 async function lcPick(mode){
   const s = lcState || {}, pb = s.prebuilt || {};
+  const installed = mode==='fast' ? !!pb.bin : !!s.bin;
+  if(installed){
+    toast('déjà installée — choisis-la dans l\'édition d\'un modèle (✎)');
+    return;
+  }
   if(mode === 'fast'){
-    if(pb.in_use) return;                 // déjà actif
-    if(pb.bin){                            // déjà téléchargée → simple bascule
-      if(!await askConfirm('Basculer sur la version rapide (déjà installée) ? Le moteur va redémarrer.', {title:'Version rapide', okText:'Basculer'})) return;
-      return lcUse('fast');
-    }
-    if(!await askConfirm('Installer la version rapide de llama.cpp : téléchargement prêt à l\'emploi (~2 min, aucune compilation). Le moteur va redémarrer à la fin.', {title:'Version rapide', okText:'Installer'})) return;
+    if(!await askConfirm('Installer la version rapide de llama.cpp : téléchargement prêt à l\'emploi (~2 min, aucune compilation).', {title:'Version rapide', okText:'Installer'})) return;
     const r = await jpost('/api/llamacpp/prebuilt', {});
     if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
-    lcStartPolling();
   } else {
-    if(s.installed && s.in_use && !pb.in_use) return; // déjà actif
-    if(s.bin){                             // déjà compilée → simple bascule
-      if(!await askConfirm('Basculer sur la version optimisée (déjà compilée) ? Le moteur va redémarrer.', {title:'Version optimisée', okText:'Basculer'})) return;
-      return lcUse('opt');
-    }
-    if(!await askConfirm('Compiler la version optimisée pour ta machine. Ça peut prendre de longues minutes (surtout avec une carte NVIDIA). Le moteur va redémarrer à la fin.', {title:'Version optimisée', okText:'Compiler'})) return;
+    if(!await askConfirm('Compiler la version optimisée pour ta machine. Ça peut prendre de longues minutes (surtout avec une carte NVIDIA).', {title:'Version optimisée', okText:'Compiler'})) return;
     const r = await jpost('/api/llamacpp/install', {});
     if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
-    lcStartPolling();
   }
+  lcStartPolling();
 }
 
-// Bascule instantanée entre deux versions déjà installées (pas de recompilation).
-async function lcUse(mode){
-  toast('bascule…');
-  const r = await jpost('/api/llamacpp/use', {mode});
-  if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
-  toast(mode==='fast' ? 'version rapide activée' : 'version optimisée activée');
-  setTimeout(loadAll, 1500);
-}
-
-// « Mettre à jour » sur la carte active.
-async function lcUpdateActive(){
-  const s = lcState || {}, pb = s.prebuilt || {};
-  if(pb.in_use){
-    if(!await askConfirm('Vérifier et installer la dernière version rapide. Le moteur va redémarrer.', {title:'Mettre à jour', okText:'Mettre à jour'})) return;
+// « Mettre à jour » sur une carte installée.
+async function lcUpdate(mode){
+  if(mode === 'fast'){
+    if(!await askConfirm('Vérifier et installer la dernière version rapide.', {title:'Mettre à jour', okText:'Mettre à jour'})) return;
     const r = await jpost('/api/llamacpp/prebuilt', {});
     if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
   } else {
-    if(!await askConfirm('Vérifier et installer la dernière version optimisée (recompilation si besoin). Le moteur va redémarrer.', {title:'Mettre à jour', okText:'Mettre à jour'})) return;
+    if(!await askConfirm('Vérifier et installer la dernière version optimisée (recompilation si besoin).', {title:'Mettre à jour', okText:'Mettre à jour'})) return;
     const r = await jpost('/api/llamacpp/update', {clean:false});
     if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
   }

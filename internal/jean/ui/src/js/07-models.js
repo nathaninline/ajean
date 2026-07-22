@@ -76,7 +76,7 @@ async function openItem(kind, key){
     document.getElementById('m-del-model').checked = false;
     document.getElementById('m-quant').value = currentQuantInTextarea();
     delModelWrap.style.display = key ? 'inline-flex' : 'none';
-    await Promise.all([populateBackendPicker(), populateModelPicker()]);
+    await Promise.all([populateBackend(), populateModelPicker()]);
   } else {
     modelRow.style.display = 'none';
     delModelWrap.style.display = 'none';
@@ -129,38 +129,75 @@ function onPickModel(){
   toast('MODEL='+val);
 }
 
-// Backend picker — same pattern as model: list /etc/jean/backends/*, rewrite BIN=.
+// Choix du moteur PAR MODÈLE : 3 options (rapide / optimisé / personnalisé)
+// qui réécrivent la ligne BIN= du preset. C'est LE point où on décide quel
+// backend fait tourner ce modèle — la barre latérale ne fait qu'installer.
 function currentBinInTextarea(){
   const txt = document.getElementById('m-content').value;
   const m = txt.match(/^\s*BIN\s*=\s*"?([^"\n]*)"?\s*$/m);
   return m ? m[1].trim() : '';
 }
-async function populateBackendPicker(){
-  const sel = document.getElementById('m-backend');
-  const list = await jget('/api/backends');
-  const cur = currentBinInTextarea();
-  let html = '<option value="">— choisir un backend —</option>';
-  let matched = false;
-  for(const b of list){
-    const isSel = (b.path === cur);
-    if(isSel) matched = true;
-    html += '<option value="'+b.path+'"'+(isSel?' selected':'')+'>'+b.name+'</option>';
-  }
-  if(cur && !matched){
-    html += '<option value="" disabled selected>('+(cur.split('/').slice(-3,-2)[0]||cur)+' — hors /etc/jean/backends)</option>';
-  }
-  sel.innerHTML = html;
+// Compare deux chemins de binaire en neutralisant séparateurs et casse (Windows).
+function sameBinPath(a, b){
+  const n = x => String(x||'').replace(/\\/g,'/').replace(/\/+$/,'').toLowerCase();
+  return !!a && !!b && n(a) === n(b);
 }
-function onPickBackend(){
-  const val = document.getElementById('m-backend').value;
-  if(!val) return;
+// Écrit (ou remplace) la ligne BIN= dans le contenu du preset.
+function setBinInTextarea(val){
   const ta = document.getElementById('m-content');
-  if(/^\s*BIN\s*=.*$/m.test(ta.value)){
-    ta.value = ta.value.replace(/^\s*BIN\s*=.*$/m, 'BIN="'+val+'"');
-  } else {
-    ta.value = 'BIN="'+val+'"\n' + ta.value;
+  if(/^\s*BIN\s*=.*$/m.test(ta.value)) ta.value = ta.value.replace(/^\s*BIN\s*=.*$/m, 'BIN="'+val+'"');
+  else ta.value = 'BIN="'+val+'"\n' + ta.value;
+}
+let beFastPath = '', beOptPath = '';
+async function populateBackend(){
+  // Chemins des deux moteurs gérés + liste des backends détectés (dossier jean).
+  let lc = {}; try{ lc = await jget('/api/llamacpp'); }catch(_){}
+  beFastPath = (lc.prebuilt && lc.prebuilt.bin) || '';
+  beOptPath  = lc.bin || '';
+  document.getElementById('be-fast-note').textContent = beFastPath ? '' : 'non installée';
+  document.getElementById('be-opt-note').textContent  = beOptPath  ? '' : 'non installée';
+  // Menu « backend détecté » du mode personnalisé : tout ce qu'on trouve dans
+  // le dossier backends de jean (l'utilisateur peut y déposer son propre build).
+  const detected = await jget('/api/backends');
+  const sel = document.getElementById('m-backend-detected');
+  let html = '<option value="">— ou choisir un backend détecté —</option>';
+  for(const b of (detected||[])) html += '<option value="'+b.path+'">'+b.name+'</option>';
+  sel.innerHTML = html;
+  document.getElementById('be-drop-hint').textContent = lc.backends_dir
+    ? ('Astuce : dépose ton binaire dans un sous-dossier de '+lc.backends_dir+' pour le voir apparaître ci-dessus.') : '';
+  // Sélectionne l'option correspondant au BIN actuel du preset.
+  const cur = currentBinInTextarea();
+  let mode = 'custom';
+  if(sameBinPath(cur, beFastPath)) mode = 'fast';
+  else if(sameBinPath(cur, beOptPath)) mode = 'opt';
+  const radio = document.querySelector('input[name=m-be][value='+mode+']');
+  if(radio) radio.checked = true;
+  toggleBackendCustom(mode);
+  if(mode === 'custom') document.getElementById('m-backend-path').value = cur;
+}
+function toggleBackendCustom(mode){
+  document.getElementById('m-backend-custom').style.display = (mode==='custom') ? 'block' : 'none';
+}
+function onBackendMode(mode){
+  toggleBackendCustom(mode);
+  if(mode === 'fast'){
+    if(!beFastPath){ toast('installe d\'abord la version rapide (section Backend llama.cpp)'); return; }
+    setBinInTextarea(beFastPath); toast('moteur : rapide');
+  } else if(mode === 'opt'){
+    if(!beOptPath){ toast('installe d\'abord la version optimisée (section Backend llama.cpp)'); return; }
+    setBinInTextarea(beOptPath); toast('moteur : optimisé');
   }
-  toast('BIN='+val);
+  // custom : on attend que l'utilisateur saisisse un chemin / choisisse un backend
+}
+function onCustomPath(){
+  const v = document.getElementById('m-backend-path').value.trim();
+  if(v) setBinInTextarea(v);
+}
+function onPickDetected(){
+  const v = document.getElementById('m-backend-detected').value;
+  if(!v) return;
+  document.getElementById('m-backend-path').value = v;
+  setBinInTextarea(v); toast('moteur personnalisé');
 }
 // Read/write the QUANT= override line in the preset textarea.
 function currentQuantInTextarea(){

@@ -277,7 +277,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .lc-modes.busy{opacity:.5;pointer-events:none}
 .lc-mode{border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:border-color .12s,background .12s}
 .lc-mode:hover{border-color:var(--accent)}
-.lc-mode.active{border-color:var(--accent);background:var(--panel);cursor:default}
+.lc-mode.installed{border-color:var(--accent)}
 .lc-mode-t{font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px}
 .lc-reco{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);border:1px solid var(--accent);border-radius:8px;padding:1px 6px}
 .lc-mode-d{font-size:11px;color:var(--dim);margin-top:3px}
@@ -286,6 +286,11 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .lc-mode-active-tag{color:var(--accent);font-weight:600}
 .lc-update-link{color:var(--dim);text-decoration:underline;cursor:pointer}
 .lc-update-link:hover{color:var(--accent)}
+/* Choix du moteur dans l'éditeur de modèle (3 options : rapide/optimisé/perso) */
+.be-opts{display:flex;flex-direction:column;gap:7px;margin:6px 0 8px}
+.be-opt{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer}
+.be-opt input{margin:0;flex-shrink:0}
+.be-note{font-size:11px;color:var(--dim);margin-left:auto}
 .lc-logbar{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;font-weight:600;padding:6px 0;margin-top:4px}
 .lc-logbar #lc-log-caret{font-size:9px;transition:transform .12s;display:inline-block}
 .lc-logbar.open #lc-log-caret{transform:rotate(90deg)}
