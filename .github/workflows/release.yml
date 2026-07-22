@@ -1,5 +1,9 @@
 # Release : sur tag vX.Y.Z, compile les 6 cibles et publie la release GitHub
-# avec les binaires (mêmes noms d'assets que les releases manuelles historiques).
+# avec les binaires (mêmes noms d'assets que les releases manuelles historiques)
+# ET le fichier SHA256SUMS que `jean update` (v0.4.6+) vérifie avant d'installer.
+# ⚠️ NE PAS uploader de binaires à la main en plus : ce workflow écrase les
+# assets du même nom (softprops remplace), et des sommes qui ne correspondent
+# plus aux binaires font échouer `jean update` (vécu sur v0.4.7).
 name: release
 on:
   push:
@@ -24,7 +28,8 @@ jobs:
             GOOS=$os GOARCH=$arch CGO_ENABLED=0 \
               go build -trimpath -ldflags="-s -w" -o "dist/jean-$os-$arch$ext" ./cmd/jean
           done
-          ls -l dist
+          (cd dist && sha256sum jean-* > SHA256SUMS)
+          ls -l dist && cat dist/SHA256SUMS
       - name: publier la release
         uses: softprops/action-gh-release@v2
         with:
