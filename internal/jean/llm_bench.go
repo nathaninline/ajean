@@ -14,13 +14,13 @@ import (
 
 // benchResult captures the timings llama.cpp returns from /completion.
 type benchResult struct {
-	PromptN          int     `json:"prompt_n"`
-	PromptMs         float64 `json:"prompt_ms"`
-	PromptPerSecond  float64 `json:"prompt_per_second"`
-	PredictedN       int     `json:"predicted_n"`
-	PredictedMs      float64 `json:"predicted_ms"`
-	PredictedPerSec  float64 `json:"predicted_per_second"`
-	Elapsed          float64 `json:"elapsed_sec"`
+	PromptN         int     `json:"prompt_n"`
+	PromptMs        float64 `json:"prompt_ms"`
+	PromptPerSecond float64 `json:"prompt_per_second"`
+	PredictedN      int     `json:"predicted_n"`
+	PredictedMs     float64 `json:"predicted_ms"`
+	PredictedPerSec float64 `json:"predicted_per_second"`
+	Elapsed         float64 `json:"elapsed_sec"`
 }
 
 // benchCorpus is a varied passage used to defeat speculative decoding
@@ -71,12 +71,12 @@ func runBench(nPrompt, nPredict int) (*benchResult, error) {
 	// Use the same endpoint your real chat hits, so the comparison is honest
 	// (chat template, reasoning, OpenAI-compat layer all included).
 	payload := map[string]any{
-		"model":         "jean",
-		"messages":      []Message{{Role: "user", Content: prompt + "\n\nContinue this passage with another 1000+ words of original varied prose, mixing French and English narrative paragraphs on different topics."}},
-		"max_tokens":    nPredict,
-		"stream":        false,
-		"temperature":   0.7,
-		"cache_prompt":  false,
+		"model":        "jean",
+		"messages":     []Message{{Role: "user", Content: prompt + "\n\nContinue this passage with another 1000+ words of original varied prose, mixing French and English narrative paragraphs on different topics."}},
+		"max_tokens":   nPredict,
+		"stream":       false,
+		"temperature":  0.7,
+		"cache_prompt": false,
 	}
 	body, _ := json.Marshal(payload)
 	url := fmt.Sprintf("http://localhost:%d/v1/chat/completions", port)
@@ -92,12 +92,12 @@ func runBench(nPrompt, nPredict int) (*benchResult, error) {
 	defer resp.Body.Close()
 	var parsed struct {
 		Timings struct {
-			PromptN          int     `json:"prompt_n"`
-			PromptMs         float64 `json:"prompt_ms"`
-			PromptPerSecond  float64 `json:"prompt_per_second"`
-			PredictedN       int     `json:"predicted_n"`
-			PredictedMs      float64 `json:"predicted_ms"`
-			PredictedPerSec  float64 `json:"predicted_per_second"`
+			PromptN         int     `json:"prompt_n"`
+			PromptMs        float64 `json:"prompt_ms"`
+			PromptPerSecond float64 `json:"prompt_per_second"`
+			PredictedN      int     `json:"predicted_n"`
+			PredictedMs     float64 `json:"predicted_ms"`
+			PredictedPerSec float64 `json:"predicted_per_second"`
 		} `json:"timings"`
 		Usage struct {
 			PromptTokens     int `json:"prompt_tokens"`

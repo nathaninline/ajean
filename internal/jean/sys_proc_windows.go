@@ -17,9 +17,9 @@ import (
 
 func relaunchDetachedApp() {
 	const (
-		detachedProcess   = 0x00000008
-		createNoWindow    = 0x08000000
-		createNewProcGrp  = 0x00000200
+		detachedProcess  = 0x00000008
+		createNoWindow   = 0x08000000
+		createNewProcGrp = 0x00000200
 	)
 	exe, err := os.Executable()
 	if err != nil {

@@ -105,17 +105,17 @@ func trayIcon() []byte {
 
 	// Conteneur ICO : ICONDIR (6) + 1 ICONDIRENTRY (16) + PNG.
 	var ico bytes.Buffer
-	binary.Write(&ico, binary.LittleEndian, uint16(0)) // réservé
-	binary.Write(&ico, binary.LittleEndian, uint16(1)) // type = icône
-	binary.Write(&ico, binary.LittleEndian, uint16(1)) // nombre d'images
-	ico.WriteByte(n)                                   // largeur
-	ico.WriteByte(n)                                   // hauteur
-	ico.WriteByte(0)                                   // couleurs
-	ico.WriteByte(0)                                   // réservé
-	binary.Write(&ico, binary.LittleEndian, uint16(1))         // plans
-	binary.Write(&ico, binary.LittleEndian, uint16(32))        // bits/pixel
-	binary.Write(&ico, binary.LittleEndian, uint32(len(p)))    // taille données
-	binary.Write(&ico, binary.LittleEndian, uint32(6+16))      // offset données
+	binary.Write(&ico, binary.LittleEndian, uint16(0))      // réservé
+	binary.Write(&ico, binary.LittleEndian, uint16(1))      // type = icône
+	binary.Write(&ico, binary.LittleEndian, uint16(1))      // nombre d'images
+	ico.WriteByte(n)                                        // largeur
+	ico.WriteByte(n)                                        // hauteur
+	ico.WriteByte(0)                                        // couleurs
+	ico.WriteByte(0)                                        // réservé
+	binary.Write(&ico, binary.LittleEndian, uint16(1))      // plans
+	binary.Write(&ico, binary.LittleEndian, uint16(32))     // bits/pixel
+	binary.Write(&ico, binary.LittleEndian, uint32(len(p))) // taille données
+	binary.Write(&ico, binary.LittleEndian, uint32(6+16))   // offset données
 	ico.Write(p)
 	return ico.Bytes()
 }

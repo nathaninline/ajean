@@ -8,12 +8,12 @@ func TestCompiledFile(t *testing.T) {
 		`    ggml-threading.cpp`: "ggml-threading.cpp",
 		`    ggml-quants.c`:      "ggml-quants.c",
 		// Make (Linux) et Ninja.
-		`[ 45%] Building CXX object src/CMakeFiles/llama.dir/llama.cpp.o`:               "llama.cpp",
+		`[ 45%] Building CXX object src/CMakeFiles/llama.dir/llama.cpp.o`:                     "llama.cpp",
 		`[123/456] Building CUDA object ggml/src/ggml-cuda/CMakeFiles/ggml-cuda.dir/acc.cu.o`: "acc.cu",
 		// La ligne de commande nvcc géante ne doit PAS être prise pour un fichier.
 		`  C:\...\nvcc.exe -x cu ... -o ggml-cuda.dir\Release\acc.obj "C:\...\acc.cu"`: "",
-		`Building Custom Rule C:/ProgramData/jean/...`:                                "",
-		`-- UI: running npm install`:                                                  "",
+		`Building Custom Rule C:/ProgramData/jean/...`:                                 "",
+		`-- UI: running npm install`:                                                   "",
 	}
 	for in, want := range cases {
 		if got := compiledFile(in); got != want {
