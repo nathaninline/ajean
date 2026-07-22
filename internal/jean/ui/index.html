@@ -508,7 +508,22 @@ function md(src){ return src ? marked.parse(fixMd(src)) : ''; }
 let msgs = [];
 let busy = false;
 function toggleSide(){ document.getElementById('side').classList.toggle('open'); document.getElementById('backdrop').classList.toggle('open'); document.body.classList.toggle('drawer-open'); }
-function saveSys(){ localStorage.setItem('jean.sys', document.getElementById('sysprompt').value); }
+// Prompt système : persisté CÔTÉ SERVEUR (/api/sysprompt, partagé entre
+// appareils, utilisé par la génération serveur). localStorage = simple cache
+// d'affichage hors-ligne. Debounce : on n'écrit qu'après une pause de frappe.
+let _sysT = null;
+function saveSys(){
+  const v = document.getElementById('sysprompt').value;
+  localStorage.setItem('jean.sys', v);
+  clearTimeout(_sysT);
+  _sysT = setTimeout(()=>{ jpost('/api/sysprompt', {text:v}).catch(()=>{}); }, 600);
+}
+async function loadSys(){
+  try{
+    const d = await jget('/api/sysprompt');
+    if(d && d.ok){ document.getElementById('sysprompt').value = d.text || ''; localStorage.setItem('jean.sys', d.text || ''); }
+  }catch(e){}
+}
 // ===== Thèmes ================================================================
 // Registre des thèmes disponibles. Pour en AJOUTER un : ajouter un bloc
 // [data-theme="…"] dans le <style> puis une entrée {id,label} ici — le reste
@@ -571,7 +586,7 @@ async function loadPrefs(){
     }
   }catch(e){}
 }
-document.addEventListener('DOMContentLoaded', ()=>{ initTheme(); initDisplay(); document.getElementById('sysprompt').value = localStorage.getItem('jean.sys') || ''; restoreChat(); });
+document.addEventListener('DOMContentLoaded', ()=>{ initTheme(); initDisplay(); document.getElementById('sysprompt').value = localStorage.getItem('jean.sys') || ''; loadSys(); restoreChat(); });
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
 // Modales natives (askConfirm/askPrompt/askAlert) — remplacent confirm()/prompt()/
 // alert() par de vraies boîtes stylées. Chacune renvoie une Promise : askConfirm →

@@ -177,8 +177,16 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 		c.appendDelta(map[string]any{"compacted": true})
 	}
 
+	// Prompt système personnalisé (UI → /api/sysprompt, fichier côté serveur).
+	// Injecté seulement dans la vue envoyée au modèle, jamais persisté dans
+	// c.Messages : modifiable à chaud, effet dès le tour suivant.
+	final := msgs
+	if sp := readSysPrompt(); sp != "" {
+		final = append([]Message{{Role: "system", Content: sp}}, msgs...)
+	}
+
 	var content strings.Builder
-	extra, _ := runChat(ctx, InjectSkills(msgs, caps), temperature, caps, func(ev StreamEvent) bool {
+	extra, _ := runChat(ctx, InjectSkills(final, caps), temperature, caps, func(ev StreamEvent) bool {
 		switch {
 		case ev.Err != nil:
 			c.appendDelta(map[string]any{"error": ev.Err.Error()})
