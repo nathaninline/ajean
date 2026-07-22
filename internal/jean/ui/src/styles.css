@@ -10,6 +10,8 @@
 [data-theme="light"]{color-scheme:light;--bg:#f0f1f4;--panel:#f8f9fb;--border:#d7dbe1;--text:#24292f;--dim:#636b74;--accent:#0969da;--accent-bg:rgba(9,105,218,.10);--ok:#0969da;--warn:#9a6700;--err:#cf222e;--mag:#8250df;--code-bg:#e6e9ee;--danger-bg:#fbe6e6;--warn-bg:#fbefda}
 /* "doux" — thème clair chaud + police Lexend (lecture agréable). */
 [data-theme="soft"]{color-scheme:light;--font:'Lexend',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--bubble:#c2611f;--bg:#faf8f4;--panel:#ffffff;--border:#e8e3d9;--text:#2c2a26;--dim:#8c8577;--accent:#c2611f;--accent-bg:rgba(194,97,31,.10);--ok:#c2611f;--warn:#b45309;--err:#dc2626;--mag:#9a5bd6;--code-bg:#f3f0ea;--danger-bg:#fbe9e7;--warn-bg:#fbf1e0}
+/* "doux sombre" — même esprit que "doux" (Lexend, tons chauds) sur fond sombre chaud. */
+[data-theme="soft-dark"]{color-scheme:dark;--font:'Lexend',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--bubble:#c2611f;--bg:#1c1917;--panel:#26221e;--border:#3a342c;--text:#ece7de;--dim:#9c9284;--accent:#e8965a;--accent-bg:rgba(232,150,90,.14);--ok:#e8965a;--warn:#d9a441;--err:#f07862;--mag:#c39be8;--code-bg:#171412;--danger-bg:#3d2420;--warn-bg:#3a2f1c}
 *{box-sizing:border-box}
 body{margin:0;font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;font-size:14px}
 /* PWA plein écran (viewport-fit=cover) : on décale le contenu des bords pour ne
