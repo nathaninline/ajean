@@ -17,6 +17,52 @@ import (
 	"time"
 )
 
+// buildSink est un collecteur de lignes optionnel : quand il est posé (jobs
+// web, voir web_llamacpp.go), runStep/runBuildStep y dupliquent leur sortie en
+// plus du terminal / des fichiers de log. nil en usage CLI normal.
+var (
+	buildSinkMu sync.Mutex
+	buildSink   func(string)
+)
+
+func setBuildSink(f func(string)) {
+	buildSinkMu.Lock()
+	buildSink = f
+	buildSinkMu.Unlock()
+}
+
+func emitBuildLine(line string) {
+	buildSinkMu.Lock()
+	f := buildSink
+	buildSinkMu.Unlock()
+	if f != nil {
+		f(line)
+	}
+}
+
+// sinkWriter découpe un flux en lignes et les pousse vers emitBuildLine.
+// Sert à téer la sortie des commandes de runStep quand un sink est actif.
+// (mutex : stdout et stderr d'une même commande peuvent écrire en parallèle)
+type sinkWriter struct {
+	mu  sync.Mutex
+	buf []byte
+}
+
+func (s *sinkWriter) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.buf = append(s.buf, p...)
+	for {
+		i := strings.IndexByte(string(s.buf), '\n')
+		if i < 0 {
+			break
+		}
+		emitBuildLine(strings.TrimRight(string(s.buf[:i]), "\r"))
+		s.buf = s.buf[i+1:]
+	}
+	return len(p), nil
+}
+
 func detectBuildPlan() buildPlan {
 	p := buildPlan{backend: "cpu", jobs: numJobs()}
 	// Flags communs : Release + tuning natif pour la machine de build.
@@ -415,8 +461,19 @@ func runStepEnv(name, dir, extraEnv, bin string, args ...string) error {
 	fmt.Printf("\n%s %s %s\n", cyan("▶"), name, dim(strings.Join(args, " ")))
 	cmd := exec.Command(bin, args...)
 	cmd.Dir = dir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	// Tee vers le sink de build (jobs web) en plus du terminal.
+	var out io.Writer = os.Stdout
+	var errw io.Writer = os.Stderr
+	buildSinkMu.Lock()
+	sinkOn := buildSink != nil
+	buildSinkMu.Unlock()
+	if sinkOn {
+		sw := &sinkWriter{}
+		out = io.MultiWriter(os.Stdout, sw)
+		errw = io.MultiWriter(os.Stderr, sw)
+	}
+	cmd.Stdout = out
+	cmd.Stderr = errw
 	cmd.Stdin = os.Stdin
 	if extraEnv != "" {
 		env := os.Environ()
@@ -498,6 +555,7 @@ func runBuildStep(name, dir, extraEnv, bin, logPath string, args ...string) erro
 			if logf != nil {
 				fmt.Fprintln(logf, line)
 			}
+			emitBuildLine(line)
 			mu.Lock()
 			if f := compiledFile(line); f != "" {
 				count++

@@ -116,6 +116,21 @@
       <button onclick="apiKeyAction('clear')">retirer</button>
     </div>
   </details>
+  <details id="lc-details"><summary>Backend llama.cpp <span id="lc-badge" style="margin-left:auto;margin-right:12px;font-size:10px"></span></summary>
+    <div id="lc-status" class="muted" style="font-size:12px;line-height:1.6">…</div>
+    <div class="row" id="lc-actions" style="margin-top:8px;flex-wrap:wrap">
+      <button id="lc-install" onclick="lcInstall()" style="display:none;border-color:var(--accent);color:var(--accent)">⬇ installer</button>
+      <button id="lc-check" onclick="lcCheck()">↥ vérifier les maj</button>
+      <button id="lc-update" onclick="lcUpdate(false)" style="display:none;border-color:var(--accent);color:var(--accent)">⬆ mettre à jour</button>
+      <button id="lc-rebuild" onclick="lcUpdate(true)" style="display:none">🔧 recompiler</button>
+    </div>
+    <div id="lc-check-msg" class="muted" style="font-size:11px;margin-top:6px;line-height:1.5"></div>
+    <div id="lc-job" style="display:none;margin-top:8px">
+      <div id="lc-job-phase" style="font-size:12px;display:flex;align-items:center;gap:6px"></div>
+      <div class="lc-logbar" onclick="lcToggleLog()"><span id="lc-log-caret">▸</span> logs du build</div>
+      <pre id="lc-log" hidden></pre>
+    </div>
+  </details>
   <details><summary>Service</summary>
     <div class="row">
       <button onclick="act('start')">start</button>
