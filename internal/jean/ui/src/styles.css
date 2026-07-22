@@ -271,7 +271,21 @@ button:disabled{opacity:.5;cursor:not-allowed}
   h2,details>summary{font-size:10px}
   #menubtn{width:32px;height:32px;font-size:15px;top:calc(6px + env(safe-area-inset-top))}
 }
-/* --- Backend llama.cpp (gestion install/update depuis l'UI) --------------- */
+/* --- Backend llama.cpp (2 modes : rapide / optimisée) --------------------- */
+.lc-head{font-size:12px;line-height:1.5;margin-bottom:10px}
+.lc-modes{display:flex;flex-direction:column;gap:8px}
+.lc-modes.busy{opacity:.5;pointer-events:none}
+.lc-mode{border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:border-color .12s,background .12s}
+.lc-mode:hover{border-color:var(--accent)}
+.lc-mode.active{border-color:var(--accent);background:var(--panel);cursor:default}
+.lc-mode-t{font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px}
+.lc-reco{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);border:1px solid var(--accent);border-radius:8px;padding:1px 6px}
+.lc-mode-d{font-size:11px;color:var(--dim);margin-top:3px}
+.lc-mode-state{font-size:11px;margin-top:7px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.lc-mode-go{color:var(--accent)}
+.lc-mode-active-tag{color:var(--accent);font-weight:600}
+.lc-update-link{color:var(--dim);text-decoration:underline;cursor:pointer}
+.lc-update-link:hover{color:var(--accent)}
 .lc-logbar{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;font-weight:600;padding:6px 0;margin-top:4px}
 .lc-logbar #lc-log-caret{font-size:9px;transition:transform .12s;display:inline-block}
 .lc-logbar.open #lc-log-caret{transform:rotate(90deg)}

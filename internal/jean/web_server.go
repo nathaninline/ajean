@@ -95,6 +95,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/llamacpp/job", handleLlamacppJob)                      // progression + logs du job
 	api("/api/llamacpp/prebuilt", handleLlamacppPrebuilt)            // job : binaires officiels précompilés
 	api("/api/llamacpp/prebuilt/check", handleLlamacppPrebuiltCheck) // dernière release officielle vs installée
+	api("/api/llamacpp/use", handleLlamacppUse)                      // bascule BIN entre versions déjà installées
 	api("/api/presets", handlePresets)
 	api("/api/preset", handlePreset)
 	api("/api/preset/save", handlePresetSave)

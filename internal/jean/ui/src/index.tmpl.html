@@ -116,19 +116,23 @@
       <button onclick="apiKeyAction('clear')">retirer</button>
     </div>
   </details>
-  <details id="lc-details"><summary>Backend llama.cpp <span id="lc-badge" style="margin-left:auto;margin-right:12px;font-size:10px"></span></summary>
-    <div id="lc-status" class="muted" style="font-size:12px;line-height:1.6">…</div>
-    <div class="row" id="lc-actions" style="margin-top:8px;flex-wrap:wrap">
-      <button id="lc-prebuilt" onclick="lcPrebuilt()" style="border-color:var(--accent);color:var(--accent)">⚡ binaires précompilés</button>
-      <button id="lc-install" onclick="lcInstall()" style="display:none">🔧 compiler (sources)</button>
-      <button id="lc-check" onclick="lcCheck()">↥ vérifier les maj</button>
-      <button id="lc-update" onclick="lcUpdate(false)" style="display:none;border-color:var(--accent);color:var(--accent)">⬆ mettre à jour</button>
-      <button id="lc-rebuild" onclick="lcUpdate(true)" style="display:none">🔧 recompiler</button>
+  <details id="lc-details"><summary>Backend llama.cpp</summary>
+    <div id="lc-status" class="lc-head muted">…</div>
+    <div class="lc-modes">
+      <div class="lc-mode" id="lc-mode-fast" onclick="lcPick('fast')">
+        <div class="lc-mode-t">⚡ Version rapide <span class="lc-reco">conseillé</span></div>
+        <div class="lc-mode-d">prête à l'emploi, installée en ~2 min</div>
+        <div class="lc-mode-state" id="lc-fast-state"></div>
+      </div>
+      <div class="lc-mode" id="lc-mode-opt" onclick="lcPick('opt')">
+        <div class="lc-mode-t">🔧 Version optimisée</div>
+        <div class="lc-mode-d">compilée pour ta machine, plus longue</div>
+        <div class="lc-mode-state" id="lc-opt-state"></div>
+      </div>
     </div>
-    <div id="lc-check-msg" class="muted" style="font-size:11px;margin-top:6px;line-height:1.5"></div>
-    <div id="lc-job" style="display:none;margin-top:8px">
+    <div id="lc-job" style="display:none;margin-top:10px">
       <div id="lc-job-phase" style="font-size:12px;display:flex;align-items:center;gap:6px"></div>
-      <div class="lc-logbar" onclick="lcToggleLog()"><span id="lc-log-caret">▸</span> logs du build</div>
+      <div class="lc-logbar" onclick="lcToggleLog()"><span id="lc-log-caret">▸</span> détails</div>
       <pre id="lc-log" hidden></pre>
     </div>
   </details>

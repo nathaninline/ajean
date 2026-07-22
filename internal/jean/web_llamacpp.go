@@ -313,6 +313,39 @@ func lcRunPrebuilt() {
 	lcDone("binaires précompilés installés (" + tag + ")")
 }
 
+// handleLlamacppUse bascule BIN entre deux versions DÉJÀ installées, sans
+// rien recompiler : "fast" = binaires précompilés, "opt" = build local. Le
+// service redémarre pour prendre le nouveau binaire. L'UI n'appelle ceci que
+// quand la version cible existe déjà (sinon elle lance un job d'installation).
+func handleLlamacppUse(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Mode string `json:"mode"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	var bin string
+	switch req.Mode {
+	case "fast":
+		bin = prebuiltServerBin()
+	case "opt":
+		bin = llamaServerBin(llamacppRepoDir())
+	default:
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "mode inconnu"})
+		return
+	}
+	if bin == "" {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "cette version n'est pas installée"})
+		return
+	}
+	if err := SetConfigKey("BIN", bin); err != nil {
+		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if serviceIsActive() {
+		_ = serviceAction("restart")
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "bin": bin})
+}
+
 // handleLlamacppJob renvoie l'état du job courant + les lignes de log depuis
 // l'offset absolu ?from=N (le client mémorise `next` et enchaîne).
 func handleLlamacppJob(w http.ResponseWriter, r *http.Request) {
