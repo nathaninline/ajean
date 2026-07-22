@@ -338,10 +338,16 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[st
 			last = s
 		}
 	}
-	// Padding aussi sur caught_up : force le flush de la QUEUE du replay à travers un
-	// proxy qui re-bufferise par lots (Cloudflare) → les derniers messages arrivent
-	// avec le reste, plus 20-30 s après.
-	if !emit(map[string]any{"caught_up": true, "pad": strings.Repeat("·", 2048)}) {
+	if !emit(map[string]any{"caught_up": true}) {
+		return
+	}
+	// Le padding doit venir APRÈS caught_up, pas dessus. Un proxy (Cloudflare) garde
+	// toujours le DERNIER bout de flux en tampon jusqu'au prochain flush (~2-3 s). En
+	// envoyant un gros pad juste après, ce sont ses octets — et non le dernier vrai
+	// message — qui deviennent la « queue » qui attend : le dernier message et
+	// caught_up, eux, sont poussés dehors immédiatement. Le client ignore `pad`.
+	// 16 Ko : largement au-dessus du tampon de coalescence d'un proxy courant.
+	if !emit(map[string]any{"pad": strings.Repeat("·", 16384)}) {
 		return
 	}
 
