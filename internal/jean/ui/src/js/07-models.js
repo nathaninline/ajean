@@ -1,7 +1,5 @@
 function openBenchModal(){ document.getElementById('bench-modal').style.display = 'flex'; }
 function closeBenchModal(){ document.getElementById('bench-modal').style.display = 'none'; }
-function openBenchModal(){ document.getElementById('bench-modal').style.display = 'flex'; }
-function closeBenchModal(){ document.getElementById('bench-modal').style.display = 'none'; }
 async function runBenchUI(){
   const btn = document.getElementById('btn-bench');
   const rerun = document.getElementById('bench-rerun');

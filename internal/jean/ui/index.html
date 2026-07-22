@@ -931,8 +931,6 @@ async function loadAll(){ await Promise.all([loadStatus(),loadVram(),loadCfg(),l
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }
 function openBenchModal(){ document.getElementById('bench-modal').style.display = 'flex'; }
 function closeBenchModal(){ document.getElementById('bench-modal').style.display = 'none'; }
-function openBenchModal(){ document.getElementById('bench-modal').style.display = 'flex'; }
-function closeBenchModal(){ document.getElementById('bench-modal').style.display = 'none'; }
 async function runBenchUI(){
   const btn = document.getElementById('btn-bench');
   const rerun = document.getElementById('bench-rerun');
