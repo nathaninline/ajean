@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -263,14 +264,42 @@ func handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleUpdateApply (POST /api/update/apply) : télécharge et installe la dernière
-// version, puis renvoie la version installée + l'indice de redémarrage.
+// version. Sur un serveur Linux/systemd, relance ensuite AUTOMATIQUEMENT le service
+// jean-link (celui qui sert l'UI, le chat et le tunnel) pour appliquer la MAJ sans
+// avoir à SSH — voir restartAfterUpdate. Renvoie la version + le message de statut.
 func handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 	newVer, err := applyUpdate()
 	if err != nil {
 		sendJSON(w, 200, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	sendJSON(w, 200, map[string]any{"ok": true, "version": newVer, "restart": restartHintText()})
+	restarting, msg := restartAfterUpdate()
+	if !restarting {
+		msg = restartHintText()
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "version": newVer, "restart": msg, "restarting": restarting})
+}
+
+// restartAfterUpdate relance le service jean-link juste après une MAJ déclenchée
+// depuis l'UI, pour éviter le SSH manuel. Conditions : Linux/systemd + jean-link
+// actif (le service tourne en root → systemctl passe sans sudo). On NE touche PAS à
+// jean.service (llama-server) pour ne pas recharger le modèle (long et inattendu
+// depuis un bouton « mettre à jour »). Le redémarrage est DIFFÉRÉ (la réponse HTTP
+// doit partir d'abord) et lancé en --no-block : systemd enregistre le job puis nous
+// arrête/relance ; la clé E2E (.e2e_key) survit au restart, donc pas de ré-appairage
+// et l'UI se reconnecte toute seule (boucle de reconnexion du flux). Renvoie
+// (déclenché, message). Non-serveur (poste client, Windows) → (false, "").
+func restartAfterUpdate() (bool, string) {
+	if runtime.GOOS != "linux" || !linkServiceActive() {
+		return false, ""
+	}
+	go func() {
+		time.Sleep(1500 * time.Millisecond) // laisser la réponse HTTP atteindre le client
+		// --no-block : on enregistre le job puis on rend la main ; systemd exécute le
+		// stop/start même si ce process (et le client systemctl) sont tués entre-temps.
+		_ = exec.Command("systemctl", "--no-block", "restart", linkServiceName).Run()
+	}()
+	return true, "Service " + linkServiceName + " redémarré automatiquement — la page va se reconnecter seule (le modèle n'est pas rechargé)."
 }
 
 func restartHintText() string {

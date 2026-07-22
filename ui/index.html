@@ -672,7 +672,12 @@ async function applyUpdate(){
   msg.textContent='Téléchargement et installation…';
   try{
     const r=await jpost('/api/update/apply',{});
-    if(r.ok){ msg.innerHTML='✓ Installé en <b>v'+r.version+'</b>.<br>'+(r.restart||''); }
+    if(r.ok){
+      msg.innerHTML='✓ Installé en <b>v'+r.version+'</b>.<br>'+(r.restart||'');
+      // Redémarrage auto du service côté serveur : le flux va se couper puis
+      // reconnecter tout seul (connectStream boucle). On rafraîchit l'état après.
+      if(r.restarting){ toast('mise à jour appliquée — reconnexion…'); setTimeout(loadAll, 6000); }
+    }
     else { msg.textContent='Échec : '+(r.error||'inconnu'); }
   }catch(e){ msg.textContent='Erreur pendant la mise à jour (réessaie).'; }
 }
