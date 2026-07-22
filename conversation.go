@@ -264,9 +264,28 @@ func coalesceReplay(events []LogEvent, from int) []map[string]any {
 		buf.Reset()
 		bufKey, bufSeq, bufToks, bufTs0, bufTs = "", 0, 0, 0, 0
 	}
+	// Coalescence des outils : un appel d'outil génère plein d'événements tool_used
+	// intermédiaires (streaming des arguments) jusqu'à un dernier avec done=true. Au
+	// replay, seul l'état FINAL de chaque bulle compte (les intermédiaires ne servent
+	// qu'à l'affichage progressif en direct). Sans ça, un long fil rejoue des milliers
+	// de tool_used → 2-3 s de rendu inutile sur mobile. On ne garde donc que les
+	// done=true, en mémorisant le dernier non-done pour le cas d'un outil interrompu.
+	var pendingTool map[string]any
+	flushTool := func() {
+		if pendingTool != nil {
+			out = append(out, pendingTool)
+			pendingTool = nil
+		}
+	}
 	for _, ev := range events {
 		if ev.Seq <= from {
 			continue
+		}
+		_, isTool := ev.Delta["tool_used"].(map[string]any)
+		// Tout événement NON-outil clôt une éventuelle bulle d'outil en attente, pour
+		// préserver l'ordre (l'outil non terminé s'affiche avant ce qui le suit).
+		if !isTool {
+			flushTool()
 		}
 		// Delta texte ? (une seule clé content ou reasoning_content, valeur string)
 		key := ""
@@ -292,9 +311,21 @@ func coalesceReplay(events []LogEvent, from int) []map[string]any {
 		for k, v := range ev.Delta {
 			m[k] = v
 		}
+		if isTool {
+			tu, _ := ev.Delta["tool_used"].(map[string]any)
+			done, _ := tu["done"].(bool)
+			if done {
+				pendingTool = nil // les intermédiaires de cet outil sont superflus
+				out = append(out, m)
+			} else {
+				pendingTool = m // on retient le dernier état non terminé, sans l'émettre
+			}
+			continue
+		}
 		out = append(out, m)
 	}
 	flush()
+	flushTool()
 	return out
 }
 
