@@ -830,7 +830,9 @@ func sseHeartbeat(w http.ResponseWriter, flusher http.Flusher) (*sync.Mutex, fun
 	mu := &sync.Mutex{}
 	done := make(chan struct{})
 	go func() {
-		t := time.NewTicker(15 * time.Second)
+		// 4 s (et non 15) : borne le temps qu'un dernier bout de flux peut rester
+		// coincé dans un buffer proxy (Cloudflare) faute d'octets pour le pousser.
+		t := time.NewTicker(4 * time.Second)
 		defer t.Stop()
 		for {
 			select {
@@ -907,7 +909,7 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Cache-Control", "no-cache, no-transform")
 	w.Header().Set("X-Accel-Buffering", "no")
 	flusher, _ := w.(http.Flusher)
 	mu, stop := sseHeartbeat(w, flusher)

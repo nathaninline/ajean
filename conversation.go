@@ -311,6 +311,16 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[st
 		c.mu.Unlock()
 	}()
 
+	// 0. Amorçage anti-buffering. Le chat E2E d'app.ajean.link traverse Cloudflare
+	// (ajean.link, proxy orange) : tant qu'un proxy intermédiaire n'a pas reçu assez
+	// d'octets, il bufferise la réponse et ne la relaie qu'en retard (symptôme :
+	// derniers messages qui arrivent 20-30 s après le reste, de façon intermittente
+	// sur Safari). Envoyer d'emblée un gros événement de padding force le proxy à
+	// basculer en mode streaming tout de suite. Le client ignore la clé `pad`.
+	if !emit(map[string]any{"pad": strings.Repeat("·", 2048)}) {
+		return
+	}
+
 	// 1. Replay coalescé (snapshot hors verrou pour ne pas bloquer la génération).
 	c.mu.Lock()
 	snapshot := append([]LogEvent(nil), c.Log...)
@@ -328,7 +338,10 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[st
 			last = s
 		}
 	}
-	if !emit(map[string]any{"caught_up": true}) {
+	// Padding aussi sur caught_up : force le flush de la QUEUE du replay à travers un
+	// proxy qui re-bufferise par lots (Cloudflare) → les derniers messages arrivent
+	// avec le reste, plus 20-30 s après.
+	if !emit(map[string]any{"caught_up": true, "pad": strings.Repeat("·", 2048)}) {
 		return
 	}
 

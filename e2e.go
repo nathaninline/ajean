@@ -157,7 +157,9 @@ func handleE2EChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
+	// no-transform : interdit à Cloudflare (proxy orange sur ajean.link) de
+	// bufferiser/compresser le flux — sinon les événements arrivent en retard.
+	w.Header().Set("Cache-Control", "no-cache, no-transform")
 	w.Header().Set("X-Accel-Buffering", "no")
 	flusher, _ := w.(http.Flusher)
 	mu, stop := sseHeartbeat(w, flusher)
