@@ -1,6 +1,6 @@
 package main
 
-// catalog.go — récupère la liste de modèles curatée servie par ajean.link et la
+// backend_catalog.go — récupère la liste de modèles curatée servie par ajean.link et la
 // combine avec les infos matérielles locales, pour que l'écran d'accueil (à
 // venir) propose « en un clic » un modèle adapté à la machine.
 //

@@ -2,7 +2,7 @@
 
 package main
 
-// tray_windows.go — icône de Jean dans la zone de notification Windows (system
+// sys_tray_windows.go — icône de Jean dans la zone de notification Windows (system
 // tray). Quand on lance l'app (double-clic ou `jean app`), l'UI web s'ouvre dans
 // le navigateur ET une petite icône apparaît près de l'horloge : elle montre que
 // Jean tourne et offre un menu « Ouvrir Jean » / « Quitter ».

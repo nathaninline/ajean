@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-// webauth.go protège l'API de pilotage (jean web) quand elle est exposée sur
+// web_auth.go protège l'API de pilotage (jean web) quand elle est exposée sur
 // internet — c.-à-d. l'API que tout client (navigateur, app mobile, script…)
 // utilise pour switcher de preset, redémarrer le service, lire le status, etc.
 //

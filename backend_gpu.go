@@ -9,14 +9,14 @@ import (
 	"strings"
 )
 
-// gpu.go — sélection du/des GPU utilisés par llama-server.
+// backend_gpu.go — sélection du/des GPU utilisés par llama-server.
 //
 //	jean gpu            liste les GPU et montre la sélection courante
 //	jean gpu 1          n'utilise que le GPU d'index 1
 //	jean gpu 0 1        utilise les GPU 0 et 1
 //	jean gpu all        réinitialise (tous les GPU visibles)
 //
-// La sélection est stockée dans config.env sous CUDA_VISIBLE_DEVICES ; serve.go
+// La sélection est stockée dans config.env sous CUDA_VISIBLE_DEVICES ; backend_serve.go
 // l'exporte (avec CUDA_DEVICE_ORDER=PCI_BUS_ID pour que les index correspondent
 // à ceux affichés par nvidia-smi).
 

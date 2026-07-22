@@ -8,11 +8,11 @@ import (
 	"strings"
 )
 
-// service.go holds the platform-neutral pieces of service management. The
+// sys_service.go holds the platform-neutral pieces of service management. The
 // actual start/stop/restart/status/logs implementation is platform-specific:
-//   - service_linux.go   → systemd (systemctl/journalctl)
-//   - service_darwin.go  → launchd (launchctl)
-//   - service_windows.go → PID-file background process supervisor
+//   - sys_service_linux.go   → systemd (systemctl/journalctl)
+//   - sys_service_darwin.go  → launchd (launchctl)
+//   - sys_service_windows.go → PID-file background process supervisor
 //
 // editConfig and showVram live here because they work the same everywhere.
 

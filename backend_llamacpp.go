@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-// llamacpp.go — gestion du backend llama.cpp (clone, build, mise à jour).
+// backend_llamacpp.go — gestion du backend llama.cpp (clone, build, mise à jour).
 //
 // `jean llamacpp install`  installe un build neuf, détecte automatiquement
 //                          l'accélérateur (CUDA / ROCm / Metal / CPU) et la

@@ -1,11 +1,11 @@
 package main
 
-// app.go — expérience « application » de Jean.
+// cli_app.go — expérience « application » de Jean.
 //
 // Quand on double-clique sur le binaire (aucun argument, console fraîche), au
 // lieu d'afficher l'aide dans une console qui se ferme, Jean démarre son UI web,
 // l'ouvre dans le navigateur ET pose une icône dans la zone de notification
-// Windows (voir tray_windows.go) : on voit que Jean tourne et on le pilote
+// Windows (voir sys_tray_windows.go) : on voit que Jean tourne et on le pilote
 // (« Ouvrir Jean » / « Quitter »).
 
 import (

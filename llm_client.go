@@ -176,7 +176,7 @@ type Caps struct {
 // specify its own capabilities.
 func globalCaps() Caps {
 	// Internet inclut la joignabilité du serveur Crawl4AI : « actif ET fonctionnel ».
-	// Ainsi le prompt système (tools.go) et les outils fournis (EnabledTools) sont
+	// Ainsi le prompt système (chat_tools.go) et les outils fournis (EnabledTools) sont
 	// gouvernés par la MÊME condition — sinon le prompt promet web_search alors que
 	// l'outil n'existe pas, et le modèle le tape en bash (command not found).
 	// Mémoire et accès internet sont des sous-réglages du mode agent (cf. UI web) :
@@ -229,7 +229,7 @@ func EnabledTools(caps Caps) []Tool {
 		tools = append(tools, memSearchTool(), memReadTool(), memAddTool(), memEditTool())
 	}
 	// Outils web : seulement si le mode agent ET l'accès internet sont actifs.
-	// caps.Internet intègre déjà la joignabilité (globalCaps / override web.go),
+	// caps.Internet intègre déjà la joignabilité (globalCaps / override web_server.go),
 	// donc prompt et outils restent cohérents — pas de web_search halluciné.
 	if caps.Agent && caps.Internet {
 		tools = append(tools, webSearchTool(), webOpenTool(), webReadTool(), webGrepTool())

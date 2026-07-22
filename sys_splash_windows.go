@@ -2,7 +2,7 @@
 
 package main
 
-// splash_windows.go — écran de démarrage « Lancement de Jean… ».
+// sys_splash_windows.go — écran de démarrage « Lancement de Jean… ».
 //
 // Petite fenêtre sans bordure, à coins arrondis, aux couleurs de la marque
 // (fond bleu #1f6feb, logo « j » blanc, texte blanc), affichée le temps que le

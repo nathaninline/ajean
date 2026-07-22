@@ -1,6 +1,6 @@
 package main
 
-// e2e.go — chiffrement bout-en-bout du chat entre le NAVIGATEUR et CET agent, de
+// relay_e2e.go — chiffrement bout-en-bout du chat entre le NAVIGATEUR et CET agent, de
 // sorte que le relais (ajean.link) ne voie que de l'opaque : « boîte noire ».
 //
 // Modèle : cet agent a une paire X25519 long-terme (clé privée locale, jamais

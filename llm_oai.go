@@ -24,7 +24,7 @@ import (
 	"github.com/caddyserver/certmagic"
 )
 
-// oai.go — front TLS de l'accès OpenAI public "VPS aveugle" (SNI passthrough).
+// llm_oai.go — front TLS de l'accès OpenAI public "VPS aveugle" (SNI passthrough).
 //
 // Principe : le SaaS parle HTTPS OpenAI standard vers <machine>.oai.ajean.link.
 // Le VPS relais ne fait que recopier les octets TLS bruts (routage par SNI, sans
@@ -127,7 +127,7 @@ func oaiTLSConfig() *tls.Config {
 // Le relais ouvre soit un stream HTTP normal (UI / E2E), soit un stream "brut"
 // qui porte une session TLS de bout en bout (accès OpenAI). On les distingue au
 // 1er octet : un enregistrement TLS commence par 0x16 (handshake), une requête
-// HTTP par une lettre ASCII (GET/POST/…). Voir demuxTunnelStream dans link.go.
+// HTTP par une lettre ASCII (GET/POST/…). Voir demuxTunnelStream dans relay_link.go.
 
 // peekedConn rend un net.Conn dont on a déjà consulté le début, sans perdre ces
 // octets (ils restent dans le bufio.Reader).

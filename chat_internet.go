@@ -41,7 +41,7 @@ func crawl4aiURL() string {
 }
 
 // internetEnabled : accès internet actif = drapeau .internet_enabled présent ET
-// une URL Crawl4AI configurée. Même modèle que agentEnabled() (agent.go).
+// une URL Crawl4AI configurée. Même modèle que agentEnabled() (chat_agent.go).
 func internetEnabled() bool {
 	if crawl4aiURL() == "" {
 		return false
@@ -539,7 +539,7 @@ func duckduckgoSearch(query string, limit int) ([]searchResult, error) {
 	return results, nil
 }
 
-// ─── définitions d'outils (schémas OpenAI, comme llm.go) ────────────────────
+// ─── définitions d'outils (schémas OpenAI, comme llm_client.go) ────────────────────
 
 func webSearchTool() Tool {
 	return Tool{Type: "function", Function: ToolFunction{
@@ -614,7 +614,7 @@ func webGrepTool() Tool {
 	}}
 }
 
-// ─── exécution des outils (appelée par le dispatch de llm.go) ───────────────
+// ─── exécution des outils (appelée par le dispatch de llm_client.go) ───────────────
 
 func toolWebSearch(args map[string]any) string {
 	query, _ := args["query"].(string)

@@ -117,7 +117,7 @@ func machineSystemPrompt(caps Caps) string {
 }
 
 // runShell executes a command via the platform shell (bash -c on Unix, cmd /C
-// on Windows — see newShellCmd in platform_*.go) with a clamped timeout,
+// on Windows — see newShellCmd in sys_platform_*.go) with a clamped timeout,
 // returning a single string formatted "exit: N\n\nstdout:\n...\n\nstderr:\n..."
 // truncated to keep tool output bounded.
 func runShell(command string, timeoutSec int) string {

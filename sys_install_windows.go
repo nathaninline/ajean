@@ -13,7 +13,7 @@ import (
 
 // On Windows there's no systemd unit, sudoers, or /usr/local/bin to populate.
 // `jean install` simply provisions the data directory and a starter config; the
-// service itself is managed by the PID-file supervisor in service_windows.go
+// service itself is managed by the PID-file supervisor in sys_service_windows.go
 // (jean start / stop / status), which needs no admin rights.
 
 const configTemplate = `# Configuration JEAN — édite-moi puis: jean restart

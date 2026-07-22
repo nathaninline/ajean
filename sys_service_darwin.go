@@ -11,8 +11,8 @@ import (
 	"time"
 )
 
-// service_darwin.go — gestion du service via launchd (LaunchDaemon), équivalent
-// macOS de service_linux.go (systemd). ⚠️ NON TESTÉ sur un vrai Mac : jusqu'ici
+// sys_service_darwin.go — gestion du service via launchd (LaunchDaemon), équivalent
+// macOS de sys_service_linux.go (systemd). ⚠️ NON TESTÉ sur un vrai Mac : jusqu'ici
 // le support macOS était absent (le code systemd/Linux était utilisé par erreur,
 // cf. issue #4). Implémentation prudente basée sur launchctl load/unload/list.
 

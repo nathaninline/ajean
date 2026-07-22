@@ -11,8 +11,8 @@ import (
 	"strings"
 )
 
-// install_darwin.go — installation macOS via launchd (LaunchDaemon), équivalent
-// de install_linux.go (systemd). ⚠️ NON TESTÉ sur un vrai Mac : le support macOS
+// sys_install_darwin.go — installation macOS via launchd (LaunchDaemon), équivalent
+// de sys_install_linux.go (systemd). ⚠️ NON TESTÉ sur un vrai Mac : le support macOS
 // était totalement absent (le code systemd/Linux tournait par erreur et échouait
 // sur « systemctl: command not found » / « /etc/default/jean », cf. issue #4).
 // Implémentation prudente ; à valider sur une machine Apple.

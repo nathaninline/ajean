@@ -56,7 +56,7 @@ func presetReasoning(content string) string {
 	return ""
 }
 
-// reasoningActive reports whether a REASONING= value enables reasoning. serve.go
+// reasoningActive reports whether a REASONING= value enables reasoning. backend_serve.go
 // passes the flag whenever the value is non-empty, but an explicit off/none is
 // treated here as disabled so the UI badge isn't misleading.
 func reasoningActive(v string) bool {

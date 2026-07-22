@@ -1,6 +1,6 @@
 package main
 
-// link.go — `jean link <token>` : connecte ce serveur Jean au relais public
+// relay_link.go — `jean link <token>` : connecte ce serveur Jean au relais public
 // (ajean.link) par une connexion SORTANTE persistante, pour qu'un utilisateur
 // y accède depuis n'importe où sans ouvrir de port (CGNAT, box, etc.).
 //

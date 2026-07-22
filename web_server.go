@@ -73,7 +73,7 @@ func newWebMux() *http.ServeMux {
 		w.Header().Set("Cache-Control", "public, max-age=86400")
 		w.Write(b)
 	})
-	// api enregistre une route /api/* protégée par la clé de pilotage (webauth.go).
+	// api enregistre une route /api/* protégée par la clé de pilotage (web_auth.go).
 	api := func(path string, h http.HandlerFunc) { mux.HandleFunc(path, requireWebAuth(h)) }
 	api("/api/ping", handlePing)
 	api("/api/status", handleStatus)
@@ -224,7 +224,7 @@ func handlePing(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleStatus reports service state cross-platform via serviceIsActive
-// (systemd sous Linux, supervision par PID-file sous Windows — voir service_*.go).
+// (systemd sous Linux, supervision par PID-file sous Windows — voir sys_service_*.go).
 func handleStatus(w http.ResponseWriter, r *http.Request) {
 	active := serviceIsActive()
 	state := "inactive"
@@ -730,7 +730,7 @@ func handleSwitch(w http.ResponseWriter, r *http.Request) {
 
 // svcHandler returns an HTTP handler that triggers a start/stop/restart through
 // the cross-platform serviceAction (systemd sous Linux, supervision PID-file
-// sous Windows — voir service_*.go). C'est ce qui permet à un client distant
+// sous Windows — voir sys_service_*.go). C'est ce qui permet à un client distant
 // de relancer Jean.
 func svcHandler(action string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

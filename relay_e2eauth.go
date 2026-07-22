@@ -1,6 +1,6 @@
 package main
 
-// e2eauth.go — authentification MUTUELLE + anti-rejeu du canal chiffré.
+// relay_e2eauth.go — authentification MUTUELLE + anti-rejeu du canal chiffré.
 //
 // Le scellé anonyme (boîte scellée) garantit la confidentialité mais PAS
 // l'authenticité : n'importe qui connaissant la clé publique de l'agent (dont un

@@ -64,7 +64,7 @@ func cmdServe(args []string) error {
 		// budget illimité par défaut (-1) : on laisse le modèle réfléchir jusqu'au
 		// bout au lieu de le couper à 2048, ce qui tronquait la vraie réponse (la
 		// réflexion atteignait le plafond et il ne restait plus de marge pour le
-		// contenu). L'anti-boucle côté llm.go reste le garde-fou. NE PAS forcer 0 :
+		// contenu). L'anti-boucle côté llm_client.go reste le garde-fou. NE PAS forcer 0 :
 		// sur llama.cpp vanilla, 0 = "immediate end" → coupe tout le raisonnement
 		// (le fork ik_llama.cpp l'ignore). Configurable via REASONING_BUDGET.
 		llmArgs = append(llmArgs, "--reasoning", r, "--reasoning-budget", get("REASONING_BUDGET", "-1"))
@@ -91,6 +91,6 @@ func cmdServe(args []string) error {
 		bin, filepath.Base(model), get("PORT", "8080"))
 
 	// Hand off to the llama-server process. On Unix this replaces the current
-	// process (exec); on Windows it runs as a child and waits. See platform_*.go.
+	// process (exec); on Windows it runs as a child and waits. See sys_platform_*.go.
 	return execServer(bin, llmArgs)
 }

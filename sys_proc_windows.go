@@ -2,7 +2,7 @@
 
 package main
 
-// proc_windows.go — au double-clic, on relance Jean en processus DÉTACHÉ, sans
+// sys_proc_windows.go — au double-clic, on relance Jean en processus DÉTACHÉ, sans
 // console. L'original (qui, lui, possède la console fraîche créée par Explorer)
 // se termine aussitôt, fermant sa console. Le nouveau process n'a aucune fenêtre
 // de console : il n'y a donc plus de « terminal noir » et plus rien à fermer qui

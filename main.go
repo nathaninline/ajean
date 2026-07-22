@@ -172,7 +172,7 @@ func mustExit(err error) {
 
 // JeanHome resolves the JEAN data directory.
 // Precedence: $JEAN_HOME → /etc/default/jean (unix only) → defaultJeanHome().
-// defaultJeanHome() is platform-specific (see platform_unix.go / platform_windows.go).
+// defaultJeanHome() is platform-specific (see sys_platform_unix.go / sys_platform_windows.go).
 func JeanHome() string {
 	if h := os.Getenv("JEAN_HOME"); h != "" {
 		return h
