@@ -31,7 +31,9 @@ const (
 	// dépasse cette fraction de la fenêtre de contexte.
 	compactTriggerFrac = 0.75
 	// Budget de la queue : fraction de la fenêtre gardée intacte (tours récents).
-	compactTailFrac = 0.35
+	// Plus la queue est petite, plus on compacte de torse d'un coup → le contexte
+	// retombe bas et met longtemps à re-déclencher (au lieu de compacter souvent).
+	compactTailFrac = 0.25
 	// Un résultat d'outil du torse plus long que ça est remplacé par un marqueur
 	// avant le résumé (dégraissage sans IA, gratuit).
 	compactToolPruneLen = 200
@@ -205,8 +207,12 @@ func compactMessages(ctx context.Context, msgs []Message, caps Caps) ([]Message,
 	out = append(out, mid...)
 	out = append(out, msgs[tailStart:]...)
 
-	// Si on n'a rien gagné (résumé raté ET rien à dégraisser), signaler inchangé.
-	if len(out) == len(msgs) && estimateTokens(out) >= estimateTokens(msgs) {
+	// Garantie de réduction : on n'accepte la compaction que si elle enlève au
+	// moins ~20% du contexte estimé. Sinon (torse déjà maigre, résumé peu rentable)
+	// on la refuse — sans ça, jean « compactait » à presque chaque message sans
+	// vraiment réduire, puis re-déclenchait aussitôt.
+	before, after := estimateTokens(msgs), estimateTokens(out)
+	if after > before*4/5 {
 		return msgs, false
 	}
 	return out, true
@@ -258,13 +264,12 @@ type summarizeResp struct {
 // Un seul appel NON streamé, sans outils — comme Hermes, on réutilise le modèle
 // principal déjà chargé (aucune dépendance, cohérent avec la fenêtre de contexte).
 func summarizeTranscript(ctx context.Context, transcript string) (string, error) {
-	sys := `Tu es un compacteur de contexte. On te donne la transcription d'une conversation entre un utilisateur et un assistant IA (avec ses outils). Résume-la de façon dense et FIDÈLE en français, en préservant tout ce qui est nécessaire pour continuer la conversation sans perte :
+	sys := `Tu es un compacteur de contexte. On te donne la transcription d'anciens tours d'une conversation entre un utilisateur et un assistant IA (avec ses outils). Résume-les de façon TRÈS DENSE et fidèle en français, en ne gardant QUE l'essentiel pour continuer sans perte :
 - Objectif(s) et contraintes de l'utilisateur
 - Décisions prises et faits établis
-- Actions/outils exécutés et leurs résultats importants (chemins, valeurs, configuration)
-- Tâches terminées, en cours, bloquées
-- Prochaines étapes prévues
-N'invente rien, n'ajoute pas de préambule ni de conclusion : donne directement le résumé structuré. Complet mais concis.`
+- Actions/outils exécutés et leurs résultats importants (chemins, valeurs, config)
+- Tâches terminées, en cours, bloquées ; prochaines étapes
+Règles STRICTES : pas de préambule ni de conclusion, pas de verbatim ni de citations longues, pas de détails jetables. Utilise des puces courtes. Vise 250 mots MAXIMUM — c'est un résumé de compression, pas un compte rendu.`
 
 	payload := map[string]any{
 		"model": "jean",
@@ -273,7 +278,14 @@ N'invente rien, n'ajoute pas de préambule ni de conclusion : donne directement 
 			{Role: "user", Content: transcript},
 		},
 		"stream":      false,
-		"temperature": 0.3,
+		"temperature": 0.2,
+		// Borne dure : sans ça, un modèle bavard (surtout à reasoning) produit un
+		// résumé énorme et lent, donc peu de réduction → re-compaction à chaque tour.
+		"max_tokens": 700,
+		// Pas de réflexion pour un résumé : plus rapide, plus dense, et évite qu'un
+		// modèle hybride gaspille tout le budget en <think> (résumé vide). llama.cpp
+		// passe ces kwargs au gabarit Jinja (--jinja).
+		"chat_template_kwargs": map[string]any{"enable_thinking": false},
 	}
 	body, _ := json.Marshal(payload)
 	url := fmt.Sprintf("http://localhost:%d/v1/chat/completions", LLMPort())
@@ -305,5 +317,11 @@ N'invente rien, n'ajoute pas de préambule ni de conclusion : donne directement 
 	if i := strings.LastIndex(c, thinkClose); i >= 0 {
 		c = c[i+len(thinkClose):]
 	}
-	return strings.TrimSpace(c), nil
+	c = strings.TrimSpace(c)
+	// Garde-fou dur : même si le modèle ignore la consigne de longueur, on tronque
+	// (~1500 caractères ≈ 375 tokens) pour garantir une vraie compression.
+	if len(c) > 1500 {
+		c = strings.TrimSpace(c[:1500]) + " […]"
+	}
+	return c, nil
 }

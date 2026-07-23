@@ -198,13 +198,16 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 	}
 	if compacted, changed := MaybeCompact(ctx, msgs, caps, ctxUsed); changed {
 		msgs = compacted
+		est := estimateTokens(compacted)
 		c.mu.Lock()
 		if c.epoch == epoch {
 			c.Messages = compacted
+			c.CtxUsed = est // le vrai compte reviendra avec les stats du tour
 		}
 		c.mu.Unlock()
 		c.appendDelta(epoch, map[string]any{"compacting": false})
 		c.appendDelta(epoch, map[string]any{"compacted": true})
+		c.appendDelta(epoch, map[string]any{"ctx_used": est}) // fait chuter la jauge tout de suite
 	} else if willCompact {
 		c.appendDelta(epoch, map[string]any{"compacting": false})
 	}
@@ -298,13 +301,15 @@ func (c *Conversation) CompactNow() error {
 			c.appendDelta(epoch, map[string]any{"compact_noop": true})
 			return
 		}
+		est := estimateTokens(compacted)
 		c.mu.Lock()
 		if c.epoch == epoch {
 			c.Messages = compacted
-			c.CtxUsed = estimateTokens(compacted) // feedback immédiat ; le vrai compte revient au prochain tour
+			c.CtxUsed = est // feedback immédiat ; le vrai compte revient au prochain tour
 		}
 		c.mu.Unlock()
 		c.appendDelta(epoch, map[string]any{"compacted": true})
+		c.appendDelta(epoch, map[string]any{"ctx_used": est})
 		c.persist()
 	}()
 	return nil
