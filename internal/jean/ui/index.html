@@ -326,6 +326,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
   <details open><summary>GPU</summary>
     <div id="vram" class="muted">…</div>
   </details>
+  <details open id="ram-details"><summary>RAM</summary>
+    <div id="ram" class="muted">…</div>
+  </details>
   <details open id="cfg-details"><summary>Config active</summary>
     <div id="cfg" class="muted">…</div>
   </details>
@@ -772,6 +775,16 @@ async function loadVram(){
       '<div class="muted">'+(g.used/1024).toFixed(1)+' / '+(g.total/1024).toFixed(1)+' GiB · GPU '+g.util+'% · '+g.temp+'°C</div></div>';
   }).join('') || '<span class="muted">(pas de GPU)</span>';
 }
+async function loadRam(){
+  const m=await jget('/api/ram');
+  const box=document.getElementById('ram-details');
+  if(!m || !m.total){ if(box) box.style.display='none'; return; }
+  if(box) box.style.display='';
+  const pct=Math.round(m.used*100/m.total);
+  document.getElementById('ram').innerHTML =
+    '<div style="margin:6px 0"><div class="bar"><div style="width:'+pct+'%"></div></div>'+
+    '<div class="muted">'+(m.used/1024).toFixed(1)+' / '+(m.total/1024).toFixed(1)+' GiB · '+pct+'%</div></div>';
+}
 async function loadCfg(){
   const c=await jget('/api/config');
   const keys=['BIN','MODEL','CTX','BATCH','UBATCH','NGL','PORT'];
@@ -998,7 +1011,7 @@ async function saveCrawlUrl(){
   const url=document.getElementById('crawl-url').value.trim();
   renderInternet(await jpost('/api/internet',{url}));
 }
-async function loadAll(){ await Promise.all([loadStatus(),loadVram(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadApiKey(),loadPrefs(),loadLlamacpp()]); }
+async function loadAll(){ await Promise.all([loadStatus(),loadVram(),loadRam(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadApiKey(),loadPrefs(),loadLlamacpp()]); }
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }
 function openBenchModal(){ document.getElementById('bench-modal').style.display = 'flex'; }
 function closeBenchModal(){ document.getElementById('bench-modal').style.display = 'none'; }
@@ -1661,6 +1674,7 @@ async function send(){
 loadAll();
 setInterval(loadStatus, 5000);
 setInterval(loadVram, 3000);
+setInterval(loadRam, 3000);
 // Backend llama.cpp — la barre latérale sert UNIQUEMENT à installer les moteurs.
 //   ⚡ Version rapide    = binaires officiels précompilés (aucune compilation)
 //   🔧 Version optimisée = compilée pour la machine

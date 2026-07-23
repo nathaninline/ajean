@@ -64,6 +64,16 @@ async function loadVram(){
       '<div class="muted">'+(g.used/1024).toFixed(1)+' / '+(g.total/1024).toFixed(1)+' GiB · GPU '+g.util+'% · '+g.temp+'°C</div></div>';
   }).join('') || '<span class="muted">(pas de GPU)</span>';
 }
+async function loadRam(){
+  const m=await jget('/api/ram');
+  const box=document.getElementById('ram-details');
+  if(!m || !m.total){ if(box) box.style.display='none'; return; }
+  if(box) box.style.display='';
+  const pct=Math.round(m.used*100/m.total);
+  document.getElementById('ram').innerHTML =
+    '<div style="margin:6px 0"><div class="bar"><div style="width:'+pct+'%"></div></div>'+
+    '<div class="muted">'+(m.used/1024).toFixed(1)+' / '+(m.total/1024).toFixed(1)+' GiB · '+pct+'%</div></div>';
+}
 async function loadCfg(){
   const c=await jget('/api/config');
   const keys=['BIN','MODEL','CTX','BATCH','UBATCH','NGL','PORT'];

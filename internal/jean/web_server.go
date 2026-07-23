@@ -79,6 +79,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/ping", handlePing)
 	api("/api/status", handleStatus)
 	api("/api/vram", handleVram)
+	api("/api/ram", handleRam)
 	api("/api/config", handleConfigEnv)
 	api("/api/catalog", handleCatalog)
 	api("/api/update", handleUpdateCheck)

@@ -216,5 +216,5 @@ async function saveCrawlUrl(){
   const url=document.getElementById('crawl-url').value.trim();
   renderInternet(await jpost('/api/internet',{url}));
 }
-async function loadAll(){ await Promise.all([loadStatus(),loadVram(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadApiKey(),loadPrefs(),loadLlamacpp()]); }
+async function loadAll(){ await Promise.all([loadStatus(),loadVram(),loadRam(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadApiKey(),loadPrefs(),loadLlamacpp()]); }
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }

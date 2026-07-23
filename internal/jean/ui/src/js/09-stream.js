@@ -144,3 +144,4 @@ async function send(){
 loadAll();
 setInterval(loadStatus, 5000);
 setInterval(loadVram, 3000);
+setInterval(loadRam, 3000);
