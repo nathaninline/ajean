@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 // Message is one entry in the chat history sent to llama.cpp.
@@ -574,12 +575,21 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 						break
 					}
 				} else {
-					// Inside the prompt-opened <think> block: stream to the
-					// reasoning bubble until the closing </think>, then switch
-					// the remainder to normal content.
+					// The prompt opened a <think> block. Stream `content` LIVE as
+					// the answer, holding back only a short tail that could be the
+					// start of a literal "</think>". A reasoning-aware backend
+					// (llama.cpp with --reasoning-format, Alice's fork) strips the
+					// think tags server-side, so </think> never appears in content
+					// and the whole answer streams straight through — including
+					// when the model answers WITHOUT thinking (no reasoning_content,
+					// no </think>), which is exactly what used to get dumped into
+					// the reasoning bubble. A vanilla build that leaves the thinking
+					// inline still gets carved at the </think> below.
 					thinkTail.WriteString(ch.Delta.Content)
 					s := thinkTail.String()
 					if i := strings.Index(s, thinkClose); i >= 0 {
+						// Vanilla inline think: reasoning before </think>, answer
+						// after. Route the reasoning to its bubble, drop the tag.
 						reason := s[:i]
 						after := strings.TrimLeft(s[i+len(thinkClose):], "\r\n")
 						thinkOpen = false
@@ -593,13 +603,19 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 							break
 						}
 					} else {
-						// Hold back a tail that could be a partial "</think>".
-						keep := len(thinkClose) - 1
-						if len(s) > keep {
-							emit := s[:len(s)-keep]
+						// No </think> yet: stream as content, holding back a tail
+						// that could be a partial "</think>". Back the cut up to a
+						// UTF-8 rune boundary so a multi-byte char (é, …) is never
+						// split — otherwise the two halves decode as � (mojibake).
+						cut := len(s) - (len(thinkClose) - 1)
+						for cut > 0 && !utf8.RuneStart(s[cut]) {
+							cut--
+						}
+						if cut > 0 {
+							emit := s[:cut]
 							thinkTail.Reset()
-							thinkTail.WriteString(s[len(s)-keep:])
-							if !cb(StreamEvent{Reasoning: emit}) {
+							thinkTail.WriteString(s[cut:])
+							if !cb(StreamEvent{Content: emit}) {
 								aborted = true
 								break
 							}
@@ -608,9 +624,9 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				}
 			}
 		}
-		// Flush any buffered reasoning if the stream ended mid-think.
+		// Flush the held-back tail (never part of a </think>): it's answer text.
 		if !aborted && thinkOpen && thinkTail.Len() > 0 {
-			cb(StreamEvent{Reasoning: thinkTail.String()})
+			cb(StreamEvent{Content: strings.TrimLeft(thinkTail.String(), "\r\n")})
 		}
 		resp.Body.Close()
 		if aborted {

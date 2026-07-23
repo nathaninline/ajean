@@ -3,13 +3,13 @@
     "FileVersion": {
       "Major": 0,
       "Minor": 4,
-      "Patch": 7,
+      "Patch": 12,
       "Build": 0
     },
     "ProductVersion": {
       "Major": 0,
       "Minor": 4,
-      "Patch": 7,
+      "Patch": 12,
       "Build": 0
     },
     "FileFlagsMask": "3f",
@@ -25,7 +25,7 @@
     "LegalCopyright": "Copyright (c) 2026 Jean contributors. MIT License.",
     "OriginalFilename": "jean.exe",
     "ProductName": "Jean",
-    "ProductVersion": "0.4.7",
+    "ProductVersion": "0.4.12",
     "Comments": "https://github.com/nathaninline/jean — projet open source (MIT)"
   },
   "VarFileInfo": {
