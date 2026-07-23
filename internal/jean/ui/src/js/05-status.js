@@ -87,7 +87,7 @@ async function loadCfg(){
     if(lc && lc.prebuilt && lc.prebuilt.in_use) v='⚡ rapide';
     else if(lc && lc.in_use) v='🔧 optimisé';
     else v='custom : '+c.BIN;
-    rows.push(row('BIN', v, c.BIN));
+    rows.push(row('moteur', v, c.BIN));
   }
   ['MODEL','CTX','BATCH','UBATCH','NGL','PORT'].filter(k=>c[k]).forEach(k=>{
     let v=c[k]; if(k==='MODEL') v=v.split('/').pop();
