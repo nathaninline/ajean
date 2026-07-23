@@ -16,9 +16,9 @@ async function loadLlamacpp(){
 
   const head = document.getElementById('lc-status');
   if(!fastInstalled && !optInstalled){
-    head.innerHTML = 'Installe le moteur d\'IA. La <b>version rapide</b> convient à presque tout le monde.';
+    head.innerHTML = 'Installez le moteur d\'IA. La <b>version rapide</b> convient à presque tout le monde.';
   } else {
-    head.innerHTML = 'Installe les moteurs ici. Tu choisis lequel utiliser quand tu édites un modèle (bouton <b>✎</b>).';
+    head.innerHTML = 'Installez les moteurs ici. Vous choisissez lequel utiliser en éditant un modèle (bouton <b>✎</b>).';
   }
   lcRenderMode('fast', fastInstalled);
   lcRenderMode('opt', optInstalled);
@@ -34,12 +34,35 @@ function lcRenderMode(mode, installed){
   const card  = document.getElementById(mode==='fast' ? 'lc-mode-fast' : 'lc-mode-opt');
   const state = document.getElementById(mode==='fast' ? 'lc-fast-state' : 'lc-opt-state');
   card.classList.toggle('installed', installed);
+  // Lien de vérification : interroge la dernière version SANS rien installer.
+  // event.stopPropagation empêche le clic de la carte (qui lance l'install).
+  const check = '<span class="lc-update-link" onclick="event.stopPropagation();lcCheck(\''+mode+'\')">🔍 vérifier la version</span>';
   if(installed){
     state.innerHTML = '<span class="lc-mode-active-tag">✓ installée</span>'
-      + '<span class="lc-update-link" onclick="event.stopPropagation();lcUpdate(\''+mode+'\')">↻ mettre à jour</span>';
+      + '<span class="lc-update-link" onclick="event.stopPropagation();lcUpdate(\''+mode+'\')">↻ mettre à jour</span>'
+      + check;
   } else {
-    state.innerHTML = '<span class="lc-mode-go">→ cliquer pour installer</span>';
+    state.innerHTML = '<span class="lc-mode-go">→ cliquer pour installer</span>' + check;
   }
+}
+
+// lcCheck vérifie s'il existe une version plus récente AVANT toute installation
+// (endpoints de check dédiés, sans effet de bord). Résultat affiché en toast.
+async function lcCheck(mode){
+  toast('vérification…');
+  try{
+    if(mode === 'fast'){
+      const r = await jpost('/api/llamacpp/prebuilt/check', {});
+      if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
+      if(r.update) toast('nouvelle version disponible : '+r.latest+(r.current ? ' (installée : '+r.current+')' : ''));
+      else toast('moteur rapide à jour ✓'+(r.latest ? ' ('+r.latest+')' : ''));
+    } else {
+      const r = await jpost('/api/llamacpp/check', {});
+      if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
+      if(r.behind > 0) toast(r.behind+' nouveau(x) commit(s) disponible(s) — utilisez « mettre à jour »');
+      else toast('moteur optimisé à jour ✓');
+    }
+  }catch(_){ toast('erreur réseau'); }
 }
 
 // Clic sur une carte : installer le moteur (s'il ne l'est pas déjà).
@@ -47,7 +70,7 @@ async function lcPick(mode){
   const s = lcState || {}, pb = s.prebuilt || {};
   const installed = mode==='fast' ? !!pb.bin : !!s.bin;
   if(installed){
-    toast('déjà installée — choisis-la dans l\'édition d\'un modèle (✎)');
+    toast('déjà installée — choisissez-la dans l\'édition d\'un modèle (✎)');
     return;
   }
   if(mode === 'fast'){
@@ -55,7 +78,7 @@ async function lcPick(mode){
     const r = await jpost('/api/llamacpp/prebuilt', {});
     if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
   } else {
-    if(!await askConfirm('Compiler la version optimisée pour ta machine. Ça peut prendre de longues minutes (surtout avec une carte NVIDIA).', {title:'Version optimisée', okText:'Compiler'})) return;
+    if(!await askConfirm('Compiler la version optimisée pour votre machine. Ça peut prendre de longues minutes (surtout avec une carte NVIDIA).', {title:'Version optimisée', okText:'Compiler'})) return;
     const r = await jpost('/api/llamacpp/install', {});
     if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
   }
