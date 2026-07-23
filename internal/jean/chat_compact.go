@@ -164,7 +164,12 @@ func compactBounds(msgs []Message, tailBudget int) (head, tailStart int) {
 }
 
 func compactMessages(ctx context.Context, msgs []Message, caps Caps) ([]Message, bool) {
-	tailBudget := int(float64(ctxWindow()) * compactTailFrac)
+	// Budget de queue = fraction de la CONVERSATION (pas de la fenêtre). Le lier à
+	// la fenêtre était le bug : une conversation de 25k tokens dans une fenêtre de
+	// 64k gardait 16k (0.25×64k) en queue → torse minuscule → réduction < 20% →
+	// refusée. Lié à la conversation, on garde toujours ~25% des tours récents et
+	// on compacte les ~75% du début, quelle que soit la taille de la fenêtre.
+	tailBudget := int(float64(estimateTokens(msgs)) * compactTailFrac)
 	head, tailStart := compactBounds(msgs, tailBudget)
 
 	// Rien à compacter : le torse [head, tailStart) est vide.

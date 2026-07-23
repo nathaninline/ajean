@@ -197,8 +197,16 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 		c.appendDelta(epoch, map[string]any{"compacting": true})
 	}
 	if compacted, changed := MaybeCompact(ctx, msgs, caps, ctxUsed); changed {
+		// Surcoût fixe non compactable (prompt système injecté + schémas d'outils +
+		// gabarit) = contexte réel mesuré − estimation des messages. On le rajoute à
+		// l'estimation post-compaction pour que la jauge affiche une valeur réaliste
+		// (sinon elle chute trop bas puis resaute au tour suivant).
+		overhead := ctxUsed - estimateTokens(msgs)
+		if overhead < 0 {
+			overhead = 0
+		}
+		est := estimateTokens(compacted) + overhead
 		msgs = compacted
-		est := estimateTokens(compacted)
 		c.mu.Lock()
 		if c.epoch == epoch {
 			c.Messages = compacted
@@ -284,6 +292,7 @@ func (c *Conversation) CompactNow() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
 	msgs := append([]Message(nil), c.Messages...)
+	lastReal := c.CtxUsed // dernier contexte réel mesuré, pour estimer le surcoût fixe
 	epoch := c.epoch
 	c.mu.Unlock()
 
@@ -301,7 +310,11 @@ func (c *Conversation) CompactNow() error {
 			c.appendDelta(epoch, map[string]any{"compact_noop": true})
 			return
 		}
-		est := estimateTokens(compacted)
+		overhead := lastReal - estimateTokens(msgs)
+		if overhead < 0 {
+			overhead = 0
+		}
+		est := estimateTokens(compacted) + overhead // + surcoût fixe (système+outils) pour une jauge réaliste
 		c.mu.Lock()
 		if c.epoch == epoch {
 			c.Messages = compacted
