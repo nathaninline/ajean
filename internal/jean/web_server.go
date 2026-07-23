@@ -127,13 +127,13 @@ func newWebMux() *http.ServeMux {
 	api("/api/restart", svcHandler("restart"))
 	api("/api/bench", handleBench)
 	api("/api/bench/last", handleBenchLast)
-	api("/api/chat", handleChat)            // flux d'ABONNEMENT (SSE) : rejoue + suit le fil
-	api("/api/chat/send", handleChatSend)   // envoie un message (lance la génération détachée)
-	api("/api/chat/stop", handleChatStop)   // interrompt la génération en cours
-	api("/api/chat/reset", handleChatReset) // nouvelle conversation (pour tous les appareils)
+	api("/api/chat", handleChat)                // flux d'ABONNEMENT (SSE) : rejoue + suit le fil
+	api("/api/chat/send", handleChatSend)       // envoie un message (lance la génération détachée)
+	api("/api/chat/stop", handleChatStop)       // interrompt la génération en cours
+	api("/api/chat/reset", handleChatReset)     // nouvelle conversation (pour tous les appareils)
 	api("/api/chat/compact", handleChatCompact) // compaction manuelle du contexte
-	api("/api/chat/state", handleChatState) // instantané léger {seq, generating, ctx_used}
-	api("/api/e2e/chat", handleE2EChat)     // même flux mais chiffré E2E (boîte noire via le relais)
+	api("/api/chat/state", handleChatState)     // instantané léger {seq, generating, ctx_used}
+	api("/api/e2e/chat", handleE2EChat)         // même flux mais chiffré E2E (boîte noire via le relais)
 	return mux
 }
 
