@@ -158,48 +158,20 @@ function resetChat(){ jfetch('/api/chat/reset',{method:'POST'}).catch(()=>{}); t
 // Compaction : on demande à l'IA un résumé de la conversation destiné à la
 // reprendre dans une session neuve, puis on repart d'un contexte propre seedé
 // avec ce résumé. Réduit drastiquement les tokens tout en gardant le fil.
+// Compaction MANUELLE : le compactage est automatique (façon Hermes) quand le
+// contexte se remplit, mais ce bouton permet de le déclencher à la demande. Le
+// serveur possède la conversation : on lance la compaction côté serveur et la
+// progression (bannière « compactage en cours », résultat) arrive par le flux
+// d'abonnement, comme pour la génération — donc visible sur tous les appareils.
 async function compactContext(){
-  // Le compactage est désormais AUTOMATIQUE côté serveur (façon Hermes) : ce
-  // bouton manuel n'a plus d'objet et est neutralisé.
-  toast('le compactage est automatique (façon Hermes)'); return;
-  if(busy) return;
-  if(!msgs.length){ toast('rien à compacter'); return; }
-  if(!await askConfirm('L\'IA va résumer la conversation puis repartir d\'une session propre basée sur ce résumé.', {title:'Compacter le contexte ?', okText:'Compacter'})) return;
-  busy=true;
-  const btn=document.getElementById('ctx-compact'); btn.textContent='compaction…'; btn.disabled=true;
-  const instruction='Résume de façon structurée et complète TOUTE notre conversation jusqu\'ici, dans le but de poursuivre le travail dans une nouvelle session sans rien perdre d\'important : objectifs, décisions prises, état actuel, fichiers/commandes/éléments clés, et ce qu\'il reste à faire. Écris uniquement le résumé, sans préambule.';
-  let summary='';
+  if(!await askConfirm('Résumer les anciens tours pour libérer du contexte ? La conversation continue normalement.', {title:'Compacter le contexte', okText:'Compacter'})) return;
+  const btn=document.getElementById('ctx-compact'); btn.disabled=true;
   try{
-    const sys=(document.getElementById('sysprompt').value||'').trim();
-    const base=[...msgs,{role:'user',content:instruction}];
-    const out = sys ? [{role:'system',content:sys},...base] : base;
-    const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:out})});
-    const reader=r.body.getReader(); const dec=new TextDecoder(); let buf='';
-    while(true){
-      const {done,value}=await reader.read(); if(done) break;
-      buf+=dec.decode(value,{stream:true}); let i;
-      while((i=buf.indexOf('\n\n'))>=0){
-        const chunk=buf.slice(0,i); buf=buf.slice(i+2);
-        for(const line of chunk.split('\n')){
-          if(!line.startsWith('data:')) continue;
-          const data=line.slice(5).trim(); if(data==='[DONE]') continue;
-          try{ const o=JSON.parse(data); const d=(o.choices&&o.choices[0]&&o.choices[0].delta)||{}; if(d.content) summary+=d.content; }catch(e){}
-        }
-      }
-    }
-  }catch(e){ toast('échec compaction: '+e.message); busy=false; btn.textContent='compacter'; btn.disabled=false; return; }
-  summary=summary.trim();
-  if(!summary){ toast('résumé vide'); busy=false; btn.textContent='compacter'; btn.disabled=false; return; }
-  // Session propre seedée avec le résumé.
-  msgs=[{role:'user',content:'Résumé de notre session précédente (reprends le travail à partir de là) :\n\n'+summary},
-        {role:'assistant',content:'Compris, je reprends à partir de ce résumé.'}];
-  document.getElementById('chat').innerHTML='';
-  const note=addMsg('tool',''); note.querySelector('.label').textContent='contexte compacté';
-  renderBody(note, '🗜️ **Contexte compacté.** Résumé de reprise :\n\n'+summary);
-  saveChat();
-  setCtxUsed(0); try{localStorage.removeItem('jean.ctxused');}catch(e){}
-  busy=false; btn.textContent='compacter'; btn.disabled=false;
-  toast('contexte compacté');
+    const r=await jfetch('/api/chat/compact',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    const j=await r.json().catch(()=>({}));
+    if(!j.ok) toast(j.error||'compaction indisponible');
+  }catch(e){ toast('erreur : '+(e.message||e)); }
+  btn.disabled=false;
 }
 // Persistance de la conversation : on garde user+assistant en localStorage pour
 // survivre à un refresh (les bulles tool/reasoning sont éphémères, non stockées).

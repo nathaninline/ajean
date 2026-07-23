@@ -187,6 +187,15 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 
 	// Compaction proactive (façon Hermes) sur la vue MODÈLE uniquement ; le journal
 	// d'affichage garde le fil complet. On signale juste un toast au client.
+	// Si le contexte dépasse le seuil, le résumé (un appel modèle non streamé) va
+	// bloquer plusieurs secondes AVANT que la vraie réponse commence. On affiche
+	// une bannière « compactage en cours » pendant ce temps (sinon l'UI se fige
+	// sans aucune info), puis on la retire — que le compactage ait changé quelque
+	// chose ou non.
+	willCompact := compactWouldTrigger(msgs, ctxUsed)
+	if willCompact {
+		c.appendDelta(epoch, map[string]any{"compacting": true})
+	}
 	if compacted, changed := MaybeCompact(ctx, msgs, caps, ctxUsed); changed {
 		msgs = compacted
 		c.mu.Lock()
@@ -194,7 +203,10 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 			c.Messages = compacted
 		}
 		c.mu.Unlock()
+		c.appendDelta(epoch, map[string]any{"compacting": false})
 		c.appendDelta(epoch, map[string]any{"compacted": true})
+	} else if willCompact {
+		c.appendDelta(epoch, map[string]any{"compacting": false})
 	}
 
 	// Prompt système personnalisé (UI → /api/sysprompt, fichier côté serveur).
@@ -249,6 +261,53 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 		}
 	}
 	c.mu.Unlock()
+}
+
+// CompactNow force une compaction du contexte MAINTENANT, sans attendre le seuil
+// (bouton « compacter » de l'UI). Détaché comme la génération : émet la bannière
+// de progression, résume les anciens tours, remplace le torse et persiste. Les
+// événements passent par le flux d'abonnement, donc tous les appareils voient la
+// progression. Renvoie ErrBusy si un tour est déjà en cours.
+func (c *Conversation) CompactNow() error {
+	if !healthCheck() {
+		return fmt.Errorf("⏳ Le modèle est encore en train de charger — réessaie dans quelques secondes.")
+	}
+	c.mu.Lock()
+	if c.Generating {
+		c.mu.Unlock()
+		return ErrBusy
+	}
+	c.Generating = true
+	ctx, cancel := context.WithCancel(context.Background())
+	c.cancel = cancel
+	msgs := append([]Message(nil), c.Messages...)
+	epoch := c.epoch
+	c.mu.Unlock()
+
+	go func() {
+		defer func() {
+			c.mu.Lock()
+			c.Generating = false
+			c.cancel = nil
+			c.mu.Unlock()
+		}()
+		c.appendDelta(epoch, map[string]any{"compacting": true})
+		compacted, changed := compactMessages(ctx, msgs, Caps{})
+		c.appendDelta(epoch, map[string]any{"compacting": false})
+		if !changed {
+			c.appendDelta(epoch, map[string]any{"compact_noop": true})
+			return
+		}
+		c.mu.Lock()
+		if c.epoch == epoch {
+			c.Messages = compacted
+			c.CtxUsed = estimateTokens(compacted) // feedback immédiat ; le vrai compte revient au prochain tour
+		}
+		c.mu.Unlock()
+		c.appendDelta(epoch, map[string]any{"compacted": true})
+		c.persist()
+	}()
+	return nil
 }
 
 // Stop interrompt la génération en cours (le cas échéant).

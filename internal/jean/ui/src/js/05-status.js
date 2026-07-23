@@ -53,7 +53,9 @@ function updateCtxMeter(){
   fill.style.width=pct+'%';
   fill.style.background = pct>=90 ? 'var(--err,#c44)' : pct>=70 ? 'var(--warn,#c93)' : 'var(--ok,#3a7)';
   document.getElementById('ctx-text').textContent='contexte '+CTX_USED+' / '+CTX_MAX+' ('+pct+'%)';
-  document.getElementById('ctx-compact').style.display = pct>=90 ? 'inline-block' : 'none';
+  // Bouton de compaction MANUELLE : visible dès la moitié du contexte pour qu'on
+  // puisse compacter à la demande avant que l'auto-compaction (75%) ne s'en charge.
+  document.getElementById('ctx-compact').style.display = (pct>=50 && CTX_USED>0) ? 'inline-block' : 'none';
 }
 async function loadVram(){
   const gpus=await jget('/api/vram');

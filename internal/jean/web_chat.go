@@ -103,6 +103,20 @@ func handleChatReset(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true})
 }
 
+// handleChatCompact lance une compaction manuelle du contexte (bouton UI). La
+// progression est diffusée via le flux d'abonnement (compacting/compacted).
+func handleChatCompact(w http.ResponseWriter, r *http.Request) {
+	if err := conv.CompactNow(); err != nil {
+		code := 503
+		if err == ErrBusy {
+			code = 409
+		}
+		sendJSON(w, code, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
 func handleChatState(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, conv.state())
 }

@@ -255,6 +255,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--border);padding:8px 16px;border-radius:6px;opacity:0;transition:opacity .2s;pointer-events:none}
 #toast.show{opacity:1}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+#compact-banner{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--accent);background:var(--accent-bg);border:1px solid var(--border);border-radius:8px;padding:6px 10px;margin-bottom:8px}
+#compact-banner .cspin{display:inline-block;animation:spin 1s linear infinite}
 /* iOS Safari auto-zoome au focus sur tout champ < 16px. On force 16px sur les
    appareils tactiles uniquement (le desktop garde son rendu, le pinch-zoom
    manuel reste possible). */
@@ -494,6 +496,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
   <div id="chat"></div>
   <button id="scrollbtn" onclick="jumpBottom()" title="aller en bas">↓</button>
   <div id="composer">
+    <div id="compact-banner" style="display:none"><span class="cspin">⏳</span> Compactage du contexte en cours — résumé des anciens tours…</div>
     <div id="ctxtrack"><div id="ctx-fill"></div></div>
     <div id="ctxmeta">
       <span id="status-preset" class="muted" style="font-size:10px;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
@@ -820,7 +823,9 @@ function updateCtxMeter(){
   fill.style.width=pct+'%';
   fill.style.background = pct>=90 ? 'var(--err,#c44)' : pct>=70 ? 'var(--warn,#c93)' : 'var(--ok,#3a7)';
   document.getElementById('ctx-text').textContent='contexte '+CTX_USED+' / '+CTX_MAX+' ('+pct+'%)';
-  document.getElementById('ctx-compact').style.display = pct>=90 ? 'inline-block' : 'none';
+  // Bouton de compaction MANUELLE : visible dès la moitié du contexte pour qu'on
+  // puisse compacter à la demande avant que l'auto-compaction (75%) ne s'en charge.
+  document.getElementById('ctx-compact').style.display = (pct>=50 && CTX_USED>0) ? 'inline-block' : 'none';
 }
 async function loadVram(){
   const gpus=await jget('/api/vram');
@@ -1535,48 +1540,20 @@ function resetChat(){ jfetch('/api/chat/reset',{method:'POST'}).catch(()=>{}); t
 // Compaction : on demande à l'IA un résumé de la conversation destiné à la
 // reprendre dans une session neuve, puis on repart d'un contexte propre seedé
 // avec ce résumé. Réduit drastiquement les tokens tout en gardant le fil.
+// Compaction MANUELLE : le compactage est automatique (façon Hermes) quand le
+// contexte se remplit, mais ce bouton permet de le déclencher à la demande. Le
+// serveur possède la conversation : on lance la compaction côté serveur et la
+// progression (bannière « compactage en cours », résultat) arrive par le flux
+// d'abonnement, comme pour la génération — donc visible sur tous les appareils.
 async function compactContext(){
-  // Le compactage est désormais AUTOMATIQUE côté serveur (façon Hermes) : ce
-  // bouton manuel n'a plus d'objet et est neutralisé.
-  toast('le compactage est automatique (façon Hermes)'); return;
-  if(busy) return;
-  if(!msgs.length){ toast('rien à compacter'); return; }
-  if(!await askConfirm('L\'IA va résumer la conversation puis repartir d\'une session propre basée sur ce résumé.', {title:'Compacter le contexte ?', okText:'Compacter'})) return;
-  busy=true;
-  const btn=document.getElementById('ctx-compact'); btn.textContent='compaction…'; btn.disabled=true;
-  const instruction='Résume de façon structurée et complète TOUTE notre conversation jusqu\'ici, dans le but de poursuivre le travail dans une nouvelle session sans rien perdre d\'important : objectifs, décisions prises, état actuel, fichiers/commandes/éléments clés, et ce qu\'il reste à faire. Écris uniquement le résumé, sans préambule.';
-  let summary='';
+  if(!await askConfirm('Résumer les anciens tours pour libérer du contexte ? La conversation continue normalement.', {title:'Compacter le contexte', okText:'Compacter'})) return;
+  const btn=document.getElementById('ctx-compact'); btn.disabled=true;
   try{
-    const sys=(document.getElementById('sysprompt').value||'').trim();
-    const base=[...msgs,{role:'user',content:instruction}];
-    const out = sys ? [{role:'system',content:sys},...base] : base;
-    const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:out})});
-    const reader=r.body.getReader(); const dec=new TextDecoder(); let buf='';
-    while(true){
-      const {done,value}=await reader.read(); if(done) break;
-      buf+=dec.decode(value,{stream:true}); let i;
-      while((i=buf.indexOf('\n\n'))>=0){
-        const chunk=buf.slice(0,i); buf=buf.slice(i+2);
-        for(const line of chunk.split('\n')){
-          if(!line.startsWith('data:')) continue;
-          const data=line.slice(5).trim(); if(data==='[DONE]') continue;
-          try{ const o=JSON.parse(data); const d=(o.choices&&o.choices[0]&&o.choices[0].delta)||{}; if(d.content) summary+=d.content; }catch(e){}
-        }
-      }
-    }
-  }catch(e){ toast('échec compaction: '+e.message); busy=false; btn.textContent='compacter'; btn.disabled=false; return; }
-  summary=summary.trim();
-  if(!summary){ toast('résumé vide'); busy=false; btn.textContent='compacter'; btn.disabled=false; return; }
-  // Session propre seedée avec le résumé.
-  msgs=[{role:'user',content:'Résumé de notre session précédente (reprends le travail à partir de là) :\n\n'+summary},
-        {role:'assistant',content:'Compris, je reprends à partir de ce résumé.'}];
-  document.getElementById('chat').innerHTML='';
-  const note=addMsg('tool',''); note.querySelector('.label').textContent='contexte compacté';
-  renderBody(note, '🗜️ **Contexte compacté.** Résumé de reprise :\n\n'+summary);
-  saveChat();
-  setCtxUsed(0); try{localStorage.removeItem('jean.ctxused');}catch(e){}
-  busy=false; btn.textContent='compacter'; btn.disabled=false;
-  toast('contexte compacté');
+    const r=await jfetch('/api/chat/compact',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    const j=await r.json().catch(()=>({}));
+    if(!j.ok) toast(j.error||'compaction indisponible');
+  }catch(e){ toast('erreur : '+(e.message||e)); }
+  btn.disabled=false;
 }
 // Persistance de la conversation : on garde user+assistant en localStorage pour
 // survivre à un refresh (les bulles tool/reasoning sont éphémères, non stockées).
@@ -1658,11 +1635,13 @@ function handleDelta(d){
     // sur les reconnexions, pour ne pas te ramener en bas si tu lisais plus haut).
     if(REPLAYING){ REPLAYING=false; jumpBottom(); syncSendBtn(); const c=chatEl(); c.style.transition='opacity .15s'; c.style.opacity='1'; }
     return; }
-  if(d.reset!==undefined){ document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
+  if(d.reset!==undefined){ document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); const cb=document.getElementById('compact-banner'); if(cb) cb.style.display='none'; return; }
   if(d.user!==undefined){ newTurn(); addMsg('user', d.user); setBusy(true); T.typingEl=addTyping(); return; }
   if(d.turn_done){ removeTyping(); collapseAll(T.turnCollapsibles); if(T.serverStats) renderStats(T.contentEl||T.reasonEl, T.serverStats); setBusy(false); return; }
   if(d.error){ removeTyping(); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
-  if(d.compacted){ toast('contexte compacté — les vieux tours ont été résumés'); return; }
+  if(d.compacting!==undefined){ const b=document.getElementById('compact-banner'); if(b) b.style.display = d.compacting ? 'flex' : 'none'; return; }
+  if(d.compacted){ const b=document.getElementById('compact-banner'); if(b) b.style.display='none'; toast('contexte compacté — les vieux tours ont été résumés'); return; }
+  if(d.compact_noop){ const b=document.getElementById('compact-banner'); if(b) b.style.display='none'; toast('rien à compacter (contexte déjà minimal)'); return; }
   if(d.stats){ T.serverStats=d.stats;
     if(d.stats.prompt_tokens_total){ setCtxUsed((d.stats.prompt_tokens_total||0)+(d.stats.gen_tokens||0)); }
     if(T.contentEl||T.reasonEl) renderStats(T.contentEl||T.reasonEl, d.stats); return; }

@@ -103,15 +103,23 @@ func estimateTokens(msgs []Message) int {
 // surtout, ne « voit » pas le prompt système injecté (machine briefing) ni le
 // gabarit de chat — donc elle sous-estime largement le vrai contexte. 0 = inconnu
 // (clients sans compteur, ex. terminal) → repli sur l'estimation.
-func MaybeCompact(ctx context.Context, msgs []Message, caps Caps, knownTokens int) ([]Message, bool) {
+// compactWouldTrigger indique si un tour VA déclencher une compaction proactive
+// (compactage activé ET contexte au-dessus du seuil). Exposé pour que le flux de
+// chat puisse afficher une bannière « compactage en cours » AVANT de lancer le
+// résumé (qui bloque plusieurs secondes), au lieu d'une UI figée sans info.
+func compactWouldTrigger(msgs []Message, knownTokens int) bool {
 	if !compactEnabled() {
-		return msgs, false
+		return false
 	}
 	used := knownTokens
 	if used <= 0 {
 		used = estimateTokens(msgs)
 	}
-	if used < int(float64(ctxWindow())*compactTriggerFrac) {
+	return used >= int(float64(ctxWindow())*compactTriggerFrac)
+}
+
+func MaybeCompact(ctx context.Context, msgs []Message, caps Caps, knownTokens int) ([]Message, bool) {
+	if !compactWouldTrigger(msgs, knownTokens) {
 		return msgs, false
 	}
 	return compactMessages(ctx, msgs, caps)
@@ -277,7 +285,7 @@ N'invente rien, n'ajoute pas de préambule ni de conclusion : donne directement 
 	authHeader(req)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", err
+		return "", friendlyLLMError(err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {

@@ -236,6 +236,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--border);padding:8px 16px;border-radius:6px;opacity:0;transition:opacity .2s;pointer-events:none}
 #toast.show{opacity:1}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+#compact-banner{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--accent);background:var(--accent-bg);border:1px solid var(--border);border-radius:8px;padding:6px 10px;margin-bottom:8px}
+#compact-banner .cspin{display:inline-block;animation:spin 1s linear infinite}
 /* iOS Safari auto-zoome au focus sur tout champ < 16px. On force 16px sur les
    appareils tactiles uniquement (le desktop garde son rendu, le pinch-zoom
    manuel reste possible). */

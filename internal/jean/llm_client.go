@@ -363,6 +363,29 @@ const thinkClose = "</think>"
 // keeps the trace of what it already read/ran across user turns — otherwise it
 // re-invokes the same skill/command every turn (it has no memory of having done
 // it) and can confabulate paths/results it can no longer see.
+// friendlyLLMError transforme une erreur de transport vers llama-server en un
+// message clair. Le cas le plus fréquent — « connection refused » (Linux) /
+// « actively refused » (Windows) — arrive quand le moteur redémarre ou charge
+// encore le modèle ; l'erreur brute (« dial tcp 127.0.0.1:8080… ») ne dit rien à
+// l'utilisateur. On garde le silence sur une annulation volontaire (/stop).
+func friendlyLLMError(err error) error {
+	if err == nil {
+		return nil
+	}
+	low := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(low, "context canceled"):
+		return err // /stop : pas d'alarme
+	case strings.Contains(low, "connection refused"), strings.Contains(low, "actively refused"), strings.Contains(low, "connectex"), strings.Contains(low, "no connection could be made"):
+		return fmt.Errorf("⚠️ Le moteur (llama-server) ne répond pas sur le port %d. Il est probablement en train de démarrer ou de charger le modèle — réessaie dans quelques secondes.", LLMPort())
+	case strings.Contains(low, "timeout"), strings.Contains(low, "deadline exceeded"):
+		return fmt.Errorf("⚠️ Le moteur (llama-server) met trop de temps à répondre (port %d) — il est peut-être surchargé ou en plein chargement. Réessaie dans un instant.", LLMPort())
+	case strings.Contains(low, "eof"), strings.Contains(low, "connection reset"):
+		return fmt.Errorf("⚠️ Connexion au moteur (llama-server, port %d) interrompue — il a peut-être redémarré. Réessaie.", LLMPort())
+	}
+	return err
+}
+
 func runChat(ctx context.Context, messages []Message, temperature float64, caps Caps, cb ChatCallback) ([]Message, error) {
 	var extra []Message
 	tools := EnabledTools(caps)
@@ -425,6 +448,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		authHeader(req)
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
+			err = friendlyLLMError(err)
 			cb(StreamEvent{Err: err})
 			return extra, err
 		}

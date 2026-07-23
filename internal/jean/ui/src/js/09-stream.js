@@ -56,11 +56,13 @@ function handleDelta(d){
     // sur les reconnexions, pour ne pas te ramener en bas si tu lisais plus haut).
     if(REPLAYING){ REPLAYING=false; jumpBottom(); syncSendBtn(); const c=chatEl(); c.style.transition='opacity .15s'; c.style.opacity='1'; }
     return; }
-  if(d.reset!==undefined){ document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
+  if(d.reset!==undefined){ document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); const cb=document.getElementById('compact-banner'); if(cb) cb.style.display='none'; return; }
   if(d.user!==undefined){ newTurn(); addMsg('user', d.user); setBusy(true); T.typingEl=addTyping(); return; }
   if(d.turn_done){ removeTyping(); collapseAll(T.turnCollapsibles); if(T.serverStats) renderStats(T.contentEl||T.reasonEl, T.serverStats); setBusy(false); return; }
   if(d.error){ removeTyping(); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
-  if(d.compacted){ toast('contexte compacté — les vieux tours ont été résumés'); return; }
+  if(d.compacting!==undefined){ const b=document.getElementById('compact-banner'); if(b) b.style.display = d.compacting ? 'flex' : 'none'; return; }
+  if(d.compacted){ const b=document.getElementById('compact-banner'); if(b) b.style.display='none'; toast('contexte compacté — les vieux tours ont été résumés'); return; }
+  if(d.compact_noop){ const b=document.getElementById('compact-banner'); if(b) b.style.display='none'; toast('rien à compacter (contexte déjà minimal)'); return; }
   if(d.stats){ T.serverStats=d.stats;
     if(d.stats.prompt_tokens_total){ setCtxUsed((d.stats.prompt_tokens_total||0)+(d.stats.gen_tokens||0)); }
     if(T.contentEl||T.reasonEl) renderStats(T.contentEl||T.reasonEl, d.stats); return; }
