@@ -236,10 +236,10 @@
         </div>
 
         <div class="fld">
-          <label class="fld-l" for="m-hf-url">Télécharger depuis Hugging Face <span class="opt">(lien vers un .gguf)</span></label>
-          <div class="row">
-            <input id="m-hf-url" class="ctl" placeholder="https://huggingface.co/…/resolve/main/model.gguf">
-            <button id="m-hf-btn" class="btn-dl" onclick="startDownload()">⬇ télécharger</button>
+          <label class="fld-l" for="m-hf-url">Télécharger un modèle <span class="opt">(lien direct vers un .gguf)</span></label>
+          <div class="input-btn">
+            <input id="m-hf-url" class="ctl" placeholder="https://…/model.gguf">
+            <button id="m-hf-btn" class="btn-in" onclick="startDownload()" title="Télécharger">⬇</button>
           </div>
           <div id="m-hf-progress" class="fld-hint" style="display:none"></div>
         </div>

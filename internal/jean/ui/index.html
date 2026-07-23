@@ -333,6 +333,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .row{display:flex;gap:6px}
 .row .ctl{flex:1;min-width:0}
 .btn-dl{flex-shrink:0;margin:0}
+.input-btn{display:flex}
+.input-btn .ctl{flex:1;min-width:0;border-top-right-radius:0;border-bottom-right-radius:0}
+.input-btn .btn-in{flex-shrink:0;margin:0;padding:9px 13px;border-left:0;border-top-left-radius:0;border-bottom-left-radius:0}
+.input-btn .btn-in:hover{border-left:0}
 .seg{display:flex;gap:6px}
 .seg>label{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center;min-height:46px;padding:6px 4px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:12px;background:var(--panel);transition:border-color .12s,background .12s,color .12s}
 .seg>label:hover{border-color:var(--accent)}
@@ -566,10 +570,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
         </div>
 
         <div class="fld">
-          <label class="fld-l" for="m-hf-url">Télécharger depuis Hugging Face <span class="opt">(lien vers un .gguf)</span></label>
-          <div class="row">
-            <input id="m-hf-url" class="ctl" placeholder="https://huggingface.co/…/resolve/main/model.gguf">
-            <button id="m-hf-btn" class="btn-dl" onclick="startDownload()">⬇ télécharger</button>
+          <label class="fld-l" for="m-hf-url">Télécharger un modèle <span class="opt">(lien direct vers un .gguf)</span></label>
+          <div class="input-btn">
+            <input id="m-hf-url" class="ctl" placeholder="https://…/model.gguf">
+            <button id="m-hf-btn" class="btn-in" onclick="startDownload()" title="Télécharger">⬇</button>
           </div>
           <div id="m-hf-progress" class="fld-hint" style="display:none"></div>
         </div>

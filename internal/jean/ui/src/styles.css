@@ -314,6 +314,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .row{display:flex;gap:6px}
 .row .ctl{flex:1;min-width:0}
 .btn-dl{flex-shrink:0;margin:0}
+.input-btn{display:flex}
+.input-btn .ctl{flex:1;min-width:0;border-top-right-radius:0;border-bottom-right-radius:0}
+.input-btn .btn-in{flex-shrink:0;margin:0;padding:9px 13px;border-left:0;border-top-left-radius:0;border-bottom-left-radius:0}
+.input-btn .btn-in:hover{border-left:0}
 .seg{display:flex;gap:6px}
 .seg>label{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center;min-height:46px;padding:6px 4px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:12px;background:var(--panel);transition:border-color .12s,background .12s,color .12s}
 .seg>label:hover{border-color:var(--accent)}
