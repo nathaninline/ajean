@@ -95,6 +95,6 @@ async function loadCfg(){
   });
   // n-cpu-moe : affiché seulement s'il est réellement présent dans EXTRA_ARGS.
   const m=(c.EXTRA_ARGS||'').match(/--n-cpu-moe\s+(\d+)/);
-  if(m) rows.push(row('n-cpu-moe', m[1]));
+  if(m) rows.push(row('N-CPU-MOE', m[1]));
   document.getElementById('cfg').innerHTML = rows.join('');
 }
