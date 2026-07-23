@@ -39,7 +39,7 @@ const (
 	compactToolPruneLen = 200
 )
 
-const compactPrunedMarker = "[Ancien résultat d'outil effacé pour économiser le contexte]"
+const compactPrunedMarker = "[Old tool result cleared to save context]"
 
 // compactEnabled indique si le compactage automatique du contexte est actif.
 // Défaut : true. Seule une valeur off/false/0/no/non explicite (config.env
@@ -202,8 +202,8 @@ func compactMessages(ctx context.Context, msgs []Message, caps Caps) ([]Message,
 		// message `system` au milieu : certains gabarits, ex. Qwen, exigent que le
 		// system soit uniquement en tête — cf. mémoire qwen36-chat-template-fix).
 		mid = []Message{
-			{Role: "user", Content: "[COMPACTION DU CONTEXTE] Les tours précédents de cette conversation ont été résumés pour économiser le contexte. Voici le résumé :\n\n" + summary},
-			{Role: "assistant", Content: "Compris, je continue avec ce contexte."},
+			{Role: "user", Content: "[CONTEXT COMPACTED] The earlier turns of this conversation were summarized to save context. Here is the summary:\n\n" + summary},
+			{Role: "assistant", Content: "Understood, I'll continue from this context."},
 		}
 	}
 
@@ -229,18 +229,18 @@ func renderTranscript(msgs []Message) string {
 	for _, m := range msgs {
 		switch m.Role {
 		case "user":
-			fmt.Fprintf(&b, "Utilisateur: %s\n", msgText(m))
+			fmt.Fprintf(&b, "User: %s\n", msgText(m))
 		case "assistant":
 			if t := msgText(m); t != "" {
 				fmt.Fprintf(&b, "Assistant: %s\n", t)
 			}
 			for _, tc := range m.ToolCalls {
-				fmt.Fprintf(&b, "Assistant → outil %s(%s)\n", tc.Function.Name, tc.Function.Arguments)
+				fmt.Fprintf(&b, "Assistant → tool %s(%s)\n", tc.Function.Name, tc.Function.Arguments)
 			}
 		case "tool":
-			fmt.Fprintf(&b, "Résultat outil: %s\n", msgText(m))
+			fmt.Fprintf(&b, "Tool result: %s\n", msgText(m))
 		case "system":
-			fmt.Fprintf(&b, "Système: %s\n", msgText(m))
+			fmt.Fprintf(&b, "System: %s\n", msgText(m))
 		}
 	}
 	s := b.String()
@@ -250,7 +250,7 @@ func renderTranscript(msgs []Message) string {
 	// troncature de tête.
 	maxChars := int(float64(ctxWindow()) * 2.8)
 	if maxChars > 0 && len(s) > maxChars {
-		s = "[…début tronqué…]\n" + s[len(s)-maxChars:]
+		s = "[…start truncated…]\n" + s[len(s)-maxChars:]
 	}
 	return s
 }
@@ -269,12 +269,15 @@ type summarizeResp struct {
 // Un seul appel NON streamé, sans outils — comme Hermes, on réutilise le modèle
 // principal déjà chargé (aucune dépendance, cohérent avec la fenêtre de contexte).
 func summarizeTranscript(ctx context.Context, transcript string) (string, error) {
-	sys := `Tu es un compacteur de contexte. On te donne la transcription d'anciens tours d'une conversation entre un utilisateur et un assistant IA (avec ses outils). Résume-les de façon TRÈS DENSE et fidèle en français, en ne gardant QUE l'essentiel pour continuer sans perte :
-- Objectif(s) et contraintes de l'utilisateur
-- Décisions prises et faits établis
-- Actions/outils exécutés et leurs résultats importants (chemins, valeurs, config)
-- Tâches terminées, en cours, bloquées ; prochaines étapes
-Règles STRICTES : pas de préambule ni de conclusion, pas de verbatim ni de citations longues, pas de détails jetables. Utilise des puces courtes. Vise 250 mots MAXIMUM — c'est un résumé de compression, pas un compte rendu.`
+	sys := `You are a context compactor. You are given the transcript of the older turns of a conversation between a user and an AI assistant (with its tools). The PURPOSE of your summary is to let the conversation continue in a fresh, smaller context WITHOUT losing any information that is useful or important to understand what came before and keep working — preserve everything that matters, drop only what is redundant.
+
+Summarize densely and faithfully, keeping ONLY the essentials:
+- The user's goal(s) and constraints
+- Decisions made and established facts
+- Actions/tools run and their important results (file paths, values, config)
+- Tasks done, in progress, blocked; next steps
+Strict rules: no preamble or conclusion, no verbatim or long quotes, no throwaway detail. Use short bullet points. Aim for 250 words MAX — this is a compression summary, not a report.
+Write the summary in the SAME language as the conversation.`
 
 	payload := map[string]any{
 		"model": "jean",
