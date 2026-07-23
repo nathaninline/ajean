@@ -24,11 +24,13 @@ import (
 // JOURNALISE ces événements (Log) horodatés par Seq. Se reconnecter = rejouer
 // Log[from:] puis suivre les événements en direct — aucun code de rendu nouveau.
 
-// maxLogEvents plafonne le journal d'AFFICHAGE (pas la vue modèle). Une très
-// longue conversation ne fait pas exploser la mémoire/le disque ; la troncature
-// ne retire que de vieilles bulles à l'écran, jamais du contexte du modèle
-// (celui-ci vit dans Messages, réduit séparément par le compactage).
-const maxLogEvents = 5000
+// maxLogEvents plafonne le journal d'AFFICHAGE (pas la vue modèle). Depuis la
+// coalescence en fin de tour (compactLogLocked), un tour terminé ne pèse plus
+// qu'une poignée d'événements au lieu d'un par token → 20000 couvre des
+// centaines de tours. La marge sert surtout à absorber UN tour en cours (streamé
+// token par token) avant sa coalescence : un très gros tour (long raisonnement +
+// réponse) ne doit pas se faire tronquer le début avant d'être compacté.
+const maxLogEvents = 20000
 
 // LogEvent = un événement d'affichage rejouable (un delta SSE + son numéro de
 // séquence monotone + un horodatage serveur en ms). Le TS permet au client de
@@ -119,6 +121,88 @@ func (c *Conversation) appendDelta(epoch int, delta map[string]any) {
 	c.mu.Unlock()
 }
 
+// evToks lit le nombre de tokens porté par un événement texte : 1 pour un delta
+// brut (streaming), ou la valeur `toks` accumulée pour un événement déjà coalescé.
+func evToks(d map[string]any) int {
+	switch v := d["toks"].(type) {
+	case int:
+		return v
+	case float64: // relu depuis le JSON persisté
+		return int(v)
+	}
+	return 1
+}
+
+// evTS0 lit l'horodatage de DÉBUT d'un événement texte (présent seulement sur les
+// événements coalescés) ; sinon on retombe sur `fallback` (le TS de l'événement).
+func evTS0(d map[string]any, fallback int64) int64 {
+	switch v := d["ts0"].(type) {
+	case int64:
+		return v
+	case float64:
+		return int64(v)
+	}
+	return fallback
+}
+
+// compactLogLocked coalesce EN PLACE les suites d'événements content /
+// reasoning_content du journal d'affichage en un seul événement chacun (même
+// logique que coalesceReplay). Sans ça, le journal grossit token par token et
+// atteint maxLogEvents en quelques réponses → on perd le DÉBUT de la conversation
+// à l'affichage. On l'appelle en fin de tour (les événements sont alors figés).
+// On préserve `toks` (somme) et `ts0` (premier) pour que le compteur de vitesse
+// (tok/s) reste correct au replay. Verrou détenu par l'appelant.
+func (c *Conversation) compactLogLocked() {
+	if len(c.Log) < 2 {
+		return
+	}
+	textKey := func(d map[string]any) string {
+		if _, ok := d["content"].(string); ok {
+			return "content"
+		}
+		if _, ok := d["reasoning_content"].(string); ok {
+			return "reasoning_content"
+		}
+		return ""
+	}
+	out := make([]LogEvent, 0, len(c.Log))
+	var buf strings.Builder
+	bufKey := ""
+	var cur LogEvent
+	var toks int
+	var ts0 int64
+	flush := func() {
+		if bufKey == "" {
+			return
+		}
+		cur.Delta = map[string]any{bufKey: buf.String(), "toks": toks, "ts0": ts0}
+		out = append(out, cur)
+		buf.Reset()
+		bufKey, toks, ts0 = "", 0, 0
+	}
+	for _, ev := range c.Log {
+		key := textKey(ev.Delta)
+		if key == "" {
+			flush()
+			out = append(out, ev)
+			continue
+		}
+		if bufKey != "" && bufKey != key {
+			flush()
+		}
+		if bufKey == "" {
+			bufKey = key
+			cur = LogEvent{Seq: ev.Seq, TS: ev.TS}
+			ts0 = evTS0(ev.Delta, ev.TS)
+		}
+		buf.WriteString(ev.Delta[key].(string))
+		cur.Seq, cur.TS = ev.Seq, ev.TS
+		toks += evToks(ev.Delta)
+	}
+	flush()
+	c.Log = out
+}
+
 // convState renvoie un instantané léger (pour /api/chat/state).
 func (c *Conversation) state() map[string]any {
 	c.mu.Lock()
@@ -176,6 +260,9 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 			return // Reset pendant le tour : Reset a déjà persisté l'état vide
 		}
 		c.appendDelta(epoch, map[string]any{"turn_done": true})
+		c.mu.Lock()
+		c.compactLogLocked() // le tour est fini : coalesce ses tokens pour garder le journal petit
+		c.mu.Unlock()
 		c.persist()
 	}()
 
@@ -409,11 +496,11 @@ func coalesceReplay(events []LogEvent, from int) []map[string]any {
 				flush()
 			}
 			if bufKey == "" {
-				bufKey, bufTs0 = key, ev.TS
+				bufKey, bufTs0 = key, evTS0(ev.Delta, ev.TS)
 			}
 			buf.WriteString(ev.Delta[key].(string))
 			bufSeq, bufTs = ev.Seq, ev.TS
-			bufToks++
+			bufToks += evToks(ev.Delta) // 1 pour un delta brut, N pour un événement déjà coalescé
 			continue
 		}
 		flush()
