@@ -75,10 +75,26 @@ async function loadRam(){
     '<div class="muted">'+(m.used/1024).toFixed(1)+' / '+(m.total/1024).toFixed(1)+' GiB · '+pct+'%</div></div>';
 }
 async function loadCfg(){
-  const c=await jget('/api/config');
-  const keys=['BIN','MODEL','CTX','BATCH','UBATCH','NGL','PORT'];
-  document.getElementById('cfg').innerHTML = keys.filter(k=>c[k]).map(k=>{
+  // /api/llamacpp en parallèle : il indique si le BIN de la config correspond au
+  // moteur rapide (prebuilt.in_use) ou optimisé (in_use) — sinon c'est un custom.
+  const [c, lc] = await Promise.all([jget('/api/config'), jget('/api/llamacpp').catch(()=>null)]);
+  const row=(k,v,title)=>'<div class="kv"><span>'+k+'</span><span title="'+String(title!=null?title:v).replace(/"/g,'&quot;')+'">'+String(v)+'</span></div>';
+  const rows=[];
+  if(c.BIN){
+    // Moteur : rapide / optimisé / custom (avec le chemin). Le title garde
+    // toujours le chemin complet, quel que soit le libellé.
+    let v;
+    if(lc && lc.prebuilt && lc.prebuilt.in_use) v='⚡ rapide';
+    else if(lc && lc.in_use) v='🔧 optimisé';
+    else v='custom : '+c.BIN;
+    rows.push(row('BIN', v, c.BIN));
+  }
+  ['MODEL','CTX','BATCH','UBATCH','NGL','PORT'].filter(k=>c[k]).forEach(k=>{
     let v=c[k]; if(k==='MODEL') v=v.split('/').pop();
-    return '<div class="kv"><span>'+k+'</span><span title="'+v.replace(/"/g,'&quot;')+'">'+v+'</span></div>';
-  }).join('');
+    rows.push(row(k, v));
+  });
+  // n-cpu-moe : affiché seulement s'il est réellement présent dans EXTRA_ARGS.
+  const m=(c.EXTRA_ARGS||'').match(/--n-cpu-moe\s+(\d+)/);
+  if(m) rows.push(row('n-cpu-moe', m[1]));
+  document.getElementById('cfg').innerHTML = rows.join('');
 }
