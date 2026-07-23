@@ -70,7 +70,7 @@ async function openItem(kind, key){
   const modelRow = document.getElementById('m-model-row');
   const delModelWrap = document.getElementById('m-del-model-wrap');
   if(kind === 'preset'){
-    modelRow.style.display = 'block';
+    modelRow.style.display = 'flex';
     document.getElementById('m-hf-url').value = '';
     document.getElementById('m-hf-progress').style.display = 'none';
     document.getElementById('m-del-model').checked = false;

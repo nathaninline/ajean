@@ -291,6 +291,39 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .be-opt{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer}
 .be-opt input{margin:0;flex-shrink:0}
 .be-note{font-size:11px;color:var(--dim);margin-left:auto}
+/* Éditeur de preset/mémoire — mise en forme propre du modale */
+.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:30;align-items:center;justify-content:center;padding:20px}
+.modal-card{background:var(--bg);border:1px solid var(--border);border-radius:12px;width:100%;max-width:600px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 16px 50px rgba(0,0,0,.5)}
+.modal-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal-head strong{font-size:14px}
+.modal-x{margin:0;padding:3px 10px;font-size:16px;line-height:1;color:var(--dim)}
+.modal-body{padding:16px;overflow:auto;flex:1}
+.modal-foot{padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.foot-l{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.foot-r{display:flex;gap:8px}
+.mform{display:flex;flex-direction:column;gap:14px}
+.fld{display:flex;flex-direction:column;gap:5px}
+.fld-l{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--dim)}
+.fld-l .opt{text-transform:none;letter-spacing:0;font-weight:400;opacity:.65}
+.fld-hint{font-size:11px;color:var(--dim);margin-top:2px}
+.ctl{width:100%;box-sizing:border-box;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:9px 11px;font:inherit}
+.ctl:focus{outline:none;border-color:var(--accent)}
+.ta{min-height:220px;resize:vertical;line-height:1.5}
+.card{border:1px solid var(--border);border-radius:10px;padding:13px;display:flex;flex-direction:column;gap:13px}
+.card-h{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.row{display:flex;gap:6px}
+.row .ctl{flex:1;min-width:0}
+.btn-dl{flex-shrink:0;margin:0}
+.seg{display:flex;gap:6px}
+.seg>label{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center;min-height:46px;padding:6px 4px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:12px;background:var(--panel);transition:border-color .12s,background .12s,color .12s}
+.seg>label:hover{border-color:var(--accent)}
+.seg>label:has(input:checked){border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
+.seg input{display:none}
+.seg .be-note{font-size:10px;color:var(--dim);margin:0}
+.btn-danger{background:var(--danger-bg);border-color:var(--err);color:var(--err);margin:0}
+.btn-save{border-color:var(--accent);color:var(--accent);margin:0}
+.del-model{align-items:center;gap:5px;font-size:11px;color:var(--dim)}
+.del-model input{margin:0}
 .lc-logbar{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;font-weight:600;padding:6px 0;margin-top:4px}
 .lc-logbar #lc-log-caret{font-size:9px;transition:transform .12s;display:inline-block}
 .lc-logbar.open #lc-log-caret{transform:rotate(90deg)}

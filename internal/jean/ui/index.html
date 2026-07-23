@@ -310,6 +310,39 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .be-opt{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer}
 .be-opt input{margin:0;flex-shrink:0}
 .be-note{font-size:11px;color:var(--dim);margin-left:auto}
+/* Éditeur de preset/mémoire — mise en forme propre du modale */
+.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:30;align-items:center;justify-content:center;padding:20px}
+.modal-card{background:var(--bg);border:1px solid var(--border);border-radius:12px;width:100%;max-width:600px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 16px 50px rgba(0,0,0,.5)}
+.modal-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal-head strong{font-size:14px}
+.modal-x{margin:0;padding:3px 10px;font-size:16px;line-height:1;color:var(--dim)}
+.modal-body{padding:16px;overflow:auto;flex:1}
+.modal-foot{padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.foot-l{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.foot-r{display:flex;gap:8px}
+.mform{display:flex;flex-direction:column;gap:14px}
+.fld{display:flex;flex-direction:column;gap:5px}
+.fld-l{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--dim)}
+.fld-l .opt{text-transform:none;letter-spacing:0;font-weight:400;opacity:.65}
+.fld-hint{font-size:11px;color:var(--dim);margin-top:2px}
+.ctl{width:100%;box-sizing:border-box;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:9px 11px;font:inherit}
+.ctl:focus{outline:none;border-color:var(--accent)}
+.ta{min-height:220px;resize:vertical;line-height:1.5}
+.card{border:1px solid var(--border);border-radius:10px;padding:13px;display:flex;flex-direction:column;gap:13px}
+.card-h{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.row{display:flex;gap:6px}
+.row .ctl{flex:1;min-width:0}
+.btn-dl{flex-shrink:0;margin:0}
+.seg{display:flex;gap:6px}
+.seg>label{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center;min-height:46px;padding:6px 4px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:12px;background:var(--panel);transition:border-color .12s,background .12s,color .12s}
+.seg>label:hover{border-color:var(--accent)}
+.seg>label:has(input:checked){border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
+.seg input{display:none}
+.seg .be-note{font-size:10px;color:var(--dim);margin:0}
+.btn-danger{background:var(--danger-bg);border-color:var(--err);color:var(--err);margin:0}
+.btn-save{border-color:var(--accent);color:var(--accent);margin:0}
+.del-model{align-items:center;gap:5px;font-size:11px;color:var(--dim)}
+.del-model input{margin:0}
 .lc-logbar{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;font-weight:600;padding:6px 0;margin-top:4px}
 .lc-logbar #lc-log-caret{font-size:9px;transition:transform .12s;display:inline-block}
 .lc-logbar.open #lc-log-caret{transform:rotate(90deg)}
@@ -498,49 +531,68 @@ button:disabled{opacity:.5;cursor:not-allowed}
     </div>
   </div>
 </div>
-<div id="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:30;align-items:center;justify-content:center;padding:20px">
-  <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;width:100%;max-width:700px;max-height:90vh;display:flex;flex-direction:column">
-    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+<div id="modal" class="modal-ov" style="display:none">
+  <div class="modal-card">
+    <div class="modal-head">
       <strong id="modal-title">Preset</strong>
-      <button onclick="closeModal()" style="margin:0">×</button>
+      <button class="modal-x" onclick="closeModal()" aria-label="Fermer">×</button>
     </div>
-    <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;overflow:auto;flex:1">
-      <label class="muted">Nom <span style="opacity:.6">(espaces et accents OK, sauf / et \)</span></label>
-      <input id="m-name" style="background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit">
-      <div id="m-model-row" style="display:none">
-        <label class="muted">Moteur (backend) <span style="opacity:.6">— quel llama.cpp fait tourner ce modèle</span></label>
-        <div class="be-opts">
-          <label class="be-opt"><input type="radio" name="m-be" value="fast" onchange="onBackendMode('fast')"><span>⚡ Rapide</span><span class="be-note" id="be-fast-note"></span></label>
-          <label class="be-opt"><input type="radio" name="m-be" value="opt" onchange="onBackendMode('opt')"><span>🔧 Optimisé</span><span class="be-note" id="be-opt-note"></span></label>
-          <label class="be-opt"><input type="radio" name="m-be" value="custom" onchange="onBackendMode('custom')"><span>📁 Personnalisé</span></label>
-        </div>
-        <div id="m-backend-custom" style="display:none;margin:0 0 10px">
-          <input id="m-backend-path" oninput="onCustomPath()" placeholder="chemin vers llama-server(.exe)" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit">
-          <select id="m-backend-detected" onchange="onPickDetected()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;margin-top:6px"></select>
-          <div class="muted" id="be-drop-hint" style="font-size:11px;margin-top:4px"></div>
-        </div>
-        <label class="muted">Modèle <span style="opacity:.6">(remplace la ligne MODEL=)</span></label>
-        <select id="m-model" onchange="onPickModel()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;margin-top:6px"></select>
-        <label class="muted" style="margin-top:10px;display:block">Télécharger depuis Hugging Face <span style="opacity:.6">(lien vers un .gguf)</span></label>
-        <div style="display:flex;gap:6px;margin-top:6px">
-          <input id="m-hf-url" placeholder="https://huggingface.co/…/resolve/main/model.gguf" style="flex:1;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit">
-          <button id="m-hf-btn" onclick="startDownload()" style="flex-shrink:0">⬇ télécharger</button>
-        </div>
-        <div id="m-hf-progress" class="muted" style="display:none;font-size:11px;margin-top:6px"></div>
-        <label class="muted" style="margin-top:10px;display:block">Quantization (tag) <span style="opacity:.6">(vide = détection auto depuis le nom du modèle)</span></label>
-        <input id="m-quant" oninput="applyQuant()" placeholder="ex: Q4_K_M, IQ3_XXS, BF16…" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;margin-top:6px">
+    <div class="modal-body mform">
+      <div class="fld">
+        <label class="fld-l" for="m-name">Nom <span class="opt">(espaces et accents OK, sauf / et \)</span></label>
+        <input id="m-name" class="ctl">
       </div>
-      <label class="muted">Contenu</label>
-      <textarea id="m-content" spellcheck="false" style="background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;min-height:280px;resize:vertical"></textarea>
+
+      <div id="m-model-row" class="card" style="display:none">
+        <div class="card-h">Modèle &amp; moteur</div>
+
+        <div class="fld">
+          <label class="fld-l">Moteur <span class="opt">— quel llama.cpp fait tourner ce modèle</span></label>
+          <div class="seg">
+            <label><input type="radio" name="m-be" value="fast" onchange="onBackendMode('fast')"><span>⚡ Rapide</span><span class="be-note" id="be-fast-note"></span></label>
+            <label><input type="radio" name="m-be" value="opt" onchange="onBackendMode('opt')"><span>🔧 Optimisé</span><span class="be-note" id="be-opt-note"></span></label>
+            <label><input type="radio" name="m-be" value="custom" onchange="onBackendMode('custom')"><span>📁 Perso</span></label>
+          </div>
+          <div id="m-backend-custom" style="display:none;margin-top:8px">
+            <input id="m-backend-path" class="ctl" oninput="onCustomPath()" placeholder="chemin vers llama-server(.exe)">
+            <select id="m-backend-detected" class="ctl" onchange="onPickDetected()" style="margin-top:6px"></select>
+            <div class="fld-hint" id="be-drop-hint"></div>
+          </div>
+        </div>
+
+        <div class="fld">
+          <label class="fld-l" for="m-model">Modèle <span class="opt">(remplace la ligne MODEL=)</span></label>
+          <select id="m-model" class="ctl" onchange="onPickModel()"></select>
+        </div>
+
+        <div class="fld">
+          <label class="fld-l" for="m-hf-url">Télécharger depuis Hugging Face <span class="opt">(lien vers un .gguf)</span></label>
+          <div class="row">
+            <input id="m-hf-url" class="ctl" placeholder="https://huggingface.co/…/resolve/main/model.gguf">
+            <button id="m-hf-btn" class="btn-dl" onclick="startDownload()">⬇ télécharger</button>
+          </div>
+          <div id="m-hf-progress" class="fld-hint" style="display:none"></div>
+        </div>
+
+        <div class="fld">
+          <label class="fld-l" for="m-quant">Quantization <span class="opt">(vide = détection auto depuis le nom)</span></label>
+          <input id="m-quant" class="ctl" oninput="applyQuant()" placeholder="ex: Q4_K_M, IQ3_XXS, BF16…">
+        </div>
+      </div>
+
+      <div class="fld">
+        <label class="fld-l" for="m-content">Contenu <span class="opt">(fichier de config brut)</span></label>
+        <textarea id="m-content" class="ctl ta" spellcheck="false"></textarea>
+      </div>
     </div>
-    <div style="padding:14px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <button id="m-del" onclick="delItem()" style="background:var(--danger-bg);border-color:var(--err);color:var(--err);margin:0">supprimer</button>
-        <label id="m-del-model-wrap" style="display:none;align-items:center;gap:5px;font-size:11px;color:var(--dim)"><input type="checkbox" id="m-del-model"> + le modèle .gguf</label>
+    <div class="modal-foot">
+      <div class="foot-l">
+        <button id="m-del" class="btn-danger" onclick="delItem()">supprimer</button>
+        <label id="m-del-model-wrap" class="del-model" style="display:none"><input type="checkbox" id="m-del-model"> + le modèle .gguf</label>
       </div>
-      <div style="display:flex;gap:6px">
+      <div class="foot-r">
         <button onclick="closeModal()">annuler</button>
-        <button onclick="saveItem()" style="border-color:var(--accent);color:var(--accent)">enregistrer</button>
+        <button class="btn-save" onclick="saveItem()">enregistrer</button>
       </div>
     </div>
   </div>
@@ -1101,7 +1153,7 @@ async function openItem(kind, key){
   const modelRow = document.getElementById('m-model-row');
   const delModelWrap = document.getElementById('m-del-model-wrap');
   if(kind === 'preset'){
-    modelRow.style.display = 'block';
+    modelRow.style.display = 'flex';
     document.getElementById('m-hf-url').value = '';
     document.getElementById('m-hf-progress').style.display = 'none';
     document.getElementById('m-del-model').checked = false;
