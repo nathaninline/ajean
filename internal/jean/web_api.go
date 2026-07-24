@@ -357,8 +357,9 @@ func handleAgentToggle(w http.ResponseWriter, r *http.Request) {
 
 // handleInternet pilote l'accès web de l'IA (serveur Crawl4AI).
 //
-//	GET  → {enabled, url, reachable}
-//	POST {enabled, url} → enregistre CRAWL4AI_URL + le drapeau .internet_enabled
+//	GET  → {enabled, url, reachable, keySet, keyMasked}
+//	POST {enabled, url, apikey} → enregistre CRAWL4AI_URL, la clé API
+//	(JEAN_HOME/.crawl4ai_key) + le drapeau .internet_enabled
 //
 // handleAPIKey expose et pilote la clé d'accès à l'endpoint compatible OpenAI
 // (llama-server /v1). GET renvoie l'état ; POST {action:"generate"|"set"|"clear",
@@ -456,6 +457,7 @@ func handleInternet(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Enabled *bool   `json:"enabled"`
 			URL     *string `json:"url"`
+			APIKey  *string `json:"apikey"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&req)
 		if req.URL != nil {
@@ -468,6 +470,15 @@ func handleInternet(w http.ResponseWriter, r *http.Request) {
 			reachURL = "" // invalide le cache de reachability
 			reachMu.Unlock()
 		}
+		if req.APIKey != nil {
+			if err := writeCrawlKey(strings.TrimSpace(*req.APIKey)); err != nil {
+				sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+				return
+			}
+			reachMu.Lock()
+			reachURL = "" // la clé change l'accessibilité du serveur
+			reachMu.Unlock()
+		}
 		if req.Enabled != nil {
 			if err := setInternetEnabled(*req.Enabled); err != nil {
 				sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
@@ -475,11 +486,14 @@ func handleInternet(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	k := readCrawlKey()
 	sendJSON(w, 200, map[string]any{
 		"ok":        true,
 		"enabled":   internetEnabled(),
 		"url":       crawl4aiURL(),
 		"reachable": crawlReachable(),
+		"keySet":    k != "",
+		"keyMasked": maskAPIKey(k),
 	})
 }
 

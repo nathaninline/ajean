@@ -65,6 +65,29 @@ func maskAPIKey(k string) string {
 	return k[:8] + "…" + k[len(k)-4:]
 }
 
+// readCrawlKey returns the trimmed contents of $JEAN_HOME/.crawl4ai_key, or ""
+// if unset. This is the API token sent to the Crawl4AI server, independent of
+// CRAWL4AI_URL (config.env) so it survives preset switches.
+func readCrawlKey() string {
+	b, err := os.ReadFile(crawlKeyPath())
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
+}
+
+// writeCrawlKey persists (key != "") or clears (key == "") the Crawl4AI API
+// token in $JEAN_HOME/.crawl4ai_key.
+func writeCrawlKey(key string) error {
+	if key == "" {
+		if err := os.Remove(crawlKeyPath()); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		return nil
+	}
+	return os.WriteFile(crawlKeyPath(), []byte(key+"\n"), 0o600)
+}
+
 // cmdSetAPIKey sets (or clears) the API key stored in $JEAN_HOME/.api_key. When
 // exposed on the internet, llama-server requires "Authorization: Bearer <clé>"
 // for every call.

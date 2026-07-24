@@ -151,8 +151,21 @@ function renderInternet(s){
   if(!s.url){ st.textContent='serveur non configuré'; st.style.color=''; }
   else if(s.reachable){ st.innerHTML='<span style="color:var(--accent)">✓</span> serveur joignable — outils web actifs'; }
   else { st.innerHTML='⚠️ serveur injoignable — les outils web ne seront pas proposés'; }
+  const ki=document.getElementById('crawl-key');
+  ki.value = s.keySet ? s.keyMasked : '';
+  ki.placeholder = s.keySet ? '' : '(aucune clé)';
 }
 async function loadInternet(){ renderInternet(await jget('/api/internet')); }
+async function crawlKeySet(){
+  const k = await askPrompt('Colle la clé API du serveur Crawl4AI (ou laisse vide pour annuler) :', {title:'Clé API Crawl4AI', placeholder:'clé…'});
+  if(!k || !k.trim()) return;
+  toast('application…');
+  renderInternet(await jpost('/api/internet',{apikey:k.trim()}));
+}
+async function crawlKeyClear(){
+  toast('application…');
+  renderInternet(await jpost('/api/internet',{apikey:''}));
+}
 // --- Accès OpenAI (endpoint /v1 + clé API des complétions) -----------------
 let OAI_KEY='', OAI_REVEAL=false;
 async function copyText(txt, msg){

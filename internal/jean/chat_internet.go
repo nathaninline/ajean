@@ -20,8 +20,11 @@ import (
 // Accès internet de l'IA — port Go de l'extension pi ~/.pi/agent/extensions/web.ts.
 //
 // jean parle à un serveur Crawl4AI (Chrome headless, endpoint /crawl) dont l'URL
-// est configurée dans config.env (CRAWL4AI_URL). Quand le mode agent ET l'accès
-// internet sont actifs ET que le serveur répond, l'IA dispose de 4 outils :
+// est configurée dans config.env (CRAWL4AI_URL). Si une clé API est enregistrée
+// ($JEAN_HOME/.crawl4ai_key), elle est envoyée en "Authorization: Bearer <clé>"
+// sur chaque appel (utile quand le serveur Crawl4AI est protégé, p. ex. exposé
+// publiquement). Quand le mode agent ET l'accès internet sont actifs ET que le
+// serveur répond, l'IA dispose de 4 outils :
 //
 //   - web_search : recherche DuckDuckGo (via crawl), liste {title, url, snippet}.
 //   - web_open   : récupère une URL (cache 10 min), renvoie SEULEMENT les métadonnées
@@ -95,6 +98,9 @@ func crawlReachable() bool {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+path, nil)
 		if err != nil {
 			continue
+		}
+		if k := readCrawlKey(); k != "" {
+			req.Header.Set("Authorization", "Bearer "+k)
 		}
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
@@ -193,6 +199,9 @@ func runCrwl(target string, opts crwlOptions) (string, error) {
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if k := readCrawlKey(); k != "" {
+		req.Header.Set("Authorization", "Bearer "+k)
+	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("Crawl4AI injoignable (%s): %v", base, err)

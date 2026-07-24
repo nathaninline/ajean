@@ -220,6 +220,7 @@ func mcpConfigPath() string { return filepath.Join(JeanHome(), "mcp.json") }
 func legacySkillsFlag() string { return filepath.Join(skillsDir(), ".enabled") }
 func legacyToolsFlag() string  { return filepath.Join(JeanHome(), ".tools_enabled") }
 func apiKeyPath() string       { return filepath.Join(JeanHome(), ".api_key") }
+func crawlKeyPath() string     { return filepath.Join(JeanHome(), ".crawl4ai_key") }
 func serviceName() string {
 	if n := os.Getenv("JEAN_SERVICE"); n != "" {
 		return n
