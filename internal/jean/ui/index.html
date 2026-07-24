@@ -297,15 +297,14 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .lc-modes{display:flex;flex-direction:column;gap:8px}
 .lc-modes.busy{opacity:.5;pointer-events:none}
 .lc-mode{border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:border-color .12s,background .12s}
-.lc-mode:hover{border-color:var(--accent)}
-.lc-mode.installed{border-color:var(--accent)}
+.lc-mode:hover{border-color:var(--dim)}
 .lc-mode-t{font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px}
 .lc-reco{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);border:1px solid var(--accent);border-radius:8px;padding:1px 6px}
 .lc-mode-d{font-size:11px;color:var(--dim);margin-top:3px}
 .lc-mode-state{font-size:11px;margin-top:7px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .lc-mode-go{color:var(--accent)}
 .lc-mode-active-tag{color:var(--accent);font-weight:600}
-.lc-update-link{color:var(--dim);text-decoration:underline;cursor:pointer}
+.lc-update-link{color:var(--dim);text-decoration:none;cursor:pointer}
 .lc-update-link:hover{color:var(--accent)}
 /* Choix du moteur dans l'éditeur de modèle (3 options : rapide/optimisé/perso) */
 .be-opts{display:flex;flex-direction:column;gap:7px;margin:6px 0 8px}
@@ -384,6 +383,16 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .io-cap{color:var(--dim);font-size:11px;margin:0 0 3px}
 .io-input{flex:1;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit;font-size:12px}
 .io-group{margin-top:12px}
+
+/* Toggles de la sous-section « Paramètres » du mode agent : chacun dans sa
+   propre carte bordée et arrondie (comme les serveurs MCP), plus lisible. */
+#param-block .switchrow{border:1px solid var(--border);border-radius:8px;padding:9px 11px;background:var(--bg)}
+#param-block .switchrow+.switchrow{margin-top:8px}
+
+/* Modale MCP (ajout/édition) : les champs des groupes stdio/http n'avaient aucun
+   espacement vertical (le conteneur n'est pas un flex à gap) → ils se touchaient.
+   On aligne leur rythme sur celui du reste du formulaire (.mform). */
+#mcp-stdio-fields,#mcp-http-fields{display:flex;flex-direction:column;gap:14px}
 </style></head><body>
 <button id="menubtn" onclick="toggleSide()">☰</button>
 <div id="backdrop" onclick="toggleSide()"></div>

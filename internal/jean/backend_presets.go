@@ -59,27 +59,38 @@ func withDisplayName(content, name string) string {
 // assignment lines symmetrically from both sides before hashing so a plain
 // content match still identifies the active preset.
 func presetFingerprint(content []byte) string {
-	var b strings.Builder
+	// On réduit le fichier à l'ENSEMBLE de ses affectations KEY=VALUE effectives,
+	// puis on hache cet ensemble TRIÉ. On ignore : commentaires (dont `# NAME=`),
+	// lignes vides, l'ordre des lignes, et les clés « appareil » (preservedKeys,
+	// réappliquées par SwitchToPreset). Ainsi un simple reformatage de config.env
+	// — réécriture par un toggle mémoire/internet, réordonnancement, commentaires —
+	// ne « perd » plus le preset actif : seule la config effective est comparée.
+	// (Avant : hachage ligne à ligne, cassé par le moindre changement cosmétique →
+	// aucun preset détecté comme actif, souvent après un changement de réglage.)
+	pairs := []string{}
 	for _, line := range strings.Split(string(content), "\n") {
-		if isPreservedAssignment(line) {
+		t := strings.TrimSpace(line)
+		if t == "" || strings.HasPrefix(t, "#") {
 			continue
 		}
-		b.WriteString(line)
-		b.WriteByte('\n')
+		t = strings.TrimPrefix(t, "export ")
+		eq := strings.IndexByte(t, '=')
+		if eq < 0 {
+			continue
+		}
+		key := strings.TrimSpace(t[:eq])
+		if isPreservedKey(key) {
+			continue
+		}
+		pairs = append(pairs, key+"="+strings.TrimSpace(t[eq+1:]))
 	}
-	h := sha1.Sum([]byte(b.String()))
+	sort.Strings(pairs)
+	h := sha1.Sum([]byte(strings.Join(pairs, "\n")))
 	return hex.EncodeToString(h[:])
 }
 
-// isPreservedAssignment reports whether a line assigns one of the preservedKeys
-// (commented or not), e.g. `MEM_MODE=off` or `# CRAWL4AI_URL=...`.
-func isPreservedAssignment(line string) bool {
-	t := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "#"))
-	eq := strings.IndexByte(t, '=')
-	if eq < 0 {
-		return false
-	}
-	key := strings.TrimSpace(t[:eq])
+// isPreservedKey reports whether key is one of the device-level preservedKeys.
+func isPreservedKey(key string) bool {
 	for _, k := range preservedKeys {
 		if key == k {
 			return true
