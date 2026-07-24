@@ -119,7 +119,7 @@ func mcpConnect(ctx context.Context, name string, cfg MCPServerConfig) (*mcpsdk.
 	var transport mcpsdk.Transport
 	switch cfg.Transport() {
 	case "stdio":
-		cmd := exec.Command(cfg.Command, cfg.Args...)
+		cmd := hideCmd(exec.Command(cfg.Command, cfg.Args...)) // pas de flash console (mode app Windows)
 		// Hérite de l'environnement du service + surcharges déclarées.
 		cmd.Env = os.Environ()
 		for k, v := range cfg.Env {

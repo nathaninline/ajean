@@ -10,10 +10,16 @@ import (
 	"strings"
 )
 
-const Version = "0.5.0"
+const Version = "0.5.1"
 
 // Main est le vrai main() du binaire (cmd/jean ne fait que l'appeler).
 func Main() {
+	// Rattache la console du terminal parent si on est lancé depuis un shell
+	// (Windows : binaire GUI). Retourne false au double-clic (aucune console) →
+	// on bascule alors sur l'expérience « application ». Hors Windows : toujours
+	// true. À faire AVANT toute écriture.
+	haveConsole := setupConsole()
+
 	// Migration one-shot des anciens skills (SKILLS/<nom>/SKILL.md) vers la
 	// nouvelle mémoire (MEMORY/<nom>.md). Idempotente, silencieuse si rien à faire.
 	migrateSkillsToMemory()
@@ -27,12 +33,13 @@ func Main() {
 		cmd = args[0]
 		args = args[1:]
 	}
-	// Double-clic sur le binaire (aucun argument, console fraîche) → on lance
-	// l'expérience « application » (UI web + navigateur) plutôt que d'afficher
-	// l'aide dans une console qui se referme aussitôt. Lancé depuis un shell,
+	// Double-clic sur le binaire (aucun argument, aucune console rattachée) → on
+	// lance l'expérience « application » (UI web + navigateur + icône tray) plutôt
+	// que d'afficher l'aide. Le binaire étant compilé en sous-système GUI, il n'y a
+	// AUCUNE console à ce stade (donc plus de fenêtre noire). Lancé depuis un shell,
 	// `jean` sans argument garde son comportement d'aide.
-	if noArgs && launchedByDoubleClick() {
-		relaunchDetachedApp() // relance sans console (ne revient pas), puis quitte l'original
+	if noArgs && !haveConsole {
+		mustExit(cmdApp(args))
 		return
 	}
 	switch cmd {

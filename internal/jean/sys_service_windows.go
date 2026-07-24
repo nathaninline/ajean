@@ -23,6 +23,7 @@ import (
 const (
 	createNewProcessGroup = 0x00000200 // CREATE_NEW_PROCESS_GROUP
 	detachedProcess       = 0x00000008 // DETACHED_PROCESS
+	createNoWindow        = 0x08000000 // CREATE_NO_WINDOW (aucune console pour l'enfant)
 )
 
 func pidFilePath() string { return filepath.Join(JeanHome(), serviceName()+".pid") }
@@ -70,7 +71,12 @@ func svcStart() error {
 	cmd := exec.Command(self, "serve")
 	cmd.Stdout = logf
 	cmd.Stderr = logf
-	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: createNewProcessGroup | detachedProcess}
+	// createNoWindow + HideWindow : le service enfant (`jean serve`) ne doit JAMAIS
+	// faire clignoter de console noire quand Jean est lancé en mode app (double-clic).
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: createNewProcessGroup | detachedProcess | createNoWindow,
+	}
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("démarrage de 'jean serve': %w", err)
 	}

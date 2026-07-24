@@ -195,7 +195,19 @@ async function apiKeyAction(action){
   renderApiKey(await jpost('/api/apikey', {action}));
 }
 async function toggleOAIPublic(){
-  const on = document.getElementById('oai-public-toggle').checked;
+  const cb = document.getElementById('oai-public-toggle');
+  const on = cb.checked;
+  // L'accès OpenAI public passe par ajean.link (<machine>.oai.ajean.link) : il exige
+  // que l'accès distant soit activé sur ce serveur. Sinon, on annule et on explique.
+  if(on){
+    let linked = false;
+    try{ const s = await jget('/api/link/status'); linked = !!(s && s.linked); }catch(e){}
+    if(!linked){
+      cb.checked = false;
+      await askAlert('Vous devez activer l\'accès distant (ajean.link) pour bénéficier de cette fonctionnalité. Ouvrez le panneau « Accès distant » pour connecter ce serveur.', {title:'Accès distant requis'});
+      return;
+    }
+  }
   await jpost('/api/oai/public', {enabled:on});
   toast(on ? 'accès public activé' : 'accès public coupé');
   loadApiKey();
@@ -216,5 +228,5 @@ async function saveCrawlUrl(){
   const url=document.getElementById('crawl-url').value.trim();
   renderInternet(await jpost('/api/internet',{url}));
 }
-async function loadAll(){ await Promise.all([loadStatus(),loadVram(),loadRam(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadApiKey(),loadPrefs(),loadLlamacpp()]); }
+async function loadAll(){ await Promise.all([loadStatus(),loadVram(),loadRam(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadApiKey(),loadPrefs(),loadLlamacpp(),loadRemote()]); }
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }

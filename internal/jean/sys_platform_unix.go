@@ -65,11 +65,6 @@ func totalRAMGB() float64 {
 	return 0
 }
 
-// launchedByDoubleClick : sur Unix, jean tourne en service/CLI, on ne déclenche
-// jamais le mode app sur un simple no-arg (éviterait de surprendre un serveur).
-// L'expérience app double-clic est propre à Windows/macOS (coque native, phase 3).
-func launchedByDoubleClick() bool { return false }
-
 // setLibraryPath ensures llama-server can load shared libs bundled next to the
 // binary by prepending dir to LD_LIBRARY_PATH. It also appends the CUDA runtime
 // lib directories: a CUDA-enabled build links against libcudart/libcublas, which

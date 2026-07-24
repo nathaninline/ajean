@@ -124,6 +124,30 @@
       <button onclick="apiKeyAction('clear')">retirer</button>
     </div>
   </details>
+  <details id="remote-details"><summary>Accès distant <span id="remote-badge" style="margin-left:auto;margin-right:12px;font-size:10px"></span></summary>
+    <div class="subhead">ajean.link<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Accédez à ce serveur Jean depuis <b>n'importe où</b>, sans ouvrir de port, à travers le relais <b>ajean.link</b>. Le trafic est chiffré de <b>bout en bout</b> : le relais ne voit rien. Abonnement 4,80 €/mois.</span></span></div>
+    <!-- Non connecté : un seul bouton, tout se passe dans la popup (compte + paiement). -->
+    <div id="remote-off">
+      <p class="muted" style="font-size:12px;line-height:1.5;margin:6px 0 10px">Ouvrez l'accès distant à ce serveur en quelques clics — compte, abonnement et connexion, sans terminal.</p>
+      <button onclick="remoteConnect()" style="border-color:var(--accent);color:var(--accent)">🔗 Connecter à ajean.link</button>
+    </div>
+    <!-- Connecté : URL publique + appairage + déconnexion. -->
+    <div id="remote-on" style="display:none">
+      <div class="muted" style="font-size:11px;margin-bottom:2px">🌍 votre adresse d'accès distant</div>
+      <div class="row">
+        <input id="remote-url" readonly style="flex:1;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit;font-size:12px">
+        <button onclick="copyText(document.getElementById('remote-url').value,'adresse copiée')" title="copier">⧉</button>
+        <button onclick="window.open(document.getElementById('remote-url').value,'_blank')" title="ouvrir">↗</button>
+      </div>
+      <div id="remote-status" class="muted" style="font-size:11px;margin-top:6px"></div>
+      <div class="subhead" style="margin-top:12px">Première connexion<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">À votre première ouverture du portail distant, confirmez l'<b>empreinte</b> et saisissez le <b>code d'appairage</b> : cela verrouille la boîte noire sur CE serveur (anti-interception). Une seule fois par appareil.</span></span></div>
+      <button onclick="remotePairCode()" style="margin-top:4px">🔑 Afficher l'empreinte + le code d'appairage</button>
+      <div id="remote-pair" class="muted" style="font-size:12px;margin-top:8px;display:none;line-height:1.7"></div>
+      <div class="row" style="margin-top:12px">
+        <button onclick="remoteDisconnect()" style="border-color:var(--err);color:var(--err)">déconnecter l'accès distant</button>
+      </div>
+    </div>
+  </details>
   <details id="lc-details"><summary>MOTEUR</summary>
     <div id="lc-status" class="lc-head muted">…</div>
     <div class="lc-modes">

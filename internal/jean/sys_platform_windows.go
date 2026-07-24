@@ -97,19 +97,6 @@ func totalRAMGB() float64 {
 	return float64(m.ullTotalPhys) / (1024 * 1024 * 1024)
 }
 
-// launchedByDoubleClick indique qu'on a été lancé par un double-clic (Explorer)
-// et non depuis un shell existant. GetConsoleProcessList renvoie le nombre de
-// process attachés à la console : 1 = on possède une console fraîche (double-
-// clic), >1 = on a hérité de la console d'un shell (cmd/PowerShell), auquel cas
-// l'utilisateur veut la CLI, pas l'app.
-func launchedByDoubleClick() bool {
-	kernel32 := syscall.NewLazyDLL("kernel32.dll")
-	proc := kernel32.NewProc("GetConsoleProcessList")
-	var pids [4]uint32
-	r, _, _ := proc.Call(uintptr(unsafe.Pointer(&pids[0])), uintptr(len(pids)))
-	return r == 1
-}
-
 // setLibraryPath ensures llama-server can load its dependent DLLs. Windows
 // resolves them via PATH (and the binary's own directory), so we prepend dir.
 // For a CUDA build we must also add the CUDA Toolkit's bin: ggml-cuda.dll links
@@ -139,7 +126,7 @@ func setLibraryPath(dir string) {
 // parent (this is the detached process the service supervisor tracks).
 // args[0] is the binary path; the rest are its arguments.
 func execServer(bin string, args []string) error {
-	cmd := exec.Command(bin, args[1:]...)
+	cmd := hideCmd(exec.Command(bin, args[1:]...)) // pas de console pour llama-server (mode app)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -165,9 +152,9 @@ func autoInstallTool(name string) error {
 	if !ok {
 		id = name
 	}
-	cmd := exec.Command("winget", "install", "--id", id, "-e",
+	cmd := hideCmd(exec.Command("winget", "install", "--id", id, "-e",
 		"--accept-source-agreements", "--accept-package-agreements",
-		"--disable-interactivity", "--silent")
+		"--disable-interactivity", "--silent"))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -180,7 +167,7 @@ func refreshToolPath() {
 	ps := `$m=[Environment]::GetEnvironmentVariable('Path','Machine')
 $u=[Environment]::GetEnvironmentVariable('Path','User')
 Write-Output ((@($m,$u) | Where-Object { $_ }) -join ';')`
-	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", ps).Output()
+	out, err := hideCmd(exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", ps)).Output()
 	if err != nil {
 		return
 	}
@@ -206,9 +193,9 @@ func msvcInstallVersion() string {
 	if _, err := os.Stat(vs); err != nil {
 		return ""
 	}
-	out, err := exec.Command(vs, "-latest", "-products", "*",
+	out, err := hideCmd(exec.Command(vs, "-latest", "-products", "*",
 		"-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
-		"-property", "installationVersion").Output()
+		"-property", "installationVersion")).Output()
 	if err != nil {
 		return ""
 	}
@@ -247,10 +234,10 @@ func ensureCompiler() error {
 		return fmt.Errorf("compilateur C++ absent et winget introuvable — installe « Visual Studio Build Tools » (charge de travail C++) manuellement")
 	}
 	fmt.Printf("%s compilateur C++ absent — installation des Build Tools MSVC (gros téléchargement, une seule fois)…\n", yellow("[info]"))
-	cmd := exec.Command("winget", "install", "--id", "Microsoft.VisualStudio.2022.BuildTools", "-e",
+	cmd := hideCmd(exec.Command("winget", "install", "--id", "Microsoft.VisualStudio.2022.BuildTools", "-e",
 		"--accept-source-agreements", "--accept-package-agreements",
 		"--disable-interactivity",
-		"--override", "--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended")
+		"--override", "--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -280,9 +267,9 @@ func ensureAccelerator() {
 		return
 	}
 	fmt.Printf("%s GPU NVIDIA détecté — installation du CUDA Toolkit pour l'accélération GPU (gros téléchargement, une seule fois)…\n", yellow("[info]"))
-	cmd := exec.Command("winget", "install", "--id", "Nvidia.CUDA", "-e",
+	cmd := hideCmd(exec.Command("winget", "install", "--id", "Nvidia.CUDA", "-e",
 		"--accept-source-agreements", "--accept-package-agreements",
-		"--disable-interactivity")
+		"--disable-interactivity"))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -312,9 +299,9 @@ func ensureCudaVSIntegration(toolkitDir string) error {
 	if _, err := os.Stat(vs); err != nil {
 		return nil
 	}
-	out, err := exec.Command(vs, "-latest", "-products", "*",
+	out, err := hideCmd(exec.Command(vs, "-latest", "-products", "*",
 		"-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
-		"-property", "installationPath").Output()
+		"-property", "installationPath")).Output()
 	if err != nil {
 		return nil
 	}

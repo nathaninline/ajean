@@ -150,7 +150,7 @@ if ($parts -contains $d) { Write-Output 'present'; exit 0 }
 $new=(@($parts) + $d) -join ';'
 [Environment]::SetEnvironmentVariable('Path',$new,'User')
 Write-Output 'added'`, psQuote(dir))
-	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", ps)
+	cmd := hideCmd(exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", ps))
 	outBytes, err := cmd.CombinedOutput()
 	out := strings.TrimSpace(string(outBytes))
 	if err != nil {
@@ -169,7 +169,7 @@ $parts=$p.Split(';') | Where-Object { $_ -ne '' -and $_ -ne $d }
 if (($p.Split(';') | Where-Object { $_ -eq $d }).Count -eq 0) { Write-Output 'absent'; exit 0 }
 [Environment]::SetEnvironmentVariable('Path',($parts -join ';'),'User')
 Write-Output 'removed'`, psQuote(dir))
-	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", ps)
+	cmd := hideCmd(exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", ps))
 	outBytes, err := cmd.CombinedOutput()
 	out := strings.TrimSpace(string(outBytes))
 	if err != nil {

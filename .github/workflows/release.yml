@@ -24,9 +24,12 @@ jobs:
         run: |
           mkdir -p dist
           for t in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
-            os=${t%/*}; arch=${t#*/}; ext=""; [ "$os" = windows ] && ext=".exe"
+            os=${t%/*}; arch=${t#*/}; ext=""; ldflags="-s -w"
+            # Windows : sous-système GUI → aucune console noire au double-clic
+            # (l'app se rattache à la console du terminal parent si lancée en CLI).
+            [ "$os" = windows ] && { ext=".exe"; ldflags="$ldflags -H=windowsgui"; }
             GOOS=$os GOARCH=$arch CGO_ENABLED=0 \
-              go build -trimpath -ldflags="-s -w" -o "dist/jean-$os-$arch$ext" ./cmd/jean
+              go build -trimpath -ldflags="$ldflags" -o "dist/jean-$os-$arch$ext" ./cmd/jean
           done
           (cd dist && sha256sum jean-* > SHA256SUMS)
           ls -l dist && cat dist/SHA256SUMS

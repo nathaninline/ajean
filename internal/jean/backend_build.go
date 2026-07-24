@@ -441,7 +441,7 @@ func missingTools(tools []string) []string {
 
 // gitOutput runs a git command in `dir` and returns trimmed stdout (or "").
 func gitOutput(dir string, args ...string) string {
-	cmd := exec.Command("git", args...)
+	cmd := hideCmd(exec.Command("git", args...)) // pas de flash console (appelé à chaque refresh de l'UI)
 	cmd.Dir = dir
 	out, err := cmd.Output()
 	if err != nil {
@@ -459,7 +459,7 @@ func runStep(name, dir, bin string, args ...string) error {
 // pairs in `extraEnv`, which override existing ones).
 func runStepEnv(name, dir, extraEnv, bin string, args ...string) error {
 	fmt.Printf("\n%s %s %s\n", cyan("▶"), name, dim(strings.Join(args, " ")))
-	cmd := exec.Command(bin, args...)
+	cmd := hideCmd(exec.Command(bin, args...))
 	cmd.Dir = dir
 	// Tee vers le sink de build (jobs web) en plus du terminal.
 	var out io.Writer = os.Stdout
@@ -495,7 +495,7 @@ func runStepEnv(name, dir, extraEnv, bin string, args ...string) error {
 // failure the tail of the log is printed so the actual error is never lost.
 func runBuildStep(name, dir, extraEnv, bin, logPath string, args ...string) error {
 	fmt.Printf("\n%s %s\n", cyan("▶"), name)
-	cmd := exec.Command(bin, args...)
+	cmd := hideCmd(exec.Command(bin, args...))
 	cmd.Dir = dir
 	if extraEnv != "" {
 		env := os.Environ()

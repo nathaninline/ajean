@@ -107,6 +107,10 @@ func newWebMux() *http.ServeMux {
 	api("/api/agent/compact", handleCompactToggle)
 	api("/api/apikey", handleAPIKey)
 	api("/api/oai/public", handleOAIPublic)
+	api("/api/link/status", handleLinkStatus)         // état de l'accès distant (ajean.link)
+	api("/api/link/connect", handleLinkConnect)       // clé de liaison remise par connect.html → jean link
+	api("/api/link/disconnect", handleLinkDisconnect) // arrête le lien + oublie la clé
+	api("/api/link/paircode", handleLinkPairCode)     // code d'appairage + empreinte pour la 1re connexion
 	api("/api/internet", handleInternet)
 	api("/api/mcp", handleMCP)
 	api("/api/mcp/save", handleMCPSave)
@@ -187,7 +191,7 @@ func killPid(pid int, force bool) {
 		if force {
 			args = append(args, "/F")
 		}
-		_ = exec.Command("taskkill", args...).Run()
+		_ = hideCmd(exec.Command("taskkill", args...)).Run()
 		return
 	}
 	sig := "-TERM"
@@ -204,7 +208,7 @@ func killPid(pid int, force bool) {
 func pidOnPort(port int) (int, string) {
 	if runtime.GOOS == "windows" {
 		// netstat -ano : "  TCP    0.0.0.0:8090   0.0.0.0:0   LISTENING   1234"
-		out, err := exec.Command("netstat", "-ano", "-p", "tcp").Output()
+		out, err := hideCmd(exec.Command("netstat", "-ano", "-p", "tcp")).Output()
 		if err != nil {
 			return 0, ""
 		}
@@ -240,7 +244,7 @@ func pidOnPort(port int) (int, string) {
 func processName(pid int) string {
 	if runtime.GOOS == "windows" {
 		// tasklist CSV : "jean.exe","1234","Console","1","12 345 K"
-		out, err := exec.Command("tasklist", "/FI", "PID eq "+strconv.Itoa(pid), "/FO", "CSV", "/NH").Output()
+		out, err := hideCmd(exec.Command("tasklist", "/FI", "PID eq "+strconv.Itoa(pid), "/FO", "CSV", "/NH")).Output()
 		if err == nil {
 			if f := strings.SplitN(strings.TrimSpace(string(out)), "\",\"", 2); len(f) == 2 {
 				return strings.TrimPrefix(f[0], "\"")

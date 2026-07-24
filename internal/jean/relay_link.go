@@ -75,6 +75,14 @@ func saveLinkToken(tok string) error {
 	return os.WriteFile(linkTokenPath(), []byte(tok+"\n"), 0o600)
 }
 
+// removeLinkToken oublie la clé de liaison enregistrée (idempotent).
+func removeLinkToken() error {
+	if err := os.Remove(linkTokenPath()); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
 // relayURL resolves the relay WebSocket endpoint (env override → default).
 func relayURL() string {
 	if u := strings.TrimSpace(os.Getenv("JEAN_LINK_URL")); u != "" {
