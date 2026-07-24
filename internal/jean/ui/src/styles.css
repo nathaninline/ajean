@@ -359,3 +359,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .mcp-tool-row:hover{background:var(--panel)}
 .mcp-tool-switch{flex:none;transform:scale(.85)}
 .mcp-tool-name{font-size:12px;color:var(--text);word-break:break-all}
+
+/* Accès OpenAI / Accès distant : champs lecture seule (URL, clé) + libellés
+   compacts, pour une présentation homogène et sans surcharge visuelle. */
+.io-cap{color:var(--dim);font-size:11px;margin:0 0 3px}
+.io-input{flex:1;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit;font-size:12px}
+.io-group{margin-top:12px}

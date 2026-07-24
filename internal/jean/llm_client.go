@@ -679,7 +679,15 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				if tc.ID == "" {
 					tc.ID = fmt.Sprintf("call_%d_%d", iter, i)
 				}
-				if tc.Function.Arguments == "" {
+				// Les arguments DOIVENT être du JSON valide : ils sont rangés dans
+				// l'historique vu par le modèle, et le template de chat de llama.cpp les
+				// re-parse à CHAQUE requête suivante. Un modèle très quantifié peut sortir
+				// des arguments vides OU tronqués/non-JSON (ex: `{"command":"python3 …`) ;
+				// stockés tels quels, ils font échouer le parsing du template → 500 en
+				// boucle jusqu'au reset. On neutralise tout ce qui n'est pas du JSON valide
+				// en objet vide (l'appel a de toute façon déjà été exécuté). json.Valid("")
+				// étant faux, ça couvre aussi le cas vide d'origine.
+				if !json.Valid([]byte(tc.Function.Arguments)) {
 					tc.Function.Arguments = "{}"
 				}
 				tcs = append(tcs, tc)

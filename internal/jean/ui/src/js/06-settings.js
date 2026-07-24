@@ -186,7 +186,7 @@ function renderApiKey(d){
   document.getElementById('oai-key-eye').style.display = d.set ? '' : 'none';
 }
 async function loadApiKey(){ renderApiKey(await jget('/api/apikey')); }
-function toggleKeyReveal(){ OAI_REVEAL=!OAI_REVEAL; const inp=document.getElementById('oai-key'); if(OAI_KEY) inp.value = OAI_REVEAL ? OAI_KEY : (OAI_KEY.slice(0,8)+'…'+OAI_KEY.slice(-4)); }
+function toggleKeyReveal(){ OAI_REVEAL=!OAI_REVEAL; const inp=document.getElementById('oai-key'); if(OAI_KEY) inp.value = OAI_REVEAL ? OAI_KEY : (OAI_KEY.slice(0,8)+'…'+OAI_KEY.slice(-4)); const eye=document.getElementById('oai-key-eye'); if(eye) eye.textContent = OAI_REVEAL ? 'masquer' : 'afficher'; }
 async function apiKeyAction(action){
   if(action==='clear' && !await askConfirm('Retirer la clé rend l\'endpoint OpenAI accessible SANS authentification. Le service va redémarrer.', {title:'Retirer la clé API ?', okText:'Retirer'})) return;
   if(action==='generate' && OAI_KEY && !await askConfirm('Générer une nouvelle clé invalide l\'ancienne (les clients devront être mis à jour). Le service va redémarrer.', {title:'Régénérer la clé ?', okText:'Générer'})) return;

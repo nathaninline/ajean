@@ -378,6 +378,12 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .mcp-tool-row:hover{background:var(--panel)}
 .mcp-tool-switch{flex:none;transform:scale(.85)}
 .mcp-tool-name{font-size:12px;color:var(--text);word-break:break-all}
+
+/* Accès OpenAI / Accès distant : champs lecture seule (URL, clé) + libellés
+   compacts, pour une présentation homogène et sans surcharge visuelle. */
+.io-cap{color:var(--dim);font-size:11px;margin:0 0 3px}
+.io-input{flex:1;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit;font-size:12px}
+.io-group{margin-top:12px}
 </style></head><body>
 <button id="menubtn" onclick="toggleSide()">☰</button>
 <div id="backdrop" onclick="toggleSide()"></div>
@@ -455,27 +461,28 @@ button:disabled{opacity:.5;cursor:not-allowed}
     <textarea id="sysprompt" placeholder="(optionnel) ex: tu es un assistant concis en français" oninput="saveSys()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;min-height:70px;resize:vertical"></textarea>
   </details>
   <details><summary>Accès OpenAI</summary>
-    <div class="subhead">Endpoint compatible OpenAI<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Branche n'importe quel client compatible OpenAI (OpenCode, Continue, Cursor…) sur cette URL. Modèle : <code>jean</code>. Si une clé est définie, le client doit envoyer <code>Authorization: Bearer &lt;clé&gt;</code>.</span></span></div>
-    <label class="switchrow" style="margin-top:6px"><span class="switch"><input type="checkbox" id="oai-public-toggle" onchange="toggleOAIPublic()"><span class="slider"></span></span> exposer en public (ajean.link)<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Rend ton IA joignable depuis <b>n'importe où</b> via <code>https://&lt;machine&gt;.oai.ajean.link/v1</code> (pour brancher un SaaS). Le trafic est chiffré <b>de bout en bout</b> jusqu'à ce serveur — le relais ajean.link ne voit rien. Nécessite un abonnement ajean.link actif.</span></span></label>
-    <div id="oai-public-wrap" style="display:none;margin-top:4px">
-      <div class="muted" style="font-size:11px;margin-bottom:2px">🌍 public (ajean.link) — accessible partout, TLS de bout en bout jusqu'à ce serveur</div>
+    <div class="subhead">Endpoint compatible OpenAI<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Branchez n'importe quel client compatible OpenAI (OpenCode, Continue, Cursor…) sur ces adresses. Si une clé est définie, le client doit envoyer <code>Authorization: Bearer &lt;clé&gt;</code>.</span></span></div>
+    <div class="muted" style="font-size:11px;margin:0 0 10px">Modèle : <code>jean</code></div>
+
+    <div class="io-cap">Adresse locale (réseau)</div>
+    <div class="row">
+      <input id="oai-url" readonly class="io-input">
+      <button onclick="copyText(document.getElementById('oai-url').value,'adresse copiée')" title="copier">⧉</button>
+    </div>
+
+    <label class="switchrow io-group"><span class="switch"><input type="checkbox" id="oai-public-toggle" onchange="toggleOAIPublic()"><span class="slider"></span></span> exposer en public (ajean.link)<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Rend votre IA joignable depuis <b>n'importe où</b> via <code>https://&lt;machine&gt;.oai.ajean.link/v1</code> (pour brancher un SaaS). Le trafic est chiffré <b>de bout en bout</b> jusqu'à ce serveur — le relais ajean.link ne voit rien. Nécessite l'accès distant actif.</span></span></label>
+    <div id="oai-public-wrap" style="display:none;margin-top:6px">
+      <div class="io-cap">Adresse publique — chiffrée de bout en bout, accessible partout</div>
       <div class="row">
-        <input id="oai-public-url" readonly style="flex:1;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit;font-size:12px">
-        <button onclick="copyText(document.getElementById('oai-public-url').value,'URL publique copiée')" title="copier">⧉</button>
+        <input id="oai-public-url" readonly class="io-input">
+        <button onclick="copyText(document.getElementById('oai-public-url').value,'adresse publique copiée')" title="copier">⧉</button>
       </div>
     </div>
-    <div id="oai-local-wrap" style="margin-top:4px">
-      <div class="muted" style="font-size:11px;margin-bottom:2px">🏠 local (réseau)</div>
-      <div class="row">
-        <input id="oai-url" readonly style="flex:1;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit;font-size:12px">
-        <button onclick="copyText(document.getElementById('oai-url').value,'URL copiée')" title="copier">⧉</button>
-      </div>
-    </div>
-    <div class="muted" style="font-size:11px;margin-top:3px">modèle : <code>jean</code></div>
-    <div class="subhead" style="margin-top:12px">Clé API<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Protège l'endpoint des complétions (llama-server). Indispensable avant d'exposer le serveur sur internet. Modifier la clé <b>redémarre</b> le service.</span></span></div>
+
+    <div class="subhead io-group">Clé API<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Protège l'endpoint des complétions (llama-server). Indispensable avant d'exposer le serveur sur internet. Modifier la clé <b>redémarre</b> le service.</span></span></div>
     <div class="row" style="margin-top:4px">
-      <input id="oai-key" readonly style="flex:1;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit;font-size:12px">
-      <button id="oai-key-eye" onclick="toggleKeyReveal()" title="afficher / masquer">👁</button>
+      <input id="oai-key" readonly class="io-input">
+      <button id="oai-key-eye" onclick="toggleKeyReveal()" title="afficher / masquer">afficher</button>
       <button onclick="copyApiKey()" title="copier la clé">⧉</button>
     </div>
     <div class="row" style="margin-top:6px">
@@ -488,20 +495,20 @@ button:disabled{opacity:.5;cursor:not-allowed}
     <div class="subhead">ajean.link<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Accédez à ce serveur Jean depuis <b>n'importe où</b>, sans ouvrir de port, à travers le relais <b>ajean.link</b>. Le trafic est chiffré de <b>bout en bout</b> : le relais ne voit rien. Abonnement 4,80 €/mois.</span></span></div>
     <!-- Non connecté : un seul bouton, tout se passe dans la popup (compte + paiement). -->
     <div id="remote-off">
-      <p class="muted" style="font-size:12px;line-height:1.5;margin:6px 0 10px">Ouvrez l'accès distant à ce serveur en quelques clics — compte, abonnement et connexion, sans terminal.</p>
-      <button onclick="remoteConnect()" style="border-color:var(--accent);color:var(--accent)">🔗 Connecter à ajean.link</button>
+      <p class="muted" style="font-size:12px;line-height:1.5;margin:6px 0 10px">Ouvrez l'accès distant à ce serveur en quelques clics, sans terminal.</p>
+      <button onclick="remoteConnect()" style="border-color:var(--accent);color:var(--accent)">Connecter à ajean.link</button>
     </div>
     <!-- Connecté : URL publique + appairage + déconnexion. -->
     <div id="remote-on" style="display:none">
-      <div class="muted" style="font-size:11px;margin-bottom:2px">🌍 votre adresse d'accès distant</div>
+      <div class="io-cap">Votre adresse d'accès distant</div>
       <div class="row">
-        <input id="remote-url" readonly style="flex:1;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit;font-size:12px">
+        <input id="remote-url" readonly class="io-input">
         <button onclick="copyText(document.getElementById('remote-url').value,'adresse copiée')" title="copier">⧉</button>
         <button onclick="window.open(document.getElementById('remote-url').value,'_blank')" title="ouvrir">↗</button>
       </div>
       <div id="remote-status" class="muted" style="font-size:11px;margin-top:6px"></div>
       <div class="subhead" style="margin-top:12px">Première connexion<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">À votre première ouverture du portail distant, confirmez l'<b>empreinte</b> et saisissez le <b>code d'appairage</b> : cela verrouille la boîte noire sur CE serveur (anti-interception). Une seule fois par appareil.</span></span></div>
-      <button onclick="remotePairCode()" style="margin-top:4px">🔑 Afficher l'empreinte + le code d'appairage</button>
+      <button onclick="remotePairCode()" style="margin-top:4px">Afficher l'empreinte et le code d'appairage</button>
       <div id="remote-pair" class="muted" style="font-size:12px;margin-top:8px;display:none;line-height:1.7"></div>
       <div class="row" style="margin-top:12px">
         <button onclick="remoteDisconnect()" style="border-color:var(--err);color:var(--err)">déconnecter l'accès distant</button>
@@ -1170,7 +1177,7 @@ function renderApiKey(d){
   document.getElementById('oai-key-eye').style.display = d.set ? '' : 'none';
 }
 async function loadApiKey(){ renderApiKey(await jget('/api/apikey')); }
-function toggleKeyReveal(){ OAI_REVEAL=!OAI_REVEAL; const inp=document.getElementById('oai-key'); if(OAI_KEY) inp.value = OAI_REVEAL ? OAI_KEY : (OAI_KEY.slice(0,8)+'…'+OAI_KEY.slice(-4)); }
+function toggleKeyReveal(){ OAI_REVEAL=!OAI_REVEAL; const inp=document.getElementById('oai-key'); if(OAI_KEY) inp.value = OAI_REVEAL ? OAI_KEY : (OAI_KEY.slice(0,8)+'…'+OAI_KEY.slice(-4)); const eye=document.getElementById('oai-key-eye'); if(eye) eye.textContent = OAI_REVEAL ? 'masquer' : 'afficher'; }
 async function apiKeyAction(action){
   if(action==='clear' && !await askConfirm('Retirer la clé rend l\'endpoint OpenAI accessible SANS authentification. Le service va redémarrer.', {title:'Retirer la clé API ?', okText:'Retirer'})) return;
   if(action==='generate' && OAI_KEY && !await askConfirm('Générer une nouvelle clé invalide l\'ancienne (les clients devront être mis à jour). Le service va redémarrer.', {title:'Régénérer la clé ?', okText:'Générer'})) return;
