@@ -483,6 +483,135 @@ func handleInternet(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ─── Serveurs MCP ────────────────────────────────────────────────────────────
+//
+// Gestion des serveurs MCP depuis l'UI. Même modèle de protection que le reste
+// de /api/* : la clé web est le seul garde. Un serveur MCP stdio exécute du code
+// arbitraire sur l'hôte, au même titre que l'outil `bash` du mode agent — donc
+// réservé de fait au propriétaire de la machine qui détient la clé.
+
+// mcpSaveReq est le payload d'ajout/édition d'un serveur MCP.
+type mcpSaveReq struct {
+	Name    string            `json:"name"`
+	Command string            `json:"command"`
+	Args    []string          `json:"args"`
+	Env     map[string]string `json:"env"`
+	URL     string            `json:"url"`
+	Headers map[string]string `json:"headers"`
+	Enabled *bool             `json:"enabled"`
+}
+
+// handleMCP renvoie l'état de tous les serveurs MCP configurés (connexion tentée
+// pour ceux activés → l'UI voit l'état réel + les outils découverts).
+func handleMCP(w http.ResponseWriter, r *http.Request) {
+	list, err := MCPStatus()
+	if err != nil {
+		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "servers": list})
+}
+
+// handleMCPSave ajoute ou remplace un serveur MCP.
+func handleMCPSave(w http.ResponseWriter, r *http.Request) {
+	var req mcpSaveReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	enabled := true
+	if req.Enabled != nil {
+		enabled = *req.Enabled
+	}
+	cfg := MCPServerConfig{
+		Command: strings.TrimSpace(req.Command),
+		Args:    req.Args,
+		Env:     req.Env,
+		URL:     strings.TrimSpace(req.URL),
+		Headers: req.Headers,
+		Enabled: enabled,
+	}
+	if err := SetMCPServer(req.Name, cfg); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	// Renvoie l'état à jour (avec tentative de connexion) pour un retour immédiat.
+	list, _ := MCPStatus()
+	sendJSON(w, 200, map[string]any{"ok": true, "servers": list})
+}
+
+// handleMCPDelete retire un serveur MCP.
+func handleMCPDelete(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if err := DeleteMCPServer(req.Name); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
+// handleMCPToggle active/désactive un serveur MCP.
+func handleMCPToggle(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name string `json:"name"`
+		On   bool   `json:"on"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if err := SetMCPServerEnabled(req.Name, req.On); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	list, _ := MCPStatus()
+	sendJSON(w, 200, map[string]any{"ok": true, "servers": list})
+}
+
+// handleMCPTool masque/démasque un outil précis d'un serveur.
+func handleMCPTool(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name string `json:"name"`
+		Tool string `json:"tool"`
+		On   bool   `json:"on"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if err := SetMCPToolEnabled(req.Name, req.Tool, req.On); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	list, _ := MCPStatus()
+	sendJSON(w, 200, map[string]any{"ok": true, "servers": list})
+}
+
+// handleMCPTest force une reconnexion d'un serveur et renvoie son état (bouton
+// « tester/rafraîchir » de l'UI).
+func handleMCPTest(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	mcpInvalidate(req.Name)
+	list, err := MCPStatus()
+	if err != nil {
+		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "servers": list})
+}
+
 // handleMem / handleMemSave / handleMemDelete : éditeur web des pages mémoire
 // (MEMORY/<nom>.md). Payload partagé saveReq (name/old/content) ; "name" = nom
 // de fichier de la page.

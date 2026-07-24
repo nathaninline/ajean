@@ -107,7 +107,16 @@ function renderToolMsg(el, tu){
     web_read:   {lbl:'page web',  head:'🌐 lecture'},
     web_grep:   {lbl:'page web',  head:'🌐 recherche'},
   };
-  const meta = META[tu.name] || {lbl:'mémoire', head:'🧠 mémoire'};
+  // Outils MCP (nom mcp__<serveur>__<outil>) : icône dédiée + libellé lisible,
+  // pas le fallback mémoire. On extrait serveur et outil du nom namespacé.
+  let meta = META[tu.name];
+  if(!meta && tu.name && tu.name.indexOf('mcp__')===0){
+    const parts = tu.name.slice(5).split('__');
+    const server = parts.shift() || 'mcp';
+    const tool = parts.join('__') || tu.name;
+    meta = {lbl: tool, head: '🔌 '+server};
+  }
+  meta = meta || {lbl:'mémoire', head:'🧠 mémoire'};
   let lbl = meta.lbl;
   // Indication du volume de la réponse de l'outil (~tokens, estimation 1 tok ≈ 4 car).
   if(tu.result){ lbl += '  ·  ~' + Math.max(1, Math.round(tu.result.length/4)) + ' tok'; }

@@ -354,6 +354,30 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .lc-logbar.open #lc-log-caret{transform:rotate(90deg)}
 #lc-log{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:10px;line-height:1.45;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:0}
 .lc-spin{display:inline-block;animation:spin 1s linear infinite}
+/* Serveurs MCP */
+.mcp-list{display:flex;flex-direction:column;gap:4px}
+.mcp-row{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--panel);cursor:pointer}
+.mcp-row:hover{border-color:var(--accent)}
+.mcp-row.off{opacity:.6}
+.mcp-dot{flex:none;width:8px;height:8px;border-radius:50%}
+.mcp-dot-ok{background:var(--accent)}
+.mcp-dot-err{background:var(--err)}
+.mcp-dot-off{background:var(--dim)}
+.mcp-info{flex:1;min-width:0}
+.mcp-name{font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mcp-meta{display:flex;align-items:center;gap:6px;margin-top:2px}
+.mcp-tag{font-size:10px;padding:1px 7px;border-radius:9px;border:1px solid var(--border);color:var(--dim);text-transform:uppercase;letter-spacing:.04em}
+.mcp-tools{font-size:10px;color:var(--accent)}
+.mcp-err{font-size:10px;color:var(--err)}
+.mcp-switch{flex:none}
+.mcp-edit{flex:none;padding:2px 5px;font-size:13px;line-height:1;background:transparent;border:none;opacity:.5}
+.mcp-edit:hover{opacity:1;color:var(--accent)}
+/* Liste des outils MCP dans la modale */
+.mcp-tools-list{display:flex;flex-direction:column;gap:2px;max-height:240px;overflow:auto;border:1px solid var(--border);border-radius:6px;padding:6px}
+.mcp-tool-row{display:flex;align-items:center;gap:10px;padding:4px 6px;border-radius:5px;cursor:pointer}
+.mcp-tool-row:hover{background:var(--panel)}
+.mcp-tool-switch{flex:none;transform:scale(.85)}
+.mcp-tool-name{font-size:12px;color:var(--text);word-break:break-all}
 </style></head><body>
 <button id="menubtn" onclick="toggleSide()">☰</button>
 <div id="backdrop" onclick="toggleSide()"></div>
@@ -404,6 +428,11 @@ button:disabled{opacity:.5;cursor:not-allowed}
         <button onclick="saveCrawlUrl()">enregistrer</button>
       </div>
       <div id="internet-status" class="muted" style="font-size:11px;margin-top:4px"></div>
+    </div>
+    <div id="mcp-block" class="gated-block">
+      <div class="subhead">Serveurs MCP<span id="mcp-badge" style="margin-left:6px;font-size:10px"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Connecte des <b>serveurs MCP</b> (Model Context Protocol) pour donner de nouveaux outils à l'IA : accès fichiers, bases de données, APIs métier… <b>stdio</b> = programme lancé localement (npx/uvx/binaire) · <b>http</b> = serveur distant. ⚠️ un serveur stdio exécute du code sur cette machine, au même titre que le shell.</span></span></div>
+      <div id="mcp-list" class="mcp-list"></div>
+      <button class="addbtn" style="margin-top:6px" onclick="openMcp('')">+ ajouter un serveur</button>
     </div>
     <div id="param-block" class="gated-block">
       <div class="subhead">Paramètres</div>
@@ -535,6 +564,65 @@ button:disabled{opacity:.5;cursor:not-allowed}
     <div class="ask-actions">
       <button id="ask-cancel" onclick="askResolve(false)">Annuler</button>
       <button id="ask-ok" class="ask-ok" onclick="askResolve(true)">Confirmer</button>
+    </div>
+  </div>
+</div>
+<div id="mcp-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeMcp()">
+  <div class="modal-card" style="max-width:560px">
+    <div class="modal-head">
+      <strong id="mcp-modal-title">Serveur MCP</strong>
+      <button class="modal-x" onclick="closeMcp()" aria-label="Fermer">×</button>
+    </div>
+    <div class="modal-body mform">
+      <div class="fld">
+        <label class="fld-l" for="mcp-name">Nom <span class="opt">(identifiant du serveur, ex: mon-serveur-fichiers)</span></label>
+        <input id="mcp-name" class="ctl" placeholder="mon-serveur">
+      </div>
+      <div class="fld">
+        <label class="fld-l">Transport</label>
+        <div class="seg">
+          <label><input type="radio" name="mcp-transport" value="stdio" onchange="mcpTransportUI('stdio')"><span>⚙️ stdio (local)</span></label>
+          <label><input type="radio" name="mcp-transport" value="http" onchange="mcpTransportUI('http')"><span>🌐 http (distant)</span></label>
+        </div>
+      </div>
+      <div id="mcp-stdio-fields">
+        <div class="fld">
+          <label class="fld-l" for="mcp-command">Commande <span class="opt">(exécutable, ex: npx, uvx, python)</span></label>
+          <input id="mcp-command" class="ctl" placeholder="npx">
+        </div>
+        <div class="fld">
+          <label class="fld-l" for="mcp-args">Arguments <span class="opt">(un par ligne)</span></label>
+          <textarea id="mcp-args" class="ctl ta" spellcheck="false" style="min-height:70px" placeholder="-y&#10;@scope/mon-serveur-mcp"></textarea>
+        </div>
+        <div class="fld">
+          <label class="fld-l" for="mcp-env">Variables d'environnement <span class="opt">(KEY=valeur, une par ligne — optionnel)</span></label>
+          <textarea id="mcp-env" class="ctl ta" spellcheck="false" style="min-height:44px" placeholder="API_TOKEN=xxxx"></textarea>
+        </div>
+      </div>
+      <div id="mcp-http-fields" style="display:none">
+        <div class="fld">
+          <label class="fld-l" for="mcp-url">URL <span class="opt">(endpoint Streamable HTTP)</span></label>
+          <input id="mcp-url" class="ctl" placeholder="https://exemple.com/mcp">
+        </div>
+        <div class="fld">
+          <label class="fld-l" for="mcp-headers">En-têtes <span class="opt">(Nom: valeur, un par ligne — ex: Authorization: Bearer …)</span></label>
+          <textarea id="mcp-headers" class="ctl ta" spellcheck="false" style="min-height:44px" placeholder="Authorization: Bearer sk-…"></textarea>
+        </div>
+      </div>
+      <div id="mcp-modal-status" class="muted" style="font-size:12px;min-height:16px"></div>
+      <div id="mcp-tools-section" style="display:none">
+        <div class="subhead" style="margin-top:6px">Outils <span id="mcp-tools-count" class="muted" style="text-transform:none;letter-spacing:0;font-weight:400"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Décoche un outil pour le masquer à l'IA sans déconnecter le serveur. Utile pour ne garder que ce dont tu as besoin.</span></span></div>
+        <div id="mcp-tools-list" class="mcp-tools-list"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <div class="foot-l">
+        <button id="mcp-del" class="btn-danger" onclick="deleteMcp()" style="display:none">supprimer</button>
+      </div>
+      <div class="foot-r">
+        <button onclick="closeMcp()">annuler</button>
+        <button class="btn-save" onclick="saveMcp()">enregistrer</button>
+      </div>
     </div>
   </div>
 </div>
@@ -940,7 +1028,7 @@ async function loadAgent(){
 // les outils mem_* ni les outils web ne sont fournis (voir globalCaps côté Go). On
 // grise donc ces blocs quand l'agent est off pour que l'UI ne mente pas.
 function setAgentGate(on){
-  ['mem-block','net-block','param-block'].forEach(id=>{
+  ['mem-block','net-block','mcp-block','param-block'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.classList.toggle('gated', !on);
   });
 }
@@ -1088,7 +1176,7 @@ async function saveCrawlUrl(){
   const url=document.getElementById('crawl-url').value.trim();
   renderInternet(await jpost('/api/internet',{url}));
 }
-async function loadAll(){ await Promise.all([loadStatus(),loadVram(),loadRam(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadApiKey(),loadPrefs(),loadLlamacpp()]); }
+async function loadAll(){ await Promise.all([loadStatus(),loadVram(),loadRam(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadApiKey(),loadPrefs(),loadLlamacpp()]); }
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }
 function openBenchModal(){ document.getElementById('bench-modal').style.display = 'flex'; }
 function closeBenchModal(){ document.getElementById('bench-modal').style.display = 'none'; }
@@ -1489,7 +1577,16 @@ function renderToolMsg(el, tu){
     web_read:   {lbl:'page web',  head:'🌐 lecture'},
     web_grep:   {lbl:'page web',  head:'🌐 recherche'},
   };
-  const meta = META[tu.name] || {lbl:'mémoire', head:'🧠 mémoire'};
+  // Outils MCP (nom mcp__<serveur>__<outil>) : icône dédiée + libellé lisible,
+  // pas le fallback mémoire. On extrait serveur et outil du nom namespacé.
+  let meta = META[tu.name];
+  if(!meta && tu.name && tu.name.indexOf('mcp__')===0){
+    const parts = tu.name.slice(5).split('__');
+    const server = parts.shift() || 'mcp';
+    const tool = parts.join('__') || tu.name;
+    meta = {lbl: tool, head: '🔌 '+server};
+  }
+  meta = meta || {lbl:'mémoire', head:'🧠 mémoire'};
   let lbl = meta.lbl;
   // Indication du volume de la réponse de l'outil (~tokens, estimation 1 tok ≈ 4 car).
   if(tu.result){ lbl += '  ·  ~' + Math.max(1, Math.round(tu.result.length/4)) + ' tok'; }
@@ -1877,5 +1974,197 @@ function lcToggleLog(){
   const bar = document.querySelector('.lc-logbar');
   if(pre.hasAttribute('hidden')){ pre.removeAttribute('hidden'); bar.classList.add('open'); pre.scrollTop = pre.scrollHeight; }
   else { pre.setAttribute('hidden',''); bar.classList.remove('open'); }
+}
+// ─── Serveurs MCP ────────────────────────────────────────────────────────────
+// Gestion des serveurs MCP (Model Context Protocol) : liste, ajout/édition via
+// une modale, activation/désactivation, test de connexion. Sous-réglage du mode
+// agent (grisé quand l'agent est off, comme mémoire/internet).
+let mcpServers = [];
+let mcpEditing = null; // nom du serveur en cours d'édition ('' ou null = nouveau)
+
+async function loadMCP(){ renderMCP(await jget('/api/mcp')); }
+
+function renderMCP(r){
+  mcpServers = (r && r.servers) || [];
+  const enabled = mcpServers.filter(s=>s.enabled).length;
+  document.getElementById('mcp-badge').innerHTML = enabled
+    ? '<span class="tag ok">'+enabled+'</span>'
+    : (mcpServers.length ? '<span class="tag" style="opacity:.6">0</span>' : '');
+  const list = document.getElementById('mcp-list');
+  list.textContent = '';
+  if(!mcpServers.length){
+    list.innerHTML = '<div class="muted" style="font-size:12px">(aucun serveur — ajoute un serveur fichiers, une base de données, une API…)</div>';
+    return;
+  }
+  mcpServers.forEach(s=>{
+    const row = document.createElement('div');
+    row.className = 'mcp-row'+(s.enabled?'':' off');
+
+    // Pastille d'état : bleu accent = connecté, rouge = erreur, gris = éteint.
+    const dot = document.createElement('span');
+    dot.className = 'mcp-dot';
+    if(!s.enabled) dot.classList.add('mcp-dot-off');
+    else if(s.connected) dot.classList.add('mcp-dot-ok');
+    else dot.classList.add('mcp-dot-err');
+    dot.title = !s.enabled ? 'désactivé' : (s.connected ? 'connecté' : 'erreur de connexion');
+
+    const info = document.createElement('div');
+    info.className = 'mcp-info';
+    const nm = document.createElement('div'); nm.className = 'mcp-name';
+    nm.textContent = s.name; nm.title = s.name;
+    const meta = document.createElement('div'); meta.className = 'mcp-meta';
+    const tr = document.createElement('span'); tr.className = 'mcp-tag';
+    tr.textContent = s.transport || '?'; meta.appendChild(tr);
+    if(s.enabled && s.connected){
+      const total = s.tools ? s.tools.length : 0;
+      const off = s.disabled ? s.disabled.length : 0;
+      const active = total - off;
+      const tc = document.createElement('span'); tc.className = 'mcp-tools';
+      tc.textContent = off ? (active+'/'+total+' outils') : (total+' outil'+(total>1?'s':''));
+      if(s.tools && s.tools.length) tc.title = s.tools.join(', ');
+      meta.appendChild(tc);
+    } else if(s.enabled && s.error){
+      const er = document.createElement('span'); er.className = 'mcp-err';
+      er.textContent = 'erreur'; er.title = s.error;
+      meta.appendChild(er);
+    }
+    info.appendChild(nm); info.appendChild(meta);
+
+    // Interrupteur activer/désactiver. stopPropagation sur le label ENTIER (pas
+    // seulement la checkbox) : sinon un clic sur le slider remonte à la ligne et
+    // ouvre la modale en même temps que le toggle.
+    const sw = document.createElement('label'); sw.className = 'switch mcp-switch';
+    sw.onclick = (e)=>e.stopPropagation();
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!s.enabled;
+    cb.onchange = ()=>toggleMcp(s.name, cb.checked);
+    const sl = document.createElement('span'); sl.className = 'slider';
+    sw.appendChild(cb); sw.appendChild(sl);
+
+    const edit = document.createElement('button');
+    edit.className = 'mcp-edit'; edit.title = 'éditer'; edit.textContent = '✎';
+    edit.onclick = (e)=>{ e.stopPropagation(); openMcp(s.name); };
+
+    row.appendChild(dot); row.appendChild(info); row.appendChild(sw); row.appendChild(edit);
+    row.onclick = ()=>openMcp(s.name);
+    list.appendChild(row);
+  });
+}
+
+async function toggleMcp(name, on){
+  renderMCP(await jpost('/api/mcp/toggle', {name, on}));
+  toast(on ? 'serveur activé' : 'serveur désactivé');
+}
+
+// Ouvre la modale d'ajout (name='') ou d'édition (nom existant).
+function openMcp(name){
+  mcpEditing = name || '';
+  const s = name ? mcpServers.find(x=>x.name===name) : null;
+  document.getElementById('mcp-modal-title').textContent = s ? 'Éditer « '+s.name+' »' : 'Nouveau serveur MCP';
+  document.getElementById('mcp-name').value = s ? s.name : '';
+  document.getElementById('mcp-name').disabled = !!s; // le nom identifie le serveur, pas de renommage
+  const transport = s ? (s.transport||'stdio') : 'stdio';
+  document.querySelector('input[name="mcp-transport"][value="'+transport+'"]').checked = true;
+  mcpTransportUI(transport);
+  document.getElementById('mcp-command').value = s ? (s.command||'') : '';
+  document.getElementById('mcp-args').value = s && s.args ? s.args.join('\n') : '';
+  document.getElementById('mcp-env').value = s && s.env ? Object.entries(s.env).map(([k,v])=>k+'='+v).join('\n') : '';
+  document.getElementById('mcp-url').value = s ? (s.url||'') : '';
+  document.getElementById('mcp-headers').value = s && s.headers ? Object.entries(s.headers).map(([k,v])=>k+': '+v).join('\n') : '';
+  const st = document.getElementById('mcp-modal-status');
+  st.textContent = ''; st.style.color = '';
+  if(s && s.enabled && s.error){ st.textContent = '⚠️ '+s.error; st.style.color = 'var(--err)'; }
+  else if(s && s.connected){ st.innerHTML = '<span style="color:var(--accent)">✓</span> connecté — '+(s.tools?s.tools.length:0)+' outil(s)'; }
+  document.getElementById('mcp-del').style.display = s ? '' : 'none';
+  renderMcpTools(s);
+  document.getElementById('mcp-modal').style.display = 'flex';
+}
+
+// Liste des outils découverts du serveur, avec une case par outil pour le
+// masquer/exposer à l'IA. Visible seulement pour un serveur connecté.
+function renderMcpTools(s){
+  const sec = document.getElementById('mcp-tools-section');
+  const list = document.getElementById('mcp-tools-list');
+  list.textContent = '';
+  if(!s || !s.connected || !s.tools || !s.tools.length){ sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  const off = new Set(s.disabled || []);
+  document.getElementById('mcp-tools-count').textContent = '('+(s.tools.length-off.size)+'/'+s.tools.length+' actifs)';
+  s.tools.slice().sort().forEach(tool=>{
+    const row = document.createElement('label'); row.className = 'mcp-tool-row';
+    const sw = document.createElement('span'); sw.className = 'switch mcp-tool-switch';
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !off.has(tool);
+    cb.onchange = ()=>toggleMcpTool(s.name, tool, cb.checked);
+    const sl = document.createElement('span'); sl.className = 'slider';
+    sw.appendChild(cb); sw.appendChild(sl);
+    const nm = document.createElement('code'); nm.className = 'mcp-tool-name'; nm.textContent = tool;
+    row.appendChild(sw); row.appendChild(nm);
+    list.appendChild(row);
+  });
+}
+
+async function toggleMcpTool(server, tool, on){
+  const r = await jpost('/api/mcp/tool', {name: server, tool, on});
+  renderMCP(r);
+  // Rafraîchit le compteur de la modale à partir de l'état à jour.
+  const s = (r.servers||[]).find(x=>x.name===server);
+  const off = s && s.disabled ? new Set(s.disabled) : new Set();
+  if(s && s.tools) document.getElementById('mcp-tools-count').textContent = '('+(s.tools.length-off.size)+'/'+s.tools.length+' actifs)';
+}
+
+function closeMcp(){ document.getElementById('mcp-modal').style.display = 'none'; mcpEditing = null; }
+
+function mcpTransportUI(t){
+  document.getElementById('mcp-stdio-fields').style.display = t==='stdio' ? '' : 'none';
+  document.getElementById('mcp-http-fields').style.display = t==='http' ? '' : 'none';
+}
+
+// Parse un textarea "KEY<sep>valeur" par ligne → objet. sep = '=' (env) ou ':' (headers).
+function mcpParseKV(text, sep){
+  const out = {};
+  (text||'').split('\n').forEach(line=>{
+    const s = line.trim();
+    if(!s) return;
+    const i = s.indexOf(sep);
+    if(i <= 0) return;
+    out[s.slice(0,i).trim()] = s.slice(i+1).trim();
+  });
+  return Object.keys(out).length ? out : undefined;
+}
+
+async function saveMcp(){
+  const name = document.getElementById('mcp-name').value.trim();
+  if(!name){ toast('donne un nom au serveur'); return; }
+  const transport = document.querySelector('input[name="mcp-transport"]:checked').value;
+  const body = {name};
+  if(transport==='stdio'){
+    body.command = document.getElementById('mcp-command').value.trim();
+    if(!body.command){ toast('renseigne la commande'); return; }
+    body.args = document.getElementById('mcp-args').value.split('\n').map(x=>x.trim()).filter(Boolean);
+    body.env = mcpParseKV(document.getElementById('mcp-env').value, '=');
+    body.url = ''; body.headers = undefined;
+  } else {
+    body.url = document.getElementById('mcp-url').value.trim();
+    if(!body.url){ toast("renseigne l'URL"); return; }
+    body.headers = mcpParseKV(document.getElementById('mcp-headers').value, ':');
+    body.command = ''; body.args = undefined; body.env = undefined;
+  }
+  const st = document.getElementById('mcp-modal-status');
+  st.textContent = 'connexion…'; st.style.color = '';
+  const r = await jpost('/api/mcp/save', body);
+  if(!r.ok){ st.textContent = '⚠️ '+(r.error||'échec'); st.style.color = 'var(--err)'; return; }
+  renderMCP(r);
+  const saved = (r.servers||[]).find(x=>x.name===name);
+  if(saved && saved.connected){ toast('serveur connecté — '+(saved.tools?saved.tools.length:0)+' outil(s)'); closeMcp(); }
+  else if(saved && saved.error){ st.textContent = '⚠️ enregistré mais connexion échouée : '+saved.error; st.style.color = 'var(--err)'; }
+  else { toast('enregistré'); closeMcp(); }
+}
+
+async function deleteMcp(){
+  if(!mcpEditing) return;
+  if(!await askConfirm('Retirer le serveur « '+mcpEditing+' » ? Ses outils ne seront plus proposés à l\'IA.', {title:'Supprimer le serveur MCP ?', okText:'Supprimer', danger:true})) return;
+  await jpost('/api/mcp/delete', {name: mcpEditing});
+  closeMcp();
+  loadMCP();
+  toast('serveur supprimé');
 }
 </script></body></html>

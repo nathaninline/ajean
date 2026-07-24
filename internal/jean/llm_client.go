@@ -235,6 +235,12 @@ func EnabledTools(caps Caps) []Tool {
 	if caps.Agent && caps.Internet {
 		tools = append(tools, webSearchTool(), webOpenTool(), webReadTool(), webGrepTool())
 	}
+	// Outils MCP : serveurs tiers configurés par le propriétaire de la machine.
+	// Comme bash, ils exécutent du code arbitraire côté hôte → réservés au mode
+	// agent. La découverte est paresseuse et cachée (voir mcp_client.go).
+	if caps.Agent {
+		tools = append(tools, mcpTools()...)
+	}
 	return tools
 }
 
@@ -724,6 +730,11 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					u, _ := args["url"].(string)
 					p, _ := args["pattern"].(string)
 					label = p + " @ " + u
+				default:
+					// Outils MCP : libellé = un aperçu compact des arguments.
+					if isMCPTool(tc.Function.Name) {
+						label = mcpArgLabel(args)
+					}
 				}
 				cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label}})
 
@@ -794,7 +805,11 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				case "web_grep":
 					result = toolWebGrep(args)
 				default:
-					result = "[erreur] outil inconnu: " + tc.Function.Name
+					if isMCPTool(tc.Function.Name) {
+						result = mcpCall(tc.Function.Name, args)
+					} else {
+						result = "[erreur] outil inconnu: " + tc.Function.Name
+					}
 				}
 				shown := result
 				if r := []rune(shown); len(r) > 4000 {

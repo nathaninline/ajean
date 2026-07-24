@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const Version = "0.4.16"
+const Version = "0.5.0"
 
 // Main est le vrai main() du binaire (cmd/jean ne fait que l'appeler).
 func Main() {
@@ -201,12 +201,13 @@ func readEtcDefault() string {
 	return ""
 }
 
-func confPath() string     { return filepath.Join(JeanHome(), "config.env") }
-func presetsDir() string   { return filepath.Join(JeanHome(), "configs") }
-func skillsDir() string    { return filepath.Join(JeanHome(), "SKILLS") }
-func memoryDir() string    { return filepath.Join(JeanHome(), "MEMORY") }
-func agentFlag() string    { return filepath.Join(JeanHome(), ".agent_enabled") }
-func internetFlag() string { return filepath.Join(JeanHome(), ".internet_enabled") }
+func confPath() string      { return filepath.Join(JeanHome(), "config.env") }
+func presetsDir() string    { return filepath.Join(JeanHome(), "configs") }
+func skillsDir() string     { return filepath.Join(JeanHome(), "SKILLS") }
+func memoryDir() string     { return filepath.Join(JeanHome(), "MEMORY") }
+func agentFlag() string     { return filepath.Join(JeanHome(), ".agent_enabled") }
+func internetFlag() string  { return filepath.Join(JeanHome(), ".internet_enabled") }
+func mcpConfigPath() string { return filepath.Join(JeanHome(), "mcp.json") }
 
 // Anciens drapeaux séparés, conservés pour la migration vers le mode agent unifié.
 func legacySkillsFlag() string { return filepath.Join(skillsDir(), ".enabled") }

@@ -69,6 +69,11 @@
       </div>
       <div id="internet-status" class="muted" style="font-size:11px;margin-top:4px"></div>
     </div>
+    <div id="mcp-block" class="gated-block">
+      <div class="subhead">Serveurs MCP<span id="mcp-badge" style="margin-left:6px;font-size:10px"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Connecte des <b>serveurs MCP</b> (Model Context Protocol) pour donner de nouveaux outils à l'IA : accès fichiers, bases de données, APIs métier… <b>stdio</b> = programme lancé localement (npx/uvx/binaire) · <b>http</b> = serveur distant. ⚠️ un serveur stdio exécute du code sur cette machine, au même titre que le shell.</span></span></div>
+      <div id="mcp-list" class="mcp-list"></div>
+      <button class="addbtn" style="margin-top:6px" onclick="openMcp('')">+ ajouter un serveur</button>
+    </div>
     <div id="param-block" class="gated-block">
       <div class="subhead">Paramètres</div>
       <label class="switchrow"><span class="switch"><input type="checkbox" id="toollimit-toggle" onchange="toggleToolLimit()"><span class="slider"></span></span> limiter les appels d'outils par tour<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : coupe l'IA après ~8 appels d'outils (message <code>[stop: trop d'appels d'outils]</code>). Désactive-le si tu veux la laisser enchaîner sans plafond (l'anti-boucle reste actif).</span></span></label>
@@ -199,6 +204,65 @@
     <div class="ask-actions">
       <button id="ask-cancel" onclick="askResolve(false)">Annuler</button>
       <button id="ask-ok" class="ask-ok" onclick="askResolve(true)">Confirmer</button>
+    </div>
+  </div>
+</div>
+<div id="mcp-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeMcp()">
+  <div class="modal-card" style="max-width:560px">
+    <div class="modal-head">
+      <strong id="mcp-modal-title">Serveur MCP</strong>
+      <button class="modal-x" onclick="closeMcp()" aria-label="Fermer">×</button>
+    </div>
+    <div class="modal-body mform">
+      <div class="fld">
+        <label class="fld-l" for="mcp-name">Nom <span class="opt">(identifiant du serveur, ex: mon-serveur-fichiers)</span></label>
+        <input id="mcp-name" class="ctl" placeholder="mon-serveur">
+      </div>
+      <div class="fld">
+        <label class="fld-l">Transport</label>
+        <div class="seg">
+          <label><input type="radio" name="mcp-transport" value="stdio" onchange="mcpTransportUI('stdio')"><span>⚙️ stdio (local)</span></label>
+          <label><input type="radio" name="mcp-transport" value="http" onchange="mcpTransportUI('http')"><span>🌐 http (distant)</span></label>
+        </div>
+      </div>
+      <div id="mcp-stdio-fields">
+        <div class="fld">
+          <label class="fld-l" for="mcp-command">Commande <span class="opt">(exécutable, ex: npx, uvx, python)</span></label>
+          <input id="mcp-command" class="ctl" placeholder="npx">
+        </div>
+        <div class="fld">
+          <label class="fld-l" for="mcp-args">Arguments <span class="opt">(un par ligne)</span></label>
+          <textarea id="mcp-args" class="ctl ta" spellcheck="false" style="min-height:70px" placeholder="-y&#10;@scope/mon-serveur-mcp"></textarea>
+        </div>
+        <div class="fld">
+          <label class="fld-l" for="mcp-env">Variables d'environnement <span class="opt">(KEY=valeur, une par ligne — optionnel)</span></label>
+          <textarea id="mcp-env" class="ctl ta" spellcheck="false" style="min-height:44px" placeholder="API_TOKEN=xxxx"></textarea>
+        </div>
+      </div>
+      <div id="mcp-http-fields" style="display:none">
+        <div class="fld">
+          <label class="fld-l" for="mcp-url">URL <span class="opt">(endpoint Streamable HTTP)</span></label>
+          <input id="mcp-url" class="ctl" placeholder="https://exemple.com/mcp">
+        </div>
+        <div class="fld">
+          <label class="fld-l" for="mcp-headers">En-têtes <span class="opt">(Nom: valeur, un par ligne — ex: Authorization: Bearer …)</span></label>
+          <textarea id="mcp-headers" class="ctl ta" spellcheck="false" style="min-height:44px" placeholder="Authorization: Bearer sk-…"></textarea>
+        </div>
+      </div>
+      <div id="mcp-modal-status" class="muted" style="font-size:12px;min-height:16px"></div>
+      <div id="mcp-tools-section" style="display:none">
+        <div class="subhead" style="margin-top:6px">Outils <span id="mcp-tools-count" class="muted" style="text-transform:none;letter-spacing:0;font-weight:400"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Décoche un outil pour le masquer à l'IA sans déconnecter le serveur. Utile pour ne garder que ce dont tu as besoin.</span></span></div>
+        <div id="mcp-tools-list" class="mcp-tools-list"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <div class="foot-l">
+        <button id="mcp-del" class="btn-danger" onclick="deleteMcp()" style="display:none">supprimer</button>
+      </div>
+      <div class="foot-r">
+        <button onclick="closeMcp()">annuler</button>
+        <button class="btn-save" onclick="saveMcp()">enregistrer</button>
+      </div>
     </div>
   </div>
 </div>

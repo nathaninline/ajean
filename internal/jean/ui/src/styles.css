@@ -335,3 +335,27 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .lc-logbar.open #lc-log-caret{transform:rotate(90deg)}
 #lc-log{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:10px;line-height:1.45;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:0}
 .lc-spin{display:inline-block;animation:spin 1s linear infinite}
+/* Serveurs MCP */
+.mcp-list{display:flex;flex-direction:column;gap:4px}
+.mcp-row{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--panel);cursor:pointer}
+.mcp-row:hover{border-color:var(--accent)}
+.mcp-row.off{opacity:.6}
+.mcp-dot{flex:none;width:8px;height:8px;border-radius:50%}
+.mcp-dot-ok{background:var(--accent)}
+.mcp-dot-err{background:var(--err)}
+.mcp-dot-off{background:var(--dim)}
+.mcp-info{flex:1;min-width:0}
+.mcp-name{font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mcp-meta{display:flex;align-items:center;gap:6px;margin-top:2px}
+.mcp-tag{font-size:10px;padding:1px 7px;border-radius:9px;border:1px solid var(--border);color:var(--dim);text-transform:uppercase;letter-spacing:.04em}
+.mcp-tools{font-size:10px;color:var(--accent)}
+.mcp-err{font-size:10px;color:var(--err)}
+.mcp-switch{flex:none}
+.mcp-edit{flex:none;padding:2px 5px;font-size:13px;line-height:1;background:transparent;border:none;opacity:.5}
+.mcp-edit:hover{opacity:1;color:var(--accent)}
+/* Liste des outils MCP dans la modale */
+.mcp-tools-list{display:flex;flex-direction:column;gap:2px;max-height:240px;overflow:auto;border:1px solid var(--border);border-radius:6px;padding:6px}
+.mcp-tool-row{display:flex;align-items:center;gap:10px;padding:4px 6px;border-radius:5px;cursor:pointer}
+.mcp-tool-row:hover{background:var(--panel)}
+.mcp-tool-switch{flex:none;transform:scale(.85)}
+.mcp-tool-name{font-size:12px;color:var(--text);word-break:break-all}

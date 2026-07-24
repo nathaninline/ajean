@@ -72,6 +72,11 @@ func baseSystemPrompt(caps Caps) string {
 		b.WriteString("Your training data is stale. For ANY question about recent/latest/current things (releases, versions, news, prices, scores, fixtures, 'since when') call web_search BEFORE writing any date or version. Your answer must match the dates/facts you actually read.\n")
 		b.WriteString("SEARCH QUERY YEAR RULE: today is in " + year + ". If your query includes a year, use ONLY " + year + " — NEVER write a past year like " + prevYear(year) + " that you remember from training; it silently biases results toward stale pages. Default: put no year at all and let the freshest result win. Don't hedge ('probably', 'I think') about a fact a tool can verify — search instead.\n")
 	}
+	if caps.Agent {
+		if line := mcpPromptLine(); line != "" {
+			b.WriteString(line)
+		}
+	}
 	b.WriteString("\nDate: " + time.Now().Format("2006-01-02"))
 	return b.String()
 }
