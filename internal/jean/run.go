@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const Version = "0.5.4"
+const Version = "0.5.5"
 
 // Main est le vrai main() du binaire (cmd/jean ne fait que l'appeler).
 func Main() {
