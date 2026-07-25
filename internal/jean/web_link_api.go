@@ -63,6 +63,21 @@ func handleLinkConnect(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleLinkStart (POST /api/link/start) : (re)démarre le worker de lien sans
+// repasser par la popup de connexion — le token est déjà enregistré. Utile quand
+// le tunnel est tombé, ou sur un poste sans systemd où personne ne le relance.
+func handleLinkStart(w http.ResponseWriter, r *http.Request) {
+	if readLinkToken() == "" {
+		sendJSON(w, http.StatusBadRequest, map[string]any{"error": "aucune clé de liaison enregistrée"})
+		return
+	}
+	if err := linkServiceCtl("restart"); err != nil {
+		sendJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error(), "active": linkServiceActive()})
+		return
+	}
+	sendJSON(w, http.StatusOK, map[string]any{"ok": true, "active": linkServiceActive()})
+}
+
 // handleLinkDisconnect (POST /api/link/disconnect) : arrête le service et oublie
 // la clé (équivalent `jean link stop` + `jean link logout`).
 func handleLinkDisconnect(w http.ResponseWriter, r *http.Request) {

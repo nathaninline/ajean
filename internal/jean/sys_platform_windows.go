@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -389,4 +390,29 @@ func ramUsageMB() (used, total int) {
 	}
 	const mb = 1024 * 1024
 	return int((m.ullTotalPhys - m.ullAvailPhys) / mb), int(m.ullTotalPhys / mb)
+}
+
+// --- Supervision de processus détachés (worker de lien, service). Pendant
+// Windows de sys_platform_unix.go.
+
+// spawnDetached prépare une commande détachée et SANS console : en mode app
+// (double-clic) le moindre enfant console ferait clignoter une fenêtre noire.
+func spawnDetached(name string, args ...string) *exec.Cmd {
+	cmd := exec.Command(name, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: createNewProcessGroup | detachedProcess | createNoWindow,
+	}
+	return cmd
+}
+
+// pidAlive : alias de processAlive (API commune avec Unix).
+func pidAlive(pid int) bool { return processAlive(pid) }
+
+// killTree arrête le process et toute sa descendance (taskkill /T).
+func killTree(pid int) {
+	if pid <= 0 {
+		return
+	}
+	_ = hideCmd(exec.Command("taskkill", "/PID", strconv.Itoa(pid), "/T", "/F")).Run()
 }

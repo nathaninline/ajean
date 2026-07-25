@@ -17,7 +17,9 @@ function renderRemote(d){
   document.getElementById('remote-url').value = d.machineURL || '';
   const st = document.getElementById('remote-status');
   if(d.active){ st.textContent='● en ligne — accessible à distance'; st.style.color='var(--accent)'; }
-  else { st.textContent='○ service arrêté (l\'accès distant ne répondra pas)'; st.style.color='var(--warn)'; }
+  else { st.textContent='○ tunnel arrêté (l\'accès distant ne répondra pas)'; st.style.color='var(--warn)'; }
+  const sb = document.getElementById('remote-start');
+  if(sb){ sb.style.display = d.active ? 'none' : ''; }
   if(badge){ badge.textContent = d.active ? '● connecté' : '○ arrêté'; badge.style.color = d.active?'var(--accent)':'var(--warn)'; }
 }
 
@@ -54,6 +56,19 @@ function remoteConnect(){
     }catch(e){ toast('erreur : '+e); }
   }
   window.addEventListener('message', onMsg);
+}
+
+// Relance le tunnel avec la clé déjà enregistrée (sans repasser par la popup).
+async function remoteStart(){
+  const b = document.getElementById('remote-start');
+  if(b){ b.disabled = true; b.textContent = 'démarrage…'; }
+  try{
+    const r = await jpost('/api/link/start', {});
+    if(r && r.active){ toast('✓ tunnel démarré'); }
+    else { toast((r && r.error) || 'le tunnel n\'a pas démarré'); }
+  }catch(e){ toast('erreur : '+e); }
+  if(b){ b.disabled = false; b.textContent = 'démarrer le tunnel'; }
+  loadRemote();
 }
 
 async function remoteDisconnect(){

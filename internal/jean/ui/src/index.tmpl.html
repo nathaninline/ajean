@@ -141,6 +141,7 @@
         <button onclick="window.open(document.getElementById('remote-url').value,'_blank')" title="ouvrir">↗</button>
       </div>
       <div id="remote-status" class="muted" style="font-size:11px;margin-top:6px"></div>
+      <button id="remote-start" onclick="remoteStart()" style="display:none;margin-top:8px;border-color:var(--accent);color:var(--accent)">démarrer le tunnel</button>
       <div class="subhead" style="margin-top:12px">Première connexion<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">À votre première ouverture du portail distant, confirmez l'<b>empreinte</b> et saisissez le <b>code d'appairage</b> : cela verrouille la boîte noire sur CE serveur (anti-interception). Une seule fois par appareil.</span></span></div>
       <button onclick="remotePairCode()" style="margin-top:4px">Afficher l'empreinte et le code d'appairage</button>
       <div id="remote-pair" class="muted" style="font-size:12px;margin-top:8px;display:none;line-height:1.7"></div>

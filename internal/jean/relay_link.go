@@ -29,6 +29,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -274,11 +275,21 @@ func serveLocalWebMux(mux *http.ServeMux) {
 	_ = http.Serve(ln, mux)
 }
 
-// linkServiceCtl pilote l'unité systemd jean-link (start/stop/restart), avec sudo
-// non interactif si on n'est pas root. Linux uniquement (le relais cible est Linux).
+// linkPIDPath / linkLogPath : suivi du worker de lien hors systemd (macOS,
+// Windows), où Jean est une app de bureau lancée sans droits root.
+func linkPIDPath() string { return filepath.Join(JeanHome(), linkServiceName+".pid") }
+func linkLogPath() string { return filepath.Join(JeanHome(), linkServiceName+".log") }
+
+// linkServiceCtl pilote le worker de lien (start/stop/restart). Sous Linux c'est
+// l'unité systemd jean-link (avec sudo non interactif si on n'est pas root) ;
+// ailleurs — macOS et Windows, où il n'y a ni systemd ni droits root — on lance
+// « jean link serve » en processus détaché suivi par un fichier PID, comme le
+// fait déjà le service principal. Sans ça, l'accès distant restait définitivement
+// « arrêté » sur un Mac ou un PC : le token était enregistré mais rien ne
+// composait jamais le tunnel.
 func linkServiceCtl(action string) error {
 	if runtime.GOOS != "linux" {
-		return fmt.Errorf("gestion du service %s : Linux/systemd uniquement (lance « jean link --foreground » directement)", linkServiceName)
+		return linkUserSvcCtl(action)
 	}
 	bin, pre := "systemctl", []string{}
 	if os.Geteuid() != 0 {
@@ -298,13 +309,88 @@ func linkServiceCtl(action string) error {
 	return nil
 }
 
-// linkServiceActive indique si l'unité systemd jean-link tourne.
+// linkServiceActive indique si le worker de lien tourne (unité systemd sous
+// Linux, processus suivi par fichier PID ailleurs).
 func linkServiceActive() bool {
 	if runtime.GOOS != "linux" {
-		return false
+		return linkUserPID() > 0
 	}
 	out, _ := exec.Command("systemctl", "is-active", linkServiceName).Output()
 	return strings.TrimSpace(string(out)) == "active"
+}
+
+// linkUserPID renvoie le PID du worker de lien s'il tourne vraiment, 0 sinon
+// (fichier absent, illisible, ou process mort → on nettoie le fichier obsolète).
+func linkUserPID() int {
+	b, err := os.ReadFile(linkPIDPath())
+	if err != nil {
+		return 0
+	}
+	pid, _ := strconv.Atoi(strings.TrimSpace(string(b)))
+	if pid <= 0 || !pidAlive(pid) {
+		return 0
+	}
+	return pid
+}
+
+// linkUserSvcCtl : équivalent de systemctl pour les OS sans systemd.
+func linkUserSvcCtl(action string) error {
+	switch action {
+	case "stop", "restart":
+		if pid := linkUserPID(); pid > 0 {
+			killTree(pid)
+			for i := 0; i < 30 && pidAlive(pid); i++ {
+				time.Sleep(100 * time.Millisecond)
+			}
+		}
+		_ = os.Remove(linkPIDPath())
+		if action == "stop" {
+			fmt.Printf("%s service %s arrêté\n", green("[ok]"), linkServiceName)
+			return nil
+		}
+	case "start":
+		if linkUserPID() > 0 {
+			fmt.Printf("%s service %s déjà en cours\n", yellow("[info]"), linkServiceName)
+			return nil
+		}
+	default:
+		return fmt.Errorf("action inconnue: %s", action)
+	}
+
+	self, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(JeanHome(), 0o755); err != nil {
+		return err
+	}
+	logf, err := os.OpenFile(linkLogPath(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return fmt.Errorf("ouverture du log %s: %w", linkLogPath(), err)
+	}
+	defer logf.Close()
+
+	cmd := spawnDetached(self, "link", "serve")
+	cmd.Stdout, cmd.Stderr = logf, logf
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("démarrage de « jean link serve »: %w", err)
+	}
+	pid := cmd.Process.Pid
+	if err := os.WriteFile(linkPIDPath(), []byte(strconv.Itoa(pid)), 0o644); err != nil {
+		return fmt.Errorf("écriture du PID: %w", err)
+	}
+	_ = cmd.Process.Release()
+
+	// Le worker peut mourir aussitôt (token refusé, relais injoignable) : on laisse
+	// passer un instant avant de déclarer la victoire, sinon l'UI afficherait
+	// « en ligne » sur un process déjà mort.
+	time.Sleep(1500 * time.Millisecond)
+	if !pidAlive(pid) {
+		_ = os.Remove(linkPIDPath())
+		return fmt.Errorf("le lien s'est arrêté aussitôt — voir %s", linkLogPath())
+	}
+	fmt.Printf("%s service %s démarré (PID %d)\n", green("[ok]"), linkServiceName, pid)
+	return nil
 }
 
 // newLinkHandler construit le handler servi à travers le tunnel :

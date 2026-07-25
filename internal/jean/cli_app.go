@@ -42,6 +42,16 @@ func cmdApp(args []string) error {
 	// Sert l'UI en tâche de fond ; l'icône tray tient le premier plan.
 	go func() { _ = http.Serve(ln, newWebMux()) }()
 
+	// Accès distant déjà configuré ? On relance le tunnel. Sous Linux systemd s'en
+	// charge au boot, mais sur un poste de bureau (macOS/Windows) personne ne le
+	// fait : sans ça le token reste enregistré et le panneau affiche « service
+	// arrêté » à chaque démarrage de l'app.
+	go func() {
+		if readLinkToken() != "" && !linkServiceActive() {
+			_ = linkServiceCtl("start")
+		}
+	}()
+
 	sp := showSplash("Lancement de Jean en cours…")
 	waitServerReady(url)
 	_ = openBrowser(url)

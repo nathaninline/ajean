@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // defaultJeanHome is the data root when neither $JEAN_HOME nor /etc/default/jean
@@ -294,4 +295,40 @@ func ramUsageMB() (used, total int) {
 		return 0, 0
 	}
 	return (totalKB - availKB) / 1024, totalKB / 1024
+}
+
+// --- Supervision de processus détachés (worker de lien, service en mode
+// utilisateur). Pendant Unix de sys_platform_windows.go.
+
+// spawnDetached prépare une commande qui survivra à la mort de Jean : Setsid la
+// place dans une nouvelle session, donc elle n'est pas tuée avec notre groupe.
+func spawnDetached(name string, args ...string) *exec.Cmd {
+	cmd := exec.Command(name, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	return cmd
+}
+
+// pidAlive : le signal 0 ne tue rien, il teste juste l'existence du process.
+func pidAlive(pid int) bool {
+	if pid <= 0 {
+		return false
+	}
+	return syscall.Kill(pid, 0) == nil
+}
+
+// killTree arrête le process ET ses enfants. Setsid ayant fait de lui un chef de
+// groupe, un PID négatif vise le groupe entier ; SIGKILL en dernier recours.
+func killTree(pid int) {
+	if pid <= 0 {
+		return
+	}
+	if err := syscall.Kill(-pid, syscall.SIGTERM); err != nil {
+		_ = syscall.Kill(pid, syscall.SIGTERM)
+	}
+	for i := 0; i < 30 && pidAlive(pid); i++ {
+		time.Sleep(100 * time.Millisecond)
+	}
+	if pidAlive(pid) {
+		_ = syscall.Kill(-pid, syscall.SIGKILL)
+	}
 }

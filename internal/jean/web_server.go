@@ -109,6 +109,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/oai/public", handleOAIPublic)
 	api("/api/link/status", handleLinkStatus)         // état de l'accès distant (ajean.link)
 	api("/api/link/connect", handleLinkConnect)       // clé de liaison remise par connect.html → jean link
+	api("/api/link/start", handleLinkStart)           // (re)démarre le tunnel avec la clé déjà enregistrée
 	api("/api/link/disconnect", handleLinkDisconnect) // arrête le lien + oublie la clé
 	api("/api/link/paircode", handleLinkPairCode)     // code d'appairage + empreinte pour la 1re connexion
 	api("/api/internet", handleInternet)
