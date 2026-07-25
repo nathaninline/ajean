@@ -39,27 +39,24 @@ func cmdApp(args []string) error {
 		return openBrowser(url)
 	}
 
-	// Sert l'UI en tâche de fond ; l'icône tray tient le premier plan.
-	go func() { _ = http.Serve(ln, newWebMux()) }()
+	// UN SEUL process propriétaire de la conversation, comme le service jean-link
+	// sous Linux : l'app sert l'UI locale ET le tunnel avec le MÊME mux. Deux
+	// process qui servent la conversation (objet en mémoire persisté dans
+	// conversation.json) donnent deux fils divergents entre le local et
+	// app.ajean.link — le bug qu'on a vécu avec le worker détaché.
+	appOwnsLink = true
+	appWebMux = newWebMux()
+	go func() { _ = http.Serve(ln, appWebMux) }()
 
-	// Accès distant déjà configuré ? On relance le tunnel. Sous Linux systemd s'en
-	// charge au boot, mais sur un poste de bureau (macOS/Windows) personne ne le
-	// fait : sans ça le token reste enregistré et le panneau affiche « service
-	// arrêté » à chaque démarrage de l'app.
 	go func() {
 		if readLinkToken() == "" {
 			return
 		}
-		// Worker rescapé d'une AUTRE copie de l'app (ancienne version, copie
-		// translocatée…) : il tourne toujours — le tunnel est détaché exprès — et
-		// continue de servir l'UI distante avec du code périmé. On le remplace.
-		if linkWorkerIsStale() {
-			_ = linkServiceCtl("restart")
-			return
-		}
-		if !linkServiceActive() {
-			_ = linkServiceCtl("start")
-		}
+		// Worker détaché rescapé (version antérieure, autre copie de l'app) : il
+		// possède SA propre conversation et écrase la nôtre. On le supprime avant
+		// de prendre la main.
+		killForeignLinkWorker()
+		startAppLink(appWebMux)
 	}()
 
 	sp := showSplash("Lancement de Jean en cours…")

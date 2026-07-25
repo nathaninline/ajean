@@ -31,6 +31,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/coder/websocket"
@@ -260,6 +261,103 @@ func runLinkForeground() error {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Tunnel DANS le process de l'app (macOS/Windows).
+//
+// Le modèle Linux est : UN SEUL process possède la conversation et sert les deux
+// surfaces (UI locale :8090 + tunnel). C'est ce qui rend le fil identique en
+// local et sur app.ajean.link — la conversation est un objet EN MÉMOIRE (voir
+// chat_conversation.go), simplement persisté sur disque ; deux process qui la
+// servent = deux fils divergents qui s'écrasent dans conversation.json.
+//
+// Sur un poste de bureau, l'app EST ce process propriétaire : elle sert déjà
+// :8090, donc elle fait aussi tourner le tunnel elle-même au lieu de déléguer à
+// un worker détaché. L'accès distant vit donc aussi longtemps que Jean.app est
+// ouverte — sur un portable qui s'endort, c'est de toute façon la réalité.
+
+var appLink struct {
+	mu      sync.Mutex
+	running bool
+	stop    chan struct{}
+}
+
+// appOwnsLink : vrai dans le process de l'app de bureau, qui pilote le tunnel
+// en interne. linkServiceCtl s'y adapte pour ne PAS lancer de worker concurrent.
+// appWebMux est le mux servi par l'app — réutilisé pour le tunnel afin que les
+// deux surfaces partagent la même conversation.
+var (
+	appOwnsLink bool
+	appWebMux   *http.ServeMux
+)
+
+// startAppLink démarre la boucle de lien dans ce process, en servant le mux de
+// l'app (donc la MÊME conversation que l'UI locale). Idempotent.
+func startAppLink(mux *http.ServeMux) {
+	appLink.mu.Lock()
+	defer appLink.mu.Unlock()
+	if appLink.running {
+		return
+	}
+	token := readLinkToken()
+	if token == "" {
+		return
+	}
+	stop := make(chan struct{})
+	appLink.running, appLink.stop = true, stop
+	handler := newLinkHandler(mux)
+	oaiTLS := oaiTLSConfig()
+	go func() {
+		backoff := time.Second
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			_ = runLinkSession(token, handler, oaiTLS)
+			select {
+			case <-stop:
+				return
+			case <-time.After(backoff):
+			}
+			if backoff < 30*time.Second {
+				backoff *= 2
+				if backoff > 30*time.Second {
+					backoff = 30 * time.Second
+				}
+			}
+		}
+	}()
+}
+
+// stopAppLink arrête la boucle interne (la session en cours se termine d'elle-même).
+func stopAppLink() {
+	appLink.mu.Lock()
+	defer appLink.mu.Unlock()
+	if !appLink.running {
+		return
+	}
+	close(appLink.stop)
+	appLink.running = false
+}
+
+func appLinkRunning() bool {
+	appLink.mu.Lock()
+	defer appLink.mu.Unlock()
+	return appLink.running
+}
+
+// killForeignLinkWorker tue un worker de lien détaché encore en vie (laissé par
+// une version antérieure ou une autre copie de l'app). Indispensable AVANT que
+// l'app ne prenne la main : sinon deux process servent la même conversation et
+// les fils divergent entre l'UI locale et app.ajean.link.
+func killForeignLinkWorker() {
+	if pid := linkUserPID(); pid > 0 {
+		killTree(pid)
+		_ = os.Remove(linkPIDPath())
+	}
+}
+
 // serveLocalWebMux sert l'UI web locale sur :8090 avec le mux fourni — le MÊME
 // que celui exposé dans le tunnel. Le process jean-link devient ainsi l'unique
 // propriétaire de la conversation, partagée entre l'accès local et l'accès
@@ -289,6 +387,24 @@ func linkLogPath() string { return filepath.Join(JeanHome(), linkServiceName+".l
 // composait jamais le tunnel.
 func linkServiceCtl(action string) error {
 	if runtime.GOOS != "linux" {
+		// Dans l'app de bureau, le tunnel tourne DANS ce process (conversation
+		// unique) : on ne lance surtout pas un worker séparé.
+		if appOwnsLink {
+			switch action {
+			case "stop":
+				stopAppLink()
+			case "start", "restart":
+				stopAppLink()
+				killForeignLinkWorker()
+				startAppLink(appWebMux)
+				if !appLinkRunning() {
+					return fmt.Errorf("tunnel non démarré (clé de liaison absente ?)")
+				}
+			default:
+				return fmt.Errorf("action inconnue: %s", action)
+			}
+			return nil
+		}
 		return linkUserSvcCtl(action)
 	}
 	bin, pre := "systemctl", []string{}
@@ -313,45 +429,13 @@ func linkServiceCtl(action string) error {
 // Linux, processus suivi par fichier PID ailleurs).
 func linkServiceActive() bool {
 	if runtime.GOOS != "linux" {
+		if appOwnsLink {
+			return appLinkRunning()
+		}
 		return linkUserPID() > 0
 	}
 	out, _ := exec.Command("systemctl", "is-active", linkServiceName).Output()
 	return strings.TrimSpace(string(out)) == "active"
-}
-
-// linkUserExe renvoie le binaire qui a lancé le worker de lien en cours (2e ligne
-// du fichier PID), "" si inconnu. Sert à repérer un worker rescapé d'une ANCIENNE
-// copie de l'app : le tunnel étant détaché exprès pour survivre à la fermeture de
-// Jean.app, un worker lancé depuis une copie translocatée (ou simplement une
-// version précédente) continue de servir l'UI distante avec du code périmé —
-// symptôme vécu : l'alerte App Translocation visible sur app.ajean.link alors que
-// l'app locale, elle, tourne bien depuis /Applications.
-func linkUserExe() string {
-	b, err := os.ReadFile(linkPIDPath())
-	if err != nil {
-		return ""
-	}
-	lines := strings.SplitN(strings.TrimSpace(string(b)), "\n", 2)
-	if len(lines) < 2 {
-		return ""
-	}
-	return strings.TrimSpace(lines[1])
-}
-
-// linkWorkerIsStale : un worker tourne, mais depuis un autre binaire que nous.
-func linkWorkerIsStale() bool {
-	if runtime.GOOS == "linux" || linkUserPID() == 0 {
-		return false
-	}
-	exe, err := os.Executable()
-	if err != nil {
-		return false
-	}
-	if p, err := filepath.EvalSymlinks(exe); err == nil {
-		exe = p
-	}
-	running := linkUserExe()
-	return running != "" && running != exe
 }
 
 // linkUserPID renvoie le PID du worker de lien s'il tourne vraiment, 0 sinon
@@ -400,7 +484,7 @@ func linkUserSvcCtl(action string) error {
 		return err
 	}
 	if p, err := filepath.EvalSymlinks(self); err == nil {
-		self = p // même forme que la comparaison de linkWorkerIsStale
+		self = p
 	}
 	if err := os.MkdirAll(JeanHome(), 0o755); err != nil {
 		return err
@@ -417,8 +501,8 @@ func linkUserSvcCtl(action string) error {
 		return fmt.Errorf("démarrage de « jean link serve »: %w", err)
 	}
 	pid := cmd.Process.Pid
-	// PID + binaire d'origine : la 2e ligne permet de détecter plus tard un worker
-	// rescapé d'une ancienne copie de l'app (voir linkWorkerIsStale).
+	// PID + binaire d'origine : la 2e ligne dit QUELLE copie de l'app a lancé ce
+	// worker — précieux pour diagnostiquer un process rescapé d'une autre version.
 	if err := os.WriteFile(linkPIDPath(), []byte(strconv.Itoa(pid)+"\n"+self+"\n"), 0o644); err != nil {
 		return fmt.Errorf("écriture du PID: %w", err)
 	}
