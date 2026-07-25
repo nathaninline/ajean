@@ -35,6 +35,10 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go vet ./...
+      # Les tests tournent AUSSI ici : certains chemins ne s'exécutent que sur un
+      # vrai système de fichiers Unix (extraction des liens symboliques des
+      # archives llama.cpp, que Windows résout par une copie de repli).
+      - run: go test ./...
       - name: build macOS (CGO, arm64 + amd64)
         run: |
           CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -o /dev/null ./cmd/jean

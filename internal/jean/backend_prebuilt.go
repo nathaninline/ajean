@@ -57,6 +57,25 @@ func prebuiltVersion() (tag, cudaVer string) {
 	return
 }
 
+// prebuiltFormat identifie la façon dont l'archive a été extraite. « fmt2 » =
+// extraction qui recrée les liens des archives (indispensable aux .dylib macOS
+// et .so Linux). Une installation sans ce marqueur est réputée incomplète et
+// sera refaite au lieu d'être déclarée « déjà à jour ».
+const prebuiltFormat = "fmt2"
+
+// prebuiltVersionFormat lit le 3e champ du marqueur VERSION ("" si absent).
+func prebuiltVersionFormat() string {
+	b, err := os.ReadFile(filepath.Join(prebuiltDir(), "VERSION"))
+	if err != nil {
+		return ""
+	}
+	f := strings.Fields(strings.TrimSpace(string(b)))
+	if len(f) > 2 {
+		return f[2]
+	}
+	return ""
+}
+
 // prebuiltServerBin localise llama-server(.exe) sous le dossier prebuilt
 // (l'arborescence interne des archives officielles varie : racine, build/bin…).
 func prebuiltServerBin() string {
@@ -253,7 +272,11 @@ func prebuiltInstall(logf, phasef func(string)) (string, error) {
 	}
 	logf(fmt.Sprintf("release %s — variant retenu : %s", tag, label))
 
-	if curTag == tag && prebuiltServerBin() != "" {
+	// Réinstaller à l'identique est inutile SAUF si l'extraction date d'une
+	// version de Jean qui ignorait les liens des archives (backend installé mais
+	// bibliothèques introuvables au lancement) : le marqueur de format force alors
+	// une ré-extraction propre au lieu d'un « déjà à jour » trompeur.
+	if curTag == tag && prebuiltVersionFormat() == prebuiltFormat && prebuiltServerBin() != "" {
 		logf("déjà à jour (" + tag + ")")
 		return prebuiltServerBin(), nil
 	}
@@ -301,7 +324,7 @@ func prebuiltInstall(logf, phasef func(string)) (string, error) {
 	if runtime.GOOS != "windows" {
 		_ = os.Chmod(bin, 0o755)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "VERSION"), []byte(tag+" "+cudaVer+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "VERSION"), []byte(tag+" "+cudaVer+" "+prebuiltFormat+"\n"), 0o644); err != nil {
 		return "", err
 	}
 	logf("binaire installé : " + bin + " (release " + tag + ")")
@@ -415,10 +438,13 @@ func extractArchive(path, dir string) error {
 	}
 	defer gz.Close()
 	tr := tar.NewReader(gz)
+	// Les liens sont appliqués APRÈS coup : leur cible n'est pas forcément déjà
+	// extraite au moment où on croise l'entrée.
+	var links []archiveLink
 	for {
 		h, err := tr.Next()
 		if err == io.EOF {
-			return nil
+			return applyLinks(links)
 		}
 		if err != nil {
 			return err
@@ -446,6 +472,53 @@ func extractArchive(path, dir string) error {
 			}
 			w.Close()
 			_ = os.Chmod(p, os.FileMode(h.Mode)&0o777)
+		case tar.TypeSymlink, tar.TypeLink:
+			// Indispensable sur macOS : les archives llama.cpp livrent les .dylib
+			// sous leur nom versionné (libllama-common.0.0.10107.dylib) PLUS un lien
+			// portant le nom que cherche le binaire (libllama-common.0.dylib). Ignorer
+			// ces entrées donnait un backend installé mais impossible à lancer :
+			// « dyld: Library not loaded: @rpath/libllama-common.0.dylib ».
+			target := h.Linkname
+			if h.Typeflag == tar.TypeLink {
+				// Lien dur : la cible est un chemin dans l'archive, pas un chemin relatif.
+				t, err := safe(h.Linkname)
+				if err != nil {
+					return err
+				}
+				target = t
+			}
+			links = append(links, archiveLink{path: p, target: target})
 		}
 	}
+}
+
+// archiveLink : un lien (symbolique ou dur) relevé dans une archive.
+type archiveLink struct{ path, target string }
+
+// applyLinks crée les liens relevés pendant l'extraction. Sur les systèmes où la
+// création de liens symboliques est refusée (Windows sans mode développeur), on
+// copie le fichier cible : moins élégant, mais fonctionnel.
+func applyLinks(links []archiveLink) error {
+	for _, l := range links {
+		_ = os.Remove(l.path)
+		if err := os.MkdirAll(filepath.Dir(l.path), 0o755); err != nil {
+			return err
+		}
+		if err := os.Symlink(l.target, l.path); err == nil {
+			continue
+		}
+		// Repli par copie. La cible peut être relative au dossier du lien.
+		src := l.target
+		if !filepath.IsAbs(src) {
+			src = filepath.Join(filepath.Dir(l.path), l.target)
+		}
+		data, err := os.ReadFile(src)
+		if err != nil {
+			continue // cible absente de l'archive : on n'échoue pas l'installation pour ça
+		}
+		if err := os.WriteFile(l.path, data, 0o755); err != nil {
+			return err
+		}
+	}
+	return nil
 }
