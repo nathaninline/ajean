@@ -4,6 +4,10 @@
 # ⚠️ NE PAS uploader de binaires à la main en plus : ce workflow écrase les
 # assets du même nom (softprops remplace), et des sommes qui ne correspondent
 # plus aux binaires font échouer `jean update` (vécu sur v0.4.7).
+#
+# Deux jobs de build : macOS a besoin d'un vrai runner Apple (l'icône de barre de
+# menus passe par Cocoa → CGO, pas cross-compilable depuis Linux) ; Linux et
+# Windows restent CGO_ENABLED=0 sur ubuntu.
 name: release
 on:
   push:
@@ -13,17 +17,84 @@ permissions:
   contents: write
 
 jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: build macOS (CGO, arm64 + amd64)
+        run: |
+          mkdir -p dist
+          # arm64 = natif ; amd64 = cross avec le SDK universel (-arch x86_64).
+          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
+            go build -trimpath -ldflags="-s -w" -o dist/jean-darwin-arm64 ./cmd/jean
+          CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
+            CGO_CFLAGS="-arch x86_64" CGO_LDFLAGS="-arch x86_64" \
+            go build -trimpath -ldflags="-s -w" -o dist/jean-darwin-amd64 ./cmd/jean
+          file dist/jean-darwin-*
+      - name: bundles Jean.app
+        run: |
+          # Un binaire nu double-cliqué ouvrirait le Terminal. On publie donc
+          # aussi un vrai bundle Jean.app (zippé pour garder le bit exécutable) :
+          # au clic, le Finder lance Contents/MacOS/jean, qui détecte le bundle
+          # et bascule en mode « application » (UI web + navigateur + icône dans
+          # la barre de menus), comme le double-clic sur jean.exe sous Windows.
+          # LSUIElement : app de barre de menus, aucune icône dans le Dock.
+          mkdir -p /tmp/jean.iconset
+          sips -s format png 'cmd/jean/icon.ico' --out /tmp/icon.png >/dev/null 2>&1 || true
+          for s in 16 32 128 256 512; do
+            sips -z $s $s /tmp/icon.png --out "/tmp/jean.iconset/icon_${s}x${s}.png" >/dev/null 2>&1 || true
+          done
+          iconutil -c icns /tmp/jean.iconset -o /tmp/jean.icns >/dev/null 2>&1 || true
+          v="${GITHUB_REF_NAME#v}"
+          for arch in amd64 arm64; do
+            app="dist/mac-$arch/Jean.app"
+            mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+            cp "dist/jean-darwin-$arch" "$app/Contents/MacOS/jean"
+            chmod +x "$app/Contents/MacOS/jean"
+            cp /tmp/jean.icns "$app/Contents/Resources/jean.icns" 2>/dev/null || true
+            printf '%s\n' \
+              '<?xml version="1.0" encoding="UTF-8"?>' \
+              '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+              '<plist version="1.0"><dict>' \
+              '<key>CFBundleName</key><string>Jean</string>' \
+              '<key>CFBundleDisplayName</key><string>Jean</string>' \
+              '<key>CFBundleExecutable</key><string>jean</string>' \
+              '<key>CFBundleIdentifier</key><string>link.ajean.jean</string>' \
+              '<key>CFBundleIconFile</key><string>jean</string>' \
+              '<key>CFBundlePackageType</key><string>APPL</string>' \
+              "<key>CFBundleShortVersionString</key><string>$v</string>" \
+              "<key>CFBundleVersion</key><string>$v</string>" \
+              '<key>LSMinimumSystemVersion</key><string>11.0</string>' \
+              '<key>LSUIElement</key><true/>' \
+              '<key>NSHighResolutionCapable</key><true/>' \
+              '</dict></plist>' > "$app/Contents/Info.plist"
+            # Signature ad-hoc : sans elle, macOS refuse purement et simplement
+            # de lancer un binaire arm64 non signé (pas juste un avertissement).
+            codesign --force --deep -s - "$app" || true
+            (cd "dist/mac-$arch" && zip -qry "../Jean-macos-$arch.zip" Jean.app)
+            rm -rf "dist/mac-$arch"
+          done
+          ls -l dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/*
+
   release:
+    needs: macos
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: build 6 cibles
+      - name: build Linux + Windows
         run: |
           mkdir -p dist
-          for t in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
+          for t in linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
             os=${t%/*}; arch=${t#*/}; ext=""; ldflags="-s -w"
             # Windows : sous-système GUI → aucune console noire au double-clic
             # (l'app se rattache à la console du terminal parent si lancée en CLI).
@@ -31,7 +102,14 @@ jobs:
             GOOS=$os GOARCH=$arch CGO_ENABLED=0 \
               go build -trimpath -ldflags="$ldflags" -o "dist/jean-$os-$arch$ext" ./cmd/jean
           done
-          (cd dist && sha256sum jean-* > SHA256SUMS)
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos
+          path: dist
+      - name: SHA256SUMS
+        run: |
+          chmod +x dist/jean-darwin-*
+          (cd dist && sha256sum jean-* Jean-macos-*.zip > SHA256SUMS)
           ls -l dist && cat dist/SHA256SUMS
       - name: publier la release
         uses: softprops/action-gh-release@v2

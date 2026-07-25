@@ -32,7 +32,7 @@ Faire tourner llama.cpp comme un vrai service, ça veut dire d'habitude : trouve
 - **Protection par clé API** (`jean set-api-key`) — auth Bearer pour exposer le serveur publiquement ; la clé est stockée à part pour survivre aux changements de preset
 - **Benchmark** (`jean bench`) — tok/s prefill/decode honnêtes avec un corpus varié
 - **Auto-mise à jour** (`jean update`) — récupère la dernière release GitHub et remplace le binaire en place (`--check` pour seulement vérifier)
-- **Binaire statique unique** — compilé avec `CGO_ENABLED=0`, se cross-compile trivialement
+- **Binaire unique** — statique (`CGO_ENABLED=0`) sur Linux et Windows, se cross-compile trivialement ; la build macOS ajoute juste Cocoa pour l’icône de barre de menus
 
 ## Démarrage rapide
 
@@ -95,6 +95,14 @@ jean logs                    # suit %ProgramData%\jean\jean.log
 ```
 
 `jean llamacpp install` peut compiler llama.cpp si `git` et `cmake` sont présents ; sinon récupère un binaire `llama-server.exe` pré-compilé et pointe `BIN` dessus avec `jean edit`.
+
+## macOS
+
+Comme sous Windows, tu peux lancer Jean **d'un simple clic** : la page [Releases](../../releases) publie `Jean-macos-arm64.zip` / `Jean-macos-amd64.zip`, un bundle **`Jean.app`**. Dézippe, glisse-le dans *Applications*, ouvre-le : Jean démarre son UI web sur `http://localhost:8090`, l'ouvre dans le navigateur et pose son **icône dans la barre de menus** (en haut à droite) — pendant exact du system tray Windows, avec « Ouvrir Jean » / « Quitter ». Pas de fenêtre de Terminal, pas d'icône dans le Dock.
+
+L'app n'est **pas signée** par un certificat Apple (seulement ad-hoc) : au premier lancement, fais **clic droit → Ouvrir** (ou *Réglages Système → Confidentialité et sécurité → Ouvrir quand même*).
+
+Pour l'usage CLI, prends le binaire nu `jean-darwin-arm64` (ou `-amd64`) et mets-le dans `/usr/local/bin/jean` : hors bundle, il garde son comportement en ligne de commande. Les services utilisent **launchd** (pas systemd).
 
 ## Commandes
 
