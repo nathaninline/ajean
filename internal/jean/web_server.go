@@ -78,6 +78,7 @@ func newWebMux() *http.ServeMux {
 	api := func(path string, h http.HandlerFunc) { mux.HandleFunc(path, requireWebAuth(h)) }
 	api("/api/ping", handlePing)
 	api("/api/status", handleStatus)
+	api("/api/service/log", handleServiceLog) // journal du service pour diagnostiquer un modèle qui ne charge pas
 	api("/api/vram", handleVram)
 	api("/api/ram", handleRam)
 	api("/api/config", handleConfigEnv)

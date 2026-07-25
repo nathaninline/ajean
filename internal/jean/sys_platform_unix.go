@@ -106,13 +106,28 @@ func totalRAMGB() float64 {
 // live under /usr/local/cuda*/lib64 and are often absent from the global ld
 // cache — without them llama-server fails to load the GPU backend (or runs
 // degraded), costing a large chunk of throughput.
+// Sur macOS, dyld IGNORE LD_LIBRARY_PATH : la variable équivalente est
+// DYLD_LIBRARY_PATH. Les binaires macOS des releases llama.cpp sont livrés avec
+// leurs libllama/libggml*.dylib À CÔTÉ de l'exécutable — sans cette variable,
+// llama-server meurt instantanément sur « Library not loaded », donc sans le
+// moindre message dans l'UI.
 func setLibraryPath(dir string) {
 	parts := []string{dir}
 	parts = append(parts, cudaLibDirs()...)
-	if existing := os.Getenv("LD_LIBRARY_PATH"); existing != "" {
+	envVar := "LD_LIBRARY_PATH"
+	if runtime.GOOS == "darwin" {
+		envVar = "DYLD_LIBRARY_PATH"
+	}
+	if existing := os.Getenv(envVar); existing != "" {
 		parts = append(parts, existing)
 	}
-	_ = os.Setenv("LD_LIBRARY_PATH", strings.Join(parts, ":"))
+	joined := strings.Join(parts, ":")
+	_ = os.Setenv(envVar, joined)
+	if runtime.GOOS == "darwin" {
+		// Filet de sécurité : DYLD_FALLBACK_LIBRARY_PATH est consulté en dernier
+		// recours et survit à certains contextes où DYLD_LIBRARY_PATH est purgé.
+		_ = os.Setenv("DYLD_FALLBACK_LIBRARY_PATH", joined+":/usr/local/lib:/usr/lib")
+	}
 }
 
 // cudaLibDirs returns the CUDA runtime lib directories present on the machine,

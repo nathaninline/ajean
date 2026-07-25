@@ -68,7 +68,7 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 #ver{font-size:10px;font-weight:400;color:var(--dim);margin-left:5px;letter-spacing:0}
 .sidehead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:18px}
 /* pastille d'état service, en haut à droite de la barre latérale */
-.statuspill{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid var(--border);background:var(--panel);color:var(--dim);font-weight:600;white-space:nowrap}
+.statuspill{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid var(--border);background:var(--panel);color:var(--dim);font-weight:600;white-space:nowrap;cursor:pointer}
 .statuspill.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent);background:color-mix(in srgb,var(--ok) 12%,transparent)}
 .statuspill.err{color:var(--err);border-color:color-mix(in srgb,var(--err) 45%,transparent);background:color-mix(in srgb,var(--err) 12%,transparent)}
 .statuspill.loading{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)}
@@ -399,7 +399,16 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="side" id="side">
   <div class="sidehead">
     <h1 id="brand"><span id="brand-a">a</span>jean<span id="ver"></span></h1>
-    <span id="status-svc" class="statuspill">…</span>
+    <span id="status-svc" class="statuspill" onclick="toggleSvcLog()" title="voir le journal du moteur">…</span>
+  </div>
+  <!-- Journal du moteur : replié par défaut, ouvert au clic sur la pastille d'état.
+       C'est le seul endroit où l'on voit pourquoi un modèle refuse de charger. -->
+  <div id="svc-log-box" style="display:none;margin:0 0 10px">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <span class="io-cap">Journal du moteur</span>
+      <button onclick="loadSvcLog()" title="rafraîchir">↻</button>
+    </div>
+    <pre id="svc-log" class="muted" style="font-size:10px;line-height:1.45;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:6px 0 0"></pre>
   </div>
   <details open><summary>GPU</summary>
     <div id="vram" class="muted">…</div>
@@ -912,6 +921,24 @@ async function loadStatus(){
   if(s.version){
     document.getElementById('ver').textContent='v'+s.version;
   }
+}
+// Journal du moteur — replié par défaut, on l'ouvre en cliquant la pastille.
+function toggleSvcLog(){
+  const box=document.getElementById('svc-log-box');
+  if(!box) return;
+  const show = box.style.display==='none';
+  box.style.display = show ? '' : 'none';
+  if(show) loadSvcLog();
+}
+async function loadSvcLog(){
+  const el=document.getElementById('svc-log');
+  if(!el) return;
+  el.textContent='chargement du journal…';
+  try{
+    const r=await jget('/api/service/log?n=120');
+    el.textContent = (r && r.log && r.log.trim()) ? r.log : 'journal vide — le moteur n\'a encore rien écrit.';
+    el.scrollTop = el.scrollHeight;
+  }catch(e){ el.textContent='journal indisponible : '+e; }
 }
 async function checkUpdate(){
   const b=document.getElementById('upd-check'), msg=document.getElementById('upd-msg');

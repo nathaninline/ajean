@@ -24,7 +24,16 @@
 <div class="side" id="side">
   <div class="sidehead">
     <h1 id="brand"><span id="brand-a">a</span>jean<span id="ver"></span></h1>
-    <span id="status-svc" class="statuspill">…</span>
+    <span id="status-svc" class="statuspill" onclick="toggleSvcLog()" title="voir le journal du moteur">…</span>
+  </div>
+  <!-- Journal du moteur : replié par défaut, ouvert au clic sur la pastille d'état.
+       C'est le seul endroit où l'on voit pourquoi un modèle refuse de charger. -->
+  <div id="svc-log-box" style="display:none;margin:0 0 10px">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <span class="io-cap">Journal du moteur</span>
+      <button onclick="loadSvcLog()" title="rafraîchir">↻</button>
+    </div>
+    <pre id="svc-log" class="muted" style="font-size:10px;line-height:1.45;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:6px 0 0"></pre>
   </div>
   <details open><summary>GPU</summary>
     <div id="vram" class="muted">…</div>

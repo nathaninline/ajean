@@ -268,3 +268,7 @@ func tailFile(path string, n int) string {
 	}
 	return strings.Join(lines, "\n") + "\n"
 }
+
+// serviceLogTail renvoie les n dernières lignes du journal du service (pour
+// l'UI web). Le fichier est le même en mode launchd et en mode utilisateur.
+func serviceLogTail(n int) string { return tailFile(logFilePath(), n) }

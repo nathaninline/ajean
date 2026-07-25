@@ -44,6 +44,20 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleServiceLog (GET /api/service/log) : dernières lignes du journal du
+// service, pour que l'UI puisse montrer POURQUOI le modèle ne se charge pas
+// (fichier .gguf illisible, VRAM insuffisante, bibliothèque manquante…) au lieu
+// d'un « chargement… » perpétuel sans explication.
+func handleServiceLog(w http.ResponseWriter, r *http.Request) {
+	n := 80
+	if v := r.URL.Query().Get("n"); v != "" {
+		if k, err := strconv.Atoi(v); err == nil && k > 0 && k <= 500 {
+			n = k
+		}
+	}
+	sendJSON(w, 200, map[string]any{"log": serviceLogTail(n)})
+}
+
 func handleVram(w http.ResponseWriter, r *http.Request) {
 	out, err := hideCmd(exec.Command("nvidia-smi",
 		"--query-gpu=name,memory.used,memory.total,utilization.gpu,temperature.gpu",

@@ -14,6 +14,24 @@ async function loadStatus(){
     document.getElementById('ver').textContent='v'+s.version;
   }
 }
+// Journal du moteur — replié par défaut, on l'ouvre en cliquant la pastille.
+function toggleSvcLog(){
+  const box=document.getElementById('svc-log-box');
+  if(!box) return;
+  const show = box.style.display==='none';
+  box.style.display = show ? '' : 'none';
+  if(show) loadSvcLog();
+}
+async function loadSvcLog(){
+  const el=document.getElementById('svc-log');
+  if(!el) return;
+  el.textContent='chargement du journal…';
+  try{
+    const r=await jget('/api/service/log?n=120');
+    el.textContent = (r && r.log && r.log.trim()) ? r.log : 'journal vide — le moteur n\'a encore rien écrit.';
+    el.scrollTop = el.scrollHeight;
+  }catch(e){ el.textContent='journal indisponible : '+e; }
+}
 async function checkUpdate(){
   const b=document.getElementById('upd-check'), msg=document.getElementById('upd-msg');
   b.disabled=true; msg.textContent='Vérification…';

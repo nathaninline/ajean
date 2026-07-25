@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -69,4 +70,14 @@ func serviceLogs() error {
 func serviceIsActive() bool {
 	out, _ := exec.Command("systemctl", "is-active", serviceName()).Output()
 	return strings.TrimSpace(string(out)) == "active"
+}
+
+// serviceLogTail renvoie les n dernières lignes du journal du service (pour
+// l'UI web). Linux : journalctl.
+func serviceLogTail(n int) string {
+	out, err := exec.Command("journalctl", "-u", serviceName(), "-n", strconv.Itoa(n), "--no-pager").CombinedOutput()
+	if err != nil && len(out) == 0 {
+		return "journalctl indisponible : " + err.Error()
+	}
+	return string(out)
 }
