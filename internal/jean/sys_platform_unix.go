@@ -17,7 +17,41 @@ import (
 
 // defaultJeanHome is the data root when neither $JEAN_HOME nor /etc/default/jean
 // override it.
-func defaultJeanHome() string { return "/etc/jean" }
+//
+// Linux : /etc/jean (machine de prod, service systemd lancé par root).
+// macOS : /etc/jean n'est PAS écrivable par une app lancée depuis le Finder
+// (« mkdir /etc/jean: permission denied »), et un Mac est une machine de bureau,
+// pas un serveur — on retombe donc sur le dossier utilisateur standard, sauf si
+// un `sudo jean install` a déjà créé /etc/jean à notre nom.
+func defaultJeanHome() string {
+	if runtime.GOOS != "darwin" || os.Geteuid() == 0 {
+		return "/etc/jean"
+	}
+	if isWritableDir("/etc/jean") {
+		return "/etc/jean" // installé par `sudo jean install` puis chown à l'utilisateur
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		return filepath.Join(home, "Library", "Application Support", "jean")
+	}
+	return "/etc/jean"
+}
+
+// isWritableDir teste qu'un dossier existe ET qu'on peut y écrire (le seul test
+// fiable : les permissions POSIX seules ignorent ACL, SIP, volumes read-only).
+func isWritableDir(dir string) bool {
+	fi, err := os.Stat(dir)
+	if err != nil || !fi.IsDir() {
+		return false
+	}
+	probe := filepath.Join(dir, ".jean-write-test")
+	f, err := os.OpenFile(probe, os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return false
+	}
+	f.Close()
+	_ = os.Remove(probe)
+	return true
+}
 
 // defaultEditor is used by `jean edit` when $EDITOR is unset.
 func defaultEditor() string { return "nano" }
@@ -193,4 +227,71 @@ func execServer(bin string, args []string) error {
 // newShellCmd builds the command used by the run_shell tool.
 func newShellCmd(ctx context.Context, command string) *exec.Cmd {
 	return exec.CommandContext(ctx, "/bin/bash", "-c", command)
+}
+
+// ramUsageMB renvoie (utilisée, totale) en Mo pour /api/ram. Linux : /proc/meminfo.
+// macOS : sysctl pour le total, vm_stat pour ce qui est réellement libre (pages
+// free + inactive + speculative ; le reste — wired, active, compressé — est
+// considéré occupé, comme le fait le Moniteur d'activité).
+func ramUsageMB() (used, total int) {
+	if runtime.GOOS == "darwin" {
+		total = int(totalRAMGB() * 1024)
+		if total == 0 {
+			return 0, 0
+		}
+		out, err := exec.Command("vm_stat").Output()
+		if err != nil {
+			return 0, total
+		}
+		pageSize := 4096
+		freePages := 0
+		for _, line := range strings.Split(string(out), "\n") {
+			if strings.HasPrefix(line, "Mach Virtual Memory Statistics") {
+				// « … (page size of 16384 bytes) » — l'Apple Silicon n'est pas en 4 Ko.
+				if i := strings.Index(line, "page size of "); i >= 0 {
+					if v, err := strconv.Atoi(strings.Fields(line[i+len("page size of "):])[0]); err == nil {
+						pageSize = v
+					}
+				}
+				continue
+			}
+			k, v, ok := strings.Cut(line, ":")
+			if !ok {
+				continue
+			}
+			switch strings.TrimSpace(k) {
+			case "Pages free", "Pages inactive", "Pages speculative":
+				if n, err := strconv.Atoi(strings.Trim(strings.TrimSpace(v), ".")); err == nil {
+					freePages += n
+				}
+			}
+		}
+		freeMB := freePages * pageSize / (1024 * 1024)
+		if freeMB > total {
+			freeMB = total
+		}
+		return total - freeMB, total
+	}
+	b, err := os.ReadFile("/proc/meminfo")
+	if err != nil {
+		return 0, 0
+	}
+	var totalKB, availKB int
+	for _, line := range strings.Split(string(b), "\n") {
+		f := strings.Fields(line)
+		if len(f) < 2 {
+			continue
+		}
+		v, _ := strconv.Atoi(f[1]) // kB
+		switch f[0] {
+		case "MemTotal:":
+			totalKB = v
+		case "MemAvailable:":
+			availKB = v
+		}
+	}
+	if totalKB == 0 {
+		return 0, 0
+	}
+	return (totalKB - availKB) / 1024, totalKB / 1024
 }

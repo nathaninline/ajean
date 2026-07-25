@@ -368,3 +368,25 @@ func cudaPathEnv(toolkitDir string) []string {
 func newShellCmd(ctx context.Context, command string) *exec.Cmd {
 	return hideCmd(exec.CommandContext(ctx, "cmd", "/C", command))
 }
+
+// ramUsageMB renvoie (utilisée, totale) en Mo pour /api/ram (GlobalMemoryStatusEx).
+func ramUsageMB() (used, total int) {
+	var m struct {
+		dwLength                uint32
+		dwMemoryLoad            uint32
+		ullTotalPhys            uint64
+		ullAvailPhys            uint64
+		ullTotalPageFile        uint64
+		ullAvailPageFile        uint64
+		ullTotalVirtual         uint64
+		ullAvailVirtual         uint64
+		ullAvailExtendedVirtual uint64
+	}
+	m.dwLength = uint32(unsafe.Sizeof(m))
+	kernel32 := syscall.NewLazyDLL("kernel32.dll")
+	if r, _, _ := kernel32.NewProc("GlobalMemoryStatusEx").Call(uintptr(unsafe.Pointer(&m))); r == 0 {
+		return 0, 0
+	}
+	const mb = 1024 * 1024
+	return int((m.ullTotalPhys - m.ullAvailPhys) / mb), int(m.ullTotalPhys / mb)
+}

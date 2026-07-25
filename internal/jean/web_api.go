@@ -71,32 +71,12 @@ func handleVram(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleRam renvoie la RAM système {used, total} en Mo (mêmes unités que
-// /api/vram → l'UI divise par 1024 pour des Gio). Lit /proc/meminfo (Linux, la
-// box de prod). Sur un OS sans /proc, renvoie total=0 → l'UI masque le bloc.
+// /api/vram → l'UI divise par 1024 pour des Gio). La mesure est spécifique à
+// l'OS (ramUsageMB : /proc/meminfo sous Linux, sysctl+vm_stat sur macOS,
+// GlobalMemoryStatusEx sous Windows). total=0 → l'UI masque le bloc.
 func handleRam(w http.ResponseWriter, r *http.Request) {
-	out := map[string]any{"used": 0, "total": 0}
-	b, err := os.ReadFile("/proc/meminfo")
-	if err == nil {
-		var totalKB, availKB int
-		for _, line := range strings.Split(string(b), "\n") {
-			f := strings.Fields(line)
-			if len(f) < 2 {
-				continue
-			}
-			v, _ := strconv.Atoi(f[1]) // valeur en kB
-			switch f[0] {
-			case "MemTotal:":
-				totalKB = v
-			case "MemAvailable:":
-				availKB = v
-			}
-		}
-		if totalKB > 0 {
-			out["total"] = totalKB / 1024
-			out["used"] = (totalKB - availKB) / 1024
-		}
-	}
-	sendJSON(w, 200, out)
+	used, total := ramUsageMB()
+	sendJSON(w, 200, map[string]any{"used": used, "total": total})
 }
 
 func handleConfigEnv(w http.ResponseWriter, r *http.Request) {

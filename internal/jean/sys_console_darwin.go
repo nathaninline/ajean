@@ -30,7 +30,36 @@ func setupConsole() bool {
 	}
 	// .../Jean.app/Contents/MacOS/jean
 	if strings.HasSuffix(filepath.Dir(exe), "/Contents/MacOS") {
+		fixFinderPath()
 		return false
 	}
 	return true
+}
+
+// fixFinderPath complète le PATH famélique hérité du Finder. Une app lancée par
+// LaunchServices reçoit /usr/bin:/bin:/usr/sbin:/sbin — pas les dossiers de
+// Homebrew : sans ça, Jean ne voit ni `brew`, ni `cmake`, ni `git`, et la
+// compilation d'un backend échoue alors que les outils sont bien installés.
+func fixFinderPath() {
+	extra := []string{
+		"/opt/homebrew/bin", "/opt/homebrew/sbin", // Homebrew Apple Silicon
+		"/usr/local/bin", "/usr/local/sbin", // Homebrew Intel
+		"/opt/local/bin", // MacPorts
+	}
+	path := os.Getenv("PATH")
+	have := map[string]bool{}
+	for _, p := range strings.Split(path, ":") {
+		have[p] = true
+	}
+	var add []string
+	for _, p := range extra {
+		if !have[p] {
+			if fi, err := os.Stat(p); err == nil && fi.IsDir() {
+				add = append(add, p)
+			}
+		}
+	}
+	if len(add) > 0 {
+		_ = os.Setenv("PATH", strings.Join(add, ":")+":"+path)
+	}
 }
