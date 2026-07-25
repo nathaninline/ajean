@@ -26,6 +26,8 @@
     <h1 id="brand"><span id="brand-a">a</span>jean<span id="ver"></span></h1>
     <span id="status-svc" class="statuspill" onclick="toggleSvcLog()" title="voir le journal du moteur">…</span>
   </div>
+  <!-- Avertissement de lancement (App Translocation macOS) — masqué par défaut. -->
+  <div id="app-warn" class="muted" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:8px;color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)"></div>
   <!-- Journal du moteur : replié par défaut, ouvert au clic sur la pastille d'état.
        C'est le seul endroit où l'on voit pourquoi un modèle refuse de charger. -->
   <div id="svc-log-box" style="display:none;margin:0 0 10px">

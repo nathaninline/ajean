@@ -58,3 +58,7 @@ func configureConsole() {
 		_, _, _ = k.NewProc("SetConsoleMode").Call(h, uintptr(mode|enableVirtualTerminalProcessing))
 	}
 }
+
+// appWarning : rien à signaler sous Windows (pas d'App Translocation). Voir
+// sys_console_darwin.go.
+func appWarning() string { return "" }

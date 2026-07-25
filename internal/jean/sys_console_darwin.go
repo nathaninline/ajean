@@ -36,6 +36,28 @@ func setupConsole() bool {
 	return true
 }
 
+// appWarning signale une situation de lancement qui casse Jean de façon peu
+// évidente. Aujourd'hui : l'App Translocation de Gatekeeper. Une app non signée
+// ouverte depuis Téléchargements est exécutée depuis une copie en LECTURE SEULE
+// sous /private/var/folders/…/AppTranslocation/<uuid>/, à un chemin différent à
+// CHAQUE lancement. Conséquences vécues : plusieurs instances qui se marchent
+// dessus (la seconde trouve le port 8090 occupé et se contente d'ouvrir l'UI de
+// la première, souvent une version périmée), des process fantômes issus de
+// copies précédentes, et une mise à jour en place impossible.
+// Le remède est côté utilisateur : déplacer Jean.app dans /Applications.
+func appWarning() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	if !strings.Contains(exe, "/AppTranslocation/") {
+		return ""
+	}
+	return "Jean tourne depuis une copie temporaire en lecture seule (App Translocation de macOS). " +
+		"Fermez l'app, déplacez Jean.app dans le dossier Applications, puis rouvrez-la — " +
+		"sinon chaque lancement crée une instance séparée et les mises à jour du moteur échouent."
+}
+
 // fixFinderPath complète le PATH famélique hérité du Finder. Une app lancée par
 // LaunchServices reçoit /usr/bin:/bin:/usr/sbin:/sbin — pas les dossiers de
 // Homebrew : sans ça, Jean ne voit ni `brew`, ni `cmake`, ni `git`, et la

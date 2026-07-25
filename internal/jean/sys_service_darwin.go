@@ -184,6 +184,10 @@ func userSvcStart() error {
 
 	cmd := exec.Command(self, "serve")
 	cmd.Stdout, cmd.Stderr = logf, logf
+	// Même répertoire de travail que sous systemd/launchd : les chemins relatifs
+	// de config.env (MODEL=…gguf) se résolvent depuis JEAN_HOME, pas depuis « / »
+	// que nous hérite le Finder.
+	cmd.Dir = JeanHome()
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("démarrage de 'jean serve': %w", err)

@@ -71,6 +71,7 @@ func svcStart() error {
 	cmd := exec.Command(self, "serve")
 	cmd.Stdout = logf
 	cmd.Stderr = logf
+	cmd.Dir = JeanHome() // les chemins relatifs de config.env se résolvent depuis JEAN_HOME
 	// createNoWindow + HideWindow : le service enfant (`jean serve`) ne doit JAMAIS
 	// faire clignoter de console noire quand Jean est lancé en mode app (double-clic).
 	cmd.SysProcAttr = &syscall.SysProcAttr{

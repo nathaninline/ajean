@@ -19,6 +19,20 @@ func cmdServe(args []string) error {
 	if model == "" {
 		return fmt.Errorf("MODEL non défini dans %s", confPath())
 	}
+	// MODEL est enregistré sous forme de simple nom de fichier (les .gguf vivent
+	// dans JEAN_HOME) : sous systemd/launchd le WorkingDirectory vaut JEAN_HOME,
+	// donc le chemin relatif tombait juste. Lancé depuis une app de bureau, le
+	// répertoire courant est « / » et llama-server ne trouvait rien. On résout
+	// donc explicitement, quel que soit le contexte de lancement.
+	if !filepath.IsAbs(model) {
+		model = filepath.Join(JeanHome(), model)
+	}
+	if _, err := os.Stat(model); err != nil {
+		return fmt.Errorf("modèle introuvable : %s", model)
+	}
+	if !filepath.IsAbs(bin) {
+		bin = filepath.Join(JeanHome(), bin)
+	}
 
 	// Make sure llama-server can find its bundled shared libraries (the .so/.dll
 	// neighbours of the binary). This is platform-specific: LD_LIBRARY_PATH on

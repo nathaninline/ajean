@@ -13,6 +13,13 @@ async function loadStatus(){
   if(s.version){
     document.getElementById('ver').textContent='v'+s.version;
   }
+  // Avertissement de lancement (App Translocation macOS) : rare, mais il explique
+  // des symptomes tres deroutants, donc on l'affiche en permanence tant qu'il dure.
+  const wb=document.getElementById('app-warn');
+  if(wb){
+    if(s.warn){ wb.textContent='⚠ '+s.warn; wb.style.display=''; }
+    else { wb.style.display='none'; }
+  }
 }
 // Journal du moteur — replié par défaut, on l'ouvre en cliquant la pastille.
 function toggleSvcLog(){

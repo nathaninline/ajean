@@ -41,6 +41,7 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 		"port":    LLMPort(),
 		"ctx":     ctx,
 		"version": Version,
+		"warn":    appWarning(), // ex. App Translocation macOS — vide si tout va bien
 	})
 }
 
