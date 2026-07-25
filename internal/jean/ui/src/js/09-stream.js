@@ -96,8 +96,25 @@ function handleDelta(d){
 }
 // Flux d'abonnement permanent + reconnexion auto (from=lastSeq → pas de
 // re-téléchargement complet après une coupure / bascule d'appareil).
+// Un onglet caché RELÂCHE son flux SSE. Sans ça, chaque onglet Jean laissé
+// ouvert monopolise une des ~6 connexions simultanées autorisées par domaine :
+// au-delà, toute requête (journal, installation du moteur…) reste en file
+// d'attente sans jamais partir ni échouer — un blocage silencieux très
+// déroutant. Au retour de l'onglet on se reconnecte, et le replay depuis
+// lastSeq rattrape tout ce qui s'est passé entre-temps.
+let streamPaused=false;
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden){
+    streamPaused=true;
+    if(streamAbort) try{ streamAbort.abort(); }catch(e){}
+  } else if(streamPaused){
+    streamPaused=false;
+  }
+});
 async function connectStream(){
   while(true){
+    // Onglet en arrière-plan : on n'ouvre aucune connexion, on attend le retour.
+    while(document.hidden){ await new Promise(res=>setTimeout(res, 500)); }
     streamAbort=new AbortController();
     try{
       const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:lastSeq}),signal:streamAbort.signal});
