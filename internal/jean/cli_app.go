@@ -47,7 +47,17 @@ func cmdApp(args []string) error {
 	// fait : sans ça le token reste enregistré et le panneau affiche « service
 	// arrêté » à chaque démarrage de l'app.
 	go func() {
-		if readLinkToken() != "" && !linkServiceActive() {
+		if readLinkToken() == "" {
+			return
+		}
+		// Worker rescapé d'une AUTRE copie de l'app (ancienne version, copie
+		// translocatée…) : il tourne toujours — le tunnel est détaché exprès — et
+		// continue de servir l'UI distante avec du code périmé. On le remplace.
+		if linkWorkerIsStale() {
+			_ = linkServiceCtl("restart")
+			return
+		}
+		if !linkServiceActive() {
 			_ = linkServiceCtl("start")
 		}
 	}()

@@ -319,12 +319,50 @@ func linkServiceActive() bool {
 	return strings.TrimSpace(string(out)) == "active"
 }
 
+// linkUserExe renvoie le binaire qui a lancé le worker de lien en cours (2e ligne
+// du fichier PID), "" si inconnu. Sert à repérer un worker rescapé d'une ANCIENNE
+// copie de l'app : le tunnel étant détaché exprès pour survivre à la fermeture de
+// Jean.app, un worker lancé depuis une copie translocatée (ou simplement une
+// version précédente) continue de servir l'UI distante avec du code périmé —
+// symptôme vécu : l'alerte App Translocation visible sur app.ajean.link alors que
+// l'app locale, elle, tourne bien depuis /Applications.
+func linkUserExe() string {
+	b, err := os.ReadFile(linkPIDPath())
+	if err != nil {
+		return ""
+	}
+	lines := strings.SplitN(strings.TrimSpace(string(b)), "\n", 2)
+	if len(lines) < 2 {
+		return ""
+	}
+	return strings.TrimSpace(lines[1])
+}
+
+// linkWorkerIsStale : un worker tourne, mais depuis un autre binaire que nous.
+func linkWorkerIsStale() bool {
+	if runtime.GOOS == "linux" || linkUserPID() == 0 {
+		return false
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		return false
+	}
+	if p, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = p
+	}
+	running := linkUserExe()
+	return running != "" && running != exe
+}
+
 // linkUserPID renvoie le PID du worker de lien s'il tourne vraiment, 0 sinon
 // (fichier absent, illisible, ou process mort → on nettoie le fichier obsolète).
 func linkUserPID() int {
 	b, err := os.ReadFile(linkPIDPath())
 	if err != nil {
 		return 0
+	}
+	if i := strings.IndexByte(string(b), '\n'); i >= 0 {
+		b = b[:i]
 	}
 	pid, _ := strconv.Atoi(strings.TrimSpace(string(b)))
 	if pid <= 0 || !pidAlive(pid) {
@@ -361,6 +399,9 @@ func linkUserSvcCtl(action string) error {
 	if err != nil {
 		return err
 	}
+	if p, err := filepath.EvalSymlinks(self); err == nil {
+		self = p // même forme que la comparaison de linkWorkerIsStale
+	}
 	if err := os.MkdirAll(JeanHome(), 0o755); err != nil {
 		return err
 	}
@@ -376,7 +417,9 @@ func linkUserSvcCtl(action string) error {
 		return fmt.Errorf("démarrage de « jean link serve »: %w", err)
 	}
 	pid := cmd.Process.Pid
-	if err := os.WriteFile(linkPIDPath(), []byte(strconv.Itoa(pid)), 0o644); err != nil {
+	// PID + binaire d'origine : la 2e ligne permet de détecter plus tard un worker
+	// rescapé d'une ancienne copie de l'app (voir linkWorkerIsStale).
+	if err := os.WriteFile(linkPIDPath(), []byte(strconv.Itoa(pid)+"\n"+self+"\n"), 0o644); err != nil {
 		return fmt.Errorf("écriture du PID: %w", err)
 	}
 	_ = cmd.Process.Release()
