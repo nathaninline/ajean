@@ -18,8 +18,26 @@ jobs:
       - run: go vet ./...
       - run: go build ./...
       - run: go test ./...
-      - name: cross-compile (toutes les cibles release)
+      - name: cross-compile (cibles release Linux + Windows)
         run: |
-          for t in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
+          # darwin n'est pas ici : depuis v0.5.4 l'icône de barre de menus passe
+          # par Cocoa (CGO) → les cibles macOS se compilent sur un runner Apple
+          # (job « macos » ci-dessous, comme dans release.yml).
+          for t in linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
             GOOS=${t%/*} GOARCH=${t#*/} CGO_ENABLED=0 go build -o /dev/null ./cmd/jean
           done
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - name: build macOS (CGO, arm64 + amd64)
+        run: |
+          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -o /dev/null ./cmd/jean
+          CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
+            CGO_CFLAGS="-arch x86_64" CGO_LDFLAGS="-arch x86_64" \
+            go build -o /dev/null ./cmd/jean
