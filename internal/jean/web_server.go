@@ -90,17 +90,17 @@ func newWebMux() *http.ServeMux {
 	api("/api/models/download", handleModelDownload)
 	api("/api/models/download/status", handleModelDownloadStatus)
 	api("/api/backends", handleBackends)
-	api("/api/backends/custom", handleBackendsCustom) // backends custom uniquement (hors ⚡/🔧)
-	api("/api/llamacpp", handleLlamacpp)                             // statut du backend llama.cpp
-	api("/api/llamacpp/check", handleLlamacppCheck)                  // git fetch + retard sur origin
-	api("/api/llamacpp/install", handleLlamacppInstall)              // job : clone + build + BIN
+	api("/api/backends/custom", handleBackendsCustom)                    // backends custom uniquement (hors ⚡/🔧)
+	api("/api/llamacpp", handleLlamacpp)                                 // statut du backend llama.cpp
+	api("/api/llamacpp/check", handleLlamacppCheck)                      // git fetch + retard sur origin
+	api("/api/llamacpp/install", handleLlamacppInstall)                  // job : clone + build + BIN
 	api("/api/llamacpp/install-custom", handleLlamacppInstallCustom)     // job : clone d'un fork depuis une URL Git (par preset, sans BIN global)
 	api("/api/llamacpp/uninstall-custom", handleLlamacppUninstallCustom) // supprime un backend custom (backends/<name>)
-	api("/api/llamacpp/update", handleLlamacppUpdate)                // job : pull + rebuild + restart
-	api("/api/llamacpp/job", handleLlamacppJob)                      // progression + logs du job
-	api("/api/llamacpp/prebuilt", handleLlamacppPrebuilt)            // job : binaires officiels précompilés
-	api("/api/llamacpp/prebuilt/check", handleLlamacppPrebuiltCheck) // dernière release officielle vs installée
-	api("/api/llamacpp/use", handleLlamacppUse)                      // bascule BIN entre versions déjà installées
+	api("/api/llamacpp/update", handleLlamacppUpdate)                    // job : pull + rebuild + restart
+	api("/api/llamacpp/job", handleLlamacppJob)                          // progression + logs du job
+	api("/api/llamacpp/prebuilt", handleLlamacppPrebuilt)                // job : binaires officiels précompilés
+	api("/api/llamacpp/prebuilt/check", handleLlamacppPrebuiltCheck)     // dernière release officielle vs installée
+	api("/api/llamacpp/use", handleLlamacppUse)                          // bascule BIN entre versions déjà installées
 	api("/api/presets", handlePresets)
 	api("/api/preset", handlePreset)
 	api("/api/preset/save", handlePresetSave)
