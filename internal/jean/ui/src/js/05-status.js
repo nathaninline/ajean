@@ -5,6 +5,7 @@ async function loadStatus(){
   // chargé (loading, llama-server renvoie 503) · modèle prêt (ok).
   let cls='err', txt=s.state;
   if(s.active && s.health){ cls='ok'; txt='prêt'; }
+  else if(s.load_error){ cls='err'; txt='modèle incompatible'; }
   else if(s.active){ cls='loading'; txt='chargement…'; }
   el.className='statuspill '+cls;
   el.innerHTML='<span class="dot"></span>'+txt+' <span class="port">:'+s.port+'</span>';
@@ -19,6 +20,13 @@ async function loadStatus(){
   if(wb){
     if(s.warn){ wb.textContent='⚠ '+s.warn; wb.style.display=''; }
     else { wb.style.display='none'; }
+  }
+  // Modèle qui ne charge pas (souvent un moteur incompatible) : message explicite
+  // plutôt qu'un « chargement… » perpétuel ou un crash-loop muet.
+  const me=document.getElementById('model-err');
+  if(me){
+    if(s.load_error){ me.textContent='⚠ '+s.load_error; me.style.display=''; }
+    else { me.style.display='none'; }
   }
 }
 // Journal du moteur — replié par défaut, on l'ouvre en cliquant la pastille.

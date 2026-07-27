@@ -68,18 +68,35 @@ async function openItem(kind, key){
   document.getElementById('m-del').style.display = key ? 'inline-block' : 'none';
   // Model picker is preset-only: it edits the MODEL= line of config.env.
   const modelRow = document.getElementById('m-model-row');
+  const settingsRow = document.getElementById('m-settings-row');
   const delModelWrap = document.getElementById('m-del-model-wrap');
+  const rawHead = document.getElementById('m-raw-head');
+  const rawToggle = document.getElementById('m-raw-toggle');
+  const rawBody = document.getElementById('m-raw-body');
+  const rawCaret = document.getElementById('m-raw-caret');
   if(kind === 'preset'){
     modelRow.style.display = 'flex';
+    settingsRow.style.display = 'flex';
     document.getElementById('m-hf-url').value = '';
     document.getElementById('m-hf-progress').style.display = 'none';
     document.getElementById('m-del-model').checked = false;
     document.getElementById('m-quant').value = currentQuantInTextarea();
+    populateSettings();
     delModelWrap.style.display = key ? 'inline-flex' : 'none';
+    // Preset : la config brute est une ligne repliable, fermée par défaut.
+    rawHead.textContent = 'Configuration';
+    rawToggle.style.display = '';
+    rawBody.style.display = 'none';
+    rawCaret.classList.remove('open');
     await Promise.all([populateBackend(), populateModelPicker()]);
   } else {
     modelRow.style.display = 'none';
+    settingsRow.style.display = 'none';
     delModelWrap.style.display = 'none';
+    // Page mémoire : le contenu EST le champ principal — affiché en clair.
+    rawHead.textContent = 'Contenu';
+    rawToggle.style.display = 'none';
+    rawBody.style.display = '';
   }
   document.getElementById('modal').style.display = 'flex';
 }
@@ -154,8 +171,6 @@ async function populateBackend(){
   let lc = {}; try{ lc = await jget('/api/llamacpp'); }catch(_){}
   beFastPath = (lc.prebuilt && lc.prebuilt.bin) || '';
   beOptPath  = lc.bin || '';
-  document.getElementById('be-fast-note').textContent = beFastPath ? '' : 'non installée';
-  document.getElementById('be-opt-note').textContent  = beOptPath  ? '' : 'non installée';
   // Menu « backend détecté » du mode personnalisé : tout ce qu'on trouve dans
   // le dossier backends de jean (l'utilisateur peut y déposer son propre build).
   const detected = await jget('/api/backends');
@@ -164,7 +179,7 @@ async function populateBackend(){
   for(const b of (detected||[])) html += '<option value="'+b.path+'">'+b.name+'</option>';
   sel.innerHTML = html;
   document.getElementById('be-drop-hint').textContent = lc.backends_dir
-    ? ('Astuce : dépose ton binaire dans un sous-dossier de '+lc.backends_dir+' pour le voir apparaître ci-dessus.') : '';
+    ? ('Astuce : déposez votre binaire dans un sous-dossier de '+lc.backends_dir+' pour le voir apparaître ci-dessus.') : '';
   // Sélectionne l'option correspondant au BIN actuel du preset.
   const cur = currentBinInTextarea();
   let mode = 'custom';
@@ -181,10 +196,10 @@ function toggleBackendCustom(mode){
 function onBackendMode(mode){
   toggleBackendCustom(mode);
   if(mode === 'fast'){
-    if(!beFastPath){ toast('installe d\'abord la version rapide (section Backend llama.cpp)'); return; }
+    if(!beFastPath){ toast('installez d\'abord la version rapide (section MOTEUR)'); return; }
     setBinInTextarea(beFastPath); toast('moteur : rapide');
   } else if(mode === 'opt'){
-    if(!beOptPath){ toast('installe d\'abord la version optimisée (section Backend llama.cpp)'); return; }
+    if(!beOptPath){ toast('installez d\'abord la version optimisée (section MOTEUR)'); return; }
     setBinInTextarea(beOptPath); toast('moteur : optimisé');
   }
   // custom : on attend que l'utilisateur saisisse un chemin / choisisse un backend
@@ -214,6 +229,72 @@ function applyQuant(){
   } else {
     ta.value = ta.value.replace(re, '').replace(/\n{3,}/g,'\n\n');
   }
+}
+// ---- Réglages simples : champs de formulaire <-> lignes du fichier .env -----
+// Le fichier de config (textarea m-content) reste la source de vérité : chaque
+// champ lit/écrit sa ligne KEY=… , comme le font déjà MODEL/BIN/QUANT.
+function cfgReadKey(key){
+  const m = document.getElementById('m-content').value.match(new RegExp('^[ \\t]*'+key+'[ \\t]*=[ \\t]*"?([^"\\n]*)"?[ \\t]*$','m'));
+  return m ? m[1].trim() : '';
+}
+function cfgWriteKey(key, val){
+  const ta = document.getElementById('m-content');
+  val = String(val==null?'':val).trim();
+  const reLine = new RegExp('^[ \\t]*'+key+'[ \\t]*=.*$','m');
+  if(val === ''){ // clé vidée → on retire la ligne
+    ta.value = ta.value.replace(new RegExp('^[ \\t]*'+key+'[ \\t]*=.*\\n?','m'),'').replace(/\n{3,}/g,'\n\n');
+    return;
+  }
+  const line = key+'='+(/\s/.test(val) ? '"'+val+'"' : val);
+  if(reLine.test(ta.value)) ta.value = ta.value.replace(reLine, line);
+  else ta.value = ta.value.replace(/\s*$/,'') + '\n'+line+'\n';
+}
+// EXTRA_ARGS : liste de drapeaux passés tels quels à llama-server. On les édite
+// jeton par jeton pour les interrupteurs (mlock, flash-attn, n-cpu-moe…), sans
+// toucher aux autres drapeaux (--jinja, --device…) qui restent en config brute.
+function eaTokens(){ return cfgReadKey('EXTRA_ARGS').split(/\s+/).filter(Boolean); }
+function eaSetTokens(t){ cfgWriteKey('EXTRA_ARGS', t.join(' ')); }
+function eaHasFlag(flag){ return eaTokens().includes(flag); }
+function eaToggleFlag(flag, on){
+  const t = eaTokens().filter(x=>x!==flag);
+  if(on) t.push(flag);
+  eaSetTokens(t);
+}
+function eaGetValued(flag){
+  const t = eaTokens(), i = t.indexOf(flag);
+  return (i>=0 && i+1<t.length && !t[i+1].startsWith('-')) ? t[i+1] : '';
+}
+function eaSetValued(flag, val){
+  const t = eaTokens(), i = t.indexOf(flag);
+  if(i>=0){ const hadVal = i+1<t.length && !t[i+1].startsWith('-'); t.splice(i, hadVal?2:1); }
+  val = String(val||'').trim();
+  if(val !== '') t.push(flag, val);
+  eaSetTokens(t);
+}
+// Remplit les champs de réglage depuis le contenu courant du preset.
+function populateSettings(){
+  const set = (id,v)=>{ const e=document.getElementById(id); if(e) e.value=v; };
+  set('s-ctx', cfgReadKey('CTX'));
+  set('s-ngl', cfgReadKey('NGL'));
+  set('s-threads', cfgReadKey('THREADS'));
+  set('s-batch', cfgReadKey('BATCH'));
+  set('s-ubatch', cfgReadKey('UBATCH'));
+  set('s-tbatch', cfgReadKey('THREADS_BATCH'));
+  set('s-kv', cfgReadKey('KV_TYPE'));
+  set('s-moe', eaGetValued('--n-cpu-moe'));
+  const chk = (id,v)=>{ const e=document.getElementById(id); if(e) e.checked=v; };
+  chk('s-reasoning', /^(on|1|true|auto|deepseek)$/i.test(cfgReadKey('REASONING')));
+  chk('s-flash', eaHasFlag('--flash-attn') && !/^off$/i.test(eaGetValued('--flash-attn')));
+  chk('s-mlock', eaHasFlag('--mlock'));
+  chk('s-nommap', eaHasFlag('--no-mmap'));
+}
+// Replie/déplie l'éditeur du fichier .env (config brute) dans le modal preset.
+function toggleRaw(){
+  const b = document.getElementById('m-raw-body');
+  const c = document.getElementById('m-raw-caret');
+  const show = b.style.display === 'none';
+  b.style.display = show ? '' : 'none';
+  if(c) c.classList.toggle('open', show);
 }
 const openPreset = (id)=>openItem('preset', id);
 const openMem    = (n)=>openItem('mem', n);

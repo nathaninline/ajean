@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -34,15 +35,74 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 			ctx = n
 		}
 	}
+	// Si le modèle n'est pas prêt, on regarde POURQUOI : une tentative de
+	// chargement qui a échoué (souvent un modèle incompatible avec le moteur)
+	// doit être signalée clairement plutôt que de laisser un « chargement… »
+	// perpétuel / un crash-loop muet.
+	loadErr := ""
+	if !health {
+		loadErr = modelLoadError()
+	}
 	sendJSON(w, 200, map[string]any{
-		"state":   state,
-		"active":  active,
-		"health":  health,
-		"port":    LLMPort(),
-		"ctx":     ctx,
-		"version": Version,
-		"warn":    appWarning(), // ex. App Translocation macOS — vide si tout va bien
+		"state":      state,
+		"active":     active,
+		"health":     health,
+		"port":       LLMPort(),
+		"ctx":        ctx,
+		"version":    Version,
+		"warn":       appWarning(), // ex. App Translocation macOS — vide si tout va bien
+		"load_error": loadErr,      // modèle qui ne charge pas (incompat moteur…) — vide sinon
 	})
+}
+
+// modelLoadError inspecte la fin du journal du service et renvoie un message
+// clair quand la DERNIÈRE tentative de chargement du modèle s'est soldée par un
+// échec. Le cas le plus courant : un GGUF dont le format de quantification n'est
+// pas reconnu par le moteur (BIN) sélectionné — typiquement un modèle ternaire
+// qui exige un fork de llama.cpp. Renvoie "" quand le dernier chargement a
+// réussi ou qu'aucune tentative n'est visible (évite les faux positifs sur un
+// service simplement arrêté).
+func modelLoadError() string {
+	log := serviceLogTail(200)
+	if log == "" {
+		return ""
+	}
+	lines := strings.Split(log, "\n")
+	// On ne considère que ce qui suit la DERNIÈRE tentative de chargement.
+	start := 0
+	for i, l := range lines {
+		if strings.Contains(l, "loading model") || strings.Contains(l, "load_model") {
+			start = i
+		}
+	}
+	loaded, reason := false, ""
+	for _, l := range lines[start:] {
+		low := strings.ToLower(l)
+		switch {
+		case strings.Contains(low, "model loaded"), strings.Contains(low, "server is listening"):
+			loaded = true
+		case strings.Contains(l, "has offset") && strings.Contains(l, "expected"):
+			reason = "format de quantification non reconnu par ce moteur"
+		case strings.Contains(low, "unknown model architecture"),
+			strings.Contains(low, "unknown ftype"),
+			strings.Contains(low, "unknown type"),
+			strings.Contains(low, "unsupported"):
+			if reason == "" {
+				reason = "type/architecture de modèle inconnu de ce moteur"
+			}
+		case strings.Contains(low, "error loading model"),
+			strings.Contains(low, "failed to load model"),
+			strings.Contains(low, "failed to read tensor data"):
+			if reason == "" {
+				reason = "échec du chargement du modèle"
+			}
+		}
+	}
+	if loaded || reason == "" {
+		return ""
+	}
+	return "Le modèle n'a pas pu être chargé : " + reason +
+		". Il est probablement incompatible avec le moteur sélectionné — choisis un autre backend pour ce modèle (édite le modèle → section Moteur)."
 }
 
 // handleServiceLog (GET /api/service/log) : dernières lignes du journal du
@@ -102,11 +162,17 @@ func handleConfigEnv(w http.ResponseWriter, r *http.Request) {
 // trying common build subpaths (build/bin, build-sm120/bin, bin, .).
 // Returns [{name, path}].
 func handleBackends(w http.ResponseWriter, r *http.Request) {
+	sendJSON(w, 200, listBackendBins())
+}
+
+// listBackendBins scanne JEAN_HOME/backends/<name>/ pour un binaire llama-server
+// (essaie les sous-chemins des différents générateurs CMake). Renvoie
+// [{name, path}] — un par dossier de backend contenant un binaire.
+func listBackendBins() []map[string]any {
 	root := JeanHome() + "/backends"
 	entries, err := os.ReadDir(root)
 	if err != nil {
-		sendJSON(w, 200, []map[string]any{})
-		return
+		return []map[string]any{}
 	}
 	subpaths := []string{
 		"build/bin/llama-server", "build-sm120/bin/llama-server",
@@ -130,7 +196,69 @@ func handleBackends(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	return out
+}
+
+// handleBackendsCustom liste les seuls backends CUSTOM : les dossiers de
+// backends/ hors moteurs gérés par les cartes ⚡ (prebuilt) et 🔧 (build
+// canonique). Marque celui qui sert de moteur au modèle actif (in_use).
+func handleBackendsCustom(w http.ResponseWriter, r *http.Request) {
+	canonical := filepath.Base(defaultRepoDir()) // "llama.cpp"
+	prebuilt := filepath.Base(prebuiltDir())     // "llama.cpp-prebuilt"
+	cfgBin := ReadConfig()["BIN"]
+	out := []map[string]any{}
+	for _, b := range listBackendBins() {
+		name, _ := b["name"].(string)
+		if name == canonical || name == prebuilt {
+			continue
+		}
+		path, _ := b["path"].(string)
+		out = append(out, map[string]any{"name": name, "path": path, "in_use": samePath(path, cfgBin)})
+	}
 	sendJSON(w, 200, out)
+}
+
+// handleLlamacppUninstallCustom supprime le dossier d'un backend custom
+// (backends/<name>). Refuse les moteurs gérés (canonique / prebuilt) et un
+// backend actuellement utilisé par le modèle actif (il faut d'abord basculer de
+// moteur pour ce modèle).
+func handleLlamacppUninstallCustom(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name string `json:"name"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	name := sanitizeBackendName(req.Name)
+	if name == "" {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "nom requis"})
+		return
+	}
+	if name == filepath.Base(defaultRepoDir()) || name == filepath.Base(prebuiltDir()) {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "ce moteur se gère depuis les cartes ⚡ / 🔧"})
+		return
+	}
+	dir, err := backendDir(name)
+	if err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if !isDir(dir) {
+		sendJSON(w, 404, map[string]any{"ok": false, "error": "backend introuvable"})
+		return
+	}
+	cfgBin := ReadConfig()["BIN"]
+	for _, b := range listBackendBins() {
+		if b["name"] == name {
+			if p, _ := b["path"].(string); samePath(p, cfgBin) {
+				sendJSON(w, 409, map[string]any{"ok": false, "error": "backend utilisé par le modèle actif — bascule d'abord ce modèle sur un autre moteur"})
+				return
+			}
+		}
+	}
+	if err := os.RemoveAll(dir); err != nil {
+		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true})
 }
 
 // handleModels lists *.gguf files in JEAN_HOME (size in bytes) for the preset

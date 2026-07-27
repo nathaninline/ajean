@@ -233,6 +233,41 @@ func handleLlamacppInstall(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true})
 }
 
+// handleLlamacppInstallCustom lance un job d'installation d'un backend CUSTOM
+// (fork llama.cpp) depuis une URL de dépôt Git : cloné dans backends/<name> et
+// compilé pour la machine, SANS toucher au BIN global. Il apparaît ensuite dans
+// /api/backends et se choisit par modèle (éditeur de preset → Moteur).
+func handleLlamacppInstallCustom(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Repo string `json:"repo"`
+		Name string `json:"name"`
+		Ref  string `json:"ref"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	if strings.TrimSpace(req.Repo) == "" {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "URL du dépôt requise"})
+		return
+	}
+	if err := startLcJob("custom", func() { lcRunCustomInstall(req.Repo, req.Name, req.Ref) }); err != nil {
+		sendJSON(w, 409, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
+// lcRunCustomInstall : corps du job d'install d'un backend custom (sans bascule
+// de BIN — c'est volontaire, il se rattache par preset).
+func lcRunCustomInstall(url, name, ref string) {
+	bin, err := installCustomBackend(url, name, ref, lcPhase)
+	if err != nil {
+		lcFail(err)
+		return
+	}
+	lcAppend("binaire compilé : " + bin)
+	lcAppend("→ pour l'utiliser : édite un modèle → section Moteur → « backend détecté » et choisis-le.")
+	lcDone("backend custom installé")
+}
+
 // handleLlamacppUpdate lance le job de mise à jour (pull + rebuild + restart).
 // {clean:true} force une recompilation from scratch même sans nouveau commit.
 func handleLlamacppUpdate(w http.ResponseWriter, r *http.Request) {

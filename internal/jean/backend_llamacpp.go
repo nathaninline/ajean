@@ -111,12 +111,18 @@ func llamacppInstall(args []string) error {
 	ref := ""
 	force := false
 	noSwitch := false
+	customURL := ""
+	customName := ""
 	for _, a := range args {
 		switch {
 		case strings.HasPrefix(a, "--dir="):
 			repo = strings.TrimPrefix(a, "--dir=")
 		case strings.HasPrefix(a, "--ref="):
 			ref = strings.TrimPrefix(a, "--ref=")
+		case strings.HasPrefix(a, "--repo="):
+			customURL = strings.TrimPrefix(a, "--repo=")
+		case strings.HasPrefix(a, "--name="):
+			customName = strings.TrimPrefix(a, "--name=")
 		case a == "--force":
 			force = true
 		case a == "--no-switch":
@@ -124,6 +130,23 @@ func llamacppInstall(args []string) error {
 		default:
 			return fmt.Errorf("option inconnue: %s", a)
 		}
+	}
+
+	// Backend CUSTOM : fork llama.cpp installé depuis une URL Git dans
+	// backends/<nom>. On NE touche PAS au BIN global — un backend custom se
+	// choisit par modèle (preset → section Moteur → « backend détecté »). C'est
+	// exactement le cas d'un moteur ternaire type PrismML qui ne sert qu'à un
+	// seul modèle : le rattacher globalement casserait les autres presets.
+	if customURL != "" {
+		bin, err := installCustomBackend(customURL, customName, ref, func(s string) {
+			fmt.Printf("%s %s\n", cyan("▶"), s)
+		})
+		if err != nil {
+			return err
+		}
+		fmt.Printf("\n%s backend custom compilé : %s\n", green("✓"), bin)
+		fmt.Printf("Pour l'utiliser : édite un modèle → section %s → « backend détecté » et choisis-le.\n", bold("Moteur"))
+		return nil
 	}
 
 	if err := requireTools("git", "cmake"); err != nil {
@@ -347,3 +370,153 @@ func llamacppStatus(args []string) error {
 // detectBuildPlan probes the machine and returns the CMake flags for the best
 // available accelerator. Order of preference: CUDA → ROCm/HIP → Metal (macOS)
 // → Vulkan → CPU.
+// (implémentation dans backend_build.go)
+
+// ---------------------------------------------------------------------------
+// Backends custom (fork llama.cpp installé depuis une URL Git)
+// ---------------------------------------------------------------------------
+
+// installCustomBackend clone (ou met à jour) un fork de llama.cpp depuis `url`
+// dans backends/<name> et compile llama-server avec le plan détecté pour la
+// machine. Il NE touche PAS à BIN : un backend custom se choisit par modèle
+// (éditeur de preset → section Moteur → « backend détecté »). Renvoie le chemin
+// du binaire compilé. `phase` reçoit les étapes de haut niveau (clone, build…) ;
+// la sortie détaillée du build passe par le sink habituel (terminal en CLI,
+// job web sinon).
+func installCustomBackend(url, name, ref string, phase func(string)) (string, error) {
+	if phase == nil {
+		phase = func(string) {}
+	}
+	url = strings.TrimSpace(url)
+	if url == "" {
+		return "", fmt.Errorf("URL du dépôt vide")
+	}
+	if !looksLikeGitURL(url) {
+		return "", fmt.Errorf("URL de dépôt invalide (attendu https://…, git@… ou ssh://…) : %s", url)
+	}
+	if strings.TrimSpace(name) == "" {
+		name = deriveBackendName(url)
+	}
+	dir, err := backendDir(name)
+	if err != nil {
+		return "", err
+	}
+
+	phase("vérification des outils (git, cmake, compilateur)…")
+	if err := requireTools("git", "cmake"); err != nil {
+		return "", err
+	}
+	if err := ensureCompiler(); err != nil {
+		return "", err
+	}
+	ensureAccelerator() // best-effort : installe le toolkit GPU si une carte est détectée
+
+	if isDir(filepath.Join(dir, ".git")) {
+		// Backend déjà cloné : on le met à jour plutôt que de re-cloner.
+		phase("dépôt déjà présent — mise à jour…")
+		_ = runStep("git fetch", dir, "git", "fetch", "origin", "--quiet")
+		if ref != "" {
+			if err := runStep("git checkout", dir, "git", "checkout", ref); err != nil {
+				return "", err
+			}
+		} else if branch := gitOutput(dir, "rev-parse", "--abbrev-ref", "HEAD"); branch != "" && branch != "HEAD" {
+			_ = runStep("git pull --ff-only", dir, "git", "pull", "--ff-only", "origin", branch)
+		}
+	} else {
+		if err := os.MkdirAll(filepath.Dir(dir), 0o755); err != nil {
+			return "", err
+		}
+		phase("clone de " + url + "…")
+		if err := runStep("git clone", "", "git", "clone", "--depth=1", url, dir); err != nil {
+			return "", fmt.Errorf("git clone a échoué : %w", err)
+		}
+		if ref != "" {
+			// --depth=1 ne récupère que HEAD ; on approfondit pour atteindre le ref.
+			_ = runStep("git fetch", dir, "git", "fetch", "--unshallow", "origin")
+			if err := runStep("git checkout", dir, "git", "checkout", ref); err != nil {
+				return "", err
+			}
+		}
+	}
+
+	plan := detectBuildPlan()
+	phase(fmt.Sprintf("compilation (backend=%s)…", plan.backend))
+	if err := buildLlamacpp(dir, plan, false); err != nil {
+		return "", err
+	}
+	bin := llamaServerBin(dir)
+	if bin == "" {
+		return "", fmt.Errorf("build terminé mais binaire introuvable sous %s", filepath.Join(dir, "build"))
+	}
+	return bin, nil
+}
+
+func looksLikeGitURL(u string) bool {
+	for _, p := range []string{"https://", "http://", "git@", "ssh://", "git://"} {
+		if strings.HasPrefix(u, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// deriveBackendName construit un nom de dossier de backend à partir d'une URL de
+// dépôt. On garde le nom du dépôt, préfixé du propriétaire quand ça éviterait
+// une collision avec le backend canonique (backends/llama.cpp).
+func deriveBackendName(url string) string {
+	s := strings.TrimSuffix(strings.TrimSpace(url), ".git")
+	s = strings.TrimRight(s, "/")
+	parts := strings.FieldsFunc(s, func(r rune) bool { return r == '/' || r == ':' })
+	repo, owner := "", ""
+	if n := len(parts); n > 0 {
+		repo = parts[n-1]
+		if n > 1 {
+			owner = parts[n-2]
+		}
+	}
+	name := repo
+	if name == "" {
+		name = "backend"
+	}
+	// Un fork nommé « llama.cpp » écraserait le backend optimisé canonique ; on
+	// le distingue par le propriétaire (ex. llama.cpp-prismml-eng).
+	if strings.EqualFold(name, "llama.cpp") && owner != "" {
+		name = name + "-" + owner
+	}
+	return sanitizeBackendName(name)
+}
+
+// sanitizeBackendName réduit un nom à un identifiant de dossier sûr
+// ([a-z0-9._-]), pour qu'il ne puisse jamais s'échapper de backends/.
+func sanitizeBackendName(name string) string {
+	name = strings.ToLower(strings.TrimSpace(name))
+	var b strings.Builder
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '.', r == '_', r == '-':
+			b.WriteRune(r)
+		case r == ' ' || r == '/' || r == '\\':
+			b.WriteByte('-')
+		}
+	}
+	out := strings.Trim(b.String(), ".-")
+	if out == "" {
+		return "backend"
+	}
+	return out
+}
+
+// backendDir renvoie backends/<name>, en refusant tout nom qui s'échapperait du
+// dossier backends (../, chemin absolu…).
+func backendDir(name string) (string, error) {
+	name = sanitizeBackendName(name)
+	root, err := filepath.Abs(filepath.Join(JeanHome(), "backends"))
+	if err != nil {
+		return "", err
+	}
+	p := filepath.Join(root, name)
+	if !strings.HasPrefix(p, root+string(filepath.Separator)) {
+		return "", fmt.Errorf("nom de backend invalide")
+	}
+	return p, nil
+}

@@ -28,6 +28,7 @@
   </div>
   <!-- Avertissement de lancement (App Translocation macOS) — masqué par défaut. -->
   <div id="app-warn" class="muted" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:8px;color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)"></div>
+  <div id="model-err" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:8px;color:var(--err);border:1px solid color-mix(in srgb,var(--err) 45%,transparent);background:color-mix(in srgb,var(--err) 12%,transparent)"></div>
   <!-- Journal du moteur : replié par défaut, ouvert au clic sur la pastille d'état.
        C'est le seul endroit où l'on voit pourquoi un modèle refuse de charger. -->
   <div id="svc-log-box" style="display:none;margin:0 0 10px">
@@ -174,6 +175,11 @@
         <div class="lc-mode-d">compilée pour votre machine, plus longue</div>
         <div class="lc-mode-state" id="lc-opt-state"></div>
       </div>
+      <div class="lc-mode" id="lc-mode-custom" onclick="openCustomBackends()">
+        <div class="lc-mode-t">🧩 Backend personnalisé</div>
+        <div class="lc-mode-d">forks llama.cpp pour modèles spéciaux (ternaire…)</div>
+        <div class="lc-mode-state" id="lc-custom-state"></div>
+      </div>
     </div>
     <div id="lc-job" style="display:none;margin-top:10px">
       <div id="lc-job-phase" style="font-size:12px;display:flex;align-items:center;gap:6px"></div>
@@ -244,6 +250,36 @@
     </div>
   </div>
 </div>
+<div id="lc-custom-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeCustomBackends()">
+  <div class="modal-card" style="max-width:560px">
+    <div class="modal-head">
+      <strong>🧩 Backends personnalisés</strong>
+      <button class="modal-x" onclick="closeCustomBackends()" aria-label="Fermer">×</button>
+    </div>
+    <div class="modal-body mform">
+      <div class="muted" style="font-size:12px;line-height:1.5">Compile un fork de llama.cpp depuis un dépôt Git — pour les modèles qui exigent un moteur spécial (quant ternaire, etc.). Un backend personnalisé <b>ne remplace pas</b> le moteur : vous le choisissez ensuite <b>par modèle</b> (bouton ✎ → section Moteur → « backend détecté »).</div>
+      <div class="fld">
+        <label class="fld-l">Installés</label>
+        <div id="lc-custom-list" class="mcp-list"></div>
+      </div>
+      <div class="fld">
+        <label class="fld-l" for="lc-custom-url">Installer depuis un dépôt Git</label>
+        <input id="lc-custom-url" class="ctl" placeholder="https://github.com/owner/llama.cpp-fork">
+      </div>
+      <div class="fld">
+        <label class="fld-l" for="lc-custom-name">Nom <span class="opt">(optionnel — déduit de l'URL sinon)</span></label>
+        <input id="lc-custom-name" class="ctl" placeholder="llama.cpp-prism">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <div class="foot-l"></div>
+      <div class="foot-r">
+        <button onclick="closeCustomBackends()">fermer</button>
+        <button class="btn-save" onclick="lcInstallCustom()">Installer &amp; compiler</button>
+      </div>
+    </div>
+  </div>
+</div>
 <div id="mcp-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeMcp()">
   <div class="modal-card" style="max-width:560px">
     <div class="modal-head">
@@ -309,62 +345,131 @@
       <strong id="modal-title">Preset</strong>
       <button class="modal-x" onclick="closeModal()" aria-label="Fermer">×</button>
     </div>
-    <div class="modal-body mform">
-      <div class="fld">
-        <label class="fld-l" for="m-name">Nom <span class="opt">(espaces et accents OK, sauf / et \)</span></label>
-        <input id="m-name" class="ctl">
-      </div>
-
-      <div id="m-model-row" class="card" style="display:none">
-        <div class="card-h">Modèle &amp; moteur</div>
-
-        <div class="fld">
-          <label class="fld-l">Moteur <span class="opt">— quel llama.cpp fait tourner ce modèle</span></label>
-          <div class="seg">
-            <label><input type="radio" name="m-be" value="fast" onchange="onBackendMode('fast')"><span>⚡ Rapide</span><span class="be-note" id="be-fast-note"></span></label>
-            <label><input type="radio" name="m-be" value="opt" onchange="onBackendMode('opt')"><span>🔧 Optimisé</span><span class="be-note" id="be-opt-note"></span></label>
-            <label><input type="radio" name="m-be" value="custom" onchange="onBackendMode('custom')"><span>📁 Perso</span></label>
-          </div>
-          <div id="m-backend-custom" style="display:none;margin-top:8px">
-            <input id="m-backend-path" class="ctl" oninput="onCustomPath()" placeholder="chemin vers llama-server(.exe)">
-            <select id="m-backend-detected" class="ctl" onchange="onPickDetected()" style="margin-top:6px"></select>
-            <div class="fld-hint" id="be-drop-hint"></div>
-          </div>
-        </div>
-
-        <div class="fld">
-          <label class="fld-l" for="m-model">Modèle <span class="opt">(remplace la ligne MODEL=)</span></label>
-          <select id="m-model" class="ctl" onchange="onPickModel()"></select>
-        </div>
-
-        <div class="fld">
-          <label class="fld-l" for="m-hf-url">Télécharger un modèle <span class="opt">(lien direct vers un .gguf)</span></label>
-          <div class="input-btn">
-            <input id="m-hf-url" class="ctl" placeholder="https://…/model.gguf">
-            <button id="m-hf-btn" class="btn-in" onclick="startDownload()" title="Télécharger">⬇</button>
-          </div>
-          <div id="m-hf-progress" class="fld-hint" style="display:none"></div>
-        </div>
-
-        <div class="fld">
-          <label class="fld-l" for="m-quant">Quantization <span class="opt">(vide = détection auto depuis le nom)</span></label>
-          <input id="m-quant" class="ctl" oninput="applyQuant()" placeholder="ex: Q4_K_M, IQ3_XXS, BF16…">
+    <div class="pe-body">
+      <div class="pe-group">
+        <div class="pe-gh">Nom</div>
+        <div class="pe-list">
+          <div class="pe-row stack plain"><input id="m-name" class="pe-inp" placeholder="Nom du preset"></div>
         </div>
       </div>
 
-      <div class="fld">
-        <label class="fld-l" for="m-content">Contenu <span class="opt">(fichier de config brut)</span></label>
-        <textarea id="m-content" class="ctl ta" spellcheck="false"></textarea>
+      <div id="m-model-row" style="display:none;flex-direction:column;gap:26px">
+        <div class="pe-group">
+          <div class="pe-gh">Modèle</div>
+          <div class="pe-list">
+            <div class="pe-row">
+              <span class="pe-row-l">Fichier</span>
+              <span class="pe-row-c"><span class="pe-selc"><select id="m-model" onchange="onPickModel()"></select></span></span>
+            </div>
+            <div class="pe-row">
+              <span class="pe-row-l">Quantization<span class="pe-sub">auto si vide</span></span>
+              <span class="pe-row-c"><input id="m-quant" class="pe-val" oninput="applyQuant()" placeholder="Auto"></span>
+            </div>
+            <div class="pe-row stack">
+              <span class="pe-row-l">Télécharger un modèle <span class="pe-sub">lien direct vers un .gguf</span></span>
+              <div class="pe-inpbtn">
+                <input id="m-hf-url" class="pe-inp" placeholder="https://…/model.gguf">
+                <button id="m-hf-btn" onclick="startDownload()" title="Télécharger">⬇</button>
+              </div>
+              <div id="m-hf-progress" class="pe-note" style="display:none"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pe-group">
+          <div class="pe-gh">Moteur</div>
+          <div class="pe-seg">
+            <label><input type="radio" name="m-be" value="fast" onchange="onBackendMode('fast')"><span>Rapide</span><span class="be-note" id="be-fast-note"></span></label>
+            <label><input type="radio" name="m-be" value="opt" onchange="onBackendMode('opt')"><span>Optimisé</span><span class="be-note" id="be-opt-note"></span></label>
+            <label><input type="radio" name="m-be" value="custom" onchange="onBackendMode('custom')"><span>Personnalisé</span></label>
+          </div>
+          <div id="m-backend-custom" class="pe-list" style="display:none;margin-top:8px">
+            <div class="pe-row">
+              <span class="pe-row-l">Backend</span>
+              <span class="pe-row-c"><span class="pe-selc"><select id="m-backend-detected" onchange="onPickDetected()"></select></span></span>
+            </div>
+            <div class="pe-row stack">
+              <input id="m-backend-path" class="pe-inp" oninput="onCustomPath()" placeholder="ou un chemin vers llama-server(.exe)">
+              <div class="pe-note" id="be-drop-hint"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="m-settings-row" class="pe-group" style="display:none">
+        <div class="pe-gh">Réglages</div>
+        <div class="pe-list">
+          <div class="pe-row">
+            <span class="pe-row-l">Contexte</span>
+            <span class="pe-row-c"><input id="s-ctx" class="pe-val" type="number" min="0" step="1024" placeholder="32768" oninput="cfgWriteKey('CTX', this.value)"><span class="pe-unit">tok</span></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">Couches sur GPU<span class="pe-sub">999 = tout sur le GPU</span></span>
+            <span class="pe-row-c"><input id="s-ngl" class="pe-val" type="number" min="0" step="1" placeholder="999" oninput="cfgWriteKey('NGL', this.value)"></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">Threads CPU<span class="pe-sub">0 = auto</span></span>
+            <span class="pe-row-c"><input id="s-threads" class="pe-val" type="number" min="0" step="1" placeholder="0" oninput="cfgWriteKey('THREADS', this.value)"></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">Cache KV<span class="pe-sub">compression du contexte</span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="s-kv" onchange="cfgWriteKey('KV_TYPE', this.value)">
+              <option value="">f16 (max qualité)</option>
+              <option value="q8_0">q8_0 (léger)</option>
+              <option value="q4_0">q4_0 (très léger)</option>
+              <option value="q5_1">q5_1</option>
+              <option value="bf16">bf16</option>
+            </select></span></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">Raisonnement<span class="pe-sub">réflexion étape par étape</span></span>
+            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-reasoning" onchange="cfgWriteKey('REASONING', this.checked?'on':'')"><span class="pe-sl"></span></label></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">Flash attention<span class="pe-sub">plus rapide, moins de VRAM</span></span>
+            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-flash" onchange="eaSetValued('--flash-attn', this.checked?'on':'')"><span class="pe-sl"></span></label></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">Garder en RAM<span class="pe-sub">évite le swap (mlock)</span></span>
+            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-mlock" onchange="eaToggleFlag('--mlock', this.checked)"><span class="pe-sl"></span></label></span>
+          </div>
+        </div>
+
+        <details class="pe-adv" style="margin-top:8px">
+          <summary>Réglages avancés</summary>
+          <div class="pe-adv-body" style="padding:0">
+            <div class="pe-list" style="border:none;border-radius:0">
+              <div class="pe-row"><span class="pe-row-l">BATCH</span><span class="pe-row-c"><input id="s-batch" class="pe-val" type="number" min="0" step="256" placeholder="2048" oninput="cfgWriteKey('BATCH', this.value)"></span></div>
+              <div class="pe-row"><span class="pe-row-l">UBATCH</span><span class="pe-row-c"><input id="s-ubatch" class="pe-val" type="number" min="0" step="128" placeholder="512" oninput="cfgWriteKey('UBATCH', this.value)"></span></div>
+              <div class="pe-row"><span class="pe-row-l">Threads (batch)<span class="pe-sub">0 = auto</span></span><span class="pe-row-c"><input id="s-tbatch" class="pe-val" type="number" min="0" step="1" placeholder="0" oninput="cfgWriteKey('THREADS_BATCH', this.value)"></span></div>
+              <div class="pe-row"><span class="pe-row-l">Experts MoE sur CPU<span class="pe-sub">vide = non</span></span><span class="pe-row-c"><input id="s-moe" class="pe-val" type="number" min="0" step="1" placeholder="—" oninput="eaSetValued('--n-cpu-moe', this.value)"></span></div>
+              <div class="pe-row"><span class="pe-row-l">Charger tout en mémoire<span class="pe-sub">désactive le mmap</span></span><span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-nommap" onchange="eaToggleFlag('--no-mmap', this.checked)"><span class="pe-sl"></span></label></span></div>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <div id="m-raw" class="pe-group">
+        <div class="pe-gh" id="m-raw-head">Configuration</div>
+        <div class="pe-list">
+          <div id="m-raw-toggle" class="pe-row" style="cursor:pointer" onclick="toggleRaw()">
+            <span class="pe-row-l">Éditer le fichier <code>.env</code><span class="pe-sub">configuration brute — pour les réglages avancés</span></span>
+            <span class="pe-row-c"><span id="m-raw-caret" class="pe-caret"></span></span>
+          </div>
+          <div id="m-raw-body" class="pe-row stack" style="display:none">
+            <textarea id="m-content" class="pe-inp" spellcheck="false"></textarea>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="modal-foot">
+    <div class="pe-foot">
       <div class="foot-l">
-        <button id="m-del" class="btn-danger" onclick="delItem()">supprimer</button>
-        <label id="m-del-model-wrap" class="del-model" style="display:none"><input type="checkbox" id="m-del-model"> + le modèle .gguf</label>
+        <button id="m-del" class="pe-btn ghost-danger" onclick="delItem()">supprimer</button>
+        <label id="m-del-model-wrap" class="pe-delmodel" style="display:none"><input type="checkbox" id="m-del-model"> + le modèle .gguf</label>
       </div>
       <div class="foot-r">
-        <button onclick="closeModal()">annuler</button>
-        <button class="btn-save" onclick="saveItem()">enregistrer</button>
+        <button class="pe-btn" onclick="closeModal()">annuler</button>
+        <button class="pe-btn primary" onclick="saveItem()">enregistrer</button>
       </div>
     </div>
   </div>

@@ -22,6 +22,7 @@ async function loadLlamacpp(){
   }
   lcRenderMode('fast', fastInstalled);
   lcRenderMode('opt', optInstalled);
+  lcRenderCustomCard();
 
   // Job en cours (page rechargée pendant une install) → on raccroche l'affichage.
   if(s.job && s.job.exists && s.job.running && !lcPoll){
@@ -97,6 +98,75 @@ async function lcUpdate(mode){
     if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
   }
   lcStartPolling();
+}
+
+// --- Backends personnalisés (3e carte + modal de gestion) ------------------
+let lcCustomBackends = [];
+
+// État affiché sur la carte « Backend personnalisé » : nombre d'installés.
+async function lcRenderCustomCard(){
+  const state = document.getElementById('lc-custom-state');
+  if(!state) return;
+  try{ lcCustomBackends = await jget('/api/backends/custom') || []; }catch(_){ lcCustomBackends = []; }
+  const n = lcCustomBackends.length;
+  document.getElementById('lc-mode-custom').classList.toggle('installed', n>0);
+  state.innerHTML = n>0
+    ? '<span class="lc-mode-active-tag">✓ '+n+' installé'+(n>1?'s':'')+'</span><span class="lc-mode-go">→ gérer</span>'
+    : '<span class="lc-mode-go">→ voir / installer</span>';
+}
+
+function openCustomBackends(){
+  document.getElementById('lc-custom-modal').style.display = 'flex';
+  document.getElementById('lc-custom-url').value = '';
+  document.getElementById('lc-custom-name').value = '';
+  loadCustomBackends();
+}
+function closeCustomBackends(){ document.getElementById('lc-custom-modal').style.display = 'none'; }
+
+// Liste les backends custom dans le modal, avec un bouton supprimer par ligne.
+async function loadCustomBackends(){
+  const box = document.getElementById('lc-custom-list');
+  box.innerHTML = '<span class="muted" style="font-size:12px">chargement…</span>';
+  let list = [];
+  try{ list = await jget('/api/backends/custom') || []; }catch(_){}
+  lcCustomBackends = list;
+  if(!list.length){ box.innerHTML = '<span class="muted" style="font-size:12px">aucun backend personnalisé pour l\'instant.</span>'; return; }
+  box.innerHTML = list.map(b=>{
+    const nm = String(b.name).replace(/[<>&]/g,'');
+    const used = b.in_use ? '<span class="mcp-tag" style="border-color:var(--accent);color:var(--accent)">utilisé</span>' : '';
+    return '<div class="mcp-row" style="cursor:default">'
+      + '<span class="mcp-dot '+(b.in_use?'mcp-dot-ok':'mcp-dot-off')+'"></span>'
+      + '<div class="mcp-info"><div class="mcp-name">'+nm+'</div>'
+      + '<div class="mcp-meta">'+used+'<span class="mcp-tag" title="'+String(b.path).replace(/"/g,'&quot;')+'">'+String(b.path).split('/').slice(-3).join('/').replace(/[<>&]/g,'')+'</span></div></div>'
+      + '<button class="btn-danger" style="padding:3px 8px;font-size:11px" onclick="lcUninstallCustom(\''+nm.replace(/'/g,"\\'")+'\')">supprimer</button>'
+      + '</div>';
+  }).join('');
+}
+
+// Installer un backend CUSTOM depuis une URL de dépôt Git (fork llama.cpp).
+// Cloné + compilé dans backends/<nom>, SANS toucher au moteur global : il
+// apparaît ensuite dans le menu « backend détecté » de l'éditeur de modèle.
+async function lcInstallCustom(){
+  const url = (document.getElementById('lc-custom-url').value||'').trim();
+  if(!url){ toast('collez l\'URL d\'un dépôt Git'); return; }
+  const name = (document.getElementById('lc-custom-name').value||'').trim();
+  if(!await askConfirm('Cloner et compiler ce backend depuis :\n'+url+'\n\nCela peut prendre de longues minutes (surtout avec une carte NVIDIA). Il ne remplace pas le moteur global — vous le choisirez par modèle.', {title:'Backend personnalisé', okText:'Installer'})) return;
+  const r = await jpost('/api/llamacpp/install-custom', {repo:url, name});
+  if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
+  closeCustomBackends();
+  document.getElementById('lc-details').open = true;
+  lcStartPolling();
+}
+
+// Désinstaller (supprime le dossier backends/<name>). Le serveur refuse si le
+// backend sert de moteur au modèle actif.
+async function lcUninstallCustom(name){
+  if(!await askConfirm('Supprimer le backend « '+name+' » ? Son dossier compilé sera effacé. Les modèles qui l\'utilisent devront être repointés sur un autre moteur.', {title:'Supprimer le backend', okText:'Supprimer', danger:true})) return;
+  const r = await jpost('/api/llamacpp/uninstall-custom', {name});
+  if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
+  toast('backend supprimé');
+  loadCustomBackends();
+  lcRenderCustomCard();
 }
 
 // --- Progression de l'installation (téléchargement / compilation) ----------
