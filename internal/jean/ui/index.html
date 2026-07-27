@@ -31,6 +31,11 @@
 [data-theme="soft"]{color-scheme:light;--font:'Lexend',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--bubble:#c2611f;--bg:#faf8f4;--panel:#ffffff;--border:#e8e3d9;--text:#2c2a26;--dim:#8c8577;--accent:#c2611f;--accent-bg:rgba(194,97,31,.10);--ok:#c2611f;--warn:#b45309;--err:#dc2626;--mag:#9a5bd6;--code-bg:#f3f0ea;--danger-bg:#fbe9e7;--warn-bg:#fbf1e0}
 /* "doux sombre" — même esprit que "doux" (Lexend, tons chauds) sur fond sombre chaud. */
 [data-theme="soft-dark"]{color-scheme:dark;--font:'Lexend',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--bubble:#c2611f;--bg:#1c1917;--panel:#26221e;--border:#3a342c;--text:#ece7de;--dim:#9c9284;--accent:#e8965a;--accent-bg:rgba(232,150,90,.14);--ok:#e8965a;--warn:#d9a441;--err:#f07862;--mag:#c39be8;--code-bg:#171412;--danger-bg:#3d2420;--warn-bg:#3a2f1c}
+/* "ChatGPT" — monochrome (noir & blanc), police système, aucun accent coloré.
+   Seules les erreurs gardent un rouge discret pour rester lisibles. */
+[data-theme="gpt"]{color-scheme:light;--font:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--bubble:#e8e8e8;--bg:#ffffff;--panel:#f9f9f9;--border:#e3e3e3;--text:#0d0d0d;--dim:#8f8f8f;--accent:#0d0d0d;--accent-bg:rgba(0,0,0,.06);--ok:#0d0d0d;--warn:#5d5d5d;--err:#c0392b;--mag:#5d5d5d;--code-bg:#f4f4f4;--danger-bg:#fbeae8;--warn-bg:#f0f0f0}
+/* Bulle utilisateur claire : le texte blanc par défaut (.msg.user) serait illisible. */
+[data-theme="gpt"] .msg.user{color:var(--text)}
 *{box-sizing:border-box}
 body{margin:0;font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;font-size:14px}
 /* PWA plein écran (viewport-fit=cover) : on décale le contenu des bords pour ne
@@ -242,9 +247,13 @@ button:disabled{opacity:.5;cursor:not-allowed}
 /* Composer = un seul bloc cohérent : barre de contexte intégrée en tête (fine
    ligne de progression pleine largeur affleurant le bord) + zone de saisie. */
 #composer{border-top:1px solid var(--border);background:var(--panel-2,rgba(255,255,255,.02))}
-#ctxtrack{height:3px;width:100%;background:var(--panel);overflow:hidden}
+/* La jauge est un ENFANT de #ctxmeta (et non plus un frère au-dessus) : ainsi
+   elle peut être clippée par la forme arrondie du bloc — indispensable au
+   thème ChatGPT où elle sert de bord bas de carte. Position/rendu inchangés
+   pour les autres thèmes : filet collé en haut de la ligne de contexte. */
+#ctxtrack{position:absolute;top:0;left:0;right:0;height:3px;background:var(--panel);overflow:hidden}
 #ctx-fill{height:100%;width:0%;background:var(--ok,#3a7);transition:width .3s,background .3s}
-#ctxmeta{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:5px 12px 0}
+#ctxmeta{position:relative;display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:8px 12px 0}
 #ctx-text{font-size:10px;letter-spacing:.03em;white-space:nowrap}
 #ctx-compact{display:none;margin:0;padding:2px 10px;font-size:10px;background:var(--warn-bg);border-color:var(--warn,#c93)}
 #inputbar{padding:8px 12px;display:flex;gap:8px}
@@ -479,6 +488,81 @@ button:disabled{opacity:.5;cursor:not-allowed}
    espacement vertical (le conteneur n'est pas un flex à gap) → ils se touchaient.
    On aligne leur rythme sur celui du reste du formulaire (.mform). */
 #mcp-stdio-fields,#mcp-http-fields{display:flex;flex-direction:column;gap:14px}
+
+/* ===== Thème "ChatGPT" — mise en page ==============================
+   Les thèmes gpt-* ne changent pas que la palette : ils reprennent la
+   disposition de ChatGPT — colonne de lecture centrée, réponses SANS bulle
+   (texte nu sur le fond), question de l'utilisateur en pastille arrondie à
+   droite, composer en « pilule », pas d'étiquettes VOUS/JEAN, typo système
+   plus grande et plus aérée. Tout est préfixé [data-theme="gpt"] : aucun
+   autre thème n'est affecté. */
+[data-theme="gpt"] body{font-size:15px}
+[data-theme="gpt"] h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
+/* Barre latérale : plus sombre/atténuée que la zone de conversation. */
+[data-theme="gpt"] .side{background:var(--panel);border-right-color:transparent}
+@media (max-width:720px){[data-theme="gpt"] .side{background:var(--panel)}}
+/* Colonne de lecture centrée (comme le fil ChatGPT), pleine largeur sur mobile. */
+[data-theme="gpt"] #chat{padding:28px max(16px,calc(50% - 380px)) 8px;gap:22px}
+/* Réponses de l'assistant : pas de cadre, pas de fond — juste du texte. */
+[data-theme="gpt"] #chat .msg.assistant{background:transparent;border:none;padding:0;max-width:100%;line-height:1.7}
+/* Question : pastille arrondie à droite, texte lisible sur fond clair OU sombre. */
+[data-theme="gpt"] #chat .msg.user{background:var(--bubble);color:var(--text);border-radius:20px;padding:11px 18px;max-width:75%;line-height:1.6}
+[data-theme="gpt"] #chat .msg.user .label{color:var(--dim)}
+/* Étiquettes VOUS / JEAN : inutiles ici (l'alignement suffit), sauf pour les
+   bulles repliables (raisonnement / outils) où le label est le bouton de repli. */
+[data-theme="gpt"] #chat .msg .label{display:none}
+[data-theme="gpt"] #chat .msg.collapsible .label{display:block}
+/* Raisonnement / outils : encart gris discret plutôt qu'un cadre pointillé. */
+[data-theme="gpt"] #chat .msg.reasoning,[data-theme="gpt"] #chat .msg.tool{background:var(--panel);border:1px solid var(--border);border-radius:14px;color:var(--dim);padding:12px 16px}
+[data-theme="gpt"] #chat .msg.reasoning{color:var(--dim)}
+[data-theme="gpt"] #chat .msg.tool .tool-head{color:var(--text)}
+[data-theme="gpt"] #chat .msg.assistant .body pre,[data-theme="gpt"] #chat .msg.reasoning .body pre,[data-theme="gpt"] #chat .msg.tool pre{border-radius:12px;padding:12px 14px}
+[data-theme="gpt"] #chat .msg.assistant .body a{text-decoration:underline;text-underline-offset:2px}
+/* Composer = UNE seule carte posée PAR-DESSUS le fil : la conversation
+   continue de défiler DERRIÈRE elle et s'efface en fondu (dégradé vers le fond)
+   au lieu de s'arrêter net au-dessus. Dans la carte, de haut en bas : la saisie
+   et ses boutons, un pied discret (préréglage · contexte · compacter), puis la
+   jauge de contexte qui FORME le bord bas — elle épouse les coins arrondis
+   (overflow:hidden sur le rayon). Les trois blocs sont des frères dans le HTML :
+   on les recolle en dessinant les bordures par morceaux et l'ordre visuel vient
+   de l'ordre flex — aucun changement de markup. */
+[data-theme="gpt"] #composer{position:absolute;left:0;right:0;bottom:0;z-index:4;border-top:none;display:flex;flex-direction:column;padding:34px 0 8px;--col:max(16px,calc(50% - 380px));background:linear-gradient(to bottom,transparent 0,var(--bg) 34%)}
+[data-theme="gpt"] #chat{padding-bottom:170px}
+[data-theme="gpt"] #scrollbtn{bottom:180px;border-radius:999px}
+[data-theme="gpt"] #compact-banner{order:0;margin:0 var(--col) 8px;border-radius:14px}
+[data-theme="gpt"] #inputbar{order:1;margin:0 var(--col);padding:8px 8px 8px 16px;gap:8px;align-items:flex-end;background:var(--panel);border:1px solid var(--border);border-bottom:none;border-radius:26px 26px 0 0}
+[data-theme="gpt"] #input{background:transparent;border:none;border-radius:0;padding:9px 0;min-height:26px}
+/* Pas de cadre qui s'assombrit au focus : la carte garde exactement la même
+   bordure, seule la saisie change (curseur). */
+[data-theme="gpt"] #input:focus{border-color:transparent}
+[data-theme="gpt"] #send,[data-theme="gpt"] #stop{border-radius:999px;height:36px;min-height:36px;padding:0 18px;margin:0}
+[data-theme="gpt"] #send{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
+[data-theme="gpt"] #send:hover:not(:disabled){opacity:.85;color:var(--bg);border-color:var(--text)}
+/* Pied de carte : c'est LUI qui porte l'arrondi bas (26 px, comme en haut) et
+   qui clippe la jauge. Un bandeau de 7 px ne peut pas dessiner un rayon de 26 px
+   (le navigateur l'écrase, d'où les coins bizarres) : on laisse donc la carte
+   découper la jauge dans sa propre forme — la barre est bien épaisse ET rognée
+   exactement sur la courbe, symétrique du haut. */
+[data-theme="gpt"] #ctxmeta{order:2;margin:0 var(--col);padding:6px 16px 15px;gap:10px;background:var(--panel);border:1px solid var(--border);border-top:none;border-radius:0 0 26px 26px;overflow:hidden}
+[data-theme="gpt"] #ctx-text,[data-theme="gpt"] #status-preset{color:var(--dim);font-size:10px;letter-spacing:.02em}
+[data-theme="gpt"] #ctx-compact{border-radius:999px;padding:2px 10px;font-size:10px;background:transparent;border-color:var(--border);color:var(--dim)}
+[data-theme="gpt"] #ctx-compact:hover{border-color:var(--dim);color:var(--text)}
+/* Jauge = bord bas de la carte : épaisse, plaquée au ras du bord, rognée par
+   l'arrondi du pied de carte. */
+[data-theme="gpt"] #ctxtrack{top:auto;bottom:0;height:7px;background:var(--border)}
+[data-theme="gpt"] #ctx-fill{background:var(--text);opacity:.75}
+[data-theme="gpt"] #sendhint{order:4;padding:8px var(--col) 0}
+/* Reste de l'UI : coins arrondis et contrastes doux, dans le même esprit. */
+[data-theme="gpt"] button,[data-theme="gpt"] .addbtn,[data-theme="gpt"] .mem-search,[data-theme="gpt"] #theme-select{border-radius:10px}
+[data-theme="gpt"] .preset,[data-theme="gpt"] .gated-block,[data-theme="gpt"] .lc-mode{border-radius:12px}
+[data-theme="gpt"] .preset{background:transparent;border-color:transparent}
+[data-theme="gpt"] .preset:hover{background:var(--accent-bg);border-color:transparent}
+[data-theme="gpt"] .preset.active{background:var(--accent-bg);border-color:var(--border);color:var(--text)}
+[data-theme="gpt"] .subhead,[data-theme="gpt"] .lc-reco,[data-theme="gpt"] .lc-mode-go,[data-theme="gpt"] .lc-mode-active-tag{color:var(--dim)}
+[data-theme="gpt"] button:hover{border-color:var(--dim);color:var(--text)}
+[data-theme="gpt"] .switch input:checked + .slider{background:var(--text)}
+[data-theme="gpt"] .switch .slider::before{background:var(--bg)}
+[data-theme="gpt"] .switch input:not(:checked) + .slider::before{background:#fff}
 </style></head><body>
 <button id="menubtn" onclick="toggleSide()">☰</button>
 <div id="backdrop" onclick="toggleSide()"></div>
@@ -670,8 +754,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
   <button id="scrollbtn" onclick="jumpBottom()" title="aller en bas">↓</button>
   <div id="composer">
     <div id="compact-banner" style="display:none"><span class="cspin">⏳</span> Compactage du contexte en cours — résumé des anciens tours…</div>
-    <div id="ctxtrack"><div id="ctx-fill"></div></div>
     <div id="ctxmeta">
+      <div id="ctxtrack"><div id="ctx-fill"></div></div>
       <span id="status-preset" class="muted" style="font-size:10px;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
       <span style="display:flex;align-items:center;gap:10px;margin-left:auto">
         <span id="ctx-text" class="muted">contexte 0 / 0</span>
@@ -977,7 +1061,9 @@ async function loadSys(){
 // Registre des thèmes disponibles. Pour en AJOUTER un : ajouter un bloc
 // [data-theme="…"] dans le <style> puis une entrée {id,label} ici — le reste
 // (menu déroulant, persistance localStorage, application) est automatique.
-const THEMES=[{id:'dark',label:'sombre'},{id:'light',label:'clair'},{id:'soft',label:'doux'},{id:'soft-dark',label:'doux sombre'}];
+const THEMES=[{id:'dark',label:'sombre'},{id:'light',label:'clair'},{id:'soft',label:'doux'},{id:'soft-dark',label:'doux sombre'},{id:'gpt',label:'ChatGPT'}];
+// Anciens identifiants (v0.5.7, thème livré en deux variantes) → thème unique.
+const THEME_ALIASES={'gpt-light':'gpt','gpt-dark':'gpt'};
 // Lexend (thème "doux") n'est chargé QUE si ce thème est choisi : aucune requête
 // externe (Google Fonts) tant qu'on reste en sombre/clair — jean reste local par
 // défaut. Fallback système sans-serif si hors ligne.
@@ -989,6 +1075,7 @@ function ensureSoftFont(){
   document.head.appendChild(l);
 }
 function applyTheme(id){
+  id=THEME_ALIASES[id]||id;
   if(!THEMES.some(t=>t.id===id)) id='dark';
   if(id==='soft'||id==='soft-dark') ensureSoftFont();
   document.documentElement.setAttribute('data-theme', id);

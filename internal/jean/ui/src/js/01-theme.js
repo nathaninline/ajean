@@ -2,7 +2,9 @@
 // Registre des thèmes disponibles. Pour en AJOUTER un : ajouter un bloc
 // [data-theme="…"] dans le <style> puis une entrée {id,label} ici — le reste
 // (menu déroulant, persistance localStorage, application) est automatique.
-const THEMES=[{id:'dark',label:'sombre'},{id:'light',label:'clair'},{id:'soft',label:'doux'},{id:'soft-dark',label:'doux sombre'}];
+const THEMES=[{id:'dark',label:'sombre'},{id:'light',label:'clair'},{id:'soft',label:'doux'},{id:'soft-dark',label:'doux sombre'},{id:'gpt',label:'ChatGPT'}];
+// Anciens identifiants (v0.5.7, thème livré en deux variantes) → thème unique.
+const THEME_ALIASES={'gpt-light':'gpt','gpt-dark':'gpt'};
 // Lexend (thème "doux") n'est chargé QUE si ce thème est choisi : aucune requête
 // externe (Google Fonts) tant qu'on reste en sombre/clair — jean reste local par
 // défaut. Fallback système sans-serif si hors ligne.
@@ -14,6 +16,7 @@ function ensureSoftFont(){
   document.head.appendChild(l);
 }
 function applyTheme(id){
+  id=THEME_ALIASES[id]||id;
   if(!THEMES.some(t=>t.id===id)) id='dark';
   if(id==='soft'||id==='soft-dark') ensureSoftFont();
   document.documentElement.setAttribute('data-theme', id);

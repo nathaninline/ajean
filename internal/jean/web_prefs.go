@@ -22,7 +22,11 @@ var webPrefsMu sync.Mutex
 // webPrefsAllowed liste les clés de préférence acceptées et, pour chacune, les
 // valeurs valides. On ne stocke que ce qui est connu (pas de champ libre).
 var webPrefsAllowed = map[string]map[string]bool{
-	"theme":   {"dark": true, "light": true, "soft": true, "soft-dark": true},
+	// ⚠️ Tout thème ajouté à l'UI (registre THEMES, js/01-theme.js) doit être
+	// listé ICI : sinon POST /api/prefs le rejette silencieusement, le serveur
+	// conserve l'ancienne valeur et loadPrefs() la réapplique à chaque
+	// rafraîchissement — le thème « saute » alors qu'il est bien en localStorage.
+	"theme":   {"dark": true, "light": true, "soft": true, "soft-dark": true, "gpt": true},
 	"display": {"full": true, "simple": true},
 }
 
