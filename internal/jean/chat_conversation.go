@@ -171,14 +171,16 @@ func (c *Conversation) compactLogLocked() {
 	var cur LogEvent
 	var toks int
 	var ts0 int64
+	var seq0 int
 	flush := func() {
 		if bufKey == "" {
 			return
 		}
-		cur.Delta = map[string]any{bufKey: buf.String(), "toks": toks, "ts0": ts0}
+		// seq0 = seq du PREMIER delta fusionné (cur.Seq, lui, vaut celui du dernier).
+		cur.Delta = map[string]any{bufKey: buf.String(), "toks": toks, "ts0": ts0, "seq0": seq0}
 		out = append(out, cur)
 		buf.Reset()
-		bufKey, toks, ts0 = "", 0, 0
+		bufKey, toks, ts0, seq0 = "", 0, 0, 0
 	}
 	for _, ev := range c.Log {
 		key := textKey(ev.Delta)
@@ -194,6 +196,7 @@ func (c *Conversation) compactLogLocked() {
 			bufKey = key
 			cur = LogEvent{Seq: ev.Seq, TS: ev.TS}
 			ts0 = evTS0(ev.Delta, ev.TS)
+			seq0 = evSeq0(ev.Delta, ev.Seq)
 		}
 		buf.WriteString(ev.Delta[key].(string))
 		cur.Seq, cur.TS = ev.Seq, ev.TS
@@ -441,6 +444,50 @@ func (c *Conversation) Reset() {
 	c.persist()
 }
 
+// evSeq0 lit le seq de DÉBUT d'un bloc texte : sur un événement coalescé (dont le
+// Seq vaut celui du DERNIER delta fusionné), c'est le seq du PREMIER delta du bloc ;
+// sur un delta brut, c'est son propre Seq.
+//
+// ⚠️ Sans ça : un client qui a déjà affiché une PARTIE d'un bloc (streaming en
+// cours) et qui reçoit ensuite ce bloc coalescé — parce que la compaction de fin de
+// tour a remplacé la suite de deltas par un seul événement de Seq plus grand que
+// son dernier seq vu — le concatène à ce qu'il affichait déjà : la réponse
+// apparaissait DEUX FOIS (la 1re copie tronquée à l'endroit exact où le client en
+// était). Cf. `replace` ci-dessous.
+func evSeq0(d map[string]any, fallback int) int {
+	switch v := d["seq0"].(type) {
+	case int:
+		return v
+	case float64: // relu depuis le JSON persisté
+		return int(v)
+	}
+	return fallback
+}
+
+// decorateEvent aplatit un événement du journal pour l'émission SSE et marque
+// `replace` quand le client a DÉJÀ vu le début du bloc (from tombe à l'intérieur) :
+// le texte envoyé est alors le bloc ENTIER, donc le client doit remplacer sa bulle
+// au lieu d'y concaténer.
+func decorateEvent(ev LogEvent, from int) map[string]any {
+	out := map[string]any{"seq": ev.Seq, "ts": ev.TS}
+	for k, v := range ev.Delta {
+		out[k] = v
+	}
+	if isTextDelta(ev.Delta) && evSeq0(ev.Delta, ev.Seq) <= from {
+		out["replace"] = true
+	}
+	return out
+}
+
+// isTextDelta : événement porteur de texte (content / reasoning_content).
+func isTextDelta(d map[string]any) bool {
+	if _, ok := d["content"].(string); ok {
+		return true
+	}
+	_, ok := d["reasoning_content"].(string)
+	return ok
+}
+
 // coalesceReplay fusionne les deltas texte consécutifs (content / reasoning_content)
 // d'un même bloc en UN seul événement, pour que le replay au chargement soit léger
 // (quelques événements par tour au lieu de milliers de tokens). On conserve le
@@ -451,15 +498,22 @@ func coalesceReplay(events []LogEvent, from int) []map[string]any {
 	var out []map[string]any
 	var buf strings.Builder
 	bufKey := ""
-	var bufSeq, bufToks int
+	var bufSeq, bufToks, bufSeq0 int
 	var bufTs0, bufTs int64
 	flush := func() {
 		if bufKey == "" {
 			return
 		}
-		out = append(out, map[string]any{bufKey: buf.String(), "seq": bufSeq, "ts": bufTs, "ts0": bufTs0, "toks": bufToks})
+		m := map[string]any{bufKey: buf.String(), "seq": bufSeq, "ts": bufTs, "ts0": bufTs0, "toks": bufToks, "seq0": bufSeq0}
+		// Le client a déjà affiché le début de ce bloc (from tombe dedans, ce qui
+		// arrive quand la compaction de fin de tour l'a fusionné) : on renvoie le
+		// bloc entier et on lui demande de REMPLACER sa bulle, pas d'y ajouter.
+		if bufSeq0 <= from {
+			m["replace"] = true
+		}
+		out = append(out, m)
 		buf.Reset()
-		bufKey, bufSeq, bufToks, bufTs0, bufTs = "", 0, 0, 0, 0
+		bufKey, bufSeq, bufToks, bufTs0, bufTs, bufSeq0 = "", 0, 0, 0, 0, 0
 	}
 	// Coalescence des outils : un appel d'outil génère plein d'événements tool_used
 	// intermédiaires (streaming des arguments) jusqu'à un dernier avec done=true. Au
@@ -496,7 +550,7 @@ func coalesceReplay(events []LogEvent, from int) []map[string]any {
 				flush()
 			}
 			if bufKey == "" {
-				bufKey, bufTs0 = key, evTS0(ev.Delta, ev.TS)
+				bufKey, bufTs0, bufSeq0 = key, evTS0(ev.Delta, ev.TS), evSeq0(ev.Delta, ev.Seq)
 			}
 			buf.WriteString(ev.Delta[key].(string))
 			bufSeq, bufTs = ev.Seq, ev.TS
@@ -609,14 +663,14 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[st
 			c.cond.Wait()
 			continue
 		}
+		lastEmitted := last
 		last = pending[len(pending)-1].Seq
 		c.mu.Unlock()
 		for _, ev := range pending {
-			out := map[string]any{"seq": ev.Seq, "ts": ev.TS}
-			for k, v := range ev.Delta {
-				out[k] = v
-			}
-			if !emit(out) {
+			// `lastEmitted` (avant mise à jour) sert de repère : si la compaction de
+			// fin de tour vient de fusionner un bloc que le client suivait en direct,
+			// l'événement fusionné arrive avec un Seq supérieur au sien → `replace`.
+			if !emit(decorateEvent(ev, lastEmitted)) {
 				return
 			}
 		}

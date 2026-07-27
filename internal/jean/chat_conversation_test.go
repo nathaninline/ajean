@@ -140,3 +140,41 @@ func waitSeq(t *testing.T, ch <-chan int, want int) {
 		t.Fatalf("timeout en attendant seq %d", want)
 	}
 }
+
+// Régression : un client qui a déjà affiché une PARTIE d'un bloc de texte et qui se
+// reconnecte APRÈS la compaction de fin de tour recevait le bloc entier sans savoir
+// qu'il en avait déjà le début → la réponse s'affichait en double (1re copie
+// tronquée à l'endroit exact où le client en était). Le bloc coalescé doit porter
+// `seq0` et, quand `from` tombe dedans, l'indicateur `replace`.
+func TestReplayMarksReplaceWhenClientSawPartOfBlock(t *testing.T) {
+	c := newTestConv()
+	c.appendDelta(c.epoch, map[string]any{"user": "salut"})    // seq 1
+	c.appendDelta(c.epoch, map[string]any{"content": "Oui, "}) // seq 2
+	c.appendDelta(c.epoch, map[string]any{"content": "j'ai "}) // seq 3
+	c.appendDelta(c.epoch, map[string]any{"content": "accès"}) // seq 4
+	c.mu.Lock()
+	c.compactLogLocked() // fin de tour : les 3 deltas deviennent UN événement seq 4
+	c.mu.Unlock()
+
+	// Le client avait vu jusqu'au seq 3 (milieu du bloc) : il doit recevoir le bloc
+	// entier AVEC replace, pour remplacer sa bulle au lieu d'y concaténer.
+	out := coalesceReplay(c.Log, 3)
+	if len(out) != 1 {
+		t.Fatalf("attendu 1 événement rejoué, obtenu %d (%v)", len(out), out)
+	}
+	if got := out[0]["content"]; got != "Oui, j'ai accès" {
+		t.Fatalf("texte rejoué = %q, attendu le bloc entier", got)
+	}
+	if r, _ := out[0]["replace"].(bool); !r {
+		t.Fatalf("replace absent alors que le client avait déjà affiché le début du bloc")
+	}
+
+	// Client qui n'a rien vu du bloc : pas de replace (il doit juste l'ajouter).
+	out = coalesceReplay(c.Log, 1)
+	if len(out) != 1 {
+		t.Fatalf("attendu 1 événement, obtenu %d", len(out))
+	}
+	if _, ok := out[0]["replace"]; ok {
+		t.Fatalf("replace ne doit PAS être posé quand le client n'a rien vu du bloc")
+	}
+}

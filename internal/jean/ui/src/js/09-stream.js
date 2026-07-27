@@ -80,6 +80,10 @@ function handleDelta(d){
   if(d.reasoning_content){
     killTyping();
     if(!T.reasonEl){ collapseAll(T.turnCollapsibles); T.reasonEl=addMsg('reasoning',''); if(REPLAYING) collapseInstant(T.reasonEl); T.fullReason=''; T.turnCollapsibles.push(T.reasonEl); }
+    // d.replace : le serveur renvoie le bloc ENTIER alors qu'on en affichait déjà
+    // le début (voir decorateEvent/coalesceReplay côté serveur) → on repart de zéro
+    // au lieu de concaténer, sinon le texte apparaît en double.
+    if(d.replace){ T.fullReason=''; T.reasonTok=0; T.reasonFirstTs=0; }
     showTyping(); T.fullReason+=d.reasoning_content; renderBody(T.reasonEl, T.fullReason);
     // d.toks/d.ts0 présents quand l'événement est coalescé (replay) : plusieurs
     // tokens d'un coup. Sinon (direct), 1 token, ts0=ts.
@@ -89,6 +93,7 @@ function handleDelta(d){
   if(d.content){
     removeTyping();
     if(!T.contentEl){ collapseAll(T.turnCollapsibles); T.contentEl=addMsg('assistant',''); T.fullContent=''; }
+    if(d.replace){ T.fullContent=''; T.contentTok=0; T.contentFirstTs=0; }
     T.fullContent+=d.content; renderBody(T.contentEl, T.fullContent);
     if(!T.contentFirstTs) T.contentFirstTs=d.ts0||d.ts||0; T.contentLastTs=d.ts||T.contentLastTs; T.contentTok+=(d.toks||1);
     labelTokens(T.contentEl, 'assistant', T.contentTok, T.contentFirstTs, T.contentLastTs);
