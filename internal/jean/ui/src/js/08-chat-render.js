@@ -4,6 +4,19 @@ function isNearBottom(){
   const c = chatEl();
   return c.scrollHeight - c.scrollTop - c.clientHeight < 60;
 }
+// La zone de chat réserve une gouttière de barre de défilement de chaque côté
+// (scrollbar-gutter: stable both-edges) ; le composer, lui, n'est pas défilant.
+// On mesure la gouttière réelle et on la reporte sur le composer, sinon les
+// messages sont en retrait par rapport à la zone de saisie — décalage visible
+// surtout quand la barre latérale est escamotée.
+function syncGutter(){
+  const chat=document.getElementById('chat'); if(!chat) return;
+  const g=Math.max(0,(chat.offsetWidth-chat.clientWidth)/2);
+  document.documentElement.style.setProperty('--sbw', g+'px');
+}
+addEventListener('resize', syncGutter);
+addEventListener('DOMContentLoaded', syncGutter);
+
 function scrollMaybe(){
   // Pendant le replay initial on NE force AUCUN reflow : lire scrollHeight à chaque
   // événement rejoué = un layout synchrone forcé sur un DOM qui grossit → coût

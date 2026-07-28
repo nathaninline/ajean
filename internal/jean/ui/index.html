@@ -358,7 +358,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 #input:focus{outline:none;border-color:var(--accent)}
 #send{padding:0 20px}
 .muted{color:var(--dim);font-size:13px}
-#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--border);padding:8px 16px;border-radius:6px;opacity:0;transition:opacity .2s;pointer-events:none}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:50;background:var(--panel);border:1px solid var(--border);padding:8px 16px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;box-shadow:0 8px 30px rgba(0,0,0,.18)}
 #toast.show{opacity:1}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 #compact-banner{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--accent);background:var(--accent-bg);border:1px solid var(--border);border-radius:8px;padding:6px 10px;margin-bottom:8px}
@@ -623,7 +623,7 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
    (overflow:hidden sur le rayon). Les trois blocs sont des frères dans le HTML :
    on les recolle en dessinant les bordures par morceaux et l'ordre visuel vient
    de l'ordre flex — aucun changement de markup. */
-#composer{position:absolute;left:0;right:0;bottom:0;z-index:4;border-top:none;display:flex;flex-direction:column;padding:34px 0 8px;--col:max(16px,calc(50% - 380px));background:linear-gradient(to bottom,transparent 0,var(--bg) 34%)}
+#composer{position:absolute;left:0;right:0;bottom:0;z-index:4;border-top:none;display:flex;flex-direction:column;padding:34px 0 8px;--col:calc(max(16px,calc(50% - 380px)) + var(--sbw,0px));background:linear-gradient(to bottom,transparent 0,var(--bg) 34%)}
 #chat{padding-bottom:170px}
 #scrollbtn{bottom:180px;border-radius:999px}
 #compact-banner{order:0;margin:0 var(--col) 8px;border-radius:14px}
@@ -2168,6 +2168,19 @@ function isNearBottom(){
   const c = chatEl();
   return c.scrollHeight - c.scrollTop - c.clientHeight < 60;
 }
+// La zone de chat réserve une gouttière de barre de défilement de chaque côté
+// (scrollbar-gutter: stable both-edges) ; le composer, lui, n'est pas défilant.
+// On mesure la gouttière réelle et on la reporte sur le composer, sinon les
+// messages sont en retrait par rapport à la zone de saisie — décalage visible
+// surtout quand la barre latérale est escamotée.
+function syncGutter(){
+  const chat=document.getElementById('chat'); if(!chat) return;
+  const g=Math.max(0,(chat.offsetWidth-chat.clientWidth)/2);
+  document.documentElement.style.setProperty('--sbw', g+'px');
+}
+addEventListener('resize', syncGutter);
+addEventListener('DOMContentLoaded', syncGutter);
+
 function scrollMaybe(){
   // Pendant le replay initial on NE force AUCUN reflow : lire scrollHeight à chaque
   // événement rejoué = un layout synchrone forcé sur un DOM qui grossit → coût
