@@ -2,7 +2,7 @@
 // Registre des thèmes disponibles. Pour en AJOUTER un : ajouter un bloc
 // [data-theme="…"] dans le <style> puis une entrée {id,label} ici — le reste
 // (menu déroulant, persistance localStorage, application) est automatique.
-const THEMES=[{id:'dark',label:'sombre'},{id:'light',label:'clair'},{id:'soft',label:'doux'},{id:'soft-dark',label:'doux sombre'},{id:'gpt',label:'ChatGPT'}];
+const THEMES=[{id:'ajean',label:'AJEAN'},{id:'dark',label:'sombre'},{id:'light',label:'clair'},{id:'soft',label:'doux'},{id:'soft-dark',label:'doux sombre'},{id:'gpt',label:'ChatGPT'}];
 // Anciens identifiants (v0.5.7, thème livré en deux variantes) → thème unique.
 const THEME_ALIASES={'gpt-light':'gpt','gpt-dark':'gpt'};
 // Lexend (thème "doux") n'est chargé QUE si ce thème est choisi : aucune requête
@@ -17,7 +17,7 @@ function ensureSoftFont(){
 }
 function applyTheme(id){
   id=THEME_ALIASES[id]||id;
-  if(!THEMES.some(t=>t.id===id)) id='dark';
+  if(!THEMES.some(t=>t.id===id)) id='ajean';
   if(id==='soft'||id==='soft-dark') ensureSoftFont();
   document.documentElement.setAttribute('data-theme', id);
   try{ localStorage.setItem('jean-theme', id); }catch(e){}
@@ -28,7 +28,7 @@ function initTheme(){
   if(sel && !sel.options.length){
     THEMES.forEach(t=>{ const o=document.createElement('option'); o.value=t.id; o.textContent=t.label; sel.appendChild(o); });
   }
-  let id='dark'; try{ id=localStorage.getItem('jean-theme')||'dark'; }catch(e){}
+  let id='ajean'; try{ id=localStorage.getItem('jean-theme')||'ajean'; }catch(e){}
   applyTheme(id);
 }
 // ===== Mode d'affichage (complet / simple) ==================================

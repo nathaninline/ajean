@@ -17,6 +17,10 @@
 [data-theme="gpt"]{color-scheme:light;--font:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--bubble:#e8e8e8;--bg:#ffffff;--panel:#f9f9f9;--border:#e3e3e3;--text:#0d0d0d;--dim:#8f8f8f;--accent:#0d0d0d;--accent-bg:rgba(0,0,0,.06);--ok:#0d0d0d;--warn:#5d5d5d;--err:#c0392b;--mag:#5d5d5d;--code-bg:#f4f4f4;--danger-bg:#fbeae8;--warn-bg:#f0f0f0}
 /* Bulle utilisateur claire : le texte blanc par défaut (.msg.user) serait illisible. */
 [data-theme="gpt"] .msg.user{color:var(--text)}
+/* "AJEAN" — clair, bleu, esprit rétro-machine : bordures nettes de 2 px,
+   aucun arrondi, ombres en blocs décalés, fond quadrillé (même charte que
+   ajean.app). Mise en page complète plus bas (section "Thème pixel"). */
+[data-theme="ajean"]{color-scheme:light;--font:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--bubble:#1f6feb;--bg:#f5f8ff;--panel:#ffffff;--border:#cfdcf5;--text:#0f1f3d;--dim:#5b6f96;--accent:#1f6feb;--accent-bg:rgba(31,111,235,.10);--ok:#1f6feb;--warn:#9a6700;--err:#cf222e;--mag:#6f52d8;--code-bg:#eef3fe;--danger-bg:#fbe6e6;--warn-bg:#fbefda;--grid:#e4ecfa;--line2:#b6cbf0}
 *{box-sizing:border-box}
 body{margin:0;font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;font-size:14px}
 /* PWA plein écran (viewport-fit=cover) : on décale le contenu des bords pour ne
@@ -50,8 +54,12 @@ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-i
   .preset-meta .qtag svg,.preset-meta .rtag svg,.preset-meta .btag svg{width:11px;height:11px}
 }
 h1{margin:0;font-size:18px;color:var(--accent)}
-#brand{display:inline-flex;align-items:baseline}
-#ver{font-size:10px;font-weight:400;color:var(--dim);margin-left:5px;letter-spacing:0}
+/* Logo : « AJEAN » dessiné en pixels (SVG 4x5 par lettre, trait d'un module). Le « A »
+   reste un bloc à part : il apparaît en glissant quand le mode agent est actif. */
+#brand{display:inline-flex;align-items:center}
+#brand svg{height:10px;width:auto;display:block;shape-rendering:crispEdges;fill:currentColor}
+#brand-word{display:inline-flex;color:var(--accent)}
+#ver{font-size:10px;font-weight:400;color:var(--dim);margin-left:7px;letter-spacing:0}
 .sidehead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:18px}
 /* pastille d'état service, en haut à droite de la barre latérale */
 .statuspill{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid var(--border);background:var(--panel);color:var(--dim);font-weight:600;white-space:nowrap;cursor:pointer}
@@ -94,8 +102,8 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 .ask-actions button{margin:0;padding:7px 16px}
 .ask-ok{border-color:var(--accent);color:var(--accent)}
 .ask-ok.danger{border-color:var(--err);color:var(--err)}
-#brand-a{display:inline-block;line-height:1;max-width:0;opacity:0;overflow:hidden;color:var(--text);transition:max-width .35s ease,opacity .35s ease}
-#brand.agent #brand-a{max-width:1ch;opacity:1;margin-right:.04em}
+#brand-a{display:inline-flex;line-height:0;max-width:0;opacity:0;overflow:hidden;color:var(--text);transition:max-width .35s ease,opacity .35s ease}
+#brand.agent #brand-a{max-width:9px;opacity:1;margin-right:2px}
 /* interrupteur (switch) */
 .switchrow{position:relative;display:flex;align-items:center;gap:9px;font-size:12px;padding:6px 0;cursor:pointer;user-select:none}
 /* Sous-réglage du mode agent inaccessible quand l'agent est off : grisé + inerte. */
@@ -544,3 +552,54 @@ button:disabled{opacity:.5;cursor:not-allowed}
 [data-theme="gpt"] .switch input:checked + .slider{background:var(--text)}
 [data-theme="gpt"] .switch .slider::before{background:var(--bg)}
 [data-theme="gpt"] .switch input:not(:checked) + .slider::before{background:#fff}
+
+/* ===== Thème "AJEAN" — mise en page ==========================
+   Rétro-machine : plus aucun arrondi, bordures de 2 px, ombres portées en
+   blocs pleins (pas de flou), fond quadrillé comme du papier millimétré,
+   boutons en capitales qui « s'enfoncent » au survol. Tout est préfixé
+   [data-theme="ajean"] : aucun autre thème n'est touché. */
+/* Un seul balayage pour supprimer TOUS les arrondis (bulles, boutons, pastilles,
+   interrupteurs, points animés…) — c'est ce qui fait l'identité du thème. */
+[data-theme="ajean"] *,[data-theme="ajean"] *::before,[data-theme="ajean"] *::after{border-radius:0 !important}
+/* Fond quadrillé : le papier millimétré derrière toute l'interface. */
+[data-theme="ajean"] body{background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:32px 32px}
+[data-theme="ajean"] .side{background:var(--panel);border-right:2px solid var(--border)}
+[data-theme="ajean"] #composer,[data-theme="ajean"] #chat{background:transparent}
+/* Boutons : capitales, bordure épaisse, ombre en bloc qui disparaît au survol
+   pendant que le bouton se décale — impression de touche enfoncée. */
+[data-theme="ajean"] button,[data-theme="ajean"] .addbtn,[data-theme="ajean"] .preset-add{border:2px solid var(--line2);background:var(--panel);color:var(--text);text-transform:uppercase;letter-spacing:.06em;font-weight:700;box-shadow:3px 3px 0 0 var(--grid);transition:.1s}
+[data-theme="ajean"] button:hover:not(:disabled),[data-theme="ajean"] .addbtn:hover,[data-theme="ajean"] .preset-add:hover{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:none;transform:translate(3px,3px)}
+[data-theme="ajean"] .preset-edit,[data-theme="ajean"] .copybtn{border:none;box-shadow:none;text-transform:none}
+[data-theme="ajean"] .copybtn{border:2px solid var(--border)}
+[data-theme="ajean"] #send{background:var(--accent);border-color:var(--accent);color:#fff}
+[data-theme="ajean"] #menubtn{border:2px solid var(--line2);box-shadow:3px 3px 0 0 var(--grid)}
+/* Messages : la question en carré bleu plein, la réponse en fiche blanche
+   posée sur son ombre. Raisonnement et outils restent en pointillés. */
+[data-theme="ajean"] #chat .msg.user{background:var(--accent);color:#fff;box-shadow:4px 4px 0 0 #cddffb}
+[data-theme="ajean"] #chat .msg.assistant{background:var(--panel);border:2px solid var(--border);box-shadow:4px 4px 0 0 var(--grid)}
+[data-theme="ajean"] #chat .msg.reasoning,[data-theme="ajean"] #chat .msg.tool{border:2px dashed var(--line2);background:var(--panel)}
+[data-theme="ajean"] #chat .msg .label{color:var(--dim);letter-spacing:.14em}
+[data-theme="ajean"] #chat .msg.user .label{color:rgba(255,255,255,.85)}
+[data-theme="ajean"] .msg.assistant .body pre,[data-theme="ajean"] .msg.reasoning .body pre,[data-theme="ajean"] .msg.tool pre{border:2px solid var(--border);background:var(--code-bg)}
+[data-theme="ajean"] .msg.typing span{background:var(--accent)}
+/* Panneaux, encadrés et champs : mêmes bordures épaisses, mêmes ombres. */
+[data-theme="ajean"] .preset,[data-theme="ajean"] .gated-block,[data-theme="ajean"] .tag,[data-theme="ajean"] .qtag,[data-theme="ajean"] .rtag,[data-theme="ajean"] .btag,[data-theme="ajean"] .statuspill,[data-theme="ajean"] .lc-mode{border-width:2px}
+[data-theme="ajean"] .preset.active{border-color:var(--accent);color:var(--accent);box-shadow:3px 3px 0 0 #cddffb}
+[data-theme="ajean"] #input,[data-theme="ajean"] .mem-search,[data-theme="ajean"] .ask-input,[data-theme="ajean"] #modal input,[data-theme="ajean"] #modal textarea,[data-theme="ajean"] #modal select,[data-theme="ajean"] #theme-select{border:2px solid var(--line2);background:var(--panel)}
+[data-theme="ajean"] #input:focus,[data-theme="ajean"] .mem-search:focus,[data-theme="ajean"] .ask-input:focus{border-color:var(--accent)}
+[data-theme="ajean"] #composer{border-top:2px solid var(--border);background:var(--panel)}
+/* Jauge de contexte : un vrai bandeau plein, pas un filet dégradé. */
+[data-theme="ajean"] #ctxtrack{height:5px;background:var(--grid)}
+[data-theme="ajean"] #ctx-fill{background:var(--accent)}
+/* Fenêtres modales / info-bulles / toast : cadre net + ombre en bloc bleutée. */
+[data-theme="ajean"] .ask-box,[data-theme="ajean"] .help>.tip,[data-theme="ajean"] #toast,[data-theme="ajean"] .modal-box,[data-theme="ajean"] #modal>div{border:2px solid var(--line2);box-shadow:7px 7px 0 0 #cddffb}
+[data-theme="ajean"] #scrollbtn{border:2px solid var(--line2);box-shadow:3px 3px 0 0 var(--grid)}
+/* Interrupteurs : carrés, bleus quand ils sont actifs. */
+[data-theme="ajean"] .switch .slider{background:var(--line2)}
+[data-theme="ajean"] .switch input:checked + .slider{background:var(--accent)}
+/* Pastille carrée : box-sizing explicite (un ::before n'hérite pas de la règle
+   globale *{box-sizing:border-box}) — sans ça la bordure débordait du rail. */
+[data-theme="ajean"] .switch .slider::before{box-sizing:border-box;width:14px;height:14px;background:#fff;border:2px solid var(--line2);box-shadow:none}
+[data-theme="ajean"] .switch input:checked + .slider::before{border-color:#fff;background:var(--panel)}
+/* Étiquettes de section : capitales espacées, comme des en-têtes de terminal. */
+[data-theme="ajean"] .subhead,[data-theme="ajean"] .skillshead>span{letter-spacing:.16em}

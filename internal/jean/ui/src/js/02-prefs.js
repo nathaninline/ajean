@@ -4,8 +4,8 @@
 // localStorage reste utilisé pour appliquer instantanément au chargement (sans
 // flash), puis loadPrefs() aligne sur la valeur du serveur (source de vérité).
 function savePrefs(){
-  let theme='dark', display='full';
-  try{ theme=localStorage.getItem('jean-theme')||'dark'; display=localStorage.getItem('jean-display')||'full'; }catch(e){}
+  let theme='ajean', display='full';
+  try{ theme=localStorage.getItem('jean-theme')||'ajean'; display=localStorage.getItem('jean-display')||'full'; }catch(e){}
   jpost('/api/prefs', {theme, display}).catch(()=>{});
 }
 async function loadPrefs(){

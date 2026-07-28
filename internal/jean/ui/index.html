@@ -15,7 +15,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect width='12' height='12' rx='2' ry='2' fill='%231f6feb'/><rect x='6' y='3' width='2' height='2' fill='%23fff'/><rect x='6' y='5' width='2' height='2' fill='%23fff'/><rect x='4' y='7' width='2' height='2' fill='%23fff'/></svg>">
 <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAABa0lEQVR42u3dsQ2AIBBAUSCOYA8b4iiMSI9D2FpYGTEheW8AisvPUV7MdQR4kowAcSAOxIE4EAfiQByIA3EgDhAH4kAciANxIA7EgTgQB+IAcSAOxIE4EAfiQByIA3EgDhAH4kAciANxIA7EgTgQB+JAHCAOxMEHNiO4622f9HI5TpsD3wriQBwgDsSBOBAH4kAciANxIA7EAeJAHIgDcSAOxIE4EAfiQBwgDsSBOBAH4kAciANxIA7EgThAHIgDcSAOxIE4EAfiQByIA8SBOBAH4kAciANxIA7EgThAHIgDcSAO/rLkLXsX520OxIE4EAfiQByIA8SBOBAH4kAciANxIA7EgThAHIgDcSAOxIE4EAfiQByIA8SBOHgl5jpMAZsDcSAOxIE4EAfiQByIA3GAOBAH4kAciANxIA7EgTgQB4gDcSAOxIE4EAfiQByIA3EgDhAH4kAciANxIA7EgTgQB+IAcSAOxME0F8YvCl24O02KAAAAAElFTkSuQmCC">
 <!-- Applique le thème AVANT le rendu (pas de flash) : lit le choix persisté. -->
-<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('jean-theme')||'dark');document.documentElement.setAttribute('data-display',localStorage.getItem('jean-display')||'full')}catch(e){document.documentElement.setAttribute('data-theme','dark');document.documentElement.setAttribute('data-display','full')}</script>
+<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('jean-theme')||'ajean');document.documentElement.setAttribute('data-display',localStorage.getItem('jean-display')||'full')}catch(e){document.documentElement.setAttribute('data-theme','ajean');document.documentElement.setAttribute('data-display','full')}</script>
 <style>
 /* ===== Thèmes =====================================================
    Toutes les couleurs de l'UI passent par ces variables. Pour AJOUTER un
@@ -36,6 +36,10 @@
 [data-theme="gpt"]{color-scheme:light;--font:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--bubble:#e8e8e8;--bg:#ffffff;--panel:#f9f9f9;--border:#e3e3e3;--text:#0d0d0d;--dim:#8f8f8f;--accent:#0d0d0d;--accent-bg:rgba(0,0,0,.06);--ok:#0d0d0d;--warn:#5d5d5d;--err:#c0392b;--mag:#5d5d5d;--code-bg:#f4f4f4;--danger-bg:#fbeae8;--warn-bg:#f0f0f0}
 /* Bulle utilisateur claire : le texte blanc par défaut (.msg.user) serait illisible. */
 [data-theme="gpt"] .msg.user{color:var(--text)}
+/* "AJEAN" — clair, bleu, esprit rétro-machine : bordures nettes de 2 px,
+   aucun arrondi, ombres en blocs décalés, fond quadrillé (même charte que
+   ajean.app). Mise en page complète plus bas (section "Thème pixel"). */
+[data-theme="ajean"]{color-scheme:light;--font:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--bubble:#1f6feb;--bg:#f5f8ff;--panel:#ffffff;--border:#cfdcf5;--text:#0f1f3d;--dim:#5b6f96;--accent:#1f6feb;--accent-bg:rgba(31,111,235,.10);--ok:#1f6feb;--warn:#9a6700;--err:#cf222e;--mag:#6f52d8;--code-bg:#eef3fe;--danger-bg:#fbe6e6;--warn-bg:#fbefda;--grid:#e4ecfa;--line2:#b6cbf0}
 *{box-sizing:border-box}
 body{margin:0;font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;font-size:14px}
 /* PWA plein écran (viewport-fit=cover) : on décale le contenu des bords pour ne
@@ -69,8 +73,12 @@ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-i
   .preset-meta .qtag svg,.preset-meta .rtag svg,.preset-meta .btag svg{width:11px;height:11px}
 }
 h1{margin:0;font-size:18px;color:var(--accent)}
-#brand{display:inline-flex;align-items:baseline}
-#ver{font-size:10px;font-weight:400;color:var(--dim);margin-left:5px;letter-spacing:0}
+/* Logo : « AJEAN » dessiné en pixels (SVG 4x5 par lettre, trait d'un module). Le « A »
+   reste un bloc à part : il apparaît en glissant quand le mode agent est actif. */
+#brand{display:inline-flex;align-items:center}
+#brand svg{height:10px;width:auto;display:block;shape-rendering:crispEdges;fill:currentColor}
+#brand-word{display:inline-flex;color:var(--accent)}
+#ver{font-size:10px;font-weight:400;color:var(--dim);margin-left:7px;letter-spacing:0}
 .sidehead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:18px}
 /* pastille d'état service, en haut à droite de la barre latérale */
 .statuspill{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid var(--border);background:var(--panel);color:var(--dim);font-weight:600;white-space:nowrap;cursor:pointer}
@@ -113,8 +121,8 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 .ask-actions button{margin:0;padding:7px 16px}
 .ask-ok{border-color:var(--accent);color:var(--accent)}
 .ask-ok.danger{border-color:var(--err);color:var(--err)}
-#brand-a{display:inline-block;line-height:1;max-width:0;opacity:0;overflow:hidden;color:var(--text);transition:max-width .35s ease,opacity .35s ease}
-#brand.agent #brand-a{max-width:1ch;opacity:1;margin-right:.04em}
+#brand-a{display:inline-flex;line-height:0;max-width:0;opacity:0;overflow:hidden;color:var(--text);transition:max-width .35s ease,opacity .35s ease}
+#brand.agent #brand-a{max-width:9px;opacity:1;margin-right:2px}
 /* interrupteur (switch) */
 .switchrow{position:relative;display:flex;align-items:center;gap:9px;font-size:12px;padding:6px 0;cursor:pointer;user-select:none}
 /* Sous-réglage du mode agent inaccessible quand l'agent est off : grisé + inerte. */
@@ -563,12 +571,63 @@ button:disabled{opacity:.5;cursor:not-allowed}
 [data-theme="gpt"] .switch input:checked + .slider{background:var(--text)}
 [data-theme="gpt"] .switch .slider::before{background:var(--bg)}
 [data-theme="gpt"] .switch input:not(:checked) + .slider::before{background:#fff}
+
+/* ===== Thème "AJEAN" — mise en page ==========================
+   Rétro-machine : plus aucun arrondi, bordures de 2 px, ombres portées en
+   blocs pleins (pas de flou), fond quadrillé comme du papier millimétré,
+   boutons en capitales qui « s'enfoncent » au survol. Tout est préfixé
+   [data-theme="ajean"] : aucun autre thème n'est touché. */
+/* Un seul balayage pour supprimer TOUS les arrondis (bulles, boutons, pastilles,
+   interrupteurs, points animés…) — c'est ce qui fait l'identité du thème. */
+[data-theme="ajean"] *,[data-theme="ajean"] *::before,[data-theme="ajean"] *::after{border-radius:0 !important}
+/* Fond quadrillé : le papier millimétré derrière toute l'interface. */
+[data-theme="ajean"] body{background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:32px 32px}
+[data-theme="ajean"] .side{background:var(--panel);border-right:2px solid var(--border)}
+[data-theme="ajean"] #composer,[data-theme="ajean"] #chat{background:transparent}
+/* Boutons : capitales, bordure épaisse, ombre en bloc qui disparaît au survol
+   pendant que le bouton se décale — impression de touche enfoncée. */
+[data-theme="ajean"] button,[data-theme="ajean"] .addbtn,[data-theme="ajean"] .preset-add{border:2px solid var(--line2);background:var(--panel);color:var(--text);text-transform:uppercase;letter-spacing:.06em;font-weight:700;box-shadow:3px 3px 0 0 var(--grid);transition:.1s}
+[data-theme="ajean"] button:hover:not(:disabled),[data-theme="ajean"] .addbtn:hover,[data-theme="ajean"] .preset-add:hover{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:none;transform:translate(3px,3px)}
+[data-theme="ajean"] .preset-edit,[data-theme="ajean"] .copybtn{border:none;box-shadow:none;text-transform:none}
+[data-theme="ajean"] .copybtn{border:2px solid var(--border)}
+[data-theme="ajean"] #send{background:var(--accent);border-color:var(--accent);color:#fff}
+[data-theme="ajean"] #menubtn{border:2px solid var(--line2);box-shadow:3px 3px 0 0 var(--grid)}
+/* Messages : la question en carré bleu plein, la réponse en fiche blanche
+   posée sur son ombre. Raisonnement et outils restent en pointillés. */
+[data-theme="ajean"] #chat .msg.user{background:var(--accent);color:#fff;box-shadow:4px 4px 0 0 #cddffb}
+[data-theme="ajean"] #chat .msg.assistant{background:var(--panel);border:2px solid var(--border);box-shadow:4px 4px 0 0 var(--grid)}
+[data-theme="ajean"] #chat .msg.reasoning,[data-theme="ajean"] #chat .msg.tool{border:2px dashed var(--line2);background:var(--panel)}
+[data-theme="ajean"] #chat .msg .label{color:var(--dim);letter-spacing:.14em}
+[data-theme="ajean"] #chat .msg.user .label{color:rgba(255,255,255,.85)}
+[data-theme="ajean"] .msg.assistant .body pre,[data-theme="ajean"] .msg.reasoning .body pre,[data-theme="ajean"] .msg.tool pre{border:2px solid var(--border);background:var(--code-bg)}
+[data-theme="ajean"] .msg.typing span{background:var(--accent)}
+/* Panneaux, encadrés et champs : mêmes bordures épaisses, mêmes ombres. */
+[data-theme="ajean"] .preset,[data-theme="ajean"] .gated-block,[data-theme="ajean"] .tag,[data-theme="ajean"] .qtag,[data-theme="ajean"] .rtag,[data-theme="ajean"] .btag,[data-theme="ajean"] .statuspill,[data-theme="ajean"] .lc-mode{border-width:2px}
+[data-theme="ajean"] .preset.active{border-color:var(--accent);color:var(--accent);box-shadow:3px 3px 0 0 #cddffb}
+[data-theme="ajean"] #input,[data-theme="ajean"] .mem-search,[data-theme="ajean"] .ask-input,[data-theme="ajean"] #modal input,[data-theme="ajean"] #modal textarea,[data-theme="ajean"] #modal select,[data-theme="ajean"] #theme-select{border:2px solid var(--line2);background:var(--panel)}
+[data-theme="ajean"] #input:focus,[data-theme="ajean"] .mem-search:focus,[data-theme="ajean"] .ask-input:focus{border-color:var(--accent)}
+[data-theme="ajean"] #composer{border-top:2px solid var(--border);background:var(--panel)}
+/* Jauge de contexte : un vrai bandeau plein, pas un filet dégradé. */
+[data-theme="ajean"] #ctxtrack{height:5px;background:var(--grid)}
+[data-theme="ajean"] #ctx-fill{background:var(--accent)}
+/* Fenêtres modales / info-bulles / toast : cadre net + ombre en bloc bleutée. */
+[data-theme="ajean"] .ask-box,[data-theme="ajean"] .help>.tip,[data-theme="ajean"] #toast,[data-theme="ajean"] .modal-box,[data-theme="ajean"] #modal>div{border:2px solid var(--line2);box-shadow:7px 7px 0 0 #cddffb}
+[data-theme="ajean"] #scrollbtn{border:2px solid var(--line2);box-shadow:3px 3px 0 0 var(--grid)}
+/* Interrupteurs : carrés, bleus quand ils sont actifs. */
+[data-theme="ajean"] .switch .slider{background:var(--line2)}
+[data-theme="ajean"] .switch input:checked + .slider{background:var(--accent)}
+/* Pastille carrée : box-sizing explicite (un ::before n'hérite pas de la règle
+   globale *{box-sizing:border-box}) — sans ça la bordure débordait du rail. */
+[data-theme="ajean"] .switch .slider::before{box-sizing:border-box;width:14px;height:14px;background:#fff;border:2px solid var(--line2);box-shadow:none}
+[data-theme="ajean"] .switch input:checked + .slider::before{border-color:#fff;background:var(--panel)}
+/* Étiquettes de section : capitales espacées, comme des en-têtes de terminal. */
+[data-theme="ajean"] .subhead,[data-theme="ajean"] .skillshead>span{letter-spacing:.16em}
 </style></head><body>
 <button id="menubtn" onclick="toggleSide()">☰</button>
 <div id="backdrop" onclick="toggleSide()"></div>
 <div class="side" id="side">
   <div class="sidehead">
-    <h1 id="brand"><span id="brand-a">a</span>jean<span id="ver"></span></h1>
+    <h1 id="brand" aria-label="ajean"><span id="brand-a"><svg viewBox="0 0 4 5" shape-rendering="crispEdges" fill="currentColor"><rect x="1" y="0" width="2" height="1"/><rect x="0" y="1" width="1" height="1"/><rect x="3" y="1" width="1" height="1"/><rect x="0" y="2" width="4" height="1"/><rect x="0" y="3" width="1" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="3" y="4" width="1" height="1"/></svg></span><span id="brand-word"><svg viewBox="0 0 17 5" shape-rendering="crispEdges" fill="currentColor"><rect x="1" y="0" width="1" height="1"/><rect x="1" y="1" width="1" height="1"/><rect x="1" y="2" width="1" height="1"/><rect x="1" y="3" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="3" y="0" width="4" height="1"/><rect x="3" y="1" width="1" height="1"/><rect x="3" y="2" width="3" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="3" y="4" width="4" height="1"/><rect x="9" y="0" width="2" height="1"/><rect x="8" y="1" width="1" height="1"/><rect x="11" y="1" width="1" height="1"/><rect x="8" y="2" width="4" height="1"/><rect x="8" y="3" width="1" height="1"/><rect x="11" y="3" width="1" height="1"/><rect x="8" y="4" width="1" height="1"/><rect x="11" y="4" width="1" height="1"/><rect x="13" y="0" width="1" height="1"/><rect x="16" y="0" width="1" height="1"/><rect x="13" y="1" width="2" height="1"/><rect x="16" y="1" width="1" height="1"/><rect x="13" y="2" width="1" height="1"/><rect x="15" y="2" width="2" height="1"/><rect x="13" y="3" width="1" height="1"/><rect x="16" y="3" width="1" height="1"/><rect x="13" y="4" width="1" height="1"/><rect x="16" y="4" width="1" height="1"/></svg></span><span id="ver"></span></h1>
     <span id="status-svc" class="statuspill" onclick="toggleSvcLog()" title="voir le journal du moteur">…</span>
   </div>
   <!-- Avertissement de lancement (App Translocation macOS) — masqué par défaut. -->
@@ -1061,7 +1120,7 @@ async function loadSys(){
 // Registre des thèmes disponibles. Pour en AJOUTER un : ajouter un bloc
 // [data-theme="…"] dans le <style> puis une entrée {id,label} ici — le reste
 // (menu déroulant, persistance localStorage, application) est automatique.
-const THEMES=[{id:'dark',label:'sombre'},{id:'light',label:'clair'},{id:'soft',label:'doux'},{id:'soft-dark',label:'doux sombre'},{id:'gpt',label:'ChatGPT'}];
+const THEMES=[{id:'ajean',label:'AJEAN'},{id:'dark',label:'sombre'},{id:'light',label:'clair'},{id:'soft',label:'doux'},{id:'soft-dark',label:'doux sombre'},{id:'gpt',label:'ChatGPT'}];
 // Anciens identifiants (v0.5.7, thème livré en deux variantes) → thème unique.
 const THEME_ALIASES={'gpt-light':'gpt','gpt-dark':'gpt'};
 // Lexend (thème "doux") n'est chargé QUE si ce thème est choisi : aucune requête
@@ -1076,7 +1135,7 @@ function ensureSoftFont(){
 }
 function applyTheme(id){
   id=THEME_ALIASES[id]||id;
-  if(!THEMES.some(t=>t.id===id)) id='dark';
+  if(!THEMES.some(t=>t.id===id)) id='ajean';
   if(id==='soft'||id==='soft-dark') ensureSoftFont();
   document.documentElement.setAttribute('data-theme', id);
   try{ localStorage.setItem('jean-theme', id); }catch(e){}
@@ -1087,7 +1146,7 @@ function initTheme(){
   if(sel && !sel.options.length){
     THEMES.forEach(t=>{ const o=document.createElement('option'); o.value=t.id; o.textContent=t.label; sel.appendChild(o); });
   }
-  let id='dark'; try{ id=localStorage.getItem('jean-theme')||'dark'; }catch(e){}
+  let id='ajean'; try{ id=localStorage.getItem('jean-theme')||'ajean'; }catch(e){}
   applyTheme(id);
 }
 // ===== Mode d'affichage (complet / simple) ==================================
@@ -1109,8 +1168,8 @@ function initDisplay(){
 // localStorage reste utilisé pour appliquer instantanément au chargement (sans
 // flash), puis loadPrefs() aligne sur la valeur du serveur (source de vérité).
 function savePrefs(){
-  let theme='dark', display='full';
-  try{ theme=localStorage.getItem('jean-theme')||'dark'; display=localStorage.getItem('jean-display')||'full'; }catch(e){}
+  let theme='ajean', display='full';
+  try{ theme=localStorage.getItem('jean-theme')||'ajean'; display=localStorage.getItem('jean-display')||'full'; }catch(e){}
   jpost('/api/prefs', {theme, display}).catch(()=>{});
 }
 async function loadPrefs(){
