@@ -25,7 +25,7 @@ async function jfetch(u, opts){
   let r;
   try{ r = await fetch(u, opts); }
   catch(e){
-    if(e && e.name==='AbortError'){ throw new Error('requête sans réponse après 30 s (trop d\'onglets Jean ouverts ?)'); }
+    if(e && e.name==='AbortError'){ throw new Error('requête sans réponse après 30 s (trop d\'onglets AJEAN ouverts ?)'); }
     throw e;
   }
   finally{ if(timer) clearTimeout(timer); }

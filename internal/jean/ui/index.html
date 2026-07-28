@@ -7,8 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Jean">
-<title>Jean</title>
+<meta name="apple-mobile-web-app-title" content="AJEAN">
+<title>AJEAN</title>
 <!-- Favicon (même marque « ajean » que la landing/portail) + icône PWA (écran d'accueil
      iOS). SVG inline pour le favicon, PNG 180×180 en data-URI pour apple-touch-icon
      (iOS n'accepte pas le SVG pour l'icône d'accueil). Aucun fichier externe requis. -->
@@ -24,7 +24,7 @@
    reste (sélecteur, persistance, application) est automatique. */
 /* --font : police par défaut (mono). Un thème peut la surcharger (voir "soft").
    Les blocs plus spécifiques qui ne redéfinissent pas --font héritent de :root. */
-:root{color-scheme:dark;--font:ui-monospace,SFMono-Regular,Menlo,monospace;--bubble:#1f6feb;--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--accent-bg:rgba(88,166,255,.12);--ok:#58a6ff;--warn:#d29922;--err:#f85149;--mag:#bc8cff;--code-bg:#0d1117;--danger-bg:#3d1f23;--warn-bg:#3d2f1f}
+:root{color-scheme:dark;--font:ui-monospace,SFMono-Regular,Menlo,monospace;--bubble:#1f6feb;--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--accent-bg:rgba(88,166,255,.12);--ok:#58a6ff;--warn:#d29922;--err:#f85149;--mag:#bc8cff;--code-bg:#0d1117;--danger-bg:#3d1f23;--warn-bg:#3d2f1f;--add:#3fb950;--add-bg:rgba(63,185,80,.12);--del:#f85149;--del-bg:rgba(248,81,73,.12)}
 [data-theme="dark"]{color-scheme:dark;--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--accent-bg:rgba(88,166,255,.12);--ok:#58a6ff;--warn:#d29922;--err:#f85149;--mag:#bc8cff;--code-bg:#0d1117;--danger-bg:#3d1f23;--warn-bg:#3d2f1f}
 [data-theme="light"]{color-scheme:light;--bg:#f0f1f4;--panel:#f8f9fb;--border:#d7dbe1;--text:#24292f;--dim:#636b74;--accent:#0969da;--accent-bg:rgba(9,105,218,.10);--ok:#0969da;--warn:#9a6700;--err:#cf222e;--mag:#8250df;--code-bg:#e6e9ee;--danger-bg:#fbe6e6;--warn-bg:#fbefda}
 /* "doux" — thème clair chaud + police Lexend (lecture agréable). */
@@ -39,7 +39,10 @@
 /* "AJEAN" — clair, bleu, esprit rétro-machine : bordures nettes de 2 px,
    aucun arrondi, ombres en blocs décalés, fond quadrillé (même charte que
    ajean.app). Mise en page complète plus bas (section "Thème pixel"). */
-[data-theme="ajean"]{color-scheme:light;--font:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--bubble:#1f6feb;--bg:#f5f8ff;--panel:#ffffff;--border:#cfdcf5;--text:#0f1f3d;--dim:#5b6f96;--accent:#1f6feb;--accent-bg:rgba(31,111,235,.10);--ok:#1f6feb;--warn:#9a6700;--err:#cf222e;--mag:#6f52d8;--code-bg:#eef3fe;--danger-bg:#fbe6e6;--warn-bg:#fbefda;--grid:#e4ecfa;--line2:#b6cbf0}
+[data-theme="ajean"]{color-scheme:light;--font:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--bubble:#1f6feb;--bg:#f5f8ff;--panel:#ffffff;--border:#cfdcf5;--text:#0f1f3d;--dim:#5b6f96;--accent:#1f6feb;--accent-bg:rgba(31,111,235,.10);--ok:#1f6feb;--warn:#9a6700;--err:#cf222e;--mag:#6f52d8;--code-bg:#eef3fe;--danger-bg:#fbe6e6;--warn-bg:#fbefda;--grid:#e4ecfa;--line2:#b6cbf0;--soft:#e8f0ff;--sh:#cddffb;--knob:#ffffff}
+/* « AJEAN sombre » — même habillage pixel, palette nuit : bleu vif sur fond
+   presque noir, quadrillage discret, ombres bleutées. */
+[data-theme="ajean-dark"]{color-scheme:dark;--font:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--bubble:#3b82f6;--bg:#050810;--panel:#0a1020;--border:#16233f;--text:#dce6ff;--dim:#63739c;--accent:#3b82f6;--accent-bg:rgba(59,130,246,.16);--ok:#3b82f6;--warn:#d29922;--err:#f85149;--mag:#9b8cff;--code-bg:#03060d;--danger-bg:#3d1f23;--warn-bg:#3d2f1f;--grid:#0a1120;--line2:#1e3054;--soft:#101b33;--sh:#132342;--knob:#dce6ff}
 *{box-sizing:border-box}
 body{margin:0;font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;font-size:14px}
 /* PWA plein écran (viewport-fit=cover) : on décale le contenu des bords pour ne
@@ -215,6 +218,16 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .msg.reasoning{align-self:flex-start;background:transparent;border:1px dashed var(--border);color:var(--mag);font-size:12px;max-width:90%;overflow-wrap:anywhere;word-break:break-word}
 .msg.tool{align-self:flex-start;background:transparent;border:1px dashed var(--border);max-width:90%;white-space:normal;padding:8px 12px;font-size:12px;overflow-wrap:anywhere;word-break:break-word}
 .msg.tool .tool-head{font-size:12px;color:var(--accent);font-weight:600;margin-bottom:6px}
+/* ===== Diff des écritures (outil edit / mémoire) ==================
+   Lignes ajoutées en vert, retirées en rouge, contexte neutre. Les couleurs
+   viennent de variables : chaque thème peut les ajuster (clair vs sombre). */
+.msg.tool pre.diff{display:block;padding:0;overflow-x:auto;background:var(--code-bg)}
+.msg.tool pre.diff .dl{display:block;padding:1px 10px;white-space:pre-wrap;word-break:break-word;color:var(--dim)}
+.msg.tool pre.diff .dl.add{color:var(--add);background:var(--add-bg)}
+.msg.tool pre.diff .dl.del{color:var(--del);background:var(--del-bg)}
+.diff-count{margin-left:8px;letter-spacing:0;text-transform:none}
+.diff-count .a{color:var(--add)}
+.diff-count .d{color:var(--del)}
 .msg.tool .tool-sub{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin:8px 0 4px}
 .msg.tool pre{position:relative;background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;overflow:auto;margin:0;max-height:280px}
 .msg.tool pre code{background:transparent;padding:0;font-size:.82em;line-height:1.4;white-space:pre}
@@ -265,7 +278,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
 #ctx-text{font-size:10px;letter-spacing:.03em;white-space:nowrap}
 #ctx-compact{display:none;margin:0;padding:2px 10px;font-size:10px;background:var(--warn-bg);border-color:var(--warn,#c93)}
 #inputbar{padding:8px 12px;display:flex;gap:8px}
-#input{flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;font:inherit;resize:none;min-height:44px;max-height:200px}
+/* Astuce clavier sous la saisie (style repris du HTML : un thème doit pouvoir
+   changer ses marges, ce qu'un style en ligne empêchait). */
+#sendhint{padding:0 12px 6px;font-size:10px;text-align:center;opacity:.7}
+#input{flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;font:inherit;resize:none;min-height:56px;max-height:200px;overflow-y:hidden}
 #input:focus{outline:none;border-color:var(--accent)}
 #send{padding:0 20px}
 .muted{color:var(--dim);font-size:12px}
@@ -363,10 +379,14 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .pe-row.stack.plain .pe-inp:focus{box-shadow:none}
 /* Champ + bouton accolé (téléchargement) — même trait que les autres champs,
    sans pastille colorée qui ressort. */
-.pe-inpbtn{display:flex}
-.pe-inpbtn .pe-inp{border-top-right-radius:0;border-bottom-right-radius:0}
-.pe-inpbtn button{flex:none;margin:0;border:1px solid var(--border);border-left:0;border-radius:0 8px 8px 0;background:var(--panel);color:var(--dim);padding:0 15px;cursor:pointer;font-size:15px;transition:color .12s,border-color .12s}
-.pe-inpbtn button:hover{color:var(--accent);border-color:var(--accent)}
+.pe-inpbtn{display:flex;align-items:stretch}
+.pe-inpbtn .pe-inp{border-top-right-radius:0;border-bottom-right-radius:0;border-right:0}
+/* Le bouton reprend EXACTEMENT le cadre du champ (mêmes coins, même bordure) :
+   sans ça, un thème qui arrondit tous les boutons (ChatGPT) le détachait du
+   champ, avec un coin rond au milieu de la paire. */
+.pe-inpbtn button{flex:none;margin:0;border:1px solid var(--border);border-radius:0 8px 8px 0;background:var(--panel);color:var(--dim);padding:0 15px;cursor:pointer;font-size:15px;transition:color .12s,border-color .12s,background .12s}
+.pe-inpbtn button:hover:not(:disabled){color:#fff;background:var(--accent);border-color:var(--accent)}
+.pe-inpbtn:focus-within .pe-inp,.pe-inpbtn:focus-within button{border-color:var(--accent)}
 .pe-inpbtn button:disabled{opacity:.5;cursor:default}
 /* Contrôle segmenté (moteur) façon iOS. */
 .pe-seg{display:flex;gap:3px;background:color-mix(in srgb,var(--dim) 16%,transparent);border-radius:9px;padding:3px;width:100%}
@@ -539,7 +559,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 [data-theme="gpt"] #scrollbtn{bottom:180px;border-radius:999px}
 [data-theme="gpt"] #compact-banner{order:0;margin:0 var(--col) 8px;border-radius:14px}
 [data-theme="gpt"] #inputbar{order:1;margin:0 var(--col);padding:8px 8px 8px 16px;gap:8px;align-items:flex-end;background:var(--panel);border:1px solid var(--border);border-bottom:none;border-radius:26px 26px 0 0}
-[data-theme="gpt"] #input{background:transparent;border:none;border-radius:0;padding:9px 0;min-height:26px}
+[data-theme="gpt"] #input{background:transparent;border:none;border-radius:0;padding:9px 0;min-height:36px;line-height:18px;max-height:160px}
 /* Pas de cadre qui s'assombrit au focus : la carte garde exactement la même
    bordure, seule la saisie change (curseur). */
 [data-theme="gpt"] #input:focus{border-color:transparent}
@@ -559,9 +579,14 @@ button:disabled{opacity:.5;cursor:not-allowed}
    l'arrondi du pied de carte. */
 [data-theme="gpt"] #ctxtrack{top:auto;bottom:0;height:7px;background:var(--border)}
 [data-theme="gpt"] #ctx-fill{background:var(--text);opacity:.75}
-[data-theme="gpt"] #sendhint{order:4;padding:8px var(--col) 0}
+[data-theme="gpt"] #sendhint{order:4;padding:12px var(--col) 2px}
 /* Reste de l'UI : coins arrondis et contrastes doux, dans le même esprit. */
 [data-theme="gpt"] button,[data-theme="gpt"] .addbtn,[data-theme="gpt"] .mem-search,[data-theme="gpt"] #theme-select{border-radius:10px}
+/* Champ + bouton accolés : on ne garde l'arrondi que sur les coins extérieurs. */
+[data-theme="gpt"] .pe-inpbtn .pe-inp{border-radius:10px 0 0 10px}
+[data-theme="gpt"] .pe-inpbtn button{border-radius:0 10px 10px 0}
+[data-theme="gpt"] .input-btn .ctl{border-radius:10px 0 0 10px}
+[data-theme="gpt"] .input-btn .btn-in{border-radius:0 10px 10px 0}
 [data-theme="gpt"] .preset,[data-theme="gpt"] .gated-block,[data-theme="gpt"] .lc-mode{border-radius:12px}
 [data-theme="gpt"] .preset{background:transparent;border-color:transparent}
 [data-theme="gpt"] .preset:hover{background:var(--accent-bg);border-color:transparent}
@@ -576,52 +601,122 @@ button:disabled{opacity:.5;cursor:not-allowed}
    Rétro-machine : plus aucun arrondi, bordures de 2 px, ombres portées en
    blocs pleins (pas de flou), fond quadrillé comme du papier millimétré,
    boutons en capitales qui « s'enfoncent » au survol. Tout est préfixé
-   [data-theme="ajean"] : aucun autre thème n'est touché. */
+   [data-theme^="ajean"] : aucun autre thème n'est touché. */
 /* Un seul balayage pour supprimer TOUS les arrondis (bulles, boutons, pastilles,
    interrupteurs, points animés…) — c'est ce qui fait l'identité du thème. */
-[data-theme="ajean"] *,[data-theme="ajean"] *::before,[data-theme="ajean"] *::after{border-radius:0 !important}
+[data-theme^="ajean"] *,[data-theme^="ajean"] *::before,[data-theme^="ajean"] *::after{border-radius:0 !important}
 /* Fond quadrillé : le papier millimétré derrière toute l'interface. */
-[data-theme="ajean"] body{background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:32px 32px}
-[data-theme="ajean"] .side{background:var(--panel);border-right:2px solid var(--border)}
-[data-theme="ajean"] #composer,[data-theme="ajean"] #chat{background:transparent}
+[data-theme^="ajean"] body{background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:32px 32px}
+[data-theme^="ajean"] .side{background:var(--panel);border-right:2px solid var(--border)}
+[data-theme^="ajean"] #composer,[data-theme^="ajean"] #chat{background:transparent}
 /* Boutons : capitales, bordure épaisse, ombre en bloc qui disparaît au survol
    pendant que le bouton se décale — impression de touche enfoncée. */
-[data-theme="ajean"] button,[data-theme="ajean"] .addbtn,[data-theme="ajean"] .preset-add{border:2px solid var(--line2);background:var(--panel);color:var(--text);text-transform:uppercase;letter-spacing:.06em;font-weight:700;box-shadow:3px 3px 0 0 var(--grid);transition:.1s}
-[data-theme="ajean"] button:hover:not(:disabled),[data-theme="ajean"] .addbtn:hover,[data-theme="ajean"] .preset-add:hover{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:none;transform:translate(3px,3px)}
-[data-theme="ajean"] .preset-edit,[data-theme="ajean"] .copybtn{border:none;box-shadow:none;text-transform:none}
-[data-theme="ajean"] .copybtn{border:2px solid var(--border)}
-[data-theme="ajean"] #send{background:var(--accent);border-color:var(--accent);color:#fff}
-[data-theme="ajean"] #menubtn{border:2px solid var(--line2);box-shadow:3px 3px 0 0 var(--grid)}
+[data-theme^="ajean"] button,[data-theme^="ajean"] .addbtn,[data-theme^="ajean"] .preset-add{border:2px solid var(--line2);background:var(--panel);color:var(--text);text-transform:uppercase;letter-spacing:.06em;font-weight:700;box-shadow:3px 3px 0 0 var(--grid);transition:.1s}
+[data-theme^="ajean"] button:hover:not(:disabled),[data-theme^="ajean"] .addbtn:hover,[data-theme^="ajean"] .preset-add:hover{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:none;transform:translate(3px,3px)}
+[data-theme^="ajean"] .preset-edit,[data-theme^="ajean"] .copybtn{border:none;box-shadow:none;text-transform:none}
+[data-theme^="ajean"] .copybtn{border:2px solid var(--border)}
+[data-theme^="ajean"] #send{background:var(--accent);border-color:var(--accent);color:#fff}
+[data-theme^="ajean"] #menubtn{border:2px solid var(--line2);box-shadow:3px 3px 0 0 var(--grid)}
 /* Messages : la question en carré bleu plein, la réponse en fiche blanche
    posée sur son ombre. Raisonnement et outils restent en pointillés. */
-[data-theme="ajean"] #chat .msg.user{background:var(--accent);color:#fff;box-shadow:4px 4px 0 0 #cddffb}
-[data-theme="ajean"] #chat .msg.assistant{background:var(--panel);border:2px solid var(--border);box-shadow:4px 4px 0 0 var(--grid)}
-[data-theme="ajean"] #chat .msg.reasoning,[data-theme="ajean"] #chat .msg.tool{border:2px dashed var(--line2);background:var(--panel)}
-[data-theme="ajean"] #chat .msg .label{color:var(--dim);letter-spacing:.14em}
-[data-theme="ajean"] #chat .msg.user .label{color:rgba(255,255,255,.85)}
-[data-theme="ajean"] .msg.assistant .body pre,[data-theme="ajean"] .msg.reasoning .body pre,[data-theme="ajean"] .msg.tool pre{border:2px solid var(--border);background:var(--code-bg)}
-[data-theme="ajean"] .msg.typing span{background:var(--accent)}
+[data-theme^="ajean"] #chat .msg.user{background:var(--accent);color:#fff;box-shadow:4px 4px 0 0 var(--sh)}
+[data-theme^="ajean"] #chat .msg.assistant{background:var(--panel);border:2px solid var(--border);box-shadow:4px 4px 0 0 var(--grid)}
+[data-theme^="ajean"] #chat .msg.reasoning,[data-theme^="ajean"] #chat .msg.tool{border:2px dashed var(--line2);background:var(--panel)}
+[data-theme^="ajean"] #chat .msg .label{color:var(--dim);letter-spacing:.14em}
+[data-theme^="ajean"] #chat .msg.user .label{color:rgba(255,255,255,.85)}
+[data-theme^="ajean"] .msg.assistant .body pre,[data-theme^="ajean"] .msg.reasoning .body pre,[data-theme^="ajean"] .msg.tool pre{border:2px solid var(--border);background:var(--code-bg)}
+[data-theme^="ajean"] .msg.typing span{background:var(--accent)}
 /* Panneaux, encadrés et champs : mêmes bordures épaisses, mêmes ombres. */
-[data-theme="ajean"] .preset,[data-theme="ajean"] .gated-block,[data-theme="ajean"] .tag,[data-theme="ajean"] .qtag,[data-theme="ajean"] .rtag,[data-theme="ajean"] .btag,[data-theme="ajean"] .statuspill,[data-theme="ajean"] .lc-mode{border-width:2px}
-[data-theme="ajean"] .preset.active{border-color:var(--accent);color:var(--accent);box-shadow:3px 3px 0 0 #cddffb}
-[data-theme="ajean"] #input,[data-theme="ajean"] .mem-search,[data-theme="ajean"] .ask-input,[data-theme="ajean"] #modal input,[data-theme="ajean"] #modal textarea,[data-theme="ajean"] #modal select,[data-theme="ajean"] #theme-select{border:2px solid var(--line2);background:var(--panel)}
-[data-theme="ajean"] #input:focus,[data-theme="ajean"] .mem-search:focus,[data-theme="ajean"] .ask-input:focus{border-color:var(--accent)}
-[data-theme="ajean"] #composer{border-top:2px solid var(--border);background:var(--panel)}
+[data-theme^="ajean"] .preset,[data-theme^="ajean"] .gated-block,[data-theme^="ajean"] .tag,[data-theme^="ajean"] .qtag,[data-theme^="ajean"] .rtag,[data-theme^="ajean"] .btag,[data-theme^="ajean"] .statuspill,[data-theme^="ajean"] .lc-mode{border-width:2px}
+[data-theme^="ajean"] .preset.active{border-color:var(--accent);color:var(--accent);box-shadow:3px 3px 0 0 var(--sh)}
+[data-theme^="ajean"] #input,[data-theme^="ajean"] .mem-search,[data-theme^="ajean"] .ask-input,[data-theme^="ajean"] #theme-select,[data-theme^="ajean"] .modal-card .ctl{border:2px solid var(--line2);background:var(--panel)}
+[data-theme^="ajean"] #input:focus,[data-theme^="ajean"] .mem-search:focus,[data-theme^="ajean"] .ask-input:focus{border-color:var(--accent)}
+[data-theme^="ajean"] #composer{border-top:2px solid var(--border);background:var(--panel)}
 /* Jauge de contexte : un vrai bandeau plein, pas un filet dégradé. */
-[data-theme="ajean"] #ctxtrack{height:5px;background:var(--grid)}
-[data-theme="ajean"] #ctx-fill{background:var(--accent)}
+[data-theme^="ajean"] #ctxtrack{height:5px;background:var(--grid)}
+[data-theme^="ajean"] #ctx-fill{background:var(--accent)}
 /* Fenêtres modales / info-bulles / toast : cadre net + ombre en bloc bleutée. */
-[data-theme="ajean"] .ask-box,[data-theme="ajean"] .help>.tip,[data-theme="ajean"] #toast,[data-theme="ajean"] .modal-box,[data-theme="ajean"] #modal>div{border:2px solid var(--line2);box-shadow:7px 7px 0 0 #cddffb}
-[data-theme="ajean"] #scrollbtn{border:2px solid var(--line2);box-shadow:3px 3px 0 0 var(--grid)}
+[data-theme^="ajean"] .ask-box,[data-theme^="ajean"] .help>.tip,[data-theme^="ajean"] #toast,[data-theme^="ajean"] .modal-box,[data-theme^="ajean"] #modal>div{border:2px solid var(--line2);box-shadow:7px 7px 0 0 var(--sh)}
+[data-theme^="ajean"] #scrollbtn{border:2px solid var(--line2);box-shadow:3px 3px 0 0 var(--grid)}
 /* Interrupteurs : carrés, bleus quand ils sont actifs. */
-[data-theme="ajean"] .switch .slider{background:var(--line2)}
-[data-theme="ajean"] .switch input:checked + .slider{background:var(--accent)}
+[data-theme^="ajean"] .switch .slider{background:var(--line2)}
+[data-theme^="ajean"] .switch input:checked + .slider{background:var(--accent)}
 /* Pastille carrée : box-sizing explicite (un ::before n'hérite pas de la règle
    globale *{box-sizing:border-box}) — sans ça la bordure débordait du rail. */
-[data-theme="ajean"] .switch .slider::before{box-sizing:border-box;width:14px;height:14px;background:#fff;border:2px solid var(--line2);box-shadow:none}
-[data-theme="ajean"] .switch input:checked + .slider::before{border-color:#fff;background:var(--panel)}
+[data-theme^="ajean"] .switch .slider::before{box-sizing:border-box;width:14px;height:14px;background:var(--knob);border:2px solid var(--line2);box-shadow:none}
+[data-theme^="ajean"] .switch input:checked + .slider::before{border-color:var(--knob);background:var(--knob)}
 /* Étiquettes de section : capitales espacées, comme des en-têtes de terminal. */
-[data-theme="ajean"] .subhead,[data-theme="ajean"] .skillshead>span{letter-spacing:.16em}
+[data-theme^="ajean"] .subhead,[data-theme^="ajean"] .skillshead>span{letter-spacing:.16em}
+
+/* ----- Thème AJEAN : modales (éditeur de preset, mémoire, MCP) -------------
+   Les règles génériques du thème (bouton en capitales + ombre en bloc + décalage
+   au survol) sont faites pour la barre latérale ; dans un formulaire dense elles
+   rendaient l'éditeur de preset illisible : boutons énormes, ombres qui se
+   chevauchent, champs collés au fond de la carte. On rejoue donc la modale à
+   plat — hiérarchie nette, un seul niveau de relief (la carte). */
+[data-theme^="ajean"] .modal-ov{background:rgba(15,31,61,.45)}
+[data-theme^="ajean"] .modal-card{background:var(--panel);border:2px solid var(--line2);box-shadow:8px 8px 0 0 var(--sh)}
+[data-theme^="ajean"] .modal-head{border-bottom:2px solid var(--border);background:var(--soft,#e8f0ff)}
+[data-theme^="ajean"] .modal-head strong{text-transform:uppercase;letter-spacing:.14em;font-size:12px;color:var(--accent)}
+[data-theme^="ajean"] .modal-foot{border-top:2px solid var(--border)}
+/* Champs simples (mémoire, MCP…) : fond teinté pour se détacher de la carte. */
+[data-theme^="ajean"] .ctl{border:2px solid var(--line2);background:var(--bg);background-image:none}
+[data-theme^="ajean"] .ctl:focus{border-color:var(--accent)}
+[data-theme^="ajean"] .fld-l{color:var(--text);letter-spacing:.1em}
+[data-theme^="ajean"] .fld-hint,[data-theme^="ajean"] .seg .be-note{color:var(--dim)}
+[data-theme^="ajean"] .modal-body .card{border:2px solid var(--border);box-shadow:none;background:var(--panel)}
+[data-theme^="ajean"] .card-h{letter-spacing:.14em}
+
+/* --- Éditeur de preset (listes façon Réglages) --- */
+[data-theme^="ajean"] .pe-body{background:var(--bg)}
+/* En-tête de groupe : petite étiquette bleue en capitales. */
+[data-theme^="ajean"] .pe-gh{color:var(--accent);text-transform:uppercase;letter-spacing:.14em;font-size:11px;font-weight:700}
+/* La LISTE porte le cadre ; les champs à l'intérieur n'en ont pas (sinon double
+   encadrement). Séparateurs de rangées à la même épaisseur. */
+[data-theme^="ajean"] .pe-list,[data-theme^="ajean"] .pe-adv{border:2px solid var(--border);background:var(--panel)}
+[data-theme^="ajean"] .pe-row:not(:last-child){border-bottom:2px solid var(--border)}
+[data-theme^="ajean"] .pe-adv[open]>summary{border-bottom:2px solid var(--border)}
+[data-theme^="ajean"] .pe-val,[data-theme^="ajean"] .pe-selc select{border:none;background:transparent}
+/* Champs pleine largeur (URL, chemin…) : eux gardent un cadre, sur fond teinté. */
+[data-theme^="ajean"] .pe-inp{border:2px solid var(--line2);background:var(--bg)}
+[data-theme^="ajean"] .pe-inp:focus{border-color:var(--accent);box-shadow:none}
+[data-theme^="ajean"] .pe-row.stack.plain .pe-inp{border:none;background:transparent}
+[data-theme^="ajean"] .pe-inpbtn button{border:2px solid var(--line2);box-shadow:none;background:var(--panel);text-transform:none;letter-spacing:0}
+[data-theme^="ajean"] .pe-inpbtn .pe-inp{border-right:0}
+[data-theme^="ajean"] .pe-inpbtn button:hover:not(:disabled){transform:none;background:var(--accent);border-color:var(--accent);color:#fff}
+/* Sélecteur segmenté : cases carrées côte à côte, bleu plein pour l'active. */
+[data-theme^="ajean"] .pe-seg{background:transparent;padding:0;gap:8px}
+[data-theme^="ajean"] .pe-seg>label{border:2px solid var(--border);background:var(--panel);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:11px;padding:9px 4px}
+[data-theme^="ajean"] .pe-seg>label:has(input:checked){background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:none}
+/* Interrupteurs de la modale : carrés, comme ceux de la barre latérale. */
+[data-theme^="ajean"] .pe-sl{background:var(--line2)}
+[data-theme^="ajean"] .pe-sl::before{box-sizing:border-box;background:var(--knob);border:2px solid var(--line2);box-shadow:none}
+[data-theme^="ajean"] .pe-switch input:checked+.pe-sl{background:var(--accent)}
+[data-theme^="ajean"] .pe-switch input:checked+.pe-sl::before{border-color:var(--knob);background:var(--knob)}
+/* Boutons DANS la modale : mêmes capitales, mais posés à plat — pas d'ombre ni
+   de décalage au survol, sinon les rangées de boutons dansent et se recouvrent. */
+[data-theme^="ajean"] .modal-card button{box-shadow:none;font-size:11.5px}
+[data-theme^="ajean"] .modal-card button:hover:not(:disabled){transform:none}
+[data-theme^="ajean"] .modal-card .btn-save{background:var(--accent);border-color:var(--accent);color:#fff}
+[data-theme^="ajean"] .modal-card .btn-danger{background:var(--danger-bg);border-color:var(--err);color:var(--err)}
+[data-theme^="ajean"] .modal-card .btn-danger:hover{background:var(--err);border-color:var(--err);color:#fff}
+[data-theme^="ajean"] .modal-x{border:2px solid transparent;background:transparent;color:var(--dim)}
+[data-theme^="ajean"] .modal-x:hover{background:transparent;border-color:var(--line2);color:var(--text)}
+/* Champ + bouton accolés : les bordures se chevauchent au lieu de doubler. */
+[data-theme^="ajean"] .input-btn .btn-in{margin-left:-2px}
+/* Sélecteur segmenté : bleu plein quand c'est coché (le liseré seul se voyait mal). */
+[data-theme^="ajean"] .seg>label{border:2px solid var(--border);background:var(--bg)}
+[data-theme^="ajean"] .seg>label:has(input:checked){background:var(--accent);border-color:var(--accent);color:#fff}
+[data-theme^="ajean"] .seg>label:has(input:checked) .be-note{color:rgba(255,255,255,.85)}
+/* Listes (MCP, outils) : mêmes bordures épaisses, survol teinté. */
+[data-theme^="ajean"] .mcp-row,[data-theme^="ajean"] .mcp-tools-list,[data-theme^="ajean"] #lc-log{border:2px solid var(--border)}
+[data-theme^="ajean"] .mcp-tool-row:hover{background:var(--soft,#e8f0ff)}
+
+/* Diff sur fond clair : mêmes rôles, teintes plus profondes pour rester lisibles. */
+[data-theme="light"],[data-theme="soft"],[data-theme="gpt"],[data-theme="ajean"]{
+  --add:#1a7f37;--add-bg:rgba(26,127,55,.10);--del:#cf222e;--del-bg:rgba(207,34,46,.10)}
+[data-theme="soft-dark"],[data-theme="ajean-dark"]{
+  --add:#4ac26b;--add-bg:rgba(74,194,107,.13);--del:#f85149;--del-bg:rgba(248,81,73,.13)}
 </style></head><body>
 <button id="menubtn" onclick="toggleSide()">☰</button>
 <div id="backdrop" onclick="toggleSide()"></div>
@@ -655,7 +750,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
     <div id="presets"></div>
   </details>
   <details><summary>Mode agent <span id="agent-badge" style="margin-left:auto;margin-right:12px;font-size:10px"></span></summary>
-    <label class="switchrow"><span class="switch"><input type="checkbox" id="agent-toggle" onchange="toggleAgent()"><span class="slider"></span></span> activer le mode agent<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">⚠️ active l'<b>accès machine</b> (shell complet via <b>bash</b> sur le serveur) — l'IA peut inspecter, lancer des scripts, lire/éditer des fichiers (timeout 30s, max 300s). Mémoire et accès internet ci-dessous ne fonctionnent que si le mode agent est activé.</span></span></label>
+    <label class="switchrow"><span class="switch"><input type="checkbox" id="agent-toggle" onchange="toggleAgent()"><span class="slider"></span></span> activer le mode agent<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">⚠ active l'<b>accès machine</b> (shell complet via <b>bash</b> sur le serveur) — l'IA peut inspecter, lancer des scripts, lire/éditer des fichiers (timeout 30s, max 300s). Mémoire et accès internet ci-dessous ne fonctionnent que si le mode agent est activé.</span></span></label>
     <!-- Mémoire / Accès internet / Paramètres : sous-réglages du mode agent, en cartes. Grisés/inertes quand l'agent est off (voir setAgentGate). -->
     <div id="mem-block" class="gated-block">
       <div class="subhead">Mémoire<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span id="mem-mode-desc" class="tip"></span></span></div>
@@ -686,7 +781,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
       <div id="internet-status" class="muted" style="font-size:11px;margin-top:4px"></div>
     </div>
     <div id="mcp-block" class="gated-block">
-      <div class="subhead">Serveurs MCP<span id="mcp-badge" style="margin-left:6px;font-size:10px"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Connecte des <b>serveurs MCP</b> (Model Context Protocol) pour donner de nouveaux outils à l'IA : accès fichiers, bases de données, APIs métier… <b>stdio</b> = programme lancé localement (npx/uvx/binaire) · <b>http</b> = serveur distant. ⚠️ un serveur stdio exécute du code sur cette machine, au même titre que le shell.</span></span></div>
+      <div class="subhead">Serveurs MCP<span id="mcp-badge" style="margin-left:6px;font-size:10px"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Connecte des <b>serveurs MCP</b> (Model Context Protocol) pour donner de nouveaux outils à l'IA : accès fichiers, bases de données, APIs métier… <b>stdio</b> = programme lancé localement (npx/uvx/binaire) · <b>http</b> = serveur distant. ⚠ un serveur stdio exécute du code sur cette machine, au même titre que le shell.</span></span></div>
       <div id="mcp-list" class="mcp-list"></div>
       <button class="addbtn" style="margin-top:6px" onclick="openMcp('')">+ ajouter un serveur</button>
     </div>
@@ -770,17 +865,17 @@ button:disabled{opacity:.5;cursor:not-allowed}
     <div id="lc-status" class="lc-head muted">…</div>
     <div class="lc-modes">
       <div class="lc-mode" id="lc-mode-fast" onclick="lcPick('fast')">
-        <div class="lc-mode-t">⚡ Version rapide <span class="lc-reco">conseillé</span></div>
+        <div class="lc-mode-t">Version rapide <span class="lc-reco">conseillé</span></div>
         <div class="lc-mode-d">prête à l'emploi, installée en ~2 min</div>
         <div class="lc-mode-state" id="lc-fast-state"></div>
       </div>
       <div class="lc-mode" id="lc-mode-opt" onclick="lcPick('opt')">
-        <div class="lc-mode-t">🔧 Version optimisée</div>
+        <div class="lc-mode-t">Version optimisée</div>
         <div class="lc-mode-d">compilée pour votre machine, plus longue</div>
         <div class="lc-mode-state" id="lc-opt-state"></div>
       </div>
       <div class="lc-mode" id="lc-mode-custom" onclick="openCustomBackends()">
-        <div class="lc-mode-t">🧩 Backend personnalisé</div>
+        <div class="lc-mode-t">Backend personnalisé</div>
         <div class="lc-mode-d">forks llama.cpp pour modèles spéciaux (ternaire…)</div>
         <div class="lc-mode-state" id="lc-custom-state"></div>
       </div>
@@ -804,7 +899,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
     <div class="row" style="margin-top:6px">
       <button onclick="loadAll()">↻ refresh</button>
       <button onclick="resetChat()">⌫ clear chat</button>
-      <button id="btn-bench" onclick="runBenchUI()">⚡ bench</button>
+      <button id="btn-bench" onclick="runBenchUI()">bench</button>
     </div>
   </details>
 </div>
@@ -822,18 +917,18 @@ button:disabled{opacity:.5;cursor:not-allowed}
       </span>
     </div>
     <div id="inputbar">
-      <textarea id="input" placeholder="message…" onkeydown="onKey(event)"></textarea>
+      <textarea id="input" rows="1" placeholder="message…" onkeydown="onKey(event)" oninput="autoGrow(this)"></textarea>
       <button id="send" onclick="send()">send</button>
       <button id="stop" onclick="stopGen()" style="display:none;background:var(--danger-bg);border-color:var(--err);color:var(--err)">stop</button>
     </div>
-    <div id="sendhint" class="muted" style="padding:0 12px 6px;font-size:10px;text-align:center;opacity:.7">Entrée pour envoyer · Maj+Entrée = nouvelle ligne</div>
+    <div id="sendhint" class="muted">Entrée pour envoyer · Maj+Entrée = nouvelle ligne</div>
   </div>
 </div>
 <div id="toast"></div>
 <div id="bench-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:30;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeBenchModal()">
   <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;width:100%;max-width:480px;display:flex;flex-direction:column">
     <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-      <strong>⚡ Benchmark</strong>
+      <strong>Benchmark</strong>
       <button onclick="closeBenchModal()" style="margin:0">×</button>
     </div>
     <div id="bench-body" style="padding:18px 20px;display:flex;flex-direction:column;gap:12px"></div>
@@ -857,7 +952,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div id="lc-custom-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeCustomBackends()">
   <div class="modal-card" style="max-width:560px">
     <div class="modal-head">
-      <strong>🧩 Backends personnalisés</strong>
+      <strong>Backends personnalisés</strong>
       <button class="modal-x" onclick="closeCustomBackends()" aria-label="Fermer">×</button>
     </div>
     <div class="modal-body mform">
@@ -898,8 +993,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
       <div class="fld">
         <label class="fld-l">Transport</label>
         <div class="seg">
-          <label><input type="radio" name="mcp-transport" value="stdio" onchange="mcpTransportUI('stdio')"><span>⚙️ stdio (local)</span></label>
-          <label><input type="radio" name="mcp-transport" value="http" onchange="mcpTransportUI('http')"><span>🌐 http (distant)</span></label>
+          <label><input type="radio" name="mcp-transport" value="stdio" onchange="mcpTransportUI('stdio')"><span>stdio (local)</span></label>
+          <label><input type="radio" name="mcp-transport" value="http" onchange="mcpTransportUI('http')"><span>http (distant)</span></label>
         </div>
       </div>
       <div id="mcp-stdio-fields">
@@ -973,7 +1068,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
               <span class="pe-row-l">Télécharger un modèle <span class="pe-sub">lien direct vers un .gguf</span></span>
               <div class="pe-inpbtn">
                 <input id="m-hf-url" class="pe-inp" placeholder="https://…/model.gguf">
-                <button id="m-hf-btn" onclick="startDownload()" title="Télécharger">⬇</button>
+                <button id="m-hf-btn" onclick="startDownload()" title="Télécharger">↓</button>
               </div>
               <div id="m-hf-progress" class="pe-note" style="display:none"></div>
             </div>
@@ -1120,7 +1215,7 @@ async function loadSys(){
 // Registre des thèmes disponibles. Pour en AJOUTER un : ajouter un bloc
 // [data-theme="…"] dans le <style> puis une entrée {id,label} ici — le reste
 // (menu déroulant, persistance localStorage, application) est automatique.
-const THEMES=[{id:'ajean',label:'AJEAN'},{id:'dark',label:'sombre'},{id:'light',label:'clair'},{id:'soft',label:'doux'},{id:'soft-dark',label:'doux sombre'},{id:'gpt',label:'ChatGPT'}];
+const THEMES=[{id:'ajean',label:'AJEAN'},{id:'ajean-dark',label:'AJEAN sombre'},{id:'dark',label:'sombre'},{id:'light',label:'clair'},{id:'soft',label:'doux'},{id:'soft-dark',label:'doux sombre'},{id:'gpt',label:'ChatGPT'}];
 // Anciens identifiants (v0.5.7, thème livré en deux variantes) → thème unique.
 const THEME_ALIASES={'gpt-light':'gpt','gpt-dark':'gpt'};
 // Lexend (thème "doux") n'est chargé QUE si ce thème est choisi : aucune requête
@@ -1252,7 +1347,7 @@ async function jfetch(u, opts){
   let r;
   try{ r = await fetch(u, opts); }
   catch(e){
-    if(e && e.name==='AbortError'){ throw new Error('requête sans réponse après 30 s (trop d\'onglets Jean ouverts ?)'); }
+    if(e && e.name==='AbortError'){ throw new Error('requête sans réponse après 30 s (trop d\'onglets AJEAN ouverts ?)'); }
     throw e;
   }
   finally{ if(timer) clearTimeout(timer); }
@@ -1323,7 +1418,7 @@ async function checkUpdate(){
       msg.innerHTML='Nouvelle version <b>v'+r.latest+'</b> disponible. ';
       const btn=document.createElement('button'); btn.textContent='Mettre à jour'; btn.onclick=applyUpdate;
       msg.appendChild(btn);
-    } else { msg.textContent='Jean est à jour ✓'; }
+    } else { msg.textContent='AJEAN est à jour ✓'; }
   }catch(e){ msg.textContent='Erreur réseau'; }
   b.disabled=false;
 }
@@ -1385,8 +1480,8 @@ async function loadCfg(){
     // Moteur : rapide / optimisé / custom (avec le chemin). Le title garde
     // toujours le chemin complet, quel que soit le libellé.
     let v;
-    if(lc && lc.prebuilt && lc.prebuilt.in_use) v='⚡ rapide';
-    else if(lc && lc.in_use) v='🔧 optimisé';
+    if(lc && lc.prebuilt && lc.prebuilt.in_use) v='rapide';
+    else if(lc && lc.in_use) v='optimisé';
     else v='custom : '+c.BIN;
     rows.push(row('MOTEUR', v, c.BIN));
   }
@@ -1551,7 +1646,7 @@ function renderInternet(s){
   const st=document.getElementById('internet-status');
   if(!s.url){ st.textContent='serveur non configuré'; st.style.color=''; }
   else if(s.reachable){ st.innerHTML='<span style="color:var(--accent)">✓</span> serveur joignable — outils web actifs'; }
-  else { st.innerHTML='⚠️ serveur injoignable — les outils web ne seront pas proposés'; }
+  else { st.innerHTML='⚠ serveur injoignable — les outils web ne seront pas proposés'; }
 }
 async function loadInternet(){ renderInternet(await jget('/api/internet')); }
 // --- Accès OpenAI (endpoint /v1 + clé API des complétions) -----------------
@@ -1669,7 +1764,7 @@ async function runBenchUI(){
       '</div>' +
       '<div class="muted" style="text-align:center;font-size:11px">total '+x.elapsed_sec.toFixed(2)+'s</div>';
   } finally {
-    btn.disabled = false; btn.textContent = '⚡ bench';
+    btn.disabled = false; btn.textContent = 'bench';
     rerun.disabled = false;
     loadPresets();
   }
@@ -1952,7 +2047,7 @@ async function delItem(){
   const name = document.getElementById('m-name').value.trim() || editingKey;
   const delModel = editingKind==='preset' && document.getElementById('m-del-model').checked;
   let msg = 'Supprimer le ' + K.label.toLowerCase() + ' « ' + name + ' » ?';
-  if(delModel) msg += '\n\n⚠️ Le fichier .gguf du modèle sera AUSSI supprimé du disque (irréversible).';
+  if(delModel) msg += '\n\n⚠ Le fichier .gguf du modèle sera AUSSI supprimé du disque (irréversible).';
   if(!await askConfirm(msg, {title:'Suppression', okText:'Supprimer', danger:true})) return;
   const payload = editingKind==='preset'
     ? {id: editingKey, deleteModel: delModel}
@@ -1997,7 +2092,7 @@ async function startDownload(){
     }
     const pct = st.total>0 ? Math.round(st.done*100/st.total) : 0;
     const tot = st.total>0 ? ' / '+fmtSize(st.total)+' ('+pct+'%)' : '';
-    prog.textContent = '⬇ '+fmtSize(st.done)+tot+' — '+fname;
+    prog.textContent = '↓ '+fmtSize(st.done)+tot+' — '+fname;
   }, 800);
 }
 // Smart autoscroll: follow the bottom while the user hasn't manually scrolled
@@ -2101,26 +2196,26 @@ function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(text); addCo
 // Render a tool call as its own conversation message: the command the model
 // wrote, then the response it got back. textContent keeps it injection-safe.
 function renderToolMsg(el, tu){
-  // Métadonnées d'affichage par outil : nom court + en-tête avec icône. Les outils
-  // web (web_search/open/read/grep) doivent afficher 🌐, pas le fallback mémoire.
+  // Métadonnées d'affichage par outil : nom court + en-tête. Les outils web
+  // (web_search/open/read/grep) ont leur propre libellé, pas le fallback mémoire.
   const META = {
-    bash:       {lbl:'terminal',  head:'⚙️ commande'},
-    edit:       {lbl:'édition',   head:'✏️ édition'},
-    web_search: {lbl:'recherche', head:'🌐 recherche web'},
-    web_open:   {lbl:'page web',  head:'🌐 ouverture'},
-    web_read:   {lbl:'page web',  head:'🌐 lecture'},
-    web_grep:   {lbl:'page web',  head:'🌐 recherche'},
+    bash:       {lbl:'terminal',  head:'commande'},
+    edit:       {lbl:'édition',   head:'édition'},
+    web_search: {lbl:'recherche', head:'recherche web'},
+    web_open:   {lbl:'page web',  head:'ouverture'},
+    web_read:   {lbl:'page web',  head:'lecture'},
+    web_grep:   {lbl:'page web',  head:'recherche'},
   };
-  // Outils MCP (nom mcp__<serveur>__<outil>) : icône dédiée + libellé lisible,
+  // Outils MCP (nom mcp__<serveur>__<outil>) : en-tête = nom du serveur, libellé lisible,
   // pas le fallback mémoire. On extrait serveur et outil du nom namespacé.
   let meta = META[tu.name];
   if(!meta && tu.name && tu.name.indexOf('mcp__')===0){
     const parts = tu.name.slice(5).split('__');
     const server = parts.shift() || 'mcp';
     const tool = parts.join('__') || tu.name;
-    meta = {lbl: tool, head: '🔌 '+server};
+    meta = {lbl: tool, head: server};
   }
-  meta = meta || {lbl:'mémoire', head:'🧠 mémoire'};
+  meta = meta || {lbl:'mémoire', head:'mémoire'};
   let lbl = meta.lbl;
   // Indication du volume de la réponse de l'outil (~tokens, estimation 1 tok ≈ 4 car).
   if(tu.result){ lbl += '  ·  ~' + Math.max(1, Math.round(tu.result.length/4)) + ' tok'; }
@@ -2134,6 +2229,26 @@ function renderToolMsg(el, tu){
     const code=document.createElement('code'); code.textContent=tu.label;
     if(tu.typing){ const car=document.createElement('span'); car.className='tool-caret'; car.textContent='▋'; code.appendChild(car); }
     pre.appendChild(code); body.appendChild(pre);
+  }
+  // Diff d'une écriture (fichier ou page de mémoire) : lignes ajoutées en vert,
+  // retirées en rouge, contexte en gris — comme un diff de terminal.
+  if(tu.diff && tu.diff.length){
+    const sub=document.createElement('div'); sub.className='tool-sub';
+    let add=0, del=0;
+    tu.diff.forEach(l=>{ if(l.op==='+') add++; else if(l.op==='-') del++; });
+    sub.textContent='modifications';
+    const cnt=document.createElement('span'); cnt.className='diff-count';
+    cnt.innerHTML='<span class="a">+'+add+'</span> <span class="d">-'+del+'</span>';
+    sub.appendChild(cnt);
+    body.appendChild(sub);
+    const pre=document.createElement('pre'); pre.className='diff';
+    tu.diff.forEach(l=>{
+      const ln=document.createElement('span');
+      ln.className='dl'+(l.op==='+'?' add':l.op==='-'?' del':'');
+      ln.textContent=(l.op==='+'?'+':l.op==='-'?'-':' ')+' '+l.text;
+      pre.appendChild(ln);
+    });
+    body.appendChild(pre);
   }
   const hasResult = tu.result!==undefined && tu.result!=='';
   if(hasResult){
@@ -2152,6 +2267,8 @@ function renderToolMsg(el, tu){
 function addCopyButtons(root){
   root.querySelectorAll('pre').forEach(pre=>{
     if(pre.querySelector('.copybtn')) return;
+    // Pas de bouton copier sur un diff : on copierait les préfixes + / - .
+    if(pre.classList.contains('diff')) return;
     const btn=document.createElement('button');
     btn.className='copybtn'; btn.type='button'; btn.textContent='copier';
     btn.onclick=async(e)=>{
@@ -2208,6 +2325,17 @@ function restoreChat(){
   connectStream();
 }
 function onKey(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } }
+// La zone de saisie s'ajuste à son contenu : une ligne au repos, puis elle
+// grandit jusqu'à sa max-height (au-delà, elle défile). Appelée à la frappe, à
+// l'envoi et au chargement.
+function autoGrow(ta){
+  ta = ta || document.getElementById('input');
+  if(!ta) return;
+  ta.style.height='auto';
+  const max=parseInt(getComputedStyle(ta).maxHeight,10)||200;
+  ta.style.height=Math.min(ta.scrollHeight, max)+'px';
+  ta.style.overflowY = ta.scrollHeight>max ? 'auto' : 'hidden';
+}
 // ===== Conversation SERVEUR (source de vérité, partagée entre appareils) =====
 // L'historique et la génération vivent sur le serveur jean. Le client ouvre un
 // flux d'ABONNEMENT permanent (SSE) qui rejoue le journal depuis lastSeq puis
@@ -2362,13 +2490,13 @@ async function send(){
   if(busy) return;
   const ta=document.getElementById('input'); const text=ta.value.trim();
   if(!text) return;
-  ta.value='';
+  ta.value=''; autoGrow(ta);
   for(let attempt=0; attempt<3; attempt++){
     try{
       const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,ctx_used:CTX_USED})});
       if(r.status===409) return;               // déjà en cours (notre envoi a abouti) → OK
       if(r.ok) return;                          // la bulle + les tokens arrivent par le flux
-      if(r.status<500){ let m='erreur'; try{ m=(await r.json()).error||m; }catch(_){} toast(m); ta.value=text; return; }
+      if(r.status<500){ let m='erreur'; try{ m=(await r.json()).error||m; }catch(_){} toast(m); ta.value=text; autoGrow(ta); return; }
     }catch(e){ /* réseau : on retente */ }
     await new Promise(res=>setTimeout(res, 600));
   }
@@ -2381,8 +2509,8 @@ setInterval(loadStatus, 5000);
 setInterval(loadVram, 3000);
 setInterval(loadRam, 3000);
 // Backend llama.cpp — la barre latérale sert UNIQUEMENT à installer les moteurs.
-//   ⚡ Version rapide    = binaires officiels précompilés (aucune compilation)
-//   🔧 Version optimisée = compilée pour la machine
+//   « Version rapide »    = binaires officiels précompilés (aucune compilation)
+//   « Version optimisée » = compilée pour la machine
 // Le CHOIX du moteur utilisé se fait par modèle (preset), pas ici — voir la
 // section « Moteur » dans l'éditeur de modèle. Ça évite que la barre latérale
 // et les presets se battent pour la ligne BIN.
@@ -2419,7 +2547,7 @@ function lcRenderMode(mode, installed){
   card.classList.toggle('installed', installed);
   // Lien de vérification : interroge la dernière version SANS rien installer.
   // event.stopPropagation empêche le clic de la carte (qui lance l'install).
-  const check = '<span class="lc-update-link" onclick="event.stopPropagation();lcCheck(\''+mode+'\')">🔍 vérifier la version</span>';
+  const check = '<span class="lc-update-link" onclick="event.stopPropagation();lcCheck(\''+mode+'\')">vérifier la version</span>';
   if(installed){
     state.innerHTML = '<span class="lc-mode-active-tag">✓ installée</span>'
       + '<span class="lc-update-link" onclick="event.stopPropagation();lcUpdate(\''+mode+'\')">↻ mettre à jour</span>'
@@ -2698,7 +2826,7 @@ function openMcp(name){
   document.getElementById('mcp-headers').value = s && s.headers ? Object.entries(s.headers).map(([k,v])=>k+': '+v).join('\n') : '';
   const st = document.getElementById('mcp-modal-status');
   st.textContent = ''; st.style.color = '';
-  if(s && s.enabled && s.error){ st.textContent = '⚠️ '+s.error; st.style.color = 'var(--err)'; }
+  if(s && s.enabled && s.error){ st.textContent = '⚠ '+s.error; st.style.color = 'var(--err)'; }
   else if(s && s.connected){ st.innerHTML = '<span style="color:var(--accent)">✓</span> connecté — '+(s.tools?s.tools.length:0)+' outil(s)'; }
   document.getElementById('mcp-del').style.display = s ? '' : 'none';
   renderMcpTools(s);
@@ -2777,11 +2905,11 @@ async function saveMcp(){
   const st = document.getElementById('mcp-modal-status');
   st.textContent = 'connexion…'; st.style.color = '';
   const r = await jpost('/api/mcp/save', body);
-  if(!r.ok){ st.textContent = '⚠️ '+(r.error||'échec'); st.style.color = 'var(--err)'; return; }
+  if(!r.ok){ st.textContent = '⚠ '+(r.error||'échec'); st.style.color = 'var(--err)'; return; }
   renderMCP(r);
   const saved = (r.servers||[]).find(x=>x.name===name);
   if(saved && saved.connected){ toast('serveur connecté — '+(saved.tools?saved.tools.length:0)+' outil(s)'); closeMcp(); }
-  else if(saved && saved.error){ st.textContent = '⚠️ enregistré mais connexion échouée : '+saved.error; st.style.color = 'var(--err)'; }
+  else if(saved && saved.error){ st.textContent = '⚠ enregistré mais connexion échouée : '+saved.error; st.style.color = 'var(--err)'; }
   else { toast('enregistré'); closeMcp(); }
 }
 

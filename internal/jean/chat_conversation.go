@@ -324,10 +324,16 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 		case ev.Err != nil:
 			c.appendDelta(epoch, map[string]any{"error": ev.Err.Error()})
 		case ev.ToolUsed != nil:
-			c.appendDelta(epoch, map[string]any{"tool_used": map[string]any{
+			tu := map[string]any{
 				"name": ev.ToolUsed.Name, "label": ev.ToolUsed.Label,
 				"result": ev.ToolUsed.Result, "done": ev.ToolUsed.Done, "typing": ev.ToolUsed.Typing,
-			}})
+			}
+			// Lignes +/- d'une écriture (edit / mémoire) : persistées avec le reste
+			// pour que le diff soit encore là après un rafraîchissement.
+			if len(ev.ToolUsed.Diff) > 0 {
+				tu["diff"] = ev.ToolUsed.Diff
+			}
+			c.appendDelta(epoch, map[string]any{"tool_used": tu})
 		case ev.Stats != nil:
 			// Taille réelle du contexte (usage.prompt_tokens + généré) pour le compteur
 			// et la décision de compactage au tour suivant.

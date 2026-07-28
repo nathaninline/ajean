@@ -1,6 +1,6 @@
 // Backend llama.cpp — la barre latérale sert UNIQUEMENT à installer les moteurs.
-//   ⚡ Version rapide    = binaires officiels précompilés (aucune compilation)
-//   🔧 Version optimisée = compilée pour la machine
+//   « Version rapide »    = binaires officiels précompilés (aucune compilation)
+//   « Version optimisée » = compilée pour la machine
 // Le CHOIX du moteur utilisé se fait par modèle (preset), pas ici — voir la
 // section « Moteur » dans l'éditeur de modèle. Ça évite que la barre latérale
 // et les presets se battent pour la ligne BIN.
@@ -37,7 +37,7 @@ function lcRenderMode(mode, installed){
   card.classList.toggle('installed', installed);
   // Lien de vérification : interroge la dernière version SANS rien installer.
   // event.stopPropagation empêche le clic de la carte (qui lance l'install).
-  const check = '<span class="lc-update-link" onclick="event.stopPropagation();lcCheck(\''+mode+'\')">🔍 vérifier la version</span>';
+  const check = '<span class="lc-update-link" onclick="event.stopPropagation();lcCheck(\''+mode+'\')">vérifier la version</span>';
   if(installed){
     state.innerHTML = '<span class="lc-mode-active-tag">✓ installée</span>'
       + '<span class="lc-update-link" onclick="event.stopPropagation();lcUpdate(\''+mode+'\')">↻ mettre à jour</span>'

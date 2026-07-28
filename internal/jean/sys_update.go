@@ -368,7 +368,7 @@ func restartAfterUpdate() (bool, string) {
 
 func restartHintText() string {
 	if runtime.GOOS == "windows" {
-		return "Redémarre Jean (quitte puis relance) pour appliquer la mise à jour."
+		return "Redémarre AJEAN (quitte puis relance) pour appliquer la mise à jour."
 	}
 	return "Redémarre les services pour appliquer : sudo systemctl restart jean jean-link"
 }

@@ -57,7 +57,7 @@ async function checkUpdate(){
       msg.innerHTML='Nouvelle version <b>v'+r.latest+'</b> disponible. ';
       const btn=document.createElement('button'); btn.textContent='Mettre à jour'; btn.onclick=applyUpdate;
       msg.appendChild(btn);
-    } else { msg.textContent='Jean est à jour ✓'; }
+    } else { msg.textContent='AJEAN est à jour ✓'; }
   }catch(e){ msg.textContent='Erreur réseau'; }
   b.disabled=false;
 }
@@ -119,8 +119,8 @@ async function loadCfg(){
     // Moteur : rapide / optimisé / custom (avec le chemin). Le title garde
     // toujours le chemin complet, quel que soit le libellé.
     let v;
-    if(lc && lc.prebuilt && lc.prebuilt.in_use) v='⚡ rapide';
-    else if(lc && lc.in_use) v='🔧 optimisé';
+    if(lc && lc.prebuilt && lc.prebuilt.in_use) v='rapide';
+    else if(lc && lc.in_use) v='optimisé';
     else v='custom : '+c.BIN;
     rows.push(row('MOTEUR', v, c.BIN));
   }

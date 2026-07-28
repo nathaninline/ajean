@@ -225,7 +225,7 @@ func runLinkForeground() error {
 		return fmt.Errorf("aucun token. Usage: jean link <token>")
 	}
 	fmt.Printf("%s connexion au relais %s …\n", cyan("[link]"), relayURL())
-	fmt.Printf("       (UI Jean + endpoint OpenAI servis dans le tunnel — pas besoin de 'jean web')\n")
+	fmt.Printf("       (UI AJEAN + endpoint OpenAI servis dans le tunnel — pas besoin de 'jean web')\n")
 	if fp := e2eFingerprint(); fp != "" {
 		fmt.Printf("%s empreinte E2E : %s   (code d'appairage : jean link code)\n", green("[e2e]"), bold(fp))
 	}

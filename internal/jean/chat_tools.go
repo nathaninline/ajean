@@ -179,6 +179,11 @@ func fileEdit(path, oldText, newText string) string {
 	content := string(b)
 	n := strings.Count(content, oldText)
 	if n == 0 {
+		// Modification déjà en place : on le dit clairement plutôt que de renvoyer
+		// une erreur, sinon le modèle croit avoir échoué et recommence.
+		if newText != "" && strings.Contains(content, newText) {
+			return "[ok] déjà à jour — le fichier contient déjà cette modification"
+		}
 		return "[erreur] old introuvable dans le fichier"
 	}
 	if n > 1 {

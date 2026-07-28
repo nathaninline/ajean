@@ -24,11 +24,11 @@ import (
 func runTray(url string) {
 	systray.Run(func() {
 		systray.SetIcon(trayIcon())
-		systray.SetTitle("Jean")
-		systray.SetTooltip("Jean — votre IA locale")
-		mOpen := systray.AddMenuItem("Ouvrir Jean", "Ouvrir l'interface")
+		systray.SetTitle("AJEAN")
+		systray.SetTooltip("AJEAN — votre IA locale")
+		mOpen := systray.AddMenuItem("Ouvrir AJEAN", "Ouvrir l'interface")
 		systray.AddSeparator()
-		mQuit := systray.AddMenuItem("Quitter", "Arrêter Jean")
+		mQuit := systray.AddMenuItem("Quitter", "Arrêter AJEAN")
 
 		go func() {
 			for {

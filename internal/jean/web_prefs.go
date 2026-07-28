@@ -26,7 +26,7 @@ var webPrefsAllowed = map[string]map[string]bool{
 	// listé ICI : sinon POST /api/prefs le rejette silencieusement, le serveur
 	// conserve l'ancienne valeur et loadPrefs() la réapplique à chaque
 	// rafraîchissement — le thème « saute » alors qu'il est bien en localStorage.
-	"theme":   {"ajean": true, "dark": true, "light": true, "soft": true, "soft-dark": true, "gpt": true},
+	"theme":   {"ajean": true, "ajean-dark": true, "dark": true, "light": true, "soft": true, "soft-dark": true, "gpt": true},
 	"display": {"full": true, "simple": true},
 }
 

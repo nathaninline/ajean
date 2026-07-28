@@ -97,26 +97,26 @@ function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(text); addCo
 // Render a tool call as its own conversation message: the command the model
 // wrote, then the response it got back. textContent keeps it injection-safe.
 function renderToolMsg(el, tu){
-  // Métadonnées d'affichage par outil : nom court + en-tête avec icône. Les outils
-  // web (web_search/open/read/grep) doivent afficher 🌐, pas le fallback mémoire.
+  // Métadonnées d'affichage par outil : nom court + en-tête. Les outils web
+  // (web_search/open/read/grep) ont leur propre libellé, pas le fallback mémoire.
   const META = {
-    bash:       {lbl:'terminal',  head:'⚙️ commande'},
-    edit:       {lbl:'édition',   head:'✏️ édition'},
-    web_search: {lbl:'recherche', head:'🌐 recherche web'},
-    web_open:   {lbl:'page web',  head:'🌐 ouverture'},
-    web_read:   {lbl:'page web',  head:'🌐 lecture'},
-    web_grep:   {lbl:'page web',  head:'🌐 recherche'},
+    bash:       {lbl:'terminal',  head:'commande'},
+    edit:       {lbl:'édition',   head:'édition'},
+    web_search: {lbl:'recherche', head:'recherche web'},
+    web_open:   {lbl:'page web',  head:'ouverture'},
+    web_read:   {lbl:'page web',  head:'lecture'},
+    web_grep:   {lbl:'page web',  head:'recherche'},
   };
-  // Outils MCP (nom mcp__<serveur>__<outil>) : icône dédiée + libellé lisible,
+  // Outils MCP (nom mcp__<serveur>__<outil>) : en-tête = nom du serveur, libellé lisible,
   // pas le fallback mémoire. On extrait serveur et outil du nom namespacé.
   let meta = META[tu.name];
   if(!meta && tu.name && tu.name.indexOf('mcp__')===0){
     const parts = tu.name.slice(5).split('__');
     const server = parts.shift() || 'mcp';
     const tool = parts.join('__') || tu.name;
-    meta = {lbl: tool, head: '🔌 '+server};
+    meta = {lbl: tool, head: server};
   }
-  meta = meta || {lbl:'mémoire', head:'🧠 mémoire'};
+  meta = meta || {lbl:'mémoire', head:'mémoire'};
   let lbl = meta.lbl;
   // Indication du volume de la réponse de l'outil (~tokens, estimation 1 tok ≈ 4 car).
   if(tu.result){ lbl += '  ·  ~' + Math.max(1, Math.round(tu.result.length/4)) + ' tok'; }
@@ -130,6 +130,26 @@ function renderToolMsg(el, tu){
     const code=document.createElement('code'); code.textContent=tu.label;
     if(tu.typing){ const car=document.createElement('span'); car.className='tool-caret'; car.textContent='▋'; code.appendChild(car); }
     pre.appendChild(code); body.appendChild(pre);
+  }
+  // Diff d'une écriture (fichier ou page de mémoire) : lignes ajoutées en vert,
+  // retirées en rouge, contexte en gris — comme un diff de terminal.
+  if(tu.diff && tu.diff.length){
+    const sub=document.createElement('div'); sub.className='tool-sub';
+    let add=0, del=0;
+    tu.diff.forEach(l=>{ if(l.op==='+') add++; else if(l.op==='-') del++; });
+    sub.textContent='modifications';
+    const cnt=document.createElement('span'); cnt.className='diff-count';
+    cnt.innerHTML='<span class="a">+'+add+'</span> <span class="d">-'+del+'</span>';
+    sub.appendChild(cnt);
+    body.appendChild(sub);
+    const pre=document.createElement('pre'); pre.className='diff';
+    tu.diff.forEach(l=>{
+      const ln=document.createElement('span');
+      ln.className='dl'+(l.op==='+'?' add':l.op==='-'?' del':'');
+      ln.textContent=(l.op==='+'?'+':l.op==='-'?'-':' ')+' '+l.text;
+      pre.appendChild(ln);
+    });
+    body.appendChild(pre);
   }
   const hasResult = tu.result!==undefined && tu.result!=='';
   if(hasResult){
@@ -148,6 +168,8 @@ function renderToolMsg(el, tu){
 function addCopyButtons(root){
   root.querySelectorAll('pre').forEach(pre=>{
     if(pre.querySelector('.copybtn')) return;
+    // Pas de bouton copier sur un diff : on copierait les préfixes + / - .
+    if(pre.classList.contains('diff')) return;
     const btn=document.createElement('button');
     btn.className='copybtn'; btn.type='button'; btn.textContent='copier';
     btn.onclick=async(e)=>{
@@ -204,3 +226,14 @@ function restoreChat(){
   connectStream();
 }
 function onKey(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } }
+// La zone de saisie s'ajuste à son contenu : une ligne au repos, puis elle
+// grandit jusqu'à sa max-height (au-delà, elle défile). Appelée à la frappe, à
+// l'envoi et au chargement.
+function autoGrow(ta){
+  ta = ta || document.getElementById('input');
+  if(!ta) return;
+  ta.style.height='auto';
+  const max=parseInt(getComputedStyle(ta).maxHeight,10)||200;
+  ta.style.height=Math.min(ta.scrollHeight, max)+'px';
+  ta.style.overflowY = ta.scrollHeight>max ? 'auto' : 'hidden';
+}

@@ -95,7 +95,7 @@ function openMcp(name){
   document.getElementById('mcp-headers').value = s && s.headers ? Object.entries(s.headers).map(([k,v])=>k+': '+v).join('\n') : '';
   const st = document.getElementById('mcp-modal-status');
   st.textContent = ''; st.style.color = '';
-  if(s && s.enabled && s.error){ st.textContent = '⚠️ '+s.error; st.style.color = 'var(--err)'; }
+  if(s && s.enabled && s.error){ st.textContent = '⚠ '+s.error; st.style.color = 'var(--err)'; }
   else if(s && s.connected){ st.innerHTML = '<span style="color:var(--accent)">✓</span> connecté — '+(s.tools?s.tools.length:0)+' outil(s)'; }
   document.getElementById('mcp-del').style.display = s ? '' : 'none';
   renderMcpTools(s);
@@ -174,11 +174,11 @@ async function saveMcp(){
   const st = document.getElementById('mcp-modal-status');
   st.textContent = 'connexion…'; st.style.color = '';
   const r = await jpost('/api/mcp/save', body);
-  if(!r.ok){ st.textContent = '⚠️ '+(r.error||'échec'); st.style.color = 'var(--err)'; return; }
+  if(!r.ok){ st.textContent = '⚠ '+(r.error||'échec'); st.style.color = 'var(--err)'; return; }
   renderMCP(r);
   const saved = (r.servers||[]).find(x=>x.name===name);
   if(saved && saved.connected){ toast('serveur connecté — '+(saved.tools?saved.tools.length:0)+' outil(s)'); closeMcp(); }
-  else if(saved && saved.error){ st.textContent = '⚠️ enregistré mais connexion échouée : '+saved.error; st.style.color = 'var(--err)'; }
+  else if(saved && saved.error){ st.textContent = '⚠ enregistré mais connexion échouée : '+saved.error; st.style.color = 'var(--err)'; }
   else { toast('enregistré'); closeMcp(); }
 }
 

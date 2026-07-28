@@ -36,7 +36,7 @@ async function runBenchUI(){
       '</div>' +
       '<div class="muted" style="text-align:center;font-size:11px">total '+x.elapsed_sec.toFixed(2)+'s</div>';
   } finally {
-    btn.disabled = false; btn.textContent = '⚡ bench';
+    btn.disabled = false; btn.textContent = 'bench';
     rerun.disabled = false;
     loadPresets();
   }
@@ -319,7 +319,7 @@ async function delItem(){
   const name = document.getElementById('m-name').value.trim() || editingKey;
   const delModel = editingKind==='preset' && document.getElementById('m-del-model').checked;
   let msg = 'Supprimer le ' + K.label.toLowerCase() + ' « ' + name + ' » ?';
-  if(delModel) msg += '\n\n⚠️ Le fichier .gguf du modèle sera AUSSI supprimé du disque (irréversible).';
+  if(delModel) msg += '\n\n⚠ Le fichier .gguf du modèle sera AUSSI supprimé du disque (irréversible).';
   if(!await askConfirm(msg, {title:'Suppression', okText:'Supprimer', danger:true})) return;
   const payload = editingKind==='preset'
     ? {id: editingKey, deleteModel: delModel}
@@ -364,7 +364,7 @@ async function startDownload(){
     }
     const pct = st.total>0 ? Math.round(st.done*100/st.total) : 0;
     const tot = st.total>0 ? ' / '+fmtSize(st.total)+' ('+pct+'%)' : '';
-    prog.textContent = '⬇ '+fmtSize(st.done)+tot+' — '+fname;
+    prog.textContent = '↓ '+fmtSize(st.done)+tot+' — '+fname;
   }, 800);
 }
 // Smart autoscroll: follow the bottom while the user hasn't manually scrolled

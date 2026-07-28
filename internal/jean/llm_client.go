@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -264,6 +265,9 @@ type ToolUsedEvent struct {
 	Result string // tool output (stdout/stderr/exit for run_shell, skill body for read_skill)
 	Done   bool   // false = call announced (command only); true = result is ready
 	Typing bool   // true = command still being written (partial), no spinner yet
+	// Diff : lignes ajoutées/retirées quand l'outil a MODIFIÉ quelque chose
+	// (edit, mem_add, mem_edit). L'UI les affiche en vert (+) et rouge (-).
+	Diff []DiffLine
 }
 
 // previewArg pulls the (possibly incomplete) string value of key out of a
@@ -414,6 +418,9 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 	// several times, it's stuck — break instead of spinning to the iteration cap.
 	lastSig := ""
 	repeatSig := 0
+	// Appels d'outil déjà exécutés (clé = nom + arguments bruts) : sert à ne pas
+	// rejouer deux fois exactement la même écriture dans un même échange.
+	doneCalls := map[string]string{}
 	// Garde-fou « pensé sans agir » : certains modèles à reasoning planifient un
 	// appel d'outil dans leur <think> puis émettent le token de fin SANS l'émettre
 	// (ni réponse, ni tool_call). On relance alors UNE fois le tour avec un nudge
@@ -747,6 +754,22 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label}})
 
 				result := ""
+				// diff : rempli par les outils d'écriture (edit / mémoire) pour que
+				// l'UI montre les lignes ajoutées et retirées.
+				var diff []DiffLine
+				// Appel rigoureusement identique déjà exécuté dans ce tour : on ne le
+				// rejoue pas. Les petits modèles réémettent volontiers deux fois la
+				// même écriture ; la rejouer produisait une fausse erreur (« old
+				// introuvable », puisque le remplacement est déjà fait).
+				callKey := tc.Function.Name + "\x00" + tc.Function.Arguments
+				if prev, seen := doneCalls[callKey]; seen {
+					result = prev + "\n[note] appel identique déjà exécuté dans ce tour — non rejoué"
+					cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label, Result: result, Done: true}})
+					toolMsg := Message{Role: "tool", ToolCallID: tc.ID, Content: result}
+					messages = append(messages, toolMsg)
+					extra = append(extra, toolMsg)
+					continue
+				}
 				switch tc.Function.Name {
 				case "mem_search":
 					lim := 0
@@ -782,19 +805,27 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 						result = "[erreur] " + werr.Error()
 					} else {
 						result = fmt.Sprintf("[ok] page '%s' créée", label)
+						diff = addedDiff(content)
 					}
 				case "mem_edit":
 					oldText, _ := args["old"].(string)
 					newText, _ := args["new"].(string)
-					if werr := MemEdit(label, oldText, newText); werr != nil {
+					if werr := MemEdit(label, oldText, newText); errors.Is(werr, errAlreadyApplied) {
+						result = fmt.Sprintf("[ok] page '%s' %s", label, werr.Error())
+					} else if werr != nil {
 						result = "[erreur] " + werr.Error()
 					} else {
 						result = fmt.Sprintf("[ok] page '%s' modifiée", label)
+						diff = lineDiff(oldText, newText)
 					}
 				case "edit":
 					oldText, _ := args["old"].(string)
 					newText, _ := args["new"].(string)
 					result = fileEdit(label, oldText, newText)
+					// Diff seulement si l'édition a réussi (sinon le fichier n'a pas bougé).
+					if !strings.HasPrefix(result, "[erreur]") {
+						diff = lineDiff(oldText, newText)
+					}
 				case "bash":
 					to := 0
 					switch v := args["timeout"].(type) {
@@ -819,11 +850,14 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 						result = "[erreur] outil inconnu: " + tc.Function.Name
 					}
 				}
+				if !strings.HasPrefix(result, "[erreur]") {
+					doneCalls[callKey] = result
+				}
 				shown := result
 				if r := []rune(shown); len(r) > 4000 {
 					shown = string(r[:4000]) + "\n…[tronqué]"
 				}
-				cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label, Result: shown, Done: true}})
+				cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label, Result: shown, Done: true, Diff: diff}})
 				toolMsg := Message{Role: "tool", ToolCallID: tc.ID, Content: result}
 				messages = append(messages, toolMsg)
 				extra = append(extra, toolMsg)

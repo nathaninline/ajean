@@ -150,7 +150,7 @@ function renderInternet(s){
   const st=document.getElementById('internet-status');
   if(!s.url){ st.textContent='serveur non configuré'; st.style.color=''; }
   else if(s.reachable){ st.innerHTML='<span style="color:var(--accent)">✓</span> serveur joignable — outils web actifs'; }
-  else { st.innerHTML='⚠️ serveur injoignable — les outils web ne seront pas proposés'; }
+  else { st.innerHTML='⚠ serveur injoignable — les outils web ne seront pas proposés'; }
 }
 async function loadInternet(){ renderInternet(await jget('/api/internet')); }
 // --- Accès OpenAI (endpoint /v1 + clé API des complétions) -----------------

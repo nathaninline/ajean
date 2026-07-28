@@ -35,7 +35,7 @@ func cmdApp(args []string) error {
 	if err != nil {
 		// Jean tourne déjà sur ce port : on ouvre juste l'UI sur l'instance
 		// existante plutôt que d'échouer.
-		fmt.Printf("Jean est déjà lancé — ouverture de %s\n", url)
+		fmt.Printf("AJEAN est déjà lancé — ouverture de %s\n", url)
 		return openBrowser(url)
 	}
 
@@ -59,7 +59,7 @@ func cmdApp(args []string) error {
 		startAppLink(appWebMux)
 	}()
 
-	sp := showSplash("Lancement de Jean en cours…")
+	sp := showSplash("Lancement d'AJEAN en cours…")
 	waitServerReady(url)
 	_ = openBrowser(url)
 	time.Sleep(900 * time.Millisecond) // laisse le navigateur s'afficher par-dessus le splash

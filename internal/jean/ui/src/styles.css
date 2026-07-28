@@ -5,7 +5,7 @@
    reste (sélecteur, persistance, application) est automatique. */
 /* --font : police par défaut (mono). Un thème peut la surcharger (voir "soft").
    Les blocs plus spécifiques qui ne redéfinissent pas --font héritent de :root. */
-:root{color-scheme:dark;--font:ui-monospace,SFMono-Regular,Menlo,monospace;--bubble:#1f6feb;--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--accent-bg:rgba(88,166,255,.12);--ok:#58a6ff;--warn:#d29922;--err:#f85149;--mag:#bc8cff;--code-bg:#0d1117;--danger-bg:#3d1f23;--warn-bg:#3d2f1f}
+:root{color-scheme:dark;--font:ui-monospace,SFMono-Regular,Menlo,monospace;--bubble:#1f6feb;--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--accent-bg:rgba(88,166,255,.12);--ok:#58a6ff;--warn:#d29922;--err:#f85149;--mag:#bc8cff;--code-bg:#0d1117;--danger-bg:#3d1f23;--warn-bg:#3d2f1f;--add:#3fb950;--add-bg:rgba(63,185,80,.12);--del:#f85149;--del-bg:rgba(248,81,73,.12)}
 [data-theme="dark"]{color-scheme:dark;--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--accent-bg:rgba(88,166,255,.12);--ok:#58a6ff;--warn:#d29922;--err:#f85149;--mag:#bc8cff;--code-bg:#0d1117;--danger-bg:#3d1f23;--warn-bg:#3d2f1f}
 [data-theme="light"]{color-scheme:light;--bg:#f0f1f4;--panel:#f8f9fb;--border:#d7dbe1;--text:#24292f;--dim:#636b74;--accent:#0969da;--accent-bg:rgba(9,105,218,.10);--ok:#0969da;--warn:#9a6700;--err:#cf222e;--mag:#8250df;--code-bg:#e6e9ee;--danger-bg:#fbe6e6;--warn-bg:#fbefda}
 /* "doux" — thème clair chaud + police Lexend (lecture agréable). */
@@ -20,7 +20,10 @@
 /* "AJEAN" — clair, bleu, esprit rétro-machine : bordures nettes de 2 px,
    aucun arrondi, ombres en blocs décalés, fond quadrillé (même charte que
    ajean.app). Mise en page complète plus bas (section "Thème pixel"). */
-[data-theme="ajean"]{color-scheme:light;--font:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--bubble:#1f6feb;--bg:#f5f8ff;--panel:#ffffff;--border:#cfdcf5;--text:#0f1f3d;--dim:#5b6f96;--accent:#1f6feb;--accent-bg:rgba(31,111,235,.10);--ok:#1f6feb;--warn:#9a6700;--err:#cf222e;--mag:#6f52d8;--code-bg:#eef3fe;--danger-bg:#fbe6e6;--warn-bg:#fbefda;--grid:#e4ecfa;--line2:#b6cbf0}
+[data-theme="ajean"]{color-scheme:light;--font:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--bubble:#1f6feb;--bg:#f5f8ff;--panel:#ffffff;--border:#cfdcf5;--text:#0f1f3d;--dim:#5b6f96;--accent:#1f6feb;--accent-bg:rgba(31,111,235,.10);--ok:#1f6feb;--warn:#9a6700;--err:#cf222e;--mag:#6f52d8;--code-bg:#eef3fe;--danger-bg:#fbe6e6;--warn-bg:#fbefda;--grid:#e4ecfa;--line2:#b6cbf0;--soft:#e8f0ff;--sh:#cddffb;--knob:#ffffff}
+/* « AJEAN sombre » — même habillage pixel, palette nuit : bleu vif sur fond
+   presque noir, quadrillage discret, ombres bleutées. */
+[data-theme="ajean-dark"]{color-scheme:dark;--font:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--bubble:#3b82f6;--bg:#050810;--panel:#0a1020;--border:#16233f;--text:#dce6ff;--dim:#63739c;--accent:#3b82f6;--accent-bg:rgba(59,130,246,.16);--ok:#3b82f6;--warn:#d29922;--err:#f85149;--mag:#9b8cff;--code-bg:#03060d;--danger-bg:#3d1f23;--warn-bg:#3d2f1f;--grid:#0a1120;--line2:#1e3054;--soft:#101b33;--sh:#132342;--knob:#dce6ff}
 *{box-sizing:border-box}
 body{margin:0;font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;font-size:14px}
 /* PWA plein écran (viewport-fit=cover) : on décale le contenu des bords pour ne
@@ -196,6 +199,16 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .msg.reasoning{align-self:flex-start;background:transparent;border:1px dashed var(--border);color:var(--mag);font-size:12px;max-width:90%;overflow-wrap:anywhere;word-break:break-word}
 .msg.tool{align-self:flex-start;background:transparent;border:1px dashed var(--border);max-width:90%;white-space:normal;padding:8px 12px;font-size:12px;overflow-wrap:anywhere;word-break:break-word}
 .msg.tool .tool-head{font-size:12px;color:var(--accent);font-weight:600;margin-bottom:6px}
+/* ===== Diff des écritures (outil edit / mémoire) ==================
+   Lignes ajoutées en vert, retirées en rouge, contexte neutre. Les couleurs
+   viennent de variables : chaque thème peut les ajuster (clair vs sombre). */
+.msg.tool pre.diff{display:block;padding:0;overflow-x:auto;background:var(--code-bg)}
+.msg.tool pre.diff .dl{display:block;padding:1px 10px;white-space:pre-wrap;word-break:break-word;color:var(--dim)}
+.msg.tool pre.diff .dl.add{color:var(--add);background:var(--add-bg)}
+.msg.tool pre.diff .dl.del{color:var(--del);background:var(--del-bg)}
+.diff-count{margin-left:8px;letter-spacing:0;text-transform:none}
+.diff-count .a{color:var(--add)}
+.diff-count .d{color:var(--del)}
 .msg.tool .tool-sub{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin:8px 0 4px}
 .msg.tool pre{position:relative;background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;overflow:auto;margin:0;max-height:280px}
 .msg.tool pre code{background:transparent;padding:0;font-size:.82em;line-height:1.4;white-space:pre}
@@ -246,7 +259,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
 #ctx-text{font-size:10px;letter-spacing:.03em;white-space:nowrap}
 #ctx-compact{display:none;margin:0;padding:2px 10px;font-size:10px;background:var(--warn-bg);border-color:var(--warn,#c93)}
 #inputbar{padding:8px 12px;display:flex;gap:8px}
-#input{flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;font:inherit;resize:none;min-height:44px;max-height:200px}
+/* Astuce clavier sous la saisie (style repris du HTML : un thème doit pouvoir
+   changer ses marges, ce qu'un style en ligne empêchait). */
+#sendhint{padding:0 12px 6px;font-size:10px;text-align:center;opacity:.7}
+#input{flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;font:inherit;resize:none;min-height:56px;max-height:200px;overflow-y:hidden}
 #input:focus{outline:none;border-color:var(--accent)}
 #send{padding:0 20px}
 .muted{color:var(--dim);font-size:12px}
@@ -344,10 +360,14 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .pe-row.stack.plain .pe-inp:focus{box-shadow:none}
 /* Champ + bouton accolé (téléchargement) — même trait que les autres champs,
    sans pastille colorée qui ressort. */
-.pe-inpbtn{display:flex}
-.pe-inpbtn .pe-inp{border-top-right-radius:0;border-bottom-right-radius:0}
-.pe-inpbtn button{flex:none;margin:0;border:1px solid var(--border);border-left:0;border-radius:0 8px 8px 0;background:var(--panel);color:var(--dim);padding:0 15px;cursor:pointer;font-size:15px;transition:color .12s,border-color .12s}
-.pe-inpbtn button:hover{color:var(--accent);border-color:var(--accent)}
+.pe-inpbtn{display:flex;align-items:stretch}
+.pe-inpbtn .pe-inp{border-top-right-radius:0;border-bottom-right-radius:0;border-right:0}
+/* Le bouton reprend EXACTEMENT le cadre du champ (mêmes coins, même bordure) :
+   sans ça, un thème qui arrondit tous les boutons (ChatGPT) le détachait du
+   champ, avec un coin rond au milieu de la paire. */
+.pe-inpbtn button{flex:none;margin:0;border:1px solid var(--border);border-radius:0 8px 8px 0;background:var(--panel);color:var(--dim);padding:0 15px;cursor:pointer;font-size:15px;transition:color .12s,border-color .12s,background .12s}
+.pe-inpbtn button:hover:not(:disabled){color:#fff;background:var(--accent);border-color:var(--accent)}
+.pe-inpbtn:focus-within .pe-inp,.pe-inpbtn:focus-within button{border-color:var(--accent)}
 .pe-inpbtn button:disabled{opacity:.5;cursor:default}
 /* Contrôle segmenté (moteur) façon iOS. */
 .pe-seg{display:flex;gap:3px;background:color-mix(in srgb,var(--dim) 16%,transparent);border-radius:9px;padding:3px;width:100%}
@@ -520,7 +540,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 [data-theme="gpt"] #scrollbtn{bottom:180px;border-radius:999px}
 [data-theme="gpt"] #compact-banner{order:0;margin:0 var(--col) 8px;border-radius:14px}
 [data-theme="gpt"] #inputbar{order:1;margin:0 var(--col);padding:8px 8px 8px 16px;gap:8px;align-items:flex-end;background:var(--panel);border:1px solid var(--border);border-bottom:none;border-radius:26px 26px 0 0}
-[data-theme="gpt"] #input{background:transparent;border:none;border-radius:0;padding:9px 0;min-height:26px}
+[data-theme="gpt"] #input{background:transparent;border:none;border-radius:0;padding:9px 0;min-height:36px;line-height:18px;max-height:160px}
 /* Pas de cadre qui s'assombrit au focus : la carte garde exactement la même
    bordure, seule la saisie change (curseur). */
 [data-theme="gpt"] #input:focus{border-color:transparent}
@@ -540,9 +560,14 @@ button:disabled{opacity:.5;cursor:not-allowed}
    l'arrondi du pied de carte. */
 [data-theme="gpt"] #ctxtrack{top:auto;bottom:0;height:7px;background:var(--border)}
 [data-theme="gpt"] #ctx-fill{background:var(--text);opacity:.75}
-[data-theme="gpt"] #sendhint{order:4;padding:8px var(--col) 0}
+[data-theme="gpt"] #sendhint{order:4;padding:12px var(--col) 2px}
 /* Reste de l'UI : coins arrondis et contrastes doux, dans le même esprit. */
 [data-theme="gpt"] button,[data-theme="gpt"] .addbtn,[data-theme="gpt"] .mem-search,[data-theme="gpt"] #theme-select{border-radius:10px}
+/* Champ + bouton accolés : on ne garde l'arrondi que sur les coins extérieurs. */
+[data-theme="gpt"] .pe-inpbtn .pe-inp{border-radius:10px 0 0 10px}
+[data-theme="gpt"] .pe-inpbtn button{border-radius:0 10px 10px 0}
+[data-theme="gpt"] .input-btn .ctl{border-radius:10px 0 0 10px}
+[data-theme="gpt"] .input-btn .btn-in{border-radius:0 10px 10px 0}
 [data-theme="gpt"] .preset,[data-theme="gpt"] .gated-block,[data-theme="gpt"] .lc-mode{border-radius:12px}
 [data-theme="gpt"] .preset{background:transparent;border-color:transparent}
 [data-theme="gpt"] .preset:hover{background:var(--accent-bg);border-color:transparent}
@@ -557,49 +582,119 @@ button:disabled{opacity:.5;cursor:not-allowed}
    Rétro-machine : plus aucun arrondi, bordures de 2 px, ombres portées en
    blocs pleins (pas de flou), fond quadrillé comme du papier millimétré,
    boutons en capitales qui « s'enfoncent » au survol. Tout est préfixé
-   [data-theme="ajean"] : aucun autre thème n'est touché. */
+   [data-theme^="ajean"] : aucun autre thème n'est touché. */
 /* Un seul balayage pour supprimer TOUS les arrondis (bulles, boutons, pastilles,
    interrupteurs, points animés…) — c'est ce qui fait l'identité du thème. */
-[data-theme="ajean"] *,[data-theme="ajean"] *::before,[data-theme="ajean"] *::after{border-radius:0 !important}
+[data-theme^="ajean"] *,[data-theme^="ajean"] *::before,[data-theme^="ajean"] *::after{border-radius:0 !important}
 /* Fond quadrillé : le papier millimétré derrière toute l'interface. */
-[data-theme="ajean"] body{background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:32px 32px}
-[data-theme="ajean"] .side{background:var(--panel);border-right:2px solid var(--border)}
-[data-theme="ajean"] #composer,[data-theme="ajean"] #chat{background:transparent}
+[data-theme^="ajean"] body{background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:32px 32px}
+[data-theme^="ajean"] .side{background:var(--panel);border-right:2px solid var(--border)}
+[data-theme^="ajean"] #composer,[data-theme^="ajean"] #chat{background:transparent}
 /* Boutons : capitales, bordure épaisse, ombre en bloc qui disparaît au survol
    pendant que le bouton se décale — impression de touche enfoncée. */
-[data-theme="ajean"] button,[data-theme="ajean"] .addbtn,[data-theme="ajean"] .preset-add{border:2px solid var(--line2);background:var(--panel);color:var(--text);text-transform:uppercase;letter-spacing:.06em;font-weight:700;box-shadow:3px 3px 0 0 var(--grid);transition:.1s}
-[data-theme="ajean"] button:hover:not(:disabled),[data-theme="ajean"] .addbtn:hover,[data-theme="ajean"] .preset-add:hover{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:none;transform:translate(3px,3px)}
-[data-theme="ajean"] .preset-edit,[data-theme="ajean"] .copybtn{border:none;box-shadow:none;text-transform:none}
-[data-theme="ajean"] .copybtn{border:2px solid var(--border)}
-[data-theme="ajean"] #send{background:var(--accent);border-color:var(--accent);color:#fff}
-[data-theme="ajean"] #menubtn{border:2px solid var(--line2);box-shadow:3px 3px 0 0 var(--grid)}
+[data-theme^="ajean"] button,[data-theme^="ajean"] .addbtn,[data-theme^="ajean"] .preset-add{border:2px solid var(--line2);background:var(--panel);color:var(--text);text-transform:uppercase;letter-spacing:.06em;font-weight:700;box-shadow:3px 3px 0 0 var(--grid);transition:.1s}
+[data-theme^="ajean"] button:hover:not(:disabled),[data-theme^="ajean"] .addbtn:hover,[data-theme^="ajean"] .preset-add:hover{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:none;transform:translate(3px,3px)}
+[data-theme^="ajean"] .preset-edit,[data-theme^="ajean"] .copybtn{border:none;box-shadow:none;text-transform:none}
+[data-theme^="ajean"] .copybtn{border:2px solid var(--border)}
+[data-theme^="ajean"] #send{background:var(--accent);border-color:var(--accent);color:#fff}
+[data-theme^="ajean"] #menubtn{border:2px solid var(--line2);box-shadow:3px 3px 0 0 var(--grid)}
 /* Messages : la question en carré bleu plein, la réponse en fiche blanche
    posée sur son ombre. Raisonnement et outils restent en pointillés. */
-[data-theme="ajean"] #chat .msg.user{background:var(--accent);color:#fff;box-shadow:4px 4px 0 0 #cddffb}
-[data-theme="ajean"] #chat .msg.assistant{background:var(--panel);border:2px solid var(--border);box-shadow:4px 4px 0 0 var(--grid)}
-[data-theme="ajean"] #chat .msg.reasoning,[data-theme="ajean"] #chat .msg.tool{border:2px dashed var(--line2);background:var(--panel)}
-[data-theme="ajean"] #chat .msg .label{color:var(--dim);letter-spacing:.14em}
-[data-theme="ajean"] #chat .msg.user .label{color:rgba(255,255,255,.85)}
-[data-theme="ajean"] .msg.assistant .body pre,[data-theme="ajean"] .msg.reasoning .body pre,[data-theme="ajean"] .msg.tool pre{border:2px solid var(--border);background:var(--code-bg)}
-[data-theme="ajean"] .msg.typing span{background:var(--accent)}
+[data-theme^="ajean"] #chat .msg.user{background:var(--accent);color:#fff;box-shadow:4px 4px 0 0 var(--sh)}
+[data-theme^="ajean"] #chat .msg.assistant{background:var(--panel);border:2px solid var(--border);box-shadow:4px 4px 0 0 var(--grid)}
+[data-theme^="ajean"] #chat .msg.reasoning,[data-theme^="ajean"] #chat .msg.tool{border:2px dashed var(--line2);background:var(--panel)}
+[data-theme^="ajean"] #chat .msg .label{color:var(--dim);letter-spacing:.14em}
+[data-theme^="ajean"] #chat .msg.user .label{color:rgba(255,255,255,.85)}
+[data-theme^="ajean"] .msg.assistant .body pre,[data-theme^="ajean"] .msg.reasoning .body pre,[data-theme^="ajean"] .msg.tool pre{border:2px solid var(--border);background:var(--code-bg)}
+[data-theme^="ajean"] .msg.typing span{background:var(--accent)}
 /* Panneaux, encadrés et champs : mêmes bordures épaisses, mêmes ombres. */
-[data-theme="ajean"] .preset,[data-theme="ajean"] .gated-block,[data-theme="ajean"] .tag,[data-theme="ajean"] .qtag,[data-theme="ajean"] .rtag,[data-theme="ajean"] .btag,[data-theme="ajean"] .statuspill,[data-theme="ajean"] .lc-mode{border-width:2px}
-[data-theme="ajean"] .preset.active{border-color:var(--accent);color:var(--accent);box-shadow:3px 3px 0 0 #cddffb}
-[data-theme="ajean"] #input,[data-theme="ajean"] .mem-search,[data-theme="ajean"] .ask-input,[data-theme="ajean"] #modal input,[data-theme="ajean"] #modal textarea,[data-theme="ajean"] #modal select,[data-theme="ajean"] #theme-select{border:2px solid var(--line2);background:var(--panel)}
-[data-theme="ajean"] #input:focus,[data-theme="ajean"] .mem-search:focus,[data-theme="ajean"] .ask-input:focus{border-color:var(--accent)}
-[data-theme="ajean"] #composer{border-top:2px solid var(--border);background:var(--panel)}
+[data-theme^="ajean"] .preset,[data-theme^="ajean"] .gated-block,[data-theme^="ajean"] .tag,[data-theme^="ajean"] .qtag,[data-theme^="ajean"] .rtag,[data-theme^="ajean"] .btag,[data-theme^="ajean"] .statuspill,[data-theme^="ajean"] .lc-mode{border-width:2px}
+[data-theme^="ajean"] .preset.active{border-color:var(--accent);color:var(--accent);box-shadow:3px 3px 0 0 var(--sh)}
+[data-theme^="ajean"] #input,[data-theme^="ajean"] .mem-search,[data-theme^="ajean"] .ask-input,[data-theme^="ajean"] #theme-select,[data-theme^="ajean"] .modal-card .ctl{border:2px solid var(--line2);background:var(--panel)}
+[data-theme^="ajean"] #input:focus,[data-theme^="ajean"] .mem-search:focus,[data-theme^="ajean"] .ask-input:focus{border-color:var(--accent)}
+[data-theme^="ajean"] #composer{border-top:2px solid var(--border);background:var(--panel)}
 /* Jauge de contexte : un vrai bandeau plein, pas un filet dégradé. */
-[data-theme="ajean"] #ctxtrack{height:5px;background:var(--grid)}
-[data-theme="ajean"] #ctx-fill{background:var(--accent)}
+[data-theme^="ajean"] #ctxtrack{height:5px;background:var(--grid)}
+[data-theme^="ajean"] #ctx-fill{background:var(--accent)}
 /* Fenêtres modales / info-bulles / toast : cadre net + ombre en bloc bleutée. */
-[data-theme="ajean"] .ask-box,[data-theme="ajean"] .help>.tip,[data-theme="ajean"] #toast,[data-theme="ajean"] .modal-box,[data-theme="ajean"] #modal>div{border:2px solid var(--line2);box-shadow:7px 7px 0 0 #cddffb}
-[data-theme="ajean"] #scrollbtn{border:2px solid var(--line2);box-shadow:3px 3px 0 0 var(--grid)}
+[data-theme^="ajean"] .ask-box,[data-theme^="ajean"] .help>.tip,[data-theme^="ajean"] #toast,[data-theme^="ajean"] .modal-box,[data-theme^="ajean"] #modal>div{border:2px solid var(--line2);box-shadow:7px 7px 0 0 var(--sh)}
+[data-theme^="ajean"] #scrollbtn{border:2px solid var(--line2);box-shadow:3px 3px 0 0 var(--grid)}
 /* Interrupteurs : carrés, bleus quand ils sont actifs. */
-[data-theme="ajean"] .switch .slider{background:var(--line2)}
-[data-theme="ajean"] .switch input:checked + .slider{background:var(--accent)}
+[data-theme^="ajean"] .switch .slider{background:var(--line2)}
+[data-theme^="ajean"] .switch input:checked + .slider{background:var(--accent)}
 /* Pastille carrée : box-sizing explicite (un ::before n'hérite pas de la règle
    globale *{box-sizing:border-box}) — sans ça la bordure débordait du rail. */
-[data-theme="ajean"] .switch .slider::before{box-sizing:border-box;width:14px;height:14px;background:#fff;border:2px solid var(--line2);box-shadow:none}
-[data-theme="ajean"] .switch input:checked + .slider::before{border-color:#fff;background:var(--panel)}
+[data-theme^="ajean"] .switch .slider::before{box-sizing:border-box;width:14px;height:14px;background:var(--knob);border:2px solid var(--line2);box-shadow:none}
+[data-theme^="ajean"] .switch input:checked + .slider::before{border-color:var(--knob);background:var(--knob)}
 /* Étiquettes de section : capitales espacées, comme des en-têtes de terminal. */
-[data-theme="ajean"] .subhead,[data-theme="ajean"] .skillshead>span{letter-spacing:.16em}
+[data-theme^="ajean"] .subhead,[data-theme^="ajean"] .skillshead>span{letter-spacing:.16em}
+
+/* ----- Thème AJEAN : modales (éditeur de preset, mémoire, MCP) -------------
+   Les règles génériques du thème (bouton en capitales + ombre en bloc + décalage
+   au survol) sont faites pour la barre latérale ; dans un formulaire dense elles
+   rendaient l'éditeur de preset illisible : boutons énormes, ombres qui se
+   chevauchent, champs collés au fond de la carte. On rejoue donc la modale à
+   plat — hiérarchie nette, un seul niveau de relief (la carte). */
+[data-theme^="ajean"] .modal-ov{background:rgba(15,31,61,.45)}
+[data-theme^="ajean"] .modal-card{background:var(--panel);border:2px solid var(--line2);box-shadow:8px 8px 0 0 var(--sh)}
+[data-theme^="ajean"] .modal-head{border-bottom:2px solid var(--border);background:var(--soft,#e8f0ff)}
+[data-theme^="ajean"] .modal-head strong{text-transform:uppercase;letter-spacing:.14em;font-size:12px;color:var(--accent)}
+[data-theme^="ajean"] .modal-foot{border-top:2px solid var(--border)}
+/* Champs simples (mémoire, MCP…) : fond teinté pour se détacher de la carte. */
+[data-theme^="ajean"] .ctl{border:2px solid var(--line2);background:var(--bg);background-image:none}
+[data-theme^="ajean"] .ctl:focus{border-color:var(--accent)}
+[data-theme^="ajean"] .fld-l{color:var(--text);letter-spacing:.1em}
+[data-theme^="ajean"] .fld-hint,[data-theme^="ajean"] .seg .be-note{color:var(--dim)}
+[data-theme^="ajean"] .modal-body .card{border:2px solid var(--border);box-shadow:none;background:var(--panel)}
+[data-theme^="ajean"] .card-h{letter-spacing:.14em}
+
+/* --- Éditeur de preset (listes façon Réglages) --- */
+[data-theme^="ajean"] .pe-body{background:var(--bg)}
+/* En-tête de groupe : petite étiquette bleue en capitales. */
+[data-theme^="ajean"] .pe-gh{color:var(--accent);text-transform:uppercase;letter-spacing:.14em;font-size:11px;font-weight:700}
+/* La LISTE porte le cadre ; les champs à l'intérieur n'en ont pas (sinon double
+   encadrement). Séparateurs de rangées à la même épaisseur. */
+[data-theme^="ajean"] .pe-list,[data-theme^="ajean"] .pe-adv{border:2px solid var(--border);background:var(--panel)}
+[data-theme^="ajean"] .pe-row:not(:last-child){border-bottom:2px solid var(--border)}
+[data-theme^="ajean"] .pe-adv[open]>summary{border-bottom:2px solid var(--border)}
+[data-theme^="ajean"] .pe-val,[data-theme^="ajean"] .pe-selc select{border:none;background:transparent}
+/* Champs pleine largeur (URL, chemin…) : eux gardent un cadre, sur fond teinté. */
+[data-theme^="ajean"] .pe-inp{border:2px solid var(--line2);background:var(--bg)}
+[data-theme^="ajean"] .pe-inp:focus{border-color:var(--accent);box-shadow:none}
+[data-theme^="ajean"] .pe-row.stack.plain .pe-inp{border:none;background:transparent}
+[data-theme^="ajean"] .pe-inpbtn button{border:2px solid var(--line2);box-shadow:none;background:var(--panel);text-transform:none;letter-spacing:0}
+[data-theme^="ajean"] .pe-inpbtn .pe-inp{border-right:0}
+[data-theme^="ajean"] .pe-inpbtn button:hover:not(:disabled){transform:none;background:var(--accent);border-color:var(--accent);color:#fff}
+/* Sélecteur segmenté : cases carrées côte à côte, bleu plein pour l'active. */
+[data-theme^="ajean"] .pe-seg{background:transparent;padding:0;gap:8px}
+[data-theme^="ajean"] .pe-seg>label{border:2px solid var(--border);background:var(--panel);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:11px;padding:9px 4px}
+[data-theme^="ajean"] .pe-seg>label:has(input:checked){background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:none}
+/* Interrupteurs de la modale : carrés, comme ceux de la barre latérale. */
+[data-theme^="ajean"] .pe-sl{background:var(--line2)}
+[data-theme^="ajean"] .pe-sl::before{box-sizing:border-box;background:var(--knob);border:2px solid var(--line2);box-shadow:none}
+[data-theme^="ajean"] .pe-switch input:checked+.pe-sl{background:var(--accent)}
+[data-theme^="ajean"] .pe-switch input:checked+.pe-sl::before{border-color:var(--knob);background:var(--knob)}
+/* Boutons DANS la modale : mêmes capitales, mais posés à plat — pas d'ombre ni
+   de décalage au survol, sinon les rangées de boutons dansent et se recouvrent. */
+[data-theme^="ajean"] .modal-card button{box-shadow:none;font-size:11.5px}
+[data-theme^="ajean"] .modal-card button:hover:not(:disabled){transform:none}
+[data-theme^="ajean"] .modal-card .btn-save{background:var(--accent);border-color:var(--accent);color:#fff}
+[data-theme^="ajean"] .modal-card .btn-danger{background:var(--danger-bg);border-color:var(--err);color:var(--err)}
+[data-theme^="ajean"] .modal-card .btn-danger:hover{background:var(--err);border-color:var(--err);color:#fff}
+[data-theme^="ajean"] .modal-x{border:2px solid transparent;background:transparent;color:var(--dim)}
+[data-theme^="ajean"] .modal-x:hover{background:transparent;border-color:var(--line2);color:var(--text)}
+/* Champ + bouton accolés : les bordures se chevauchent au lieu de doubler. */
+[data-theme^="ajean"] .input-btn .btn-in{margin-left:-2px}
+/* Sélecteur segmenté : bleu plein quand c'est coché (le liseré seul se voyait mal). */
+[data-theme^="ajean"] .seg>label{border:2px solid var(--border);background:var(--bg)}
+[data-theme^="ajean"] .seg>label:has(input:checked){background:var(--accent);border-color:var(--accent);color:#fff}
+[data-theme^="ajean"] .seg>label:has(input:checked) .be-note{color:rgba(255,255,255,.85)}
+/* Listes (MCP, outils) : mêmes bordures épaisses, survol teinté. */
+[data-theme^="ajean"] .mcp-row,[data-theme^="ajean"] .mcp-tools-list,[data-theme^="ajean"] #lc-log{border:2px solid var(--border)}
+[data-theme^="ajean"] .mcp-tool-row:hover{background:var(--soft,#e8f0ff)}
+
+/* Diff sur fond clair : mêmes rôles, teintes plus profondes pour rester lisibles. */
+[data-theme="light"],[data-theme="soft"],[data-theme="gpt"],[data-theme="ajean"]{
+  --add:#1a7f37;--add-bg:rgba(26,127,55,.10);--del:#cf222e;--del-bg:rgba(207,34,46,.10)}
+[data-theme="soft-dark"],[data-theme="ajean-dark"]{
+  --add:#4ac26b;--add-bg:rgba(74,194,107,.13);--del:#f85149;--del-bg:rgba(248,81,73,.13)}

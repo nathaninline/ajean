@@ -1,6 +1,7 @@
 package jean
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -215,6 +216,10 @@ func MemAdd(name, content string) error {
 
 // MemEdit remplace oldText par newText dans une page. oldText doit apparaître
 // EXACTEMENT une fois (sinon erreur), pour une édition sans ambiguïté.
+// errAlreadyApplied signale une édition dont le résultat est DÉJÀ en place :
+// ce n'est pas un échec, la page est dans l'état demandé.
+var errAlreadyApplied = errors.New("déjà à jour — la page contient déjà cette modification")
+
 func MemEdit(name, oldText, newText string) error {
 	p, err := safeMemPath(name)
 	if err != nil {
@@ -230,6 +235,11 @@ func MemEdit(name, oldText, newText string) error {
 		return fmt.Errorf("old vide")
 	}
 	if n == 0 {
+		// Déjà remplacé (le modèle rejoue souvent la même édition) : ce n'est pas
+		// une erreur, la page est dans l'état demandé.
+		if newText != "" && strings.Contains(content, newText) {
+			return errAlreadyApplied
+		}
 		return fmt.Errorf("old introuvable dans la page")
 	}
 	if n > 1 {

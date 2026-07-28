@@ -1,10 +1,10 @@
-# Jean
+# AJEAN
 
-![Interface web de Jean](docs/ui.png)
+![Interface web d'AJEAN](docs/ui.png)
 
 **Un gestionnaire mono-binaire pour serveurs [llama.cpp](https://github.com/ggml-org/llama.cpp) auto-hébergés — avec une interface web intégrée, un chat terminal, et un compilateur de backend qui détecte automatiquement le matériel.**
 
-Dépose un seul binaire sur une machine, lance `jean llamacpp install`, et Jean clone, configure et compile llama.cpp pour le matériel de *cette* machine (CUDA / ROCm / Metal / Vulkan / CPU) — aucun flag à retenir. Ensuite `jean start` et tu as un endpoint compatible OpenAI avec un chat web par-dessus.
+Dépose un seul binaire sur une machine, lance `jean llamacpp install`, et AJEAN clone, configure et compile llama.cpp pour le matériel de *cette* machine (CUDA / ROCm / Metal / Vulkan / CPU) — aucun flag à retenir. Ensuite `jean start` et tu as un endpoint compatible OpenAI avec un chat web par-dessus.
 
 ```
 télécharge le binaire  →  jean llamacpp install  →  jean edit  →  jean start  →  c'est parti
@@ -14,7 +14,7 @@ télécharge le binaire  →  jean llamacpp install  →  jean edit  →  jean s
 
 ## Pourquoi
 
-Faire tourner llama.cpp comme un vrai service, ça veut dire d'habitude : trouver les bons flags CMake pour ton GPU, écrire une unité systemd, gérer une clé API, changer de modèle, garder le build à jour… Jean transforme tout ça en quelques sous-commandes derrière un binaire statique unique, **sans dépendance à l'exécution** (à part llama.cpp lui-même, que Jean peut compiler pour toi).
+Faire tourner llama.cpp comme un vrai service, ça veut dire d'habitude : trouver les bons flags CMake pour ton GPU, écrire une unité systemd, gérer une clé API, changer de modèle, garder le build à jour… AJEAN transforme tout ça en quelques sous-commandes derrière un binaire statique unique, **sans dépendance à l'exécution** (à part llama.cpp lui-même, que AJEAN peut compiler pour toi).
 
 ## Fonctionnalités
 
@@ -59,7 +59,7 @@ sudo jean install
 jean llamacpp install
 ```
 
-Jean détecte ton accélérateur, compile `llama-server`, et pointe la config sur le nouveau binaire. Nécessite `git` et `cmake` (plus le toolkit correspondant, ex. CUDA, si tu veux l'accélération GPU).
+AJEAN détecte ton accélérateur, compile `llama-server`, et pointe la config sur le nouveau binaire. Nécessite `git` et `cmake` (plus le toolkit correspondant, ex. CUDA, si tu veux l'accélération GPU).
 
 ### 4. Pointe-le sur un modèle et démarre
 
@@ -77,7 +77,7 @@ jean web        # http://<hôte>:8090
 
 ## Windows
 
-Jean fonctionne aussi sur Windows. Les différences avec Linux :
+AJEAN fonctionne aussi sur Windows. Les différences avec Linux :
 
 - **Pas de systemd.** `jean start` lance `jean serve` en arrière-plan (processus détaché), suivi via un fichier PID. `stop` / `restart` / `status` / `logs` agissent dessus — aucun droit administrateur requis. `enable` / `disable` (démarrage au boot) ne sont pas gérés : utilise une tâche planifiée ou `sc.exe` si tu en as besoin.
 - **`JEAN_HOME`** vaut par défaut `%ProgramData%\jean` (repli `%LOCALAPPDATA%\jean`). Surcharge avec la variable d'environnement `JEAN_HOME`.
@@ -98,7 +98,7 @@ jean logs                    # suit %ProgramData%\jean\jean.log
 
 ## macOS
 
-Comme sous Windows, tu peux lancer Jean **d'un simple clic** : la page [Releases](../../releases) publie `Jean-macos-arm64.zip` / `Jean-macos-amd64.zip`, un bundle **`Jean.app`**. Dézippe, glisse-le dans *Applications*, ouvre-le : Jean démarre son UI web sur `http://localhost:8090`, l'ouvre dans le navigateur et pose son **icône dans la barre de menus** (en haut à droite) — pendant exact du system tray Windows, avec « Ouvrir Jean » / « Quitter ». Pas de fenêtre de Terminal, pas d'icône dans le Dock.
+Comme sous Windows, tu peux lancer AJEAN **d'un simple clic** : la page [Releases](../../releases) publie `Jean-macos-arm64.zip` / `Jean-macos-amd64.zip`, un bundle **`Jean.app`**. Dézippe, glisse-le dans *Applications*, ouvre-le : AJEAN démarre son UI web sur `http://localhost:8090`, l'ouvre dans le navigateur et pose son **icône dans la barre de menus** (en haut à droite) — pendant exact du system tray Windows, avec « Ouvrir AJEAN » / « Quitter ». Pas de fenêtre de Terminal, pas d'icône dans le Dock.
 
 L'app n'est **pas signée** par un certificat Apple (seulement ad-hoc) : au premier lancement, fais **clic droit → Ouvrir** (ou *Réglages Système → Confidentialité et sécurité → Ouvrir quand même*).
 
@@ -188,7 +188,7 @@ La clé API (quand elle est définie avec `jean set-api-key`) est stockée dans 
 
 ### API de pilotage à distance
 
-`jean web` expose une API HTTP pour piloter Jean à distance : status, VRAM, liste/sélection de presets (switch de modèle), démarrage/arrêt/redémarrage du service, chat. Pour l'exposer sur internet en sécurité, protège-la par une clé :
+`jean web` expose une API HTTP pour piloter AJEAN à distance : status, VRAM, liste/sélection de presets (switch de modèle), démarrage/arrêt/redémarrage du service, chat. Pour l'exposer sur internet en sécurité, protège-la par une clé :
 
 ```
 jean set-web-key            # génère une clé aléatoire
@@ -215,7 +215,7 @@ Endpoints utiles pour un client :
 
 La clé est stockée dans `$JEAN_HOME/.web_key`, distincte de `.api_key` (pilotage ≠ accès complétions), et relue à chaud à chaque requête. Le pilotage du service est cross-platform (systemd sous Linux, supervision par PID-file sous Windows).
 
-> ⚠️ La clé voyage en clair en HTTP. Pour une exposition publique, place Jean derrière un reverse-proxy HTTPS (Caddy, nginx) ou un tunnel (Tailscale, Cloudflare Tunnel).
+> ⚠️ La clé voyage en clair en HTTP. Pour une exposition publique, place AJEAN derrière un reverse-proxy HTTPS (Caddy, nginx) ou un tunnel (Tailscale, Cloudflare Tunnel).
 
 ### Accès internet de l'IA (Crawl4AI)
 
@@ -256,13 +256,13 @@ Une fois lié, tu retrouves depuis le portail :
 - la gestion de **plusieurs serveurs** et d'**agents** depuis un tableau de bord ;
 - en option, un **endpoint compatible OpenAI** (voir ci-dessous).
 
-C'est un service optionnel et payant ; tout le reste de Jean est et restera open source et gratuit.
+C'est un service optionnel et payant ; tout le reste d'AJEAN est et restera open source et gratuit.
 
 ### Sécurité — boîte noire
 
 `jean link` est conçu pour que le relais ajean.link soit un **pur tube aveugle** : il transporte tes données mais ne peut pas les lire.
 
-- **Chat chiffré de bout en bout.** Le chat entre ton navigateur et ton serveur Jean est chiffré (X25519 + AES-GCM) : le relais ne voit ni tes prompts ni les réponses, seulement de l'opaque. La clé est dérivée de ton mot de passe (protocole **OPAQUE**) et ne quitte jamais ton navigateur.
+- **Chat chiffré de bout en bout.** Le chat entre ton navigateur et ton serveur AJEAN est chiffré (X25519 + AES-GCM) : le relais ne voit ni tes prompts ni les réponses, seulement de l'opaque. La clé est dérivée de ton mot de passe (protocole **OPAQUE**) et ne quitte jamais ton navigateur.
 - **Empreinte vérifiée.** `jean link` affiche une empreinte de la clé de la machine, à confirmer une fois dans le portail — ça défait toute tentative d'interception par le relais.
 - **Appairage authentifié.** En plus de l'empreinte, tu autorises ton navigateur avec un **code d'appairage** (`jean link code`) : à usage unique et valable 10 min, il garantit que seul *ton* navigateur peut piloter le serveur — même un relais compromis ne peut pas forger de commande.
 - **Aucun chat en clair par le relais.** L'ancien chemin en clair est refusé à travers le tunnel ; seul le chemin chiffré transporte du contenu.
@@ -272,7 +272,7 @@ C'est un service optionnel et payant ; tout le reste de Jean est et restera open
 
 #### Endpoint OpenAI (`<machine>.oai.ajean.link`) — opt-in
 
-Pour brancher des outils tiers (OpenCode, etc.), Jean peut exposer un endpoint compatible OpenAI **par machine** : `https://<machine>.oai.ajean.link/v1`. L'authentification est la clé API de ton `llama-server` (`jean set-api-key`), présentée en `Authorization: Bearer <clé>`. C'est **désactivé par défaut**.
+Pour brancher des outils tiers (OpenCode, etc.), AJEAN peut exposer un endpoint compatible OpenAI **par machine** : `https://<machine>.oai.ajean.link/v1`. L'authentification est la clé API de ton `llama-server` (`jean set-api-key`), présentée en `Authorization: Bearer <clé>`. C'est **désactivé par défaut**.
 
 Tu l'actives par machine depuis l'**interface web** (panneau « Accès OpenAI ») : le drapeau est relu **en direct** par le tunnel, sans redémarrage. *(Ancien mécanisme : la variable d'environnement `JEAN_LINK_ALLOW_OAI=1` sur le service — encore acceptée pour rétro-compatibilité, mais le toggle de l'UI est désormais la voie recommandée.)*
 
@@ -288,7 +288,7 @@ Contrairement aux premières versions, ce flux **n'est pas en clair chez le rela
 
 ## Compiler depuis les sources
 
-Nécessite Go 1.25+. Jean est un binaire 100 % Go (l'UI web est embarquée via `go:embed`) :
+Nécessite Go 1.25+. AJEAN est un binaire 100 % Go (l'UI web est embarquée via `go:embed`) :
 
 ```bash
 git clone https://github.com/nathaninline/jean.git
@@ -299,7 +299,7 @@ CGO_ENABLED=0 go build -o jean ./cmd/jean
 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o jean-linux-amd64 ./cmd/jean
 ```
 
-> Compiler **Jean** ne nécessite que Go. Compiler le **backend llama.cpp** (`jean llamacpp install`) nécessite `git`, `cmake`, et le toolkit de ton accélérateur (CUDA, ROCm, etc.).
+> Compiler **AJEAN** ne nécessite que Go. Compiler le **backend llama.cpp** (`jean llamacpp install`) nécessite `git`, `cmake`, et le toolkit de ton accélérateur (CUDA, ROCm, etc.).
 
 ## Comment ça marche
 

@@ -7,8 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Jean">
-<title>Jean</title>
+<meta name="apple-mobile-web-app-title" content="AJEAN">
+<title>AJEAN</title>
 <!-- Favicon (même marque « ajean » que la landing/portail) + icône PWA (écran d'accueil
      iOS). SVG inline pour le favicon, PNG 180×180 en data-URI pour apple-touch-icon
      (iOS n'accepte pas le SVG pour l'icône d'accueil). Aucun fichier externe requis. -->
@@ -51,7 +51,7 @@
     <div id="presets"></div>
   </details>
   <details><summary>Mode agent <span id="agent-badge" style="margin-left:auto;margin-right:12px;font-size:10px"></span></summary>
-    <label class="switchrow"><span class="switch"><input type="checkbox" id="agent-toggle" onchange="toggleAgent()"><span class="slider"></span></span> activer le mode agent<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">⚠️ active l'<b>accès machine</b> (shell complet via <b>bash</b> sur le serveur) — l'IA peut inspecter, lancer des scripts, lire/éditer des fichiers (timeout 30s, max 300s). Mémoire et accès internet ci-dessous ne fonctionnent que si le mode agent est activé.</span></span></label>
+    <label class="switchrow"><span class="switch"><input type="checkbox" id="agent-toggle" onchange="toggleAgent()"><span class="slider"></span></span> activer le mode agent<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">⚠ active l'<b>accès machine</b> (shell complet via <b>bash</b> sur le serveur) — l'IA peut inspecter, lancer des scripts, lire/éditer des fichiers (timeout 30s, max 300s). Mémoire et accès internet ci-dessous ne fonctionnent que si le mode agent est activé.</span></span></label>
     <!-- Mémoire / Accès internet / Paramètres : sous-réglages du mode agent, en cartes. Grisés/inertes quand l'agent est off (voir setAgentGate). -->
     <div id="mem-block" class="gated-block">
       <div class="subhead">Mémoire<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span id="mem-mode-desc" class="tip"></span></span></div>
@@ -82,7 +82,7 @@
       <div id="internet-status" class="muted" style="font-size:11px;margin-top:4px"></div>
     </div>
     <div id="mcp-block" class="gated-block">
-      <div class="subhead">Serveurs MCP<span id="mcp-badge" style="margin-left:6px;font-size:10px"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Connecte des <b>serveurs MCP</b> (Model Context Protocol) pour donner de nouveaux outils à l'IA : accès fichiers, bases de données, APIs métier… <b>stdio</b> = programme lancé localement (npx/uvx/binaire) · <b>http</b> = serveur distant. ⚠️ un serveur stdio exécute du code sur cette machine, au même titre que le shell.</span></span></div>
+      <div class="subhead">Serveurs MCP<span id="mcp-badge" style="margin-left:6px;font-size:10px"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Connecte des <b>serveurs MCP</b> (Model Context Protocol) pour donner de nouveaux outils à l'IA : accès fichiers, bases de données, APIs métier… <b>stdio</b> = programme lancé localement (npx/uvx/binaire) · <b>http</b> = serveur distant. ⚠ un serveur stdio exécute du code sur cette machine, au même titre que le shell.</span></span></div>
       <div id="mcp-list" class="mcp-list"></div>
       <button class="addbtn" style="margin-top:6px" onclick="openMcp('')">+ ajouter un serveur</button>
     </div>
@@ -166,17 +166,17 @@
     <div id="lc-status" class="lc-head muted">…</div>
     <div class="lc-modes">
       <div class="lc-mode" id="lc-mode-fast" onclick="lcPick('fast')">
-        <div class="lc-mode-t">⚡ Version rapide <span class="lc-reco">conseillé</span></div>
+        <div class="lc-mode-t">Version rapide <span class="lc-reco">conseillé</span></div>
         <div class="lc-mode-d">prête à l'emploi, installée en ~2 min</div>
         <div class="lc-mode-state" id="lc-fast-state"></div>
       </div>
       <div class="lc-mode" id="lc-mode-opt" onclick="lcPick('opt')">
-        <div class="lc-mode-t">🔧 Version optimisée</div>
+        <div class="lc-mode-t">Version optimisée</div>
         <div class="lc-mode-d">compilée pour votre machine, plus longue</div>
         <div class="lc-mode-state" id="lc-opt-state"></div>
       </div>
       <div class="lc-mode" id="lc-mode-custom" onclick="openCustomBackends()">
-        <div class="lc-mode-t">🧩 Backend personnalisé</div>
+        <div class="lc-mode-t">Backend personnalisé</div>
         <div class="lc-mode-d">forks llama.cpp pour modèles spéciaux (ternaire…)</div>
         <div class="lc-mode-state" id="lc-custom-state"></div>
       </div>
@@ -200,7 +200,7 @@
     <div class="row" style="margin-top:6px">
       <button onclick="loadAll()">↻ refresh</button>
       <button onclick="resetChat()">⌫ clear chat</button>
-      <button id="btn-bench" onclick="runBenchUI()">⚡ bench</button>
+      <button id="btn-bench" onclick="runBenchUI()">bench</button>
     </div>
   </details>
 </div>
@@ -218,18 +218,18 @@
       </span>
     </div>
     <div id="inputbar">
-      <textarea id="input" placeholder="message…" onkeydown="onKey(event)"></textarea>
+      <textarea id="input" rows="1" placeholder="message…" onkeydown="onKey(event)" oninput="autoGrow(this)"></textarea>
       <button id="send" onclick="send()">send</button>
       <button id="stop" onclick="stopGen()" style="display:none;background:var(--danger-bg);border-color:var(--err);color:var(--err)">stop</button>
     </div>
-    <div id="sendhint" class="muted" style="padding:0 12px 6px;font-size:10px;text-align:center;opacity:.7">Entrée pour envoyer · Maj+Entrée = nouvelle ligne</div>
+    <div id="sendhint" class="muted">Entrée pour envoyer · Maj+Entrée = nouvelle ligne</div>
   </div>
 </div>
 <div id="toast"></div>
 <div id="bench-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:30;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeBenchModal()">
   <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;width:100%;max-width:480px;display:flex;flex-direction:column">
     <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-      <strong>⚡ Benchmark</strong>
+      <strong>Benchmark</strong>
       <button onclick="closeBenchModal()" style="margin:0">×</button>
     </div>
     <div id="bench-body" style="padding:18px 20px;display:flex;flex-direction:column;gap:12px"></div>
@@ -253,7 +253,7 @@
 <div id="lc-custom-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeCustomBackends()">
   <div class="modal-card" style="max-width:560px">
     <div class="modal-head">
-      <strong>🧩 Backends personnalisés</strong>
+      <strong>Backends personnalisés</strong>
       <button class="modal-x" onclick="closeCustomBackends()" aria-label="Fermer">×</button>
     </div>
     <div class="modal-body mform">
@@ -294,8 +294,8 @@
       <div class="fld">
         <label class="fld-l">Transport</label>
         <div class="seg">
-          <label><input type="radio" name="mcp-transport" value="stdio" onchange="mcpTransportUI('stdio')"><span>⚙️ stdio (local)</span></label>
-          <label><input type="radio" name="mcp-transport" value="http" onchange="mcpTransportUI('http')"><span>🌐 http (distant)</span></label>
+          <label><input type="radio" name="mcp-transport" value="stdio" onchange="mcpTransportUI('stdio')"><span>stdio (local)</span></label>
+          <label><input type="radio" name="mcp-transport" value="http" onchange="mcpTransportUI('http')"><span>http (distant)</span></label>
         </div>
       </div>
       <div id="mcp-stdio-fields">
@@ -369,7 +369,7 @@
               <span class="pe-row-l">Télécharger un modèle <span class="pe-sub">lien direct vers un .gguf</span></span>
               <div class="pe-inpbtn">
                 <input id="m-hf-url" class="pe-inp" placeholder="https://…/model.gguf">
-                <button id="m-hf-btn" onclick="startDownload()" title="Télécharger">⬇</button>
+                <button id="m-hf-btn" onclick="startDownload()" title="Télécharger">↓</button>
               </div>
               <div id="m-hf-progress" class="pe-note" style="display:none"></div>
             </div>
