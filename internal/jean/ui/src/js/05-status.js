@@ -92,12 +92,16 @@ function updateCtxMeter(){
 }
 async function loadVram(){
   const gpus=await jget('/api/vram');
+  // Bloc de statistique : intitulé + valeur sur une ligne, jauge, détail dessous.
+  // Même gabarit que la RAM (voir .stat dans le CSS) — le HTML libre d'avant
+  // collait aux bords de la carte.
   document.getElementById('vram').innerHTML = (gpus||[]).map(g=>{
     const pct=Math.round(g.used*100/g.total);
-    return '<div style="margin:6px 0"><div style="font-size:12px">'+g.name+'</div>'+
+    return '<div class="stat"><div class="stat-h"><span class="stat-n">'+g.name+'</span>'+
+      '<span class="stat-v">'+(g.used/1024).toFixed(1)+' / '+(g.total/1024).toFixed(1)+' GiB</span></div>'+
       '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
-      '<div class="muted">'+(g.used/1024).toFixed(1)+' / '+(g.total/1024).toFixed(1)+' GiB · GPU '+g.util+'% · '+g.temp+'°C</div></div>';
-  }).join('') || '<span class="muted">(pas de GPU)</span>';
+      '<div class="stat-s">GPU '+g.util+' % · '+g.temp+' °C</div></div>';
+  }).join('') || '<div class="stat"><span class="stat-s">(pas de GPU)</span></div>';
 }
 async function loadRam(){
   const m=await jget('/api/ram');
@@ -106,8 +110,10 @@ async function loadRam(){
   if(box) box.style.display='';
   const pct=Math.round(m.used*100/m.total);
   document.getElementById('ram').innerHTML =
-    '<div style="margin:6px 0"><div class="bar"><div style="width:'+pct+'%"></div></div>'+
-    '<div class="muted">'+(m.used/1024).toFixed(1)+' / '+(m.total/1024).toFixed(1)+' GiB · '+pct+'%</div></div>';
+    '<div class="stat"><div class="stat-h"><span class="stat-n">Mémoire vive</span>'+
+    '<span class="stat-v">'+(m.used/1024).toFixed(1)+' / '+(m.total/1024).toFixed(1)+' GiB</span></div>'+
+    '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
+    '<div class="stat-s">'+pct+' % utilisée</div></div>';
 }
 async function loadCfg(){
   // /api/llamacpp en parallèle : il indique si le BIN de la config correspond au

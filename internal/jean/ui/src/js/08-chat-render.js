@@ -93,7 +93,7 @@ function collapseInstant(el){
 function setLabel(el, text){ el.querySelector('.label').textContent = text; }
 function bodyOf(el){ return el.querySelector('.body'); }
 // Render markdown into a message body in place; safe because md() escapes HTML.
-function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(text); addCopyButtons(b); scrollMaybe(); }
+function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(text); markNotices(b); addCopyButtons(b); scrollMaybe(); }
 // Render a tool call as its own conversation message: the command the model
 // wrote, then the response it got back. textContent keeps it injection-safe.
 function renderToolMsg(el, tu){
@@ -159,7 +159,7 @@ function renderToolMsg(el, tu){
     const code=document.createElement('code'); code.textContent=tu.result;
     pre.appendChild(code); body.appendChild(pre);
   } else if(!tu.done && !tu.typing){
-    const wait=document.createElement('div'); wait.className='tool-wait'; wait.textContent='⏳ exécution en cours…';
+    const wait=document.createElement('div'); wait.className='tool-wait'; wait.textContent='exécution en cours…';
     body.appendChild(wait);
   }
   addCopyButtons(body); scrollMaybe();

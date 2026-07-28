@@ -22,19 +22,14 @@ var webPrefsMu sync.Mutex
 // webPrefsAllowed liste les clés de préférence acceptées et, pour chacune, les
 // valeurs valides. On ne stocke que ce qui est connu (pas de champ libre).
 var webPrefsAllowed = map[string]map[string]bool{
-	// ⚠️ Tout thème ajouté à l'UI (registre THEMES, js/01-theme.js) doit être
-	// listé ICI : sinon POST /api/prefs le rejette silencieusement, le serveur
-	// conserve l'ancienne valeur et loadPrefs() la réapplique à chaque
-	// rafraîchissement — le thème « saute » alors qu'il est bien en localStorage.
-	"theme": {"ajean": true, "ajean-dark": true, "dark": true, "light": true, "soft": true, "soft-dark": true, "gpt": true, "gpt-dark": true},
-	// display : ancien mode « complet / simple », conservé pour les clients
-	// pas encore rechargés ; remplacé par les quatre drapeaux ci-dessous.
-	"display":        {"full": true, "simple": true},
+	// Un seul thème, deux variantes. Les anciennes valeurs (ajean, gpt-dark…)
+	// ne sont plus acceptées : le client les normalise en clair/sombre au
+	// chargement puis réenregistre la valeur normalisée.
+	"theme":          {"light": true, "dark": true},
 	"hide_reasoning": {"0": true, "1": true},
 	"hide_tools":     {"0": true, "1": true},
 	"fold_tools":     {"0": true, "1": true},
 	"hide_side":      {"0": true, "1": true},
-	"font":           {"auto": true, "mono": true, "system": true, "lexend": true, "serif": true},
 }
 
 // loadWebPrefs lit les préférences enregistrées (map vide si absent/illisible).
@@ -53,6 +48,14 @@ func saveWebPrefs(in map[string]string) (map[string]string, error) {
 	webPrefsMu.Lock()
 	defer webPrefsMu.Unlock()
 	prefs := loadWebPrefs()
+	// Purge les clés/valeurs devenues invalides (anciens thèmes, réglage de
+	// police retiré) : sans ça, un fichier écrit par une version précédente
+	// renverrait indéfiniment des valeurs que le client ne sait plus traiter.
+	for k, v := range prefs {
+		if allowed, ok := webPrefsAllowed[k]; !ok || !allowed[v] {
+			delete(prefs, k)
+		}
+	}
 	for k, v := range in {
 		allowed, ok := webPrefsAllowed[k]
 		if !ok {
@@ -76,8 +79,8 @@ func saveWebPrefs(in map[string]string) (map[string]string, error) {
 
 // handleWebPrefs expose les préférences d'apparence partagées entre appareils.
 //
-//	GET  → {ok, prefs:{theme,display}}
-//	POST {theme?, display?} → fusionne puis renvoie {ok, prefs}
+//	GET  → {ok, prefs:{theme, hide_*, fold_*}}
+//	POST {theme?, hide_*?, fold_*?} → fusionne puis renvoie {ok, prefs}
 func handleWebPrefs(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		var req map[string]string

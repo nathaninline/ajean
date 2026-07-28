@@ -12,10 +12,10 @@
 <!-- Favicon (même marque « ajean » que la landing/portail) + icône PWA (écran d'accueil
      iOS). SVG inline pour le favicon, PNG 180×180 en data-URI pour apple-touch-icon
      (iOS n'accepte pas le SVG pour l'icône d'accueil). Aucun fichier externe requis. -->
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect width='12' height='12' rx='2' ry='2' fill='%231f6feb'/><rect x='6' y='3' width='2' height='2' fill='%23fff'/><rect x='6' y='5' width='2' height='2' fill='%23fff'/><rect x='4' y='7' width='2' height='2' fill='%23fff'/></svg>">
-<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAABa0lEQVR42u3dsQ2AIBBAUSCOYA8b4iiMSI9D2FpYGTEheW8AisvPUV7MdQR4kowAcSAOxIE4EAfiQByIA3EgDhAH4kAciANxIA7EgTgQB+IAcSAOxIE4EAfiQByIA3EgDhAH4kAciANxIA7EgTgQB+JAHCAOxMEHNiO4622f9HI5TpsD3wriQBwgDsSBOBAH4kAciANxIA7EAeJAHIgDcSAOxIE4EAfiQBwgDsSBOBAH4kAciANxIA7EgThAHIgDcSAOxIE4EAfiQByIA8SBOBAH4kAciANxIA7EgThAHIgDcSAO/rLkLXsX520OxIE4EAfiQByIA8SBOBAH4kAciANxIA7EgThAHIgDcSAOxIE4EAfiQByIA8SBOHgl5jpMAZsDcSAOxIE4EAfiQByIA3GAOBAH4kAciANxIA7EgTgQB4gDcSAOxIE4EAfiQByIA3EgDhAH4kAciANxIA7EgTgQB+IAcSAOxME0F8YvCl24O02KAAAAAElFTkSuQmCC">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect width='12' height='12' rx='2' ry='2' fill='%23000'/><rect x='6' y='3' width='2' height='2' fill='%23fff'/><rect x='6' y='5' width='2' height='2' fill='%23fff'/><rect x='4' y='7' width='2' height='2' fill='%23fff'/></svg>">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAABBUlEQVR42u3SAQkAAAwCQfuX3lI4GNxF0E8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIArU2NbcYhDHOIQhzgQB+JAHIgDcSAOxIE4xCEOcYhDHIgDcSAOxIE4EAfiQBziEIc4xCEOcYgDcSAOxIE4EAfiQBziEIc4xCEOcYgDcSAOxIE4EAfiQByIQxziEIc4xIE4EAfiQByIA3EgDsQhDnGIQxziEIc4EAfiQByIAxciDsSBOBAH4kAc4hCHOMQhDnGIA3EgDsSBOBAH4kAc4hCHOMQhDnGIA3EgDsSBOBAH4kAciEMc4hCHOMQBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADfLBHMhi4TnG6EAAAAAElFTkSuQmCC">
 <!-- Applique le thème AVANT le rendu (pas de flash) : lit le choix persisté. -->
-<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('jean-theme')||'light');['hide-reasoning','hide-tools','fold-tools','hide-side'].forEach(function(k){document.documentElement.setAttribute('data-'+k,localStorage.getItem('jean-'+k)==='1'?'1':'0')});document.documentElement.setAttribute('data-font',localStorage.getItem('jean-font')||'auto')}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
+<script>try{var t=localStorage.getItem('jean-theme')||'light';document.documentElement.setAttribute('data-theme',(t==='dark'||t.endsWith('-dark'))?'dark':'light');['hide-reasoning','hide-tools','fold-tools','hide-side'].forEach(function(k){document.documentElement.setAttribute('data-'+k,localStorage.getItem('jean-'+k)==='1'?'1':'0')})}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
 <style>
 @@CSS@@
 </style></head><body>
@@ -38,25 +38,27 @@
     </div>
     <pre id="svc-log" class="muted" style="font-size:10px;line-height:1.45;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:6px 0 0"></pre>
   </div>
-  <details open><summary>GPU</summary>
-    <div id="vram" class="muted">…</div>
+  <!-- GPU et RAM décrivent la même chose (les ressources de la machine) :
+       une seule section, deux blocs de statistique dans la même carte. -->
+  <details open><summary><span class="stitle">Machine</span></summary>
+    <div class="slist">
+      <div id="vram">…</div>
+      <div id="ram-details"><div id="ram"></div></div>
+    </div>
   </details>
-  <details open id="ram-details"><summary>RAM</summary>
-    <div id="ram" class="muted">…</div>
+  <details open id="cfg-details"><summary><span class="stitle">Config active</span></summary>
+    <div id="cfg" class="slist">…</div>
   </details>
-  <details open id="cfg-details"><summary>Config active</summary>
-    <div id="cfg" class="muted">…</div>
-  </details>
-  <details><summary>Presets<button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter">+</button></summary>
+  <details><summary><span class="stitle">Presets</span><button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter">+</button></summary>
     <div id="presets"></div>
   </details>
-  <details><summary>Mode agent <span id="agent-badge" style="margin-left:auto;margin-right:12px;font-size:10px"></span></summary>
-    <label class="switchrow"><span class="switch"><input type="checkbox" id="agent-toggle" onchange="toggleAgent()"><span class="slider"></span></span> activer le mode agent<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">⚠ active l'<b>accès machine</b> (shell complet via <b>bash</b> sur le serveur) — l'IA peut inspecter, lancer des scripts, lire/éditer des fichiers (timeout 30s, max 300s). Mémoire et accès internet ci-dessous ne fonctionnent que si le mode agent est activé.</span></span></label>
+  <details><summary><span class="stitle">Mode agent</span><span id="agent-badge" class="sbadge"></span></summary>
+    <div class="slist"><label class="switchrow"><span class="switch"><input type="checkbox" id="agent-toggle" onchange="toggleAgent()"><span class="slider"></span></span> activer le mode agent<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">⚠ active l'<b>accès machine</b> (shell complet via <b>bash</b> sur le serveur) — l'IA peut inspecter, lancer des scripts, lire/éditer des fichiers (timeout 30s, max 300s). Mémoire et accès internet ci-dessous ne fonctionnent que si le mode agent est activé.</span></span></label></div>
     <!-- Mémoire / Accès internet / Paramètres : sous-réglages du mode agent, en cartes. Grisés/inertes quand l'agent est off (voir setAgentGate). -->
     <div id="mem-block" class="gated-block">
       <div class="subhead">Mémoire<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span id="mem-mode-desc" class="tip"></span></span></div>
-      <label class="switchrow" style="justify-content:flex-start;gap:12px"><span>mode</span>
-        <select id="mem-mode" onchange="setMemMode()" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px">
+      <label class="switchrow"><span>mode</span>
+        <select id="mem-mode" onchange="setMemMode()" class="sctl">
           <option value="always">auto (proactive)</option>
           <option value="ondemand">sur demande</option>
           <option value="off">désactivée</option>
@@ -73,17 +75,17 @@
       </div>
     </div>
     <div id="net-block" class="gated-block">
-      <div class="subhead">Accès internet<span id="internet-badge" style="margin-left:6px;font-size:10px"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Ajoute les outils <b>web_search / web_open / web_read / web_grep</b> via un serveur <b>Crawl4AI</b>. Actifs seulement si le serveur répond.</span></span></div>
+      <div class="subhead">Accès internet<span id="internet-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Ajoute les outils <b>web_search / web_open / web_read / web_grep</b> via un serveur <b>Crawl4AI</b>. Actifs seulement si le serveur répond.</span></span></div>
       <label class="switchrow"><span class="switch"><input type="checkbox" id="internet-toggle" onchange="toggleInternet()"><span class="slider"></span></span> donner internet à l'IA</label>
       <div class="row" style="margin-top:6px">
-        <input id="crawl-url" type="text" placeholder="http://localhost:11235" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit" onchange="saveCrawlUrl()">
+        <input id="crawl-url" type="text" placeholder="http://localhost:11235" class="sctl" onchange="saveCrawlUrl()">
         <button onclick="saveCrawlUrl()">enregistrer</button>
       </div>
       <!-- Clé d'accès du serveur Crawl4AI (facultative) : envoyée en
            « Authorization: Bearer … ». Jamais relue par l'API, on n'affiche
            qu'un indice sur les 4 derniers caractères. -->
       <div class="row" style="margin-top:6px">
-        <input id="crawl-key" type="password" autocomplete="off" placeholder="clé API (si le serveur en exige une)" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit" onchange="saveCrawlKey()">
+        <input id="crawl-key" type="password" autocomplete="off" placeholder="clé API (si le serveur en exige une)" class="sctl" onchange="saveCrawlKey()">
         <button onclick="saveCrawlKey()">enregistrer</button>
         <button id="crawl-key-clear" onclick="clearCrawlKey()" style="display:none">retirer</button>
       </div>
@@ -91,7 +93,7 @@
       <div id="internet-status" class="muted" style="font-size:11px;margin-top:4px"></div>
     </div>
     <div id="mcp-block" class="gated-block">
-      <div class="subhead">Serveurs MCP<span id="mcp-badge" style="margin-left:6px;font-size:10px"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Connecte des <b>serveurs MCP</b> (Model Context Protocol) pour donner de nouveaux outils à l'IA : accès fichiers, bases de données, APIs métier… <b>stdio</b> = programme lancé localement (npx/uvx/binaire) · <b>http</b> = serveur distant. ⚠ un serveur stdio exécute du code sur cette machine, au même titre que le shell.</span></span></div>
+      <div class="subhead">Serveurs MCP<span id="mcp-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Connecte des <b>serveurs MCP</b> (Model Context Protocol) pour donner de nouveaux outils à l'IA : accès fichiers, bases de données, APIs métier… <b>stdio</b> = programme lancé localement (npx/uvx/binaire) · <b>http</b> = serveur distant. ⚠ un serveur stdio exécute du code sur cette machine, au même titre que le shell.</span></span></div>
       <div id="mcp-list" class="mcp-list"></div>
       <button class="addbtn" style="margin-top:6px" onclick="openMcp('')">+ ajouter un serveur</button>
     </div>
@@ -101,37 +103,38 @@
       <label class="switchrow" style="margin-top:8px"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> compactage automatique du contexte<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
     </div>
   </details>
-  <details><summary>Apparence</summary>
-    <label class="switchrow" style="justify-content:space-between;gap:12px"><span>thème</span>
-      <select id="theme-select" onchange="pickThemeFamily(this.value)" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px"></select>
-    </label>
-    <label class="switchrow" style="justify-content:space-between;gap:12px;margin-top:8px"><span>mode sombre</span>
-      <span class="switch"><input type="checkbox" id="theme-dark" onchange="toggleThemeDark()"><span class="slider"></span></span>
-    </label>
-    <label class="switchrow" style="justify-content:space-between;gap:12px;margin-top:8px"><span>police<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Indépendante du thème. <b>Du thème</b> garde celle prévue par le thème choisi (mono pour AJEAN, système pour ChatGPT, Lexend pour Doux). <b>Lexend</b> est téléchargée depuis Google Fonts, les autres sont déjà sur votre appareil.</span></span></span>
-      <select id="font-select" onchange="applyFont(this.value);savePrefs()" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px"></select>
-    </label>
-    <div class="subhead" style="margin-top:14px">Affichage</div>
+  <details><summary><span class="stitle">Apparence</span></summary>
+    <div class="slist">
+      <label class="switchrow rev"><span>mode sombre</span>
+        <span class="switch"><input type="checkbox" id="theme-dark" onchange="toggleThemeDark()"><span class="slider"></span></span>
+      </label>
+    </div>
+    <div class="subhead">Affichage</div>
+    <div class="slist">
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-reasoning" onchange="toggleView('hide-reasoning')"><span class="slider"></span></span> masquer le raisonnement</label>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-tools" onchange="toggleView('hide-tools')"><span class="slider"></span></span> masquer les appels d'outils</label>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-fold-tools" onchange="toggleView('fold-tools')"><span class="slider"></span></span> garder les bulles repliées<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Les bulles de raisonnement et d'outil arrivent <b>déjà fermées</b> au lieu de s'ouvrir puis se refermer. Un clic sur leur étiquette les déplie.</span></span></label>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-side" onchange="toggleView('hide-side')"><span class="slider"></span></span> barre latérale escamotable<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">La barre latérale devient un tiroir <b>même sur ordinateur</b> : elle reste fermée et s'ouvre avec le bouton ☰. Toute la largeur pour la conversation.</span></span></label>
+    </div>
   </details>
-  <details><summary>System prompt</summary>
-    <textarea id="sysprompt" placeholder="(optionnel) ex: tu es un assistant concis en français" oninput="saveSys()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;min-height:70px;resize:vertical"></textarea>
+  <details><summary><span class="stitle">System prompt</span></summary>
+    <textarea id="sysprompt" placeholder="(optionnel) ex: tu es un assistant concis en français" oninput="saveSys()" class="sctl"></textarea>
   </details>
-  <details><summary>Accès OpenAI</summary>
+  <details><summary><span class="stitle">Accès OpenAI</span></summary>
     <div class="subhead">Endpoint compatible OpenAI<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Branchez n'importe quel client compatible OpenAI (OpenCode, Continue, Cursor…) sur ces adresses. Si une clé est définie, le client doit envoyer <code>Authorization: Bearer &lt;clé&gt;</code>.</span></span></div>
     <div class="muted" style="font-size:11px;margin:0 0 10px">Modèle : <code>jean</code></div>
 
+    <div class="slist pad">
     <div class="io-cap">Adresse locale (réseau)</div>
     <div class="row">
       <input id="oai-url" readonly class="io-input">
       <button onclick="copyText(document.getElementById('oai-url').value,'adresse copiée')" title="copier">⧉</button>
     </div>
 
-    <label class="switchrow io-group"><span class="switch"><input type="checkbox" id="oai-public-toggle" onchange="toggleOAIPublic()"><span class="slider"></span></span> exposer en public (ajean.link)<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Rend votre IA joignable depuis <b>n'importe où</b> via <code>https://&lt;machine&gt;.oai.ajean.link/v1</code> (pour brancher un SaaS). Le trafic est chiffré <b>de bout en bout</b> jusqu'à ce serveur — le relais ajean.link ne voit rien. Nécessite l'accès distant actif.</span></span></label>
-    <div id="oai-public-wrap" style="display:none;margin-top:6px">
+    </div>
+    <div class="slist"><label class="switchrow"><span class="switch"><input type="checkbox" id="oai-public-toggle" onchange="toggleOAIPublic()"><span class="slider"></span></span> exposer en public (ajean.link)<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Rend votre IA joignable depuis <b>n'importe où</b> via <code>https://&lt;machine&gt;.oai.ajean.link/v1</code> (pour brancher un SaaS). Le trafic est chiffré <b>de bout en bout</b> jusqu'à ce serveur — le relais ajean.link ne voit rien. Nécessite l'accès distant actif.</span></span></label>
+    </div>
+    <div id="oai-public-wrap" class="slist pad" style="display:none">
       <div class="io-cap">Adresse publique — chiffrée de bout en bout, accessible partout</div>
       <div class="row">
         <input id="oai-public-url" readonly class="io-input">
@@ -139,8 +142,9 @@
       </div>
     </div>
 
-    <div class="subhead io-group">Clé API<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Protège l'endpoint des complétions (llama-server). Indispensable avant d'exposer le serveur sur internet. Modifier la clé <b>redémarre</b> le service.</span></span></div>
-    <div class="row" style="margin-top:4px">
+    <div class="subhead">Clé API<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Protège l'endpoint des complétions (llama-server). Indispensable avant d'exposer le serveur sur internet. Modifier la clé <b>redémarre</b> le service.</span></span></div>
+    <div class="slist pad">
+    <div class="row">
       <input id="oai-key" readonly class="io-input">
       <button id="oai-key-eye" onclick="toggleKeyReveal()" title="afficher / masquer">afficher</button>
       <button onclick="copyApiKey()" title="copier la clé">⧉</button>
@@ -150,33 +154,36 @@
       <button onclick="apiKeySet()">définir…</button>
       <button onclick="apiKeyAction('clear')">retirer</button>
     </div>
+    </div>
   </details>
-  <details id="remote-details"><summary>Accès distant <span id="remote-badge" style="margin-left:auto;margin-right:12px;font-size:10px"></span></summary>
+  <details id="remote-details"><summary><span class="stitle">Accès distant</span><span id="remote-badge" class="sbadge"></span></summary>
     <div class="subhead">ajean.link<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Accédez à ce serveur Jean depuis <b>n'importe où</b>, sans ouvrir de port, à travers le relais <b>ajean.link</b>. Le trafic est chiffré de <b>bout en bout</b> : le relais ne voit rien. Abonnement 4,80 €/mois.</span></span></div>
     <!-- Non connecté : un seul bouton, tout se passe dans la popup (compte + paiement). -->
-    <div id="remote-off">
+    <div id="remote-off" class="slist pad">
       <p class="muted" style="font-size:12px;line-height:1.5;margin:6px 0 10px">Ouvrez l'accès distant à ce serveur en quelques clics, sans terminal.</p>
       <button onclick="remoteConnect()" style="border-color:var(--accent);color:var(--accent)">Connecter à ajean.link</button>
     </div>
     <!-- Connecté : URL publique + appairage + déconnexion. -->
     <div id="remote-on" style="display:none">
+      <div class="slist pad">
       <div class="io-cap">Votre adresse d'accès distant</div>
       <div class="row">
         <input id="remote-url" readonly class="io-input">
         <button onclick="copyText(document.getElementById('remote-url').value,'adresse copiée')" title="copier">⧉</button>
         <button onclick="window.open(document.getElementById('remote-url').value,'_blank')" title="ouvrir">↗</button>
       </div>
-      <div id="remote-status" class="muted" style="font-size:11px;margin-top:6px"></div>
+      <div id="remote-status" class="muted"></div>
+      </div>
       <button id="remote-start" onclick="remoteStart()" style="display:none;margin-top:8px;border-color:var(--accent);color:var(--accent)">démarrer le tunnel</button>
       <div class="subhead" style="margin-top:12px">Première connexion<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">À votre première ouverture du portail distant, confirmez l'<b>empreinte</b> et saisissez le <b>code d'appairage</b> : cela verrouille la boîte noire sur CE serveur (anti-interception). Une seule fois par appareil.</span></span></div>
-      <button onclick="remotePairCode()" style="margin-top:4px">Afficher l'empreinte et le code d'appairage</button>
-      <div id="remote-pair" class="muted" style="font-size:12px;margin-top:8px;display:none;line-height:1.7"></div>
-      <div class="row" style="margin-top:12px">
-        <button onclick="remoteDisconnect()" style="border-color:var(--err);color:var(--err)">déconnecter l'accès distant</button>
+      <div class="slist pad">
+        <div class="row"><button onclick="remotePairCode()">Afficher l'empreinte et le code d'appairage</button></div>
+        <div id="remote-pair" class="muted" style="display:none"></div>
+        <div class="row"><button onclick="remoteDisconnect()" class="btn-danger-o">déconnecter l'accès distant</button></div>
       </div>
     </div>
   </details>
-  <details id="lc-details"><summary>MOTEUR</summary>
+  <details id="lc-details"><summary><span class="stitle">Moteur</span></summary>
     <div id="lc-status" class="lc-head muted">…</div>
     <div class="lc-modes">
       <div class="lc-mode" id="lc-mode-fast" onclick="lcPick('fast')">
@@ -201,20 +208,24 @@
       <pre id="lc-log" hidden></pre>
     </div>
   </details>
-  <details><summary>Service</summary>
+  <details><summary><span class="stitle">Service</span></summary>
+    <div class="slist pad">
     <div class="row">
       <button onclick="act('start')">start</button>
       <button onclick="act('restart')">restart</button>
       <button onclick="act('stop')">stop</button>
     </div>
+    </div>
   </details>
-  <details id="upd-details"><summary>Actions</summary>
-    <div class="row"><button id="upd-check" onclick="checkUpdate()">↥ Vérifier les mises à jour</button></div>
-    <div id="upd-msg" class="muted" style="font-size:12px;margin-top:6px;line-height:1.5"></div>
-    <div class="row" style="margin-top:6px">
-      <button onclick="loadAll()">↻ refresh</button>
-      <button onclick="resetChat()">⌫ clear chat</button>
-      <button id="btn-bench" onclick="runBenchUI()">bench</button>
+  <details id="upd-details"><summary><span class="stitle">Actions</span></summary>
+    <div class="slist pad">
+      <div class="row"><button id="upd-check" onclick="checkUpdate()">↥ Vérifier les mises à jour</button></div>
+      <div id="upd-msg" class="muted"></div>
+      <div class="row">
+        <button onclick="loadAll()">↻ refresh</button>
+        <button onclick="resetChat()">⌫ clear chat</button>
+        <button id="btn-bench" onclick="runBenchUI()">bench</button>
+      </div>
     </div>
   </details>
 </div>
@@ -240,7 +251,7 @@
   </div>
 </div>
 <div id="toast"></div>
-<div id="bench-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:30;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeBenchModal()">
+<div id="bench-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:30;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeBenchModal()">
   <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;width:100%;max-width:480px;display:flex;flex-direction:column">
     <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
       <strong>Benchmark</strong>

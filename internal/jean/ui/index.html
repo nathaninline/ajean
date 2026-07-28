@@ -12,49 +12,17 @@
 <!-- Favicon (même marque « ajean » que la landing/portail) + icône PWA (écran d'accueil
      iOS). SVG inline pour le favicon, PNG 180×180 en data-URI pour apple-touch-icon
      (iOS n'accepte pas le SVG pour l'icône d'accueil). Aucun fichier externe requis. -->
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect width='12' height='12' rx='2' ry='2' fill='%231f6feb'/><rect x='6' y='3' width='2' height='2' fill='%23fff'/><rect x='6' y='5' width='2' height='2' fill='%23fff'/><rect x='4' y='7' width='2' height='2' fill='%23fff'/></svg>">
-<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAABa0lEQVR42u3dsQ2AIBBAUSCOYA8b4iiMSI9D2FpYGTEheW8AisvPUV7MdQR4kowAcSAOxIE4EAfiQByIA3EgDhAH4kAciANxIA7EgTgQB+IAcSAOxIE4EAfiQByIA3EgDhAH4kAciANxIA7EgTgQB+JAHCAOxMEHNiO4622f9HI5TpsD3wriQBwgDsSBOBAH4kAciANxIA7EAeJAHIgDcSAOxIE4EAfiQBwgDsSBOBAH4kAciANxIA7EgThAHIgDcSAOxIE4EAfiQByIA8SBOBAH4kAciANxIA7EgThAHIgDcSAO/rLkLXsX520OxIE4EAfiQByIA8SBOBAH4kAciANxIA7EgThAHIgDcSAOxIE4EAfiQByIA8SBOHgl5jpMAZsDcSAOxIE4EAfiQByIA3GAOBAH4kAciANxIA7EgTgQB4gDcSAOxIE4EAfiQByIA3EgDhAH4kAciANxIA7EgTgQB+IAcSAOxME0F8YvCl24O02KAAAAAElFTkSuQmCC">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect width='12' height='12' rx='2' ry='2' fill='%23000'/><rect x='6' y='3' width='2' height='2' fill='%23fff'/><rect x='6' y='5' width='2' height='2' fill='%23fff'/><rect x='4' y='7' width='2' height='2' fill='%23fff'/></svg>">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAABBUlEQVR42u3SAQkAAAwCQfuX3lI4GNxF0E8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIArU2NbcYhDHOIQhzgQB+JAHIgDcSAOxIE4xCEOcYhDHIgDcSAOxIE4EAfiQBziEIc4xCEOcYgDcSAOxIE4EAfiQBziEIc4xCEOcYgDcSAOxIE4EAfiQByIQxziEIc4xIE4EAfiQByIA3EgDsQhDnGIQxziEIc4EAfiQByIAxciDsSBOBAH4kAc4hCHOMQhDnGIA3EgDsSBOBAH4kAc4hCHOMQhDnGIA3EgDsSBOBAH4kAciEMc4hCHOMQBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADfLBHMhi4TnG6EAAAAAElFTkSuQmCC">
 <!-- Applique le thème AVANT le rendu (pas de flash) : lit le choix persisté. -->
-<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('jean-theme')||'light');['hide-reasoning','hide-tools','fold-tools','hide-side'].forEach(function(k){document.documentElement.setAttribute('data-'+k,localStorage.getItem('jean-'+k)==='1'?'1':'0')});document.documentElement.setAttribute('data-font',localStorage.getItem('jean-font')||'auto')}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
+<script>try{var t=localStorage.getItem('jean-theme')||'light';document.documentElement.setAttribute('data-theme',(t==='dark'||t.endsWith('-dark'))?'dark':'light');['hide-reasoning','hide-tools','fold-tools','hide-side'].forEach(function(k){document.documentElement.setAttribute('data-'+k,localStorage.getItem('jean-'+k)==='1'?'1':'0')})}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
 <style>
-/* ===== Thèmes =====================================================
-   Toutes les couleurs de l'UI passent par ces variables. Pour AJOUTER un
-   thème plus tard : 1) copier un bloc [data-theme="…"] ci-dessous en changeant
-   les valeurs, 2) ajouter son {id,label} au registre THEMES (voir le JS). Le
-   reste (sélecteur, persistance, application) est automatique. */
-/* --font : police par défaut (mono). Un thème peut la surcharger (voir "soft").
-   Les blocs plus spécifiques qui ne redéfinissent pas --font héritent de :root. */
-:root{color-scheme:dark;--font:ui-monospace,SFMono-Regular,Menlo,monospace;--bubble:#1f6feb;--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--accent-bg:rgba(88,166,255,.12);--ok:#58a6ff;--warn:#d29922;--err:#f85149;--mag:#bc8cff;--code-bg:#0d1117;--danger-bg:#3d1f23;--warn-bg:#3d2f1f;--add:#3fb950;--add-bg:rgba(63,185,80,.12);--del:#f85149;--del-bg:rgba(248,81,73,.12)}
-[data-theme="dark"]{color-scheme:dark;--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--dim:#7d8590;--accent:#58a6ff;--accent-bg:rgba(88,166,255,.12);--ok:#58a6ff;--warn:#d29922;--err:#f85149;--mag:#bc8cff;--code-bg:#0d1117;--danger-bg:#3d1f23;--warn-bg:#3d2f1f}
-[data-theme="light"]{color-scheme:light;--bg:#f0f1f4;--panel:#f8f9fb;--border:#d7dbe1;--text:#24292f;--dim:#636b74;--accent:#0969da;--accent-bg:rgba(9,105,218,.10);--ok:#0969da;--warn:#9a6700;--err:#cf222e;--mag:#8250df;--code-bg:#e6e9ee;--danger-bg:#fbe6e6;--warn-bg:#fbefda}
-/* "doux" — thème clair chaud + police Lexend (lecture agréable). */
-[data-theme="soft"]{color-scheme:light;--font:'Lexend',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--bubble:#c2611f;--bg:#faf8f4;--panel:#ffffff;--border:#e8e3d9;--text:#2c2a26;--dim:#8c8577;--accent:#c2611f;--accent-bg:rgba(194,97,31,.10);--ok:#c2611f;--warn:#b45309;--err:#dc2626;--mag:#9a5bd6;--code-bg:#f3f0ea;--danger-bg:#fbe9e7;--warn-bg:#fbf1e0}
-/* "doux sombre" — même esprit que "doux" (Lexend, tons chauds) sur fond sombre chaud. */
-[data-theme="soft-dark"]{color-scheme:dark;--font:'Lexend',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--bubble:#c2611f;--bg:#1c1917;--panel:#26221e;--border:#3a342c;--text:#ece7de;--dim:#9c9284;--accent:#e8965a;--accent-bg:rgba(232,150,90,.14);--ok:#e8965a;--warn:#d9a441;--err:#f07862;--mag:#c39be8;--code-bg:#171412;--danger-bg:#3d2420;--warn-bg:#3a2f1c}
-/* "ChatGPT" — monochrome (noir & blanc), police système, aucun accent coloré.
-   Seules les erreurs gardent un rouge discret pour rester lisibles. */
-[data-theme="gpt"]{color-scheme:light;--font:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--bubble:#e8e8e8;--bg:#ffffff;--panel:#f9f9f9;--border:#e3e3e3;--text:#0d0d0d;--dim:#8f8f8f;--accent:#0d0d0d;--accent-bg:rgba(0,0,0,.06);--ok:#0d0d0d;--warn:#5d5d5d;--err:#c0392b;--mag:#5d5d5d;--code-bg:#f4f4f4;--danger-bg:#fbeae8;--warn-bg:#f0f0f0}
-/* "ChatGPT sombre" — même disposition, palette nuit de ChatGPT : gris très
-   sombre, bulle utilisateur gris clair, aucun accent coloré. */
-[data-theme="gpt-dark"]{color-scheme:dark;--font:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--bubble:#1f1f1f;--bg:#0a0a0a;--panel:#141414;--border:#262626;--text:#ececec;--dim:#8e8e8e;--accent:#ececec;--accent-bg:rgba(255,255,255,.07);--ok:#ececec;--warn:#c8b273;--err:#f2777a;--mag:#b0b0b0;--code-bg:#000000;--danger-bg:#2e1a19;--warn-bg:#26241a}
-/* Bulle utilisateur claire : le texte blanc par défaut (.msg.user) serait illisible. */
-[data-theme^="gpt"] .msg.user{color:var(--text)}
-/* "AJEAN" — clair, bleu, esprit rétro-machine : bordures nettes de 2 px,
-   aucun arrondi, ombres en blocs décalés, fond quadrillé (même charte que
-   ajean.app). Mise en page complète plus bas (section "Thème pixel"). */
-[data-theme="ajean"]{color-scheme:light;--font:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--bubble:#1f6feb;--bg:#f5f8ff;--panel:#ffffff;--border:#cfdcf5;--text:#0f1f3d;--dim:#5b6f96;--accent:#1f6feb;--accent-bg:rgba(31,111,235,.10);--ok:#1f6feb;--warn:#9a6700;--err:#cf222e;--mag:#6f52d8;--code-bg:#eef3fe;--danger-bg:#fbe6e6;--warn-bg:#fbefda;--grid:#e4ecfa;--line2:#b6cbf0;--soft:#e8f0ff;--sh:#cddffb;--knob:#ffffff}
-/* « AJEAN sombre » — même habillage pixel, palette nuit : bleu vif sur fond
-   presque noir, quadrillage discret, ombres bleutées. */
-[data-theme="ajean-dark"]{color-scheme:dark;--font:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--bubble:#3b82f6;--bg:#050810;--panel:#0a1020;--border:#16233f;--text:#dce6ff;--dim:#63739c;--accent:#3b82f6;--accent-bg:rgba(59,130,246,.16);--ok:#3b82f6;--warn:#d29922;--err:#f85149;--mag:#9b8cff;--code-bg:#03060d;--danger-bg:#3d1f23;--warn-bg:#3d2f1f;--grid:#0a1120;--line2:#1e3054;--soft:#101b33;--sh:#132342;--knob:#dce6ff}
-/* ===== Police (réglage séparé du thème) ===========================
-   Chaque thème propose une police par défaut via --font ; ce réglage la
-   remplace. Même spécificité que les blocs de thème, mais écrit APRÈS : c'est
-   donc lui qui gagne. "auto" = on laisse la police du thème.
-   Lexend n'est chargée (Google Fonts) que si elle est effectivement choisie. */
-[data-font="mono"]{--font:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-[data-font="system"]{--font:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
-[data-font="serif"]{--font:Georgia,'Iowan Old Style','Times New Roman',serif}
-[data-font="lexend"]{--font:'Lexend',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+/* ===== Palette =====================================================
+   Un seul thème (« Clean ») : noir et blanc, sobre. Deux variantes — claire par
+   défaut, sombre via data-theme="dark" sur <html>. Toutes les couleurs de l'UI
+   passent par ces variables ; rien d'autre ne code une couleur en dur. */
+:root{color-scheme:light;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Helvetica,Arial,sans-serif;--bubble:#f0f0f0;--bg:#ffffff;--panel:#fafafa;--border:#e0e0e2;--text:#0a0a0a;--dim:#6b6b70;--accent:#0a0a0a;--accent-bg:rgba(0,0,0,.05);--ok:#0a0a0a;--warn:#6b6b6b;--err:#c0392b;--mag:#6b6b6b;--code-bg:#f5f5f5;--danger-bg:#fbeae8;--warn-bg:#f2f2f2;--add:#1a7f37;--add-bg:rgba(26,127,55,.10);--del:#cf222e;--del-bg:rgba(207,34,46,.10)}
+[data-theme="dark"]{color-scheme:dark;--bubble:#232326;--bg:#0b0b0c;--panel:#161618;--border:#33333a;--text:#f2f2f4;--dim:#a0a0a8;--accent:#f5f5f5;--accent-bg:rgba(255,255,255,.07);--ok:#f5f5f5;--warn:#8e8e8e;--err:#f2777a;--mag:#8e8e8e;--code-bg:#000000;--danger-bg:#2e1a19;--warn-bg:#1c1c1c;--add:#4ac26b;--add-bg:rgba(74,194,107,.13);--del:#f85149;--del-bg:rgba(248,81,73,.13)}
 *{box-sizing:border-box}
 body{margin:0;font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;font-size:14px}
 /* PWA plein écran (viewport-fit=cover) : on décale le contenu des bords pour ne
@@ -92,7 +60,7 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 #brand{display:inline-flex;align-items:center}
 #brand svg{height:10px;width:auto;display:block;shape-rendering:crispEdges;fill:currentColor}
 #brand-word{display:inline-flex;color:var(--accent)}
-#ver{font-size:10px;font-weight:400;color:var(--dim);margin-left:7px;letter-spacing:0;align-self:flex-end;line-height:1;position:relative;top:3px}
+#ver{font-size:10px;font-weight:400;color:var(--dim);margin-left:7px;letter-spacing:0;align-self:flex-end;line-height:1;position:relative;top:1px}
 .sidehead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:18px}
 /* pastille d'état service, en haut à droite de la barre latérale */
 .statuspill{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid var(--border);background:var(--panel);color:var(--dim);font-weight:600;white-space:nowrap;cursor:pointer}
@@ -105,27 +73,26 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 .statuspill .port{opacity:.6;font-weight:400}
 /* en-tête + bouton d'ajout de skill (toujours visible) */
 .skillshead{display:flex;align-items:center;justify-content:space-between;margin:12px 0 5px}
-.skillshead>span{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.skillshead>span{font-size:11.5px;color:var(--dim);font-weight:600}
 .addbtn{font-size:11px;padding:3px 11px 4px;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer;line-height:1.2}
 .addbtn:hover{border-color:var(--accent);color:var(--accent)}
 .mem-count{font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:4px}
 /* Titre de sous-section (Mémoire / Accès internet) : simple libellé, PAS de trait
    (le trait est réservé aux sections principales — cf. `details`). La séparation
    visuelle vient de la carte englobante .gated-block. */
-.subhead{position:relative;display:flex;align-items:center;font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--accent);font-weight:600;margin:0 0 6px}
 /* Barre repliable « Pages » : un seul chevron, bouton + ajouter aligné à droite. */
 .pages-bar{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:7px 0;margin-top:4px}
 .pages-bar .pages-caret{flex-shrink:0;font-size:9px;color:var(--dim);transition:transform .12s}
 .pages-bar.open .pages-caret{transform:rotate(90deg)}
-.pages-bar .pages-title{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);font-weight:600}
+.pages-bar .pages-title{font-size:11.5px;color:var(--dim);font-weight:600}
 .pages-bar .addbtn{margin-left:auto}
 .mem-search{width:100%;box-sizing:border-box;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 9px;font:inherit;font-size:12px;margin:0 0 6px}
 .mem-search:focus{outline:none;border-color:var(--accent)}
 .mem-list{max-height:240px;overflow-y:auto;overscroll-behavior:contain}
 .mem-list .preset{margin:3px 0;padding:5px 9px}
 .mem-more{font-size:11px;color:var(--dim);text-align:center;padding:6px 0 2px}
-.ask-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px}
-.ask-box{background:var(--bg);border:1px solid var(--border);border-radius:10px;width:100%;max-width:420px;padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.5);animation:askpop .12s ease-out}
+.ask-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px}
+.ask-box{background:var(--bg);border:1px solid var(--border);border-radius:10px;width:100%;max-width:420px;padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.18);animation:askpop .12s ease-out}
 @keyframes askpop{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:none}}
 .ask-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px}
 .ask-msg{font-size:13px;color:var(--dim);line-height:1.5;white-space:pre-wrap;word-break:break-word}
@@ -135,31 +102,31 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 .ask-actions button{margin:0;padding:7px 16px}
 .ask-ok{border-color:var(--accent);color:var(--accent)}
 .ask-ok.danger{border-color:var(--err);color:var(--err)}
-#brand-a{display:inline-flex;line-height:0;max-width:0;opacity:0;overflow:hidden;color:var(--text);transition:max-width .35s ease,opacity .35s ease}
-#brand.agent #brand-a{max-width:9px;opacity:1;margin-right:2px}
+#brand-a{display:inline-flex;line-height:0;color:var(--text);margin-right:2px}
+/* Mode agent : le A passe en couleur d'accent (il était masqué hors agent,
+   la marque se lisant alors « JEAN »). L'état agent reste signalé par sa
+   pastille dans les réglages. */
+#brand.agent #brand-a{color:var(--accent)}
 /* interrupteur (switch) */
-.switchrow{position:relative;display:flex;align-items:center;gap:9px;font-size:12px;padding:6px 0;cursor:pointer;user-select:none}
 /* Sous-réglage du mode agent inaccessible quand l'agent est off : grisé + inerte. */
 /* Sous-réglages du mode agent présentés en CARTES (bordure + fond) pour ne pas
    les confondre avec les traits des sections principales. */
-.gated-block{margin-top:10px;border:1px solid var(--border);border-radius:8px;padding:9px 11px;background:var(--panel);transition:opacity .15s}
+/* Bloc du mode agent = carte de liste : le rembourrage est porté par les
+   lignes (comme .slist), pas par la carte, sinon les retraits se cumulent. */
+.gated-block{margin:6px 0;border:1px solid var(--border);border-radius:10px;padding:0 0 10px;background:var(--panel);overflow:hidden;transition:opacity .15s}
 .gated-block>.switchrow:first-of-type{padding-top:0}
 .gated-block.gated{opacity:.4;pointer-events:none;filter:grayscale(.4)}
 .switch{position:relative;display:inline-block;width:36px;height:20px;flex:none}
 .switch input{position:absolute;opacity:0;width:0;height:0}
-.switch .slider{position:absolute;inset:0;background:var(--border);border-radius:999px;transition:background .25s ease}
-.switch .slider::before{content:"";position:absolute;width:14px;height:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .25s ease;box-shadow:0 1px 2px rgba(0,0,0,.4)}
+/* Piste décochée : un gris franc (pas --border), sinon le pavé blanc ne se
+   détache pas du rail en mode clair. Même teinte que .pe-sl. */
+.switch .slider{position:absolute;inset:0;background:color-mix(in srgb,var(--dim) 55%,transparent);border-radius:999px;transition:background .25s ease}
+.switch .slider::before{content:"";position:absolute;width:14px;height:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .25s ease;box-shadow:0 1px 2px rgba(0,0,0,.25)}
 .switch input:checked + .slider{background:var(--accent)}
-.switch input:checked + .slider::before{transform:translateX(16px)}
+.switch input:checked + .slider::before{transform:translateX(16px);background:var(--bg)}
 .switch input:focus-visible + .slider{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--accent)}
 h2{margin:20px 0 8px;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;font-weight:600}
-details{margin:7px 0;border-top:1px solid var(--border);padding-top:4px}
-details>summary{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;font-weight:600;cursor:pointer;padding:3px 0;list-style:none;display:flex;justify-content:space-between;align-items:center;user-select:none}
 details>summary::-webkit-details-marker{display:none}
-details>summary::after{content:"▸";transition:transform .15s;color:var(--dim);font-size:10px}
-details[open]>summary::after{transform:rotate(90deg)}
-details>summary:hover{color:var(--text)}
-details>div,details>textarea{margin-top:6px}
 .preset-add{display:none;font-size:14px;padding:0 8px;margin:0 8px 0 auto;line-height:1.4;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer}
 .preset-add:hover{border-color:var(--accent);color:var(--accent)}
 details[open]>summary>.preset-add{display:inline-block}
@@ -177,7 +144,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .preset>button{flex-shrink:0}
 .preset-info{flex:1;min-width:0}
 .preset-name{min-width:0;overflow-wrap:anywhere;word-break:break-word}
-.preset-edit{flex-shrink:0;align-self:flex-start;margin:-3px -4px 0 0;padding:2px 4px;font-size:13px;line-height:1;background:transparent;border:none;opacity:.45}
+.preset-edit{flex-shrink:0;align-self:flex-start;margin:-3px -4px 0 0;padding:2px 4px;font-size:13px;line-height:1;background:transparent;border:none;opacity:.6}
 .preset-edit:hover{opacity:1;color:var(--accent)}
 .preset-meta{display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap}
 .qtag{flex-shrink:0;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em;text-transform:uppercase}
@@ -188,12 +155,17 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .help:hover{color:var(--accent);border-color:var(--accent)}
 /* La bulle est ancrée à la ligne (.switchrow position:relative), pas au « ? »,
    pour rester alignée au bord gauche du panneau et ne pas déborder. */
-.help>.tip{display:none;position:absolute;z-index:40;left:0;right:0;top:calc(100% + 2px);padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:11px;font-weight:400;line-height:1.4;color:var(--text);box-shadow:0 4px 16px rgba(0,0,0,.4);white-space:normal;text-align:left;text-transform:none;letter-spacing:normal;cursor:auto}
+.help>.tip{display:none;position:absolute;z-index:40;left:0;right:0;top:calc(100% + 2px);padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:11px;font-weight:400;line-height:1.4;color:var(--text);box-shadow:0 4px 16px rgba(0,0,0,.15);white-space:normal;text-align:left;text-transform:none;letter-spacing:normal;cursor:auto}
 .help:hover>.tip,.help:focus>.tip,.help.open>.tip{display:block}
-.kv{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px}
-.kv span:first-child{color:var(--dim);flex-shrink:0}
-.kv span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:right;min-width:0}
-.bar{height:6px;background:var(--panel);border-radius:3px;overflow:hidden;margin:2px 0}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;border-bottom:1px solid var(--border);font-size:13px;min-height:38px;align-items:center}
+.kv span:first-child{color:var(--text);flex-shrink:0}
+.kv:last-child{border-bottom:0}
+/* direction:rtl tronque par la GAUCHE (on garde la fin d'un chemin long), mais
+   inversait l'ordre des groupes : « 18,2 / 24 Go » s'affichait « Go 24 / 18,2 ».
+   unicode-bidi:plaintext rend chaque valeur dans son sens naturel tout en
+   gardant l'ancrage à droite. */
+.kv span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;unicode-bidi:plaintext;text-align:right;min-width:0;color:var(--dim)}
+.bar{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin:0}
 .bar>div{height:100%;background:var(--accent)}
 #chat{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px}
 :root{--col:max(20px,calc(50% - 450px))}
@@ -201,8 +173,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .msg{max-width:80%;padding:10px 14px;border-radius:10px;white-space:pre-wrap;word-wrap:break-word;line-height:1.45}
 .msg.assistant,.msg.reasoning{white-space:normal}
 .msg .body{overflow-wrap:anywhere;word-break:break-word}
-.msg.user{align-self:flex-end;background:var(--bubble);color:#fff}
-.msg.user .label{color:rgba(255,255,255,.8)}
+.msg.user{align-self:flex-end;background:var(--bubble);color:var(--text)}
+.msg.user .label{color:var(--dim)}
 .msg.assistant{align-self:flex-start;background:var(--panel);border:1px solid var(--border)}
 .msg.assistant.errmsg{border-color:rgba(248,81,73,.55);background:rgba(248,81,73,.08);color:var(--err)}
 .msg .body>*{margin:1em 0}
@@ -258,6 +230,82 @@ button:disabled{opacity:.5;cursor:not-allowed}
    replie en douceur pour désencombrer le fil, tout en gardant le label (et son
    compteur de tokens) cliquable pour redéplier. */
 .msg.collapsible .label{cursor:pointer;user-select:none;margin-bottom:0}
+/* ===== Barre latérale ==============================================
+   Colonne de réglages dense : 12 sections repliées doivent tenir sans faire
+   défiler. Un seul gabarit, repris des listes de la modale de preset.
+   Hauteurs : en-tête de section 34 px, ligne de réglage 34 px. */
+.side{padding:10px 12px}
+.sidehead{margin-bottom:10px}
+
+/* --- En-tête de section --- */
+details{margin:0;border-top:1px solid var(--border)}
+details:first-of-type{border-top:0}
+details[open]{padding-bottom:10px}
+details>summary{display:flex;align-items:center;gap:8px;height:34px;font-size:13px;font-weight:500;
+  color:var(--text);cursor:pointer;list-style:none;user-select:none}
+.stitle{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sbadge{flex:none;font-size:10px}
+details>summary::-webkit-details-marker{display:none}
+details>summary:hover{color:var(--dim)}
+/* Chevron : un carré dont on n'affiche que deux côtés. Il pivote AUTOUR DE SON
+   CENTRE (aucune translation), sinon il se décale en tournant. */
+details>summary::after{content:"";flex:none;width:6px;height:6px;
+  border-right:1.5px solid var(--dim);border-bottom:1.5px solid var(--dim);
+  transform:rotate(-45deg);transition:transform .18s ease}
+details[open]>summary::after{transform:rotate(45deg)}
+
+/* --- Étiquette de groupe : une seule règle pour toutes les variantes --- */
+.subhead,.io-cap,.pages-bar .pages-title,.skillshead>span{position:relative;display:flex;align-items:center;
+  font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.01em;margin:10px 2px 5px}
+.io-cap{margin:0 2px 5px}
+.io-group{margin-top:8px}
+
+/* --- Carte de liste --- */
+.slist,.gated-block{background:var(--panel);border:1px solid var(--border);border-radius:9px;
+  overflow:hidden;margin:0 0 8px}
+.slist:last-child,.gated-block:last-child{margin-bottom:0}
+/* Contenu libre (champ + boutons) : le rembourrage passe sur la carte. */
+.slist.pad,.gated-block{padding:8px 10px}
+.slist.pad>:first-child{margin-top:0}
+.slist.pad>:last-child{margin-bottom:0}
+
+/* --- Ligne de réglage : hauteur constante, contrôle à droite --- */
+.switchrow{position:relative;display:flex;align-items:center;gap:10px;min-height:34px;padding:6px 0;
+  font-size:12.5px;cursor:pointer;user-select:none}
+.slist>.switchrow{padding:6px 10px}
+.slist>.switchrow:not(:last-child){border-bottom:1px solid var(--border)}
+.switchrow .switch{margin-left:auto;order:2;flex:none}
+.switchrow>span:first-child{min-width:0}
+
+/* --- Bloc de statistique (GPU, RAM) --- */
+.stat{padding:9px 10px;display:flex;flex-direction:column;gap:6px}
+.stat:not(:last-child){border-bottom:1px solid var(--border)}
+/* La RAM vit dans son propre conteneur (masqué quand l'info manque) : le filet
+   de séparation se pose donc sur le conteneur, pas entre deux .stat frères. */
+#ram-details{border-top:1px solid var(--border)}
+.stat-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.stat-n{font-size:12.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stat-v{flex:none;font-size:12.5px;color:var(--text);font-variant-numeric:tabular-nums}
+.stat-s{font-size:11px;color:var(--dim)}
+
+/* --- Lignes clé / valeur (config active) --- */
+.kv{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:34px;
+  padding:6px 10px;border-bottom:1px solid var(--border);font-size:12.5px}
+.kv:last-child{border-bottom:0}
+.kv span:first-child{color:var(--text);flex-shrink:0}
+
+/* --- Champs et boutons --- */
+.sctl,.io-input{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--border);
+  border-radius:7px;padding:7px 9px;font:inherit;font-size:12.5px}
+.sctl:focus,.io-input:focus{outline:none;border-color:var(--dim)}
+textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
+.side button:not(.preset-edit):not(.addbtn):not(.preset-add):not(.copybtn){font-size:12px;padding:6px 10px;border-radius:7px}
+.side .row{display:flex;gap:6px;align-items:center;margin:6px 0}
+.side .row .sctl,.side .row .io-input{flex:1;min-width:0}
+.side .btn-danger-o{border-color:var(--err);color:var(--err)}
+.side .btn-danger-o:hover{background:var(--danger-bg);border-color:var(--err);color:var(--err)}
+.side .muted{font-size:11.5px;line-height:1.5}
+
 /* ===== Réglages d'affichage ======================================
    Chaque option est un interrupteur indépendant (Apparence), porté par un
    attribut sur <html> et persisté dans localStorage + /api/prefs :
@@ -276,7 +324,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 /* Le bouton ☰ est posé au-dessus du fil : on dégage le haut de la
    conversation pour qu'il ne recouvre aucun message. */
 @media (min-width:721px){html[data-hide-side="1"] #chat{padding-top:60px}}
-@media (min-width:721px){html[data-hide-side="1"]:not([data-theme^="gpt"]) #chat{padding-left:var(--col);padding-right:var(--col)}}
 [data-hide-side="1"] .side.open{transform:translateX(0)}
 [data-hide-side="1"] #menubtn{display:block}
 [data-hide-side="1"] #backdrop.open{display:block}
@@ -293,7 +340,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .msg.collapsible.collapsed .bodywrap{opacity:0;margin-top:0}
 /* Composer = un seul bloc cohérent : barre de contexte intégrée en tête (fine
    ligne de progression pleine largeur affleurant le bord) + zone de saisie. */
-#composer{border-top:1px solid var(--border);background:var(--panel-2,rgba(255,255,255,.02))}
+#composer{border-top:1px solid var(--border);background:var(--panel)}
 /* La jauge est un ENFANT de #ctxmeta (et non plus un frère au-dessus) : ainsi
    elle peut être clippée par la forme arrondie du bloc — indispensable au
    thème ChatGPT où elle sert de bord bas de carte. Position/rendu inchangés
@@ -310,7 +357,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 #input{flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;font:inherit;resize:none;min-height:56px;max-height:200px;overflow-y:hidden}
 #input:focus{outline:none;border-color:var(--accent)}
 #send{padding:0 20px}
-.muted{color:var(--dim);font-size:12px}
+.muted{color:var(--dim);font-size:13px}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--border);padding:8px 16px;border-radius:6px;opacity:0;transition:opacity .2s;pointer-events:none}
 #toast.show{opacity:1}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
@@ -348,7 +395,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
   #ctxmeta{padding:3px 10px 0}
   #ctx-text{font-size:9px}
   h1{font-size:15px}
-  h2,details>summary{font-size:10px}
+  h2,details>summary{font-size:13px}
   #menubtn{width:32px;height:32px;font-size:15px;top:calc(6px + env(safe-area-inset-top))}
 }
 /* --- Backend llama.cpp (2 modes : rapide / optimisée) --------------------- */
@@ -411,7 +458,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
    sans ça, un thème qui arrondit tous les boutons (ChatGPT) le détachait du
    champ, avec un coin rond au milieu de la paire. */
 .pe-inpbtn button{flex:none;margin:0;border:1px solid var(--border);border-radius:0 8px 8px 0;background:var(--panel);color:var(--dim);padding:0 15px;cursor:pointer;font-size:15px;transition:color .12s,border-color .12s,background .12s}
-.pe-inpbtn button:hover:not(:disabled){color:#fff;background:var(--accent);border-color:var(--accent)}
+.pe-inpbtn button:hover:not(:disabled){color:var(--bg);background:var(--accent);border-color:var(--accent)}
 .pe-inpbtn:focus-within .pe-inp,.pe-inpbtn:focus-within button{border-color:var(--accent)}
 .pe-inpbtn button:disabled{opacity:.5;cursor:default}
 /* Contrôle segmenté (moteur) façon iOS. */
@@ -426,9 +473,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .pe-switch{position:relative;flex:none;width:40px;height:24px}
 .pe-switch input{position:absolute;opacity:0;width:0;height:0}
 .pe-sl{position:absolute;inset:0;background:color-mix(in srgb,var(--dim) 55%,transparent);border-radius:999px;transition:background .18s}
-.pe-sl::before{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .18s;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.pe-sl::before{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .18s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .pe-switch input:checked+.pe-sl{background:var(--accent)}
-.pe-switch input:checked+.pe-sl::before{transform:translateX(16px)}
+.pe-switch input:checked+.pe-sl::before{transform:translateX(16px);background:var(--bg)}
 .pe-switch input:focus-visible+.pe-sl{box-shadow:0 0 0 3px var(--accent-bg)}
 /* Repli « avancé » / config brute : une ligne cliquable dans un groupe. */
 .pe-adv{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden}
@@ -454,15 +501,15 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .pe-foot .foot-r{display:flex;gap:8px}
 .pe-btn{margin:0;padding:9px 18px;border-radius:9px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--panel);color:var(--text)}
 .pe-btn:hover{border-color:var(--dim)}
-.pe-btn.primary{border-color:var(--accent);background:var(--accent);color:#fff}
+.pe-btn.primary{border-color:var(--accent);background:var(--accent);color:var(--bg)}
 .pe-btn.primary:hover{filter:brightness(1.08)}
 .pe-btn.ghost-danger{border-color:transparent;background:transparent;color:var(--err);padding:9px 10px}
 .pe-btn.ghost-danger:hover{background:var(--danger-bg)}
 .pe-delmodel{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--dim);cursor:pointer}
 .pe-delmodel input{margin:0}
 /* Éditeur de preset/mémoire — mise en forme propre du modale */
-.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:30;align-items:center;justify-content:center;padding:20px}
-.modal-card{background:var(--bg);border:1px solid var(--border);border-radius:12px;width:100%;max-width:600px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 16px 50px rgba(0,0,0,.5)}
+.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:30;align-items:center;justify-content:center;padding:20px}
+.modal-card{background:var(--bg);border:1px solid var(--border);border-radius:12px;width:100%;max-width:600px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 16px 50px rgba(0,0,0,.18)}
 .modal-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
 .modal-head strong{font-size:14px}
 .modal-x{margin:0;padding:3px 10px;font-size:16px;line-height:1;color:var(--dim)}
@@ -497,7 +544,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .btn-save{border-color:var(--accent);color:var(--accent);margin:0}
 .del-model{align-items:center;gap:5px;font-size:11px;color:var(--dim)}
 .del-model input{margin:0}
-.lc-logbar{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;font-weight:600;padding:6px 0;margin-top:4px}
+.lc-logbar{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:12px;color:var(--dim);font-weight:600;padding:6px 0;margin-top:4px}
 .lc-logbar #lc-log-caret{font-size:9px;transition:transform .12s;display:inline-block}
 .lc-logbar.open #lc-log-caret{transform:rotate(90deg)}
 #lc-log{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:10px;line-height:1.45;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:0}
@@ -529,9 +576,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
 /* Accès OpenAI / Accès distant : champs lecture seule (URL, clé) + libellés
    compacts, pour une présentation homogène et sans surcharge visuelle. */
-.io-cap{color:var(--dim);font-size:11px;margin:0 0 3px}
-.io-input{flex:1;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit;font-size:12px}
-.io-group{margin-top:12px}
+.io-input{flex:1;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:8px 10px;font:inherit;font-size:13px}
 
 /* Toggles de la sous-section « Paramètres » du mode agent : chacun dans sa
    propre carte bordée et arrondie (comme les serveurs MCP), plus lisible. */
@@ -543,35 +588,33 @@ button:disabled{opacity:.5;cursor:not-allowed}
    On aligne leur rythme sur celui du reste du formulaire (.mform). */
 #mcp-stdio-fields,#mcp-http-fields{display:flex;flex-direction:column;gap:14px}
 
-/* ===== Thème "ChatGPT" — mise en page ==============================
-   Les thèmes gpt-* ne changent pas que la palette : ils reprennent la
-   disposition de ChatGPT — colonne de lecture centrée, réponses SANS bulle
-   (texte nu sur le fond), question de l'utilisateur en pastille arrondie à
-   droite, composer en « pilule », pas d'étiquettes VOUS/JEAN, typo système
-   plus grande et plus aérée. Tout est préfixé [data-theme^="gpt"] : aucun
-   autre thème n'est affecté. */
-[data-theme^="gpt"] body{font-size:15px}
-[data-theme^="gpt"] h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
+/* ===== Mise en page de la conversation =============================
+   Colonne de lecture centrée, réponses SANS bulle (texte nu sur le fond),
+   question de l'utilisateur en pastille arrondie à droite, composer en
+   « pilule », pas d'étiquettes VOUS/JEAN. Ces règles surchargent la mise en
+   page générique plus haut : elles doivent donc rester APRÈS elle. */
+body{font-size:15px}
+h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
 /* Barre latérale : plus sombre/atténuée que la zone de conversation. */
-[data-theme^="gpt"] .side{background:var(--panel);border-right-color:transparent}
-@media (max-width:720px){[data-theme^="gpt"] .side{background:var(--panel)}}
+.side{background:var(--panel);border-right-color:transparent}
+@media (max-width:720px){.side{background:var(--panel)}}
 /* Colonne de lecture centrée (comme le fil ChatGPT), pleine largeur sur mobile. */
-[data-theme^="gpt"] #chat{padding:28px max(16px,calc(50% - 380px)) 8px;gap:22px;scrollbar-gutter:stable both-edges}
+#chat{padding:28px max(16px,calc(50% - 380px)) 8px;gap:22px;scrollbar-gutter:stable both-edges}
 /* Réponses de l'assistant : pas de cadre, pas de fond — juste du texte. */
-[data-theme^="gpt"] #chat .msg.assistant{background:transparent;border:none;padding:0;max-width:100%;line-height:1.7}
+#chat .msg.assistant{background:transparent;border:none;padding:0;max-width:100%;line-height:1.7}
 /* Question : pastille arrondie à droite, texte lisible sur fond clair OU sombre. */
-[data-theme^="gpt"] #chat .msg.user{background:var(--bubble);color:var(--text);border-radius:20px;padding:11px 18px;max-width:75%;line-height:1.6}
-[data-theme^="gpt"] #chat .msg.user .label{color:var(--dim)}
+#chat .msg.user{background:var(--bubble);color:var(--text);border-radius:20px;padding:11px 18px;max-width:75%;line-height:1.6}
+#chat .msg.user .label{color:var(--dim)}
 /* Étiquettes VOUS / JEAN : inutiles ici (l'alignement suffit), sauf pour les
    bulles repliables (raisonnement / outils) où le label est le bouton de repli. */
-[data-theme^="gpt"] #chat .msg .label{display:none}
-[data-theme^="gpt"] #chat .msg.collapsible .label{display:block}
+#chat .msg .label{display:none}
+#chat .msg.collapsible .label{display:block}
 /* Raisonnement / outils : encart gris discret plutôt qu'un cadre pointillé. */
-[data-theme^="gpt"] #chat .msg.reasoning,[data-theme^="gpt"] #chat .msg.tool{background:var(--panel);border:1px solid var(--border);border-radius:14px;color:var(--dim);padding:12px 16px}
-[data-theme^="gpt"] #chat .msg.reasoning{color:var(--dim)}
-[data-theme^="gpt"] #chat .msg.tool .tool-head{color:var(--text)}
-[data-theme^="gpt"] #chat .msg.assistant .body pre,[data-theme^="gpt"] #chat .msg.reasoning .body pre,[data-theme^="gpt"] #chat .msg.tool pre{border-radius:12px;padding:12px 14px}
-[data-theme^="gpt"] #chat .msg.assistant .body a{text-decoration:underline;text-underline-offset:2px}
+#chat .msg.reasoning,#chat .msg.tool{background:var(--panel);border:1px solid var(--border);border-radius:14px;color:var(--dim);padding:12px 16px}
+#chat .msg.reasoning{color:var(--dim)}
+#chat .msg.tool .tool-head{color:var(--text)}
+#chat .msg.assistant .body pre,#chat .msg.reasoning .body pre,#chat .msg.tool pre{border-radius:12px;padding:12px 14px}
+#chat .msg.assistant .body a{text-decoration:underline;text-underline-offset:2px}
 /* Composer = UNE seule carte posée PAR-DESSUS le fil : la conversation
    continue de défiler DERRIÈRE elle et s'efface en fondu (dégradé vers le fond)
    au lieu de s'arrêter net au-dessus. Dans la carte, de haut en bas : la saisie
@@ -580,169 +623,65 @@ button:disabled{opacity:.5;cursor:not-allowed}
    (overflow:hidden sur le rayon). Les trois blocs sont des frères dans le HTML :
    on les recolle en dessinant les bordures par morceaux et l'ordre visuel vient
    de l'ordre flex — aucun changement de markup. */
-[data-theme^="gpt"] #composer{position:absolute;left:0;right:0;bottom:0;z-index:4;border-top:none;display:flex;flex-direction:column;padding:34px 0 8px;--col:max(16px,calc(50% - 380px));background:linear-gradient(to bottom,transparent 0,var(--bg) 34%)}
-[data-theme^="gpt"] #chat{padding-bottom:170px}
-[data-theme^="gpt"] #scrollbtn{bottom:180px;border-radius:999px}
-[data-theme^="gpt"] #compact-banner{order:0;margin:0 var(--col) 8px;border-radius:14px}
-[data-theme^="gpt"] #inputbar{order:1;margin:0 var(--col);padding:8px 8px 8px 16px;gap:8px;align-items:flex-end;background:var(--panel);border:1px solid var(--border);border-bottom:none;border-radius:26px 26px 0 0}
-[data-theme^="gpt"] #input{background:transparent;border:none;border-radius:0;padding:9px 0;min-height:36px;line-height:18px;max-height:160px}
+#composer{position:absolute;left:0;right:0;bottom:0;z-index:4;border-top:none;display:flex;flex-direction:column;padding:34px 0 8px;--col:max(16px,calc(50% - 380px));background:linear-gradient(to bottom,transparent 0,var(--bg) 34%)}
+#chat{padding-bottom:170px}
+#scrollbtn{bottom:180px;border-radius:999px}
+#compact-banner{order:0;margin:0 var(--col) 8px;border-radius:14px}
+#inputbar{order:1;margin:0 var(--col);padding:8px 8px 8px 16px;gap:8px;align-items:flex-end;background:var(--panel);border:1px solid var(--border);border-bottom:none;border-radius:26px 26px 0 0}
+#input{background:transparent;border:none;border-radius:0;padding:9px 0;min-height:36px;line-height:18px;max-height:160px}
 /* Pas de cadre qui s'assombrit au focus : la carte garde exactement la même
    bordure, seule la saisie change (curseur). */
-[data-theme^="gpt"] #input:focus{border-color:transparent}
-[data-theme^="gpt"] #send,[data-theme^="gpt"] #stop{border-radius:999px;height:36px;min-height:36px;padding:0 18px;margin:0}
-[data-theme^="gpt"] #send{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
-[data-theme^="gpt"] #send:hover:not(:disabled){opacity:.85;color:var(--bg);border-color:var(--text)}
+#input:focus{border-color:transparent}
+#send,#stop{border-radius:999px;height:36px;min-height:36px;padding:0 18px;margin:0}
+#send{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
+#send:hover:not(:disabled){opacity:.85;color:var(--bg);border-color:var(--text)}
 /* Pied de carte : c'est LUI qui porte l'arrondi bas (26 px, comme en haut) et
    qui clippe la jauge. Un bandeau de 7 px ne peut pas dessiner un rayon de 26 px
    (le navigateur l'écrase, d'où les coins bizarres) : on laisse donc la carte
    découper la jauge dans sa propre forme — la barre est bien épaisse ET rognée
    exactement sur la courbe, symétrique du haut. */
-[data-theme^="gpt"] #ctxmeta{order:2;margin:0 var(--col);padding:6px 16px 15px;gap:10px;background:var(--panel);border:1px solid var(--border);border-top:none;border-radius:0 0 26px 26px;overflow:hidden}
-[data-theme^="gpt"] #ctx-text,[data-theme^="gpt"] #status-preset{color:var(--dim);font-size:10px;letter-spacing:.02em}
-[data-theme^="gpt"] #ctx-compact{border-radius:999px;padding:2px 10px;font-size:10px;background:transparent;border-color:var(--border);color:var(--dim)}
-[data-theme^="gpt"] #ctx-compact:hover{border-color:var(--dim);color:var(--text)}
+#ctxmeta{order:2;margin:0 var(--col);padding:6px 16px 15px;gap:10px;background:var(--panel);border:1px solid var(--border);border-top:none;border-radius:0 0 26px 26px;overflow:hidden}
+#ctx-text,#status-preset{color:var(--dim);font-size:10px;letter-spacing:.02em}
+#ctx-compact{border-radius:999px;padding:2px 10px;font-size:10px;background:transparent;border-color:var(--border);color:var(--dim)}
+#ctx-compact:hover{border-color:var(--dim);color:var(--text)}
 /* Jauge = bord bas de la carte : épaisse, plaquée au ras du bord, rognée par
    l'arrondi du pied de carte. */
-[data-theme^="gpt"] #ctxtrack{top:auto;bottom:0;height:7px;background:var(--border)}
-[data-theme^="gpt"] #ctx-fill{background:var(--text);opacity:.75}
-[data-theme^="gpt"] #sendhint{order:4;padding:12px var(--col) 2px}
+#ctxtrack{top:auto;bottom:0;height:7px;background:var(--border)}
+#ctx-fill{background:var(--text);opacity:.75}
+#sendhint{order:4;padding:12px var(--col) 2px}
 /* Reste de l'UI : coins arrondis et contrastes doux, dans le même esprit. */
-[data-theme^="gpt"] button,[data-theme^="gpt"] .addbtn,[data-theme^="gpt"] .mem-search,[data-theme^="gpt"] #theme-select{border-radius:10px}
+button,.addbtn,.mem-search{border-radius:10px}
 /* Champ + bouton accolés : on ne garde l'arrondi que sur les coins extérieurs. */
-[data-theme^="gpt"] .pe-inpbtn .pe-inp{border-radius:10px 0 0 10px}
-[data-theme^="gpt"] .pe-inpbtn button{border-radius:0 10px 10px 0}
-[data-theme^="gpt"] .input-btn .ctl{border-radius:10px 0 0 10px}
-[data-theme^="gpt"] .input-btn .btn-in{border-radius:0 10px 10px 0}
-[data-theme^="gpt"] .preset,[data-theme^="gpt"] .gated-block,[data-theme^="gpt"] .lc-mode{border-radius:12px}
-[data-theme^="gpt"] .preset{background:transparent;border-color:transparent}
-[data-theme^="gpt"] .preset:hover{background:var(--accent-bg);border-color:transparent}
-[data-theme^="gpt"] .preset.active{background:var(--accent-bg);border-color:var(--border);color:var(--text)}
-[data-theme^="gpt"] .subhead,[data-theme^="gpt"] .lc-reco,[data-theme^="gpt"] .lc-mode-go,[data-theme^="gpt"] .lc-mode-active-tag{color:var(--dim)}
-[data-theme^="gpt"] button:hover{border-color:var(--dim);color:var(--text)}
-[data-theme^="gpt"] .switch input:checked + .slider{background:var(--text)}
-[data-theme^="gpt"] .switch .slider::before{background:var(--bg)}
-[data-theme^="gpt"] .switch input:not(:checked) + .slider::before{background:#fff}
+.pe-inpbtn .pe-inp{border-radius:10px 0 0 10px}
+.pe-inpbtn button{border-radius:0 10px 10px 0}
+.input-btn .ctl{border-radius:10px 0 0 10px}
+.input-btn .btn-in{border-radius:0 10px 10px 0}
+.preset,.gated-block,.lc-mode{border-radius:12px}
+/* Les presets restent des cartes (fond + bordure) : à plat, sans fond ni
+   cadre, la liste ne se lisait plus comme des lignes distinctes. L'actif se
+   signale par sa bordure — un simple voile d'accent (7 % de blanc sur fond
+   noir) était invisible en mode sombre. */
+.preset{background:var(--panel);border-color:var(--border)}
+.preset:hover{background:var(--accent-bg);border-color:var(--dim)}
+.preset.active{background:var(--panel);border-color:var(--text);color:var(--text)}
+.subhead,.lc-reco,.lc-mode-go,.lc-mode-active-tag{color:var(--dim)}
+button:hover{border-color:var(--dim);color:var(--text)}
 
-/* ===== Thème "AJEAN" — mise en page ==========================
-   Rétro-machine : plus aucun arrondi, bordures de 2 px, ombres portées en
-   blocs pleins (pas de flou), fond quadrillé comme du papier millimétré,
-   boutons en capitales qui « s'enfoncent » au survol. Tout est préfixé
-   [data-theme^="ajean"] : aucun autre thème n'est touché. */
-/* Un seul balayage pour supprimer TOUS les arrondis (bulles, boutons, pastilles,
-   interrupteurs, points animés…) — c'est ce qui fait l'identité du thème. */
-[data-theme^="ajean"] *,[data-theme^="ajean"] *::before,[data-theme^="ajean"] *::after{border-radius:0 !important}
-/* Fond quadrillé : le papier millimétré derrière toute l'interface. */
-[data-theme^="ajean"] body{background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:32px 32px}
-[data-theme^="ajean"] .side{background:var(--panel);border-right:2px solid var(--border)}
-[data-theme^="ajean"] #composer,[data-theme^="ajean"] #chat{background:transparent}
-/* Boutons : capitales, bordure épaisse, ombre en bloc qui disparaît au survol
-   pendant que le bouton se décale — impression de touche enfoncée. */
-[data-theme^="ajean"] button,[data-theme^="ajean"] .addbtn,[data-theme^="ajean"] .preset-add{border:2px solid var(--line2);background:var(--panel);color:var(--text);text-transform:uppercase;letter-spacing:.06em;font-weight:700;box-shadow:3px 3px 0 0 var(--grid);transition:.1s}
-[data-theme^="ajean"] button:hover:not(:disabled),[data-theme^="ajean"] .addbtn:hover,[data-theme^="ajean"] .preset-add:hover{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:none;transform:translate(3px,3px)}
-[data-theme^="ajean"] .preset-edit,[data-theme^="ajean"] .copybtn{border:none;box-shadow:none;text-transform:none}
-[data-theme^="ajean"] .copybtn{border:2px solid var(--border)}
-[data-theme^="ajean"] #send{background:var(--accent);border-color:var(--accent);color:#fff}
-[data-theme^="ajean"] #menubtn{border:2px solid var(--line2);box-shadow:3px 3px 0 0 var(--grid)}
-/* Messages : la question en carré bleu plein, la réponse en fiche blanche
-   posée sur son ombre. Raisonnement et outils restent en pointillés. */
-[data-theme^="ajean"] #chat .msg.user{background:var(--accent);color:#fff;box-shadow:4px 4px 0 0 var(--sh)}
-[data-theme^="ajean"] #chat .msg.assistant{background:var(--panel);border:2px solid var(--border);box-shadow:4px 4px 0 0 var(--grid)}
-[data-theme^="ajean"] #chat .msg.reasoning,[data-theme^="ajean"] #chat .msg.tool{border:2px dashed var(--line2);background:var(--panel)}
-[data-theme^="ajean"] #chat .msg .label{color:var(--dim);letter-spacing:.14em}
-[data-theme^="ajean"] #chat .msg.user .label{color:rgba(255,255,255,.85)}
-[data-theme^="ajean"] .msg.assistant .body pre,[data-theme^="ajean"] .msg.reasoning .body pre,[data-theme^="ajean"] .msg.tool pre{border:2px solid var(--border);background:var(--code-bg)}
-[data-theme^="ajean"] .msg.typing span{background:var(--accent)}
-/* Panneaux, encadrés et champs : mêmes bordures épaisses, mêmes ombres. */
-[data-theme^="ajean"] .preset,[data-theme^="ajean"] .gated-block,[data-theme^="ajean"] .tag,[data-theme^="ajean"] .qtag,[data-theme^="ajean"] .rtag,[data-theme^="ajean"] .btag,[data-theme^="ajean"] .statuspill,[data-theme^="ajean"] .lc-mode{border-width:2px}
-[data-theme^="ajean"] .preset.active{border-color:var(--accent);color:var(--accent);box-shadow:3px 3px 0 0 var(--sh)}
-[data-theme^="ajean"] #input,[data-theme^="ajean"] .mem-search,[data-theme^="ajean"] .ask-input,[data-theme^="ajean"] #theme-select,[data-theme^="ajean"] .modal-card .ctl{border:2px solid var(--line2);background:var(--panel)}
-[data-theme^="ajean"] #input:focus,[data-theme^="ajean"] .mem-search:focus,[data-theme^="ajean"] .ask-input:focus{border-color:var(--accent)}
-[data-theme^="ajean"] #composer{border-top:2px solid var(--border);background:var(--panel)}
-/* Jauge de contexte : un vrai bandeau plein, pas un filet dégradé. */
-[data-theme^="ajean"] #ctxtrack{height:5px;background:var(--grid)}
-[data-theme^="ajean"] #ctx-fill{background:var(--accent)}
-/* Fenêtres modales / info-bulles / toast : cadre net + ombre en bloc bleutée. */
-[data-theme^="ajean"] .ask-box,[data-theme^="ajean"] .help>.tip,[data-theme^="ajean"] #toast,[data-theme^="ajean"] .modal-box,[data-theme^="ajean"] #modal>div{border:2px solid var(--line2);box-shadow:7px 7px 0 0 var(--sh)}
-[data-theme^="ajean"] #scrollbtn{border:2px solid var(--line2);box-shadow:3px 3px 0 0 var(--grid)}
-/* Interrupteurs : carrés, bleus quand ils sont actifs. */
-[data-theme^="ajean"] .switch .slider{background:var(--line2)}
-[data-theme^="ajean"] .switch input:checked + .slider{background:var(--accent)}
-/* Pastille carrée : box-sizing explicite (un ::before n'hérite pas de la règle
-   globale *{box-sizing:border-box}) — sans ça la bordure débordait du rail. */
-[data-theme^="ajean"] .switch .slider::before{box-sizing:border-box;width:14px;height:14px;background:var(--knob);border:2px solid var(--line2);box-shadow:none}
-[data-theme^="ajean"] .switch input:checked + .slider::before{border-color:var(--knob);background:var(--knob)}
-/* Étiquettes de section : capitales espacées, comme des en-têtes de terminal. */
-[data-theme^="ajean"] .subhead,[data-theme^="ajean"] .skillshead>span{letter-spacing:.16em}
+/* Encart de garde-fou : c'est le serveur qui parle (limite d'appels d'outils,
+   boucle détectée), pas le modèle. Pastille discrète plutôt qu'une erreur —
+   la génération s'est arrêtée proprement, rien n'a échoué. */
+.stopnote{display:inline-flex;align-items:center;gap:7px;margin-top:4px;padding:4px 12px;
+  border:1px solid var(--border);border-radius:999px;background:var(--panel);
+  color:var(--dim);font-size:12px;line-height:1.5}
+.stopnote::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:var(--dim)}
 
-/* ----- Thème AJEAN : modales (éditeur de preset, mémoire, MCP) -------------
-   Les règles génériques du thème (bouton en capitales + ombre en bloc + décalage
-   au survol) sont faites pour la barre latérale ; dans un formulaire dense elles
-   rendaient l'éditeur de preset illisible : boutons énormes, ombres qui se
-   chevauchent, champs collés au fond de la carte. On rejoue donc la modale à
-   plat — hiérarchie nette, un seul niveau de relief (la carte). */
-[data-theme^="ajean"] .modal-ov{background:rgba(15,31,61,.45)}
-[data-theme^="ajean"] .modal-card{background:var(--panel);border:2px solid var(--line2);box-shadow:8px 8px 0 0 var(--sh)}
-[data-theme^="ajean"] .modal-head{border-bottom:2px solid var(--border);background:var(--soft,#e8f0ff)}
-[data-theme^="ajean"] .modal-head strong{text-transform:uppercase;letter-spacing:.14em;font-size:12px;color:var(--accent)}
-[data-theme^="ajean"] .modal-foot{border-top:2px solid var(--border)}
-/* Champs simples (mémoire, MCP…) : fond teinté pour se détacher de la carte. */
-[data-theme^="ajean"] .ctl{border:2px solid var(--line2);background:var(--bg);background-image:none}
-[data-theme^="ajean"] .ctl:focus{border-color:var(--accent)}
-[data-theme^="ajean"] .fld-l{color:var(--text);letter-spacing:.1em}
-[data-theme^="ajean"] .fld-hint,[data-theme^="ajean"] .seg .be-note{color:var(--dim)}
-[data-theme^="ajean"] .modal-body .card{border:2px solid var(--border);box-shadow:none;background:var(--panel)}
-[data-theme^="ajean"] .card-h{letter-spacing:.14em}
+/* ===== Fenêtres et sélecteurs =====================================
+   Coins arrondis et ombre douce plutôt qu'un cadre marqué. */
+.modal-card,.ask-box,.modal-box,.pe-list,.pe-adv{border-radius:12px}
+.modal-card,.ask-box{box-shadow:0 8px 30px rgba(0,0,0,.12)}
+/* Sélecteurs segmentés : noir plein quand c'est coché, pas de couleur. */
+.pe-seg>label:has(input:checked),.seg>label:has(input:checked){background:var(--text);border-color:var(--text);color:var(--bg)}
 
-/* --- Éditeur de preset (listes façon Réglages) --- */
-[data-theme^="ajean"] .pe-body{background:var(--bg)}
-/* En-tête de groupe : petite étiquette bleue en capitales. */
-[data-theme^="ajean"] .pe-gh{color:var(--accent);text-transform:uppercase;letter-spacing:.14em;font-size:11px;font-weight:700}
-/* La LISTE porte le cadre ; les champs à l'intérieur n'en ont pas (sinon double
-   encadrement). Séparateurs de rangées à la même épaisseur. */
-[data-theme^="ajean"] .pe-list,[data-theme^="ajean"] .pe-adv{border:2px solid var(--border);background:var(--panel)}
-[data-theme^="ajean"] .pe-row:not(:last-child){border-bottom:2px solid var(--border)}
-[data-theme^="ajean"] .pe-adv[open]>summary{border-bottom:2px solid var(--border)}
-[data-theme^="ajean"] .pe-val,[data-theme^="ajean"] .pe-selc select{border:none;background:transparent}
-/* Champs pleine largeur (URL, chemin…) : eux gardent un cadre, sur fond teinté. */
-[data-theme^="ajean"] .pe-inp{border:2px solid var(--line2);background:var(--bg)}
-[data-theme^="ajean"] .pe-inp:focus{border-color:var(--accent);box-shadow:none}
-[data-theme^="ajean"] .pe-row.stack.plain .pe-inp{border:none;background:transparent}
-[data-theme^="ajean"] .pe-inpbtn button{border:2px solid var(--line2);box-shadow:none;background:var(--panel);text-transform:none;letter-spacing:0}
-[data-theme^="ajean"] .pe-inpbtn .pe-inp{border-right:0}
-[data-theme^="ajean"] .pe-inpbtn button:hover:not(:disabled){transform:none;background:var(--accent);border-color:var(--accent);color:#fff}
-/* Sélecteur segmenté : cases carrées côte à côte, bleu plein pour l'active. */
-[data-theme^="ajean"] .pe-seg{background:transparent;padding:0;gap:8px}
-[data-theme^="ajean"] .pe-seg>label{border:2px solid var(--border);background:var(--panel);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:11px;padding:9px 4px}
-[data-theme^="ajean"] .pe-seg>label:has(input:checked){background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:none}
-/* Interrupteurs de la modale : carrés, comme ceux de la barre latérale. */
-[data-theme^="ajean"] .pe-sl{background:var(--line2)}
-[data-theme^="ajean"] .pe-sl::before{box-sizing:border-box;background:var(--knob);border:2px solid var(--line2);box-shadow:none}
-[data-theme^="ajean"] .pe-switch input:checked+.pe-sl{background:var(--accent)}
-[data-theme^="ajean"] .pe-switch input:checked+.pe-sl::before{border-color:var(--knob);background:var(--knob)}
-/* Boutons DANS la modale : mêmes capitales, mais posés à plat — pas d'ombre ni
-   de décalage au survol, sinon les rangées de boutons dansent et se recouvrent. */
-[data-theme^="ajean"] .modal-card button{box-shadow:none;font-size:11.5px}
-[data-theme^="ajean"] .modal-card button:hover:not(:disabled){transform:none}
-[data-theme^="ajean"] .modal-card .btn-save{background:var(--accent);border-color:var(--accent);color:#fff}
-[data-theme^="ajean"] .modal-card .btn-danger{background:var(--danger-bg);border-color:var(--err);color:var(--err)}
-[data-theme^="ajean"] .modal-card .btn-danger:hover{background:var(--err);border-color:var(--err);color:#fff}
-[data-theme^="ajean"] .modal-x{border:2px solid transparent;background:transparent;color:var(--dim)}
-[data-theme^="ajean"] .modal-x:hover{background:transparent;border-color:var(--line2);color:var(--text)}
-/* Champ + bouton accolés : les bordures se chevauchent au lieu de doubler. */
-[data-theme^="ajean"] .input-btn .btn-in{margin-left:-2px}
-/* Sélecteur segmenté : bleu plein quand c'est coché (le liseré seul se voyait mal). */
-[data-theme^="ajean"] .seg>label{border:2px solid var(--border);background:var(--bg)}
-[data-theme^="ajean"] .seg>label:has(input:checked){background:var(--accent);border-color:var(--accent);color:#fff}
-[data-theme^="ajean"] .seg>label:has(input:checked) .be-note{color:rgba(255,255,255,.85)}
-/* Listes (MCP, outils) : mêmes bordures épaisses, survol teinté. */
-[data-theme^="ajean"] .mcp-row,[data-theme^="ajean"] .mcp-tools-list,[data-theme^="ajean"] #lc-log{border:2px solid var(--border)}
-[data-theme^="ajean"] .mcp-tool-row:hover{background:var(--soft,#e8f0ff)}
-
-/* Diff sur fond clair : mêmes rôles, teintes plus profondes pour rester lisibles. */
-[data-theme="light"],[data-theme="soft"],[data-theme^="gpt"],[data-theme="ajean"]{
-  --add:#1a7f37;--add-bg:rgba(26,127,55,.10);--del:#cf222e;--del-bg:rgba(207,34,46,.10)}
-[data-theme="soft-dark"],[data-theme="ajean-dark"]{
-  --add:#4ac26b;--add-bg:rgba(74,194,107,.13);--del:#f85149;--del-bg:rgba(248,81,73,.13)}
 </style></head><body>
 <button id="menubtn" onclick="toggleSide()">☰</button>
 <div id="backdrop" onclick="toggleSide()"></div>
@@ -763,25 +702,27 @@ button:disabled{opacity:.5;cursor:not-allowed}
     </div>
     <pre id="svc-log" class="muted" style="font-size:10px;line-height:1.45;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:6px 0 0"></pre>
   </div>
-  <details open><summary>GPU</summary>
-    <div id="vram" class="muted">…</div>
+  <!-- GPU et RAM décrivent la même chose (les ressources de la machine) :
+       une seule section, deux blocs de statistique dans la même carte. -->
+  <details open><summary><span class="stitle">Machine</span></summary>
+    <div class="slist">
+      <div id="vram">…</div>
+      <div id="ram-details"><div id="ram"></div></div>
+    </div>
   </details>
-  <details open id="ram-details"><summary>RAM</summary>
-    <div id="ram" class="muted">…</div>
+  <details open id="cfg-details"><summary><span class="stitle">Config active</span></summary>
+    <div id="cfg" class="slist">…</div>
   </details>
-  <details open id="cfg-details"><summary>Config active</summary>
-    <div id="cfg" class="muted">…</div>
-  </details>
-  <details><summary>Presets<button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter">+</button></summary>
+  <details><summary><span class="stitle">Presets</span><button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter">+</button></summary>
     <div id="presets"></div>
   </details>
-  <details><summary>Mode agent <span id="agent-badge" style="margin-left:auto;margin-right:12px;font-size:10px"></span></summary>
-    <label class="switchrow"><span class="switch"><input type="checkbox" id="agent-toggle" onchange="toggleAgent()"><span class="slider"></span></span> activer le mode agent<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">⚠ active l'<b>accès machine</b> (shell complet via <b>bash</b> sur le serveur) — l'IA peut inspecter, lancer des scripts, lire/éditer des fichiers (timeout 30s, max 300s). Mémoire et accès internet ci-dessous ne fonctionnent que si le mode agent est activé.</span></span></label>
+  <details><summary><span class="stitle">Mode agent</span><span id="agent-badge" class="sbadge"></span></summary>
+    <div class="slist"><label class="switchrow"><span class="switch"><input type="checkbox" id="agent-toggle" onchange="toggleAgent()"><span class="slider"></span></span> activer le mode agent<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">⚠ active l'<b>accès machine</b> (shell complet via <b>bash</b> sur le serveur) — l'IA peut inspecter, lancer des scripts, lire/éditer des fichiers (timeout 30s, max 300s). Mémoire et accès internet ci-dessous ne fonctionnent que si le mode agent est activé.</span></span></label></div>
     <!-- Mémoire / Accès internet / Paramètres : sous-réglages du mode agent, en cartes. Grisés/inertes quand l'agent est off (voir setAgentGate). -->
     <div id="mem-block" class="gated-block">
       <div class="subhead">Mémoire<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span id="mem-mode-desc" class="tip"></span></span></div>
-      <label class="switchrow" style="justify-content:flex-start;gap:12px"><span>mode</span>
-        <select id="mem-mode" onchange="setMemMode()" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px">
+      <label class="switchrow"><span>mode</span>
+        <select id="mem-mode" onchange="setMemMode()" class="sctl">
           <option value="always">auto (proactive)</option>
           <option value="ondemand">sur demande</option>
           <option value="off">désactivée</option>
@@ -798,17 +739,17 @@ button:disabled{opacity:.5;cursor:not-allowed}
       </div>
     </div>
     <div id="net-block" class="gated-block">
-      <div class="subhead">Accès internet<span id="internet-badge" style="margin-left:6px;font-size:10px"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Ajoute les outils <b>web_search / web_open / web_read / web_grep</b> via un serveur <b>Crawl4AI</b>. Actifs seulement si le serveur répond.</span></span></div>
+      <div class="subhead">Accès internet<span id="internet-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Ajoute les outils <b>web_search / web_open / web_read / web_grep</b> via un serveur <b>Crawl4AI</b>. Actifs seulement si le serveur répond.</span></span></div>
       <label class="switchrow"><span class="switch"><input type="checkbox" id="internet-toggle" onchange="toggleInternet()"><span class="slider"></span></span> donner internet à l'IA</label>
       <div class="row" style="margin-top:6px">
-        <input id="crawl-url" type="text" placeholder="http://localhost:11235" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit" onchange="saveCrawlUrl()">
+        <input id="crawl-url" type="text" placeholder="http://localhost:11235" class="sctl" onchange="saveCrawlUrl()">
         <button onclick="saveCrawlUrl()">enregistrer</button>
       </div>
       <!-- Clé d'accès du serveur Crawl4AI (facultative) : envoyée en
            « Authorization: Bearer … ». Jamais relue par l'API, on n'affiche
            qu'un indice sur les 4 derniers caractères. -->
       <div class="row" style="margin-top:6px">
-        <input id="crawl-key" type="password" autocomplete="off" placeholder="clé API (si le serveur en exige une)" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit" onchange="saveCrawlKey()">
+        <input id="crawl-key" type="password" autocomplete="off" placeholder="clé API (si le serveur en exige une)" class="sctl" onchange="saveCrawlKey()">
         <button onclick="saveCrawlKey()">enregistrer</button>
         <button id="crawl-key-clear" onclick="clearCrawlKey()" style="display:none">retirer</button>
       </div>
@@ -816,7 +757,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
       <div id="internet-status" class="muted" style="font-size:11px;margin-top:4px"></div>
     </div>
     <div id="mcp-block" class="gated-block">
-      <div class="subhead">Serveurs MCP<span id="mcp-badge" style="margin-left:6px;font-size:10px"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Connecte des <b>serveurs MCP</b> (Model Context Protocol) pour donner de nouveaux outils à l'IA : accès fichiers, bases de données, APIs métier… <b>stdio</b> = programme lancé localement (npx/uvx/binaire) · <b>http</b> = serveur distant. ⚠ un serveur stdio exécute du code sur cette machine, au même titre que le shell.</span></span></div>
+      <div class="subhead">Serveurs MCP<span id="mcp-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Connecte des <b>serveurs MCP</b> (Model Context Protocol) pour donner de nouveaux outils à l'IA : accès fichiers, bases de données, APIs métier… <b>stdio</b> = programme lancé localement (npx/uvx/binaire) · <b>http</b> = serveur distant. ⚠ un serveur stdio exécute du code sur cette machine, au même titre que le shell.</span></span></div>
       <div id="mcp-list" class="mcp-list"></div>
       <button class="addbtn" style="margin-top:6px" onclick="openMcp('')">+ ajouter un serveur</button>
     </div>
@@ -826,37 +767,38 @@ button:disabled{opacity:.5;cursor:not-allowed}
       <label class="switchrow" style="margin-top:8px"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> compactage automatique du contexte<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
     </div>
   </details>
-  <details><summary>Apparence</summary>
-    <label class="switchrow" style="justify-content:space-between;gap:12px"><span>thème</span>
-      <select id="theme-select" onchange="pickThemeFamily(this.value)" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px"></select>
-    </label>
-    <label class="switchrow" style="justify-content:space-between;gap:12px;margin-top:8px"><span>mode sombre</span>
-      <span class="switch"><input type="checkbox" id="theme-dark" onchange="toggleThemeDark()"><span class="slider"></span></span>
-    </label>
-    <label class="switchrow" style="justify-content:space-between;gap:12px;margin-top:8px"><span>police<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Indépendante du thème. <b>Du thème</b> garde celle prévue par le thème choisi (mono pour AJEAN, système pour ChatGPT, Lexend pour Doux). <b>Lexend</b> est téléchargée depuis Google Fonts, les autres sont déjà sur votre appareil.</span></span></span>
-      <select id="font-select" onchange="applyFont(this.value);savePrefs()" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px"></select>
-    </label>
-    <div class="subhead" style="margin-top:14px">Affichage</div>
+  <details><summary><span class="stitle">Apparence</span></summary>
+    <div class="slist">
+      <label class="switchrow rev"><span>mode sombre</span>
+        <span class="switch"><input type="checkbox" id="theme-dark" onchange="toggleThemeDark()"><span class="slider"></span></span>
+      </label>
+    </div>
+    <div class="subhead">Affichage</div>
+    <div class="slist">
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-reasoning" onchange="toggleView('hide-reasoning')"><span class="slider"></span></span> masquer le raisonnement</label>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-tools" onchange="toggleView('hide-tools')"><span class="slider"></span></span> masquer les appels d'outils</label>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-fold-tools" onchange="toggleView('fold-tools')"><span class="slider"></span></span> garder les bulles repliées<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Les bulles de raisonnement et d'outil arrivent <b>déjà fermées</b> au lieu de s'ouvrir puis se refermer. Un clic sur leur étiquette les déplie.</span></span></label>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-side" onchange="toggleView('hide-side')"><span class="slider"></span></span> barre latérale escamotable<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">La barre latérale devient un tiroir <b>même sur ordinateur</b> : elle reste fermée et s'ouvre avec le bouton ☰. Toute la largeur pour la conversation.</span></span></label>
+    </div>
   </details>
-  <details><summary>System prompt</summary>
-    <textarea id="sysprompt" placeholder="(optionnel) ex: tu es un assistant concis en français" oninput="saveSys()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;min-height:70px;resize:vertical"></textarea>
+  <details><summary><span class="stitle">System prompt</span></summary>
+    <textarea id="sysprompt" placeholder="(optionnel) ex: tu es un assistant concis en français" oninput="saveSys()" class="sctl"></textarea>
   </details>
-  <details><summary>Accès OpenAI</summary>
+  <details><summary><span class="stitle">Accès OpenAI</span></summary>
     <div class="subhead">Endpoint compatible OpenAI<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Branchez n'importe quel client compatible OpenAI (OpenCode, Continue, Cursor…) sur ces adresses. Si une clé est définie, le client doit envoyer <code>Authorization: Bearer &lt;clé&gt;</code>.</span></span></div>
     <div class="muted" style="font-size:11px;margin:0 0 10px">Modèle : <code>jean</code></div>
 
+    <div class="slist pad">
     <div class="io-cap">Adresse locale (réseau)</div>
     <div class="row">
       <input id="oai-url" readonly class="io-input">
       <button onclick="copyText(document.getElementById('oai-url').value,'adresse copiée')" title="copier">⧉</button>
     </div>
 
-    <label class="switchrow io-group"><span class="switch"><input type="checkbox" id="oai-public-toggle" onchange="toggleOAIPublic()"><span class="slider"></span></span> exposer en public (ajean.link)<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Rend votre IA joignable depuis <b>n'importe où</b> via <code>https://&lt;machine&gt;.oai.ajean.link/v1</code> (pour brancher un SaaS). Le trafic est chiffré <b>de bout en bout</b> jusqu'à ce serveur — le relais ajean.link ne voit rien. Nécessite l'accès distant actif.</span></span></label>
-    <div id="oai-public-wrap" style="display:none;margin-top:6px">
+    </div>
+    <div class="slist"><label class="switchrow"><span class="switch"><input type="checkbox" id="oai-public-toggle" onchange="toggleOAIPublic()"><span class="slider"></span></span> exposer en public (ajean.link)<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Rend votre IA joignable depuis <b>n'importe où</b> via <code>https://&lt;machine&gt;.oai.ajean.link/v1</code> (pour brancher un SaaS). Le trafic est chiffré <b>de bout en bout</b> jusqu'à ce serveur — le relais ajean.link ne voit rien. Nécessite l'accès distant actif.</span></span></label>
+    </div>
+    <div id="oai-public-wrap" class="slist pad" style="display:none">
       <div class="io-cap">Adresse publique — chiffrée de bout en bout, accessible partout</div>
       <div class="row">
         <input id="oai-public-url" readonly class="io-input">
@@ -864,8 +806,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
       </div>
     </div>
 
-    <div class="subhead io-group">Clé API<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Protège l'endpoint des complétions (llama-server). Indispensable avant d'exposer le serveur sur internet. Modifier la clé <b>redémarre</b> le service.</span></span></div>
-    <div class="row" style="margin-top:4px">
+    <div class="subhead">Clé API<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Protège l'endpoint des complétions (llama-server). Indispensable avant d'exposer le serveur sur internet. Modifier la clé <b>redémarre</b> le service.</span></span></div>
+    <div class="slist pad">
+    <div class="row">
       <input id="oai-key" readonly class="io-input">
       <button id="oai-key-eye" onclick="toggleKeyReveal()" title="afficher / masquer">afficher</button>
       <button onclick="copyApiKey()" title="copier la clé">⧉</button>
@@ -875,33 +818,36 @@ button:disabled{opacity:.5;cursor:not-allowed}
       <button onclick="apiKeySet()">définir…</button>
       <button onclick="apiKeyAction('clear')">retirer</button>
     </div>
+    </div>
   </details>
-  <details id="remote-details"><summary>Accès distant <span id="remote-badge" style="margin-left:auto;margin-right:12px;font-size:10px"></span></summary>
+  <details id="remote-details"><summary><span class="stitle">Accès distant</span><span id="remote-badge" class="sbadge"></span></summary>
     <div class="subhead">ajean.link<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Accédez à ce serveur Jean depuis <b>n'importe où</b>, sans ouvrir de port, à travers le relais <b>ajean.link</b>. Le trafic est chiffré de <b>bout en bout</b> : le relais ne voit rien. Abonnement 4,80 €/mois.</span></span></div>
     <!-- Non connecté : un seul bouton, tout se passe dans la popup (compte + paiement). -->
-    <div id="remote-off">
+    <div id="remote-off" class="slist pad">
       <p class="muted" style="font-size:12px;line-height:1.5;margin:6px 0 10px">Ouvrez l'accès distant à ce serveur en quelques clics, sans terminal.</p>
       <button onclick="remoteConnect()" style="border-color:var(--accent);color:var(--accent)">Connecter à ajean.link</button>
     </div>
     <!-- Connecté : URL publique + appairage + déconnexion. -->
     <div id="remote-on" style="display:none">
+      <div class="slist pad">
       <div class="io-cap">Votre adresse d'accès distant</div>
       <div class="row">
         <input id="remote-url" readonly class="io-input">
         <button onclick="copyText(document.getElementById('remote-url').value,'adresse copiée')" title="copier">⧉</button>
         <button onclick="window.open(document.getElementById('remote-url').value,'_blank')" title="ouvrir">↗</button>
       </div>
-      <div id="remote-status" class="muted" style="font-size:11px;margin-top:6px"></div>
+      <div id="remote-status" class="muted"></div>
+      </div>
       <button id="remote-start" onclick="remoteStart()" style="display:none;margin-top:8px;border-color:var(--accent);color:var(--accent)">démarrer le tunnel</button>
       <div class="subhead" style="margin-top:12px">Première connexion<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">À votre première ouverture du portail distant, confirmez l'<b>empreinte</b> et saisissez le <b>code d'appairage</b> : cela verrouille la boîte noire sur CE serveur (anti-interception). Une seule fois par appareil.</span></span></div>
-      <button onclick="remotePairCode()" style="margin-top:4px">Afficher l'empreinte et le code d'appairage</button>
-      <div id="remote-pair" class="muted" style="font-size:12px;margin-top:8px;display:none;line-height:1.7"></div>
-      <div class="row" style="margin-top:12px">
-        <button onclick="remoteDisconnect()" style="border-color:var(--err);color:var(--err)">déconnecter l'accès distant</button>
+      <div class="slist pad">
+        <div class="row"><button onclick="remotePairCode()">Afficher l'empreinte et le code d'appairage</button></div>
+        <div id="remote-pair" class="muted" style="display:none"></div>
+        <div class="row"><button onclick="remoteDisconnect()" class="btn-danger-o">déconnecter l'accès distant</button></div>
       </div>
     </div>
   </details>
-  <details id="lc-details"><summary>MOTEUR</summary>
+  <details id="lc-details"><summary><span class="stitle">Moteur</span></summary>
     <div id="lc-status" class="lc-head muted">…</div>
     <div class="lc-modes">
       <div class="lc-mode" id="lc-mode-fast" onclick="lcPick('fast')">
@@ -926,20 +872,24 @@ button:disabled{opacity:.5;cursor:not-allowed}
       <pre id="lc-log" hidden></pre>
     </div>
   </details>
-  <details><summary>Service</summary>
+  <details><summary><span class="stitle">Service</span></summary>
+    <div class="slist pad">
     <div class="row">
       <button onclick="act('start')">start</button>
       <button onclick="act('restart')">restart</button>
       <button onclick="act('stop')">stop</button>
     </div>
+    </div>
   </details>
-  <details id="upd-details"><summary>Actions</summary>
-    <div class="row"><button id="upd-check" onclick="checkUpdate()">↥ Vérifier les mises à jour</button></div>
-    <div id="upd-msg" class="muted" style="font-size:12px;margin-top:6px;line-height:1.5"></div>
-    <div class="row" style="margin-top:6px">
-      <button onclick="loadAll()">↻ refresh</button>
-      <button onclick="resetChat()">⌫ clear chat</button>
-      <button id="btn-bench" onclick="runBenchUI()">bench</button>
+  <details id="upd-details"><summary><span class="stitle">Actions</span></summary>
+    <div class="slist pad">
+      <div class="row"><button id="upd-check" onclick="checkUpdate()">↥ Vérifier les mises à jour</button></div>
+      <div id="upd-msg" class="muted"></div>
+      <div class="row">
+        <button onclick="loadAll()">↻ refresh</button>
+        <button onclick="resetChat()">⌫ clear chat</button>
+        <button id="btn-bench" onclick="runBenchUI()">bench</button>
+      </div>
     </div>
   </details>
 </div>
@@ -965,7 +915,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
   </div>
 </div>
 <div id="toast"></div>
-<div id="bench-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:30;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeBenchModal()">
+<div id="bench-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:30;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeBenchModal()">
   <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;width:100%;max-width:480px;display:flex;flex-direction:column">
     <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
       <strong>Benchmark</strong>
@@ -1232,6 +1182,38 @@ function fixMd(s){
   return s;
 }
 function md(src){ return src ? marked.parse(fixMd(src)) : ''; }
+// Les garde-fous du serveur ("[stop: trop d'appels d'outils]") sont concaténés
+// au texte de la réponse : ils arrivent donc en clair, au milieu du markdown.
+// markNotices les sort du fil pour qu'on ne les prenne pas pour une phrase du
+// modèle. En cours de streaming, la parenthèse fermante manque encore → aucune
+// correspondance, donc pas d'encart qui clignote à chaque token.
+const NOTICE_RE=/\[stop\s*:\s*([^\]]+)\]/g;
+function markNotices(root){
+  const walk=document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const hits=[];
+  while(walk.nextNode()){
+    const n=walk.currentNode;
+    // Un exemple dans un bloc de code reste du code.
+    if(n.parentElement && n.parentElement.closest('pre,code')) continue;
+    NOTICE_RE.lastIndex=0;
+    if(NOTICE_RE.test(n.nodeValue)) hits.push(n);
+  }
+  hits.forEach(n=>{
+    const frag=document.createDocumentFragment();
+    let rest=n.nodeValue, m;
+    NOTICE_RE.lastIndex=0;
+    while((m=NOTICE_RE.exec(rest))!==null){
+      if(m.index) frag.appendChild(document.createTextNode(rest.slice(0,m.index)));
+      const tag=document.createElement('span');
+      tag.className='stopnote'; tag.textContent=m[1].trim();
+      frag.appendChild(tag);
+      rest=rest.slice(m.index+m[0].length);
+      NOTICE_RE.lastIndex=0;
+    }
+    if(rest) frag.appendChild(document.createTextNode(rest));
+    n.parentNode.replaceChild(frag, n);
+  });
+}
 let msgs = [];
 let busy = false;
 function toggleSide(){ document.getElementById('side').classList.toggle('open'); document.getElementById('backdrop').classList.toggle('open'); document.body.classList.toggle('drawer-open'); }
@@ -1251,106 +1233,32 @@ async function loadSys(){
     if(d && d.ok){ document.getElementById('sysprompt').value = d.text || ''; localStorage.setItem('jean.sys', d.text || ''); }
   }catch(e){}
 }
-// ===== Thèmes ================================================================
-// Registre des thèmes disponibles. Pour en AJOUTER un : ajouter un bloc
-// [data-theme="…"] dans le <style> puis une entrée {id,label} ici — le reste
-// (menu déroulant, persistance localStorage, application) est automatique.
-// Chaque FAMILLE de thème existe en clair et en sombre : le menu ne liste donc
-// que les familles, et un interrupteur choisit la variante. Bien plus court que
-// l'ancienne liste où chaque variante était une entrée séparée.
-const THEME_FAMILIES=[
-  {id:'classic', label:'Classique', light:'light',  dark:'dark'},
-  {id:'ajean',   label:'AJEAN',     light:'ajean',  dark:'ajean-dark'},
-  {id:'soft',    label:'Doux',      light:'soft',   dark:'soft-dark'},
-  {id:'gpt',     label:'ChatGPT',   light:'gpt',    dark:'gpt-dark'},
-];
-// Tous les identifiants valides, à plat (persistance inchangée : on enregistre
-// toujours un id de thème, pas une famille).
-const THEMES=THEME_FAMILIES.flatMap(f=>[{id:f.light,label:f.label},{id:f.dark,label:f.label+' sombre'}]);
-// Ancien identifiant (v0.5.7) → thème actuel.
-const THEME_ALIASES={'gpt-light':'gpt'};
-// familyOf renvoie {famille, sombre?} pour un id de thème.
-function familyOf(id){
-  for(const f of THEME_FAMILIES){
-    if(f.light===id) return {fam:f, dark:false};
-    if(f.dark===id)  return {fam:f, dark:true};
-  }
-  return {fam:THEME_FAMILIES[0], dark:false};
-}
-// Lexend (thème "doux") n'est chargé QUE si ce thème est choisi : aucune requête
-// externe (Google Fonts) tant qu'on reste en sombre/clair — jean reste local par
-// défaut. Fallback système sans-serif si hors ligne.
-function ensureSoftFont(){
-  if(document.getElementById('lexend-font')) return;
-  const l=document.createElement('link');
-  l.id='lexend-font'; l.rel='stylesheet';
-  l.href='https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap';
-  document.head.appendChild(l);
-}
+// ===== Apparence =============================================================
+// Un seul thème, en deux variantes : claire (par défaut) et sombre. La variante
+// est portée par l'attribut data-theme de <html> ('' ou 'dark') ; tout le reste
+// est du CSS (voir la section « Palette »). Persistée dans localStorage pour
+// être appliquée sans clignotement au chargement, puis alignée sur le serveur
+// par loadPrefs() — voir 02-prefs.js.
 function applyTheme(id){
-  id=THEME_ALIASES[id]||id;
-  if(!THEMES.some(t=>t.id===id)) id='light';
-  if(id==='soft'||id==='soft-dark') ensureSoftFont();
-  document.documentElement.setAttribute('data-theme', id);
-  try{ localStorage.setItem('jean-theme', id); }catch(e){}
-  const cur=familyOf(id);
-  const sel=document.getElementById('theme-select'); if(sel) sel.value=cur.fam.id;
-  const sw=document.getElementById('theme-dark'); if(sw) sw.checked=cur.dark;
+  // Tolère les anciens identifiants (ajean, gpt-dark, soft…) : seule compte
+  // désormais la variante, déduite du suffixe.
+  const dark = id==='dark' || (typeof id==='string' && id.endsWith('-dark'));
+  document.documentElement.setAttribute('data-theme', dark?'dark':'light');
+  try{ localStorage.setItem('jean-theme', dark?'dark':'light'); }catch(e){}
+  const sw=document.getElementById('theme-dark'); if(sw) sw.checked=dark;
 }
-// Bascule clair/sombre en gardant la famille courante.
 function toggleThemeDark(){
-  const id=document.documentElement.getAttribute('data-theme')||'light';
-  const cur=familyOf(id);
-  const dark=document.getElementById('theme-dark').checked;
-  applyTheme(dark?cur.fam.dark:cur.fam.light);
-  savePrefs();
-}
-// Changement de famille : on reste dans la même variante (clair ou sombre).
-function pickThemeFamily(famID){
-  const id=document.documentElement.getAttribute('data-theme')||'light';
-  const dark=familyOf(id).dark;
-  const f=THEME_FAMILIES.find(x=>x.id===famID)||THEME_FAMILIES[0];
-  applyTheme(dark?f.dark:f.light);
+  applyTheme(document.getElementById('theme-dark').checked?'dark':'light');
   savePrefs();
 }
 function initTheme(){
-  const sel=document.getElementById('theme-select');
-  if(sel && !sel.options.length){
-    THEME_FAMILIES.forEach(f=>{ const o=document.createElement('option'); o.value=f.id; o.textContent=f.label; sel.appendChild(o); });
-  }
   let id='light'; try{ id=localStorage.getItem('jean-theme')||'light'; }catch(e){}
   applyTheme(id);
 }
-// ===== Police ===============================================================
-// Réglage indépendant du thème : "auto" garde celle du thème, les autres la
-// remplacent (voir les blocs [data-font=…] dans le <style>). Persisté dans
-// 'jean-font' et partagé entre appareils via /api/prefs.
-const FONTS=[
-  {id:'auto',   label:'du thème'},
-  {id:'mono',   label:'Mono'},
-  {id:'system', label:'Système'},
-  {id:'lexend', label:'Lexend'},
-  {id:'serif',  label:'Serif'},
-];
-function applyFont(id){
-  if(!FONTS.some(f=>f.id===id)) id='auto';
-  if(id==='lexend') ensureSoftFont();
-  document.documentElement.setAttribute('data-font', id);
-  try{ localStorage.setItem('jean-font', id); }catch(e){}
-  const sel=document.getElementById('font-select'); if(sel) sel.value=id;
-}
-function initFont(){
-  const sel=document.getElementById('font-select');
-  if(sel && !sel.options.length){
-    FONTS.forEach(f=>{ const o=document.createElement('option'); o.value=f.id; o.textContent=f.label; sel.appendChild(o); });
-  }
-  let id='auto'; try{ id=localStorage.getItem('jean-font')||'auto'; }catch(e){}
-  applyFont(id);
-}
 // ===== Affichage ============================================================
-// Quatre interrupteurs indépendants (ils remplacent l'ancien mode « simple »,
-// tout ou rien). Chacun pose un attribut sur <html> ; le CSS fait le reste,
-// sauf « replier les bulles » qui est un comportement (voir 08-chat-render).
+// Quatre interrupteurs indépendants. Chacun pose un attribut sur <html> ; le CSS
+// fait le reste, sauf « replier les bulles » qui est un comportement (voir
+// 08-chat-render).
 const VIEW_OPTS=[
   {id:'hide-reasoning', label:'masquer le raisonnement'},
   {id:'hide-tools',     label:"masquer les appels d'outils"},
@@ -1371,11 +1279,8 @@ function applyView(id, on){
 }
 function toggleView(id){ applyView(id, document.getElementById('view-'+id).checked); savePrefs(); }
 function initView(){
-  // Reprise de l'ancien réglage : « simple » masquait raisonnement ET outils.
-  let legacy=null; try{ legacy=localStorage.getItem('jean-display'); }catch(e){}
   VIEW_OPTS.forEach(o=>{
     let v=null; try{ v=localStorage.getItem('jean-'+o.id); }catch(e){}
-    if(v===null && legacy==='simple' && (o.id==='hide-reasoning'||o.id==='hide-tools')) v='1';
     applyView(o.id, v==='1');
   });
 }
@@ -1385,12 +1290,9 @@ function initView(){
 // localStorage reste utilisé pour appliquer instantanément au chargement (sans
 // flash), puis loadPrefs() aligne sur la valeur du serveur (source de vérité).
 function savePrefs(){
-  let theme='light', font='auto';
-  try{
-    theme=localStorage.getItem('jean-theme')||'light';
-    font=localStorage.getItem('jean-font')||'auto';
-  }catch(e){}
-  const p={theme, font};
+  let theme='light';
+  try{ theme=localStorage.getItem('jean-theme')||'light'; }catch(e){}
+  const p={theme};
   VIEW_OPTS.forEach(o=>{ p[o.id.replace('-','_')] = viewOn(o.id)?'1':'0'; });
   jpost('/api/prefs', p).catch(()=>{});
 }
@@ -1398,8 +1300,12 @@ async function loadPrefs(){
   try{
     const p=await jget('/api/prefs');
     if(p && p.ok && p.prefs){
-      if(p.prefs.theme) applyTheme(p.prefs.theme);
-      if(p.prefs.font) applyFont(p.prefs.font);
+      // Un thème enregistré par une version précédente (ajean, gpt-dark…) est
+      // normalisé par applyTheme ; on réenregistre pour purger le serveur.
+      if(p.prefs.theme){
+        applyTheme(p.prefs.theme);
+        if(p.prefs.theme!=='light' && p.prefs.theme!=='dark') savePrefs();
+      }
       VIEW_OPTS.forEach(o=>{
         const v=p.prefs[o.id.replace('-','_')];
         if(v!==undefined) applyView(o.id, v==='1');
@@ -1407,7 +1313,7 @@ async function loadPrefs(){
     }
   }catch(e){}
 }
-document.addEventListener('DOMContentLoaded', ()=>{ initTheme(); initFont(); initView(); document.getElementById('sysprompt').value = localStorage.getItem('jean.sys') || ''; loadSys(); restoreChat(); });
+document.addEventListener('DOMContentLoaded', ()=>{ initTheme(); initView(); document.getElementById('sysprompt').value = localStorage.getItem('jean.sys') || ''; loadSys(); restoreChat(); });
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
 // Modales natives (askConfirm/askPrompt/askAlert) — remplacent confirm()/prompt()/
 // alert() par de vraies boîtes stylées. Chacune renvoie une Promise : askConfirm →
@@ -1584,12 +1490,16 @@ function updateCtxMeter(){
 }
 async function loadVram(){
   const gpus=await jget('/api/vram');
+  // Bloc de statistique : intitulé + valeur sur une ligne, jauge, détail dessous.
+  // Même gabarit que la RAM (voir .stat dans le CSS) — le HTML libre d'avant
+  // collait aux bords de la carte.
   document.getElementById('vram').innerHTML = (gpus||[]).map(g=>{
     const pct=Math.round(g.used*100/g.total);
-    return '<div style="margin:6px 0"><div style="font-size:12px">'+g.name+'</div>'+
+    return '<div class="stat"><div class="stat-h"><span class="stat-n">'+g.name+'</span>'+
+      '<span class="stat-v">'+(g.used/1024).toFixed(1)+' / '+(g.total/1024).toFixed(1)+' GiB</span></div>'+
       '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
-      '<div class="muted">'+(g.used/1024).toFixed(1)+' / '+(g.total/1024).toFixed(1)+' GiB · GPU '+g.util+'% · '+g.temp+'°C</div></div>';
-  }).join('') || '<span class="muted">(pas de GPU)</span>';
+      '<div class="stat-s">GPU '+g.util+' % · '+g.temp+' °C</div></div>';
+  }).join('') || '<div class="stat"><span class="stat-s">(pas de GPU)</span></div>';
 }
 async function loadRam(){
   const m=await jget('/api/ram');
@@ -1598,8 +1508,10 @@ async function loadRam(){
   if(box) box.style.display='';
   const pct=Math.round(m.used*100/m.total);
   document.getElementById('ram').innerHTML =
-    '<div style="margin:6px 0"><div class="bar"><div style="width:'+pct+'%"></div></div>'+
-    '<div class="muted">'+(m.used/1024).toFixed(1)+' / '+(m.total/1024).toFixed(1)+' GiB · '+pct+'%</div></div>';
+    '<div class="stat"><div class="stat-h"><span class="stat-n">Mémoire vive</span>'+
+    '<span class="stat-v">'+(m.used/1024).toFixed(1)+' / '+(m.total/1024).toFixed(1)+' GiB</span></div>'+
+    '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
+    '<div class="stat-s">'+pct+' % utilisée</div></div>';
 }
 async function loadCfg(){
   // /api/llamacpp en parallèle : il indique si le BIN de la config correspond au
@@ -2345,7 +2257,7 @@ function collapseInstant(el){
 function setLabel(el, text){ el.querySelector('.label').textContent = text; }
 function bodyOf(el){ return el.querySelector('.body'); }
 // Render markdown into a message body in place; safe because md() escapes HTML.
-function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(text); addCopyButtons(b); scrollMaybe(); }
+function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(text); markNotices(b); addCopyButtons(b); scrollMaybe(); }
 // Render a tool call as its own conversation message: the command the model
 // wrote, then the response it got back. textContent keeps it injection-safe.
 function renderToolMsg(el, tu){
@@ -2411,7 +2323,7 @@ function renderToolMsg(el, tu){
     const code=document.createElement('code'); code.textContent=tu.result;
     pre.appendChild(code); body.appendChild(pre);
   } else if(!tu.done && !tu.typing){
-    const wait=document.createElement('div'); wait.className='tool-wait'; wait.textContent='⏳ exécution en cours…';
+    const wait=document.createElement('div'); wait.className='tool-wait'; wait.textContent='exécution en cours…';
     body.appendChild(wait);
   }
   addCopyButtons(body); scrollMaybe();
