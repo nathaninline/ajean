@@ -40,10 +40,43 @@ func crawl4aiURL() string {
 	return strings.TrimRight(u, "/")
 }
 
-// crawl4aiKey renvoie la clé d'accès au serveur Crawl4AI (config.env
-// CRAWL4AI_KEY), vide si le serveur est ouvert. Envoyée en « Authorization:
-// Bearer … », ce qu'attend Crawl4AI quand l'authentification est activée.
-func crawl4aiKey() string { return strings.TrimSpace(ReadConfig()["CRAWL4AI_KEY"]) }
+// crawl4aiKey renvoie la clé d'accès au serveur Crawl4AI, vide si le serveur
+// est ouvert. Envoyée en « Authorization: Bearer … », ce qu'attend Crawl4AI
+// quand l'authentification est activée (CRAWL4AI_API_TOKEN côté serveur).
+//
+// Elle vit dans $JEAN_HOME/.crawl4ai_key (0600) et NON dans config.env : ce
+// dernier est le fichier qu'on copie-colle pour demander de l'aide, une clé en
+// clair dedans finit par fuiter. Même modèle que la clé de complétion
+// (.api_key). Les installations qui l'avaient dans config.env sont migrées à
+// la première lecture.
+func crawl4aiKey() string {
+	if b, err := os.ReadFile(crawlKeyPath()); err == nil {
+		if k := strings.TrimSpace(string(b)); k != "" {
+			return k
+		}
+	}
+	// Migration depuis l'ancien emplacement (jean 0.5.11).
+	if k := strings.TrimSpace(ReadConfig()["CRAWL4AI_KEY"]); k != "" {
+		if err := writeCrawlKey(k); err == nil {
+			_ = SetConfigKey("CRAWL4AI_KEY", "")
+		}
+		return k
+	}
+	return ""
+}
+
+// writeCrawlKey enregistre (clé non vide) ou efface (clé vide) la clé Crawl4AI.
+func writeCrawlKey(key string) error {
+	_ = SetConfigKey("CRAWL4AI_KEY", "") // ne laisse rien traîner dans config.env
+	if key == "" {
+		if err := os.Remove(crawlKeyPath()); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		return nil
+	}
+	_ = os.MkdirAll(JeanHome(), 0o755)
+	return os.WriteFile(crawlKeyPath(), []byte(key+"\n"), 0o600)
+}
 
 // crawlAuth pose l'en-tête d'authentification sur une requête vers Crawl4AI.
 // Sans clé configurée, la requête part telle quelle.

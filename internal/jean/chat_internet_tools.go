@@ -289,7 +289,7 @@ func cmdInternet(args []string) error {
 			return fmt.Errorf("usage: jean internet key <clé>  (vide pour l'enlever : jean internet key \"\")")
 		}
 		k := strings.TrimSpace(args[1])
-		if err := SetConfigKey("CRAWL4AI_KEY", k); err != nil {
+		if err := writeCrawlKey(k); err != nil {
 			return err
 		}
 		reachMu.Lock()

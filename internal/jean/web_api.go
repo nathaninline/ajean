@@ -585,7 +585,7 @@ func handleInternet(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&req)
 		// Clé d'accès au serveur Crawl4AI : chaîne vide = on l'enlève.
 		if req.Key != nil {
-			if err := SetConfigKey("CRAWL4AI_KEY", strings.TrimSpace(*req.Key)); err != nil {
+			if err := writeCrawlKey(strings.TrimSpace(*req.Key)); err != nil {
 				sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 				return
 			}
