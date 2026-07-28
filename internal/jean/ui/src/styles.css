@@ -15,8 +15,11 @@
 /* "ChatGPT" — monochrome (noir & blanc), police système, aucun accent coloré.
    Seules les erreurs gardent un rouge discret pour rester lisibles. */
 [data-theme="gpt"]{color-scheme:light;--font:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--bubble:#e8e8e8;--bg:#ffffff;--panel:#f9f9f9;--border:#e3e3e3;--text:#0d0d0d;--dim:#8f8f8f;--accent:#0d0d0d;--accent-bg:rgba(0,0,0,.06);--ok:#0d0d0d;--warn:#5d5d5d;--err:#c0392b;--mag:#5d5d5d;--code-bg:#f4f4f4;--danger-bg:#fbeae8;--warn-bg:#f0f0f0}
+/* "ChatGPT sombre" — même disposition, palette nuit de ChatGPT : gris très
+   sombre, bulle utilisateur gris clair, aucun accent coloré. */
+[data-theme="gpt-dark"]{color-scheme:dark;--font:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--bubble:#1f1f1f;--bg:#0a0a0a;--panel:#141414;--border:#262626;--text:#ececec;--dim:#8e8e8e;--accent:#ececec;--accent-bg:rgba(255,255,255,.07);--ok:#ececec;--warn:#c8b273;--err:#f2777a;--mag:#b0b0b0;--code-bg:#000000;--danger-bg:#2e1a19;--warn-bg:#26241a}
 /* Bulle utilisateur claire : le texte blanc par défaut (.msg.user) serait illisible. */
-[data-theme="gpt"] .msg.user{color:var(--text)}
+[data-theme^="gpt"] .msg.user{color:var(--text)}
 /* "AJEAN" — clair, bleu, esprit rétro-machine : bordures nettes de 2 px,
    aucun arrondi, ombres en blocs décalés, fond quadrillé (même charte que
    ajean.app). Mise en page complète plus bas (section "Thème pixel"). */
@@ -24,6 +27,15 @@
 /* « AJEAN sombre » — même habillage pixel, palette nuit : bleu vif sur fond
    presque noir, quadrillage discret, ombres bleutées. */
 [data-theme="ajean-dark"]{color-scheme:dark;--font:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--bubble:#3b82f6;--bg:#050810;--panel:#0a1020;--border:#16233f;--text:#dce6ff;--dim:#63739c;--accent:#3b82f6;--accent-bg:rgba(59,130,246,.16);--ok:#3b82f6;--warn:#d29922;--err:#f85149;--mag:#9b8cff;--code-bg:#03060d;--danger-bg:#3d1f23;--warn-bg:#3d2f1f;--grid:#0a1120;--line2:#1e3054;--soft:#101b33;--sh:#132342;--knob:#dce6ff}
+/* ===== Police (réglage séparé du thème) ===========================
+   Chaque thème propose une police par défaut via --font ; ce réglage la
+   remplace. Même spécificité que les blocs de thème, mais écrit APRÈS : c'est
+   donc lui qui gagne. "auto" = on laisse la police du thème.
+   Lexend n'est chargée (Google Fonts) que si elle est effectivement choisie. */
+[data-font="mono"]{--font:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+[data-font="system"]{--font:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
+[data-font="serif"]{--font:Georgia,'Iowan Old Style','Times New Roman',serif}
+[data-font="lexend"]{--font:'Lexend',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
 *{box-sizing:border-box}
 body{margin:0;font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;font-size:14px}
 /* PWA plein écran (viewport-fit=cover) : on décale le contenu des bords pour ne
@@ -45,7 +57,6 @@ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-i
   #chat .msg.assistant,#chat .msg.reasoning{max-width:100%}
   #inputbar{padding:8px;gap:4px}
   #send,#stop{padding:0 12px}
-  h1{margin-left:48px}
   /* Petit écran (menu replié en tiroir) : on masque l'aide clavier — inutile et
      ça prend de la place. Elle reste visible sur desktop. */
   #sendhint{display:none}
@@ -62,7 +73,7 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 #brand{display:inline-flex;align-items:center}
 #brand svg{height:10px;width:auto;display:block;shape-rendering:crispEdges;fill:currentColor}
 #brand-word{display:inline-flex;color:var(--accent)}
-#ver{font-size:10px;font-weight:400;color:var(--dim);margin-left:7px;letter-spacing:0}
+#ver{font-size:10px;font-weight:400;color:var(--dim);margin-left:7px;letter-spacing:0;align-self:flex-end;line-height:1;position:relative;top:3px}
 .sidehead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:18px}
 /* pastille d'état service, en haut à droite de la barre latérale */
 .statuspill{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid var(--border);background:var(--panel);color:var(--dim);font-weight:600;white-space:nowrap;cursor:pointer}
@@ -166,6 +177,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .bar{height:6px;background:var(--panel);border-radius:3px;overflow:hidden;margin:2px 0}
 .bar>div{height:100%;background:var(--accent)}
 #chat{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px}
+:root{--col:max(20px,calc(50% - 450px))}
+@media (max-width:720px){#chat{padding:60px 8px 12px}}
 .msg{max-width:80%;padding:10px 14px;border-radius:10px;white-space:pre-wrap;word-wrap:break-word;line-height:1.45}
 .msg.assistant,.msg.reasoning{white-space:normal}
 .msg .body{overflow-wrap:anywhere;word-break:break-word}
@@ -226,17 +239,30 @@ button:disabled{opacity:.5;cursor:not-allowed}
    replie en douceur pour désencombrer le fil, tout en gardant le label (et son
    compteur de tokens) cliquable pour redéplier. */
 .msg.collapsible .label{cursor:pointer;user-select:none;margin-bottom:0}
-/* ===== Affichage simple ==========================================
-   Mode "simple" (Apparence) : masque le raisonnement, les appels d'outils,
-   les détails de vitesse sur les bulles et la config active à gauche. Piloté
-   par [data-display="simple"] sur <html> (persisté dans 'jean-display'). */
-/* En simple, raisonnement et outils sont masqués. L'activité est signalée par le
-   VRAI indicateur de frappe (.msg.typing, mêmes 3 points animés qu'avant la
-   réponse), maintenu en bas pendant tout le tour côté JS — animation identique. */
-[data-display="simple"] #chat .msg.reasoning,
-[data-display="simple"] #chat .msg.tool{display:none}
-[data-display="simple"] #chat .msg .label{display:none}
-[data-display="simple"] #cfg-details{display:none}
+/* ===== Réglages d'affichage ======================================
+   Chaque option est un interrupteur indépendant (Apparence), porté par un
+   attribut sur <html> et persisté dans localStorage + /api/prefs :
+     data-hide-reasoning : masque les bulles de raisonnement
+     data-hide-tools     : masque les bulles d'appel d'outil
+     data-fold-tools     : les garde repliées (déplia­bles au clic)
+     data-hide-side      : barre latérale en tiroir, même sur ordinateur
+   Quand raisonnement et outils sont masqués, l'activité reste signalée par
+   l'indicateur de frappe (.msg.typing) maintenu pendant tout le tour. */
+[data-hide-reasoning="1"] #chat .msg.reasoning{display:none}
+[data-hide-tools="1"] #chat .msg.tool{display:none}
+/* Barre latérale en tiroir sur TOUTES les tailles d'écran : mêmes règles que
+   la version mobile, activées par l'attribut au lieu de la largeur. */
+[data-hide-side="1"] .side{position:fixed;inset:0 auto 0 0;width:80%;max-width:320px;z-index:15;transform:translateX(-100%);transition:transform .2s;background:var(--bg);padding-top:calc(16px + env(safe-area-inset-top));padding-left:calc(16px + env(safe-area-inset-left));border-right:1px solid var(--border)}
+@media (min-width:721px){[data-hide-side="1"] .side{width:380px;max-width:380px}}
+/* Le bouton ☰ est posé au-dessus du fil : on dégage le haut de la
+   conversation pour qu'il ne recouvre aucun message. */
+@media (min-width:721px){html[data-hide-side="1"] #chat{padding-top:60px}}
+@media (min-width:721px){html[data-hide-side="1"]:not([data-theme^="gpt"]) #chat{padding-left:var(--col);padding-right:var(--col)}}
+[data-hide-side="1"] .side.open{transform:translateX(0)}
+[data-hide-side="1"] #menubtn{display:block}
+[data-hide-side="1"] #backdrop.open{display:block}
+[data-hide-side="1"] body.drawer-open #menubtn{display:none}
+[data-hide-side="1"] .main{width:100%}
 /* Hauteur animée en JS (mesure scrollHeight → 0) plutôt que grid 1fr→0fr qui
    peut « dépasser ». overflow:hidden clippe le contenu pendant tout le repli.
    width revient à auto SANS délai à l'ouverture (pas de saut), et passe à 0
@@ -503,30 +529,30 @@ button:disabled{opacity:.5;cursor:not-allowed}
    disposition de ChatGPT — colonne de lecture centrée, réponses SANS bulle
    (texte nu sur le fond), question de l'utilisateur en pastille arrondie à
    droite, composer en « pilule », pas d'étiquettes VOUS/JEAN, typo système
-   plus grande et plus aérée. Tout est préfixé [data-theme="gpt"] : aucun
+   plus grande et plus aérée. Tout est préfixé [data-theme^="gpt"] : aucun
    autre thème n'est affecté. */
-[data-theme="gpt"] body{font-size:15px}
-[data-theme="gpt"] h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
+[data-theme^="gpt"] body{font-size:15px}
+[data-theme^="gpt"] h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
 /* Barre latérale : plus sombre/atténuée que la zone de conversation. */
-[data-theme="gpt"] .side{background:var(--panel);border-right-color:transparent}
-@media (max-width:720px){[data-theme="gpt"] .side{background:var(--panel)}}
+[data-theme^="gpt"] .side{background:var(--panel);border-right-color:transparent}
+@media (max-width:720px){[data-theme^="gpt"] .side{background:var(--panel)}}
 /* Colonne de lecture centrée (comme le fil ChatGPT), pleine largeur sur mobile. */
-[data-theme="gpt"] #chat{padding:28px max(16px,calc(50% - 380px)) 8px;gap:22px}
+[data-theme^="gpt"] #chat{padding:28px max(16px,calc(50% - 380px)) 8px;gap:22px;scrollbar-gutter:stable both-edges}
 /* Réponses de l'assistant : pas de cadre, pas de fond — juste du texte. */
-[data-theme="gpt"] #chat .msg.assistant{background:transparent;border:none;padding:0;max-width:100%;line-height:1.7}
+[data-theme^="gpt"] #chat .msg.assistant{background:transparent;border:none;padding:0;max-width:100%;line-height:1.7}
 /* Question : pastille arrondie à droite, texte lisible sur fond clair OU sombre. */
-[data-theme="gpt"] #chat .msg.user{background:var(--bubble);color:var(--text);border-radius:20px;padding:11px 18px;max-width:75%;line-height:1.6}
-[data-theme="gpt"] #chat .msg.user .label{color:var(--dim)}
+[data-theme^="gpt"] #chat .msg.user{background:var(--bubble);color:var(--text);border-radius:20px;padding:11px 18px;max-width:75%;line-height:1.6}
+[data-theme^="gpt"] #chat .msg.user .label{color:var(--dim)}
 /* Étiquettes VOUS / JEAN : inutiles ici (l'alignement suffit), sauf pour les
    bulles repliables (raisonnement / outils) où le label est le bouton de repli. */
-[data-theme="gpt"] #chat .msg .label{display:none}
-[data-theme="gpt"] #chat .msg.collapsible .label{display:block}
+[data-theme^="gpt"] #chat .msg .label{display:none}
+[data-theme^="gpt"] #chat .msg.collapsible .label{display:block}
 /* Raisonnement / outils : encart gris discret plutôt qu'un cadre pointillé. */
-[data-theme="gpt"] #chat .msg.reasoning,[data-theme="gpt"] #chat .msg.tool{background:var(--panel);border:1px solid var(--border);border-radius:14px;color:var(--dim);padding:12px 16px}
-[data-theme="gpt"] #chat .msg.reasoning{color:var(--dim)}
-[data-theme="gpt"] #chat .msg.tool .tool-head{color:var(--text)}
-[data-theme="gpt"] #chat .msg.assistant .body pre,[data-theme="gpt"] #chat .msg.reasoning .body pre,[data-theme="gpt"] #chat .msg.tool pre{border-radius:12px;padding:12px 14px}
-[data-theme="gpt"] #chat .msg.assistant .body a{text-decoration:underline;text-underline-offset:2px}
+[data-theme^="gpt"] #chat .msg.reasoning,[data-theme^="gpt"] #chat .msg.tool{background:var(--panel);border:1px solid var(--border);border-radius:14px;color:var(--dim);padding:12px 16px}
+[data-theme^="gpt"] #chat .msg.reasoning{color:var(--dim)}
+[data-theme^="gpt"] #chat .msg.tool .tool-head{color:var(--text)}
+[data-theme^="gpt"] #chat .msg.assistant .body pre,[data-theme^="gpt"] #chat .msg.reasoning .body pre,[data-theme^="gpt"] #chat .msg.tool pre{border-radius:12px;padding:12px 14px}
+[data-theme^="gpt"] #chat .msg.assistant .body a{text-decoration:underline;text-underline-offset:2px}
 /* Composer = UNE seule carte posée PAR-DESSUS le fil : la conversation
    continue de défiler DERRIÈRE elle et s'efface en fondu (dégradé vers le fond)
    au lieu de s'arrêter net au-dessus. Dans la carte, de haut en bas : la saisie
@@ -535,48 +561,48 @@ button:disabled{opacity:.5;cursor:not-allowed}
    (overflow:hidden sur le rayon). Les trois blocs sont des frères dans le HTML :
    on les recolle en dessinant les bordures par morceaux et l'ordre visuel vient
    de l'ordre flex — aucun changement de markup. */
-[data-theme="gpt"] #composer{position:absolute;left:0;right:0;bottom:0;z-index:4;border-top:none;display:flex;flex-direction:column;padding:34px 0 8px;--col:max(16px,calc(50% - 380px));background:linear-gradient(to bottom,transparent 0,var(--bg) 34%)}
-[data-theme="gpt"] #chat{padding-bottom:170px}
-[data-theme="gpt"] #scrollbtn{bottom:180px;border-radius:999px}
-[data-theme="gpt"] #compact-banner{order:0;margin:0 var(--col) 8px;border-radius:14px}
-[data-theme="gpt"] #inputbar{order:1;margin:0 var(--col);padding:8px 8px 8px 16px;gap:8px;align-items:flex-end;background:var(--panel);border:1px solid var(--border);border-bottom:none;border-radius:26px 26px 0 0}
-[data-theme="gpt"] #input{background:transparent;border:none;border-radius:0;padding:9px 0;min-height:36px;line-height:18px;max-height:160px}
+[data-theme^="gpt"] #composer{position:absolute;left:0;right:0;bottom:0;z-index:4;border-top:none;display:flex;flex-direction:column;padding:34px 0 8px;--col:max(16px,calc(50% - 380px));background:linear-gradient(to bottom,transparent 0,var(--bg) 34%)}
+[data-theme^="gpt"] #chat{padding-bottom:170px}
+[data-theme^="gpt"] #scrollbtn{bottom:180px;border-radius:999px}
+[data-theme^="gpt"] #compact-banner{order:0;margin:0 var(--col) 8px;border-radius:14px}
+[data-theme^="gpt"] #inputbar{order:1;margin:0 var(--col);padding:8px 8px 8px 16px;gap:8px;align-items:flex-end;background:var(--panel);border:1px solid var(--border);border-bottom:none;border-radius:26px 26px 0 0}
+[data-theme^="gpt"] #input{background:transparent;border:none;border-radius:0;padding:9px 0;min-height:36px;line-height:18px;max-height:160px}
 /* Pas de cadre qui s'assombrit au focus : la carte garde exactement la même
    bordure, seule la saisie change (curseur). */
-[data-theme="gpt"] #input:focus{border-color:transparent}
-[data-theme="gpt"] #send,[data-theme="gpt"] #stop{border-radius:999px;height:36px;min-height:36px;padding:0 18px;margin:0}
-[data-theme="gpt"] #send{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
-[data-theme="gpt"] #send:hover:not(:disabled){opacity:.85;color:var(--bg);border-color:var(--text)}
+[data-theme^="gpt"] #input:focus{border-color:transparent}
+[data-theme^="gpt"] #send,[data-theme^="gpt"] #stop{border-radius:999px;height:36px;min-height:36px;padding:0 18px;margin:0}
+[data-theme^="gpt"] #send{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
+[data-theme^="gpt"] #send:hover:not(:disabled){opacity:.85;color:var(--bg);border-color:var(--text)}
 /* Pied de carte : c'est LUI qui porte l'arrondi bas (26 px, comme en haut) et
    qui clippe la jauge. Un bandeau de 7 px ne peut pas dessiner un rayon de 26 px
    (le navigateur l'écrase, d'où les coins bizarres) : on laisse donc la carte
    découper la jauge dans sa propre forme — la barre est bien épaisse ET rognée
    exactement sur la courbe, symétrique du haut. */
-[data-theme="gpt"] #ctxmeta{order:2;margin:0 var(--col);padding:6px 16px 15px;gap:10px;background:var(--panel);border:1px solid var(--border);border-top:none;border-radius:0 0 26px 26px;overflow:hidden}
-[data-theme="gpt"] #ctx-text,[data-theme="gpt"] #status-preset{color:var(--dim);font-size:10px;letter-spacing:.02em}
-[data-theme="gpt"] #ctx-compact{border-radius:999px;padding:2px 10px;font-size:10px;background:transparent;border-color:var(--border);color:var(--dim)}
-[data-theme="gpt"] #ctx-compact:hover{border-color:var(--dim);color:var(--text)}
+[data-theme^="gpt"] #ctxmeta{order:2;margin:0 var(--col);padding:6px 16px 15px;gap:10px;background:var(--panel);border:1px solid var(--border);border-top:none;border-radius:0 0 26px 26px;overflow:hidden}
+[data-theme^="gpt"] #ctx-text,[data-theme^="gpt"] #status-preset{color:var(--dim);font-size:10px;letter-spacing:.02em}
+[data-theme^="gpt"] #ctx-compact{border-radius:999px;padding:2px 10px;font-size:10px;background:transparent;border-color:var(--border);color:var(--dim)}
+[data-theme^="gpt"] #ctx-compact:hover{border-color:var(--dim);color:var(--text)}
 /* Jauge = bord bas de la carte : épaisse, plaquée au ras du bord, rognée par
    l'arrondi du pied de carte. */
-[data-theme="gpt"] #ctxtrack{top:auto;bottom:0;height:7px;background:var(--border)}
-[data-theme="gpt"] #ctx-fill{background:var(--text);opacity:.75}
-[data-theme="gpt"] #sendhint{order:4;padding:12px var(--col) 2px}
+[data-theme^="gpt"] #ctxtrack{top:auto;bottom:0;height:7px;background:var(--border)}
+[data-theme^="gpt"] #ctx-fill{background:var(--text);opacity:.75}
+[data-theme^="gpt"] #sendhint{order:4;padding:12px var(--col) 2px}
 /* Reste de l'UI : coins arrondis et contrastes doux, dans le même esprit. */
-[data-theme="gpt"] button,[data-theme="gpt"] .addbtn,[data-theme="gpt"] .mem-search,[data-theme="gpt"] #theme-select{border-radius:10px}
+[data-theme^="gpt"] button,[data-theme^="gpt"] .addbtn,[data-theme^="gpt"] .mem-search,[data-theme^="gpt"] #theme-select{border-radius:10px}
 /* Champ + bouton accolés : on ne garde l'arrondi que sur les coins extérieurs. */
-[data-theme="gpt"] .pe-inpbtn .pe-inp{border-radius:10px 0 0 10px}
-[data-theme="gpt"] .pe-inpbtn button{border-radius:0 10px 10px 0}
-[data-theme="gpt"] .input-btn .ctl{border-radius:10px 0 0 10px}
-[data-theme="gpt"] .input-btn .btn-in{border-radius:0 10px 10px 0}
-[data-theme="gpt"] .preset,[data-theme="gpt"] .gated-block,[data-theme="gpt"] .lc-mode{border-radius:12px}
-[data-theme="gpt"] .preset{background:transparent;border-color:transparent}
-[data-theme="gpt"] .preset:hover{background:var(--accent-bg);border-color:transparent}
-[data-theme="gpt"] .preset.active{background:var(--accent-bg);border-color:var(--border);color:var(--text)}
-[data-theme="gpt"] .subhead,[data-theme="gpt"] .lc-reco,[data-theme="gpt"] .lc-mode-go,[data-theme="gpt"] .lc-mode-active-tag{color:var(--dim)}
-[data-theme="gpt"] button:hover{border-color:var(--dim);color:var(--text)}
-[data-theme="gpt"] .switch input:checked + .slider{background:var(--text)}
-[data-theme="gpt"] .switch .slider::before{background:var(--bg)}
-[data-theme="gpt"] .switch input:not(:checked) + .slider::before{background:#fff}
+[data-theme^="gpt"] .pe-inpbtn .pe-inp{border-radius:10px 0 0 10px}
+[data-theme^="gpt"] .pe-inpbtn button{border-radius:0 10px 10px 0}
+[data-theme^="gpt"] .input-btn .ctl{border-radius:10px 0 0 10px}
+[data-theme^="gpt"] .input-btn .btn-in{border-radius:0 10px 10px 0}
+[data-theme^="gpt"] .preset,[data-theme^="gpt"] .gated-block,[data-theme^="gpt"] .lc-mode{border-radius:12px}
+[data-theme^="gpt"] .preset{background:transparent;border-color:transparent}
+[data-theme^="gpt"] .preset:hover{background:var(--accent-bg);border-color:transparent}
+[data-theme^="gpt"] .preset.active{background:var(--accent-bg);border-color:var(--border);color:var(--text)}
+[data-theme^="gpt"] .subhead,[data-theme^="gpt"] .lc-reco,[data-theme^="gpt"] .lc-mode-go,[data-theme^="gpt"] .lc-mode-active-tag{color:var(--dim)}
+[data-theme^="gpt"] button:hover{border-color:var(--dim);color:var(--text)}
+[data-theme^="gpt"] .switch input:checked + .slider{background:var(--text)}
+[data-theme^="gpt"] .switch .slider::before{background:var(--bg)}
+[data-theme^="gpt"] .switch input:not(:checked) + .slider::before{background:#fff}
 
 /* ===== Thème "AJEAN" — mise en page ==========================
    Rétro-machine : plus aucun arrondi, bordures de 2 px, ombres portées en
@@ -694,7 +720,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 [data-theme^="ajean"] .mcp-tool-row:hover{background:var(--soft,#e8f0ff)}
 
 /* Diff sur fond clair : mêmes rôles, teintes plus profondes pour rester lisibles. */
-[data-theme="light"],[data-theme="soft"],[data-theme="gpt"],[data-theme="ajean"]{
+[data-theme="light"],[data-theme="soft"],[data-theme^="gpt"],[data-theme="ajean"]{
   --add:#1a7f37;--add-bg:rgba(26,127,55,.10);--del:#cf222e;--del-bg:rgba(207,34,46,.10)}
 [data-theme="soft-dark"],[data-theme="ajean-dark"]{
   --add:#4ac26b;--add-bg:rgba(74,194,107,.13);--del:#f85149;--del-bg:rgba(248,81,73,.13)}

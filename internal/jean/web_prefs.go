@@ -26,8 +26,15 @@ var webPrefsAllowed = map[string]map[string]bool{
 	// listé ICI : sinon POST /api/prefs le rejette silencieusement, le serveur
 	// conserve l'ancienne valeur et loadPrefs() la réapplique à chaque
 	// rafraîchissement — le thème « saute » alors qu'il est bien en localStorage.
-	"theme":   {"ajean": true, "ajean-dark": true, "dark": true, "light": true, "soft": true, "soft-dark": true, "gpt": true},
-	"display": {"full": true, "simple": true},
+	"theme":   {"ajean": true, "ajean-dark": true, "dark": true, "light": true, "soft": true, "soft-dark": true, "gpt": true, "gpt-dark": true},
+	// display : ancien mode « complet / simple », conservé pour les clients
+	// pas encore rechargés ; remplacé par les quatre drapeaux ci-dessous.
+	"display":        {"full": true, "simple": true},
+	"hide_reasoning": {"0": true, "1": true},
+	"hide_tools":     {"0": true, "1": true},
+	"fold_tools":     {"0": true, "1": true},
+	"hide_side":      {"0": true, "1": true},
+	"font":    {"auto": true, "mono": true, "system": true, "lexend": true, "serif": true},
 }
 
 // loadWebPrefs lit les préférences enregistrées (map vide si absent/illisible).

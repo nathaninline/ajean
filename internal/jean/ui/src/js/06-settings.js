@@ -147,6 +147,16 @@ function renderInternet(s){
     document.getElementById('crawl-url').value = s.url || '';
   document.getElementById('internet-badge').innerHTML = internetOn
     ? '<span class="tag ok">on</span>' : '<span class="tag" style="opacity:.6">off</span>';
+  // Clé du serveur Crawl4AI : le champ reste vide (la clé n'est jamais renvoyée),
+  // on indique seulement si une clé est enregistrée.
+  const ks=document.getElementById('crawl-key-state'), kc=document.getElementById('crawl-key-clear');
+  if(ks){
+    ks.textContent = s.key_set ? ('clé enregistrée '+(s.key_hint||'')) : 'aucune clé — serveur ouvert';
+    if(kc) kc.style.display = s.key_set ? '' : 'none';
+    const ki=document.getElementById('crawl-key');
+    if(ki && document.activeElement!==ki) ki.value='';
+    if(ki) ki.placeholder = s.key_set ? 'clé enregistrée — saisir pour remplacer' : 'clé API (si le serveur en exige une)';
+  }
   const st=document.getElementById('internet-status');
   if(!s.url){ st.textContent='serveur non configuré'; st.style.color=''; }
   else if(s.reachable){ st.innerHTML='<span style="color:var(--accent)">✓</span> serveur joignable — outils web actifs'; }
@@ -227,6 +237,18 @@ async function toggleInternet(){
 async function saveCrawlUrl(){
   const url=document.getElementById('crawl-url').value.trim();
   renderInternet(await jpost('/api/internet',{url}));
+}
+async function saveCrawlKey(){
+  const el=document.getElementById('crawl-key'), key=el.value.trim();
+  if(!key){ toast('saisis une clé (ou « retirer » pour l\'enlever)'); return; }
+  renderInternet(await jpost('/api/internet',{key}));
+  toast('clé enregistrée');
+}
+async function clearCrawlKey(){
+  if(!await askConfirm('Retirer la clé du serveur Crawl4AI ?')) return;
+  document.getElementById('crawl-key').value='';
+  renderInternet(await jpost('/api/internet',{key:''}));
+  toast('clé retirée');
 }
 async function loadAll(){ await Promise.all([loadStatus(),loadVram(),loadRam(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadApiKey(),loadPrefs(),loadLlamacpp(),loadRemote()]); }
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }

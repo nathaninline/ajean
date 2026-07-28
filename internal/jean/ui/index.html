@@ -15,7 +15,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect width='12' height='12' rx='2' ry='2' fill='%231f6feb'/><rect x='6' y='3' width='2' height='2' fill='%23fff'/><rect x='6' y='5' width='2' height='2' fill='%23fff'/><rect x='4' y='7' width='2' height='2' fill='%23fff'/></svg>">
 <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAABa0lEQVR42u3dsQ2AIBBAUSCOYA8b4iiMSI9D2FpYGTEheW8AisvPUV7MdQR4kowAcSAOxIE4EAfiQByIA3EgDhAH4kAciANxIA7EgTgQB+IAcSAOxIE4EAfiQByIA3EgDhAH4kAciANxIA7EgTgQB+JAHCAOxMEHNiO4622f9HI5TpsD3wriQBwgDsSBOBAH4kAciANxIA7EAeJAHIgDcSAOxIE4EAfiQBwgDsSBOBAH4kAciANxIA7EgThAHIgDcSAOxIE4EAfiQByIA8SBOBAH4kAciANxIA7EgThAHIgDcSAO/rLkLXsX520OxIE4EAfiQByIA8SBOBAH4kAciANxIA7EgThAHIgDcSAOxIE4EAfiQByIA8SBOHgl5jpMAZsDcSAOxIE4EAfiQByIA3GAOBAH4kAciANxIA7EgTgQB4gDcSAOxIE4EAfiQByIA3EgDhAH4kAciANxIA7EgTgQB+IAcSAOxME0F8YvCl24O02KAAAAAElFTkSuQmCC">
 <!-- Applique le thème AVANT le rendu (pas de flash) : lit le choix persisté. -->
-<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('jean-theme')||'ajean');document.documentElement.setAttribute('data-display',localStorage.getItem('jean-display')||'full')}catch(e){document.documentElement.setAttribute('data-theme','ajean');document.documentElement.setAttribute('data-display','full')}</script>
+<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('jean-theme')||'light');['hide-reasoning','hide-tools','fold-tools','hide-side'].forEach(function(k){document.documentElement.setAttribute('data-'+k,localStorage.getItem('jean-'+k)==='1'?'1':'0')});document.documentElement.setAttribute('data-font',localStorage.getItem('jean-font')||'auto')}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
 <style>
 /* ===== Thèmes =====================================================
    Toutes les couleurs de l'UI passent par ces variables. Pour AJOUTER un
@@ -34,8 +34,11 @@
 /* "ChatGPT" — monochrome (noir & blanc), police système, aucun accent coloré.
    Seules les erreurs gardent un rouge discret pour rester lisibles. */
 [data-theme="gpt"]{color-scheme:light;--font:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--bubble:#e8e8e8;--bg:#ffffff;--panel:#f9f9f9;--border:#e3e3e3;--text:#0d0d0d;--dim:#8f8f8f;--accent:#0d0d0d;--accent-bg:rgba(0,0,0,.06);--ok:#0d0d0d;--warn:#5d5d5d;--err:#c0392b;--mag:#5d5d5d;--code-bg:#f4f4f4;--danger-bg:#fbeae8;--warn-bg:#f0f0f0}
+/* "ChatGPT sombre" — même disposition, palette nuit de ChatGPT : gris très
+   sombre, bulle utilisateur gris clair, aucun accent coloré. */
+[data-theme="gpt-dark"]{color-scheme:dark;--font:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--bubble:#1f1f1f;--bg:#0a0a0a;--panel:#141414;--border:#262626;--text:#ececec;--dim:#8e8e8e;--accent:#ececec;--accent-bg:rgba(255,255,255,.07);--ok:#ececec;--warn:#c8b273;--err:#f2777a;--mag:#b0b0b0;--code-bg:#000000;--danger-bg:#2e1a19;--warn-bg:#26241a}
 /* Bulle utilisateur claire : le texte blanc par défaut (.msg.user) serait illisible. */
-[data-theme="gpt"] .msg.user{color:var(--text)}
+[data-theme^="gpt"] .msg.user{color:var(--text)}
 /* "AJEAN" — clair, bleu, esprit rétro-machine : bordures nettes de 2 px,
    aucun arrondi, ombres en blocs décalés, fond quadrillé (même charte que
    ajean.app). Mise en page complète plus bas (section "Thème pixel"). */
@@ -43,6 +46,15 @@
 /* « AJEAN sombre » — même habillage pixel, palette nuit : bleu vif sur fond
    presque noir, quadrillage discret, ombres bleutées. */
 [data-theme="ajean-dark"]{color-scheme:dark;--font:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--bubble:#3b82f6;--bg:#050810;--panel:#0a1020;--border:#16233f;--text:#dce6ff;--dim:#63739c;--accent:#3b82f6;--accent-bg:rgba(59,130,246,.16);--ok:#3b82f6;--warn:#d29922;--err:#f85149;--mag:#9b8cff;--code-bg:#03060d;--danger-bg:#3d1f23;--warn-bg:#3d2f1f;--grid:#0a1120;--line2:#1e3054;--soft:#101b33;--sh:#132342;--knob:#dce6ff}
+/* ===== Police (réglage séparé du thème) ===========================
+   Chaque thème propose une police par défaut via --font ; ce réglage la
+   remplace. Même spécificité que les blocs de thème, mais écrit APRÈS : c'est
+   donc lui qui gagne. "auto" = on laisse la police du thème.
+   Lexend n'est chargée (Google Fonts) que si elle est effectivement choisie. */
+[data-font="mono"]{--font:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+[data-font="system"]{--font:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
+[data-font="serif"]{--font:Georgia,'Iowan Old Style','Times New Roman',serif}
+[data-font="lexend"]{--font:'Lexend',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
 *{box-sizing:border-box}
 body{margin:0;font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;font-size:14px}
 /* PWA plein écran (viewport-fit=cover) : on décale le contenu des bords pour ne
@@ -64,7 +76,6 @@ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-i
   #chat .msg.assistant,#chat .msg.reasoning{max-width:100%}
   #inputbar{padding:8px;gap:4px}
   #send,#stop{padding:0 12px}
-  h1{margin-left:48px}
   /* Petit écran (menu replié en tiroir) : on masque l'aide clavier — inutile et
      ça prend de la place. Elle reste visible sur desktop. */
   #sendhint{display:none}
@@ -81,7 +92,7 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 #brand{display:inline-flex;align-items:center}
 #brand svg{height:10px;width:auto;display:block;shape-rendering:crispEdges;fill:currentColor}
 #brand-word{display:inline-flex;color:var(--accent)}
-#ver{font-size:10px;font-weight:400;color:var(--dim);margin-left:7px;letter-spacing:0}
+#ver{font-size:10px;font-weight:400;color:var(--dim);margin-left:7px;letter-spacing:0;align-self:flex-end;line-height:1;position:relative;top:3px}
 .sidehead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:18px}
 /* pastille d'état service, en haut à droite de la barre latérale */
 .statuspill{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid var(--border);background:var(--panel);color:var(--dim);font-weight:600;white-space:nowrap;cursor:pointer}
@@ -185,6 +196,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .bar{height:6px;background:var(--panel);border-radius:3px;overflow:hidden;margin:2px 0}
 .bar>div{height:100%;background:var(--accent)}
 #chat{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px}
+:root{--col:max(20px,calc(50% - 450px))}
+@media (max-width:720px){#chat{padding:60px 8px 12px}}
 .msg{max-width:80%;padding:10px 14px;border-radius:10px;white-space:pre-wrap;word-wrap:break-word;line-height:1.45}
 .msg.assistant,.msg.reasoning{white-space:normal}
 .msg .body{overflow-wrap:anywhere;word-break:break-word}
@@ -245,17 +258,30 @@ button:disabled{opacity:.5;cursor:not-allowed}
    replie en douceur pour désencombrer le fil, tout en gardant le label (et son
    compteur de tokens) cliquable pour redéplier. */
 .msg.collapsible .label{cursor:pointer;user-select:none;margin-bottom:0}
-/* ===== Affichage simple ==========================================
-   Mode "simple" (Apparence) : masque le raisonnement, les appels d'outils,
-   les détails de vitesse sur les bulles et la config active à gauche. Piloté
-   par [data-display="simple"] sur <html> (persisté dans 'jean-display'). */
-/* En simple, raisonnement et outils sont masqués. L'activité est signalée par le
-   VRAI indicateur de frappe (.msg.typing, mêmes 3 points animés qu'avant la
-   réponse), maintenu en bas pendant tout le tour côté JS — animation identique. */
-[data-display="simple"] #chat .msg.reasoning,
-[data-display="simple"] #chat .msg.tool{display:none}
-[data-display="simple"] #chat .msg .label{display:none}
-[data-display="simple"] #cfg-details{display:none}
+/* ===== Réglages d'affichage ======================================
+   Chaque option est un interrupteur indépendant (Apparence), porté par un
+   attribut sur <html> et persisté dans localStorage + /api/prefs :
+     data-hide-reasoning : masque les bulles de raisonnement
+     data-hide-tools     : masque les bulles d'appel d'outil
+     data-fold-tools     : les garde repliées (déplia­bles au clic)
+     data-hide-side      : barre latérale en tiroir, même sur ordinateur
+   Quand raisonnement et outils sont masqués, l'activité reste signalée par
+   l'indicateur de frappe (.msg.typing) maintenu pendant tout le tour. */
+[data-hide-reasoning="1"] #chat .msg.reasoning{display:none}
+[data-hide-tools="1"] #chat .msg.tool{display:none}
+/* Barre latérale en tiroir sur TOUTES les tailles d'écran : mêmes règles que
+   la version mobile, activées par l'attribut au lieu de la largeur. */
+[data-hide-side="1"] .side{position:fixed;inset:0 auto 0 0;width:80%;max-width:320px;z-index:15;transform:translateX(-100%);transition:transform .2s;background:var(--bg);padding-top:calc(16px + env(safe-area-inset-top));padding-left:calc(16px + env(safe-area-inset-left));border-right:1px solid var(--border)}
+@media (min-width:721px){[data-hide-side="1"] .side{width:380px;max-width:380px}}
+/* Le bouton ☰ est posé au-dessus du fil : on dégage le haut de la
+   conversation pour qu'il ne recouvre aucun message. */
+@media (min-width:721px){html[data-hide-side="1"] #chat{padding-top:60px}}
+@media (min-width:721px){html[data-hide-side="1"]:not([data-theme^="gpt"]) #chat{padding-left:var(--col);padding-right:var(--col)}}
+[data-hide-side="1"] .side.open{transform:translateX(0)}
+[data-hide-side="1"] #menubtn{display:block}
+[data-hide-side="1"] #backdrop.open{display:block}
+[data-hide-side="1"] body.drawer-open #menubtn{display:none}
+[data-hide-side="1"] .main{width:100%}
 /* Hauteur animée en JS (mesure scrollHeight → 0) plutôt que grid 1fr→0fr qui
    peut « dépasser ». overflow:hidden clippe le contenu pendant tout le repli.
    width revient à auto SANS délai à l'ouverture (pas de saut), et passe à 0
@@ -522,30 +548,30 @@ button:disabled{opacity:.5;cursor:not-allowed}
    disposition de ChatGPT — colonne de lecture centrée, réponses SANS bulle
    (texte nu sur le fond), question de l'utilisateur en pastille arrondie à
    droite, composer en « pilule », pas d'étiquettes VOUS/JEAN, typo système
-   plus grande et plus aérée. Tout est préfixé [data-theme="gpt"] : aucun
+   plus grande et plus aérée. Tout est préfixé [data-theme^="gpt"] : aucun
    autre thème n'est affecté. */
-[data-theme="gpt"] body{font-size:15px}
-[data-theme="gpt"] h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
+[data-theme^="gpt"] body{font-size:15px}
+[data-theme^="gpt"] h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
 /* Barre latérale : plus sombre/atténuée que la zone de conversation. */
-[data-theme="gpt"] .side{background:var(--panel);border-right-color:transparent}
-@media (max-width:720px){[data-theme="gpt"] .side{background:var(--panel)}}
+[data-theme^="gpt"] .side{background:var(--panel);border-right-color:transparent}
+@media (max-width:720px){[data-theme^="gpt"] .side{background:var(--panel)}}
 /* Colonne de lecture centrée (comme le fil ChatGPT), pleine largeur sur mobile. */
-[data-theme="gpt"] #chat{padding:28px max(16px,calc(50% - 380px)) 8px;gap:22px}
+[data-theme^="gpt"] #chat{padding:28px max(16px,calc(50% - 380px)) 8px;gap:22px;scrollbar-gutter:stable both-edges}
 /* Réponses de l'assistant : pas de cadre, pas de fond — juste du texte. */
-[data-theme="gpt"] #chat .msg.assistant{background:transparent;border:none;padding:0;max-width:100%;line-height:1.7}
+[data-theme^="gpt"] #chat .msg.assistant{background:transparent;border:none;padding:0;max-width:100%;line-height:1.7}
 /* Question : pastille arrondie à droite, texte lisible sur fond clair OU sombre. */
-[data-theme="gpt"] #chat .msg.user{background:var(--bubble);color:var(--text);border-radius:20px;padding:11px 18px;max-width:75%;line-height:1.6}
-[data-theme="gpt"] #chat .msg.user .label{color:var(--dim)}
+[data-theme^="gpt"] #chat .msg.user{background:var(--bubble);color:var(--text);border-radius:20px;padding:11px 18px;max-width:75%;line-height:1.6}
+[data-theme^="gpt"] #chat .msg.user .label{color:var(--dim)}
 /* Étiquettes VOUS / JEAN : inutiles ici (l'alignement suffit), sauf pour les
    bulles repliables (raisonnement / outils) où le label est le bouton de repli. */
-[data-theme="gpt"] #chat .msg .label{display:none}
-[data-theme="gpt"] #chat .msg.collapsible .label{display:block}
+[data-theme^="gpt"] #chat .msg .label{display:none}
+[data-theme^="gpt"] #chat .msg.collapsible .label{display:block}
 /* Raisonnement / outils : encart gris discret plutôt qu'un cadre pointillé. */
-[data-theme="gpt"] #chat .msg.reasoning,[data-theme="gpt"] #chat .msg.tool{background:var(--panel);border:1px solid var(--border);border-radius:14px;color:var(--dim);padding:12px 16px}
-[data-theme="gpt"] #chat .msg.reasoning{color:var(--dim)}
-[data-theme="gpt"] #chat .msg.tool .tool-head{color:var(--text)}
-[data-theme="gpt"] #chat .msg.assistant .body pre,[data-theme="gpt"] #chat .msg.reasoning .body pre,[data-theme="gpt"] #chat .msg.tool pre{border-radius:12px;padding:12px 14px}
-[data-theme="gpt"] #chat .msg.assistant .body a{text-decoration:underline;text-underline-offset:2px}
+[data-theme^="gpt"] #chat .msg.reasoning,[data-theme^="gpt"] #chat .msg.tool{background:var(--panel);border:1px solid var(--border);border-radius:14px;color:var(--dim);padding:12px 16px}
+[data-theme^="gpt"] #chat .msg.reasoning{color:var(--dim)}
+[data-theme^="gpt"] #chat .msg.tool .tool-head{color:var(--text)}
+[data-theme^="gpt"] #chat .msg.assistant .body pre,[data-theme^="gpt"] #chat .msg.reasoning .body pre,[data-theme^="gpt"] #chat .msg.tool pre{border-radius:12px;padding:12px 14px}
+[data-theme^="gpt"] #chat .msg.assistant .body a{text-decoration:underline;text-underline-offset:2px}
 /* Composer = UNE seule carte posée PAR-DESSUS le fil : la conversation
    continue de défiler DERRIÈRE elle et s'efface en fondu (dégradé vers le fond)
    au lieu de s'arrêter net au-dessus. Dans la carte, de haut en bas : la saisie
@@ -554,48 +580,48 @@ button:disabled{opacity:.5;cursor:not-allowed}
    (overflow:hidden sur le rayon). Les trois blocs sont des frères dans le HTML :
    on les recolle en dessinant les bordures par morceaux et l'ordre visuel vient
    de l'ordre flex — aucun changement de markup. */
-[data-theme="gpt"] #composer{position:absolute;left:0;right:0;bottom:0;z-index:4;border-top:none;display:flex;flex-direction:column;padding:34px 0 8px;--col:max(16px,calc(50% - 380px));background:linear-gradient(to bottom,transparent 0,var(--bg) 34%)}
-[data-theme="gpt"] #chat{padding-bottom:170px}
-[data-theme="gpt"] #scrollbtn{bottom:180px;border-radius:999px}
-[data-theme="gpt"] #compact-banner{order:0;margin:0 var(--col) 8px;border-radius:14px}
-[data-theme="gpt"] #inputbar{order:1;margin:0 var(--col);padding:8px 8px 8px 16px;gap:8px;align-items:flex-end;background:var(--panel);border:1px solid var(--border);border-bottom:none;border-radius:26px 26px 0 0}
-[data-theme="gpt"] #input{background:transparent;border:none;border-radius:0;padding:9px 0;min-height:36px;line-height:18px;max-height:160px}
+[data-theme^="gpt"] #composer{position:absolute;left:0;right:0;bottom:0;z-index:4;border-top:none;display:flex;flex-direction:column;padding:34px 0 8px;--col:max(16px,calc(50% - 380px));background:linear-gradient(to bottom,transparent 0,var(--bg) 34%)}
+[data-theme^="gpt"] #chat{padding-bottom:170px}
+[data-theme^="gpt"] #scrollbtn{bottom:180px;border-radius:999px}
+[data-theme^="gpt"] #compact-banner{order:0;margin:0 var(--col) 8px;border-radius:14px}
+[data-theme^="gpt"] #inputbar{order:1;margin:0 var(--col);padding:8px 8px 8px 16px;gap:8px;align-items:flex-end;background:var(--panel);border:1px solid var(--border);border-bottom:none;border-radius:26px 26px 0 0}
+[data-theme^="gpt"] #input{background:transparent;border:none;border-radius:0;padding:9px 0;min-height:36px;line-height:18px;max-height:160px}
 /* Pas de cadre qui s'assombrit au focus : la carte garde exactement la même
    bordure, seule la saisie change (curseur). */
-[data-theme="gpt"] #input:focus{border-color:transparent}
-[data-theme="gpt"] #send,[data-theme="gpt"] #stop{border-radius:999px;height:36px;min-height:36px;padding:0 18px;margin:0}
-[data-theme="gpt"] #send{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
-[data-theme="gpt"] #send:hover:not(:disabled){opacity:.85;color:var(--bg);border-color:var(--text)}
+[data-theme^="gpt"] #input:focus{border-color:transparent}
+[data-theme^="gpt"] #send,[data-theme^="gpt"] #stop{border-radius:999px;height:36px;min-height:36px;padding:0 18px;margin:0}
+[data-theme^="gpt"] #send{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
+[data-theme^="gpt"] #send:hover:not(:disabled){opacity:.85;color:var(--bg);border-color:var(--text)}
 /* Pied de carte : c'est LUI qui porte l'arrondi bas (26 px, comme en haut) et
    qui clippe la jauge. Un bandeau de 7 px ne peut pas dessiner un rayon de 26 px
    (le navigateur l'écrase, d'où les coins bizarres) : on laisse donc la carte
    découper la jauge dans sa propre forme — la barre est bien épaisse ET rognée
    exactement sur la courbe, symétrique du haut. */
-[data-theme="gpt"] #ctxmeta{order:2;margin:0 var(--col);padding:6px 16px 15px;gap:10px;background:var(--panel);border:1px solid var(--border);border-top:none;border-radius:0 0 26px 26px;overflow:hidden}
-[data-theme="gpt"] #ctx-text,[data-theme="gpt"] #status-preset{color:var(--dim);font-size:10px;letter-spacing:.02em}
-[data-theme="gpt"] #ctx-compact{border-radius:999px;padding:2px 10px;font-size:10px;background:transparent;border-color:var(--border);color:var(--dim)}
-[data-theme="gpt"] #ctx-compact:hover{border-color:var(--dim);color:var(--text)}
+[data-theme^="gpt"] #ctxmeta{order:2;margin:0 var(--col);padding:6px 16px 15px;gap:10px;background:var(--panel);border:1px solid var(--border);border-top:none;border-radius:0 0 26px 26px;overflow:hidden}
+[data-theme^="gpt"] #ctx-text,[data-theme^="gpt"] #status-preset{color:var(--dim);font-size:10px;letter-spacing:.02em}
+[data-theme^="gpt"] #ctx-compact{border-radius:999px;padding:2px 10px;font-size:10px;background:transparent;border-color:var(--border);color:var(--dim)}
+[data-theme^="gpt"] #ctx-compact:hover{border-color:var(--dim);color:var(--text)}
 /* Jauge = bord bas de la carte : épaisse, plaquée au ras du bord, rognée par
    l'arrondi du pied de carte. */
-[data-theme="gpt"] #ctxtrack{top:auto;bottom:0;height:7px;background:var(--border)}
-[data-theme="gpt"] #ctx-fill{background:var(--text);opacity:.75}
-[data-theme="gpt"] #sendhint{order:4;padding:12px var(--col) 2px}
+[data-theme^="gpt"] #ctxtrack{top:auto;bottom:0;height:7px;background:var(--border)}
+[data-theme^="gpt"] #ctx-fill{background:var(--text);opacity:.75}
+[data-theme^="gpt"] #sendhint{order:4;padding:12px var(--col) 2px}
 /* Reste de l'UI : coins arrondis et contrastes doux, dans le même esprit. */
-[data-theme="gpt"] button,[data-theme="gpt"] .addbtn,[data-theme="gpt"] .mem-search,[data-theme="gpt"] #theme-select{border-radius:10px}
+[data-theme^="gpt"] button,[data-theme^="gpt"] .addbtn,[data-theme^="gpt"] .mem-search,[data-theme^="gpt"] #theme-select{border-radius:10px}
 /* Champ + bouton accolés : on ne garde l'arrondi que sur les coins extérieurs. */
-[data-theme="gpt"] .pe-inpbtn .pe-inp{border-radius:10px 0 0 10px}
-[data-theme="gpt"] .pe-inpbtn button{border-radius:0 10px 10px 0}
-[data-theme="gpt"] .input-btn .ctl{border-radius:10px 0 0 10px}
-[data-theme="gpt"] .input-btn .btn-in{border-radius:0 10px 10px 0}
-[data-theme="gpt"] .preset,[data-theme="gpt"] .gated-block,[data-theme="gpt"] .lc-mode{border-radius:12px}
-[data-theme="gpt"] .preset{background:transparent;border-color:transparent}
-[data-theme="gpt"] .preset:hover{background:var(--accent-bg);border-color:transparent}
-[data-theme="gpt"] .preset.active{background:var(--accent-bg);border-color:var(--border);color:var(--text)}
-[data-theme="gpt"] .subhead,[data-theme="gpt"] .lc-reco,[data-theme="gpt"] .lc-mode-go,[data-theme="gpt"] .lc-mode-active-tag{color:var(--dim)}
-[data-theme="gpt"] button:hover{border-color:var(--dim);color:var(--text)}
-[data-theme="gpt"] .switch input:checked + .slider{background:var(--text)}
-[data-theme="gpt"] .switch .slider::before{background:var(--bg)}
-[data-theme="gpt"] .switch input:not(:checked) + .slider::before{background:#fff}
+[data-theme^="gpt"] .pe-inpbtn .pe-inp{border-radius:10px 0 0 10px}
+[data-theme^="gpt"] .pe-inpbtn button{border-radius:0 10px 10px 0}
+[data-theme^="gpt"] .input-btn .ctl{border-radius:10px 0 0 10px}
+[data-theme^="gpt"] .input-btn .btn-in{border-radius:0 10px 10px 0}
+[data-theme^="gpt"] .preset,[data-theme^="gpt"] .gated-block,[data-theme^="gpt"] .lc-mode{border-radius:12px}
+[data-theme^="gpt"] .preset{background:transparent;border-color:transparent}
+[data-theme^="gpt"] .preset:hover{background:var(--accent-bg);border-color:transparent}
+[data-theme^="gpt"] .preset.active{background:var(--accent-bg);border-color:var(--border);color:var(--text)}
+[data-theme^="gpt"] .subhead,[data-theme^="gpt"] .lc-reco,[data-theme^="gpt"] .lc-mode-go,[data-theme^="gpt"] .lc-mode-active-tag{color:var(--dim)}
+[data-theme^="gpt"] button:hover{border-color:var(--dim);color:var(--text)}
+[data-theme^="gpt"] .switch input:checked + .slider{background:var(--text)}
+[data-theme^="gpt"] .switch .slider::before{background:var(--bg)}
+[data-theme^="gpt"] .switch input:not(:checked) + .slider::before{background:#fff}
 
 /* ===== Thème "AJEAN" — mise en page ==========================
    Rétro-machine : plus aucun arrondi, bordures de 2 px, ombres portées en
@@ -713,7 +739,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 [data-theme^="ajean"] .mcp-tool-row:hover{background:var(--soft,#e8f0ff)}
 
 /* Diff sur fond clair : mêmes rôles, teintes plus profondes pour rester lisibles. */
-[data-theme="light"],[data-theme="soft"],[data-theme="gpt"],[data-theme="ajean"]{
+[data-theme="light"],[data-theme="soft"],[data-theme^="gpt"],[data-theme="ajean"]{
   --add:#1a7f37;--add-bg:rgba(26,127,55,.10);--del:#cf222e;--del-bg:rgba(207,34,46,.10)}
 [data-theme="soft-dark"],[data-theme="ajean-dark"]{
   --add:#4ac26b;--add-bg:rgba(74,194,107,.13);--del:#f85149;--del-bg:rgba(248,81,73,.13)}
@@ -778,6 +804,15 @@ button:disabled{opacity:.5;cursor:not-allowed}
         <input id="crawl-url" type="text" placeholder="http://localhost:11235" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit" onchange="saveCrawlUrl()">
         <button onclick="saveCrawlUrl()">enregistrer</button>
       </div>
+      <!-- Clé d'accès du serveur Crawl4AI (facultative) : envoyée en
+           « Authorization: Bearer … ». Jamais relue par l'API, on n'affiche
+           qu'un indice sur les 4 derniers caractères. -->
+      <div class="row" style="margin-top:6px">
+        <input id="crawl-key" type="password" autocomplete="off" placeholder="clé API (si le serveur en exige une)" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font:inherit" onchange="saveCrawlKey()">
+        <button onclick="saveCrawlKey()">enregistrer</button>
+        <button id="crawl-key-clear" onclick="clearCrawlKey()" style="display:none">retirer</button>
+      </div>
+      <div id="crawl-key-state" class="muted" style="font-size:11px;margin-top:3px"></div>
       <div id="internet-status" class="muted" style="font-size:11px;margin-top:4px"></div>
     </div>
     <div id="mcp-block" class="gated-block">
@@ -793,14 +828,19 @@ button:disabled{opacity:.5;cursor:not-allowed}
   </details>
   <details><summary>Apparence</summary>
     <label class="switchrow" style="justify-content:space-between;gap:12px"><span>thème</span>
-      <select id="theme-select" onchange="applyTheme(this.value);savePrefs()" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px"></select>
+      <select id="theme-select" onchange="pickThemeFamily(this.value)" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px"></select>
     </label>
-    <label class="switchrow" style="justify-content:space-between;gap:12px;margin-top:8px"><span>affichage<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip"><b>Complet</b> : tout est visible (raisonnement, appels d'outils, vitesse, config active). <b>Simple</b> : masque le raisonnement, les appels d'outils, les détails de vitesse sur les bulles et la config active à gauche.</span></span></span>
-      <select id="display-select" onchange="applyDisplay(this.value);savePrefs()" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px">
-        <option value="full">complet</option>
-        <option value="simple">simple</option>
-      </select>
+    <label class="switchrow" style="justify-content:space-between;gap:12px;margin-top:8px"><span>mode sombre</span>
+      <span class="switch"><input type="checkbox" id="theme-dark" onchange="toggleThemeDark()"><span class="slider"></span></span>
     </label>
+    <label class="switchrow" style="justify-content:space-between;gap:12px;margin-top:8px"><span>police<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Indépendante du thème. <b>Du thème</b> garde celle prévue par le thème choisi (mono pour AJEAN, système pour ChatGPT, Lexend pour Doux). <b>Lexend</b> est téléchargée depuis Google Fonts, les autres sont déjà sur votre appareil.</span></span></span>
+      <select id="font-select" onchange="applyFont(this.value);savePrefs()" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px"></select>
+    </label>
+    <div class="subhead" style="margin-top:14px">Affichage</div>
+    <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-reasoning" onchange="toggleView('hide-reasoning')"><span class="slider"></span></span> masquer le raisonnement</label>
+    <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-tools" onchange="toggleView('hide-tools')"><span class="slider"></span></span> masquer les appels d'outils</label>
+    <label class="switchrow"><span class="switch"><input type="checkbox" id="view-fold-tools" onchange="toggleView('fold-tools')"><span class="slider"></span></span> garder les bulles repliées<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Les bulles de raisonnement et d'outil arrivent <b>déjà fermées</b> au lieu de s'ouvrir puis se refermer. Un clic sur leur étiquette les déplie.</span></span></label>
+    <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-side" onchange="toggleView('hide-side')"><span class="slider"></span></span> barre latérale escamotable<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">La barre latérale devient un tiroir <b>même sur ordinateur</b> : elle reste fermée et s'ouvre avec le bouton ☰. Toute la largeur pour la conversation.</span></span></label>
   </details>
   <details><summary>System prompt</summary>
     <textarea id="sysprompt" placeholder="(optionnel) ex: tu es un assistant concis en français" oninput="saveSys()" style="width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font:inherit;min-height:70px;resize:vertical"></textarea>
@@ -1215,9 +1255,28 @@ async function loadSys(){
 // Registre des thèmes disponibles. Pour en AJOUTER un : ajouter un bloc
 // [data-theme="…"] dans le <style> puis une entrée {id,label} ici — le reste
 // (menu déroulant, persistance localStorage, application) est automatique.
-const THEMES=[{id:'ajean',label:'AJEAN'},{id:'ajean-dark',label:'AJEAN sombre'},{id:'dark',label:'sombre'},{id:'light',label:'clair'},{id:'soft',label:'doux'},{id:'soft-dark',label:'doux sombre'},{id:'gpt',label:'ChatGPT'}];
-// Anciens identifiants (v0.5.7, thème livré en deux variantes) → thème unique.
-const THEME_ALIASES={'gpt-light':'gpt','gpt-dark':'gpt'};
+// Chaque FAMILLE de thème existe en clair et en sombre : le menu ne liste donc
+// que les familles, et un interrupteur choisit la variante. Bien plus court que
+// l'ancienne liste où chaque variante était une entrée séparée.
+const THEME_FAMILIES=[
+  {id:'classic', label:'Classique', light:'light',  dark:'dark'},
+  {id:'ajean',   label:'AJEAN',     light:'ajean',  dark:'ajean-dark'},
+  {id:'soft',    label:'Doux',      light:'soft',   dark:'soft-dark'},
+  {id:'gpt',     label:'ChatGPT',   light:'gpt',    dark:'gpt-dark'},
+];
+// Tous les identifiants valides, à plat (persistance inchangée : on enregistre
+// toujours un id de thème, pas une famille).
+const THEMES=THEME_FAMILIES.flatMap(f=>[{id:f.light,label:f.label},{id:f.dark,label:f.label+' sombre'}]);
+// Ancien identifiant (v0.5.7) → thème actuel.
+const THEME_ALIASES={'gpt-light':'gpt'};
+// familyOf renvoie {famille, sombre?} pour un id de thème.
+function familyOf(id){
+  for(const f of THEME_FAMILIES){
+    if(f.light===id) return {fam:f, dark:false};
+    if(f.dark===id)  return {fam:f, dark:true};
+  }
+  return {fam:THEME_FAMILIES[0], dark:false};
+}
 // Lexend (thème "doux") n'est chargé QUE si ce thème est choisi : aucune requête
 // externe (Google Fonts) tant qu'on reste en sombre/clair — jean reste local par
 // défaut. Fallback système sans-serif si hors ligne.
@@ -1230,32 +1289,95 @@ function ensureSoftFont(){
 }
 function applyTheme(id){
   id=THEME_ALIASES[id]||id;
-  if(!THEMES.some(t=>t.id===id)) id='ajean';
+  if(!THEMES.some(t=>t.id===id)) id='light';
   if(id==='soft'||id==='soft-dark') ensureSoftFont();
   document.documentElement.setAttribute('data-theme', id);
   try{ localStorage.setItem('jean-theme', id); }catch(e){}
-  const sel=document.getElementById('theme-select'); if(sel) sel.value=id;
+  const cur=familyOf(id);
+  const sel=document.getElementById('theme-select'); if(sel) sel.value=cur.fam.id;
+  const sw=document.getElementById('theme-dark'); if(sw) sw.checked=cur.dark;
+}
+// Bascule clair/sombre en gardant la famille courante.
+function toggleThemeDark(){
+  const id=document.documentElement.getAttribute('data-theme')||'light';
+  const cur=familyOf(id);
+  const dark=document.getElementById('theme-dark').checked;
+  applyTheme(dark?cur.fam.dark:cur.fam.light);
+  savePrefs();
+}
+// Changement de famille : on reste dans la même variante (clair ou sombre).
+function pickThemeFamily(famID){
+  const id=document.documentElement.getAttribute('data-theme')||'light';
+  const dark=familyOf(id).dark;
+  const f=THEME_FAMILIES.find(x=>x.id===famID)||THEME_FAMILIES[0];
+  applyTheme(dark?f.dark:f.light);
+  savePrefs();
 }
 function initTheme(){
   const sel=document.getElementById('theme-select');
   if(sel && !sel.options.length){
-    THEMES.forEach(t=>{ const o=document.createElement('option'); o.value=t.id; o.textContent=t.label; sel.appendChild(o); });
+    THEME_FAMILIES.forEach(f=>{ const o=document.createElement('option'); o.value=f.id; o.textContent=f.label; sel.appendChild(o); });
   }
-  let id='ajean'; try{ id=localStorage.getItem('jean-theme')||'ajean'; }catch(e){}
+  let id='light'; try{ id=localStorage.getItem('jean-theme')||'light'; }catch(e){}
   applyTheme(id);
 }
-// ===== Mode d'affichage (complet / simple) ==================================
-// "simple" masque raisonnement, appels d'outils, détails de vitesse et config
-// active (via [data-display] + CSS). Persisté dans 'jean-display'.
-function applyDisplay(mode){
-  if(mode!=='simple') mode='full';
-  document.documentElement.setAttribute('data-display', mode);
-  try{ localStorage.setItem('jean-display', mode); }catch(e){}
-  const sel=document.getElementById('display-select'); if(sel) sel.value=mode;
+// ===== Police ===============================================================
+// Réglage indépendant du thème : "auto" garde celle du thème, les autres la
+// remplacent (voir les blocs [data-font=…] dans le <style>). Persisté dans
+// 'jean-font' et partagé entre appareils via /api/prefs.
+const FONTS=[
+  {id:'auto',   label:'du thème'},
+  {id:'mono',   label:'Mono'},
+  {id:'system', label:'Système'},
+  {id:'lexend', label:'Lexend'},
+  {id:'serif',  label:'Serif'},
+];
+function applyFont(id){
+  if(!FONTS.some(f=>f.id===id)) id='auto';
+  if(id==='lexend') ensureSoftFont();
+  document.documentElement.setAttribute('data-font', id);
+  try{ localStorage.setItem('jean-font', id); }catch(e){}
+  const sel=document.getElementById('font-select'); if(sel) sel.value=id;
 }
-function initDisplay(){
-  let m='full'; try{ m=localStorage.getItem('jean-display')||'full'; }catch(e){}
-  applyDisplay(m);
+function initFont(){
+  const sel=document.getElementById('font-select');
+  if(sel && !sel.options.length){
+    FONTS.forEach(f=>{ const o=document.createElement('option'); o.value=f.id; o.textContent=f.label; sel.appendChild(o); });
+  }
+  let id='auto'; try{ id=localStorage.getItem('jean-font')||'auto'; }catch(e){}
+  applyFont(id);
+}
+// ===== Affichage ============================================================
+// Quatre interrupteurs indépendants (ils remplacent l'ancien mode « simple »,
+// tout ou rien). Chacun pose un attribut sur <html> ; le CSS fait le reste,
+// sauf « replier les bulles » qui est un comportement (voir 08-chat-render).
+const VIEW_OPTS=[
+  {id:'hide-reasoning', label:'masquer le raisonnement'},
+  {id:'hide-tools',     label:"masquer les appels d'outils"},
+  {id:'fold-tools',     label:'garder les bulles repliées'},
+  {id:'hide-side',      label:'barre latérale escamotable'},
+];
+function viewOn(id){ return document.documentElement.getAttribute('data-'+id)==='1'; }
+function applyView(id, on){
+  document.documentElement.setAttribute('data-'+id, on?'1':'0');
+  try{ localStorage.setItem('jean-'+id, on?'1':'0'); }catch(e){}
+  const box=document.getElementById('view-'+id); if(box) box.checked=!!on;
+  // La barre latérale peut rester ouverte quand on repasse en mode fixe.
+  if(id==='hide-side' && !on){
+    document.getElementById('side').classList.remove('open');
+    document.getElementById('backdrop').classList.remove('open');
+    document.body.classList.remove('drawer-open');
+  }
+}
+function toggleView(id){ applyView(id, document.getElementById('view-'+id).checked); savePrefs(); }
+function initView(){
+  // Reprise de l'ancien réglage : « simple » masquait raisonnement ET outils.
+  let legacy=null; try{ legacy=localStorage.getItem('jean-display'); }catch(e){}
+  VIEW_OPTS.forEach(o=>{
+    let v=null; try{ v=localStorage.getItem('jean-'+o.id); }catch(e){}
+    if(v===null && legacy==='simple' && (o.id==='hide-reasoning'||o.id==='hide-tools')) v='1';
+    applyView(o.id, v==='1');
+  });
 }
 // ===== Persistance côté serveur (partagée entre appareils) ==================
 // L'apparence est aussi enregistrée sur la machine jean (/api/prefs) : ainsi le
@@ -1263,20 +1385,29 @@ function initDisplay(){
 // localStorage reste utilisé pour appliquer instantanément au chargement (sans
 // flash), puis loadPrefs() aligne sur la valeur du serveur (source de vérité).
 function savePrefs(){
-  let theme='ajean', display='full';
-  try{ theme=localStorage.getItem('jean-theme')||'ajean'; display=localStorage.getItem('jean-display')||'full'; }catch(e){}
-  jpost('/api/prefs', {theme, display}).catch(()=>{});
+  let theme='light', font='auto';
+  try{
+    theme=localStorage.getItem('jean-theme')||'light';
+    font=localStorage.getItem('jean-font')||'auto';
+  }catch(e){}
+  const p={theme, font};
+  VIEW_OPTS.forEach(o=>{ p[o.id.replace('-','_')] = viewOn(o.id)?'1':'0'; });
+  jpost('/api/prefs', p).catch(()=>{});
 }
 async function loadPrefs(){
   try{
     const p=await jget('/api/prefs');
     if(p && p.ok && p.prefs){
       if(p.prefs.theme) applyTheme(p.prefs.theme);
-      if(p.prefs.display) applyDisplay(p.prefs.display);
+      if(p.prefs.font) applyFont(p.prefs.font);
+      VIEW_OPTS.forEach(o=>{
+        const v=p.prefs[o.id.replace('-','_')];
+        if(v!==undefined) applyView(o.id, v==='1');
+      });
     }
   }catch(e){}
 }
-document.addEventListener('DOMContentLoaded', ()=>{ initTheme(); initDisplay(); document.getElementById('sysprompt').value = localStorage.getItem('jean.sys') || ''; loadSys(); restoreChat(); });
+document.addEventListener('DOMContentLoaded', ()=>{ initTheme(); initFont(); initView(); document.getElementById('sysprompt').value = localStorage.getItem('jean.sys') || ''; loadSys(); restoreChat(); });
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
 // Modales natives (askConfirm/askPrompt/askAlert) — remplacent confirm()/prompt()/
 // alert() par de vraies boîtes stylées. Chacune renvoie une Promise : askConfirm →
@@ -1643,6 +1774,16 @@ function renderInternet(s){
     document.getElementById('crawl-url').value = s.url || '';
   document.getElementById('internet-badge').innerHTML = internetOn
     ? '<span class="tag ok">on</span>' : '<span class="tag" style="opacity:.6">off</span>';
+  // Clé du serveur Crawl4AI : le champ reste vide (la clé n'est jamais renvoyée),
+  // on indique seulement si une clé est enregistrée.
+  const ks=document.getElementById('crawl-key-state'), kc=document.getElementById('crawl-key-clear');
+  if(ks){
+    ks.textContent = s.key_set ? ('clé enregistrée '+(s.key_hint||'')) : 'aucune clé — serveur ouvert';
+    if(kc) kc.style.display = s.key_set ? '' : 'none';
+    const ki=document.getElementById('crawl-key');
+    if(ki && document.activeElement!==ki) ki.value='';
+    if(ki) ki.placeholder = s.key_set ? 'clé enregistrée — saisir pour remplacer' : 'clé API (si le serveur en exige une)';
+  }
   const st=document.getElementById('internet-status');
   if(!s.url){ st.textContent='serveur non configuré'; st.style.color=''; }
   else if(s.reachable){ st.innerHTML='<span style="color:var(--accent)">✓</span> serveur joignable — outils web actifs'; }
@@ -1723,6 +1864,18 @@ async function toggleInternet(){
 async function saveCrawlUrl(){
   const url=document.getElementById('crawl-url').value.trim();
   renderInternet(await jpost('/api/internet',{url}));
+}
+async function saveCrawlKey(){
+  const el=document.getElementById('crawl-key'), key=el.value.trim();
+  if(!key){ toast('saisis une clé (ou « retirer » pour l\'enlever)'); return; }
+  renderInternet(await jpost('/api/internet',{key}));
+  toast('clé enregistrée');
+}
+async function clearCrawlKey(){
+  if(!await askConfirm('Retirer la clé du serveur Crawl4AI ?')) return;
+  document.getElementById('crawl-key').value='';
+  renderInternet(await jpost('/api/internet',{key:''}));
+  toast('clé retirée');
 }
 async function loadAll(){ await Promise.all([loadStatus(),loadVram(),loadRam(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadApiKey(),loadPrefs(),loadLlamacpp(),loadRemote()]); }
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }
@@ -2407,7 +2560,7 @@ function handleDelta(d){
     if(T.contentEl||T.reasonEl) renderStats(T.contentEl||T.reasonEl, d.stats); return; }
   if(d.tool_used){
     killTyping(); T.contentEl=null; T.reasonEl=null; const tu=d.tool_used;
-    if(!T.pendingToolEl){ collapseAll(T.turnCollapsibles); T.pendingToolEl=addMsg('tool',''); if(REPLAYING) collapseInstant(T.pendingToolEl); T.turnCollapsibles.push(T.pendingToolEl); }
+    if(!T.pendingToolEl){ collapseAll(T.turnCollapsibles); T.pendingToolEl=addMsg('tool',''); if(REPLAYING||viewOn('fold-tools')) collapseInstant(T.pendingToolEl); T.turnCollapsibles.push(T.pendingToolEl); }
     renderToolMsg(T.pendingToolEl, tu);
     if(!tu.done) showTyping();
     if(tu.done){ T.pendingToolEl=null; if(tu.name==='mem_add'||tu.name==='mem_edit') loadMem(); }
@@ -2417,7 +2570,7 @@ function handleDelta(d){
     return; }
   if(d.reasoning_content){
     killTyping();
-    if(!T.reasonEl){ collapseAll(T.turnCollapsibles); T.reasonEl=addMsg('reasoning',''); if(REPLAYING) collapseInstant(T.reasonEl); T.fullReason=''; T.turnCollapsibles.push(T.reasonEl); }
+    if(!T.reasonEl){ collapseAll(T.turnCollapsibles); T.reasonEl=addMsg('reasoning',''); if(REPLAYING||viewOn('fold-tools')) collapseInstant(T.reasonEl); T.fullReason=''; T.turnCollapsibles.push(T.reasonEl); }
     // d.replace : le serveur renvoie le bloc ENTIER alors qu'on en affichait déjà
     // le début (voir decorateEvent/coalesceReplay côté serveur) → on repart de zéro
     // au lieu de concaténer, sinon le texte apparaît en double.

@@ -40,6 +40,19 @@ func crawl4aiURL() string {
 	return strings.TrimRight(u, "/")
 }
 
+// crawl4aiKey renvoie la clé d'accès au serveur Crawl4AI (config.env
+// CRAWL4AI_KEY), vide si le serveur est ouvert. Envoyée en « Authorization:
+// Bearer … », ce qu'attend Crawl4AI quand l'authentification est activée.
+func crawl4aiKey() string { return strings.TrimSpace(ReadConfig()["CRAWL4AI_KEY"]) }
+
+// crawlAuth pose l'en-tête d'authentification sur une requête vers Crawl4AI.
+// Sans clé configurée, la requête part telle quelle.
+func crawlAuth(req *http.Request) {
+	if k := crawl4aiKey(); k != "" {
+		req.Header.Set("Authorization", "Bearer "+k)
+	}
+}
+
 // internetEnabled : accès internet actif = drapeau .internet_enabled présent ET
 // une URL Crawl4AI configurée. Même modèle que agentEnabled() (chat_agent.go).
 func internetEnabled() bool {
@@ -96,6 +109,7 @@ func crawlReachable() bool {
 		if err != nil {
 			continue
 		}
+		crawlAuth(req)
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			continue
@@ -193,6 +207,7 @@ func runCrwl(target string, opts crwlOptions) (string, error) {
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	crawlAuth(req)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("Crawl4AI injoignable (%s): %v", base, err)

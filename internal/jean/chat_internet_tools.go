@@ -284,6 +284,22 @@ func cmdInternet(args []string) error {
 		reachURL = "" // invalide le cache de reachability
 		reachMu.Unlock()
 		fmt.Printf("%s serveur Crawl4AI : %s\n", green("[ok]"), bold(u))
+	case "key":
+		if len(args) < 2 {
+			return fmt.Errorf("usage: jean internet key <clé>  (vide pour l'enlever : jean internet key \"\")")
+		}
+		k := strings.TrimSpace(args[1])
+		if err := SetConfigKey("CRAWL4AI_KEY", k); err != nil {
+			return err
+		}
+		reachMu.Lock()
+		reachURL = ""
+		reachMu.Unlock()
+		if k == "" {
+			fmt.Println(green("[ok]") + " clé Crawl4AI retirée")
+		} else {
+			fmt.Println(green("[ok]") + " clé Crawl4AI enregistrée")
+		}
 	case "", "status", "list":
 		state := dim("off")
 		if internetEnabled() {

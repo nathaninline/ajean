@@ -201,7 +201,7 @@ func safePresetPath(name string) (string, error) {
 // paramètres de modèle) qui doivent survivre à un changement de preset. Sans ça,
 // écraser config.env avec le preset ré-imposerait le mode mémoire et effacerait
 // l'URL du serveur internet à chaque bascule — ce qui obligeait à tout remettre.
-var preservedKeys = []string{"MEM_MODE", "CRAWL4AI_URL"}
+var preservedKeys = []string{"MEM_MODE", "CRAWL4AI_URL", "CRAWL4AI_KEY"}
 
 // SwitchToPreset backs up the current config and copies the target into place,
 // then restarts the service. Les réglages « appareil » (preservedKeys) sont
