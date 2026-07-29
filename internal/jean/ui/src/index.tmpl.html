@@ -14,6 +14,13 @@
      (iOS n'accepte pas le SVG pour l'icône d'accueil). Aucun fichier externe requis. -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect width='12' height='12' rx='2' ry='2' fill='%23000'/><rect x='6' y='3' width='2' height='2' fill='%23fff'/><rect x='6' y='5' width='2' height='2' fill='%23fff'/><rect x='4' y='7' width='2' height='2' fill='%23fff'/></svg>">
 <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAABBUlEQVR42u3SAQkAAAwCQfuX3lI4GNxF0E8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIArU2NbcYhDHOIQhzgQB+JAHIgDcSAOxIE4xCEOcYhDHIgDcSAOxIE4EAfiQBziEIc4xCEOcYgDcSAOxIE4EAfiQBziEIc4xCEOcYgDcSAOxIE4EAfiQByIQxziEIc4xIE4EAfiQByIA3EgDsQhDnGIQxziEIc4EAfiQByIAxciDsSBOBAH4kAc4hCHOMQhDnGIA3EgDsSBOBAH4kAc4hCHOMQhDnGIA3EgDsSBOBAH4kAciEMc4hCHOMQBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADfLBHMhi4TnG6EAAAAAElFTkSuQmCC">
+<!-- Marque le mode PWA AVANT le rendu : la hauteur de coque et le défilement du
+     document en dépendent (voir styles.css). ⚠️ On NE PEUT PAS se fier au média
+     `display-mode:standalone` : WebKit l'adosse au `display` du MANIFESTE, or cette
+     app n'en a pas (elle est en `apple-mobile-web-app-capable`) — en PWA iOS il
+     répond donc `browser`. `navigator.standalone` est le signal juste ici ; on
+     garde `display-mode` en second pour les PWA Android/desktop à manifeste. -->
+<script>try{var pwa=(window.navigator.standalone===true)||(window.matchMedia&&window.matchMedia('(display-mode:standalone)').matches)||(window.matchMedia&&window.matchMedia('(display-mode:fullscreen)').matches);document.documentElement.setAttribute('data-pwa',pwa?'1':'0');}catch(e){document.documentElement.setAttribute('data-pwa','0');}</script>
 <!-- Applique le thème AVANT le rendu (pas de flash) : lit le choix persisté. -->
 <script>try{var t=localStorage.getItem('jean-theme')||'light';document.documentElement.setAttribute('data-theme',(t==='dark'||t.endsWith('-dark'))?'dark':'light');['hide-reasoning','hide-tools','fold-tools','hide-side'].forEach(function(k){document.documentElement.setAttribute('data-'+k,localStorage.getItem('jean-'+k)==='1'?'1':'0')})}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
 <style>
@@ -99,7 +106,6 @@
     </div>
     <div id="param-block" class="gated-block">
       <div class="subhead">Paramètres</div>
-      <label class="switchrow"><span class="switch"><input type="checkbox" id="toollimit-toggle" onchange="toggleToolLimit()"><span class="slider"></span></span> limiter les appels d'outils par tour<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : coupe l'IA après ~8 appels d'outils (message <code>[stop: trop d'appels d'outils]</code>). Désactive-le si tu veux la laisser enchaîner sans plafond (l'anti-boucle reste actif).</span></span></label>
       <label class="switchrow" style="margin-top:8px"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> compactage automatique du contexte<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
     </div>
   </details>
@@ -231,6 +237,9 @@
 </div>
 <div class="main" style="position:relative">
   <div id="chat"></div>
+  <!-- Voile de chargement du fil : sans lui, une connexion lente donne un chat
+       VIDE indiscernable d'une conversation vide. Masqué au signal {caught_up}. -->
+  <div id="chat-loading"><span class="cl-dots"><span></span><span></span><span></span></span><span id="chat-loading-text">chargement de la conversation…</span></div>
   <button id="scrollbtn" onclick="jumpBottom()" title="aller en bas">↓</button>
   <div id="composer">
     <div id="compact-banner" style="display:none"><span class="cspin">⏳</span> Compactage du contexte en cours — résumé des anciens tours…</div>
@@ -349,7 +358,7 @@
       </div>
       <div id="mcp-modal-status" class="muted" style="font-size:12px;min-height:16px"></div>
       <div id="mcp-tools-section" style="display:none">
-        <div class="subhead" style="margin-top:6px">Outils <span id="mcp-tools-count" class="muted" style="text-transform:none;letter-spacing:0;font-weight:400"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Décoche un outil pour le masquer à l'IA sans déconnecter le serveur. Utile pour ne garder que ce dont tu as besoin.</span></span></div>
+        <div class="subhead" style="margin-top:6px">Outils <span id="mcp-tools-count" class="muted" style="text-transform:none;letter-spacing:0;font-weight:400;font-family:var(--font)"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Décoche un outil pour le masquer à l'IA sans déconnecter le serveur. Utile pour ne garder que ce dont tu as besoin.</span></span></div>
         <div id="mcp-tools-list" class="mcp-tools-list"></div>
       </div>
     </div>

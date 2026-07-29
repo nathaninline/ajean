@@ -107,7 +107,6 @@ func newWebMux() *http.ServeMux {
 	api("/api/preset/delete", handlePresetDelete)
 	api("/api/agent", handleAgent)
 	api("/api/agent/toggle", handleAgentToggle)
-	api("/api/agent/tool-limit", handleToolLimitToggle)
 	api("/api/agent/compact", handleCompactToggle)
 	api("/api/apikey", handleAPIKey)
 	api("/api/oai/public", handleOAIPublic)

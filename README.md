@@ -178,8 +178,7 @@ Tout vit sous **`$JEAN_HOME`** (défaut `/etc/jean` sur Linux/macOS, `%ProgramDa
 | `CUDA_VISIBLE_DEVICES` | GPU à utiliser (réglé par `jean gpu`) | tous |
 | `KV_TYPE` (`_K`/`_V`) | quantization du cache KV | — |
 | `REASONING` | passthrough du mode raisonnement | — |
-| `REASONING_BUDGET` | plafond de tokens de réflexion passé à llama-server ; `-1` = illimité (l'anti-boucle est géré côté agent) | `-1` |
-| `TOOL_LIMIT` | plafond d'appels d'outils par tour en mode agent ; `off` = quasi illimité (réglable aussi depuis l'UI) | activé |
+| `REASONING_BUDGET` | plafond de tokens de réflexion passé à llama-server ; `-1` = illimité | `-1` |
 | `CRAWL4AI_URL` | URL du serveur Crawl4AI pour l'accès internet (réglé par `jean internet url`) | — |
 | `MEM_MODE` | mode mémoire de l'IA : `off` / `ondemand` / `always` (réglé par `jean memory`) | `always` |
 | `EXTRA_ARGS` | ajouté tel quel à `llama-server` | — |

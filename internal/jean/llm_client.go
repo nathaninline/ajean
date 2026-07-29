@@ -414,10 +414,6 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 	// dépassement de la fenêtre de contexte après de gros résultats d'outils), on
 	// compacte l'historique en vol et on rejoue le tour — une seule fois.
 	compactedRetry := false
-	// Anti-loop net: if the model re-emits the exact same tool call (name+args)
-	// several times, it's stuck — break instead of spinning to the iteration cap.
-	lastSig := ""
-	repeatSig := 0
 	// Appels d'outil déjà exécutés (clé = nom + arguments bruts) : sert à ne pas
 	// rejouer deux fois exactement la même écriture dans un même échange.
 	doneCalls := map[string]string{}
@@ -426,12 +422,11 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 	// (ni réponse, ni tool_call). On relance alors UNE fois le tour avec un nudge
 	// explicite au lieu d'afficher « pas de réponse ».
 	nudged := false
-	// Plafond d'itérations d'appels d'outils. Activé par défaut (8) pour éviter
-	// qu'un modèle parti en vrille n'enchaîne les appels indéfiniment ; l'anti-
-	// boucle (lastSig) protège toujours même quand la limite est désactivée via
-	// l'UI (TOOL_LIMIT=off → plafond très haut, quasi illimité).
-	maxIter := toolCallLimit()
-	for iter := 0; iter < maxIter; iter++ {
+	// Pas de plafond d'itérations ni d'anti-boucle : ils coupaient des tours
+	// parfaitement légitimes (une recherche enchaîne facilement des dizaines
+	// d'appels, parfois identiques). Le seul frein est le bouton stop, qui annule
+	// le contexte — c'est un choix assumé.
+	for iter := 0; ; iter++ {
 		payload := map[string]any{
 			"model":       "jean",
 			"messages":    messages,
@@ -557,6 +552,20 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				finishReason = ch.FinishReason
 			}
 			if len(ch.Delta.ToolCalls) > 0 {
+				// Un appel d'outil clôt le texte : on vide MAINTENANT le reliquat
+				// retenu par la garde « </think> » (voir plus bas). Sinon il n'était
+				// émis qu'en fin de flux, donc APRÈS l'événement d'outil, et l'UI
+				// (qui coupe la bulle en cours à chaque tool_used) affichait la fin
+				// de la phrase — souvent coupée en plein mot — dans une bulle
+				// séparée sous l'outil.
+				if thinkOpen && thinkTail.Len() > 0 {
+					tail := thinkTail.String()
+					thinkTail.Reset()
+					if !cb(StreamEvent{Content: tail}) {
+						aborted = true
+						break
+					}
+				}
 				for i, tc := range ch.Delta.ToolCalls {
 					// llama.cpp's stream may omit index; fall back to slot i.
 					idx := i
@@ -705,25 +714,6 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			}
 			messages = append(messages, assistant)
 			extra = append(extra, assistant)
-			// Loop guard: same exact call(s) as last turn? Count it; on the 3rd
-			// identical turn, stop so we don't churn the same command forever.
-			sig := strings.Builder{}
-			for _, tc := range tcs {
-				sig.WriteString(tc.Function.Name)
-				sig.WriteByte('\x00')
-				sig.WriteString(tc.Function.Arguments)
-				sig.WriteByte('\n')
-			}
-			if s := sig.String(); s == lastSig {
-				repeatSig++
-				if repeatSig >= 2 {
-					cb(StreamEvent{Content: "\n\n[stop: appel d'outil répété en boucle — " + tcs[0].Function.Name + "]"})
-					return extra, nil
-				}
-			} else {
-				lastSig = s
-				repeatSig = 0
-			}
 			// 2. Execute each tool locally and append a "tool" reply.
 			for _, tc := range tcs {
 				var args map[string]any
@@ -887,8 +877,6 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		}
 		return extra, nil
 	}
-	cb(StreamEvent{Content: "\n\n[stop: trop d'appels d'outils]"})
-	return extra, nil
 }
 
 // healthCheck pings llama.cpp's /health endpoint.

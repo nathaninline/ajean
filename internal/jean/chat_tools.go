@@ -39,7 +39,9 @@ func baseSystemPrompt(caps Caps) string {
 	// sur-raisonner les modèles à reasoning (Qwen3) : ils émettent leur <think>
 	// puis le token de fin SANS appeler d'outil (~25-45 % de tours « morts »
 	// mesurés). Une version courte et directe ramène ça à 0 %. NE PAS regonfler.
-	b.WriteString("You are jean, an expert assistant operating directly on this machine with real tools.")
+	// « Jean » avec une majuscule : c'est un nom propre, et le modèle recopie
+	// littéralement la casse d'ici quand il se présente (« je suis jean »).
+	b.WriteString("You are Jean, an expert assistant operating directly on this machine with real tools.")
 	if caps.Mem == MemAlways {
 		b.WriteString(" You evolve with every conversation: you actively maintain a persistent memory so nothing useful is lost between sessions.")
 	}

@@ -51,7 +51,6 @@ async function loadAgent(){
   const s=await jget('/api/agent');
   const on = s.enabled;
   document.getElementById('agent-toggle').checked = on;
-  document.getElementById('toollimit-toggle').checked = (s.tool_limit !== false);
   document.getElementById('compact-toggle').checked = (s.compact !== false);
   document.getElementById('agent-badge').innerHTML = on
     ? '<span class="tag ok">on</span>' : '<span class="tag" style="opacity:.6">off</span>';
@@ -115,11 +114,6 @@ async function toggleAgent(){
   const on=document.getElementById('agent-toggle').checked;
   if(on && !await askConfirm("L'IA aura un accès shell complet au serveur (bash) et pourra lire/écrire sa mémoire.", {title:'Activer le mode agent ?', okText:'Activer', danger:true})){ document.getElementById('agent-toggle').checked=false; return; }
   await jpost('/api/agent/toggle',{on});
-  loadAgent();
-}
-async function toggleToolLimit(){
-  const on=document.getElementById('toollimit-toggle').checked;
-  await jpost('/api/agent/tool-limit',{on});
   loadAgent();
 }
 async function toggleCompact(){

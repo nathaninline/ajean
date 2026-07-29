@@ -4,6 +4,32 @@
 // suit le direct. Fermer l'onglet n'arrête plus la génération (détachée côté
 // serveur) ; se reconnecter rejoue tout le fil, détails compris.
 let lastSeq=0, streamAbort=null;
+// Bulle « en attente » : affichée EN GRIS dès l'appui sur envoyer, avant tout
+// aller-retour réseau. Le message ne disparaît donc plus de l'écran entre la
+// frappe et la réponse du serveur. Elle s'éclaircit (classe retirée) quand
+// l'événement `user` revient par le flux — preuve que le serveur l'a bien
+// enregistré. En cas d'échec d'envoi, elle est retirée et le texte est rendu.
+let PENDING=null;
+function clearPending(){ if(PENDING){ PENDING.remove(); PENDING=null; } }
+function addPending(text){
+  clearPending();
+  PENDING=addMsg('user', text);
+  PENDING.classList.add('pending');
+  const l=PENDING.querySelector('.label'); if(l) l.textContent='envoi…';
+  jumpBottom();
+  return PENDING;
+}
+// Le serveur confirme le message : on réutilise la bulle grise au lieu d'en
+// ajouter une seconde (sinon le message clignoterait en double).
+function confirmPending(text){
+  if(!PENDING) return false;
+  const b=PENDING.querySelector('.body');
+  if(!b || b.textContent!==text) return false;
+  PENDING.classList.remove('pending');
+  const l=PENDING.querySelector('.label'); if(l) l.textContent='user';
+  PENDING=null;
+  return true;
+}
 // REPLAYING = on est dans le replay initial (rejeu du journal au chargement).
 // Pendant ce temps, les bulles raisonnement/outil sont créées DÉJÀ repliées →
 // pas d'animation d'ouverture/fermeture au refresh. Le serveur envoie {caught_up}
@@ -54,10 +80,11 @@ function handleDelta(d){
   if(d.caught_up){
     // Fin du replay initial : on saute en bas puis on révèle (une seule fois — pas
     // sur les reconnexions, pour ne pas te ramener en bas si tu lisais plus haut).
+    setChatLoading(null);
     if(REPLAYING){ REPLAYING=false; jumpBottom(); syncSendBtn(); const c=chatEl(); c.style.transition='opacity .15s'; c.style.opacity='1'; }
     return; }
-  if(d.reset!==undefined){ document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); const cb=document.getElementById('compact-banner'); if(cb) cb.style.display='none'; return; }
-  if(d.user!==undefined){ newTurn(); addMsg('user', d.user); setBusy(true); T.typingEl=addTyping(); return; }
+  if(d.reset!==undefined){ PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); const cb=document.getElementById('compact-banner'); if(cb) cb.style.display='none'; return; }
+  if(d.user!==undefined){ newTurn(); if(!confirmPending(d.user)) addMsg('user', d.user); setBusy(true); T.typingEl=addTyping(); return; }
   if(d.turn_done){ removeTyping(); collapseAll(T.turnCollapsibles); if(T.serverStats) renderStats(T.contentEl||T.reasonEl, T.serverStats); setBusy(false); return; }
   if(d.error){ removeTyping(); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
   if(d.compacting!==undefined){ const b=document.getElementById('compact-banner'); if(b) b.style.display = d.compacting ? 'flex' : 'none'; return; }
@@ -123,6 +150,7 @@ async function connectStream(){
     streamAbort=new AbortController();
     try{
       const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:lastSeq}),signal:streamAbort.signal});
+      if(REPLAYING) setChatLoading('chargement de la conversation…');
       const reader=r.body.getReader(); const dec=new TextDecoder(); let buf='';
       while(true){
         const {done,value}=await reader.read(); if(done) break;
@@ -137,6 +165,10 @@ async function connectStream(){
         }
       }
     }catch(e){ /* coupure : on reconnecte silencieusement */ }
+    // Le flux s'est arrêté (coupure ou fin prématurée). Si le fil n'a JAMAIS fini
+    // de charger, le silence est trompeur — un chat vide sans explication. On le
+    // dit dans le voile ; il disparaîtra au {caught_up} de la reconnexion.
+    if(REPLAYING) setChatLoading('connexion au serveur…');
     await new Promise(res=>setTimeout(res, 600));
   }
 }
@@ -153,18 +185,22 @@ async function send(){
   const ta=document.getElementById('input'); const text=ta.value.trim();
   if(!text) return;
   ta.value=''; autoGrow(ta);
+  // Le message s'affiche TOUT DE SUITE, en gris : il ne disparaît plus le temps
+  // de l'aller-retour. Il s'éclaircit quand le flux le confirme (confirmPending).
+  addPending(text);
+  const fail=(m)=>{ clearPending(); toast(m); ta.value=text; autoGrow(ta); };
   for(let attempt=0; attempt<3; attempt++){
     try{
       const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,ctx_used:CTX_USED})});
       if(r.status===409) return;               // déjà en cours (notre envoi a abouti) → OK
       if(r.ok) return;                          // la bulle + les tokens arrivent par le flux
-      if(r.status<500){ let m='erreur'; try{ m=(await r.json()).error||m; }catch(_){} toast(m); ta.value=text; autoGrow(ta); return; }
+      if(r.status<500){ let m='erreur'; try{ m=(await r.json()).error||m; }catch(_){} fail(m); return; }
     }catch(e){ /* réseau : on retente */ }
     await new Promise(res=>setTimeout(res, 600));
   }
   // Après plusieurs échecs : le serveur a peut-être quand même reçu le message.
   try{ const s=await (await jfetch('/api/chat/state')).json(); if(s.generating) return; }catch(_){}
-  toast('échec de l\'envoi — réessaie'); ta.value=text;
+  fail('échec de l\'envoi — réessaie');
 }
 loadAll();
 setInterval(loadStatus, 5000);

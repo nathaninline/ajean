@@ -14,6 +14,13 @@
      (iOS n'accepte pas le SVG pour l'icône d'accueil). Aucun fichier externe requis. -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect width='12' height='12' rx='2' ry='2' fill='%23000'/><rect x='6' y='3' width='2' height='2' fill='%23fff'/><rect x='6' y='5' width='2' height='2' fill='%23fff'/><rect x='4' y='7' width='2' height='2' fill='%23fff'/></svg>">
 <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAABBUlEQVR42u3SAQkAAAwCQfuX3lI4GNxF0E8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIArU2NbcYhDHOIQhzgQB+JAHIgDcSAOxIE4xCEOcYhDHIgDcSAOxIE4EAfiQBziEIc4xCEOcYgDcSAOxIE4EAfiQBziEIc4xCEOcYgDcSAOxIE4EAfiQByIQxziEIc4xIE4EAfiQByIA3EgDsQhDnGIQxziEIc4EAfiQByIAxciDsSBOBAH4kAc4hCHOMQhDnGIA3EgDsSBOBAH4kAc4hCHOMQhDnGIA3EgDsSBOBAH4kAciEMc4hCHOMQBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADfLBHMhi4TnG6EAAAAAElFTkSuQmCC">
+<!-- Marque le mode PWA AVANT le rendu : la hauteur de coque et le défilement du
+     document en dépendent (voir styles.css). ⚠️ On NE PEUT PAS se fier au média
+     `display-mode:standalone` : WebKit l'adosse au `display` du MANIFESTE, or cette
+     app n'en a pas (elle est en `apple-mobile-web-app-capable`) — en PWA iOS il
+     répond donc `browser`. `navigator.standalone` est le signal juste ici ; on
+     garde `display-mode` en second pour les PWA Android/desktop à manifeste. -->
+<script>try{var pwa=(window.navigator.standalone===true)||(window.matchMedia&&window.matchMedia('(display-mode:standalone)').matches)||(window.matchMedia&&window.matchMedia('(display-mode:fullscreen)').matches);document.documentElement.setAttribute('data-pwa',pwa?'1':'0');}catch(e){document.documentElement.setAttribute('data-pwa','0');}</script>
 <!-- Applique le thème AVANT le rendu (pas de flash) : lit le choix persisté. -->
 <script>try{var t=localStorage.getItem('jean-theme')||'light';document.documentElement.setAttribute('data-theme',(t==='dark'||t.endsWith('-dark'))?'dark':'light');['hide-reasoning','hide-tools','fold-tools','hide-side'].forEach(function(k){document.documentElement.setAttribute('data-'+k,localStorage.getItem('jean-'+k)==='1'?'1':'0')})}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
 <style>
@@ -21,24 +28,50 @@
    Un seul thème (« Clean ») : noir et blanc, sobre. Deux variantes — claire par
    défaut, sombre via data-theme="dark" sur <html>. Toutes les couleurs de l'UI
    passent par ces variables ; rien d'autre ne code une couleur en dur. */
-:root{color-scheme:light;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Helvetica,Arial,sans-serif;--bubble:#f0f0f0;--bg:#ffffff;--panel:#fafafa;--border:#e0e0e2;--text:#0a0a0a;--dim:#6b6b70;--accent:#0a0a0a;--accent-bg:rgba(0,0,0,.05);--ok:#0a0a0a;--warn:#6b6b6b;--err:#c0392b;--mag:#6b6b6b;--code-bg:#f5f5f5;--danger-bg:#fbeae8;--warn-bg:#f2f2f2;--add:#1a7f37;--add-bg:rgba(26,127,55,.10);--del:#cf222e;--del-bg:rgba(207,34,46,.10)}
+:root{color-scheme:light;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Helvetica,Arial,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--bubble:#f0f0f0;--bg:#ffffff;--panel:#fafafa;--border:#e0e0e2;--text:#0a0a0a;--dim:#6b6b70;--accent:#0a0a0a;--accent-bg:rgba(0,0,0,.05);--ok:#0a0a0a;--warn:#6b6b6b;--err:#c0392b;--mag:#6b6b6b;--code-bg:#f5f5f5;--danger-bg:#fbeae8;--warn-bg:#f2f2f2;--add:#1a7f37;--add-bg:rgba(26,127,55,.10);--del:#cf222e;--del-bg:rgba(207,34,46,.10)}
 [data-theme="dark"]{color-scheme:dark;--bubble:#232326;--bg:#0b0b0c;--panel:#161618;--border:#33333a;--text:#f2f2f4;--dim:#a0a0a8;--accent:#f5f5f5;--accent-bg:rgba(255,255,255,.07);--ok:#f5f5f5;--warn:#8e8e8e;--err:#f2777a;--mag:#8e8e8e;--code-bg:#000000;--danger-bg:#2e1a19;--warn-bg:#1c1c1c;--add:#4ac26b;--add-bg:rgba(74,194,107,.13);--del:#f85149;--del-bg:rgba(248,81,73,.13)}
 *{box-sizing:border-box}
-/* ⚠️ NE PAS mettre overflow:hidden sur html/body (tenté puis retiré le
+/* ⚠️ overflow:hidden sur html/body est INTERDIT EN PWA (tenté puis retiré le
    2026-07-28) : en PWA iOS, si le document ne peut plus défiler, WebKit décale
    TOUTE la mise en page à l'ouverture du clavier pour montrer le champ actif —
    la carte de saisie se retrouve plaquée en haut de l'écran. Le rebond
    élastique du document est le prix à payer ; il est cosmétique, le clavier
-   ne l'est pas. Le défilement du fil reste borné par #chat (overscroll:contain). */
-/* Hauteur de la coque : 100vh, et SURTOUT ni 100dvh ni 100%.
-   Mesuré sur iPhone en PWA (2026-07-28) : la vue web couvre tout l'écran
-   (956 pt — le contenu passe bien sous l'horloge), mais la fenêtre de mise en
-   page ne fait que 894 pt et reste calée en haut. Or 100dvh ET 100% valent tous
-   deux 894 → il restait une bande morte de 62 pt (= la zone sûre du haut) en bas
-   de l'écran, sous la carte de saisie. 100vh se réfère au GRAND viewport, celui
-   qui vaut bien 956 : c'est la seule unité juste ici.
-   ⚠️ Ne pas y ajouter overflow:hidden : voir plus bas, ça casse le clavier iOS. */
-body{margin:0;font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;overscroll-behavior:none;display:flex;font-size:14px}
+   ne l'est pas.
+   Laisser le document défiler se paie cher, et EN PWA AUSSI : la coque y fait
+   956 pt (obligatoire pour que la carte atteigne le bas de l'écran) alors que la
+   fenêtre de mise en page n'en fait que 894 → il reste 62 pt de document
+   défilable en permanence, même avec un fil VIDE, et la carte de saisie — posée
+   en bottom:0 dans le body — part avec au lieu de rester collée en bas.
+   On coupe donc le défilement du document PARTOUT (2026-07-29). Le fil, lui,
+   défile toujours dans #chat, qui borne son rebond (overscroll:contain).
+   ⚠️ SI LE CLAVIER iOS SE REMET À TOUT DÉCALER EN PWA, c'est ce overflow:hidden
+   qu'il faut rouvrir en premier — c'était le compromis d'origine. */
+/* Hauteur de la coque : elle DIFFÈRE entre PWA et navigateur, il faut les deux.
+   - PWA (écran d'accueil) : 100vh, et SURTOUT ni 100dvh ni 100%. Mesuré sur
+     iPhone (2026-07-28) : la vue web couvre tout l'écran (956 pt — le contenu
+     passe bien sous l'horloge), mais la fenêtre de mise en page ne fait que
+     894 pt et reste calée en haut. Or 100dvh ET 100% valent tous deux 894 → il
+     restait une bande morte de 62 pt (= la zone sûre du haut) en bas de l'écran,
+     sous la carte de saisie. 100vh se réfère au GRAND viewport (956) : la seule
+     unité juste dans ce cas.
+   - Navigateur (barre d'URL + barre d'outils visibles) : 100vh vaut justement ce
+     GRAND viewport, donc la coque dépasse la zone réellement visible → le
+     document défile alors que le fil est vide, et le bas de la carte de saisie
+     (modèle / contexte) est coupé. Ici c'est 100dvh qu'il faut : la hauteur
+     visible du moment.
+   D'où : 100dvh par défaut, et 100vh UNIQUEMENT en PWA.
+   ⚠️ Le tri se fait sur l'attribut html[data-pwa] (pose par le script du <head>),
+   PAS sur le media `display-mode:standalone` : WebKit adosse ce media au `display`
+   du MANIFESTE, or cette app n'en a pas (elle vit en apple-mobile-web-app-capable).
+   En PWA iOS il repond donc `browser`, la branche navigateur s'appliquait, et la
+   bande morte de 62 pt sous la carte de saisie etait de retour (constate le
+   2026-07-29).
+   ⚠️ Ne pas y ajouter overflow:hidden : voir plus haut, ça casse le clavier iOS. */
+body{margin:0;font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;height:100dvh;overscroll-behavior:none;display:flex;font-size:14px}
+html[data-pwa="1"] body{height:100vh}
+/* Seul #chat défile ; le document, lui, est figé (cf. l'avertissement ci-dessus).
+   Exception PWA : on lui rend son défilement, sinon le clavier iOS casse tout. */
+html,body{overflow:hidden}
 /* PWA plein écran (viewport-fit=cover) : on décale le contenu des bords pour ne
    pas passer sous l'encoche / la barre système / l'indicateur d'accueil. Les
    env(safe-area-inset-*) valent 0 hors PWA, donc aucun impact ailleurs.
@@ -103,7 +136,7 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 .skillshead>span{font-size:11.5px;color:var(--dim);font-weight:600}
 .addbtn{font-size:11px;padding:3px 11px 4px;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer;line-height:1.2}
 .addbtn:hover{border-color:var(--accent);color:var(--accent)}
-.mem-count{font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:4px}
+.mem-count{font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;font-family:var(--font);margin-left:4px}
 /* Titre de sous-section (Mémoire / Accès internet) : simple libellé, PAS de trait
    (le trait est réservé aux sections principales — cf. `details`). La séparation
    visuelle vient de la carte englobante .gated-block. */
@@ -182,7 +215,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .help:hover{color:var(--accent);border-color:var(--accent)}
 /* La bulle est ancrée à la ligne (.switchrow position:relative), pas au « ? »,
    pour rester alignée au bord gauche du panneau et ne pas déborder. */
-.help>.tip{display:none;position:absolute;z-index:40;left:0;right:0;top:calc(100% + 2px);padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:11px;font-weight:400;line-height:1.4;color:var(--text);box-shadow:0 4px 16px rgba(0,0,0,.15);white-space:normal;text-align:left;text-transform:none;letter-spacing:normal;cursor:auto}
+.help>.tip{display:none;position:absolute;z-index:40;left:0;right:0;top:calc(100% + 2px);padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:11px;font-weight:400;line-height:1.4;color:var(--text);box-shadow:0 4px 16px rgba(0,0,0,.15);white-space:normal;text-align:left;text-transform:none;letter-spacing:normal;font-family:var(--font);cursor:auto}
 .help:hover>.tip,.help:focus>.tip,.help.open>.tip{display:block}
 .kv{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;border-bottom:1px solid var(--border);font-size:13px;min-height:38px;align-items:center}
 .kv span:first-child{color:var(--text);flex-shrink:0}
@@ -252,6 +285,25 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .msg.typing span:nth-child(2){animation-delay:.16s}
 .msg.typing span:nth-child(3){animation-delay:.32s}
 @keyframes typingdot{0%,70%,100%{opacity:.25;transform:translateY(0)}35%{opacity:1;transform:translateY(-4px)}}
+/* --- Message en attente d'accusé serveur ---------------------------------
+   Affiché DÈS l'appui sur envoyer, en gris et légèrement effacé : le message
+   ne disparaît plus le temps de l'aller-retour. La classe est retirée quand le
+   flux renvoie l'événement `user`, et la bulle reprend sa couleur pleine —
+   signal net que c'est bien parti. */
+.msg.user.pending{opacity:.45;transition:opacity .2s ease}
+.msg.user.pending .label{font-style:italic}
+
+/* --- Voile de chargement du fil ------------------------------------------
+   Couvre la zone du chat tant que le replay n'est pas fini. Sans lui, une
+   connexion lente donne un chat vide indiscernable d'une conversation vide. */
+#chat-loading{position:absolute;inset:0;z-index:6;display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:12px;background:var(--bg);
+  color:var(--dim);font-size:12px;letter-spacing:.04em;pointer-events:none}
+#chat-loading.show{display:flex}
+.cl-dots{display:inline-flex;gap:5px;align-items:center}
+.cl-dots span{width:7px;height:7px;border-radius:50%;background:var(--dim);animation:typingdot 1.2s infinite ease-in-out}
+.cl-dots span:nth-child(2){animation-delay:.16s}
+.cl-dots span:nth-child(3){animation-delay:.32s}
 .msg .label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;display:block}
 /* Bulles repliables (reasoning / tool) : une fois la réponse arrivée, on les
    replie en douceur pour désencombrer le fil, tout en gardant le label (et son
@@ -271,6 +323,12 @@ details[open]{padding-bottom:10px}
 details>summary{display:flex;align-items:center;gap:8px;height:34px;font-size:13px;font-weight:500;
   color:var(--text);cursor:pointer;list-style:none;user-select:none}
 .stitle{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Tous les titres du menu (sections ET étiquettes de groupe) s'écrivent de la
+   MÊME façon : monospace, capitales, même interlettrage. La casse vient du CSS,
+   pas du HTML, pour qu'aucun libellé ne puisse diverger. Seule la taille et la
+   couleur distinguent les deux niveaux. */
+.stitle,.subhead,.io-cap,.pages-bar .pages-title,.skillshead>span{
+  font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em}
 .sbadge{flex:none;font-size:10px}
 details>summary::-webkit-details-marker{display:none}
 details>summary:hover{color:var(--dim)}
@@ -283,7 +341,7 @@ details[open]>summary::after{transform:rotate(45deg)}
 
 /* --- Étiquette de groupe : une seule règle pour toutes les variantes --- */
 .subhead,.io-cap,.pages-bar .pages-title,.skillshead>span{position:relative;display:flex;align-items:center;
-  font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.01em;margin:10px 2px 5px}
+  font-size:11px;font-weight:600;color:var(--dim);margin:10px 2px 5px}
 .io-cap{margin:0 2px 5px}
 .io-group{margin-top:8px}
 
@@ -798,7 +856,6 @@ button:hover{border-color:var(--dim);color:var(--text)}
     </div>
     <div id="param-block" class="gated-block">
       <div class="subhead">Paramètres</div>
-      <label class="switchrow"><span class="switch"><input type="checkbox" id="toollimit-toggle" onchange="toggleToolLimit()"><span class="slider"></span></span> limiter les appels d'outils par tour<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : coupe l'IA après ~8 appels d'outils (message <code>[stop: trop d'appels d'outils]</code>). Désactive-le si tu veux la laisser enchaîner sans plafond (l'anti-boucle reste actif).</span></span></label>
       <label class="switchrow" style="margin-top:8px"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> compactage automatique du contexte<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
     </div>
   </details>
@@ -930,6 +987,9 @@ button:hover{border-color:var(--dim);color:var(--text)}
 </div>
 <div class="main" style="position:relative">
   <div id="chat"></div>
+  <!-- Voile de chargement du fil : sans lui, une connexion lente donne un chat
+       VIDE indiscernable d'une conversation vide. Masqué au signal {caught_up}. -->
+  <div id="chat-loading"><span class="cl-dots"><span></span><span></span><span></span></span><span id="chat-loading-text">chargement de la conversation…</span></div>
   <button id="scrollbtn" onclick="jumpBottom()" title="aller en bas">↓</button>
   <div id="composer">
     <div id="compact-banner" style="display:none"><span class="cspin">⏳</span> Compactage du contexte en cours — résumé des anciens tours…</div>
@@ -1048,7 +1108,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
       </div>
       <div id="mcp-modal-status" class="muted" style="font-size:12px;min-height:16px"></div>
       <div id="mcp-tools-section" style="display:none">
-        <div class="subhead" style="margin-top:6px">Outils <span id="mcp-tools-count" class="muted" style="text-transform:none;letter-spacing:0;font-weight:400"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Décoche un outil pour le masquer à l'IA sans déconnecter le serveur. Utile pour ne garder que ce dont tu as besoin.</span></span></div>
+        <div class="subhead" style="margin-top:6px">Outils <span id="mcp-tools-count" class="muted" style="text-transform:none;letter-spacing:0;font-weight:400;font-family:var(--font)"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Décoche un outil pour le masquer à l'IA sans déconnecter le serveur. Utile pour ne garder que ce dont tu as besoin.</span></span></div>
         <div id="mcp-tools-list" class="mcp-tools-list"></div>
       </div>
     </div>
@@ -1625,7 +1685,6 @@ async function loadAgent(){
   const s=await jget('/api/agent');
   const on = s.enabled;
   document.getElementById('agent-toggle').checked = on;
-  document.getElementById('toollimit-toggle').checked = (s.tool_limit !== false);
   document.getElementById('compact-toggle').checked = (s.compact !== false);
   document.getElementById('agent-badge').innerHTML = on
     ? '<span class="tag ok">on</span>' : '<span class="tag" style="opacity:.6">off</span>';
@@ -1689,11 +1748,6 @@ async function toggleAgent(){
   const on=document.getElementById('agent-toggle').checked;
   if(on && !await askConfirm("L'IA aura un accès shell complet au serveur (bash) et pourra lire/écrire sa mémoire.", {title:'Activer le mode agent ?', okText:'Activer', danger:true})){ document.getElementById('agent-toggle').checked=false; return; }
   await jpost('/api/agent/toggle',{on});
-  loadAgent();
-}
-async function toggleToolLimit(){
-  const on=document.getElementById('toollimit-toggle').checked;
-  await jpost('/api/agent/tool-limit',{on});
   loadAgent();
 }
 async function toggleCompact(){
@@ -2426,15 +2480,30 @@ function saveChat(){ try{ localStorage.setItem('jean.chat', JSON.stringify(msgs)
 // Source de vérité = SERVEUR : on ouvre le flux d'abonnement permanent qui rejoue
 // tout le fil (texte, outils, vitesses via les horodatages serveur, raisonnement)
 // puis suit le direct. Partagé par tous les appareils.
+// Voile de chargement du fil. setChatLoading(null) le masque, setChatLoading(txt)
+// l'affiche avec ce libellé (« chargement… » au départ, « connexion au serveur… »
+// si le flux tombe). Sans lui, une connexion lente affiche un chat vide qu'on ne
+// distingue pas d'une conversation réellement vide.
+function setChatLoading(msg){
+  const el=document.getElementById('chat-loading');
+  if(!el) return;
+  if(!msg){ el.classList.remove('show'); return; }
+  document.getElementById('chat-loading-text').textContent=msg;
+  el.classList.add('show');
+}
 function restoreChat(){
   // On masque le chat le temps du replay pour ne pas voir défiler le haut puis
   // sauter en bas (effet de clignotement). Il est révélé, positionné en bas, au
   // signal {caught_up}. Filet de sécurité : révélé quoi qu'il arrive après 2s.
   const c=chatEl(); c.style.opacity='0';
+  setChatLoading('chargement de la conversation…');
   // Si {caught_up} tarde au-delà de 2s (replay anormalement long), on révèle quand
   // même — et on saute en bas DIRECTEMENT (scrollMaybe est neutralisé tant que
-  // REPLAYING, donc on force ici le positionnement).
+  // REPLAYING, donc on force ici le positionnement). Le voile, lui, RESTE : tant
+  // que le replay n'est pas fini, ce qui est affiché est incomplet et il faut le
+  // dire. Il finit de toute façon par tomber au {caught_up} ou au filet de 15s.
   setTimeout(()=>{ c.style.transition='opacity .15s'; c.style.opacity='1'; c.scrollTop=c.scrollHeight; }, 2000);
+  setTimeout(()=>{ setChatLoading(null); }, 15000);
   connectStream();
 }
 function onKey(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } }
@@ -2455,6 +2524,32 @@ function autoGrow(ta){
 // suit le direct. Fermer l'onglet n'arrête plus la génération (détachée côté
 // serveur) ; se reconnecter rejoue tout le fil, détails compris.
 let lastSeq=0, streamAbort=null;
+// Bulle « en attente » : affichée EN GRIS dès l'appui sur envoyer, avant tout
+// aller-retour réseau. Le message ne disparaît donc plus de l'écran entre la
+// frappe et la réponse du serveur. Elle s'éclaircit (classe retirée) quand
+// l'événement `user` revient par le flux — preuve que le serveur l'a bien
+// enregistré. En cas d'échec d'envoi, elle est retirée et le texte est rendu.
+let PENDING=null;
+function clearPending(){ if(PENDING){ PENDING.remove(); PENDING=null; } }
+function addPending(text){
+  clearPending();
+  PENDING=addMsg('user', text);
+  PENDING.classList.add('pending');
+  const l=PENDING.querySelector('.label'); if(l) l.textContent='envoi…';
+  jumpBottom();
+  return PENDING;
+}
+// Le serveur confirme le message : on réutilise la bulle grise au lieu d'en
+// ajouter une seconde (sinon le message clignoterait en double).
+function confirmPending(text){
+  if(!PENDING) return false;
+  const b=PENDING.querySelector('.body');
+  if(!b || b.textContent!==text) return false;
+  PENDING.classList.remove('pending');
+  const l=PENDING.querySelector('.label'); if(l) l.textContent='user';
+  PENDING=null;
+  return true;
+}
 // REPLAYING = on est dans le replay initial (rejeu du journal au chargement).
 // Pendant ce temps, les bulles raisonnement/outil sont créées DÉJÀ repliées →
 // pas d'animation d'ouverture/fermeture au refresh. Le serveur envoie {caught_up}
@@ -2505,10 +2600,11 @@ function handleDelta(d){
   if(d.caught_up){
     // Fin du replay initial : on saute en bas puis on révèle (une seule fois — pas
     // sur les reconnexions, pour ne pas te ramener en bas si tu lisais plus haut).
+    setChatLoading(null);
     if(REPLAYING){ REPLAYING=false; jumpBottom(); syncSendBtn(); const c=chatEl(); c.style.transition='opacity .15s'; c.style.opacity='1'; }
     return; }
-  if(d.reset!==undefined){ document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); const cb=document.getElementById('compact-banner'); if(cb) cb.style.display='none'; return; }
-  if(d.user!==undefined){ newTurn(); addMsg('user', d.user); setBusy(true); T.typingEl=addTyping(); return; }
+  if(d.reset!==undefined){ PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); const cb=document.getElementById('compact-banner'); if(cb) cb.style.display='none'; return; }
+  if(d.user!==undefined){ newTurn(); if(!confirmPending(d.user)) addMsg('user', d.user); setBusy(true); T.typingEl=addTyping(); return; }
   if(d.turn_done){ removeTyping(); collapseAll(T.turnCollapsibles); if(T.serverStats) renderStats(T.contentEl||T.reasonEl, T.serverStats); setBusy(false); return; }
   if(d.error){ removeTyping(); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
   if(d.compacting!==undefined){ const b=document.getElementById('compact-banner'); if(b) b.style.display = d.compacting ? 'flex' : 'none'; return; }
@@ -2574,6 +2670,7 @@ async function connectStream(){
     streamAbort=new AbortController();
     try{
       const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:lastSeq}),signal:streamAbort.signal});
+      if(REPLAYING) setChatLoading('chargement de la conversation…');
       const reader=r.body.getReader(); const dec=new TextDecoder(); let buf='';
       while(true){
         const {done,value}=await reader.read(); if(done) break;
@@ -2588,6 +2685,10 @@ async function connectStream(){
         }
       }
     }catch(e){ /* coupure : on reconnecte silencieusement */ }
+    // Le flux s'est arrêté (coupure ou fin prématurée). Si le fil n'a JAMAIS fini
+    // de charger, le silence est trompeur — un chat vide sans explication. On le
+    // dit dans le voile ; il disparaîtra au {caught_up} de la reconnexion.
+    if(REPLAYING) setChatLoading('connexion au serveur…');
     await new Promise(res=>setTimeout(res, 600));
   }
 }
@@ -2604,18 +2705,22 @@ async function send(){
   const ta=document.getElementById('input'); const text=ta.value.trim();
   if(!text) return;
   ta.value=''; autoGrow(ta);
+  // Le message s'affiche TOUT DE SUITE, en gris : il ne disparaît plus le temps
+  // de l'aller-retour. Il s'éclaircit quand le flux le confirme (confirmPending).
+  addPending(text);
+  const fail=(m)=>{ clearPending(); toast(m); ta.value=text; autoGrow(ta); };
   for(let attempt=0; attempt<3; attempt++){
     try{
       const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,ctx_used:CTX_USED})});
       if(r.status===409) return;               // déjà en cours (notre envoi a abouti) → OK
       if(r.ok) return;                          // la bulle + les tokens arrivent par le flux
-      if(r.status<500){ let m='erreur'; try{ m=(await r.json()).error||m; }catch(_){} toast(m); ta.value=text; autoGrow(ta); return; }
+      if(r.status<500){ let m='erreur'; try{ m=(await r.json()).error||m; }catch(_){} fail(m); return; }
     }catch(e){ /* réseau : on retente */ }
     await new Promise(res=>setTimeout(res, 600));
   }
   // Après plusieurs échecs : le serveur a peut-être quand même reçu le message.
   try{ const s=await (await jfetch('/api/chat/state')).json(); if(s.generating) return; }catch(_){}
-  toast('échec de l\'envoi — réessaie'); ta.value=text;
+  fail('échec de l\'envoi — réessaie');
 }
 loadAll();
 setInterval(loadStatus, 5000);

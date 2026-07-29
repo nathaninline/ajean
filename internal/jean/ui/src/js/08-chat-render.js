@@ -227,15 +227,30 @@ function saveChat(){ try{ localStorage.setItem('jean.chat', JSON.stringify(msgs)
 // Source de vérité = SERVEUR : on ouvre le flux d'abonnement permanent qui rejoue
 // tout le fil (texte, outils, vitesses via les horodatages serveur, raisonnement)
 // puis suit le direct. Partagé par tous les appareils.
+// Voile de chargement du fil. setChatLoading(null) le masque, setChatLoading(txt)
+// l'affiche avec ce libellé (« chargement… » au départ, « connexion au serveur… »
+// si le flux tombe). Sans lui, une connexion lente affiche un chat vide qu'on ne
+// distingue pas d'une conversation réellement vide.
+function setChatLoading(msg){
+  const el=document.getElementById('chat-loading');
+  if(!el) return;
+  if(!msg){ el.classList.remove('show'); return; }
+  document.getElementById('chat-loading-text').textContent=msg;
+  el.classList.add('show');
+}
 function restoreChat(){
   // On masque le chat le temps du replay pour ne pas voir défiler le haut puis
   // sauter en bas (effet de clignotement). Il est révélé, positionné en bas, au
   // signal {caught_up}. Filet de sécurité : révélé quoi qu'il arrive après 2s.
   const c=chatEl(); c.style.opacity='0';
+  setChatLoading('chargement de la conversation…');
   // Si {caught_up} tarde au-delà de 2s (replay anormalement long), on révèle quand
   // même — et on saute en bas DIRECTEMENT (scrollMaybe est neutralisé tant que
-  // REPLAYING, donc on force ici le positionnement).
+  // REPLAYING, donc on force ici le positionnement). Le voile, lui, RESTE : tant
+  // que le replay n'est pas fini, ce qui est affiché est incomplet et il faut le
+  // dire. Il finit de toute façon par tomber au {caught_up} ou au filet de 15s.
   setTimeout(()=>{ c.style.transition='opacity .15s'; c.style.opacity='1'; c.scrollTop=c.scrollHeight; }, 2000);
+  setTimeout(()=>{ setChatLoading(null); }, 15000);
   connectStream();
 }
 function onKey(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } }

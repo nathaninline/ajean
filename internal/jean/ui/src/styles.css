@@ -2,24 +2,50 @@
    Un seul thème (« Clean ») : noir et blanc, sobre. Deux variantes — claire par
    défaut, sombre via data-theme="dark" sur <html>. Toutes les couleurs de l'UI
    passent par ces variables ; rien d'autre ne code une couleur en dur. */
-:root{color-scheme:light;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Helvetica,Arial,sans-serif;--bubble:#f0f0f0;--bg:#ffffff;--panel:#fafafa;--border:#e0e0e2;--text:#0a0a0a;--dim:#6b6b70;--accent:#0a0a0a;--accent-bg:rgba(0,0,0,.05);--ok:#0a0a0a;--warn:#6b6b6b;--err:#c0392b;--mag:#6b6b6b;--code-bg:#f5f5f5;--danger-bg:#fbeae8;--warn-bg:#f2f2f2;--add:#1a7f37;--add-bg:rgba(26,127,55,.10);--del:#cf222e;--del-bg:rgba(207,34,46,.10)}
+:root{color-scheme:light;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Helvetica,Arial,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--bubble:#f0f0f0;--bg:#ffffff;--panel:#fafafa;--border:#e0e0e2;--text:#0a0a0a;--dim:#6b6b70;--accent:#0a0a0a;--accent-bg:rgba(0,0,0,.05);--ok:#0a0a0a;--warn:#6b6b6b;--err:#c0392b;--mag:#6b6b6b;--code-bg:#f5f5f5;--danger-bg:#fbeae8;--warn-bg:#f2f2f2;--add:#1a7f37;--add-bg:rgba(26,127,55,.10);--del:#cf222e;--del-bg:rgba(207,34,46,.10)}
 [data-theme="dark"]{color-scheme:dark;--bubble:#232326;--bg:#0b0b0c;--panel:#161618;--border:#33333a;--text:#f2f2f4;--dim:#a0a0a8;--accent:#f5f5f5;--accent-bg:rgba(255,255,255,.07);--ok:#f5f5f5;--warn:#8e8e8e;--err:#f2777a;--mag:#8e8e8e;--code-bg:#000000;--danger-bg:#2e1a19;--warn-bg:#1c1c1c;--add:#4ac26b;--add-bg:rgba(74,194,107,.13);--del:#f85149;--del-bg:rgba(248,81,73,.13)}
 *{box-sizing:border-box}
-/* ⚠️ NE PAS mettre overflow:hidden sur html/body (tenté puis retiré le
+/* ⚠️ overflow:hidden sur html/body est INTERDIT EN PWA (tenté puis retiré le
    2026-07-28) : en PWA iOS, si le document ne peut plus défiler, WebKit décale
    TOUTE la mise en page à l'ouverture du clavier pour montrer le champ actif —
    la carte de saisie se retrouve plaquée en haut de l'écran. Le rebond
    élastique du document est le prix à payer ; il est cosmétique, le clavier
-   ne l'est pas. Le défilement du fil reste borné par #chat (overscroll:contain). */
-/* Hauteur de la coque : 100vh, et SURTOUT ni 100dvh ni 100%.
-   Mesuré sur iPhone en PWA (2026-07-28) : la vue web couvre tout l'écran
-   (956 pt — le contenu passe bien sous l'horloge), mais la fenêtre de mise en
-   page ne fait que 894 pt et reste calée en haut. Or 100dvh ET 100% valent tous
-   deux 894 → il restait une bande morte de 62 pt (= la zone sûre du haut) en bas
-   de l'écran, sous la carte de saisie. 100vh se réfère au GRAND viewport, celui
-   qui vaut bien 956 : c'est la seule unité juste ici.
-   ⚠️ Ne pas y ajouter overflow:hidden : voir plus bas, ça casse le clavier iOS. */
-body{margin:0;font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;overscroll-behavior:none;display:flex;font-size:14px}
+   ne l'est pas.
+   Laisser le document défiler se paie cher, et EN PWA AUSSI : la coque y fait
+   956 pt (obligatoire pour que la carte atteigne le bas de l'écran) alors que la
+   fenêtre de mise en page n'en fait que 894 → il reste 62 pt de document
+   défilable en permanence, même avec un fil VIDE, et la carte de saisie — posée
+   en bottom:0 dans le body — part avec au lieu de rester collée en bas.
+   On coupe donc le défilement du document PARTOUT (2026-07-29). Le fil, lui,
+   défile toujours dans #chat, qui borne son rebond (overscroll:contain).
+   ⚠️ SI LE CLAVIER iOS SE REMET À TOUT DÉCALER EN PWA, c'est ce overflow:hidden
+   qu'il faut rouvrir en premier — c'était le compromis d'origine. */
+/* Hauteur de la coque : elle DIFFÈRE entre PWA et navigateur, il faut les deux.
+   - PWA (écran d'accueil) : 100vh, et SURTOUT ni 100dvh ni 100%. Mesuré sur
+     iPhone (2026-07-28) : la vue web couvre tout l'écran (956 pt — le contenu
+     passe bien sous l'horloge), mais la fenêtre de mise en page ne fait que
+     894 pt et reste calée en haut. Or 100dvh ET 100% valent tous deux 894 → il
+     restait une bande morte de 62 pt (= la zone sûre du haut) en bas de l'écran,
+     sous la carte de saisie. 100vh se réfère au GRAND viewport (956) : la seule
+     unité juste dans ce cas.
+   - Navigateur (barre d'URL + barre d'outils visibles) : 100vh vaut justement ce
+     GRAND viewport, donc la coque dépasse la zone réellement visible → le
+     document défile alors que le fil est vide, et le bas de la carte de saisie
+     (modèle / contexte) est coupé. Ici c'est 100dvh qu'il faut : la hauteur
+     visible du moment.
+   D'où : 100dvh par défaut, et 100vh UNIQUEMENT en PWA.
+   ⚠️ Le tri se fait sur l'attribut html[data-pwa] (pose par le script du <head>),
+   PAS sur le media `display-mode:standalone` : WebKit adosse ce media au `display`
+   du MANIFESTE, or cette app n'en a pas (elle vit en apple-mobile-web-app-capable).
+   En PWA iOS il repond donc `browser`, la branche navigateur s'appliquait, et la
+   bande morte de 62 pt sous la carte de saisie etait de retour (constate le
+   2026-07-29).
+   ⚠️ Ne pas y ajouter overflow:hidden : voir plus haut, ça casse le clavier iOS. */
+body{margin:0;font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;height:100dvh;overscroll-behavior:none;display:flex;font-size:14px}
+html[data-pwa="1"] body{height:100vh}
+/* Seul #chat défile ; le document, lui, est figé (cf. l'avertissement ci-dessus).
+   Exception PWA : on lui rend son défilement, sinon le clavier iOS casse tout. */
+html,body{overflow:hidden}
 /* PWA plein écran (viewport-fit=cover) : on décale le contenu des bords pour ne
    pas passer sous l'encoche / la barre système / l'indicateur d'accueil. Les
    env(safe-area-inset-*) valent 0 hors PWA, donc aucun impact ailleurs.
@@ -84,7 +110,7 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 .skillshead>span{font-size:11.5px;color:var(--dim);font-weight:600}
 .addbtn{font-size:11px;padding:3px 11px 4px;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer;line-height:1.2}
 .addbtn:hover{border-color:var(--accent);color:var(--accent)}
-.mem-count{font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:4px}
+.mem-count{font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;font-family:var(--font);margin-left:4px}
 /* Titre de sous-section (Mémoire / Accès internet) : simple libellé, PAS de trait
    (le trait est réservé aux sections principales — cf. `details`). La séparation
    visuelle vient de la carte englobante .gated-block. */
@@ -163,7 +189,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .help:hover{color:var(--accent);border-color:var(--accent)}
 /* La bulle est ancrée à la ligne (.switchrow position:relative), pas au « ? »,
    pour rester alignée au bord gauche du panneau et ne pas déborder. */
-.help>.tip{display:none;position:absolute;z-index:40;left:0;right:0;top:calc(100% + 2px);padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:11px;font-weight:400;line-height:1.4;color:var(--text);box-shadow:0 4px 16px rgba(0,0,0,.15);white-space:normal;text-align:left;text-transform:none;letter-spacing:normal;cursor:auto}
+.help>.tip{display:none;position:absolute;z-index:40;left:0;right:0;top:calc(100% + 2px);padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:11px;font-weight:400;line-height:1.4;color:var(--text);box-shadow:0 4px 16px rgba(0,0,0,.15);white-space:normal;text-align:left;text-transform:none;letter-spacing:normal;font-family:var(--font);cursor:auto}
 .help:hover>.tip,.help:focus>.tip,.help.open>.tip{display:block}
 .kv{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;border-bottom:1px solid var(--border);font-size:13px;min-height:38px;align-items:center}
 .kv span:first-child{color:var(--text);flex-shrink:0}
@@ -233,6 +259,25 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .msg.typing span:nth-child(2){animation-delay:.16s}
 .msg.typing span:nth-child(3){animation-delay:.32s}
 @keyframes typingdot{0%,70%,100%{opacity:.25;transform:translateY(0)}35%{opacity:1;transform:translateY(-4px)}}
+/* --- Message en attente d'accusé serveur ---------------------------------
+   Affiché DÈS l'appui sur envoyer, en gris et légèrement effacé : le message
+   ne disparaît plus le temps de l'aller-retour. La classe est retirée quand le
+   flux renvoie l'événement `user`, et la bulle reprend sa couleur pleine —
+   signal net que c'est bien parti. */
+.msg.user.pending{opacity:.45;transition:opacity .2s ease}
+.msg.user.pending .label{font-style:italic}
+
+/* --- Voile de chargement du fil ------------------------------------------
+   Couvre la zone du chat tant que le replay n'est pas fini. Sans lui, une
+   connexion lente donne un chat vide indiscernable d'une conversation vide. */
+#chat-loading{position:absolute;inset:0;z-index:6;display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:12px;background:var(--bg);
+  color:var(--dim);font-size:12px;letter-spacing:.04em;pointer-events:none}
+#chat-loading.show{display:flex}
+.cl-dots{display:inline-flex;gap:5px;align-items:center}
+.cl-dots span{width:7px;height:7px;border-radius:50%;background:var(--dim);animation:typingdot 1.2s infinite ease-in-out}
+.cl-dots span:nth-child(2){animation-delay:.16s}
+.cl-dots span:nth-child(3){animation-delay:.32s}
 .msg .label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;display:block}
 /* Bulles repliables (reasoning / tool) : une fois la réponse arrivée, on les
    replie en douceur pour désencombrer le fil, tout en gardant le label (et son
@@ -252,6 +297,12 @@ details[open]{padding-bottom:10px}
 details>summary{display:flex;align-items:center;gap:8px;height:34px;font-size:13px;font-weight:500;
   color:var(--text);cursor:pointer;list-style:none;user-select:none}
 .stitle{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Tous les titres du menu (sections ET étiquettes de groupe) s'écrivent de la
+   MÊME façon : monospace, capitales, même interlettrage. La casse vient du CSS,
+   pas du HTML, pour qu'aucun libellé ne puisse diverger. Seule la taille et la
+   couleur distinguent les deux niveaux. */
+.stitle,.subhead,.io-cap,.pages-bar .pages-title,.skillshead>span{
+  font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em}
 .sbadge{flex:none;font-size:10px}
 details>summary::-webkit-details-marker{display:none}
 details>summary:hover{color:var(--dim)}
@@ -264,7 +315,7 @@ details[open]>summary::after{transform:rotate(45deg)}
 
 /* --- Étiquette de groupe : une seule règle pour toutes les variantes --- */
 .subhead,.io-cap,.pages-bar .pages-title,.skillshead>span{position:relative;display:flex;align-items:center;
-  font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.01em;margin:10px 2px 5px}
+  font-size:11px;font-weight:600;color:var(--dim);margin:10px 2px 5px}
 .io-cap{margin:0 2px 5px}
 .io-group{margin-top:8px}
 
