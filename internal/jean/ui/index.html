@@ -2828,7 +2828,12 @@ function handleDelta(d){
   if(d.error){ removeTyping(); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
   if(d.compacting!==undefined){ setCompacting(d.compacting); return; }
   if(d.compacted){ setCompacting(false); addCompactMark(); return; }
-  if(d.compact_noop){ setCompacting(false); toast('rien à compacter (contexte déjà minimal)'); return; }
+  // Pas de toast au REPLAY : le journal est rejoué à chaque chargement de page,
+  // donc une notification persistée se re-déclenchait à chaque rafraîchissement
+  // (« rien à compacter » qui revient sans raison). C'est un événement ponctuel,
+  // il n'a de sens qu'en direct — contrairement à la marque `compacted`, qui est
+  // une trace du fil et DOIT être rejouée.
+  if(d.compact_noop){ setCompacting(false); if(!REPLAYING) toast('rien à compacter (contexte déjà minimal)'); return; }
   if(d.ctx_used!==undefined){ setCtxUsed(d.ctx_used); return; }
   if(d.stats){ T.serverStats=d.stats;
     if(d.stats.prompt_tokens_total){ setCtxUsed((d.stats.prompt_tokens_total||0)+(d.stats.gen_tokens||0)); }
