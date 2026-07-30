@@ -534,6 +534,12 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-selc select{appearance:none;-webkit-appearance:none;border:none;background:transparent;color:var(--accent);font:inherit;text-align:right;text-align-last:right;padding:4px 16px 4px 0;cursor:pointer;max-width:100%;text-overflow:ellipsis}
 .pe-selc select:focus{outline:none}
 .pe-selc::after{content:"›";position:absolute;right:0;transform:rotate(90deg);color:var(--dim);font-size:14px;pointer-events:none}
+/* Variante pleine largeur : la liste native s'ouvre alignée à gauche de la
+   ligne (et non collée au bord droit) et le nom de fichier a la place de
+   s'afficher en entier. */
+.pe-selc.wide{width:100%}
+.pe-selc.wide select{flex:1;text-align:left;text-align-last:left;padding-right:18px}
+.pe-selc.wide::after{right:2px}
 /* Ligne « champ pleine largeur » (Nom, chemin, config brute…). */
 .pe-row.stack{flex-direction:column;align-items:stretch;gap:8px}
 .pe-inp{width:100%;box-sizing:border-box;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font:inherit;transition:border-color .12s,box-shadow .12s}
@@ -559,6 +565,17 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-seg .be-note{display:none}
 .pe-seg-note{font-size:11px;color:var(--dim);padding:0 2px;min-height:14px}
 .pe-note{font-size:11px;color:var(--dim);line-height:1.45}
+/* Barre de progression (téléchargement de modèle). Sans total connu, elle
+   défile en boucle via .indet. */
+.pe-bar{height:4px;border-radius:999px;background:color-mix(in srgb,var(--dim) 26%,transparent);overflow:hidden}
+.pe-bar>i{display:block;height:100%;width:0;border-radius:999px;background:var(--accent);transition:width .35s linear}
+.pe-bar.indet>i{width:35%;animation:pe-bar-slide 1.2s ease-in-out infinite;transition:none}
+.pe-bar.done>i{width:100%}
+@keyframes pe-bar-slide{0%{margin-left:-35%}100%{margin-left:100%}}
+/* Action discrète en texte (annuler un téléchargement…). */
+.pe-link{align-self:flex-start;border:none;background:none;padding:0;font:inherit;font-size:11px;color:var(--dim);text-decoration:underline;cursor:pointer}
+.pe-link:hover{color:var(--text)}
+.pe-link:disabled{opacity:.5;cursor:default;text-decoration:none}
 /* Interrupteur à glissière. */
 .pe-switch{position:relative;flex:none;width:40px;height:24px}
 .pe-switch input{position:absolute;opacity:0;width:0;height:0}

@@ -395,9 +395,9 @@
         <div class="pe-group">
           <div class="pe-gh">Modèle</div>
           <div class="pe-list">
-            <div class="pe-row">
+            <div class="pe-row stack">
               <span class="pe-row-l">Fichier</span>
-              <span class="pe-row-c"><span class="pe-selc"><select id="m-model" onchange="onPickModel()"></select></span></span>
+              <span class="pe-selc wide"><select id="m-model" onchange="onPickModel()"></select></span>
             </div>
             <div class="pe-row">
               <span class="pe-row-l">Quantization<span class="pe-sub">auto si vide</span></span>
@@ -409,7 +409,9 @@
                 <input id="m-hf-url" class="pe-inp" placeholder="https://…/model.gguf">
                 <button id="m-hf-btn" onclick="startDownload()" title="Télécharger">↓</button>
               </div>
+              <div id="m-hf-bar" class="pe-bar" style="display:none"><i></i></div>
               <div id="m-hf-progress" class="pe-note" style="display:none"></div>
+              <button id="m-hf-cancel" class="pe-link" onclick="cancelDownload()" style="display:none">Annuler le téléchargement</button>
             </div>
           </div>
         </div>

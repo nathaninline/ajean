@@ -78,7 +78,8 @@ async function openItem(kind, key){
     modelRow.style.display = 'flex';
     settingsRow.style.display = 'flex';
     document.getElementById('m-hf-url').value = '';
-    document.getElementById('m-hf-progress').style.display = 'none';
+    resetDlUI();
+    attachDownload(); // téléchargement encore en cours côté serveur ?
     document.getElementById('m-del-model').checked = false;
     document.getElementById('m-quant').value = currentQuantInTextarea();
     populateSettings();
@@ -298,7 +299,9 @@ function toggleRaw(){
 }
 const openPreset = (id)=>openItem('preset', id);
 const openMem    = (n)=>openItem('mem', n);
-function closeModal(){ document.getElementById('modal').style.display = 'none'; }
+// Fermer la modale n'annule PAS un téléchargement en cours (il vit côté
+// serveur) : on arrête juste de l'interroger.
+function closeModal(){ document.getElementById('modal').style.display = 'none'; stopDlPoll(); }
 async function saveItem(){
   const K = KINDS[editingKind];
   const name = document.getElementById('m-name').value.trim();
@@ -333,39 +336,112 @@ async function delItem(){
   } else { toast('supprimé'); }
   closeModal(); K.reload();
 }
-// Download a .gguf from Hugging Face, polling progress until done.
-let dlPoll = null;
+// Download a .gguf from Hugging Face. Le téléchargement vit côté serveur : fermer
+// la modale ne l'interrompt pas, on se rebranche dessus à la réouverture
+// (attachDownload) et seul « Annuler » l'arrête vraiment.
+let dlPoll = null, dlName = '';
+function dlEls(){
+  return {
+    btn:  document.getElementById('m-hf-btn'),
+    prog: document.getElementById('m-hf-progress'),
+    bar:  document.getElementById('m-hf-bar'),
+    cancel: document.getElementById('m-hf-cancel'),
+  };
+}
+// Arrête le poll local sans toucher au téléchargement serveur.
+function stopDlPoll(){ if(dlPoll){ clearInterval(dlPoll); dlPoll=null; } }
+// Remet la zone de téléchargement à zéro (réouverture de la modale).
+function resetDlUI(){
+  const e = dlEls();
+  stopDlPoll(); dlName='';
+  e.prog.style.display='none'; e.bar.style.display='none';
+  e.cancel.style.display='none'; e.btn.disabled=false;
+}
 async function startDownload(){
   const url = document.getElementById('m-hf-url').value.trim();
   if(!url){ toast('colle un lien .gguf'); return; }
-  const btn = document.getElementById('m-hf-btn');
-  const prog = document.getElementById('m-hf-progress');
-  btn.disabled = true;
-  prog.style.display = 'block';
-  prog.textContent = 'démarrage…';
+  const e = dlEls();
+  e.btn.disabled = true;
+  e.prog.style.display = 'block';
+  e.prog.textContent = 'démarrage…';
+  e.bar.style.display = 'block';
+  e.bar.className = 'pe-bar indet';
+  e.bar.firstElementChild.style.width = '';
   const r = await jpost('/api/models/download', {url});
-  if(!r.ok){ prog.innerHTML = '<span style="color:var(--err)">erreur : '+(r.error||'')+'</span>'; btn.disabled=false; return; }
-  const fname = r.filename;
-  if(dlPoll) clearInterval(dlPoll);
-  dlPoll = setInterval(async ()=>{
+  if(!r.ok){
+    e.prog.innerHTML = '<span style="color:var(--err)">erreur : '+(r.error||'')+'</span>';
+    e.bar.style.display = 'none'; e.btn.disabled=false; return;
+  }
+  watchDownload(r.filename);
+}
+// Annule le téléchargement en cours : le serveur coupe les connexions et
+// supprime le fichier partiel.
+async function cancelDownload(){
+  if(!dlName) return;
+  const e = dlEls();
+  e.cancel.disabled = true;
+  await jpost('/api/models/download/cancel', {filename: dlName});
+  // L'état « annulé » est confirmé par le prochain tick de poll.
+}
+// Suit un téléchargement (nouveau ou déjà en cours) et pilote barre + texte.
+function watchDownload(fname){
+  const e = dlEls();
+  dlName = fname;
+  stopDlPoll();
+  e.btn.disabled = true;
+  e.prog.style.display = 'block';
+  e.bar.style.display = 'block';
+  e.cancel.style.display = 'inline';
+  e.cancel.disabled = false;
+  const stop = ()=>{ stopDlPoll(); dlName=''; e.btn.disabled=false; e.cancel.style.display='none'; };
+  const tick = async ()=>{
     const list = await jget('/api/models/download/status');
     const st = (list||[]).find(d=>d.filename===fname);
-    if(!st){ return; }
+    if(!st) return;
+    if(st.canceled){
+      e.prog.textContent = 'téléchargement annulé — '+fname;
+      e.bar.style.display = 'none'; stop(); return;
+    }
     if(st.error){
-      prog.innerHTML = '<span style="color:var(--err)">erreur : '+st.error+'</span>';
-      clearInterval(dlPoll); dlPoll=null; btn.disabled=false; return;
+      e.prog.innerHTML = '<span style="color:var(--err)">erreur : '+st.error+'</span>';
+      e.bar.style.display = 'none'; stop(); return;
     }
     if(st.finished){
-      prog.innerHTML = '<span style="color:var(--ok)">✓ '+fname+' téléchargé ('+fmtSize(st.done)+')</span>';
-      clearInterval(dlPoll); dlPoll=null; btn.disabled=false;
+      e.prog.innerHTML = '<span style="color:var(--ok)">✓ '+fname+' téléchargé ('+fmtSize(st.done)+')</span>';
+      e.bar.className = 'pe-bar done'; e.bar.firstElementChild.style.width = '100%';
+      stop();
       await populateModelPicker();
       document.getElementById('m-model').value = fname; onPickModel();
       return;
     }
-    const pct = st.total>0 ? Math.round(st.done*100/st.total) : 0;
-    const tot = st.total>0 ? ' / '+fmtSize(st.total)+' ('+pct+'%)' : '';
-    prog.textContent = '↓ '+fmtSize(st.done)+tot+' — '+fname;
-  }, 800);
+    const pct = st.total>0 ? st.done*100/st.total : 0;
+    if(st.total>0){
+      e.bar.className = 'pe-bar';
+      e.bar.firstElementChild.style.width = Math.min(100, pct).toFixed(1)+'%';
+    } else {
+      e.bar.className = 'pe-bar indet';
+    }
+    const tot = st.total>0 ? ' / '+fmtSize(st.total)+' ('+Math.round(pct)+'%)' : '';
+    let extra = '';
+    if(st.speed>0){
+      extra += ' — '+fmtSize(st.speed)+'/s';
+      if(st.total>0){
+        const eta = Math.max(0, Math.round((st.total-st.done)/st.speed));
+        const m = Math.floor(eta/60), s = eta%60;
+        extra += ' — reste '+(m>0 ? m+' min '+s+' s' : s+' s');
+      }
+    }
+    e.prog.textContent = '↓ '+fmtSize(st.done)+tot+extra+' — '+fname;
+  };
+  dlPoll = setInterval(tick, 800);
+  tick();
+}
+// À l'ouverture de la modale : se rebrancher sur un téléchargement encore en
+// cours côté serveur (modale fermée entre-temps, page rechargée, autre appareil).
+async function attachDownload(){
+  const list = await jget('/api/models/download/status');
+  const st = (list||[]).find(d=>!d.finished);
+  if(st) watchDownload(st.filename);
 }
 // Smart autoscroll: follow the bottom while the user hasn't manually scrolled
 // up. Re-stick when they scroll back near bottom themselves.

@@ -67,6 +67,9 @@ func newWebMux() *http.ServeMux {
 	// Pré-chauffe les serveurs MCP en tâche de fond : sinon le handshake (plusieurs
 	// secondes pour un serveur lancé via npx) est payé par le premier message.
 	MCPPrewarm()
+	// Un téléchargement de modèle coupé net (crash, restart du service) laisse un
+	// .part orphelin non reprenable : on nettoie au démarrage.
+	cleanStalePartFiles()
 	mux := http.NewServeMux()
 	// Pages publiques : le HTML et le JS ne contiennent aucun secret. Toute la
 	// donnée et toutes les actions passent par /api/* qui, lui, exige la clé.
@@ -92,6 +95,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/models/delete", handleModelDelete)
 	api("/api/models/download", handleModelDownload)
 	api("/api/models/download/status", handleModelDownloadStatus)
+	api("/api/models/download/cancel", handleModelDownloadCancel)
 	api("/api/backends", handleBackends)
 	api("/api/backends/custom", handleBackendsCustom)                    // backends custom uniquement (hors ⚡/🔧)
 	api("/api/llamacpp", handleLlamacpp)                                 // statut du backend llama.cpp
