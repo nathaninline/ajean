@@ -286,7 +286,11 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 	if willCompact {
 		c.appendDelta(epoch, map[string]any{"compacting": true})
 	}
-	if compacted, changed := MaybeCompact(ctx, msgs, caps, ctxUsed); changed {
+	compacted, changed := MaybeCompact(ctx, msgs, caps, ctxUsed)
+	if willCompact {
+		logCompact("début-tour", ctxUsed, msgs, compacted, changed)
+	}
+	if changed {
 		// Surcoût fixe non compactable (prompt système injecté + schémas d'outils +
 		// gabarit) = contexte réel mesuré − estimation des messages. On le rajoute à
 		// l'estimation post-compaction pour que la jauge affiche une valeur réaliste
@@ -307,7 +311,11 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 		c.appendDelta(epoch, map[string]any{"compacted": true})
 		c.appendDelta(epoch, map[string]any{"ctx_used": est}) // fait chuter la jauge tout de suite
 	} else if willCompact {
+		// Seuil franchi mais compaction sans effet (torse vide, ou réduction sous les
+		// 20% exigés) : on le DIT. Avant, on retirait juste la bannière sans un mot —
+		// vu de l'UI, « le compactage automatique ne fait rien » sans aucune trace.
 		c.appendDelta(epoch, map[string]any{"compacting": false})
+		c.appendDelta(epoch, map[string]any{"compact_noop": true})
 	}
 
 	// Prompt système personnalisé (UI → /api/sysprompt, fichier côté serveur).
@@ -318,6 +326,9 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 		final = append([]Message{{Role: "system", Content: sp}}, msgs...)
 	}
 
+	// newBase : vue modèle publiée par une compaction survenue PENDANT le tour.
+	// Non-nil = elle remplace l'historique (elle contient déjà le tour en cours).
+	var newBase []Message
 	var content strings.Builder
 	extra, _ := runChat(ctx, InjectSkills(final, caps), temperature, caps, func(ev StreamEvent) bool {
 		switch {
@@ -334,6 +345,21 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 				tu["diff"] = ev.ToolUsed.Diff
 			}
 			c.appendDelta(epoch, map[string]any{"tool_used": tu})
+		case ev.NewHistory != nil:
+			// Compaction faite en cours de tour : elle remplace la base au lieu de
+			// s'ajouter à l'ancienne (voir StreamEvent.NewHistory). On retire le
+			// préfixe système injecté à la volée (prompt perso + skills, fusionnés en
+			// UN message system en tête) : il n'appartient pas à l'historique persisté
+			// et doit rester modifiable à chaud.
+			base := ev.NewHistory
+			for len(base) > 0 && base[0].Role == "system" {
+				base = base[1:]
+			}
+			newBase = append([]Message(nil), base...)
+		case ev.Compacting != nil:
+			// Compaction déclenchée pendant la boucle d'outils : même bannière que la
+			// compaction de début de tour.
+			c.appendDelta(epoch, map[string]any{"compacting": *ev.Compacting})
 		case ev.Stats != nil:
 			// Taille réelle du contexte (usage.prompt_tokens + généré) pour le compteur
 			// et la décision de compactage au tour suivant.
@@ -362,12 +388,52 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 	// la nouvelle conversation vide ne doit pas hériter de la fin de l'ancienne.
 	c.mu.Lock()
 	if c.epoch == epoch {
+		if newBase != nil {
+			c.Messages = newBase
+		}
 		c.Messages = append(c.Messages, extra...)
 		if s := content.String(); strings.TrimSpace(s) != "" {
 			c.Messages = append(c.Messages, Message{Role: "assistant", Content: s})
 		}
 	}
+	msgs = append([]Message(nil), c.Messages...)
+	ctxUsed = c.CtxUsed
+	stale := c.epoch != epoch
 	c.mu.Unlock()
+
+	// Compaction de FIN DE TOUR. C'était LE trou : le seuil n'était testé qu'au
+	// DÉBUT d'un tour, avec le contexte du tour précédent. Le tour qui fait
+	// franchir le seuil se termine donc à 81% et… rien. La jauge reste haute, seul
+	// le bouton manuel s'affiche, et l'utilisateur voit un compactage automatique
+	// qui « ne marche pas » — alors qu'il attendait simplement le message suivant.
+	// On compacte donc DÈS que le tour qui a franchi le seuil est fini : la jauge
+	// retombe tout de suite et le tour suivant démarre avec de la marge.
+	// Sauf si un Reset est passé (rien à compacter) ou si le tour a été annulé
+	// (bouton stop) : on n'enchaîne pas plusieurs secondes de résumé sur un stop.
+	if stale || ctx.Err() != nil || !compactWouldTrigger(msgs, ctxUsed) {
+		return
+	}
+	c.appendDelta(epoch, map[string]any{"compacting": true})
+	compacted, changed = compactMessages(context.Background(), msgs, caps)
+	c.appendDelta(epoch, map[string]any{"compacting": false})
+	logCompact("fin-tour", ctxUsed, msgs, compacted, changed)
+	if !changed {
+		c.appendDelta(epoch, map[string]any{"compact_noop": true})
+		return
+	}
+	overhead := ctxUsed - estimateTokens(msgs)
+	if overhead < 0 {
+		overhead = 0
+	}
+	est := estimateTokens(compacted) + overhead
+	c.mu.Lock()
+	if c.epoch == epoch {
+		c.Messages = compacted
+		c.CtxUsed = est
+	}
+	c.mu.Unlock()
+	c.appendDelta(epoch, map[string]any{"compacted": true})
+	c.appendDelta(epoch, map[string]any{"ctx_used": est})
 }
 
 // CompactNow force une compaction du contexte MAINTENANT, sans attendre le seuil
@@ -402,6 +468,7 @@ func (c *Conversation) CompactNow() error {
 		c.appendDelta(epoch, map[string]any{"compacting": true})
 		compacted, changed := compactMessages(ctx, msgs, Caps{})
 		c.appendDelta(epoch, map[string]any{"compacting": false})
+		logCompact("manuel", lastReal, msgs, compacted, changed)
 		if !changed {
 			c.appendDelta(epoch, map[string]any{"compact_noop": true})
 			return

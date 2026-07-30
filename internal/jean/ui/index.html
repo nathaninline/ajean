@@ -288,6 +288,19 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .msg.typing span:nth-child(2){animation-delay:.16s}
 .msg.typing span:nth-child(3){animation-delay:.32s}
 @keyframes typingdot{0%,70%,100%{opacity:.25;transform:translateY(0)}35%{opacity:1;transform:translateY(-4px)}}
+/* Compactage du contexte : le MÊME indicateur, juste étiqueté. Avant, une
+   mini-bannière au-dessus de la saisie doublonnait les 3 points animés — deux
+   éléments pour un seul état d'attente. Ici les points passent en accent et un
+   libellé apparaît à côté : un seul objet à l'écran, au bon endroit. */
+.msg.typing.compacting span:not(.tlabel){background:var(--accent)}
+.msg.typing .tlabel{width:auto;height:auto;border-radius:0;background:none;animation:tlabelfade 1.6s ease-in-out infinite;font-size:12px;color:var(--accent);margin-left:3px;white-space:nowrap}
+@keyframes tlabelfade{0%,100%{opacity:.6}50%{opacity:1}}
+/* Trace laissée DANS le fil quand le contexte a été compacté : un séparateur
+   discret, à sa place chronologique — un toast qui disparaît ne dit pas OÙ la
+   coupure a eu lieu. */
+.compact-mark{display:flex;align-items:center;gap:10px;margin:14px 2px;font-size:11px;color:var(--dim);letter-spacing:.04em;animation:cmarkin .35s ease}
+.compact-mark::before,.compact-mark::after{content:"";flex:1;height:1px;background:var(--border)}
+@keyframes cmarkin{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 /* --- Message en attente d'accusé serveur ---------------------------------
    Affiché DÈS l'appui sur envoyer, en gris et légèrement effacé : le message
    ne disparaît plus le temps de l'aller-retour. La classe est retirée quand le
@@ -475,8 +488,6 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:50;background:var(--panel);border:1px solid var(--border);padding:8px 16px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;box-shadow:0 8px 30px rgba(0,0,0,.18)}
 #toast.show{opacity:1}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-#compact-banner{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--accent);background:var(--accent-bg);border:1px solid var(--border);border-radius:8px;padding:6px 10px;margin-bottom:8px}
-#compact-banner .cspin{display:inline-block;animation:spin 1s linear infinite}
 /* iOS Safari auto-zoome au focus sur tout champ < 16px. On force 16px sur les
    appareils tactiles uniquement (le desktop garde son rendu, le pinch-zoom
    manuel reste possible). */
@@ -775,7 +786,6 @@ html[data-hide-stats="1"] #chat .msg .statline{display:none}
 #composer{position:absolute;left:0;right:0;bottom:0;z-index:4;border-top:none;display:flex;flex-direction:column;padding:34px 0 calc(8px + env(safe-area-inset-bottom));--col:calc(max(16px,calc(50% - 380px)) + var(--sbw,0px));background:linear-gradient(to bottom,transparent 0,var(--bg) 34%)}
 #chat{padding-bottom:calc(170px + env(safe-area-inset-bottom))}
 #scrollbtn{bottom:calc(180px + env(safe-area-inset-bottom));border-radius:999px}
-#compact-banner{order:0;margin:0 var(--col) 8px;border-radius:14px}
 #inputbar{order:1;margin:0 var(--col);padding:8px 8px 8px 16px;gap:8px;align-items:flex-end;background:var(--panel);border:1px solid var(--border);border-bottom:none;border-radius:26px 26px 0 0}
 #input{background:transparent;border:none;border-radius:0;padding:9px 0;min-height:36px;line-height:18px;max-height:160px}
 /* Pas de cadre qui s'assombrit au focus : la carte garde exactement la même
@@ -1057,7 +1067,6 @@ button:hover{border-color:var(--dim);color:var(--text)}
   <div id="chat-loading"><span class="cl-dots"><span></span><span></span><span></span></span><span id="chat-loading-text">chargement de la conversation…</span></div>
   <button id="scrollbtn" onclick="jumpBottom()" title="aller en bas">↓</button>
   <div id="composer">
-    <div id="compact-banner" style="display:none"><span class="cspin">⏳</span> Compactage du contexte en cours — résumé des anciens tours…</div>
     <div id="ctxmeta">
       <div id="ctxtrack"><div id="ctx-fill"></div></div>
       <span id="status-preset" class="muted" style="font-size:10px;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
@@ -2734,6 +2743,39 @@ function newTurn(){ T={ reasonEl:null, contentEl:null, pendingToolEl:null, typin
 newTurn();
 const simpleMode=()=>document.documentElement.getAttribute('data-display')==='simple';
 function removeTyping(){ if(T.typingEl){ T.typingEl.remove(); T.typingEl=null; } }
+// Compactage : on ÉTIQUETTE l'indicateur de frappe déjà à l'écran au lieu
+// d'ouvrir une bannière à part (on avait les deux en même temps pour un seul
+// état d'attente). En fin de tour l'indicateur a déjà été retiré : on le
+// recrée, en le marquant pour le reprendre quand le compactage est fini.
+function setCompacting(on){
+  if(on){
+    if(!T.typingEl){ T.typingEl=addTyping(); T.typingEl.dataset.forCompact='1'; }
+    T.typingEl.classList.add('compacting');
+    if(!T.typingEl.querySelector('.tlabel')){
+      const s=document.createElement('span');
+      s.className='tlabel';
+      s.textContent='compactage du contexte…';
+      T.typingEl.appendChild(s);
+    }
+    scrollMaybe();
+    return;
+  }
+  if(!T.typingEl) return;
+  if(T.typingEl.dataset.forCompact){ removeTyping(); return; }
+  T.typingEl.classList.remove('compacting');
+  const s=T.typingEl.querySelector('.tlabel'); if(s) s.remove();
+}
+// Séparateur laissé dans le fil à l'endroit exact de la coupure.
+function addCompactMark(){
+  const el=document.createElement('div');
+  el.className='compact-mark';
+  el.textContent='contexte compacté — anciens tours résumés';
+  // Devant l'indicateur de frappe s'il est encore là (compactage en cours de
+  // tour) : la suite de la réponse doit rester APRÈS la marque de coupure.
+  if(T.typingEl && T.typingEl.parentNode===chatEl()) chatEl().insertBefore(el, T.typingEl);
+  else chatEl().appendChild(el);
+  scrollMaybe();
+}
 function killTyping(){ if(!T.typingEl) return; if(simpleMode()) return; removeTyping(); }
 function showTyping(){ if(!simpleMode()) return; const c=document.getElementById('chat');
   if(!T.typingEl){ T.typingEl=addTyping(); } else if(c.lastElementChild!==T.typingEl){ c.appendChild(T.typingEl); } }
@@ -2780,13 +2822,13 @@ function handleDelta(d){
     setChatLoading(null);
     if(REPLAYING){ REPLAYING=false; jumpBottom(); syncSendBtn(); const c=chatEl(); c.style.transition='opacity .15s'; c.style.opacity='1'; }
     return; }
-  if(d.reset!==undefined){ PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); const cb=document.getElementById('compact-banner'); if(cb) cb.style.display='none'; return; }
+  if(d.reset!==undefined){ PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
   if(d.user!==undefined){ newTurn(); if(!confirmPending(d.user)) addMsg('user', d.user); setBusy(true); T.typingEl=addTyping(); return; }
   if(d.turn_done){ removeTyping(); collapseAll(T.turnCollapsibles); if(T.serverStats) renderStats(T.contentEl||T.reasonEl, T.serverStats); setBusy(false); return; }
   if(d.error){ removeTyping(); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
-  if(d.compacting!==undefined){ const b=document.getElementById('compact-banner'); if(b) b.style.display = d.compacting ? 'flex' : 'none'; return; }
-  if(d.compacted){ const b=document.getElementById('compact-banner'); if(b) b.style.display='none'; toast('contexte compacté — les vieux tours ont été résumés'); return; }
-  if(d.compact_noop){ const b=document.getElementById('compact-banner'); if(b) b.style.display='none'; toast('rien à compacter (contexte déjà minimal)'); return; }
+  if(d.compacting!==undefined){ setCompacting(d.compacting); return; }
+  if(d.compacted){ setCompacting(false); addCompactMark(); return; }
+  if(d.compact_noop){ setCompacting(false); toast('rien à compacter (contexte déjà minimal)'); return; }
   if(d.ctx_used!==undefined){ setCtxUsed(d.ctx_used); return; }
   if(d.stats){ T.serverStats=d.stats;
     if(d.stats.prompt_tokens_total){ setCtxUsed((d.stats.prompt_tokens_total||0)+(d.stats.gen_tokens||0)); }

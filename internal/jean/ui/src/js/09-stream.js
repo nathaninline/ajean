@@ -41,6 +41,39 @@ function newTurn(){ T={ reasonEl:null, contentEl:null, pendingToolEl:null, typin
 newTurn();
 const simpleMode=()=>document.documentElement.getAttribute('data-display')==='simple';
 function removeTyping(){ if(T.typingEl){ T.typingEl.remove(); T.typingEl=null; } }
+// Compactage : on ÉTIQUETTE l'indicateur de frappe déjà à l'écran au lieu
+// d'ouvrir une bannière à part (on avait les deux en même temps pour un seul
+// état d'attente). En fin de tour l'indicateur a déjà été retiré : on le
+// recrée, en le marquant pour le reprendre quand le compactage est fini.
+function setCompacting(on){
+  if(on){
+    if(!T.typingEl){ T.typingEl=addTyping(); T.typingEl.dataset.forCompact='1'; }
+    T.typingEl.classList.add('compacting');
+    if(!T.typingEl.querySelector('.tlabel')){
+      const s=document.createElement('span');
+      s.className='tlabel';
+      s.textContent='compactage du contexte…';
+      T.typingEl.appendChild(s);
+    }
+    scrollMaybe();
+    return;
+  }
+  if(!T.typingEl) return;
+  if(T.typingEl.dataset.forCompact){ removeTyping(); return; }
+  T.typingEl.classList.remove('compacting');
+  const s=T.typingEl.querySelector('.tlabel'); if(s) s.remove();
+}
+// Séparateur laissé dans le fil à l'endroit exact de la coupure.
+function addCompactMark(){
+  const el=document.createElement('div');
+  el.className='compact-mark';
+  el.textContent='contexte compacté — anciens tours résumés';
+  // Devant l'indicateur de frappe s'il est encore là (compactage en cours de
+  // tour) : la suite de la réponse doit rester APRÈS la marque de coupure.
+  if(T.typingEl && T.typingEl.parentNode===chatEl()) chatEl().insertBefore(el, T.typingEl);
+  else chatEl().appendChild(el);
+  scrollMaybe();
+}
 function killTyping(){ if(!T.typingEl) return; if(simpleMode()) return; removeTyping(); }
 function showTyping(){ if(!simpleMode()) return; const c=document.getElementById('chat');
   if(!T.typingEl){ T.typingEl=addTyping(); } else if(c.lastElementChild!==T.typingEl){ c.appendChild(T.typingEl); } }
@@ -87,13 +120,13 @@ function handleDelta(d){
     setChatLoading(null);
     if(REPLAYING){ REPLAYING=false; jumpBottom(); syncSendBtn(); const c=chatEl(); c.style.transition='opacity .15s'; c.style.opacity='1'; }
     return; }
-  if(d.reset!==undefined){ PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); const cb=document.getElementById('compact-banner'); if(cb) cb.style.display='none'; return; }
+  if(d.reset!==undefined){ PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
   if(d.user!==undefined){ newTurn(); if(!confirmPending(d.user)) addMsg('user', d.user); setBusy(true); T.typingEl=addTyping(); return; }
   if(d.turn_done){ removeTyping(); collapseAll(T.turnCollapsibles); if(T.serverStats) renderStats(T.contentEl||T.reasonEl, T.serverStats); setBusy(false); return; }
   if(d.error){ removeTyping(); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
-  if(d.compacting!==undefined){ const b=document.getElementById('compact-banner'); if(b) b.style.display = d.compacting ? 'flex' : 'none'; return; }
-  if(d.compacted){ const b=document.getElementById('compact-banner'); if(b) b.style.display='none'; toast('contexte compacté — les vieux tours ont été résumés'); return; }
-  if(d.compact_noop){ const b=document.getElementById('compact-banner'); if(b) b.style.display='none'; toast('rien à compacter (contexte déjà minimal)'); return; }
+  if(d.compacting!==undefined){ setCompacting(d.compacting); return; }
+  if(d.compacted){ setCompacting(false); addCompactMark(); return; }
+  if(d.compact_noop){ setCompacting(false); toast('rien à compacter (contexte déjà minimal)'); return; }
   if(d.ctx_used!==undefined){ setCtxUsed(d.ctx_used); return; }
   if(d.stats){ T.serverStats=d.stats;
     if(d.stats.prompt_tokens_total){ setCtxUsed((d.stats.prompt_tokens_total||0)+(d.stats.gen_tokens||0)); }

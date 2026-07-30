@@ -258,6 +258,19 @@ type StreamEvent struct {
 	// le modèle a « pensé sans agir » et on relance le tour, ce raisonnement-là
 	// est mort-né et ne doit pas rester à l'écran (sinon double raisonnement).
 	DropReasoning bool
+	// Compacting signale une compaction déclenchée EN COURS DE TOUR (boucle
+	// d'outils) : true à l'entrée du résumé, false à la sortie. Même bannière que
+	// la compaction proactive de début de tour, qui elle est émise directement par
+	// Conversation.generate. nil = l'événement ne parle pas de compaction.
+	Compacting *bool
+	// NewHistory publie la vue modèle APRÈS une compaction faite en cours de tour.
+	// Sans elle la compaction est perdue : l'appelant reconstruit l'historique en
+	// ajoutant les messages du tour à sa copie d'AVANT compaction, donc le fil
+	// complet revient et le tour suivant re-déborde aussitôt (43% → 92% en un
+	// message). Cette liste contient DÉJÀ tout le tour en cours : l'appelant doit
+	// REMPLACER son historique par elle (préfixe système injecté retiré), pas l'y
+	// ajouter.
+	NewHistory []Message
 }
 type ToolUsedEvent struct {
 	Name   string
@@ -478,6 +491,12 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				if c, changed := compactMessages(ctx, messages, caps); changed {
 					compactedRetry = true
 					messages = c
+					logCompact("réactif", 0, messages, c, changed)
+					// Même publication qu'en cours de tour : sans elle, la compaction de
+					// secours ne survit pas à la fin du tour et le prompt re-déborde au
+					// message suivant.
+					extra = nil
+					cb(StreamEvent{NewHistory: append([]Message(nil), messages...)})
 					continue
 				}
 			}
@@ -851,6 +870,26 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				toolMsg := Message{Role: "tool", ToolCallID: tc.ID, Content: result}
 				messages = append(messages, toolMsg)
 				extra = append(extra, toolMsg)
+			}
+			// Compaction EN COURS DE TOUR. Le seuil n'était testé qu'AU DÉBUT du tour :
+			// une boucle d'outils peut à elle seule remplir la fenêtre (résultats
+			// enchaînés), on partait à 60% et on finissait en dépassement — rattrapé au
+			// mieux par le filet réactif sur 500, une seule fois. On re-teste donc ici,
+			// avec le contexte RÉEL du dernier appel (usage.prompt_tokens + généré).
+			if used := stats.PromptTokensTotal + stats.GenTokens; compactWouldTrigger(messages, used) {
+				yes, no := true, false
+				cb(StreamEvent{Compacting: &yes})
+				c, changed := compactMessages(ctx, messages, caps)
+				cb(StreamEvent{Compacting: &no})
+				logCompact("en-tour", used, messages, c, changed)
+				if changed {
+					messages = c
+					// La nouvelle base contient déjà tout ce tour : on la publie et on
+					// repart d'un `extra` vide, sinon l'appelant la ré-empilerait avec
+					// les messages du tour et dupliquerait tout.
+					extra = nil
+					cb(StreamEvent{NewHistory: append([]Message(nil), messages...)})
+				}
 			}
 			continue
 		}

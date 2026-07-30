@@ -77,6 +77,16 @@ func cmdChat(args []string) error {
 			switch {
 			case ev.Err != nil:
 				fmt.Printf("\n%s\n", red("[erreur] "+ev.Err.Error()))
+			case ev.NewHistory != nil:
+				// Compaction survenue pendant le tour : elle REMPLACE l'historique (elle
+				// contient déjà le tour en cours), préfixe système injecté retiré. Sans
+				// ça le terminal repartirait du fil complet au tour suivant.
+				base := ev.NewHistory
+				for len(base) > 0 && base[0].Role == "system" {
+					base = base[1:]
+				}
+				msgs = append([]Message(nil), base...)
+				fmt.Println(dim("\n[contexte compacté pour tenir dans la fenêtre]"))
 			case ev.Stats != nil:
 				stats = ev.Stats
 			case ev.DropReasoning:

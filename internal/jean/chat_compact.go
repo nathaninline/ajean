@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -120,6 +121,17 @@ func compactWouldTrigger(msgs []Message, knownTokens int) bool {
 	return used >= int(float64(ctxWindow())*compactTriggerFrac)
 }
 
+// logCompact trace UNE ligne par décision de compaction sur la sortie d'erreur
+// (donc dans `journalctl -u jean-link`). Sans ça, une compaction qui ne se
+// déclenche pas — ou qui se déclenche et n'enlève rien — est invisible : côté
+// UI on ne voit qu'une jauge qui reste haute, sans savoir si le seuil n'a pas
+// été atteint ou si la réduction a été refusée.
+func logCompact(phase string, used int, before, after []Message, changed bool) {
+	fmt.Fprintf(os.Stderr, "[compact] %s ctx=%d seuil=%d/%d est_avant=%d est_apres=%d msgs=%d→%d changé=%v\n",
+		phase, used, int(float64(ctxWindow())*compactTriggerFrac), ctxWindow(),
+		estimateTokens(before), estimateTokens(after), len(before), len(after), changed)
+}
+
 func MaybeCompact(ctx context.Context, msgs []Message, caps Caps, knownTokens int) ([]Message, bool) {
 	if !compactWouldTrigger(msgs, knownTokens) {
 		return msgs, false
@@ -135,9 +147,19 @@ func MaybeCompact(ctx context.Context, msgs []Message, caps Caps, knownTokens in
 //   - head : nb de messages protégés en tête = messages système + 1er message
 //     utilisateur (il ancre l'objectif). Un message user est une frontière sûre.
 //   - tailStart : index de début de la queue protégée. On remonte depuis la fin
-//     jusqu'à remplir le budget, puis on recule jusqu'au message `user` précédent
-//     pour que la queue démarre sur un début de tour — on ne sépare JAMAIS un
-//     assistant+tool_calls de ses résultats `tool`.
+//     jusqu'à remplir le budget, puis on recule jusqu'à une frontière SÛRE :
+//     un message `user`, ou un `assistant` (qui, s'il porte des tool_calls, part
+//     dans la queue AVEC ses résultats). On ne sépare ainsi jamais un
+//     assistant+tool_calls de ses `tool`, et on ne laisse jamais un `tool`
+//     orphelin en tête de queue.
+//
+// Reculer jusqu'à un `user` UNIQUEMENT était trop strict et rendait toute
+// 2ᵉ compaction inopérante dans un même tour : pendant une longue boucle
+// d'outils il n'y a AUCUN message `user`, donc la queue avalait toute la
+// séquence d'outils et le torse était vide (« le compactage ne fait rien »
+// alors que ce sont précisément les pages web lues qui remplissent la
+// fenêtre). S'arrêter sur un `assistant` coupe proprement entre deux groupes
+// d'appels d'outils.
 //
 // Le torse à compacter est [head, tailStart). Il est vide (tailStart <= head)
 // quand il n'y a rien à résumer.
@@ -157,7 +179,7 @@ func compactBounds(msgs []Message, tailBudget int) (head, tailStart int) {
 			break
 		}
 	}
-	for tailStart > head && msgs[tailStart].Role != "user" {
+	for tailStart > head && msgs[tailStart].Role != "user" && msgs[tailStart].Role != "assistant" {
 		tailStart--
 	}
 	return head, tailStart
