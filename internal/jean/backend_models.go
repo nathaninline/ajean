@@ -188,8 +188,8 @@ var dlClient = &http.Client{
 		ExpectContinueTimeout: 1 * time.Second,
 		// HTTP/1.1: truly parallel sockets, no shared h2 flow-control window.
 		ForceAttemptHTTP2: false,
-		WriteBufferSize:       64 << 10,
-		ReadBufferSize:        256 << 10,
+		WriteBufferSize:   64 << 10,
+		ReadBufferSize:    256 << 10,
 	},
 }
 
