@@ -22,7 +22,7 @@
      garde `display-mode` en second pour les PWA Android/desktop à manifeste. -->
 <script>try{var pwa=(window.navigator.standalone===true)||(window.matchMedia&&window.matchMedia('(display-mode:standalone)').matches)||(window.matchMedia&&window.matchMedia('(display-mode:fullscreen)').matches);document.documentElement.setAttribute('data-pwa',pwa?'1':'0');}catch(e){document.documentElement.setAttribute('data-pwa','0');}</script>
 <!-- Applique le thème AVANT le rendu (pas de flash) : lit le choix persisté. -->
-<script>try{var t=localStorage.getItem('jean-theme')||'light';document.documentElement.setAttribute('data-theme',(t==='dark'||t.endsWith('-dark'))?'dark':'light');['hide-reasoning','hide-tools','fold-tools','hide-side'].forEach(function(k){document.documentElement.setAttribute('data-'+k,localStorage.getItem('jean-'+k)==='1'?'1':'0')})}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
+<script>try{var t=localStorage.getItem('jean-theme')||'light';document.documentElement.setAttribute('data-theme',(t==='dark'||t.endsWith('-dark'))?'dark':'light');['hide-reasoning','hide-tools','fold-tools','hide-side','hide-stats'].forEach(function(k){document.documentElement.setAttribute('data-'+k,localStorage.getItem('jean-'+k)==='1'?'1':'0')})}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
 <style>
 @@CSS@@
 </style></head><body>
@@ -82,20 +82,21 @@
       </div>
     </div>
     <div id="net-block" class="gated-block">
-      <div class="subhead">Accès internet<span id="internet-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Ajoute les outils <b>web_search / web_open / web_read / web_grep</b> via un serveur <b>Crawl4AI</b>. Actifs seulement si le serveur répond.</span></span></div>
+      <div class="subhead">Accès internet<span id="internet-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Ajoute les outils <b>web_search / web_open / web_read / web_grep</b> via un serveur <b>Crawl4AI</b> que tu héberges toi-même (ex. <code>docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest</code>). Actifs seulement si le <b>mode agent</b> est actif et que le serveur répond.</span></span></div>
       <label class="switchrow"><span class="switch"><input type="checkbox" id="internet-toggle" onchange="toggleInternet()"><span class="slider"></span></span> donner internet à l'IA</label>
+      <!-- URL et clé s'enregistrent en quittant le champ (onchange) : deux boutons
+           « enregistrer » côte à côte n'apportaient rien et brouillaient la carte. -->
       <div class="row" style="margin-top:6px">
         <input id="crawl-url" type="text" placeholder="http://localhost:11235" class="sctl" onchange="saveCrawlUrl()">
-        <button onclick="saveCrawlUrl()">enregistrer</button>
       </div>
       <!-- Clé d'accès du serveur Crawl4AI (facultative) : envoyée en
            « Authorization: Bearer … ». Jamais relue par l'API, on n'affiche
            qu'un indice sur les 4 derniers caractères. -->
       <div class="row" style="margin-top:6px">
         <input id="crawl-key" type="password" autocomplete="off" placeholder="clé API (si le serveur en exige une)" class="sctl" onchange="saveCrawlKey()">
-        <button onclick="saveCrawlKey()">enregistrer</button>
         <button id="crawl-key-clear" onclick="clearCrawlKey()" style="display:none">retirer</button>
       </div>
+      <div class="muted" style="font-size:11px;margin-top:4px">enregistré automatiquement en quittant le champ</div>
       <div id="crawl-key-state" class="muted" style="font-size:11px;margin-top:3px"></div>
       <div id="internet-status" class="muted" style="font-size:11px;margin-top:4px"></div>
     </div>
@@ -121,6 +122,7 @@
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-tools" onchange="toggleView('hide-tools')"><span class="slider"></span></span> masquer les appels d'outils</label>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-fold-tools" onchange="toggleView('fold-tools')"><span class="slider"></span></span> garder les bulles repliées<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Les bulles de raisonnement et d'outil arrivent <b>déjà fermées</b> au lieu de s'ouvrir puis se refermer. Un clic sur leur étiquette les déplie.</span></span></label>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-side" onchange="toggleView('hide-side')"><span class="slider"></span></span> barre latérale escamotable<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">La barre latérale devient un tiroir <b>même sur ordinateur</b> : elle reste fermée et s'ouvre avec le bouton ☰. Toute la largeur pour la conversation.</span></span></label>
+    <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-stats" onchange="toggleView('hide-stats')"><span class="slider"></span></span> masquer la vitesse de génération<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Sous chaque réponse : <b>prefill</b> (lecture du contexte) et <b>decode</b> (écriture), en tokens et en tokens/seconde. Coche pour ne plus les afficher.</span></span></label>
     </div>
   </details>
   <details><summary><span class="stitle">System prompt</span></summary>
@@ -193,18 +195,18 @@
     <div id="lc-status" class="lc-head muted">…</div>
     <div class="lc-modes">
       <div class="lc-mode" id="lc-mode-fast" onclick="lcPick('fast')">
-        <div class="lc-mode-t">Version rapide <span class="lc-reco">conseillé</span></div>
-        <div class="lc-mode-d">prête à l'emploi, installée en ~2 min</div>
+        <div class="lc-mode-t">llama.cpp précompilé <span class="lc-reco">conseillé</span></div>
+        <div class="lc-mode-d">binaire officiel téléchargé tel quel, prêt en ~2 min</div>
         <div class="lc-mode-state" id="lc-fast-state"></div>
       </div>
       <div class="lc-mode" id="lc-mode-opt" onclick="lcPick('opt')">
-        <div class="lc-mode-t">Version optimisée</div>
-        <div class="lc-mode-d">compilée pour votre machine, plus longue</div>
+        <div class="lc-mode-t">llama.cpp compilé</div>
+        <div class="lc-mode-d">compilé ici pour votre machine — plus rapide, plus long à installer</div>
         <div class="lc-mode-state" id="lc-opt-state"></div>
       </div>
       <div class="lc-mode" id="lc-mode-custom" onclick="openCustomBackends()">
-        <div class="lc-mode-t">Backend personnalisé</div>
-        <div class="lc-mode-d">forks llama.cpp pour modèles spéciaux (ternaire…)</div>
+        <div class="lc-mode-t">llama.cpp personnalisé</div>
+        <div class="lc-mode-d">un fork de llama.cpp pour modèles spéciaux (quant ternaire…)</div>
         <div class="lc-mode-state" id="lc-custom-state"></div>
       </div>
     </div>
@@ -213,14 +215,16 @@
       <div class="lc-logbar" onclick="lcToggleLog()"><span id="lc-log-caret">▸</span> détails</div>
       <pre id="lc-log" hidden></pre>
     </div>
-  </details>
-  <details><summary><span class="stitle">Service</span></summary>
+    <!-- Ces trois boutons pilotent le service qui fait tourner llama-server :
+         leur place est ici, avec le moteur, et pas dans une section « Service »
+         à part qui ne contenait qu'eux. -->
+    <div class="subhead">Service du moteur<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Démarre, redémarre ou arrête <b>llama-server</b> — le processus qui charge le modèle et répond. Un redémarrage recharge le modèle du preset actif (quelques secondes à quelques minutes selon sa taille).</span></span></div>
     <div class="slist pad">
-    <div class="row">
-      <button onclick="act('start')">start</button>
-      <button onclick="act('restart')">restart</button>
-      <button onclick="act('stop')">stop</button>
-    </div>
+      <div class="row">
+        <button onclick="act('start')">démarrer</button>
+        <button onclick="act('restart')">redémarrer</button>
+        <button onclick="act('stop')">arrêter</button>
+      </div>
     </div>
   </details>
   <details id="upd-details"><summary><span class="stitle">Actions</span></summary>
@@ -413,8 +417,8 @@
         <div class="pe-group">
           <div class="pe-gh">Moteur</div>
           <div class="pe-seg">
-            <label><input type="radio" name="m-be" value="fast" onchange="onBackendMode('fast')"><span>Rapide</span><span class="be-note" id="be-fast-note"></span></label>
-            <label><input type="radio" name="m-be" value="opt" onchange="onBackendMode('opt')"><span>Optimisé</span><span class="be-note" id="be-opt-note"></span></label>
+            <label><input type="radio" name="m-be" value="fast" onchange="onBackendMode('fast')"><span>Précompilé</span><span class="be-note" id="be-fast-note"></span></label>
+            <label><input type="radio" name="m-be" value="opt" onchange="onBackendMode('opt')"><span>Compilé</span><span class="be-note" id="be-opt-note"></span></label>
             <label><input type="radio" name="m-be" value="custom" onchange="onBackendMode('custom')"><span>Personnalisé</span></label>
           </div>
           <div id="m-backend-custom" class="pe-list" style="display:none;margin-top:8px">

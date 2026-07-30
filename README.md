@@ -220,6 +220,14 @@ La clé est stockée dans `$JEAN_HOME/.web_key`, distincte de `.api_key` (pilota
 
 Par défaut l'IA n'a pas accès au web. En branchant un serveur [Crawl4AI](https://github.com/unclecode/crawl4ai) (Chrome headless), elle gagne quatre outils : `web_search` (DuckDuckGo), `web_open` (récupère une page → métadonnées + plan), `web_read` (lit une plage de lignes) et `web_grep` (regex dans une page ouverte).
 
+**AJEAN ne fournit pas le serveur Crawl4AI, il s'y branche** — c'est à toi de l'héberger (sur la même machine ou ailleurs), typiquement en Docker :
+
+```bash
+docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest
+```
+
+Puis côté AJEAN :
+
 ```bash
 jean internet url http://localhost:11235   # URL de ton serveur Crawl4AI
 jean internet on                           # active l'accès web

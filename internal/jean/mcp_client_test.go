@@ -3,8 +3,48 @@ package jean
 import (
 	"os/exec"
 	"strings"
+	"sync"
 	"testing"
 )
+
+// TestMCPEnsureDeduplicatesConcurrentConnects vérifie que N appelants simultanés
+// (pré-chauffage + tour de chat + panneau MCP de l'UI) partagent une seule
+// tentative de connexion : sans ça, connecter en parallèle multiplierait les
+// process stdio lancés pour un même serveur.
+func TestMCPEnsureDeduplicatesConcurrentConnects(t *testing.T) {
+	t.Setenv("JEAN_HOME", t.TempDir())
+	t.Cleanup(mcpCloseAll)
+
+	// Commande inexistante : la connexion échoue, mais l'entrée du pool est bien
+	// partagée — c'est ce qu'on teste.
+	cfg := MCPServerConfig{Command: "jean-binaire-inexistant-pour-test", Enabled: true}
+
+	const callers = 8
+	var wg sync.WaitGroup
+	got := make([]*mcpSession, callers)
+	for i := range got {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			got[i] = mcpMgr.ensure("bidon", cfg)
+		}(i)
+	}
+	wg.Wait()
+
+	for i, s := range got {
+		if s != got[0] {
+			t.Fatalf("appelant %d a obtenu une session différente : %p vs %p", i, s, got[0])
+		}
+		select {
+		case <-s.ready:
+		default:
+			t.Fatalf("appelant %d a reçu une session pas encore prête", i)
+		}
+	}
+	if got[0].err == nil {
+		t.Fatal("une commande inexistante devrait produire une erreur de connexion")
+	}
+}
 
 // TestMCPEndToEnd connecte le serveur MCP de référence (@modelcontextprotocol/
 // server-everything via npx), vérifie la découverte d'outils namespacés puis un

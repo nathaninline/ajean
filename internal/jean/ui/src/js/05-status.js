@@ -117,17 +117,17 @@ async function loadRam(){
 }
 async function loadCfg(){
   // /api/llamacpp en parallèle : il indique si le BIN de la config correspond au
-  // moteur rapide (prebuilt.in_use) ou optimisé (in_use) — sinon c'est un custom.
+  // précompilé (prebuilt.in_use) ou compilé ici (in_use) — sinon c'est un fork perso.
   const [c, lc] = await Promise.all([jget('/api/config'), jget('/api/llamacpp').catch(()=>null)]);
   const row=(k,v,title)=>'<div class="kv"><span>'+k+'</span><span title="'+String(title!=null?title:v).replace(/"/g,'&quot;')+'">'+String(v)+'</span></div>';
   const rows=[];
   if(c.BIN){
-    // Moteur : rapide / optimisé / custom (avec le chemin). Le title garde
+    // Moteur : précompilé / compilé / personnalisé (avec le chemin). Le title garde
     // toujours le chemin complet, quel que soit le libellé.
     let v;
-    if(lc && lc.prebuilt && lc.prebuilt.in_use) v='rapide';
-    else if(lc && lc.in_use) v='optimisé';
-    else v='custom : '+c.BIN;
+    if(lc && lc.prebuilt && lc.prebuilt.in_use) v='llama.cpp précompilé';
+    else if(lc && lc.in_use) v='llama.cpp compilé';
+    else v='llama.cpp personnalisé : '+c.BIN;
     rows.push(row('MOTEUR', v, c.BIN));
   }
   ['MODEL','CTX','BATCH','UBATCH','NGL'].filter(k=>c[k]).forEach(k=>{

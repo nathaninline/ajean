@@ -146,7 +146,7 @@ function onPickModel(){
   toast('MODEL='+val);
 }
 
-// Choix du moteur PAR MODÈLE : 3 options (rapide / optimisé / personnalisé)
+// Choix du moteur PAR MODÈLE : 3 options (précompilé / compilé / personnalisé)
 // qui réécrivent la ligne BIN= du preset. C'est LE point où on décide quel
 // backend fait tourner ce modèle — la barre latérale ne fait qu'installer.
 function currentBinInTextarea(){
@@ -196,11 +196,11 @@ function toggleBackendCustom(mode){
 function onBackendMode(mode){
   toggleBackendCustom(mode);
   if(mode === 'fast'){
-    if(!beFastPath){ toast('installez d\'abord la version rapide (section MOTEUR)'); return; }
-    setBinInTextarea(beFastPath); toast('moteur : rapide');
+    if(!beFastPath){ toast('installez d\'abord llama.cpp précompilé (section MOTEUR)'); return; }
+    setBinInTextarea(beFastPath); toast('moteur : llama.cpp précompilé');
   } else if(mode === 'opt'){
-    if(!beOptPath){ toast('installez d\'abord la version optimisée (section MOTEUR)'); return; }
-    setBinInTextarea(beOptPath); toast('moteur : optimisé');
+    if(!beOptPath){ toast('installez d\'abord llama.cpp compilé (section MOTEUR)'); return; }
+    setBinInTextarea(beOptPath); toast('moteur : llama.cpp compilé');
   }
   // custom : on attend que l'utilisateur saisisse un chemin / choisisse un backend
 }

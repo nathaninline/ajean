@@ -10,9 +10,9 @@ async function loadMCP(){ renderMCP(await jget('/api/mcp')); }
 function renderMCP(r){
   mcpServers = (r && r.servers) || [];
   const enabled = mcpServers.filter(s=>s.enabled).length;
-  document.getElementById('mcp-badge').innerHTML = enabled
-    ? '<span class="tag ok">'+enabled+'</span>'
-    : (mcpServers.length ? '<span class="tag" style="opacity:.6">0</span>' : '');
+  if(enabled) setBadge('mcp-badge', true, enabled+(enabled>1?' actifs':' actif'));
+  else if(mcpServers.length) setBadge('mcp-badge', false, 'aucun actif');
+  else setBadge('mcp-badge', null);
   const list = document.getElementById('mcp-list');
   list.textContent = '';
   if(!mcpServers.length){

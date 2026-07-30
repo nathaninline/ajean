@@ -64,6 +64,9 @@ func newWebMux() *http.ServeMux {
 	// Charge l'état de conversation persisté (une fois par process : jean web ET
 	// jean link serve appellent newWebMux).
 	convLoadOnce.Do(LoadConversation)
+	// Pré-chauffe les serveurs MCP en tâche de fond : sinon le handshake (plusieurs
+	// secondes pour un serveur lancé via npx) est payé par le premier message.
+	MCPPrewarm()
 	mux := http.NewServeMux()
 	// Pages publiques : le HTML et le JS ne contiennent aucun secret. Toute la
 	// donnée et toutes les actions passent par /api/* qui, lui, exige la clé.

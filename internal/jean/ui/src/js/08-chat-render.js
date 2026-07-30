@@ -104,6 +104,24 @@ function collapseInstant(el){
   requestAnimationFrame(()=>{ bw.style.transition=''; });
 }
 function setLabel(el, text){ el.querySelector('.label').textContent = text; }
+// Ligne de mesures sous une réponse (prefill / decode). Les étiquettes VOUS/JEAN
+// sont masquées dans cette mise en page, donc les chiffres qu'on y écrivait
+// avaient disparu : ils ont leur propre ligne, discrète, sous le texte. Masquée
+// par la préférence d'affichage « masquer la vitesse de génération » (CSS).
+function setStats(el, text){
+  if(!el) return;
+  let s = el.querySelector(':scope > .statline');
+  if(!s){
+    s=document.createElement('div'); s.className='statline';
+    // Apparition en fondu, à la PREMIÈRE pose seulement : la ligne arrive une fois
+    // la réponse finie, un surgissement sec accrochait l'œil. Les mises à jour
+    // suivantes ne rejouent pas l'animation (elle clignoterait), et le rejeu du
+    // journal au chargement n'anime rien du tout.
+    if(!(typeof REPLAYING!=='undefined' && REPLAYING)) s.classList.add('statline-in');
+    el.appendChild(s);
+  }
+  s.textContent = text;
+}
 function bodyOf(el){ return el.querySelector('.body'); }
 // Render markdown into a message body in place; safe because md() escapes HTML.
 function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(text); markNotices(b); addCopyButtons(b); scrollMaybe(); }

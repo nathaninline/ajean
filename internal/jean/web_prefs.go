@@ -30,6 +30,7 @@ var webPrefsAllowed = map[string]map[string]bool{
 	"hide_tools":     {"0": true, "1": true},
 	"fold_tools":     {"0": true, "1": true},
 	"hide_side":      {"0": true, "1": true},
+	"hide_stats":     {"0": true, "1": true},
 }
 
 // loadWebPrefs lit les préférences enregistrées (map vide si absent/illisible).

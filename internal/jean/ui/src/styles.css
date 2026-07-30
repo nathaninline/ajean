@@ -147,7 +147,10 @@ h1{margin:0;font-size:18px;color:var(--accent)}
    les confondre avec les traits des sections principales. */
 /* Bloc du mode agent = carte de liste : le rembourrage est porté par les
    lignes (comme .slist), pas par la carte, sinon les retraits se cumulent. */
-.gated-block{margin:6px 0;border:1px solid var(--border);border-radius:10px;padding:0 0 10px;background:var(--panel);overflow:hidden;transition:opacity .15s}
+/* ⚠️ PAS d'overflow:hidden ici : les bulles d'aide (« ? ») sont positionnées en
+   absolu par rapport à la ligne, donc un débordement caché les TRONQUE — c'est
+   ce qui rendait plusieurs infobulles illisibles. */
+.gated-block{margin:6px 0;border:1px solid var(--border);border-radius:10px;padding:0 0 10px;background:var(--panel);overflow:visible;transition:opacity .15s}
 .gated-block>.switchrow:first-of-type{padding-top:0}
 .gated-block.gated{opacity:.4;pointer-events:none;filter:grayscale(.4)}
 .switch{position:relative;display:inline-block;width:36px;height:20px;flex:none}
@@ -303,7 +306,24 @@ details>summary{display:flex;align-items:center;gap:8px;height:34px;font-size:13
    couleur distinguent les deux niveaux. */
 .stitle,.subhead,.io-cap,.pages-bar .pages-title,.skillshead>span{
   font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em}
-.sbadge{flex:none;font-size:10px}
+/* Pastille d'état d'une section (mode agent, accès internet, MCP, accès distant).
+   Un point + un mot, dans une pilule — l'ancien couple « on / off » en étiquette
+   carrée se lisait mal et jurait avec le reste du menu. Actif = pilule pleine
+   (inversée), inactif = contour discret. */
+.sbadge{flex:none;display:inline-flex;align-items:center;gap:5px;
+  font-family:var(--font);font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+  padding:2px 8px;border-radius:999px;border:1px solid var(--border);color:var(--dim);background:transparent;white-space:nowrap}
+.sbadge::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.55}
+.sbadge.on{background:var(--text);border-color:var(--text);color:var(--bg)}
+.sbadge.on::before{opacity:1}
+.sbadge.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent)}
+.sbadge.err{color:var(--err);border-color:color-mix(in srgb,var(--err) 45%,transparent)}
+.sbadge:empty{display:none}
+/* Dans une étiquette de groupe, la pastille se plaque à DROITE (comme dans les
+   titres de section, où .stitle occupe la place) au lieu de coller au libellé.
+   L'ordre visuel reste : libellé · « ? » · … · pastille. */
+.subhead .sbadge{margin-left:auto;order:2}
+.subhead .help{order:1}
 details>summary::-webkit-details-marker{display:none}
 details>summary:hover{color:var(--dim)}
 /* Chevron : un carré dont on n'affiche que deux côtés. Il pivote AUTOUR DE SON
@@ -317,11 +337,20 @@ details[open]>summary::after{transform:rotate(45deg)}
 .subhead,.io-cap,.pages-bar .pages-title,.skillshead>span{position:relative;display:flex;align-items:center;
   font-size:11px;font-weight:600;color:var(--dim);margin:10px 2px 5px}
 .io-cap{margin:0 2px 5px}
+/* Premier élément d'une carte : sa marge haute s'ajoutait au rembourrage de la
+   carte (18 px de vide au-dessus de « Mémoire », « Accès internet », etc.). */
+.gated-block>:first-child{margin-top:0}
+/* Une étiquette de groupe qui suit immédiatement le titre de section n'a pas
+   besoin de reprendre de l'air : le titre en a déjà donné. */
+details>summary+.subhead{margin-top:4px}
 .io-group{margin-top:8px}
 
 /* --- Carte de liste --- */
+/* overflow VISIBLE : cf. la note sur .gated-block — les infobulles doivent
+   pouvoir déborder de la carte. Les lignes n'ont pas de fond propre, l'arrondi
+   n'a donc rien à rogner. */
 .slist,.gated-block{background:var(--panel);border:1px solid var(--border);border-radius:9px;
-  overflow:hidden;margin:0 0 8px}
+  overflow:visible;margin:0 0 8px}
 .slist:last-child,.gated-block:last-child{margin-bottom:0}
 /* Contenu libre (champ + boutons) : le rembourrage passe sur la carte. */
 .slist.pad,.gated-block{padding:8px 10px}
@@ -464,7 +493,9 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .lc-mode{border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:border-color .12s,background .12s}
 .lc-mode:hover{border-color:var(--dim)}
 .lc-mode-t{font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px}
-.lc-reco{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);border:1px solid var(--accent);border-radius:8px;padding:1px 6px}
+/* « conseillé » : pilule PLEINE (texte inversé). En contour, elle héritait du
+   gris atténué du thème monochrome et devenait illisible en mode sombre. */
+.lc-reco{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;background:var(--text);color:var(--bg);border:1px solid var(--text);border-radius:8px;padding:1px 6px}
 .lc-mode-d{font-size:11px;color:var(--dim);margin-top:3px}
 .lc-mode-state{font-size:11px;margin-top:7px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .lc-mode-go{color:var(--accent)}
@@ -668,6 +699,19 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
    bulles repliables (raisonnement / outils) où le label est le bouton de repli. */
 #chat .msg .label{display:none}
 #chat .msg.collapsible .label{display:block}
+/* Mesures de génération sous la réponse (prefill / decode). Assez discrètes pour
+   ne pas concurrencer le texte, assez lisibles pour être utiles. Escamotables
+   depuis Apparence → Affichage. */
+#chat .msg .statline{margin-top:10px;font-family:var(--mono);font-size:10.5px;letter-spacing:.02em;
+  color:var(--dim);opacity:.75}
+#chat .msg .statline:empty{display:none}
+html[data-hide-stats="1"] #chat .msg .statline{display:none}
+/* Arrivée en fondu montant plutôt qu'un surgissement sec. L'opacité finale (.75)
+   est celle de la règle ci-dessus : l'animation doit y ATTERRIR, sinon la ligne
+   clignote en repassant à sa valeur de repos. */
+#chat .msg .statline-in{animation:statin .28s cubic-bezier(.2,.7,.3,1) both}
+@keyframes statin{from{opacity:0;transform:translateY(3px)}to{opacity:.75;transform:none}}
+@media (prefers-reduced-motion:reduce){#chat .msg .statline-in{animation:none}}
 /* Raisonnement / outils : encart gris discret plutôt qu'un cadre pointillé. */
 #chat .msg.reasoning,#chat .msg.tool{background:var(--panel);border:1px solid var(--border);border-radius:14px;color:var(--dim);padding:12px 16px}
 #chat .msg.reasoning{color:var(--dim)}
@@ -731,7 +775,7 @@ button,.addbtn,.mem-search{border-radius:10px}
 .preset{background:var(--panel);border-color:var(--border)}
 .preset:hover{background:var(--accent-bg);border-color:var(--dim)}
 .preset.active{background:var(--panel);border-color:var(--text);color:var(--text)}
-.subhead,.lc-reco,.lc-mode-go,.lc-mode-active-tag{color:var(--dim)}
+.subhead,.lc-mode-go,.lc-mode-active-tag{color:var(--dim)}
 button:hover{border-color:var(--dim);color:var(--text)}
 
 /* Encart de garde-fou : c'est le serveur qui parle (limite d'appels d'outils,

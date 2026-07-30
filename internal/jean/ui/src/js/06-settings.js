@@ -52,8 +52,7 @@ async function loadAgent(){
   const on = s.enabled;
   document.getElementById('agent-toggle').checked = on;
   document.getElementById('compact-toggle').checked = (s.compact !== false);
-  document.getElementById('agent-badge').innerHTML = on
-    ? '<span class="tag ok">on</span>' : '<span class="tag" style="opacity:.6">off</span>';
+  setBadge('agent-badge', on, on?'actif':'inactif');
   document.getElementById('brand').classList.toggle('agent', on);
   setAgentGate(on);
   if(s.mem_mode){ document.getElementById('mem-mode').value = s.mem_mode; renderMemModeDesc(s.mem_mode); }
@@ -139,8 +138,10 @@ function renderInternet(s){
   document.getElementById('internet-toggle').checked = internetOn;
   if(document.activeElement !== document.getElementById('crawl-url'))
     document.getElementById('crawl-url').value = s.url || '';
-  document.getElementById('internet-badge').innerHTML = internetOn
-    ? '<span class="tag ok">on</span>' : '<span class="tag" style="opacity:.6">off</span>';
+  // Actif mais serveur injoignable : la pastille le dit (sinon l'UI ment — les
+  // outils web ne sont pas proposés au modèle dans ce cas).
+  if(internetOn && s.url && !s.reachable) setBadge('internet-badge','warn','injoignable');
+  else setBadge('internet-badge', internetOn, internetOn?'actif':'inactif');
   // Clé du serveur Crawl4AI : le champ reste vide (la clé n'est jamais renvoyée),
   // on indique seulement si une clé est enregistrée.
   const ks=document.getElementById('crawl-key-state'), kc=document.getElementById('crawl-key-clear');
@@ -231,6 +232,7 @@ async function toggleInternet(){
 async function saveCrawlUrl(){
   const url=document.getElementById('crawl-url').value.trim();
   renderInternet(await jpost('/api/internet',{url}));
+  toast(url ? 'serveur Crawl4AI enregistré' : 'serveur Crawl4AI retiré');
 }
 async function saveCrawlKey(){
   const el=document.getElementById('crawl-key'), key=el.value.trim();

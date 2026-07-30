@@ -1,6 +1,7 @@
 // Backend llama.cpp — la barre latérale sert UNIQUEMENT à installer les moteurs.
-//   « Version rapide »    = binaires officiels précompilés (aucune compilation)
-//   « Version optimisée » = compilée pour la machine
+//   « llama.cpp précompilé »   = binaires officiels, aucune compilation
+//   « llama.cpp compilé »      = compilé ici, pour cette machine
+//   « llama.cpp personnalisé » = un fork (modèles à quant spéciale)
 // Le CHOIX du moteur utilisé se fait par modèle (preset), pas ici — voir la
 // section « Moteur » dans l'éditeur de modèle. Ça évite que la barre latérale
 // et les presets se battent pour la ligne BIN.
@@ -16,7 +17,7 @@ async function loadLlamacpp(){
 
   const head = document.getElementById('lc-status');
   if(!fastInstalled && !optInstalled){
-    head.innerHTML = 'Installez le moteur d\'IA. La <b>version rapide</b> convient à presque tout le monde.';
+    head.innerHTML = 'Installez le moteur d\'IA. Le <b>précompilé</b> convient à presque tout le monde.';
   } else {
     head.innerHTML = 'Installez les moteurs ici. Vous choisissez lequel utiliser en éditant un modèle (bouton <b>✎</b>).';
   }
@@ -56,12 +57,12 @@ async function lcCheck(mode){
       const r = await jpost('/api/llamacpp/prebuilt/check', {});
       if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
       if(r.update) toast('nouvelle version disponible : '+r.latest+(r.current ? ' (installée : '+r.current+')' : ''));
-      else toast('moteur rapide à jour ✓'+(r.latest ? ' ('+r.latest+')' : ''));
+      else toast('llama.cpp précompilé à jour ✓'+(r.latest ? ' ('+r.latest+')' : ''));
     } else {
       const r = await jpost('/api/llamacpp/check', {});
       if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
       if(r.behind > 0) toast(r.behind+' nouveau(x) commit(s) disponible(s) — utilisez « mettre à jour »');
-      else toast('moteur optimisé à jour ✓');
+      else toast('llama.cpp compilé à jour ✓');
     }
   }catch(_){ toast('erreur réseau'); }
 }
@@ -75,11 +76,11 @@ async function lcPick(mode){
     return;
   }
   if(mode === 'fast'){
-    if(!await askConfirm('Installer la version rapide de llama.cpp : téléchargement prêt à l\'emploi (~2 min, aucune compilation).', {title:'Version rapide', okText:'Installer'})) return;
+    if(!await askConfirm('Télécharger le binaire officiel de llama.cpp, prêt à l\'emploi (~2 min, aucune compilation).', {title:'llama.cpp précompilé', okText:'Installer'})) return;
     const r = await jpost('/api/llamacpp/prebuilt', {});
     if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
   } else {
-    if(!await askConfirm('Compiler la version optimisée pour votre machine. Ça peut prendre de longues minutes (surtout avec une carte NVIDIA).', {title:'Version optimisée', okText:'Compiler'})) return;
+    if(!await askConfirm('Compiler llama.cpp pour votre machine. Ça peut prendre de longues minutes (surtout avec une carte NVIDIA).', {title:'llama.cpp compilé', okText:'Compiler'})) return;
     const r = await jpost('/api/llamacpp/install', {});
     if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
   }
@@ -89,11 +90,11 @@ async function lcPick(mode){
 // « Mettre à jour » sur une carte installée.
 async function lcUpdate(mode){
   if(mode === 'fast'){
-    if(!await askConfirm('Vérifier et installer la dernière version rapide.', {title:'Mettre à jour', okText:'Mettre à jour'})) return;
+    if(!await askConfirm('Vérifier et installer le dernier binaire précompilé.', {title:'Mettre à jour', okText:'Mettre à jour'})) return;
     const r = await jpost('/api/llamacpp/prebuilt', {});
     if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
   } else {
-    if(!await askConfirm('Vérifier et installer la dernière version optimisée (recompilation si besoin).', {title:'Mettre à jour', okText:'Mettre à jour'})) return;
+    if(!await askConfirm('Vérifier et installer la dernière version compilée (recompilation si besoin).', {title:'Mettre à jour', okText:'Mettre à jour'})) return;
     const r = await jpost('/api/llamacpp/update', {clean:false});
     if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
   }

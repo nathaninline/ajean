@@ -48,12 +48,16 @@ function showTyping(){ if(!simpleMode()) return; const c=document.getElementById
 // qu'au replay — pas de timer performance.now, qui n'a pas de sens hors-ligne).
 function renderStats(el, s){
   if(!el||!s) return;
-  const role=(el===T.contentEl)?'assistant':'reasoning';
-  const parts=[role];
+  const parts=[];
   const pt=s.prompt_tokens||s.prompt_tokens_total;
   if(pt) parts.push('prefill '+pt+' tok · '+(s.prompt_per_second||0).toFixed(0)+' tok/s');
   if(s.gen_tokens) parts.push('decode '+s.gen_tokens+' tok · '+(s.gen_per_second||0).toFixed(1)+' tok/s');
-  setLabel(el, parts.join('  ·  '));
+  if(!parts.length) return;
+  // Réponse de l'assistant : ligne de mesures dédiée sous le texte (son étiquette
+  // est masquée dans cette mise en page). Bulle repliable : l'étiquette EST le
+  // bouton de repli, on y écrit comme avant.
+  if(el.classList.contains('collapsible')) setLabel(el, ['reasoning'].concat(parts).join('  ·  '));
+  else setStats(el, parts.join('  ·  '));
 }
 // Label d'une bulle : nombre de tokens + vitesse. La vitesse est calculée à
 // partir des HORODATAGES SERVEUR (firstTs→lastTs) : le temps réel de génération,

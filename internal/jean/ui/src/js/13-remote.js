@@ -10,7 +10,7 @@ function renderRemote(d){
   const badge = document.getElementById('remote-badge');
   if(!d || !d.linked){
     off.style.display=''; on.style.display='none';
-    if(badge){ badge.textContent=''; }
+    setBadge(badge, null);
     return;
   }
   off.style.display='none'; on.style.display='';
@@ -20,7 +20,7 @@ function renderRemote(d){
   else { st.textContent='○ tunnel arrêté (l\'accès distant ne répondra pas)'; st.style.color='var(--warn)'; }
   const sb = document.getElementById('remote-start');
   if(sb){ sb.style.display = d.active ? 'none' : ''; }
-  if(badge){ badge.textContent = d.active ? '● connecté' : '○ arrêté'; badge.style.color = d.active?'var(--accent)':'var(--warn)'; }
+  setBadge(badge, d.active ? true : 'warn', d.active ? 'connecté' : 'arrêté');
 }
 
 async function loadRemote(){

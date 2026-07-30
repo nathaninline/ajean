@@ -18,10 +18,15 @@ import (
 
 // Pool de sessions MCP + exposition des outils au moteur de chat.
 //
-// Une session est établie paresseusement au premier besoin (premier tour de chat
-// avec le mode agent actif) et gardée ouverte pour les tours suivants. Un serveur
-// stdio garde donc son process vivant entre les messages — c'est voulu :
-// desktop-commander & co ont un coût de démarrage non négligeable.
+// Une session est gardée ouverte entre les tours de chat : un serveur stdio garde
+// son process vivant d'un message à l'autre — c'est voulu, desktop-commander & co
+// ont un coût de démarrage non négligeable.
+//
+// Les connexions sont établies EN PARALLÈLE (mcpEnsureAll) : en séquence, quatre
+// serveurs `npx` faisaient attendre la somme de leurs démarrages (~20 s), là où
+// les autres clients MCP paient le plus lent. Elles sont aussi pré-chauffées au
+// démarrage du service web/link (MCPPrewarm) pour que le premier message ne paie
+// pas le handshake.
 //
 // Le namespacing des outils suit la convention de l'écosystème :
 // mcp__<serveur>__<outil>. On maintient un registre nom-exposé → (serveur, outil)
@@ -39,12 +44,17 @@ const (
 )
 
 // mcpSession est une connexion vivante à un serveur MCP.
+//
+// L'entrée est publiée dans le pool AVANT que la connexion aboutisse, pour qu'un
+// second appelant se mette en attente au lieu de lancer un deuxième process. Les
+// champs sess/tools/err ne doivent donc être lus qu'une fois `ready` fermé.
 type mcpSession struct {
 	name  string
 	cfg   MCPServerConfig
 	sess  *mcpsdk.ClientSession
 	tools []*mcpsdk.Tool
-	err   error // dernière erreur de connexion/liste, pour l'UI
+	err   error         // dernière erreur de connexion/liste, pour l'UI
+	ready chan struct{} // fermé quand la tentative de connexion est terminée
 }
 
 // mcpManager détient le pool de sessions.
@@ -79,6 +89,9 @@ func mcpInvalidate(name string) {
 		}
 	}
 	mcpMgr.mu.Unlock()
+	// Une session encore en cours de connexion a sess == nil : c'est sa goroutine
+	// qui refermera ce qu'elle vient d'ouvrir, en constatant qu'elle n'est plus
+	// dans le pool.
 	if s != nil && s.sess != nil {
 		_ = s.sess.Close()
 	}
@@ -145,16 +158,22 @@ func mcpConnect(ctx context.Context, name string, cfg MCPServerConfig) (*mcpsdk.
 
 // ensure renvoie une session vivante pour un serveur activé, en la (re)créant si
 // besoin. Doit être appelé sans détenir mgr.mu (il gère le lock lui-même).
+//
+// L'entrée est réservée dans le pool avant la connexion : deux appelants
+// simultanés (le pré-chauffage et un tour de chat, par exemple) partagent la même
+// tentative au lieu de lancer deux process stdio.
 func (m *mcpManager) ensure(name string, cfg MCPServerConfig) *mcpSession {
 	m.mu.Lock()
 	if s, ok := m.sessions[name]; ok {
 		m.mu.Unlock()
+		<-s.ready // connexion peut-être encore en cours : on attend son issue
 		return s
 	}
+	s := &mcpSession{name: name, cfg: cfg, ready: make(chan struct{})}
+	m.sessions[name] = s
 	m.mu.Unlock()
 
 	// Connexion hors-lock (peut être lente).
-	s := &mcpSession{name: name, cfg: cfg}
 	ctx, cancel := context.WithTimeout(context.Background(), mcpConnectTimeout)
 	defer cancel()
 	sess, err := mcpConnect(ctx, name, cfg)
@@ -171,26 +190,61 @@ func (m *mcpManager) ensure(name string, cfg MCPServerConfig) *mcpSession {
 	}
 
 	m.mu.Lock()
-	// Un autre appelant a pu connecter entretemps : garder la première.
-	if existing, ok := m.sessions[name]; ok {
-		m.mu.Unlock()
-		if s.sess != nil {
-			_ = s.sess.Close()
+	// La session a pu être invalidée pendant la connexion (changement de config,
+	// arrêt du service) : dans ce cas on ne la republie pas, on referme.
+	stale := m.sessions[name] != s
+	if !stale {
+		// (Re)peuple le registre pour ce serveur.
+		for exposed, ref := range m.registry {
+			if ref.server == name {
+				delete(m.registry, exposed)
+			}
 		}
-		return existing
-	}
-	m.sessions[name] = s
-	// (Re)peuple le registre pour ce serveur.
-	for exposed, ref := range m.registry {
-		if ref.server == name {
-			delete(m.registry, exposed)
+		for _, t := range s.tools {
+			m.registry[mcpExposedName(name, t.Name)] = mcpToolRef{server: name, tool: t.Name}
 		}
-	}
-	for _, t := range s.tools {
-		m.registry[mcpExposedName(name, t.Name)] = mcpToolRef{server: name, tool: t.Name}
 	}
 	m.mu.Unlock()
+	close(s.ready)
+	if stale && s.sess != nil {
+		_ = s.sess.Close()
+		s.sess = nil
+	}
 	return s
+}
+
+// mcpEnsureAll connecte en parallèle tous les serveurs activés et attend qu'ils
+// soient tous fixés (connectés ou en erreur). C'est ce qui évite d'additionner
+// les temps de démarrage : le coût total est celui du serveur le plus lent.
+func mcpEnsureAll(servers map[string]MCPServerConfig) {
+	var wg sync.WaitGroup
+	for _, name := range sortedServerNames(servers) {
+		cfg := servers[name]
+		if !cfg.Enabled || cfg.Transport() == "" {
+			continue
+		}
+		wg.Add(1)
+		go func(name string, cfg MCPServerConfig) {
+			defer wg.Done()
+			mcpMgr.ensure(name, cfg)
+		}(name, cfg)
+	}
+	wg.Wait()
+}
+
+// MCPPrewarm établit les sessions MCP en tâche de fond, au démarrage du service
+// web/link. Sans ça le handshake était payé par le premier message de chat, ce
+// qui donnait l'impression d'une IA très lente à démarrer. Sans mode agent les
+// outils MCP ne sont de toute façon pas exposés : inutile de lancer les process.
+func MCPPrewarm() {
+	if !agentEnabled() {
+		return
+	}
+	servers, err := LoadMCPConfig()
+	if err != nil || len(servers) == 0 {
+		return
+	}
+	go mcpEnsureAll(servers)
 }
 
 var mcpSanitizeRe = regexp.MustCompile(`[^a-zA-Z0-9_-]+`)
@@ -213,6 +267,7 @@ func mcpTools() []Tool {
 	if err != nil || len(servers) == 0 {
 		return nil
 	}
+	mcpEnsureAll(servers) // connexions en parallèle, puis lecture du pool (instantanée)
 	var out []Tool
 	for _, name := range sortedServerNames(servers) {
 		cfg := servers[name]
@@ -419,6 +474,7 @@ func MCPStatus() ([]MCPServerStatus, error) {
 	if err != nil {
 		return nil, err
 	}
+	mcpEnsureAll(servers) // en parallèle : le panneau MCP de l'UI n'attend plus la somme
 	var out []MCPServerStatus
 	for _, name := range sortedServerNames(servers) {
 		cfg := servers[name]

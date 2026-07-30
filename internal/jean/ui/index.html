@@ -22,7 +22,7 @@
      garde `display-mode` en second pour les PWA Android/desktop à manifeste. -->
 <script>try{var pwa=(window.navigator.standalone===true)||(window.matchMedia&&window.matchMedia('(display-mode:standalone)').matches)||(window.matchMedia&&window.matchMedia('(display-mode:fullscreen)').matches);document.documentElement.setAttribute('data-pwa',pwa?'1':'0');}catch(e){document.documentElement.setAttribute('data-pwa','0');}</script>
 <!-- Applique le thème AVANT le rendu (pas de flash) : lit le choix persisté. -->
-<script>try{var t=localStorage.getItem('jean-theme')||'light';document.documentElement.setAttribute('data-theme',(t==='dark'||t.endsWith('-dark'))?'dark':'light');['hide-reasoning','hide-tools','fold-tools','hide-side'].forEach(function(k){document.documentElement.setAttribute('data-'+k,localStorage.getItem('jean-'+k)==='1'?'1':'0')})}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
+<script>try{var t=localStorage.getItem('jean-theme')||'light';document.documentElement.setAttribute('data-theme',(t==='dark'||t.endsWith('-dark'))?'dark':'light');['hide-reasoning','hide-tools','fold-tools','hide-side','hide-stats'].forEach(function(k){document.documentElement.setAttribute('data-'+k,localStorage.getItem('jean-'+k)==='1'?'1':'0')})}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
 <style>
 /* ===== Palette =====================================================
    Un seul thème (« Clean ») : noir et blanc, sobre. Deux variantes — claire par
@@ -173,7 +173,10 @@ h1{margin:0;font-size:18px;color:var(--accent)}
    les confondre avec les traits des sections principales. */
 /* Bloc du mode agent = carte de liste : le rembourrage est porté par les
    lignes (comme .slist), pas par la carte, sinon les retraits se cumulent. */
-.gated-block{margin:6px 0;border:1px solid var(--border);border-radius:10px;padding:0 0 10px;background:var(--panel);overflow:hidden;transition:opacity .15s}
+/* ⚠️ PAS d'overflow:hidden ici : les bulles d'aide (« ? ») sont positionnées en
+   absolu par rapport à la ligne, donc un débordement caché les TRONQUE — c'est
+   ce qui rendait plusieurs infobulles illisibles. */
+.gated-block{margin:6px 0;border:1px solid var(--border);border-radius:10px;padding:0 0 10px;background:var(--panel);overflow:visible;transition:opacity .15s}
 .gated-block>.switchrow:first-of-type{padding-top:0}
 .gated-block.gated{opacity:.4;pointer-events:none;filter:grayscale(.4)}
 .switch{position:relative;display:inline-block;width:36px;height:20px;flex:none}
@@ -329,7 +332,24 @@ details>summary{display:flex;align-items:center;gap:8px;height:34px;font-size:13
    couleur distinguent les deux niveaux. */
 .stitle,.subhead,.io-cap,.pages-bar .pages-title,.skillshead>span{
   font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em}
-.sbadge{flex:none;font-size:10px}
+/* Pastille d'état d'une section (mode agent, accès internet, MCP, accès distant).
+   Un point + un mot, dans une pilule — l'ancien couple « on / off » en étiquette
+   carrée se lisait mal et jurait avec le reste du menu. Actif = pilule pleine
+   (inversée), inactif = contour discret. */
+.sbadge{flex:none;display:inline-flex;align-items:center;gap:5px;
+  font-family:var(--font);font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+  padding:2px 8px;border-radius:999px;border:1px solid var(--border);color:var(--dim);background:transparent;white-space:nowrap}
+.sbadge::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.55}
+.sbadge.on{background:var(--text);border-color:var(--text);color:var(--bg)}
+.sbadge.on::before{opacity:1}
+.sbadge.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent)}
+.sbadge.err{color:var(--err);border-color:color-mix(in srgb,var(--err) 45%,transparent)}
+.sbadge:empty{display:none}
+/* Dans une étiquette de groupe, la pastille se plaque à DROITE (comme dans les
+   titres de section, où .stitle occupe la place) au lieu de coller au libellé.
+   L'ordre visuel reste : libellé · « ? » · … · pastille. */
+.subhead .sbadge{margin-left:auto;order:2}
+.subhead .help{order:1}
 details>summary::-webkit-details-marker{display:none}
 details>summary:hover{color:var(--dim)}
 /* Chevron : un carré dont on n'affiche que deux côtés. Il pivote AUTOUR DE SON
@@ -343,11 +363,20 @@ details[open]>summary::after{transform:rotate(45deg)}
 .subhead,.io-cap,.pages-bar .pages-title,.skillshead>span{position:relative;display:flex;align-items:center;
   font-size:11px;font-weight:600;color:var(--dim);margin:10px 2px 5px}
 .io-cap{margin:0 2px 5px}
+/* Premier élément d'une carte : sa marge haute s'ajoutait au rembourrage de la
+   carte (18 px de vide au-dessus de « Mémoire », « Accès internet », etc.). */
+.gated-block>:first-child{margin-top:0}
+/* Une étiquette de groupe qui suit immédiatement le titre de section n'a pas
+   besoin de reprendre de l'air : le titre en a déjà donné. */
+details>summary+.subhead{margin-top:4px}
 .io-group{margin-top:8px}
 
 /* --- Carte de liste --- */
+/* overflow VISIBLE : cf. la note sur .gated-block — les infobulles doivent
+   pouvoir déborder de la carte. Les lignes n'ont pas de fond propre, l'arrondi
+   n'a donc rien à rogner. */
 .slist,.gated-block{background:var(--panel);border:1px solid var(--border);border-radius:9px;
-  overflow:hidden;margin:0 0 8px}
+  overflow:visible;margin:0 0 8px}
 .slist:last-child,.gated-block:last-child{margin-bottom:0}
 /* Contenu libre (champ + boutons) : le rembourrage passe sur la carte. */
 .slist.pad,.gated-block{padding:8px 10px}
@@ -490,7 +519,9 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .lc-mode{border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:border-color .12s,background .12s}
 .lc-mode:hover{border-color:var(--dim)}
 .lc-mode-t{font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px}
-.lc-reco{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);border:1px solid var(--accent);border-radius:8px;padding:1px 6px}
+/* « conseillé » : pilule PLEINE (texte inversé). En contour, elle héritait du
+   gris atténué du thème monochrome et devenait illisible en mode sombre. */
+.lc-reco{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;background:var(--text);color:var(--bg);border:1px solid var(--text);border-radius:8px;padding:1px 6px}
 .lc-mode-d{font-size:11px;color:var(--dim);margin-top:3px}
 .lc-mode-state{font-size:11px;margin-top:7px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .lc-mode-go{color:var(--accent)}
@@ -694,6 +725,19 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
    bulles repliables (raisonnement / outils) où le label est le bouton de repli. */
 #chat .msg .label{display:none}
 #chat .msg.collapsible .label{display:block}
+/* Mesures de génération sous la réponse (prefill / decode). Assez discrètes pour
+   ne pas concurrencer le texte, assez lisibles pour être utiles. Escamotables
+   depuis Apparence → Affichage. */
+#chat .msg .statline{margin-top:10px;font-family:var(--mono);font-size:10.5px;letter-spacing:.02em;
+  color:var(--dim);opacity:.75}
+#chat .msg .statline:empty{display:none}
+html[data-hide-stats="1"] #chat .msg .statline{display:none}
+/* Arrivée en fondu montant plutôt qu'un surgissement sec. L'opacité finale (.75)
+   est celle de la règle ci-dessus : l'animation doit y ATTERRIR, sinon la ligne
+   clignote en repassant à sa valeur de repos. */
+#chat .msg .statline-in{animation:statin .28s cubic-bezier(.2,.7,.3,1) both}
+@keyframes statin{from{opacity:0;transform:translateY(3px)}to{opacity:.75;transform:none}}
+@media (prefers-reduced-motion:reduce){#chat .msg .statline-in{animation:none}}
 /* Raisonnement / outils : encart gris discret plutôt qu'un cadre pointillé. */
 #chat .msg.reasoning,#chat .msg.tool{background:var(--panel);border:1px solid var(--border);border-radius:14px;color:var(--dim);padding:12px 16px}
 #chat .msg.reasoning{color:var(--dim)}
@@ -757,7 +801,7 @@ button,.addbtn,.mem-search{border-radius:10px}
 .preset{background:var(--panel);border-color:var(--border)}
 .preset:hover{background:var(--accent-bg);border-color:var(--dim)}
 .preset.active{background:var(--panel);border-color:var(--text);color:var(--text)}
-.subhead,.lc-reco,.lc-mode-go,.lc-mode-active-tag{color:var(--dim)}
+.subhead,.lc-mode-go,.lc-mode-active-tag{color:var(--dim)}
 button:hover{border-color:var(--dim);color:var(--text)}
 
 /* Encart de garde-fou : c'est le serveur qui parle (limite d'appels d'outils,
@@ -832,20 +876,21 @@ button:hover{border-color:var(--dim);color:var(--text)}
       </div>
     </div>
     <div id="net-block" class="gated-block">
-      <div class="subhead">Accès internet<span id="internet-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Ajoute les outils <b>web_search / web_open / web_read / web_grep</b> via un serveur <b>Crawl4AI</b>. Actifs seulement si le serveur répond.</span></span></div>
+      <div class="subhead">Accès internet<span id="internet-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Ajoute les outils <b>web_search / web_open / web_read / web_grep</b> via un serveur <b>Crawl4AI</b> que tu héberges toi-même (ex. <code>docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest</code>). Actifs seulement si le <b>mode agent</b> est actif et que le serveur répond.</span></span></div>
       <label class="switchrow"><span class="switch"><input type="checkbox" id="internet-toggle" onchange="toggleInternet()"><span class="slider"></span></span> donner internet à l'IA</label>
+      <!-- URL et clé s'enregistrent en quittant le champ (onchange) : deux boutons
+           « enregistrer » côte à côte n'apportaient rien et brouillaient la carte. -->
       <div class="row" style="margin-top:6px">
         <input id="crawl-url" type="text" placeholder="http://localhost:11235" class="sctl" onchange="saveCrawlUrl()">
-        <button onclick="saveCrawlUrl()">enregistrer</button>
       </div>
       <!-- Clé d'accès du serveur Crawl4AI (facultative) : envoyée en
            « Authorization: Bearer … ». Jamais relue par l'API, on n'affiche
            qu'un indice sur les 4 derniers caractères. -->
       <div class="row" style="margin-top:6px">
         <input id="crawl-key" type="password" autocomplete="off" placeholder="clé API (si le serveur en exige une)" class="sctl" onchange="saveCrawlKey()">
-        <button onclick="saveCrawlKey()">enregistrer</button>
         <button id="crawl-key-clear" onclick="clearCrawlKey()" style="display:none">retirer</button>
       </div>
+      <div class="muted" style="font-size:11px;margin-top:4px">enregistré automatiquement en quittant le champ</div>
       <div id="crawl-key-state" class="muted" style="font-size:11px;margin-top:3px"></div>
       <div id="internet-status" class="muted" style="font-size:11px;margin-top:4px"></div>
     </div>
@@ -871,6 +916,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-tools" onchange="toggleView('hide-tools')"><span class="slider"></span></span> masquer les appels d'outils</label>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-fold-tools" onchange="toggleView('fold-tools')"><span class="slider"></span></span> garder les bulles repliées<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Les bulles de raisonnement et d'outil arrivent <b>déjà fermées</b> au lieu de s'ouvrir puis se refermer. Un clic sur leur étiquette les déplie.</span></span></label>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-side" onchange="toggleView('hide-side')"><span class="slider"></span></span> barre latérale escamotable<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">La barre latérale devient un tiroir <b>même sur ordinateur</b> : elle reste fermée et s'ouvre avec le bouton ☰. Toute la largeur pour la conversation.</span></span></label>
+    <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-stats" onchange="toggleView('hide-stats')"><span class="slider"></span></span> masquer la vitesse de génération<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Sous chaque réponse : <b>prefill</b> (lecture du contexte) et <b>decode</b> (écriture), en tokens et en tokens/seconde. Coche pour ne plus les afficher.</span></span></label>
     </div>
   </details>
   <details><summary><span class="stitle">System prompt</span></summary>
@@ -943,18 +989,18 @@ button:hover{border-color:var(--dim);color:var(--text)}
     <div id="lc-status" class="lc-head muted">…</div>
     <div class="lc-modes">
       <div class="lc-mode" id="lc-mode-fast" onclick="lcPick('fast')">
-        <div class="lc-mode-t">Version rapide <span class="lc-reco">conseillé</span></div>
-        <div class="lc-mode-d">prête à l'emploi, installée en ~2 min</div>
+        <div class="lc-mode-t">llama.cpp précompilé <span class="lc-reco">conseillé</span></div>
+        <div class="lc-mode-d">binaire officiel téléchargé tel quel, prêt en ~2 min</div>
         <div class="lc-mode-state" id="lc-fast-state"></div>
       </div>
       <div class="lc-mode" id="lc-mode-opt" onclick="lcPick('opt')">
-        <div class="lc-mode-t">Version optimisée</div>
-        <div class="lc-mode-d">compilée pour votre machine, plus longue</div>
+        <div class="lc-mode-t">llama.cpp compilé</div>
+        <div class="lc-mode-d">compilé ici pour votre machine — plus rapide, plus long à installer</div>
         <div class="lc-mode-state" id="lc-opt-state"></div>
       </div>
       <div class="lc-mode" id="lc-mode-custom" onclick="openCustomBackends()">
-        <div class="lc-mode-t">Backend personnalisé</div>
-        <div class="lc-mode-d">forks llama.cpp pour modèles spéciaux (ternaire…)</div>
+        <div class="lc-mode-t">llama.cpp personnalisé</div>
+        <div class="lc-mode-d">un fork de llama.cpp pour modèles spéciaux (quant ternaire…)</div>
         <div class="lc-mode-state" id="lc-custom-state"></div>
       </div>
     </div>
@@ -963,14 +1009,16 @@ button:hover{border-color:var(--dim);color:var(--text)}
       <div class="lc-logbar" onclick="lcToggleLog()"><span id="lc-log-caret">▸</span> détails</div>
       <pre id="lc-log" hidden></pre>
     </div>
-  </details>
-  <details><summary><span class="stitle">Service</span></summary>
+    <!-- Ces trois boutons pilotent le service qui fait tourner llama-server :
+         leur place est ici, avec le moteur, et pas dans une section « Service »
+         à part qui ne contenait qu'eux. -->
+    <div class="subhead">Service du moteur<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Démarre, redémarre ou arrête <b>llama-server</b> — le processus qui charge le modèle et répond. Un redémarrage recharge le modèle du preset actif (quelques secondes à quelques minutes selon sa taille).</span></span></div>
     <div class="slist pad">
-    <div class="row">
-      <button onclick="act('start')">start</button>
-      <button onclick="act('restart')">restart</button>
-      <button onclick="act('stop')">stop</button>
-    </div>
+      <div class="row">
+        <button onclick="act('start')">démarrer</button>
+        <button onclick="act('restart')">redémarrer</button>
+        <button onclick="act('stop')">arrêter</button>
+      </div>
     </div>
   </details>
   <details id="upd-details"><summary><span class="stitle">Actions</span></summary>
@@ -1163,8 +1211,8 @@ button:hover{border-color:var(--dim);color:var(--text)}
         <div class="pe-group">
           <div class="pe-gh">Moteur</div>
           <div class="pe-seg">
-            <label><input type="radio" name="m-be" value="fast" onchange="onBackendMode('fast')"><span>Rapide</span><span class="be-note" id="be-fast-note"></span></label>
-            <label><input type="radio" name="m-be" value="opt" onchange="onBackendMode('opt')"><span>Optimisé</span><span class="be-note" id="be-opt-note"></span></label>
+            <label><input type="radio" name="m-be" value="fast" onchange="onBackendMode('fast')"><span>Précompilé</span><span class="be-note" id="be-fast-note"></span></label>
+            <label><input type="radio" name="m-be" value="opt" onchange="onBackendMode('opt')"><span>Compilé</span><span class="be-note" id="be-opt-note"></span></label>
             <label><input type="radio" name="m-be" value="custom" onchange="onBackendMode('custom')"><span>Personnalisé</span></label>
           </div>
           <div id="m-backend-custom" class="pe-list" style="display:none;margin-top:8px">
@@ -1359,6 +1407,7 @@ const VIEW_OPTS=[
   {id:'hide-tools',     label:"masquer les appels d'outils"},
   {id:'fold-tools',     label:'garder les bulles repliées'},
   {id:'hide-side',      label:'barre latérale escamotable'},
+  {id:'hide-stats',     label:'masquer la vitesse de génération'},
 ];
 function viewOn(id){ return document.documentElement.getAttribute('data-'+id)==='1'; }
 function applyView(id, on){
@@ -1409,6 +1458,15 @@ async function loadPrefs(){
   }catch(e){}
 }
 document.addEventListener('DOMContentLoaded', ()=>{ initTheme(); initView(); document.getElementById('sysprompt').value = localStorage.getItem('jean.sys') || ''; loadSys(); restoreChat(); });
+// Pastille d'état d'une section du menu (mode agent, internet, MCP, distant).
+// `state` : true = actif (pilule pleine), false = inactif (contour), 'warn'/'err'
+// = état signalé, null = pastille masquée. Un seul endroit décide de leur allure.
+function setBadge(id, state, text){
+  const el = typeof id==='string' ? document.getElementById(id) : id;
+  if(!el) return;
+  el.className = 'sbadge' + (state===true ? ' on' : (state==='warn' || state==='err') ? ' '+state : '');
+  el.textContent = state===null || state===undefined ? '' : (text||'');
+}
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
 // Modales natives (askConfirm/askPrompt/askAlert) — remplacent confirm()/prompt()/
 // alert() par de vraies boîtes stylées. Chacune renvoie une Promise : askConfirm →
@@ -1610,17 +1668,17 @@ async function loadRam(){
 }
 async function loadCfg(){
   // /api/llamacpp en parallèle : il indique si le BIN de la config correspond au
-  // moteur rapide (prebuilt.in_use) ou optimisé (in_use) — sinon c'est un custom.
+  // précompilé (prebuilt.in_use) ou compilé ici (in_use) — sinon c'est un fork perso.
   const [c, lc] = await Promise.all([jget('/api/config'), jget('/api/llamacpp').catch(()=>null)]);
   const row=(k,v,title)=>'<div class="kv"><span>'+k+'</span><span title="'+String(title!=null?title:v).replace(/"/g,'&quot;')+'">'+String(v)+'</span></div>';
   const rows=[];
   if(c.BIN){
-    // Moteur : rapide / optimisé / custom (avec le chemin). Le title garde
+    // Moteur : précompilé / compilé / personnalisé (avec le chemin). Le title garde
     // toujours le chemin complet, quel que soit le libellé.
     let v;
-    if(lc && lc.prebuilt && lc.prebuilt.in_use) v='rapide';
-    else if(lc && lc.in_use) v='optimisé';
-    else v='custom : '+c.BIN;
+    if(lc && lc.prebuilt && lc.prebuilt.in_use) v='llama.cpp précompilé';
+    else if(lc && lc.in_use) v='llama.cpp compilé';
+    else v='llama.cpp personnalisé : '+c.BIN;
     rows.push(row('MOTEUR', v, c.BIN));
   }
   ['MODEL','CTX','BATCH','UBATCH','NGL'].filter(k=>c[k]).forEach(k=>{
@@ -1686,8 +1744,7 @@ async function loadAgent(){
   const on = s.enabled;
   document.getElementById('agent-toggle').checked = on;
   document.getElementById('compact-toggle').checked = (s.compact !== false);
-  document.getElementById('agent-badge').innerHTML = on
-    ? '<span class="tag ok">on</span>' : '<span class="tag" style="opacity:.6">off</span>';
+  setBadge('agent-badge', on, on?'actif':'inactif');
   document.getElementById('brand').classList.toggle('agent', on);
   setAgentGate(on);
   if(s.mem_mode){ document.getElementById('mem-mode').value = s.mem_mode; renderMemModeDesc(s.mem_mode); }
@@ -1773,8 +1830,10 @@ function renderInternet(s){
   document.getElementById('internet-toggle').checked = internetOn;
   if(document.activeElement !== document.getElementById('crawl-url'))
     document.getElementById('crawl-url').value = s.url || '';
-  document.getElementById('internet-badge').innerHTML = internetOn
-    ? '<span class="tag ok">on</span>' : '<span class="tag" style="opacity:.6">off</span>';
+  // Actif mais serveur injoignable : la pastille le dit (sinon l'UI ment — les
+  // outils web ne sont pas proposés au modèle dans ce cas).
+  if(internetOn && s.url && !s.reachable) setBadge('internet-badge','warn','injoignable');
+  else setBadge('internet-badge', internetOn, internetOn?'actif':'inactif');
   // Clé du serveur Crawl4AI : le champ reste vide (la clé n'est jamais renvoyée),
   // on indique seulement si une clé est enregistrée.
   const ks=document.getElementById('crawl-key-state'), kc=document.getElementById('crawl-key-clear');
@@ -1865,6 +1924,7 @@ async function toggleInternet(){
 async function saveCrawlUrl(){
   const url=document.getElementById('crawl-url').value.trim();
   renderInternet(await jpost('/api/internet',{url}));
+  toast(url ? 'serveur Crawl4AI enregistré' : 'serveur Crawl4AI retiré');
 }
 async function saveCrawlKey(){
   const el=document.getElementById('crawl-key'), key=el.value.trim();
@@ -2028,7 +2088,7 @@ function onPickModel(){
   toast('MODEL='+val);
 }
 
-// Choix du moteur PAR MODÈLE : 3 options (rapide / optimisé / personnalisé)
+// Choix du moteur PAR MODÈLE : 3 options (précompilé / compilé / personnalisé)
 // qui réécrivent la ligne BIN= du preset. C'est LE point où on décide quel
 // backend fait tourner ce modèle — la barre latérale ne fait qu'installer.
 function currentBinInTextarea(){
@@ -2078,11 +2138,11 @@ function toggleBackendCustom(mode){
 function onBackendMode(mode){
   toggleBackendCustom(mode);
   if(mode === 'fast'){
-    if(!beFastPath){ toast('installez d\'abord la version rapide (section MOTEUR)'); return; }
-    setBinInTextarea(beFastPath); toast('moteur : rapide');
+    if(!beFastPath){ toast('installez d\'abord llama.cpp précompilé (section MOTEUR)'); return; }
+    setBinInTextarea(beFastPath); toast('moteur : llama.cpp précompilé');
   } else if(mode === 'opt'){
-    if(!beOptPath){ toast('installez d\'abord la version optimisée (section MOTEUR)'); return; }
-    setBinInTextarea(beOptPath); toast('moteur : optimisé');
+    if(!beOptPath){ toast('installez d\'abord llama.cpp compilé (section MOTEUR)'); return; }
+    setBinInTextarea(beOptPath); toast('moteur : llama.cpp compilé');
   }
   // custom : on attend que l'utilisateur saisisse un chemin / choisisse un backend
 }
@@ -2357,6 +2417,24 @@ function collapseInstant(el){
   requestAnimationFrame(()=>{ bw.style.transition=''; });
 }
 function setLabel(el, text){ el.querySelector('.label').textContent = text; }
+// Ligne de mesures sous une réponse (prefill / decode). Les étiquettes VOUS/JEAN
+// sont masquées dans cette mise en page, donc les chiffres qu'on y écrivait
+// avaient disparu : ils ont leur propre ligne, discrète, sous le texte. Masquée
+// par la préférence d'affichage « masquer la vitesse de génération » (CSS).
+function setStats(el, text){
+  if(!el) return;
+  let s = el.querySelector(':scope > .statline');
+  if(!s){
+    s=document.createElement('div'); s.className='statline';
+    // Apparition en fondu, à la PREMIÈRE pose seulement : la ligne arrive une fois
+    // la réponse finie, un surgissement sec accrochait l'œil. Les mises à jour
+    // suivantes ne rejouent pas l'animation (elle clignoterait), et le rejeu du
+    // journal au chargement n'anime rien du tout.
+    if(!(typeof REPLAYING!=='undefined' && REPLAYING)) s.classList.add('statline-in');
+    el.appendChild(s);
+  }
+  s.textContent = text;
+}
 function bodyOf(el){ return el.querySelector('.body'); }
 // Render markdown into a message body in place; safe because md() escapes HTML.
 function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(text); markNotices(b); addCopyButtons(b); scrollMaybe(); }
@@ -2568,12 +2646,16 @@ function showTyping(){ if(!simpleMode()) return; const c=document.getElementById
 // qu'au replay — pas de timer performance.now, qui n'a pas de sens hors-ligne).
 function renderStats(el, s){
   if(!el||!s) return;
-  const role=(el===T.contentEl)?'assistant':'reasoning';
-  const parts=[role];
+  const parts=[];
   const pt=s.prompt_tokens||s.prompt_tokens_total;
   if(pt) parts.push('prefill '+pt+' tok · '+(s.prompt_per_second||0).toFixed(0)+' tok/s');
   if(s.gen_tokens) parts.push('decode '+s.gen_tokens+' tok · '+(s.gen_per_second||0).toFixed(1)+' tok/s');
-  setLabel(el, parts.join('  ·  '));
+  if(!parts.length) return;
+  // Réponse de l'assistant : ligne de mesures dédiée sous le texte (son étiquette
+  // est masquée dans cette mise en page). Bulle repliable : l'étiquette EST le
+  // bouton de repli, on y écrit comme avant.
+  if(el.classList.contains('collapsible')) setLabel(el, ['reasoning'].concat(parts).join('  ·  '));
+  else setStats(el, parts.join('  ·  '));
 }
 // Label d'une bulle : nombre de tokens + vitesse. La vitesse est calculée à
 // partir des HORODATAGES SERVEUR (firstTs→lastTs) : le temps réel de génération,
@@ -2727,8 +2809,9 @@ setInterval(loadStatus, 5000);
 setInterval(loadVram, 3000);
 setInterval(loadRam, 3000);
 // Backend llama.cpp — la barre latérale sert UNIQUEMENT à installer les moteurs.
-//   « Version rapide »    = binaires officiels précompilés (aucune compilation)
-//   « Version optimisée » = compilée pour la machine
+//   « llama.cpp précompilé »   = binaires officiels, aucune compilation
+//   « llama.cpp compilé »      = compilé ici, pour cette machine
+//   « llama.cpp personnalisé » = un fork (modèles à quant spéciale)
 // Le CHOIX du moteur utilisé se fait par modèle (preset), pas ici — voir la
 // section « Moteur » dans l'éditeur de modèle. Ça évite que la barre latérale
 // et les presets se battent pour la ligne BIN.
@@ -2744,7 +2827,7 @@ async function loadLlamacpp(){
 
   const head = document.getElementById('lc-status');
   if(!fastInstalled && !optInstalled){
-    head.innerHTML = 'Installez le moteur d\'IA. La <b>version rapide</b> convient à presque tout le monde.';
+    head.innerHTML = 'Installez le moteur d\'IA. Le <b>précompilé</b> convient à presque tout le monde.';
   } else {
     head.innerHTML = 'Installez les moteurs ici. Vous choisissez lequel utiliser en éditant un modèle (bouton <b>✎</b>).';
   }
@@ -2784,12 +2867,12 @@ async function lcCheck(mode){
       const r = await jpost('/api/llamacpp/prebuilt/check', {});
       if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
       if(r.update) toast('nouvelle version disponible : '+r.latest+(r.current ? ' (installée : '+r.current+')' : ''));
-      else toast('moteur rapide à jour ✓'+(r.latest ? ' ('+r.latest+')' : ''));
+      else toast('llama.cpp précompilé à jour ✓'+(r.latest ? ' ('+r.latest+')' : ''));
     } else {
       const r = await jpost('/api/llamacpp/check', {});
       if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
       if(r.behind > 0) toast(r.behind+' nouveau(x) commit(s) disponible(s) — utilisez « mettre à jour »');
-      else toast('moteur optimisé à jour ✓');
+      else toast('llama.cpp compilé à jour ✓');
     }
   }catch(_){ toast('erreur réseau'); }
 }
@@ -2803,11 +2886,11 @@ async function lcPick(mode){
     return;
   }
   if(mode === 'fast'){
-    if(!await askConfirm('Installer la version rapide de llama.cpp : téléchargement prêt à l\'emploi (~2 min, aucune compilation).', {title:'Version rapide', okText:'Installer'})) return;
+    if(!await askConfirm('Télécharger le binaire officiel de llama.cpp, prêt à l\'emploi (~2 min, aucune compilation).', {title:'llama.cpp précompilé', okText:'Installer'})) return;
     const r = await jpost('/api/llamacpp/prebuilt', {});
     if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
   } else {
-    if(!await askConfirm('Compiler la version optimisée pour votre machine. Ça peut prendre de longues minutes (surtout avec une carte NVIDIA).', {title:'Version optimisée', okText:'Compiler'})) return;
+    if(!await askConfirm('Compiler llama.cpp pour votre machine. Ça peut prendre de longues minutes (surtout avec une carte NVIDIA).', {title:'llama.cpp compilé', okText:'Compiler'})) return;
     const r = await jpost('/api/llamacpp/install', {});
     if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
   }
@@ -2817,11 +2900,11 @@ async function lcPick(mode){
 // « Mettre à jour » sur une carte installée.
 async function lcUpdate(mode){
   if(mode === 'fast'){
-    if(!await askConfirm('Vérifier et installer la dernière version rapide.', {title:'Mettre à jour', okText:'Mettre à jour'})) return;
+    if(!await askConfirm('Vérifier et installer le dernier binaire précompilé.', {title:'Mettre à jour', okText:'Mettre à jour'})) return;
     const r = await jpost('/api/llamacpp/prebuilt', {});
     if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
   } else {
-    if(!await askConfirm('Vérifier et installer la dernière version optimisée (recompilation si besoin).', {title:'Mettre à jour', okText:'Mettre à jour'})) return;
+    if(!await askConfirm('Vérifier et installer la dernière version compilée (recompilation si besoin).', {title:'Mettre à jour', okText:'Mettre à jour'})) return;
     const r = await jpost('/api/llamacpp/update', {clean:false});
     if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
   }
@@ -2959,9 +3042,9 @@ async function loadMCP(){ renderMCP(await jget('/api/mcp')); }
 function renderMCP(r){
   mcpServers = (r && r.servers) || [];
   const enabled = mcpServers.filter(s=>s.enabled).length;
-  document.getElementById('mcp-badge').innerHTML = enabled
-    ? '<span class="tag ok">'+enabled+'</span>'
-    : (mcpServers.length ? '<span class="tag" style="opacity:.6">0</span>' : '');
+  if(enabled) setBadge('mcp-badge', true, enabled+(enabled>1?' actifs':' actif'));
+  else if(mcpServers.length) setBadge('mcp-badge', false, 'aucun actif');
+  else setBadge('mcp-badge', null);
   const list = document.getElementById('mcp-list');
   list.textContent = '';
   if(!mcpServers.length){
@@ -3151,7 +3234,7 @@ function renderRemote(d){
   const badge = document.getElementById('remote-badge');
   if(!d || !d.linked){
     off.style.display=''; on.style.display='none';
-    if(badge){ badge.textContent=''; }
+    setBadge(badge, null);
     return;
   }
   off.style.display='none'; on.style.display='';
@@ -3161,7 +3244,7 @@ function renderRemote(d){
   else { st.textContent='○ tunnel arrêté (l\'accès distant ne répondra pas)'; st.style.color='var(--warn)'; }
   const sb = document.getElementById('remote-start');
   if(sb){ sb.style.display = d.active ? 'none' : ''; }
-  if(badge){ badge.textContent = d.active ? '● connecté' : '○ arrêté'; badge.style.color = d.active?'var(--accent)':'var(--warn)'; }
+  setBadge(badge, d.active ? true : 'warn', d.active ? 'connecté' : 'arrêté');
 }
 
 async function loadRemote(){

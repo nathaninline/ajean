@@ -1,3 +1,12 @@
+// Pastille d'état d'une section du menu (mode agent, internet, MCP, distant).
+// `state` : true = actif (pilule pleine), false = inactif (contour), 'warn'/'err'
+// = état signalé, null = pastille masquée. Un seul endroit décide de leur allure.
+function setBadge(id, state, text){
+  const el = typeof id==='string' ? document.getElementById(id) : id;
+  if(!el) return;
+  el.className = 'sbadge' + (state===true ? ' on' : (state==='warn' || state==='err') ? ' '+state : '');
+  el.textContent = state===null || state===undefined ? '' : (text||'');
+}
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
 // Modales natives (askConfirm/askPrompt/askAlert) — remplacent confirm()/prompt()/
 // alert() par de vraies boîtes stylées. Chacune renvoie une Promise : askConfirm →
