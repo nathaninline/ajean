@@ -2,7 +2,7 @@
 
 ![Interface web d'AJEAN](docs/ui.png)
 
-**Une application complète pour faire tourner vos modèles d'IA en local, dans un seul binaire : chat, mémoire persistante, accès web, outils et accès à distance chiffré.**
+**Vos modèles d'IA tournent chez vous, dans un seul binaire : chat, mémoire persistante, accès web, outils et accès à distance chiffré.**
 
 AJEAN fournit tout ce qui entoure le modèle : l'interface de chat, les outils de l'assistant, la gestion du service et celle du matériel. Le moteur d'inférence est [llama.cpp](https://github.com/ggml-org/llama.cpp), qu'AJEAN compile lui-même pour la machine sur laquelle il tourne.
 
