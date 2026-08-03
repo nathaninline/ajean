@@ -9,8 +9,10 @@ function renderRemote(d){
   const off = document.getElementById('remote-off'), on = document.getElementById('remote-on');
   const badge = document.getElementById('remote-badge');
   if(!d || !d.linked){
+    // Serveur jamais lié : on l'affiche explicitement plutôt que de laisser la
+    // pastille vide, qui se lisait comme « je ne sais pas ».
     off.style.display=''; on.style.display='none';
-    setBadge(badge, null);
+    setBadge(badge, false, 'non connecté');
     return;
   }
   off.style.display='none'; on.style.display='';
@@ -28,7 +30,9 @@ async function loadRemote(){
   // (boîte noire). Sur le portail distant (app.ajean.link/server.html), on le cache.
   const det = document.getElementById('remote-details');
   if(location.hostname === 'app.ajean.link'){ if(det) det.style.display='none'; return; }
-  try{ renderRemote(await jget('/api/link/status')); }catch(e){}
+  // Statut injoignable : on retombe sur « non connecté » plutôt que de garder
+  // l'affichage précédent, qui pourrait annoncer « connecté » à tort.
+  try{ renderRemote(await jget('/api/link/status')); }catch(e){ renderRemote(null); }
 }
 
 // Ouvre la popup de connexion et attend la clé renvoyée par postMessage.

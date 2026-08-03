@@ -261,25 +261,44 @@ func handleLlamacppUninstallCustom(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true})
 }
 
-// handleModels lists *.gguf files in JEAN_HOME (size in bytes) for the preset
-// editor's model picker.
+// handleModels lists *.gguf files (size in bytes) for the preset editor's model
+// picker, dans JEAN_HOME ET dans les dossiers supplémentaires déclarés (disque
+// externe…). "value" est ce qu'il faut écrire dans MODEL= : un simple nom de
+// fichier pour JEAN_HOME (compatibilité avec l'existant), le chemin complet
+// pour un dossier externe.
 func handleModels(w http.ResponseWriter, r *http.Request) {
-	entries, err := os.ReadDir(JeanHome())
-	if err != nil {
-		sendJSON(w, 200, []map[string]any{})
-		return
-	}
 	out := []map[string]any{}
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".gguf") {
+	seen := map[string]bool{}
+	home := JeanHome()
+	for _, dir := range modelDirs() {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
 			continue
 		}
-		info, _ := e.Info()
-		size := int64(0)
-		if info != nil {
-			size = info.Size()
+		isHome := normDir(dir) == normDir(home)
+		for _, e := range entries {
+			if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".gguf") {
+				continue
+			}
+			full := filepath.Join(dir, e.Name())
+			if seen[normDir(full)] {
+				continue
+			}
+			seen[normDir(full)] = true
+			info, _ := e.Info()
+			size := int64(0)
+			if info != nil {
+				size = info.Size()
+			}
+			value := full
+			if isHome {
+				value = e.Name()
+			}
+			out = append(out, map[string]any{
+				"name": e.Name(), "size": size, "value": value,
+				"path": full, "dir": dir, "home": isHome,
+			})
 		}
-		out = append(out, map[string]any{"name": e.Name(), "size": size})
 	}
 	sendJSON(w, 200, out)
 }

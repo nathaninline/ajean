@@ -19,14 +19,17 @@ func cmdServe(args []string) error {
 	if model == "" {
 		return fmt.Errorf("MODEL non défini dans %s", confPath())
 	}
-	// MODEL est enregistré sous forme de simple nom de fichier (les .gguf vivent
-	// dans JEAN_HOME) : sous systemd/launchd le WorkingDirectory vaut JEAN_HOME,
-	// donc le chemin relatif tombait juste. Lancé depuis une app de bureau, le
-	// répertoire courant est « / » et llama-server ne trouvait rien. On résout
-	// donc explicitement, quel que soit le contexte de lancement.
-	if !filepath.IsAbs(model) {
-		model = filepath.Join(JeanHome(), model)
+	// MODEL vaut soit un simple nom de fichier (le .gguf vit dans JEAN_HOME ou
+	// dans un dossier déclaré — disque externe…), soit un chemin absolu. Sous
+	// systemd/launchd le WorkingDirectory vaut JEAN_HOME, donc le relatif tombait
+	// juste ; lancé depuis une app de bureau, le répertoire courant est « / » et
+	// llama-server ne trouvait rien. On résout donc explicitement, quel que soit
+	// le contexte de lancement.
+	resolved, err := resolveModelPath(model)
+	if err != nil {
+		return err
 	}
+	model = resolved
 	if _, err := os.Stat(model); err != nil {
 		return fmt.Errorf("modèle introuvable : %s", model)
 	}

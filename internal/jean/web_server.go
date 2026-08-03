@@ -93,6 +93,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/update/apply", handleUpdateApply)
 	api("/api/models", handleModels)
 	api("/api/models/delete", handleModelDelete)
+	api("/api/models/dirs", handleModelDirs) // dossiers de modèles (disque externe…)
 	api("/api/models/download", handleModelDownload)
 	api("/api/models/download/status", handleModelDownloadStatus)
 	api("/api/models/download/cancel", handleModelDownloadCancel)

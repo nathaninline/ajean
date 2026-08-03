@@ -169,7 +169,7 @@ Tout vit sous **`$JEAN_HOME`** (défaut `/etc/jean` sur Linux/macOS, `%ProgramDa
 | Clé | Signification | Défaut |
 |-----|---------------|--------|
 | `BIN` | chemin vers `llama-server` (réglé par `llamacpp install`) | — |
-| `MODEL` | chemin vers le modèle `.gguf` | — |
+| `MODEL` | nom de fichier (cherché dans les dossiers de modèles) ou chemin complet vers le `.gguf` | — |
 | `HOST` / `PORT` | adresse / port d'écoute | `0.0.0.0` / `8080` |
 | `CTX` | taille du contexte | `32768` |
 | `NGL` | couches à déporter sur le GPU | `999` |
@@ -184,6 +184,8 @@ Tout vit sous **`$JEAN_HOME`** (défaut `/etc/jean` sur Linux/macOS, `%ProgramDa
 | `EXTRA_ARGS` | ajouté tel quel à `llama-server` | — |
 
 La clé API (quand elle est définie avec `jean set-api-key`) est stockée dans `$JEAN_HOME/.api_key`, séparément de `config.env`.
+
+**Modèles sur un autre disque.** Les `.gguf` n'ont pas à vivre dans `$JEAN_HOME` : dans l'éditeur de preset de l'UI web, section *Modèle → Dossiers de modèles*, ajoutez le dossier de votre disque externe. Ses modèles apparaissent alors dans la liste déroulante, groupés par dossier. La liste est enregistrée dans `$JEAN_HOME/model_dirs.json` (elle survit donc aux changements de preset) et peut aussi être fournie par `JEAN_MODEL_DIRS` (dossiers séparés par `:`, `;` sous Windows). Les téléchargements, eux, atterrissent toujours dans `$JEAN_HOME`.
 
 ### API de pilotage à distance
 

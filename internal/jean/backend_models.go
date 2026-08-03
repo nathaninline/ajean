@@ -83,25 +83,25 @@ func detectQuant(content string) string {
 			}
 		}
 	}
-	return quantFromName(modelFromPresetContent(content))
+	return quantFromName(baseName(modelFromPresetContent(content)))
 }
 
-// modelFilePath resolves a model file name to a path inside JEAN_HOME, refusing
-// anything that would escape it (path traversal). config.env conventionally
-// stores only the basename, so we deliberately strip any directory component.
-func modelFilePath(name string) (string, error) {
+// downloadDestPath resolves the destination of a downloaded model: always
+// JEAN_HOME (les dossiers externes sont en lecture, on n'y écrit pas), en
+// refusant tout ce qui en sortirait (path traversal).
+func downloadDestPath(name string) (string, error) {
 	base := filepath.Base(strings.TrimSpace(name))
 	if base == "" || base == "." || base == string(filepath.Separator) {
 		return "", fmt.Errorf("nom de modèle invalide")
 	}
 	if !strings.HasSuffix(strings.ToLower(base), ".gguf") {
-		return "", fmt.Errorf("seuls les fichiers .gguf peuvent être supprimés")
+		return "", fmt.Errorf("seuls les fichiers .gguf sont acceptés")
 	}
 	return filepath.Join(JeanHome(), base), nil
 }
 
-// modelFromPresetContent extracts the MODEL= value (basename) from a preset's
-// config.env body, or "" if absent.
+// modelFromPresetContent extracts the MODEL= value from a preset's config.env
+// body (nom de fichier ou chemin absolu, tel quel), or "" if absent.
 func modelFromPresetContent(content string) string {
 	for _, line := range strings.Split(content, "\n") {
 		s := strings.TrimSpace(line)
@@ -113,16 +113,16 @@ func modelFromPresetContent(content string) string {
 			continue
 		}
 		if strings.TrimSpace(s[:i]) == "MODEL" {
-			v := strings.Trim(strings.TrimSpace(s[i+1:]), "\"")
-			return filepath.Base(v)
+			return strings.Trim(strings.TrimSpace(s[i+1:]), "\"")
 		}
 	}
 	return ""
 }
 
-// deleteModelFile removes a .gguf file from JEAN_HOME after validating the name.
+// deleteModelFile removes a .gguf file from one of the declared model folders
+// after validating the name.
 func deleteModelFile(name string) error {
-	p, err := modelFilePath(name)
+	p, err := resolveModelPath(name)
 	if err != nil {
 		return err
 	}
@@ -257,7 +257,7 @@ func handleModelDownload(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	dest, err := modelFilePath(name)
+	dest, err := downloadDestPath(name)
 	if err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return

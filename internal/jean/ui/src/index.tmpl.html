@@ -412,6 +412,18 @@
               <div id="m-hf-progress" class="pe-note" style="display:none"></div>
               <button id="m-hf-cancel" class="pe-link" onclick="cancelDownload()" style="display:none">Annuler le téléchargement</button>
             </div>
+            <div id="m-dirs-toggle" class="pe-row" style="cursor:pointer" onclick="toggleModelDirs()">
+              <span class="pe-row-l">Dossiers de modèles<span class="pe-sub">chercher les .gguf ailleurs (disque externe…)</span></span>
+              <span class="pe-row-c"><span id="m-dirs-caret" class="pe-caret"></span></span>
+            </div>
+            <div id="m-dirs-body" class="pe-row stack" style="display:none">
+              <div id="m-dirs-list" class="pe-note"></div>
+              <div class="pe-inpbtn">
+                <input id="m-dir-path" class="pe-inp" placeholder="/media/disque-externe/models">
+                <button id="m-dir-add" onclick="addModelDir()" title="Ajouter ce dossier">+</button>
+              </div>
+              <div class="pe-note">Les téléchargements, eux, vont toujours dans le dossier jean.</div>
+            </div>
           </div>
         </div>
 

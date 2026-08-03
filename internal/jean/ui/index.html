@@ -1233,6 +1233,18 @@ button:hover{border-color:var(--dim);color:var(--text)}
               <div id="m-hf-progress" class="pe-note" style="display:none"></div>
               <button id="m-hf-cancel" class="pe-link" onclick="cancelDownload()" style="display:none">Annuler le téléchargement</button>
             </div>
+            <div id="m-dirs-toggle" class="pe-row" style="cursor:pointer" onclick="toggleModelDirs()">
+              <span class="pe-row-l">Dossiers de modèles<span class="pe-sub">chercher les .gguf ailleurs (disque externe…)</span></span>
+              <span class="pe-row-c"><span id="m-dirs-caret" class="pe-caret"></span></span>
+            </div>
+            <div id="m-dirs-body" class="pe-row stack" style="display:none">
+              <div id="m-dirs-list" class="pe-note"></div>
+              <div class="pe-inpbtn">
+                <input id="m-dir-path" class="pe-inp" placeholder="/media/disque-externe/models">
+                <button id="m-dir-add" onclick="addModelDir()" title="Ajouter ce dossier">+</button>
+              </div>
+              <div class="pe-note">Les téléchargements, eux, vont toujours dans le dossier jean.</div>
+            </div>
           </div>
         </div>
 
@@ -2059,6 +2071,9 @@ async function openItem(kind, key){
     rawToggle.style.display = '';
     rawBody.style.display = 'none';
     rawCaret.classList.remove('open');
+    // Dossiers de modèles : replié par défaut (réglage rare), chargé à l'ouverture.
+    document.getElementById('m-dir-path').value = '';
+    setModelDirsOpen(false);
     await Promise.all([populateBackend(), populateModelPicker()]);
   } else {
     modelRow.style.display = 'none';
@@ -2085,24 +2100,109 @@ function currentModelInTextarea(){
   const m = txt.match(/^\s*MODEL\s*=\s*"?([^"\n]*)"?\s*$/m);
   return m ? m[1].trim() : '';
 }
+// Échappe une valeur avant de l'injecter dans du HTML (chemins de fichiers :
+// on ne contrôle pas ce que l'utilisateur y met).
+function escHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+// Compare deux chemins/noms de modèle en neutralisant séparateurs et casse.
+function samePath(a, b){
+  const n = x => String(x||'').trim().replace(/\\/g,'/').replace(/\/+$/,'').toLowerCase();
+  return !!a && !!b && n(a) === n(b);
+}
+function baseName(p){ return String(p||'').replace(/\\/g,'/').split('/').pop().trim(); }
 async function populateModelPicker(){
   const sel = document.getElementById('m-model');
   const list = await jget('/api/models');
   const cur = currentModelInTextarea();
-  // Strip directory; config.env conventionally only stores the file basename.
-  const curBase = (cur.split('/').pop() || '').trim();
+  // Les modèles peuvent venir de plusieurs dossiers (disque externe…) : on les
+  // regroupe par dossier, JEAN_HOME d'abord (l'API les renvoie dans cet ordre).
+  const groups = [];
+  for(const m of (list||[])){
+    let g = groups.find(x => x.dir === m.dir);
+    if(!g){ g = {dir: m.dir, home: m.home, items: []}; groups.push(g); }
+    g.items.push(m);
+  }
   let html = '<option value="">— choisir un modèle —</option>';
   let matched = false;
-  for(const m of list){
-    const sel = (m.name === curBase) ? ' selected' : '';
-    if(sel) matched = true;
-    html += '<option value="'+m.name+'"'+sel+'>'+m.name+'  ('+fmtSize(m.size)+')</option>';
+  for(const g of groups){
+    let opts = '';
+    for(const m of g.items){
+      // Le preset peut référencer le chemin complet OU le simple nom de fichier.
+      const on = samePath(cur, m.value) || samePath(cur, m.path) ||
+                 (g.home && samePath(baseName(cur), m.name)) ? ' selected' : '';
+      if(on) matched = true;
+      opts += '<option value="'+escHtml(m.value)+'"'+on+'>'+escHtml(m.name)+'  ('+fmtSize(m.size)+')</option>';
+    }
+    html += groups.length > 1
+      ? '<optgroup label="'+escHtml(g.home ? 'dossier jean' : g.dir)+'">'+opts+'</optgroup>'
+      : opts;
   }
-  // If MODEL points to something not in JEAN_HOME, show it as a disabled hint.
+  // MODEL pointe vers un fichier qu'on ne trouve dans aucun dossier déclaré :
+  // on déplie alors la section des dossiers, c'est là que ça se répare.
   if(cur && !matched){
-    html += '<option value="" disabled selected>('+(curBase||cur)+' — introuvable dans JEAN_HOME)</option>';
+    html += '<option value="" disabled selected>('+escHtml(cur)+' — introuvable ; ajoute son dossier ci-dessous)</option>';
   }
   sel.innerHTML = html;
+  if(cur && !matched) setModelDirsOpen(true);
+}
+// ---- Dossiers de modèles : JEAN_HOME + dossiers ajoutés (disque externe…) ---
+// Réglage rare : replié derrière une ligne, comme l'éditeur de .env brut.
+function setModelDirsOpen(open){
+  const b = document.getElementById('m-dirs-body');
+  const c = document.getElementById('m-dirs-caret');
+  if(!b) return;
+  b.style.display = open ? '' : 'none';
+  if(c) c.classList.toggle('open', open);
+  if(open) populateModelDirs();
+}
+function toggleModelDirs(){
+  setModelDirsOpen(document.getElementById('m-dirs-body').style.display === 'none');
+}
+async function populateModelDirs(){
+  const box = document.getElementById('m-dirs-list');
+  if(!box) return;
+  let d = {};
+  try{ d = await jget('/api/models/dirs'); }catch(_){ return; }
+  // Construit en DOM (pas en HTML concaténé) : les chemins viennent de
+  // l'utilisateur et se retrouveraient sinon dans un attribut onclick.
+  box.innerHTML = '';
+  for(const x of (d.dirs||[])){
+    const row = document.createElement('div');
+    const p = document.createElement('span');
+    p.textContent = x.path + ' ';
+    const info = document.createElement('span');
+    info.className = 'muted';
+    const n = x.count >= 0 ? (x.count + ' modèle' + (x.count>1?'s':'')) : 'illisible';
+    info.textContent = '(' + n + (x.home ? ', dossier jean' : '') + ')';
+    row.append(p, info);
+    if(!x.home){
+      const del = document.createElement('button');
+      del.className = 'pe-link';
+      del.textContent = 'retirer';
+      del.style.marginLeft = '8px';
+      del.onclick = () => removeModelDir(x.path);
+      row.append(del);
+    }
+    box.append(row);
+  }
+}
+async function addModelDir(){
+  const inp = document.getElementById('m-dir-path');
+  const p = inp.value.trim();
+  if(!p){ toast('indique un chemin de dossier'); return; }
+  const r = await jpost('/api/models/dirs', {path: p, action: 'add'});
+  if(!r.ok){ toast('erreur : ' + (r.error||'')); return; }
+  inp.value = '';
+  toast('dossier ajouté');
+  await Promise.all([populateModelDirs(), populateModelPicker()]);
+}
+async function removeModelDir(p){
+  const r = await jpost('/api/models/dirs', {path: p, action: 'remove'});
+  if(!r.ok){ toast('erreur : ' + (r.error||'')); return; }
+  toast('dossier retiré');
+  await Promise.all([populateModelDirs(), populateModelPicker()]);
 }
 function onPickModel(){
   const val = document.getElementById('m-model').value;
@@ -3375,8 +3475,10 @@ function renderRemote(d){
   const off = document.getElementById('remote-off'), on = document.getElementById('remote-on');
   const badge = document.getElementById('remote-badge');
   if(!d || !d.linked){
+    // Serveur jamais lié : on l'affiche explicitement plutôt que de laisser la
+    // pastille vide, qui se lisait comme « je ne sais pas ».
     off.style.display=''; on.style.display='none';
-    setBadge(badge, null);
+    setBadge(badge, false, 'non connecté');
     return;
   }
   off.style.display='none'; on.style.display='';
@@ -3394,7 +3496,9 @@ async function loadRemote(){
   // (boîte noire). Sur le portail distant (app.ajean.link/server.html), on le cache.
   const det = document.getElementById('remote-details');
   if(location.hostname === 'app.ajean.link'){ if(det) det.style.display='none'; return; }
-  try{ renderRemote(await jget('/api/link/status')); }catch(e){}
+  // Statut injoignable : on retombe sur « non connecté » plutôt que de garder
+  // l'affichage précédent, qui pourrait annoncer « connecté » à tort.
+  try{ renderRemote(await jget('/api/link/status')); }catch(e){ renderRemote(null); }
 }
 
 // Ouvre la popup de connexion et attend la clé renvoyée par postMessage.
