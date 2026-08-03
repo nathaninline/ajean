@@ -2,15 +2,15 @@
 
 ![Interface web d'AJEAN](docs/ui.png)
 
-**Une application complète pour faire tourner ses IA en local, dans un seul binaire : chat, mémoire persistante, accès web, outils et accès à distance chiffré.**
+**Une application complète pour faire tourner vos modèles d'IA en local, dans un seul binaire : chat, mémoire persistante, accès web, outils et accès à distance chiffré.**
 
-AJEAN fournit tout ce qui entoure le modèle : l'interface, l'assistant et ses capacités, la gestion du service et du matériel. Le moteur d'inférence est [llama.cpp](https://github.com/ggml-org/llama.cpp), qu'AJEAN compile lui-même pour la machine sur laquelle il tourne.
+AJEAN fournit tout ce qui entoure le modèle : l'interface de chat, les outils de l'assistant, la gestion du service et celle du matériel. Le moteur d'inférence est [llama.cpp](https://github.com/ggml-org/llama.cpp), qu'AJEAN compile lui-même pour la machine sur laquelle il tourne.
 
 ```
 télécharger le binaire  →  jean llamacpp install  →  jean edit  →  jean start  →  c'est parti
 ```
 
-Aucune dépendance à l'exécution, aucun flag CMake à retenir, aucun conteneur. À l'arrivée : une interface de chat complète, et un endpoint compatible OpenAI pour les outils tiers.
+Aucune dépendance à l'exécution, aucun flag CMake à retenir, aucun conteneur. Vous obtenez une interface de chat complète et un endpoint compatible OpenAI pour vos outils tiers.
 
 ---
 
@@ -18,7 +18,7 @@ Aucune dépendance à l'exécution, aucun flag CMake à retenir, aucun conteneur
 
 **Un assistant, pas seulement un modèle.** L'interface web offre un chat avec raisonnement affiché, mémoire persistante, compactage automatique du contexte quand la conversation s'allonge, prompt système éditable, et des réglages d'apparence synchronisés entre appareils.
 
-**Des outils réels.** `jean agent on` active d'un seul coup toutes les capacités de l'IA sur la machine :
+**Des outils réels.** `jean agent on` active d'un seul coup toutes les capacités du modèle sur la machine :
 
 | Outil | Rôle |
 |---|---|
@@ -30,7 +30,7 @@ Aucune dépendance à l'exécution, aucun flag CMake à retenir, aucun conteneur
 
 **Le matériel et le moteur, gérés pour vous.** `jean llamacpp install` clone et compile llama.cpp avec les bons flags pour *cette* machine : CUDA (capacité de calcul détectée par GPU, donc le multi-GPU fonctionne), ROCm, Metal, Vulkan, ou repli CPU. `jean llamacpp update` récupère le dernier commit, arrête le service le temps de recompiler, puis le redémarre.
 
-**Le service, tenu proprement.** `jean install` écrit l'unité systemd, la règle sudoers et les dossiers. Ensuite `start` / `stop` / `status` / `logs`. Windows et macOS ont leurs équivalents natifs (voir plus bas).
+**Un service, pas un script.** `jean install` écrit l'unité systemd, la règle sudoers et les dossiers. Ensuite `start` / `stop` / `status` / `logs`. Windows et macOS ont leurs équivalents natifs (voir plus bas).
 
 **Plusieurs modèles, un clic.** Les presets gardent chacun leur configuration complète ; basculer de l'un à l'autre recharge le modèle sans toucher à un fichier. Les `.gguf` peuvent vivre sur n'importe quel disque.
 
