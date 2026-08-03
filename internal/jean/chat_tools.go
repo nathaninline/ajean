@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -47,7 +48,8 @@ func baseSystemPrompt(caps Caps) string {
 	}
 	b.WriteString("\n\nTools:\n")
 	if caps.Agent {
-		b.WriteString("- bash — run a shell command on this machine (inspect files, processes, logs, run scripts).\n")
+		b.WriteString("- bash — run a shell command on this machine (inspect files, processes, logs, run scripts). The shell is " + shellName() + ": use its syntax.\n")
+		b.WriteString("- write — create or rewrite a file with exact content.\n")
 		b.WriteString("- edit — patch a file by exact replacement (old → new, old must be unique).\n")
 	}
 	if hasMem {
@@ -63,7 +65,10 @@ func baseSystemPrompt(caps Caps) string {
 		b.WriteString("\nMemory is ON-DEMAND: you have the mem_* tools but do NOT read or write memory on your own. Call mem_search/mem_read only when the user explicitly asks you to recall or look something up, and mem_add/mem_edit only when the user explicitly asks you to remember something. Otherwise leave memory untouched and answer directly.\n")
 	}
 	if caps.Agent {
-		b.WriteString("\nFor anything about the system or files, use bash instead of guessing. Act immediately — call the right tool, then answer. Never end your turn after only thinking. Be concise.\n")
+		// Règle courte mais indispensable : sans elle le modèle fabrique ses scripts
+		// avec echo/python -c, ce que cmd.exe massacre (guillemets imbriqués).
+		b.WriteString("\nTo create or rewrite a file, always use write (or edit to patch one) — never echo, cat, python -c or Set-Content through the shell; quoting breaks. Write the script with write, then run it with bash.\n")
+		b.WriteString("For anything about the system or files, use bash instead of guessing. Act immediately — call the right tool, then answer. Never end your turn after only thinking. Be concise.\n")
 		if caps.Mem == MemAlways {
 			b.WriteString("Before answering any question about yourself or this machine, always call mem_search first — even trivial-seeming ones. Testing with a tool never replaces this: memory may hold context the tool won't reveal. Search memory, then verify, then answer.\n")
 		}
@@ -162,6 +167,48 @@ func runShell(command string, timeoutSec int) string {
 		parts = append(parts, "stderr:\n"+errOut)
 	}
 	return strings.Join(parts, "\n\n")
+}
+
+// shellName is the shell runShell actually spawns on this platform. The model is
+// told this explicitly: advertising the tool as "bash" on Windows made it emit
+// bash quoting into cmd.exe, which mangles it (unterminated string literals, and
+// stray "Commande ECHO activée." landing inside generated files).
+func shellName() string {
+	if runtime.GOOS == "windows" {
+		return "cmd.exe"
+	}
+	return "bash"
+}
+
+// fileWrite writes content to path verbatim, creating parent directories and
+// replacing any existing file. This is the escape hatch from shell quoting: a
+// model with only a shell has to build files with echo/python -c, which is
+// unreliable everywhere and outright broken on cmd.exe.
+func fileWrite(path, content string) string {
+	if strings.TrimSpace(path) == "" {
+		return "[erreur] chemin vide"
+	}
+	if dir := filepath.Dir(path); dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return "[erreur] " + err.Error()
+		}
+	}
+	// Préserve les permissions d'origine quand le fichier existe déjà (un script
+	// 0755 réécrit doit rester exécutable).
+	mode := os.FileMode(0o644)
+	existed := false
+	if fi, err := os.Stat(path); err == nil {
+		mode = fi.Mode()
+		existed = true
+	}
+	if err := os.WriteFile(path, []byte(content), mode); err != nil {
+		return "[erreur] " + err.Error()
+	}
+	verb := "créé"
+	if existed {
+		verb = "réécrit"
+	}
+	return fmt.Sprintf("[ok] %s %s (%d octets)", path, verb, len(content))
 }
 
 // fileEdit applies a single exact-text replacement to a file on disk: oldText

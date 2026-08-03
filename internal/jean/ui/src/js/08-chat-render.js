@@ -104,6 +104,17 @@ function collapseInstant(el){
   requestAnimationFrame(()=>{ bw.style.transition=''; });
 }
 function setLabel(el, text){ el.querySelector('.label').textContent = text; }
+// Ajoute « +N -N » colorés à l'étiquette d'une bulle. L'étiquette reste visible
+// une fois la bulle repliée : c'est le seul endroit où le volume d'une écriture
+// survit au repli, donc on le met là plutôt que dans le corps seul.
+function setLabelCounts(el, add, del){
+  const lab=el.querySelector('.label');
+  const cnt=document.createElement('span'); cnt.className='diff-count';
+  if(add) cnt.appendChild(Object.assign(document.createElement('span'),{className:'a',textContent:'+'+add}));
+  if(add && del) cnt.appendChild(document.createTextNode(' '));
+  if(del) cnt.appendChild(Object.assign(document.createElement('span'),{className:'d',textContent:'-'+del}));
+  lab.appendChild(cnt);
+}
 // Ligne de mesures sous une réponse (prefill / decode). Les étiquettes VOUS/JEAN
 // sont masquées dans cette mise en page, donc les chiffres qu'on y écrivait
 // avaient disparu : ils ont leur propre ligne, discrète, sous le texte. Masquée
@@ -132,6 +143,7 @@ function renderToolMsg(el, tu){
   // (web_search/open/read/grep) ont leur propre libellé, pas le fallback mémoire.
   const META = {
     bash:       {lbl:'terminal',  head:'commande'},
+    write:      {lbl:'fichier',   head:'écriture'},
     edit:       {lbl:'édition',   head:'édition'},
     web_search: {lbl:'recherche', head:'recherche web'},
     web_open:   {lbl:'page web',  head:'ouverture'},
@@ -152,6 +164,12 @@ function renderToolMsg(el, tu){
   // Indication du volume de la réponse de l'outil (~tokens, estimation 1 tok ≈ 4 car).
   if(tu.result){ lbl += '  ·  ~' + Math.max(1, Math.round(tu.result.length/4)) + ' tok'; }
   setLabel(el, lbl);
+  // Volume de l'écriture (final si le diff est là, provisoire pendant la frappe)
+  // reporté sur l'étiquette, pour rester lisible bulle repliée.
+  let add=0, del=0;
+  if(tu.diff && tu.diff.length){ tu.diff.forEach(l=>{ if(l.op==='+') add++; else if(l.op==='-') del++; }); }
+  else if(tu.body){ add=tu.body.split('\n').length; }
+  if(add||del) setLabelCounts(el, add, del);
   const body=bodyOf(el); body.innerHTML='';
   const head=document.createElement('div'); head.className='tool-head';
   head.textContent = meta.head;
@@ -162,16 +180,37 @@ function renderToolMsg(el, tu){
     if(tu.typing){ const car=document.createElement('span'); car.className='tool-caret'; car.textContent='▋'; code.appendChild(car); }
     pre.appendChild(code); body.appendChild(pre);
   }
+  // Écriture EN COURS : le modèle tape encore le contenu. On l'affiche ligne à
+  // ligne, dans la même forme que le diff final, pour que la bulle se remplisse
+  // sous les yeux au lieu de rester vide puis de s'ouvrir d'un coup. Seule la
+  // dernière ligne est « fraîche » (fondu) : réanimer tout à chaque événement
+  // ferait clignoter le bloc entier.
+  if(tu.body && !(tu.diff && tu.diff.length)){
+    const lines=tu.body.split('\n');
+    const sub=document.createElement('div'); sub.className='tool-sub';
+    sub.textContent='écriture en cours'; // le +N vit sur l'étiquette (visible repliée)
+    body.appendChild(sub);
+    const pre=document.createElement('pre'); pre.className='diff live';
+    lines.forEach((t,i)=>{
+      const ln=document.createElement('span');
+      ln.className='dl add'+(i===lines.length-1?' fresh':'');
+      ln.textContent='+ '+t;
+      if(i===lines.length-1 && tu.typing){
+        const car=document.createElement('span'); car.className='tool-caret'; car.textContent='▋';
+        ln.appendChild(car);
+      }
+      pre.appendChild(ln);
+    });
+    body.appendChild(pre);
+    // Le bloc est re-créé à chaque événement : on le recale en bas pour suivre
+    // la ligne en cours (max-height côté CSS l'empêche de pousser le fil).
+    pre.scrollTop = pre.scrollHeight;
+  }
   // Diff d'une écriture (fichier ou page de mémoire) : lignes ajoutées en vert,
   // retirées en rouge, contexte en gris — comme un diff de terminal.
   if(tu.diff && tu.diff.length){
     const sub=document.createElement('div'); sub.className='tool-sub';
-    let add=0, del=0;
-    tu.diff.forEach(l=>{ if(l.op==='+') add++; else if(l.op==='-') del++; });
-    sub.textContent='modifications';
-    const cnt=document.createElement('span'); cnt.className='diff-count';
-    cnt.innerHTML='<span class="a">+'+add+'</span> <span class="d">-'+del+'</span>';
-    sub.appendChild(cnt);
+    sub.textContent='modifications'; // le +N -N vit sur l'étiquette (visible repliée)
     body.appendChild(sub);
     const pre=document.createElement('pre'); pre.className='diff';
     tu.diff.forEach(l=>{

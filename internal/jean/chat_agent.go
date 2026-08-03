@@ -55,7 +55,7 @@ func cmdAgent(args []string) error {
 		if err := setAgentEnabled(true); err != nil {
 			return err
 		}
-		fmt.Println(green("[ok]") + " mode agent activé — l'IA dispose du shell complet (bash) et de sa mémoire")
+		fmt.Println(green("[ok]") + " mode agent activé — l'IA dispose du shell complet (" + shellName() + "), de l'écriture de fichiers et de sa mémoire")
 	case "off":
 		if err := setAgentEnabled(false); err != nil {
 			return err
@@ -67,7 +67,7 @@ func cmdAgent(args []string) error {
 			state = green("on")
 		}
 		fmt.Printf("%s  état: %s\n", cyan("Mode agent"), state)
-		fmt.Printf("  outils : bash (timeout %ds, max %ds) + mémoire (mem_search/mem_read/mem_add/mem_edit)\n", toolDefaultTimeout, toolMaxTimeout)
+		fmt.Printf("  outils : %s (timeout %ds, max %ds) + write/edit + mémoire (mem_search/mem_read/mem_add/mem_edit)\n", shellName(), toolDefaultTimeout, toolMaxTimeout)
 		mem := MemList()
 		if len(mem) == 0 {
 			fmt.Printf("  mémoire : aucune page — crée %s/<nom>.md\n", memoryDir())

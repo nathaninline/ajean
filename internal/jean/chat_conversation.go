@@ -339,6 +339,11 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 				"name": ev.ToolUsed.Name, "label": ev.ToolUsed.Label,
 				"result": ev.ToolUsed.Result, "done": ev.ToolUsed.Done, "typing": ev.ToolUsed.Typing,
 			}
+			// Corps en cours de frappe : transitoire (l'état final est le diff), on
+			// ne l'ajoute que quand il est là pour ne pas gonfler chaque événement.
+			if ev.ToolUsed.Body != "" {
+				tu["body"] = ev.ToolUsed.Body
+			}
 			// Lignes +/- d'une écriture (edit / mémoire) : persistées avec le reste
 			// pour que le diff soit encore là après un rafraîchissement.
 			if len(ev.ToolUsed.Diff) > 0 {

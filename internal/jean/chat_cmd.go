@@ -106,6 +106,9 @@ func cmdChat(args []string) error {
 				case "bash":
 					icon = "⚙️"
 					verb = "exécution"
+				case "write":
+					icon = "📄"
+					verb = "écriture"
 				case "edit":
 					icon = "✏️"
 					verb = "édition"

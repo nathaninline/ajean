@@ -140,12 +140,30 @@ func editTool() Tool {
 	}
 }
 
+func writeTool() Tool {
+	return Tool{
+		Type: "function",
+		Function: ToolFunction{
+			Name:        "write",
+			Description: "Write a file on disk with the exact content given (creates it, or replaces it whole; parent directories are created). ALWAYS use this to create a script or any text file — NEVER build a file through the shell with echo, cat, python -c or Set-Content: the shell mangles quotes and breaks the file. Content is written verbatim, no escaping needed.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"file":    map[string]any{"type": "string", "description": "Path of the file to write"},
+					"content": map[string]any{"type": "string", "description": "Full content of the file, verbatim"},
+				},
+				"required": []string{"file", "content"},
+			},
+		},
+	}
+}
+
 func bashTool() Tool {
 	return Tool{
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "bash",
-			Description: "Execute a shell command (bash) on this machine and return stdout, stderr and the exit code. For inspecting the system, running scripts, reading/editing files, reading logs. Avoid destructive commands unless explicitly asked.",
+			Description: "Execute a shell command on this machine (" + shellName() + ") and return stdout, stderr and the exit code. Use " + shellName() + " syntax, not another shell's. For inspecting the system, running scripts, reading files, reading logs. To CREATE or REWRITE a file, use the write tool instead — never echo/cat/python -c. Avoid destructive commands unless explicitly asked.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -223,7 +241,7 @@ func InjectSkills(msgs []Message, caps Caps) []Message {
 func EnabledTools(caps Caps) []Tool {
 	tools := []Tool{}
 	if caps.Agent {
-		tools = append(tools, bashTool(), editTool())
+		tools = append(tools, bashTool(), writeTool(), editTool())
 	}
 	// Mémoire = axe indépendant du mode agent : les outils mem_* sont fournis dès
 	// que le mode mémoire n'est pas « off » (que l'agent soit actif ou non).
@@ -278,9 +296,27 @@ type ToolUsedEvent struct {
 	Result string // tool output (stdout/stderr/exit for run_shell, skill body for read_skill)
 	Done   bool   // false = call announced (command only); true = result is ready
 	Typing bool   // true = command still being written (partial), no spinner yet
+	// Body : contenu en cours d'écriture par un outil d'écriture (write/edit,
+	// mem_add/mem_edit), diffusé ligne à ligne pendant que le modèle le tape,
+	// pour que la bulle se remplisse en direct au lieu de rester figée puis de
+	// s'ouvrir d'un coup. Transitoire : seul Diff (état final) est rejoué.
+	Body string
 	// Diff : lignes ajoutées/retirées quand l'outil a MODIFIÉ quelque chose
 	// (edit, mem_add, mem_edit). L'UI les affiche en vert (+) et rouge (-).
 	Diff []DiffLine
+}
+
+// writeBodyKey returns the argument holding the text an écriture tool is about
+// to commit — the part worth showing live in the bubble — or "" for tools that
+// have no such body (bash, lectures, recherches).
+func writeBodyKey(tool string) string {
+	switch tool {
+	case "write", "mem_add":
+		return "content"
+	case "edit", "mem_edit":
+		return "new"
+	}
+	return ""
 }
 
 // previewArg pulls the (possibly incomplete) string value of key out of a
@@ -522,7 +558,8 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		// arrivent sur des chunks séparés ; on émet une copie complète à chaque MAJ
 		// pour que les consommateurs (terminal, web) aient toujours tout.
 		var stats StatsEvent
-		lastPreview := "" // last command preview emitted (to stream the typing)
+		lastPreview := ""   // last command preview emitted (to stream the typing)
+		lastBodyLines := -1 // lignes déjà diffusées du corps en cours d'écriture
 		// Per-completion reasoning-split state (see reasoningOn comment above).
 		sawReasoningField := false
 		thinkOpen := reasoningOn
@@ -608,14 +645,30 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					switch cur.Function.Name {
 					case "mem_search", "web_search":
 						key = "query"
-					case "mem_read", "mem_add", "mem_edit", "edit":
+					case "mem_read", "mem_add", "mem_edit", "edit", "write":
 						key = "file"
 					case "web_open", "web_read", "web_grep":
 						key = "url"
 					}
-					if p := previewArg(cur.Function.Arguments, key); p != "" && p != lastPreview {
-						lastPreview = p
-						if !cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: cur.Function.Name, Label: p, Typing: true}}) {
+					p := previewArg(cur.Function.Arguments, key)
+					// Corps en cours de frappe pour les outils d'écriture : on le diffuse
+					// à la LIGNE, pas au token. Un événement par token republierait tout le
+					// contenu à chaque fois (coût quadratique, et c'est ce flot qui saturait
+					// le rendu mobile) ; à la ligne, le nombre d'événements est celui du
+					// fichier et l'animation reste fluide.
+					body := ""
+					if bk := writeBodyKey(cur.Function.Name); bk != "" {
+						body = previewArg(cur.Function.Arguments, bk)
+					}
+					grew := body != "" && strings.Count(body, "\n") > lastBodyLines
+					if (p != "" && p != lastPreview) || grew {
+						if p != "" {
+							lastPreview = p
+						}
+						if grew {
+							lastBodyLines = strings.Count(body, "\n")
+						}
+						if !cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: cur.Function.Name, Label: lastPreview, Body: body, Typing: true}}) {
 							aborted = true
 							break
 						}
@@ -744,7 +797,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				switch tc.Function.Name {
 				case "mem_search", "web_search":
 					label, _ = args["query"].(string)
-				case "mem_read", "mem_add", "mem_edit", "edit":
+				case "mem_read", "mem_add", "mem_edit", "edit", "write":
 					label, _ = args["file"].(string)
 				case "bash":
 					label, _ = args["command"].(string)
@@ -826,6 +879,12 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					} else {
 						result = fmt.Sprintf("[ok] page '%s' modifiée", label)
 						diff = lineDiff(oldText, newText)
+					}
+				case "write":
+					content, _ := args["content"].(string)
+					result = fileWrite(label, content)
+					if !strings.HasPrefix(result, "[erreur]") {
+						diff = addedDiff(content)
 					}
 				case "edit":
 					oldText, _ := args["old"].(string)
