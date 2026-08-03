@@ -2,9 +2,9 @@
 
 ![Interface web d'AJEAN](docs/ui.png)
 
-**Une application complète pour faire tourner ses IA en local — chat, mémoire persistante, accès web, outils et accès à distance chiffré — dans un seul binaire.**
+**Une application complète pour faire tourner ses IA en local, dans un seul binaire : chat, mémoire persistante, accès web, outils et accès à distance chiffré.**
 
-AJEAN fournit tout ce qui entoure le modèle : l'interface, l'assistant et ses capacités, la gestion du service et du matériel. Le moteur d'inférence est [llama.cpp](https://github.com/ggml-org/llama.cpp), qu'AJEAN compile lui-même pour la machine sur laquelle il tourne — mais il reste un composant parmi d'autres, pas le sujet.
+AJEAN fournit tout ce qui entoure le modèle : l'interface, l'assistant et ses capacités, la gestion du service et du matériel. Le moteur d'inférence est [llama.cpp](https://github.com/ggml-org/llama.cpp), qu'AJEAN compile lui-même pour la machine sur laquelle il tourne.
 
 ```
 télécharger le binaire  →  jean llamacpp install  →  jean edit  →  jean start  →  c'est parti
@@ -18,7 +18,7 @@ Aucune dépendance à l'exécution, aucun flag CMake à retenir, aucun conteneur
 
 **Un assistant, pas seulement un modèle.** L'interface web offre un chat avec raisonnement affiché, mémoire persistante, compactage automatique du contexte quand la conversation s'allonge, prompt système éditable, et des réglages d'apparence synchronisés entre appareils.
 
-**Des outils réels.** `jean agent on` — un seul interrupteur qui donne à l'IA ses vraies capacités sur la machine :
+**Des outils réels.** `jean agent on` active d'un seul coup toutes les capacités de l'IA sur la machine :
 
 | Outil | Rôle |
 |---|---|
@@ -34,7 +34,7 @@ Aucune dépendance à l'exécution, aucun flag CMake à retenir, aucun conteneur
 
 **Plusieurs modèles, un clic.** Les presets gardent chacun leur configuration complète ; basculer de l'un à l'autre recharge le modèle sans toucher à un fichier. Les `.gguf` peuvent vivre sur n'importe quel disque.
 
-**Accessible de partout** (`jean link`) — une connexion sortante vers [ajean.link](https://ajean.link), donc aucun port à ouvrir, et cela fonctionne même en CGNAT. Le chat est chiffré de bout en bout : le relais ne voit jamais les conversations.
+**Accessible de partout.** `jean link` ouvre une connexion sortante vers [ajean.link](https://ajean.link), donc aucun port à ouvrir, et cela fonctionne même en CGNAT. Le chat est chiffré de bout en bout : le relais ne voit jamais les conversations.
 
 ## Démarrage
 
@@ -165,13 +165,13 @@ jean internet on
 jean internet status
 ```
 
-Les outils web ne sont proposés au modèle que si le mode agent est actif, l'accès internet activé **et** le serveur joignable — sinon ils n'existent pas, et le modèle ne peut donc pas les inventer.
+Les outils web ne sont proposés au modèle que si le mode agent est actif, l'accès internet activé **et** le serveur joignable. Sinon ils n'existent pas, et le modèle ne peut donc pas les inventer.
 
 ### Serveurs MCP
 
 AJEAN parle le [Model Context Protocol](https://modelcontextprotocol.io) : on y branche des serveurs tiers (fichiers, bases de données, API…) et leurs outils s'ajoutent à ceux de l'IA, nommés `mcp__<serveur>__<outil>`.
 
-La configuration se fait depuis l'interface web (section *Serveurs MCP*) ou en éditant `$JEAN_HOME/mcp.json`, au **même format que Claude Desktop** — un fichier existant se réutilise tel quel :
+La configuration se fait depuis l'interface web (section *Serveurs MCP*) ou en éditant `$JEAN_HOME/mcp.json`, au **même format que Claude Desktop**, si bien qu'un fichier existant se réutilise tel quel :
 
 ```json
 {
@@ -186,10 +186,10 @@ Les transports **stdio** et **HTTP** sont pris en charge. Comme le terminal, un 
 
 ## Windows
 
-- **Pas de systemd** : `jean start` lance le service en arrière-plan (suivi par fichier PID) ; `stop`, `restart`, `status` et `logs` agissent dessus, sans droits administrateur. `enable` / `disable` ne sont pas gérés — passer par une tâche planifiée.
+- **Pas de systemd** : `jean start` lance le service en arrière-plan (suivi par fichier PID) ; `stop`, `restart`, `status` et `logs` agissent dessus, sans droits administrateur. `enable` / `disable` ne sont pas gérés, il faut passer par une tâche planifiée.
 - `JEAN_HOME` vaut `%ProgramData%\jean` (repli `%LOCALAPPDATA%\jean`).
 - `jean install` crée seulement le dossier de données et un `config.env` de départ.
-- Le terminal de l'IA passe par `cmd.exe`. Elle le sait, et écrit ses fichiers par l'outil dédié plutôt que par le shell — c'est ce qui lui permet de produire des scripts contenant des guillemets.
+- Le terminal de l'IA passe par `cmd.exe`. Elle le sait, et écrit ses fichiers par l'outil dédié plutôt que par le shell, ce qui lui permet de produire des scripts contenant des guillemets.
 
 ```powershell
 jean install
@@ -217,20 +217,20 @@ jean link <token>        # token fourni sur ajean.link
 jean link code           # code d'appairage à saisir dans le portail
 ```
 
-Le lien tourne comme un service : la commande rend la main, la connexion continue en tâche de fond. Inutile de lancer `jean web` — l'interface est servie dans le tunnel. Le portail donne accès à l'interface du serveur avec un chat chiffré, à la gestion de plusieurs machines, et en option à un endpoint compatible OpenAI.
+Le lien tourne comme un service : la commande rend la main, la connexion continue en tâche de fond. Inutile de lancer `jean web`, l'interface est servie dans le tunnel. Le portail donne accès à l'interface du serveur avec un chat chiffré, à la gestion de plusieurs machines, et en option à un endpoint compatible OpenAI.
 
 Il s'agit d'un service optionnel et payant ; tout le reste d'AJEAN est et restera open source et gratuit.
 
-### Sécurité — boîte noire
+### Sécurité : la boîte noire
 
 Le relais est conçu comme un **tube aveugle** : il transporte les données sans pouvoir les lire.
 
 - **Chat chiffré de bout en bout** (X25519 + AES-GCM). La clé est dérivée du mot de passe via **OPAQUE** et ne quitte jamais le navigateur.
-- **Empreinte vérifiée.** `jean link` affiche l'empreinte de la clé de la machine, à confirmer une fois dans le portail — ce qui défait toute tentative d'interception par le relais.
+- **Empreinte vérifiée.** `jean link` affiche l'empreinte de la clé de la machine, à confirmer une fois dans le portail, ce qui défait toute tentative d'interception par le relais.
 - **Appairage authentifié.** Un code à usage unique (`jean link code`) garantit qu'un seul navigateur autorisé pilote le serveur ; même compromis, le relais ne peut pas forger de commande.
 - **Code servi hors du relais.** Le portail provient d'une origine indépendante (GitHub Pages) : le relais ne peut pas injecter de code pour dérober la clé.
 
-Reste visible du relais : des métadonnées techniques (machine en ligne, modèle chargé, VRAM) — jamais le contenu des conversations.
+Reste visible du relais : des métadonnées techniques (machine en ligne, modèle chargé, VRAM), jamais le contenu des conversations.
 
 ### Endpoint OpenAI (opt-in)
 
@@ -273,9 +273,9 @@ CGO_ENABLED=0 go build -o jean ./cmd/jean
 
 ## Arborescence
 
-- `cmd/jean/` — point d'entrée + ressources Windows (icône, versioninfo).
-- `internal/jean/` — tout le code, fichiers préfixés par domaine (`web_*`, `chat_*`, `llm_*`, `backend_*`, `relay_*`, `sys_*`, `mcp_*`) ; carte dans `doc.go`.
-- `internal/jean/ui/` — interface web embarquée. **`index.html` est généré** : les sources vivent dans `ui/src/`. Pour modifier l'interface, éditer `ui/src/` puis lancer `go generate ./internal/jean`.
+- `cmd/jean/` : point d'entrée + ressources Windows (icône, versioninfo).
+- `internal/jean/` : tout le code, fichiers préfixés par domaine (`web_*`, `chat_*`, `llm_*`, `backend_*`, `relay_*`, `sys_*`, `mcp_*`) ; carte dans `doc.go`.
+- `internal/jean/ui/` : interface web embarquée. **`index.html` est généré** : les sources vivent dans `ui/src/`. Pour modifier l'interface, éditer `ui/src/` puis lancer `go generate ./internal/jean`.
 
 ## Licence
 
