@@ -416,6 +416,15 @@ func restartAfterUpdate() (bool, string) {
 	if runtime.GOOS != "linux" || !linkServiceActive() {
 		return false, ""
 	}
+	// Le seul moment où l'on peut migrer l'agencement d'une machine déjà
+	// installée : on est root (jean-link tourne en root), le binaire vient
+	// d'être remplacé, et le service va être relancé dans la foulée. Les
+	// utilisateurs ne relancent jamais `install`, donc ne rien faire ici
+	// reviendrait à ne jamais migrer un serveur Linux. Sans effet si la machine
+	// est déjà en ajean ou si un chemin a été imposé à la main.
+	if err := migrateLayout(updateLayoutPlan()); err != nil {
+		fmt.Fprintf(os.Stderr, "[warn] migration de l'agencement non effectuée : %v\n", err)
+	}
 	go func() {
 		time.Sleep(1500 * time.Millisecond) // laisser la réponse HTTP atteindre le client
 		// --no-block : on enregistre le job puis on rend la main ; systemd exécute le

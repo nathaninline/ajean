@@ -9,6 +9,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 // sys_install_darwin.go — installation macOS via launchd (LaunchDaemon), équivalent
@@ -87,6 +88,14 @@ func cmdInstall(args []string) error {
 	if err != nil {
 		return fmt.Errorf("utilisateur '%s' introuvable: %w", targetUser, err)
 	}
+	// Migration de l'agencement jean -> ajean AVANT de résoudre les chemins :
+	// `install` est root et délibéré, c'est le bon moment. Ne fait rien si la
+	// machine est déjà en ajean, ou si l'utilisateur a imposé un chemin.
+	if err := migrateLayout(defaultLayoutPlan()); err != nil {
+		return err
+	}
+	homeOnce, homePath = sync.Once{}, "" // le dossier a pu changer à l'instant
+
 	ajeanHome := defaultAjeanHome()
 	if v := os.Getenv("JEAN_HOME"); v != "" {
 		ajeanHome = v
