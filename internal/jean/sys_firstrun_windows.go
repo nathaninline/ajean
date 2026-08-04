@@ -82,11 +82,11 @@ func appFirstRun() bool {
 	if err != nil {
 		return false
 	}
-	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
-		exe = resolved
-	}
 	target := installedExePath()
-	if strings.EqualFold(exe, target) {
+	// canonPath des DEUX côtés : si l'égalité rate parce que les chemins sont
+	// écrits différemment (forme courte 8.3, casse, lien), l'application installée
+	// se prend pour une copie téléchargée et se relance… en boucle infinie.
+	if canonPath(exe) == canonPath(target) {
 		// On EST l'application installée. On en profite pour garantir que les
 		// raccourcis existent : sans ça, quelqu'un qui perd son raccourci ne
 		// retrouve plus AJEAN, et n'a aucune raison de relancer le fichier
@@ -248,23 +248,52 @@ func replaceInstalled(target string) error {
 // runningPIDs liste les processus qui exécutent exactement ce fichier. On compare
 // le CHEMIN, pas le nom : tuer par nom d'image (« jean.exe ») emporterait aussi
 // le processus courant et toute autre copie sans rapport.
+//
+// La comparaison se fait ICI, sur des chemins canonisés, et non dans le script
+// PowerShell : Windows expose le même fichier sous plusieurs écritures (forme
+// courte 8.3 « ADMINI~1 » contre « Administrateur », casse variable, liens). Un
+// simple -ieq entre chaînes rate alors l'instance en cours, et on remplace le
+// binaire en croyant l'application arrêtée : elle continue de tourner en
+// ancienne version, sans que rien ne l'indique. Constaté sur banc d'essai.
 func runningPIDs(target string) []int {
-	ps := fmt.Sprintf(`$t=%s
-Get-Process -ErrorAction SilentlyContinue | ForEach-Object {
-  try { if ($_.Path -ieq $t) { $_.Id } } catch { }
-}`, psQuote(target))
+	want := canonPath(target)
+	ps := `Get-Process -ErrorAction SilentlyContinue | ForEach-Object {
+  try { if ($_.Path) { "$($_.Id)|$($_.Path)" } } catch { }
+}`
 	out, err := hideCmd(exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", ps)).Output()
 	if err != nil {
 		return nil
 	}
 	var pids []int
 	self := os.Getpid()
-	for _, line := range strings.Fields(string(out)) {
-		if n, err := strconv.Atoi(line); err == nil && n != self {
+	for _, line := range strings.Split(string(out), "\n") {
+		i := strings.IndexByte(line, '|')
+		if i < 0 {
+			continue
+		}
+		n, err := strconv.Atoi(strings.TrimSpace(line[:i]))
+		if err != nil || n == self {
+			continue
+		}
+		if canonPath(strings.TrimSpace(line[i+1:])) == want {
 			pids = append(pids, n)
 		}
 	}
 	return pids
+}
+
+// canonPath ramène un chemin Windows à une écriture unique et comparable :
+// résolution des liens et de la forme courte 8.3 quand le fichier existe, puis
+// minuscules (le système de fichiers est insensible à la casse).
+func canonPath(p string) string {
+	p = strings.TrimSpace(p)
+	if p == "" {
+		return ""
+	}
+	if long, err := filepath.EvalSymlinks(p); err == nil {
+		p = long
+	}
+	return strings.ToLower(filepath.Clean(p))
 }
 
 // stopProcesses arrête les instances listées, puis laisse le port se libérer :
