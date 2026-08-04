@@ -101,6 +101,68 @@ func TestCompactBoundsSplitsLongToolLoop(t *testing.T) {
 	}
 }
 
+// Régression : après compaction pendant une recherche web, la DEMANDE EN COURS
+// doit encore figurer telle quelle dans l'historique. Sans ça, le seul message
+// `user` restant était le tout premier de la conversation (épinglé en tête) et
+// le modèle répondait à celui-là au lieu de continuer la recherche.
+func TestCompactKeepsPendingRequest(t *testing.T) {
+	page := func(n int) Message {
+		return tm("contenu de page web très long " + string(rune('a'+n)) + strings.Repeat("x", 400))
+	}
+	msgs := []Message{
+		um("première question de la conversation"), am("ok"),
+		um("cherche les horaires du train pour Lyon"),
+	}
+	for i := 0; i < 10; i++ {
+		msgs = append(msgs, atc("web_read"), page(i))
+	}
+	// summarizeTranscript échoue (pas de llama-server en test) → torse dégraissé,
+	// ce qui n'enlève rien à ce qu'on vérifie ici : la demande doit survivre.
+	out, _ := compactMessages(t.Context(), msgs, Caps{})
+	found := false
+	for _, m := range out {
+		if m.Role == "user" && strings.Contains(msgText(m), "horaires du train") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("la demande en cours a disparu de l'historique compacté")
+	}
+}
+
+// Régression : ce qu'on envoie au RÉSUMEUR doit encore contenir les résultats
+// d'outils. On effaçait les résultats (dégraissage) AVANT de résumer : le
+// résumeur ne voyait que des marqueurs, le résumé ne pouvait donc porter aucune
+// information trouvée, et l'IA relançait la même recherche après chaque
+// compactage — sans jamais s'arrêter.
+func TestSummaryInputKeepsToolFindings(t *testing.T) {
+	fait := "le train de 14h12 part quai 3"
+	torso := []Message{
+		atc("web_read"),
+		tm(fait + strings.Repeat(" blabla de remplissage", 300)),
+	}
+	// Même transformation que compactMessages avant l'appel au résumeur.
+	forSummary := make([]Message, len(torso))
+	for i, m := range torso {
+		forSummary[i] = m
+		if m.Role == "tool" {
+			if r := []rune(msgText(m)); len(r) > compactToolSummaryLen {
+				forSummary[i].Content = string(r[:compactToolSummaryLen]) + "\n[…suite coupée]"
+			}
+		}
+	}
+	tr := renderTranscript(forSummary)
+	if !strings.Contains(tr, fait) {
+		t.Fatal("le fait trouvé n'atteint pas le résumeur : le résumé sera vide d'information")
+	}
+	if strings.Contains(tr, compactPrunedMarker) {
+		t.Fatal("le résumeur reçoit des marqueurs d'effacement au lieu du contenu")
+	}
+	if len([]rune(tr)) > 4000 {
+		t.Fatalf("transcription non bornée (%d runes) : le résumeur va déborder", len([]rune(tr)))
+	}
+}
+
 func TestEstimateTokensGrows(t *testing.T) {
 	small := estimateTokens([]Message{um("court")})
 	big := estimateTokens([]Message{um("un message nettement plus long que le précédent pour dépasser")})

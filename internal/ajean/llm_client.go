@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 )
@@ -306,6 +307,50 @@ type ToolUsedEvent struct {
 	Diff []DiffLine
 }
 
+// shownDisplayMax borne ce qu'un résultat d'outil occupe dans le FLUX vers l'UI.
+// Aligné sur le plus haut plafond côté modèle (mcpMaxOutput = 12000 ; shell et
+// web = 8000) : le modèle et l'UI voient donc la même chose, et l'étiquette
+// « ~N tok » de la bulle dit la VRAIE taille du résultat.
+//
+// Avant, cette borne était à 4000 : toute page web un peu longue s'affichait
+// « ~1004 tok » — la valeur du plafond, pas celle de la page. Le compteur
+// mentait, et il mentait toujours avec le même chiffre.
+const shownDisplayMax = 12000
+
+// shownResult prépare un résultat d'outil pour l'affichage.
+func shownResult(s string) string {
+	if r := []rune(s); len(r) > shownDisplayMax {
+		return string(r[:shownDisplayMax]) + "\n…[tronqué]"
+	}
+	return s
+}
+
+// repeatedCallResult construit ce qu'on renvoie quand le modèle redemande un
+// appel RIGOUREUSEMENT identique (même outil, mêmes arguments) dans le même tour.
+// L'appel n'est jamais rejoué — on répond depuis le résultat mémorisé.
+//
+// Le plafond d'itérations et l'anti-boucle ont été retirés en v0.6.3 parce qu'ils
+// coupaient des recherches légitimes ; il ne restait donc plus RIEN pour arrêter
+// un modèle qui redemande dix fois la même page. Et le mécanisme se retournait
+// contre lui-même : la note « déjà exécuté » était collée APRÈS le contenu, donc
+// noyée en fin d'un résultat de plusieurs milliers de caractères — le modèle
+// voyait le contenu, pas l'avertissement, et recommençait.
+//
+// D'où l'escalade : la note passe EN TÊTE, et à partir de la 2ᵉ redemande on ne
+// renvoie plus la charge utile du tout. Le tour n'est pas coupé (le modèle garde
+// la main), mais redemander la même chose ne rapporte plus rien — ni contenu, ni
+// contexte consommé.
+func repeatedCallResult(prev string, repeats int) string {
+	if repeats >= 2 {
+		return "[déjà fait] Cet appel exact a déjà été exécuté " + strconv.Itoa(repeats) +
+			" fois dans ce tour ; son résultat est plus haut dans la conversation. " +
+			"Ne le redemande plus : réponds avec ce que tu as, ou change d'approche " +
+			"(autre URL, autres arguments, web_grep pour cibler)."
+	}
+	return "[déjà fait] Appel identique déjà exécuté dans ce tour — non rejoué. " +
+		"Voici à nouveau son résultat ; ne le redemande pas une troisième fois.\n\n" + prev
+}
+
 // writeBodyKey returns the argument holding the text an écriture tool is about
 // to commit — the part worth showing live in the bubble — or "" for tools that
 // have no such body (bash, lectures, recherches).
@@ -466,6 +511,10 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 	// Appels d'outil déjà exécutés (clé = nom + arguments bruts) : sert à ne pas
 	// rejouer deux fois exactement la même écriture dans un même échange.
 	doneCalls := map[string]string{}
+	// Nombre de fois où le modèle a REDEMANDÉ un appel déjà exécuté. Sert à durcir
+	// la réponse progressivement (voir repeatedCallResult) : rendre le contenu une
+	// fois, puis refuser en le renvoyant vers ce qu'il a déjà.
+	repeatCount := map[string]int{}
 	// Garde-fou « pensé sans agir » : certains modèles à reasoning planifient un
 	// appel d'outil dans leur <think> puis émettent le token de fin SANS l'émettre
 	// (ni réponse, ni tool_call). On relance alors UNE fois le tour avec un nudge
@@ -825,8 +874,9 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				// introuvable », puisque le remplacement est déjà fait).
 				callKey := tc.Function.Name + "\x00" + tc.Function.Arguments
 				if prev, seen := doneCalls[callKey]; seen {
-					result = prev + "\n[note] appel identique déjà exécuté dans ce tour — non rejoué"
-					cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label, Result: result, Done: true}})
+					repeatCount[callKey]++
+					result = repeatedCallResult(prev, repeatCount[callKey])
+					cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label, Result: shownResult(result), Done: true}})
 					toolMsg := Message{Role: "tool", ToolCallID: tc.ID, Content: result}
 					messages = append(messages, toolMsg)
 					extra = append(extra, toolMsg)
@@ -904,13 +954,13 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					}
 					result = runShell(label, to)
 				case "web_search":
-					result = toolWebSearch(args)
+					result = capWebOutput(toolWebSearch(args))
 				case "web_open":
-					result = toolWebOpen(args)
+					result = capWebOutput(toolWebOpen(args))
 				case "web_read":
-					result = toolWebRead(args)
+					result = capWebOutput(toolWebRead(args))
 				case "web_grep":
-					result = toolWebGrep(args)
+					result = capWebOutput(toolWebGrep(args))
 				default:
 					if isMCPTool(tc.Function.Name) {
 						result = mcpCall(tc.Function.Name, args)
@@ -921,11 +971,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				if !strings.HasPrefix(result, "[erreur]") {
 					doneCalls[callKey] = result
 				}
-				shown := result
-				if r := []rune(shown); len(r) > 4000 {
-					shown = string(r[:4000]) + "\n…[tronqué]"
-				}
-				cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label, Result: shown, Done: true, Diff: diff}})
+				cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label, Result: shownResult(result), Done: true, Diff: diff}})
 				toolMsg := Message{Role: "tool", ToolCallID: tc.ID, Content: result}
 				messages = append(messages, toolMsg)
 				extra = append(extra, toolMsg)

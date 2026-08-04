@@ -83,6 +83,23 @@ func webGrepTool() Tool {
 
 // ─── exécution des outils (appelée par le dispatch de llm_client.go) ───────────────
 
+// webMaxOutput borne ce qu'UN appel d'outil web injecte dans le contexte, comme
+// toolMaxOutput (8000) pour le shell et mcpMaxOutput (12000) pour MCP. Sans ce
+// plafond, un `web_read(limit=500)` sur une page dense pouvait pousser 25 000
+// caractères d'un coup : la fenêtre partait en fumée en pleine recherche, ce qui
+// déclenchait des compactages en cascade au milieu du raisonnement.
+const webMaxOutput = 8000
+
+// capWebOutput tronque en gardant le DÉBUT (contrairement au shell, où c'est la
+// fin qui porte l'info) et dit au modèle comment lire la suite proprement.
+func capWebOutput(s string) string {
+	if r := []rune(s); len(r) > webMaxOutput {
+		return string(r[:webMaxOutput]) +
+			"\n…[tronqué : réponse trop longue. Relis par tranches avec web_read(offset, limit) ou cible avec web_grep.]"
+	}
+	return s
+}
+
 func toolWebSearch(args map[string]any) string {
 	query, _ := args["query"].(string)
 	limit := 8

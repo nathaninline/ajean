@@ -1,38 +1,34 @@
-Jean devient **AJEAN**, partout et plus seulement dans l'interface. Le dépôt, la commande, les dossiers et les services portent désormais le même nom.
+Cette version répare la recherche sur internet. Quand une recherche devenait longue, l'IA tournait en rond : elle rouvrait sans fin la même page, repartait de zéro, ou répondait soudain à une question posée bien plus tôt. Ce n'était pas le modèle, c'était le compactage du contexte qui effaçait exactement ce dont elle avait besoin.
 
-Cette version a été construite autour d'une contrainte simple : **rien de ce qui fonctionne aujourd'hui ne doit cesser de fonctionner**. Il n'y a rien à réinstaller, rien à reconfigurer, et rien à déplacer soi-même.
+## L'IA ne repart plus de zéro au milieu d'une recherche
 
-## La commande `jean` continue de marcher
+Quand la conversation devient trop longue pour la fenêtre de contexte, AJEAN la compacte : les vieux tours sont remplacés par un résumé. Ce résumé était fabriqué à partir d'un historique dont on avait d'abord effacé tous les résultats d'outils. Autrement dit, chaque page web lue avait déjà disparu quand le résumé était écrit. Le résumé ne pouvait donc contenir aucune des informations trouvées, seulement la trace que des recherches avaient eu lieu.
 
-`ajean` devient la commande principale, mais `jean` reste installée à côté et fait exactement la même chose. Vos alias, vos scripts, vos tâches planifiées et vos raccourcis ne bougent pas.
+Résultat vu de l'extérieur : l'IA relançait les mêmes recherches en boucle, sans jamais aboutir.
 
-De même, `JEAN_HOME` reste lu s'il a été défini à la main, au même titre que le nouveau `AJEAN_HOME`. Un emplacement choisi explicitement est une décision, pas un héritage à corriger.
+Le résumé est maintenant écrit à partir des vraies pages lues. On lui demande explicitement de conserver les informations récoltées (faits, chiffres, dates, adresses consultées) et de dire où en est le travail : ce qui est répondu, ce qui manque, la prochaine étape.
 
-## Le dossier de données se renomme tout seul
+## La question en cours ne se perd plus
 
-`%ProgramData%\jean` devient `%ProgramData%\ajean`, et `/etc/jean` devient `/etc/ajean` sous Linux et macOS. Aucune commande à lancer : la migration se fait pendant la mise à jour.
+Pendant une recherche, un tour peut enchaîner des dizaines d'appels d'outils sans le moindre message de votre part. Le compactage protégeait les tours récents et le tout premier message de la conversation, mais votre demande en cours, elle, se retrouvait au milieu, et disparaissait dans le résumé.
 
-Le déplacement est instantané, même avec 200 Go de modèles — rien n'est recopié, le dossier est renommé sur place. Tout ce qui pointait dedans suit : les chemins de `config.env`, ceux de vos presets (dont le `--chat-template-file`), et jusqu'au raccourci du menu Démarrer, puisque le programme installé vit à l'intérieur de ce dossier.
+L'IA ne voyait alors plus qu'une seule question explicite : la première de la conversation. Et elle y répondait, en abandonnant la recherche en cours. Votre demande du moment est désormais toujours conservée telle quelle.
 
-Votre clé d'accès distant est déplacée avec le reste : **aucun ré-appairage**, le tunnel se reconnecte seul.
+## Une même page n'est plus rouverte en boucle
 
-Si vous aviez choisi vous-même l'emplacement, il n'est pas touché. Et si le renommage ne peut pas aboutir, **il ne se passe rien du tout** : l'ancien dossier reste en place et continue de servir, la tentative sera reprise plus tard. Rien n'est jamais copié ni supprimé.
+Un appel d'outil rigoureusement identique n'était déjà pas rejoué, mais l'avertissement était collé à la fin du contenu renvoyé, noyé après plusieurs milliers de caractères. L'IA voyait le contenu, pas l'avertissement, et recommençait.
 
-## Le bouton de mise à jour redémarre AJEAN
+L'avertissement passe en tête, et à partir de la deuxième redemande le contenu n'est plus renvoyé du tout : redemander la même page ne rapporte plus rien et ne consomme plus de contexte. Le tour n'est jamais interrompu pour autant, une recherche qui enchaîne légitimement beaucoup d'appels reste possible.
 
-Sous Windows, il fallait quitter puis relancer l'application à la main pour qu'une mise à jour prenne effet. C'est fait automatiquement, et la page se reconnecte d'elle-même.
+De même, le message qui remplace un vieux résultat d'outil disait seulement qu'il avait été effacé, ce qui se lisait comme une invitation à retélécharger la page. Il dit maintenant clairement de ne pas le faire.
 
-Ce redémarrage est aussi ce qui permet au renommage d'aboutir : tant qu'AJEAN tourne, il tient son propre dossier. Le redémarrage ouvre le court instant où plus rien ne le retient.
+## Les pages web ne saturent plus le contexte
 
-## Les serveurs Linux ne perdent pas la main
+La lecture d'une page n'avait aucune limite de taille, là où le terminal et les outils MCP en avaient une. Une seule lecture pouvait injecter 25 000 caractères d'un coup et remplir la fenêtre à elle seule, ce qui déclenchait les compactages en cascade décrits plus haut. La lecture est maintenant bornée, avec une indication de comment lire la suite par tranches.
 
-Les unités systemd **ne sont pas renommées**. Un serveur qui tourne sous `jean.service` continue sous `jean.service` : vos commandes `systemctl`, vos règles `sudoers` et vos scripts de supervision restent valables. Seuls les chemins qu'elles contiennent sont corrigés, et une copie de l'unité d'origine est conservée à côté.
+## Le compteur de tokens des outils dit enfin la vérité
 
-Une sauvegarde de la configuration, des presets et de la mémoire est déposée dans `/root` avant toute modification. Si une étape échoue, la machine est remise dans son état initial et les services relancés.
-
-## Plus de dossier SKILLS
-
-Les skills avaient été fondus dans la mémoire de l'IA, mais un dossier `SKILLS` vide continuait d'être créé. Il ne l'est plus. Si vous en avez encore un, son contenu est repris dans la mémoire et vous pouvez ensuite l'effacer.
+Sous chaque appel d'outil, l'étiquette « ~N tok » affichait le plus souvent la même valeur, autour de 1004, quelle que soit la page. Ce n'était pas la taille de la page mais celle du plafond appliqué à l'affichage. Ce plafond est aligné sur ce que voit réellement le modèle : les valeurs affichées varient donc désormais, et correspondent au coût réel.
 
 ## Mise à jour
 
@@ -40,8 +36,8 @@ Les skills avaient été fondus dans la mémoire de l'IA, mais un dossier `SKILL
 ajean update
 ```
 
-Ou le bouton de l'interface, qui se charge désormais de tout.
+Ou le bouton de l'interface.
 
-Les binaires sont publiés sous leurs deux noms, `ajean-*` et `jean-*`, le temps que les installations existantes basculent. Sous Windows, télécharger `ajean-windows-amd64.exe` depuis cette page et le lancer fait le même travail.
+Les binaires restent publiés sous leurs deux noms, `ajean-*` et `jean-*`, le temps que les installations existantes basculent.
 
 L'icône de la barre de menus macOS, introduite en 0.6.10, n'a toujours pas été vérifiée sur une vraie machine.

@@ -36,11 +36,24 @@ const (
 	// retombe bas et met longtemps à re-déclencher (au lieu de compacter souvent).
 	compactTailFrac = 0.25
 	// Un résultat d'outil du torse plus long que ça est remplacé par un marqueur
-	// avant le résumé (dégraissage sans IA, gratuit).
+	// dans le torse DÉGRAISSÉ (repli si le résumé échoue).
 	compactToolPruneLen = 200
+	// Longueur à laquelle on RACCOURCIT (sans l'effacer) un résultat d'outil avant
+	// de le donner au résumeur : assez pour que les faits d'une page web y soient,
+	// assez court pour que dix pages tiennent dans la transcription.
+	compactToolSummaryLen = 1200
 )
 
-const compactPrunedMarker = "[Old tool result cleared to save context]"
+// compactPrunedMarker remplace un vieux résultat d'outil dans le torse. Il dit
+// EXPLICITEMENT de ne pas relancer l'outil : le texte précédent (« Old tool
+// result cleared ») se lisait comme une invitation à re-télécharger la page, et
+// le modèle repartait en boucle — page relue, contexte plein, nouveau compactage,
+// résultat re-effacé, et ainsi de suite.
+const compactPrunedMarker = "[Old tool result removed to save context. The important content is in the summary above — do NOT call this tool again to fetch it back.]"
+
+// compactSummaryPrefix ouvre le message `user` synthétique qui porte le résumé.
+// Sert aussi à le reconnaître pour ne pas le confondre avec une vraie demande.
+const compactSummaryPrefix = "[CONTEXT COMPACTED]"
 
 // compactEnabled indique si le compactage automatique du contexte est actif.
 // Défaut : true. Seule une valeur off/false/0/no/non explicite (config.env
@@ -203,6 +216,8 @@ func compactMessages(ctx context.Context, msgs []Message, caps Caps) ([]Message,
 
 	// 3. Dégraissage sans IA : les vieux résultats d'outils longs deviennent un
 	//    marqueur. On travaille sur une copie pour ne pas muter l'historique amont.
+	//    ⚠️ Ce torse dégraissé ne sert QUE de repli si le résumé échoue — surtout
+	//    PAS d'entrée au résumeur, cf. juste en dessous.
 	pruned := make([]Message, len(torso))
 	for i, m := range torso {
 		pruned[i] = m
@@ -213,9 +228,29 @@ func compactMessages(ctx context.Context, msgs []Message, caps Caps) ([]Message,
 		}
 	}
 
-	// 4. Résumé du torse par le modèle local (un seul appel). En cas d'échec on
-	//    garde le torse dégraissé plutôt que de perdre du contenu.
-	summary, err := summarizeTranscript(ctx, renderTranscript(pruned))
+	// 4. Résumé du torse par le modèle local (un seul appel).
+	//
+	//    Le résumé se fait sur le torse ORIGINAL, pas sur le dégraissé. C'était LE
+	//    bug de fond : on effaçait tous les résultats d'outils PUIS on demandait un
+	//    résumé de ce qui restait. Le résumeur ne voyait donc que « Tool result:
+	//    [Old tool result cleared] » à la place de chaque page web lue — le résumé
+	//    ne pouvait contenir AUCUNE des informations trouvées, seulement la trace
+	//    que des outils avaient tourné. À chaque compactage, l'IA repartait donc
+	//    d'une recherche vide et recommençait à zéro : elle ne s'arrêtait jamais.
+	//
+	//    Les résultats d'outils sont seulement RACCOURCIS (leur début, qui porte
+	//    l'essentiel : titre, en-tête, premières lignes) pour que la transcription
+	//    reste bornée. Les faits survivent, le volume reste maîtrisé.
+	forSummary := make([]Message, len(torso))
+	for i, m := range torso {
+		forSummary[i] = m
+		if m.Role == "tool" {
+			if r := []rune(msgText(m)); len(r) > compactToolSummaryLen {
+				forSummary[i].Content = string(r[:compactToolSummaryLen]) + "\n[…suite coupée]"
+			}
+		}
+	}
+	summary, err := summarizeTranscript(ctx, renderTranscript(forSummary))
 	var mid []Message
 	if err != nil || strings.TrimSpace(summary) == "" {
 		mid = pruned
@@ -224,14 +259,37 @@ func compactMessages(ctx context.Context, msgs []Message, caps Caps) ([]Message,
 		// message `system` au milieu : certains gabarits, ex. Qwen, exigent que le
 		// system soit uniquement en tête — cf. mémoire qwen36-chat-template-fix).
 		mid = []Message{
-			{Role: "user", Content: "[CONTEXT COMPACTED] The earlier turns of this conversation were summarized to save context. Here is the summary:\n\n" + summary},
-			{Role: "assistant", Content: "Understood, I'll continue from this context."},
+			{Role: "user", Content: compactSummaryPrefix + " The earlier turns of this conversation were summarized to save context. Here is the summary:\n\n" + summary},
+			{Role: "assistant", Content: "Understood. I'll resume from exactly where I left off, using the findings above, without redoing work that is already done."},
 		}
 	}
 
-	out := make([]Message, 0, head+len(mid)+len(msgs)-tailStart)
+	// La demande EN COURS ne doit JAMAIS être diluée dans le résumé. Pendant une
+	// longue boucle d'outils (recherche web : dix pages lues d'affilée), la queue
+	// n'est faite que d'appels d'outils : le message `user` qui a lancé la
+	// recherche tombe dans le torse, alors que le TOUT PREMIER message de la
+	// conversation, lui, reste épinglé en tête. Après compaction le modèle voyait
+	// donc, comme seule demande explicite, la question du DÉBUT de la conversation
+	// — et il y répondait en abandonnant la recherche en cours.
+	// On réinjecte donc textuellement la dernière vraie demande du torse, juste
+	// avant la queue (les résultats d'outils qu'elle a produits la suivent, comme
+	// dans l'historique d'origine). Le torse reste entièrement compactable.
+	var pending []Message
+	for i := len(torso) - 1; i >= 0; i-- {
+		if torso[i].Role != "user" {
+			continue
+		}
+		if strings.HasPrefix(msgText(torso[i]), compactSummaryPrefix) {
+			continue // résumé d'une compaction précédente, pas une demande
+		}
+		pending = []Message{torso[i]}
+		break
+	}
+
+	out := make([]Message, 0, head+len(mid)+len(pending)+len(msgs)-tailStart)
 	out = append(out, msgs[:head]...)
 	out = append(out, mid...)
+	out = append(out, pending...)
 	out = append(out, msgs[tailStart:]...)
 
 	// Garantie de réduction : on n'accepte la compaction que si elle enlève au
@@ -293,12 +351,15 @@ type summarizeResp struct {
 func summarizeTranscript(ctx context.Context, transcript string) (string, error) {
 	sys := `You are a context compactor. You are given the transcript of the older turns of a conversation between a user and an AI assistant (with its tools). The PURPOSE of your summary is to let the conversation continue in a fresh, smaller context WITHOUT losing any information that is useful or important to understand what came before and keep working — preserve everything that matters, drop only what is redundant.
 
+The assistant is MID-TASK: it will read your summary and must resume exactly where it left off, WITHOUT redoing work it has already done. Its own internal reasoning is NOT part of the transcript and is lost — your summary is the only memory it keeps.
+
 Summarize densely and faithfully, keeping ONLY the essentials:
-- The user's goal(s) and constraints
+- The user's CURRENT request, goal(s) and constraints
+- FINDINGS: the concrete information already gathered — facts, figures, dates, names, URLs, file paths, values, config. This is the most important part: whatever is not here is lost and will have to be looked up again.
+- Sources already consulted (URLs opened, files read, commands run) — so they are not consulted a second time
 - Decisions made and established facts
-- Actions/tools run and their important results (file paths, values, config)
-- Tasks done, in progress, blocked; next steps
-Strict rules: no preamble or conclusion, no verbatim or long quotes, no throwaway detail. Use short bullet points. Aim for 250 words MAX — this is a compression summary, not a report.
+- STATE OF PROGRESS: what is already answered, what is still missing, and the next concrete step
+Strict rules: no preamble or conclusion, no verbatim or long quotes, no throwaway detail. Use short bullet points. Aim for 300 words MAX — this is a compression summary, not a report.
 Write the summary in the SAME language as the conversation.`
 
 	payload := map[string]any{
@@ -349,9 +410,12 @@ Write the summary in the SAME language as the conversation.`
 	}
 	c = strings.TrimSpace(c)
 	// Garde-fou dur : même si le modèle ignore la consigne de longueur, on tronque
-	// (~1500 caractères ≈ 375 tokens) pour garantir une vraie compression.
-	if len(c) > 1500 {
-		c = strings.TrimSpace(c[:1500]) + " […]"
+	// pour garantir une vraie compression. 2200 caractères (≈ 550 tokens) et pas
+	// 1500 : le résumé doit désormais porter les FAITS déjà trouvés, pas seulement
+	// l'intention, sinon l'IA repart en recherche après chaque compactage. Coupé
+	// sur une frontière de rune (é, … ne doivent pas devenir des �).
+	if r := []rune(c); len(r) > 2200 {
+		c = strings.TrimSpace(string(r[:2200])) + " […]"
 	}
 	return c, nil
 }
