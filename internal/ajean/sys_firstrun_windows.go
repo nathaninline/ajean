@@ -426,7 +426,21 @@ foreach ($d in @($progs, [Environment]::GetFolderPath('Desktop'))) {
   if (-not $d) { continue }
   if (-not (Test-Path $d)) { continue }
   $lnk=Join-Path $d 'AJEAN.lnk'
-  if (Test-Path $lnk) { $done+=$d; continue }
+  # Un raccourci existant est REPOINTÉ s'il vise autre chose que le binaire
+  # canonique — typiquement l'ancien « jean.exe », qui n'est plus qu'un alias.
+  # Le laisser en l'état condamnait l'utilisateur à relancer indéfiniment une
+  # version périmée par son propre raccourci.
+  if (Test-Path $lnk) {
+    try {
+      $s=$w.CreateShortcut($lnk)
+      if ($s.TargetPath -and $s.TargetPath -ne $t -and (Test-Path $s.TargetPath)) {
+        $s.TargetPath=$t
+        $s.WorkingDirectory=(Split-Path $t)
+        $s.Save()
+      }
+    } catch {}
+    $done+=$d; continue
+  }
   try {
     $s=$w.CreateShortcut($lnk)
     $s.TargetPath=$t

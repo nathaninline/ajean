@@ -370,9 +370,14 @@ func cleanupOldBinary() {
 	if runtime.GOOS != "windows" {
 		return
 	}
-	if exe, err := os.Executable(); err == nil {
-		_ = os.Remove(exe + ".old")
+	exe, err := os.Executable()
+	if err != nil {
+		return
 	}
+	_ = os.Remove(exe + ".old")
+	// L'alias herite laisse le meme reliquat quand il etait en cours d'execution
+	// au moment ou on l'a remplace (voir replaceExe).
+	_ = os.Remove(filepath.Join(filepath.Dir(exe), "jean.exe.old"))
 }
 
 // handleUpdateCheck (GET /api/update) : renvoie l'état de mise à jour pour l'UI.

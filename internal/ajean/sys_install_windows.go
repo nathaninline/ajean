@@ -130,7 +130,9 @@ func installSelf(binDir string) (string, error) {
 	if err := os.MkdirAll(binDir, 0o755); err != nil {
 		return "", err
 	}
-	if err := copyExe(src, dst); err != nil {
+	// replaceExe et non copyExe : ajean.exe peut etre en cours d'execution
+	// (service en tache de fond), auquel cas Windows refuse de l'ecraser.
+	if err := replaceExe(src, dst); err != nil {
 		return "", err
 	}
 	installLegacyAlias(binDir, dst)
@@ -150,9 +152,32 @@ func installLegacyAlias(binDir, src string) {
 	if strings.EqualFold(src, alias) {
 		return
 	}
-	// Échoue si un « jean.exe » est en cours d'exécution — sans gravité, il s'agit
-	// alors déjà d'une version d'AJEAN, et la copie repassera au prochain lancement.
-	_ = copyExe(src, alias)
+	_ = replaceExe(src, alias)
+}
+
+// replaceExe copie src vers dst, y compris quand dst est un exécutable EN COURS.
+//
+// Windows refuse d'écraser un .exe en cours d'exécution, mais accepte de le
+// RENOMMER : on décale l'ancien puis on écrit le nouveau à sa place. Sans ça,
+// l'alias « jean.exe » restait figé sur une version périmée dès qu'il tournait
+// au moment de la mise à jour — et comme les raccourcis existants le visent
+// encore, chaque lancement relançait l'ancienne version, qui constatait qu'une
+// plus récente était installée et le disait. À chaque fois. Constaté en usage.
+func replaceExe(src, dst string) error {
+	if err := copyExe(src, dst); err == nil {
+		return nil
+	}
+	old := dst + ".old"
+	_ = os.Remove(old) // reliquat d'un remplacement précédent
+	if err := os.Rename(dst, old); err != nil {
+		return err // ni écrasable ni renommable : on laisse la place en l'état
+	}
+	if err := copyExe(src, dst); err != nil {
+		_ = os.Rename(old, dst) // rien ne doit disparaître
+		return err
+	}
+	_ = os.Remove(old) // échoue tant que l'ancien tourne ; nettoyé plus tard
+	return nil
 }
 
 func copyExe(src, dst string) error {

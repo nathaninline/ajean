@@ -80,3 +80,59 @@ func TestBinaryVersionWithoutResource(t *testing.T) {
 		t.Fatalf("binaryVersion sur un fichier sans ressource = %q, attendu \"\"", v)
 	}
 }
+
+// Reproduit le cas signale en usage : l'alias « jean.exe » est EN COURS
+// d'execution au moment de la mise a jour. copyExe seul echouait, l'alias
+// restait fige sur une version perimee, et tout raccourci le visant relancait
+// indefiniment l'ancienne version — qui affichait « une version plus recente
+// est deja installee » a chaque lancement.
+func TestReplaceExeSurchargeUnFichierVerrouille(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "neuf.exe")
+	dst := filepath.Join(dir, "jean.exe")
+	if err := os.WriteFile(src, []byte("VERSION-NEUVE"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dst, []byte("version-perimee"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verrou exclusif : imite un .exe en cours d'execution sous Windows.
+	held, err := os.OpenFile(dst, os.O_RDONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer held.Close()
+
+	if err := replaceExe(src, dst); err != nil {
+		t.Fatalf("remplacement impossible: %v", err)
+	}
+	b, err := os.ReadFile(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(b) != "VERSION-NEUVE" {
+		t.Fatalf("l'alias est reste perime: %q", b)
+	}
+}
+
+// Le remplacement ne doit JAMAIS faire disparaitre la cible : si la copie
+// echoue apres le renommage, l'ancien fichier revient a sa place.
+func TestReplaceExeRestaureSiLaCopieEchoue(t *testing.T) {
+	dir := t.TempDir()
+	dst := filepath.Join(dir, "jean.exe")
+	if err := os.WriteFile(dst, []byte("a-preserver"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Source inexistante : la copie echouera forcement.
+	if err := replaceExe(filepath.Join(dir, "absent.exe"), dst); err == nil {
+		t.Fatal("attendu une erreur")
+	}
+	b, err := os.ReadFile(dst)
+	if err != nil {
+		t.Fatalf("le fichier a disparu: %v", err)
+	}
+	if string(b) != "a-preserver" {
+		t.Fatalf("contenu altere: %q", b)
+	}
+}
