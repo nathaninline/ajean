@@ -89,6 +89,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/ram", handleRam)
 	api("/api/config", handleConfigEnv)
 	api("/api/catalog", handleCatalog)
+	api("/api/paths", handlePaths)
 	api("/api/update", handleUpdateCheck)
 	api("/api/update/apply", handleUpdateApply)
 	api("/api/models", handleModels)

@@ -114,7 +114,7 @@ func machineSystemPrompt(caps Caps) string {
 	if u, err := user.Current(); err == nil {
 		who = u.Username
 	}
-	cwd, _ := os.Getwd()
+	cwd := agentWorkspace()
 
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("Machine: host=%s, %s/%s", host, runtime.GOOS, runtime.GOARCH))
@@ -125,6 +125,9 @@ func machineSystemPrompt(caps Caps) string {
 		b.WriteString(", cwd=" + cwd)
 	}
 	b.WriteString(".")
+	if cwd != "" {
+		b.WriteString(" Relative paths in write/edit/bash resolve inside this working folder — put scratch files there. Write outside it ONLY with an absolute path the user explicitly asked for; never scatter files into the folder jean was launched from.")
+	}
 	return b.String()
 }
 
@@ -142,6 +145,9 @@ func runShell(command string, timeoutSec int) string {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
 	defer cancel()
 	cmd := newShellCmd(ctx, command)
+	// Le shell démarre dans le workspace, pas dans le dossier d'où jean a été
+	// lancé : un `> notes.txt` du modèle ne doit pas atterrir sur le Bureau.
+	cmd.Dir = agentWorkspace()
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -188,6 +194,7 @@ func fileWrite(path, content string) string {
 	if strings.TrimSpace(path) == "" {
 		return "[erreur] chemin vide"
 	}
+	path = resolveAgentPath(path)
 	if dir := filepath.Dir(path); dir != "" && dir != "." {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return "[erreur] " + err.Error()
@@ -221,6 +228,7 @@ func fileEdit(path, oldText, newText string) string {
 	if oldText == "" {
 		return "[erreur] old vide"
 	}
+	path = resolveAgentPath(path)
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return "[erreur] " + err.Error()

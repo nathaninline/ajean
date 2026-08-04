@@ -94,7 +94,9 @@ type wndClassExW struct {
 }
 
 const (
-	colBlue  = 0x00EB6F1F // COLORREF = 0x00BBGGRR pour #1f6feb
+	// Fond noir + « j » blanc : même marque que le favicon et que les icônes
+	// système (voir sys_brand_icon.go). L'écran de démarrage restait bleu.
+	colBrand = 0x00000000 // COLORREF = 0x00BBGGRR
 	colWhite = 0x00FFFFFF
 )
 
@@ -212,18 +214,19 @@ func splashWndProc(hwnd, message, wParam, lParam uintptr) uintptr {
 }
 
 func paintSplash(hdc uintptr) {
-	// Fond bleu.
-	blue, _, _ := pCreateSolidBrush.Call(colBlue)
+	// Fond aux couleurs de la marque.
+	bg, _, _ := pCreateSolidBrush.Call(colBrand)
 	full := rect{0, 0, splashW, splashH}
-	pFillRect.Call(hdc, uintptr(unsafe.Pointer(&full)), blue)
-	pDeleteObject.Call(blue)
+	pFillRect.Call(hdc, uintptr(unsafe.Pointer(&full)), bg)
+	pDeleteObject.Call(bg)
 
-	// Logo « j » blanc (rects du favicon sur grille 12, mis à l'échelle).
+	// Logo « j » blanc — mêmes rectangles que l'icône et le favicon
+	// (glyphRects, sys_brand_icon.go), mis à l'échelle.
 	white, _, _ := pCreateSolidBrush.Call(colWhite)
 	const logo = 58
 	ox, oy := int32(40), int32((splashH-logo)/2)
 	scale := float64(logo) / 12
-	for _, rc := range [][4]float64{{6, 3, 2, 2}, {6, 5, 2, 2}, {4, 7, 2, 2}} {
+	for _, rc := range glyphRects {
 		r := rect{
 			left:   ox + int32(rc[0]*scale),
 			top:    oy + int32(rc[1]*scale),

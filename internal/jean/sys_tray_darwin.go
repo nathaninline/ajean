@@ -22,7 +22,10 @@ import (
 // À appeler depuis la goroutine principale : Cocoa exige le thread main.
 func runTray(url string) {
 	systray.Run(func() {
-		systray.SetIcon(trayIconPNG())
+		// Icône « template » : macOS n'en garde que la forme (couche alpha) et la
+		// colore selon le thème. Indispensable depuis que la marque est noire —
+		// une icône noire « en dur » est illisible sur une barre de menus sombre.
+		systray.SetTemplateIcon(brandTemplatePNG(trayIconSize), BrandIconPNG(trayIconSize))
 		systray.SetTooltip("AJEAN — votre IA locale")
 		mOpen := systray.AddMenuItem("Ouvrir AJEAN", "Ouvrir l'interface")
 		systray.AddSeparator()

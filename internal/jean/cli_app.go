@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"time"
 )
 
@@ -25,9 +24,11 @@ const appPort = 8090
 func cmdApp(args []string) error {
 	url := fmt.Sprintf("http://localhost:%d", appPort)
 
-	if _, err := os.Stat(confPath()); err != nil {
-		// Première fois : installe le minimum (dossiers + config de départ).
-		_ = cmdInstall(nil)
+	// Premier lancement : prépare le dossier de données et, sous Windows, propose
+	// explicitement l'installation (voir sys_firstrun_windows.go). Si l'app a été
+	// relancée depuis la copie installée, ce process n'a plus rien à faire.
+	if appFirstRun() {
+		return nil
 	}
 
 	addr := fmt.Sprintf("0.0.0.0:%d", appPort)

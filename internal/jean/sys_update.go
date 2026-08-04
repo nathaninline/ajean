@@ -134,9 +134,20 @@ func applyUpdate() (string, error) {
 	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
 		exe = resolved
 	}
+	// Contrôle des droits AVANT de télécharger : sans ça, l'échec survient sur le
+	// os.Create du fichier temporaire et l'utilisateur reçoit un « open
+	// /usr/local/bin/.jean-update.tmp: permission denied » incompréhensible,
+	// notamment depuis le bouton de l'UI web (jean web lancé sans sudo).
+	if err := checkUpdateWritable(exe); err != nil {
+		return "", err
+	}
 	tmp := filepath.Join(filepath.Dir(exe), ".jean-update.tmp")
 
 	if err := downloadTo(url, tmp); err != nil {
+		os.Remove(tmp)
+		if os.IsPermission(err) {
+			return "", updatePermissionError(exe)
+		}
 		return "", fmt.Errorf("téléchargement : %w", err)
 	}
 	if err := verifyChecksum(rel, want, tmp); err != nil {
@@ -158,11 +169,38 @@ func applyUpdate() (string, error) {
 	if err := replaceBinary(exe, tmp); err != nil {
 		os.Remove(tmp)
 		if os.IsPermission(err) {
-			return "", fmt.Errorf("droits insuffisants pour écrire %s — relance avec privilèges (ex : sudo jean update)", exe)
+			return "", updatePermissionError(exe)
 		}
 		return "", err
 	}
 	return strings.TrimPrefix(latest, "v"), nil
+}
+
+// updatePermissionError formule le seul message utile quand jean n'a pas les
+// droits d'écrire son propre binaire : la commande exacte à lancer.
+func updatePermissionError(exe string) error {
+	if runtime.GOOS == "windows" {
+		return fmt.Errorf("droits insuffisants pour remplacer %s — relance AJEAN en administrateur puis réessaie", exe)
+	}
+	return fmt.Errorf("droits insuffisants pour remplacer %s (le binaire appartient à root) — lance la mise à jour en ligne de commande : sudo jean update", exe)
+}
+
+// checkUpdateWritable vérifie qu'on peut écrire dans le dossier du binaire, en
+// créant réellement un fichier témoin (les bits de permission seuls ne suffisent
+// pas : root, groupes, ACL, montage en lecture seule…).
+func checkUpdateWritable(exe string) error {
+	dir := filepath.Dir(exe)
+	probe, err := os.CreateTemp(dir, ".jean-update-probe-*")
+	if err != nil {
+		if os.IsPermission(err) {
+			return updatePermissionError(exe)
+		}
+		return fmt.Errorf("impossible d'écrire dans %s : %w", dir, err)
+	}
+	name := probe.Name()
+	probe.Close()
+	os.Remove(name)
+	return nil
 }
 
 func cmdUpdate(args []string) error {

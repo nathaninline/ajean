@@ -44,22 +44,18 @@ func cmdInstall(args []string) error {
 	fmt.Printf("  JEAN_HOME = %s\n", jeanHome)
 	fmt.Printf("  service   = %s\n", serviceName())
 
-	// 1. Create directories
-	for _, d := range []string{jeanHome, filepath.Join(jeanHome, "configs"), filepath.Join(jeanHome, "SKILLS")} {
-		if err := os.MkdirAll(d, 0o755); err != nil {
-			return err
-		}
-	}
-
-	// 2. Drop a config.env if none exists
+	// 1-2. Dossiers + config.env de départ (partagé avec le premier lancement de
+	// l'app, voir provisionDataDir dans sys_firstrun_windows.go).
 	conf := filepath.Join(jeanHome, "config.env")
-	if _, err := os.Stat(conf); os.IsNotExist(err) {
-		if err := os.WriteFile(conf, []byte(configTemplate), 0o644); err != nil {
-			return err
-		}
-		fmt.Printf("  %s écrit %s\n", green("✓"), conf)
-	} else {
+	_, statErr := os.Stat(conf)
+	alreadyThere := statErr == nil
+	if err := provisionDataDir(); err != nil {
+		return err
+	}
+	if alreadyThere {
 		fmt.Printf("  %s config.env déjà présent — inchangé\n", dim("•"))
+	} else {
+		fmt.Printf("  %s écrit %s\n", green("✓"), conf)
 	}
 
 	// 3. Install the binary into JEAN_HOME\bin and put that dir on the user PATH,
@@ -201,6 +197,11 @@ func cmdUninstall(args []string) error {
 	binDir := filepath.Join(JeanHome(), "bin")
 	if removed, err := removeFromUserPath(binDir); err == nil && removed {
 		fmt.Printf("  %s %s retiré du PATH utilisateur\n", green("✓"), binDir)
+	}
+
+	// Raccourcis posés à l'installation (menu Démarrer + Bureau).
+	if removeShortcuts() {
+		fmt.Printf("  %s raccourcis « AJEAN » supprimés\n", green("✓"))
 	}
 
 	if !keepData {

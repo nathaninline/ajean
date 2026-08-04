@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const Version = "0.6.9"
+const Version = "0.6.10"
 
 // Main est le vrai main() du binaire (cmd/jean ne fait que l'appeler).
 func Main() {
@@ -89,6 +89,8 @@ func Main() {
 		mustExit(cmdLlamacpp(args))
 	case "update", "upgrade", "self-update":
 		mustExit(cmdUpdate(args))
+	case "where", "paths":
+		mustExit(cmdWhere(args))
 	case "install":
 		mustExit(cmdInstall(args))
 	case "uninstall":
@@ -153,6 +155,7 @@ Entrypoint (utilisé par jean.service) :
   serve                         lit config.env et exec le binaire llama-server
 
 Installation:
+  where                         affiche où sont le binaire, la config, la mémoire et le dossier de travail de l'agent
   install                       installer (Linux: unité systemd, sudoers, dossiers ; Windows: dossiers + config)
   uninstall                     désinstaller
   update [--check]              mettre à jour jean depuis les releases GitHub (--check = signale sans installer)

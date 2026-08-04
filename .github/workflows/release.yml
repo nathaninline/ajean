@@ -42,12 +42,14 @@ jobs:
           # et bascule en mode « application » (UI web + navigateur + icône dans
           # la barre de menus), comme le double-clic sur jean.exe sous Windows.
           # LSUIElement : app de barre de menus, aucune icône dans le Dock.
+          # L'icône part du PNG 1024 généré avec le reste de la marque
+          # (cmd/jean/icon.png, voir tools/gen-icon) : plus de conversion depuis
+          # le .ico, dont l'échec silencieux donnait une app sans icône.
           mkdir -p /tmp/jean.iconset
-          sips -s format png 'cmd/jean/icon.ico' --out /tmp/icon.png >/dev/null 2>&1 || true
           for s in 16 32 128 256 512; do
-            sips -z $s $s /tmp/icon.png --out "/tmp/jean.iconset/icon_${s}x${s}.png" >/dev/null 2>&1 || true
+            sips -z $s $s 'cmd/jean/icon.png' --out "/tmp/jean.iconset/icon_${s}x${s}.png" >/dev/null
           done
-          iconutil -c icns /tmp/jean.iconset -o /tmp/jean.icns >/dev/null 2>&1 || true
+          iconutil -c icns /tmp/jean.iconset -o /tmp/jean.icns
           v="${GITHUB_REF_NAME#v}"
           for arch in amd64 arm64; do
             app="dist/mac-$arch/Jean.app"
@@ -115,4 +117,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
-          generate_release_notes: true
+          # Notes rédigées à la main, versionnées avec le code : le tag emporte
+          # donc ses notes, au lieu de publier une liste de commits auto-générée
+          # qu'il fallait ensuite remplacer à la main dans l'interface GitHub.
+          # ⚠️ Réécrire RELEASE_NOTES.md AVANT de poser le tag.
+          body_path: RELEASE_NOTES.md
+          generate_release_notes: false

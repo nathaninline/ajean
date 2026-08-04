@@ -12,8 +12,6 @@ package jean
 // donc CGO) ; les builds Linux ne touchent jamais systray.
 
 import (
-	"bytes"
-	"encoding/binary"
 	"os"
 
 	"github.com/getlantern/systray"
@@ -46,24 +44,7 @@ func runTray(url string) {
 	})
 }
 
-// trayIcon emballe le PNG de trayIconPNG() dans un conteneur .ico (ICONDIR +
-// une ICONDIRENTRY) : Windows accepte un PNG (avec alpha pour les coins
-// arrondis) comme image d'un .ico.
-func trayIcon() []byte {
-	p := trayIconPNG()
-	const n = trayIconSize
-	var ico bytes.Buffer
-	binary.Write(&ico, binary.LittleEndian, uint16(0))      // réservé
-	binary.Write(&ico, binary.LittleEndian, uint16(1))      // type = icône
-	binary.Write(&ico, binary.LittleEndian, uint16(1))      // nombre d'images
-	ico.WriteByte(n)                                        // largeur
-	ico.WriteByte(n)                                        // hauteur
-	ico.WriteByte(0)                                        // couleurs
-	ico.WriteByte(0)                                        // réservé
-	binary.Write(&ico, binary.LittleEndian, uint16(1))      // plans
-	binary.Write(&ico, binary.LittleEndian, uint16(32))     // bits/pixel
-	binary.Write(&ico, binary.LittleEndian, uint32(len(p))) // taille données
-	binary.Write(&ico, binary.LittleEndian, uint32(6+16))   // offset données
-	ico.Write(p)
-	return ico.Bytes()
-}
+// trayIcon : l'icône de marque en .ico, deux tailles pour rester nette selon
+// l'échelle d'affichage. Le rendu vit dans sys_brand_icon.go, partagé avec
+// l'icône du .exe.
+func trayIcon() []byte { return BrandICO(16, trayIconSize) }

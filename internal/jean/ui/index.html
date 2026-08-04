@@ -1059,6 +1059,8 @@ button:hover{border-color:var(--dim);color:var(--text)}
     <div class="slist pad">
       <div class="row"><button id="upd-check" onclick="checkUpdate()">↥ Vérifier les mises à jour</button></div>
       <div id="upd-msg" class="muted"></div>
+      <div class="row"><button onclick="showPaths()">📁 Où sont mes fichiers ?</button></div>
+      <div id="paths-msg" class="muted"></div>
       <div class="row">
         <button onclick="loadAll()">↻ refresh</button>
         <button onclick="resetChat()">⌫ clear chat</button>
@@ -1659,11 +1661,31 @@ async function checkUpdate(){
   }catch(e){ msg.textContent='Erreur réseau'; }
   b.disabled=false;
 }
+// Emplacements : la question « où sont mes fichiers / est-ce que ça a été
+// installé ? » revient assez souvent pour mériter une réponse dans l'UI.
+async function showPaths(){
+  const el=document.getElementById('paths-msg');
+  el.textContent='…';
+  try{
+    const p=await jget('/api/paths');
+    const rows=[['Données',p.home],['Configuration',p.config],['Fichiers créés par l\'agent',p.workspace],['Mémoire',p.memory],['Programme en cours',p.exe]];
+    el.innerHTML=rows.map(r=>'<div><b>'+r[0]+'</b><br><code>'+escHtml(r[1]||'')+'</code></div>').join('');
+    if(p.exe && p.installed && p.exe!==p.installed){
+      el.innerHTML+='<div style="color:var(--warn);margin-top:8px">Vous exécutez une copie du programme, pas celle installée (<code>'+escHtml(p.installed)+'</code>). La mise à jour ne modifiera que la copie lancée.</div>';
+    }
+  }catch(e){ el.textContent='Erreur'; }
+}
 async function applyUpdate(){
   const msg=document.getElementById('upd-msg');
   msg.textContent='Téléchargement et installation…';
   try{
-    const r=await jpost('/api/update/apply',{});
+    // Signal dédié : le timeout par défaut (30 s) coupe le téléchargement du
+    // binaire sur une connexion lente et fait croire à un échec alors que la
+    // mise à jour aboutit côté serveur.
+    const ac=new AbortController(); const t=setTimeout(()=>ac.abort(), 10*60*1000);
+    let r;
+    try{ r=await (await jfetch('/api/update/apply',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',signal:ac.signal})).json(); }
+    finally{ clearTimeout(t); }
     if(r.ok){
       msg.innerHTML='✓ Installé en <b>v'+r.version+'</b>.<br>'+(r.restart||'');
       // Redémarrage auto du service côté serveur : le flux va se couper puis
