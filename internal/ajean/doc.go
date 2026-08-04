@@ -1,4 +1,4 @@
-// Jean — cœur du binaire (package jean, appelé par cmd/jean). Les fichiers sont préfixés par domaine
+// Jean — cœur du binaire (package jean, appelé par cmd/ajean). Les fichiers sont préfixés par domaine
 // (Go n'autorise pas de sous-dossiers dans un même package) :
 //
 //	main.go       point d'entrée : dispatch des sous-commandes, chemins (JeanHome…)

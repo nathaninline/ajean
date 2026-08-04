@@ -1,12 +1,12 @@
-// assemble-ui reconstruit internal/jean/ui/index.html à partir des sources
-// internal/jean/ui/src/ (remplace l'ancien ui/assemble.ps1 — multiplateforme).
+// assemble-ui reconstruit internal/ajean/ui/index.html à partir des sources
+// internal/ajean/ui/src/ (remplace l'ancien ui/assemble.ps1 — multiplateforme).
 //
 // index.html est un fichier GÉNÉRÉ mais committé : go:embed (web_server.go) et
 // ajean-app/build-server-ui.ps1 le lisent tel quel. Pour modifier l'UI : éditer
 // ui/src/ (index.tmpl.html, styles.css, js/NN-*.js concaténés dans l'ordre
 // alphabétique, tout en scope global) puis relancer :
 //
-//	go generate ./internal/jean        (ou : go run ./tools/assemble-ui)
+//	go generate ./internal/ajean        (ou : go run ./tools/assemble-ui)
 //
 // Les marqueurs @@CSS@@ / @@JS@@ du template sont remplacés avec LEUR fin de
 // ligne (LF ou CRLF) ; chaque source apporte ses propres fins de ligne.
@@ -22,7 +22,7 @@ import (
 )
 
 func main() {
-	uiDir := "internal/jean/ui"
+	uiDir := "internal/ajean/ui"
 	if len(os.Args) > 1 {
 		uiDir = os.Args[1]
 	}

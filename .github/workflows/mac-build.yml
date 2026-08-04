@@ -19,7 +19,7 @@ jobs:
           CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
             go build -trimpath -ldflags="-s -w" -o dist/ajean-darwin-arm64 ./cmd/ajean
           mkdir -p /tmp/jean.iconset
-          sips -s format png 'cmd/jean/icon.ico' --out /tmp/icon.png >/dev/null 2>&1 || true
+          sips -s format png 'cmd/ajean/icon.ico' --out /tmp/icon.png >/dev/null 2>&1 || true
           for s in 16 32 128 256 512; do
             sips -z $s $s /tmp/icon.png --out "/tmp/jean.iconset/icon_${s}x${s}.png" >/dev/null 2>&1 || true
           done

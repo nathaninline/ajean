@@ -9,7 +9,7 @@ package ajean
 // au noir en laissant les icônes système en bleu.
 //
 // Aucun asset binaire à committer : tout est dessiné ici, et l'icône du .exe est
-// produite par `go generate ./cmd/jean` (voir tools/gen-icon).
+// produite par `go generate ./cmd/ajean` (voir tools/gen-icon).
 
 import (
 	"bytes"

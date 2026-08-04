@@ -24,7 +24,7 @@ jobs:
           # par Cocoa (CGO) → les cibles macOS se compilent sur un runner Apple
           # (job « macos » ci-dessous, comme dans release.yml).
           for t in linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
-            GOOS=${t%/*} GOARCH=${t#*/} CGO_ENABLED=0 go build -o /dev/null ./cmd/jean
+            GOOS=${t%/*} GOARCH=${t#*/} CGO_ENABLED=0 go build -o /dev/null ./cmd/ajean
           done
 
   macos:
@@ -41,7 +41,7 @@ jobs:
       - run: go test ./...
       - name: build macOS (CGO, arm64 + amd64)
         run: |
-          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -o /dev/null ./cmd/jean
+          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -o /dev/null ./cmd/ajean
           CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
             CGO_CFLAGS="-arch x86_64" CGO_LDFLAGS="-arch x86_64" \
-            go build -o /dev/null ./cmd/jean
+            go build -o /dev/null ./cmd/ajean

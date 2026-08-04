@@ -1,4 +1,4 @@
-// Point d'entrée du binaire ajean. Tout le code vit dans internal/jean ; ce
+// Point d'entrée du binaire ajean. Tout le code vit dans internal/ajean ; ce
 // dossier ne porte que le main() et les ressources Windows (.syso, icône,
 // versioninfo) qui doivent résider dans le dossier du package main.
 //
