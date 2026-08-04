@@ -195,6 +195,11 @@ func runAsInstaller(target string) bool {
 			return launch(target) // l'instance en cours reprend la main (port occupé)
 		}
 		stopProcesses(running)
+		// Les instances sont arrêtées : c'est le moment où le renommage peut
+		// aboutir. S'il bute encore, et seulement sur un refus de droits, on
+		// demande l'élévation — l'utilisateur est déjà dans un parcours
+		// d'installation, une fenêtre UAC n'y est pas une surprise.
+		elevateForHomeMigration()
 		target = migrateThenResolveTarget(target)
 		if err := replaceInstalled(target); err != nil {
 			messageBox("La mise à jour a échoué :\n\n"+err.Error()+"\n\nAJEAN va redémarrer dans sa version actuelle.",
@@ -206,6 +211,7 @@ func runAsInstaller(target string) bool {
 	case cmp > 0:
 		// Mise à jour, application arrêtée : rien à décider, on remplace et on
 		// démarre. C'est le cas courant et il doit rester muet.
+		elevateForHomeMigration()
 		target = migrateThenResolveTarget(target)
 		_ = replaceInstalled(target)
 		ensureShortcuts(target)

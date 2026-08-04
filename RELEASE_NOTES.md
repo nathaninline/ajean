@@ -1,14 +1,10 @@
-## Correction
+## Le renommage du dossier se termine tout seul sous Windows
 
-**Sous Windows, « Une version plus récente d'AJEAN est déjà installée » pouvait s'afficher à chaque lancement.** Le message était exact, mais rien ne permettait d'en sortir : il revenait indéfiniment.
+Jusqu'ici, sur un ordinateur où vous n'êtes pas administrateur, `C:\ProgramData\jean` ne pouvait pas devenir `C:\ProgramData\ajean` : renommer ce dossier demande un droit qu'un compte standard n'a pas. Le renommage restait donc à moitié fait, indéfiniment.
 
-Deux causes, qui se renforçaient.
+L'installation demande désormais l'autorisation Windows nécessaire, le temps du renommage, puis rend la main. La fenêtre apparaît au moment où vous installez ou mettez à jour AJEAN — jamais au démarrage ordinaire, et jamais si elle ne sert à rien : ni quand le dossier porte déjà le bon nom, ni quand vous avez choisi vous-même son emplacement.
 
-La commande `jean`, conservée en alias depuis la 0.7.0, est une copie du programme posée à côté de `ajean.exe`. Windows refusant d'écraser un exécutable en cours d'exécution, cette copie n'était pas remplacée si elle tournait au moment de la mise à jour — elle restait figée sur une version périmée. Elle est désormais mise de côté puis réécrite, la même technique que celle utilisée pour le programme principal.
-
-Et les raccourcis du menu Démarrer et du Bureau, créés avant la 0.7.0, visaient toujours cet alias. Ils n'étaient jamais repointés. Chaque lancement exécutait donc l'ancienne version, qui constatait à juste titre qu'une plus récente était installée — et le disait. Un raccourci existant est maintenant repointé vers le programme courant.
-
-Après cette mise à jour, le message disparaît de lui-même au premier lancement.
+Refuser cette autorisation est une réponse valable. AJEAN continue alors d'utiliser son dossier actuel, exactement comme avant. Rien n'est perdu, rien n'est bloqué, et la question reviendra à la prochaine installation.
 
 ## Mise à jour
 

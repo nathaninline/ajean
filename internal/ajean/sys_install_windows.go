@@ -42,7 +42,10 @@ func cmdInstall(args []string) error {
 	// enfin aboutir sur un poste où l'utilisateur courant n'a pas les droits sur
 	// %ProgramData%. On la retente donc AVANT de résoudre le dossier : l'inverse
 	// laisserait la variable pointer sur l'ancien chemin et installerait à côté.
-	if retryHomeMigration() {
+	// elevateForHomeMigration ne demande l'élévation que si elle peut débloquer
+	// la situation : jamais quand il n'y a rien à migrer, ni quand l'obstacle
+	// est un fichier verrouillé que des droits administrateur ne libéreraient pas.
+	if retryHomeMigration() || elevateForHomeMigration() {
 		fmt.Printf("%s dossier de données migré vers %s\n", green("✓"), AjeanHome())
 	} else if notice := homeMigrationNotice(); notice != "" {
 		fmt.Printf("%s %s\n", yellow("[info]"), notice)

@@ -271,3 +271,16 @@ func TestNoNoticeWhenMigrationSucceeds(t *testing.T) {
 		t.Fatalf("message inattendu apres une migration reussie:\n%s", n)
 	}
 }
+
+// Migration reussie : aucun residu, donc aucune demande d'elevation nulle part.
+func TestAucunResiduApresMigrationReussie(t *testing.T) {
+	migrationDeferred = ""
+	t.Cleanup(func() { migrationDeferred = "" })
+	root := t.TempDir()
+	legacy := filepath.Join(root, "jean")
+	mkHome(t, legacy)
+	migrateHome(filepath.Join(root, "ajean"), legacy)
+	if migrationDeferred != "" {
+		t.Errorf("etat inattendu apres une migration reussie: %q", migrationDeferred)
+	}
+}
