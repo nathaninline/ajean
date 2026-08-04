@@ -26,7 +26,35 @@ func TestBinaryVersionReadsResource(t *testing.T) {
 	}
 }
 
-// Un fichier sans ressource de version doit renvoyer "" : upgradeInstalled s'en
+// replaceInstalled doit écraser le binaire en place, y compris quand le fichier
+// cible existe déjà, et laisser l'ancien de côté sans le confondre avec la cible.
+func TestReplaceInstalled(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "jean.exe")
+	if err := os.WriteFile(target, []byte("ancienne version"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := replaceInstalled(target); err != nil {
+		t.Fatalf("replaceInstalled : %v", err)
+	}
+	got, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// installSelf copie l'exécutable courant (ici le binaire de test).
+	self, err := os.ReadFile(os.Args[0])
+	if err != nil {
+		t.Skip("binaire de test illisible")
+	}
+	if len(got) != len(self) {
+		t.Fatalf("cible = %d octets, attendu %d (le binaire courant)", len(got), len(self))
+	}
+	if _, err := os.Stat(target + ".old"); err == nil {
+		t.Error(".old subsiste alors que la cible n'était pas verrouillée")
+	}
+}
+
+// Un fichier sans ressource de version doit renvoyer "" : runAsInstaller s'en
 // sert pour s'abstenir plutôt que de remplacer un binaire au hasard.
 func TestBinaryVersionWithoutResource(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "vide.exe")

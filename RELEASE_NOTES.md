@@ -1,14 +1,14 @@
 ## Lancement sous Windows
 
-**Le fichier téléchargé met AJEAN à jour et démarre.** Si AJEAN est déjà installé sur la machine, lancer `jean-windows-amd64.exe` remplace le programme installé par cette version, puis ouvre l'application. Sans question, sans message : c'est la seule chose qu'on puisse attendre d'un fichier qu'on vient de télécharger.
+Suite de la 0.6.11, où lancer le fichier téléchargé alors qu'AJEAN tournait déjà se contentait d'ouvrir l'application sans rien mettre à jour.
 
-La 0.6.10 se contentait de signaler qu'AJEAN était déjà installé ailleurs, puis démarrait quand même la copie téléchargée. Une information dont on ne pouvait rien faire, suivie d'un comportement qu'elle n'annonçait pas.
+**AJEAN en cours d'exécution.** Le nouveau binaire était bien écrit sur le disque, mais l'application affichée restait l'ancienne, toujours en mémoire. Rien ne changeait à l'écran, et rien ne le disait. AJEAN demande maintenant s'il faut le fermer et le redémarrer pour appliquer la mise à jour, en affichant la version en cours et celle du fichier lancé. Si vous refusez, l'application s'ouvre telle quelle, et vous savez qu'aucune mise à jour n'a été appliquée.
 
-À la toute première installation, en revanche, AJEAN demande toujours : c'est le seul moment où savoir ce qui est posé sur la machine, et à quel endroit, change quelque chose. Un refus est désormais mémorisé au lieu d'être reposé à chaque lancement.
+**Version installée plus récente que le fichier lancé.** AJEAN vous en avertit, ne remplace rien, et vous laisse choisir entre démarrer l'application ou fermer. Auparavant, une version plus ancienne pouvait prendre la place de la plus récente sans un mot.
 
-## Interface
+Le cas courant reste silencieux : fichier plus récent, application arrêtée, le binaire est remplacé et AJEAN démarre.
 
-**Les emplacements ont rejoint le journal du moteur.** Le dossier de vos données, la configuration, la mémoire et le dossier de travail de l'IA s'affichent sous le journal, en cliquant sur la pastille d'état. Ils avaient leur propre bouton dans les actions en 0.6.10, loin de l'endroit où l'on va quand on cherche à comprendre son installation.
+**Raccourcis.** Ils sont vérifiés à chaque démarrage et recréés s'ils manquent, au lieu d'être posés une seule fois le jour de l'installation. Le raccourci du menu Démarrer est par ailleurs rangé dans « Programmes », l'endroit où Windows classe les applications installées et où va chercher la recherche du menu Démarrer. Il se trouvait jusqu'ici à la racine du menu, donc difficilement trouvable.
 
 ## Mise à jour
 
@@ -16,6 +16,8 @@ La 0.6.10 se contentait de signaler qu'AJEAN était déjà installé ailleurs, p
 jean update
 ```
 
-Sous Windows, télécharger le fichier depuis la page des releases et le lancer fait désormais le même travail.
+Sous Windows, télécharger le fichier depuis la page des releases et le lancer fait le même travail.
 
-L'icône de la barre de menus macOS, introduite en 0.6.10, n'a toujours pas pu être vérifiée sur une vraie machine.
+Ces trois comportements demandent une machine Windows avec une installation existante pour être vérifiés en conditions réelles. Les mécanismes qu'ils utilisent (lecture de la version d'un binaire, repérage des instances en cours par leur chemin, remplacement du fichier) sont couverts par des tests, mais l'enchaînement complet des fenêtres n'a pas été parcouru à la main.
+
+L'icône de la barre de menus macOS, introduite en 0.6.10, n'a toujours pas été vérifiée sur une vraie machine.

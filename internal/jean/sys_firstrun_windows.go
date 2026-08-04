@@ -4,11 +4,14 @@ package jean
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"golang.org/x/mod/semver"
@@ -31,11 +34,14 @@ import (
 //     copie + PATH + raccourcis, et on démarre depuis la copie installée. Un refus
 //     est mémorisé, on ne repose pas la question.
 //
-//  2. AJEAN est déjà installé. Le fichier téléchargé se comporte alors comme un
-//     installeur de mise à jour : s'il est plus récent, il remplace le binaire
-//     installé, puis l'application démarre. AUCUN message. Annoncer « vous lancez
-//     une copie, ça ne sert à rien » puis démarrer quand même n'apprenait rien et
-//     ne laissait rien à décider.
+//  2. AJEAN est déjà installé. Le fichier téléchargé se comporte en installeur de
+//     mise à jour, avec trois situations bien distinctes (voir runAsInstaller) :
+//     plus récent et application arrêtée, on remplace et on démarre, sans un mot ;
+//     plus récent mais application EN COURS, on demande s'il faut la fermer pour
+//     appliquer la mise à jour, sans quoi le nouveau binaire serait écrit sans
+//     que rien ne change à l'écran ; plus ancien que la version installée, on
+//     avertit et on laisse choisir entre démarrer et fermer, plutôt que d'imposer
+//     une régression silencieuse.
 //
 // Dans les deux cas il n'existe au final qu'UN binaire qui compte, à un
 // emplacement connu, et c'est celui que le bouton de mise à jour modifie.
@@ -81,16 +87,16 @@ func appFirstRun() bool {
 	}
 	target := installedExePath()
 	if strings.EqualFold(exe, target) {
-		return false // on EST déjà l'application installée
+		// On EST l'application installée. On en profite pour garantir que les
+		// raccourcis existent : sans ça, quelqu'un qui perd son raccourci ne
+		// retrouve plus AJEAN, et n'a aucune raison de relancer le fichier
+		// téléchargé (qu'il a souvent supprimé) pour le récupérer. En tâche de
+		// fond, l'appel PowerShell ne doit pas retarder le démarrage.
+		go ensureShortcuts(target)
+		return false
 	}
 	if _, err := os.Stat(target); err == nil {
-		// AJEAN est déjà installé. Lancer le fichier téléchargé doit alors se
-		// comporter comme un installeur de mise à jour : si cette copie est plus
-		// récente, elle remplace celle installée, et l'application démarre. Sans
-		// message : annoncer « vous lancez une copie » puis démarrer quand même
-		// n'apprend rien à l'utilisateur et ne lui laisse rien à décider.
-		upgradeInstalled(target)
-		return launch(target)
+		return runAsInstaller(target)
 	}
 
 	// Première installation : là, une question. C'est le seul moment où
@@ -118,7 +124,7 @@ func appFirstRun() bool {
 		return false
 	}
 	_, _ = addToUserPath(filepath.Dir(target))
-	shortcuts := createShortcuts(target)
+	shortcuts := ensureShortcuts(target)
 
 	messageBox("AJEAN est installé.\n\n"+target+"\n\n"+shortcuts+
 		"\n\nL'application va démarrer. Vous pouvez supprimer le fichier téléchargé.",
@@ -143,29 +149,148 @@ func launch(target string) bool {
 	return cmd.Start() == nil
 }
 
-// upgradeInstalled remplace le binaire installé par celui qu'on exécute, quand
-// ce dernier est plus récent : lancer le fichier téléchargé met ainsi AJEAN à
-// jour, ce qui est la seule chose qu'on puisse raisonnablement en attendre.
-// Silencieux et best-effort : si la copie échoue (application en cours
-// d'exécution, donc fichier verrouillé), on démarre simplement la version en
-// place, qui remontera l'onglet existant.
-func upgradeInstalled(target string) {
+// runAsInstaller : AJEAN est déjà installé et on exécute une AUTRE copie (le
+// fichier fraîchement téléchargé). Le fichier joue alors le rôle d'installeur de
+// mise à jour. Trois situations, trois comportements distincts, parce qu'elles
+// n'appellent pas la même décision de l'utilisateur.
+func runAsInstaller(target string) bool {
 	installed := binaryVersion(target)
-	if installed == "" || semver.Compare(ensureV(Version), ensureV(installed)) <= 0 {
-		return // même version, plus ancienne, ou version illisible : on ne touche à rien
+	// Version illisible (binaire antérieur aux ressources de version, fichier
+	// tronqué par une copie interrompue) : on la traite comme ANCIENNE, donc
+	// remplaçable. La traiter comme « égale » condamnait ces installations à ne
+	// plus jamais se mettre à jour en lançant le fichier téléchargé, sans que
+	// rien ne le signale.
+	cmp := 1
+	if installed != "" {
+		cmp = semver.Compare(ensureV(Version), ensureV(installed))
 	}
-	// L'exe installé peut être en cours d'exécution : on l'écarte d'abord, comme
-	// pour une mise à jour classique (voir replaceBinary).
+	running := runningPIDs(target)
+
+	switch {
+	case cmp < 0:
+		// Le fichier lancé est PLUS ANCIEN que la version installée. Le remplacer
+		// serait une régression silencieuse, et démarrer sans rien dire laisserait
+		// croire qu'on utilise la version qu'on vient de télécharger.
+		if messageBox(
+			"Une version plus récente d'AJEAN est déjà installée sur cet ordinateur.\n\n"+
+				"    installée : "+installed+"\n"+
+				"    ce fichier : "+Version+"\n\n"+
+				"Rien ne sera remplacé.\n\n"+
+				"Voulez-vous démarrer AJEAN (version "+installed+") ?\n"+
+				"Répondre Non ferme simplement cette fenêtre.",
+			"AJEAN", mbYesNo|mbIconQuestion) != idYes {
+			return true // rien à faire, on quitte sans démarrer
+		}
+		ensureShortcuts(target)
+		return launch(target)
+
+	case cmp > 0 && len(running) > 0:
+		// Mise à jour disponible, mais AJEAN tourne. Écrire le nouveau binaire
+		// sans redémarrer ne changerait RIEN à ce que l'utilisateur a sous les
+		// yeux : l'onglet qui s'ouvrirait serait servi par l'ancienne version. On
+		// pose donc la seule question qui compte.
+		if messageBox(
+			"AJEAN est déjà en cours d'exécution.\n\n"+
+				"    version en cours : "+verLabel(installed)+"\n"+
+				"    ce fichier : "+Version+" (plus récente)\n\n"+
+				"Fermer AJEAN et le redémarrer pour appliquer la mise à jour ?\n\n"+
+				"Répondre Non ouvre AJEAN dans sa version actuelle, sans rien mettre à jour.",
+			"Mise à jour d'AJEAN", mbYesNo|mbIconQuestion) != idYes {
+			ensureShortcuts(target)
+			return launch(target) // l'instance en cours reprend la main (port occupé)
+		}
+		stopProcesses(running)
+		if err := replaceInstalled(target); err != nil {
+			messageBox("La mise à jour a échoué :\n\n"+err.Error()+"\n\nAJEAN va redémarrer dans sa version actuelle.",
+				"AJEAN", mbIconInfo)
+		}
+		ensureShortcuts(target)
+		return launch(target)
+
+	case cmp > 0:
+		// Mise à jour, application arrêtée : rien à décider, on remplace et on
+		// démarre. C'est le cas courant et il doit rester muet.
+		_ = replaceInstalled(target)
+		ensureShortcuts(target)
+		return launch(target)
+	}
+
+	// Même version (ou version installée illisible) : on démarre l'installée.
+	ensureShortcuts(target)
+	return launch(target)
+}
+
+// verLabel évite d'afficher un numéro de version vide dans une boîte de dialogue.
+func verLabel(v string) string {
+	if v == "" {
+		return "inconnue"
+	}
+	return v
+}
+
+// replaceInstalled écrase le binaire installé par celui qu'on exécute. Le
+// renommage préalable en .old permet de remplacer un exécutable encore ouvert
+// (même mécanique que replaceBinary pour `jean update`).
+func replaceInstalled(target string) error {
 	old := target + ".old"
 	_ = os.Remove(old)
 	if err := os.Rename(target, old); err != nil {
-		return
+		return err
 	}
 	if _, err := installSelf(filepath.Dir(target)); err != nil {
 		_ = os.Rename(old, target) // rollback
-		return
+		return err
 	}
-	_ = os.Remove(old) // échoue si l'ancien tourne encore ; nettoyé au prochain lancement
+	_ = os.Remove(old) // échoue tant que l'ancien tourne ; nettoyé au prochain lancement
+	return nil
+}
+
+// runningPIDs liste les processus qui exécutent exactement ce fichier. On compare
+// le CHEMIN, pas le nom : tuer par nom d'image (« jean.exe ») emporterait aussi
+// le processus courant et toute autre copie sans rapport.
+func runningPIDs(target string) []int {
+	ps := fmt.Sprintf(`$t=%s
+Get-Process -ErrorAction SilentlyContinue | ForEach-Object {
+  try { if ($_.Path -ieq $t) { $_.Id } } catch { }
+}`, psQuote(target))
+	out, err := hideCmd(exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", ps)).Output()
+	if err != nil {
+		return nil
+	}
+	var pids []int
+	self := os.Getpid()
+	for _, line := range strings.Fields(string(out)) {
+		if n, err := strconv.Atoi(line); err == nil && n != self {
+			pids = append(pids, n)
+		}
+	}
+	return pids
+}
+
+// stopProcesses arrête les instances listées, puis laisse le port se libérer :
+// sans cette attente, l'instance qu'on relance trouve :8090 encore occupé et se
+// contente d'ouvrir le navigateur sur une application en train de mourir.
+func stopProcesses(pids []int) {
+	for _, pid := range pids {
+		if p, err := os.FindProcess(pid); err == nil {
+			_ = p.Kill()
+		}
+	}
+	for i := 0; i < 40; i++ { // jusqu'à ~4 s
+		if !portBusy(appPort) {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+func portBusy(port int) bool {
+	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	if err != nil {
+		return true
+	}
+	_ = ln.Close()
+	return false
 }
 
 // binaryVersion lit la version dans les ressources du fichier (VS_VERSIONINFO,
@@ -240,20 +365,32 @@ func provisionDataDir() error {
 	return nil
 }
 
-// createShortcuts pose un raccourci « AJEAN » dans le menu Démarrer et sur le
-// Bureau. Renvoie une phrase décrivant ce qui a été créé (affichée à
-// l'utilisateur). Best-effort : un échec n'empêche pas l'installation.
-func createShortcuts(target string) string {
+// ensureShortcuts garantit qu'un raccourci « AJEAN » existe dans le menu
+// Démarrer et sur le Bureau, et qu'il pointe sur le bon exécutable. Appelée à
+// CHAQUE lancement du fichier téléchargé, pas seulement à l'installation :
+// un raccourci perdu (nettoyage, migration de profil, dossier Démarrer
+// réorganisé) rendait l'application introuvable alors qu'elle était installée.
+// Les raccourcis manquants sont recréés ; ceux qui existent sont laissés tels
+// quels, pour ne pas défaire un déplacement volontaire.
+//
+// Le raccourci du menu Démarrer va dans « Programmes », l'endroit où Windows
+// range les applications installées et où la recherche du menu Démarrer va
+// chercher.
+func ensureShortcuts(target string) string {
 	ps := fmt.Sprintf(`$t=%s
 $w=New-Object -ComObject WScript.Shell
 $done=@()
-foreach ($d in @([Environment]::GetFolderPath('StartMenu'), [Environment]::GetFolderPath('Desktop'))) {
+$progs=Join-Path ([Environment]::GetFolderPath('StartMenu')) 'Programs'
+foreach ($d in @($progs, [Environment]::GetFolderPath('Desktop'))) {
   if (-not $d) { continue }
+  if (-not (Test-Path $d)) { continue }
+  $lnk=Join-Path $d 'AJEAN.lnk'
+  if (Test-Path $lnk) { $done+=$d; continue }
   try {
-    $s=$w.CreateShortcut((Join-Path $d 'AJEAN.lnk'))
+    $s=$w.CreateShortcut($lnk)
     $s.TargetPath=$t
     $s.WorkingDirectory=(Split-Path $t)
-    $s.Description='AJEAN — IA locale'
+    $s.Description='AJEAN, votre IA locale'
     $s.Save()
     $done+=$d
   } catch {}
@@ -267,11 +404,13 @@ Write-Output ($done -join ';')`, psQuote(target))
 	return "Raccourci « AJEAN » ajouté au menu Démarrer et au Bureau."
 }
 
-// removeShortcuts efface les raccourcis posés par createShortcuts. Renvoie true
-// si au moins un a été supprimé.
+// removeShortcuts efface les raccourcis posés par ensureShortcuts. Renvoie true
+// si au moins un a été supprimé. Balaie aussi l'ancien emplacement (racine du
+// menu Démarrer, utilisé jusqu'en 0.6.11) pour ne pas laisser d'orphelin.
 func removeShortcuts() bool {
 	ps := `$n=0
-foreach ($d in @([Environment]::GetFolderPath('StartMenu'), [Environment]::GetFolderPath('Desktop'))) {
+$sm=[Environment]::GetFolderPath('StartMenu')
+foreach ($d in @($sm, (Join-Path $sm 'Programs'), [Environment]::GetFolderPath('Desktop'))) {
   if (-not $d) { continue }
   $p=Join-Path $d 'AJEAN.lnk'
   if (Test-Path $p) { try { Remove-Item $p -Force; $n++ } catch {} }
