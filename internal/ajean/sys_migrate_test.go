@@ -1,6 +1,7 @@
 package ajean
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -170,5 +171,48 @@ func TestMigrateHomeAdoptsServiceStateFiles(t *testing.T) {
 	}
 	if strings.TrimSpace(string(b)) != "4242" {
 		t.Fatalf("PID perdu: %q", b)
+	}
+}
+
+// Les fichiers JSON (model_dirs.json, mcp.json, webprefs.json) sont ecrits par
+// json.Marshal : sous Windows chaque antislash y est DOUBLE. Chercher la forme
+// native ne les trouve donc pas, et on croirait avoir tout reecrit en laissant
+// des references mortes. Constate en bac a sable.
+func TestMigrateHomeRewritesJSONEscapedPaths(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("l'echappement JSON des separateurs ne concerne que Windows")
+	}
+	root := t.TempDir()
+	legacy := filepath.Join(root, "jean")
+	target := filepath.Join(root, "ajean")
+	mkHome(t, legacy)
+
+	esc := jsonEscapePath
+	body := `{"dirs":["` + esc(filepath.Join(legacy, "models")) + `"]}`
+	if err := os.WriteFile(filepath.Join(legacy, "model_dirs.json"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	migrateHome(target, legacy)
+
+	b, err := os.ReadFile(filepath.Join(target, "model_dirs.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), esc(legacy)) {
+		t.Errorf("reference JSON a l'ancien dossier non reecrite:\n%s", b)
+	}
+	if !strings.Contains(string(b), esc(target)) {
+		t.Errorf("le JSON ne pointe pas vers le nouveau dossier:\n%s", b)
+	}
+	// Le fichier doit rester du JSON valide apres reecriture.
+	var parsed struct {
+		Dirs []string `json:"dirs"`
+	}
+	if err := json.Unmarshal(b, &parsed); err != nil {
+		t.Fatalf("JSON casse par la reecriture: %v\n%s", err, b)
+	}
+	if len(parsed.Dirs) != 1 || !strings.HasPrefix(parsed.Dirs[0], target) {
+		t.Fatalf("chemin decode inattendu: %+v", parsed.Dirs)
 	}
 }

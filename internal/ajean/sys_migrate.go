@@ -129,13 +129,22 @@ func configFilesToRewrite(home string) []string {
 // dossier a bougé, la ligne pointe dans le vide, et llama-server ne démarre plus.
 // Ça concerne tous ceux qui ont fait un `llamacpp install`, donc le cas nominal.
 //
-// On couvre les deux écritures de séparateur, Windows acceptant indifféremment
-// « \ » et « / » dans une même valeur. Best-effort par fichier : un fichier
-// illisible est sauté sans compromettre les autres.
+// Trois écritures d'un même chemin doivent être couvertes, sans quoi on croit
+// avoir tout réécrit alors qu'il reste des références mortes :
+//
+//	C:\ProgramData\jean    forme native, dans config.env
+//	C:/ProgramData/jean    Windows accepte les deux séparateurs dans une valeur
+//	C:\\ProgramData\\jean  forme JSON, où l'antislash est échappé (model_dirs.json,
+//	                       mcp.json, webprefs.json sont écrits par json.Marshal)
+//
+// Best-effort par fichier : un fichier illisible est sauté sans compromettre
+// les autres.
 func rewriteHomeReferences(oldHome, newHome string) {
 	variants := [][2]string{{oldHome, newHome}}
 	if slash := filepath.ToSlash(oldHome); slash != oldHome {
 		variants = append(variants, [2]string{slash, filepath.ToSlash(newHome)})
+		// Forme JSON : chaque antislash est doublé.
+		variants = append(variants, [2]string{jsonEscapePath(oldHome), jsonEscapePath(newHome)})
 	}
 	for _, path := range configFilesToRewrite(newHome) {
 		b, err := os.ReadFile(path)
@@ -162,6 +171,18 @@ func rewriteHomeReferences(oldHome, newHome string) {
 	}
 	adoptLegacyStateFiles(newHome)
 }
+
+// jsonEscapePath renvoie l'écriture d'un chemin telle qu'elle apparaît DANS un
+// fichier JSON : sous Windows, json.Marshal double chaque antislash. Le
+// remplacement littéral doit donc chercher cette forme-là, sinon model_dirs.json
+// et mcp.json gardent des chemins morts.
+//
+// Attention en modifiant : "\\" est UN antislash et "\\\\" en est deux. Une
+// version antérieure utilisait des littéraux bruts et remplaçait en fait un
+// antislash par lui-même, ce qui laissait passer le remplacement natif et
+// produisait un JSON invalide (« invalid character 'U' in string escape code »),
+// donc une liste de dossiers de modèles perdue. Couvert par un test.
+func jsonEscapePath(p string) string { return strings.ReplaceAll(p, "\\", "\\\\") }
 
 // adoptLegacyStateFiles reprend les fichiers d'état nommés d'après le service
 // (jean.pid / jean.log → ajean.pid / ajean.log). Le fichier PID dit si le
