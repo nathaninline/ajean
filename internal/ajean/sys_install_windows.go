@@ -38,15 +38,24 @@ EXTRA_ARGS=""
 `
 
 func cmdInstall(args []string) error {
-	jeanHome := AjeanHome()
+	// Lancé en administrateur, `install` est le moment où la migration peut
+	// enfin aboutir sur un poste où l'utilisateur courant n'a pas les droits sur
+	// %ProgramData%. On la retente donc AVANT de résoudre le dossier : l'inverse
+	// laisserait la variable pointer sur l'ancien chemin et installerait à côté.
+	if retryHomeMigration() {
+		fmt.Printf("%s dossier de données migré vers %s\n", green("✓"), AjeanHome())
+	} else if notice := homeMigrationNotice(); notice != "" {
+		fmt.Printf("%s %s\n", yellow("[info]"), notice)
+	}
+	ajeanHome := AjeanHome()
 
 	fmt.Printf("Installation (Windows)\n")
-	fmt.Printf("  JEAN_HOME = %s\n", jeanHome)
+	fmt.Printf("  AJEAN_HOME = %s\n", ajeanHome)
 	fmt.Printf("  service   = %s\n", serviceName())
 
 	// 1-2. Dossiers + config.env de départ (partagé avec le premier lancement de
 	// l'app, voir provisionDataDir dans sys_firstrun_windows.go).
-	conf := filepath.Join(jeanHome, "config.env")
+	conf := filepath.Join(ajeanHome, "config.env")
 	_, statErr := os.Stat(conf)
 	alreadyThere := statErr == nil
 	if err := provisionDataDir(); err != nil {
@@ -61,7 +70,7 @@ func cmdInstall(args []string) error {
 	// 3. Install the binary into JEAN_HOME\bin and put that dir on the user PATH,
 	//    so `ajean` is callable from any shell (this is the Windows analogue of the
 	//    /usr/local/bin symlink the Unix installer creates).
-	binDir := filepath.Join(jeanHome, "bin")
+	binDir := filepath.Join(ajeanHome, "bin")
 	if err := os.MkdirAll(binDir, 0o755); err != nil {
 		return err
 	}
@@ -237,11 +246,11 @@ func cmdUninstall(args []string) error {
 	}
 
 	if !keepData {
-		jeanHome := AjeanHome()
-		if err := os.RemoveAll(jeanHome); err != nil {
-			return fmt.Errorf("suppression de %s: %w", jeanHome, err)
+		ajeanHome := AjeanHome()
+		if err := os.RemoveAll(ajeanHome); err != nil {
+			return fmt.Errorf("suppression de %s: %w", ajeanHome, err)
 		}
-		fmt.Printf("  %s %s supprimé\n", green("✓"), jeanHome)
+		fmt.Printf("  %s %s supprimé\n", green("✓"), ajeanHome)
 	} else {
 		fmt.Println(dim("(données utilisateur conservées — relance avec --purge pour tout supprimer)"))
 	}

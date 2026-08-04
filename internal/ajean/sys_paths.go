@@ -74,6 +74,9 @@ func cmdWhere(args []string) error {
 	} {
 		fmt.Printf("  %-20s %s\n", row[0], row[1])
 	}
+	if notice := homeMigrationNotice(); notice != "" {
+		fmt.Printf("\n%s %s\n", yellow("[info]"), notice)
+	}
 	if p.Exe != p.Installed {
 		fmt.Printf("\n%s tu exécutes une copie qui n'est PAS le binaire installé.\n", dim("[info]"))
 		fmt.Printf("  Les mises à jour depuis l'application ne modifient que la copie lancée.\n")

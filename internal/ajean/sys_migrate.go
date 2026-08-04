@@ -1,9 +1,11 @@
 package ajean
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 )
@@ -33,7 +35,38 @@ import (
 var (
 	homeOnce sync.Once
 	homePath string
+
+	// migrationDeferred retient pourquoi le dossier n'a pas pu être renommé,
+	// pour que seules les commandes qui parlent d'emplacements en fassent état.
+	migrationDeferred string
 )
+
+// homeMigrationNotice renvoie le message à montrer quand la migration attend
+// encore, ou "" s'il n'y a rien à signaler. Renvoie aussi le conseil qui va
+// avec : sous Windows, l'obstacle est presque toujours un manque de droits sur
+// C:\ProgramData, et la réponse tient en une phrase.
+func homeMigrationNotice() string {
+	if migrationDeferred == "" {
+		return ""
+	}
+	msg := migrationDeferred + "\n  Tout fonctionne : AJEAN continue d'utiliser ce dossier."
+	if runtime.GOOS == "windows" {
+		return msg + "\n  Pour aligner les noms, ferme AJEAN puis lance « ajean install » en administrateur."
+	}
+	return msg + "\n  Pour aligner les noms : sudo ajean install."
+}
+
+// renameCause extrait la cause réelle d'un échec de rename. os.Rename renvoie un
+// *os.LinkError dont le texte répète les deux chemins complets — dans un message
+// qui les cite déjà, ça donne trois fois la même chose et rend l'essentiel
+// (« Accès refusé ») illisible. On ne garde que ce dernier.
+func renameCause(err error) string {
+	var le *os.LinkError
+	if errors.As(err, &le) && le.Err != nil {
+		return le.Err.Error()
+	}
+	return err.Error()
+}
 
 // migratedDefaultHome renvoie le dossier de données par défaut, en migrant
 // l'ancien dossier « jean » vers « ajean » à la première résolution du process.
@@ -89,11 +122,20 @@ func migrateHome(target, legacy string) string {
 		return sibling
 	}
 	if err := os.Rename(legacy, sibling); err != nil {
-		// Cas le plus courant sous Windows : un service AJEAN tourne encore et
-		// tient un handle dans le dossier. On reste sur l'ancien chemin — tout
-		// fonctionne — et on retentera au prochain démarrage.
-		fmt.Fprintf(os.Stderr, "[info] dossier de données pas encore migré vers %s (%v) — on continue sur %s\n",
-			sibling, err, legacy)
+		// On reste sur l'ancien chemin — tout fonctionne — et on retentera plus
+		// tard. Deux causes courantes sous Windows : un service AJEAN qui tient
+		// encore un handle, ou, bien plus fréquent, un utilisateur non
+		// administrateur : renommer C:\ProgramData\jean exige d'écrire dans
+		// C:\ProgramData, ce qu'un compte standard ne peut pas faire.
+		//
+		// On ENREGISTRE la raison au lieu de l'afficher. L'afficher condamnait
+		// tout utilisateur non administrateur à voir un message d'erreur
+		// technique avant CHAQUE commande, y compris `ajean help`, pour une
+		// situation qui n'a aucune conséquence : son installation fonctionne.
+		// Le message n'a sa place que là où il est actionnable — `ajean where`
+		// et `ajean install`, voir homeMigrationNotice().
+		migrationDeferred = fmt.Sprintf("dossier de données encore en %s — renommage en %s refusé (%s).",
+			legacy, filepath.Base(sibling), renameCause(err))
 		return legacy
 	}
 	fmt.Fprintf(os.Stderr, "[ok] dossier de données migré : %s → %s\n", legacy, sibling)

@@ -216,3 +216,58 @@ func TestMigrateHomeRewritesJSONEscapedPaths(t *testing.T) {
 		t.Fatalf("chemin decode inattendu: %+v", parsed.Dirs)
 	}
 }
+
+// Cas d'un utilisateur Windows NON administrateur : il ne peut pas renommer
+// C:\ProgramData\jean faute de droits sur C:\ProgramData. La migration echoue a
+// chaque lancement, definitivement.
+//
+// Elle doit rester SILENCIEUSE. L'afficher condamnait cet utilisateur a voir un
+// message d'erreur technique avant chaque commande, y compris `ajean help`,
+// alors que son installation fonctionne parfaitement. La raison est enregistree
+// et n'est ressortie que la ou elle est actionnable.
+func TestMigrationFailureIsSilentButRecorded(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("reproduit un echec de rename propre a Windows")
+	}
+	migrationDeferred = ""
+	t.Cleanup(func() { migrationDeferred = "" })
+
+	root := t.TempDir()
+	legacy := filepath.Join(root, "jean")
+	mkHome(t, legacy)
+	held, err := os.Open(filepath.Join(legacy, "config.env"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer held.Close()
+
+	if got := migrateHome(filepath.Join(root, "ajean"), legacy); got != legacy {
+		t.Fatalf("attendu un repli sur %s, got %s", legacy, got)
+	}
+	if migrationDeferred == "" {
+		t.Fatal("la raison de l'echec n'a pas ete enregistree")
+	}
+	notice := homeMigrationNotice()
+	if !strings.Contains(notice, legacy) {
+		t.Errorf("le message ne dit pas quel dossier reste utilise:\n%s", notice)
+	}
+	if !strings.Contains(notice, "Tout fonctionne") {
+		t.Errorf("le message doit rassurer, pas alarmer:\n%s", notice)
+	}
+	if !strings.Contains(notice, "administrateur") {
+		t.Errorf("le message doit dire quoi faire:\n%s", notice)
+	}
+}
+
+// Rien a signaler quand tout va bien : pas de message parasite.
+func TestNoNoticeWhenMigrationSucceeds(t *testing.T) {
+	migrationDeferred = ""
+	t.Cleanup(func() { migrationDeferred = "" })
+	root := t.TempDir()
+	legacy := filepath.Join(root, "jean")
+	mkHome(t, legacy)
+	migrateHome(filepath.Join(root, "ajean"), legacy)
+	if n := homeMigrationNotice(); n != "" {
+		t.Fatalf("message inattendu apres une migration reussie:\n%s", n)
+	}
+}
