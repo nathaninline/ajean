@@ -1,8 +1,8 @@
 ## Corrections
 
-**L'IA déposait ses fichiers sur votre Bureau.** En mode agent, quand elle créait un fichier — une recherche web mise de côté, un script, des notes — celui-ci atterrissait dans le dossier depuis lequel AJEAN avait été lancé. Le Bureau si vous aviez double-cliqué le fichier téléchargé, `C:\ProgramData\jean\bin` si vous passiez par l'installation. Personne ne s'attend à ce qu'une conversation laisse des fichiers derrière elle.
+**L'IA déposait ses fichiers sur votre Bureau.** En mode agent, quand elle créait un fichier (une recherche web mise de côté, un script, des notes), celui-ci atterrissait dans le dossier depuis lequel AJEAN avait été lancé. Le Bureau si vous aviez double-cliqué le fichier téléchargé, `C:\ProgramData\jean\bin` si vous passiez par l'installation. Personne ne s'attend à ce qu'une conversation laisse des fichiers derrière elle.
 
-L'IA travaille désormais dans un dossier à elle, `workspace`, rangé avec vos réglages. Les fichiers déjà créés ne bougent pas ; le bouton « Où sont mes fichiers ? » vous dit où regarder. Si vous lui demandez explicitement d'écrire à un endroit précis, elle le fait toujours : seuls les fichiers sans destination indiquée sont rangés.
+L'IA travaille désormais dans un dossier à elle, `workspace`, rangé avec vos réglages. Les fichiers déjà créés ne bougent pas, et le bouton « Où sont mes fichiers ? » vous dit où regarder. Si vous lui demandez explicitement d'écrire à un endroit précis, elle le fait toujours : seuls les fichiers sans destination indiquée sont rangés.
 
 Merci à Sébastien pour le signalement, et pour avoir tout de suite pointé le lien avec le dossier de lancement.
 
@@ -31,3 +31,5 @@ jean update
 ```
 
 Si vous lancez AJEAN sans privilèges administrateur et que le programme appartient à root, cette version-ci doit encore être installée en ligne de commande avec `sudo jean update`. Les suivantes vous le diront clairement depuis l'interface.
+
+L'icône de la barre de menus macOS n'a pas pu être vérifiée sur une vraie machine.
