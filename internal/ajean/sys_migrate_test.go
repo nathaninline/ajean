@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -98,5 +99,76 @@ func TestMigrateHomeFallsBackWhenRenameFails(t *testing.T) {
 	}
 	if b, err := os.ReadFile(filepath.Join(legacy, "config.env")); err != nil || string(b) != "MODEL=x.gguf\n" {
 		t.Fatalf("l'ancien dossier a été abîmé par une migration ratée: %q (%v)", b, err)
+	}
+}
+
+// Le cas qui a casse une vraie machine : config.env contient un chemin ABSOLU
+// vers le dossier de donnees (BIN=<home>\backends\...\llama-server.exe). Apres
+// migration ce chemin doit suivre, sinon llama-server ne demarre plus — et ca
+// concerne tous ceux qui ont fait un `llamacpp install`, donc le cas nominal.
+func TestMigrateHomeRewritesAbsolutePaths(t *testing.T) {
+	root := t.TempDir()
+	legacy := filepath.Join(root, "jean")
+	target := filepath.Join(root, "ajean")
+	mkHome(t, legacy)
+	if err := os.MkdirAll(filepath.Join(legacy, "configs"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	bin := filepath.Join(legacy, "backends", "llama.cpp", "build", "bin", "llama-server")
+	write := func(rel, body string) {
+		if err := os.WriteFile(filepath.Join(legacy, rel), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("config.env", "BIN="+bin+"\nMODEL=\"x.gguf\"\n")
+	// Les presets portent le meme BIN et doivent suivre aussi.
+	write(filepath.Join("configs", "gros.env"), "BIN="+bin+"\n")
+	// Ecriture avec des slashs : Windows accepte les deux formes.
+	write("model_dirs.json", `{"dirs":["`+filepath.ToSlash(legacy)+`/models"]}`)
+
+	if got := migrateHome(target, legacy); got != target {
+		t.Fatalf("migration echouee: %q", got)
+	}
+
+	for _, rel := range []string{"config.env", filepath.Join("configs", "gros.env"), "model_dirs.json"} {
+		b, err := os.ReadFile(filepath.Join(target, rel))
+		if err != nil {
+			t.Fatalf("%s illisible: %v", rel, err)
+		}
+		if strings.Contains(string(b), legacy) || strings.Contains(string(b), filepath.ToSlash(legacy)) {
+			t.Errorf("%s reference encore l'ancien dossier:\n%s", rel, b)
+		}
+		if !strings.Contains(string(b), target) && !strings.Contains(string(b), filepath.ToSlash(target)) {
+			t.Errorf("%s ne pointe pas vers le nouveau dossier:\n%s", rel, b)
+		}
+	}
+
+	// Le BIN reecrit doit designer un chemin reellement atteignable.
+	newBin := filepath.Join(target, "backends", "llama.cpp", "build", "bin", "llama-server")
+	if b, _ := os.ReadFile(filepath.Join(target, "config.env")); !strings.Contains(string(b), newBin) {
+		t.Errorf("BIN ne pointe pas sur %s:\n%s", newBin, b)
+	}
+}
+
+// Les fichiers d'etat du service (jean.pid/jean.log) doivent etre repris : le
+// PID dit si le service tourne, l'ignorer ferait demarrer un second service.
+func TestMigrateHomeAdoptsServiceStateFiles(t *testing.T) {
+	root := t.TempDir()
+	legacy := filepath.Join(root, "jean")
+	target := filepath.Join(root, "ajean")
+	mkHome(t, legacy)
+	if err := os.WriteFile(filepath.Join(legacy, "jean.pid"), []byte("4242\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	migrateHome(target, legacy)
+
+	b, err := os.ReadFile(filepath.Join(target, "ajean.pid"))
+	if err != nil {
+		t.Fatalf("ajean.pid absent apres migration: %v", err)
+	}
+	if strings.TrimSpace(string(b)) != "4242" {
+		t.Fatalf("PID perdu: %q", b)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -96,5 +97,86 @@ func migrateHome(target, legacy string) string {
 		return legacy
 	}
 	fmt.Fprintf(os.Stderr, "[ok] dossier de données migré : %s → %s\n", legacy, sibling)
+	rewriteHomeReferences(legacy, sibling)
 	return sibling
+}
+
+// configFilesToRewrite liste les fichiers de configuration susceptibles de
+// contenir un chemin ABSOLU vers le dossier de données. Volontairement restreint
+// à des fichiers texte, petits et écrits par nous : on ne réécrit pas à l'aveugle
+// les 51 000 fichiers d'un dossier de données.
+func configFilesToRewrite(home string) []string {
+	files := []string{
+		filepath.Join(home, "config.env"),
+		filepath.Join(home, "model_dirs.json"),
+		filepath.Join(home, "mcp.json"),
+		filepath.Join(home, "webprefs.json"),
+	}
+	// Les presets sont des config.env alternatives : ils portent le même BIN.
+	presets, _ := filepath.Glob(filepath.Join(home, "configs", "*"))
+	return append(files, presets...)
+}
+
+// rewriteHomeReferences réécrit les chemins absolus pointant vers l'ANCIEN
+// dossier de données dans les fichiers de configuration.
+//
+// Sans ça, la migration casse l'installation qu'elle est censée préserver :
+// `config.env` contient typiquement
+//
+//	BIN=C:\ProgramData\jean\backends\llama.cpp\build\bin\Release\llama-server.exe
+//
+// c'est-à-dire un chemin absolu VERS le dossier qu'on vient de renommer. Le
+// dossier a bougé, la ligne pointe dans le vide, et llama-server ne démarre plus.
+// Ça concerne tous ceux qui ont fait un `llamacpp install`, donc le cas nominal.
+//
+// On couvre les deux écritures de séparateur, Windows acceptant indifféremment
+// « \ » et « / » dans une même valeur. Best-effort par fichier : un fichier
+// illisible est sauté sans compromettre les autres.
+func rewriteHomeReferences(oldHome, newHome string) {
+	variants := [][2]string{{oldHome, newHome}}
+	if slash := filepath.ToSlash(oldHome); slash != oldHome {
+		variants = append(variants, [2]string{slash, filepath.ToSlash(newHome)})
+	}
+	for _, path := range configFilesToRewrite(newHome) {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		out := string(b)
+		for _, v := range variants {
+			out = strings.ReplaceAll(out, v[0], v[1])
+		}
+		if out == string(b) {
+			continue
+		}
+		fi, err := os.Stat(path)
+		mode := os.FileMode(0o644)
+		if err == nil {
+			mode = fi.Mode()
+		}
+		if err := os.WriteFile(path, []byte(out), mode); err != nil {
+			fmt.Fprintf(os.Stderr, "[warn] %s non réécrit (%v) — vérifie les chemins absolus qu'il contient\n", path, err)
+			continue
+		}
+		fmt.Fprintf(os.Stderr, "[ok] chemins mis à jour dans %s\n", filepath.Base(path))
+	}
+	adoptLegacyStateFiles(newHome)
+}
+
+// adoptLegacyStateFiles reprend les fichiers d'état nommés d'après le service
+// (jean.pid / jean.log → ajean.pid / ajean.log). Le fichier PID dit si le
+// service tourne : ne pas le reprendre reviendrait à croire qu'il est arrêté et
+// à en démarrer un second.
+func adoptLegacyStateFiles(home string) {
+	for _, ext := range []string{".pid", ".log"} {
+		from := filepath.Join(home, legacyServiceName()+ext)
+		to := filepath.Join(home, "ajean"+ext)
+		if _, err := os.Stat(to); err == nil {
+			continue
+		}
+		if _, err := os.Stat(from); err != nil {
+			continue
+		}
+		_ = os.Rename(from, to)
+	}
 }

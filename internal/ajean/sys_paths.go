@@ -16,7 +16,7 @@ import (
 // et on l'expose à la fois en ligne de commande (`ajean where`) et dans l'UI.
 
 type ajeanPaths struct {
-	Home      string `json:"home"`      // JEAN_HOME : racine des données
+	Home      string `json:"home"`      // AJEAN_HOME : racine des données
 	Config    string `json:"config"`    // config.env
 	Exe       string `json:"exe"`       // binaire en cours d'exécution
 	Installed string `json:"installed"` // binaire installé (peut différer de Exe)
@@ -64,7 +64,7 @@ func cmdWhere(args []string) error {
 	p := currentPaths()
 	fmt.Printf("Emplacements AJEAN\n\n")
 	for _, row := range [][2]string{
-		{"données (JEAN_HOME)", p.Home},
+		{"données (AJEAN_HOME)", p.Home},
 		{"configuration", p.Config},
 		{"binaire en cours", p.Exe},
 		{"binaire installé", p.Installed},
