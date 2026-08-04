@@ -400,7 +400,10 @@ type vsFixedFileInfo struct {
 // embarquer l'installation du binaire ni les messages de console.
 func provisionDataDir() error {
 	jeanHome := AjeanHome()
-	for _, d := range []string{jeanHome, filepath.Join(jeanHome, "configs"), filepath.Join(jeanHome, "SKILLS")} {
+	// Plus de dossier SKILLS : les skills ont ete fondus dans la memoire.
+	// On ne le CREE plus, mais on continue de le LIRE une fois au demarrage
+	// pour reprendre ceux d'une ancienne installation (migrateSkillsToMemory).
+	for _, d := range []string{jeanHome, filepath.Join(jeanHome, "configs")} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			return err
 		}

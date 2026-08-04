@@ -95,7 +95,10 @@ func cmdInstall(args []string) error {
 	fmt.Printf("  service   = %s\n", svc)
 
 	// 1. Create directories
-	for _, d := range []string{ajeanHome, filepath.Join(ajeanHome, "configs"), filepath.Join(ajeanHome, "SKILLS")} {
+	// Plus de dossier SKILLS : les skills ont ete fondus dans la memoire.
+	// On ne le CREE plus, mais on continue de le LIRE une fois au demarrage
+	// pour reprendre ceux d'une ancienne installation (migrateSkillsToMemory).
+	for _, d := range []string{ajeanHome, filepath.Join(ajeanHome, "configs")} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			return err
 		}
