@@ -26,6 +26,21 @@ func TestBinaryVersionReadsResource(t *testing.T) {
 	}
 }
 
+// Sur une machine vierge, le dossier bin n'existe pas encore : installSelf doit
+// le créer. Sans ça, le premier lancement échouait sur « open
+// C:\ProgramData\jean\bin\jean.exe: The system cannot find the path specified »
+// et AJEAN ne s'installait jamais.
+func TestInstallSelfCreatesBinDir(t *testing.T) {
+	binDir := filepath.Join(t.TempDir(), "jean", "bin") // deux niveaux absents
+	dst, err := installSelf(binDir)
+	if err != nil {
+		t.Fatalf("installSelf sur un dossier absent : %v", err)
+	}
+	if _, err := os.Stat(dst); err != nil {
+		t.Fatalf("binaire non écrit : %v", err)
+	}
+}
+
 // replaceInstalled doit écraser le binaire en place, y compris quand le fichier
 // cible existe déjà, et laisser l'ancien de côté sans le confondre avec la cible.
 func TestReplaceInstalled(t *testing.T) {

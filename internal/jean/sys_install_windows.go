@@ -100,6 +100,12 @@ func cmdInstall(args []string) error {
 // installSelf copies the currently running executable into binDir as jean.exe
 // and returns the destination path. If the running exe already lives there
 // (re-install), it's a no-op.
+//
+// binDir est créé ici, et pas seulement par l'appelant : sur une machine vierge,
+// le premier lancement passait par appFirstRun, qui ne créait que le dossier de
+// données et pas son sous-dossier bin. L'utilisateur recevait alors « open
+// C:\ProgramData\jean\bin\jean.exe: The system cannot find the path specified »
+// et AJEAN démarrait depuis le fichier téléchargé, sans jamais s'installer.
 func installSelf(binDir string) (string, error) {
 	src, err := os.Executable()
 	if err != nil {
@@ -109,6 +115,9 @@ func installSelf(binDir string) (string, error) {
 	dst := filepath.Join(binDir, "jean.exe")
 	if strings.EqualFold(src, dst) {
 		return dst, nil
+	}
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		return "", err
 	}
 	in, err := os.Open(src)
 	if err != nil {

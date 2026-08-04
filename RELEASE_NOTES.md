@@ -1,23 +1,26 @@
 ## Correction
 
-**Lancer le fichier téléchargé pendant qu'AJEAN tourne.** Windows désigne un même fichier sous plusieurs écritures, par exemple `Administrateur` et sa forme abrégée `ADMINI~1`. AJEAN comparait ces chemins tels quels, sans les ramener à une écriture commune. Il pouvait donc ne pas reconnaître l'application en cours d'exécution, remplacer le programme en la croyant fermée, et vous laisser avec l'ancienne version toujours à l'écran. C'est le comportement corrigé en 0.6.12, qui revenait par un autre chemin.
+**L'installation échouait sur un ordinateur vierge.** Au tout premier lancement du fichier téléchargé, sur une machine où AJEAN n'avait jamais été installé, la fenêtre d'installation s'affichait, puis répondait :
 
-Le même défaut pouvait, dans le cas où le dossier de données est désigné par une écriture abrégée, amener l'application installée à se prendre pour une copie téléchargée et à se relancer sans fin.
+```
+Installation impossible :
+open C:\ProgramData\jean\bin\jean.exe: The system cannot find the path specified
+```
 
-Les chemins sont désormais ramenés à une écriture unique avant d'être comparés.
+AJEAN démarrait alors depuis le fichier téléchargé, sans s'être installé : aucun raccourci, aucun programme dans le menu Démarrer, et le fichier téléchargé restait le seul moyen de le lancer.
 
-## Vérification
+La cause : le premier lancement créait bien le dossier de réglages, mais pas le sous-dossier destiné à recevoir le programme. Il n'était créé que par l'installation en ligne de commande. Le dossier est désormais créé au moment d'écrire le programme, quel que soit le chemin emprunté.
 
-Les six situations du lancement sous Windows ont cette fois été jouées sur une machine réelle, avec trois versions distinctes du programme : mise à jour silencieuse application fermée, application en cours avec acceptation puis avec refus, fichier plus ancien que la version installée avec les deux réponses, et recréation des raccourcis supprimés. Le contenu des fenêtres et les numéros de version affichés ont été relus, et chaque essai vérifie que la fenêtre s'est bien refermée avant de conclure.
-
-C'est ce banc d'essai qui a mis au jour le défaut ci-dessus, que trois relectures du code avaient laissé passer.
+Ce cas échappait aux essais des versions précédentes, qui partaient toujours d'une installation déjà en place. Le parcours complet sur une machine vierge est maintenant vérifié, fenêtre après fenêtre, jusqu'au démarrage de l'application et à la présence des raccourcis.
 
 ## Mise à jour
+
+Si vous êtes dans ce cas, rien n'est à réparer : téléchargez `jean-windows-amd64.exe` depuis cette page et lancez-le, l'installation se fera cette fois.
+
+Pour une installation déjà en place :
 
 ```
 jean update
 ```
-
-Sous Windows, télécharger le fichier depuis la page des releases et le lancer fait le même travail.
 
 L'icône de la barre de menus macOS, introduite en 0.6.10, n'a toujours pas été vérifiée sur une vraie machine.
