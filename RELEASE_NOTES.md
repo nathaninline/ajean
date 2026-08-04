@@ -1,28 +1,14 @@
-## Corrections
-
-**L'IA déposait ses fichiers sur votre Bureau.** En mode agent, quand elle créait un fichier (une recherche web mise de côté, un script, des notes), celui-ci atterrissait dans le dossier depuis lequel AJEAN avait été lancé. Le Bureau si vous aviez double-cliqué le fichier téléchargé, `C:\ProgramData\jean\bin` si vous passiez par l'installation. Personne ne s'attend à ce qu'une conversation laisse des fichiers derrière elle.
-
-L'IA travaille désormais dans un dossier à elle, `workspace`, rangé avec vos réglages. Les fichiers déjà créés ne bougent pas, et le bouton « Où sont mes fichiers ? » vous dit où regarder. Si vous lui demandez explicitement d'écrire à un endroit précis, elle le fait toujours : seuls les fichiers sans destination indiquée sont rangés.
-
-Merci à Sébastien pour le signalement, et pour avoir tout de suite pointé le lien avec le dossier de lancement.
-
-**Le bouton de mise à jour échouait sur un message incompréhensible.** Sous Linux, lancé sans `sudo`, il répondait `open /usr/local/bin/.jean-update.tmp: permission denied`. AJEAN prévoyait bien un message expliquant qu'il fallait des privilèges, mais il arrivait trop tard dans le déroulé : l'échec se produisait avant, au moment d'écrire le fichier temporaire.
-
-Les droits sont maintenant vérifiés avant de télécharger quoi que ce soit, et le message donne la commande exacte à lancer. Le téléchargement dispose par ailleurs de dix minutes au lieu de trente secondes : sur une connexion lente, une mise à jour qui réussissait pouvait être annoncée comme un échec.
-
-Merci à Emmanuel pour le signalement et pour avoir isolé le rôle de `sudo`.
-
 ## Lancement sous Windows
 
-**On sait enfin ce que fait le fichier téléchargé.** Le double-clic sur `jean-windows-amd64.exe` déclenchait une installation silencieuse : copie du programme, ajout au PATH, sans le moindre message. Impossible de savoir si l'on venait d'installer AJEAN ou seulement de l'ouvrir. Deux copies du programme coexistaient alors, celle que vous lanciez et celle installée, et la mise à jour ne touchait que la première.
+**Le fichier téléchargé met AJEAN à jour et démarre.** Si AJEAN est déjà installé sur la machine, lancer `jean-windows-amd64.exe` remplace le programme installé par cette version, puis ouvre l'application. Sans question, sans message : c'est la seule chose qu'on puisse attendre d'un fichier qu'on vient de télécharger.
 
-AJEAN vous pose maintenant la question, une seule fois. Il annonce où il s'installe, où vont vos réglages, ajoute un raccourci au menu Démarrer et au Bureau, puis démarre depuis la copie installée. Un seul programme, à un endroit connu, que la mise à jour retrouve. Répondre non le lance sans rien installer. La désinstallation retire les raccourcis qu'elle a posés.
+La 0.6.10 se contentait de signaler qu'AJEAN était déjà installé ailleurs, puis démarrait quand même la copie téléchargée. Une information dont on ne pouvait rien faire, suivie d'un comportement qu'elle n'annonçait pas.
+
+À la toute première installation, en revanche, AJEAN demande toujours : c'est le seul moment où savoir ce qui est posé sur la machine, et à quel endroit, change quelque chose. Un refus est désormais mémorisé au lieu d'être reposé à chaque lancement.
 
 ## Interface
 
-**« Où sont mes fichiers ? »** Un bouton dans les actions affiche l'emplacement de vos données, de la configuration, de la mémoire et du dossier de travail de l'IA. Il vous prévient aussi si le programme que vous exécutez n'est pas celui installé. En ligne de commande : `jean where`.
-
-**Nouvelle icône.** L'icône de l'application, celle de la zone de notification Windows et celle de la barre de menus macOS reprennent le logo noir du site. Elles sont dessinées à partir d'une source unique et ne peuvent plus se retrouver décalées les unes des autres. Sur macOS, l'icône s'adapte au thème clair ou sombre de la barre de menus.
+**Les emplacements ont rejoint le journal du moteur.** Le dossier de vos données, la configuration, la mémoire et le dossier de travail de l'IA s'affichent sous le journal, en cliquant sur la pastille d'état. Ils avaient leur propre bouton dans les actions en 0.6.10, loin de l'endroit où l'on va quand on cherche à comprendre son installation.
 
 ## Mise à jour
 
@@ -30,6 +16,6 @@ AJEAN vous pose maintenant la question, une seule fois. Il annonce où il s'inst
 jean update
 ```
 
-Si vous lancez AJEAN sans privilèges administrateur et que le programme appartient à root, cette version-ci doit encore être installée en ligne de commande avec `sudo jean update`. Les suivantes vous le diront clairement depuis l'interface.
+Sous Windows, télécharger le fichier depuis la page des releases et le lancer fait désormais le même travail.
 
-L'icône de la barre de menus macOS n'a pas pu être vérifiée sur une vraie machine.
+L'icône de la barre de menus macOS, introduite en 0.6.10, n'a toujours pas pu être vérifiée sur une vraie machine.

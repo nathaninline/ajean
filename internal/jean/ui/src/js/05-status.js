@@ -35,7 +35,7 @@ function toggleSvcLog(){
   if(!box) return;
   const show = box.style.display==='none';
   box.style.display = show ? '' : 'none';
-  if(show) loadSvcLog();
+  if(show){ loadSvcLog(); showPaths(); }
 }
 async function loadSvcLog(){
   const el=document.getElementById('svc-log');
@@ -61,18 +61,16 @@ async function checkUpdate(){
   }catch(e){ msg.textContent='Erreur réseau'; }
   b.disabled=false;
 }
-// Emplacements : la question « où sont mes fichiers / est-ce que ça a été
-// installé ? » revient assez souvent pour mériter une réponse dans l'UI.
+// Emplacements — affichés avec le journal du moteur : c'est le panneau qu'on
+// ouvre quand on cherche à comprendre l'état de son installation.
 async function showPaths(){
   const el=document.getElementById('paths-msg');
+  if(!el) return;
   el.textContent='…';
   try{
     const p=await jget('/api/paths');
-    const rows=[['Données',p.home],['Configuration',p.config],['Fichiers créés par l\'agent',p.workspace],['Mémoire',p.memory],['Programme en cours',p.exe]];
-    el.innerHTML=rows.map(r=>'<div><b>'+r[0]+'</b><br><code>'+escHtml(r[1]||'')+'</code></div>').join('');
-    if(p.exe && p.installed && p.exe!==p.installed){
-      el.innerHTML+='<div style="color:var(--warn);margin-top:8px">Vous exécutez une copie du programme, pas celle installée (<code>'+escHtml(p.installed)+'</code>). La mise à jour ne modifiera que la copie lancée.</div>';
-    }
+    const rows=[['Données',p.home],['Configuration',p.config],['Fichiers créés par l\'IA',p.workspace],['Mémoire',p.memory],['Programme',p.exe]];
+    el.innerHTML=rows.map(r=>'<div style="margin-bottom:4px">'+r[0]+'<br><code style="word-break:break-all">'+escHtml(r[1]||'')+'</code></div>').join('');
   }catch(e){ el.textContent='Erreur'; }
 }
 async function applyUpdate(){

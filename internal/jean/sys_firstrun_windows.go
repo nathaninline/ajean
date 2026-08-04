@@ -10,6 +10,8 @@ import (
 	"strings"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/mod/semver"
 )
 
 // Premier lancement sous Windows.
@@ -22,12 +24,21 @@ import (
 // qui tourne, et celle installée) : « mettre à jour » ne touchait que celle lancée,
 // tandis que le raccourci et le PATH pointaient sur l'autre, restée en arrière.
 //
-// Maintenant : on DEMANDE, une bonne fois. Si l'utilisateur accepte, on installe
-// pour de bon (copie + PATH + raccourcis menu Démarrer/Bureau) puis on relance
-// depuis la copie installée et on quitte — il n'existe alors qu'UN seul binaire qui
-// compte, à un emplacement connu, et le bouton de mise à jour agit dessus. S'il
-// refuse, on lance l'application telle quelle, sans rien écrire ailleurs que dans
-// le dossier de données.
+// Maintenant, deux cas seulement :
+//
+//  1. AJEAN n'est pas installé. On DEMANDE, une bonne fois : c'est le seul moment
+//     où l'utilisateur gagne à savoir ce qu'on pose sur sa machine et où. Puis
+//     copie + PATH + raccourcis, et on démarre depuis la copie installée. Un refus
+//     est mémorisé, on ne repose pas la question.
+//
+//  2. AJEAN est déjà installé. Le fichier téléchargé se comporte alors comme un
+//     installeur de mise à jour : s'il est plus récent, il remplace le binaire
+//     installé, puis l'application démarre. AUCUN message. Annoncer « vous lancez
+//     une copie, ça ne sert à rien » puis démarrer quand même n'apprenait rien et
+//     ne laissait rien à décider.
+//
+// Dans les deux cas il n'existe au final qu'UN binaire qui compte, à un
+// emplacement connu, et c'est celui que le bouton de mise à jour modifie.
 
 const (
 	mbYesNo        = 0x00000004
@@ -37,7 +48,14 @@ const (
 	idYes          = 6
 )
 
-var pMessageBoxW = u32s.NewProc("MessageBoxW")
+var (
+	pMessageBoxW = u32s.NewProc("MessageBoxW")
+
+	verDLL                   = syscall.NewLazyDLL("version.dll")
+	pGetFileVersionInfoSizeW = verDLL.NewProc("GetFileVersionInfoSizeW")
+	pGetFileVersionInfoW     = verDLL.NewProc("GetFileVersionInfoW")
+	pVerQueryValueW          = verDLL.NewProc("VerQueryValueW")
+)
 
 func messageBox(text, title string, flags uintptr) int {
 	t, _ := syscall.UTF16PtrFromString(text)
@@ -66,21 +84,21 @@ func appFirstRun() bool {
 		return false // on EST déjà l'application installée
 	}
 	if _, err := os.Stat(target); err == nil {
-		// Une copie est déjà installée — typiquement par l'installation silencieuse
-		// des versions ≤ 0.6.9. On le signale UNE SEULE FOIS : répéter la boîte à
-		// chaque double-clic du fichier téléchargé serait un harcèlement, pas une
-		// information.
-		notice := filepath.Join(JeanHome(), ".install_notice")
-		if _, seen := os.Stat(notice); seen != nil {
-			messageBox(
-				"AJEAN est déjà installé sur cet ordinateur :\n\n"+target+
-					"\n\nCe fichier-ci n'est qu'une copie téléchargée : vous pouvez la supprimer et lancer AJEAN depuis le menu Démarrer.\n\nCette copie va démarrer normalement.",
-				"AJEAN", mbIconInfo)
-			_ = os.WriteFile(notice, []byte(target+"\n"), 0o644)
-		}
-		return false
+		// AJEAN est déjà installé. Lancer le fichier téléchargé doit alors se
+		// comporter comme un installeur de mise à jour : si cette copie est plus
+		// récente, elle remplace celle installée, et l'application démarre. Sans
+		// message : annoncer « vous lancez une copie » puis démarrer quand même
+		// n'apprend rien à l'utilisateur et ne lui laisse rien à décider.
+		upgradeInstalled(target)
+		return launch(target)
 	}
 
+	// Première installation : là, une question. C'est le seul moment où
+	// l'utilisateur a intérêt à savoir ce qui va être posé sur sa machine, et
+	// c'est l'absence de cette question qui rendait le double-clic illisible.
+	if declinedInstall() {
+		return false
+	}
 	if messageBox(
 		"Installer AJEAN sur cet ordinateur ?\n\n"+
 			"• le programme sera copié dans :\n   "+target+"\n"+
@@ -89,6 +107,9 @@ func appFirstRun() bool {
 			"Vous pourrez ensuite supprimer le fichier que vous venez de télécharger.\n\n"+
 			"Répondre Non lance AJEAN sans rien installer.",
 		"Installation d'AJEAN", mbYesNo|mbIconQuestion) != idYes {
+		// Refus mémorisé : reposer la question à chaque double-clic serait
+		// ignorer la réponse déjà donnée.
+		_ = os.WriteFile(declineFlag(), []byte("non\n"), 0o644)
 		return false
 	}
 
@@ -103,14 +124,103 @@ func appFirstRun() bool {
 		"\n\nL'application va démarrer. Vous pouvez supprimer le fichier téléchargé.",
 		"AJEAN", mbIconInfo)
 
-	// Relance depuis la copie installée : à partir de maintenant, une seule et
-	// même image du programme se met à jour, se relance et apparaît dans le tray.
+	return launch(target)
+}
+
+func declineFlag() string { return filepath.Join(JeanHome(), ".install_declined") }
+
+func declinedInstall() bool {
+	_, err := os.Stat(declineFlag())
+	return err == nil
+}
+
+// launch démarre la copie installée et demande à l'appelant de rendre la main.
+// Renvoie false si le lancement échoue, auquel cas l'exécutable courant prend le
+// relais : mieux vaut démarrer depuis le mauvais dossier que pas du tout.
+func launch(target string) bool {
 	cmd := exec.Command(target)
 	cmd.Dir = filepath.Dir(target)
-	if err := cmd.Start(); err != nil {
-		return false // échec du relancement : on continue avec la copie courante
+	return cmd.Start() == nil
+}
+
+// upgradeInstalled remplace le binaire installé par celui qu'on exécute, quand
+// ce dernier est plus récent : lancer le fichier téléchargé met ainsi AJEAN à
+// jour, ce qui est la seule chose qu'on puisse raisonnablement en attendre.
+// Silencieux et best-effort : si la copie échoue (application en cours
+// d'exécution, donc fichier verrouillé), on démarre simplement la version en
+// place, qui remontera l'onglet existant.
+func upgradeInstalled(target string) {
+	installed := binaryVersion(target)
+	if installed == "" || semver.Compare(ensureV(Version), ensureV(installed)) <= 0 {
+		return // même version, plus ancienne, ou version illisible : on ne touche à rien
 	}
-	return true
+	// L'exe installé peut être en cours d'exécution : on l'écarte d'abord, comme
+	// pour une mise à jour classique (voir replaceBinary).
+	old := target + ".old"
+	_ = os.Remove(old)
+	if err := os.Rename(target, old); err != nil {
+		return
+	}
+	if _, err := installSelf(filepath.Dir(target)); err != nil {
+		_ = os.Rename(old, target) // rollback
+		return
+	}
+	_ = os.Remove(old) // échoue si l'ancien tourne encore ; nettoyé au prochain lancement
+}
+
+// binaryVersion lit la version dans les ressources du fichier (VS_VERSIONINFO,
+// posées par goversioninfo, cf cmd/jean/versioninfo.json), comme le fait
+// l'onglet « Détails » des propriétés Windows.
+//
+// ⚠️ NE PAS remplacer par un `jean version` exécuté : le binaire est compilé en
+// sous-système GUI, il s'attache à la console du parent et n'écrit RIEN dans un
+// tuyau. La sortie capturée est vide, donc la comparaison de versions échouerait
+// toujours en silence et la mise à jour ne se ferait jamais (vérifié).
+//
+// Renvoie "" si la ressource est absente ou illisible : on s'abstient alors de
+// remplacer quoi que ce soit.
+func binaryVersion(path string) string {
+	p, err := syscall.UTF16PtrFromString(path)
+	if err != nil {
+		return ""
+	}
+	size, _, _ := pGetFileVersionInfoSizeW.Call(uintptr(unsafe.Pointer(p)), 0)
+	if size == 0 {
+		return ""
+	}
+	buf := make([]byte, size)
+	if r, _, _ := pGetFileVersionInfoW.Call(
+		uintptr(unsafe.Pointer(p)), 0, size, uintptr(unsafe.Pointer(&buf[0]))); r == 0 {
+		return ""
+	}
+	sub, _ := syscall.UTF16PtrFromString(`\`)
+	var info *vsFixedFileInfo
+	var length uint32
+	if r, _, _ := pVerQueryValueW.Call(
+		uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(sub)),
+		uintptr(unsafe.Pointer(&info)), uintptr(unsafe.Pointer(&length))); r == 0 || info == nil {
+		return ""
+	}
+	return fmt.Sprintf("%d.%d.%d",
+		info.FileVersionMS>>16, info.FileVersionMS&0xffff, info.FileVersionLS>>16)
+}
+
+// vsFixedFileInfo : bloc racine de VS_VERSIONINFO. Seuls les champs de version
+// nous intéressent, mais la structure doit être complète pour l'alignement.
+type vsFixedFileInfo struct {
+	Signature        uint32
+	StrucVersion     uint32
+	FileVersionMS    uint32
+	FileVersionLS    uint32
+	ProductVersionMS uint32
+	ProductVersionLS uint32
+	FileFlagsMask    uint32
+	FileFlags        uint32
+	FileOS           uint32
+	FileType         uint32
+	FileSubtype      uint32
+	FileDateMS       uint32
+	FileDateLS       uint32
 }
 
 // provisionDataDir crée le dossier de données et un config.env de départ.

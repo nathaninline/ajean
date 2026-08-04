@@ -44,6 +44,12 @@
       <button onclick="loadSvcLog()" title="rafraîchir">↻</button>
     </div>
     <pre id="svc-log" class="muted" style="font-size:10px;line-height:1.45;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:6px 0 0"></pre>
+    <!-- Emplacements : au même endroit que le journal, c'est le panneau où l'on
+         va quand on cherche à comprendre l'état de son installation. -->
+    <div class="row" style="justify-content:space-between;align-items:center;margin-top:12px">
+      <span class="io-cap">Emplacements</span>
+    </div>
+    <div id="paths-msg" class="muted" style="font-size:10px;line-height:1.5"></div>
   </div>
   <!-- GPU et RAM décrivent la même chose (les ressources de la machine) :
        une seule section, deux blocs de statistique dans la même carte. -->
@@ -231,8 +237,6 @@
     <div class="slist pad">
       <div class="row"><button id="upd-check" onclick="checkUpdate()">↥ Vérifier les mises à jour</button></div>
       <div id="upd-msg" class="muted"></div>
-      <div class="row"><button onclick="showPaths()">📁 Où sont mes fichiers ?</button></div>
-      <div id="paths-msg" class="muted"></div>
       <div class="row">
         <button onclick="loadAll()">↻ refresh</button>
         <button onclick="resetChat()">⌫ clear chat</button>
