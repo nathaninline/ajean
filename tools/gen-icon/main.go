@@ -11,7 +11,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/nathaninline/jean/internal/jean"
+	"github.com/nathaninline/ajean/internal/ajean"
 )
 
 func main() {
@@ -21,13 +21,13 @@ func main() {
 	}
 	// Les tailles attendues par l'explorateur Windows, de la barre des tâches à
 	// l'aperçu en grandes icônes.
-	write(out, jean.BrandICO(16, 32, 48, 64, 128, 256))
+	write(out, ajean.BrandICO(16, 32, 48, 64, 128, 256))
 
 	// PNG 1024 pour le bundle macOS : la CI en tire le .icns via sips/iconutil.
 	// Elle partait auparavant du .ico, ce qui suppose que sips sache lire un ICO —
 	// et l'échec y est masqué par « || true », donc une app Mac sans icône passait
 	// inaperçue. Un PNG ne laisse aucune place au doute.
-	write(strings.TrimSuffix(out, ".ico")+".png", jean.BrandIconPNG(1024))
+	write(strings.TrimSuffix(out, ".ico")+".png", ajean.BrandIconPNG(1024))
 }
 
 func write(path string, data []byte) {

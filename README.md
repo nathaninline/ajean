@@ -41,7 +41,7 @@ Aucune dépendance à l'exécution, aucun flag CMake à retenir, aucun conteneur
 ### 1. Le binaire
 
 ```bash
-curl -L -o jean https://github.com/nathaninline/jean/releases/latest/download/jean-linux-amd64
+curl -L -o jean https://github.com/nathaninline/ajean/releases/latest/download/jean-linux-amd64
 chmod +x jean
 sudo mv jean /usr/local/bin/jean
 ```
@@ -264,7 +264,7 @@ Chaque appel `/api/*` présente alors `Authorization: Bearer <clé>` :
 Go 1.25+. AJEAN est écrit à 100 % en Go, l'interface est embarquée via `go:embed` :
 
 ```bash
-git clone https://github.com/nathaninline/jean.git
+git clone https://github.com/nathaninline/ajean.git
 cd jean
 CGO_ENABLED=0 go build -o jean ./cmd/jean
 ```

@@ -1,4 +1,4 @@
-module github.com/nathaninline/jean
+module github.com/nathaninline/ajean
 
 go 1.25.0
 
