@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const Version = "0.7.4"
+const Version = "0.7.5"
 
 // Main est le vrai main() du binaire (cmd/ajean ne fait que l'appeler).
 func Main() {
@@ -91,6 +91,10 @@ func Main() {
 		mustExit(cmdUpdate(args))
 	case "where", "paths":
 		mustExit(cmdWhere(args))
+	case restartArg:
+		// Sous-commande interne, absente de l'aide : l'accompagnateur detache qui
+		// attend la fermeture de l'app, migre, puis la relance.
+		mustExit(cmdRestartAfterUpdate(args))
 	case migrateHomeArg:
 		// Sous-commande interne, volontairement absente de l'aide : c'est le
 		// travail delegue au process elevé par elevateForHomeMigration().

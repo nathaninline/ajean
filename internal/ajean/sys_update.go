@@ -405,7 +405,6 @@ func handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	postUpdateMigrate()
 	restarting, msg := restartAfterUpdate()
 	if !restarting {
 		msg = restartHintText()
@@ -423,6 +422,13 @@ func handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 // et l'UI se reconnecte toute seule (boucle de reconnexion du flux). Renvoie
 // (déclenché, message). Non-serveur (poste client, Windows) → (false, "").
 func restartAfterUpdate() (bool, string) {
+	// Windows : pas de superviseur pour nous relancer, on delegue a un
+	// accompagnateur detache (voir sys_restart_windows.go). C'est aussi ce qui
+	// cree la fenetre ou plus rien ne tient le dossier de donnees, donc ou la
+	// migration peut aboutir.
+	if runtime.GOOS == "windows" {
+		return scheduleAppRestart()
+	}
 	if runtime.GOOS != "linux" || !linkServiceActive() {
 		return false, ""
 	}

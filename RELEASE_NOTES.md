@@ -1,14 +1,12 @@
-## Le renommage du dossier se fait maintenant à la mise à jour
+## Le bouton « mettre à jour » redémarre AJEAN tout seul
 
-Les versions 0.7.1 à 0.7.3 n'y parvenaient pas sur les postes Windows sans droits administrateur : le code prévu pour demander l'autorisation n'était jamais atteint. Il ne se déclenchait qu'en relançant l'installation ou en retéléchargeant le programme — deux gestes que personne ne fait pour une mise à jour.
+Sous Windows, il fallait jusqu'ici quitter puis relancer l'application à la main pour que la mise à jour prenne effet. C'est fait automatiquement : la page se reconnecte d'elle-même au bout de quelques secondes.
 
-`ajean update`, et le bouton de mise à jour de l'interface, s'en chargent désormais. L'autorisation Windows est demandée à ce moment-là, une fois, et le dossier `C:\ProgramData\jean` devient `C:\ProgramData\ajean`.
+Ce redémarrage règle aussi, au passage, le renommage du dossier de données. Tant qu'AJEAN tourne, il tient son propre dossier, et `C:\ProgramData\jean` ne peut pas devenir `C:\ProgramData\ajean` — c'est ce qui laissait certains postes indéfiniment sur l'ancien nom malgré les versions précédentes. Le redémarrage ouvre le court instant où plus rien ne le tient, et la migration s'y termine.
 
-Le raccourci du menu Démarrer et la commande `ajean` sont repointés dans la foulée. Le programme installé vit à l'intérieur du dossier de données : sans cette étape, le déplacement aurait laissé un raccourci mort et une commande introuvable.
+Le raccourci du menu Démarrer et la commande `ajean` suivent le déplacement, puisque le programme installé vit à l'intérieur de ce dossier.
 
-Refuser l'autorisation reste sans conséquence : AJEAN continue sur son dossier actuel, et la question reviendra à la prochaine mise à jour.
-
-Si vous êtes déjà sur la dernière version et toujours sur l'ancien dossier, la migration se fera à la mise à jour suivante.
+Si quelque chose empêche le renommage, il ne se passe rien : AJEAN redémarre sur son dossier actuel et réessaiera plus tard. Rien n'est jamais copié ni supprimé.
 
 ## Mise à jour
 
@@ -16,6 +14,6 @@ Si vous êtes déjà sur la dernière version et toujours sur l'ancien dossier, 
 ajean update
 ```
 
-Sous Windows, télécharger `ajean-windows-amd64.exe` depuis cette page et le lancer fait le même travail.
+Ou le bouton de l'interface, qui se charge désormais de tout.
 
 Les binaires restent publiés sous leurs deux noms, `ajean-*` et `jean-*`, le temps que le parc bascule.
