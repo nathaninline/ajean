@@ -36,7 +36,7 @@ func extraModelDirs() []string {
 			raw = append(raw, dirs...)
 		}
 	}
-	if v := strings.TrimSpace(os.Getenv("JEAN_MODEL_DIRS")); v != "" {
+	if v := envAny("AJEAN_MODEL_DIRS", "JEAN_MODEL_DIRS"); v != "" {
 		raw = append(raw, strings.Split(v, modelDirsListSep())...)
 	}
 	return dedupDirs(raw, AjeanHome())
@@ -216,5 +216,5 @@ func handleModelDirs(w http.ResponseWriter, r *http.Request) {
 		n := modelDirCount(d)
 		out = append(out, map[string]any{"path": d, "home": false, "count": n, "exists": n >= 0})
 	}
-	sendJSON(w, 200, map[string]any{"ok": true, "dirs": out, "env": os.Getenv("JEAN_MODEL_DIRS") != ""})
+	sendJSON(w, 200, map[string]any{"ok": true, "dirs": out, "env": envAny("AJEAN_MODEL_DIRS", "JEAN_MODEL_DIRS") != ""})
 }

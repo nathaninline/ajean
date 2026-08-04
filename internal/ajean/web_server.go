@@ -45,10 +45,10 @@ func cmdWeb(args []string) error {
 			return err
 		}
 	}
-	fmt.Printf("[jean web] http://%s  (Ctrl-C pour arrêter)\n", addr)
+	fmt.Printf("[ajean web] http://%s  (Ctrl-C pour arrêter)\n", addr)
 	if readWebKey() == "" {
 		fmt.Printf("%s API de pilotage NON protégée (aucune clé). Avant de l'exposer sur internet :\n", yellow("[!]"))
-		fmt.Printf("       %s\n", bold("jean set-web-key"))
+		fmt.Printf("       %s\n", bold("ajean set-web-key"))
 	} else {
 		fmt.Printf("%s API protégée par clé (Authorization: Bearer …)\n", green("[ok]"))
 	}
@@ -56,13 +56,13 @@ func cmdWeb(args []string) error {
 }
 
 // newWebMux construit le routeur HTTP de l'UI web. Extrait de cmdWeb pour être
-// réutilisé par `jean link`, qui sert ce même mux à travers le tunnel sans
+// réutilisé par `ajean link`, qui sert ce même mux à travers le tunnel sans
 // repasser par un écouteur TCP local.
 var convLoadOnce sync.Once
 
 func newWebMux() *http.ServeMux {
-	// Charge l'état de conversation persisté (une fois par process : jean web ET
-	// jean link serve appellent newWebMux).
+	// Charge l'état de conversation persisté (une fois par process : ajean web ET
+	// ajean link serve appellent newWebMux).
 	convLoadOnce.Do(LoadConversation)
 	// Pré-chauffe les serveurs MCP en tâche de fond : sinon le handshake (plusieurs
 	// secondes pour un serveur lancé via npx) est payé par le premier message.
@@ -120,7 +120,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/apikey", handleAPIKey)
 	api("/api/oai/public", handleOAIPublic)
 	api("/api/link/status", handleLinkStatus)         // état de l'accès distant (ajean.link)
-	api("/api/link/connect", handleLinkConnect)       // clé de liaison remise par connect.html → jean link
+	api("/api/link/connect", handleLinkConnect)       // clé de liaison remise par connect.html → ajean link
 	api("/api/link/start", handleLinkStart)           // (re)démarre le tunnel avec la clé déjà enregistrée
 	api("/api/link/disconnect", handleLinkDisconnect) // arrête le lien + oublie la clé
 	api("/api/link/paircode", handleLinkPairCode)     // code d'appairage + empreinte pour la 1re connexion

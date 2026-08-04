@@ -1,16 +1,16 @@
 package ajean
 
-// relay_link.go — `jean link <token>` : connecte ce serveur Jean au relais public
+// relay_link.go — `ajean link <token>` : connecte ce serveur Jean au relais public
 // (ajean.link) par une connexion SORTANTE persistante, pour qu'un utilisateur
 // y accède depuis n'importe où sans ouvrir de port (CGNAT, box, etc.).
 //
 // Principe : l'agent ouvre un WebSocket vers le relais, l'authentifie avec le
 // token d'abonnement, puis multiplexe (yamux) ce lien unique en un stream par
-// requête navigateur. Chaque stream est reverse-proxyfié vers le `jean web`
+// requête navigateur. Chaque stream est reverse-proxyfié vers le `ajean web`
 // local. Keepalive + reconnexion automatique avec backoff.
 //
 // Le token est fourni par la boutique à l'achat. Il est mémorisé dans
-// $JEAN_HOME/.link_token pour que `jean link` (sans argument) reprenne la
+// $JEAN_HOME/.link_token pour que `ajean link` (sans argument) reprenne la
 // connexion.
 
 import (
@@ -87,7 +87,7 @@ func removeLinkToken() error {
 
 // relayURL resolves the relay WebSocket endpoint (env override → default).
 func relayURL() string {
-	if u := strings.TrimSpace(os.Getenv("JEAN_LINK_URL")); u != "" {
+	if u := envAny("AJEAN_LINK_URL", "JEAN_LINK_URL"); u != "" {
 		return u
 	}
 	return defaultRelayURL
@@ -111,12 +111,12 @@ func cmdLink(args []string) error {
 	}
 	switch sub {
 	case "":
-		// `jean link` seul : afficher l'aide des sous-commandes (NE démarre pas —
+		// `ajean link` seul : afficher l'aide des sous-commandes (NE démarre pas —
 		// éviter de prendre un mot pour un token et d'écraser le vrai).
 		printLinkHelp()
 		return nil
 	case "serve", "--foreground", "fg":
-		// Le worker réel (boucle de connexion au relais), pendant de `jean serve`.
+		// Le worker réel (boucle de connexion au relais), pendant de `ajean serve`.
 		// C'est ce que lance l'unité systemd ; il NE doit PAS rendre la main.
 		return runLinkForeground()
 	case "start":
@@ -124,14 +124,14 @@ func cmdLink(args []string) error {
 	case "status":
 		tok := readLinkToken()
 		if tok == "" {
-			fmt.Println(yellow("[info]") + " aucun token enregistré — lance: jean link <token>")
+			fmt.Println(yellow("[info]") + " aucun token enregistré — lance: ajean link <token>")
 			return nil
 		}
 		fmt.Printf("%s token enregistré (%s…), relais: %s\n", green("[ok]"), tok[:min(8, len(tok))], relayURL())
 		if linkServiceActive() {
 			fmt.Printf("%s service %s: actif\n", green("[ok]"), linkServiceName())
 		} else {
-			fmt.Printf("%s service %s: arrêté (jean link pour démarrer)\n", yellow("[info]"), linkServiceName())
+			fmt.Printf("%s service %s: arrêté (ajean link pour démarrer)\n", yellow("[info]"), linkServiceName())
 		}
 		return nil
 	case "logout":
@@ -174,7 +174,7 @@ func cmdLink(args []string) error {
 // on le signale au lieu d'un faux « démarré ».
 func startLink(force bool) error {
 	if readLinkToken() == "" {
-		return fmt.Errorf("aucun token. Usage: jean link <token>  (token fourni à l'achat sur la boutique)")
+		return fmt.Errorf("aucun token. Usage: ajean link <token>  (token fourni à l'achat sur la boutique)")
 	}
 	switch {
 	case force:
@@ -182,7 +182,7 @@ func startLink(force bool) error {
 			return err
 		}
 	case linkServiceActive():
-		fmt.Printf("%s service %s déjà en cours — « jean link restart » pour le relancer\n", yellow("[info]"), linkServiceName())
+		fmt.Printf("%s service %s déjà en cours — « ajean link restart » pour le relancer\n", yellow("[info]"), linkServiceName())
 	default:
 		if err := linkServiceCtl("start"); err != nil {
 			return err
@@ -191,20 +191,20 @@ func startLink(force bool) error {
 	return linkPrintIdentity()
 }
 
-// printLinkHelp liste les sous-commandes de `jean link`.
+// printLinkHelp liste les sous-commandes de `ajean link`.
 func printLinkHelp() {
-	fmt.Print(`jean link — accès distant via le relais ajean.link
+	fmt.Print(`ajean link — accès distant via le relais ajean.link
 
 Usage :
-  jean link <token>     enregistre le token (1re fois / pour le changer) et démarre le lien
-  jean link start       démarre le lien en arrière-plan (service)
-  jean link restart     redémarre le service de lien
-  jean link stop        arrête le service de lien
-  jean link status      état du token et du service
-  jean link code        génère un code d'appairage (valable 10 min, à usage unique)
-  jean link logout      oublie le token enregistré
+  ajean link <token>     enregistre le token (1re fois / pour le changer) et démarre le lien
+  ajean link start       démarre le lien en arrière-plan (service)
+  ajean link restart     redémarre le service de lien
+  ajean link stop        arrête le service de lien
+  ajean link status      état du token et du service
+  ajean link code        génère un code d'appairage (valable 10 min, à usage unique)
+  ajean link logout      oublie le token enregistré
 
-Le token est fourni sur ajean.link. « jean link » seul affiche cette aide.
+Le token est fourni sur ajean.link. « ajean link » seul affiche cette aide.
 `)
 }
 
@@ -218,7 +218,7 @@ func linkPrintIdentity() error {
 	code, err := newPairCode()
 	if err != nil {
 		fmt.Printf("%s code d'appairage indisponible (droits sur %s ?): %v\n", yellow("[link]"), AjeanHome(), err)
-		fmt.Printf("       Réessaie : sudo jean link code\n")
+		fmt.Printf("       Réessaie : sudo ajean link code\n")
 		return nil
 	}
 	fmt.Printf("       Code d'appairage (valable 10 min, usage unique) : %s\n\n", bold(code))
@@ -230,17 +230,17 @@ func linkPrintIdentity() error {
 func runLinkForeground() error {
 	token := readLinkToken()
 	if token == "" {
-		return fmt.Errorf("aucun token. Usage: jean link <token>")
+		return fmt.Errorf("aucun token. Usage: ajean link <token>")
 	}
 	fmt.Printf("%s connexion au relais %s …\n", cyan("[link]"), relayURL())
-	fmt.Printf("       (UI AJEAN + endpoint OpenAI servis dans le tunnel — pas besoin de 'jean web')\n")
+	fmt.Printf("       (UI AJEAN + endpoint OpenAI servis dans le tunnel — pas besoin de 'ajean web')\n")
 	if fp := e2eFingerprint(); fp != "" {
-		fmt.Printf("%s empreinte E2E : %s   (code d'appairage : jean link code)\n", green("[e2e]"), bold(fp))
+		fmt.Printf("%s empreinte E2E : %s   (code d'appairage : ajean link code)\n", green("[e2e]"), bold(fp))
 	}
 
 	// UNE seule instance du mux web → UNE seule conversation en mémoire, PARTAGÉE
 	// entre l'UI locale (:8090, jean.example.org) et le tunnel (app.ajean.link). Avant,
-	// `jean web` et `jean link` étaient deux process distincts avec chacun leur
+	// `ajean web` et `ajean link` étaient deux process distincts avec chacun leur
 	// historique → confusion. Désormais le process jean-link est l'unique
 	// propriétaire de la conversation et sert les DEUX surfaces.
 	webMux := newWebMux()
@@ -369,12 +369,12 @@ func killForeignLinkWorker() {
 // serveLocalWebMux sert l'UI web locale sur :8090 avec le mux fourni — le MÊME
 // que celui exposé dans le tunnel. Le process jean-link devient ainsi l'unique
 // propriétaire de la conversation, partagée entre l'accès local et l'accès
-// distant. Remplace le `jean web` autonome (à ne plus lancer séparément).
+// distant. Remplace le `ajean web` autonome (à ne plus lancer séparément).
 func serveLocalWebMux(mux *http.ServeMux) {
 	addr := "0.0.0.0:8090"
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		fmt.Printf("%s UI locale non démarrée (%s occupé ? tue le vieux « jean web ») : %v\n", yellow("[web]"), addr, err)
+		fmt.Printf("%s UI locale non démarrée (%s occupé ? tue le vieux « ajean web ») : %v\n", yellow("[web]"), addr, err)
 		return
 	}
 	fmt.Printf("%s UI locale sur http://%s (même conversation que le tunnel)\n", green("[web]"), addr)
@@ -410,7 +410,7 @@ func adoptLegacyLinkFile(ext string) string {
 // linkServiceCtl pilote le worker de lien (start/stop/restart). Sous Linux c'est
 // l'unité systemd jean-link (avec sudo non interactif si on n'est pas root) ;
 // ailleurs — macOS et Windows, où il n'y a ni systemd ni droits root — on lance
-// « jean link serve » en processus détaché suivi par un fichier PID, comme le
+// « ajean link serve » en processus détaché suivi par un fichier PID, comme le
 // fait déjà le service principal. Sans ça, l'accès distant restait définitivement
 // « arrêté » sur un Mac ou un PC : le token était enregistré mais rien ne
 // composait jamais le tunnel.
@@ -527,7 +527,7 @@ func linkUserSvcCtl(action string) error {
 	cmd := spawnDetached(self, "link", "serve")
 	cmd.Stdout, cmd.Stderr = logf, logf
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("démarrage de « jean link serve »: %w", err)
+		return fmt.Errorf("démarrage de « ajean link serve »: %w", err)
 	}
 	pid := cmd.Process.Pid
 	// PID + binaire d'origine : la 2e ligne dit QUELLE copie de l'app a lancé ce

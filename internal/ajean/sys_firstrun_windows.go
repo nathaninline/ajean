@@ -195,6 +195,7 @@ func runAsInstaller(target string) bool {
 			return launch(target) // l'instance en cours reprend la main (port occupé)
 		}
 		stopProcesses(running)
+		target = migrateThenResolveTarget(target)
 		if err := replaceInstalled(target); err != nil {
 			messageBox("La mise à jour a échoué :\n\n"+err.Error()+"\n\nAJEAN va redémarrer dans sa version actuelle.",
 				"AJEAN", mbIconInfo)
@@ -205,6 +206,7 @@ func runAsInstaller(target string) bool {
 	case cmp > 0:
 		// Mise à jour, application arrêtée : rien à décider, on remplace et on
 		// démarre. C'est le cas courant et il doit rester muet.
+		target = migrateThenResolveTarget(target)
 		_ = replaceInstalled(target)
 		ensureShortcuts(target)
 		return launch(target)
@@ -225,7 +227,22 @@ func verLabel(v string) string {
 
 // replaceInstalled écrase le binaire installé par celui qu'on exécute. Le
 // renommage préalable en .old permet de remplacer un exécutable encore ouvert
-// (même mécanique que replaceBinary pour `jean update`).
+// (même mécanique que replaceBinary pour `ajean update`).
+// migrateThenResolveTarget tente la migration du dossier de données maintenant
+// qu'aucune instance ne tient plus de handle, puis renvoie le chemin du binaire
+// installé DANS le dossier résultant.
+//
+// Recalculer le chemin est indispensable et pas cosmétique : `target` a été
+// calculé avant la migration, il désigne donc encore …\jean\bin\ajean.exe. Sans
+// ce recalcul, on réinstallerait le binaire dans l'ancien dossier qu'on vient
+// tout juste de déplacer, en recréant au passage une arborescence fantôme.
+func migrateThenResolveTarget(target string) string {
+	if !retryHomeMigration() {
+		return target
+	}
+	return installedExePath()
+}
+
 func replaceInstalled(target string) error {
 	old := target + ".old"
 	_ = os.Remove(old)
@@ -321,7 +338,7 @@ func portBusy(port int) bool {
 // posées par goversioninfo, cf cmd/jean/versioninfo.json), comme le fait
 // l'onglet « Détails » des propriétés Windows.
 //
-// ⚠️ NE PAS remplacer par un `jean version` exécuté : le binaire est compilé en
+// ⚠️ NE PAS remplacer par un `ajean version` exécuté : le binaire est compilé en
 // sous-système GUI, il s'attache à la console du parent et n'écrit RIEN dans un
 // tuyau. La sortie capturée est vide, donc la comparaison de versions échouerait
 // toujours en silence et la mise à jour ne se ferait jamais (vérifié).

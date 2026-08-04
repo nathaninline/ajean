@@ -1,5 +1,5 @@
 // chat_internet_tools.go — les 4 outils web exposés au modèle (web_search,
-// web_open, web_read, web_grep) + la sous-commande `jean internet`.
+// web_open, web_read, web_grep) + la sous-commande `ajean internet`.
 package ajean
 
 import (
@@ -251,7 +251,7 @@ func toolWebGrep(args map[string]any) string {
 		entry.url, len(matchIdx), pattern, capped, strings.Join(blocks, "\n\n---\n\n"))
 }
 
-// ─── CLI : jean internet [on|off|status|url <url>] ──────────────────────────
+// ─── CLI : ajean internet [on|off|status|url <url>] ──────────────────────────
 
 func cmdInternet(args []string) error {
 	sub := ""
@@ -261,7 +261,7 @@ func cmdInternet(args []string) error {
 	switch sub {
 	case "on":
 		if crawl4aiURL() == "" {
-			return fmt.Errorf("configure d'abord l'URL : jean internet url <url>")
+			return fmt.Errorf("configure d'abord l'URL : ajean internet url <url>")
 		}
 		if err := setInternetEnabled(true); err != nil {
 			return err
@@ -274,7 +274,7 @@ func cmdInternet(args []string) error {
 		fmt.Println(green("[ok]") + " accès internet désactivé")
 	case "url":
 		if len(args) < 2 {
-			return fmt.Errorf("usage: jean internet url <url>  (ex: http://localhost:11235)")
+			return fmt.Errorf("usage: ajean internet url <url>  (ex: http://localhost:11235)")
 		}
 		u := strings.TrimRight(strings.TrimSpace(args[1]), "/")
 		if err := SetConfigKey("CRAWL4AI_URL", u); err != nil {
@@ -286,7 +286,7 @@ func cmdInternet(args []string) error {
 		fmt.Printf("%s serveur Crawl4AI : %s\n", green("[ok]"), bold(u))
 	case "key":
 		if len(args) < 2 {
-			return fmt.Errorf("usage: jean internet key <clé>  (vide pour l'enlever : jean internet key \"\")")
+			return fmt.Errorf("usage: ajean internet key <clé>  (vide pour l'enlever : ajean internet key \"\")")
 		}
 		k := strings.TrimSpace(args[1])
 		if err := writeCrawlKey(k); err != nil {
@@ -308,7 +308,7 @@ func cmdInternet(args []string) error {
 		fmt.Printf("%s  état: %s\n", cyan("Accès internet"), state)
 		u := crawl4aiURL()
 		if u == "" {
-			fmt.Printf("  serveur : %s — configure : jean internet url <url>\n", dim("(non configuré)"))
+			fmt.Printf("  serveur : %s — configure : ajean internet url <url>\n", dim("(non configuré)"))
 			return nil
 		}
 		reach := red("injoignable")
@@ -318,7 +318,7 @@ func cmdInternet(args []string) error {
 		fmt.Printf("  serveur : %s (%s)\n", bold(u), reach)
 		fmt.Printf("  outils  : web_search, web_open, web_read, web_grep\n")
 	default:
-		return fmt.Errorf("usage: jean internet [on|off|status|url <url>]")
+		return fmt.Errorf("usage: ajean internet [on|off|status|url <url>]")
 	}
 	return nil
 }

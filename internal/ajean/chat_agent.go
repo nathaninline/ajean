@@ -78,7 +78,7 @@ func cmdAgent(args []string) error {
 			fmt.Printf("    %s  %s\n", bold(p.Name), p.Title)
 		}
 	default:
-		return fmt.Errorf("usage: jean agent [on|off|status]")
+		return fmt.Errorf("usage: ajean agent [on|off|status]")
 	}
 	return nil
 }

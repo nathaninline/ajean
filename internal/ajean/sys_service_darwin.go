@@ -54,8 +54,8 @@ func serviceAction(action string) error {
 	svc := serviceName()
 	plist := launchdPlistPath(svc)
 	// Pas de LaunchDaemon installé — cas normal d'un Mac de bureau, où Jean tourne
-	// via Jean.app sans jamais passer par `sudo jean install` : on gère alors le
-	// service comme sous Windows, avec un `jean serve` détaché suivi par un fichier
+	// via Jean.app sans jamais passer par `sudo ajean install` : on gère alors le
+	// service comme sous Windows, avec un `ajean serve` détaché suivi par un fichier
 	// PID. Aucun droit root requis. Sans ça, `start` échouait sur un plist absent
 	// et l'UI affichait éternellement « service arrêté ».
 	if _, err := os.Stat(plist); err != nil {
@@ -117,7 +117,7 @@ func checkStarted(svc string) error {
 		fmt.Println(strings.Join(lines, "\n"))
 	}
 	fmt.Println("------------------------------------------------")
-	fmt.Printf("→ jean logs   pour plus de détails\n→ jean edit   pour corriger config.env\n")
+	fmt.Printf("→ ajean logs   pour plus de détails\n→ ajean edit   pour corriger config.env\n")
 	return fmt.Errorf("service %s non démarré", svc)
 }
 
@@ -144,7 +144,7 @@ func serviceIsActive() bool {
 }
 
 // ---------------------------------------------------------------------------
-// Mode utilisateur (sans launchd) — même approche que Windows : `jean serve` est
+// Mode utilisateur (sans launchd) — même approche que Windows : `ajean serve` est
 // lancé détaché, son PID va dans JEAN_HOME/<svc>.pid et sa sortie dans
 // JEAN_HOME/<svc>.log. Setsid le détache de notre session pour qu'il survive à
 // la fermeture de Jean.app, et permet de tuer tout le groupe (llama-server
@@ -175,7 +175,7 @@ func userSvcAction(action string) error {
 		return nil
 	case "enable", "disable":
 		fmt.Printf("%s '%s' réclame un service système : lance %s pour installer le LaunchDaemon.\n",
-			yellow("[info]"), action, bold("sudo jean install"))
+			yellow("[info]"), action, bold("sudo ajean install"))
 		return nil
 	}
 	return fmt.Errorf("action inconnue: %s", action)
@@ -207,7 +207,7 @@ func userSvcStart() error {
 	cmd.Dir = AjeanHome()
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("démarrage de 'jean serve': %w", err)
+		return fmt.Errorf("démarrage de 'ajean serve': %w", err)
 	}
 	pid := cmd.Process.Pid
 	if err := os.WriteFile(pidFilePath(), []byte(strconv.Itoa(pid)), 0o644); err != nil {
@@ -221,14 +221,14 @@ func userCheckStarted(pid int) error {
 	time.Sleep(2 * time.Second)
 	if processAlive(pid) {
 		fmt.Printf("%s %s: démarré (PID %d)\n", green("[ok]"), serviceName(), pid)
-		fmt.Printf("       logs: %s  (jean logs pour suivre)\n", dim(logFilePath()))
+		fmt.Printf("       logs: %s  (ajean logs pour suivre)\n", dim(logFilePath()))
 		return nil
 	}
 	fmt.Printf("%s %s: le processus s'est arrêté — derniers logs :\n", red("[ERREUR]"), serviceName())
 	fmt.Println("------------------------------------------------")
 	fmt.Print(tailFile(logFilePath(), 20))
 	fmt.Println("------------------------------------------------")
-	fmt.Printf("→ jean logs   pour plus de détails\n→ jean edit   pour corriger config.env\n")
+	fmt.Printf("→ ajean logs   pour plus de détails\n→ ajean edit   pour corriger config.env\n")
 	_ = os.Remove(pidFilePath())
 	return fmt.Errorf("service %s non démarré", serviceName())
 }

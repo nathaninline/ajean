@@ -9,7 +9,7 @@ Si vous étiez bloqué dans cet état, il n'y a rien à réparer : téléchargez
 ## Mise à jour
 
 ```
-jean update
+ajean update
 ```
 
 Sous Windows, télécharger le fichier depuis la page des releases et le lancer fait le même travail.

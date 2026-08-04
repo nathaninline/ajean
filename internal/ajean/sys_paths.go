@@ -13,7 +13,7 @@ import (
 // emplacements invisibles : on ne sait plus si le .exe qu'on a double-cliqué EST
 // l'application ou seulement un installateur, ni où atterrissent la config, les
 // modèles et les fichiers que l'agent écrit. On centralise donc la réponse ici,
-// et on l'expose à la fois en ligne de commande (`jean where`) et dans l'UI.
+// et on l'expose à la fois en ligne de commande (`ajean where`) et dans l'UI.
 
 type ajeanPaths struct {
 	Home      string `json:"home"`      // JEAN_HOME : racine des données

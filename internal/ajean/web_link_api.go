@@ -3,7 +3,7 @@ package ajean
 // web_link_api.go — API locale pilotant l'accès distant (ajean.link) depuis l'UI
 // web de Jean, pour éviter le terminal. Le panneau « Accès distant » ouvre une
 // popup app.ajean.link/connect.html qui gère compte + paiement puis renvoie une
-// clé de liaison (jl_…) ; l'UI la POSTe ici, et Jean fait le `jean link` tout
+// clé de liaison (jl_…) ; l'UI la POSTe ici, et Jean fait le `ajean link` tout
 // seul (écrit le token + (re)démarre le service).
 //
 // Ces routes ne sont accessibles qu'en LOCAL : à travers le tunnel du relais,
@@ -79,7 +79,7 @@ func handleLinkStart(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleLinkDisconnect (POST /api/link/disconnect) : arrête le service et oublie
-// la clé (équivalent `jean link stop` + `jean link logout`).
+// la clé (équivalent `ajean link stop` + `ajean link logout`).
 func handleLinkDisconnect(w http.ResponseWriter, r *http.Request) {
 	_ = linkServiceCtl("stop")
 	_ = removeLinkToken()
@@ -89,7 +89,7 @@ func handleLinkDisconnect(w http.ResponseWriter, r *http.Request) {
 // handleLinkPairCode (POST /api/link/paircode) : génère un code d'appairage frais
 // (usage unique, TTL 10 min) + l'empreinte E2E, à saisir UNE fois dans le portail
 // distant lors de la première connexion (confirmation de la boîte noire). Évite le
-// détour par `jean link code` en terminal.
+// détour par `ajean link code` en terminal.
 func handleLinkPairCode(w http.ResponseWriter, r *http.Request) {
 	code, err := newPairCode()
 	if err != nil {

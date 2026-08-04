@@ -12,14 +12,14 @@ import (
 // First positional arg (if any) becomes the system prompt.
 func cmdChat(args []string) error {
 	if !healthCheck() {
-		return fmt.Errorf("serveur injoignable sur :%d — jean start d'abord", LLMPort())
+		return fmt.Errorf("serveur injoignable sur :%d — ajean start d'abord", LLMPort())
 	}
 	sysPrompt := strings.Join(args, " ")
 	msgs := []Message{}
 	if sysPrompt != "" {
 		msgs = append(msgs, Message{Role: "system", Content: sysPrompt})
 	}
-	fmt.Printf("\n%s  —  /reset pour vider, /sys <prompt> pour changer le system, /quit ou Ctrl-D pour sortir\n", cyan("jean chat"))
+	fmt.Printf("\n%s  —  /reset pour vider, /sys <prompt> pour changer le system, /quit ou Ctrl-D pour sortir\n", cyan("ajean chat"))
 	if sysPrompt != "" {
 		fmt.Println(dim("system: " + sysPrompt))
 	}
@@ -65,7 +65,7 @@ func cmdChat(args []string) error {
 		inReason := false
 		var stats *StatsEvent
 		// Print the assistant prefix once; reasoning is shown inline with a tag.
-		fmt.Print(cyan("jean") + " > ")
+		fmt.Print(cyan("ajean") + " > ")
 		caps := globalCaps()
 		// Compaction proactive (façon Hermes) : on résume les vieux tours quand
 		// l'historique dépasse le seuil, au lieu d'imposer un /reset.
@@ -120,7 +120,7 @@ func cmdChat(args []string) error {
 					fmt.Print("\n")
 					inReason = false
 				}
-				fmt.Printf("\n%s %s : %s\n%s ", dim(icon+" "+verb), "", magenta(ev.ToolUsed.Label), cyan("jean")+" >")
+				fmt.Printf("\n%s %s : %s\n%s ", dim(icon+" "+verb), "", magenta(ev.ToolUsed.Label), cyan("ajean")+" >")
 			case ev.Reasoning != "":
 				if !inReason {
 					fmt.Print(magenta("[reasoning] ") + dim(""))
@@ -129,7 +129,7 @@ func cmdChat(args []string) error {
 				fmt.Print(dim(ev.Reasoning))
 			case ev.Content != "":
 				if inReason {
-					fmt.Print("\n" + cyan("jean") + " > ")
+					fmt.Print("\n" + cyan("ajean") + " > ")
 					inReason = false
 				}
 				full.WriteString(ev.Content)

@@ -5,7 +5,7 @@ package ajean
 //
 // Modèle : cet agent a une paire X25519 long-terme (clé privée locale, jamais
 // transmise). Sa clé publique est publiée au relais et son EMPREINTE est affichée
-// au `jean link` — l'utilisateur la confirme dans le portail, ce qui défait tout
+// au `ajean link` — l'utilisateur la confirme dans le portail, ce qui défait tout
 // MITM du relais. Le navigateur dérive une racine R de son mot de passe (exportKey
 // OPAQUE), la SCELLE vers la clé publique de l'agent (le relais ne peut pas
 // l'ouvrir), puis chiffre/déchiffre le chat avec une clé dérivée de R.

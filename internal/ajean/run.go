@@ -1,5 +1,5 @@
-// jean — single-binary LLM server manager + web UI for llama.cpp deployments.
-// Point d'entrée réel : Main(), appelé par cmd/jean (les métadonnées Windows
+// ajean — single-binary LLM server manager + web UI for llama.cpp deployments.
+// Point d'entrée réel : Main(), appelé par cmd/ajean (les métadonnées Windows
 // .syso/go:generate vivent là-bas, dans le dossier du package main).
 package ajean
 
@@ -12,7 +12,7 @@ import (
 
 const Version = "0.6.15"
 
-// Main est le vrai main() du binaire (cmd/jean ne fait que l'appeler).
+// Main est le vrai main() du binaire (cmd/ajean ne fait que l'appeler).
 func Main() {
 	// Rattache la console du terminal parent si on est lancé depuis un shell
 	// (Windows : binaire GUI). Retourne false au double-clic (aucune console) →
@@ -37,7 +37,7 @@ func Main() {
 	// lance l'expérience « application » (UI web + navigateur + icône tray) plutôt
 	// que d'afficher l'aide. Le binaire étant compilé en sous-système GUI, il n'y a
 	// AUCUNE console à ce stade (donc plus de fenêtre noire). Lancé depuis un shell,
-	// `jean` sans argument garde son comportement d'aide.
+	// `ajean` sans argument garde son comportement d'aide.
 	if noArgs && !haveConsole {
 		mustExit(cmdApp(args))
 		return
@@ -96,7 +96,7 @@ func Main() {
 	case "uninstall":
 		mustExit(cmdUninstall(args))
 	case "version", "-v", "--version":
-		fmt.Println("jean", Version)
+		fmt.Println("ajean", Version)
 	case "help", "-h", "--help", "":
 		printHelp()
 	default:
@@ -107,9 +107,9 @@ func Main() {
 }
 
 func printHelp() {
-	fmt.Printf(`jean %s — manager llama.cpp + UI web (single binary)
+	fmt.Printf(`ajean %s — manager llama.cpp + UI web (single binary)
 
-Usage: jean <commande> [args]
+Usage: ajean <commande> [args]
 
 Application:
   app                           lance l'UI web + ouvre le navigateur (auto au double-clic du binaire)
@@ -118,9 +118,9 @@ Service:
   start | stop | restart        gérer le service (systemd sous Linux, processus en arrière-plan sous Windows)
   status | logs                 état / logs en direct
   enable | disable              auto-démarrage au boot
-  edit                          éditer $JEAN_HOME/config.env
+  edit                          éditer $AJEAN_HOME/config.env
   set-api-key [clé]             protéger llama-server (clé Bearer); vide = générer, "" = retirer
-  set-web-key [clé]             protéger l'API de pilotage 'jean web'; vide = générer, "" = retirer
+  set-web-key [clé]             protéger l'API de pilotage 'ajean web'; vide = générer, "" = retirer
   vram                          utilisation GPU/VRAM (nvidia-smi)
   gpu [index…]                  liste les GPU / choisit le(s)quel(s) utiliser (gpu all = tous)
   test                          vérifie que l'IA répond (health + completion)
@@ -141,7 +141,7 @@ Accès distant (ajean.link) :
   link code                     génère un code d'appairage (valable 10 min, à usage unique) pour le portail
   link status | logout          état du lien / oublier le token
   link                          (sans argument) affiche l'aide des sous-commandes link
-  link serve                    exécute le worker au premier plan (utilisé par jean-link.service ; pendant de 'jean serve')
+  link serve                    exécute le worker au premier plan (utilisé par jean-link.service ; pendant de 'ajean serve')
 
 Mode agent:
   agent [on|off|status]         active TOUS les outils de l'IA (shell complet + mémoire) — un seul interrupteur
@@ -151,20 +151,21 @@ Backend llama.cpp :
   llamacpp update               git pull + recompile le backend existant (arrête/redémarre le service)
   llamacpp status               commit courant, backend détecté, retard sur origin
 
-Entrypoint (utilisé par jean.service) :
+Entrypoint (utilisé par ajean.service) :
   serve                         lit config.env et exec le binaire llama-server
 
 Installation:
   where                         affiche où sont le binaire, la config, la mémoire et le dossier de travail de l'agent
   install                       installer (Linux: unité systemd, sudoers, dossiers ; Windows: dossiers + config)
   uninstall                     désinstaller
-  update [--check]              mettre à jour jean depuis les releases GitHub (--check = signale sans installer)
+  update [--check]              mettre à jour AJEAN depuis les releases GitHub (--check = signale sans installer)
 
 Env:
-  JEAN_HOME    racine (défaut: /etc/jean sur Linux/macOS, %%ProgramData%%\jean sur Windows)
-  EDITOR       éditeur pour 'jean edit' (défaut: nano sur Unix, notepad sur Windows)
+  AJEAN_HOME   racine (défaut: /etc/ajean sur Linux/macOS, %%ProgramData%%\ajean sur Windows)
+               JEAN_HOME reste accepté (héritage)
+  EDITOR       éditeur pour 'ajean edit' (défaut: nano sur Unix, notepad sur Windows)
 
-Config: $JEAN_HOME/config.env
+Config: $AJEAN_HOME/config.env
 `, Version)
 }
 
@@ -234,6 +235,7 @@ func legacySkillsFlag() string { return filepath.Join(skillsDir(), ".enabled") }
 func legacyToolsFlag() string  { return filepath.Join(AjeanHome(), ".tools_enabled") }
 func apiKeyPath() string       { return filepath.Join(AjeanHome(), ".api_key") }
 func crawlKeyPath() string     { return filepath.Join(AjeanHome(), ".crawl4ai_key") }
+
 // serviceName est le nom de l'unité qui exécute llama-server. AJEAN_SERVICE et
 // JEAN_SERVICE sont tous deux honorés : le second est posé à la main sur des
 // machines qu'on ne voit pas, le renommage ne doit pas les casser.

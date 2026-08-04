@@ -69,9 +69,9 @@ func maskAPIKey(k string) string {
 // exposed on the internet, llama-server requires "Authorization: Bearer <clé>"
 // for every call.
 //
-//	jean set-api-key <clé>     définit la clé
-//	jean set-api-key           génère une clé aléatoire
-//	jean set-api-key ""        supprime la protection
+//	ajean set-api-key <clé>     définit la clé
+//	ajean set-api-key           génère une clé aléatoire
+//	ajean set-api-key ""        supprime la protection
 func cmdSetAPIKey(args []string) error {
 	var key string
 	switch {
@@ -97,7 +97,7 @@ func cmdSetAPIKey(args []string) error {
 	fmt.Print(dim("[info] redémarrer le service pour appliquer ? [Y/n] "))
 	sc := bufio.NewScanner(os.Stdin)
 	if sc.Scan() && strings.HasPrefix(strings.ToLower(strings.TrimSpace(sc.Text())), "n") {
-		fmt.Println(dim("[info] pense à lancer 'jean restart'"))
+		fmt.Println(dim("[info] pense à lancer 'ajean restart'"))
 		return nil
 	}
 	return serviceAction("restart")

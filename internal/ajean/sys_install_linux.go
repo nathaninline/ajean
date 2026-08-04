@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-const configTemplate = `# Configuration JEAN — édite-moi puis: jean restart
+const configTemplate = `# Configuration JEAN — édite-moi puis: ajean restart
 # Le service systemd lit ce fichier et lance ton binaire llama.cpp.
 
 # Chemins
@@ -61,7 +61,7 @@ WantedBy=multi-user.target
 
 func cmdInstall(args []string) error {
 	if os.Geteuid() != 0 {
-		return fmt.Errorf("jean install doit être exécuté en root (sudo jean install)")
+		return fmt.Errorf("ajean install doit être exécuté en root (sudo ajean install)")
 	}
 	targetUser := os.Getenv("SUDO_USER")
 	if targetUser == "" {
@@ -113,7 +113,7 @@ func cmdInstall(args []string) error {
 	}
 	target := installedExePath()
 	// Garde-fou (issue #5) : si on tourne DÉJÀ depuis la cible (l'utilisateur a
-	// posé le binaire dans /usr/local/bin/jean puis lancé `sudo jean install`),
+	// posé le binaire dans /usr/local/bin/jean puis lancé `sudo ajean install`),
 	// ne surtout pas Remove+Symlink sur soi-même — ça effacerait le vrai binaire
 	// et créerait /usr/local/bin/jean -> /usr/local/bin/jean (« Too many levels
 	// of symbolic links »). On compare les chemins réels (résolus).
@@ -134,7 +134,7 @@ func cmdInstall(args []string) error {
 		fmt.Printf("  %s %s -> %s\n", green("✓"), target, self)
 	}
 
-	// 3 bis. Alias hérité : `jean` doit rester tapable. Des utilisateurs ont des
+	// 3 bis. Alias hérité : `ajean` doit rester tapable. Des utilisateurs ont des
 	// alias shell, des cron, des scripts de déploiement et des tutos qui appellent
 	// « jean » — on ne contrôle rien de tout ça, et un binaire renommé qui casse
 	// la commande d'hier est une régression pour eux. Le lien pointe sur le
@@ -185,16 +185,16 @@ func cmdInstall(args []string) error {
 	fmt.Println()
 	fmt.Printf("%s installation terminée.\n", green("[ok]"))
 	fmt.Printf("\nProchaines étapes :\n")
-	fmt.Printf("  1. édite la config :   %s\n", bold("sudo -u "+targetUser+" jean edit"))
+	fmt.Printf("  1. édite la config :   %s\n", bold("sudo -u "+targetUser+" ajean edit"))
 	fmt.Printf("     (renseigne BIN, MODEL, etc.)\n")
-	fmt.Printf("  2. démarre le service: %s\n", bold("sudo -u "+targetUser+" jean start"))
-	fmt.Printf("  3. UI web :            %s\n", bold("sudo -u "+targetUser+" jean web"))
+	fmt.Printf("  2. démarre le service: %s\n", bold("sudo -u "+targetUser+" ajean start"))
+	fmt.Printf("  3. UI web :            %s\n", bold("sudo -u "+targetUser+" ajean web"))
 	return nil
 }
 
 func cmdUninstall(args []string) error {
 	if os.Geteuid() != 0 {
-		return fmt.Errorf("jean uninstall doit être exécuté en root")
+		return fmt.Errorf("ajean uninstall doit être exécuté en root")
 	}
 	svc := serviceName()
 	keepData := false

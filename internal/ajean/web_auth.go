@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-// web_auth.go protège l'API de pilotage (jean web) quand elle est exposée sur
+// web_auth.go protège l'API de pilotage (ajean web) quand elle est exposée sur
 // internet — c.-à-d. l'API que tout client (navigateur, app mobile, script…)
 // utilise pour switcher de preset, redémarrer le service, lire le status, etc.
 //
@@ -70,9 +70,9 @@ func checkBearer(r *http.Request, key string) bool {
 
 // cmdSetWebKey sets (or clears) the control-API key in $JEAN_HOME/.web_key.
 //
-//	jean set-web-key <clé>     définit la clé
-//	jean set-web-key           génère une clé aléatoire
-//	jean set-web-key ""        supprime la protection (API ouverte)
+//	ajean set-web-key <clé>     définit la clé
+//	ajean set-web-key           génère une clé aléatoire
+//	ajean set-web-key ""        supprime la protection (API ouverte)
 //
 // Contrairement à set-api-key, aucun redémarrage n'est nécessaire : le serveur
 // web relit la clé à chaque requête.
@@ -106,6 +106,6 @@ func cmdSetWebKey(args []string) error {
 	}
 	fmt.Printf("%s clé de pilotage enregistrée dans %s\n", green("[ok]"), webKeyPath())
 	fmt.Printf("       les clients doivent envoyer : %s\n", dim("Authorization: Bearer "+key))
-	fmt.Printf("       (relance 'jean web' si le serveur web tourne déjà — non requis, lu à chaud)\n")
+	fmt.Printf("       (relance 'ajean web' si le serveur web tourne déjà — non requis, lu à chaud)\n")
 	return nil
 }

@@ -28,7 +28,7 @@ func editConfig() error {
 	if err := cmd.Run(); err != nil {
 		return err
 	}
-	fmt.Println(dim("[info] jean restart pour appliquer"))
+	fmt.Println(dim("[info] ajean restart pour appliquer"))
 	return nil
 }
 

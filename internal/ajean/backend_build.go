@@ -228,15 +228,15 @@ func hintMissingBuildDep(p buildPlan, cfgLog string) {
 		fmt.Printf("            Relance l'installeur du CUDA Toolkit (installation personnalisée) en cochant « CUDA → Visual Studio Integration »\n")
 		fmt.Printf("            (Visual Studio avec le workload C++ doit déjà être installé), ou copie les fichiers de\n")
 		fmt.Printf("            <toolkit>\\extras\\visual_studio_integration\\MSBuildExtensions vers\n")
-		fmt.Printf("            <VS>\\MSBuild\\Microsoft\\VC\\<version>\\BuildCustomizations, puis relance %s.\n", bold("jean llamacpp install"))
+		fmt.Printf("            <VS>\\MSBuild\\Microsoft\\VC\\<version>\\BuildCustomizations, puis relance %s.\n", bold("ajean llamacpp install"))
 	}
 	if p.backend == "vulkan" && strings.Contains(log, "SPIRV-Headers") {
 		fmt.Printf("\n%s dépendance manquante pour le backend %s : les en-têtes SPIR-V (paquet « SPIRV-Headers ») sont introuvables.\n",
 			yellow("[dépendance]"), green("Vulkan"))
 		if cmd := pkgInstallHint("spirv-headers"); cmd != "" {
-			fmt.Printf("            installe-les puis relance %s : %s\n", bold("jean llamacpp install"), bold(cmd))
+			fmt.Printf("            installe-les puis relance %s : %s\n", bold("ajean llamacpp install"), bold(cmd))
 		} else {
-			fmt.Printf("            installe le paquet de développement « SPIRV-Headers » de ta distribution, puis relance %s.\n", bold("jean llamacpp install"))
+			fmt.Printf("            installe le paquet de développement « SPIRV-Headers » de ta distribution, puis relance %s.\n", bold("ajean llamacpp install"))
 		}
 	}
 }

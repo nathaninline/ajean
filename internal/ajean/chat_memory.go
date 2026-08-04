@@ -372,7 +372,7 @@ func setMemMode(m MemMode) error {
 	return SetConfigKey("MEM_MODE", string(m))
 }
 
-// cmdMemory : jean memory [off|ondemand|always|status]
+// cmdMemory : ajean memory [off|ondemand|always|status]
 func cmdMemory(args []string) error {
 	sub := ""
 	if len(args) > 0 {
@@ -403,7 +403,7 @@ func cmdMemory(args []string) error {
 		fmt.Printf("  %d page(s) sous %s\n", len(pages), memoryDir())
 		return nil
 	default:
-		return fmt.Errorf("usage: jean memory [off|ondemand|always|status]")
+		return fmt.Errorf("usage: ajean memory [off|ondemand|always|status]")
 	}
 	m := memMode()
 	fmt.Printf("%s mémoire : %s — %s\n", green("[ok]"), bold(string(m)), label[m])

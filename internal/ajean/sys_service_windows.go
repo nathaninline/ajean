@@ -16,7 +16,7 @@ import (
 )
 
 // On Windows there is no systemd, so "the service" is a background copy of
-// `jean serve` that this process launches detached. We track it with a PID file
+// `ajean serve` that this process launches detached. We track it with a PID file
 // and stream its output to a log file under JEAN_HOME. This needs no admin
 // rights and no external tools beyond the always-present tasklist/taskkill.
 
@@ -72,14 +72,14 @@ func svcStart() error {
 	cmd.Stdout = logf
 	cmd.Stderr = logf
 	cmd.Dir = AjeanHome() // les chemins relatifs de config.env se résolvent depuis JEAN_HOME
-	// createNoWindow + HideWindow : le service enfant (`jean serve`) ne doit JAMAIS
+	// createNoWindow + HideWindow : le service enfant (`ajean serve`) ne doit JAMAIS
 	// faire clignoter de console noire quand Jean est lancé en mode app (double-clic).
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow:    true,
 		CreationFlags: createNewProcessGroup | detachedProcess | createNoWindow,
 	}
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("démarrage de 'jean serve': %w", err)
+		return fmt.Errorf("démarrage de 'ajean serve': %w", err)
 	}
 	pid := cmd.Process.Pid
 	if err := os.WriteFile(pidFilePath(), []byte(strconv.Itoa(pid)), 0o644); err != nil {
@@ -94,14 +94,14 @@ func checkStarted(pid int) error {
 	time.Sleep(2 * time.Second)
 	if processAlive(pid) {
 		fmt.Printf("%s %s: démarré (PID %d)\n", green("[ok]"), serviceName(), pid)
-		fmt.Printf("       logs: %s  (jean logs pour suivre)\n", dim(logFilePath()))
+		fmt.Printf("       logs: %s  (ajean logs pour suivre)\n", dim(logFilePath()))
 		return nil
 	}
 	fmt.Printf("%s %s: le processus s'est arrêté — derniers logs :\n", red("[ERREUR]"), serviceName())
 	fmt.Println("------------------------------------------------")
 	fmt.Print(tailFile(logFilePath(), 20))
 	fmt.Println("------------------------------------------------")
-	fmt.Printf("→ jean logs   pour plus de détails\n→ jean edit   pour corriger config.env\n")
+	fmt.Printf("→ ajean logs   pour plus de détails\n→ ajean edit   pour corriger config.env\n")
 	_ = os.Remove(pidFilePath())
 	return fmt.Errorf("service %s non démarré", serviceName())
 }

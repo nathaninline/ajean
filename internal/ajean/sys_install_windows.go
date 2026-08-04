@@ -12,12 +12,12 @@ import (
 )
 
 // On Windows there's no systemd unit, sudoers, or /usr/local/bin to populate.
-// `jean install` simply provisions the data directory and a starter config; the
+// `ajean install` simply provisions the data directory and a starter config; the
 // service itself is managed by the PID-file supervisor in sys_service_windows.go
-// (jean start / stop / status), which needs no admin rights.
+// (ajean start / stop / status), which needs no admin rights.
 
-const configTemplate = `# Configuration JEAN — édite-moi puis: jean restart
-# jean serve lit ce fichier et lance ton binaire llama.cpp.
+const configTemplate = `# Configuration JEAN — édite-moi puis: ajean restart
+# ajean serve lit ce fichier et lance ton binaire llama.cpp.
 
 # Chemins (utilise des chemins Windows ; les antislashs ou slashs marchent)
 BIN="C:/llama.cpp/build/bin/Release/llama-server.exe"
@@ -59,7 +59,7 @@ func cmdInstall(args []string) error {
 	}
 
 	// 3. Install the binary into JEAN_HOME\bin and put that dir on the user PATH,
-	//    so `jean` is callable from any shell (this is the Windows analogue of the
+	//    so `ajean` is callable from any shell (this is the Windows analogue of the
 	//    /usr/local/bin symlink the Unix installer creates).
 	binDir := filepath.Join(jeanHome, "bin")
 	if err := os.MkdirAll(binDir, 0o755); err != nil {
@@ -86,9 +86,9 @@ func cmdInstall(args []string) error {
 	fmt.Println()
 	fmt.Printf("%s installation terminée.\n", green("[ok]"))
 	fmt.Printf("\nProchaines étapes :\n")
-	fmt.Printf("  1. édite la config :   %s   (renseigne BIN, MODEL)\n", bold("jean edit"))
-	fmt.Printf("  2. démarre le service: %s\n", bold("jean start"))
-	fmt.Printf("  3. UI web :            %s\n", bold("jean web"))
+	fmt.Printf("  1. édite la config :   %s   (renseigne BIN, MODEL)\n", bold("ajean edit"))
+	fmt.Printf("  2. démarre le service: %s\n", bold("ajean start"))
+	fmt.Printf("  3. UI web :            %s\n", bold("ajean web"))
 	if onPath {
 		fmt.Printf("\n%s ouvre un NOUVEAU terminal pour que 'jean' soit reconnu (le PATH n'est lu qu'au démarrage du shell).\n", dim("[info]"))
 	} else {

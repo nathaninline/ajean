@@ -11,10 +11,10 @@ import (
 
 // backend_gpu.go — sélection du/des GPU utilisés par llama-server.
 //
-//	jean gpu            liste les GPU et montre la sélection courante
-//	jean gpu 1          n'utilise que le GPU d'index 1
-//	jean gpu 0 1        utilise les GPU 0 et 1
-//	jean gpu all        réinitialise (tous les GPU visibles)
+//	ajean gpu            liste les GPU et montre la sélection courante
+//	ajean gpu 1          n'utilise que le GPU d'index 1
+//	ajean gpu 0 1        utilise les GPU 0 et 1
+//	ajean gpu all        réinitialise (tous les GPU visibles)
 //
 // La sélection est stockée dans config.env sous CUDA_VISIBLE_DEVICES ; backend_serve.go
 // l'exporte (avec CUDA_DEVICE_ORDER=PCI_BUS_ID pour que les index correspondent
@@ -53,7 +53,7 @@ func cmdGPU(args []string) error {
 			return fmt.Errorf("index GPU invalide: %q (attendu un nombre)", tok)
 		}
 		if n < 0 || n >= len(gpus) {
-			return fmt.Errorf("index GPU %d hors limites (0..%d) — voir « jean gpu »", n, len(gpus)-1)
+			return fmt.Errorf("index GPU %d hors limites (0..%d) — voir « ajean gpu »", n, len(gpus)-1)
 		}
 		idx = append(idx, strconv.Itoa(n))
 	}
@@ -102,7 +102,7 @@ func gpuList() error {
 	} else {
 		fmt.Printf("  Sélection : %s (CUDA_VISIBLE_DEVICES=%s)\n", bold(sel), sel)
 	}
-	fmt.Printf("  %s jean gpu <index…>  pour choisir,  jean gpu all  pour réinitialiser\n", dim("→"))
+	fmt.Printf("  %s ajean gpu <index…>  pour choisir,  ajean gpu all  pour réinitialiser\n", dim("→"))
 	return nil
 }
 
@@ -120,7 +120,7 @@ func gpuSet(value string) error {
 	fmt.Print(dim("[info] redémarrer le service pour appliquer ? [Y/n] "))
 	sc := bufio.NewScanner(os.Stdin)
 	if sc.Scan() && strings.HasPrefix(strings.ToLower(strings.TrimSpace(sc.Text())), "n") {
-		fmt.Println(dim("[info] pense à lancer 'jean restart'"))
+		fmt.Println(dim("[info] pense à lancer 'ajean restart'"))
 		return nil
 	}
 	return serviceAction("restart")

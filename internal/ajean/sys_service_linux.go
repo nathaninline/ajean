@@ -55,7 +55,7 @@ func checkStarted(svc string) error {
 	logs, _ := exec.Command("journalctl", "-u", svc, "-n", "20", "--no-pager").Output()
 	fmt.Print(string(logs))
 	fmt.Println("------------------------------------------------")
-	fmt.Printf("→ jean logs   pour plus de détails\n→ jean edit   pour corriger config.env\n")
+	fmt.Printf("→ ajean logs   pour plus de détails\n→ ajean edit   pour corriger config.env\n")
 	return fmt.Errorf("service %s non démarré", svc)
 }
 

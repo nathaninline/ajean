@@ -103,7 +103,7 @@ func setOAIPublic(on bool) error {
 func oaiTLSConfig() *tls.Config {
 	certmagic.Default.Storage = &certmagic.FileStorage{Path: filepath.Join(AjeanHome(), "certs")}
 	certmagic.DefaultACME.Agreed = true
-	certmagic.DefaultACME.Email = strings.TrimSpace(os.Getenv("JEAN_ACME_EMAIL"))
+	certmagic.DefaultACME.Email = envAny("AJEAN_ACME_EMAIL", "JEAN_ACME_EMAIL")
 	certmagic.DefaultACME.DisableHTTPChallenge = true // pas de :80 accessible (CGNAT) → TLS-ALPN uniquement
 	magic := certmagic.NewDefault()
 	magic.OnDemand = &certmagic.OnDemandConfig{
@@ -221,7 +221,7 @@ func selfSignedTLSConfig(host string) (*tls.Config, error) {
 
 // cmdOAI pilote l'accès OpenAI public côté agent.
 //
-//	jean oai serve [port] [host]   (test local) termine le TLS sur :port avec un
+//	ajean oai serve [port] [host]   (test local) termine le TLS sur :port avec un
 //	                               cert auto-signé et proxifie vers llama /v1.
 func cmdOAI(args []string) error {
 	sub := ""
@@ -251,11 +251,11 @@ func cmdOAI(args []string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("[jean oai] front TLS (test, auto-signé) https://%s:%d/v1 → llama :%d\n", host, port, LLMPort())
+		fmt.Printf("[ajean oai] front TLS (test, auto-signé) https://%s:%d/v1 → llama :%d\n", host, port, LLMPort())
 		return runOAIFront(ln, tlsCfg)
 	default:
-		fmt.Println("usage: jean oai serve [port] [host]   (front TLS de test → llama /v1)")
-		fmt.Println("  en prod, le front TLS est servi automatiquement dans le tunnel (jean link)")
+		fmt.Println("usage: ajean oai serve [port] [host]   (front TLS de test → llama /v1)")
+		fmt.Println("  en prod, le front TLS est servi automatiquement dans le tunnel (ajean link)")
 		fmt.Println("  quand JEAN_LINK_ALLOW_OAI=1 ; cert Let's Encrypt via TLS-ALPN-01.")
 		return nil
 	}

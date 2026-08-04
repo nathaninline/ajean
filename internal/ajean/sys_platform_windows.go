@@ -60,7 +60,7 @@ func defaultAjeanHome() string { return filepath.Join(homeRoot(), "ajean") }
 // legacyDefaultHome is the pre-rename data root, migrated on first run.
 func legacyDefaultHome() string { return filepath.Join(homeRoot(), "jean") }
 
-// defaultEditor is used by `jean edit` when $EDITOR is unset.
+// defaultEditor is used by `ajean edit` when $EDITOR is unset.
 func defaultEditor() string { return "notepad" }
 
 // openBrowser ouvre l'URL dans le navigateur par défaut. rundll32 évite les
@@ -130,7 +130,7 @@ func setLibraryPath(dir string) {
 }
 
 // execServer runs llama-server as a child process and waits for it. Windows has
-// no exec() that replaces the current image, so `jean serve` stays alive as the
+// no exec() that replaces the current image, so `ajean serve` stays alive as the
 // parent (this is the detached process the service supervisor tracks).
 // args[0] is the binary path; the rest are its arguments.
 func execServer(bin string, args []string) error {
@@ -232,7 +232,7 @@ func msvcGenerator() string {
 
 // ensureCompiler makes sure an MSVC C++ toolchain is available, installing the
 // Visual Studio 2022 Build Tools (VCTools workload) via winget if not. This is a
-// large download but keeps `jean llamacpp install` fully unattended on a bare
+// large download but keeps `ajean llamacpp install` fully unattended on a bare
 // Windows box.
 func ensureCompiler() error {
 	if msvcInstallVersion() != "" {
@@ -354,7 +354,7 @@ Sans elle, CMake échoue sur « No CUDA toolset found ». Pour corriger, au choi
   1. relance l'installeur du CUDA Toolkit (installation personnalisée) et coche « CUDA → Visual Studio Integration » — Visual Studio doit déjà être installé à ce moment-là ;
   2. ou copie (en admin) les fichiers de
        %s
-     vers le dossier BuildCustomizations ci-dessus, puis relance jean llamacpp install`, installPath, src)
+     vers le dossier BuildCustomizations ci-dessus, puis relance ajean llamacpp install`, installPath, src)
 }
 
 // cudaPathEnv returns the CUDA toolkit env vars the MSBuild CUDA integration

@@ -42,7 +42,7 @@ func cmdServe(args []string) error {
 	// Linux, PATH on Windows — handled inside execServer.
 	setLibraryPath(filepath.Dir(bin))
 
-	// Sélection GPU (jean gpu) : on filtre les devices visibles par llama-server.
+	// Sélection GPU (ajean gpu) : on filtre les devices visibles par llama-server.
 	// CUDA_DEVICE_ORDER=PCI_BUS_ID garantit que les index correspondent à ceux
 	// affichés par nvidia-smi (sinon CUDA réordonne par "device le plus rapide").
 	if v := cfg["CUDA_VISIBLE_DEVICES"]; v != "" {
@@ -104,7 +104,7 @@ func cmdServe(args []string) error {
 	// mmproj-F16.gguf) still resolve.
 	_ = os.Chdir(AjeanHome())
 
-	fmt.Fprintf(os.Stderr, "[jean serve] %s  model=%s  port=%s\n",
+	fmt.Fprintf(os.Stderr, "[ajean serve] %s  model=%s  port=%s\n",
 		bin, filepath.Base(model), get("PORT", "8080"))
 
 	// Hand off to the llama-server process. On Unix this replaces the current

@@ -17,7 +17,7 @@ import (
 // sur « systemctl: command not found » / « /etc/default/jean », cf. issue #4).
 // Implémentation prudente ; à valider sur une machine Apple.
 
-const configTemplate = `# Configuration JEAN — édite-moi puis: jean restart
+const configTemplate = `# Configuration JEAN — édite-moi puis: ajean restart
 # Le service launchd lit ce fichier et lance ton binaire llama.cpp.
 
 # Chemins
@@ -38,9 +38,15 @@ NGL="999"
 EXTRA_ARGS=""
 `
 
-// launchdPlistTemplate — champs formatés : Label, UserName, WorkingDirectory,
-// JEAN_HOME, StandardOutPath, StandardErrorPath. KeepAlive/SuccessfulExit=false
-// ≈ Restart=on-failure ; RunAtLoad relance au boot une fois chargé avec `-w`.
+// launchdPlistTemplate — champs formatés : Label, chemin du binaire, UserName,
+// WorkingDirectory, AJEAN_HOME, JEAN_HOME, StandardOutPath, StandardErrorPath.
+// KeepAlive/SuccessfulExit=false ≈ Restart=on-failure ; RunAtLoad relance au
+// boot une fois chargé avec `-w`.
+//
+// Le chemin du binaire est injecté et non codé en dur : il a changé avec le
+// renommage, et un plist figé sur l'ancien chemin donnerait un daemon qui refuse
+// de démarrer. Les deux variables d'environnement sont posées car le code lit
+// encore JEAN_HOME en héritage.
 const launchdPlistTemplate = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -48,13 +54,13 @@ const launchdPlistTemplate = `<?xml version="1.0" encoding="UTF-8"?>
   <key>Label</key><string>%s</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/local/bin/jean</string>
+    <string>%s</string>
     <string>serve</string>
   </array>
   <key>UserName</key><string>%s</string>
   <key>WorkingDirectory</key><string>%s</string>
   <key>EnvironmentVariables</key>
-  <dict><key>JEAN_HOME</key><string>%s</string></dict>
+  <dict><key>AJEAN_HOME</key><string>%s</string><key>JEAN_HOME</key><string>%s</string></dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key>
   <dict><key>SuccessfulExit</key><false/></dict>
@@ -66,7 +72,7 @@ const launchdPlistTemplate = `<?xml version="1.0" encoding="UTF-8"?>
 
 func cmdInstall(args []string) error {
 	if os.Geteuid() != 0 {
-		return fmt.Errorf("jean install doit être exécuté en root (sudo jean install)")
+		return fmt.Errorf("ajean install doit être exécuté en root (sudo ajean install)")
 	}
 	targetUser := os.Getenv("SUDO_USER")
 	if targetUser == "" {
@@ -108,7 +114,7 @@ func cmdInstall(args []string) error {
 		fmt.Printf("  %s écrit %s\n", green("✓"), conf)
 	}
 
-	// 3. Symlink idempotent vers /usr/local/bin/jean — même garde-fou que Linux
+	// 3. Symlink idempotent vers /usr/local/bin/ajean — même garde-fou que Linux
 	//    (issue #5 : ne pas se lier sur soi-même si on tourne déjà depuis la cible).
 	self, err := os.Executable()
 	if err != nil {
@@ -117,7 +123,7 @@ func cmdInstall(args []string) error {
 	if rp, e := filepath.EvalSymlinks(self); e == nil {
 		self = rp
 	}
-	target := "/usr/local/bin/jean"
+	target := installedExePath()
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 		return err
 	}
@@ -137,6 +143,18 @@ func cmdInstall(args []string) error {
 		fmt.Printf("  %s %s -> %s\n", green("✓"), target, self)
 	}
 
+	// 3 bis. Alias hérité : `jean` doit rester tapable (voir sys_paths.go).
+	if alias := legacyExePath(); alias != target {
+		if rp, e := filepath.EvalSymlinks(alias); e != nil || rp != self {
+			_ = os.Remove(alias)
+			if err := os.Symlink(target, alias); err != nil {
+				fmt.Printf("  %s alias %s non créé (%v) — « ajean » reste disponible\n", yellow("[info]"), alias, err)
+			} else {
+				fmt.Printf("  %s %s -> %s (alias hérité)\n", green("✓"), alias, target)
+			}
+		}
+	}
+
 	// 4. /etc/default/ajean pour que les invocations CLI résolvent AJEAN_HOME.
 	// Les deux clés sont écrites : des scripts d'utilisateurs sourcent ce fichier
 	// et lisent encore $JEAN_HOME.
@@ -149,7 +167,7 @@ func cmdInstall(args []string) error {
 
 	// 5. LaunchDaemon plist (le log va sous JEAN_HOME, accessible au user cible)
 	logPath := filepath.Join(ajeanHome, svc+".log")
-	plist := fmt.Sprintf(launchdPlistTemplate, launchdLabel(svc), targetUser, ajeanHome, ajeanHome, logPath, logPath)
+	plist := fmt.Sprintf(launchdPlistTemplate, launchdLabel(svc), target, targetUser, ajeanHome, ajeanHome, ajeanHome, logPath, logPath)
 	plistPath := launchdPlistPath(svc)
 	if err := os.WriteFile(plistPath, []byte(plist), 0o644); err != nil {
 		return err
@@ -162,16 +180,16 @@ func cmdInstall(args []string) error {
 	fmt.Println()
 	fmt.Printf("%s installation terminée.\n", green("[ok]"))
 	fmt.Printf("\nProchaines étapes :\n")
-	fmt.Printf("  1. édite la config :   %s\n", bold("sudo -u "+targetUser+" jean edit"))
+	fmt.Printf("  1. édite la config :   %s\n", bold("sudo -u "+targetUser+" ajean edit"))
 	fmt.Printf("     (renseigne BIN, MODEL, etc.)\n")
-	fmt.Printf("  2. démarre le service: %s\n", bold("sudo jean start"))
-	fmt.Printf("  3. UI web :            %s\n", bold("sudo -u "+targetUser+" jean web"))
+	fmt.Printf("  2. démarre le service: %s\n", bold("sudo ajean start"))
+	fmt.Printf("  3. UI web :            %s\n", bold("sudo -u "+targetUser+" ajean web"))
 	return nil
 }
 
 func cmdUninstall(args []string) error {
 	if os.Geteuid() != 0 {
-		return fmt.Errorf("jean uninstall doit être exécuté en root")
+		return fmt.Errorf("ajean uninstall doit être exécuté en root")
 	}
 	svc := serviceName()
 	_ = exec.Command("launchctl", "unload", "-w", launchdPlistPath(svc)).Run()

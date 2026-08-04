@@ -62,9 +62,12 @@ func workspaceCandidates() []string {
 	}
 	c = append(c, filepath.Join(AjeanHome(), "workspace"))
 	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		// Le nouveau nom d'abord, l'ancien ensuite : un dossier ~/jean/workspace
+		// déjà rempli par l'agent reste utilisable au lieu de repartir de zéro.
+		c = append(c, filepath.Join(home, "ajean", "workspace"))
 		c = append(c, filepath.Join(home, "jean", "workspace"))
 	}
-	c = append(c, filepath.Join(os.TempDir(), "jean-workspace"))
+	c = append(c, filepath.Join(os.TempDir(), "ajean-workspace"))
 	return c
 }
 

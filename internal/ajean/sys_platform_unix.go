@@ -59,7 +59,7 @@ func isWritableDir(dir string) bool {
 	return true
 }
 
-// defaultEditor is used by `jean edit` when $EDITOR is unset.
+// defaultEditor is used by `ajean edit` when $EDITOR is unset.
 func defaultEditor() string { return "nano" }
 
 // hideCmd : no-op sur Unix (pas de fenêtre de console à masquer).

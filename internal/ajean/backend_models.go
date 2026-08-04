@@ -197,7 +197,7 @@ var dlClient = &http.Client{
 // Overridable with JEAN_DL_CONNS (1 disables parallelism).
 func dlConns() int {
 	n := 8
-	if v := strings.TrimSpace(os.Getenv("JEAN_DL_CONNS")); v != "" {
+	if v := envAny("AJEAN_DL_CONNS", "JEAN_DL_CONNS"); v != "" {
 		if p, err := strconv.Atoi(v); err == nil && p > 0 {
 			n = p
 		}

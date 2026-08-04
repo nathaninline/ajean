@@ -50,6 +50,26 @@ func resolveDefaultHome() string {
 	return migrateHome(defaultAjeanHome(), legacyDefaultHome())
 }
 
+// retryHomeMigration relance la résolution — donc la migration — après avoir
+// arrêté ce qui tournait. Renvoie true si le dossier a effectivement changé.
+//
+// Raison d'être : sous Windows, un rename de dossier échoue tant qu'un process
+// y tient un handle. Or le service AJEAN détaché en tient en permanence, si bien
+// que la migration tentée au démarrage échouerait indéfiniment et que la machine
+// resterait sur l'ancien chemin. L'installateur, lui, a une fenêtre où tout est
+// arrêté : c'est là qu'on retente.
+//
+// À N'APPELER QUE dans cette fenêtre, et avant que quoi que ce soit d'autre
+// n'ait ouvert de fichier de données : réinitialiser le cache n'est ni atomique
+// ni sûr vis-à-vis des goroutines, et surtout les chemins déjà calculés par
+// l'appelant deviennent obsolètes (voir migrateThenResolveTarget).
+func retryHomeMigration() bool {
+	before := migratedDefaultHome()
+	homeOnce = sync.Once{}
+	homePath = ""
+	return migratedDefaultHome() != before
+}
+
 // migrateHome contient toute la logique de migration, isolée des chemins réels
 // de la plateforme pour être testable telle quelle. Renvoie le dossier à
 // utiliser — le nouveau si la migration a réussi ou n'était pas nécessaire,

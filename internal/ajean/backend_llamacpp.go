@@ -9,12 +9,12 @@ import (
 
 // backend_llamacpp.go — gestion du backend llama.cpp (clone, build, mise à jour).
 //
-// `jean llamacpp install`  installe un build neuf, détecte automatiquement
+// `ajean llamacpp install`  installe un build neuf, détecte automatiquement
 //                          l'accélérateur (CUDA / ROCm / Metal / CPU) et la
 //                          compute capability du GPU, puis pointe BIN dessus.
-// `jean llamacpp update`   met à jour le dépôt existant (git pull) et recompile
+// `ajean llamacpp update`   met à jour le dépôt existant (git pull) et recompile
 //                          avec la bonne config, sans intervention.
-// `jean llamacpp status`   montre le commit courant, le backend détecté et le
+// `ajean llamacpp status`   montre le commit courant, le backend détecté et le
 //                          retard éventuel sur origin.
 
 const llamacppRepoURL = "https://github.com/ggml-org/llama.cpp.git"
@@ -55,7 +55,7 @@ func cmdLlamacpp(args []string) error {
 		if err := SetConfigKey("BIN", bin); err != nil {
 			return fmt.Errorf("binaires installés mais échec écriture BIN dans config.env: %w", err)
 		}
-		fmt.Printf("%s BIN mis à jour dans %s — %s pour appliquer\n", green("✓"), confPath(), bold("jean restart"))
+		fmt.Printf("%s BIN mis à jour dans %s — %s pour appliquer\n", green("✓"), confPath(), bold("ajean restart"))
 		return nil
 	default:
 		return fmt.Errorf("sous-commande inconnue: %s (install | update | prebuilt | status)", sub)
@@ -161,7 +161,7 @@ func llamacppInstall(args []string) error {
 	if isDir(filepath.Join(repo, ".git")) {
 		if !force {
 			fmt.Printf("%s dépôt déjà présent dans %s\n", yellow("[info]"), repo)
-			fmt.Printf("       → %s pour le mettre à jour, ou --force pour repartir de zéro\n", bold("jean llamacpp update"))
+			fmt.Printf("       → %s pour le mettre à jour, ou --force pour repartir de zéro\n", bold("ajean llamacpp update"))
 			return nil
 		}
 		fmt.Printf("%s --force : suppression de %s\n", yellow("[info]"), repo)
@@ -208,7 +208,7 @@ func llamacppInstall(args []string) error {
 	}
 	fmt.Printf("%s BIN mis à jour dans %s\n", green("✓"), confPath())
 	fmt.Printf("\nProchaines étapes :\n  1. renseigne MODEL : %s\n  2. démarre        : %s\n",
-		bold("jean edit"), bold("jean restart"))
+		bold("ajean edit"), bold("ajean restart"))
 	return nil
 }
 
@@ -246,7 +246,7 @@ func llamacppUpdate(args []string) error {
 
 	repo := llamacppRepoDir()
 	if !isDir(filepath.Join(repo, ".git")) {
-		return fmt.Errorf("aucun dépôt llama.cpp trouvé (%s).\n       → lance d'abord %s", repo, bold("jean llamacpp install"))
+		return fmt.Errorf("aucun dépôt llama.cpp trouvé (%s).\n       → lance d'abord %s", repo, bold("ajean llamacpp install"))
 	}
 	fmt.Printf("%s dépôt : %s\n", cyan("▶"), repo)
 
@@ -317,14 +317,14 @@ func llamacppUpdate(args []string) error {
 	fmt.Printf("\n%s mis à jour : %s → %s\n", green("✓"), oldCommit, newCommit)
 
 	if noRestart {
-		fmt.Printf("%s --no-restart : pense à lancer %s\n", dim("[info]"), bold("jean restart"))
+		fmt.Printf("%s --no-restart : pense à lancer %s\n", dim("[info]"), bold("ajean restart"))
 		return nil
 	}
 	if svcWasUp {
 		fmt.Printf("%s redémarrage du service…\n", cyan("▶"))
 		return serviceAction("start")
 	}
-	fmt.Printf("%s service non démarré auparavant — lance %s quand tu veux\n", dim("[info]"), bold("jean start"))
+	fmt.Printf("%s service non démarré auparavant — lance %s quand tu veux\n", dim("[info]"), bold("ajean start"))
 	return nil
 }
 
@@ -337,7 +337,7 @@ func llamacppStatus(args []string) error {
 	fmt.Printf("%s\n", bold("llama.cpp"))
 	fmt.Printf("  dépôt    : %s\n", repo)
 	if !isDir(filepath.Join(repo, ".git")) {
-		fmt.Printf("  %s pas encore installé — %s\n", yellow("état"), bold("jean llamacpp install"))
+		fmt.Printf("  %s pas encore installé — %s\n", yellow("état"), bold("ajean llamacpp install"))
 		return nil
 	}
 	commit := gitOutput(repo, "log", "-1", "--format=%h %ci %s")
@@ -354,7 +354,7 @@ func llamacppStatus(args []string) error {
 	// Retard sur origin (best-effort, sans fetch réseau).
 	if branch != "" && branch != "HEAD" {
 		if behind := gitOutput(repo, "rev-list", "--count", "HEAD..origin/"+branch); behind != "" && behind != "0" {
-			fmt.Printf("  maj      : %s commit(s) de retard sur origin/%s — %s\n", yellow(behind), branch, bold("jean llamacpp update"))
+			fmt.Printf("  maj      : %s commit(s) de retard sur origin/%s — %s\n", yellow(behind), branch, bold("ajean llamacpp update"))
 		}
 	}
 

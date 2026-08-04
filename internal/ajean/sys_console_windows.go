@@ -9,7 +9,7 @@ package ajean
 // qui s'ouvre et se ferme. En contrepartie, un binaire GUI lancé depuis un
 // terminal (cmd/PowerShell) n'écrit nulle part par défaut : on se rattache alors
 // explicitement à la console du parent et on réouvre stdout/stderr/stdin dessus,
-// pour que l'usage CLI (`jean web`, `jean status`, …) reste lisible.
+// pour que l'usage CLI (`ajean web`, `ajean status`, …) reste lisible.
 
 import (
 	"os"

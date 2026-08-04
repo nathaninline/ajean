@@ -17,7 +17,7 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-// jean update — met à jour le binaire depuis les releases GitHub du projet.
+// ajean update — met à jour le binaire depuis les releases GitHub du projet.
 // Périmètre minimal : compare la version, télécharge l'asset correspondant à
 // l'OS/arch courant, remplace le binaire en place, puis affiche quoi redémarrer.
 // AUCUN redémarrage de service automatique (choix volontaire, plus sûr).
@@ -109,7 +109,7 @@ type updateInfo struct {
 }
 
 // checkForUpdate interroge GitHub et compare à la version courante. Réutilisé
-// par `jean update` (CLI) et par l'endpoint web /api/update.
+// par `ajean update` (CLI) et par l'endpoint web /api/update.
 func checkForUpdate() (updateInfo, error) {
 	info := updateInfo{Current: Version}
 	rel, err := fetchLatestRelease()
@@ -158,7 +158,7 @@ func applyUpdate() (string, error) {
 	// Contrôle des droits AVANT de télécharger : sans ça, l'échec survient sur le
 	// os.Create du fichier temporaire et l'utilisateur reçoit un « open
 	// /usr/local/bin/.ajean-update.tmp: permission denied » incompréhensible,
-	// notamment depuis le bouton de l'UI web (jean web lancé sans sudo).
+	// notamment depuis le bouton de l'UI web (ajean web lancé sans sudo).
 	if err := checkUpdateWritable(exe); err != nil {
 		return "", err
 	}
@@ -203,7 +203,7 @@ func updatePermissionError(exe string) error {
 	if runtime.GOOS == "windows" {
 		return fmt.Errorf("droits insuffisants pour remplacer %s — relance AJEAN en administrateur puis réessaie", exe)
 	}
-	return fmt.Errorf("droits insuffisants pour remplacer %s (le binaire appartient à root) — lance la mise à jour en ligne de commande : sudo jean update", exe)
+	return fmt.Errorf("droits insuffisants pour remplacer %s (le binaire appartient à root) — lance la mise à jour en ligne de commande : sudo ajean update", exe)
 }
 
 // checkUpdateWritable vérifie qu'on peut écrire dans le dossier du binaire, en
@@ -243,7 +243,7 @@ func cmdUpdate(args []string) error {
 	fmt.Printf("nouvelle version disponible : %s  (actuelle : %s)\n", info.Latest, Version)
 	fmt.Printf("  %s\n", info.URL)
 	if checkOnly {
-		fmt.Println("lance 'jean update' pour l'installer.")
+		fmt.Println("lance 'ajean update' pour l'installer.")
 		return nil
 	}
 	fmt.Printf("téléchargement de %s…\n", updateAssetName())

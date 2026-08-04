@@ -12,7 +12,7 @@ import (
 // binaryVersion pilote la mise à jour automatique du binaire installé quand on
 // lance le fichier téléchargé : si elle renvoie du vide, plus aucune mise à jour
 // n'a lieu, et en silence. C'est exactement ce qui arrivait avec la première
-// implémentation (exécuter `jean version`, dont la sortie est vide pour un
+// implémentation (exécuter `ajean version`, dont la sortie est vide pour un
 // binaire en sous-système GUI). D'où ces tests sur la plomberie syscall.
 func TestBinaryVersionReadsResource(t *testing.T) {
 	// kernel32.dll porte toujours une ressource de version.
