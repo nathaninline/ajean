@@ -97,14 +97,15 @@ func cmdInstall(args []string) error {
 	return nil
 }
 
-// installSelf copies the currently running executable into binDir as jean.exe
+// installSelf copies the currently running executable into binDir as ajean.exe
 // and returns the destination path. If the running exe already lives there
-// (re-install), it's a no-op.
+// (re-install), it's a no-op. Une copie « jean.exe » est posée à côté pour que
+// l'ancienne commande reste tapable (voir installLegacyAlias).
 //
 // binDir est créé ici, et pas seulement par l'appelant : sur une machine vierge,
 // le premier lancement passait par appFirstRun, qui ne créait que le dossier de
 // données et pas son sous-dossier bin. L'utilisateur recevait alors « open
-// C:\ProgramData\jean\bin\jean.exe: The system cannot find the path specified »
+// C:\ProgramData\ajean\bin\ajean.exe: The system cannot find the path specified »
 // et AJEAN démarrait depuis le fichier téléchargé, sans jamais s'installer.
 func installSelf(binDir string) (string, error) {
 	src, err := os.Executable()
@@ -112,32 +113,54 @@ func installSelf(binDir string) (string, error) {
 		return "", err
 	}
 	src, _ = filepath.EvalSymlinks(src)
-	dst := filepath.Join(binDir, "jean.exe")
+	dst := filepath.Join(binDir, "ajean.exe")
 	if strings.EqualFold(src, dst) {
+		installLegacyAlias(binDir, src)
 		return dst, nil
 	}
 	if err := os.MkdirAll(binDir, 0o755); err != nil {
 		return "", err
 	}
-	in, err := os.Open(src)
-	if err != nil {
+	if err := copyExe(src, dst); err != nil {
 		return "", err
 	}
+	installLegacyAlias(binDir, dst)
+	return dst, nil
+}
+
+// installLegacyAlias pose une copie « jean.exe » à côté de « ajean.exe ».
+//
+// Une copie et pas un lien : créer un lien symbolique sous Windows demande des
+// droits particuliers qu'on n'a pas toujours, et un binaire de quelques dizaines
+// de Mo dupliqué est un prix dérisoire pour ne casser ni les raccourcis du menu
+// Démarrer, ni les tâches planifiées, ni les scripts que les utilisateurs ont
+// écrits eux-mêmes. Best-effort : un échec ne compromet pas l'installation,
+// « ajean » reste disponible.
+func installLegacyAlias(binDir, src string) {
+	alias := filepath.Join(binDir, "jean.exe")
+	if strings.EqualFold(src, alias) {
+		return
+	}
+	// Échoue si un « jean.exe » est en cours d'exécution — sans gravité, il s'agit
+	// alors déjà d'une version d'AJEAN, et la copie repassera au prochain lancement.
+	_ = copyExe(src, alias)
+}
+
+func copyExe(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
 	defer in.Close()
-	// Can't overwrite a running exe, but jean.exe in binDir isn't the one we're
-	// running (src != dst here), so a plain create is fine.
 	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o755)
 	if err != nil {
-		return "", err
+		return err
 	}
 	if _, err := io.Copy(out, in); err != nil {
 		out.Close()
-		return "", err
+		return err
 	}
-	if err := out.Close(); err != nil {
-		return "", err
-	}
-	return dst, nil
+	return out.Close()
 }
 
 // addToUserPath appends dir to the per-user PATH (HKCU\Environment) persistently,

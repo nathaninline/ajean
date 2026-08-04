@@ -93,8 +93,16 @@ func relayURL() string {
 	return defaultRelayURL
 }
 
-// linkServiceName est l'unité systemd qui exécute le worker « jean link --foreground ».
-const linkServiceName = "jean-link"
+// linkUnitName / legacyLinkUnitName : l'unité systemd qui exécute le worker
+// « ajean link --foreground », et son nom d'avant le renommage.
+const (
+	linkUnitName       = "ajean-link"
+	legacyLinkUnitName = "jean-link"
+)
+
+// linkServiceName renvoie l'unité de lien réellement installée sur la machine
+// (voir sys_unitname.go : un serveur mis à jour tourne encore sous jean-link).
+func linkServiceName() string { return resolveUnitName(linkUnitName, legacyLinkUnitName) }
 
 func cmdLink(args []string) error {
 	sub := ""
@@ -121,9 +129,9 @@ func cmdLink(args []string) error {
 		}
 		fmt.Printf("%s token enregistré (%s…), relais: %s\n", green("[ok]"), tok[:min(8, len(tok))], relayURL())
 		if linkServiceActive() {
-			fmt.Printf("%s service %s: actif\n", green("[ok]"), linkServiceName)
+			fmt.Printf("%s service %s: actif\n", green("[ok]"), linkServiceName())
 		} else {
-			fmt.Printf("%s service %s: arrêté (jean link pour démarrer)\n", yellow("[info]"), linkServiceName)
+			fmt.Printf("%s service %s: arrêté (jean link pour démarrer)\n", yellow("[info]"), linkServiceName())
 		}
 		return nil
 	case "logout":
@@ -174,7 +182,7 @@ func startLink(force bool) error {
 			return err
 		}
 	case linkServiceActive():
-		fmt.Printf("%s service %s déjà en cours — « jean link restart » pour le relancer\n", yellow("[info]"), linkServiceName)
+		fmt.Printf("%s service %s déjà en cours — « jean link restart » pour le relancer\n", yellow("[info]"), linkServiceName())
 	default:
 		if err := linkServiceCtl("start"); err != nil {
 			return err
@@ -375,8 +383,29 @@ func serveLocalWebMux(mux *http.ServeMux) {
 
 // linkPIDPath / linkLogPath : suivi du worker de lien hors systemd (macOS,
 // Windows), où Jean est une app de bureau lancée sans droits root.
-func linkPIDPath() string { return filepath.Join(AjeanHome(), linkServiceName+".pid") }
-func linkLogPath() string { return filepath.Join(AjeanHome(), linkServiceName+".log") }
+func linkPIDPath() string { return adoptLegacyLinkFile(".pid") }
+func linkLogPath() string { return adoptLegacyLinkFile(".log") }
+
+// adoptLegacyLinkFile renvoie le chemin « ajean-link<ext> » en reprenant au
+// passage le « jean-link<ext> » laissé par une version antérieure.
+//
+// Reprendre le fichier PID n'est pas cosmétique : c'est LUI qui dit si un worker
+// tourne déjà. Sans cette reprise, la première version renommée ne verrait plus
+// le worker en cours, en démarrerait un second, et la machine se retrouverait
+// avec deux tunnels concurrents vers le relais. Idempotent, silencieux en cas
+// d'échec (on retombe simplement sur le nouveau nom).
+func adoptLegacyLinkFile(ext string) string {
+	newPath := filepath.Join(AjeanHome(), linkUnitName+ext)
+	if _, err := os.Stat(newPath); err == nil {
+		return newPath
+	}
+	legacy := filepath.Join(AjeanHome(), legacyLinkUnitName+ext)
+	if _, err := os.Stat(legacy); err != nil {
+		return newPath
+	}
+	_ = os.Rename(legacy, newPath)
+	return newPath
+}
 
 // linkServiceCtl pilote le worker de lien (start/stop/restart). Sous Linux c'est
 // l'unité systemd jean-link (avec sudo non interactif si on n'est pas root) ;
@@ -411,16 +440,16 @@ func linkServiceCtl(action string) error {
 	if os.Geteuid() != 0 {
 		bin, pre = "sudo", []string{"-n", "systemctl"}
 	}
-	cmd := exec.Command(bin, append(pre, action, linkServiceName)...)
+	cmd := exec.Command(bin, append(pre, action, linkServiceName())...)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("systemctl %s %s: %w", action, linkServiceName, err)
+		return fmt.Errorf("systemctl %s %s: %w", action, linkServiceName(), err)
 	}
 	switch action {
 	case "start", "restart":
-		fmt.Printf("%s service %s %s\n", green("[ok]"), linkServiceName, action+"é")
+		fmt.Printf("%s service %s %s\n", green("[ok]"), linkServiceName(), action+"é")
 	case "stop":
-		fmt.Printf("%s service %s arrêté\n", green("[ok]"), linkServiceName)
+		fmt.Printf("%s service %s arrêté\n", green("[ok]"), linkServiceName())
 	}
 	return nil
 }
@@ -434,7 +463,7 @@ func linkServiceActive() bool {
 		}
 		return linkUserPID() > 0
 	}
-	out, _ := exec.Command("systemctl", "is-active", linkServiceName).Output()
+	out, _ := exec.Command("systemctl", "is-active", linkServiceName()).Output()
 	return strings.TrimSpace(string(out)) == "active"
 }
 
@@ -467,12 +496,12 @@ func linkUserSvcCtl(action string) error {
 		}
 		_ = os.Remove(linkPIDPath())
 		if action == "stop" {
-			fmt.Printf("%s service %s arrêté\n", green("[ok]"), linkServiceName)
+			fmt.Printf("%s service %s arrêté\n", green("[ok]"), linkServiceName())
 			return nil
 		}
 	case "start":
 		if linkUserPID() > 0 {
-			fmt.Printf("%s service %s déjà en cours\n", yellow("[info]"), linkServiceName)
+			fmt.Printf("%s service %s déjà en cours\n", yellow("[info]"), linkServiceName())
 			return nil
 		}
 	default:
@@ -516,7 +545,7 @@ func linkUserSvcCtl(action string) error {
 		_ = os.Remove(linkPIDPath())
 		return fmt.Errorf("le lien s'est arrêté aussitôt — voir %s", linkLogPath())
 	}
-	fmt.Printf("%s service %s démarré (PID %d)\n", green("[ok]"), linkServiceName, pid)
+	fmt.Printf("%s service %s démarré (PID %d)\n", green("[ok]"), linkServiceName(), pid)
 	return nil
 }
 

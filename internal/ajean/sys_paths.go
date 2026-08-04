@@ -26,14 +26,22 @@ type ajeanPaths struct {
 }
 
 // installedExePath est l'emplacement canonique du binaire après installation.
-// Il diffère par plateforme : sous Unix les installateurs posent /usr/local/bin/jean
+// Il diffère par plateforme : sous Unix les installateurs posent /usr/local/bin/ajean
 // (c'est ce que référencent les unités systemd et le plist launchd) ; sous Windows,
-// faute d'équivalent, on utilise JEAN_HOME\bin ajouté au PATH utilisateur.
-func installedExePath() string {
+// faute d'équivalent, on utilise AJEAN_HOME\bin ajouté au PATH utilisateur.
+func installedExePath() string { return exePathNamed("ajean") }
+
+// legacyExePath est l'emplacement d'avant le renommage. L'installation continue
+// d'y poser un alias : `jean` reste tapable indéfiniment. Ça ne coûte qu'un lien
+// et ça préserve les habitudes, les scripts cron, les alias shell et les tutos
+// déjà écrits par les utilisateurs — dont on ne contrôle aucun.
+func legacyExePath() string { return exePathNamed("jean") }
+
+func exePathNamed(name string) string {
 	if runtime.GOOS == "windows" {
-		return filepath.Join(AjeanHome(), "bin", "jean.exe")
+		return filepath.Join(AjeanHome(), "bin", name+".exe")
 	}
-	return "/usr/local/bin/jean"
+	return "/usr/local/bin/" + name
 }
 
 func currentPaths() ajeanPaths {

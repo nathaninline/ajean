@@ -29,11 +29,11 @@ jobs:
           mkdir -p dist
           # arm64 = natif ; amd64 = cross avec le SDK universel (-arch x86_64).
           CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
-            go build -trimpath -ldflags="-s -w" -o dist/jean-darwin-arm64 ./cmd/jean
+            go build -trimpath -ldflags="-s -w" -o dist/ajean-darwin-arm64 ./cmd/ajean
           CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
             CGO_CFLAGS="-arch x86_64" CGO_LDFLAGS="-arch x86_64" \
-            go build -trimpath -ldflags="-s -w" -o dist/jean-darwin-amd64 ./cmd/jean
-          file dist/jean-darwin-*
+            go build -trimpath -ldflags="-s -w" -o dist/ajean-darwin-amd64 ./cmd/ajean
+          file dist/ajean-darwin-*
       - name: bundles Jean.app
         run: |
           # Un binaire nu double-cliqué ouvrirait le Terminal. On publie donc
@@ -43,29 +43,29 @@ jobs:
           # la barre de menus), comme le double-clic sur jean.exe sous Windows.
           # LSUIElement : app de barre de menus, aucune icône dans le Dock.
           # L'icône part du PNG 1024 généré avec le reste de la marque
-          # (cmd/jean/icon.png, voir tools/gen-icon) : plus de conversion depuis
+          # (cmd/ajean/icon.png, voir tools/gen-icon) : plus de conversion depuis
           # le .ico, dont l'échec silencieux donnait une app sans icône.
           mkdir -p /tmp/jean.iconset
           for s in 16 32 128 256 512; do
-            sips -z $s $s 'cmd/jean/icon.png' --out "/tmp/jean.iconset/icon_${s}x${s}.png" >/dev/null
+            sips -z $s $s 'cmd/ajean/icon.png' --out "/tmp/jean.iconset/icon_${s}x${s}.png" >/dev/null
           done
           iconutil -c icns /tmp/jean.iconset -o /tmp/jean.icns
           v="${GITHUB_REF_NAME#v}"
           for arch in amd64 arm64; do
-            app="dist/mac-$arch/Jean.app"
+            app="dist/mac-$arch/AJEAN.app"
             mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-            cp "dist/jean-darwin-$arch" "$app/Contents/MacOS/jean"
-            chmod +x "$app/Contents/MacOS/jean"
-            cp /tmp/jean.icns "$app/Contents/Resources/jean.icns" 2>/dev/null || true
+            cp "dist/ajean-darwin-$arch" "$app/Contents/MacOS/ajean"
+            chmod +x "$app/Contents/MacOS/ajean"
+            cp /tmp/jean.icns "$app/Contents/Resources/ajean.icns" 2>/dev/null || true
             printf '%s\n' \
               '<?xml version="1.0" encoding="UTF-8"?>' \
               '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
               '<plist version="1.0"><dict>' \
-              '<key>CFBundleName</key><string>Jean</string>' \
-              '<key>CFBundleDisplayName</key><string>Jean</string>' \
-              '<key>CFBundleExecutable</key><string>jean</string>' \
-              '<key>CFBundleIdentifier</key><string>link.ajean.jean</string>' \
-              '<key>CFBundleIconFile</key><string>jean</string>' \
+              '<key>CFBundleName</key><string>AJEAN</string>' \
+              '<key>CFBundleDisplayName</key><string>AJEAN</string>' \
+              '<key>CFBundleExecutable</key><string>ajean</string>' \
+              '<key>CFBundleIdentifier</key><string>link.ajean.app</string>' \
+              '<key>CFBundleIconFile</key><string>ajean</string>' \
               '<key>CFBundlePackageType</key><string>APPL</string>' \
               "<key>CFBundleShortVersionString</key><string>$v</string>" \
               "<key>CFBundleVersion</key><string>$v</string>" \
@@ -76,7 +76,11 @@ jobs:
             # Signature ad-hoc : sans elle, macOS refuse purement et simplement
             # de lancer un binaire arm64 non signé (pas juste un avertissement).
             codesign --force --deep -s - "$app" || true
-            (cd "dist/mac-$arch" && zip -qry "../Jean-macos-$arch.zip" Jean.app)
+            (cd "dist/mac-$arch" && zip -qry "../AJEAN-macos-$arch.zip" AJEAN.app)
+            # Nom hérité conservé : les liens de téléchargement déjà publiés
+            # (site, mails, messages) pointent dessus et doivent continuer de
+            # fonctionner. Même contenu, deux noms.
+            cp "dist/AJEAN-macos-$arch.zip" "dist/Jean-macos-$arch.zip"
             rm -rf "dist/mac-$arch"
           done
           ls -l dist
@@ -102,16 +106,28 @@ jobs:
             # (l'app se rattache à la console du terminal parent si lancée en CLI).
             [ "$os" = windows ] && { ext=".exe"; ldflags="$ldflags -H=windowsgui"; }
             GOOS=$os GOARCH=$arch CGO_ENABLED=0 \
-              go build -trimpath -ldflags="$ldflags" -o "dist/jean-$os-$arch$ext" ./cmd/jean
+              go build -trimpath -ldflags="$ldflags" -o "dist/ajean-$os-$arch$ext" ./cmd/ajean
           done
       - uses: actions/download-artifact@v4
         with:
           name: macos
           path: dist
+      - name: assets hérités jean-* (transition)
+        run: |
+          # Le parc déjà installé ne sait chercher QUE « jean-<os>-<arch> » : sans
+          # ces copies, aucun des utilisateurs actuels ne pourrait se mettre à
+          # jour — pas même vers la version qui apprend à lire « ajean-* ».
+          # Après cette étape SEULEMENT, donc une fois les binaires macOS
+          # récupérés, les deux jeux de noms sont complets.
+          # À supprimer quand le parc aura basculé (quelques versions).
+          for f in dist/ajean-*; do
+            cp "$f" "dist/jean-${f#dist/ajean-}"
+          done
+          ls -l dist
       - name: SHA256SUMS
         run: |
-          chmod +x dist/jean-darwin-*
-          (cd dist && sha256sum jean-* Jean-macos-*.zip > SHA256SUMS)
+          chmod +x dist/ajean-darwin-* dist/jean-darwin-*
+          (cd dist && sha256sum ajean-* jean-* *.zip > SHA256SUMS)
           ls -l dist && cat dist/SHA256SUMS
       - name: publier la release
         uses: softprops/action-gh-release@v2

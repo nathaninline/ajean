@@ -1,4 +1,4 @@
-# Build macOS à la demande, SANS rien publier : produit Jean.app en artifact
+# Build macOS à la demande, SANS rien publier : produit AJEAN.app en artifact
 # téléchargeable depuis l'onglet Actions (visible seulement par le dépôt).
 # Sert à tester le bundle avant de décider d'une vraie release (release.yml).
 name: mac-build
@@ -13,38 +13,38 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: build + bundle Jean.app (arm64)
+      - name: build + bundle AJEAN.app (arm64)
         run: |
           mkdir -p dist
           CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
-            go build -trimpath -ldflags="-s -w" -o dist/jean-darwin-arm64 ./cmd/jean
+            go build -trimpath -ldflags="-s -w" -o dist/ajean-darwin-arm64 ./cmd/ajean
           mkdir -p /tmp/jean.iconset
           sips -s format png 'cmd/jean/icon.ico' --out /tmp/icon.png >/dev/null 2>&1 || true
           for s in 16 32 128 256 512; do
             sips -z $s $s /tmp/icon.png --out "/tmp/jean.iconset/icon_${s}x${s}.png" >/dev/null 2>&1 || true
           done
           iconutil -c icns /tmp/jean.iconset -o /tmp/jean.icns >/dev/null 2>&1 || true
-          app="dist/Jean.app"
+          app="dist/AJEAN.app"
           mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-          cp dist/jean-darwin-arm64 "$app/Contents/MacOS/jean"
-          chmod +x "$app/Contents/MacOS/jean"
+          cp dist/ajean-darwin-arm64 "$app/Contents/MacOS/ajean"
+          chmod +x "$app/Contents/MacOS/ajean"
           cp /tmp/jean.icns "$app/Contents/Resources/jean.icns" 2>/dev/null || true
           printf '%s\n' \
             '<?xml version="1.0" encoding="UTF-8"?>' \
             '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
             '<plist version="1.0"><dict>' \
-            '<key>CFBundleName</key><string>Jean</string>' \
-            '<key>CFBundleDisplayName</key><string>Jean</string>' \
-            '<key>CFBundleExecutable</key><string>jean</string>' \
-            '<key>CFBundleIdentifier</key><string>link.ajean.jean</string>' \
-            '<key>CFBundleIconFile</key><string>jean</string>' \
+            '<key>CFBundleName</key><string>AJEAN</string>' \
+            '<key>CFBundleDisplayName</key><string>AJEAN</string>' \
+            '<key>CFBundleExecutable</key><string>ajean</string>' \
+            '<key>CFBundleIdentifier</key><string>link.ajean.app</string>' \
+            '<key>CFBundleIconFile</key><string>ajean</string>' \
             '<key>CFBundlePackageType</key><string>APPL</string>' \
             '<key>LSMinimumSystemVersion</key><string>11.0</string>' \
             '<key>LSUIElement</key><true/>' \
             '<key>NSHighResolutionCapable</key><true/>' \
             '</dict></plist>' > "$app/Contents/Info.plist"
           codesign --force --deep -s - "$app" || true
-          (cd dist && zip -qry Jean-macos-arm64.zip Jean.app && rm -rf Jean.app)
+          (cd dist && zip -qry AJEAN-macos-arm64.zip AJEAN.app && rm -rf AJEAN.app)
           ls -l dist
       - uses: actions/upload-artifact@v4
         with:

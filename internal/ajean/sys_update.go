@@ -420,9 +420,9 @@ func restartAfterUpdate() (bool, string) {
 		time.Sleep(1500 * time.Millisecond) // laisser la réponse HTTP atteindre le client
 		// --no-block : on enregistre le job puis on rend la main ; systemd exécute le
 		// stop/start même si ce process (et le client systemctl) sont tués entre-temps.
-		_ = exec.Command("systemctl", "--no-block", "restart", linkServiceName).Run()
+		_ = exec.Command("systemctl", "--no-block", "restart", linkServiceName()).Run()
 	}()
-	return true, "Service " + linkServiceName + " redémarré automatiquement — la page va se reconnecter seule (le modèle n'est pas rechargé)."
+	return true, "Service " + linkServiceName() + " redémarré automatiquement — la page va se reconnecter seule (le modèle n'est pas rechargé)."
 }
 
 func restartHintText() string {

@@ -18,8 +18,25 @@ import (
 // le support macOS était absent (le code systemd/Linux était utilisé par erreur,
 // cf. issue #4). Implémentation prudente basée sur launchctl load/unload/list.
 
-// launchdLabel dérive le label launchd du service (ex. "com.jean.jean").
-func launchdLabel(svc string) string { return "com.jean." + svc }
+// launchdLabel dérive le label launchd du service (ex. "com.ajean.ajean"), en
+// conservant le préfixe hérité « com.jean. » tant que c'est LUI qui est
+// réellement installé : le plist d'un daemon déjà chargé ne se renomme pas tout
+// seul, et viser le mauvais label reviendrait à ne plus voir le service.
+func launchdLabel(svc string) string {
+	modern := "com.ajean." + svc
+	if _, err := os.Stat("/Library/LaunchDaemons/" + modern + ".plist"); err == nil {
+		return modern
+	}
+	if legacy := "com.jean." + svc; fileExists("/Library/LaunchDaemons/" + legacy + ".plist") {
+		return legacy
+	}
+	return modern
+}
+
+func fileExists(p string) bool {
+	_, err := os.Stat(p)
+	return err == nil
+}
 
 // launchdPlistPath : chemin du LaunchDaemon (domaine système, exécuté par root
 // puis abaissé à l'utilisateur cible via la clé UserName du plist).

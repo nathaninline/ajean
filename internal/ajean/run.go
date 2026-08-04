@@ -234,12 +234,24 @@ func legacySkillsFlag() string { return filepath.Join(skillsDir(), ".enabled") }
 func legacyToolsFlag() string  { return filepath.Join(AjeanHome(), ".tools_enabled") }
 func apiKeyPath() string       { return filepath.Join(AjeanHome(), ".api_key") }
 func crawlKeyPath() string     { return filepath.Join(AjeanHome(), ".crawl4ai_key") }
+// serviceName est le nom de l'unité qui exécute llama-server. AJEAN_SERVICE et
+// JEAN_SERVICE sont tous deux honorés : le second est posé à la main sur des
+// machines qu'on ne voit pas, le renommage ne doit pas les casser.
 func serviceName() string {
+	if n := os.Getenv("AJEAN_SERVICE"); n != "" {
+		return n
+	}
 	if n := os.Getenv("JEAN_SERVICE"); n != "" {
 		return n
 	}
-	return "jean"
+	// Pas de nom imposé : on prend l'unité réellement installée. Un serveur
+	// simplement mis à jour tourne encore sous « jean.service » — voir
+	// sys_unitname.go.
+	return resolveUnitName("ajean", legacyServiceName())
 }
+
+// legacyServiceName est le nom d'avant le renommage.
+func legacyServiceName() string { return "jean" }
 
 // Color helpers (ANSI). Disabled when stdout is not a TTY.
 var colorOn = isTerminal()
