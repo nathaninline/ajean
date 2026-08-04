@@ -1,26 +1,17 @@
 ## Correction
 
-**L'installation échouait sur un ordinateur vierge.** Au tout premier lancement du fichier téléchargé, sur une machine où AJEAN n'avait jamais été installé, la fenêtre d'installation s'affichait, puis répondait :
+**Refuser l'installation une fois la rendait impossible pour toujours.** Au premier lancement, AJEAN demande s'il doit s'installer sur l'ordinateur. Répondre Non était retenu définitivement : la question ne revenait plus jamais, même en fermant l'application et en relançant le fichier téléchargé. Il ne restait aucun moyen d'installer AJEAN depuis l'application.
 
-```
-Installation impossible :
-open C:\ProgramData\jean\bin\jean.exe: The system cannot find the path specified
-```
+Ce refus avait été mémorisé pour éviter de reposer la question à chaque lancement. Le remède était pire que le mal. Un Non veut dire « pas maintenant », jamais « plus jamais » : la question revient désormais au prochain lancement du fichier, comme le fait n'importe quel installeur, et la fenêtre le dit explicitement.
 
-AJEAN démarrait alors depuis le fichier téléchargé, sans s'être installé : aucun raccourci, aucun programme dans le menu Démarrer, et le fichier téléchargé restait le seul moyen de le lancer.
-
-La cause : le premier lancement créait bien le dossier de réglages, mais pas le sous-dossier destiné à recevoir le programme. Il n'était créé que par l'installation en ligne de commande. Le dossier est désormais créé au moment d'écrire le programme, quel que soit le chemin emprunté.
-
-Ce cas échappait aux essais des versions précédentes, qui partaient toujours d'une installation déjà en place. Le parcours complet sur une machine vierge est maintenant vérifié, fenêtre après fenêtre, jusqu'au démarrage de l'application et à la présence des raccourcis.
+Si vous étiez bloqué dans cet état, il n'y a rien à réparer : téléchargez `jean-windows-amd64.exe` depuis cette page et lancez-le, l'installation vous sera de nouveau proposée.
 
 ## Mise à jour
-
-Si vous êtes dans ce cas, rien n'est à réparer : téléchargez `jean-windows-amd64.exe` depuis cette page et lancez-le, l'installation se fera cette fois.
-
-Pour une installation déjà en place :
 
 ```
 jean update
 ```
+
+Sous Windows, télécharger le fichier depuis la page des releases et le lancer fait le même travail.
 
 L'icône de la barre de menus macOS, introduite en 0.6.10, n'a toujours pas été vérifiée sur une vraie machine.

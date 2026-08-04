@@ -29,10 +29,11 @@ import (
 //
 // Maintenant, deux cas seulement :
 //
-//  1. AJEAN n'est pas installé. On DEMANDE, une bonne fois : c'est le seul moment
-//     où l'utilisateur gagne à savoir ce qu'on pose sur sa machine et où. Puis
-//     copie + PATH + raccourcis, et on démarre depuis la copie installée. Un refus
-//     est mémorisé, on ne repose pas la question.
+//  1. AJEAN n'est pas installé. On DEMANDE : c'est le seul moment où
+//     l'utilisateur gagne à savoir ce qu'on pose sur sa machine et où. Puis
+//     copie + PATH + raccourcis, et on démarre depuis la copie installée. Un
+//     refus vaut « pas maintenant » et la question revient au prochain lancement
+//     du fichier : mémorisé, il ne laissait AUCUN moyen d'installer AJEAN.
 //
 //  2. AJEAN est déjà installé. Le fichier téléchargé se comporte en installeur de
 //     mise à jour, avec trois situations bien distinctes (voir runAsInstaller) :
@@ -102,20 +103,21 @@ func appFirstRun() bool {
 	// Première installation : là, une question. C'est le seul moment où
 	// l'utilisateur a intérêt à savoir ce qui va être posé sur sa machine, et
 	// c'est l'absence de cette question qui rendait le double-clic illisible.
-	if declinedInstall() {
-		return false
-	}
+	//
+	// Un refus n'est PAS mémorisé. Il l'a été en 0.6.11 pour éviter de reposer la
+	// question à chaque lancement, mais il devenait alors définitif : plus aucun
+	// moyen d'installer AJEAN, même en relançant le fichier téléchargé. Un « non »
+	// veut dire « pas maintenant », jamais « plus jamais » : c'est le comportement
+	// de n'importe quel installeur, qui repropose tant qu'on le relance.
 	if messageBox(
 		"Installer AJEAN sur cet ordinateur ?\n\n"+
 			"• le programme sera copié dans :\n   "+target+"\n"+
 			"• un raccourci sera ajouté au menu Démarrer et au Bureau\n"+
 			"• vos réglages et modèles seront rangés dans :\n   "+JeanHome()+"\n\n"+
 			"Vous pourrez ensuite supprimer le fichier que vous venez de télécharger.\n\n"+
-			"Répondre Non lance AJEAN sans rien installer.",
+			"Répondre Non démarre AJEAN sans rien installer. La question reviendra\n"+
+			"au prochain lancement de ce fichier.",
 		"Installation d'AJEAN", mbYesNo|mbIconQuestion) != idYes {
-		// Refus mémorisé : reposer la question à chaque double-clic serait
-		// ignorer la réponse déjà donnée.
-		_ = os.WriteFile(declineFlag(), []byte("non\n"), 0o644)
 		return false
 	}
 
@@ -131,13 +133,6 @@ func appFirstRun() bool {
 		"AJEAN", mbIconInfo)
 
 	return launch(target)
-}
-
-func declineFlag() string { return filepath.Join(JeanHome(), ".install_declined") }
-
-func declinedInstall() bool {
-	_, err := os.Stat(declineFlag())
-	return err == nil
 }
 
 // launch démarre la copie installée et demande à l'appelant de rendre la main.
