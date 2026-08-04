@@ -1,10 +1,14 @@
-## Le renommage du dossier se termine tout seul sous Windows
+## Le renommage du dossier se fait maintenant à la mise à jour
 
-Jusqu'ici, sur un ordinateur où vous n'êtes pas administrateur, `C:\ProgramData\jean` ne pouvait pas devenir `C:\ProgramData\ajean` : renommer ce dossier demande un droit qu'un compte standard n'a pas. Le renommage restait donc à moitié fait, indéfiniment.
+Les versions 0.7.1 à 0.7.3 n'y parvenaient pas sur les postes Windows sans droits administrateur : le code prévu pour demander l'autorisation n'était jamais atteint. Il ne se déclenchait qu'en relançant l'installation ou en retéléchargeant le programme — deux gestes que personne ne fait pour une mise à jour.
 
-L'installation demande désormais l'autorisation Windows nécessaire, le temps du renommage, puis rend la main. La fenêtre apparaît au moment où vous installez ou mettez à jour AJEAN — jamais au démarrage ordinaire, et jamais si elle ne sert à rien : ni quand le dossier porte déjà le bon nom, ni quand vous avez choisi vous-même son emplacement.
+`ajean update`, et le bouton de mise à jour de l'interface, s'en chargent désormais. L'autorisation Windows est demandée à ce moment-là, une fois, et le dossier `C:\ProgramData\jean` devient `C:\ProgramData\ajean`.
 
-Refuser cette autorisation est une réponse valable. AJEAN continue alors d'utiliser son dossier actuel, exactement comme avant. Rien n'est perdu, rien n'est bloqué, et la question reviendra à la prochaine installation.
+Le raccourci du menu Démarrer et la commande `ajean` sont repointés dans la foulée. Le programme installé vit à l'intérieur du dossier de données : sans cette étape, le déplacement aurait laissé un raccourci mort et une commande introuvable.
+
+Refuser l'autorisation reste sans conséquence : AJEAN continue sur son dossier actuel, et la question reviendra à la prochaine mise à jour.
+
+Si vous êtes déjà sur la dernière version et toujours sur l'ancien dossier, la migration se fera à la mise à jour suivante.
 
 ## Mise à jour
 

@@ -251,7 +251,11 @@ func cmdUpdate(args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("✓ jean mis à jour en %s\n", newVer)
+	fmt.Printf("✓ ajean mis à jour en %s\n", newVer)
+	// Sous Windows, c'est ICI qu'on peut enfin migrer le dossier : `update` est
+	// le geste délibéré de l'utilisateur, et c'est le seul que la plupart
+	// feront. No-op ailleurs (Unix migre dans restartAfterUpdate, déjà en root).
+	postUpdateMigrate()
 	printRestartHint()
 	return nil
 }
@@ -401,6 +405,7 @@ func handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
+	postUpdateMigrate()
 	restarting, msg := restartAfterUpdate()
 	if !restarting {
 		msg = restartHintText()

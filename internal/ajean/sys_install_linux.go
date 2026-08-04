@@ -9,7 +9,6 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
-	"sync"
 )
 
 const configTemplate = `# Configuration JEAN — édite-moi puis: ajean restart
@@ -83,7 +82,7 @@ func cmdInstall(args []string) error {
 	if err := migrateLayout(defaultLayoutPlan()); err != nil {
 		return err
 	}
-	homeOnce, homePath = sync.Once{}, "" // le dossier a pu changer à l'instant
+	resetResolvedHome() // le dossier a pu changer à l'instant
 
 	ajeanHome := defaultAjeanHome()
 	if v := os.Getenv("JEAN_HOME"); v != "" {

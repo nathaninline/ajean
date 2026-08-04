@@ -33,8 +33,13 @@ import (
 //  3. Aucune suppression, jamais. Le pire cas est « rien n'a bougé ».
 
 var (
-	homeOnce sync.Once
-	homePath string
+	// homeMu protège la résolution du dossier. Un simple sync.Once ne suffisait
+	// pas : retryHomeMigration le RÉINITIALISE, et il est appelé depuis le
+	// handler HTTP de mise à jour pendant que le serveur sert d'autres requêtes.
+	// Réécrire ces variables sans verrou était une course de données.
+	homeMu       sync.RWMutex
+	homeResolved bool
+	homePath     string
 
 	// migrationDeferred retient pourquoi le dossier n'a pas pu être renommé,
 	// pour que seules les commandes qui parlent d'emplacements en fassent état.
@@ -76,7 +81,19 @@ func renameCause(err error) string {
 // N'est PAS appelé quand $AJEAN_HOME/$JEAN_HOME ou /etc/default/* imposent un
 // chemin : un choix explicite de l'utilisateur ne se migre pas.
 func migratedDefaultHome() string {
-	homeOnce.Do(func() { homePath = resolveDefaultHome() })
+	homeMu.RLock()
+	if homeResolved {
+		p := homePath
+		homeMu.RUnlock()
+		return p
+	}
+	homeMu.RUnlock()
+
+	homeMu.Lock()
+	defer homeMu.Unlock()
+	if !homeResolved { // un autre appelant a pu résoudre entre les deux verrous
+		homePath, homeResolved = resolveDefaultHome(), true
+	}
 	return homePath
 }
 
@@ -93,14 +110,17 @@ func resolveDefaultHome() string {
 // resterait sur l'ancien chemin. L'installateur, lui, a une fenêtre où tout est
 // arrêté : c'est là qu'on retente.
 //
-// À N'APPELER QUE dans cette fenêtre, et avant que quoi que ce soit d'autre
-// n'ait ouvert de fichier de données : réinitialiser le cache n'est ni atomique
-// ni sûr vis-à-vis des goroutines, et surtout les chemins déjà calculés par
-// l'appelant deviennent obsolètes (voir migrateThenResolveTarget).
+// L'accès au cache est protégé par homeMu, mais cela ne rend pas l'appel anodin
+// pour autant : les chemins DÉJÀ CALCULÉS par l'appelant deviennent obsolètes
+// dès que la migration aboutit (voir migrateThenResolveTarget et
+// relinkAfterMigration, qui reconstruisent ce qui en dépend).
 func retryHomeMigration() bool {
-	before := migratedDefaultHome()
-	homeOnce = sync.Once{}
-	homePath = ""
+	before := migratedDefaultHome() // force la résolution si elle n'a pas eu lieu
+
+	homeMu.Lock()
+	homeResolved = false
+	homeMu.Unlock()
+
 	return migratedDefaultHome() != before
 }
 
@@ -242,4 +262,13 @@ func adoptLegacyStateFiles(home string) {
 		}
 		_ = os.Rename(from, to)
 	}
+}
+
+// resetResolvedHome oublie le dossier résolu, pour que le prochain appel reparte
+// du disque. Utilisé par `install` juste après avoir migré l'agencement : sans
+// ça, la suite de l'installation continuerait de viser l'ancien emplacement.
+func resetResolvedHome() {
+	homeMu.Lock()
+	homeResolved = false
+	homeMu.Unlock()
 }
