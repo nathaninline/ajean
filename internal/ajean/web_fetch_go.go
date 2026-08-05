@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"strings"
 	"time"
@@ -88,16 +89,46 @@ const (
 	goFetchMaxBytes = 8 << 20 // 8 Mo : au-delà ce n'est plus une page à lire
 )
 
-// goHTTPClient : client dédié au moteur web. Timeout global et plafond de
-// redirections. On ne touche pas à http.DefaultClient (utilisé ailleurs).
+// goHTTPClient : client dédié au moteur web. Timeout global, plafond de
+// redirections, et un cookie jar — indispensable pour les sites qui posent un
+// cookie de session puis redirigent (murs de consentement typiques). Le jar est
+// en mémoire : il disparaît à l'arrêt du process, on ne persiste rien.
+// On ne touche pas à http.DefaultClient (utilisé ailleurs).
 var goHTTPClient = &http.Client{
 	Timeout: goFetchTimeout,
+	Jar:     newCookieJar(),
 	CheckRedirect: func(req *http.Request, via []*http.Request) error {
 		if len(via) >= 10 {
 			return fmt.Errorf("trop de redirections")
 		}
 		return nil
 	},
+}
+
+func newCookieJar() http.CookieJar {
+	j, err := cookiejar.New(nil)
+	if err != nil {
+		return nil // un client sans jar reste fonctionnel
+	}
+	return j
+}
+
+// consentCookies : cookies qui marquent le bandeau de consentement comme DÉJÀ
+// TRAITÉ, afin d'atteindre la page derrière le mur.
+//
+// ⚠ On signale un REFUS, jamais une acceptation : ces valeurs disent « pas de
+// suivi, bandeau fermé ». Le but est de lire la page, pas d'ouvrir des traceurs
+// au nom de l'utilisateur. Les en-têtes DNT et Sec-GPC (refus de vente/partage,
+// juridiquement reconnu en Californie et respecté par une partie des sites)
+// vont dans le même sens.
+//
+// Envoyés à tout le monde : un cookie inconnu d'un site est simplement ignoré.
+var consentCookies = []string{
+	"gdpr=0",
+	"gdpr_consent=0",
+	"cookieconsent_status=deny",
+	"OptanonAlertBoxClosed=2024-01-01T00:00:00.000Z",
+	"SOCS=CAESHAgBEhJnd3NfMjAyNDAxMDEtMF9SQzEaAmZyIAEaBgiA_LyaBg", // Google : « refuser tout »
 }
 
 // goFetch effectue le GET et renvoie le corps (plafonné), le Content-Type et
@@ -110,6 +141,12 @@ func goFetch(ctx context.Context, target string) (body []byte, contentType, fina
 	req.Header.Set("User-Agent", goFetchUA)
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.7")
 	req.Header.Set("Accept-Language", "fr-FR,fr;q=0.9,en;q=0.8")
+	// Signaux de refus du pistage (voir consentCookies).
+	req.Header.Set("DNT", "1")
+	req.Header.Set("Sec-GPC", "1")
+	for _, c := range consentCookies {
+		req.Header.Add("Cookie", c)
+	}
 	// Pas d'Accept-Encoding manuel : le transport gère gzip tout seul.
 
 	resp, err := goHTTPClient.Do(req)
