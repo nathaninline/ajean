@@ -250,9 +250,9 @@ func migrateThenResolveTarget(target string) string {
 }
 
 func replaceInstalled(target string) error {
-	old := target + ".old"
-	_ = os.Remove(old)
-	if err := os.Rename(target, old); err != nil {
+	removeOldBinaries(target)
+	old, err := renameAside(target) // nom unique, cf. renameAside
+	if err != nil {
 		return err
 	}
 	if _, err := installSelf(filepath.Dir(target)); err != nil {

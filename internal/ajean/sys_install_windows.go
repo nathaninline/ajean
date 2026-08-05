@@ -170,9 +170,11 @@ func replaceExe(src, dst string) error {
 	if err := copyExe(src, dst); err == nil {
 		return nil
 	}
-	old := dst + ".old"
-	_ = os.Remove(old) // reliquat d'un remplacement précédent
-	if err := os.Rename(dst, old); err != nil {
+	removeOldBinaries(dst) // reliquats des remplacements précédents
+	// Nom unique : un écartement encore verrouillé par un ancien processus ne
+	// doit pas bloquer celui-ci (voir renameAside).
+	old, err := renameAside(dst)
+	if err != nil {
 		return err // ni écrasable ni renommable : on laisse la place en l'état
 	}
 	if err := copyExe(src, dst); err != nil {

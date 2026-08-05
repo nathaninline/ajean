@@ -201,7 +201,10 @@ func applyUpdate() (string, error) {
 // droits d'écrire son propre binaire : la commande exacte à lancer.
 func updatePermissionError(exe string) error {
 	if runtime.GOOS == "windows" {
-		return fmt.Errorf("droits insuffisants pour remplacer %s — relance AJEAN en administrateur puis réessaie", exe)
+		// Windows renvoie le MÊME code (5, accès refusé) pour « droits
+		// insuffisants » et pour « fichier utilisé par un processus » : on nomme
+		// les deux causes au lieu d'affirmer la mauvaise.
+		return fmt.Errorf("impossible de remplacer %s : soit un autre AJEAN utilise ce fichier (ferme l'application et arrête le service, puis réessaie), soit les droits manquent (relance AJEAN en administrateur)", exe)
 	}
 	return fmt.Errorf("droits insuffisants pour remplacer %s (le binaire appartient à root) — lance la mise à jour en ligne de commande : sudo ajean update", exe)
 }
@@ -353,9 +356,8 @@ func fileSize(p string) int64 {
 // cours : on renomme l'ancien en .old (supprimé au prochain lancement).
 func replaceBinary(exe, tmp string) error {
 	if runtime.GOOS == "windows" {
-		old := exe + ".old"
-		_ = os.Remove(old) // nettoyage d'une éventuelle MAJ précédente
-		if err := os.Rename(exe, old); err != nil {
+		old, err := renameAside(exe)
+		if err != nil {
 			return err
 		}
 		if err := os.Rename(tmp, exe); err != nil {
@@ -368,6 +370,35 @@ func replaceBinary(exe, tmp string) error {
 	return os.Rename(tmp, exe)
 }
 
+// renameAside écarte un fichier en le renommant sous un nom UNIQUE.
+//
+// Un nom FIXE (« .old ») est un piège sous Windows : si un processus tourne
+// ENCORE depuis le .old d'une mise à jour précédente, ce fichier ne peut être ni
+// supprimé ni écrasé. Le renommage échoue alors avec « Accès refusé » (errno 5),
+// que os.IsPermission rapporte comme un problème de droits — d'où le message
+// « relance AJEAN en administrateur », un conseil FAUX : aucun privilège ne
+// permet de remplacer l'image d'un exécutable en cours d'exécution. Reproduit
+// puis vérifié corrigé sur banc d'essai, deux processus vivants sur les deux
+// noms : avec un suffixe unique le renommage passe.
+func renameAside(path string) (string, error) {
+	aside := fmt.Sprintf("%s.old-%d", path, time.Now().UnixNano())
+	if err := os.Rename(path, aside); err != nil {
+		return "", err
+	}
+	return aside, nil
+}
+
+// removeOldBinaries supprime les écartements laissés par les remplacements
+// précédents (nom fixe hérité ET noms uniques). Best-effort : ceux dont le
+// processus tourne encore résistent, on réessaiera au prochain lancement.
+func removeOldBinaries(path string) {
+	_ = os.Remove(path + ".old")
+	matches, _ := filepath.Glob(path + ".old-*")
+	for _, m := range matches {
+		_ = os.Remove(m)
+	}
+}
+
 // cleanupOldBinary supprime silencieusement le .old laissé par une MAJ Windows
 // précédente (le fichier n'était pas supprimable tant que l'exe tournait).
 func cleanupOldBinary() {
@@ -378,10 +409,10 @@ func cleanupOldBinary() {
 	if err != nil {
 		return
 	}
-	_ = os.Remove(exe + ".old")
+	removeOldBinaries(exe)
 	// L'alias herite laisse le meme reliquat quand il etait en cours d'execution
 	// au moment ou on l'a remplace (voir replaceExe).
-	_ = os.Remove(filepath.Join(filepath.Dir(exe), "jean.exe.old"))
+	removeOldBinaries(filepath.Join(filepath.Dir(exe), "jean.exe"))
 }
 
 // handleUpdateCheck (GET /api/update) : renvoie l'état de mise à jour pour l'UI.

@@ -567,6 +567,11 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-val::-webkit-outer-spin-button,.pe-val::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 /* Un groupe = un petit titre + une liste encadrée aux coins arrondis. */
 .pe-group{display:flex;flex-direction:column;gap:8px}
+/* `display:flex` sur la classe l'emporte sur la règle par défaut du navigateur
+   pour [hidden] : sans cette ligne, masquer un groupe via l'attribut hidden
+   n'avait AUCUN effet visible (section « Cartes graphiques » qui restait
+   affichée avec une seule carte). */
+.pe-group[hidden]{display:none}
 .pe-gh{font-size:12px;font-weight:600;color:var(--dim);padding:0 6px}
 .pe-list{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden}
 /* Ligne : libellé à gauche, contrôle à droite, séparateur fin entre lignes. */
