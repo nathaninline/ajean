@@ -115,7 +115,10 @@
               <option value="crawl4ai">Crawl4AI</option>
             </select>
           </div>
-          <div id="crawl-fields">
+          <!-- Masqués AU DÉPART : le moteur par défaut est l'intégré, et ces champs
+               ne concernent que Crawl4AI. Affichés d'emblée puis repliés par le
+               chargement de l'état, ils faisaient sauter la section sous les yeux. -->
+          <div id="crawl-fields" style="display:none">
             <div class="row">
               <input id="crawl-url" type="text" placeholder="http://localhost:11235" class="sctl" onchange="saveCrawlUrl()">
             </div>

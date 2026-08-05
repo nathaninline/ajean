@@ -103,11 +103,14 @@ async function openItem(kind, key){
     rawBody.style.display = '';
   }
   document.getElementById('modal').classList.add('loading');
-  // Le corps de la modale est un conteneur défilant RÉUTILISÉ d'une ouverture à
-  // l'autre : sans cette remise à zéro, ouvrir un preset après en avoir fait
-  // défiler un autre rouvrait la fiche au milieu.
-  const peBody=document.querySelector('#modal .pe-body'); if(peBody) peBody.scrollTop=0;
   showModal('modal');
+  // ⚠️ APRÈS showModal, jamais avant : le corps de la modale est un conteneur
+  // défilant RÉUTILISÉ d'une ouverture à l'autre, et écrire scrollTop sur un
+  // élément en display:none ne fait RIEN (il n'a pas de boîte de rendu) — le
+  // navigateur restaurait donc l'ancienne position à l'affichage, et on rouvrait
+  // la fiche au milieu. On le refait après le remplissage, la hauteur ayant changé.
+  const topPeBody=()=>{ const b=document.querySelector('#modal .pe-body'); if(b) b.scrollTop=0; };
+  topPeBody();
   // --- Remplissage, une fois la modale à l'écran -----------------------------
   const r = await jfetch(K.getUrl + '?' + K.param + '=' + encodeURIComponent(key||''));
   const d = await r.json();
@@ -125,6 +128,7 @@ async function openItem(kind, key){
     if(seq !== openSeq) return;
   }
   document.getElementById('modal').classList.remove('loading');
+  topPeBody();
 }
 
 // Pretty-print bytes — handy for the dropdown options.
