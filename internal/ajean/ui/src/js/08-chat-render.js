@@ -295,6 +295,38 @@ function setChatLoading(msg){
   document.getElementById('chat-loading-text').textContent=msg;
   el.classList.add('show');
 }
+// --- Accueil du fil vide ---------------------------------------------------
+// Le logo n'est pas dupliqué dans le HTML : on clone celui de la barre latérale
+// (#brand) en retirant ses id (un id ne peut exister qu'une fois) et le numéro
+// de version. Les couleurs sont reprises par les classes .ce-*.
+function fillEmptyLogo(){
+  const box=document.getElementById('ce-logo'), brand=document.getElementById('brand');
+  if(!box || !brand || box.childElementCount) return;
+  ['brand-a','brand-word'].forEach(id=>{
+    const src=brand.querySelector('#'+id); if(!src) return;
+    const el=src.cloneNode(true); el.removeAttribute('id');
+    if(id==='brand-word') el.classList.add('ce-word');
+    box.appendChild(el);
+  });
+}
+// Affiché seulement quand le fil ne contient AUCUNE bulle et que le replay est
+// terminé — sinon il apparaîtrait une fraction de seconde à chaque chargement,
+// juste avant que les messages rejoués n'arrivent.
+function syncChatEmpty(){
+  const box=document.getElementById('chat-empty'); if(!box) return;
+  fillEmptyLogo();
+  const empty = !REPLAYING && !chatEl().querySelector('.msg');
+  box.classList.toggle('show', empty);
+}
+document.addEventListener('DOMContentLoaded', ()=>{
+  const c=chatEl(); if(!c) return;
+  // Le fil est peuplé par des dizaines de chemins différents (replay, direct,
+  // reset, effacement). On observe donc le DOM plutôt que d'appeler la synchro
+  // depuis chacun d'eux — le coût est nul, le callback est groupé et sort tout
+  // de suite pendant le replay.
+  new MutationObserver(()=>syncChatEmpty()).observe(c, {childList:true});
+  syncChatEmpty();
+});
 function restoreChat(){
   // On masque le chat le temps du replay pour ne pas voir défiler le haut puis
   // sauter en bas (effet de clignotement). Il est révélé, positionné en bas, au

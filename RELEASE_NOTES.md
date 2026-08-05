@@ -1,18 +1,32 @@
-Version corrective, dans la foulée de la 0.7.9. Elle répare la mise à jour elle même sous Windows, et un affichage parasite dans l'éditeur de modèle.
+Version d'interface. Le menu de réglages suit désormais une seule et même grammaire de bout en bout, les modales s'ouvrent sans temps mort, et plusieurs irritants de l'app iPhone disparaissent.
 
-## La mise à jour sous Windows ne se plaint plus des droits à tort
+## Un menu homogène
 
-Le bouton de mise à jour de l'interface pouvait échouer avec « droits insuffisants pour remplacer C:\ProgramData\ajean\bin\ajean.exe, relance AJEAN en administrateur puis réessaie ». Le conseil était faux : aucun privilège, administrateur compris, ne permet de remplacer l'image d'un exécutable en cours d'exécution. Relancer en administrateur ne changeait donc rien.
+Chaque section obéit à la même règle : une étiquette de groupe, puis une carte, puis des lignes séparées par un filet. « Mode agent » était le plus voyant, ses quatre sous réglages (mémoire, accès internet, serveurs MCP, paramètres) formaient des îlots décollés, chacun avec son titre enfermé dans sa carte et des marges au cas par cas. Même traitement pour « Accès OpenAI » (trois cartes accolées pour un seul sujet, maintenant réunies), « Accès distant » (le bouton de démarrage du tunnel flottait entre deux cartes), « Moteur » (les trois choix llama.cpp étaient des cartes dans une carte, ce sont des lignes), « System prompt » et « Presets », dont le contenu flottait à nu sous le titre.
 
-La vraie cause : pour remplacer son binaire, AJEAN écarte l'ancien sous le nom `ajean.exe.old`. Si un processus tournait encore depuis ce fichier, reste d'une mise à jour précédente, il ne pouvait être ni supprimé ni écrasé. Windows renvoie alors le code « accès refusé », que Go rapporte comme un défaut de droits, d'où le message trompeur.
+Les presets et les pages mémoire ne sont plus une pile de petites cartes bordées mais des lignes d'une seule carte. Le preset actif se signale par un voile et un liseré à gauche. Son bouton d'édition devient un engrenage.
 
-L'ancien binaire est désormais écarté sous un nom unique et horodaté : un reste verrouillé ne bloque plus rien. Les trois endroits qui effectuaient cette manœuvre (mise à jour, installation, premier lancement) en profitent, et le ménage au démarrage ramasse aussi bien l'ancien nom fixe que les nouveaux. Quand un remplacement échoue malgré tout, le message nomme les deux causes possibles au lieu d'en affirmer une seule, puisque Windows utilise le même code d'erreur pour « droits insuffisants » et « fichier utilisé ».
+Les boutons « copier » et « ouvrir » des adresses passent en icônes au trait dans un bouton carré à la hauteur du champ : les glyphes texte se posaient de travers et changeaient de largeur selon la police. Dans la mémoire, « Pages » devient « Voir la mémoire ». La pastille d'état n'affiche plus le port, qui reste visible là où il sert vraiment, dans l'adresse de l'endpoint OpenAI.
 
-À noter : cette mise à jour ci doit encore être installée par la version précédente. Elle passera sans problème si aucun ancien processus AJEAN ne traîne. Si le message d'erreur revient, fermez l'application et arrêtez le service, puis réessayez.
+## Modales
 
-## La section « Cartes graphiques » ne s'affiche plus à tort
+Ouvrir un preset attendait la fin de trois requêtes avant d'afficher quoi que ce soit. En accès distant, le clic paraissait mort pendant une seconde. La modale s'ouvre maintenant tout de suite, avec un indicateur de chargement à la place du formulaire, et le formulaire apparaît complet d'un seul coup. La carte occupe sa taille finale dès l'ouverture, donc aucun à coup au moment où le contenu arrive.
 
-Introduite en 0.7.9, elle n'a de sens qu'à partir de deux cartes. Elle restait pourtant visible sur une machine mono GPU : le masquage passait par l'attribut `hidden`, sans effet ici car la mise en page du groupe l'emportait sur la règle par défaut du navigateur.
+Ouverture et fermeture sont animées, dans les deux sens, sur toutes les modales. L'animation se désactive si le système demande de réduire les animations.
+
+Le pied de l'éditeur tient sur une seule ligne : la suppression devient une icône, et son option « supprimer aussi le fichier .gguf » se pose là où elle a du sens, dans la boîte de confirmation. Elle est décochée à chaque ouverture, aucun modèle ne peut donc être effacé parce que la case serait restée cochée d'une fois sur l'autre.
+
+## iPhone
+
+Dans l'app installée sur l'écran d'accueil, le tiroir du menu passait sous l'encoche, contrairement à la conversation. L'esquive d'encoche était bien posée, mais un bloc de style plus bas dans la feuille réécrivait la marge et l'effaçait.
+
+Le rectangle gris que Safari peint sur tout élément touché est supprimé. Les états visuels propres à l'application, eux, sont conservés.
+
+## Chat
+
+Quand le raisonnement ou les appels d'outils sont masqués, l'indicateur d'activité disparaissait dès qu'une bulle arrivait, même invisible : le fil restait donc vide, sans aucun signe, pendant que le modèle travaillait. Il tient maintenant compte de ce qui est réellement affiché et reste présent jusqu'à l'arrivée de la réponse.
+
+Une conversation vide affiche le logo AJEAN et une invitation, au lieu d'un écran nu.
 
 ## Mise à jour
 
@@ -20,4 +34,4 @@ Introduite en 0.7.9, elle n'a de sens qu'à partir de deux cartes. Elle restait 
 ajean update
 ```
 
-Le comportement du remplacement de binaire a été reproduit puis vérifié corrigé sur Windows, avec deux anciens processus maintenus en vie. La correction d'affichage a été vérifiée sur le rendu réel, pas seulement sur l'état interne.
+Les changements ont été vérifiés sur le rendu réel, en thème clair et sombre, et déployés sur un serveur de production avant publication. La correction PWA sous iOS découle de la cause identifiée dans la feuille de style, mais n'a pas été reproduite sur un appareil de test.

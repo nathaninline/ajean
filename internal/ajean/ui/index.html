@@ -30,7 +30,11 @@
    passent par ces variables ; rien d'autre ne code une couleur en dur. */
 :root{color-scheme:light;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Helvetica,Arial,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--bubble:#f0f0f0;--bg:#ffffff;--panel:#fafafa;--border:#e0e0e2;--text:#0a0a0a;--dim:#6b6b70;--accent:#0a0a0a;--accent-bg:rgba(0,0,0,.05);--ok:#0a0a0a;--warn:#6b6b6b;--err:#c0392b;--mag:#6b6b6b;--code-bg:#f5f5f5;--danger-bg:#fbeae8;--warn-bg:#f2f2f2;--add:#1a7f37;--add-bg:rgba(26,127,55,.10);--del:#cf222e;--del-bg:rgba(207,34,46,.10)}
 [data-theme="dark"]{color-scheme:dark;--bubble:#232326;--bg:#0b0b0c;--panel:#161618;--border:#33333a;--text:#f2f2f4;--dim:#a0a0a8;--accent:#f5f5f5;--accent-bg:rgba(255,255,255,.07);--ok:#f5f5f5;--warn:#8e8e8e;--err:#f2777a;--mag:#8e8e8e;--code-bg:#000000;--danger-bg:#2e1a19;--warn-bg:#1c1c1c;--add:#4ac26b;--add-bg:rgba(74,194,107,.13);--del:#f85149;--del-bg:rgba(248,81,73,.13)}
-*{box-sizing:border-box}
+/* Safari iOS peint un rectangle gris/noir sur TOUT élément touché (bouton, lien,
+   résumé de section, bulle repliable…). C'est un retour tactile par défaut, hors
+   de notre charte et impossible à styler : on le coupe. Nos états :active/:focus
+   restent, eux, gérés élément par élément. */
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 /* ⚠️ overflow:hidden sur html/body est INTERDIT EN PWA (tenté puis retiré le
    2026-07-28) : en PWA iOS, si le document ne peut plus défiler, WebKit décale
    TOUTE la mise en page à l'ouverture du clavier pour montrer le champ actif —
@@ -135,18 +139,18 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 .statuspill.loading .dot{animation:pulse 1s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
 .statuspill .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
-.statuspill .port{opacity:.6;font-weight:400}
 /* en-tête + bouton d'ajout de skill (toujours visible) */
 .skillshead{display:flex;align-items:center;justify-content:space-between;margin:12px 0 5px}
 .skillshead>span{font-size:11.5px;color:var(--dim);font-weight:600}
-.addbtn{font-size:11px;padding:3px 11px 4px;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer;line-height:1.2}
-.addbtn:hover{border-color:var(--accent);color:var(--accent)}
+.addbtn{font-size:11px;padding:4px 11px;background:var(--panel);color:var(--dim);border:1px solid var(--border);border-radius:999px;cursor:pointer;line-height:1.3;letter-spacing:.02em}
+.addbtn:hover{border-color:var(--dim);color:var(--text);background:var(--accent-bg)}
 .mem-count{font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;font-family:var(--font);margin-left:4px}
 /* Titre de sous-section (Mémoire / Accès internet) : simple libellé, PAS de trait
    (le trait est réservé aux sections principales — cf. `details`). La séparation
-   visuelle vient de la carte englobante .gated-block. */
+   visuelle vient de la carte de lignes qui suit (.slist). */
 /* Barre repliable « Pages » : un seul chevron, bouton + ajouter aligné à droite. */
 .pages-bar{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:7px 0;margin-top:4px}
+.pages-bar .pages-caret{width:9px;text-align:center}
 .pages-bar .pages-caret{flex-shrink:0;font-size:9px;color:var(--dim);transition:transform .12s}
 .pages-bar.open .pages-caret{transform:rotate(90deg)}
 .pages-bar .pages-title{font-size:11.5px;color:var(--dim);font-weight:600}
@@ -154,11 +158,9 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 .mem-search{width:100%;box-sizing:border-box;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 9px;font:inherit;font-size:12px;margin:0 0 6px}
 .mem-search:focus{outline:none;border-color:var(--accent)}
 .mem-list{max-height:240px;overflow-y:auto;overscroll-behavior:contain}
-.mem-list .preset{margin:3px 0;padding:5px 9px}
 .mem-more{font-size:11px;color:var(--dim);text-align:center;padding:6px 0 2px}
 .ask-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px}
-.ask-box{background:var(--bg);border:1px solid var(--border);border-radius:10px;width:100%;max-width:420px;padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.18);animation:askpop .12s ease-out}
-@keyframes askpop{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:none}}
+.ask-box{background:var(--bg);border:1px solid var(--border);border-radius:10px;width:100%;max-width:420px;padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.18)}
 .ask-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px}
 .ask-msg{font-size:13px;color:var(--dim);line-height:1.5;white-space:pre-wrap;word-break:break-word}
 .ask-input{width:100%;box-sizing:border-box;margin-top:12px;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:9px 11px;font:inherit;font-size:13px}
@@ -173,17 +175,15 @@ h1{margin:0;font-size:18px;color:var(--accent)}
    pastille dans les réglages. */
 #brand.agent #brand-a{color:var(--accent)}
 /* interrupteur (switch) */
-/* Sous-réglage du mode agent inaccessible quand l'agent est off : grisé + inerte. */
-/* Sous-réglages du mode agent présentés en CARTES (bordure + fond) pour ne pas
-   les confondre avec les traits des sections principales. */
-/* Bloc du mode agent = carte de liste : le rembourrage est porté par les
-   lignes (comme .slist), pas par la carte, sinon les retraits se cumulent. */
-/* ⚠️ PAS d'overflow:hidden ici : les bulles d'aide (« ? ») sont positionnées en
-   absolu par rapport à la ligne, donc un débordement caché les TRONQUE — c'est
-   ce qui rendait plusieurs infobulles illisibles. */
-.gated-block{margin:6px 0;border:1px solid var(--border);border-radius:10px;padding:0 0 10px;background:var(--panel);overflow:visible;transition:opacity .15s}
-.gated-block>.switchrow:first-of-type{padding-top:0}
-.gated-block.gated{opacity:.4;pointer-events:none;filter:grayscale(.4)}
+/* Sous-groupe du mode agent (Mémoire, Accès internet, Serveurs MCP, Paramètres).
+   MÊME grammaire que « Machine » ou « Apparence » : étiquette de groupe NUE
+   au-dessus, puis UNE carte .slist qui porte toutes les lignes. Auparavant
+   chaque sous-groupe était une carte qui embarquait son propre titre et du
+   contenu libre aux marges variables — quatre îlots décollés au lieu d'une
+   colonne régulière. Le grisé « agent désactivé » se pose sur le GROUPE
+   (étiquette comprise), plus sur la carte seule. */
+.gated-group{margin:0 0 10px;transition:opacity .15s}
+.gated-group.gated{opacity:.4;pointer-events:none;filter:grayscale(.4)}
 .switch{position:relative;display:inline-block;width:36px;height:20px;flex:none}
 .switch input{position:absolute;opacity:0;width:0;height:0}
 /* Piste décochée : un gris franc (pas --border), sinon le pavé blanc ne se
@@ -210,10 +210,27 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .preset.active{border-color:var(--accent);color:var(--accent);border-width:1.5px;padding:5.5px 9.5px}
 .preset>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .preset>button{flex-shrink:0}
+/* Liste de lignes cliquables (presets, pages mémoire) posée à fleur de carte :
+   une pile de petites cartes bordées faisait « trop de carrés » là où le reste
+   du menu aligne des lignes séparées par un filet. L'actif se signale par un
+   voile et un liseré à gauche, plus par un cadre propre. */
+.rowlist>.preset{border:0;border-radius:0;margin:0;padding:6px 10px;background:transparent}
+.rowlist>.preset:not(:last-child){border-bottom:1px solid var(--border)}
+.rowlist>.preset:hover{background:var(--accent-bg)}
+.rowlist>.preset.active{background:var(--accent-bg);color:var(--text);font-weight:600;
+  box-shadow:inset 2px 0 0 var(--text)}
+/* Ligne à deux étages (titre + étiquettes) : l'interligne interne suffit, on
+   resserre donc le haut et le bas. */
+.rowlist>.preset .preset-meta{margin-top:4px}
+/* Messages et « voir plus » de la liste : alignés sur le retrait des lignes. */
+.rowlist>.muted,.rowlist>.mem-more{padding:9px 10px}
 .preset-info{flex:1;min-width:0}
 .preset-name{min-width:0;overflow-wrap:anywhere;word-break:break-word}
-.preset-edit{flex-shrink:0;align-self:flex-start;margin:-3px -4px 0 0;padding:2px 4px;font-size:13px;line-height:1;background:transparent;border:none;opacity:.6}
-.preset-edit:hover{opacity:1;color:var(--accent)}
+/* Icône d'engrenage : centrée verticalement sur la ligne (sa silhouette ronde se
+   lit bien au milieu de son coin, là où le crayon penché tirait de travers). */
+.preset-edit{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;
+  margin:0 -2px 0 0;padding:4px;line-height:0;background:transparent;border:none;opacity:.55}
+.preset-edit:hover{opacity:1;color:var(--accent);background:transparent}
 .preset-meta{display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap}
 .qtag{flex-shrink:0;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em;text-transform:uppercase}
 .rtag{flex-shrink:0;display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em}
@@ -328,6 +345,21 @@ button:disabled{opacity:.5;cursor:not-allowed}
   align-items:center;justify-content:center;gap:12px;background:var(--bg);
   color:var(--dim);font-size:12px;letter-spacing:.04em;pointer-events:none}
 #chat-loading.show{display:flex}
+/* Accueil du fil vide. Posé en surimpression du chat (et non DANS le fil) pour ne
+   pas perturber le défilement ni le rendu du replay ; pointer-events:none pour
+   qu'il ne vole jamais un clic à la zone de saisie. Il vit sous le voile de
+   chargement (z-index plus bas) : jamais les deux visibles en même temps. */
+#chat-empty{position:absolute;inset:0 0 150px;z-index:3;display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:10px;pointer-events:none;
+  opacity:0;transition:opacity .35s ease}
+#chat-empty.show{display:flex;opacity:1}
+/* Le clone perd les règles d'id de #brand (les id sont retirés), dont l'espace
+   entre le « A » et le mot : on le repose ici, à l'échelle du logo agrandi
+   (2 px pour 10 px de haut → 4 px pour 20 px), sinon le A s'encastre dans le J. */
+#ce-logo{display:inline-flex;align-items:center;gap:4px;color:var(--text)}
+#ce-logo svg{height:20px;width:auto;display:block;shape-rendering:crispEdges;fill:currentColor}
+#ce-logo .ce-word{display:inline-flex;color:var(--accent)}
+#ce-title{font-size:14px;color:var(--dim);letter-spacing:.03em}
 .cl-dots{display:inline-flex;gap:5px;align-items:center}
 .cl-dots span{width:7px;height:7px;border-radius:50%;background:var(--dim);animation:typingdot 1.2s infinite ease-in-out}
 .cl-dots span:nth-child(2){animation-delay:.16s}
@@ -342,6 +374,15 @@ button:disabled{opacity:.5;cursor:not-allowed}
    défiler. Un seul gabarit, repris des listes de la modale de preset.
    Hauteurs : en-tête de section 34 px, ligne de réglage 34 px. */
 .side{padding:10px 12px}
+/* ⚠️ Le raccourci `padding` ci-dessus écrase les esquives d'encoche posées plus
+   haut (règles tiroir). Quand la barre est un TIROIR (téléphone, ou mode
+   « barre en tiroir » sur ordinateur), elle est en position:fixed : le padding
+   du <body> ne la protège pas, il faut donc reposer les env() ici — sinon
+   « AJEAN » et la pastille d'état passent sous l'encoche en PWA iOS. */
+@media (max-width:720px){
+  .side{padding:calc(10px + env(safe-area-inset-top)) 12px calc(10px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left))}
+}
+[data-hide-side="1"] .side{padding:calc(10px + env(safe-area-inset-top)) 12px calc(10px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left))}
 .sidehead{margin-bottom:10px}
 
 /* --- En-tête de section --- */
@@ -388,25 +429,40 @@ details[open]>summary::after{transform:rotate(45deg)}
 .subhead,.io-cap,.pages-bar .pages-title,.skillshead>span{position:relative;display:flex;align-items:center;
   font-size:11px;font-weight:600;color:var(--dim);margin:10px 2px 5px}
 .io-cap{margin:0 2px 5px}
-/* Premier élément d'une carte : sa marge haute s'ajoutait au rembourrage de la
-   carte (18 px de vide au-dessus de « Mémoire », « Accès internet », etc.). */
-.gated-block>:first-child{margin-top:0}
+/* Étiquette de groupe en tête d'un sous-groupe du mode agent : elle suit une
+   carte, elle a donc besoin de son air normal — mais pas d'un cumul de marges. */
+.gated-group>.subhead:first-child{margin-top:12px}
 /* Une étiquette de groupe qui suit immédiatement le titre de section n'a pas
    besoin de reprendre de l'air : le titre en a déjà donné. */
 details>summary+.subhead{margin-top:4px}
 .io-group{margin-top:8px}
 
 /* --- Carte de liste --- */
-/* overflow VISIBLE : cf. la note sur .gated-block — les infobulles doivent
+/* overflow VISIBLE : les infobulles (« ? ») sont positionnées en absolu par
+   rapport à la ligne, un débordement caché les TRONQUERAIT — elles doivent
    pouvoir déborder de la carte. Les lignes n'ont pas de fond propre, l'arrondi
    n'a donc rien à rogner. */
-.slist,.gated-block{background:var(--panel);border:1px solid var(--border);border-radius:9px;
+.slist{background:var(--panel);border:1px solid var(--border);border-radius:9px;
   overflow:visible;margin:0 0 8px}
-.slist:last-child,.gated-block:last-child{margin-bottom:0}
+.slist:last-child{margin-bottom:0}
 /* Contenu libre (champ + boutons) : le rembourrage passe sur la carte. */
-.slist.pad,.gated-block{padding:8px 10px}
+.slist.pad{padding:8px 10px}
 .slist.pad>:first-child{margin-top:0}
 .slist.pad>:last-child{margin-bottom:0}
+/* Contenu libre posé DANS une carte de lignes (champs Crawl4AI, liste MCP,
+   pages mémoire) : même rembourrage et même filet de séparation qu'une ligne,
+   pour qu'il ne flotte pas au milieu de la carte. */
+.slist>.rowbody{padding:9px 10px}
+.slist>.rowbody:not(:first-child),.slist>.pages-bar:not(:first-child){border-top:1px solid var(--border)}
+/* …sauf juste après une ligne de réglage : elle porte DÉJÀ son filet bas, les
+   deux se cumuleraient en un trait double. */
+.slist>.switchrow+.rowbody,.slist>.switchrow+.pages-bar{border-top:0}
+.slist>.rowbody>:first-child{margin-top:0}
+.slist>.rowbody>:last-child{margin-bottom:0}
+.slist>.pages-bar{min-height:34px;padding:4px 10px;margin-top:0}
+/* Contrôle posé à droite d'une ligne (liste « mode » de la mémoire) : même place
+   que l'interrupteur, largeur ajustée au contenu. */
+.switchrow>.sctl{margin-left:auto;order:2;width:auto;max-width:62%}
 
 /* --- Ligne de réglage : hauteur constante, contrôle à droite --- */
 .switchrow{position:relative;display:flex;align-items:center;gap:10px;min-height:34px;padding:6px 0;
@@ -438,9 +494,17 @@ details>summary+.subhead{margin-top:4px}
   border-radius:7px;padding:7px 9px;font:inherit;font-size:12.5px}
 .sctl:focus,.io-input:focus{outline:none;border-color:var(--dim)}
 textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
-.side button:not(.preset-edit):not(.addbtn):not(.preset-add):not(.copybtn){font-size:12px;padding:6px 10px;border-radius:7px}
+.side button:not(.preset-edit):not(.addbtn):not(.preset-add):not(.copybtn):not(.iconbtn){font-size:12px;padding:6px 10px;border-radius:7px}
 .side .row{display:flex;gap:6px;align-items:center;margin:6px 0}
 .side .row .sctl,.side .row .io-input{flex:1;min-width:0}
+/* Bouton d'action à côté d'un champ (copier, ouvrir) : un CARRÉ à la hauteur du
+   champ, icône au trait centrée. Le glyphe seul (⧉, ↗) dans un bouton texte se
+   posait de travers et changeait de largeur d'une police à l'autre. */
+.iconbtn{flex:none;display:inline-flex;align-items:center;justify-content:center;
+  width:34px;height:34px;padding:0;margin:0;color:var(--dim);background:var(--panel);
+  border:1px solid var(--border);border-radius:9px;cursor:pointer}
+.iconbtn:hover{color:var(--text);border-color:var(--dim);background:var(--accent-bg)}
+.iconbtn svg{width:15px;height:15px;display:block}
 .side .btn-danger-o{border-color:var(--err);color:var(--err)}
 .side .btn-danger-o:hover{background:var(--danger-bg);border-color:var(--err);color:var(--err)}
 .side .muted{font-size:11.5px;line-height:1.5}
@@ -538,11 +602,16 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
   #lc-chip{height:32px;font-size:11px;left:calc(46px + env(safe-area-inset-left));top:calc(6px + env(safe-area-inset-top))}
 }
 /* --- Backend llama.cpp (2 modes : rapide / optimisée) --------------------- */
-.lc-head{font-size:12px;line-height:1.5;margin-bottom:10px}
-.lc-modes{display:flex;flex-direction:column;gap:8px}
+.lc-head{font-size:12px;line-height:1.5}
+/* Les trois modes sont des LIGNES de la carte d'installation (elles étaient des
+   cartes dans une carte) : pas de cadre propre, un filet entre elles, comme
+   n'importe quelle ligne de réglage du menu. */
+.lc-modes{display:flex;flex-direction:column}
 .lc-modes.busy{opacity:.5;pointer-events:none}
-.lc-mode{border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:border-color .12s,background .12s}
-.lc-mode:hover{border-color:var(--dim)}
+.slist>.lc-modes:not(:first-child){border-top:1px solid var(--border)}
+.lc-mode{padding:10px;cursor:pointer;transition:background .12s}
+.lc-mode:not(:last-child){border-bottom:1px solid var(--border)}
+.lc-mode:hover{background:var(--accent-bg)}
 .lc-mode-t{font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px}
 /* « conseillé » : pilule PLEINE (texte inversé). En contour, elle héritait du
    gris atténué du thème monochrome et devenait illisible en mode sombre. */
@@ -690,19 +759,51 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-adv.pe-raw-plain>summary{display:none}
 .pe-adv.pe-raw-plain .pe-adv-body{padding:0}
 /* Pied de modale. */
-.pe-foot{padding:13px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
-.pe-foot .foot-r{display:flex;gap:8px}
-.pe-btn{margin:0;padding:9px 18px;border-radius:9px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--panel);color:var(--text)}
+.pe-foot{padding:9px 12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;
+  align-items:center;gap:8px;flex-wrap:nowrap}
+.pe-foot .foot-l{display:flex;align-items:center;gap:8px;min-width:0}
+.pe-foot .foot-r{display:flex;gap:8px;flex:none}
+.pe-btn{margin:0;padding:7px 15px;font-size:12.5px;border-radius:8px;font-weight:600;cursor:pointer;
+  border:1px solid var(--border);background:var(--panel);color:var(--text);white-space:nowrap}
 .pe-btn:hover{border-color:var(--dim)}
 .pe-btn.primary{border-color:var(--accent);background:var(--accent);color:var(--bg)}
 .pe-btn.primary:hover{filter:brightness(1.08)}
-.pe-btn.ghost-danger{border-color:transparent;background:transparent;color:var(--err);padding:9px 10px}
-.pe-btn.ghost-danger:hover{background:var(--danger-bg)}
-.pe-delmodel{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--dim);cursor:pointer}
-.pe-delmodel input{margin:0}
+/* Suppression : icône seule, en retrait. Un bouton plein « supprimer » pesait
+   autant que « enregistrer » alors que c'est l'action rare — et à trois boutons
+   larges, le pied passait à deux lignes sur téléphone. */
+.pe-del{flex:none;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;
+  margin:0;padding:0;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--err);cursor:pointer}
+.pe-del svg{width:15px;height:15px;display:block}
+.pe-del:hover{background:var(--danger-bg);border-color:color-mix(in srgb,var(--err) 40%,transparent)}
+/* Option d'une confirmation : une PASTILLE à cocher, pas une case système suivie
+   d'un bout de texte. Éteinte : contour discret. Allumée : elle passe au rouge,
+   comme l'action destructrice qu'elle étend. Vit dans la boîte de confirmation
+   (#ask-check), plus dans le pied de l'éditeur. */
+.pe-delmodel{align-self:flex-start;margin-top:14px;display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;
+  letter-spacing:.02em;color:var(--dim);cursor:pointer;white-space:nowrap;
+  padding:5px 11px;border:1px solid var(--border);border-radius:999px;background:var(--panel);
+  transition:color .12s,border-color .12s,background .12s}
+.pe-delmodel input{position:absolute;opacity:0;width:0;height:0}
+/* Le point tient lieu de case à cocher : creux au repos, plein une fois coché. */
+.pe-delmodel::before{content:"";width:6px;height:6px;border-radius:50%;flex:none;
+  border:1px solid currentColor;background:transparent}
+.pe-delmodel:hover{color:var(--text);border-color:var(--dim)}
+.pe-delmodel:has(input:checked){color:var(--err);border-color:color-mix(in srgb,var(--err) 45%,transparent);background:var(--danger-bg)}
+.pe-delmodel:has(input:checked)::before{background:currentColor}
 /* Éditeur de preset/mémoire — mise en forme propre du modale */
 .modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:30;align-items:center;justify-content:center;padding:20px}
-.modal-card{background:var(--bg);border:1px solid var(--border);border-radius:12px;width:100%;max-width:600px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 16px 50px rgba(0,0,0,.18)}
+/* Ouverture/fermeture animées. L'état par défaut est l'état FERMÉ ; la classe
+   .show (posée par showModal/hideModal) fait jouer la transition dans les deux
+   sens — une @keyframes n'aurait animé que l'ouverture. */
+.modal-ov,.ask-overlay{opacity:0;transition:opacity .16s ease}
+.modal-ov.show,.ask-overlay.show{opacity:1}
+.modal-card,.ask-box{transform:translateY(10px) scale(.985);opacity:0;
+  transition:transform .18s cubic-bezier(.2,.8,.3,1),opacity .18s ease}
+.modal-ov.show .modal-card,.ask-overlay.show .ask-box{transform:none;opacity:1}
+@media (prefers-reduced-motion:reduce){
+  .modal-ov,.ask-overlay,.modal-card,.ask-box{transition:none}
+}
+.modal-card{position:relative;background:var(--bg);border:1px solid var(--border);border-radius:12px;width:100%;max-width:600px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 16px 50px rgba(0,0,0,.18)}
 .modal-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
 .modal-head strong{font-size:14px}
 /* Croix de fermeture : un CARRÉ, pas un rectangle. Avec un padding asymétrique
@@ -710,6 +811,25 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
    clic était basse. 32px, glyphe centré, taille de cible correcte au doigt. */
 .modal-x{margin:0;padding:0;width:32px;height:32px;flex:none;display:inline-flex;align-items:center;justify-content:center;font-size:19px;line-height:1;color:var(--dim)}
 .modal-body{padding:16px;overflow:auto;flex:1}
+/* Modale ouverte mais pas encore remplie : on affiche le voile de chargement À LA
+   PLACE du formulaire et du pied. Estomper le formulaire ne suffisait pas — on
+   voyait quand même les champs s'écrire un par un derrière le voile. */
+/* Fond TRANSPARENT : le formulaire est déjà rendu invisible par `visibility`,
+   un fond opaque ne servirait qu'à masquer aussi le titre de la modale. */
+.modal-load{display:none;position:absolute;inset:0;z-index:2;align-items:center;justify-content:center;
+  pointer-events:none}
+.modal-ov.loading .modal-load{display:flex}
+/* visibility (et non display) : le formulaire garde sa place, donc la carte a
+   déjà sa taille finale — la révéler ne provoque plus d'à-coup de hauteur. */
+.modal-ov.loading .modal-body,
+.modal-ov.loading .pe-body,
+.modal-ov.loading .pe-foot,
+.modal-ov.loading .modal-foot{visibility:hidden}
+/* Rond qui tourne — les trois points sont la signature du CHAT, pas des modales. */
+.spinner{width:22px;height:22px;border-radius:50%;border:2px solid var(--border);
+  border-top-color:var(--dim);animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spinner{animation-duration:2s}}
 .modal-foot{padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 .foot-l{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .foot-r{display:flex;gap:8px}
@@ -740,7 +860,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .btn-save{border-color:var(--accent);color:var(--accent);margin:0}
 .del-model{align-items:center;gap:5px;font-size:11px;color:var(--dim)}
 .del-model input{margin:0}
-.lc-logbar{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:12px;color:var(--dim);font-weight:600;padding:6px 0;margin-top:4px}
+.lc-logbar{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:12px;color:var(--dim);font-weight:600;padding:6px 0;margin-top:2px}
 .lc-logbar #lc-log-caret{font-size:9px;transition:transform .12s;display:inline-block}
 .lc-logbar.open #lc-log-caret{transform:rotate(90deg)}
 #lc-log{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:10px;line-height:1.45;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:0}
@@ -773,11 +893,6 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 /* Accès OpenAI / Accès distant : champs lecture seule (URL, clé) + libellés
    compacts, pour une présentation homogène et sans surcharge visuelle. */
 .io-input{flex:1;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:8px 10px;font:inherit;font-size:13px}
-
-/* Toggles de la sous-section « Paramètres » du mode agent : chacun dans sa
-   propre carte bordée et arrondie (comme les serveurs MCP), plus lisible. */
-#param-block .switchrow{border:1px solid var(--border);border-radius:8px;padding:9px 11px;background:var(--bg)}
-#param-block .switchrow+.switchrow{margin-top:8px}
 
 /* Modale MCP (ajout/édition) : les champs des groupes stdio/http n'avaient aucun
    espacement vertical (le conteneur n'est pas un flex à gap) → ils se touchaient.
@@ -866,13 +981,13 @@ html[data-hide-stats="1"] #chat .msg .statline{display:none}
 #ctx-fill{background:var(--text);opacity:.75}
 #sendhint{order:4;padding:12px var(--col) 2px}
 /* Reste de l'UI : coins arrondis et contrastes doux, dans le même esprit. */
-button,.addbtn,.mem-search{border-radius:10px}
+button,.mem-search{border-radius:10px}
 /* Champ + bouton accolés : on ne garde l'arrondi que sur les coins extérieurs. */
 .pe-inpbtn .pe-inp{border-radius:10px 0 0 10px}
 .pe-inpbtn button{border-radius:0 10px 10px 0}
 .input-btn .ctl{border-radius:10px 0 0 10px}
 .input-btn .btn-in{border-radius:0 10px 10px 0}
-.preset,.gated-block,.lc-mode{border-radius:12px}
+.preset{border-radius:12px}
 /* Les presets restent des cartes (fond + bordure) : à plat, sans fond ni
    cadre, la liste ne se lisait plus comme des lignes distinctes. L'actif se
    signale par sa bordure — un simple voile d'accent (7 % de blanc sur fond
@@ -940,68 +1055,86 @@ button:hover{border-color:var(--dim);color:var(--text)}
     <div id="cfg" class="slist">…</div>
   </details>
   <details><summary><span class="stitle">Presets</span><button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter">+</button></summary>
-    <div id="presets"></div>
+    <div class="slist"><div id="presets" class="rowlist"></div></div>
   </details>
   <details><summary><span class="stitle">Mode agent</span><span id="agent-badge" class="sbadge"></span></summary>
     <div class="slist"><label class="switchrow"><span class="switch"><input type="checkbox" id="agent-toggle" onchange="toggleAgent()"><span class="slider"></span></span> activer le mode agent<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">⚠ active l'<b>accès machine</b> (shell complet via <b>bash</b> sur le serveur) — l'IA peut inspecter, lancer des scripts, écrire/lire/éditer des fichiers (timeout 30s, max 300s). Mémoire et accès internet ci-dessous ne fonctionnent que si le mode agent est activé.</span></span></label></div>
-    <!-- Mémoire / Accès internet / Paramètres : sous-réglages du mode agent, en cartes. Grisés/inertes quand l'agent est off (voir setAgentGate). -->
-    <div id="mem-block" class="gated-block">
+    <!-- Sous-réglages du mode agent. MÊME gabarit que « Machine » / « Apparence » :
+         étiquette de groupe nue, puis UNE carte de lignes (.slist). Le groupe
+         entier est grisé/inerte quand l'agent est off (voir setAgentGate). -->
+    <div id="mem-block" class="gated-group">
       <div class="subhead">Mémoire<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span id="mem-mode-desc" class="tip"></span></span></div>
-      <label class="switchrow"><span>mode</span>
-        <select id="mem-mode" onchange="setMemMode()" class="sctl">
-          <option value="always">auto (proactive)</option>
-          <option value="ondemand">sur demande</option>
-          <option value="off">désactivée</option>
-        </select>
-      </label>
-      <div id="mem-pages-bar" class="pages-bar" onclick="toggleMemPages()">
-        <span class="pages-caret">▸</span>
-        <span class="pages-title">Pages <span id="mem-count" class="mem-count"></span></span>
-        <button class="addbtn" onclick="event.stopPropagation();openMem('')" title="ajouter une page mémoire">+ ajouter</button>
-      </div>
-      <div id="mem-pages-body" hidden>
-        <input id="mem-search" class="mem-search" type="search" placeholder="filtrer la mémoire…" oninput="renderMemList()" style="display:none">
-        <div id="mem-list" class="mem-list muted" style="font-size:12px"></div>
+      <div class="slist">
+        <label class="switchrow"><span>mode</span>
+          <select id="mem-mode" onchange="setMemMode()" class="sctl">
+            <option value="always">auto (proactive)</option>
+            <option value="ondemand">sur demande</option>
+            <option value="off">désactivée</option>
+          </select>
+        </label>
+        <div id="mem-pages-bar" class="pages-bar" onclick="toggleMemPages()">
+          <span class="pages-caret">▸</span>
+          <span class="pages-title">Voir la mémoire <span id="mem-count" class="mem-count"></span></span>
+          <button class="addbtn" onclick="event.stopPropagation();openMem('')" title="ajouter une page mémoire">+ ajouter</button>
+        </div>
+        <div id="mem-pages-body" hidden>
+          <!-- Le champ de filtre garde son rembourrage de ligne ; la liste, elle,
+               est à fleur de carte : ses pages sont des LIGNES séparées par un
+               filet, pas une pile de petites cartes. -->
+          <div id="mem-search-row" class="rowbody" style="display:none">
+            <input id="mem-search" class="mem-search" type="search" placeholder="filtrer la mémoire…" oninput="renderMemList()" style="margin:0">
+          </div>
+          <div id="mem-list" class="mem-list rowlist muted" style="font-size:12px"></div>
+        </div>
       </div>
     </div>
-    <div id="net-block" class="gated-block">
+    <div id="net-block" class="gated-group">
       <div class="subhead">Accès internet<span id="internet-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Ajoute les outils <b>web_search / web_open / web_read / web_grep</b>. Le moteur <b>intégré</b> ne demande aucune installation. Le moteur <b>Crawl4AI</b> exige un serveur que tu héberges toi-même (ex. <code>docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest</code>) mais exécute le JavaScript des pages. Actifs seulement si le <b>mode agent</b> est actif.</span></span></div>
-      <label class="switchrow"><span class="switch"><input type="checkbox" id="internet-toggle" onchange="toggleInternet()"><span class="slider"></span></span> donner internet à l'IA</label>
-      <!-- Moteur web : « go » = intégré au binaire (rien à installer, pas de rendu
-           JavaScript) · « crawl4ai » = serveur externe avec Chromium headless. -->
-      <div class="row" style="margin-top:6px">
-        <select id="web-engine" class="sctl" onchange="saveWebEngine()">
-          <option value="go">Moteur Intégré</option>
-          <option value="crawl4ai">Crawl4AI</option>
-        </select>
-      </div>
-      <!-- Réglages propres à Crawl4AI : masqués avec le moteur intégré.
-           URL et clé s'enregistrent en quittant le champ (onchange) : deux boutons
-           « enregistrer » côte à côte n'apportaient rien et brouillaient la carte. -->
-      <div id="crawl-fields">
-        <div class="row" style="margin-top:6px">
-          <input id="crawl-url" type="text" placeholder="http://localhost:11235" class="sctl" onchange="saveCrawlUrl()">
+      <div class="slist">
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="internet-toggle" onchange="toggleInternet()"><span class="slider"></span></span> donner internet à l'IA</label>
+        <!-- Moteur web : « go » = intégré au binaire (rien à installer, pas de rendu
+             JavaScript) · « crawl4ai » = serveur externe avec Chromium headless.
+             Réglages propres à Crawl4AI masqués avec le moteur intégré ; l'URL et
+             la clé s'enregistrent en quittant le champ (onchange). -->
+        <div class="rowbody">
+          <div class="row" style="margin:0">
+            <select id="web-engine" class="sctl" onchange="saveWebEngine()">
+              <option value="go">Moteur Intégré</option>
+              <option value="crawl4ai">Crawl4AI</option>
+            </select>
+          </div>
+          <div id="crawl-fields">
+            <div class="row">
+              <input id="crawl-url" type="text" placeholder="http://localhost:11235" class="sctl" onchange="saveCrawlUrl()">
+            </div>
+            <!-- Clé d'accès du serveur Crawl4AI (facultative) : envoyée en
+                 « Authorization: Bearer … ». Jamais relue par l'API, on n'affiche
+                 qu'un indice sur les 4 derniers caractères. -->
+            <div class="row">
+              <input id="crawl-key" type="password" autocomplete="off" placeholder="clé API (si le serveur en exige une)" class="sctl" onchange="saveCrawlKey()">
+              <button id="crawl-key-clear" onclick="clearCrawlKey()" style="display:none">retirer</button>
+            </div>
+            <div class="muted" style="font-size:11px;margin-top:4px">enregistré automatiquement en quittant le champ</div>
+            <div id="crawl-key-state" class="muted" style="font-size:11px;margin-top:3px"></div>
+          </div>
+          <div id="internet-status" class="muted" style="font-size:11px;margin-top:4px"></div>
         </div>
-        <!-- Clé d'accès du serveur Crawl4AI (facultative) : envoyée en
-             « Authorization: Bearer … ». Jamais relue par l'API, on n'affiche
-             qu'un indice sur les 4 derniers caractères. -->
-        <div class="row" style="margin-top:6px">
-          <input id="crawl-key" type="password" autocomplete="off" placeholder="clé API (si le serveur en exige une)" class="sctl" onchange="saveCrawlKey()">
-          <button id="crawl-key-clear" onclick="clearCrawlKey()" style="display:none">retirer</button>
-        </div>
-        <div class="muted" style="font-size:11px;margin-top:4px">enregistré automatiquement en quittant le champ</div>
-        <div id="crawl-key-state" class="muted" style="font-size:11px;margin-top:3px"></div>
       </div>
-      <div id="internet-status" class="muted" style="font-size:11px;margin-top:4px"></div>
     </div>
-    <div id="mcp-block" class="gated-block">
+    <div id="mcp-block" class="gated-group">
       <div class="subhead">Serveurs MCP<span id="mcp-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Connecte des <b>serveurs MCP</b> (Model Context Protocol) pour donner de nouveaux outils à l'IA : accès fichiers, bases de données, APIs métier… <b>stdio</b> = programme lancé localement (npx/uvx/binaire) · <b>http</b> = serveur distant. ⚠ un serveur stdio exécute du code sur cette machine, au même titre que le shell.</span></span></div>
-      <div id="mcp-list" class="mcp-list"></div>
-      <button class="addbtn" style="margin-top:6px" onclick="openMcp('')">+ ajouter un serveur</button>
+      <div class="slist">
+        <div class="rowbody">
+          <div id="mcp-list" class="mcp-list"></div>
+          <button class="addbtn" style="margin-top:6px" onclick="openMcp('')">+ ajouter un serveur</button>
+        </div>
+      </div>
     </div>
-    <div id="param-block" class="gated-block">
+    <div id="param-block" class="gated-group">
       <div class="subhead">Paramètres</div>
-      <label class="switchrow" style="margin-top:8px"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> compactage automatique du contexte<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
+      <div class="slist">
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> compactage automatique du contexte<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
+      </div>
     </div>
   </details>
   <details><summary><span class="stitle">Apparence</span></summary>
@@ -1020,73 +1153,82 @@ button:hover{border-color:var(--dim);color:var(--text)}
     </div>
   </details>
   <details><summary><span class="stitle">System prompt</span></summary>
-    <textarea id="sysprompt" placeholder="(optionnel) ex: tu es un assistant concis en français" oninput="saveSys()" class="sctl"></textarea>
+    <div class="slist"><div class="rowbody">
+      <textarea id="sysprompt" placeholder="(optionnel) ex: tu es un assistant concis en français" oninput="saveSys()" class="sctl"></textarea>
+    </div></div>
   </details>
   <details><summary><span class="stitle">Accès OpenAI</span></summary>
     <div class="subhead">Endpoint compatible OpenAI<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Branchez n'importe quel client compatible OpenAI (OpenCode, Continue, Cursor…) sur ces adresses. Si une clé est définie, le client doit envoyer <code>Authorization: Bearer &lt;clé&gt;</code>.</span></span></div>
-    <div class="muted" style="font-size:11px;margin:0 0 10px">Modèle : <code>jean</code></div>
-
-    <div class="slist pad">
-    <div class="io-cap">Adresse locale (réseau)</div>
-    <div class="row">
-      <input id="oai-url" readonly class="io-input">
-      <button onclick="copyText(document.getElementById('oai-url').value,'adresse copiée')" title="copier">⧉</button>
-    </div>
-
-    </div>
-    <div class="slist"><label class="switchrow"><span class="switch"><input type="checkbox" id="oai-public-toggle" onchange="toggleOAIPublic()"><span class="slider"></span></span> exposer en public (ajean.link)<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Rend votre IA joignable depuis <b>n'importe où</b> via <code>https://&lt;machine&gt;.oai.ajean.link/v1</code> (pour brancher un SaaS). Le trafic est chiffré <b>de bout en bout</b> jusqu'à ce serveur — le relais ajean.link ne voit rien. Nécessite l'accès distant actif.</span></span></label>
-    </div>
-    <div id="oai-public-wrap" class="slist pad" style="display:none">
-      <div class="io-cap">Adresse publique — chiffrée de bout en bout, accessible partout</div>
-      <div class="row">
-        <input id="oai-public-url" readonly class="io-input">
-        <button onclick="copyText(document.getElementById('oai-public-url').value,'adresse publique copiée')" title="copier">⧉</button>
+    <!-- UNE carte pour tout l'endpoint : adresse locale, bascule « public » et
+         adresse publique sont un seul sujet — trois cartes accolées donnaient
+         trois îlots pour un même réglage. -->
+    <div class="slist">
+      <div class="rowbody">
+        <div class="muted" style="margin:0 0 6px">Adresse locale (réseau) — modèle <code>jean</code></div>
+        <div class="row" style="margin:0">
+          <input id="oai-url" readonly class="io-input">
+          <button class="iconbtn" onclick="copyText(document.getElementById('oai-url').value,'adresse copiée')" title="copier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2.5"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+        </div>
+      </div>
+      <label class="switchrow"><span class="switch"><input type="checkbox" id="oai-public-toggle" onchange="toggleOAIPublic()"><span class="slider"></span></span> exposer en public (ajean.link)<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Rend votre IA joignable depuis <b>n'importe où</b> via <code>https://&lt;machine&gt;.oai.ajean.link/v1</code> (pour brancher un SaaS). Le trafic est chiffré <b>de bout en bout</b> jusqu'à ce serveur — le relais ajean.link ne voit rien. Nécessite l'accès distant actif.</span></span></label>
+      <div id="oai-public-wrap" class="rowbody" style="display:none">
+        <div class="muted" style="margin:0 0 6px">Adresse publique — chiffrée de bout en bout, accessible partout</div>
+        <div class="row" style="margin:0">
+          <input id="oai-public-url" readonly class="io-input">
+          <button class="iconbtn" onclick="copyText(document.getElementById('oai-public-url').value,'adresse publique copiée')" title="copier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2.5"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+        </div>
       </div>
     </div>
-
     <div class="subhead">Clé API<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Protège l'endpoint des complétions (llama-server). Indispensable avant d'exposer le serveur sur internet. Modifier la clé <b>redémarre</b> le service.</span></span></div>
-    <div class="slist pad">
-    <div class="row">
-      <input id="oai-key" readonly class="io-input">
-      <button id="oai-key-eye" onclick="toggleKeyReveal()" title="afficher / masquer">afficher</button>
-      <button onclick="copyApiKey()" title="copier la clé">⧉</button>
-    </div>
-    <div class="row" style="margin-top:6px">
-      <button onclick="apiKeyAction('generate')">générer</button>
-      <button onclick="apiKeySet()">définir…</button>
-      <button onclick="apiKeyAction('clear')">retirer</button>
-    </div>
-    </div>
+    <div class="slist"><div class="rowbody">
+      <div class="row" style="margin:0">
+        <input id="oai-key" readonly class="io-input">
+        <button id="oai-key-eye" onclick="toggleKeyReveal()" title="afficher / masquer">afficher</button>
+        <button class="iconbtn" onclick="copyApiKey()" title="copier la clé"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2.5"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+      </div>
+      <div class="row" style="margin-bottom:0">
+        <button onclick="apiKeyAction('generate')">générer</button>
+        <button onclick="apiKeySet()">définir…</button>
+        <button onclick="apiKeyAction('clear')">retirer</button>
+      </div>
+    </div></div>
   </details>
   <details id="remote-details"><summary><span class="stitle">Accès distant</span><span id="remote-badge" class="sbadge"></span></summary>
     <div class="subhead">ajean.link<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Accédez à ce serveur Jean depuis <b>n'importe où</b>, sans ouvrir de port, à travers le relais <b>ajean.link</b>. Le trafic est chiffré de <b>bout en bout</b> : le relais ne voit rien. Abonnement 4,80 €/mois.</span></span></div>
     <!-- Non connecté : un seul bouton, tout se passe dans la popup (compte + paiement). -->
-    <div id="remote-off" class="slist pad">
-      <p class="muted" style="font-size:12px;line-height:1.5;margin:6px 0 10px">Ouvrez l'accès distant à ce serveur en quelques clics, sans terminal.</p>
+    <div id="remote-off" class="slist"><div class="rowbody">
+      <p class="muted" style="margin:0 0 8px">Ouvrez l'accès distant à ce serveur en quelques clics, sans terminal.</p>
       <button onclick="remoteConnect()" style="border-color:var(--accent);color:var(--accent)">Connecter à ajean.link</button>
-    </div>
-    <!-- Connecté : URL publique + appairage + déconnexion. -->
+    </div></div>
+    <!-- Connecté : URL publique + appairage + déconnexion. Le bouton « démarrer
+         le tunnel » vit DANS la carte de l'adresse : c'est l'action de cette
+         ligne, il flottait auparavant entre deux cartes. -->
     <div id="remote-on" style="display:none">
-      <div class="slist pad">
-      <div class="io-cap">Votre adresse d'accès distant</div>
-      <div class="row">
-        <input id="remote-url" readonly class="io-input">
-        <button onclick="copyText(document.getElementById('remote-url').value,'adresse copiée')" title="copier">⧉</button>
-        <button onclick="window.open(document.getElementById('remote-url').value,'_blank')" title="ouvrir">↗</button>
-      </div>
-      <div id="remote-status" class="muted"></div>
-      </div>
-      <button id="remote-start" onclick="remoteStart()" style="display:none;margin-top:8px;border-color:var(--accent);color:var(--accent)">démarrer le tunnel</button>
-      <div class="subhead" style="margin-top:12px">Première connexion<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">À votre première ouverture du portail distant, confirmez l'<b>empreinte</b> et saisissez le <b>code d'appairage</b> : cela verrouille la boîte noire sur CE serveur (anti-interception). Une seule fois par appareil.</span></span></div>
-      <div class="slist pad">
-        <div class="row"><button onclick="remotePairCode()">Afficher l'empreinte et le code d'appairage</button></div>
-        <div id="remote-pair" class="muted" style="display:none"></div>
-        <div class="row"><button onclick="remoteDisconnect()" class="btn-danger-o">déconnecter l'accès distant</button></div>
-      </div>
+      <div class="slist"><div class="rowbody">
+        <div class="muted" style="margin:0 0 6px">Votre adresse d'accès distant</div>
+        <div class="row" style="margin:0">
+          <input id="remote-url" readonly class="io-input">
+          <button class="iconbtn" onclick="copyText(document.getElementById('remote-url').value,'adresse copiée')" title="copier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2.5"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+          <button class="iconbtn" onclick="window.open(document.getElementById('remote-url').value,'_blank')" title="ouvrir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg></button>
+        </div>
+        <div id="remote-status" class="muted" style="margin-top:6px"></div>
+        <div class="row" style="margin-bottom:0"><button id="remote-start" onclick="remoteStart()" style="display:none;border-color:var(--accent);color:var(--accent)">démarrer le tunnel</button></div>
+      </div></div>
+      <div class="subhead">Première connexion<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">À votre première ouverture du portail distant, confirmez l'<b>empreinte</b> et saisissez le <b>code d'appairage</b> : cela verrouille la boîte noire sur CE serveur (anti-interception). Une seule fois par appareil.</span></span></div>
+      <div class="slist"><div class="rowbody">
+        <div class="row" style="margin:0"><button onclick="remotePairCode()">Afficher l'empreinte et le code d'appairage</button></div>
+        <div id="remote-pair" class="muted" style="display:none;margin-top:6px"></div>
+        <div class="row" style="margin-bottom:0"><button onclick="remoteDisconnect()" class="btn-danger-o">déconnecter l'accès distant</button></div>
+      </div></div>
     </div>
   </details>
   <details id="lc-details"><summary><span class="stitle">Moteur</span></summary>
-    <div id="lc-status" class="lc-head muted">…</div>
+    <div class="subhead">Installation</div>
+    <!-- Une seule carte : état, choix du mode et journal d'installation sont le
+         même sujet. Les trois modes sont des LIGNES de cette carte (elles
+         étaient des cartes dans une carte). -->
+    <div class="slist">
+    <div class="rowbody"><div id="lc-status" class="lc-head muted">…</div></div>
     <div class="lc-modes">
       <div class="lc-mode" id="lc-mode-fast" onclick="lcPick('fast')">
         <div class="lc-mode-t">llama.cpp précompilé <span class="lc-reco">conseillé</span></div>
@@ -1104,33 +1246,36 @@ button:hover{border-color:var(--dim);color:var(--text)}
         <div class="lc-mode-state" id="lc-custom-state"></div>
       </div>
     </div>
-    <div id="lc-job" style="display:none;margin-top:10px">
+    <div id="lc-job" class="rowbody" style="display:none">
       <div id="lc-job-phase" style="font-size:12px;display:flex;align-items:center;gap:6px"></div>
       <div class="lc-logbar" onclick="lcToggleLog()"><span id="lc-log-caret">▸</span> détails</div>
       <pre id="lc-log" hidden></pre>
+    </div>
     </div>
     <!-- Ces trois boutons pilotent le service qui fait tourner llama-server :
          leur place est ici, avec le moteur, et pas dans une section « Service »
          à part qui ne contenait qu'eux. -->
     <div class="subhead">Service du moteur<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Démarre, redémarre ou arrête <b>llama-server</b> — le processus qui charge le modèle et répond. Un redémarrage recharge le modèle du preset actif (quelques secondes à quelques minutes selon sa taille).</span></span></div>
-    <div class="slist pad">
-      <div class="row">
+    <div class="slist"><div class="rowbody">
+      <div class="row" style="margin:0">
         <button onclick="act('start')">démarrer</button>
         <button onclick="act('restart')">redémarrer</button>
         <button onclick="act('stop')">arrêter</button>
       </div>
-    </div>
+    </div></div>
   </details>
   <details id="upd-details"><summary><span class="stitle">Actions</span></summary>
-    <div class="slist pad">
-      <div class="row"><button id="upd-check" onclick="checkUpdate()">↥ Vérifier les mises à jour</button></div>
+    <div class="slist"><div class="rowbody">
+      <div class="row" style="margin:0">
+        <button id="upd-check" onclick="checkUpdate()">↥ Vérifier les mises à jour</button>
+      </div>
       <div id="upd-msg" class="muted"></div>
-      <div class="row">
+      <div class="row" style="margin-bottom:0">
         <button onclick="loadAll()">↻ refresh</button>
         <button onclick="resetChat()">⌫ clear chat</button>
         <button id="btn-bench" onclick="runBenchUI()">bench</button>
       </div>
-    </div>
+    </div></div>
   </details>
 </div>
 <div class="main" style="position:relative">
@@ -1138,6 +1283,16 @@ button:hover{border-color:var(--dim);color:var(--text)}
   <!-- Voile de chargement du fil : sans lui, une connexion lente donne un chat
        VIDE indiscernable d'une conversation vide. Masqué au signal {caught_up}. -->
   <div id="chat-loading"><span class="cl-dots"><span></span><span></span><span></span></span><span id="chat-loading-text">chargement de la conversation…</span></div>
+  <!-- Accueil : affiché UNIQUEMENT quand le fil est réellement vide (et une fois
+       le replay terminé, sinon il clignoterait au chargement de chaque page).
+       Le logo est cloné depuis #brand au démarrage — une seule source de vérité
+       pour le dessin des lettres. -->
+  <div id="chat-empty" aria-hidden="true">
+    <div id="ce-logo"></div>
+    <!-- Une seule ligne, NEUTRE en genre : l'UI est utilisée par tout le monde,
+         pas de civilité ni d'accord qui obligerait à deviner. -->
+    <div id="ce-title">On commence par quoi ?</div>
+  </div>
   <button id="scrollbtn" onclick="jumpBottom()" title="aller en bas">↓</button>
   <div id="composer">
     <div id="ctxmeta">
@@ -1175,6 +1330,10 @@ button:hover{border-color:var(--dim);color:var(--text)}
     <div id="ask-title" class="ask-title"></div>
     <div id="ask-msg" class="ask-msg"></div>
     <input id="ask-input" class="ask-input" style="display:none">
+    <!-- Option facultative de la confirmation (ex. « supprimer aussi le .gguf ») :
+         sa place est ICI, dans la boîte qui pose la question, plutôt que dans le
+         pied de l'éditeur où elle occupait de la place en permanence. -->
+    <label id="ask-check" class="pe-delmodel" style="display:none"><input type="checkbox" id="ask-check-input"><span id="ask-check-label"></span></label>
     <div class="ask-actions">
       <button id="ask-cancel" onclick="askResolve(false)">Annuler</button>
       <button id="ask-ok" class="ask-ok" onclick="askResolve(true)">Confirmer</button>
@@ -1276,6 +1435,11 @@ button:hover{border-color:var(--dim);color:var(--text)}
       <strong id="modal-title">Preset</strong>
       <button class="modal-x" onclick="closeModal()" aria-label="Fermer">×</button>
     </div>
+    <!-- Chargement : la modale s'ouvre tout de suite, mais son contenu n'arrive
+         qu'après (jusqu'à 3 requêtes en accès distant). Ce voile se pose PAR-DESSUS
+         le formulaire, qui reste en place (invisible) : la carte garde sa taille
+         finale, donc pas de saut au moment où le contenu apparaît. -->
+    <div class="modal-load"><span class="spinner"></span></div>
     <div class="pe-body">
       <div class="pe-group">
         <div class="pe-gh">Nom</div>
@@ -1456,10 +1620,13 @@ button:hover{border-color:var(--dim);color:var(--text)}
         </div>
       </div>
     </div>
+    <!-- Pied compact, sur UNE ligne : la suppression est une icône (action rare et
+         destructrice, elle n'a pas à peser autant que « enregistrer »), et sa case
+         « supprimer aussi le .gguf » se réduit à l'extension, le libellé complet
+         restant en infobulle. -->
     <div class="pe-foot">
       <div class="foot-l">
-        <button id="m-del" class="pe-btn ghost-danger" onclick="delItem()">supprimer</button>
-        <label id="m-del-model-wrap" class="pe-delmodel" style="display:none"><input type="checkbox" id="m-del-model"> + le modèle .gguf</label>
+        <button id="m-del" class="pe-del" onclick="delItem()" title="supprimer" aria-label="supprimer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
       </div>
       <div class="foot-r">
         <button class="pe-btn" onclick="closeModal()">annuler</button>
@@ -1629,16 +1796,39 @@ function setBadge(id, state, text){
   el.className = 'sbadge' + (state===true ? ' on' : (state==='warn' || state==='err') ? ' '+state : '');
   el.textContent = state===null || state===undefined ? '' : (text||'');
 }
+// Ouverture/fermeture des modales. Le display seul apparaissait d'un bloc : on
+// pose la classe .show une frame APRÈS l'affichage pour que la transition CSS
+// parte de son état initial (sans ce reflow forcé, le navigateur applique tout
+// d'un coup et l'animation ne joue pas). À la fermeture on attend la fin de la
+// transition avant de repasser en display:none.
+function showModal(id){
+  const el = typeof id==='string' ? document.getElementById(id) : id;
+  if(!el) return;
+  el.style.display='flex';
+  void el.offsetHeight;
+  el.classList.add('show');
+}
+function hideModal(id){
+  const el = typeof id==='string' ? document.getElementById(id) : id;
+  if(!el) return;
+  el.classList.remove('show');
+  // Rouverte entre-temps ? On ne la cache surtout pas.
+  setTimeout(()=>{ if(!el.classList.contains('show')) el.style.display='none'; }, 180);
+}
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
 // Modales natives (askConfirm/askPrompt/askAlert) — remplacent confirm()/prompt()/
 // alert() par de vraies boîtes stylées. Chacune renvoie une Promise : askConfirm →
 // bool, askPrompt → string|null (null si annulé), askAlert → void. Échap/clic dehors
 // = annuler ; Entrée = valider (sur prompt aussi).
-let _askResolver=null, _askKind='confirm';
+let _askResolver=null, _askKind='confirm', _askCheck=false;
+// État de la case optionnelle de la DERNIÈRE confirmation (opts.check). Lu par
+// l'appelant juste après le await — la Promise, elle, ne renvoie que oui/non.
+function askChecked(){ return _askCheck; }
 function askResolve(ok){
   if(!_askResolver) return;
   const r=_askResolver; _askResolver=null;
-  document.getElementById('ask-modal').style.display='none';
+  _askCheck = ok && document.getElementById('ask-check-input').checked;
+  hideModal('ask-modal');
   document.removeEventListener('keydown', _askKey, true);
   if(_askKind==='prompt') r(ok ? document.getElementById('ask-input').value : null);
   else r(ok);
@@ -1659,12 +1849,18 @@ function _openAsk(kind, message, opts){
   const inp=document.getElementById('ask-input');
   if(kind==='prompt'){ inp.style.display=''; inp.value=opts.default||''; inp.placeholder=opts.placeholder||''; }
   else inp.style.display='none';
+  // Case facultative (ex. « supprimer aussi le fichier .gguf »).
+  const chk=document.getElementById('ask-check');
+  chk.style.display = opts.check ? 'inline-flex' : 'none';
+  document.getElementById('ask-check-label').textContent = opts.check || '';
+  document.getElementById('ask-check-input').checked = false;
+  _askCheck=false;
   const cancel=document.getElementById('ask-cancel'), ok=document.getElementById('ask-ok');
   cancel.style.display = kind==='alert' ? 'none' : '';
   cancel.textContent = opts.cancelText || 'Annuler';
   ok.textContent = opts.okText || (kind==='alert'?'OK':kind==='prompt'?'Valider':'Confirmer');
   ok.classList.toggle('danger', !!opts.danger);
-  document.getElementById('ask-modal').style.display='flex';
+  showModal('ask-modal');
   document.addEventListener('keydown', _askKey, true);
   setTimeout(()=>{ const f = kind==='prompt'?inp:ok; f.focus(); if(kind==='prompt') inp.select(); }, 30);
   return new Promise(res=>{ _askResolver=res; });
@@ -1721,7 +1917,7 @@ async function loadStatus(){
   else if(s.load_error){ cls='err'; txt='modèle incompatible'; }
   else if(s.active){ cls='loading'; txt='chargement…'; }
   el.className='statuspill '+cls;
-  el.innerHTML='<span class="dot"></span>'+txt+' <span class="port">:'+s.port+'</span>';
+  el.innerHTML='<span class="dot"></span>'+txt;
   MODEL_READY = !!(s.active && s.health);
   if(s.ctx){ CTX_MAX=s.ctx; updateCtxMeter(); }
   if(s.version){
@@ -1911,7 +2107,10 @@ async function loadPresets(){
     info.appendChild(nm);
     if(meta.children.length) info.appendChild(meta);
     const edit=document.createElement('button');
-    edit.className='preset-edit'; edit.title='éditer'; edit.textContent='✎';
+    // Engrenage (et non plus un crayon) : la silhouette est ronde, donc elle se
+    // lit comme centrée dans son coin, là où le crayon penché tirait de travers.
+    edit.className='preset-edit'; edit.title='réglages du preset';
+    edit.innerHTML='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>';
     edit.onclick=(e)=>{ e.stopPropagation(); openPreset(x.id); };
     row.appendChild(info); row.appendChild(edit);
     cont.appendChild(row);
@@ -1931,7 +2130,7 @@ async function loadAgent(){
   memPages = (s.pages || s.skills || []).slice().sort((a,b)=>a.name.localeCompare(b.name));
   memShown = MEM_PAGE;
   document.getElementById('mem-count').textContent = memPages.length ? '('+memPages.length+')' : '';
-  document.getElementById('mem-search').style.display = memPages.length > MEM_PAGE ? '' : 'none';
+  document.getElementById('mem-search-row').style.display = memPages.length > MEM_PAGE ? '' : 'none';
   renderMemList();
 }
 // Mémoire + accès internet sont des sous-réglages du mode agent : sans agent, ni
@@ -2134,8 +2333,8 @@ async function clearCrawlKey(){
 }
 async function loadAll(){ await Promise.all([loadStatus(),loadVram(),loadRam(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadApiKey(),loadPrefs(),loadLlamacpp(),loadRemote()]); }
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }
-function openBenchModal(){ document.getElementById('bench-modal').style.display = 'flex'; }
-function closeBenchModal(){ document.getElementById('bench-modal').style.display = 'none'; }
+function openBenchModal(){ showModal('bench-modal'); }
+function closeBenchModal(){ hideModal('bench-modal'); }
 async function runBenchUI(){
   const btn = document.getElementById('btn-bench');
   const rerun = document.getElementById('bench-rerun');
@@ -2192,20 +2391,27 @@ const KINDS = {
   preset: {label:'Preset', param:'id',   getUrl:'/api/preset', saveUrl:'/api/preset/save', delUrl:'/api/preset/delete', reload:()=>loadPresets()},
   mem:    {label:'Page',   param:'name', getUrl:'/api/mem',    saveUrl:'/api/mem/save',    delUrl:'/api/mem/delete',    reload:()=>loadMem()},
 };
+// ⚠️ La modale s'ouvre AVANT d'aller chercher quoi que ce soit. Elle attendait
+// auparavant la fin de 3 requêtes (contenu + backends + modèles disponibles) :
+// en accès distant, ça faisait un clic sans réaction pendant une seconde, comme
+// si le bouton était mort. On affiche la coquille tout de suite, puis on la
+// remplit. `openSeq` protège du cas « deux ouvertures coup sur coup » : une
+// réponse en retard ne doit jamais écraser la modale ouverte après elle.
+// Pendant ce remplissage la modale est en `.loading` : son corps est estompé et
+// inerte, puis révélé d'un coup une fois TOUT en place — sinon on voyait les
+// champs se peupler un par un, ce qui donnait une impression de bricolage.
+let openSeq = 0;
 async function openItem(kind, key){
   const K = KINDS[kind];
-  const r = await jfetch(K.getUrl + '?' + K.param + '=' + encodeURIComponent(key||''));
-  const d = await r.json();
+  const seq = ++openSeq;
   editingKind = kind; editingKey = key || '';
-  const display = d.name || key || '';
-  document.getElementById('modal-title').textContent = key ? (K.label + ' · ' + display) : ('Nouveau ' + K.label.toLowerCase());
-  document.getElementById('m-name').value = display;
-  document.getElementById('m-content').value = d.content || '';
-  document.getElementById('m-del').style.display = key ? 'inline-block' : 'none';
+  document.getElementById('modal-title').textContent = key ? (K.label + ' · ' + key) : ('Nouveau ' + K.label.toLowerCase());
+  document.getElementById('m-name').value = key || '';
+  document.getElementById('m-content').value = '';
+  document.getElementById('m-del').style.display = key ? 'inline-flex' : 'none';
   // Model picker is preset-only: it edits the MODEL= line of config.env.
   const modelRow = document.getElementById('m-model-row');
   const settingsRow = document.getElementById('m-settings-row');
-  const delModelWrap = document.getElementById('m-del-model-wrap');
   const rawHead = document.getElementById('m-raw-head');
   const rawToggle = document.getElementById('m-raw-toggle');
   const rawBody = document.getElementById('m-raw-body');
@@ -2215,11 +2421,6 @@ async function openItem(kind, key){
     settingsRow.style.display = 'flex';
     document.getElementById('m-hf-url').value = '';
     resetDlUI();
-    attachDownload(); // téléchargement encore en cours côté serveur ?
-    document.getElementById('m-del-model').checked = false;
-    document.getElementById('m-quant').value = currentQuantInTextarea();
-    populateSettings();
-    delModelWrap.style.display = key ? 'inline-flex' : 'none';
     // Preset : la config brute est une ligne repliable, fermée par défaut.
     rawHead.textContent = 'Configuration';
     rawToggle.style.display = '';
@@ -2228,17 +2429,33 @@ async function openItem(kind, key){
     // Dossiers de modèles : replié par défaut (réglage rare), chargé à l'ouverture.
     document.getElementById('m-dir-path').value = '';
     setModelDirsOpen(false);
-    await Promise.all([populateBackend(), populateModelPicker()]);
   } else {
     modelRow.style.display = 'none';
     settingsRow.style.display = 'none';
-    delModelWrap.style.display = 'none';
     // Page mémoire : le contenu EST le champ principal — affiché en clair.
     rawHead.textContent = 'Contenu';
     rawToggle.style.display = 'none';
     rawBody.style.display = '';
   }
-  document.getElementById('modal').style.display = 'flex';
+  document.getElementById('modal').classList.add('loading');
+  showModal('modal');
+  // --- Remplissage, une fois la modale à l'écran -----------------------------
+  const r = await jfetch(K.getUrl + '?' + K.param + '=' + encodeURIComponent(key||''));
+  const d = await r.json();
+  if(seq !== openSeq) return;              // une autre ouverture a pris la main
+  const display = d.name || key || '';
+  document.getElementById('modal-title').textContent = key ? (K.label + ' · ' + display) : ('Nouveau ' + K.label.toLowerCase());
+  document.getElementById('m-name').value = display;
+  document.getElementById('m-content').value = d.content || '';
+  if(kind === 'preset'){
+    // Ces deux-là LISENT le contenu : elles doivent passer après son arrivée.
+    document.getElementById('m-quant').value = currentQuantInTextarea();
+    populateSettings();
+    attachDownload();                      // téléchargement encore en cours côté serveur ?
+    await Promise.all([populateBackend(), populateModelPicker()]);
+    if(seq !== openSeq) return;
+  }
+  document.getElementById('modal').classList.remove('loading');
 }
 
 // Pretty-print bytes — handy for the dropdown options.
@@ -2784,7 +3001,7 @@ const openPreset = (id)=>openItem('preset', id);
 const openMem    = (n)=>openItem('mem', n);
 // Fermer la modale n'annule PAS un téléchargement en cours (il vit côté
 // serveur) : on arrête juste de l'interroger.
-function closeModal(){ document.getElementById('modal').style.display = 'none'; stopDlPoll(); }
+function closeModal(){ hideModal('modal'); document.getElementById('modal').classList.remove('loading'); stopDlPoll(); }
 async function saveItem(){
   const K = KINDS[editingKind];
   const name = document.getElementById('m-name').value.trim();
@@ -2803,10 +3020,16 @@ async function delItem(){
   if(!editingKey) return;
   const K = KINDS[editingKind];
   const name = document.getElementById('m-name').value.trim() || editingKey;
-  const delModel = editingKind==='preset' && document.getElementById('m-del-model').checked;
-  let msg = 'Supprimer le ' + K.label.toLowerCase() + ' « ' + name + ' » ?';
-  if(delModel) msg += '\n\n⚠ Le fichier .gguf du modèle sera AUSSI supprimé du disque (irréversible).';
-  if(!await askConfirm(msg, {title:'Suppression', okText:'Supprimer', danger:true})) return;
+  // Le choix « supprimer aussi le .gguf » est posé DANS la confirmation : il n'a
+  // de sens qu'au moment de supprimer, et il occupait le pied de l'éditeur en
+  // permanence. Décoché à chaque ouverture — jamais de modèle effacé parce que
+  // la case serait restée cochée d'une fois sur l'autre.
+  const msg = 'Supprimer le ' + K.label.toLowerCase() + ' « ' + name + ' » ?'
+    + (editingKind==='preset' ? '\n\nLe fichier .gguf du modèle est conservé, sauf si vous cochez ci-dessous (irréversible).' : '');
+  const opts = {title:'Suppression', okText:'Supprimer', danger:true};
+  if(editingKind==='preset') opts.check = 'supprimer aussi le fichier .gguf';
+  if(!await askConfirm(msg, opts)) return;
+  const delModel = editingKind==='preset' && askChecked();
   const payload = editingKind==='preset'
     ? {id: editingKey, deleteModel: delModel}
     : {name: editingKey};
@@ -3225,6 +3448,38 @@ function setChatLoading(msg){
   document.getElementById('chat-loading-text').textContent=msg;
   el.classList.add('show');
 }
+// --- Accueil du fil vide ---------------------------------------------------
+// Le logo n'est pas dupliqué dans le HTML : on clone celui de la barre latérale
+// (#brand) en retirant ses id (un id ne peut exister qu'une fois) et le numéro
+// de version. Les couleurs sont reprises par les classes .ce-*.
+function fillEmptyLogo(){
+  const box=document.getElementById('ce-logo'), brand=document.getElementById('brand');
+  if(!box || !brand || box.childElementCount) return;
+  ['brand-a','brand-word'].forEach(id=>{
+    const src=brand.querySelector('#'+id); if(!src) return;
+    const el=src.cloneNode(true); el.removeAttribute('id');
+    if(id==='brand-word') el.classList.add('ce-word');
+    box.appendChild(el);
+  });
+}
+// Affiché seulement quand le fil ne contient AUCUNE bulle et que le replay est
+// terminé — sinon il apparaîtrait une fraction de seconde à chaque chargement,
+// juste avant que les messages rejoués n'arrivent.
+function syncChatEmpty(){
+  const box=document.getElementById('chat-empty'); if(!box) return;
+  fillEmptyLogo();
+  const empty = !REPLAYING && !chatEl().querySelector('.msg');
+  box.classList.toggle('show', empty);
+}
+document.addEventListener('DOMContentLoaded', ()=>{
+  const c=chatEl(); if(!c) return;
+  // Le fil est peuplé par des dizaines de chemins différents (replay, direct,
+  // reset, effacement). On observe donc le DOM plutôt que d'appeler la synchro
+  // depuis chacun d'eux — le coût est nul, le callback est groupé et sort tout
+  // de suite pendant le replay.
+  new MutationObserver(()=>syncChatEmpty()).observe(c, {childList:true});
+  syncChatEmpty();
+});
 function restoreChat(){
   // On masque le chat le temps du replay pour ne pas voir défiler le haut puis
   // sauter en bas (effet de clignotement). Il est révélé, positionné en bas, au
@@ -3328,8 +3583,16 @@ function addCompactMark(){
   else chatEl().appendChild(el);
   scrollMaybe();
 }
-function killTyping(){ if(!T.typingEl) return; if(simpleMode()) return; removeTyping(); }
-function showTyping(){ if(!simpleMode()) return; const c=document.getElementById('chat');
+// L'indicateur « … » est retiré dès que quelque chose de VISIBLE le remplace.
+// Il doit donc survivre quand la bulle qui arrive ne sera pas affichée : mode
+// simplifié, mais aussi raisonnement/outils masqués par les préférences — sinon
+// le fil reste totalement vide pendant que le modèle travaille (rien à voir, et
+// aucun signe que ça tourne).
+const typingKept=(kind)=>simpleMode()
+  || (kind==='reasoning' && viewOn('hide-reasoning'))
+  || (kind==='tool' && viewOn('hide-tools'));
+function killTyping(kind){ if(!T.typingEl) return; if(typingKept(kind)) return; removeTyping(); }
+function showTyping(kind){ if(!typingKept(kind)) return; const c=document.getElementById('chat');
   if(!T.typingEl){ T.typingEl=addTyping(); } else if(c.lastElementChild!==T.typingEl){ c.appendChild(T.typingEl); } }
 // Label de vitesse rendu depuis les valeurs (fonctionne aussi bien en direct
 // qu'au replay — pas de timer performance.now, qui n'a pas de sens hors-ligne).
@@ -3373,6 +3636,9 @@ function handleDelta(d){
     // sur les reconnexions, pour ne pas te ramener en bas si tu lisais plus haut).
     setChatLoading(null);
     if(REPLAYING){ REPLAYING=false; jumpBottom(); syncSendBtn(); const c=chatEl(); c.style.transition='opacity .15s'; c.style.opacity='1'; }
+    // Fil vide : aucune bulle n'a été rejouée, donc aucune mutation ne viendra
+    // déclencher la synchro — c'est ici qu'on décide d'afficher l'accueil.
+    syncChatEmpty();
     return; }
   if(d.reset!==undefined){ PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
   if(d.user!==undefined){ newTurn(); if(!confirmPending(d.user)) addMsg('user', d.user); setBusy(true); T.typingEl=addTyping(); return; }
@@ -3391,23 +3657,25 @@ function handleDelta(d){
     if(d.stats.prompt_tokens_total){ setCtxUsed((d.stats.prompt_tokens_total||0)+(d.stats.gen_tokens||0)); }
     if(T.contentEl||T.reasonEl) renderStats(T.contentEl||T.reasonEl, d.stats); return; }
   if(d.tool_used){
-    killTyping(); T.contentEl=null; T.reasonEl=null; const tu=d.tool_used;
+    killTyping('tool'); T.contentEl=null; T.reasonEl=null; const tu=d.tool_used;
     if(!T.pendingToolEl){ collapseAll(T.turnCollapsibles); T.pendingToolEl=addMsg('tool',''); if(REPLAYING||viewOn('fold-tools')) collapseInstant(T.pendingToolEl); T.turnCollapsibles.push(T.pendingToolEl); }
     renderToolMsg(T.pendingToolEl, tu);
-    if(!tu.done) showTyping();
+    // Outils masqués : on garde l'indicateur même quand l'appel est terminé (le
+    // tour continue, et rien d'autre n'est visible). Sinon, comportement inchangé.
+    if(!tu.done || viewOn('hide-tools')) showTyping('tool');
     if(tu.done){ T.pendingToolEl=null; if(tu.name==='mem_add'||tu.name==='mem_edit') loadMem(); }
     return; }
   if(d.drop_reasoning){
     if(T.reasonEl){ const i=T.turnCollapsibles.indexOf(T.reasonEl); if(i>=0) T.turnCollapsibles.splice(i,1); T.reasonEl.remove(); T.reasonEl=null; T.fullReason=''; }
     return; }
   if(d.reasoning_content){
-    killTyping();
+    killTyping('reasoning');
     if(!T.reasonEl){ collapseAll(T.turnCollapsibles); T.reasonEl=addMsg('reasoning',''); if(REPLAYING||viewOn('fold-tools')) collapseInstant(T.reasonEl); T.fullReason=''; T.turnCollapsibles.push(T.reasonEl); }
     // d.replace : le serveur renvoie le bloc ENTIER alors qu'on en affichait déjà
     // le début (voir decorateEvent/coalesceReplay côté serveur) → on repart de zéro
     // au lieu de concaténer, sinon le texte apparaît en double.
     if(d.replace){ T.fullReason=''; T.reasonTok=0; T.reasonFirstTs=0; }
-    showTyping(); T.fullReason+=d.reasoning_content; renderBody(T.reasonEl, T.fullReason);
+    showTyping('reasoning'); T.fullReason+=d.reasoning_content; renderBody(T.reasonEl, T.fullReason);
     // d.toks/d.ts0 présents quand l'événement est coalescé (replay) : plusieurs
     // tokens d'un coup. Sinon (direct), 1 token, ts0=ts.
     if(!T.reasonFirstTs) T.reasonFirstTs=d.ts0||d.ts||0; T.reasonLastTs=d.ts||T.reasonLastTs; T.reasonTok+=(d.toks||1);
@@ -3667,12 +3935,12 @@ async function lcRenderCustomCard(){
 }
 
 function openCustomBackends(){
-  document.getElementById('lc-custom-modal').style.display = 'flex';
+  showModal('lc-custom-modal');
   document.getElementById('lc-custom-url').value = '';
   document.getElementById('lc-custom-name').value = '';
   loadCustomBackends();
 }
-function closeCustomBackends(){ document.getElementById('lc-custom-modal').style.display = 'none'; }
+function closeCustomBackends(){ hideModal('lc-custom-modal'); }
 
 // Liste les backends custom dans le modal, avec un bouton supprimer par ligne.
 async function loadCustomBackends(){
@@ -3873,7 +4141,7 @@ function openMcp(name){
   else if(s && s.connected){ st.innerHTML = '<span style="color:var(--accent)">✓</span> connecté — '+(s.tools?s.tools.length:0)+' outil(s)'; }
   document.getElementById('mcp-del').style.display = s ? '' : 'none';
   renderMcpTools(s);
-  document.getElementById('mcp-modal').style.display = 'flex';
+  showModal('mcp-modal');
 }
 
 // Liste des outils découverts du serveur, avec une case par outil pour le
@@ -3908,7 +4176,7 @@ async function toggleMcpTool(server, tool, on){
   if(s && s.tools) document.getElementById('mcp-tools-count').textContent = '('+(s.tools.length-off.size)+'/'+s.tools.length+' actifs)';
 }
 
-function closeMcp(){ document.getElementById('mcp-modal').style.display = 'none'; mcpEditing = null; }
+function closeMcp(){ hideModal('mcp-modal'); mcpEditing = null; }
 
 function mcpTransportUI(t){
   document.getElementById('mcp-stdio-fields').style.display = t==='stdio' ? '' : 'none';

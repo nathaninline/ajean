@@ -1,5 +1,5 @@
-function openBenchModal(){ document.getElementById('bench-modal').style.display = 'flex'; }
-function closeBenchModal(){ document.getElementById('bench-modal').style.display = 'none'; }
+function openBenchModal(){ showModal('bench-modal'); }
+function closeBenchModal(){ hideModal('bench-modal'); }
 async function runBenchUI(){
   const btn = document.getElementById('btn-bench');
   const rerun = document.getElementById('bench-rerun');
@@ -56,20 +56,27 @@ const KINDS = {
   preset: {label:'Preset', param:'id',   getUrl:'/api/preset', saveUrl:'/api/preset/save', delUrl:'/api/preset/delete', reload:()=>loadPresets()},
   mem:    {label:'Page',   param:'name', getUrl:'/api/mem',    saveUrl:'/api/mem/save',    delUrl:'/api/mem/delete',    reload:()=>loadMem()},
 };
+// ⚠️ La modale s'ouvre AVANT d'aller chercher quoi que ce soit. Elle attendait
+// auparavant la fin de 3 requêtes (contenu + backends + modèles disponibles) :
+// en accès distant, ça faisait un clic sans réaction pendant une seconde, comme
+// si le bouton était mort. On affiche la coquille tout de suite, puis on la
+// remplit. `openSeq` protège du cas « deux ouvertures coup sur coup » : une
+// réponse en retard ne doit jamais écraser la modale ouverte après elle.
+// Pendant ce remplissage la modale est en `.loading` : son corps est estompé et
+// inerte, puis révélé d'un coup une fois TOUT en place — sinon on voyait les
+// champs se peupler un par un, ce qui donnait une impression de bricolage.
+let openSeq = 0;
 async function openItem(kind, key){
   const K = KINDS[kind];
-  const r = await jfetch(K.getUrl + '?' + K.param + '=' + encodeURIComponent(key||''));
-  const d = await r.json();
+  const seq = ++openSeq;
   editingKind = kind; editingKey = key || '';
-  const display = d.name || key || '';
-  document.getElementById('modal-title').textContent = key ? (K.label + ' · ' + display) : ('Nouveau ' + K.label.toLowerCase());
-  document.getElementById('m-name').value = display;
-  document.getElementById('m-content').value = d.content || '';
-  document.getElementById('m-del').style.display = key ? 'inline-block' : 'none';
+  document.getElementById('modal-title').textContent = key ? (K.label + ' · ' + key) : ('Nouveau ' + K.label.toLowerCase());
+  document.getElementById('m-name').value = key || '';
+  document.getElementById('m-content').value = '';
+  document.getElementById('m-del').style.display = key ? 'inline-flex' : 'none';
   // Model picker is preset-only: it edits the MODEL= line of config.env.
   const modelRow = document.getElementById('m-model-row');
   const settingsRow = document.getElementById('m-settings-row');
-  const delModelWrap = document.getElementById('m-del-model-wrap');
   const rawHead = document.getElementById('m-raw-head');
   const rawToggle = document.getElementById('m-raw-toggle');
   const rawBody = document.getElementById('m-raw-body');
@@ -79,11 +86,6 @@ async function openItem(kind, key){
     settingsRow.style.display = 'flex';
     document.getElementById('m-hf-url').value = '';
     resetDlUI();
-    attachDownload(); // téléchargement encore en cours côté serveur ?
-    document.getElementById('m-del-model').checked = false;
-    document.getElementById('m-quant').value = currentQuantInTextarea();
-    populateSettings();
-    delModelWrap.style.display = key ? 'inline-flex' : 'none';
     // Preset : la config brute est une ligne repliable, fermée par défaut.
     rawHead.textContent = 'Configuration';
     rawToggle.style.display = '';
@@ -92,17 +94,33 @@ async function openItem(kind, key){
     // Dossiers de modèles : replié par défaut (réglage rare), chargé à l'ouverture.
     document.getElementById('m-dir-path').value = '';
     setModelDirsOpen(false);
-    await Promise.all([populateBackend(), populateModelPicker()]);
   } else {
     modelRow.style.display = 'none';
     settingsRow.style.display = 'none';
-    delModelWrap.style.display = 'none';
     // Page mémoire : le contenu EST le champ principal — affiché en clair.
     rawHead.textContent = 'Contenu';
     rawToggle.style.display = 'none';
     rawBody.style.display = '';
   }
-  document.getElementById('modal').style.display = 'flex';
+  document.getElementById('modal').classList.add('loading');
+  showModal('modal');
+  // --- Remplissage, une fois la modale à l'écran -----------------------------
+  const r = await jfetch(K.getUrl + '?' + K.param + '=' + encodeURIComponent(key||''));
+  const d = await r.json();
+  if(seq !== openSeq) return;              // une autre ouverture a pris la main
+  const display = d.name || key || '';
+  document.getElementById('modal-title').textContent = key ? (K.label + ' · ' + display) : ('Nouveau ' + K.label.toLowerCase());
+  document.getElementById('m-name').value = display;
+  document.getElementById('m-content').value = d.content || '';
+  if(kind === 'preset'){
+    // Ces deux-là LISENT le contenu : elles doivent passer après son arrivée.
+    document.getElementById('m-quant').value = currentQuantInTextarea();
+    populateSettings();
+    attachDownload();                      // téléchargement encore en cours côté serveur ?
+    await Promise.all([populateBackend(), populateModelPicker()]);
+    if(seq !== openSeq) return;
+  }
+  document.getElementById('modal').classList.remove('loading');
 }
 
 // Pretty-print bytes — handy for the dropdown options.
@@ -648,7 +666,7 @@ const openPreset = (id)=>openItem('preset', id);
 const openMem    = (n)=>openItem('mem', n);
 // Fermer la modale n'annule PAS un téléchargement en cours (il vit côté
 // serveur) : on arrête juste de l'interroger.
-function closeModal(){ document.getElementById('modal').style.display = 'none'; stopDlPoll(); }
+function closeModal(){ hideModal('modal'); document.getElementById('modal').classList.remove('loading'); stopDlPoll(); }
 async function saveItem(){
   const K = KINDS[editingKind];
   const name = document.getElementById('m-name').value.trim();
@@ -667,10 +685,16 @@ async function delItem(){
   if(!editingKey) return;
   const K = KINDS[editingKind];
   const name = document.getElementById('m-name').value.trim() || editingKey;
-  const delModel = editingKind==='preset' && document.getElementById('m-del-model').checked;
-  let msg = 'Supprimer le ' + K.label.toLowerCase() + ' « ' + name + ' » ?';
-  if(delModel) msg += '\n\n⚠ Le fichier .gguf du modèle sera AUSSI supprimé du disque (irréversible).';
-  if(!await askConfirm(msg, {title:'Suppression', okText:'Supprimer', danger:true})) return;
+  // Le choix « supprimer aussi le .gguf » est posé DANS la confirmation : il n'a
+  // de sens qu'au moment de supprimer, et il occupait le pied de l'éditeur en
+  // permanence. Décoché à chaque ouverture — jamais de modèle effacé parce que
+  // la case serait restée cochée d'une fois sur l'autre.
+  const msg = 'Supprimer le ' + K.label.toLowerCase() + ' « ' + name + ' » ?'
+    + (editingKind==='preset' ? '\n\nLe fichier .gguf du modèle est conservé, sauf si vous cochez ci-dessous (irréversible).' : '');
+  const opts = {title:'Suppression', okText:'Supprimer', danger:true};
+  if(editingKind==='preset') opts.check = 'supprimer aussi le fichier .gguf';
+  if(!await askConfirm(msg, opts)) return;
+  const delModel = editingKind==='preset' && askChecked();
   const payload = editingKind==='preset'
     ? {id: editingKey, deleteModel: delModel}
     : {name: editingKey};

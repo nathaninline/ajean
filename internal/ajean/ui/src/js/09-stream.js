@@ -74,8 +74,16 @@ function addCompactMark(){
   else chatEl().appendChild(el);
   scrollMaybe();
 }
-function killTyping(){ if(!T.typingEl) return; if(simpleMode()) return; removeTyping(); }
-function showTyping(){ if(!simpleMode()) return; const c=document.getElementById('chat');
+// L'indicateur « … » est retiré dès que quelque chose de VISIBLE le remplace.
+// Il doit donc survivre quand la bulle qui arrive ne sera pas affichée : mode
+// simplifié, mais aussi raisonnement/outils masqués par les préférences — sinon
+// le fil reste totalement vide pendant que le modèle travaille (rien à voir, et
+// aucun signe que ça tourne).
+const typingKept=(kind)=>simpleMode()
+  || (kind==='reasoning' && viewOn('hide-reasoning'))
+  || (kind==='tool' && viewOn('hide-tools'));
+function killTyping(kind){ if(!T.typingEl) return; if(typingKept(kind)) return; removeTyping(); }
+function showTyping(kind){ if(!typingKept(kind)) return; const c=document.getElementById('chat');
   if(!T.typingEl){ T.typingEl=addTyping(); } else if(c.lastElementChild!==T.typingEl){ c.appendChild(T.typingEl); } }
 // Label de vitesse rendu depuis les valeurs (fonctionne aussi bien en direct
 // qu'au replay — pas de timer performance.now, qui n'a pas de sens hors-ligne).
@@ -119,6 +127,9 @@ function handleDelta(d){
     // sur les reconnexions, pour ne pas te ramener en bas si tu lisais plus haut).
     setChatLoading(null);
     if(REPLAYING){ REPLAYING=false; jumpBottom(); syncSendBtn(); const c=chatEl(); c.style.transition='opacity .15s'; c.style.opacity='1'; }
+    // Fil vide : aucune bulle n'a été rejouée, donc aucune mutation ne viendra
+    // déclencher la synchro — c'est ici qu'on décide d'afficher l'accueil.
+    syncChatEmpty();
     return; }
   if(d.reset!==undefined){ PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
   if(d.user!==undefined){ newTurn(); if(!confirmPending(d.user)) addMsg('user', d.user); setBusy(true); T.typingEl=addTyping(); return; }
@@ -137,23 +148,25 @@ function handleDelta(d){
     if(d.stats.prompt_tokens_total){ setCtxUsed((d.stats.prompt_tokens_total||0)+(d.stats.gen_tokens||0)); }
     if(T.contentEl||T.reasonEl) renderStats(T.contentEl||T.reasonEl, d.stats); return; }
   if(d.tool_used){
-    killTyping(); T.contentEl=null; T.reasonEl=null; const tu=d.tool_used;
+    killTyping('tool'); T.contentEl=null; T.reasonEl=null; const tu=d.tool_used;
     if(!T.pendingToolEl){ collapseAll(T.turnCollapsibles); T.pendingToolEl=addMsg('tool',''); if(REPLAYING||viewOn('fold-tools')) collapseInstant(T.pendingToolEl); T.turnCollapsibles.push(T.pendingToolEl); }
     renderToolMsg(T.pendingToolEl, tu);
-    if(!tu.done) showTyping();
+    // Outils masqués : on garde l'indicateur même quand l'appel est terminé (le
+    // tour continue, et rien d'autre n'est visible). Sinon, comportement inchangé.
+    if(!tu.done || viewOn('hide-tools')) showTyping('tool');
     if(tu.done){ T.pendingToolEl=null; if(tu.name==='mem_add'||tu.name==='mem_edit') loadMem(); }
     return; }
   if(d.drop_reasoning){
     if(T.reasonEl){ const i=T.turnCollapsibles.indexOf(T.reasonEl); if(i>=0) T.turnCollapsibles.splice(i,1); T.reasonEl.remove(); T.reasonEl=null; T.fullReason=''; }
     return; }
   if(d.reasoning_content){
-    killTyping();
+    killTyping('reasoning');
     if(!T.reasonEl){ collapseAll(T.turnCollapsibles); T.reasonEl=addMsg('reasoning',''); if(REPLAYING||viewOn('fold-tools')) collapseInstant(T.reasonEl); T.fullReason=''; T.turnCollapsibles.push(T.reasonEl); }
     // d.replace : le serveur renvoie le bloc ENTIER alors qu'on en affichait déjà
     // le début (voir decorateEvent/coalesceReplay côté serveur) → on repart de zéro
     // au lieu de concaténer, sinon le texte apparaît en double.
     if(d.replace){ T.fullReason=''; T.reasonTok=0; T.reasonFirstTs=0; }
-    showTyping(); T.fullReason+=d.reasoning_content; renderBody(T.reasonEl, T.fullReason);
+    showTyping('reasoning'); T.fullReason+=d.reasoning_content; renderBody(T.reasonEl, T.fullReason);
     // d.toks/d.ts0 présents quand l'événement est coalescé (replay) : plusieurs
     // tokens d'un coup. Sinon (direct), 1 token, ts0=ts.
     if(!T.reasonFirstTs) T.reasonFirstTs=d.ts0||d.ts||0; T.reasonLastTs=d.ts||T.reasonLastTs; T.reasonTok+=(d.toks||1);

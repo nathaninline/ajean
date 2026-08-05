@@ -99,7 +99,7 @@ function openMcp(name){
   else if(s && s.connected){ st.innerHTML = '<span style="color:var(--accent)">✓</span> connecté — '+(s.tools?s.tools.length:0)+' outil(s)'; }
   document.getElementById('mcp-del').style.display = s ? '' : 'none';
   renderMcpTools(s);
-  document.getElementById('mcp-modal').style.display = 'flex';
+  showModal('mcp-modal');
 }
 
 // Liste des outils découverts du serveur, avec une case par outil pour le
@@ -134,7 +134,7 @@ async function toggleMcpTool(server, tool, on){
   if(s && s.tools) document.getElementById('mcp-tools-count').textContent = '('+(s.tools.length-off.size)+'/'+s.tools.length+' actifs)';
 }
 
-function closeMcp(){ document.getElementById('mcp-modal').style.display = 'none'; mcpEditing = null; }
+function closeMcp(){ hideModal('mcp-modal'); mcpEditing = null; }
 
 function mcpTransportUI(t){
   document.getElementById('mcp-stdio-fields').style.display = t==='stdio' ? '' : 'none';

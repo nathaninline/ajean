@@ -8,7 +8,7 @@ async function loadStatus(){
   else if(s.load_error){ cls='err'; txt='modèle incompatible'; }
   else if(s.active){ cls='loading'; txt='chargement…'; }
   el.className='statuspill '+cls;
-  el.innerHTML='<span class="dot"></span>'+txt+' <span class="port">:'+s.port+'</span>';
+  el.innerHTML='<span class="dot"></span>'+txt;
   MODEL_READY = !!(s.active && s.health);
   if(s.ctx){ CTX_MAX=s.ctx; updateCtxMeter(); }
   if(s.version){

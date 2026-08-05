@@ -163,12 +163,12 @@ async function lcRenderCustomCard(){
 }
 
 function openCustomBackends(){
-  document.getElementById('lc-custom-modal').style.display = 'flex';
+  showModal('lc-custom-modal');
   document.getElementById('lc-custom-url').value = '';
   document.getElementById('lc-custom-name').value = '';
   loadCustomBackends();
 }
-function closeCustomBackends(){ document.getElementById('lc-custom-modal').style.display = 'none'; }
+function closeCustomBackends(){ hideModal('lc-custom-modal'); }
 
 // Liste les backends custom dans le modal, avec un bouton supprimer par ligne.
 async function loadCustomBackends(){
