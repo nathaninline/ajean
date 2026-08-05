@@ -19,7 +19,7 @@ async function loadLlamacpp(){
   if(!fastInstalled && !optInstalled){
     head.innerHTML = 'Installez le moteur d\'IA. Le <b>précompilé</b> convient à presque tout le monde.';
   } else {
-    head.innerHTML = 'Installez les moteurs ici. Vous choisissez lequel utiliser en éditant un modèle (bouton <b>✎</b>).';
+    head.innerHTML = 'Installez les moteurs ici. Vous choisissez lequel utiliser en éditant un modèle (bouton ⚙).';
   }
   lcRenderMode('fast', fastInstalled);
   lcRenderMode('opt', optInstalled);
@@ -118,7 +118,7 @@ async function lcPick(mode){
   const s = lcState || {}, pb = s.prebuilt || {};
   const installed = mode==='fast' ? !!pb.bin : !!s.bin;
   if(installed){
-    toast('déjà installée — choisissez-la dans l\'édition d\'un modèle (✎)');
+    toast('déjà installée — choisissez-la dans l\'édition d\'un modèle (⚙)');
     return;
   }
   if(mode === 'fast'){

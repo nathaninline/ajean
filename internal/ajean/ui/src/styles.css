@@ -591,7 +591,9 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
    gris atténué du thème monochrome et devenait illisible en mode sombre. */
 .lc-reco{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;background:var(--text);color:var(--bg);border:1px solid var(--text);border-radius:8px;padding:1px 6px}
 .lc-mode-d{font-size:11px;color:var(--dim);margin-top:3px}
-.lc-mode-state{font-size:11px;margin-top:7px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+/* Hauteur réservée : la ligne d'état arrive après l'appel réseau, sans elle
+   les trois cartes grandissaient d'un cran une fois l'état connu. */
+.lc-mode-state{font-size:11px;min-height:16px;margin-top:7px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .lc-mode-go{color:var(--accent)}
 .lc-mode-active-tag{color:var(--accent);font-weight:600}
 .lc-update-link{color:var(--dim);text-decoration:none;cursor:pointer}

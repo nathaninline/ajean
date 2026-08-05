@@ -617,7 +617,9 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
    gris atténué du thème monochrome et devenait illisible en mode sombre. */
 .lc-reco{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;background:var(--text);color:var(--bg);border:1px solid var(--text);border-radius:8px;padding:1px 6px}
 .lc-mode-d{font-size:11px;color:var(--dim);margin-top:3px}
-.lc-mode-state{font-size:11px;margin-top:7px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+/* Hauteur réservée : la ligne d'état arrive après l'appel réseau, sans elle
+   les trois cartes grandissaient d'un cran une fois l'état connu. */
+.lc-mode-state{font-size:11px;min-height:16px;margin-top:7px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .lc-mode-go{color:var(--accent)}
 .lc-mode-active-tag{color:var(--accent);font-weight:600}
 .lc-update-link{color:var(--dim);text-decoration:none;cursor:pointer}
@@ -1231,7 +1233,10 @@ button:hover{border-color:var(--dim);color:var(--text)}
          même sujet. Les trois modes sont des LIGNES de cette carte (elles
          étaient des cartes dans une carte). -->
     <div class="slist">
-    <div class="rowbody"><div id="lc-status" class="lc-head muted">…</div></div>
+    <!-- Texte de départ IDENTIQUE (à la variante près) à celui posé après le
+         chargement : un simple « … » faisait grandir la carte sous les yeux dès
+         que l'état arrivait. -->
+    <div class="rowbody"><div id="lc-status" class="lc-head muted">Installez les moteurs ici. Vous choisissez lequel utiliser en éditant un modèle.</div></div>
     <div class="lc-modes">
       <div class="lc-mode" id="lc-mode-fast" onclick="lcPick('fast')">
         <div class="lc-mode-t">llama.cpp précompilé <span class="lc-reco">conseillé</span></div>
@@ -3806,7 +3811,7 @@ async function loadLlamacpp(){
   if(!fastInstalled && !optInstalled){
     head.innerHTML = 'Installez le moteur d\'IA. Le <b>précompilé</b> convient à presque tout le monde.';
   } else {
-    head.innerHTML = 'Installez les moteurs ici. Vous choisissez lequel utiliser en éditant un modèle (bouton <b>✎</b>).';
+    head.innerHTML = 'Installez les moteurs ici. Vous choisissez lequel utiliser en éditant un modèle (bouton ⚙).';
   }
   lcRenderMode('fast', fastInstalled);
   lcRenderMode('opt', optInstalled);
@@ -3905,7 +3910,7 @@ async function lcPick(mode){
   const s = lcState || {}, pb = s.prebuilt || {};
   const installed = mode==='fast' ? !!pb.bin : !!s.bin;
   if(installed){
-    toast('déjà installée — choisissez-la dans l\'édition d\'un modèle (✎)');
+    toast('déjà installée — choisissez-la dans l\'édition d\'un modèle (⚙)');
     return;
   }
   if(mode === 'fast'){
