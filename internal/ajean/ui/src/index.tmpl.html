@@ -140,7 +140,9 @@
       <div class="subhead">Serveurs MCP<span id="mcp-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Connecte des <b>serveurs MCP</b> (Model Context Protocol) pour donner de nouveaux outils à l'IA : accès fichiers, bases de données, APIs métier… <b>stdio</b> = programme lancé localement (npx/uvx/binaire) · <b>http</b> = serveur distant. ⚠ un serveur stdio exécute du code sur cette machine, au même titre que le shell.</span></span></div>
       <div class="slist">
         <div class="rowbody">
-          <div id="mcp-list" class="mcp-list"></div>
+          <!-- Même texte que celui rendu après chargement quand il n'y a aucun
+               serveur : sinon la carte partait vide puis grandissait d'une ligne. -->
+          <div id="mcp-list" class="mcp-list"><div class="muted" style="font-size:12px">(aucun serveur — ajoute un serveur fichiers, une base de données, une API…)</div></div>
           <button class="addbtn" style="margin-top:6px" onclick="openMcp('')">+ ajouter un serveur</button>
         </div>
       </div>

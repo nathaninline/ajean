@@ -843,6 +843,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .lc-spin{display:inline-block;animation:spin 1s linear infinite}
 /* Serveurs MCP */
 .mcp-list{display:flex;flex-direction:column;gap:4px}
+
 .mcp-row{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--panel);cursor:pointer}
 .mcp-row:hover{border-color:var(--accent)}
 .mcp-row.off{opacity:.6}

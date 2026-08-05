@@ -1,3 +1,28 @@
+// --- Réserve de hauteur des blocs peuplés par le réseau ---------------------
+// Ces blocs sont vides (ou réduits à « … ») tant que le serveur n'a pas répondu,
+// puis prennent leur vraie taille : tout le menu sautait alors d'un cran, ce qui
+// se voyait surtout sur les sections du bas (« Moteur »). On mémorise leur
+// hauteur d'une session à l'autre et on la réserve au démarrage ; la réserve
+// tombe dès que le vrai contenu est là (elle ne fait que TENIR la place, elle
+// n'affiche jamais rien de faux).
+const HRESERVE=['cfg','vram','ram-details','presets','internet-status','mcp-list'];
+function reserveHeights(){
+  HRESERVE.forEach(id=>{
+    try{
+      const h=parseInt(localStorage.getItem('jean-h-'+id)||'0',10);
+      const el=document.getElementById(id);
+      if(el && h>0) el.style.minHeight=h+'px';
+    }catch(e){}
+  });
+}
+function releaseHeights(){
+  HRESERVE.forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    el.style.minHeight='';
+    try{ localStorage.setItem('jean-h-'+id, String(el.offsetHeight||0)); }catch(e){}
+  });
+}
+document.addEventListener('DOMContentLoaded', reserveHeights);
 async function loadPresets(){
   const p=await jget('/api/presets');
   const act = p.find(x=>x.active);
@@ -264,5 +289,11 @@ async function clearCrawlKey(){
   renderInternet(await jpost('/api/internet',{key:''}));
   toast('clé retirée');
 }
-async function loadAll(){ await Promise.all([loadStatus(),loadVram(),loadRam(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadApiKey(),loadPrefs(),loadLlamacpp(),loadRemote()]); }
+async function loadAll(){
+  // allSettled et pas all : un seul chargement en échec (accès distant coupé,
+  // clé API absente…) ne doit pas empêcher la suite — et surtout pas laisser les
+  // hauteurs réservées en place pour toujours.
+  await Promise.allSettled([loadStatus(),loadVram(),loadRam(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadApiKey(),loadPrefs(),loadLlamacpp(),loadRemote()]);
+  releaseHeights(); // tout est en place : on rend la main et on mesure pour la prochaine fois
+}
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }
