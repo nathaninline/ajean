@@ -1,32 +1,28 @@
-Version d'interface. Le menu de réglages suit désormais une seule et même grammaire de bout en bout, les modales s'ouvrent sans temps mort, et plusieurs irritants de l'app iPhone disparaissent.
+Correctifs d'interface dans la foulée de la 0.7.11. Tout ce qui bougeait, sautait ou clignotait après un chargement se tient enfin tranquille.
 
-## Un menu homogène
+## L'éditeur de preset ne s'ouvre plus au milieu
 
-Chaque section obéit à la même règle : une étiquette de groupe, puis une carte, puis des lignes séparées par un filet. « Mode agent » était le plus voyant, ses quatre sous réglages (mémoire, accès internet, serveurs MCP, paramètres) formaient des îlots décollés, chacun avec son titre enfermé dans sa carte et des marges au cas par cas. Même traitement pour « Accès OpenAI » (trois cartes accolées pour un seul sujet, maintenant réunies), « Accès distant » (le bouton de démarrage du tunnel flottait entre deux cartes), « Moteur » (les trois choix llama.cpp étaient des cartes dans une carte, ce sont des lignes), « System prompt » et « Presets », dont le contenu flottait à nu sous le titre.
+Ouvrir un preset après en avoir fait défiler un autre rouvrait la fiche à la position précédente. La remise à zéro du défilement existait, mais elle était faite avant l'affichage : écrire une position de défilement sur un élément non affiché ne fait rien du tout, le navigateur restaurait donc l'ancienne. Elle se fait maintenant après l'affichage, puis une seconde fois une fois le contenu en place.
 
-Les presets et les pages mémoire ne sont plus une pile de petites cartes bordées mais des lignes d'une seule carte. Le preset actif se signale par un voile et un liseré à gauche. Son bouton d'édition devient un engrenage.
+## Le sélecteur de moteur ne glisse plus tout seul
 
-Les boutons « copier » et « ouvrir » des adresses passent en icônes au trait dans un bouton carré à la hauteur du champ : les glyphes texte se posaient de travers et changeaient de largeur selon la police. Dans la mémoire, « Pages » devient « Voir la mémoire ». La pastille d'état n'affiche plus le port, qui reste visible là où il sert vraiment, dans l'adresse de l'endpoint OpenAI.
+En passant d'un preset à l'autre, on voyait le curseur du sélecteur (précompilé, compilé, personnalisé) glisser de l'ancienne valeur vers la nouvelle une fois le chargement terminé. Le changement d'état avait pourtant lieu pendant que le formulaire était caché : WebKit diffère les transitions des éléments non rendus et les rejoue à leur retour à l'écran. Les transitions du formulaire sont donc coupées tant qu'il est masqué, et pendant l'image où il réapparaît.
 
-## Modales
+Dans le même esprit, le voile de chargement de la modale est devenu opaque, sous le titre resté lisible. Rien du preset précédent ne peut plus apparaître une fraction de seconde.
 
-Ouvrir un preset attendait la fin de trois requêtes avant d'afficher quoi que ce soit. En accès distant, le clic paraissait mort pendant une seconde. La modale s'ouvre maintenant tout de suite, avec un indicateur de chargement à la place du formulaire, et le formulaire apparaît complet d'un seul coup. La carte occupe sa taille finale dès l'ouverture, donc aucun à coup au moment où le contenu arrive.
+## Le menu ne saute plus au chargement
 
-Ouverture et fermeture sont animées, dans les deux sens, sur toutes les modales. L'animation se désactive si le système demande de réduire les animations.
+Plusieurs blocs (config active, jauges machine, liste des presets, état de l'accès internet, serveurs MCP) sont vides tant que le serveur n'a pas répondu, puis prennent leur taille réelle : tout le menu se décalait d'un cran, ce qui se voyait surtout sur les sections du bas. Leur hauteur est désormais mémorisée d'une session à l'autre et réservée dès le démarrage, puis rendue quand le vrai contenu arrive. La réserve tient la place, elle n'affiche jamais d'information fausse.
 
-Le pied de l'éditeur tient sur une seule ligne : la suppression devient une icône, et son option « supprimer aussi le fichier .gguf » se pose là où elle a du sens, dans la boîte de confirmation. Elle est décochée à chaque ouverture, aucun modèle ne peut donc être effacé parce que la case serait restée cochée d'une fois sur l'autre.
+Les champs Crawl4AI, eux, étaient visibles au départ puis repliés dès que l'état arrivait, le moteur par défaut étant l'intégré. Ils partent maintenant masqués. La section Moteur ne grandit plus non plus : son texte d'en-tête part à sa taille définitive et la ligne d'état des trois moteurs a sa hauteur réservée.
 
-## iPhone
+Au passage, un chargement en échec (accès distant coupé par exemple) n'interrompt plus les autres.
 
-Dans l'app installée sur l'écran d'accueil, le tiroir du menu passait sous l'encoche, contrairement à la conversation. L'esquive d'encoche était bien posée, mais un bloc de style plus bas dans la feuille réécrivait la marge et l'effaçait.
+## Détails
 
-Le rectangle gris que Safari peint sur tout élément touché est supprimé. Les états visuels propres à l'application, eux, sont conservés.
+Les pastilles « actif » et « inactif » disparaissent de l'accès internet et des serveurs MCP : l'interrupteur et la liste le disent déjà. Reste la seule information utile, l'anomalie « injoignable », qui signale que les outils web ne sont pas fournis au modèle.
 
-## Chat
-
-Quand le raisonnement ou les appels d'outils sont masqués, l'indicateur d'activité disparaissait dès qu'une bulle arrivait, même invisible : le fil restait donc vide, sans aucun signe, pendant que le modèle travaillait. Il tient maintenant compte de ce qui est réellement affiché et reste présent jusqu'à l'arrivée de la réponse.
-
-Une conversation vide affiche le logo AJEAN et une invitation, au lieu d'un écran nu.
+Dans la mémoire, la ligne « Voir la mémoire » perd son chevron et son libellé est enfin centré. Créer une page annonçait « Nouveau Page » et demandait un « Nom du preset » : chaque type a maintenant ses propres libellés.
 
 ## Mise à jour
 
@@ -34,4 +30,4 @@ Une conversation vide affiche le logo AJEAN et une invitation, au lieu d'un écr
 ajean update
 ```
 
-Les changements ont été vérifiés sur le rendu réel, en thème clair et sombre, et déployés sur un serveur de production avant publication. La correction PWA sous iOS découle de la cause identifiée dans la feuille de style, mais n'a pas été reproduite sur un appareil de test.
+Chaque correction a été vérifiée en mesurant le rendu réel, position et hauteur des éléments avant et après chargement, pas seulement à l'oeil.
