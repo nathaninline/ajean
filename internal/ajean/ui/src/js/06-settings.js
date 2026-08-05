@@ -147,10 +147,11 @@ function renderInternet(s){
   if(cf) cf.style.display = (webEngine==='crawl4ai') ? '' : 'none';
   if(document.activeElement !== document.getElementById('crawl-url'))
     document.getElementById('crawl-url').value = s.url || '';
-  // Actif mais serveur injoignable : la pastille le dit (sinon l'UI ment — les
-  // outils web ne sont pas proposés au modèle dans ce cas).
+  // La pastille ne redit PAS ce que l'interrupteur montre déjà (actif/inactif) :
+  // elle ne sert qu'à signaler l'anomalie — actif mais serveur injoignable, cas
+  // où les outils web ne sont pas proposés au modèle.
   if(internetOn && !s.reachable) setBadge('internet-badge','warn','injoignable');
-  else setBadge('internet-badge', internetOn, internetOn?'actif':'inactif');
+  else setBadge('internet-badge', null);
   // Clé du serveur Crawl4AI : le champ reste vide (la clé n'est jamais renvoyée),
   // on indique seulement si une clé est enregistrée.
   const ks=document.getElementById('crawl-key-state'), kc=document.getElementById('crawl-key-clear');

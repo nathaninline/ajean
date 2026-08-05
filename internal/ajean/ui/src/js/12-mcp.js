@@ -9,10 +9,9 @@ async function loadMCP(){ renderMCP(await jget('/api/mcp')); }
 
 function renderMCP(r){
   mcpServers = (r && r.servers) || [];
-  const enabled = mcpServers.filter(s=>s.enabled).length;
-  if(enabled) setBadge('mcp-badge', true, enabled+(enabled>1?' actifs':' actif'));
-  else if(mcpServers.length) setBadge('mcp-badge', false, 'aucun actif');
-  else setBadge('mcp-badge', null);
+  // Pas de pastille de comptage : chaque serveur affiche déjà son propre état
+  // dans la liste juste en dessous.
+  setBadge('mcp-badge', null);
   const list = document.getElementById('mcp-list');
   list.textContent = '';
   if(!mcpServers.length){

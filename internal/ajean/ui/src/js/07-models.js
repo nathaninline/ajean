@@ -62,9 +62,9 @@ const KINDS = {
 // si le bouton était mort. On affiche la coquille tout de suite, puis on la
 // remplit. `openSeq` protège du cas « deux ouvertures coup sur coup » : une
 // réponse en retard ne doit jamais écraser la modale ouverte après elle.
-// Pendant ce remplissage la modale est en `.loading` : son corps est estompé et
-// inerte, puis révélé d'un coup une fois TOUT en place — sinon on voyait les
-// champs se peupler un par un, ce qui donnait une impression de bricolage.
+// Pendant ce remplissage la modale est en `.loading` : un rond tourne à la place
+// du formulaire, qui n'est révélé qu'une fois TOUT en place (contenu, réglages,
+// backends, GPU) — sinon on voyait les champs se peupler un par un.
 let openSeq = 0;
 async function openItem(kind, key){
   const K = KINDS[kind];
@@ -103,6 +103,10 @@ async function openItem(kind, key){
     rawBody.style.display = '';
   }
   document.getElementById('modal').classList.add('loading');
+  // Le corps de la modale est un conteneur défilant RÉUTILISÉ d'une ouverture à
+  // l'autre : sans cette remise à zéro, ouvrir un preset après en avoir fait
+  // défiler un autre rouvrait la fiche au milieu.
+  const peBody=document.querySelector('#modal .pe-body'); if(peBody) peBody.scrollTop=0;
   showModal('modal');
   // --- Remplissage, une fois la modale à l'écran -----------------------------
   const r = await jfetch(K.getUrl + '?' + K.param + '=' + encodeURIComponent(key||''));
@@ -305,7 +309,10 @@ async function populateBackend(){
   if(radio) radio.checked = true;
   toggleBackendCustom(mode);
   if(mode === 'custom') document.getElementById('m-backend-path').value = cur;
-  loadGpuDevices();
+  // Attendu (et non lancé dans le vide) : la liste des GPU change la hauteur du
+  // bloc « moteur ». Sans ce await, elle arrivait APRÈS la levée du voile de
+  // chargement et on voyait le bloc bouger tout seul.
+  await loadGpuDevices();
 }
 function toggleBackendCustom(mode){
   document.getElementById('m-backend-custom').style.display = (mode==='custom') ? 'block' : 'none';

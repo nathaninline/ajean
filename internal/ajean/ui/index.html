@@ -2215,10 +2215,11 @@ function renderInternet(s){
   if(cf) cf.style.display = (webEngine==='crawl4ai') ? '' : 'none';
   if(document.activeElement !== document.getElementById('crawl-url'))
     document.getElementById('crawl-url').value = s.url || '';
-  // Actif mais serveur injoignable : la pastille le dit (sinon l'UI ment — les
-  // outils web ne sont pas proposés au modèle dans ce cas).
+  // La pastille ne redit PAS ce que l'interrupteur montre déjà (actif/inactif) :
+  // elle ne sert qu'à signaler l'anomalie — actif mais serveur injoignable, cas
+  // où les outils web ne sont pas proposés au modèle.
   if(internetOn && !s.reachable) setBadge('internet-badge','warn','injoignable');
-  else setBadge('internet-badge', internetOn, internetOn?'actif':'inactif');
+  else setBadge('internet-badge', null);
   // Clé du serveur Crawl4AI : le champ reste vide (la clé n'est jamais renvoyée),
   // on indique seulement si une clé est enregistrée.
   const ks=document.getElementById('crawl-key-state'), kc=document.getElementById('crawl-key-clear');
@@ -2397,9 +2398,9 @@ const KINDS = {
 // si le bouton était mort. On affiche la coquille tout de suite, puis on la
 // remplit. `openSeq` protège du cas « deux ouvertures coup sur coup » : une
 // réponse en retard ne doit jamais écraser la modale ouverte après elle.
-// Pendant ce remplissage la modale est en `.loading` : son corps est estompé et
-// inerte, puis révélé d'un coup une fois TOUT en place — sinon on voyait les
-// champs se peupler un par un, ce qui donnait une impression de bricolage.
+// Pendant ce remplissage la modale est en `.loading` : un rond tourne à la place
+// du formulaire, qui n'est révélé qu'une fois TOUT en place (contenu, réglages,
+// backends, GPU) — sinon on voyait les champs se peupler un par un.
 let openSeq = 0;
 async function openItem(kind, key){
   const K = KINDS[kind];
@@ -2438,6 +2439,10 @@ async function openItem(kind, key){
     rawBody.style.display = '';
   }
   document.getElementById('modal').classList.add('loading');
+  // Le corps de la modale est un conteneur défilant RÉUTILISÉ d'une ouverture à
+  // l'autre : sans cette remise à zéro, ouvrir un preset après en avoir fait
+  // défiler un autre rouvrait la fiche au milieu.
+  const peBody=document.querySelector('#modal .pe-body'); if(peBody) peBody.scrollTop=0;
   showModal('modal');
   // --- Remplissage, une fois la modale à l'écran -----------------------------
   const r = await jfetch(K.getUrl + '?' + K.param + '=' + encodeURIComponent(key||''));
@@ -2640,7 +2645,10 @@ async function populateBackend(){
   if(radio) radio.checked = true;
   toggleBackendCustom(mode);
   if(mode === 'custom') document.getElementById('m-backend-path').value = cur;
-  loadGpuDevices();
+  // Attendu (et non lancé dans le vide) : la liste des GPU change la hauteur du
+  // bloc « moteur ». Sans ce await, elle arrivait APRÈS la levée du voile de
+  // chargement et on voyait le bloc bouger tout seul.
+  await loadGpuDevices();
 }
 function toggleBackendCustom(mode){
   document.getElementById('m-backend-custom').style.display = (mode==='custom') ? 'block' : 'none';
@@ -4051,10 +4059,9 @@ async function loadMCP(){ renderMCP(await jget('/api/mcp')); }
 
 function renderMCP(r){
   mcpServers = (r && r.servers) || [];
-  const enabled = mcpServers.filter(s=>s.enabled).length;
-  if(enabled) setBadge('mcp-badge', true, enabled+(enabled>1?' actifs':' actif'));
-  else if(mcpServers.length) setBadge('mcp-badge', false, 'aucun actif');
-  else setBadge('mcp-badge', null);
+  // Pas de pastille de comptage : chaque serveur affiche déjà son propre état
+  // dans la liste juste en dessous.
+  setBadge('mcp-badge', null);
   const list = document.getElementById('mcp-list');
   list.textContent = '';
   if(!mcpServers.length){
