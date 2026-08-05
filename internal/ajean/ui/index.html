@@ -820,6 +820,11 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
    sur le formulaire suffirait en théorie, mais un fond plein garantit qu'aucun
    reste du preset précédent (moteur coché, réglages) ne puisse apparaître une
    fraction de seconde. --mh = hauteur mesurée de l'en-tête, posée à l'ouverture. */
+/* ⚠️ Aucune transition tant que le formulaire est caché, NI pendant la frame où
+   il réapparaît : WebKit diffère les transitions des éléments non rendus et les
+   joue à leur retour à l'écran. Le sélecteur de moteur glissait donc de l'ancien
+   preset au nouveau SOUS LES YEUX, une fois le chargement terminé. */
+.modal-ov.loading .pe-body *,.modal-ov.no-anim .pe-body *{transition:none!important}
 .modal-load{display:none;position:absolute;inset:var(--mh,52px) 0 0 0;z-index:2;
   align-items:center;justify-content:center;background:var(--bg);border-radius:0 0 12px 12px}
 .modal-ov.loading .modal-load{display:flex}
@@ -2512,8 +2517,12 @@ async function openItem(kind, key){
     await Promise.all([populateBackend(), populateModelPicker()]);
     if(seq !== openSeq) return;
   }
-  document.getElementById('modal').classList.remove('loading');
+  // On lève le voile SANS transition (voir la note dans styles.css), puis on rend
+  // les transitions deux frames plus tard, une fois le nouvel état peint.
+  modalEl.classList.add('no-anim');
+  modalEl.classList.remove('loading');
   topPeBody();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>modalEl.classList.remove('no-anim')));
 }
 
 // Pretty-print bytes — handy for the dropdown options.

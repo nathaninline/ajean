@@ -132,8 +132,12 @@ async function openItem(kind, key){
     await Promise.all([populateBackend(), populateModelPicker()]);
     if(seq !== openSeq) return;
   }
-  document.getElementById('modal').classList.remove('loading');
+  // On lève le voile SANS transition (voir la note dans styles.css), puis on rend
+  // les transitions deux frames plus tard, une fois le nouvel état peint.
+  modalEl.classList.add('no-anim');
+  modalEl.classList.remove('loading');
   topPeBody();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>modalEl.classList.remove('no-anim')));
 }
 
 // Pretty-print bytes — handy for the dropdown options.
