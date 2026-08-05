@@ -148,11 +148,9 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 /* Titre de sous-section (Mémoire / Accès internet) : simple libellé, PAS de trait
    (le trait est réservé aux sections principales — cf. `details`). La séparation
    visuelle vient de la carte de lignes qui suit (.slist). */
-/* Barre repliable « Pages » : un seul chevron, bouton + ajouter aligné à droite. */
+/* Barre « Voir la mémoire » : libellé à gauche, bouton « + ajouter » à droite.
+   Pas de chevron : la liste s'ouvre sous la ligne, ça se voit. */
 .pages-bar{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:7px 0;margin-top:4px}
-.pages-bar .pages-caret{width:9px;text-align:center}
-.pages-bar .pages-caret{flex-shrink:0;font-size:9px;color:var(--dim);transition:transform .12s}
-.pages-bar.open .pages-caret{transform:rotate(90deg)}
 .pages-bar .pages-title{font-size:11.5px;color:var(--dim);font-weight:600}
 .pages-bar .addbtn{margin-left:auto}
 .mem-search{width:100%;box-sizing:border-box;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 9px;font:inherit;font-size:12px;margin:0 0 6px}
@@ -429,6 +427,9 @@ details[open]>summary::after{transform:rotate(45deg)}
 .subhead,.io-cap,.pages-bar .pages-title,.skillshead>span{position:relative;display:flex;align-items:center;
   font-size:11px;font-weight:600;color:var(--dim);margin:10px 2px 5px}
 .io-cap{margin:0 2px 5px}
+/* ⚠️ APRÈS la règle commune ci-dessus, qui pose une marge haute/basse : dans une
+   LIGNE de carte, elle décalait le libellé vers le bas au lieu de le centrer. */
+.pages-bar .pages-title{margin:0}
 /* Étiquette de groupe en tête d'un sous-groupe du mode agent : elle suit une
    carte, elle a donc besoin de son air normal — mais pas d'un cumul de marges. */
 .gated-group>.subhead:first-child{margin-top:12px}
@@ -1083,7 +1084,6 @@ button:hover{border-color:var(--dim);color:var(--text)}
           </select>
         </label>
         <div id="mem-pages-bar" class="pages-bar" onclick="toggleMemPages()">
-          <span class="pages-caret">▸</span>
           <span class="pages-title">Voir la mémoire <span id="mem-count" class="mem-count"></span></span>
           <button class="addbtn" onclick="event.stopPropagation();openMem('')" title="ajouter une page mémoire">+ ajouter</button>
         </div>
@@ -2438,8 +2438,12 @@ let editingKey = '', editingKind = 'preset';
 const KINDS = {
   // presets are keyed by `id` (filename) so several can share a display name;
   // skills keep name-as-identity (param 'name').
-  preset: {label:'Preset', param:'id',   getUrl:'/api/preset', saveUrl:'/api/preset/save', delUrl:'/api/preset/delete', reload:()=>loadPresets()},
-  mem:    {label:'Page',   param:'name', getUrl:'/api/mem',    saveUrl:'/api/mem/save',    delUrl:'/api/mem/delete',    reload:()=>loadMem()},
+  // newLabel / nameHint : « Nouveau Page » et « Nom du preset » dans l'éditeur de
+  // mémoire venaient d'un libellé unique décliné mécaniquement.
+  preset: {label:'Preset', newLabel:'Nouveau preset', nameHint:'Nom du preset',
+           param:'id',   getUrl:'/api/preset', saveUrl:'/api/preset/save', delUrl:'/api/preset/delete', reload:()=>loadPresets()},
+  mem:    {label:'Page',   newLabel:'Nouvelle page',  nameHint:'Nom de la page',
+           param:'name', getUrl:'/api/mem',    saveUrl:'/api/mem/save',    delUrl:'/api/mem/delete',    reload:()=>loadMem()},
 };
 // ⚠️ La modale s'ouvre AVANT d'aller chercher quoi que ce soit. Elle attendait
 // auparavant la fin de 3 requêtes (contenu + backends + modèles disponibles) :
@@ -2455,8 +2459,9 @@ async function openItem(kind, key){
   const K = KINDS[kind];
   const seq = ++openSeq;
   editingKind = kind; editingKey = key || '';
-  document.getElementById('modal-title').textContent = key ? (K.label + ' · ' + key) : ('Nouveau ' + K.label.toLowerCase());
+  document.getElementById('modal-title').textContent = key ? (K.label + ' · ' + key) : K.newLabel;
   document.getElementById('m-name').value = key || '';
+  document.getElementById('m-name').placeholder = K.nameHint;
   document.getElementById('m-content').value = '';
   document.getElementById('m-del').style.display = key ? 'inline-flex' : 'none';
   // Model picker is preset-only: it edits the MODEL= line of config.env.
@@ -2506,7 +2511,7 @@ async function openItem(kind, key){
   const d = await r.json();
   if(seq !== openSeq) return;              // une autre ouverture a pris la main
   const display = d.name || key || '';
-  document.getElementById('modal-title').textContent = key ? (K.label + ' · ' + display) : ('Nouveau ' + K.label.toLowerCase());
+  document.getElementById('modal-title').textContent = key ? (K.label + ' · ' + display) : K.newLabel;
   document.getElementById('m-name').value = display;
   document.getElementById('m-content').value = d.content || '';
   if(kind === 'preset'){

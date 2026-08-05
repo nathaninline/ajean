@@ -53,8 +53,12 @@ let editingKey = '', editingKind = 'preset';
 const KINDS = {
   // presets are keyed by `id` (filename) so several can share a display name;
   // skills keep name-as-identity (param 'name').
-  preset: {label:'Preset', param:'id',   getUrl:'/api/preset', saveUrl:'/api/preset/save', delUrl:'/api/preset/delete', reload:()=>loadPresets()},
-  mem:    {label:'Page',   param:'name', getUrl:'/api/mem',    saveUrl:'/api/mem/save',    delUrl:'/api/mem/delete',    reload:()=>loadMem()},
+  // newLabel / nameHint : « Nouveau Page » et « Nom du preset » dans l'éditeur de
+  // mémoire venaient d'un libellé unique décliné mécaniquement.
+  preset: {label:'Preset', newLabel:'Nouveau preset', nameHint:'Nom du preset',
+           param:'id',   getUrl:'/api/preset', saveUrl:'/api/preset/save', delUrl:'/api/preset/delete', reload:()=>loadPresets()},
+  mem:    {label:'Page',   newLabel:'Nouvelle page',  nameHint:'Nom de la page',
+           param:'name', getUrl:'/api/mem',    saveUrl:'/api/mem/save',    delUrl:'/api/mem/delete',    reload:()=>loadMem()},
 };
 // ⚠️ La modale s'ouvre AVANT d'aller chercher quoi que ce soit. Elle attendait
 // auparavant la fin de 3 requêtes (contenu + backends + modèles disponibles) :
@@ -70,8 +74,9 @@ async function openItem(kind, key){
   const K = KINDS[kind];
   const seq = ++openSeq;
   editingKind = kind; editingKey = key || '';
-  document.getElementById('modal-title').textContent = key ? (K.label + ' · ' + key) : ('Nouveau ' + K.label.toLowerCase());
+  document.getElementById('modal-title').textContent = key ? (K.label + ' · ' + key) : K.newLabel;
   document.getElementById('m-name').value = key || '';
+  document.getElementById('m-name').placeholder = K.nameHint;
   document.getElementById('m-content').value = '';
   document.getElementById('m-del').style.display = key ? 'inline-flex' : 'none';
   // Model picker is preset-only: it edits the MODEL= line of config.env.
@@ -121,7 +126,7 @@ async function openItem(kind, key){
   const d = await r.json();
   if(seq !== openSeq) return;              // une autre ouverture a pris la main
   const display = d.name || key || '';
-  document.getElementById('modal-title').textContent = key ? (K.label + ' · ' + display) : ('Nouveau ' + K.label.toLowerCase());
+  document.getElementById('modal-title').textContent = key ? (K.label + ' · ' + display) : K.newLabel;
   document.getElementById('m-name').value = display;
   document.getElementById('m-content').value = d.content || '';
   if(kind === 'preset'){
