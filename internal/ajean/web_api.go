@@ -582,8 +582,17 @@ func handleInternet(w http.ResponseWriter, r *http.Request) {
 			Enabled *bool   `json:"enabled"`
 			URL     *string `json:"url"`
 			Key     *string `json:"key"`
+			Engine  *string `json:"engine"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&req)
+		// Moteur web : "go" (intégré, rien à installer) ou "crawl4ai" (serveur
+		// externe, rendu JavaScript).
+		if req.Engine != nil {
+			if err := setWebEngine(strings.ToLower(strings.TrimSpace(*req.Engine))); err != nil {
+				sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+				return
+			}
+		}
 		// Clé d'accès au serveur Crawl4AI : chaîne vide = on l'enlève.
 		if req.Key != nil {
 			if err := writeCrawlKey(strings.TrimSpace(*req.Key)); err != nil {
@@ -622,6 +631,7 @@ func handleInternet(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{
 		"ok":        true,
 		"enabled":   internetEnabled(),
+		"engine":    webEngine(),
 		"url":       crawl4aiURL(),
 		"reachable": crawlReachable(),
 		"key_set":   key != "",

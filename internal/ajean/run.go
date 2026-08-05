@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const Version = "0.7.7"
+const Version = "0.7.8"
 
 // Main est le vrai main() du binaire (cmd/ajean ne fait que l'appeler).
 func Main() {
@@ -140,7 +140,8 @@ Presets:
 Interaction:
   chat [system-prompt]          chat terminal streamé
   web [PORT]                    UI web (défaut :8090) — chat + presets + mode agent
-  internet [on|off|status|url <url>|key <clé>]  accès web de l'IA via un serveur Crawl4AI (web_search/open/read/grep)
+  internet [on|off|status|engine <go|crawl4ai>|url <url>|key <clé>]
+                                accès web de l'IA (web_search/open/read/grep) — moteur intégré ou serveur Crawl4AI
   memory [off|ondemand|always|status]  mode mémoire de l'IA (off / sur demande / auto)
 
 Accès distant (ajean.link) :

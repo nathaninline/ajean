@@ -25,23 +25,40 @@ func webSearchTool() Tool {
 	}}
 }
 
+// webOpenTool : le schéma DÉPEND du moteur web actif.
+//
+// Le moteur intégré n'a pas de DOM vivant : actions / wait_for / dismiss_popups
+// seraient acceptés puis ignorés en silence. Les déclarer quand même reviendrait
+// à mentir au modèle — il croirait pouvoir déplier une section ou fermer un
+// bandeau, constaterait que rien ne change, et réessaierait en boucle (le failure
+// mode classique, cf. le garde-fou anti-boucle de chat_agent.go). On ne déclare
+// donc que ce que le moteur sait réellement faire, et on annonce la limite du JS
+// dans la description pour que le modèle change de source au lieu d'insister.
 func webOpenTool() Tool {
+	desc := "Récupère une URL et renvoie SEULEMENT les métadonnées (taille, nb de lignes, plan des titres). " +
+		"Ne renvoie PAS le contenu. Toujours appeler ceci d'abord avant de lire. Résultat en cache 10 min " +
+		"— les web_read / web_grep suivants le réutilisent."
+	props := map[string]any{
+		"url":     map[string]any{"type": "string", "description": "URL complète à récupérer"},
+		"refresh": map[string]any{"type": "boolean", "description": "Ignore le cache et re-fetch. Défaut false."},
+	}
+	if webEngine() == engineGo {
+		desc += " ⚠ Ce moteur lit le HTML servi SANS exécuter le JavaScript : une page rendue " +
+			"entièrement côté client ressortira vide. Dans ce cas, ne réessaie pas la même URL — " +
+			"cherche une autre source (doc officielle, dépôt, article)."
+	} else {
+		props["actions"] = map[string]any{"type": "array", "items": map[string]any{"type": "string"},
+			"description": "Snippets JS à exécuter sur la page AVANT extraction (déplier des sections, cliquer 'voir plus', etc.)."}
+		props["dismiss_popups"] = map[string]any{"type": "boolean", "description": "Ferme auto les bandeaux cookies/overlays. Défaut true."}
+		props["wait_for"] = map[string]any{"type": "string", "description": "Sélecteur CSS ou expr JS à attendre après les actions."}
+	}
 	return Tool{Type: "function", Function: ToolFunction{
-		Name: "web_open",
-		Description: "Récupère une URL et renvoie SEULEMENT les métadonnées (taille, nb de lignes, plan des titres). " +
-			"Ne renvoie PAS le contenu. Toujours appeler ceci d'abord avant de lire. Résultat en cache 10 min " +
-			"— les web_read / web_grep suivants le réutilisent.",
+		Name:        "web_open",
+		Description: desc,
 		Parameters: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"url":     map[string]any{"type": "string", "description": "URL complète à récupérer"},
-				"refresh": map[string]any{"type": "boolean", "description": "Ignore le cache et re-fetch. Défaut false."},
-				"actions": map[string]any{"type": "array", "items": map[string]any{"type": "string"},
-					"description": "Snippets JS à exécuter sur la page AVANT extraction (déplier des sections, cliquer 'voir plus', etc.)."},
-				"dismiss_popups": map[string]any{"type": "boolean", "description": "Ferme auto les bandeaux cookies/overlays. Défaut true."},
-				"wait_for":       map[string]any{"type": "string", "description": "Sélecteur CSS ou expr JS à attendre après les actions."},
-			},
-			"required": []string{"url"},
+			"type":       "object",
+			"properties": props,
+			"required":   []string{"url"},
 		},
 	}}
 }
@@ -268,7 +285,7 @@ func toolWebGrep(args map[string]any) string {
 		entry.url, len(matchIdx), pattern, capped, strings.Join(blocks, "\n\n---\n\n"))
 }
 
-// ─── CLI : ajean internet [on|off|status|url <url>] ──────────────────────────
+// ─── CLI : ajean internet [on|off|status|engine|url|key] ────────────────────
 
 func cmdInternet(args []string) error {
 	sub := ""
@@ -277,8 +294,9 @@ func cmdInternet(args []string) error {
 	}
 	switch sub {
 	case "on":
-		if crawl4aiURL() == "" {
-			return fmt.Errorf("configure d'abord l'URL : ajean internet url <url>")
+		// Le moteur intégré ne demande aucun réglage ; Crawl4AI exige un serveur.
+		if webEngine() == engineCrawl && crawl4aiURL() == "" {
+			return fmt.Errorf("configure d'abord l'URL : ajean internet url <url>  (ou bascule sur le moteur intégré : ajean internet engine go)")
 		}
 		if err := setInternetEnabled(true); err != nil {
 			return err
@@ -317,12 +335,31 @@ func cmdInternet(args []string) error {
 		} else {
 			fmt.Println(green("[ok]") + " clé Crawl4AI enregistrée")
 		}
+	case "engine":
+		if len(args) < 2 {
+			return fmt.Errorf("usage: ajean internet engine <go|crawl4ai>")
+		}
+		e := strings.ToLower(strings.TrimSpace(args[1]))
+		if err := setWebEngine(e); err != nil {
+			return err
+		}
+		if e == engineGo {
+			fmt.Println(green("[ok]") + " moteur intégré — aucune installation requise (pas de rendu JavaScript)")
+		} else {
+			fmt.Println(green("[ok]") + " moteur Crawl4AI — configure le serveur : ajean internet url <url>")
+		}
 	case "", "status", "list":
 		state := dim("off")
 		if internetEnabled() {
 			state = green("on")
 		}
 		fmt.Printf("%s  état: %s\n", cyan("Accès internet"), state)
+		if webEngine() == engineGo {
+			fmt.Printf("  moteur  : %s (aucune installation, pas de rendu JavaScript)\n", bold("intégré"))
+			fmt.Printf("  outils  : web_search, web_open, web_read, web_grep\n")
+			return nil
+		}
+		fmt.Printf("  moteur  : %s\n", bold("crawl4ai"))
 		u := crawl4aiURL()
 		if u == "" {
 			fmt.Printf("  serveur : %s — configure : ajean internet url <url>\n", dim("(non configuré)"))
@@ -335,7 +372,7 @@ func cmdInternet(args []string) error {
 		fmt.Printf("  serveur : %s (%s)\n", bold(u), reach)
 		fmt.Printf("  outils  : web_search, web_open, web_read, web_grep\n")
 	default:
-		return fmt.Errorf("usage: ajean internet [on|off|status|url <url>]")
+		return fmt.Errorf("usage: ajean internet [on|off|status|engine <go|crawl4ai>|url <url>|key <clé>]")
 	}
 	return nil
 }

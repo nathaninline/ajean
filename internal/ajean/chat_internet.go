@@ -87,9 +87,12 @@ func crawlAuth(req *http.Request) {
 }
 
 // internetEnabled : accès internet actif = drapeau .internet_enabled présent ET
-// une URL Crawl4AI configurée. Même modèle que agentEnabled() (chat_agent.go).
+// un moteur web utilisable. Même modèle que agentEnabled() (chat_agent.go).
+//
+// Avec le moteur intégré (webEngine() == engineGo) il n'y a rien à configurer :
+// le drapeau suffit. Avec Crawl4AI il faut en plus une URL de serveur.
 func internetEnabled() bool {
-	if crawl4aiURL() == "" {
+	if webEngine() == engineCrawl && crawl4aiURL() == "" {
 		return false
 	}
 	_, err := os.Stat(internetFlag())
@@ -124,6 +127,12 @@ var (
 const reachTTL = 30 * time.Second
 
 func crawlReachable() bool {
+	if webEngine() == engineGo {
+		// Moteur intégré : rien à joindre, il tourne dans ce process. On ne
+		// teste pas la connectivité internet ici — un ping à chaque tour de
+		// chat coûterait plus cher que l'échec de la requête réelle.
+		return true
+	}
 	base := crawl4aiURL()
 	if base == "" {
 		return false
@@ -432,10 +441,20 @@ func getPage(rawURL string, opts fetchOptions) (*cacheEntry, error) {
 	if opts.waitFor != "" || len(opts.actions) > 0 {
 		pageTimeout = 45000
 	}
-	md, err := runCrwl(u, crwlOptions{jsCode: jsCode, waitFor: opts.waitFor, pageTimeoutMs: pageTimeout})
+	var md string
+	var err error
+	if webEngine() == engineGo {
+		// Moteur intégré : pas de DOM vivant, donc jsCode / waitFor / actions
+		// sont sans objet (voir web_fetch_go.go).
+		md, err = goFetchMarkdown(u)
+	} else {
+		md, err = runCrwl(u, crwlOptions{jsCode: jsCode, waitFor: opts.waitFor, pageTimeoutMs: pageTimeout})
+	}
 	if err != nil {
 		return nil, err
 	}
+	// Le diagnostic « probablement du JavaScript » est posé par goFetchMarkdown,
+	// qui seul connaît la taille du HTML brut. Ici on n'attrape que le cas trivial.
 	if strings.TrimSpace(md) == "" {
 		return nil, fmt.Errorf("page vide")
 	}
@@ -534,6 +553,11 @@ func decodeUddg(raw string) string {
 }
 
 func duckduckgoSearch(query string, limit int) ([]searchResult, error) {
+	if webEngine() == engineGo {
+		// Le moteur intégré lit la structure HTML des résultats plutôt que de
+		// reparser un markdown intermédiaire.
+		return goSearch(query, limit)
+	}
 	searchURL := "https://html.duckduckgo.com/html/?q=" + url.QueryEscape(query)
 	md, err := runCrwl(searchURL, crwlOptions{rawMarkdown: true, pageTimeoutMs: 30000})
 	if err != nil {

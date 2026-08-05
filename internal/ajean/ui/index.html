@@ -916,22 +916,33 @@ button:hover{border-color:var(--dim);color:var(--text)}
       </div>
     </div>
     <div id="net-block" class="gated-block">
-      <div class="subhead">Accès internet<span id="internet-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Ajoute les outils <b>web_search / web_open / web_read / web_grep</b> via un serveur <b>Crawl4AI</b> que tu héberges toi-même (ex. <code>docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest</code>). Actifs seulement si le <b>mode agent</b> est actif et que le serveur répond.</span></span></div>
+      <div class="subhead">Accès internet<span id="internet-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Ajoute les outils <b>web_search / web_open / web_read / web_grep</b>. Le moteur <b>intégré</b> ne demande aucune installation. Le moteur <b>Crawl4AI</b> exige un serveur que tu héberges toi-même (ex. <code>docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest</code>) mais exécute le JavaScript des pages. Actifs seulement si le <b>mode agent</b> est actif.</span></span></div>
       <label class="switchrow"><span class="switch"><input type="checkbox" id="internet-toggle" onchange="toggleInternet()"><span class="slider"></span></span> donner internet à l'IA</label>
-      <!-- URL et clé s'enregistrent en quittant le champ (onchange) : deux boutons
+      <!-- Moteur web : « go » = intégré au binaire (rien à installer, pas de rendu
+           JavaScript) · « crawl4ai » = serveur externe avec Chromium headless. -->
+      <div class="row" style="margin-top:6px">
+        <select id="web-engine" class="sctl" onchange="saveWebEngine()">
+          <option value="go">moteur intégré — rien à installer</option>
+          <option value="crawl4ai">serveur Crawl4AI — rendu JavaScript</option>
+        </select>
+      </div>
+      <!-- Réglages propres à Crawl4AI : masqués avec le moteur intégré.
+           URL et clé s'enregistrent en quittant le champ (onchange) : deux boutons
            « enregistrer » côte à côte n'apportaient rien et brouillaient la carte. -->
-      <div class="row" style="margin-top:6px">
-        <input id="crawl-url" type="text" placeholder="http://localhost:11235" class="sctl" onchange="saveCrawlUrl()">
+      <div id="crawl-fields">
+        <div class="row" style="margin-top:6px">
+          <input id="crawl-url" type="text" placeholder="http://localhost:11235" class="sctl" onchange="saveCrawlUrl()">
+        </div>
+        <!-- Clé d'accès du serveur Crawl4AI (facultative) : envoyée en
+             « Authorization: Bearer … ». Jamais relue par l'API, on n'affiche
+             qu'un indice sur les 4 derniers caractères. -->
+        <div class="row" style="margin-top:6px">
+          <input id="crawl-key" type="password" autocomplete="off" placeholder="clé API (si le serveur en exige une)" class="sctl" onchange="saveCrawlKey()">
+          <button id="crawl-key-clear" onclick="clearCrawlKey()" style="display:none">retirer</button>
+        </div>
+        <div class="muted" style="font-size:11px;margin-top:4px">enregistré automatiquement en quittant le champ</div>
+        <div id="crawl-key-state" class="muted" style="font-size:11px;margin-top:3px"></div>
       </div>
-      <!-- Clé d'accès du serveur Crawl4AI (facultative) : envoyée en
-           « Authorization: Bearer … ». Jamais relue par l'API, on n'affiche
-           qu'un indice sur les 4 derniers caractères. -->
-      <div class="row" style="margin-top:6px">
-        <input id="crawl-key" type="password" autocomplete="off" placeholder="clé API (si le serveur en exige une)" class="sctl" onchange="saveCrawlKey()">
-        <button id="crawl-key-clear" onclick="clearCrawlKey()" style="display:none">retirer</button>
-      </div>
-      <div class="muted" style="font-size:11px;margin-top:4px">enregistré automatiquement en quittant le champ</div>
-      <div id="crawl-key-state" class="muted" style="font-size:11px;margin-top:3px"></div>
       <div id="internet-status" class="muted" style="font-size:11px;margin-top:4px"></div>
     </div>
     <div id="mcp-block" class="gated-block">
@@ -1895,15 +1906,21 @@ async function setMemMode(){
   renderMemModeDesc(r.mode||mode);
 }
 // Accès internet : serveur Crawl4AI + drapeau. Actif ET fonctionnel = pastille verte.
-let internetOn=false;
+let internetOn=false, webEngine='go';
 function renderInternet(s){
   internetOn = !!s.enabled;
+  webEngine = s.engine || 'go';
   document.getElementById('internet-toggle').checked = internetOn;
+  const sel=document.getElementById('web-engine');
+  if(sel && document.activeElement!==sel) sel.value = webEngine;
+  // Les réglages Crawl4AI n'ont aucun sens avec le moteur intégré.
+  const cf=document.getElementById('crawl-fields');
+  if(cf) cf.style.display = (webEngine==='crawl4ai') ? '' : 'none';
   if(document.activeElement !== document.getElementById('crawl-url'))
     document.getElementById('crawl-url').value = s.url || '';
   // Actif mais serveur injoignable : la pastille le dit (sinon l'UI ment — les
   // outils web ne sont pas proposés au modèle dans ce cas).
-  if(internetOn && s.url && !s.reachable) setBadge('internet-badge','warn','injoignable');
+  if(internetOn && !s.reachable) setBadge('internet-badge','warn','injoignable');
   else setBadge('internet-badge', internetOn, internetOn?'actif':'inactif');
   // Clé du serveur Crawl4AI : le champ reste vide (la clé n'est jamais renvoyée),
   // on indique seulement si une clé est enregistrée.
@@ -1916,7 +1933,8 @@ function renderInternet(s){
     if(ki) ki.placeholder = s.key_set ? 'clé enregistrée — saisir pour remplacer' : 'clé API (si le serveur en exige une)';
   }
   const st=document.getElementById('internet-status');
-  if(!s.url){ st.textContent='serveur non configuré'; st.style.color=''; }
+  if(webEngine!=='crawl4ai'){ st.innerHTML='<span style="color:var(--accent)">✓</span> moteur intégré — aucune installation requise (pas de rendu JavaScript)'; }
+  else if(!s.url){ st.textContent='serveur non configuré'; st.style.color=''; }
   else if(s.reachable){ st.innerHTML='<span style="color:var(--accent)">✓</span> serveur joignable — outils web actifs'; }
   else { st.innerHTML='⚠ serveur injoignable — les outils web ne seront pas proposés'; }
 }
@@ -1989,8 +2007,15 @@ async function apiKeySet(){
 async function toggleInternet(){
   const on=document.getElementById('internet-toggle').checked;
   const url=document.getElementById('crawl-url').value.trim();
-  if(on && !url){ toast('renseigne d\'abord l\'URL du serveur Crawl4AI'); document.getElementById('internet-toggle').checked=false; return; }
+  // Crawl4AI sans URL de serveur = rien à joindre. Le moteur intégré, lui, n'a
+  // besoin d'aucun réglage : on active directement.
+  if(on && webEngine==='crawl4ai' && !url){ toast('renseigne d\'abord l\'URL du serveur Crawl4AI'); document.getElementById('internet-toggle').checked=false; return; }
   renderInternet(await jpost('/api/internet',{enabled:on, url}));
+}
+async function saveWebEngine(){
+  const engine=document.getElementById('web-engine').value;
+  renderInternet(await jpost('/api/internet',{engine}));
+  toast(engine==='crawl4ai' ? 'moteur Crawl4AI sélectionné' : 'moteur intégré sélectionné');
 }
 async function saveCrawlUrl(){
   const url=document.getElementById('crawl-url').value.trim();

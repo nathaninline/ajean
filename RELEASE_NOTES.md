@@ -1,34 +1,31 @@
-Cette version répare la recherche sur internet. Quand une recherche devenait longue, l'IA tournait en rond : elle rouvrait sans fin la même page, repartait de zéro, ou répondait soudain à une question posée bien plus tôt. Ce n'était pas le modèle, c'était le compactage du contexte qui effaçait exactement ce dont elle avait besoin.
+Cette version donne à l'IA l'accès à internet sans rien installer. Jusqu'ici il fallait héberger un serveur Crawl4AI — un conteneur Docker, un Chromium, quelques centaines de mégaoctets — avant que l'IA puisse chercher ou lire quoi que ce soit sur le web. C'était une barrière que peu de gens franchissaient. AJEAN embarque maintenant son propre moteur web.
 
-## L'IA ne repart plus de zéro au milieu d'une recherche
+## Internet fonctionne dès l'installation
 
-Quand la conversation devient trop longue pour la fenêtre de contexte, AJEAN la compacte : les vieux tours sont remplacés par un résumé. Ce résumé était fabriqué à partir d'un historique dont on avait d'abord effacé tous les résultats d'outils. Autrement dit, chaque page web lue avait déjà disparu quand le résumé était écrit. Le résumé ne pouvait donc contenir aucune des informations trouvées, seulement la trace que des recherches avaient eu lieu.
+Le nouveau moteur est écrit en Go et vit dans le binaire. Il n'y a rien à télécharger, rien à lancer, aucune adresse de serveur à renseigner : vous activez l'accès internet, et l'IA dispose de `web_search`, `web_open`, `web_read` et `web_grep`.
 
-Résultat vu de l'extérieur : l'IA relançait les mêmes recherches en boucle, sans jamais aboutir.
+Il récupère les pages, en extrait le contenu réel — en écartant les menus, les bandeaux et les pieds de page — puis le convertit en texte lisible. La recherche passe par DuckDuckGo, dont les résultats sont désormais lus directement dans la structure de la page plutôt que devinés dans du texte reformaté : les titres, les adresses et les extraits sont plus fiables qu'avant.
 
-Le résumé est maintenant écrit à partir des vraies pages lues. On lui demande explicitement de conserver les informations récoltées (faits, chiffres, dates, adresses consultées) et de dire où en est le travail : ce qui est répondu, ce qui manque, la prochaine étape.
+## Crawl4AI reste disponible pour les pages en JavaScript
 
-## La question en cours ne se perd plus
+Le moteur intégré lit les pages telles que le serveur les envoie, sans exécuter leur JavaScript. C'est sans conséquence pour la documentation, les articles, les blogs, Wikipédia, les dépôts de code ou les forums, qui représentent l'essentiel de ce qu'une IA a besoin de consulter. En revanche, une application web dont le contenu n'apparaît qu'une fois le JavaScript exécuté restera illisible.
 
-Pendant une recherche, un tour peut enchaîner des dizaines d'appels d'outils sans le moindre message de votre part. Le compactage protégeait les tours récents et le tout premier message de la conversation, mais votre demande en cours, elle, se retrouvait au milieu, et disparaissait dans le résumé.
+Pour ces cas-là, le moteur Crawl4AI est toujours là, avec son navigateur complet. Le choix se fait dans le panneau « Accès internet » de l'interface, ou en ligne de commande :
 
-L'IA ne voyait alors plus qu'une seule question explicite : la première de la conversation. Et elle y répondait, en abandonnant la recherche en cours. Votre demande du moment est désormais toujours conservée telle quelle.
+```
+ajean internet engine go
+ajean internet engine crawl4ai
+```
 
-## Une même page n'est plus rouverte en boucle
+Les installations qui utilisaient déjà un serveur Crawl4AI le gardent : rien ne change pour elles tant qu'elles n'ont pas choisi l'autre moteur.
 
-Un appel d'outil rigoureusement identique n'était déjà pas rejoué, mais l'avertissement était collé à la fin du contenu renvoyé, noyé après plusieurs milliers de caractères. L'IA voyait le contenu, pas l'avertissement, et recommençait.
+## L'IA sait maintenant quand une page lui est inaccessible
 
-L'avertissement passe en tête, et à partir de la deuxième redemande le contenu n'est plus renvoyé du tout : redemander la même page ne rapporte plus rien et ne consomme plus de contexte. Le tour n'est jamais interrompu pour autant, une recherche qui enchaîne légitimement beaucoup d'appels reste possible.
+Une page vide ne dit rien de ce qui s'est passé. L'IA en concluait qu'elle avait mal lu, et rouvrait la même adresse encore et encore.
 
-De même, le message qui remplace un vieux résultat d'outil disait seulement qu'il avait été effacé, ce qui se lisait comme une invitation à retélécharger la page. Il dit maintenant clairement de ne pas le faire.
+Quand une page arrive bien mais ne contient presque aucun texte, AJEAN reconnaît la signature d'un contenu affiché par JavaScript et l'explique à l'IA, en lui demandant de chercher ailleurs plutôt que d'insister. Les pages courtes mais légitimes, elles, continuent d'être lues normalement.
 
-## Les pages web ne saturent plus le contexte
-
-La lecture d'une page n'avait aucune limite de taille, là où le terminal et les outils MCP en avaient une. Une seule lecture pouvait injecter 25 000 caractères d'un coup et remplir la fenêtre à elle seule, ce qui déclenchait les compactages en cascade décrits plus haut. La lecture est maintenant bornée, avec une indication de comment lire la suite par tranches.
-
-## Le compteur de tokens des outils dit enfin la vérité
-
-Sous chaque appel d'outil, l'étiquette « ~N tok » affichait le plus souvent la même valeur, autour de 1004, quelle que soit la page. Ce n'était pas la taille de la page mais celle du plafond appliqué à l'affichage. Ce plafond est aligné sur ce que voit réellement le modèle : les valeurs affichées varient donc désormais, et correspondent au coût réel.
+Dans le même esprit, l'IA ne se voit plus proposer d'agir sur une page — dérouler une section, fermer un bandeau, attendre un élément — quand le moteur intégré est actif, puisqu'il ne peut pas le faire. Elle ne perd plus de temps à essayer.
 
 ## Mise à jour
 
@@ -37,7 +34,3 @@ ajean update
 ```
 
 Ou le bouton de l'interface.
-
-Les binaires restent publiés sous leurs deux noms, `ajean-*` et `jean-*`, le temps que les installations existantes basculent.
-
-L'icône de la barre de menus macOS, introduite en 0.6.10, n'a toujours pas été vérifiée sur une vraie machine.

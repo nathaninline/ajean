@@ -132,15 +132,21 @@ async function setMemMode(){
   renderMemModeDesc(r.mode||mode);
 }
 // Accès internet : serveur Crawl4AI + drapeau. Actif ET fonctionnel = pastille verte.
-let internetOn=false;
+let internetOn=false, webEngine='go';
 function renderInternet(s){
   internetOn = !!s.enabled;
+  webEngine = s.engine || 'go';
   document.getElementById('internet-toggle').checked = internetOn;
+  const sel=document.getElementById('web-engine');
+  if(sel && document.activeElement!==sel) sel.value = webEngine;
+  // Les réglages Crawl4AI n'ont aucun sens avec le moteur intégré.
+  const cf=document.getElementById('crawl-fields');
+  if(cf) cf.style.display = (webEngine==='crawl4ai') ? '' : 'none';
   if(document.activeElement !== document.getElementById('crawl-url'))
     document.getElementById('crawl-url').value = s.url || '';
   // Actif mais serveur injoignable : la pastille le dit (sinon l'UI ment — les
   // outils web ne sont pas proposés au modèle dans ce cas).
-  if(internetOn && s.url && !s.reachable) setBadge('internet-badge','warn','injoignable');
+  if(internetOn && !s.reachable) setBadge('internet-badge','warn','injoignable');
   else setBadge('internet-badge', internetOn, internetOn?'actif':'inactif');
   // Clé du serveur Crawl4AI : le champ reste vide (la clé n'est jamais renvoyée),
   // on indique seulement si une clé est enregistrée.
@@ -153,7 +159,8 @@ function renderInternet(s){
     if(ki) ki.placeholder = s.key_set ? 'clé enregistrée — saisir pour remplacer' : 'clé API (si le serveur en exige une)';
   }
   const st=document.getElementById('internet-status');
-  if(!s.url){ st.textContent='serveur non configuré'; st.style.color=''; }
+  if(webEngine!=='crawl4ai'){ st.innerHTML='<span style="color:var(--accent)">✓</span> moteur intégré — aucune installation requise (pas de rendu JavaScript)'; }
+  else if(!s.url){ st.textContent='serveur non configuré'; st.style.color=''; }
   else if(s.reachable){ st.innerHTML='<span style="color:var(--accent)">✓</span> serveur joignable — outils web actifs'; }
   else { st.innerHTML='⚠ serveur injoignable — les outils web ne seront pas proposés'; }
 }
@@ -226,8 +233,15 @@ async function apiKeySet(){
 async function toggleInternet(){
   const on=document.getElementById('internet-toggle').checked;
   const url=document.getElementById('crawl-url').value.trim();
-  if(on && !url){ toast('renseigne d\'abord l\'URL du serveur Crawl4AI'); document.getElementById('internet-toggle').checked=false; return; }
+  // Crawl4AI sans URL de serveur = rien à joindre. Le moteur intégré, lui, n'a
+  // besoin d'aucun réglage : on active directement.
+  if(on && webEngine==='crawl4ai' && !url){ toast('renseigne d\'abord l\'URL du serveur Crawl4AI'); document.getElementById('internet-toggle').checked=false; return; }
   renderInternet(await jpost('/api/internet',{enabled:on, url}));
+}
+async function saveWebEngine(){
+  const engine=document.getElementById('web-engine').value;
+  renderInternet(await jpost('/api/internet',{engine}));
+  toast(engine==='crawl4ai' ? 'moteur Crawl4AI sélectionné' : 'moteur intégré sélectionné');
 }
 async function saveCrawlUrl(){
   const url=document.getElementById('crawl-url').value.trim();

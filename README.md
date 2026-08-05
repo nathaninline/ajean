@@ -25,7 +25,7 @@ Aucune dépendance à l'exécution, aucun flag CMake à retenir, aucun conteneur
 | terminal | exécute une commande (bash sous Unix, `cmd.exe` sous Windows) |
 | write / edit | écrit un fichier, ou le modifie par remplacement exact |
 | mem_* | mémoire Markdown persistante entre les sessions |
-| web_* | recherche et lecture de pages, via Crawl4AI |
+| web_* | recherche et lecture de pages |
 | mcp__* | les outils des serveurs MCP configurés |
 
 **Le matériel et le moteur, gérés pour vous.** `ajean llamacpp install` clone et compile llama.cpp avec les bons flags pour *cette* machine : CUDA (capacité de calcul détectée par GPU, donc le multi-GPU fonctionne), ROCm, Metal, Vulkan, ou repli CPU. `ajean llamacpp update` récupère le dernier commit, arrête le service le temps de recompiler, puis le redémarre.
@@ -87,7 +87,7 @@ Service :
 Capacités de l'IA :
   agent [on|off|status]         active TOUS les outils (terminal, fichiers, mémoire)
   memory [off|ondemand|always]  mode mémoire
-  internet [on|off|url <url>|key <clé>]   accès web via Crawl4AI
+  internet [on|off|engine <go|crawl4ai>|url <url>|key <clé>]   accès web
 
 Presets et moteur :
   switch [N]                    changer de preset (configs/)
@@ -156,16 +156,27 @@ ajean memory off        # mémoire coupée
 
 ### Accès internet
 
-Par défaut, l'IA n'a pas accès au web. En branchant un serveur [Crawl4AI](https://github.com/unclecode/crawl4ai), elle gagne `web_search` (DuckDuckGo), `web_open`, `web_read` et `web_grep`. **AJEAN ne fournit pas ce serveur, il s'y branche :**
+Par défaut, l'IA n'a pas accès au web. Une fois activé, elle gagne `web_search` (DuckDuckGo), `web_open`, `web_read` et `web_grep`. Deux moteurs sont disponibles.
+
+**Moteur intégré (défaut)** — inclus dans le binaire, rien à installer :
 
 ```bash
-docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest
-ajean internet url http://localhost:11235
 ajean internet on
 ajean internet status
 ```
 
-Les outils web ne sont proposés au modèle que si le mode agent est actif, l'accès internet activé **et** le serveur joignable. Sinon ils n'existent pas, et le modèle ne peut donc pas les inventer.
+Il récupère les pages en HTTP, en extrait le contenu (Readability) et le convertit en markdown. Il n'exécute pas le JavaScript : une page entièrement rendue côté client ressort vide. Docs, articles, blogs, Wikipédia, GitHub et forums passent sans problème.
+
+**Moteur Crawl4AI** — un serveur [Crawl4AI](https://github.com/unclecode/crawl4ai) que vous hébergez, avec Chromium headless, donc rendu JavaScript complet. **AJEAN ne fournit pas ce serveur, il s'y branche :**
+
+```bash
+docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest
+ajean internet engine crawl4ai
+ajean internet url http://localhost:11235
+ajean internet on
+```
+
+Les outils web ne sont proposés au modèle que si le mode agent est actif, l'accès internet activé **et** — avec Crawl4AI — le serveur joignable. Sinon ils n'existent pas, et le modèle ne peut donc pas les inventer.
 
 ### Serveurs MCP
 
