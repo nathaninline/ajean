@@ -102,8 +102,13 @@ async function openItem(kind, key){
     rawToggle.style.display = 'none';
     rawBody.style.display = '';
   }
-  document.getElementById('modal').classList.add('loading');
+  const modalEl=document.getElementById('modal');
+  modalEl.classList.add('loading');
   showModal('modal');
+  // Le voile s'arrête au bas de l'en-tête : on lui passe sa hauteur réelle. ⚠️ À
+  // mesurer APRÈS l'affichage — un élément en display:none mesure 0.
+  const mHead=modalEl.querySelector('.modal-head');
+  if(mHead) modalEl.querySelector('.modal-card').style.setProperty('--mh', mHead.offsetHeight+'px');
   // ⚠️ APRÈS showModal, jamais avant : le corps de la modale est un conteneur
   // défilant RÉUTILISÉ d'une ouverture à l'autre, et écrire scrollTop sur un
   // élément en display:none ne fait RIEN (il n'a pas de boîte de rendu) — le

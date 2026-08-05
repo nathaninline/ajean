@@ -790,10 +790,12 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 /* Modale ouverte mais pas encore remplie : on affiche le voile de chargement À LA
    PLACE du formulaire et du pied. Estomper le formulaire ne suffisait pas — on
    voyait quand même les champs s'écrire un par un derrière le voile. */
-/* Fond TRANSPARENT : le formulaire est déjà rendu invisible par `visibility`,
-   un fond opaque ne servirait qu'à masquer aussi le titre de la modale. */
-.modal-load{display:none;position:absolute;inset:0;z-index:2;align-items:center;justify-content:center;
-  pointer-events:none}
+/* Voile OPAQUE, posé sous l'en-tête (le titre reste lisible) : `visibility:hidden`
+   sur le formulaire suffirait en théorie, mais un fond plein garantit qu'aucun
+   reste du preset précédent (moteur coché, réglages) ne puisse apparaître une
+   fraction de seconde. --mh = hauteur mesurée de l'en-tête, posée à l'ouverture. */
+.modal-load{display:none;position:absolute;inset:var(--mh,52px) 0 0 0;z-index:2;
+  align-items:center;justify-content:center;background:var(--bg);border-radius:0 0 12px 12px}
 .modal-ov.loading .modal-load{display:flex}
 /* visibility (et non display) : le formulaire garde sa place, donc la carte a
    déjà sa taille finale — la révéler ne provoque plus d'à-coup de hauteur. */
