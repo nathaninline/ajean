@@ -1,31 +1,44 @@
-Cette version donne à l'IA l'accès à internet sans rien installer. Jusqu'ici il fallait héberger un serveur Crawl4AI — un conteneur Docker, un Chromium, quelques centaines de mégaoctets — avant que l'IA puisse chercher ou lire quoi que ce soit sur le web. C'était une barrière que peu de gens franchissaient. AJEAN embarque maintenant son propre moteur web.
+Cette version répare une série de problèmes autour des moteurs llama.cpp : un moteur mis à jour qui ne l'était pas vraiment, des presets qui perdaient leur moteur, une compilation qui échouait alors que tout était installé. Elle ajoute aussi le réglage des cartes graphiques directement dans l'éditeur de modèle.
 
-## Internet fonctionne dès l'installation
+## Le moteur précompilé se met vraiment à jour
 
-Le nouveau moteur est écrit en Go et vit dans le binaire. Il n'y a rien à télécharger, rien à lancer, aucune adresse de serveur à renseigner : vous activez l'accès internet, et l'IA dispose de `web_search`, `web_open`, `web_read` et `web_grep`.
+Chaque mise à jour du moteur précompilé s'installait dans un dossier portant son numéro de version, sans jamais supprimer les précédents. AJEAN retenait ensuite le premier dossier trouvé par ordre alphabétique, c'est à dire le plus ANCIEN. Sur une machine mise à jour plusieurs fois, le moteur réellement utilisé pouvait donc être une vieille version, parfois une installation incomplète qui refusait de démarrer avec une erreur de bibliothèque manquante.
 
-Il récupère les pages, en extrait le contenu réel — en écartant les menus, les bandeaux et les pieds de page — puis le convertit en texte lisible. La recherche passe par DuckDuckGo, dont les résultats sont désormais lus directement dans la structure de la page plutôt que devinés dans du texte reformaté : les titres, les adresses et les extraits sont plus fiables qu'avant.
+Le moteur retenu est maintenant celui de la version installée, et les anciennes extractions sont supprimées après une mise à jour réussie (plusieurs centaines de mégaoctets récupérés à chaque fois).
 
-## Crawl4AI reste disponible pour les pages en JavaScript
+## Vos presets ne perdent plus leur moteur
 
-Le moteur intégré lit les pages telles que le serveur les envoie, sans exécuter leur JavaScript. C'est sans conséquence pour la documentation, les articles, les blogs, Wikipédia, les dépôts de code ou les forums, qui représentent l'essentiel de ce qu'une IA a besoin de consulter. En revanche, une application web dont le contenu n'apparaît qu'une fois le JavaScript exécuté restera illisible.
+Comme le chemin du moteur précompilé contient son numéro de version, il changeait à chaque mise à jour. Tous les presets qui l'utilisaient basculaient alors en mode « personnalisé », et il fallait les repointer un par un. Un preset dont le moteur a été mis à jour est désormais reconnu, et il démarre même si son chemin exact a disparu : il suit la version installée au lieu d'échouer.
 
-Pour ces cas-là, le moteur Crawl4AI est toujours là, avec son navigateur complet. Le choix se fait dans le panneau « Accès internet » de l'interface, ou en ligne de commande :
+## Compilation d'un moteur : le CUDA Toolkit est enfin trouvé
 
-```
-ajean internet engine go
-ajean internet engine crawl4ai
-```
+Sur les machines où `nvcc` vient du paquet de la distribution (`/usr/bin/nvcc`) alors que le toolkit complet vit ailleurs (`/usr/local/cuda`), la configuration échouait sur « CUDA Toolkit not found », après avoir pourtant affiché la version de CUDA. AJEAN cherche maintenant le toolkit avant le raccourci du PATH, et indique explicitement sa racine à CMake. Si le toolkit manque vraiment, le message le dit au lieu de laisser l'erreur brute de CMake.
 
-Les installations qui utilisaient déjà un serveur Crawl4AI le gardent : rien ne change pour elles tant qu'elles n'ont pas choisi l'autre moteur.
+## L'installation d'un moteur ne disparaît plus des écrans
 
-## L'IA sait maintenant quand une page lui est inaccessible
+L'avancement d'une installation vivait uniquement en mémoire du service. Au moindre redémarrage (mise à jour du binaire, plantage, reboot), la page rechargée n'affichait plus rien : impossible de savoir si la compilation continuait. Elle ne continuait pas, car elle meurt avec le service, mais personne ne le disait.
 
-Une page vide ne dit rien de ce qui s'est passé. L'IA en concluait qu'elle avait mal lu, et rouvrait la même adresse encore et encore.
+L'état est maintenant écrit sur disque et rechargé au démarrage. Une opération interrompue est annoncée comme telle, avec son journal. Et sur téléphone, où le panneau latéral est fermé, une pastille en haut de l'écran rappelle qu'une installation est en cours et y ramène en un clic.
 
-Quand une page arrive bien mais ne contient presque aucun texte, AJEAN reconnaît la signature d'un contenu affiché par JavaScript et l'explique à l'IA, en lui demandant de chercher ailleurs plutôt que d'insister. Les pages courtes mais légitimes, elles, continuent d'être lues normalement.
+## Choisir ses cartes graphiques par modèle
 
-Dans le même esprit, l'IA ne se voit plus proposer d'agir sur une page — dérouler une section, fermer un bandeau, attendre un élément — quand le moteur intégré est actif, puisqu'il ne peut pas le faire. Elle ne perd plus de temps à essayer.
+Nouvelle section « Cartes graphiques » dans l'éditeur de modèle, visible seulement si la machine en a plusieurs. Un interrupteur par carte, et une barre de répartition sur laquelle on fait glisser la part de chacune.
+
+La liste des cartes est demandée au moteur du preset, pas au système : les identifiants et leur ordre appartiennent au backend. Sur une même machine, un moteur CUDA annonce `CUDA0` pour la grosse carte quand un moteur Vulkan annonce `Vulkan0` pour la petite. Une liste générique aurait fait sélectionner la mauvaise.
+
+Le réglage passe par `--device`, compris par tous les backends, là où la variable `CUDA_VISIBLE_DEVICES` utilisée par la commande `ajean gpu` reste sans effet sur un moteur Vulkan.
+
+## Réglages regroupés et décodage spéculatif
+
+Les « réglages avancés » ne sont plus repliés dans un menu : BATCH, UBATCH, threads de traitement par lots, experts MoE sur CPU et chargement complet en mémoire sont à la suite des autres, avec tous les interrupteurs regroupés en fin de liste.
+
+Le décodage spéculatif se règle maintenant visuellement : le type (MTP, EAGLE 3, n grammes et les autres valeurs acceptées par le moteur) et le nombre de jetons anticipés, ce dernier n'apparaissant qu'une fois un type choisi.
+
+## Corrections d'interface
+
+La sélection de cartes faite avec `ajean gpu` était effacée au changement de preset, tout comme le choix du moteur web. Ces réglages survivent maintenant à une bascule, sauf quand le preset les définit lui même, auquel cas c'est le preset qui gagne (un preset multi GPU impose sa configuration).
+
+Les listes repliées affichaient une double bordure en bas. La croix de fermeture des fenêtres était écrasée en largeur, elle est maintenant carrée et plus facile à viser au doigt.
 
 ## Mise à jour
 
@@ -33,4 +46,4 @@ Dans le même esprit, l'IA ne se voit plus proposer d'agir sur une page — dér
 ajean update
 ```
 
-Ou le bouton de l'interface.
+Testé sur Linux avec un moteur CUDA compilé et le moteur Vulkan précompilé, sur deux cartes NVIDIA. La section « Cartes graphiques » n'a pas été essayée sur une machine ROCm ou Metal, ni sur Windows. Le support macOS reste non testé sur du matériel Apple.

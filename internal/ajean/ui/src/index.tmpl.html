@@ -27,6 +27,10 @@
 @@CSS@@
 </style></head><body>
 <button id="menubtn" onclick="toggleSide()">☰</button>
+<!-- Installation d'un moteur en cours : le détail vit dans le panneau, qui est
+     fermé sur téléphone. Sans ce rappel, un rechargement de page donnait
+     l'impression que l'installation avait disparu. -->
+<button id="lc-chip" onclick="lcChipOpen()" hidden></button>
 <div id="backdrop" onclick="toggleSide()"></div>
 <div class="side" id="side">
   <div class="sidehead">
@@ -462,8 +466,22 @@
             </div>
           </div>
         </div>
+
+        <!-- Cartes graphiques : la liste vient du moteur choisi juste au-dessus,
+             car les noms ET l'ordre dépendent du backend compilé dedans. Le
+             groupe reste masqué tant qu'on n'a pas AU MOINS DEUX cartes : avec
+             une seule, il n'y a rien à arbitrer. -->
+        <div class="pe-group" id="m-gpu-group" hidden>
+          <div class="pe-gh">Cartes graphiques</div>
+          <div class="pe-list" id="m-gpu-list"></div>
+          <div class="pe-note" id="m-gpu-note"></div>
+        </div>
       </div>
 
+      <!-- Une seule liste : les anciens « réglages avancés » repliés sont
+           désormais à la suite. Les valeurs d'abord, puis TOUS les interrupteurs
+           groupés en fin de liste — chercher un toggle perdu entre deux champs
+           numériques n'aidait personne. -->
       <div id="m-settings-row" class="pe-group" style="display:none">
         <div class="pe-gh">Réglages</div>
         <div class="pe-list">
@@ -476,8 +494,24 @@
             <span class="pe-row-c"><input id="s-ngl" class="pe-val" type="number" min="0" step="1" placeholder="999" oninput="cfgWriteKey('NGL', this.value)"></span>
           </div>
           <div class="pe-row">
+            <span class="pe-row-l">Experts MoE sur CPU<span class="pe-sub">vide = non</span></span>
+            <span class="pe-row-c"><input id="s-moe" class="pe-val" type="number" min="0" step="1" placeholder="—" oninput="eaSetValued('--n-cpu-moe', this.value)"></span>
+          </div>
+          <div class="pe-row">
             <span class="pe-row-l">Threads CPU<span class="pe-sub">0 = auto</span></span>
             <span class="pe-row-c"><input id="s-threads" class="pe-val" type="number" min="0" step="1" placeholder="0" oninput="cfgWriteKey('THREADS', this.value)"></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">Threads (batch)<span class="pe-sub">0 = auto</span></span>
+            <span class="pe-row-c"><input id="s-tbatch" class="pe-val" type="number" min="0" step="1" placeholder="0" oninput="cfgWriteKey('THREADS_BATCH', this.value)"></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">BATCH</span>
+            <span class="pe-row-c"><input id="s-batch" class="pe-val" type="number" min="0" step="256" placeholder="2048" oninput="cfgWriteKey('BATCH', this.value)"></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">UBATCH</span>
+            <span class="pe-row-c"><input id="s-ubatch" class="pe-val" type="number" min="0" step="128" placeholder="512" oninput="cfgWriteKey('UBATCH', this.value)"></span>
           </div>
           <div class="pe-row">
             <span class="pe-row-l">Cache KV<span class="pe-sub">compression du contexte</span></span>
@@ -488,6 +522,34 @@
               <option value="q5_1">q5_1</option>
               <option value="bf16">bf16</option>
             </select></span></span>
+          </div>
+          <!-- Décodage spéculatif : le type vient de la liste que llama-server
+               accepte pour --spec-type. Le nombre de jetons anticipés
+               (--spec-draft-n-max) n'a de sens qu'une fois un type choisi, donc
+               sa ligne n'apparaît qu'à ce moment. -->
+          <div class="pe-row">
+            <span class="pe-row-l">Décodage spéculatif<span class="pe-sub">anticipe des jetons pour accélérer</span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="s-spec" onchange="onSpecType()">
+              <option value="">non</option>
+              <optgroup label="Modèle brouillon">
+                <option value="draft-mtp">MTP (intégré au modèle)</option>
+                <option value="draft-eagle3">EAGLE-3</option>
+                <option value="draft-simple">modèle brouillon séparé</option>
+                <option value="draft-dflash">dFlash</option>
+                <option value="draft-dspark">dSpark</option>
+              </optgroup>
+              <optgroup label="N-grammes (sans modèle brouillon)">
+                <option value="ngram-simple">n-grammes</option>
+                <option value="ngram-mod">n-grammes (mod)</option>
+                <option value="ngram-cache">n-grammes (cache)</option>
+                <option value="ngram-map-k">n-grammes (map-k)</option>
+                <option value="ngram-map-k4v">n-grammes (map-k4v)</option>
+              </optgroup>
+            </select></span></span>
+          </div>
+          <div class="pe-row" id="s-spec-n-row" style="display:none">
+            <span class="pe-row-l">Jetons anticipés<span class="pe-sub">par étape — défaut 3</span></span>
+            <span class="pe-row-c"><input id="s-spec-n" class="pe-val" type="number" min="1" step="1" placeholder="3" oninput="eaSetValued('--spec-draft-n-max', this.value)"></span>
           </div>
           <div class="pe-row">
             <span class="pe-row-l">Raisonnement<span class="pe-sub">réflexion étape par étape</span></span>
@@ -501,27 +563,18 @@
             <span class="pe-row-l">Garder en RAM<span class="pe-sub">évite le swap (mlock)</span></span>
             <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-mlock" onchange="eaToggleFlag('--mlock', this.checked)"><span class="pe-sl"></span></label></span>
           </div>
-        </div>
-
-        <details class="pe-adv" style="margin-top:8px">
-          <summary>Réglages avancés</summary>
-          <div class="pe-adv-body" style="padding:0">
-            <div class="pe-list" style="border:none;border-radius:0">
-              <div class="pe-row"><span class="pe-row-l">BATCH</span><span class="pe-row-c"><input id="s-batch" class="pe-val" type="number" min="0" step="256" placeholder="2048" oninput="cfgWriteKey('BATCH', this.value)"></span></div>
-              <div class="pe-row"><span class="pe-row-l">UBATCH</span><span class="pe-row-c"><input id="s-ubatch" class="pe-val" type="number" min="0" step="128" placeholder="512" oninput="cfgWriteKey('UBATCH', this.value)"></span></div>
-              <div class="pe-row"><span class="pe-row-l">Threads (batch)<span class="pe-sub">0 = auto</span></span><span class="pe-row-c"><input id="s-tbatch" class="pe-val" type="number" min="0" step="1" placeholder="0" oninput="cfgWriteKey('THREADS_BATCH', this.value)"></span></div>
-              <div class="pe-row"><span class="pe-row-l">Experts MoE sur CPU<span class="pe-sub">vide = non</span></span><span class="pe-row-c"><input id="s-moe" class="pe-val" type="number" min="0" step="1" placeholder="—" oninput="eaSetValued('--n-cpu-moe', this.value)"></span></div>
-              <div class="pe-row"><span class="pe-row-l">Charger tout en mémoire<span class="pe-sub">désactive le mmap</span></span><span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-nommap" onchange="eaToggleFlag('--no-mmap', this.checked)"><span class="pe-sl"></span></label></span></div>
-            </div>
+          <div class="pe-row">
+            <span class="pe-row-l">Charger tout en mémoire<span class="pe-sub">désactive le mmap</span></span>
+            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-nommap" onchange="eaToggleFlag('--no-mmap', this.checked)"><span class="pe-sl"></span></label></span>
           </div>
-        </details>
+        </div>
       </div>
 
       <div id="m-raw" class="pe-group">
         <div class="pe-gh" id="m-raw-head">Configuration</div>
         <div class="pe-list">
           <div id="m-raw-toggle" class="pe-row" style="cursor:pointer" onclick="toggleRaw()">
-            <span class="pe-row-l">Éditer le fichier <code>.env</code><span class="pe-sub">configuration brute — pour les réglages avancés</span></span>
+            <span class="pe-row-l">Éditer le fichier de configuration<span class="pe-sub">texte brut</span></span>
             <span class="pe-row-c"><span id="m-raw-caret" class="pe-caret"></span></span>
           </div>
           <div id="m-raw-body" class="pe-row stack" style="display:none">

@@ -129,6 +129,23 @@ func setLibraryPath(dir string) {
 	_ = os.Setenv("PATH", strings.Join(parts, string(os.PathListSeparator)))
 }
 
+// libraryPathEnv : même chose pour une commande ponctuelle (ex. --list-devices
+// depuis l'UI), sans modifier le PATH du process web.
+func libraryPathEnv(dir string) []string {
+	parts := []string{dir}
+	if nvcc := findNvcc(); nvcc != "" {
+		binDir := filepath.Dir(nvcc)
+		parts = append(parts, binDir)
+		if x64 := filepath.Join(binDir, "x64"); isDir(x64) {
+			parts = append(parts, x64)
+		}
+	}
+	if existing := os.Getenv("PATH"); existing != "" {
+		parts = append(parts, existing)
+	}
+	return append(os.Environ(), "PATH="+strings.Join(parts, string(os.PathListSeparator)))
+}
+
 // execServer runs llama-server as a child process and waits for it. Windows has
 // no exec() that replaces the current image, so `ajean serve` stays alive as the
 // parent (this is the detached process the service supervisor tracks).

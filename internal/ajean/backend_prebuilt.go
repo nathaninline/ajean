@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -78,23 +79,103 @@ func prebuiltVersionFormat() string {
 
 // prebuiltServerBin localise llama-server(.exe) sous le dossier prebuilt
 // (l'arborescence interne des archives officielles varie : racine, build/bin…).
+//
+// Chaque release s'extrait dans son propre sous-dossier (llama-b10280/…), donc
+// plusieurs versions peuvent cohabiter — notamment des installations anciennes
+// et incomplètes. On retient donc EN PRIORITÉ le binaire de la version notée
+// dans VERSION, et à défaut le plus récent (numéro de build le plus élevé) :
+// prendre « le premier trouvé » renvoyait le plus ANCIEN dossier, donc un
+// binaire périmé voire cassé.
 func prebuiltServerBin() string {
+	all := prebuiltServerBins()
+	if len(all) == 0 {
+		return ""
+	}
+	if tag, _ := prebuiltVersion(); tag != "" {
+		for _, p := range all {
+			if strings.Contains(filepath.ToSlash(p), "/llama-"+tag+"/") {
+				return p
+			}
+		}
+	}
+	return all[len(all)-1] // ordre lexical = ordre des numéros de build
+}
+
+// prebuiltServerBins liste tous les llama-server présents sous le dossier
+// prebuilt, triés par chemin (donc par numéro de build croissant).
+func prebuiltServerBins() []string {
 	want := "llama-server"
 	if runtime.GOOS == "windows" {
 		want += ".exe"
 	}
-	var found string
+	var found []string
 	_ = filepath.WalkDir(prebuiltDir(), func(p string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil
 		}
 		if d.Name() == want {
-			found = p
-			return filepath.SkipAll
+			found = append(found, p)
 		}
 		return nil
 	})
+	sort.Strings(found)
 	return found
+}
+
+// prebuiltOwns dit si p désigne un binaire du moteur précompilé, quelle que
+// soit la version installée. Les presets enregistrent un chemin versionné :
+// après une mise à jour ce chemin n'est plus celui du moteur courant, mais le
+// preset utilise bien « le moteur précompilé » et doit être reconnu comme tel.
+func prebuiltOwns(p string) bool {
+	if p == "" {
+		return false
+	}
+	norm := func(s string) string {
+		return strings.ToLower(filepath.ToSlash(filepath.Clean(s)))
+	}
+	return strings.HasPrefix(norm(p), norm(prebuiltDir())+"/")
+}
+
+// prebuiltResolveBin fait suivre un BIN de preset aux mises à jour du moteur :
+// un chemin versionné qui n'existe plus (release remplacée) est remplacé par le
+// binaire précompilé courant. Tout autre chemin est renvoyé tel quel.
+func prebuiltResolveBin(bin string) string {
+	if !prebuiltOwns(bin) {
+		return bin
+	}
+	if _, err := os.Stat(bin); err == nil {
+		return bin
+	}
+	if cur := prebuiltServerBin(); cur != "" {
+		return cur
+	}
+	return bin
+}
+
+// prebuiltPrune supprime les extractions d'autres releases : elles ne servent
+// plus à rien (quelques centaines de Mo chacune) et, laissées en place, elles
+// se faisaient élire comme binaire courant.
+func prebuiltPrune(keep string, logf func(string)) {
+	keepDir := ""
+	if keep != "" {
+		keepDir = filepath.ToSlash(filepath.Clean(keep))
+	}
+	entries, err := os.ReadDir(prebuiltDir())
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if !e.IsDir() || !strings.HasPrefix(e.Name(), "llama-b") {
+			continue
+		}
+		d := filepath.Join(prebuiltDir(), e.Name())
+		if keepDir != "" && strings.HasPrefix(keepDir, filepath.ToSlash(filepath.Clean(d))+"/") {
+			continue
+		}
+		if err := os.RemoveAll(d); err == nil && logf != nil {
+			logf("ancienne version supprimée : " + e.Name())
+		}
+	}
 }
 
 // fetchLlamaLatest interroge l'API GitHub pour la dernière release officielle.
@@ -276,9 +357,10 @@ func prebuiltInstall(logf, phasef func(string)) (string, error) {
 	// version de Jean qui ignorait les liens des archives (backend installé mais
 	// bibliothèques introuvables au lancement) : le marqueur de format force alors
 	// une ré-extraction propre au lieu d'un « déjà à jour » trompeur.
-	if curTag == tag && prebuiltVersionFormat() == prebuiltFormat && prebuiltServerBin() != "" {
+	if cur := prebuiltServerBin(); curTag == tag && prebuiltVersionFormat() == prebuiltFormat && cur != "" {
 		logf("déjà à jour (" + tag + ")")
-		return prebuiltServerBin(), nil
+		prebuiltPrune(cur, logf) // ménage des versions laissées par les installs précédentes
+		return cur, nil
 	}
 
 	dir := prebuiltDir()
@@ -317,6 +399,11 @@ func prebuiltInstall(logf, phasef func(string)) (string, error) {
 		_ = os.Remove(tmp)
 	}
 
+	// Le marqueur est écrit AVANT de localiser le binaire : prebuiltServerBin
+	// s'en sert pour élire la version fraîchement extraite s'il en reste d'autres.
+	if err := os.WriteFile(filepath.Join(dir, "VERSION"), []byte(tag+" "+cudaVer+" "+prebuiltFormat+"\n"), 0o644); err != nil {
+		return "", err
+	}
 	bin := prebuiltServerBin()
 	if bin == "" {
 		return "", fmt.Errorf("archives extraites mais llama-server introuvable sous %s", dir)
@@ -324,9 +411,7 @@ func prebuiltInstall(logf, phasef func(string)) (string, error) {
 	if runtime.GOOS != "windows" {
 		_ = os.Chmod(bin, 0o755)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "VERSION"), []byte(tag+" "+cudaVer+" "+prebuiltFormat+"\n"), 0o644); err != nil {
-		return "", err
-	}
+	prebuiltPrune(bin, logf)
 	logf("binaire installé : " + bin + " (release " + tag + ")")
 	return bin, nil
 }

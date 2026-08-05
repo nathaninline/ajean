@@ -36,6 +36,10 @@ func cmdServe(args []string) error {
 	if !filepath.IsAbs(bin) {
 		bin = filepath.Join(AjeanHome(), bin)
 	}
+	// Le moteur précompilé s'installe dans un dossier versionné : un preset écrit
+	// avant une mise à jour pointe sur une release qui n'existe plus. On le fait
+	// suivre au moteur courant plutôt que d'échouer en 127.
+	bin = prebuiltResolveBin(bin)
 
 	// Make sure llama-server can find its bundled shared libraries (the .so/.dll
 	// neighbours of the binary). This is platform-specific: LD_LIBRARY_PATH on

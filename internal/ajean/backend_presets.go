@@ -201,12 +201,37 @@ func safePresetPath(name string) (string, error) {
 // paramètres de modèle) qui doivent survivre à un changement de preset. Sans ça,
 // écraser config.env avec le preset ré-imposerait le mode mémoire et effacerait
 // l'URL du serveur internet à chaque bascule — ce qui obligeait à tout remettre.
-var preservedKeys = []string{"MEM_MODE", "CRAWL4AI_URL"}
+var preservedKeys = []string{"MEM_MODE", "CRAWL4AI_URL", "WEB_ENGINE", "CUDA_VISIBLE_DEVICES"}
 
-// SwitchToPreset backs up the current config and copies the target into place,
-// then restarts the service. Les réglages « appareil » (preservedKeys) sont
-// conservés à travers la bascule.
-func SwitchToPreset(target string) error {
+// softPreservedKeys : préservées SEULEMENT si le preset d'arrivée ne les définit
+// pas lui-même. CUDA_VISIBLE_DEVICES est dans ce cas : c'est d'ordinaire un
+// choix de machine (`ajean gpu`) qui doit survivre aux bascules, MAIS un preset
+// a le droit de l'imposer — « QWEN 3.6 27B FABLE 2 GPU » réclame `1,0` pour que
+// son `--tensor-split 0.965,0.035` ait bien deux cartes en face. Le préserver
+// inconditionnellement écrasait cette valeur par l'ancienne (mono-GPU) : le
+// modèle se retrouvait entièrement sur une seule carte et mourait sur
+// « cudaMalloc failed: out of memory ». Le preset explicite gagne.
+var softPreservedKeys = map[string]bool{"CUDA_VISIBLE_DEVICES": true}
+
+// presetDefines dit si le contenu d'un preset affecte explicitement la clé.
+func presetDefines(content []byte, key string) bool {
+	for _, line := range strings.Split(string(content), "\n") {
+		t := strings.TrimSpace(line)
+		if t == "" || strings.HasPrefix(t, "#") {
+			continue
+		}
+		t = strings.TrimPrefix(t, "export ")
+		if eq := strings.IndexByte(t, '='); eq >= 0 && strings.TrimSpace(t[:eq]) == key {
+			return true
+		}
+	}
+	return false
+}
+
+// applyPresetFile copie le preset dans config.env en réinjectant les réglages
+// « appareil » par-dessus. Séparé de SwitchToPreset pour être testable sans
+// redémarrer le service (donc sans lancer un llama-server pour de vrai).
+func applyPresetFile(target string) error {
 	src, err := os.ReadFile(target)
 	if err != nil {
 		return err
@@ -216,11 +241,27 @@ func SwitchToPreset(target string) error {
 	if err := os.WriteFile(confPath(), src, 0o644); err != nil {
 		return err
 	}
-	// Ré-applique les réglages appareil par-dessus le preset fraîchement copié.
+	// Ré-applique les réglages appareil par-dessus le preset fraîchement copié —
+	// sauf ceux que le preset revendique explicitement (softPreservedKeys).
 	for _, k := range preservedKeys {
-		if v, ok := cur[k]; ok {
-			_ = SetConfigKey(k, v)
+		v, ok := cur[k]
+		if !ok {
+			continue
 		}
+		if softPreservedKeys[k] && presetDefines(src, k) {
+			continue // le preset a son mot à dire sur cette clé : on le laisse gagner
+		}
+		_ = SetConfigKey(k, v)
+	}
+	return nil
+}
+
+// SwitchToPreset backs up the current config and copies the target into place,
+// then restarts the service. Les réglages « appareil » (preservedKeys) sont
+// conservés à travers la bascule.
+func SwitchToPreset(target string) error {
+	if err := applyPresetFile(target); err != nil {
+		return err
 	}
 	fmt.Printf("%s config.env <- %s\n", green("[ok]"), filepath.Base(target))
 	fmt.Println(dim("[info] redémarrage du service..."))

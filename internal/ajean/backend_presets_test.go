@@ -1,6 +1,10 @@
 package ajean
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 // TestPresetFingerprintIgnoresCosmetics vérifie que la détection du preset actif
 // ne dépend QUE de la config effective (ensemble KEY=VALUE), pas de la mise en
@@ -19,5 +23,76 @@ func TestPresetFingerprintIgnoresCosmetics(t *testing.T) {
 	changed := []byte("MODEL=foo.gguf\nCTX=8192\nNGL=999\n")
 	if presetFingerprint(base) == presetFingerprint(changed) {
 		t.Fatal("empreintes identiques alors que CTX diffère")
+	}
+}
+
+// TestSwitchToPresetGardeLesReglagesMachine : basculer de preset ne doit pas
+// effacer les réglages qui décrivent la MACHINE et non le modèle. Le cas vécu :
+// `ajean gpu 1` écrit CUDA_VISIBLE_DEVICES dans config.env, la bascule de preset
+// suivante l'écrasait, llama.cpp revoyait les deux cartes et réétalait le modèle
+// sur la petite — pendant que `ajean gpu` réaffichait « auto ».
+func TestSwitchToPresetGardeLesReglagesMachine(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("AJEAN_HOME", home)
+	write := func(p, body string) {
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// config.env courante : un preset + les réglages machine.
+	write(confPath(), "MODEL=ancien.gguf\nCTX=4096\nCUDA_VISIBLE_DEVICES=1\nWEB_ENGINE=go\nMEM_MODE=always\n")
+	target := filepath.Join(home, "cible.env")
+	write(target, "MODEL=nouveau.gguf\nCTX=8192\n")
+
+	if err := applyPresetFile(target); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := ReadConfig()
+	if cfg["MODEL"] != "nouveau.gguf" || cfg["CTX"] != "8192" {
+		t.Fatalf("le preset n'a pas été appliqué : %v", cfg)
+	}
+	for k, want := range map[string]string{
+		"CUDA_VISIBLE_DEVICES": "1", "WEB_ENGINE": "go", "MEM_MODE": "always",
+	} {
+		if cfg[k] != want {
+			t.Errorf("%s = %q après bascule, attendu %q (réglage machine effacé)", k, cfg[k], want)
+		}
+	}
+}
+
+// Un preset qui définit LUI-MÊME la sélection de cartes doit gagner sur celle
+// de la machine : « FABLE 2 GPU » impose CUDA_VISIBLE_DEVICES=1,0 pour que son
+// --tensor-split ait deux cartes. Écraser ça par une sélection mono-GPU faisait
+// mourir le chargement sur « cudaMalloc failed: out of memory ».
+func TestSwitchToPresetLaisseLePresetImposerSesGPU(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("AJEAN_HOME", home)
+	write := func(p, body string) {
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(confPath(), "MODEL=ancien.gguf\nCUDA_VISIBLE_DEVICES=1\nWEB_ENGINE=go\n")
+	deuxGPU := filepath.Join(home, "deux-gpu.env")
+	write(deuxGPU, "MODEL=fable.gguf\nCUDA_VISIBLE_DEVICES=1,0\n")
+	if err := applyPresetFile(deuxGPU); err != nil {
+		t.Fatal(err)
+	}
+	if got := ReadConfig()["CUDA_VISIBLE_DEVICES"]; got != "1,0" {
+		t.Errorf("CUDA_VISIBLE_DEVICES = %q, attendu 1,0 (le preset doit gagner)", got)
+	}
+	// Un preset MUET sur les GPU laisse, lui, la sélection machine en place.
+	muet := filepath.Join(home, "muet.env")
+	write(muet, "MODEL=autre.gguf\n")
+	if err := applyPresetFile(muet); err != nil {
+		t.Fatal(err)
+	}
+	cfg := ReadConfig()
+	if cfg["CUDA_VISIBLE_DEVICES"] != "1,0" {
+		t.Errorf("CUDA_VISIBLE_DEVICES = %q, attendu 1,0 conservé", cfg["CUDA_VISIBLE_DEVICES"])
+	}
+	if cfg["WEB_ENGINE"] != "go" {
+		t.Errorf("WEB_ENGINE = %q, attendu go (réglage machine, jamais dicté par un preset)", cfg["WEB_ENGINE"])
 	}
 }

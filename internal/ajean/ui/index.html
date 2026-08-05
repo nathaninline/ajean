@@ -93,11 +93,16 @@ option,optgroup{background:var(--panel);color:var(--text)}
 .main{flex:1;display:flex;flex-direction:column;min-width:0}
 #menubtn{display:none;position:fixed;top:calc(10px + env(safe-area-inset-top));left:calc(10px + env(safe-area-inset-left));z-index:20;background:var(--panel);border:1px solid var(--border);color:var(--text);width:40px;height:40px;border-radius:6px;font-size:18px;cursor:pointer}
 #backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10}
+/* Pastille « installation en cours » : suit exactement les règles d'affichage
+   du bouton ☰ (elle ne sert que quand le panneau est en tiroir, donc caché). */
+#lc-chip{display:none;position:fixed;top:calc(10px + env(safe-area-inset-top));left:calc(58px + env(safe-area-inset-left));z-index:20;max-width:60vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--panel);border:1px solid var(--accent);color:var(--accent);height:40px;padding:0 12px;border-radius:6px;font-size:12px;cursor:pointer}
+#lc-chip.failed{border-color:var(--err);color:var(--err)}
 @media (max-width:720px){
   .side{position:fixed;inset:0 auto 0 0;width:80%;max-width:320px;z-index:15;transform:translateX(-100%);transition:transform .2s;background:var(--bg);padding-top:calc(16px + env(safe-area-inset-top));padding-left:calc(16px + env(safe-area-inset-left))}
   .side.open{transform:translateX(0)}
   #menubtn,#backdrop.open{display:block}
-  body.drawer-open #menubtn{display:none}
+  #lc-chip:not([hidden]){display:block}
+  body.drawer-open #menubtn,body.drawer-open #lc-chip{display:none}
   .main{width:100%}
   #chat{padding:60px 8px 12px}
   .msg{max-width:92%}
@@ -460,8 +465,9 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 @media (min-width:721px){html[data-hide-side="1"] #chat{padding-top:60px}}
 [data-hide-side="1"] .side.open{transform:translateX(0)}
 [data-hide-side="1"] #menubtn{display:block}
+[data-hide-side="1"] #lc-chip:not([hidden]){display:block}
 [data-hide-side="1"] #backdrop.open{display:block}
-[data-hide-side="1"] body.drawer-open #menubtn{display:none}
+[data-hide-side="1"] body.drawer-open #menubtn,[data-hide-side="1"] body.drawer-open #lc-chip{display:none}
 [data-hide-side="1"] .main{width:100%}
 /* Hauteur animée en JS (mesure scrollHeight → 0) plutôt que grid 1fr→0fr qui
    peut « dépasser ». overflow:hidden clippe le contenu pendant tout le repli.
@@ -529,6 +535,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
   h1{font-size:15px}
   h2,details>summary{font-size:13px}
   #menubtn{width:32px;height:32px;font-size:15px;top:calc(6px + env(safe-area-inset-top))}
+  #lc-chip{height:32px;font-size:11px;left:calc(46px + env(safe-area-inset-left));top:calc(6px + env(safe-area-inset-top))}
 }
 /* --- Backend llama.cpp (2 modes : rapide / optimisée) --------------------- */
 .lc-head{font-size:12px;line-height:1.5;margin-bottom:10px}
@@ -564,7 +571,12 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-list{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden}
 /* Ligne : libellé à gauche, contrôle à droite, séparateur fin entre lignes. */
 .pe-row{display:flex;align-items:center;gap:14px;min-height:48px;padding:9px 15px}
-.pe-row:not(:last-child){border-bottom:1px solid var(--border)}
+/* Séparateur porté par la ligne SUIVANTE (border-top), pas par la précédente
+   (border-bottom + :not(:last-child)) : `:last-child` compte aussi les lignes
+   masquées, donc une ligne repliée gardait sa bordure basse, qui doublait
+   celle de la carte. Avec border-top, la bordure est portée par l'élément
+   caché lui-même — invisible tant qu'il l'est. */
+.pe-row + .pe-row{border-top:1px solid var(--border)}
 .pe-row-l{font-size:14px;color:var(--text);flex:1;min-width:0;line-height:1.3}
 .pe-row-l .pe-sub{display:block;font-size:11px;color:var(--dim);margin-top:2px}
 .pe-row-c{flex:none;display:flex;align-items:center;gap:6px;max-width:62%;justify-content:flex-end}
@@ -586,6 +598,31 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-selc.wide::after{right:2px}
 /* Ligne « champ pleine largeur » (Nom, chemin, config brute…). */
 .pe-row.stack{flex-direction:column;align-items:stretch;gap:8px}
+/* Répartition entre cartes graphiques : UNE barre, sur laquelle on glisse
+   directement. Le <input type=range> est posé par-dessus, piste transparente :
+   sinon on voyait deux barres superposées (la barre de proportion + la piste
+   blanche native du navigateur). Deux teintes du MÊME accent, pas deux
+   couleurs — la barre exprime une proportion, pas deux catégories. */
+.gpu-split{position:relative;display:flex;align-items:center;height:22px}
+.gpu-bar{display:flex;width:100%;height:10px;border-radius:999px;overflow:hidden;background:color-mix(in srgb,var(--dim) 20%,transparent)}
+.gpu-bar>span{background:var(--accent);flex:none;min-width:0;transition:width .12s}
+.gpu-bar>span.alt{background:color-mix(in srgb,var(--accent) 42%,transparent)}
+.gpu-range{position:absolute;inset:0;width:100%;height:22px;margin:0;padding:0;background:transparent;-webkit-appearance:none;appearance:none;cursor:ew-resize}
+.gpu-range:focus{outline:none}
+.gpu-range::-webkit-slider-runnable-track{height:22px;background:transparent;border:none}
+.gpu-range::-moz-range-track{height:22px;background:transparent;border:none}
+.gpu-range::-moz-range-progress{background:transparent}
+.gpu-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;margin-top:3px;border-radius:50%;background:var(--bg);border:2px solid var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.3);cursor:ew-resize}
+.gpu-range::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--bg);border:2px solid var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.3);cursor:ew-resize}
+.gpu-range:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(--accent-bg)}
+.gpu-range:focus-visible::-moz-range-thumb{box-shadow:0 0 0 3px var(--accent-bg)}
+.gpu-legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11.5px;color:var(--dim)}
+.gpu-legend i{display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--accent);margin-right:5px}
+.gpu-legend i.alt{background:color-mix(in srgb,var(--accent) 42%,transparent)}
+.gpu-shares{display:flex;flex-wrap:wrap;gap:10px}
+.gpu-share{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--dim)}
+.gpu-share input{width:62px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:5px 7px;font:inherit;text-align:right}
+.gpu-share input:focus{outline:none;border-color:var(--accent)}
 .pe-inp{width:100%;box-sizing:border-box;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font:inherit;transition:border-color .12s,box-shadow .12s}
 .pe-inp:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
 .pe-row.stack.plain .pe-inp{border:none;background:transparent;padding:6px 0;font-size:15px}
@@ -663,7 +700,10 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .modal-card{background:var(--bg);border:1px solid var(--border);border-radius:12px;width:100%;max-width:600px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 16px 50px rgba(0,0,0,.18)}
 .modal-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
 .modal-head strong{font-size:14px}
-.modal-x{margin:0;padding:3px 10px;font-size:16px;line-height:1;color:var(--dim)}
+/* Croix de fermeture : un CARRÉ, pas un rectangle. Avec un padding asymétrique
+   (3px vertical / 10px horizontal) le glyphe paraissait écrasé et la cible de
+   clic était basse. 32px, glyphe centré, taille de cible correcte au doigt. */
+.modal-x{margin:0;padding:0;width:32px;height:32px;flex:none;display:inline-flex;align-items:center;justify-content:center;font-size:19px;line-height:1;color:var(--dim)}
 .modal-body{padding:16px;overflow:auto;flex:1}
 .modal-foot{padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 .foot-l{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -855,6 +895,10 @@ button:hover{border-color:var(--dim);color:var(--text)}
 
 </style></head><body>
 <button id="menubtn" onclick="toggleSide()">☰</button>
+<!-- Installation d'un moteur en cours : le détail vit dans le panneau, qui est
+     fermé sur téléphone. Sans ce rappel, un rechargement de page donnait
+     l'impression que l'installation avait disparu. -->
+<button id="lc-chip" onclick="lcChipOpen()" hidden></button>
 <div id="backdrop" onclick="toggleSide()"></div>
 <div class="side" id="side">
   <div class="sidehead">
@@ -1290,8 +1334,22 @@ button:hover{border-color:var(--dim);color:var(--text)}
             </div>
           </div>
         </div>
+
+        <!-- Cartes graphiques : la liste vient du moteur choisi juste au-dessus,
+             car les noms ET l'ordre dépendent du backend compilé dedans. Le
+             groupe reste masqué tant qu'on n'a pas AU MOINS DEUX cartes : avec
+             une seule, il n'y a rien à arbitrer. -->
+        <div class="pe-group" id="m-gpu-group" hidden>
+          <div class="pe-gh">Cartes graphiques</div>
+          <div class="pe-list" id="m-gpu-list"></div>
+          <div class="pe-note" id="m-gpu-note"></div>
+        </div>
       </div>
 
+      <!-- Une seule liste : les anciens « réglages avancés » repliés sont
+           désormais à la suite. Les valeurs d'abord, puis TOUS les interrupteurs
+           groupés en fin de liste — chercher un toggle perdu entre deux champs
+           numériques n'aidait personne. -->
       <div id="m-settings-row" class="pe-group" style="display:none">
         <div class="pe-gh">Réglages</div>
         <div class="pe-list">
@@ -1304,8 +1362,24 @@ button:hover{border-color:var(--dim);color:var(--text)}
             <span class="pe-row-c"><input id="s-ngl" class="pe-val" type="number" min="0" step="1" placeholder="999" oninput="cfgWriteKey('NGL', this.value)"></span>
           </div>
           <div class="pe-row">
+            <span class="pe-row-l">Experts MoE sur CPU<span class="pe-sub">vide = non</span></span>
+            <span class="pe-row-c"><input id="s-moe" class="pe-val" type="number" min="0" step="1" placeholder="—" oninput="eaSetValued('--n-cpu-moe', this.value)"></span>
+          </div>
+          <div class="pe-row">
             <span class="pe-row-l">Threads CPU<span class="pe-sub">0 = auto</span></span>
             <span class="pe-row-c"><input id="s-threads" class="pe-val" type="number" min="0" step="1" placeholder="0" oninput="cfgWriteKey('THREADS', this.value)"></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">Threads (batch)<span class="pe-sub">0 = auto</span></span>
+            <span class="pe-row-c"><input id="s-tbatch" class="pe-val" type="number" min="0" step="1" placeholder="0" oninput="cfgWriteKey('THREADS_BATCH', this.value)"></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">BATCH</span>
+            <span class="pe-row-c"><input id="s-batch" class="pe-val" type="number" min="0" step="256" placeholder="2048" oninput="cfgWriteKey('BATCH', this.value)"></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">UBATCH</span>
+            <span class="pe-row-c"><input id="s-ubatch" class="pe-val" type="number" min="0" step="128" placeholder="512" oninput="cfgWriteKey('UBATCH', this.value)"></span>
           </div>
           <div class="pe-row">
             <span class="pe-row-l">Cache KV<span class="pe-sub">compression du contexte</span></span>
@@ -1316,6 +1390,34 @@ button:hover{border-color:var(--dim);color:var(--text)}
               <option value="q5_1">q5_1</option>
               <option value="bf16">bf16</option>
             </select></span></span>
+          </div>
+          <!-- Décodage spéculatif : le type vient de la liste que llama-server
+               accepte pour --spec-type. Le nombre de jetons anticipés
+               (--spec-draft-n-max) n'a de sens qu'une fois un type choisi, donc
+               sa ligne n'apparaît qu'à ce moment. -->
+          <div class="pe-row">
+            <span class="pe-row-l">Décodage spéculatif<span class="pe-sub">anticipe des jetons pour accélérer</span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="s-spec" onchange="onSpecType()">
+              <option value="">non</option>
+              <optgroup label="Modèle brouillon">
+                <option value="draft-mtp">MTP (intégré au modèle)</option>
+                <option value="draft-eagle3">EAGLE-3</option>
+                <option value="draft-simple">modèle brouillon séparé</option>
+                <option value="draft-dflash">dFlash</option>
+                <option value="draft-dspark">dSpark</option>
+              </optgroup>
+              <optgroup label="N-grammes (sans modèle brouillon)">
+                <option value="ngram-simple">n-grammes</option>
+                <option value="ngram-mod">n-grammes (mod)</option>
+                <option value="ngram-cache">n-grammes (cache)</option>
+                <option value="ngram-map-k">n-grammes (map-k)</option>
+                <option value="ngram-map-k4v">n-grammes (map-k4v)</option>
+              </optgroup>
+            </select></span></span>
+          </div>
+          <div class="pe-row" id="s-spec-n-row" style="display:none">
+            <span class="pe-row-l">Jetons anticipés<span class="pe-sub">par étape — défaut 3</span></span>
+            <span class="pe-row-c"><input id="s-spec-n" class="pe-val" type="number" min="1" step="1" placeholder="3" oninput="eaSetValued('--spec-draft-n-max', this.value)"></span>
           </div>
           <div class="pe-row">
             <span class="pe-row-l">Raisonnement<span class="pe-sub">réflexion étape par étape</span></span>
@@ -1329,27 +1431,18 @@ button:hover{border-color:var(--dim);color:var(--text)}
             <span class="pe-row-l">Garder en RAM<span class="pe-sub">évite le swap (mlock)</span></span>
             <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-mlock" onchange="eaToggleFlag('--mlock', this.checked)"><span class="pe-sl"></span></label></span>
           </div>
-        </div>
-
-        <details class="pe-adv" style="margin-top:8px">
-          <summary>Réglages avancés</summary>
-          <div class="pe-adv-body" style="padding:0">
-            <div class="pe-list" style="border:none;border-radius:0">
-              <div class="pe-row"><span class="pe-row-l">BATCH</span><span class="pe-row-c"><input id="s-batch" class="pe-val" type="number" min="0" step="256" placeholder="2048" oninput="cfgWriteKey('BATCH', this.value)"></span></div>
-              <div class="pe-row"><span class="pe-row-l">UBATCH</span><span class="pe-row-c"><input id="s-ubatch" class="pe-val" type="number" min="0" step="128" placeholder="512" oninput="cfgWriteKey('UBATCH', this.value)"></span></div>
-              <div class="pe-row"><span class="pe-row-l">Threads (batch)<span class="pe-sub">0 = auto</span></span><span class="pe-row-c"><input id="s-tbatch" class="pe-val" type="number" min="0" step="1" placeholder="0" oninput="cfgWriteKey('THREADS_BATCH', this.value)"></span></div>
-              <div class="pe-row"><span class="pe-row-l">Experts MoE sur CPU<span class="pe-sub">vide = non</span></span><span class="pe-row-c"><input id="s-moe" class="pe-val" type="number" min="0" step="1" placeholder="—" oninput="eaSetValued('--n-cpu-moe', this.value)"></span></div>
-              <div class="pe-row"><span class="pe-row-l">Charger tout en mémoire<span class="pe-sub">désactive le mmap</span></span><span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-nommap" onchange="eaToggleFlag('--no-mmap', this.checked)"><span class="pe-sl"></span></label></span></div>
-            </div>
+          <div class="pe-row">
+            <span class="pe-row-l">Charger tout en mémoire<span class="pe-sub">désactive le mmap</span></span>
+            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-nommap" onchange="eaToggleFlag('--no-mmap', this.checked)"><span class="pe-sl"></span></label></span>
           </div>
-        </details>
+        </div>
       </div>
 
       <div id="m-raw" class="pe-group">
         <div class="pe-gh" id="m-raw-head">Configuration</div>
         <div class="pe-list">
           <div id="m-raw-toggle" class="pe-row" style="cursor:pointer" onclick="toggleRaw()">
-            <span class="pe-row-l">Éditer le fichier <code>.env</code><span class="pe-sub">configuration brute — pour les réglages avancés</span></span>
+            <span class="pe-row-l">Éditer le fichier de configuration<span class="pe-sub">texte brut</span></span>
             <span class="pe-row-c"><span id="m-raw-caret" class="pe-caret"></span></span>
           </div>
           <div id="m-raw-body" class="pe-row stack" style="display:none">
@@ -2292,11 +2385,20 @@ function setBinInTextarea(val){
   if(/^\s*BIN\s*=.*$/m.test(ta.value)) ta.value = ta.value.replace(/^\s*BIN\s*=.*$/m, 'BIN="'+val+'"');
   else ta.value = 'BIN="'+val+'"\n' + ta.value;
 }
-let beFastPath = '', beOptPath = '';
+// Le moteur précompilé s'installe dans un dossier versionné (…/llama-b10280/) :
+// le BIN d'un preset écrit avant une mise à jour ne vaut plus le chemin courant,
+// alors qu'il désigne bien ce moteur. On reconnaît donc l'appartenance au
+// dossier, sinon tous les presets retombaient en « personnalisé » à chaque MAJ.
+function underDir(p, dir){
+  const n = x => String(x||'').replace(/\\/g,'/').replace(/\/+$/,'').toLowerCase();
+  return !!p && !!dir && n(p).startsWith(n(dir)+'/');
+}
+let beFastPath = '', beOptPath = '', beFastDir = '';
 async function populateBackend(){
   // Chemins des deux moteurs gérés + liste des backends détectés (dossier jean).
   let lc = {}; try{ lc = await jget('/api/llamacpp'); }catch(_){}
   beFastPath = (lc.prebuilt && lc.prebuilt.bin) || '';
+  beFastDir  = (lc.prebuilt && lc.prebuilt.dir) || '';
   beOptPath  = lc.bin || '';
   // Menu « backend détecté » du mode personnalisé : tout ce qu'on trouve dans
   // le dossier backends de jean (l'utilisateur peut y déposer son propre build).
@@ -2310,12 +2412,13 @@ async function populateBackend(){
   // Sélectionne l'option correspondant au BIN actuel du preset.
   const cur = currentBinInTextarea();
   let mode = 'custom';
-  if(sameBinPath(cur, beFastPath)) mode = 'fast';
+  if(sameBinPath(cur, beFastPath) || underDir(cur, beFastDir)) mode = 'fast';
   else if(sameBinPath(cur, beOptPath)) mode = 'opt';
   const radio = document.querySelector('input[name=m-be][value='+mode+']');
   if(radio) radio.checked = true;
   toggleBackendCustom(mode);
   if(mode === 'custom') document.getElementById('m-backend-path').value = cur;
+  loadGpuDevices();
 }
 function toggleBackendCustom(mode){
   document.getElementById('m-backend-custom').style.display = (mode==='custom') ? 'block' : 'none';
@@ -2325,22 +2428,231 @@ function onBackendMode(mode){
   if(mode === 'fast'){
     if(!beFastPath){ toast('installez d\'abord llama.cpp précompilé (section MOTEUR)'); return; }
     setBinInTextarea(beFastPath); toast('moteur : llama.cpp précompilé');
+    loadGpuDevices();
   } else if(mode === 'opt'){
     if(!beOptPath){ toast('installez d\'abord llama.cpp compilé (section MOTEUR)'); return; }
     setBinInTextarea(beOptPath); toast('moteur : llama.cpp compilé');
+    loadGpuDevices();
   }
   // custom : on attend que l'utilisateur saisisse un chemin / choisisse un backend
 }
 function onCustomPath(){
   const v = document.getElementById('m-backend-path').value.trim();
-  if(v) setBinInTextarea(v);
+  if(v){ setBinInTextarea(v); loadGpuDevices(); }
 }
 function onPickDetected(){
   const v = document.getElementById('m-backend-detected').value;
   if(!v) return;
   document.getElementById('m-backend-path').value = v;
   setBinInTextarea(v); toast('moteur personnalisé');
+  loadGpuDevices();
 }
+
+// --- Cartes graphiques (--device / --tensor-split) --------------------------
+// Ces réglages vivent dans le PRESET, pas dans une variable d'environnement :
+// --device est compris par TOUS les backends (CUDA, Vulkan, ROCm), alors que
+// CUDA_VISIBLE_DEVICES n'a aucun effet sur un moteur Vulkan — d'où des modèles
+// qui s'étalaient sur les deux cartes malgré une sélection « GPU 1 ».
+// La lecture/écriture des flags passe par eaGetValued/eaSetValued (le tokenizer
+// d'EXTRA_ARGS déjà utilisé par les autres réglages) : un seul parseur.
+
+// Diamètre de la pastille du curseur, en pixels — DOIT rester synchronisé avec
+// .gpu-range::-webkit-slider-thumb / ::-moz-range-thumb dans styles.css.
+const GPU_THUMB = 16;
+let gpuDevices = [];
+const gpuCache = {}; // bin -> devices : évite de relancer le moteur à chaque ouverture
+
+// Interroge le moteur du preset (--list-devices) : les noms de device et leur
+// ordre lui appartiennent, une liste issue de nvidia-smi désignerait la mauvaise
+// carte sur un backend Vulkan. Le groupe reste MASQUÉ tant que la réponse n'est
+// pas là, et le reste s'il y a moins de deux cartes : rien à arbitrer, et ça
+// évite un encart qui surgit après coup.
+// Remplit le cache sans rien peindre (appelé au chargement de la page pour le
+// moteur actif) : à l'ouverture de l'éditeur, l'encart est déjà prêt.
+async function prefetchGpuDevices(bin){
+  if(!bin || gpuCache[bin]) return;
+  try{
+    const r = await jpost('/api/backends/devices', {bin});
+    if(r && r.ok) gpuCache[bin] = r.devices || [];
+  }catch(_){}
+}
+
+async function loadGpuDevices(){
+  const group = document.getElementById('m-gpu-group');
+  const bin = currentBinInTextarea();
+  if(!bin){ group.hidden = true; gpuDevices = []; return; }
+  if(gpuCache[bin]){ gpuDevices = gpuCache[bin]; renderGpu(); return; }
+  let r = {};
+  try{ r = await jpost('/api/backends/devices', {bin}); }catch(_){ r = {ok:false}; }
+  // Le moteur a pu changer pendant l'appel (clic rapide) : on ne peint que si la
+  // réponse concerne toujours le moteur affiché.
+  if(currentBinInTextarea() !== bin) return;
+  gpuDevices = (r.ok && r.devices) ? r.devices : [];
+  if(r.ok) gpuCache[bin] = gpuDevices;
+  renderGpu();
+}
+
+function selectedGpuIds(){
+  const sel = eaGetValued('--device').split(',').filter(Boolean);
+  const known = gpuDevices.map(d => d.id);
+  const kept = sel.filter(id => known.includes(id));
+  return kept.length ? kept : known; // aucune contrainte = toutes les cartes
+}
+
+function gpuEsc(t){
+  return String(t).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+}
+
+function renderGpu(){
+  const group = document.getElementById('m-gpu-group');
+  // Une seule carte (ou aucune) : rien à répartir, rien à choisir.
+  if(gpuDevices.length < 2){ group.hidden = true; return; }
+  const sel = selectedGpuIds();
+  let html = gpuDevices.map(d => {
+    // Mémoire à 0 = le moteur n'a pas pu la lire (carte déjà saturée par le
+    // modèle en cours) : on n'affiche pas « 0,0 Go », qui serait un mensonge.
+    const gb = d.total_mib > 0 ? ' · ' + (d.total_mib/1024).toFixed(1).replace('.', ',') + ' Go' : '';
+    return '<div class="pe-row">'
+      + '<span class="pe-row-l">' + gpuEsc(gpuLabel(d))
+      + '<span class="pe-sub">' + gpuEsc(d.id) + gb + '</span></span>'
+      + '<span class="pe-row-c"><label class="pe-switch"><input type="checkbox" value="' + gpuEsc(d.id) + '"'
+      + (sel.includes(d.id) ? ' checked' : '') + ' onchange="onGpuPick()"><span class="pe-sl"></span></label></span>'
+      + '</div>';
+  }).join('');
+  if(sel.length > 1) html += splitHtml(sel);
+  document.getElementById('m-gpu-list').innerHTML = html;
+  document.getElementById('m-gpu-note').textContent = sel.length === gpuDevices.length
+    ? 'Toutes les cartes sont utilisées.'
+    : 'Ce modèle n\'utilisera que : ' + sel.map(id => gpuLabel(gpuById(id))).join(', ') + '.';
+  group.hidden = false;
+  if(sel.length > 1) paintSplit();
+}
+
+function gpuById(id){ return gpuDevices.find(d => d.id === id) || {id}; }
+// Nom lisible : « NVIDIA GeForce RTX 5060 Ti » → « RTX 5060 Ti ». CUDA0/Vulkan1
+// ne disent rien à personne ; le numéro reste en sous-titre pour ceux qui
+// veulent savoir ce qui part dans --device.
+function gpuLabel(d){
+  return String((d && d.name) || (d && d.id) || '')
+    .replace(/^NVIDIA\s+GeForce\s+/i, '')
+    .replace(/^NVIDIA\s+/i, '')
+    .replace(/^AMD\s+(Radeon\s+)?/i, '')
+    .replace(/^Intel\(R\)\s+/i, '')
+    .trim() || (d && d.id) || '';
+}
+
+// Répartition : UNE seule barre, sur laquelle on glisse directement (le curseur
+// est transparent, posé par-dessus). Trois cartes ou plus : un pourcentage par
+// carte. On n'écrit --tensor-split QUE si l'utilisateur y touche : sans lui,
+// llama.cpp répartit tout seul.
+function splitHtml(sel){
+  const shares = currentShares(sel);
+  let inner;
+  if(sel.length === 2){
+    inner = '<div class="gpu-split">'
+      + '<div class="gpu-bar" id="m-split-bar"></div>'
+      + '<input type="range" class="gpu-range" id="m-split-range" min="0" max="100" step="0.5"'
+      + ' value="' + (shares[0]*100).toFixed(1) + '" oninput="onSplitRange()"'
+      + ' aria-label="part de ' + gpuEsc(gpuLabel(gpuById(sel[0]))) + '"></div>';
+  } else {
+    inner = '<div class="gpu-bar" id="m-split-bar"></div>'
+      + '<div class="gpu-shares">' + sel.map((id, i) =>
+        '<label class="gpu-share"><span>' + gpuEsc(gpuLabel(gpuById(id))) + '</span>'
+        + '<input type="number" min="0" max="100" step="0.5" value="' + (shares[i]*100).toFixed(1) + '"'
+        + ' oninput="onSplitNumbers()"><span class="pe-unit">%</span></label>').join('') + '</div>';
+  }
+  return '<div class="pe-row">'
+    + '<span class="pe-row-l">Répartition<span class="pe-sub">part des couches par carte</span></span>'
+    + '<span class="pe-row-c" id="m-split-state"></span></div>'
+    + '<div class="pe-row stack">' + inner
+    + '<div class="gpu-legend" id="m-split-legend"></div></div>';
+}
+
+// Parts actuelles, normalisées à 1. Sans --tensor-split : proportionnelles à la
+// VRAM de chaque carte, ce que llama.cpp fait de son côté — la barre montre donc
+// ce qui se passe réellement plutôt qu'un partage égal trompeur.
+function currentShares(sel){
+  const raw = eaGetValued('--tensor-split').split(',').map(parseFloat).filter(n => !isNaN(n));
+  let vals = (raw.length === sel.length) ? raw
+    : sel.map(id => gpuById(id).total_mib || 0);
+  // Mémoires inconnues (lecture à 0) : à défaut de proportion crédible, on
+  // montre un partage égal plutôt qu'une barre pleine sur une seule carte.
+  if(vals.every(v => !v)) vals = sel.map(() => 1);
+  const sum = vals.reduce((a, b) => a + b, 0) || 1;
+  return vals.map(v => v/sum);
+}
+
+// Repeint UNIQUEMENT la barre, la légende et l'état. Surtout PAS le bloc entier :
+// remplacer le HTML pendant un glissement détruit le curseur en cours d'usage —
+// c'est ce qui faisait qu'il ne répondait qu'au clic.
+function paintSplit(){
+  const sel = selectedGpuIds();
+  if(sel.length < 2) return;
+  const shares = currentShares(sel);
+  const bar = document.getElementById('m-split-bar');
+  // La pastille du curseur ne parcourt PAS toute la largeur : elle va de
+  // GPU_THUMB/2 à largeur - GPU_THUMB/2, sinon elle déborderait de la piste. Une
+  // coupure à « s % » pile tombait donc à côté d'elle (jusqu'à ~5 px d'écart aux
+  // extrêmes), ce qui laissait voir la piste claire juste à droite de la
+  // pastille. On coupe dans le repère de la pastille : s*(largeur - THUMB) + THUMB/2.
+  // Le dernier segment prend le reste (flex:1) : aucun filet résiduel à droite,
+  // quels que soient les arrondis.
+  const withThumb = sel.length === 2 && !!document.getElementById('m-split-range');
+  if(bar) bar.innerHTML = shares.map((s, i) => {
+    const cls = i%2 ? 'alt' : '';
+    if(i === shares.length - 1) return '<span class="' + cls + '" style="flex:1"></span>';
+    const w = withThumb
+      ? 'calc(' + (s*100).toFixed(3) + '% - ' + ((s - 0.5) * GPU_THUMB).toFixed(2) + 'px)'
+      : (s*100).toFixed(3) + '%';
+    return '<span class="' + cls + '" style="width:' + w + '"></span>';
+  }).join('');
+  const leg = document.getElementById('m-split-legend');
+  if(leg) leg.innerHTML = sel.map((id, i) =>
+    '<span><i class="' + (i%2 ? 'alt' : '') + '"></i>' + gpuEsc(gpuLabel(gpuById(id)))
+    + ' ' + (shares[i]*100).toFixed(1).replace('.', ',') + ' %</span>').join('');
+  const st = document.getElementById('m-split-state');
+  if(st) st.innerHTML = eaGetValued('--tensor-split')
+    ? '<button class="pe-link" onclick="resetSplit()">réinitialiser</button>'
+    : '<span class="pe-unit">automatique</span>';
+}
+function writeSplit(shares){
+  const sum = shares.reduce((a, b) => a + b, 0) || 1;
+  eaSetValued('--tensor-split', shares.map(s => (s/sum).toFixed(3)).join(','));
+  paintSplit();
+}
+function onSplitRange(){
+  const v = parseFloat(document.getElementById('m-split-range').value) / 100;
+  writeSplit([v, 1-v]);
+}
+function onSplitNumbers(){
+  const vals = [...document.querySelectorAll('.gpu-share input')].map(i => parseFloat(i.value) || 0);
+  if(vals.reduce((a, b) => a + b, 0) <= 0) return; // saisie en cours
+  writeSplit(vals);
+}
+function resetSplit(){
+  eaSetValued('--tensor-split', '');
+  const sel = selectedGpuIds();
+  const r = document.getElementById('m-split-range');
+  if(r && sel.length === 2) r.value = (currentShares(sel)[0]*100).toFixed(1);
+  const nums = [...document.querySelectorAll('.gpu-share input')];
+  if(nums.length){
+    const sh = currentShares(sel);
+    nums.forEach((inp, i) => { inp.value = (sh[i]*100).toFixed(1); });
+  }
+  paintSplit();
+}
+
+function onGpuPick(){
+  const ids = [...document.querySelectorAll('#m-gpu-list input[type=checkbox]:checked')].map(c => c.value);
+  if(!ids.length){ toast('gardez au moins une carte'); renderGpu(); return; }
+  // Toutes cochées = pas de contrainte : on retire le flag plutôt que de figer
+  // des noms de device qui changeraient avec le moteur.
+  eaSetValued('--device', ids.length === gpuDevices.length ? '' : ids.join(','));
+  // Une répartition écrite pour N cartes n'a plus de sens pour N-1.
+  if(ids.length < 2) eaSetValued('--tensor-split', '');
+  renderGpu();
+}
+
 // Read/write the QUANT= override line in the preset textarea.
 function currentQuantInTextarea(){
   const m = document.getElementById('m-content').value.match(/^\s*#?\s*QUANT\s*=\s*"?([^"\n]*)"?\s*$/mi);
@@ -2409,12 +2721,52 @@ function populateSettings(){
   set('s-tbatch', cfgReadKey('THREADS_BATCH'));
   set('s-kv', cfgReadKey('KV_TYPE'));
   set('s-moe', eaGetValued('--n-cpu-moe'));
+  set('s-spec-n', eaGetValued('--spec-draft-n-max'));
+  setSpecType(eaGetValued('--spec-type'));
   const chk = (id,v)=>{ const e=document.getElementById(id); if(e) e.checked=v; };
   chk('s-reasoning', /^(on|1|true|auto|deepseek)$/i.test(cfgReadKey('REASONING')));
   chk('s-flash', eaHasFlag('--flash-attn') && !/^off$/i.test(eaGetValued('--flash-attn')));
   chk('s-mlock', eaHasFlag('--mlock'));
   chk('s-nommap', eaHasFlag('--no-mmap'));
 }
+// --- Décodage spéculatif (--spec-type / --spec-draft-n-max) ----------------
+// Sélectionne le type courant. --spec-type accepte en réalité une LISTE séparée
+// par des virgules ; une valeur composée (ou un type sorti après cette version
+// de jean) ne correspondrait à aucune option et serait silencieusement effacée
+// au premier changement. On l'ajoute donc telle quelle à la liste plutôt que de
+// la perdre.
+function setSpecType(v){
+  const sel = document.getElementById('s-spec');
+  if(!sel) return;
+  v = String(v || '').trim();
+  if(v && ![...sel.options].some(o => o.value === v)){
+    const opt = document.createElement('option');
+    opt.value = v; opt.textContent = v + ' (dans la configuration)';
+    sel.appendChild(opt);
+  }
+  sel.value = v;
+  syncSpecRow();
+}
+// Le nombre de jetons anticipés ne veut rien dire sans type : ligne masquée, et
+// flag retiré pour ne pas laisser un réglage orphelin dans le preset.
+function syncSpecRow(){
+  const sel = document.getElementById('s-spec');
+  const row = document.getElementById('s-spec-n-row');
+  if(!sel || !row) return;
+  const on = !!sel.value;
+  row.style.display = on ? '' : 'none';
+  return on;
+}
+function onSpecType(){
+  const v = document.getElementById('s-spec').value;
+  eaSetValued('--spec-type', v);
+  if(!v){
+    eaSetValued('--spec-draft-n-max', '');
+    document.getElementById('s-spec-n').value = '';
+  }
+  syncSpecRow();
+}
+
 // Replie/déplie l'éditeur du fichier .env (config brute) dans le modal preset.
 function toggleRaw(){
   const b = document.getElementById('m-raw-body');
@@ -3177,6 +3529,52 @@ async function loadLlamacpp(){
     document.getElementById('lc-details').open = true;
     lcStartPolling();
   }
+  // Job terminé/interrompu qu'on n'a pas encore montré (rechargement APRÈS coup,
+  // typiquement quand le service a redémarré) : on l'affiche sans polling.
+  else if(s.job && s.job.exists && !s.job.running && !lcPoll && s.job.error && !lcEndShown){
+    document.getElementById('lc-details').open = true;
+    document.getElementById('lc-job').style.display = '';
+    lcLogNext = 0;
+    document.getElementById('lc-log').textContent = '';
+    lcEndShown = true;
+    lcPollJob(true); // quiet : simple rattrapage, pas de toast ni de rechargement
+  }
+  lcChipSync(s.job);
+  // Préchauffe la liste des cartes du moteur actif : interroger le moteur prend
+  // 1 à 3 s (init CUDA/Vulkan), et sans ça l'encart « cartes graphiques » de
+  // l'éditeur apparaissait après coup, une fois le reste déjà affiché.
+  if(typeof prefetchGpuDevices === 'function') prefetchGpuDevices(s.config_bin);
+}
+
+// --- Pastille de rappel hors panneau ---------------------------------------
+// Le détail de l'installation vit dans le panneau latéral, qui est un tiroir
+// FERMÉ sur téléphone : après un rechargement, rien ne disait qu'une
+// compilation tournait encore. La pastille le dit, et y ramène en un clic.
+let lcSeenEnd = false, lcEndShown = false;
+function lcChipLabel(action){
+  return {install:'Compilation du moteur', update:'Mise à jour du moteur',
+          prebuilt:'Téléchargement du moteur', custom:'Installation du backend'}[action] || 'Installation du moteur';
+}
+function lcChipSync(j){
+  const chip = document.getElementById('lc-chip');
+  if(!chip) return;
+  if(!j || !j.exists || (!j.running && (!j.error || lcSeenEnd))){ chip.hidden = true; return; }
+  chip.hidden = false;
+  chip.classList.toggle('failed', !j.running && !!j.error);
+  chip.textContent = j.running
+    ? '⏳ ' + lcChipLabel(j.action) + ' — ' + (j.phase || '…')
+    : '✗ ' + lcChipLabel(j.action) + ' interrompue';
+}
+// Clic sur la pastille : ouvrir le tiroir sur la section Moteur.
+function lcChipOpen(){
+  const side = document.getElementById('side');
+  if(!side.classList.contains('open')) toggleSide();
+  const det = document.getElementById('lc-details');
+  det.open = true;
+  det.scrollIntoView({block:'center'});
+  if(!document.getElementById('lc-chip').classList.contains('failed')) return;
+  lcSeenEnd = true;
+  lcChipSync(null);
 }
 
 function lcRenderMode(mode, installed){
@@ -3324,13 +3722,14 @@ function lcStartPolling(){
   document.getElementById('lc-job').style.display = '';
   document.getElementById('lc-log').textContent = '';
   lcLogNext = 0;
+  lcSeenEnd = false; lcEndShown = false;
   lcBusy(true);
   if(lcPoll) clearInterval(lcPoll);
   lcPoll = setInterval(lcPollJob, 1000);
   lcPollJob();
 }
 
-async function lcPollJob(){
+async function lcPollJob(quiet){
   let j;
   try{ j = await jget('/api/llamacpp/job?from='+lcLogNext); }catch(_){ return; }
   if(!j.exists) return;
@@ -3342,11 +3741,12 @@ async function lcPollJob(){
     if(stick) pre.scrollTop = pre.scrollHeight;
   }
   if(typeof j.next === 'number') lcLogNext = j.next;
+  lcChipSync(j);
   if(j.running){
     phaseEl.innerHTML = '<span class="lc-spin">⏳</span> <span>'+String(j.phase||'…').replace(/[<>&]/g,'')+'</span>';
     return;
   }
-  clearInterval(lcPoll); lcPoll = null;
+  if(lcPoll){ clearInterval(lcPoll); lcPoll = null; }
   lcBusy(false);
   if(j.error){
     phaseEl.innerHTML = '<span style="color:var(--err)">✗ '+String(j.error).replace(/[<>&]/g,'')+'</span>';

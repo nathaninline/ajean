@@ -30,6 +30,52 @@ async function loadLlamacpp(){
     document.getElementById('lc-details').open = true;
     lcStartPolling();
   }
+  // Job terminé/interrompu qu'on n'a pas encore montré (rechargement APRÈS coup,
+  // typiquement quand le service a redémarré) : on l'affiche sans polling.
+  else if(s.job && s.job.exists && !s.job.running && !lcPoll && s.job.error && !lcEndShown){
+    document.getElementById('lc-details').open = true;
+    document.getElementById('lc-job').style.display = '';
+    lcLogNext = 0;
+    document.getElementById('lc-log').textContent = '';
+    lcEndShown = true;
+    lcPollJob(true); // quiet : simple rattrapage, pas de toast ni de rechargement
+  }
+  lcChipSync(s.job);
+  // Préchauffe la liste des cartes du moteur actif : interroger le moteur prend
+  // 1 à 3 s (init CUDA/Vulkan), et sans ça l'encart « cartes graphiques » de
+  // l'éditeur apparaissait après coup, une fois le reste déjà affiché.
+  if(typeof prefetchGpuDevices === 'function') prefetchGpuDevices(s.config_bin);
+}
+
+// --- Pastille de rappel hors panneau ---------------------------------------
+// Le détail de l'installation vit dans le panneau latéral, qui est un tiroir
+// FERMÉ sur téléphone : après un rechargement, rien ne disait qu'une
+// compilation tournait encore. La pastille le dit, et y ramène en un clic.
+let lcSeenEnd = false, lcEndShown = false;
+function lcChipLabel(action){
+  return {install:'Compilation du moteur', update:'Mise à jour du moteur',
+          prebuilt:'Téléchargement du moteur', custom:'Installation du backend'}[action] || 'Installation du moteur';
+}
+function lcChipSync(j){
+  const chip = document.getElementById('lc-chip');
+  if(!chip) return;
+  if(!j || !j.exists || (!j.running && (!j.error || lcSeenEnd))){ chip.hidden = true; return; }
+  chip.hidden = false;
+  chip.classList.toggle('failed', !j.running && !!j.error);
+  chip.textContent = j.running
+    ? '⏳ ' + lcChipLabel(j.action) + ' — ' + (j.phase || '…')
+    : '✗ ' + lcChipLabel(j.action) + ' interrompue';
+}
+// Clic sur la pastille : ouvrir le tiroir sur la section Moteur.
+function lcChipOpen(){
+  const side = document.getElementById('side');
+  if(!side.classList.contains('open')) toggleSide();
+  const det = document.getElementById('lc-details');
+  det.open = true;
+  det.scrollIntoView({block:'center'});
+  if(!document.getElementById('lc-chip').classList.contains('failed')) return;
+  lcSeenEnd = true;
+  lcChipSync(null);
 }
 
 function lcRenderMode(mode, installed){
@@ -177,13 +223,14 @@ function lcStartPolling(){
   document.getElementById('lc-job').style.display = '';
   document.getElementById('lc-log').textContent = '';
   lcLogNext = 0;
+  lcSeenEnd = false; lcEndShown = false;
   lcBusy(true);
   if(lcPoll) clearInterval(lcPoll);
   lcPoll = setInterval(lcPollJob, 1000);
   lcPollJob();
 }
 
-async function lcPollJob(){
+async function lcPollJob(quiet){
   let j;
   try{ j = await jget('/api/llamacpp/job?from='+lcLogNext); }catch(_){ return; }
   if(!j.exists) return;
@@ -195,11 +242,12 @@ async function lcPollJob(){
     if(stick) pre.scrollTop = pre.scrollHeight;
   }
   if(typeof j.next === 'number') lcLogNext = j.next;
+  lcChipSync(j);
   if(j.running){
     phaseEl.innerHTML = '<span class="lc-spin">⏳</span> <span>'+String(j.phase||'…').replace(/[<>&]/g,'')+'</span>';
     return;
   }
-  clearInterval(lcPoll); lcPoll = null;
+  if(lcPoll){ clearInterval(lcPoll); lcPoll = null; }
   lcBusy(false);
   if(j.error){
     phaseEl.innerHTML = '<span style="color:var(--err)">✗ '+String(j.error).replace(/[<>&]/g,'')+'</span>';

@@ -67,6 +67,8 @@ func lcAppend(line string) {
 	} else if p := phaseLabel(line); p != "" {
 		lcCur.Phase = p
 	}
+	lcSaveLine(line)
+	lcSave(false)
 }
 
 // lcPhase pose une phase explicite (étapes hors build : clone, fetch, service…)
@@ -76,6 +78,8 @@ func lcPhase(phase string) {
 	if lcCur != nil {
 		lcCur.Phase = phase
 		lcCur.lines = append(lcCur.lines, "▶ "+phase)
+		lcSaveLine("▶ " + phase)
+		lcSave(true)
 	}
 	lcMu.Unlock()
 }
@@ -88,6 +92,8 @@ func startLcJob(action string, run func()) error {
 		return fmt.Errorf("un job %s est déjà en cours", lcCur.Action)
 	}
 	lcCur = &lcJob{Action: action, Running: true, Phase: "démarrage…", StartedAt: time.Now().Unix()}
+	lcResetLog()
+	lcSave(true)
 	setBuildSink(lcAppend)
 	go func() {
 		defer func() {
@@ -95,6 +101,7 @@ func startLcJob(action string, run func()) error {
 			lcMu.Lock()
 			lcCur.Running = false
 			lcCur.EndedAt = time.Now().Unix()
+			lcSave(true)
 			lcMu.Unlock()
 		}()
 		run()
@@ -108,6 +115,8 @@ func lcFail(err error) {
 		lcCur.Err = err.Error()
 		lcCur.Phase = "échec"
 		lcCur.lines = append(lcCur.lines, "✗ "+err.Error())
+		lcSaveLine("✗ " + err.Error())
+		lcSave(true)
 	}
 	lcMu.Unlock()
 }
@@ -117,6 +126,8 @@ func lcDone(msg string) {
 	if lcCur != nil {
 		lcCur.Phase = msg
 		lcCur.lines = append(lcCur.lines, "✓ "+msg)
+		lcSaveLine("✓ " + msg)
+		lcSave(true)
 	}
 	lcMu.Unlock()
 }
@@ -162,9 +173,12 @@ func handleLlamacpp(w http.ResponseWriter, r *http.Request) {
 	pbTag, _ := prebuiltVersion()
 	pbBin := prebuiltServerBin()
 	out["prebuilt"] = map[string]any{
-		"tag":    pbTag,
-		"bin":    pbBin,
-		"in_use": pbBin != "" && samePath(pbBin, cfgBin),
+		"tag": pbTag,
+		"bin": pbBin,
+		"dir": prebuiltDir(),
+		// Tout BIN vivant sous le dossier prebuilt EST le moteur précompilé, même
+		// s'il porte le numéro d'une release remplacée depuis (chemin versionné).
+		"in_use": pbBin != "" && prebuiltOwns(cfgBin),
 	}
 	out["backends_dir"] = filepath.Join(AjeanHome(), "backends")
 	out["job"] = lcJobSnapshot(0, false)

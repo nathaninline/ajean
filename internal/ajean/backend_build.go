@@ -110,6 +110,15 @@ func detectBuildPlan() buildPlan {
 		// Flash-Attention pour toutes les combinaisons de quant (des centaines de
 		// .cu), ce qui explose le temps de build pour un gain d'inférence marginal.
 		p.flags = append(p.flags, "-DGGML_CUDA=ON", "-DGGML_CUDA_F16=ON")
+		// Racine du toolkit explicite : sans elle, CMake la déduit du chemin de
+		// nvcc. Avec un nvcc hors toolkit (/usr/bin/nvcc, paquet Ubuntu) il cherche
+		// cuda_runtime.h et cudart dans /usr, ne les trouve pas, et sort « CUDA
+		// Toolkit not found » APRÈS avoir pourtant affiché la version de nvcc.
+		if root := cudaToolkitRoot(nvcc); root != "" && runtime.GOOS != "windows" {
+			p.flags = append(p.flags,
+				"-DCUDAToolkit_ROOT="+root,
+				"-DCMAKE_CUDA_COMPILER="+nvcc)
+		}
 		if arch := detectCudaArch(); arch != "" {
 			p.cudaArch = arch
 			p.flags = append(p.flags, "-DCMAKE_CUDA_ARCHITECTURES="+arch)
@@ -230,6 +239,14 @@ func hintMissingBuildDep(p buildPlan, cfgLog string) {
 		fmt.Printf("            <toolkit>\\extras\\visual_studio_integration\\MSBuildExtensions vers\n")
 		fmt.Printf("            <VS>\\MSBuild\\Microsoft\\VC\\<version>\\BuildCustomizations, puis relance %s.\n", bold("ajean llamacpp install"))
 	}
+	// Linux/CUDA : nvcc trouvé mais en-têtes/cudart introuvables = le toolkit
+	// complet n'est pas installé (seul le paquet nvcc l'est). On passe déjà
+	// CUDAToolkit_ROOT quand un vrai toolkit existe ; si ça échoue quand même,
+	// c'est qu'il manque pour de bon.
+	if p.backend == "cuda" && strings.Contains(log, "CUDA Toolkit not found") {
+		fmt.Printf("\n%s nvcc est présent mais le CUDA Toolkit complet (en-têtes + cudart) est introuvable.\n", yellow("[dépendance]"))
+		fmt.Printf("            Installe le toolkit NVIDIA officiel (il se pose dans /usr/local/cuda), puis relance %s.\n", bold("ajean llamacpp install"))
+	}
 	if p.backend == "vulkan" && strings.Contains(log, "SPIRV-Headers") {
 		fmt.Printf("\n%s dépendance manquante pour le backend %s : les en-têtes SPIR-V (paquet « SPIRV-Headers ») sont introuvables.\n",
 			yellow("[dépendance]"), green("Vulkan"))
@@ -288,6 +305,9 @@ func cacheStale(build, repo string) bool {
 // findNvcc returns the path to nvcc from PATH or a /usr/local/cuda* install,
 // preferring the highest version.
 func findNvcc() string {
+	if runtime.GOOS != "windows" {
+		return findNvccUnix(exec.LookPath)
+	}
 	if p, err := exec.LookPath("nvcc"); err == nil {
 		return p
 	}
@@ -311,6 +331,17 @@ func findNvcc() string {
 		}
 		return ""
 	}
+	return ""
+}
+
+// findNvccUnix choisit nvcc sous Linux/macOS. L'ORDRE compte : un nvcc rangé
+// dans un vrai toolkit (/usr/local/cuda/bin/nvcc) passe AVANT celui que le PATH
+// expose. Sur Ubuntu, le paquet nvidia-cuda-toolkit pose un shim /usr/bin/nvcc
+// alors que les en-têtes et cudart vivent dans /usr/local/cuda : CMake déduit
+// alors la racine du toolkit depuis le chemin de nvcc (donc /usr), n'y trouve ni
+// cuda_runtime.h ni cudart, et échoue sur « CUDA Toolkit not found » alors que
+// nvcc a bien été détecté. lookPath est injecté pour les tests.
+func findNvccUnix(lookPath func(string) (string, error)) string {
 	if p := "/usr/local/cuda/bin/nvcc"; isFile(p) {
 		return p
 	}
@@ -319,7 +350,28 @@ func findNvcc() string {
 		sort.Strings(matches) // cuda-12.2 < cuda-12.8 lexicographiquement → on prend le dernier
 		return matches[len(matches)-1]
 	}
+	if p, err := lookPath("nvcc"); err == nil {
+		return p
+	}
 	return ""
+}
+
+// cudaToolkitRoot remonte de <root>/bin/nvcc à <root>. Renvoie "" quand le
+// chemin ne suit pas ce layout, ou quand la racine déduite est /usr : dans ce
+// cas la racine n'apprend rien à CMake (c'est justement le cas qui échoue).
+func cudaToolkitRoot(nvcc string) string {
+	if nvcc == "" {
+		return ""
+	}
+	if filepath.Base(filepath.Dir(nvcc)) != "bin" {
+		return ""
+	}
+	root := filepath.Dir(filepath.Dir(nvcc))
+	switch filepath.ToSlash(root) {
+	case "", ".", "/", "/usr":
+		return ""
+	}
+	return root
 }
 
 func hasNvidiaGPU() bool {

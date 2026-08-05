@@ -117,6 +117,20 @@ func totalRAMGB() float64 {
 // llama-server meurt instantanément sur « Library not loaded », donc sans le
 // moindre message dans l'UI.
 func setLibraryPath(dir string) {
+	envVar, joined := libraryPathValue(dir)
+	_ = os.Setenv(envVar, joined)
+	if runtime.GOOS == "darwin" {
+		// Filet de sécurité : DYLD_FALLBACK_LIBRARY_PATH est consulté en dernier
+		// recours et survit à certains contextes où DYLD_LIBRARY_PATH est purgé.
+		_ = os.Setenv("DYLD_FALLBACK_LIBRARY_PATH", joined+":/usr/local/lib:/usr/lib")
+	}
+}
+
+// libraryPathValue calcule (nom de variable, valeur) sans toucher à
+// l'environnement du process : utilisé pour lancer un llama-server ÉPHÉMÈRE
+// (ex. `--list-devices` depuis l'UI) sans polluer — ni faire grossir à chaque
+// appel — le LD_LIBRARY_PATH du serveur web lui-même.
+func libraryPathValue(dir string) (string, string) {
 	parts := []string{dir}
 	parts = append(parts, cudaLibDirs()...)
 	envVar := "LD_LIBRARY_PATH"
@@ -126,13 +140,14 @@ func setLibraryPath(dir string) {
 	if existing := os.Getenv(envVar); existing != "" {
 		parts = append(parts, existing)
 	}
-	joined := strings.Join(parts, ":")
-	_ = os.Setenv(envVar, joined)
-	if runtime.GOOS == "darwin" {
-		// Filet de sécurité : DYLD_FALLBACK_LIBRARY_PATH est consulté en dernier
-		// recours et survit à certains contextes où DYLD_LIBRARY_PATH est purgé.
-		_ = os.Setenv("DYLD_FALLBACK_LIBRARY_PATH", joined+":/usr/local/lib:/usr/lib")
-	}
+	return envVar, strings.Join(parts, ":")
+}
+
+// libraryPathEnv renvoie un environnement complet (os.Environ + la variable de
+// recherche de bibliothèques) pour une commande ponctuelle.
+func libraryPathEnv(dir string) []string {
+	k, v := libraryPathValue(dir)
+	return append(os.Environ(), k+"="+v)
 }
 
 // cudaLibDirs returns the CUDA runtime lib directories present on the machine,

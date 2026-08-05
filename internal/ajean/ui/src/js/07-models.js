@@ -254,11 +254,20 @@ function setBinInTextarea(val){
   if(/^\s*BIN\s*=.*$/m.test(ta.value)) ta.value = ta.value.replace(/^\s*BIN\s*=.*$/m, 'BIN="'+val+'"');
   else ta.value = 'BIN="'+val+'"\n' + ta.value;
 }
-let beFastPath = '', beOptPath = '';
+// Le moteur précompilé s'installe dans un dossier versionné (…/llama-b10280/) :
+// le BIN d'un preset écrit avant une mise à jour ne vaut plus le chemin courant,
+// alors qu'il désigne bien ce moteur. On reconnaît donc l'appartenance au
+// dossier, sinon tous les presets retombaient en « personnalisé » à chaque MAJ.
+function underDir(p, dir){
+  const n = x => String(x||'').replace(/\\/g,'/').replace(/\/+$/,'').toLowerCase();
+  return !!p && !!dir && n(p).startsWith(n(dir)+'/');
+}
+let beFastPath = '', beOptPath = '', beFastDir = '';
 async function populateBackend(){
   // Chemins des deux moteurs gérés + liste des backends détectés (dossier jean).
   let lc = {}; try{ lc = await jget('/api/llamacpp'); }catch(_){}
   beFastPath = (lc.prebuilt && lc.prebuilt.bin) || '';
+  beFastDir  = (lc.prebuilt && lc.prebuilt.dir) || '';
   beOptPath  = lc.bin || '';
   // Menu « backend détecté » du mode personnalisé : tout ce qu'on trouve dans
   // le dossier backends de jean (l'utilisateur peut y déposer son propre build).
@@ -272,12 +281,13 @@ async function populateBackend(){
   // Sélectionne l'option correspondant au BIN actuel du preset.
   const cur = currentBinInTextarea();
   let mode = 'custom';
-  if(sameBinPath(cur, beFastPath)) mode = 'fast';
+  if(sameBinPath(cur, beFastPath) || underDir(cur, beFastDir)) mode = 'fast';
   else if(sameBinPath(cur, beOptPath)) mode = 'opt';
   const radio = document.querySelector('input[name=m-be][value='+mode+']');
   if(radio) radio.checked = true;
   toggleBackendCustom(mode);
   if(mode === 'custom') document.getElementById('m-backend-path').value = cur;
+  loadGpuDevices();
 }
 function toggleBackendCustom(mode){
   document.getElementById('m-backend-custom').style.display = (mode==='custom') ? 'block' : 'none';
@@ -287,22 +297,231 @@ function onBackendMode(mode){
   if(mode === 'fast'){
     if(!beFastPath){ toast('installez d\'abord llama.cpp précompilé (section MOTEUR)'); return; }
     setBinInTextarea(beFastPath); toast('moteur : llama.cpp précompilé');
+    loadGpuDevices();
   } else if(mode === 'opt'){
     if(!beOptPath){ toast('installez d\'abord llama.cpp compilé (section MOTEUR)'); return; }
     setBinInTextarea(beOptPath); toast('moteur : llama.cpp compilé');
+    loadGpuDevices();
   }
   // custom : on attend que l'utilisateur saisisse un chemin / choisisse un backend
 }
 function onCustomPath(){
   const v = document.getElementById('m-backend-path').value.trim();
-  if(v) setBinInTextarea(v);
+  if(v){ setBinInTextarea(v); loadGpuDevices(); }
 }
 function onPickDetected(){
   const v = document.getElementById('m-backend-detected').value;
   if(!v) return;
   document.getElementById('m-backend-path').value = v;
   setBinInTextarea(v); toast('moteur personnalisé');
+  loadGpuDevices();
 }
+
+// --- Cartes graphiques (--device / --tensor-split) --------------------------
+// Ces réglages vivent dans le PRESET, pas dans une variable d'environnement :
+// --device est compris par TOUS les backends (CUDA, Vulkan, ROCm), alors que
+// CUDA_VISIBLE_DEVICES n'a aucun effet sur un moteur Vulkan — d'où des modèles
+// qui s'étalaient sur les deux cartes malgré une sélection « GPU 1 ».
+// La lecture/écriture des flags passe par eaGetValued/eaSetValued (le tokenizer
+// d'EXTRA_ARGS déjà utilisé par les autres réglages) : un seul parseur.
+
+// Diamètre de la pastille du curseur, en pixels — DOIT rester synchronisé avec
+// .gpu-range::-webkit-slider-thumb / ::-moz-range-thumb dans styles.css.
+const GPU_THUMB = 16;
+let gpuDevices = [];
+const gpuCache = {}; // bin -> devices : évite de relancer le moteur à chaque ouverture
+
+// Interroge le moteur du preset (--list-devices) : les noms de device et leur
+// ordre lui appartiennent, une liste issue de nvidia-smi désignerait la mauvaise
+// carte sur un backend Vulkan. Le groupe reste MASQUÉ tant que la réponse n'est
+// pas là, et le reste s'il y a moins de deux cartes : rien à arbitrer, et ça
+// évite un encart qui surgit après coup.
+// Remplit le cache sans rien peindre (appelé au chargement de la page pour le
+// moteur actif) : à l'ouverture de l'éditeur, l'encart est déjà prêt.
+async function prefetchGpuDevices(bin){
+  if(!bin || gpuCache[bin]) return;
+  try{
+    const r = await jpost('/api/backends/devices', {bin});
+    if(r && r.ok) gpuCache[bin] = r.devices || [];
+  }catch(_){}
+}
+
+async function loadGpuDevices(){
+  const group = document.getElementById('m-gpu-group');
+  const bin = currentBinInTextarea();
+  if(!bin){ group.hidden = true; gpuDevices = []; return; }
+  if(gpuCache[bin]){ gpuDevices = gpuCache[bin]; renderGpu(); return; }
+  let r = {};
+  try{ r = await jpost('/api/backends/devices', {bin}); }catch(_){ r = {ok:false}; }
+  // Le moteur a pu changer pendant l'appel (clic rapide) : on ne peint que si la
+  // réponse concerne toujours le moteur affiché.
+  if(currentBinInTextarea() !== bin) return;
+  gpuDevices = (r.ok && r.devices) ? r.devices : [];
+  if(r.ok) gpuCache[bin] = gpuDevices;
+  renderGpu();
+}
+
+function selectedGpuIds(){
+  const sel = eaGetValued('--device').split(',').filter(Boolean);
+  const known = gpuDevices.map(d => d.id);
+  const kept = sel.filter(id => known.includes(id));
+  return kept.length ? kept : known; // aucune contrainte = toutes les cartes
+}
+
+function gpuEsc(t){
+  return String(t).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+}
+
+function renderGpu(){
+  const group = document.getElementById('m-gpu-group');
+  // Une seule carte (ou aucune) : rien à répartir, rien à choisir.
+  if(gpuDevices.length < 2){ group.hidden = true; return; }
+  const sel = selectedGpuIds();
+  let html = gpuDevices.map(d => {
+    // Mémoire à 0 = le moteur n'a pas pu la lire (carte déjà saturée par le
+    // modèle en cours) : on n'affiche pas « 0,0 Go », qui serait un mensonge.
+    const gb = d.total_mib > 0 ? ' · ' + (d.total_mib/1024).toFixed(1).replace('.', ',') + ' Go' : '';
+    return '<div class="pe-row">'
+      + '<span class="pe-row-l">' + gpuEsc(gpuLabel(d))
+      + '<span class="pe-sub">' + gpuEsc(d.id) + gb + '</span></span>'
+      + '<span class="pe-row-c"><label class="pe-switch"><input type="checkbox" value="' + gpuEsc(d.id) + '"'
+      + (sel.includes(d.id) ? ' checked' : '') + ' onchange="onGpuPick()"><span class="pe-sl"></span></label></span>'
+      + '</div>';
+  }).join('');
+  if(sel.length > 1) html += splitHtml(sel);
+  document.getElementById('m-gpu-list').innerHTML = html;
+  document.getElementById('m-gpu-note').textContent = sel.length === gpuDevices.length
+    ? 'Toutes les cartes sont utilisées.'
+    : 'Ce modèle n\'utilisera que : ' + sel.map(id => gpuLabel(gpuById(id))).join(', ') + '.';
+  group.hidden = false;
+  if(sel.length > 1) paintSplit();
+}
+
+function gpuById(id){ return gpuDevices.find(d => d.id === id) || {id}; }
+// Nom lisible : « NVIDIA GeForce RTX 5060 Ti » → « RTX 5060 Ti ». CUDA0/Vulkan1
+// ne disent rien à personne ; le numéro reste en sous-titre pour ceux qui
+// veulent savoir ce qui part dans --device.
+function gpuLabel(d){
+  return String((d && d.name) || (d && d.id) || '')
+    .replace(/^NVIDIA\s+GeForce\s+/i, '')
+    .replace(/^NVIDIA\s+/i, '')
+    .replace(/^AMD\s+(Radeon\s+)?/i, '')
+    .replace(/^Intel\(R\)\s+/i, '')
+    .trim() || (d && d.id) || '';
+}
+
+// Répartition : UNE seule barre, sur laquelle on glisse directement (le curseur
+// est transparent, posé par-dessus). Trois cartes ou plus : un pourcentage par
+// carte. On n'écrit --tensor-split QUE si l'utilisateur y touche : sans lui,
+// llama.cpp répartit tout seul.
+function splitHtml(sel){
+  const shares = currentShares(sel);
+  let inner;
+  if(sel.length === 2){
+    inner = '<div class="gpu-split">'
+      + '<div class="gpu-bar" id="m-split-bar"></div>'
+      + '<input type="range" class="gpu-range" id="m-split-range" min="0" max="100" step="0.5"'
+      + ' value="' + (shares[0]*100).toFixed(1) + '" oninput="onSplitRange()"'
+      + ' aria-label="part de ' + gpuEsc(gpuLabel(gpuById(sel[0]))) + '"></div>';
+  } else {
+    inner = '<div class="gpu-bar" id="m-split-bar"></div>'
+      + '<div class="gpu-shares">' + sel.map((id, i) =>
+        '<label class="gpu-share"><span>' + gpuEsc(gpuLabel(gpuById(id))) + '</span>'
+        + '<input type="number" min="0" max="100" step="0.5" value="' + (shares[i]*100).toFixed(1) + '"'
+        + ' oninput="onSplitNumbers()"><span class="pe-unit">%</span></label>').join('') + '</div>';
+  }
+  return '<div class="pe-row">'
+    + '<span class="pe-row-l">Répartition<span class="pe-sub">part des couches par carte</span></span>'
+    + '<span class="pe-row-c" id="m-split-state"></span></div>'
+    + '<div class="pe-row stack">' + inner
+    + '<div class="gpu-legend" id="m-split-legend"></div></div>';
+}
+
+// Parts actuelles, normalisées à 1. Sans --tensor-split : proportionnelles à la
+// VRAM de chaque carte, ce que llama.cpp fait de son côté — la barre montre donc
+// ce qui se passe réellement plutôt qu'un partage égal trompeur.
+function currentShares(sel){
+  const raw = eaGetValued('--tensor-split').split(',').map(parseFloat).filter(n => !isNaN(n));
+  let vals = (raw.length === sel.length) ? raw
+    : sel.map(id => gpuById(id).total_mib || 0);
+  // Mémoires inconnues (lecture à 0) : à défaut de proportion crédible, on
+  // montre un partage égal plutôt qu'une barre pleine sur une seule carte.
+  if(vals.every(v => !v)) vals = sel.map(() => 1);
+  const sum = vals.reduce((a, b) => a + b, 0) || 1;
+  return vals.map(v => v/sum);
+}
+
+// Repeint UNIQUEMENT la barre, la légende et l'état. Surtout PAS le bloc entier :
+// remplacer le HTML pendant un glissement détruit le curseur en cours d'usage —
+// c'est ce qui faisait qu'il ne répondait qu'au clic.
+function paintSplit(){
+  const sel = selectedGpuIds();
+  if(sel.length < 2) return;
+  const shares = currentShares(sel);
+  const bar = document.getElementById('m-split-bar');
+  // La pastille du curseur ne parcourt PAS toute la largeur : elle va de
+  // GPU_THUMB/2 à largeur - GPU_THUMB/2, sinon elle déborderait de la piste. Une
+  // coupure à « s % » pile tombait donc à côté d'elle (jusqu'à ~5 px d'écart aux
+  // extrêmes), ce qui laissait voir la piste claire juste à droite de la
+  // pastille. On coupe dans le repère de la pastille : s*(largeur - THUMB) + THUMB/2.
+  // Le dernier segment prend le reste (flex:1) : aucun filet résiduel à droite,
+  // quels que soient les arrondis.
+  const withThumb = sel.length === 2 && !!document.getElementById('m-split-range');
+  if(bar) bar.innerHTML = shares.map((s, i) => {
+    const cls = i%2 ? 'alt' : '';
+    if(i === shares.length - 1) return '<span class="' + cls + '" style="flex:1"></span>';
+    const w = withThumb
+      ? 'calc(' + (s*100).toFixed(3) + '% - ' + ((s - 0.5) * GPU_THUMB).toFixed(2) + 'px)'
+      : (s*100).toFixed(3) + '%';
+    return '<span class="' + cls + '" style="width:' + w + '"></span>';
+  }).join('');
+  const leg = document.getElementById('m-split-legend');
+  if(leg) leg.innerHTML = sel.map((id, i) =>
+    '<span><i class="' + (i%2 ? 'alt' : '') + '"></i>' + gpuEsc(gpuLabel(gpuById(id)))
+    + ' ' + (shares[i]*100).toFixed(1).replace('.', ',') + ' %</span>').join('');
+  const st = document.getElementById('m-split-state');
+  if(st) st.innerHTML = eaGetValued('--tensor-split')
+    ? '<button class="pe-link" onclick="resetSplit()">réinitialiser</button>'
+    : '<span class="pe-unit">automatique</span>';
+}
+function writeSplit(shares){
+  const sum = shares.reduce((a, b) => a + b, 0) || 1;
+  eaSetValued('--tensor-split', shares.map(s => (s/sum).toFixed(3)).join(','));
+  paintSplit();
+}
+function onSplitRange(){
+  const v = parseFloat(document.getElementById('m-split-range').value) / 100;
+  writeSplit([v, 1-v]);
+}
+function onSplitNumbers(){
+  const vals = [...document.querySelectorAll('.gpu-share input')].map(i => parseFloat(i.value) || 0);
+  if(vals.reduce((a, b) => a + b, 0) <= 0) return; // saisie en cours
+  writeSplit(vals);
+}
+function resetSplit(){
+  eaSetValued('--tensor-split', '');
+  const sel = selectedGpuIds();
+  const r = document.getElementById('m-split-range');
+  if(r && sel.length === 2) r.value = (currentShares(sel)[0]*100).toFixed(1);
+  const nums = [...document.querySelectorAll('.gpu-share input')];
+  if(nums.length){
+    const sh = currentShares(sel);
+    nums.forEach((inp, i) => { inp.value = (sh[i]*100).toFixed(1); });
+  }
+  paintSplit();
+}
+
+function onGpuPick(){
+  const ids = [...document.querySelectorAll('#m-gpu-list input[type=checkbox]:checked')].map(c => c.value);
+  if(!ids.length){ toast('gardez au moins une carte'); renderGpu(); return; }
+  // Toutes cochées = pas de contrainte : on retire le flag plutôt que de figer
+  // des noms de device qui changeraient avec le moteur.
+  eaSetValued('--device', ids.length === gpuDevices.length ? '' : ids.join(','));
+  // Une répartition écrite pour N cartes n'a plus de sens pour N-1.
+  if(ids.length < 2) eaSetValued('--tensor-split', '');
+  renderGpu();
+}
+
 // Read/write the QUANT= override line in the preset textarea.
 function currentQuantInTextarea(){
   const m = document.getElementById('m-content').value.match(/^\s*#?\s*QUANT\s*=\s*"?([^"\n]*)"?\s*$/mi);
@@ -371,12 +590,52 @@ function populateSettings(){
   set('s-tbatch', cfgReadKey('THREADS_BATCH'));
   set('s-kv', cfgReadKey('KV_TYPE'));
   set('s-moe', eaGetValued('--n-cpu-moe'));
+  set('s-spec-n', eaGetValued('--spec-draft-n-max'));
+  setSpecType(eaGetValued('--spec-type'));
   const chk = (id,v)=>{ const e=document.getElementById(id); if(e) e.checked=v; };
   chk('s-reasoning', /^(on|1|true|auto|deepseek)$/i.test(cfgReadKey('REASONING')));
   chk('s-flash', eaHasFlag('--flash-attn') && !/^off$/i.test(eaGetValued('--flash-attn')));
   chk('s-mlock', eaHasFlag('--mlock'));
   chk('s-nommap', eaHasFlag('--no-mmap'));
 }
+// --- Décodage spéculatif (--spec-type / --spec-draft-n-max) ----------------
+// Sélectionne le type courant. --spec-type accepte en réalité une LISTE séparée
+// par des virgules ; une valeur composée (ou un type sorti après cette version
+// de jean) ne correspondrait à aucune option et serait silencieusement effacée
+// au premier changement. On l'ajoute donc telle quelle à la liste plutôt que de
+// la perdre.
+function setSpecType(v){
+  const sel = document.getElementById('s-spec');
+  if(!sel) return;
+  v = String(v || '').trim();
+  if(v && ![...sel.options].some(o => o.value === v)){
+    const opt = document.createElement('option');
+    opt.value = v; opt.textContent = v + ' (dans la configuration)';
+    sel.appendChild(opt);
+  }
+  sel.value = v;
+  syncSpecRow();
+}
+// Le nombre de jetons anticipés ne veut rien dire sans type : ligne masquée, et
+// flag retiré pour ne pas laisser un réglage orphelin dans le preset.
+function syncSpecRow(){
+  const sel = document.getElementById('s-spec');
+  const row = document.getElementById('s-spec-n-row');
+  if(!sel || !row) return;
+  const on = !!sel.value;
+  row.style.display = on ? '' : 'none';
+  return on;
+}
+function onSpecType(){
+  const v = document.getElementById('s-spec').value;
+  eaSetValued('--spec-type', v);
+  if(!v){
+    eaSetValued('--spec-draft-n-max', '');
+    document.getElementById('s-spec-n').value = '';
+  }
+  syncSpecRow();
+}
+
 // Replie/déplie l'éditeur du fichier .env (config brute) dans le modal preset.
 function toggleRaw(){
   const b = document.getElementById('m-raw-body');

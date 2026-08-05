@@ -70,6 +70,10 @@ func newWebMux() *http.ServeMux {
 	// Un téléchargement de modèle coupé net (crash, restart du service) laisse un
 	// .part orphelin non reprenable : on nettoie au démarrage.
 	cleanStalePartFiles()
+	// Idem pour une installation de moteur : elle meurt avec le process. On
+	// recharge son état pour l'annoncer « interrompue » au lieu de n'afficher
+	// plus rien du tout.
+	lcRestoreOnce.Do(lcRestore)
 	mux := http.NewServeMux()
 	// Pages publiques : le HTML et le JS ne contiennent aucun secret. Toute la
 	// donnée et toutes les actions passent par /api/* qui, lui, exige la clé.
@@ -100,6 +104,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/models/download/cancel", handleModelDownloadCancel)
 	api("/api/backends", handleBackends)
 	api("/api/backends/custom", handleBackendsCustom)                    // backends custom uniquement (hors ⚡/🔧)
+	api("/api/backends/devices", handleBackendDevices)                   // GPU vus par CE moteur (noms/ordre propres au backend)
 	api("/api/llamacpp", handleLlamacpp)                                 // statut du backend llama.cpp
 	api("/api/llamacpp/check", handleLlamacppCheck)                      // git fetch + retard sur origin
 	api("/api/llamacpp/install", handleLlamacppInstall)                  // job : clone + build + BIN
