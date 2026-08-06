@@ -44,8 +44,27 @@ async function runBenchUI(){
 async function switchTo(n,name){
   if(!await askConfirm('Basculer vers « '+name+' » et redémarrer le service ?', {title:'Changer de preset', okText:'Basculer'})) return;
   toast('switching…');
+  // Retour visuel IMMÉDIAT : la ligne visée s'allume et clignote. Le serveur met
+  // plusieurs secondes à redémarrer le service ; sans ça la liste ne bougeait pas
+  // d'un pouce pendant tout ce temps et le clic semblait sans effet.
+  pendingPreset = n; loadPresets();
   const r=await jpost('/api/switch',{n:n});
-  toast(r.ok?'switched':'erreur'); setTimeout(loadAll,2000);
+  if(!r.ok){ pendingPreset = 0; toast('erreur'); loadPresets(); return; }
+  toast('switched');
+  // Le preset ACTIF, c'est celui dont l'empreinte est dans config.env : le serveur
+  // l'écrit AVANT de répondre (et relance le service en arrière-plan, voir
+  // handleSwitch), donc un rafraîchissement immédiat suffit — la barre passe au
+  // blanc tout de suite. Le chargement du modèle par llama-server continue
+  // derrière ; il ne conditionne pas la sélection.
+  try{ await loadPresets(); }catch(e){}
+  // Filet : si l'empreinte n'a pas encore basculé (bascule lente côté disque), on
+  // reste en attente le temps qu'il faut, sans dépasser ~60 s.
+  for(let i=0; i<40 && pendingPreset===n; i++){
+    await new Promise(r=>setTimeout(r,1500));
+    try{ await loadPresets(); }catch(e){}
+  }
+  pendingPreset = 0;
+  loadAll();
 }
 // editingKey = the identifier of the item being edited: a preset id (filename)
 // or a skill name. Empty string = creating a new item.

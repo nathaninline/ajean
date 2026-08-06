@@ -115,8 +115,22 @@ function labelTokens(el, role, n, firstTs, lastTs){
 // L'état final est appliqué une seule fois au caught_up via syncSendBtn().
 function setBusy(on){ busy=on; if(!REPLAYING) syncSendBtn(); }
 function syncSendBtn(){
-  document.getElementById('send').style.display=busy?'none':'inline-block';
+  const sb=document.getElementById('send');
+  sb.style.display=busy?'none':'inline-block';
   document.getElementById('stop').style.display=busy?'inline-block':'none';
+  // Tant que le moteur n'a pas fini de charger le modèle, envoyer ne mène à rien :
+  // on bloque le bouton et l'Entrée, et on le DIT sous le champ. `STATUS_SEEN`
+  // évite de verrouiller le chat quand /api/status n'a pas encore répondu (ou ne
+  // répond pas du tout) — dans le doute on laisse la main.
+  const ready = !STATUS_SEEN || MODEL_READY;
+  sb.disabled = !ready;
+  sb.title = ready ? '' : 'le modèle n\'est pas encore chargé';
+  const hint=document.getElementById('sendhint');
+  if(hint){
+    hint.textContent = ready ? 'Entrée pour envoyer · Maj+Entrée = nouvelle ligne'
+                             : 'Le modèle charge — envoi possible dès qu\'il est prêt.';
+    hint.classList.toggle('waiting', !ready);
+  }
 }
 // Traite UN événement du flux — même sémantique que l'ancien switch inline, mais
 // piloté par le serveur et rejouable à l'identique.
@@ -237,6 +251,8 @@ function stopGen(){ jfetch('/api/chat/stop',{method:'POST'}).catch(()=>{}); toas
 // « network error » alarmiste alors que l'IA répond quand même.
 async function send(){
   if(busy) return;
+  // Garde-fou : le bouton est déjà désactivé, mais l'Entrée passe aussi par ici.
+  if(STATUS_SEEN && !MODEL_READY){ toast('le modèle n\'est pas encore prêt'); return; }
   const ta=document.getElementById('input'); const text=ta.value.trim();
   if(!text) return;
   ta.value=''; autoGrow(ta);

@@ -4,6 +4,7 @@ package ajean
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -829,10 +830,22 @@ func handleSwitch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	target := list[req.N-1]
-	if err := SwitchToPreset(target.Path); err != nil {
+	// On écrit config.env TOUT DE SUITE (c'est lui qui décide du preset actif),
+	// puis on répond — le redémarrage du service part en arrière-plan. Passer par
+	// SwitchToPreset bloquait la réponse pendant tout l'arrêt de llama-server plus
+	// les 2 s de vérification de checkStarted : côté UI, le clic paraissait mou et
+	// la sélection ne bougeait qu'au bout de plusieurs secondes, pour rien.
+	if err := applyPresetFile(target.Path); err != nil {
 		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
+	fmt.Printf("%s config.env <- %s\n", green("[ok]"), filepath.Base(target.Path))
+	fmt.Println(dim("[info] redémarrage du service..."))
+	go func() {
+		if err := serviceAction("restart"); err != nil {
+			fmt.Printf("%s redémarrage après bascule: %v\n", red("[ERREUR]"), err)
+		}
+	}()
 	sendJSON(w, 200, map[string]any{"ok": true, "preset": target.Name})
 }
 

@@ -28,8 +28,8 @@
    Un seul thème (« Clean ») : noir et blanc, sobre. Deux variantes — claire par
    défaut, sombre via data-theme="dark" sur <html>. Toutes les couleurs de l'UI
    passent par ces variables ; rien d'autre ne code une couleur en dur. */
-:root{color-scheme:light;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Helvetica,Arial,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--bubble:#f0f0f0;--bg:#ffffff;--panel:#fafafa;--border:#e0e0e2;--text:#0a0a0a;--dim:#6b6b70;--accent:#0a0a0a;--accent-bg:rgba(0,0,0,.05);--ok:#0a0a0a;--warn:#6b6b6b;--err:#c0392b;--mag:#6b6b6b;--code-bg:#f5f5f5;--danger-bg:#fbeae8;--warn-bg:#f2f2f2;--add:#1a7f37;--add-bg:rgba(26,127,55,.10);--del:#cf222e;--del-bg:rgba(207,34,46,.10)}
-[data-theme="dark"]{color-scheme:dark;--bubble:#232326;--bg:#0b0b0c;--panel:#161618;--border:#33333a;--text:#f2f2f4;--dim:#a0a0a8;--accent:#f5f5f5;--accent-bg:rgba(255,255,255,.07);--ok:#f5f5f5;--warn:#8e8e8e;--err:#f2777a;--mag:#8e8e8e;--code-bg:#000000;--danger-bg:#2e1a19;--warn-bg:#1c1c1c;--add:#4ac26b;--add-bg:rgba(74,194,107,.13);--del:#f85149;--del-bg:rgba(248,81,73,.13)}
+:root{color-scheme:light;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Helvetica,Arial,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--bubble:#f0f0f0;--bg:#ffffff;--panel:#fafafa;--border:#e0e0e2;--text:#0a0a0a;--dim:#6b6b70;--accent:#0a0a0a;--accent-bg:rgba(0,0,0,.05);--row-bg:rgba(0,0,0,.03);--row-bg-on:rgba(0,0,0,.042);--ok:#0a0a0a;--warn:#6b6b6b;--err:#c0392b;--mag:#6b6b6b;--code-bg:#f5f5f5;--danger-bg:#fbeae8;--warn-bg:#f2f2f2;--add:#1a7f37;--add-bg:rgba(26,127,55,.10);--del:#cf222e;--del-bg:rgba(207,34,46,.10)}
+[data-theme="dark"]{color-scheme:dark;--bubble:#232326;--bg:#0b0b0c;--panel:#161618;--border:#33333a;--text:#f2f2f4;--dim:#a0a0a8;--accent:#f5f5f5;--accent-bg:rgba(255,255,255,.07);--row-bg:rgba(255,255,255,.04);--row-bg-on:rgba(255,255,255,.055);--ok:#f5f5f5;--warn:#8e8e8e;--err:#f2777a;--mag:#8e8e8e;--code-bg:#000000;--danger-bg:#2e1a19;--warn-bg:#1c1c1c;--add:#4ac26b;--add-bg:rgba(74,194,107,.13);--del:#f85149;--del-bg:rgba(248,81,73,.13)}
 /* Safari iOS peint un rectangle gris/noir sur TOUT élément touché (bouton, lien,
    résumé de section, bulle repliable…). C'est un retour tactile par défaut, hors
    de notre charte et impossible à styler : on le coupe. Nos états :active/:focus
@@ -116,6 +116,9 @@ option,optgroup{background:var(--panel);color:var(--text)}
   /* Petit écran (menu replié en tiroir) : on masque l'aide clavier — inutile et
      ça prend de la place. Elle reste visible sur desktop. */
   #sendhint{display:none}
+  /* …sauf quand elle annonce que le modèle charge : là c'est une information
+     d'état, pas un rappel de raccourci. */
+  #sendhint.waiting{display:block}
 }
 /* Desktop : menu plus large et bulles (badges) un peu plus grosses. */
 @media (min-width:721px){
@@ -214,9 +217,42 @@ button:disabled{opacity:.5;cursor:not-allowed}
    voile et un liseré à gauche, plus par un cadre propre. */
 .rowlist>.preset{border:0;border-radius:0;margin:0;padding:6px 10px;background:transparent}
 .rowlist>.preset:not(:last-child){border-bottom:1px solid var(--border)}
-.rowlist>.preset:hover{background:var(--accent-bg)}
-.rowlist>.preset.active{background:var(--accent-bg);color:var(--text);font-weight:600;
-  box-shadow:inset 2px 0 0 var(--text)}
+.rowlist>.preset:hover{background:var(--row-bg)}
+.rowlist>.preset.active{position:relative;background:var(--row-bg-on);color:var(--text);font-weight:600}
+/* La carte (.slist) laisse volontairement déborder son contenu (menus), elle ne
+   rogne donc pas ses coins : c'est la LIGNE de bord qui porte l'arrondi, sinon
+   le voile dépasse l'angle de la carte. */
+.rowlist:first-child>.preset:first-child{border-radius:8px 8px 0 0}
+.rowlist:last-child>.preset:last-child{border-radius:0 0 8px 8px}
+.rowlist:first-child:last-child>.preset:only-child{border-radius:8px}
+/* Liseré de gauche : un trait DROIT (pas un arc) qui court sur TOUTE la hauteur
+   de la ligne. Donc pas de box-shadow interne (l'arrondi le courberait) mais un
+   élément à part, aux bords francs, que l'arrondi de la ligne de bord se
+   contente de ROGNER — il se perd dans l'angle au lieu de le suivre. */
+.rowlist>.preset{overflow:hidden}
+.rowlist>.preset.active::before,.rowlist>.preset.pending::before{content:"";position:absolute;
+  left:0;top:0;bottom:0;width:3px;background:var(--text)}
+/* La liste est REDESSINÉE à chaque rafraîchissement : une transition ne jouerait
+   pas (l'élément vient de naître), d'où des @keyframes d'entrée. Le liseré entre
+   en glissant depuis la gauche, le voile et la puce arrivent en fondu.
+   ⚠️ Elles ne sont posées QUE via .sel-anim, classe mise par loadPresets le seul
+   redessin où la sélection a bougé : sans ça elles repartaient à chaque
+   rafraîchissement et la puce clignotait en continu. */
+@keyframes bar-in{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+@keyframes row-in{from{background:transparent}}
+@keyframes dot-in{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:scale(1)}}
+.sel-anim.active::before,.sel-anim.pending::before{animation:bar-in .26s cubic-bezier(.2,.7,.3,1) both}
+.rowlist>.preset.sel-anim.active,.rowlist>.preset.sel-anim.pending{animation:row-in .26s ease-out both}
+.sel-anim .preset-dot{animation:dot-in .26s cubic-bezier(.2,1.5,.5,1) both}
+/* Bascule en cours : la ligne visée s'allume DÉJÀ (le clic doit se voir tout de
+   suite), mais sa barre reste EN RETRAIT — même blanc, opacité plus basse, et
+   elle respire. Le service met plusieurs secondes à redémarrer : la barre pleine
+   (plus la puce) est réservée au preset vraiment actif. */
+.rowlist>.preset.pending{position:relative;background:var(--row-bg);color:var(--text);font-weight:600}
+.rowlist>.preset.pending::before{animation:bar-breathe 1.5s ease-in-out infinite}
+.rowlist>.preset.sel-anim.pending::before{
+  animation:bar-in .26s cubic-bezier(.2,.7,.3,1) both,bar-breathe 1.5s ease-in-out .26s infinite}
+@keyframes bar-breathe{0%,100%{opacity:.5}50%{opacity:.2}}
 /* Ligne à deux étages (titre + étiquettes) : l'interligne interne suffit, on
    resserre donc le haut et le bas. */
 .rowlist>.preset .preset-meta{margin-top:4px}
@@ -224,6 +260,16 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .rowlist>.muted,.rowlist>.mem-more{padding:9px 10px}
 .preset-info{flex:1;min-width:0}
 .preset-name{min-width:0;overflow-wrap:anywhere;word-break:break-word}
+/* Puce du preset actif : disque dessiné en CSS (le caractère « ● » dépend de la
+   police du système — plus petit et plus bas sous Windows que sous macOS). */
+.preset-dot{display:inline-block;width:7px;height:7px;border-radius:50%;
+  background:currentColor;margin:0 7px 0 0;flex-shrink:0;
+  /* ⚠️ PAS `vertical-align:middle` : ce mot-clé se cale sur la HAUTEUR D'X de la
+     police, qui n'est pas la même d'un système à l'autre (Segoe UI sous Windows
+     vs SF sous macOS) — la puce tombait trop bas sur PC. Un décalage EN LONGUEUR
+     part de la ligne de base et ne dépend que de la taille de texte : même
+     rendu partout. .34em ≈ milieu des capitales, moins la moitié du disque. */
+  vertical-align:calc(.34em - 3.5px)}
 /* Icône d'engrenage : centrée verticalement sur la ligne (sa silhouette ronde se
    lit bien au milieu de son coin, là où le crayon penché tirait de travers). */
 .preset-edit{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;
@@ -559,6 +605,8 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 /* Astuce clavier sous la saisie (style repris du HTML : un thème doit pouvoir
    changer ses marges, ce qu'un style en ligne empêchait). */
 #sendhint{padding:0 12px 6px;font-size:10px;text-align:center;opacity:.7}
+/* Moteur pas encore prêt : l'aide clavier cède la place à l'état du chargement. */
+#sendhint.waiting{opacity:1;color:var(--dim)}
 #input{flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;font:inherit;resize:none;min-height:56px;max-height:200px;overflow-y:hidden}
 #input:focus{outline:none;border-color:var(--accent)}
 #send{padding:0 20px}
@@ -1937,6 +1985,10 @@ async function loadStatus(){
   el.className='statuspill '+cls;
   el.innerHTML='<span class="dot"></span>'+txt;
   MODEL_READY = !!(s.active && s.health);
+  // Le bouton d'envoi suit l'état du moteur : inutile de pouvoir envoyer un
+  // message à un modèle qui n'est pas encore chargé (voir syncSendBtn).
+  STATUS_SEEN = true;
+  if(typeof syncSendBtn==='function') syncSendBtn();
   if(s.ctx){ CTX_MAX=s.ctx; updateCtxMeter(); }
   if(s.version){
     document.getElementById('ver').textContent='v'+s.version;
@@ -2023,6 +2075,10 @@ async function applyUpdate(){
 // Compteur de contexte : CTX_USED estimé via les stats serveur (prefill+decode
 // du dernier tour ≈ taille du prochain prompt). À 90% on propose de compacter.
 let CTX_MAX=0, CTX_USED=0, MODEL_READY=false;
+// STATUS_SEEN : /api/status a répondu au moins une fois. Avant ça (ou s'il ne
+// répond pas), on ne verrouille RIEN — mieux vaut un envoi qui échoue qu'un chat
+// bloqué par un état inconnu.
+let STATUS_SEEN=false;
 function setCtxUsed(n){ CTX_USED=n||0; updateCtxMeter(); }
 function updateCtxMeter(){
   if(!CTX_MAX) return;
@@ -2109,8 +2165,21 @@ function releaseHeights(){
   });
 }
 document.addEventListener('DOMContentLoaded', reserveHeights);
+// Numéro (1-based) du preset vers lequel on bascule, tant que le serveur n'a pas
+// fini de redémarrer le service. Basculer prend plusieurs secondes : sans ça, la
+// liste restait FIGÉE sur l'ancien actif et on ne savait pas si le clic avait pris.
+// Voir switchTo() dans 07-models.js.
+let pendingPreset = 0;
+// Dernière sélection PEINTE. La liste est redessinée à chaque rafraîchissement
+// (et il y en a beaucoup : sondage de bascule, loadAll…) ; sans ce repère, les
+// animations d'entrée (barre qui glisse, puce qui apparaît) repartaient à chaque
+// redessin et la puce semblait clignoter en boucle. On ne les rejoue que quand la
+// sélection CHANGE vraiment.
+let paintedSel = '';
 async function loadPresets(){
   const p=await jget('/api/presets');
+  // Bascule terminée : le preset visé est devenu l'actif, on éteint l'attente.
+  if(pendingPreset && p[pendingPreset-1] && p[pendingPreset-1].active) pendingPreset = 0;
   const act = p.find(x=>x.active);
   // Build via DOM (not string concat) so preset names can contain anything —
   // spaces, accents, quotes, < > & — without breaking markup or handlers.
@@ -2120,13 +2189,24 @@ async function loadPresets(){
   const cont=document.getElementById('presets');
   cont.innerHTML='';
   if(!p.length){ cont.innerHTML='<span class="muted">(aucun)</span>'; return; }
+  // Signature de la sélection : quel preset est actif, et vers lequel on bascule.
+  const sel = (act?act.id:'')+'|'+pendingPreset;
+  const moved = sel !== paintedSel; paintedSel = sel;
   p.forEach((x,i)=>{
     const row=document.createElement('div');
-    row.className='preset'+(x.active?' active':'');
+    const pend = !x.active && pendingPreset===i+1;
+    row.className='preset'+(x.active?' active':'')+(pend?' pending':'')+(moved?' sel-anim':'');
     row.onclick=()=>switchTo(i+1, x.name);
     const info=document.createElement('div'); info.className='preset-info';
     const nm=document.createElement('div'); nm.className='preset-name';
-    nm.textContent=(x.active?'● ':'')+x.name; nm.title=x.name;
+    // Puce de l'actif : un ÉLÉMENT rond en CSS, pas le caractère « ● ». Le glyphe
+    // est dessiné par la police du système — sur Windows il sortait plus petit et
+    // plus bas que sur macOS. Un disque CSS a la même taille et la même assiette
+    // partout.
+    // Puce réservée à l'actif POUR DE BON : pendant la bascule, seule la barre
+    // orange parle ; la puce apparaît quand la barre passe au blanc.
+    if(x.active){ const d=document.createElement('i'); d.className='preset-dot'; nm.appendChild(d); }
+    nm.appendChild(document.createTextNode(x.name)); nm.title=x.name;
     // Second row: quant tag + bench perf, so the title row stays full-width.
     const meta=document.createElement('div'); meta.className='preset-meta';
     if(x.quant){
@@ -2429,8 +2509,27 @@ async function runBenchUI(){
 async function switchTo(n,name){
   if(!await askConfirm('Basculer vers « '+name+' » et redémarrer le service ?', {title:'Changer de preset', okText:'Basculer'})) return;
   toast('switching…');
+  // Retour visuel IMMÉDIAT : la ligne visée s'allume et clignote. Le serveur met
+  // plusieurs secondes à redémarrer le service ; sans ça la liste ne bougeait pas
+  // d'un pouce pendant tout ce temps et le clic semblait sans effet.
+  pendingPreset = n; loadPresets();
   const r=await jpost('/api/switch',{n:n});
-  toast(r.ok?'switched':'erreur'); setTimeout(loadAll,2000);
+  if(!r.ok){ pendingPreset = 0; toast('erreur'); loadPresets(); return; }
+  toast('switched');
+  // Le preset ACTIF, c'est celui dont l'empreinte est dans config.env : le serveur
+  // l'écrit AVANT de répondre (et relance le service en arrière-plan, voir
+  // handleSwitch), donc un rafraîchissement immédiat suffit — la barre passe au
+  // blanc tout de suite. Le chargement du modèle par llama-server continue
+  // derrière ; il ne conditionne pas la sélection.
+  try{ await loadPresets(); }catch(e){}
+  // Filet : si l'empreinte n'a pas encore basculé (bascule lente côté disque), on
+  // reste en attente le temps qu'il faut, sans dépasser ~60 s.
+  for(let i=0; i<40 && pendingPreset===n; i++){
+    await new Promise(r=>setTimeout(r,1500));
+    try{ await loadPresets(); }catch(e){}
+  }
+  pendingPreset = 0;
+  loadAll();
 }
 // editingKey = the identifier of the item being edited: a preset id (filename)
 // or a skill name. Empty string = creating a new item.
@@ -3699,8 +3798,22 @@ function labelTokens(el, role, n, firstTs, lastTs){
 // L'état final est appliqué une seule fois au caught_up via syncSendBtn().
 function setBusy(on){ busy=on; if(!REPLAYING) syncSendBtn(); }
 function syncSendBtn(){
-  document.getElementById('send').style.display=busy?'none':'inline-block';
+  const sb=document.getElementById('send');
+  sb.style.display=busy?'none':'inline-block';
   document.getElementById('stop').style.display=busy?'inline-block':'none';
+  // Tant que le moteur n'a pas fini de charger le modèle, envoyer ne mène à rien :
+  // on bloque le bouton et l'Entrée, et on le DIT sous le champ. `STATUS_SEEN`
+  // évite de verrouiller le chat quand /api/status n'a pas encore répondu (ou ne
+  // répond pas du tout) — dans le doute on laisse la main.
+  const ready = !STATUS_SEEN || MODEL_READY;
+  sb.disabled = !ready;
+  sb.title = ready ? '' : 'le modèle n\'est pas encore chargé';
+  const hint=document.getElementById('sendhint');
+  if(hint){
+    hint.textContent = ready ? 'Entrée pour envoyer · Maj+Entrée = nouvelle ligne'
+                             : 'Le modèle charge — envoi possible dès qu\'il est prêt.';
+    hint.classList.toggle('waiting', !ready);
+  }
 }
 // Traite UN événement du flux — même sémantique que l'ancien switch inline, mais
 // piloté par le serveur et rejouable à l'identique.
@@ -3821,6 +3934,8 @@ function stopGen(){ jfetch('/api/chat/stop',{method:'POST'}).catch(()=>{}); toas
 // « network error » alarmiste alors que l'IA répond quand même.
 async function send(){
   if(busy) return;
+  // Garde-fou : le bouton est déjà désactivé, mais l'Entrée passe aussi par ici.
+  if(STATUS_SEEN && !MODEL_READY){ toast('le modèle n\'est pas encore prêt'); return; }
   const ta=document.getElementById('input'); const text=ta.value.trim();
   if(!text) return;
   ta.value=''; autoGrow(ta);

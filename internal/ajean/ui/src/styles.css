@@ -2,8 +2,8 @@
    Un seul thème (« Clean ») : noir et blanc, sobre. Deux variantes — claire par
    défaut, sombre via data-theme="dark" sur <html>. Toutes les couleurs de l'UI
    passent par ces variables ; rien d'autre ne code une couleur en dur. */
-:root{color-scheme:light;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Helvetica,Arial,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--bubble:#f0f0f0;--bg:#ffffff;--panel:#fafafa;--border:#e0e0e2;--text:#0a0a0a;--dim:#6b6b70;--accent:#0a0a0a;--accent-bg:rgba(0,0,0,.05);--ok:#0a0a0a;--warn:#6b6b6b;--err:#c0392b;--mag:#6b6b6b;--code-bg:#f5f5f5;--danger-bg:#fbeae8;--warn-bg:#f2f2f2;--add:#1a7f37;--add-bg:rgba(26,127,55,.10);--del:#cf222e;--del-bg:rgba(207,34,46,.10)}
-[data-theme="dark"]{color-scheme:dark;--bubble:#232326;--bg:#0b0b0c;--panel:#161618;--border:#33333a;--text:#f2f2f4;--dim:#a0a0a8;--accent:#f5f5f5;--accent-bg:rgba(255,255,255,.07);--ok:#f5f5f5;--warn:#8e8e8e;--err:#f2777a;--mag:#8e8e8e;--code-bg:#000000;--danger-bg:#2e1a19;--warn-bg:#1c1c1c;--add:#4ac26b;--add-bg:rgba(74,194,107,.13);--del:#f85149;--del-bg:rgba(248,81,73,.13)}
+:root{color-scheme:light;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Helvetica,Arial,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--bubble:#f0f0f0;--bg:#ffffff;--panel:#fafafa;--border:#e0e0e2;--text:#0a0a0a;--dim:#6b6b70;--accent:#0a0a0a;--accent-bg:rgba(0,0,0,.05);--row-bg:rgba(0,0,0,.03);--row-bg-on:rgba(0,0,0,.042);--ok:#0a0a0a;--warn:#6b6b6b;--err:#c0392b;--mag:#6b6b6b;--code-bg:#f5f5f5;--danger-bg:#fbeae8;--warn-bg:#f2f2f2;--add:#1a7f37;--add-bg:rgba(26,127,55,.10);--del:#cf222e;--del-bg:rgba(207,34,46,.10)}
+[data-theme="dark"]{color-scheme:dark;--bubble:#232326;--bg:#0b0b0c;--panel:#161618;--border:#33333a;--text:#f2f2f4;--dim:#a0a0a8;--accent:#f5f5f5;--accent-bg:rgba(255,255,255,.07);--row-bg:rgba(255,255,255,.04);--row-bg-on:rgba(255,255,255,.055);--ok:#f5f5f5;--warn:#8e8e8e;--err:#f2777a;--mag:#8e8e8e;--code-bg:#000000;--danger-bg:#2e1a19;--warn-bg:#1c1c1c;--add:#4ac26b;--add-bg:rgba(74,194,107,.13);--del:#f85149;--del-bg:rgba(248,81,73,.13)}
 /* Safari iOS peint un rectangle gris/noir sur TOUT élément touché (bouton, lien,
    résumé de section, bulle repliable…). C'est un retour tactile par défaut, hors
    de notre charte et impossible à styler : on le coupe. Nos états :active/:focus
@@ -90,6 +90,9 @@ option,optgroup{background:var(--panel);color:var(--text)}
   /* Petit écran (menu replié en tiroir) : on masque l'aide clavier — inutile et
      ça prend de la place. Elle reste visible sur desktop. */
   #sendhint{display:none}
+  /* …sauf quand elle annonce que le modèle charge : là c'est une information
+     d'état, pas un rappel de raccourci. */
+  #sendhint.waiting{display:block}
 }
 /* Desktop : menu plus large et bulles (badges) un peu plus grosses. */
 @media (min-width:721px){
@@ -188,9 +191,42 @@ button:disabled{opacity:.5;cursor:not-allowed}
    voile et un liseré à gauche, plus par un cadre propre. */
 .rowlist>.preset{border:0;border-radius:0;margin:0;padding:6px 10px;background:transparent}
 .rowlist>.preset:not(:last-child){border-bottom:1px solid var(--border)}
-.rowlist>.preset:hover{background:var(--accent-bg)}
-.rowlist>.preset.active{background:var(--accent-bg);color:var(--text);font-weight:600;
-  box-shadow:inset 2px 0 0 var(--text)}
+.rowlist>.preset:hover{background:var(--row-bg)}
+.rowlist>.preset.active{position:relative;background:var(--row-bg-on);color:var(--text);font-weight:600}
+/* La carte (.slist) laisse volontairement déborder son contenu (menus), elle ne
+   rogne donc pas ses coins : c'est la LIGNE de bord qui porte l'arrondi, sinon
+   le voile dépasse l'angle de la carte. */
+.rowlist:first-child>.preset:first-child{border-radius:8px 8px 0 0}
+.rowlist:last-child>.preset:last-child{border-radius:0 0 8px 8px}
+.rowlist:first-child:last-child>.preset:only-child{border-radius:8px}
+/* Liseré de gauche : un trait DROIT (pas un arc) qui court sur TOUTE la hauteur
+   de la ligne. Donc pas de box-shadow interne (l'arrondi le courberait) mais un
+   élément à part, aux bords francs, que l'arrondi de la ligne de bord se
+   contente de ROGNER — il se perd dans l'angle au lieu de le suivre. */
+.rowlist>.preset{overflow:hidden}
+.rowlist>.preset.active::before,.rowlist>.preset.pending::before{content:"";position:absolute;
+  left:0;top:0;bottom:0;width:3px;background:var(--text)}
+/* La liste est REDESSINÉE à chaque rafraîchissement : une transition ne jouerait
+   pas (l'élément vient de naître), d'où des @keyframes d'entrée. Le liseré entre
+   en glissant depuis la gauche, le voile et la puce arrivent en fondu.
+   ⚠️ Elles ne sont posées QUE via .sel-anim, classe mise par loadPresets le seul
+   redessin où la sélection a bougé : sans ça elles repartaient à chaque
+   rafraîchissement et la puce clignotait en continu. */
+@keyframes bar-in{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+@keyframes row-in{from{background:transparent}}
+@keyframes dot-in{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:scale(1)}}
+.sel-anim.active::before,.sel-anim.pending::before{animation:bar-in .26s cubic-bezier(.2,.7,.3,1) both}
+.rowlist>.preset.sel-anim.active,.rowlist>.preset.sel-anim.pending{animation:row-in .26s ease-out both}
+.sel-anim .preset-dot{animation:dot-in .26s cubic-bezier(.2,1.5,.5,1) both}
+/* Bascule en cours : la ligne visée s'allume DÉJÀ (le clic doit se voir tout de
+   suite), mais sa barre reste EN RETRAIT — même blanc, opacité plus basse, et
+   elle respire. Le service met plusieurs secondes à redémarrer : la barre pleine
+   (plus la puce) est réservée au preset vraiment actif. */
+.rowlist>.preset.pending{position:relative;background:var(--row-bg);color:var(--text);font-weight:600}
+.rowlist>.preset.pending::before{animation:bar-breathe 1.5s ease-in-out infinite}
+.rowlist>.preset.sel-anim.pending::before{
+  animation:bar-in .26s cubic-bezier(.2,.7,.3,1) both,bar-breathe 1.5s ease-in-out .26s infinite}
+@keyframes bar-breathe{0%,100%{opacity:.5}50%{opacity:.2}}
 /* Ligne à deux étages (titre + étiquettes) : l'interligne interne suffit, on
    resserre donc le haut et le bas. */
 .rowlist>.preset .preset-meta{margin-top:4px}
@@ -198,6 +234,16 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .rowlist>.muted,.rowlist>.mem-more{padding:9px 10px}
 .preset-info{flex:1;min-width:0}
 .preset-name{min-width:0;overflow-wrap:anywhere;word-break:break-word}
+/* Puce du preset actif : disque dessiné en CSS (le caractère « ● » dépend de la
+   police du système — plus petit et plus bas sous Windows que sous macOS). */
+.preset-dot{display:inline-block;width:7px;height:7px;border-radius:50%;
+  background:currentColor;margin:0 7px 0 0;flex-shrink:0;
+  /* ⚠️ PAS `vertical-align:middle` : ce mot-clé se cale sur la HAUTEUR D'X de la
+     police, qui n'est pas la même d'un système à l'autre (Segoe UI sous Windows
+     vs SF sous macOS) — la puce tombait trop bas sur PC. Un décalage EN LONGUEUR
+     part de la ligne de base et ne dépend que de la taille de texte : même
+     rendu partout. .34em ≈ milieu des capitales, moins la moitié du disque. */
+  vertical-align:calc(.34em - 3.5px)}
 /* Icône d'engrenage : centrée verticalement sur la ligne (sa silhouette ronde se
    lit bien au milieu de son coin, là où le crayon penché tirait de travers). */
 .preset-edit{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;
@@ -533,6 +579,8 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 /* Astuce clavier sous la saisie (style repris du HTML : un thème doit pouvoir
    changer ses marges, ce qu'un style en ligne empêchait). */
 #sendhint{padding:0 12px 6px;font-size:10px;text-align:center;opacity:.7}
+/* Moteur pas encore prêt : l'aide clavier cède la place à l'état du chargement. */
+#sendhint.waiting{opacity:1;color:var(--dim)}
 #input{flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;font:inherit;resize:none;min-height:56px;max-height:200px;overflow-y:hidden}
 #input:focus{outline:none;border-color:var(--accent)}
 #send{padding:0 20px}

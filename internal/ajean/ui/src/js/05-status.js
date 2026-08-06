@@ -10,6 +10,10 @@ async function loadStatus(){
   el.className='statuspill '+cls;
   el.innerHTML='<span class="dot"></span>'+txt;
   MODEL_READY = !!(s.active && s.health);
+  // Le bouton d'envoi suit l'état du moteur : inutile de pouvoir envoyer un
+  // message à un modèle qui n'est pas encore chargé (voir syncSendBtn).
+  STATUS_SEEN = true;
+  if(typeof syncSendBtn==='function') syncSendBtn();
   if(s.ctx){ CTX_MAX=s.ctx; updateCtxMeter(); }
   if(s.version){
     document.getElementById('ver').textContent='v'+s.version;
@@ -96,6 +100,10 @@ async function applyUpdate(){
 // Compteur de contexte : CTX_USED estimé via les stats serveur (prefill+decode
 // du dernier tour ≈ taille du prochain prompt). À 90% on propose de compacter.
 let CTX_MAX=0, CTX_USED=0, MODEL_READY=false;
+// STATUS_SEEN : /api/status a répondu au moins une fois. Avant ça (ou s'il ne
+// répond pas), on ne verrouille RIEN — mieux vaut un envoi qui échoue qu'un chat
+// bloqué par un état inconnu.
+let STATUS_SEEN=false;
 function setCtxUsed(n){ CTX_USED=n||0; updateCtxMeter(); }
 function updateCtxMeter(){
   if(!CTX_MAX) return;

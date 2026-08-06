@@ -23,8 +23,21 @@ function releaseHeights(){
   });
 }
 document.addEventListener('DOMContentLoaded', reserveHeights);
+// Numéro (1-based) du preset vers lequel on bascule, tant que le serveur n'a pas
+// fini de redémarrer le service. Basculer prend plusieurs secondes : sans ça, la
+// liste restait FIGÉE sur l'ancien actif et on ne savait pas si le clic avait pris.
+// Voir switchTo() dans 07-models.js.
+let pendingPreset = 0;
+// Dernière sélection PEINTE. La liste est redessinée à chaque rafraîchissement
+// (et il y en a beaucoup : sondage de bascule, loadAll…) ; sans ce repère, les
+// animations d'entrée (barre qui glisse, puce qui apparaît) repartaient à chaque
+// redessin et la puce semblait clignoter en boucle. On ne les rejoue que quand la
+// sélection CHANGE vraiment.
+let paintedSel = '';
 async function loadPresets(){
   const p=await jget('/api/presets');
+  // Bascule terminée : le preset visé est devenu l'actif, on éteint l'attente.
+  if(pendingPreset && p[pendingPreset-1] && p[pendingPreset-1].active) pendingPreset = 0;
   const act = p.find(x=>x.active);
   // Build via DOM (not string concat) so preset names can contain anything —
   // spaces, accents, quotes, < > & — without breaking markup or handlers.
@@ -34,13 +47,24 @@ async function loadPresets(){
   const cont=document.getElementById('presets');
   cont.innerHTML='';
   if(!p.length){ cont.innerHTML='<span class="muted">(aucun)</span>'; return; }
+  // Signature de la sélection : quel preset est actif, et vers lequel on bascule.
+  const sel = (act?act.id:'')+'|'+pendingPreset;
+  const moved = sel !== paintedSel; paintedSel = sel;
   p.forEach((x,i)=>{
     const row=document.createElement('div');
-    row.className='preset'+(x.active?' active':'');
+    const pend = !x.active && pendingPreset===i+1;
+    row.className='preset'+(x.active?' active':'')+(pend?' pending':'')+(moved?' sel-anim':'');
     row.onclick=()=>switchTo(i+1, x.name);
     const info=document.createElement('div'); info.className='preset-info';
     const nm=document.createElement('div'); nm.className='preset-name';
-    nm.textContent=(x.active?'● ':'')+x.name; nm.title=x.name;
+    // Puce de l'actif : un ÉLÉMENT rond en CSS, pas le caractère « ● ». Le glyphe
+    // est dessiné par la police du système — sur Windows il sortait plus petit et
+    // plus bas que sur macOS. Un disque CSS a la même taille et la même assiette
+    // partout.
+    // Puce réservée à l'actif POUR DE BON : pendant la bascule, seule la barre
+    // orange parle ; la puce apparaît quand la barre passe au blanc.
+    if(x.active){ const d=document.createElement('i'); d.className='preset-dot'; nm.appendChild(d); }
+    nm.appendChild(document.createTextNode(x.name)); nm.title=x.name;
     // Second row: quant tag + bench perf, so the title row stays full-width.
     const meta=document.createElement('div'); meta.className='preset-meta';
     if(x.quant){
