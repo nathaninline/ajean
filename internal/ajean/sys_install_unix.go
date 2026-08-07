@@ -47,6 +47,13 @@ func cmdInstall(args []string) error {
 	fmt.Printf("  AJEAN_HOME = %s\n", ajeanHome)
 	fmt.Printf("  services   = %s + %s\n", serviceName(), uiUnitName)
 
+	// 0. Reprise d'une installation 0.7, si c'en est une. AVANT provisionDataDir :
+	//    elle déplace des dossiers entiers, donc la destination ne doit pas
+	//    encore exister. Code temporaire, voir migrate_07.go.
+	if err := migrateFrom07(ajeanHome); err != nil {
+		return fmt.Errorf("reprise de l'installation 0.7 : %w", err)
+	}
+
 	// 1. Arborescence + configuration de départ.
 	if err := provisionDataDir(); err != nil {
 		return err

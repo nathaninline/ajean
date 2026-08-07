@@ -305,42 +305,29 @@ CGO_ENABLED=0 go build -o ajean ./cmd/ajean
 - `cmd/ajean/` : point d'entrée + ressources Windows (icône, versioninfo).
 - `internal/ajean/` : tout le code, fichiers préfixés par domaine (`web_*`, `chat_*`, `llm_*`, `backend_*`, `relay_*`, `sys_*`, `mcp_*`) ; carte dans `doc.go`.
 - `internal/ajean/ui/` : interface web embarquée. **`index.html` est généré** : les sources vivent dans `ui/src/`. Pour modifier l'interface, éditer `ui/src/` puis lancer `go generate ./internal/ajean`.
-- `tools/` : outils hors binaire — `assemble-ui` (génère `index.html`), `gen-icon` (icônes Windows), `migrate-0.7` (reprise d'une installation 0.7.x, voir ci-dessous).
+- `tools/` : outils hors binaire — `assemble-ui` (génère `index.html`) et `gen-icon` (icônes Windows).
 
 ## Migrer depuis la 0.7.x
 
-La 0.8 ne contient **aucun code de compatibilité** : elle ignore `config.env`, `configs/`, `MEMORY/` et les fichiers d'état de la 0.7. Sur une machine déjà installée, la reprise se fait une fois, à la main. Rien n'est supprimé : les anciens fichiers restent en place, et un retour arrière consiste à réactiver les anciennes unités.
+Une seule commande :
 
 ```bash
-# 0. Sauvegarde (petits fichiers ; les .gguf ne risquent rien, ils ne bougent pas de volume)
-sudo tar czf /root/ajean-avant-0.8.tar.gz -C /etc/ajean      --exclude=backends --exclude='*.gguf' --exclude='*.log' .
-
-sudo systemctl stop jean-link jean          # anciens noms de services
-
-# 1. Nouvelle arborescence — on COPIE presets et mémoire, on DÉPLACE les modèles
-sudo mkdir -p /etc/ajean/{presets,memory,models,bin}
-sudo cp -a /etc/ajean/configs/. /etc/ajean/presets/
-sudo cp -a /etc/ajean/MEMORY/.  /etc/ajean/memory/
-sudo mv /etc/ajean/*.gguf /etc/ajean/models/
-
-# 2. Le binaire, puis les réglages dans la base
-sudo install -m755 ajean /usr/local/bin/ajean
-go run ./tools/migrate-0.7 /etc/ajean       # ou le binaire pré-compilé de l'outil
-sudo chown -R <utilisateur>:<utilisateur> /etc/ajean
-
-# 3. Les deux services (remplacent jean.service et jean-link.service)
-sudo systemctl disable --now jean jean-link
-sudo ajean install                          # écrit ajean-engine + ajean-ui, sudoers, /etc/default
-sudo systemctl enable --now ajean-engine ajean-ui
+sudo ajean install
 ```
 
-`migrate-0.7` reprend la configuration, les préférences de l'interface, la conversation, les clés (API, pilotage, Crawl4AI), le jeton de liaison et l'identifiant machine, les interrupteurs agent/internet/OpenAI, les serveurs MCP et les benchmarks. Il ne touche ni aux presets, ni à la mémoire, ni aux modèles — ce sont des fichiers, ils ont juste changé de dossier.
+`install` détecte l'ancienne disposition et fait la reprise complète : il arrête et **désactive** les anciens services (`jean`, `jean-link`), déplace `configs/` vers `presets/`, `MEMORY/` vers `memory/` et les `.gguf` vers `models/`, reprend en base la configuration, les préférences, la conversation, les clés, le jeton de liaison, les interrupteurs, les serveurs MCP et les benchmarks — puis installe les deux nouvelles unités.
 
-**`.e2e_key` ne doit pas être supprimé** : l'empreinte de chiffrement de bout en bout confirmée dans le portail en dépend. Il reste à sa place, la migration ne le touche pas.
+Désactiver les anciennes unités n'est pas un détail : une `jean.service` restée active relancerait un **second** `llama-server` au prochain démarrage, sur le même port et la même VRAM.
 
-Vérification : `ajean where`, `ajean switch` (le preset actif doit être détecté), `ajean test`, puis `journalctl -u ajean-ui -n 20` doit afficher « lien établi ✓ » et l'empreinte E2E inchangée.
+Ce qui est garanti :
 
-Si `ajean install` écrase une unité que vous aviez réglée à la main (priorité CPU, `CUDA_VISIBLE_DEVICES`, utilisateur dédié), rétablissez vos directives dans `/etc/systemd/system/ajean-engine.service` puis `systemctl daemon-reload`.
+- **Rien n'est supprimé.** Presets, mémoire et modèles sont *déplacés*, jamais copiés ni effacés. Les petits fichiers d'état sont lus puis rangés dans `avant-0.8/` — supprimez ce dossier quand tout va bien.
+- **`.e2e_key` n'est pas touché**, donc l'empreinte de chiffrement confirmée dans le portail reste valable.
+- **Une machine déjà migrée à la main** n'est pas écrasée : si `configs/` et `presets/` existent tous les deux, l'ancien est laissé tel quel et signalé.
+
+Après coup : `ajean where`, `ajean switch` (le preset actif doit être détecté) et `ajean test`. Si vous aviez réglé l'unité du moteur à la main (priorité CPU, `CUDA_VISIBLE_DEVICES`, utilisateur dédié), `install` la réécrit : reportez vos directives dans `/etc/systemd/system/ajean-engine.service` puis `systemctl daemon-reload`.
+
+Le code de cette reprise vit dans un fichier unique, `internal/ajean/migrate_07.go`, et sera supprimé d'ici une version ou deux.
 
 ## Licence
 

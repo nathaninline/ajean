@@ -1,6 +1,6 @@
 Le renommage est terminé. Plus rien ne s'appelle jean : ni le binaire, ni les services, ni les variables, ni les dossiers. Et le dossier de données, qui s'était couvert d'une douzaine de petits fichiers d'état, tient désormais dans six dossiers et une base.
 
-**Cette version ne reprend pas les installations précédentes.** Il n'y a aucune migration : ni des dossiers, ni des unités système, ni des réglages. Réinstallez, puis retéléchargez vos modèles ou repointez-les avec *Dossiers de modèles*.
+**La reprise d'une installation 0.7 tient en une commande : `sudo ajean install`.** Il déplace les dossiers, reprend les réglages en base, désactive les anciens services et installe les nouveaux. Rien n'est supprimé : presets, mémoire et modèles sont déplacés, les anciens fichiers d'état rangés dans `avant-0.8/`. C'est le seul code de compatibilité de la version, isolé dans un fichier prévu pour être supprimé.
 
 ## Une base à la place des fichiers d'état
 
