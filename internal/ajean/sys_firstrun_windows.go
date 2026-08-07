@@ -100,28 +100,20 @@ func appFirstRun() bool {
 		return runAsInstaller(target)
 	}
 
-	// Première installation : là, une question. C'est le seul moment où
-	// l'utilisateur a intérêt à savoir ce qui va être posé sur sa machine, et
-	// c'est l'absence de cette question qui rendait le double-clic illisible.
+	// Première installation. On ne demande PAS l'autorisation : il n'y a rien à
+	// arbitrer. Rester à l'emplacement du fichier téléchargé ne donne pas une
+	// installation utilisable (pas de raccourci, rien dans le PATH, et une
+	// application qui disparaît le jour où l'on vide son dossier de
+	// téléchargements). Poser une question dont une seule réponse mène quelque
+	// part, c'est faire porter à l'utilisateur un choix qui n'existe pas.
 	//
-	// Un refus n'est PAS mémorisé. Il l'a été en 0.6.11 pour éviter de reposer la
-	// question à chaque lancement, mais il devenait alors définitif : plus aucun
-	// moyen d'installer AJEAN, même en relançant le fichier téléchargé. Un « non »
-	// veut dire « pas maintenant », jamais « plus jamais » : c'est le comportement
-	// de n'importe quel installeur, qui repropose tant qu'on le relance.
-	if messageBox(
-		"Installer AJEAN sur cet ordinateur ?\n\n"+
-			"• le programme sera copié dans :\n   "+target+"\n"+
-			"• un raccourci sera ajouté au menu Démarrer et au Bureau\n"+
-			"• vos réglages et modèles seront rangés dans :\n   "+AjeanHome()+"\n\n"+
-			"Vous pourrez ensuite supprimer le fichier que vous venez de télécharger.\n\n"+
-			"Répondre Non démarre AJEAN sans rien installer. La question reviendra\n"+
-			"au prochain lancement de ce fichier.",
-		"Installation d'AJEAN", mbYesNo|mbIconQuestion) != idYes {
-		return false
-	}
-
+	// On l'informe en revanche de ce qui vient d'être fait : il a double-cliqué
+	// un fichier, autant dire où le programme s'est installé et qu'il peut
+	// supprimer ce qu'il a téléchargé.
 	if _, err := installSelf(filepath.Dir(target)); err != nil {
+		// Échec le plus courant : pas les droits sur %ProgramData%. AJEAN reste
+		// parfaitement utilisable depuis son emplacement actuel, le dossier de
+		// données étant ailleurs — on démarre donc au lieu d'abandonner.
 		messageBox("Installation impossible :\n\n"+err.Error()+"\n\nAJEAN va démarrer depuis l'emplacement actuel.", "AJEAN", mbIconInfo)
 		return false
 	}
