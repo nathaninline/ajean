@@ -82,7 +82,7 @@ func llamacppRepoDir() string {
 }
 
 func defaultRepoDir() string {
-	return filepath.Join(AjeanHome(), "backends", "llama.cpp")
+	return filepath.Join(backendsDir(), "llama.cpp")
 }
 
 // findRepoRoot walks up from a binary path (…/build/bin/llama-server) looking
@@ -510,7 +510,7 @@ func sanitizeBackendName(name string) string {
 // dossier backends (../, chemin absolu…).
 func backendDir(name string) (string, error) {
 	name = sanitizeBackendName(name)
-	root, err := filepath.Abs(filepath.Join(AjeanHome(), "backends"))
+	root, err := filepath.Abs(backendsDir())
 	if err != nil {
 		return "", err
 	}

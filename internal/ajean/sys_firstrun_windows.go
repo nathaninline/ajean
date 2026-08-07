@@ -372,26 +372,6 @@ type vsFixedFileInfo struct {
 	FileDateLS       uint32
 }
 
-// provisionDataDir crée le dossier de données et un config.env de départ.
-// Extrait de cmdInstall pour être réutilisable au premier lancement, sans
-// embarquer l'installation du binaire ni les messages de console.
-func provisionDataDir() error {
-	ajeanHome := AjeanHome()
-	// Plus de dossier SKILLS : les skills ont ete fondus dans la memoire.
-	// On ne le CREE plus, mais on continue de le LIRE une fois au demarrage
-	// pour reprendre ceux d'une ancienne installation (migrateSkillsToMemory).
-	for _, d := range []string{ajeanHome, filepath.Join(ajeanHome, "configs")} {
-		if err := os.MkdirAll(d, 0o755); err != nil {
-			return err
-		}
-	}
-	conf := filepath.Join(ajeanHome, "config.env")
-	if _, err := os.Stat(conf); os.IsNotExist(err) {
-		return os.WriteFile(conf, []byte(configTemplate), 0o644)
-	}
-	return nil
-}
-
 // ensureShortcuts garantit qu'un raccourci « AJEAN » existe dans le menu
 // Démarrer et sur le Bureau, et qu'il pointe sur le bon exécutable. Appelée à
 // CHAQUE lancement du fichier téléchargé, pas seulement à l'installation :

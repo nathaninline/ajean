@@ -38,7 +38,7 @@ type ghAsset struct {
 }
 
 func prebuiltDir() string {
-	return filepath.Join(AjeanHome(), "backends", "llama.cpp-prebuilt")
+	return filepath.Join(backendsDir(), "llama.cpp-prebuilt")
 }
 
 // prebuiltVersion lit le marqueur VERSION du dossier prebuilt : "tag cudaVer"

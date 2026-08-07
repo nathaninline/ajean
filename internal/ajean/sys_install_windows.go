@@ -16,26 +16,6 @@ import (
 // service itself is managed by the PID-file supervisor in sys_service_windows.go
 // (ajean start / stop / status), which needs no admin rights.
 
-const configTemplate = `# Configuration AJEAN — édite-moi puis: ajean restart
-# ajean serve lit ce fichier et lance ton binaire llama.cpp.
-
-# Chemins (utilise des chemins Windows ; les antislashs ou slashs marchent)
-BIN="C:/llama.cpp/build/bin/Release/llama-server.exe"
-MODEL="C:/models/your-model.gguf"
-
-# Serveur
-PORT="8080"
-HOST="127.0.0.1"
-
-# Inference
-CTX="32768"
-BATCH="2048"
-UBATCH="512"
-NGL="999"
-
-# Args supplémentaires passés à llama-server
-EXTRA_ARGS=""
-`
 
 func cmdInstall(args []string) error {
 	ajeanHome := AjeanHome()
@@ -44,41 +24,31 @@ func cmdInstall(args []string) error {
 	fmt.Printf("  AJEAN_HOME = %s\n", ajeanHome)
 	fmt.Printf("  service   = %s\n", serviceName())
 
-	// 1-2. Dossiers + config.env de départ (partagé avec le premier lancement de
-	// l'app, voir provisionDataDir dans sys_firstrun_windows.go).
-	conf := filepath.Join(ajeanHome, "config.env")
-	_, statErr := os.Stat(conf)
-	alreadyThere := statErr == nil
+	// 1. Arborescence + configuration de départ (partagé avec le premier
+	//    lancement de l'app, voir sys_datadir.go).
 	if err := provisionDataDir(); err != nil {
 		return err
 	}
-	if alreadyThere {
-		fmt.Printf("  %s config.env déjà présent — inchangé\n", dim("•"))
-	} else {
-		fmt.Printf("  %s écrit %s\n", green("✓"), conf)
-	}
+	fmt.Printf("  %s arborescence prête\n", green("✓"))
 
-	// 3. Install the binary into AJEAN_HOME\bin and put that dir on the user PATH,
-	//    so `ajean` is callable from any shell (this is the Windows analogue of the
-	//    /usr/local/bin symlink the Unix installer creates).
-	binDir := filepath.Join(ajeanHome, "bin")
-	if err := os.MkdirAll(binDir, 0o755); err != nil {
-		return err
-	}
+	// 2. Le binaire va dans AJEAN_HOME\bin, ajouté au PATH utilisateur, pour que
+	//    `ajean` soit appelable depuis n'importe quel shell (pendant Windows du
+	//    lien /usr/local/bin créé par l'installateur Unix).
+	dir := binDir()
 	onPath := false
-	if dst, err := installSelf(binDir); err != nil {
+	if dst, err := installSelf(dir); err != nil {
 		fmt.Printf("  %s copie du binaire impossible (%v) — ajoute-le au PATH à la main\n", dim("•"), err)
 	} else {
 		fmt.Printf("  %s binaire installé %s\n", green("✓"), dst)
-		added, err := addToUserPath(binDir)
+		added, err := addToUserPath(dir)
 		switch {
 		case err != nil:
 			fmt.Printf("  %s mise à jour du PATH impossible (%v)\n", dim("•"), err)
 		case added:
-			fmt.Printf("  %s %s ajouté au PATH utilisateur\n", green("✓"), binDir)
+			fmt.Printf("  %s %s ajouté au PATH utilisateur\n", green("✓"), dir)
 			onPath = true
 		default:
-			fmt.Printf("  %s %s déjà dans le PATH\n", dim("•"), binDir)
+			fmt.Printf("  %s %s déjà dans le PATH\n", dim("•"), dir)
 			onPath = true
 		}
 	}
@@ -97,10 +67,9 @@ func cmdInstall(args []string) error {
 	return nil
 }
 
-// installSelf copies the currently running executable into binDir as ajean.exe
-// and returns the destination path. If the running exe already lives there
-// (re-install), it's a no-op. Une copie « ajean.exe » est posée à côté pour que
-// l'ancienne commande reste tapable (voir installLegacyAlias).
+// installSelf copie l'exécutable en cours dans binDir sous le nom ajean.exe et
+// renvoie le chemin de destination. Sans effet si l'exe tourne déjà depuis là
+// (ré-installation).
 //
 // binDir est créé ici, et pas seulement par l'appelant : sur une machine vierge,
 // le premier lancement passait par appFirstRun, qui ne créait que le dossier de
@@ -115,7 +84,6 @@ func installSelf(binDir string) (string, error) {
 	src, _ = filepath.EvalSymlinks(src)
 	dst := filepath.Join(binDir, "ajean.exe")
 	if strings.EqualFold(src, dst) {
-		installLegacyAlias(binDir, src)
 		return dst, nil
 	}
 	if err := os.MkdirAll(binDir, 0o755); err != nil {
@@ -126,24 +94,7 @@ func installSelf(binDir string) (string, error) {
 	if err := replaceExe(src, dst); err != nil {
 		return "", err
 	}
-	installLegacyAlias(binDir, dst)
 	return dst, nil
-}
-
-// installLegacyAlias pose une copie « ajean.exe » à côté de « ajean.exe ».
-//
-// Une copie et pas un lien : créer un lien symbolique sous Windows demande des
-// droits particuliers qu'on n'a pas toujours, et un binaire de quelques dizaines
-// de Mo dupliqué est un prix dérisoire pour ne casser ni les raccourcis du menu
-// Démarrer, ni les tâches planifiées, ni les scripts que les utilisateurs ont
-// écrits eux-mêmes. Best-effort : un échec ne compromet pas l'installation,
-// « ajean » reste disponible.
-func installLegacyAlias(binDir, src string) {
-	alias := filepath.Join(binDir, "ajean.exe")
-	if strings.EqualFold(src, alias) {
-		return
-	}
-	_ = replaceExe(src, alias)
 }
 
 // replaceExe copie src vers dst, y compris quand dst est un exécutable EN COURS.
@@ -253,9 +204,9 @@ func cmdUninstall(args []string) error {
 	_ = svcStop(false)
 
 	// Pull AJEAN_HOME\bin off the user PATH (best-effort).
-	binDir := filepath.Join(AjeanHome(), "bin")
-	if removed, err := removeFromUserPath(binDir); err == nil && removed {
-		fmt.Printf("  %s %s retiré du PATH utilisateur\n", green("✓"), binDir)
+	dir := binDir()
+	if removed, err := removeFromUserPath(dir); err == nil && removed {
+		fmt.Printf("  %s %s retiré du PATH utilisateur\n", green("✓"), dir)
 	}
 
 	// Raccourcis posés à l'installation (menu Démarrer + Bureau).
