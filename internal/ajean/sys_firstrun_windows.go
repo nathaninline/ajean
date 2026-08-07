@@ -19,8 +19,8 @@ import (
 
 // Premier lancement sous Windows.
 //
-// Avant : double-cliquer jean-windows-amd64.exe déclenchait une installation
-// SILENCIEUSE (copie du binaire dans %ProgramData%\jean\bin, ajout au PATH) dont
+// Avant : double-cliquer ajean-windows-amd64.exe déclenchait une installation
+// SILENCIEUSE (copie du binaire dans %ProgramData%\ajean\bin, ajout au PATH) dont
 // l'utilisateur ne voyait rien — cmdApp appelait cmdInstall sans console pour en
 // afficher la sortie. D'où la confusion légitime : est-ce que ça installe ou est-ce
 // que ça lance ? Et surtout, deux copies du binaire coexistaient (celle du Bureau,
@@ -195,12 +195,6 @@ func runAsInstaller(target string) bool {
 			return launch(target) // l'instance en cours reprend la main (port occupé)
 		}
 		stopProcesses(running)
-		// Les instances sont arrêtées : c'est le moment où le renommage peut
-		// aboutir. S'il bute encore, et seulement sur un refus de droits, on
-		// demande l'élévation — l'utilisateur est déjà dans un parcours
-		// d'installation, une fenêtre UAC n'y est pas une surprise.
-		elevateForHomeMigration()
-		target = migrateThenResolveTarget(target)
 		if err := replaceInstalled(target); err != nil {
 			messageBox("La mise à jour a échoué :\n\n"+err.Error()+"\n\nAJEAN va redémarrer dans sa version actuelle.",
 				"AJEAN", mbIconInfo)
@@ -211,8 +205,6 @@ func runAsInstaller(target string) bool {
 	case cmp > 0:
 		// Mise à jour, application arrêtée : rien à décider, on remplace et on
 		// démarre. C'est le cas courant et il doit rester muet.
-		elevateForHomeMigration()
-		target = migrateThenResolveTarget(target)
 		_ = replaceInstalled(target)
 		ensureShortcuts(target)
 		return launch(target)
@@ -234,21 +226,6 @@ func verLabel(v string) string {
 // replaceInstalled écrase le binaire installé par celui qu'on exécute. Le
 // renommage préalable en .old permet de remplacer un exécutable encore ouvert
 // (même mécanique que replaceBinary pour `ajean update`).
-// migrateThenResolveTarget tente la migration du dossier de données maintenant
-// qu'aucune instance ne tient plus de handle, puis renvoie le chemin du binaire
-// installé DANS le dossier résultant.
-//
-// Recalculer le chemin est indispensable et pas cosmétique : `target` a été
-// calculé avant la migration, il désigne donc encore …\jean\bin\ajean.exe. Sans
-// ce recalcul, on réinstallerait le binaire dans l'ancien dossier qu'on vient
-// tout juste de déplacer, en recréant au passage une arborescence fantôme.
-func migrateThenResolveTarget(target string) string {
-	if !retryHomeMigration() {
-		return target
-	}
-	return installedExePath()
-}
-
 func replaceInstalled(target string) error {
 	removeOldBinaries(target)
 	old, err := renameAside(target) // nom unique, cf. renameAside
@@ -264,7 +241,7 @@ func replaceInstalled(target string) error {
 }
 
 // runningPIDs liste les processus qui exécutent exactement ce fichier. On compare
-// le CHEMIN, pas le nom : tuer par nom d'image (« jean.exe ») emporterait aussi
+// le CHEMIN, pas le nom : tuer par nom d'image (« ajean.exe ») emporterait aussi
 // le processus courant et toute autre copie sans rapport.
 //
 // La comparaison se fait ICI, sur des chemins canonisés, et non dans le script
@@ -399,16 +376,16 @@ type vsFixedFileInfo struct {
 // Extrait de cmdInstall pour être réutilisable au premier lancement, sans
 // embarquer l'installation du binaire ni les messages de console.
 func provisionDataDir() error {
-	jeanHome := AjeanHome()
+	ajeanHome := AjeanHome()
 	// Plus de dossier SKILLS : les skills ont ete fondus dans la memoire.
 	// On ne le CREE plus, mais on continue de le LIRE une fois au demarrage
 	// pour reprendre ceux d'une ancienne installation (migrateSkillsToMemory).
-	for _, d := range []string{jeanHome, filepath.Join(jeanHome, "configs")} {
+	for _, d := range []string{ajeanHome, filepath.Join(ajeanHome, "configs")} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			return err
 		}
 	}
-	conf := filepath.Join(jeanHome, "config.env")
+	conf := filepath.Join(ajeanHome, "config.env")
 	if _, err := os.Stat(conf); os.IsNotExist(err) {
 		return os.WriteFile(conf, []byte(configTemplate), 0o644)
 	}
@@ -436,7 +413,7 @@ foreach ($d in @($progs, [Environment]::GetFolderPath('Desktop'))) {
   if (-not (Test-Path $d)) { continue }
   $lnk=Join-Path $d 'AJEAN.lnk'
   # Un raccourci existant est REPOINTÉ s'il vise autre chose que le binaire
-  # canonique — typiquement l'ancien « jean.exe », qui n'est plus qu'un alias.
+  # canonique — typiquement l'ancien « ajean.exe », qui n'est plus qu'un alias.
   # Le laisser en l'état condamnait l'utilisateur à relancer indéfiniment une
   # version périmée par son propre raccourci.
   if (Test-Path $lnk) {

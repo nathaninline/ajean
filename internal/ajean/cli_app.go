@@ -1,12 +1,12 @@
 package ajean
 
-// cli_app.go — expérience « application » de Jean.
+// cli_app.go — expérience « application » de AJEAN.
 //
 // Quand on double-clique sur le binaire (aucun argument, console fraîche), au
-// lieu d'afficher l'aide dans une console qui se ferme, Jean démarre son UI web,
+// lieu d'afficher l'aide dans une console qui se ferme, AJEAN démarre son UI web,
 // l'ouvre dans le navigateur ET pose une icône dans la zone de notification
-// Windows (voir sys_tray_windows.go) : on voit que Jean tourne et on le pilote
-// (« Ouvrir Jean » / « Quitter »).
+// Windows (voir sys_tray_windows.go) : on voit que AJEAN tourne et on le pilote
+// (« Ouvrir AJEAN » / « Quitter »).
 
 import (
 	"fmt"
@@ -34,13 +34,13 @@ func cmdApp(args []string) error {
 	addr := fmt.Sprintf("0.0.0.0:%d", appPort)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		// Jean tourne déjà sur ce port : on ouvre juste l'UI sur l'instance
+		// AJEAN tourne déjà sur ce port : on ouvre juste l'UI sur l'instance
 		// existante plutôt que d'échouer.
 		fmt.Printf("AJEAN est déjà lancé — ouverture de %s\n", url)
 		return openBrowser(url)
 	}
 
-	// UN SEUL process propriétaire de la conversation, comme le service jean-link
+	// UN SEUL process propriétaire de la conversation, comme le service ajean-link
 	// sous Linux : l'app sert l'UI locale ET le tunnel avec le MÊME mux. Deux
 	// process qui servent la conversation (objet en mémoire persisté dans
 	// conversation.json) donnent deux fils divergents entre le local et

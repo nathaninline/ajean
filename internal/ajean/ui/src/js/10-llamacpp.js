@@ -15,12 +15,7 @@ async function loadLlamacpp(){
   const fastInstalled = !!pb.bin;
   const optInstalled  = !!s.bin;
 
-  const head = document.getElementById('lc-status');
-  if(!fastInstalled && !optInstalled){
-    head.innerHTML = 'Installez le moteur d\'IA. Le <b>précompilé</b> convient à presque tout le monde.';
-  } else {
-    head.innerHTML = 'Installez les moteurs ici. Vous choisissez lequel utiliser en éditant un modèle (bouton ⚙).';
-  }
+  lcRenderReco(s.reco);
   lcRenderMode('fast', fastInstalled);
   lcRenderMode('opt', optInstalled);
   lcRenderCustomCard();
@@ -76,6 +71,23 @@ function lcChipOpen(){
   if(!document.getElementById('lc-chip').classList.contains('failed')) return;
   lcSeenEnd = true;
   lcChipSync(null);
+}
+
+// Place la pastille « conseillé » sur la carte que le SERVEUR recommande pour
+// cette machine (voir recommendedMode) : le précompilé partout, sauf sur Linux
+// avec une carte NVIDIA où il ne donnerait que du Vulkan. La raison est ajoutée
+// à la description de la carte, pour expliquer plutôt que d'imposer.
+function lcRenderReco(reco){
+  const mode = (reco && reco.mode) || 'fast';
+  for(const m of ['fast','opt']){
+    const badge = document.getElementById('lc-reco-'+m);
+    if(badge) badge.hidden = (m !== mode);
+  }
+  // La raison REMPLACE la description générique de la carte conseillée : elle
+  // dit déjà ce que fait l'option et pourquoi c'est le bon choix ici. (loadAll
+  // repasse par là, donc pas d'accumulation possible.)
+  const desc = document.getElementById('lc-desc-'+mode);
+  if(desc && reco && reco.why) desc.textContent = reco.why;
 }
 
 function lcRenderMode(mode, installed){

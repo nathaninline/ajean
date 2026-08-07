@@ -27,7 +27,7 @@ func serveBlob(data []byte, ranges bool) *httptest.Server {
 
 // Un téléchargement annulé ne doit laisser NI le .gguf final NI le .part.
 func TestRunDownloadCancelLeavesNothing(t *testing.T) {
-	t.Setenv("JEAN_DL_CONNS", "4")
+	t.Setenv("AJEAN_DL_CONNS", "4")
 	release := make(chan struct{})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Range") == "bytes=0-0" { // sonde : réponse immédiate
@@ -76,7 +76,7 @@ func TestRunDownloadCancelLeavesNothing(t *testing.T) {
 // cleanStalePartFiles doit balayer les .part orphelins sans toucher aux .gguf.
 func TestCleanStalePartFiles(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("JEAN_HOME", dir)
+	t.Setenv("AJEAN_HOME", dir)
 	keep := filepath.Join(dir, "bon.gguf")
 	stale := filepath.Join(dir, "coupe.gguf.part")
 	for _, p := range []string{keep, stale} {
@@ -96,7 +96,7 @@ func TestCleanStalePartFiles(t *testing.T) {
 func TestRunDownloadParallelAndFallback(t *testing.T) {
 	data := make([]byte, 48<<20) // > 3×dlMinChunk so the split actually kicks in
 	rand.New(rand.NewSource(1)).Read(data)
-	t.Setenv("JEAN_DL_CONNS", "4")
+	t.Setenv("AJEAN_DL_CONNS", "4")
 
 	for _, ranges := range []bool{true, false} {
 		srv := serveBlob(data, ranges)

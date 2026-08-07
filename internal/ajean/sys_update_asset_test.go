@@ -35,7 +35,7 @@ func TestPickAssetAjeanOnly(t *testing.T) {
 	}
 }
 
-// Ancienne release, antérieure au renommage : le repli sur jean-* doit marcher,
+// Ancienne release, antérieure au renommage : le repli sur ajean-* doit marcher,
 // sinon un client neuf ne pourrait pas s'installer depuis une release existante.
 func TestPickAssetFallsBackToLegacy(t *testing.T) {
 	names := updateAssetNames()

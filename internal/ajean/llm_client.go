@@ -526,7 +526,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 	// le contexte — c'est un choix assumé.
 	for iter := 0; ; iter++ {
 		payload := map[string]any{
-			"model":       "jean",
+			"model":       "ajean",
 			"messages":    messages,
 			"stream":      true,
 			"temperature": temperature,

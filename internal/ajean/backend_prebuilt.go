@@ -337,6 +337,27 @@ func pickPrebuilt(assets []ghAsset) (main *ghAsset, cudart *ghAsset, label, cuda
 	return main, cudart, label, cudaVer, nil
 }
 
+// recommendedMode dit laquelle des deux installations conseiller sur CETTE
+// machine, et pourquoi. Le précompilé convient presque partout — sauf dans un
+// cas qui concerne beaucoup de monde : **Linux avec une carte NVIDIA**.
+// llama.cpp ne publie AUCUN binaire CUDA pour Linux (vérifié release b10299 :
+// seuls Windows a bin-win-cuda-*), donc pickPrebuilt y retombe sur Vulkan, qui
+// marche mais laisse une bonne part de la carte inexploitée. Conseiller le
+// précompilé dans ce cas revenait à pousser vers l'option la plus lente.
+//
+// `backend` est celui qu'une compilation LOCALE produirait (detectBuildPlan).
+// Renvoie {mode: "fast"|"opt", why: "…"} — le libellé est affiché sous la carte
+// conseillée, pour que le choix soit justifié plutôt qu'imposé.
+func recommendedMode(backend string) map[string]any {
+	if runtime.GOOS == "linux" && backend == "cuda" {
+		return map[string]any{
+			"mode": "opt",
+			"why":  "seule voie vers du CUDA natif : llama.cpp ne publie aucun binaire CUDA pour Linux, le précompilé ne donnerait que du Vulkan. Compte plusieurs minutes de compilation.",
+		}
+	}
+	return map[string]any{"mode": "fast", "why": ""}
+}
+
 // prebuiltInstall télécharge et installe (ou met à jour) les binaires
 // précompilés. logf reçoit chaque ligne de log ; phasef la phase courante.
 // Renvoie le chemin du binaire installé.
@@ -354,7 +375,7 @@ func prebuiltInstall(logf, phasef func(string)) (string, error) {
 	logf(fmt.Sprintf("release %s — variant retenu : %s", tag, label))
 
 	// Réinstaller à l'identique est inutile SAUF si l'extraction date d'une
-	// version de Jean qui ignorait les liens des archives (backend installé mais
+	// version de AJEAN qui ignorait les liens des archives (backend installé mais
 	// bibliothèques introuvables au lancement) : le marqueur de format force alors
 	// une ré-extraction propre au lieu d'un « déjà à jour » trompeur.
 	if cur := prebuiltServerBin(); curTag == tag && prebuiltVersionFormat() == prebuiltFormat && cur != "" {

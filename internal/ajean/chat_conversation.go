@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -65,16 +63,15 @@ var conv = func() *Conversation {
 	return c
 }()
 
-// convPath = fichier de persistance sur la box jean (AjeanHome = /etc/jean en
-// prod). En clair : la box déchiffre déjà pour lancer le modèle, le relais reste
-// aveugle — le persister ici ne change rien à la posture E2E.
-func convPath() string { return filepath.Join(AjeanHome(), "conversation.json") }
+// La conversation est persistée en base, sur la machine qui fait tourner le
+// modèle. En clair : cette machine déchiffre déjà pour lancer le modèle, le
+// relais reste aveugle — la persister ici ne change rien à la posture E2E.
 
-// LoadConversation recharge l'état persisté au démarrage du process. Sans fichier
-// (première fois) on part d'une conversation vide.
+// LoadConversation recharge l'état persisté au démarrage du process. Sans état
+// enregistré (première fois) on part d'une conversation vide.
 func LoadConversation() {
-	b, err := os.ReadFile(convPath())
-	if err != nil {
+	b := getBytes(bkChat, "conversation")
+	if len(b) == 0 {
 		return
 	}
 	conv.mu.Lock()
@@ -85,8 +82,8 @@ func LoadConversation() {
 	conv.cancel = nil
 }
 
-// persist écrit l'état sur disque (appelé en fin de tour et sur reset, pas à
-// chaque delta). L'appelant NE doit PAS détenir mu.
+// persist enregistre l'état (appelé en fin de tour et sur reset, pas à chaque
+// delta). L'appelant NE doit PAS détenir mu.
 func (c *Conversation) persist() {
 	c.mu.Lock()
 	b, err := json.Marshal(c)
@@ -94,12 +91,7 @@ func (c *Conversation) persist() {
 	if err != nil {
 		return
 	}
-	_ = os.MkdirAll(AjeanHome(), 0o755)
-	tmp := convPath() + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
-		return
-	}
-	_ = os.Rename(tmp, convPath())
+	_ = putBytes(bkChat, "conversation", b)
 }
 
 // appendDelta journalise un événement d'affichage et réveille les abonnés.

@@ -86,10 +86,10 @@ func detectQuant(content string) string {
 	return quantFromName(baseName(modelFromPresetContent(content)))
 }
 
-// downloadDestPath resolves the destination of a downloaded model: always
-// JEAN_HOME (les dossiers externes sont en lecture, on n'y écrit pas), en
+// downloadDestPath resolves the destination of a downloaded model : le dossier
+// demandé (vide = AJEAN_HOME) parmi les dossiers de modèles déclarés, en
 // refusant tout ce qui en sortirait (path traversal).
-func downloadDestPath(name string) (string, error) {
+func downloadDestPath(name, dir string) (string, error) {
 	base := filepath.Base(strings.TrimSpace(name))
 	if base == "" || base == "." || base == string(filepath.Separator) {
 		return "", fmt.Errorf("nom de modèle invalide")
@@ -97,7 +97,11 @@ func downloadDestPath(name string) (string, error) {
 	if !strings.HasSuffix(strings.ToLower(base), ".gguf") {
 		return "", fmt.Errorf("seuls les fichiers .gguf sont acceptés")
 	}
-	return filepath.Join(AjeanHome(), base), nil
+	d, err := resolveDownloadDir(dir)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(d, base), nil
 }
 
 // modelFromPresetContent extracts the MODEL= value from a preset's config.env
@@ -135,7 +139,7 @@ func deleteModelFile(name string) error {
 	return nil
 }
 
-// handleModelDelete deletes a single .gguf from JEAN_HOME.
+// handleModelDelete deletes a single .gguf from AJEAN_HOME.
 func handleModelDelete(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name string `json:"name"`
@@ -157,6 +161,7 @@ func handleModelDelete(w http.ResponseWriter, r *http.Request) {
 type dlState struct {
 	Filename  string `json:"filename"`
 	URL       string `json:"url"`
+	Dir       string `json:"dir"` // dossier de destination
 	Total     int64  `json:"total"`
 	Done      int64  `json:"done"`
 	Speed     int64  `json:"speed"` // bytes/s, smoothed over the last samples
@@ -194,10 +199,10 @@ var dlClient = &http.Client{
 }
 
 // dlConns is the number of parallel range requests used per download.
-// Overridable with JEAN_DL_CONNS (1 disables parallelism).
+// Overridable with AJEAN_DL_CONNS (1 disables parallelism).
 func dlConns() int {
 	n := 8
-	if v := envAny("AJEAN_DL_CONNS", "JEAN_DL_CONNS"); v != "" {
+	if v := os.Getenv("AJEAN_DL_CONNS"); v != "" {
 		if p, err := strconv.Atoi(v); err == nil && p > 0 {
 			n = p
 		}
@@ -242,11 +247,12 @@ func normalizeHFURL(raw string) (string, string, error) {
 }
 
 // handleModelDownload kicks off a background download of a .gguf from a URL
-// (typically Hugging Face) into JEAN_HOME. Progress is polled via
+// (typically Hugging Face) into AJEAN_HOME. Progress is polled via
 // /api/models/download/status.
 func handleModelDownload(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		URL string `json:"url"`
+		Dir string `json:"dir"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
@@ -257,9 +263,13 @@ func handleModelDownload(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	dest, err := downloadDestPath(name)
+	dest, err := downloadDestPath(name, req.Dir)
 	if err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "dossier de destination inaccessible : " + err.Error()})
 		return
 	}
 
@@ -275,12 +285,80 @@ func handleModelDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	st := &dlState{Filename: name, URL: dlURL, StartedAt: time.Now().Unix(), cancel: cancel}
+	st := &dlState{Filename: name, URL: dlURL, Dir: filepath.Dir(dest), StartedAt: time.Now().Unix(), cancel: cancel}
 	dlDownloads[name] = st
 	dlMu.Unlock()
 
 	go runDownload(ctx, st, dlURL, dest)
 	sendJSON(w, 200, map[string]any{"ok": true, "filename": name})
+}
+
+// dlSpaceMargin est la marge laissée libre après le téléchargement : un disque
+// rempli à ras bord met en danger tout le reste (logs, .part d'un autre
+// modèle, swap).
+const dlSpaceMargin = 256 << 20
+
+// checkDiskSpace refuse le téléchargement si le fichier ne tient pas dans le
+// dossier visé. free < 0 = mesure impossible : on laisse passer plutôt que de
+// bloquer sur un système de fichiers exotique.
+func checkDiskSpace(dir string, size int64) error {
+	free := diskFree(dir)
+	if size <= 0 || free < 0 {
+		return nil
+	}
+	if free < size+dlSpaceMargin {
+		return fmt.Errorf("espace insuffisant sur %s : %s libres, %s nécessaires", dir, humanBytes(free), humanBytes(size+dlSpaceMargin))
+	}
+	return nil
+}
+
+// humanBytes formate une taille en Go/Mo pour les messages d'erreur.
+func humanBytes(n int64) string {
+	switch {
+	case n >= 1<<30:
+		return fmt.Sprintf("%.1f Go", float64(n)/float64(1<<30))
+	case n >= 1<<20:
+		return fmt.Sprintf("%.0f Mo", float64(n)/float64(1<<20))
+	default:
+		return fmt.Sprintf("%d o", n)
+	}
+}
+
+// handleModelDownloadProbe renseigne l'UI avant de lancer quoi que ce soit :
+// taille du fichier distant, espace libre du dossier visé, et si ça tient. Une
+// seule requête d'un octet côté CDN, donc c'est gratuit.
+func handleModelDownloadProbe(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		URL string `json:"url"`
+		Dir string `json:"dir"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	dlURL, name, err := normalizeHFURL(req.URL)
+	if err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	dir, err := resolveDownloadDir(req.Dir)
+	if err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	total, _, err := dlProbe(ctx, dlURL)
+	if err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	out := map[string]any{"ok": true, "filename": name, "dir": dir, "size": total, "free": diskFree(dir), "enough": true}
+	if err := checkDiskSpace(dir, total); err != nil {
+		out["enough"] = false
+		out["error"] = err.Error()
+	}
+	sendJSON(w, 200, out)
 }
 
 // dlRequest builds a GET for the download URL, carrying the HF token when set
@@ -294,7 +372,7 @@ func dlRequest(ctx context.Context, dlURL, rng string) (*http.Request, error) {
 	if k := os.Getenv("HF_TOKEN"); k != "" {
 		req.Header.Set("Authorization", "Bearer "+k)
 	}
-	req.Header.Set("User-Agent", "jean/"+Version)
+	req.Header.Set("User-Agent", "ajean/"+Version)
 	req.Header.Set("Accept-Encoding", "identity") // never gzip a .gguf: it breaks ranges
 	if rng != "" {
 		req.Header.Set("Range", rng)
@@ -371,6 +449,12 @@ func runDownload(ctx context.Context, st *dlState, dlURL, dest string) {
 
 	total, ranged, err := dlProbe(ctx, dlURL)
 	if err != nil {
+		finish(err)
+		return
+	}
+	// Vérification serveur : l'UI a déjà prévenu, mais rien ne garantit qu'elle
+	// l'ait fait (autre client, disque rempli entre-temps).
+	if err := checkDiskSpace(filepath.Dir(dest), total); err != nil {
 		finish(err)
 		return
 	}
@@ -595,18 +679,20 @@ func handleModelDownloadCancel(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true})
 }
 
-// cleanStalePartFiles removes leftover *.gguf.part files in JEAN_HOME at
+// cleanStalePartFiles removes leftover *.gguf.part files in every model dir at
 // startup. A download killed by a crash or a service restart can't be resumed
 // (its state lived in memory), so the partial file would otherwise sit there
 // forever eating disk.
 func cleanStalePartFiles() {
-	matches, err := filepath.Glob(filepath.Join(AjeanHome(), "*.gguf.part"))
-	if err != nil {
-		return
-	}
-	for _, p := range matches {
-		if err := os.Remove(p); err == nil {
-			fmt.Printf("[models] téléchargement incomplet supprimé : %s\n", filepath.Base(p))
+	for _, dir := range modelDirs() {
+		matches, err := filepath.Glob(filepath.Join(dir, "*.gguf.part"))
+		if err != nil {
+			continue
+		}
+		for _, p := range matches {
+			if err := os.Remove(p); err == nil {
+				fmt.Printf("[models] téléchargement incomplet supprimé : %s\n", p)
+			}
 		}
 	}
 }

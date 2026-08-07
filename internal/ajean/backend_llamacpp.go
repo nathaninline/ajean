@@ -53,9 +53,9 @@ func cmdLlamacpp(args []string) error {
 			return err
 		}
 		if err := SetConfigKey("BIN", bin); err != nil {
-			return fmt.Errorf("binaires installés mais échec écriture BIN dans config.env: %w", err)
+			return fmt.Errorf("binaires installés mais échec d'écriture de BIN : %w", err)
 		}
-		fmt.Printf("%s BIN mis à jour dans %s — %s pour appliquer\n", green("✓"), confPath(), bold("ajean restart"))
+		fmt.Printf("%s BIN mis à jour — %s pour appliquer\n", green("✓"), bold("ajean restart"))
 		return nil
 	default:
 		return fmt.Errorf("sous-commande inconnue: %s (install | update | prebuilt | status)", sub)
@@ -68,7 +68,7 @@ func cmdLlamacpp(args []string) error {
 
 // llamacppRepoDir resolves the llama.cpp checkout: derived from config BIN when
 // possible (so `update` targets whatever build the service actually runs),
-// otherwise the default under $JEAN_HOME/backends/llama.cpp.
+// otherwise the default under $AJEAN_HOME/backends/llama.cpp.
 func llamacppRepoDir() string {
 	if bin := ReadConfig()["BIN"]; bin != "" {
 		if real, err := filepath.EvalSymlinks(bin); err == nil {
@@ -200,13 +200,13 @@ func llamacppInstall(args []string) error {
 	fmt.Printf("\n%s binaire compilé : %s\n", green("✓"), bin)
 
 	if noSwitch {
-		fmt.Printf("%s --no-switch : config.env inchangée (BIN à régler manuellement)\n", dim("[info]"))
+		fmt.Printf("%s --no-switch : configuration inchangée (BIN à régler manuellement)\n", dim("[info]"))
 		return nil
 	}
 	if err := SetConfigKey("BIN", bin); err != nil {
-		return fmt.Errorf("build ok mais échec écriture BIN dans config.env: %w", err)
+		return fmt.Errorf("build ok mais échec d'écriture de BIN : %w", err)
 	}
-	fmt.Printf("%s BIN mis à jour dans %s\n", green("✓"), confPath())
+	fmt.Printf("%s BIN mis à jour\n", green("✓"))
 	fmt.Printf("\nProchaines étapes :\n  1. renseigne MODEL : %s\n  2. démarre        : %s\n",
 		bold("ajean edit"), bold("ajean restart"))
 	return nil

@@ -19,7 +19,7 @@ import (
 // cf. issue #4). Implémentation prudente basée sur launchctl load/unload/list.
 
 // launchdLabel dérive le label launchd du service (ex. "com.ajean.ajean"), en
-// conservant le préfixe hérité « com.jean. » tant que c'est LUI qui est
+// conservant le préfixe hérité « com.ajean. » tant que c'est LUI qui est
 // réellement installé : le plist d'un daemon déjà chargé ne se renomme pas tout
 // seul, et viser le mauvais label reviendrait à ne plus voir le service.
 func launchdLabel(svc string) string {
@@ -27,7 +27,7 @@ func launchdLabel(svc string) string {
 	if _, err := os.Stat("/Library/LaunchDaemons/" + modern + ".plist"); err == nil {
 		return modern
 	}
-	if legacy := "com.jean." + svc; fileExists("/Library/LaunchDaemons/" + legacy + ".plist") {
+	if legacy := "com.ajean." + svc; fileExists("/Library/LaunchDaemons/" + legacy + ".plist") {
 		return legacy
 	}
 	return modern
@@ -44,7 +44,7 @@ func launchdPlistPath(svc string) string {
 	return "/Library/LaunchDaemons/" + launchdLabel(svc) + ".plist"
 }
 
-// launchdLogPath : sortie standard/erreur du service, sous JEAN_HOME (accessible
+// launchdLogPath : sortie standard/erreur du service, sous AJEAN_HOME (accessible
 // en écriture par l'utilisateur du service après le chown de l'installation).
 func launchdLogPath() string { return filepath.Join(AjeanHome(), serviceName()+".log") }
 
@@ -53,8 +53,8 @@ func launchdLogPath() string { return filepath.Join(AjeanHome(), serviceName()+"
 func serviceAction(action string) error {
 	svc := serviceName()
 	plist := launchdPlistPath(svc)
-	// Pas de LaunchDaemon installé — cas normal d'un Mac de bureau, où Jean tourne
-	// via Jean.app sans jamais passer par `sudo ajean install` : on gère alors le
+	// Pas de LaunchDaemon installé — cas normal d'un Mac de bureau, où AJEAN tourne
+	// via AJEAN.app sans jamais passer par `sudo ajean install` : on gère alors le
 	// service comme sous Windows, avec un `ajean serve` détaché suivi par un fichier
 	// PID. Aucun droit root requis. Sans ça, `start` échouait sur un plist absent
 	// et l'UI affichait éternellement « service arrêté ».
@@ -145,9 +145,9 @@ func serviceIsActive() bool {
 
 // ---------------------------------------------------------------------------
 // Mode utilisateur (sans launchd) — même approche que Windows : `ajean serve` est
-// lancé détaché, son PID va dans JEAN_HOME/<svc>.pid et sa sortie dans
-// JEAN_HOME/<svc>.log. Setsid le détache de notre session pour qu'il survive à
-// la fermeture de Jean.app, et permet de tuer tout le groupe (llama-server
+// lancé détaché, son PID va dans AJEAN_HOME/<svc>.pid et sa sortie dans
+// AJEAN_HOME/<svc>.log. Setsid le détache de notre session pour qu'il survive à
+// la fermeture de AJEAN.app, et permet de tuer tout le groupe (llama-server
 // enfant compris) d'un seul signal.
 
 func pidFilePath() string { return filepath.Join(AjeanHome(), serviceName()+".pid") }
@@ -202,7 +202,7 @@ func userSvcStart() error {
 	cmd := exec.Command(self, "serve")
 	cmd.Stdout, cmd.Stderr = logf, logf
 	// Même répertoire de travail que sous systemd/launchd : les chemins relatifs
-	// de config.env (MODEL=…gguf) se résolvent depuis JEAN_HOME, pas depuis « / »
+	// de config.env (MODEL=…gguf) se résolvent depuis AJEAN_HOME, pas depuis « / »
 	// que nous hérite le Finder.
 	cmd.Dir = AjeanHome()
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}

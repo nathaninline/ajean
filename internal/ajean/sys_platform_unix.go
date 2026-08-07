@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-// defaultAjeanHome is the data root when neither $AJEAN_HOME/$JEAN_HOME nor
+// defaultAjeanHome is the data root when neither $AJEAN_HOME/$AJEAN_HOME nor
 // /etc/default/* override it. legacyDefaultHome est son équivalent d'avant le
 // renommage, migré au premier lancement (voir sys_migrate.go).
 //
@@ -27,7 +27,7 @@ import (
 // un `sudo ajean install` a déjà créé /etc/ajean à notre nom.
 func defaultAjeanHome() string { return unixHome("ajean") }
 
-func legacyDefaultHome() string { return unixHome("jean") }
+func legacyDefaultHome() string { return unixHome("ajean") }
 
 func unixHome(name string) string {
 	if runtime.GOOS != "darwin" || os.Geteuid() == 0 {
@@ -49,7 +49,7 @@ func isWritableDir(dir string) bool {
 	if err != nil || !fi.IsDir() {
 		return false
 	}
-	probe := filepath.Join(dir, ".jean-write-test")
+	probe := filepath.Join(dir, ".ajean-write-test")
 	f, err := os.OpenFile(probe, os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return false
@@ -335,7 +335,7 @@ func ramUsageMB() (used, total int) {
 // --- Supervision de processus détachés (worker de lien, service en mode
 // utilisateur). Pendant Unix de sys_platform_windows.go.
 
-// spawnDetached prépare une commande qui survivra à la mort de Jean : Setsid la
+// spawnDetached prépare une commande qui survivra à la mort de AJEAN : Setsid la
 // place dans une nouvelle session, donc elle n'est pas tuée avec notre groupe.
 func spawnDetached(name string, args ...string) *exec.Cmd {
 	cmd := exec.Command(name, args...)

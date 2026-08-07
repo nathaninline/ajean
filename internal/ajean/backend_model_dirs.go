@@ -10,14 +10,13 @@ import (
 	"strings"
 )
 
-// Les .gguf vivent historiquement dans JEAN_HOME, mais un modèle de 40 Go tient
+// Les .gguf vivent dans $AJEAN_HOME/models, mais un modèle de 40 Go tient
 // rarement sur le disque système : on autorise des dossiers supplémentaires
-// (disque dur externe, second SSD, montage réseau…). La liste est persistée
-// dans $JEAN_HOME/model_dirs.json — PAS dans config.env, que le changement de
-// preset réécrit — et peut aussi venir de $JEAN_MODEL_DIRS.
-func modelDirsPath() string { return filepath.Join(AjeanHome(), "model_dirs.json") }
+// (disque dur externe, second SSD, montage réseau…). La liste est persistée en
+// base — PAS dans la configuration, que le changement de preset remplace — et
+// peut aussi venir de $AJEAN_MODEL_DIRS.
 
-// modelDirsListSep sépare les dossiers dans $JEAN_MODEL_DIRS (':' sous Unix,
+// modelDirsListSep sépare les dossiers dans $AJEAN_MODEL_DIRS (':' sous Unix,
 // ';' sous Windows, comme le PATH).
 func modelDirsListSep() string {
 	if runtime.GOOS == "windows" {
@@ -26,20 +25,15 @@ func modelDirsListSep() string {
 	return ":"
 }
 
-// extraModelDirs renvoie les dossiers déclarés par l'utilisateur (fichier puis
-// variable d'environnement), nettoyés et dédoublonnés, JEAN_HOME exclu.
+// extraModelDirs renvoie les dossiers déclarés par l'utilisateur (base puis
+// variable d'environnement), nettoyés et dédoublonnés, models/ exclu.
 func extraModelDirs() []string {
 	var raw []string
-	if b, err := os.ReadFile(modelDirsPath()); err == nil {
-		var dirs []string
-		if json.Unmarshal(b, &dirs) == nil {
-			raw = append(raw, dirs...)
-		}
-	}
-	if v := envAny("AJEAN_MODEL_DIRS", "JEAN_MODEL_DIRS"); v != "" {
+	getJSON(bkState, "model_dirs", &raw)
+	if v := os.Getenv("AJEAN_MODEL_DIRS"); v != "" {
 		raw = append(raw, strings.Split(v, modelDirsListSep())...)
 	}
-	return dedupDirs(raw, AjeanHome())
+	return dedupDirs(raw, modelsDir())
 }
 
 // dedupDirs nettoie une liste de chemins : vides retirés, chemins absolus
@@ -79,23 +73,15 @@ func normDir(p string) string {
 	return p
 }
 
-// modelDirs renvoie tous les dossiers où chercher un .gguf : JEAN_HOME d'abord
+// modelDirs renvoie tous les dossiers où chercher un .gguf : models/ d'abord
 // (il reste la destination des téléchargements), puis les dossiers ajoutés.
 func modelDirs() []string {
-	return append([]string{AjeanHome()}, extraModelDirs()...)
+	return append([]string{modelsDir()}, extraModelDirs()...)
 }
 
-// saveExtraModelDirs écrit la liste des dossiers supplémentaires sur disque.
+// saveExtraModelDirs enregistre la liste des dossiers supplémentaires.
 func saveExtraModelDirs(dirs []string) error {
-	clean := dedupDirs(dirs, AjeanHome())
-	b, err := json.MarshalIndent(clean, "", "  ")
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(AjeanHome(), 0o755); err != nil {
-		return err
-	}
-	return os.WriteFile(modelDirsPath(), append(b, '\n'), 0o644)
+	return putJSON(bkState, "model_dirs", dedupDirs(dirs, modelsDir()))
 }
 
 // pathWithin dit si le fichier p est dans le dossier dir (ou un sous-dossier).
@@ -106,7 +92,7 @@ func pathWithin(dir, p string) bool {
 
 // baseName renvoie le nom de fichier d'un chemin en acceptant les DEUX
 // séparateurs : un config.env écrit sous Windows (C:\models\x.gguf) peut être
-// relu par un jean Linux, où filepath.Base ne coupe pas sur '\'.
+// relu par un ajean Linux, où filepath.Base ne coupe pas sur '\'.
 func baseName(p string) string {
 	p = strings.TrimRight(strings.TrimSpace(p), `/\`)
 	if i := strings.LastIndexAny(p, `/\`); i >= 0 {
@@ -119,7 +105,7 @@ func baseName(p string) string {
 // absolu) en chemin absolu vers un .gguf. Un chemin absolu n'est accepté que
 // s'il est dans un des dossiers déclarés — sinon l'UI web deviendrait un moyen
 // de lire/supprimer n'importe quel fichier de la machine. Un simple nom de
-// fichier est cherché dans chaque dossier, JEAN_HOME en premier.
+// fichier est cherché dans chaque dossier, AJEAN_HOME en premier.
 func resolveModelPath(name string) (string, error) {
 	s := strings.TrimSpace(strings.Trim(strings.TrimSpace(name), `"`))
 	if s == "" {
@@ -147,7 +133,7 @@ func resolveModelPath(name string) (string, error) {
 			return p, nil
 		}
 	}
-	return filepath.Join(AjeanHome(), base), nil // introuvable : l'appelant décidera
+	return filepath.Join(modelsDir(), base), nil // introuvable : l'appelant décidera
 }
 
 // modelDirCount compte les .gguf lisibles d'un dossier (-1 si illisible).
@@ -165,7 +151,48 @@ func modelDirCount(dir string) int {
 	return n
 }
 
-// handleModelDirs : GET liste les dossiers de modèles (JEAN_HOME + ajoutés),
+// diskFree renvoie l'espace libre du volume qui porte dir, ou -1 s'il est
+// inconnu. Le dossier n'existe pas forcément encore (models/ au premier
+// lancement) : on remonte les parents jusqu'à en trouver un qui existe.
+func diskFree(dir string) int64 {
+	d, err := filepath.Abs(strings.TrimSpace(dir))
+	if err != nil {
+		return -1
+	}
+	for {
+		if st, err := os.Stat(d); err == nil && st.IsDir() {
+			return diskFreeAt(d)
+		}
+		parent := filepath.Dir(d)
+		if parent == d {
+			return -1
+		}
+		d = parent
+	}
+}
+
+// resolveDownloadDir valide le dossier de destination demandé pour un
+// téléchargement : vide = models/, sinon il doit être un des dossiers
+// déclarés — sans quoi l'UI web permettrait d'écrire n'importe où sur la
+// machine.
+func resolveDownloadDir(dir string) (string, error) {
+	dir = strings.TrimSpace(dir)
+	if dir == "" {
+		return modelsDir(), nil
+	}
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", fmt.Errorf("chemin invalide")
+	}
+	for _, d := range modelDirs() {
+		if normDir(d) == normDir(abs) {
+			return d, nil
+		}
+	}
+	return "", fmt.Errorf("dossier non autorisé : %s — ajoute-le dans « Dossiers de modèles »", abs)
+}
+
+// handleModelDirs : GET liste les dossiers de modèles (AJEAN_HOME + ajoutés),
 // POST {path, action:"add"|"remove"} en ajoute ou en retire un.
 func handleModelDirs(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
@@ -211,10 +238,10 @@ func handleModelDirs(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 200, map[string]any{"ok": true})
 		return
 	}
-	out := []map[string]any{{"path": AjeanHome(), "home": true, "count": modelDirCount(AjeanHome()), "exists": true}}
+	out := []map[string]any{{"path": modelsDir(), "home": true, "count": modelDirCount(modelsDir()), "exists": true, "free": diskFree(modelsDir())}}
 	for _, d := range extraModelDirs() {
 		n := modelDirCount(d)
-		out = append(out, map[string]any{"path": d, "home": false, "count": n, "exists": n >= 0})
+		out = append(out, map[string]any{"path": d, "home": false, "count": n, "exists": n >= 0, "free": diskFree(d)})
 	}
-	sendJSON(w, 200, map[string]any{"ok": true, "dirs": out, "env": envAny("AJEAN_MODEL_DIRS", "JEAN_MODEL_DIRS") != ""})
+	sendJSON(w, 200, map[string]any{"ok": true, "dirs": out, "env": os.Getenv("AJEAN_MODEL_DIRS") != ""})
 }

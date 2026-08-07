@@ -11,14 +11,14 @@ import (
 //
 // Sans ça, les outils write/edit/bash héritent du répertoire courant du PROCESSUS :
 // le modèle écrit "meteo.json", et le fichier atterrit là d'où l'utilisateur a
-// lancé jean — le Bureau quand on double-clique l'installateur, C:\ProgramData\jean\bin
+// lancé ajean — le Bureau quand on double-clique l'installateur, C:\ProgramData\ajean\bin
 // quand on lance le binaire installé. Personne ne s'attend à voir un chat déposer
 // des fichiers sur son Bureau. On donne donc à l'agent un dossier à lui : les
 // chemins relatifs y sont résolus, et le shell y démarre. Les chemins ABSOLUS
 // restent honorés tels quels — quand l'utilisateur demande d'écrire dans un
 // dossier précis, ça doit marcher.
 
-const workspaceEnv = "JEAN_WORKSPACE"
+const workspaceEnv = "AJEAN_WORKSPACE"
 
 var (
 	workspaceOnce sync.Once
@@ -26,7 +26,7 @@ var (
 )
 
 // agentWorkspace renvoie le dossier de travail de l'agent, créé au besoin. Il
-// essaie plusieurs emplacements car AjeanHome() vaut %ProgramData%\jean sous
+// essaie plusieurs emplacements car AjeanHome() vaut %ProgramData%\ajean sous
 // Windows, qui n'est pas inscriptible par un utilisateur non administrateur.
 func agentWorkspace() string {
 	workspaceOnce.Do(func() {
@@ -62,10 +62,10 @@ func workspaceCandidates() []string {
 	}
 	c = append(c, filepath.Join(AjeanHome(), "workspace"))
 	if home, err := os.UserHomeDir(); err == nil && home != "" {
-		// Le nouveau nom d'abord, l'ancien ensuite : un dossier ~/jean/workspace
+		// Le nouveau nom d'abord, l'ancien ensuite : un dossier ~/ajean/workspace
 		// déjà rempli par l'agent reste utilisable au lieu de repartir de zéro.
 		c = append(c, filepath.Join(home, "ajean", "workspace"))
-		c = append(c, filepath.Join(home, "jean", "workspace"))
+		c = append(c, filepath.Join(home, "ajean", "workspace"))
 	}
 	c = append(c, filepath.Join(os.TempDir(), "ajean-workspace"))
 	return c

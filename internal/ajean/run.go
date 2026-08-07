@@ -20,9 +20,6 @@ func Main() {
 	// true. À faire AVANT toute écriture.
 	haveConsole := setupConsole()
 
-	// Migration one-shot des anciens skills (SKILLS/<nom>/SKILL.md) vers la
-	// nouvelle mémoire (MEMORY/<nom>.md). Idempotente, silencieuse si rien à faire.
-	migrateSkillsToMemory()
 	// Nettoie un éventuel binaire .old laissé par une mise à jour Windows.
 	cleanupOldBinary()
 
@@ -95,10 +92,6 @@ func Main() {
 		// Sous-commande interne, absente de l'aide : l'accompagnateur detache qui
 		// attend la fermeture de l'app, migre, puis la relance.
 		mustExit(cmdRestartAfterUpdate(args))
-	case migrateHomeArg:
-		// Sous-commande interne, volontairement absente de l'aide : c'est le
-		// travail delegue au process elevé par elevateForHomeMigration().
-		mustExit(cmdMigrateHomeElevated())
 	case "install":
 		mustExit(cmdInstall(args))
 	case "uninstall":
@@ -150,7 +143,7 @@ Accès distant (ajean.link) :
   link code                     génère un code d'appairage (valable 10 min, à usage unique) pour le portail
   link status | logout          état du lien / oublier le token
   link                          (sans argument) affiche l'aide des sous-commandes link
-  link serve                    exécute le worker au premier plan (utilisé par jean-link.service ; pendant de 'ajean serve')
+  link serve                    exécute le worker au premier plan (utilisé par ajean-link.service ; pendant de 'ajean serve')
 
 Mode agent:
   agent [on|off|status]         active TOUS les outils de l'IA (shell complet + mémoire) — un seul interrupteur
@@ -171,7 +164,7 @@ Installation:
 
 Env:
   AJEAN_HOME   racine (défaut: /etc/ajean sur Linux/macOS, %%ProgramData%%\ajean sur Windows)
-               JEAN_HOME reste accepté (héritage)
+               AJEAN_HOME reste accepté (héritage)
   EDITOR       éditeur pour 'ajean edit' (défaut: nano sur Unix, notepad sur Windows)
 
 Config: $AJEAN_HOME/config.env
@@ -186,83 +179,53 @@ func mustExit(err error) {
 }
 
 // AjeanHome resolves the AJEAN data directory.
-// Precedence: $AJEAN_HOME → $JEAN_HOME (héritage) → /etc/default/ajean puis
-// /etc/default/jean (unix only) → migratedDefaultHome().
-//
-// Les deux noms de variable sont acceptés indéfiniment : ils sont posés À LA MAIN
-// dans les config des utilisateurs et dans des scripts qu'on ne voit pas. Une
-// variable explicite est un ordre — on ne migre RIEN quand il y en a une, on obéit.
+// Précédence : $AJEAN_HOME → /etc/default/ajean (unix) → défaut plateforme.
 func AjeanHome() string {
 	if h := os.Getenv("AJEAN_HOME"); h != "" {
-		return h
-	}
-	if h := os.Getenv("JEAN_HOME"); h != "" {
 		return h
 	}
 	if h := readEtcDefault(); h != "" {
 		return h
 	}
-	return migratedDefaultHome()
+	return defaultAjeanHome()
 }
 
-// readEtcDefault parses /etc/default/ajean (puis /etc/default/jean, hérité) for
-// AJEAN_HOME=<path> ou JEAN_HOME=<path>. Quiet on errors.
+// readEtcDefault parses /etc/default/ajean for AJEAN_HOME=<path>. Quiet on errors.
 func readEtcDefault() string {
-	for _, path := range []string{"/etc/default/ajean", "/etc/default/jean"} {
-		b, err := os.ReadFile(path)
-		if err != nil {
+	b, err := os.ReadFile("/etc/default/ajean")
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		s := strings.TrimSpace(line)
+		if s == "" || strings.HasPrefix(s, "#") {
 			continue
 		}
-		for _, line := range strings.Split(string(b), "\n") {
-			s := strings.TrimSpace(line)
-			if s == "" || strings.HasPrefix(s, "#") {
-				continue
-			}
-			s = strings.TrimPrefix(s, "export ")
-			if eq := strings.IndexByte(s, '='); eq > 0 {
-				k := strings.TrimSpace(s[:eq])
-				v := strings.Trim(strings.TrimSpace(s[eq+1:]), "\"'")
-				if k == "AJEAN_HOME" || k == "JEAN_HOME" {
-					return v
-				}
-			}
+		s = strings.TrimPrefix(s, "export ")
+		if k, v, ok := strings.Cut(s, "="); ok && strings.TrimSpace(k) == "AJEAN_HOME" {
+			return strings.Trim(strings.TrimSpace(v), "\"'")
 		}
 	}
 	return ""
 }
 
-func confPath() string      { return filepath.Join(AjeanHome(), "config.env") }
-func presetsDir() string    { return filepath.Join(AjeanHome(), "configs") }
-func skillsDir() string     { return filepath.Join(AjeanHome(), "SKILLS") }
-func memoryDir() string     { return filepath.Join(AjeanHome(), "MEMORY") }
-func agentFlag() string     { return filepath.Join(AjeanHome(), ".agent_enabled") }
-func internetFlag() string  { return filepath.Join(AjeanHome(), ".internet_enabled") }
-func mcpConfigPath() string { return filepath.Join(AjeanHome(), "mcp.json") }
+// Arborescence de $AJEAN_HOME. Elle tient en six dossiers, et rien d'autre :
+// tout le reste (config, préférences, conversation, clés, drapeaux) vit dans la
+// base ajean.db — voir store.go.
+func backendsDir() string  { return filepath.Join(AjeanHome(), "backends") }
+func binDir() string       { return filepath.Join(AjeanHome(), "bin") }
+func presetsDir() string   { return filepath.Join(AjeanHome(), "presets") }
+func memoryDir() string    { return filepath.Join(AjeanHome(), "memory") }
+func modelsDir() string    { return filepath.Join(AjeanHome(), "models") }
+func workspaceDir() string { return filepath.Join(AjeanHome(), "workspace") }
 
-// Anciens drapeaux séparés, conservés pour la migration vers le mode agent unifié.
-func legacySkillsFlag() string { return filepath.Join(skillsDir(), ".enabled") }
-func legacyToolsFlag() string  { return filepath.Join(AjeanHome(), ".tools_enabled") }
-func apiKeyPath() string       { return filepath.Join(AjeanHome(), ".api_key") }
-func crawlKeyPath() string     { return filepath.Join(AjeanHome(), ".crawl4ai_key") }
-
-// serviceName est le nom de l'unité qui exécute llama-server. AJEAN_SERVICE et
-// JEAN_SERVICE sont tous deux honorés : le second est posé à la main sur des
-// machines qu'on ne voit pas, le renommage ne doit pas les casser.
+// serviceName est le nom de l'unité qui exécute llama-server.
 func serviceName() string {
 	if n := os.Getenv("AJEAN_SERVICE"); n != "" {
 		return n
 	}
-	if n := os.Getenv("JEAN_SERVICE"); n != "" {
-		return n
-	}
-	// Pas de nom imposé : on prend l'unité réellement installée. Un serveur
-	// simplement mis à jour tourne encore sous « jean.service » — voir
-	// sys_unitname.go.
-	return resolveUnitName("ajean", legacyServiceName())
+	return "ajean"
 }
-
-// legacyServiceName est le nom d'avant le renommage.
-func legacyServiceName() string { return "jean" }
 
 // Color helpers (ANSI). Disabled when stdout is not a TTY.
 var colorOn = isTerminal()

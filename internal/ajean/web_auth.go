@@ -6,8 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -18,21 +16,11 @@ import (
 // La clé de pilotage est volontairement DISTINCTE de .api_key (qui, elle,
 // protège llama-server / les complétions). On veut pouvoir donner à un client
 // un accès aux complétions sans lui donner le droit de redémarrer la machine,
-// et inversement. Elle est stockée dans $JEAN_HOME/.web_key et lue à chaque
-// requête (pas de cache) pour qu'un changement de clé prenne effet sans
-// redémarrer le serveur web.
+// et inversement. Elle est relue à chaque requête (pas de cache) pour qu'un
+// changement de clé prenne effet sans redémarrer le serveur web.
 
-func webKeyPath() string { return filepath.Join(AjeanHome(), ".web_key") }
-
-// readWebKey returns the trimmed contents of $JEAN_HOME/.web_key, or "" if the
-// file is absent/empty.
-func readWebKey() string {
-	b, err := os.ReadFile(webKeyPath())
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(b))
-}
+// readWebKey renvoie la clé de pilotage, ou "" si aucune n'est définie.
+func readWebKey() string { return getStr(bkState, "web_key") }
 
 // requireWebAuth wraps an HTTP handler, rejecting requests that don't present
 // the configured Bearer token. When no key is configured the handler is left
@@ -45,7 +33,7 @@ func requireWebAuth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if !checkBearer(r, key) {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="jean"`)
+			w.Header().Set("WWW-Authenticate", `Bearer realm="ajean"`)
 			sendJSON(w, http.StatusUnauthorized, map[string]any{"error": "non autorisé"})
 			return
 		}
@@ -68,7 +56,7 @@ func checkBearer(r *http.Request, key string) bool {
 	return false
 }
 
-// cmdSetWebKey sets (or clears) the control-API key in $JEAN_HOME/.web_key.
+// cmdSetWebKey sets (or clears) the control-API key in $AJEAN_HOME/.web_key.
 //
 //	ajean set-web-key <clé>     définit la clé
 //	ajean set-web-key           génère une clé aléatoire
@@ -84,27 +72,21 @@ func cmdSetWebKey(args []string) error {
 		if _, err := rand.Read(buf); err != nil {
 			return err
 		}
-		key = "jean-web-" + hex.EncodeToString(buf)
+		key = "ajean-web-" + hex.EncodeToString(buf)
 		fmt.Printf("%s clé générée : %s\n", green("[ok]"), bold(key))
 	case args[0] == "" || args[0] == "off" || args[0] == "none":
 		key = ""
 	default:
 		key = strings.TrimSpace(args[0])
 	}
+	if err := putStr(bkState, "web_key", key); err != nil {
+		return err
+	}
 	if key == "" {
-		if err := os.Remove(webKeyPath()); err != nil && !os.IsNotExist(err) {
-			return err
-		}
 		fmt.Printf("%s clé de pilotage supprimée — l'API web n'est plus protégée\n", yellow("[info]"))
 		return nil
 	}
-	if err := os.MkdirAll(AjeanHome(), 0o755); err != nil {
-		return err
-	}
-	if err := os.WriteFile(webKeyPath(), []byte(key+"\n"), 0o600); err != nil {
-		return err
-	}
-	fmt.Printf("%s clé de pilotage enregistrée dans %s\n", green("[ok]"), webKeyPath())
+	fmt.Printf("%s clé de pilotage enregistrée\n", green("[ok]"))
 	fmt.Printf("       les clients doivent envoyer : %s\n", dim("Authorization: Bearer "+key))
 	fmt.Printf("       (relance 'ajean web' si le serveur web tourne déjà — non requis, lu à chaud)\n")
 	return nil

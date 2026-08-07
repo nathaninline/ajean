@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -19,7 +18,7 @@ import (
 
 // Accès internet de l'IA — port Go de l'extension pi ~/.pi/agent/extensions/web.ts.
 //
-// jean parle à un serveur Crawl4AI (Chrome headless, endpoint /crawl) dont l'URL
+// ajean parle à un serveur Crawl4AI (Chrome headless, endpoint /crawl) dont l'URL
 // est configurée dans config.env (CRAWL4AI_URL). Quand le mode agent ET l'accès
 // internet sont actifs ET que le serveur répond, l'IA dispose de 4 outils :
 //
@@ -44,38 +43,15 @@ func crawl4aiURL() string {
 // est ouvert. Envoyée en « Authorization: Bearer … », ce qu'attend Crawl4AI
 // quand l'authentification est activée (CRAWL4AI_API_TOKEN côté serveur).
 //
-// Elle vit dans $JEAN_HOME/.crawl4ai_key (0600) et NON dans config.env : ce
-// dernier est le fichier qu'on copie-colle pour demander de l'aide, une clé en
-// clair dedans finit par fuiter. Même modèle que la clé de complétion
-// (.api_key). Les installations qui l'avaient dans config.env sont migrées à
-// la première lecture.
-func crawl4aiKey() string {
-	if b, err := os.ReadFile(crawlKeyPath()); err == nil {
-		if k := strings.TrimSpace(string(b)); k != "" {
-			return k
-		}
-	}
-	// Migration depuis l'ancien emplacement (jean 0.5.11).
-	if k := strings.TrimSpace(ReadConfig()["CRAWL4AI_KEY"]); k != "" {
-		if err := writeCrawlKey(k); err == nil {
-			_ = SetConfigKey("CRAWL4AI_KEY", "")
-		}
-		return k
-	}
-	return ""
-}
+// Elle est rangée hors de la configuration : celle-ci est ce qu'on copie-colle
+// pour demander de l'aide, et une clé en clair dedans finit par fuiter. Même
+// modèle que la clé de complétion.
+func crawl4aiKey() string { return getStr(bkState, "crawl_key") }
 
 // writeCrawlKey enregistre (clé non vide) ou efface (clé vide) la clé Crawl4AI.
 func writeCrawlKey(key string) error {
-	_ = SetConfigKey("CRAWL4AI_KEY", "") // ne laisse rien traîner dans config.env
-	if key == "" {
-		if err := os.Remove(crawlKeyPath()); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-		return nil
-	}
-	_ = os.MkdirAll(AjeanHome(), 0o755)
-	return os.WriteFile(crawlKeyPath(), []byte(key+"\n"), 0o600)
+	_ = SetConfigKey("CRAWL4AI_KEY", "") // ne laisse rien traîner dans la config
+	return putStr(bkState, "crawl_key", key)
 }
 
 // crawlAuth pose l'en-tête d'authentification sur une requête vers Crawl4AI.
@@ -86,33 +62,17 @@ func crawlAuth(req *http.Request) {
 	}
 }
 
-// internetEnabled : accès internet actif = drapeau .internet_enabled présent ET
-// un moteur web utilisable. Même modèle que agentEnabled() (chat_agent.go).
-//
-// Avec le moteur intégré (webEngine() == engineGo) il n'y a rien à configurer :
-// le drapeau suffit. Avec Crawl4AI il faut en plus une URL de serveur.
+// internetEnabled : accès internet actif = interrupteur armé ET moteur web
+// utilisable. Avec le moteur intégré (engineGo) il n'y a rien à configurer ;
+// avec Crawl4AI il faut en plus une URL de serveur.
 func internetEnabled() bool {
 	if webEngine() == engineCrawl && crawl4aiURL() == "" {
 		return false
 	}
-	_, err := os.Stat(internetFlag())
-	return err == nil
+	return getBool(bkState, "internet")
 }
 
-func setInternetEnabled(on bool) error {
-	_ = os.MkdirAll(AjeanHome(), 0o755)
-	if on {
-		f, err := os.Create(internetFlag())
-		if err != nil {
-			return err
-		}
-		return f.Close()
-	}
-	if err := os.Remove(internetFlag()); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	return nil
-}
+func setInternetEnabled(on bool) error { return putBool(bkState, "internet", on) }
 
 // crawlReachable teste que le serveur Crawl4AI répond, avec un cache court (~30 s)
 // pour ne pas ralentir chaque tour de chat. Un serveur configuré mais injoignable

@@ -100,6 +100,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/models/delete", handleModelDelete)
 	api("/api/models/dirs", handleModelDirs) // dossiers de modèles (disque externe…)
 	api("/api/models/download", handleModelDownload)
+	api("/api/models/download/probe", handleModelDownloadProbe) // taille + espace libre avant de lancer
 	api("/api/models/download/status", handleModelDownloadStatus)
 	api("/api/models/download/cancel", handleModelDownloadCancel)
 	api("/api/backends", handleBackends)
@@ -139,7 +140,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/memory", handleMemoryMode)
 	api("/api/prefs", handleWebPrefs)
 	api("/api/sysprompt", handleSysPrompt)
-	// Alias rétro-compat : l'ancien portail ajean.link (dépôt jean-relay) pilote
+	// Alias rétro-compat : l'ancien portail ajean.link (dépôt ajean-relay) pilote
 	// encore l'agent via /api/tools* et /api/skills/toggle à travers le tunnel E2E.
 	// On les mappe sur le mode agent unifié le temps que le portail soit mis à jour.
 	api("/api/tools", handleAgent)
@@ -261,7 +262,7 @@ func pidOnPort(port int) (int, string) {
 // processName returns a short command name for a PID, or "?" if unknown.
 func processName(pid int) string {
 	if runtime.GOOS == "windows" {
-		// tasklist CSV : "jean.exe","1234","Console","1","12 345 K"
+		// tasklist CSV : "ajean.exe","1234","Console","1","12 345 K"
 		out, err := hideCmd(exec.Command("tasklist", "/FI", "PID eq "+strconv.Itoa(pid), "/FO", "CSV", "/NH")).Output()
 		if err == nil {
 			if f := strings.SplitN(strings.TrimSpace(string(out)), "\",\"", 2); len(f) == 2 {

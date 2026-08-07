@@ -7,10 +7,10 @@ package ajean
 // Sur macOS il n'y a pas d'équivalent d'AttachConsole : un binaire lancé depuis
 // le Finder hérite quand même de descripteurs stdout/stderr (vers les logs
 // système). Le signal fiable, c'est l'emplacement de l'exécutable : la release
-// publie un bundle Jean.app dont le binaire vit dans
-// Jean.app/Contents/MacOS/jean. Si on tourne depuis là, c'est un double-clic
+// publie un bundle AJEAN.app dont le binaire vit dans
+// AJEAN.app/Contents/MacOS/ajean. Si on tourne depuis là, c'est un double-clic
 // dans le Finder → expérience « application » (UI web + navigateur), exactement
-// comme le double-clic sur jean.exe sous Windows.
+// comme le double-clic sur ajean.exe sous Windows.
 //
 // Le même binaire copié dans /usr/local/bin garde évidemment le comportement CLI.
 
@@ -28,7 +28,7 @@ func setupConsole() bool {
 	if p, err := filepath.EvalSymlinks(exe); err == nil {
 		exe = p
 	}
-	// .../Jean.app/Contents/MacOS/jean
+	// .../AJEAN.app/Contents/MacOS/ajean
 	if strings.HasSuffix(filepath.Dir(exe), "/Contents/MacOS") {
 		fixFinderPath()
 		return false
@@ -36,7 +36,7 @@ func setupConsole() bool {
 	return true
 }
 
-// appWarning signale une situation de lancement qui casse Jean de façon peu
+// appWarning signale une situation de lancement qui casse AJEAN de façon peu
 // évidente. Aujourd'hui : l'App Translocation de Gatekeeper. Une app non signée
 // ouverte depuis Téléchargements est exécutée depuis une copie en LECTURE SEULE
 // sous /private/var/folders/…/AppTranslocation/<uuid>/, à un chemin différent à
@@ -44,7 +44,7 @@ func setupConsole() bool {
 // dessus (la seconde trouve le port 8090 occupé et se contente d'ouvrir l'UI de
 // la première, souvent une version périmée), des process fantômes issus de
 // copies précédentes, et une mise à jour en place impossible.
-// Le remède est côté utilisateur : déplacer Jean.app dans /Applications.
+// Le remède est côté utilisateur : déplacer AJEAN.app dans /Applications.
 func appWarning() string {
 	exe, err := os.Executable()
 	if err != nil {
@@ -54,13 +54,13 @@ func appWarning() string {
 		return ""
 	}
 	return "AJEAN tourne depuis une copie temporaire en lecture seule (App Translocation de macOS). " +
-		"Fermez l'app, déplacez Jean.app dans le dossier Applications, puis rouvrez-la — " +
+		"Fermez l'app, déplacez AJEAN.app dans le dossier Applications, puis rouvrez-la — " +
 		"sinon chaque lancement crée une instance séparée et les mises à jour du moteur échouent."
 }
 
 // fixFinderPath complète le PATH famélique hérité du Finder. Une app lancée par
 // LaunchServices reçoit /usr/bin:/bin:/usr/sbin:/sbin — pas les dossiers de
-// Homebrew : sans ça, Jean ne voit ni `brew`, ni `cmake`, ni `git`, et la
+// Homebrew : sans ça, AJEAN ne voit ni `brew`, ni `cmake`, ni `git`, et la
 // compilation d'un backend échoue alors que les outils sont bien installés.
 func fixFinderPath() {
 	extra := []string{

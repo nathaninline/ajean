@@ -2,7 +2,7 @@
 
 package ajean
 
-// sys_splash_windows.go — écran de démarrage « Lancement de Jean… ».
+// sys_splash_windows.go — écran de démarrage « Lancement de AJEAN… ».
 //
 // Petite fenêtre sans bordure, à coins arrondis, aux couleurs de la marque
 // (fond bleu #1f6feb, logo « j » blanc, texte blanc), affichée le temps que le
@@ -127,7 +127,7 @@ func (s *splash) close() {
 }
 
 func createSplashWindow() uintptr {
-	className, _ := syscall.UTF16PtrFromString("JeanSplash")
+	className, _ := syscall.UTF16PtrFromString("AJEANSplash")
 	hInst, _, _ := pGetModuleHandleW.Call(0)
 
 	splashClassOnce.Do(func() {

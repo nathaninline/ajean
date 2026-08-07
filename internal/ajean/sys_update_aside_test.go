@@ -10,7 +10,7 @@ import (
 // Le remplacement du binaire doit fonctionner MÊME si un écartement précédent
 // est toujours là et impossible à supprimer (processus encore vivant dessus).
 // Avec un nom fixe « .old », le renommage échouait alors en « Accès refusé »,
-// que jean traduisait par « droits insuffisants, relance en administrateur » :
+// que ajean traduisait par « droits insuffisants, relance en administrateur » :
 // un conseil faux, aucun privilège ne remplace une image en cours d'exécution.
 func TestRenameAsideNeBloquePasSurUnAncienEcartement(t *testing.T) {
 	dir := t.TempDir()

@@ -1,6 +1,6 @@
 package ajean
 
-// relay_link.go — `ajean link <token>` : connecte ce serveur Jean au relais public
+// relay_link.go — `ajean link <token>` : connecte ce serveur AJEAN au relais public
 // (ajean.link) par une connexion SORTANTE persistante, pour qu'un utilisateur
 // y accède depuis n'importe où sans ouvrir de port (CGNAT, box, etc.).
 //
@@ -10,7 +10,7 @@ package ajean
 // local. Keepalive + reconnexion automatique avec backoff.
 //
 // Le token est fourni par la boutique à l'achat. Il est mémorisé dans
-// $JEAN_HOME/.link_token pour que `ajean link` (sans argument) reprenne la
+// $AJEAN_HOME/.link_token pour que `ajean link` (sans argument) reprenne la
 // connexion.
 
 import (
@@ -39,70 +39,42 @@ import (
 )
 
 // defaultRelayURL est l'endpoint WebSocket du relais. Surchageable via
-// $JEAN_LINK_URL (utile pour tester contre un relais local).
+// $AJEAN_LINK_URL (utile pour tester contre un relais local).
 const defaultRelayURL = "wss://ajean.link/agent"
 
-func linkTokenPath() string   { return filepath.Join(AjeanHome(), ".link_token") }
-func linkMachinePath() string { return filepath.Join(AjeanHome(), ".link_machine") }
-
-// machineID returns a stable per-machine identifier, creating one on first use.
+// machineID renvoie un identifiant stable de la machine, créé au premier appel.
 // Permet au relais de regrouper les connexions d'une même machine sous le compte.
 func machineID() string {
-	if b, err := os.ReadFile(linkMachinePath()); err == nil {
-		if id := strings.TrimSpace(string(b)); id != "" {
-			return id
-		}
+	if id := getStr(bkState, "link_machine"); id != "" {
+		return id
 	}
 	buf := make([]byte, 8)
 	_, _ = rand.Read(buf)
 	id := hex.EncodeToString(buf)
-	_ = os.MkdirAll(AjeanHome(), 0o755)
-	_ = os.WriteFile(linkMachinePath(), []byte(id+"\n"), 0o600)
+	_ = putStr(bkState, "link_machine", id)
 	return id
 }
 
-// readLinkToken returns the saved subscription token, or "".
-func readLinkToken() string {
-	b, err := os.ReadFile(linkTokenPath())
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(b))
-}
+// readLinkToken renvoie la clé d'abonnement enregistrée, ou "".
+func readLinkToken() string { return getStr(bkState, "link_token") }
 
-func saveLinkToken(tok string) error {
-	if err := os.MkdirAll(AjeanHome(), 0o755); err != nil {
-		return err
-	}
-	return os.WriteFile(linkTokenPath(), []byte(tok+"\n"), 0o600)
-}
+func saveLinkToken(tok string) error { return putStr(bkState, "link_token", tok) }
 
 // removeLinkToken oublie la clé de liaison enregistrée (idempotent).
-func removeLinkToken() error {
-	if err := os.Remove(linkTokenPath()); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	return nil
-}
+func removeLinkToken() error { return putStr(bkState, "link_token", "") }
 
 // relayURL resolves the relay WebSocket endpoint (env override → default).
 func relayURL() string {
-	if u := envAny("AJEAN_LINK_URL", "JEAN_LINK_URL"); u != "" {
+	if u := os.Getenv("AJEAN_LINK_URL"); u != "" {
 		return u
 	}
 	return defaultRelayURL
 }
 
-// linkUnitName / legacyLinkUnitName : l'unité systemd qui exécute le worker
-// « ajean link --foreground », et son nom d'avant le renommage.
-const (
-	linkUnitName       = "ajean-link"
-	legacyLinkUnitName = "jean-link"
-)
+// linkUnitName est l'unité qui exécute le worker « ajean link serve ».
+const linkUnitName = "ajean-link"
 
-// linkServiceName renvoie l'unité de lien réellement installée sur la machine
-// (voir sys_unitname.go : un serveur mis à jour tourne encore sous jean-link).
-func linkServiceName() string { return resolveUnitName(linkUnitName, legacyLinkUnitName) }
+func linkServiceName() string { return linkUnitName }
 
 func cmdLink(args []string) error {
 	sub := ""
@@ -135,7 +107,7 @@ func cmdLink(args []string) error {
 		}
 		return nil
 	case "logout":
-		_ = os.Remove(linkTokenPath())
+		_ = removeLinkToken()
 		fmt.Println(green("[ok]") + " token supprimé")
 		return nil
 	case "stop":
@@ -239,9 +211,9 @@ func runLinkForeground() error {
 	}
 
 	// UNE seule instance du mux web → UNE seule conversation en mémoire, PARTAGÉE
-	// entre l'UI locale (:8090, jean.example.org) et le tunnel (app.ajean.link). Avant,
+	// entre l'UI locale (:8090, ajean.example.org) et le tunnel (app.ajean.link). Avant,
 	// `ajean web` et `ajean link` étaient deux process distincts avec chacun leur
-	// historique → confusion. Désormais le process jean-link est l'unique
+	// historique → confusion. Désormais le process ajean-link est l'unique
 	// propriétaire de la conversation et sert les DEUX surfaces.
 	webMux := newWebMux()
 	go serveLocalWebMux(webMux)
@@ -280,7 +252,7 @@ func runLinkForeground() error {
 //
 // Sur un poste de bureau, l'app EST ce process propriétaire : elle sert déjà
 // :8090, donc elle fait aussi tourner le tunnel elle-même au lieu de déléguer à
-// un worker détaché. L'accès distant vit donc aussi longtemps que Jean.app est
+// un worker détaché. L'accès distant vit donc aussi longtemps que AJEAN.app est
 // ouverte — sur un portable qui s'endort, c'est de toute façon la réalité.
 
 var appLink struct {
@@ -367,7 +339,7 @@ func killForeignLinkWorker() {
 }
 
 // serveLocalWebMux sert l'UI web locale sur :8090 avec le mux fourni — le MÊME
-// que celui exposé dans le tunnel. Le process jean-link devient ainsi l'unique
+// que celui exposé dans le tunnel. Le process ajean-link devient ainsi l'unique
 // propriétaire de la conversation, partagée entre l'accès local et l'accès
 // distant. Remplace le `ajean web` autonome (à ne plus lancer séparément).
 func serveLocalWebMux(mux *http.ServeMux) {
@@ -382,33 +354,12 @@ func serveLocalWebMux(mux *http.ServeMux) {
 }
 
 // linkPIDPath / linkLogPath : suivi du worker de lien hors systemd (macOS,
-// Windows), où Jean est une app de bureau lancée sans droits root.
-func linkPIDPath() string { return adoptLegacyLinkFile(".pid") }
-func linkLogPath() string { return adoptLegacyLinkFile(".log") }
-
-// adoptLegacyLinkFile renvoie le chemin « ajean-link<ext> » en reprenant au
-// passage le « jean-link<ext> » laissé par une version antérieure.
-//
-// Reprendre le fichier PID n'est pas cosmétique : c'est LUI qui dit si un worker
-// tourne déjà. Sans cette reprise, la première version renommée ne verrait plus
-// le worker en cours, en démarrerait un second, et la machine se retrouverait
-// avec deux tunnels concurrents vers le relais. Idempotent, silencieux en cas
-// d'échec (on retombe simplement sur le nouveau nom).
-func adoptLegacyLinkFile(ext string) string {
-	newPath := filepath.Join(AjeanHome(), linkUnitName+ext)
-	if _, err := os.Stat(newPath); err == nil {
-		return newPath
-	}
-	legacy := filepath.Join(AjeanHome(), legacyLinkUnitName+ext)
-	if _, err := os.Stat(legacy); err != nil {
-		return newPath
-	}
-	_ = os.Rename(legacy, newPath)
-	return newPath
-}
+// Windows), où AJEAN est une app de bureau lancée sans droits root.
+func linkPIDPath() string { return filepath.Join(AjeanHome(), linkUnitName+".pid") }
+func linkLogPath() string { return filepath.Join(AjeanHome(), linkUnitName+".log") }
 
 // linkServiceCtl pilote le worker de lien (start/stop/restart). Sous Linux c'est
-// l'unité systemd jean-link (avec sudo non interactif si on n'est pas root) ;
+// l'unité systemd ajean-link (avec sudo non interactif si on n'est pas root) ;
 // ailleurs — macOS et Windows, où il n'y a ni systemd ni droits root — on lance
 // « ajean link serve » en processus détaché suivi par un fichier PID, comme le
 // fait déjà le service principal. Sans ça, l'accès distant restait définitivement
@@ -553,7 +504,7 @@ func linkUserSvcCtl(action string) error {
 //   - /v1/*, /health, /props, /metrics, /slots → llama-server local (endpoint
 //     compatible OpenAI, avec injection de la clé API locale) → permet de
 //     brancher OpenCode, Hermes, etc. sur ajean.link/oai/<machine>/v1
-//   - tout le reste → l'UI web de Jean (avec injection de la clé de pilotage)
+//   - tout le reste → l'UI web de AJEAN (avec injection de la clé de pilotage)
 func newLinkHandler(mux *http.ServeMux) http.Handler {
 	web := withLocalAuth(mux)
 	llama := &url.URL{Scheme: "http", Host: fmt.Sprintf("127.0.0.1:%d", LLMPort())}
@@ -577,7 +528,7 @@ func newLinkHandler(mux *http.ServeMux) http.Handler {
 	//   - /api/e2e/chat : chat chiffré (streaming SSE chiffré).
 	//   - /api/e2e/req  : proxy de contrôle chiffré (presets, VRAM, skills, service…).
 	// Tout autre /api/* en clair est REFUSÉ via le tunnel.
-	oaiAllowed := os.Getenv("JEAN_LINK_ALLOW_OAI") == "1"
+	oaiAllowed := os.Getenv("AJEAN_LINK_ALLOW_OAI") == "1"
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := r.URL.Path
 		if strings.HasPrefix(p, "/api/e2e/") {
@@ -600,7 +551,7 @@ func newLinkHandler(mux *http.ServeMux) http.Handler {
 			// L'endpoint OpenAI (OpenCode/Hermes) ne peut pas être chiffré navigateur :
 			// il transiterait en clair par le relais. Désactivé par défaut.
 			if !oaiAllowed {
-				http.Error(w, "endpoint OpenAI désactivé via le relais (transiterait en clair) ; JEAN_LINK_ALLOW_OAI=1 pour l'autoriser", http.StatusForbidden)
+				http.Error(w, "endpoint OpenAI désactivé via le relais (transiterait en clair) ; AJEAN_LINK_ALLOW_OAI=1 pour l'autoriser", http.StatusForbidden)
 				return
 			}
 			lp.ServeHTTP(w, r)
@@ -671,7 +622,7 @@ func runLinkSession(token string, handler http.Handler, oaiTLS *tls.Config) erro
 	fmt.Printf("%s lien établi ✓\n", green("[link]"))
 
 	// Chaque Accept() = un stream. Deux natures possibles :
-	//   - requête HTTP normale (UI Jean / E2E) → servie par `handler` ;
+	//   - requête HTTP normale (UI AJEAN / E2E) → servie par `handler` ;
 	//   - session TLS brute (accès OpenAI public) → terminée par le front TLS.
 	// On les distingue au 1er octet (0x16 = handshake TLS). Sans OAI activé, tout
 	// va au HTTP (comportement historique inchangé).

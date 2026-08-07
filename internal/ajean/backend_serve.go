@@ -13,15 +13,15 @@ func cmdServe(args []string) error {
 	cfg := ReadConfig()
 	bin := cfg["BIN"]
 	if bin == "" {
-		return fmt.Errorf("BIN non défini dans %s", confPath())
+		return fmt.Errorf("BIN non défini — lance « ajean edit »")
 	}
 	model := cfg["MODEL"]
 	if model == "" {
-		return fmt.Errorf("MODEL non défini dans %s", confPath())
+		return fmt.Errorf("MODEL non défini — lance « ajean edit »")
 	}
-	// MODEL vaut soit un simple nom de fichier (le .gguf vit dans JEAN_HOME ou
+	// MODEL vaut soit un simple nom de fichier (le .gguf vit dans AJEAN_HOME ou
 	// dans un dossier déclaré — disque externe…), soit un chemin absolu. Sous
-	// systemd/launchd le WorkingDirectory vaut JEAN_HOME, donc le relatif tombait
+	// systemd/launchd le WorkingDirectory vaut AJEAN_HOME, donc le relatif tombait
 	// juste ; lancé depuis une app de bureau, le répertoire courant est « / » et
 	// llama-server ne trouvait rien. On résout donc explicitement, quel que soit
 	// le contexte de lancement.
@@ -92,7 +92,7 @@ func cmdServe(args []string) error {
 	}
 	// API_KEY protège le serveur quand il est exposé sur internet : llama-server
 	// exige alors l'en-tête "Authorization: Bearer <clé>". La clé est lue depuis
-	// $JEAN_HOME/.api_key en priorité (elle survit ainsi aux changements de preset
+	// $AJEAN_HOME/.api_key en priorité (elle survit ainsi aux changements de preset
 	// qui réécrivent config.env), avec config.env comme repli rétro-compatible.
 	if k := readAPIKey(); k != "" {
 		llmArgs = append(llmArgs, "--api-key", k)
@@ -104,7 +104,7 @@ func cmdServe(args []string) error {
 		llmArgs = append(llmArgs, a)
 	}
 
-	// Working dir = JEAN_HOME so relative paths in EXTRA_ARGS (e.g. --mmproj
+	// Working dir = AJEAN_HOME so relative paths in EXTRA_ARGS (e.g. --mmproj
 	// mmproj-F16.gguf) still resolve.
 	_ = os.Chdir(AjeanHome())
 

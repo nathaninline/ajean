@@ -17,7 +17,7 @@ import (
 
 // On Windows there is no systemd, so "the service" is a background copy of
 // `ajean serve` that this process launches detached. We track it with a PID file
-// and stream its output to a log file under JEAN_HOME. This needs no admin
+// and stream its output to a log file under AJEAN_HOME. This needs no admin
 // rights and no external tools beyond the always-present tasklist/taskkill.
 
 const (
@@ -71,9 +71,9 @@ func svcStart() error {
 	cmd := exec.Command(self, "serve")
 	cmd.Stdout = logf
 	cmd.Stderr = logf
-	cmd.Dir = AjeanHome() // les chemins relatifs de config.env se résolvent depuis JEAN_HOME
+	cmd.Dir = AjeanHome() // les chemins relatifs de config.env se résolvent depuis AJEAN_HOME
 	// createNoWindow + HideWindow : le service enfant (`ajean serve`) ne doit JAMAIS
-	// faire clignoter de console noire quand Jean est lancé en mode app (double-clic).
+	// faire clignoter de console noire quand AJEAN est lancé en mode app (double-clic).
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow:    true,
 		CreationFlags: createNewProcessGroup | detachedProcess | createNoWindow,
@@ -136,7 +136,6 @@ func svcStatus() error {
 		fmt.Printf("%s %s: arrêté\n", yellow("[info]"), serviceName())
 	}
 	fmt.Printf("  logs   : %s\n", logFilePath())
-	fmt.Printf("  config : %s\n", confPath())
 	return nil
 }
 

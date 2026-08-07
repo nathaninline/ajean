@@ -1,5 +1,5 @@
 // web_sysprompt.go — prompt système personnalisé de l'utilisateur, persisté
-// CÔTÉ SERVEUR ($JEAN_HOME/sysprompt.txt) et partagé entre appareils, comme la
+// CÔTÉ SERVEUR ($AJEAN_HOME/sysprompt.txt) et partagé entre appareils, comme la
 // conversation elle-même. Historique : avant la conversation serveur (v0.4.x),
 // l'UI envoyait son prompt système dans chaque requête /api/chat ; depuis,
 // /api/chat/send ne porte que le message → le champ de l'UI n'avait plus aucun

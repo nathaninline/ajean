@@ -181,6 +181,7 @@ func handleLlamacpp(w http.ResponseWriter, r *http.Request) {
 		"in_use": pbBin != "" && prebuiltOwns(cfgBin),
 	}
 	out["backends_dir"] = filepath.Join(AjeanHome(), "backends")
+	out["reco"] = recommendedMode(plan.backend)
 	out["job"] = lcJobSnapshot(0, false)
 	sendJSON(w, 200, out)
 }
@@ -344,9 +345,9 @@ func lcRunPrebuilt() {
 	bin, err := prebuiltInstall(lcAppend, lcPhase)
 	if err == nil {
 		if serr := SetConfigKey("BIN", bin); serr != nil {
-			err = fmt.Errorf("binaires installés mais échec écriture BIN dans config.env : %w", serr)
+			err = fmt.Errorf("binaires installés mais échec d'écriture de BIN : %w", serr)
 		} else {
-			lcAppend("BIN mis à jour dans " + confPath())
+			lcAppend("BIN mis à jour")
 		}
 	}
 	if svcWasUp {
@@ -583,10 +584,10 @@ func lcBuildAndSwitch(repo string, clean bool) bool {
 	}
 	lcAppend("binaire compilé : " + bin)
 	if err := SetConfigKey("BIN", bin); err != nil {
-		lcFail(fmt.Errorf("build ok mais échec écriture BIN dans config.env : %w", err))
+		lcFail(fmt.Errorf("build ok mais échec d'écriture de BIN : %w", err))
 		return false
 	}
-	lcAppend("BIN mis à jour dans " + confPath())
+	lcAppend("BIN mis à jour")
 	return true
 }
 

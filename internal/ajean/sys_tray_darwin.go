@@ -2,10 +2,10 @@
 
 package ajean
 
-// sys_tray_darwin.go — icône de Jean dans la barre de menus macOS (en haut à
+// sys_tray_darwin.go — icône de AJEAN dans la barre de menus macOS (en haut à
 // droite, à côté de l'horloge), pendant exact du system tray Windows : quand on
-// ouvre Jean.app, l'UI web s'ouvre dans le navigateur ET l'icône apparaît, avec
-// le menu « Ouvrir Jean » / « Quitter ».
+// ouvre AJEAN.app, l'UI web s'ouvre dans le navigateur ET l'icône apparaît, avec
+// le menu « Ouvrir AJEAN » / « Quitter ».
 //
 // Contrairement à Windows, systray passe ici par Cocoa → CGO obligatoire : les
 // binaires macOS sont donc compilés sur un runner macOS (voir release.yml), et

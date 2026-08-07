@@ -40,9 +40,9 @@ func baseSystemPrompt(caps Caps) string {
 	// sur-raisonner les modèles à reasoning (Qwen3) : ils émettent leur <think>
 	// puis le token de fin SANS appeler d'outil (~25-45 % de tours « morts »
 	// mesurés). Une version courte et directe ramène ça à 0 %. NE PAS regonfler.
-	// « Jean » avec une majuscule : c'est un nom propre, et le modèle recopie
-	// littéralement la casse d'ici quand il se présente (« je suis jean »).
-	b.WriteString("You are Jean, an expert assistant operating directly on this machine with real tools.")
+	// « AJEAN » avec une majuscule : c'est un nom propre, et le modèle recopie
+	// littéralement la casse d'ici quand il se présente (« je suis ajean »).
+	b.WriteString("You are AJEAN, an expert assistant operating directly on this machine with real tools.")
 	if caps.Mem == MemAlways {
 		b.WriteString(" You evolve with every conversation: you actively maintain a persistent memory so nothing useful is lost between sessions.")
 	}
@@ -126,7 +126,7 @@ func machineSystemPrompt(caps Caps) string {
 	}
 	b.WriteString(".")
 	if cwd != "" {
-		b.WriteString(" Relative paths in write/edit/bash resolve inside this working folder — put scratch files there. Write outside it ONLY with an absolute path the user explicitly asked for; never scatter files into the folder jean was launched from.")
+		b.WriteString(" Relative paths in write/edit/bash resolve inside this working folder — put scratch files there. Write outside it ONLY with an absolute path the user explicitly asked for; never scatter files into the folder ajean was launched from.")
 	}
 	return b.String()
 }
@@ -145,7 +145,7 @@ func runShell(command string, timeoutSec int) string {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
 	defer cancel()
 	cmd := newShellCmd(ctx, command)
-	// Le shell démarre dans le workspace, pas dans le dossier d'où jean a été
+	// Le shell démarre dans le workspace, pas dans le dossier d'où ajean a été
 	// lancé : un `> notes.txt` du modèle ne doit pas atterrir sur le Bureau.
 	cmd.Dir = agentWorkspace()
 	var stdout, stderr strings.Builder

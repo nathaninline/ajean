@@ -1,7 +1,7 @@
-// Jean — cœur du binaire (package jean, appelé par cmd/ajean). Les fichiers sont préfixés par domaine
+// AJEAN — cœur du binaire (package ajean, appelé par cmd/ajean). Les fichiers sont préfixés par domaine
 // (Go n'autorise pas de sous-dossiers dans un même package) :
 //
-//	main.go       point d'entrée : dispatch des sous-commandes, chemins (JeanHome…)
+//	main.go       point d'entrée : dispatch des sous-commandes, chemins (AJEANHome…)
 //	cli_*         expérience « application » (double-clic : UI + tray + splash)
 //	web_*         serveur HTTP local :8090 (UI embarquée via go:embed ui/, auth, prefs)
 //	chat_*        chat CLI + conversation serveur partagée, compaction, mémoire,

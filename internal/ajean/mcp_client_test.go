@@ -12,12 +12,12 @@ import (
 // tentative de connexion : sans ça, connecter en parallèle multiplierait les
 // process stdio lancés pour un même serveur.
 func TestMCPEnsureDeduplicatesConcurrentConnects(t *testing.T) {
-	t.Setenv("JEAN_HOME", t.TempDir())
+	t.Setenv("AJEAN_HOME", t.TempDir())
 	t.Cleanup(mcpCloseAll)
 
 	// Commande inexistante : la connexion échoue, mais l'entrée du pool est bien
 	// partagée — c'est ce qu'on teste.
-	cfg := MCPServerConfig{Command: "jean-binaire-inexistant-pour-test", Enabled: true}
+	cfg := MCPServerConfig{Command: "ajean-binaire-inexistant-pour-test", Enabled: true}
 
 	const callers = 8
 	var wg sync.WaitGroup
@@ -53,7 +53,7 @@ func TestMCPEndToEnd(t *testing.T) {
 	if _, err := exec.LookPath("npx"); err != nil {
 		t.Skip("npx indisponible — test MCP e2e ignoré")
 	}
-	t.Setenv("JEAN_HOME", t.TempDir())
+	t.Setenv("AJEAN_HOME", t.TempDir())
 
 	cfg := MCPServerConfig{
 		Command: "npx",
@@ -83,8 +83,8 @@ func TestMCPEndToEnd(t *testing.T) {
 		t.Fatalf("outil %s introuvable dans %d outils", echoName, len(tools))
 	}
 
-	out := mcpCall(echoName, map[string]any{"message": "bonjour-jean"})
-	if !strings.Contains(out, "bonjour-jean") {
+	out := mcpCall(echoName, map[string]any{"message": "bonjour-ajean"})
+	if !strings.Contains(out, "bonjour-ajean") {
 		t.Fatalf("echo n'a pas renvoyé le message ; got: %q", out)
 	}
 }

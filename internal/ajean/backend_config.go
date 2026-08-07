@@ -7,23 +7,18 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
 
-// readAPIKey returns the trimmed contents of $JEAN_HOME/.api_key, or "" if the
-// file is absent/empty. This store is independent of config.env so the key
-// survives preset switches (which rewrite config.env wholesale).
-func readAPIKey() string {
-	b, err := os.ReadFile(apiKeyPath())
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(b))
-}
+// readAPIKey renvoie la clé Bearer de llama-server, ou "" si aucune n'est
+// définie. Elle est rangée hors de la configuration pour survivre aux
+// changements de preset, qui remplacent la configuration en bloc.
+func readAPIKey() string { return getStr(bkState, "api_key") }
 
 // authHeader sets the Authorization: Bearer header on req when an API key is
-// configured, so jean's own internal calls (chat/web/bench/test) authenticate
+// configured, so AJEAN's own internal calls (chat/web/bench/test) authenticate
 // against a protected llama-server. No-op when no key is set.
 func authHeader(req *http.Request) {
 	if k := readAPIKey(); k != "" {
@@ -35,39 +30,32 @@ func authHeader(req *http.Request) {
 func genAPIKey() string {
 	buf := make([]byte, 24)
 	_, _ = rand.Read(buf)
-	return "sk-jean-" + hex.EncodeToString(buf)
+	return "sk-ajean-" + hex.EncodeToString(buf)
 }
 
-// writeAPIKey persists (key != "") or clears (key == "") the completion API key
-// in $JEAN_HOME/.api_key. It also wipes any residual API_KEY in config.env to
-// avoid ambiguity. It does NOT restart the service — callers decide when to
-// apply (llama-server only reads --api-key at launch).
+// writeAPIKey enregistre (key != "") ou supprime (key == "") la clé Bearer.
+// Ne redémarre PAS le service : llama-server ne lit --api-key qu'au lancement,
+// c'est à l'appelant de choisir quand appliquer.
 func writeAPIKey(key string) error {
-	_ = SetConfigKey("API_KEY", "")
-	if key == "" {
-		if err := os.Remove(apiKeyPath()); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-		return nil
-	}
-	return os.WriteFile(apiKeyPath(), []byte(key+"\n"), 0o600)
+	_ = SetConfigKey("API_KEY", "") // aucune ambiguïté avec une valeur résiduelle
+	return putStr(bkState, "api_key", key)
 }
 
-// maskAPIKey renders a key for display: keep the "sk-jean-" prefix and last 4
+// maskAPIKey renders a key for display: keep the "sk-ajean-" prefix and last 4
 // chars, elide the middle. Empty in → empty out.
 func maskAPIKey(k string) string {
 	if k == "" {
 		return ""
 	}
-	if len(k) <= 12 {
+	if len(k) <= 13 {
 		return "…" + k[len(k)-2:]
 	}
-	return k[:8] + "…" + k[len(k)-4:]
+	return k[:9] + "…" + k[len(k)-4:]
 }
 
-// cmdSetAPIKey sets (or clears) the API key stored in $JEAN_HOME/.api_key. When
-// exposed on the internet, llama-server requires "Authorization: Bearer <clé>"
-// for every call.
+// cmdSetAPIKey définit (ou supprime) la clé Bearer de llama-server. Exposé sur
+// internet, le serveur exige alors « Authorization: Bearer <clé> » à chaque
+// appel.
 //
 //	ajean set-api-key <clé>     définit la clé
 //	ajean set-api-key           génère une clé aléatoire
@@ -83,15 +71,13 @@ func cmdSetAPIKey(args []string) error {
 	default:
 		key = strings.TrimSpace(args[0])
 	}
-	// Stocke dans le fichier dédié (survit aux switches de preset). On nettoie
-	// aussi un éventuel API_KEY résiduel dans config.env pour éviter la confusion.
 	if err := writeAPIKey(key); err != nil {
 		return err
 	}
 	if key == "" {
 		fmt.Printf("%s API_KEY supprimée — serveur ouvert (pas d'authentification)\n", yellow("[info]"))
 	} else {
-		fmt.Printf("%s API_KEY enregistrée dans %s\n", green("[ok]"), apiKeyPath())
+		fmt.Printf("%s API_KEY enregistrée\n", green("[ok]"))
 		fmt.Printf("       les clients doivent envoyer : %s\n", dim("Authorization: Bearer "+key))
 	}
 	fmt.Print(dim("[info] redémarrer le service pour appliquer ? [Y/n] "))
@@ -103,72 +89,54 @@ func cmdSetAPIKey(args []string) error {
 	return serviceAction("restart")
 }
 
-// ReadConfig parses config.env into a key/value map.
-// Lines starting with '#' and blanks are ignored. Values may be quoted with ".
-func ReadConfig() map[string]string {
+// ReadConfig renvoie la configuration active de llama-server.
+func ReadConfig() map[string]string { return allKV(bkConfig) }
+
+// SetConfigKey définit une clé de configuration. Une valeur vide la supprime.
+func SetConfigKey(key, value string) error { return putStr(bkConfig, key, value) }
+
+// WriteConfig remplace TOUTE la configuration en une transaction. C'est ce
+// qu'exige l'application d'un preset : jamais un état mi-ancien mi-nouveau.
+func WriteConfig(m map[string]string) error { return replaceKV(bkConfig, m) }
+
+// parseEnv lit un fichier au format clé=valeur (les presets). Les lignes vides
+// et les commentaires sont ignorés, les guillemets retirés.
+func parseEnv(text string) map[string]string {
 	m := map[string]string{}
-	b, err := os.ReadFile(confPath())
-	if err != nil {
-		return m
-	}
-	for _, line := range strings.Split(string(b), "\n") {
+	for _, line := range strings.Split(text, "\n") {
 		s := strings.TrimSpace(line)
 		if s == "" || strings.HasPrefix(s, "#") {
 			continue
 		}
-		i := strings.IndexByte(s, '=')
-		if i < 0 {
+		k, v, ok := strings.Cut(strings.TrimPrefix(s, "export "), "=")
+		if !ok {
 			continue
 		}
-		k := strings.TrimSpace(s[:i])
-		v := strings.TrimSpace(s[i+1:])
-		v = strings.Trim(v, "\"")
-		m[k] = v
+		m[strings.TrimSpace(k)] = strings.Trim(strings.TrimSpace(v), "\"")
 	}
 	return m
 }
 
-// SetConfigKey sets key=value in config.env, updating the line in place if the
-// key already exists (preserving comments/order) or appending it otherwise.
-// An empty value removes the key. The file is created if missing.
-func SetConfigKey(key, value string) error {
-	b, _ := os.ReadFile(confPath())
-	lines := []string{}
-	if len(b) > 0 {
-		lines = strings.Split(strings.TrimRight(string(b), "\n"), "\n")
+// formatEnv rend une configuration au format des presets, clés triées pour que
+// deux écritures du même contenu donnent le même fichier.
+func formatEnv(m map[string]string) string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
 	}
-	newLine := key + "=" + value
-	found := false
-	out := []string{}
-	for _, line := range lines {
-		s := strings.TrimSpace(line)
-		if s == "" || strings.HasPrefix(s, "#") {
-			out = append(out, line)
-			continue
-		}
-		i := strings.IndexByte(s, '=')
-		if i >= 0 && strings.TrimSpace(s[:i]) == key {
-			found = true
-			if value != "" {
-				out = append(out, newLine)
-			}
-			// empty value => drop the line
-			continue
-		}
-		out = append(out, line)
+	sort.Strings(keys)
+	var b strings.Builder
+	for _, k := range keys {
+		fmt.Fprintf(&b, "%s=%s\n", k, m[k])
 	}
-	if !found && value != "" {
-		out = append(out, newLine)
-	}
-	content := strings.Join(out, "\n") + "\n"
-	return os.WriteFile(confPath(), []byte(content), 0o644)
+	return b.String()
 }
 
 // Le plafond d'appels d'outils par tour (TOOL_LIMIT) et l'anti-boucle ont été
 // retirés : ils coupaient surtout des tours légitimes. Le bouton stop est le
 // seul frein.
 
-// LLMPort returns the configured server port (config.env PORT), default 8080.
+// LLMPort renvoie le port du serveur (clé PORT), 8080 par défaut.
 func LLMPort() int {
 	if p, ok := ReadConfig()["PORT"]; ok {
 		if n, err := strconv.Atoi(p); err == nil && n > 0 {

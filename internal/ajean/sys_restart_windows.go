@@ -57,13 +57,6 @@ func cmdRestartAfterUpdate(args []string) error {
 			waitForExit(pid, 30*time.Second)
 		}
 	}
-	// L'application vient de se fermer : plus rien ne tient le dossier de
-	// données, le renommage peut enfin aboutir. postUpdateMigrate ne fait rien
-	// s'il n'y a pas lieu, et repointe raccourci et PATH s'il a migré.
-	postUpdateMigrate()
-
-	// installedExePath() est relu APRÈS la migration : le binaire a pu changer
-	// de dossier avec elle, et relancer l'ancien chemin échouerait.
 	target := installedExePath()
 	if _, err := os.Stat(target); err != nil {
 		// La cible a disparu : mieux vaut relancer ce qu'on a que rien du tout.

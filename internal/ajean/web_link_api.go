@@ -1,9 +1,9 @@
 package ajean
 
 // web_link_api.go — API locale pilotant l'accès distant (ajean.link) depuis l'UI
-// web de Jean, pour éviter le terminal. Le panneau « Accès distant » ouvre une
+// web de AJEAN, pour éviter le terminal. Le panneau « Accès distant » ouvre une
 // popup app.ajean.link/connect.html qui gère compte + paiement puis renvoie une
-// clé de liaison (jl_…) ; l'UI la POSTe ici, et Jean fait le `ajean link` tout
+// clé de liaison (jl_…) ; l'UI la POSTe ici, et AJEAN fait le `ajean link` tout
 // seul (écrit le token + (re)démarre le service).
 //
 // Ces routes ne sont accessibles qu'en LOCAL : à travers le tunnel du relais,

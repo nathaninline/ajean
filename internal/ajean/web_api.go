@@ -15,7 +15,7 @@ import (
 )
 
 func handlePing(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, 200, map[string]any{"ok": true, "service": "jean", "version": Version})
+	sendJSON(w, 200, map[string]any{"ok": true, "service": "ajean", "version": Version})
 }
 
 // handleStatus reports service state cross-platform via serviceIsActive
@@ -159,14 +159,14 @@ func handleConfigEnv(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, ReadConfig())
 }
 
-// handleBackends scans JEAN_HOME/backends/<name>/ for a llama-server binary,
+// handleBackends scans AJEAN_HOME/backends/<name>/ for a llama-server binary,
 // trying common build subpaths (build/bin, build-sm120/bin, bin, .).
 // Returns [{name, path}].
 func handleBackends(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, listBackendBins())
 }
 
-// listBackendBins scanne JEAN_HOME/backends/<name>/ pour un binaire llama-server
+// listBackendBins scanne AJEAN_HOME/backends/<name>/ pour un binaire llama-server
 // (essaie les sous-chemins des différents générateurs CMake). Renvoie
 // [{name, path}] — un par dossier de backend contenant un binaire.
 func listBackendBins() []map[string]any {
@@ -263,9 +263,9 @@ func handleLlamacppUninstallCustom(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleModels lists *.gguf files (size in bytes) for the preset editor's model
-// picker, dans JEAN_HOME ET dans les dossiers supplémentaires déclarés (disque
+// picker, dans AJEAN_HOME ET dans les dossiers supplémentaires déclarés (disque
 // externe…). "value" est ce qu'il faut écrire dans MODEL= : un simple nom de
-// fichier pour JEAN_HOME (compatibilité avec l'existant), le chemin complet
+// fichier pour AJEAN_HOME (compatibilité avec l'existant), le chemin complet
 // pour un dossier externe.
 func handleModels(w http.ResponseWriter, r *http.Request) {
 	out := []map[string]any{}
@@ -337,9 +337,9 @@ func handlePresets(w http.ResponseWriter, r *http.Request) {
 func handlePreset(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(r.URL.Query().Get("id"))
 	if id == "" {
-		// new preset → seed from current config.env so users can tweak rather than start blank
-		b, _ := os.ReadFile(confPath())
-		sendJSON(w, 200, map[string]any{"id": "", "name": "", "content": string(b)})
+		// nouveau preset → pré-rempli avec la configuration active, pour ajuster
+		// plutôt que partir d'une page blanche
+		sendJSON(w, 200, map[string]any{"id": "", "name": "", "content": formatEnv(ReadConfig())})
 		return
 	}
 	content, err := ReadPreset(id)
@@ -775,7 +775,7 @@ func handleMCPTest(w http.ResponseWriter, r *http.Request) {
 func handleMem(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(r.URL.Query().Get("name"))
 	if name == "" {
-		sendJSON(w, 200, map[string]any{"name": "", "content": "# nouvelle page\n\nNote ici ce que jean doit retenir entre les sessions.\n"})
+		sendJSON(w, 200, map[string]any{"name": "", "content": "# nouvelle page\n\nNote ici ce que ajean doit retenir entre les sessions.\n"})
 		return
 	}
 	c := MemContent(name)
@@ -852,7 +852,7 @@ func handleSwitch(w http.ResponseWriter, r *http.Request) {
 // svcHandler returns an HTTP handler that triggers a start/stop/restart through
 // the cross-platform serviceAction (systemd sous Linux, supervision PID-file
 // sous Windows — voir sys_service_*.go). C'est ce qui permet à un client distant
-// de relancer Jean.
+// de relancer AJEAN.
 func svcHandler(action string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		err := serviceAction(action)

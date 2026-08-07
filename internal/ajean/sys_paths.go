@@ -17,31 +17,25 @@ import (
 
 type ajeanPaths struct {
 	Home      string `json:"home"`      // AJEAN_HOME : racine des données
-	Config    string `json:"config"`    // config.env
+	Database  string `json:"database"`  // ajean.db : config, préférences, conversation, clés
 	Exe       string `json:"exe"`       // binaire en cours d'exécution
 	Installed string `json:"installed"` // binaire installé (peut différer de Exe)
 	Workspace string `json:"workspace"` // dossier de travail du mode agent
 	Memory    string `json:"memory"`
 	Presets   string `json:"presets"`
+	Models    string `json:"models"`
+	Backends  string `json:"backends"`
 }
 
 // installedExePath est l'emplacement canonique du binaire après installation.
 // Il diffère par plateforme : sous Unix les installateurs posent /usr/local/bin/ajean
 // (c'est ce que référencent les unités systemd et le plist launchd) ; sous Windows,
 // faute d'équivalent, on utilise AJEAN_HOME\bin ajouté au PATH utilisateur.
-func installedExePath() string { return exePathNamed("ajean") }
-
-// legacyExePath est l'emplacement d'avant le renommage. L'installation continue
-// d'y poser un alias : `jean` reste tapable indéfiniment. Ça ne coûte qu'un lien
-// et ça préserve les habitudes, les scripts cron, les alias shell et les tutos
-// déjà écrits par les utilisateurs — dont on ne contrôle aucun.
-func legacyExePath() string { return exePathNamed("jean") }
-
-func exePathNamed(name string) string {
+func installedExePath() string {
 	if runtime.GOOS == "windows" {
-		return filepath.Join(AjeanHome(), "bin", name+".exe")
+		return filepath.Join(binDir(), "ajean.exe")
 	}
-	return "/usr/local/bin/" + name
+	return "/usr/local/bin/ajean"
 }
 
 func currentPaths() ajeanPaths {
@@ -51,12 +45,14 @@ func currentPaths() ajeanPaths {
 	}
 	return ajeanPaths{
 		Home:      AjeanHome(),
-		Config:    confPath(),
+		Database:  dbPath(),
 		Exe:       exe,
 		Installed: installedExePath(),
 		Workspace: agentWorkspace(),
 		Memory:    memoryDir(),
 		Presets:   presetsDir(),
+		Models:    modelsDir(),
+		Backends:  backendsDir(),
 	}
 }
 
@@ -65,17 +61,16 @@ func cmdWhere(args []string) error {
 	fmt.Printf("Emplacements AJEAN\n\n")
 	for _, row := range [][2]string{
 		{"données (AJEAN_HOME)", p.Home},
-		{"configuration", p.Config},
+		{"base", p.Database},
 		{"binaire en cours", p.Exe},
 		{"binaire installé", p.Installed},
 		{"travail de l'agent", p.Workspace},
 		{"mémoire", p.Memory},
 		{"presets", p.Presets},
+		{"modèles", p.Models},
+		{"backends", p.Backends},
 	} {
 		fmt.Printf("  %-20s %s\n", row[0], row[1])
-	}
-	if notice := homeMigrationNotice(); notice != "" {
-		fmt.Printf("\n%s %s\n", yellow("[info]"), notice)
 	}
 	if p.Exe != p.Installed {
 		fmt.Printf("\n%s tu exécutes une copie qui n'est PAS le binaire installé.\n", dim("[info]"))

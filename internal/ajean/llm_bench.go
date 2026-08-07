@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -71,7 +70,7 @@ func runBench(nPrompt, nPredict int) (*benchResult, error) {
 	// Use the same endpoint your real chat hits, so the comparison is honest
 	// (chat template, reasoning, OpenAI-compat layer all included).
 	payload := map[string]any{
-		"model":        "jean",
+		"model":        "ajean",
 		"messages":     []Message{{Role: "user", Content: prompt + "\n\nContinue this passage with another 1000+ words of original varied prose, mixing French and English narrative paragraphs on different topics."}},
 		"max_tokens":   nPredict,
 		"stream":       false,
@@ -136,10 +135,6 @@ func runBench(nPrompt, nPredict int) (*benchResult, error) {
 	return res, nil
 }
 
-// lastBenchPath stores the most recent benchmark result so the web UI can show
-// it without re-running. Lives in JEAN_HOME so it survives restarts.
-func lastBenchPath() string { return filepath.Join(AjeanHome(), ".last_bench.json") }
-
 // savedBench is a benchResult plus the model it was run against and a timestamp.
 type savedBench struct {
 	Result benchResult `json:"result"`
@@ -147,45 +142,35 @@ type savedBench struct {
 	At     int64       `json:"at"`
 }
 
-// saveLastBench persists res to JEAN_HOME/.last_bench.json (best-effort).
+// saveLastBench enregistre le dernier benchmark (best-effort) pour que l'UI
+// puisse l'afficher sans le relancer.
 func saveLastBench(res *benchResult) {
 	sb := savedBench{Result: *res, Model: filepath.Base(ReadConfig()["MODEL"]), At: time.Now().Unix()}
-	if b, err := json.Marshal(sb); err == nil {
-		_ = os.WriteFile(lastBenchPath(), b, 0o644)
-	}
+	_ = putJSON(bkState, "last_bench", sb)
 }
 
-// loadLastBench reads the persisted benchmark, or nil if none/unreadable.
+// loadLastBench relit le benchmark enregistré, ou nil s'il n'y en a pas.
 func loadLastBench() *savedBench {
-	b, err := os.ReadFile(lastBenchPath())
-	if err != nil {
-		return nil
-	}
 	var sb savedBench
-	if json.Unmarshal(b, &sb) != nil {
+	if !getJSON(bkState, "last_bench", &sb) {
 		return nil
 	}
 	return &sb
 }
 
-// benchStorePath holds per-preset benchmark results so the UI can show each
-// preset's measured performance. Keyed by preset name.
-func benchStorePath() string { return filepath.Join(AjeanHome(), ".bench_presets.json") }
-
-// loadBenchStore returns the per-preset bench map (empty if none/unreadable).
+// loadBenchStore renvoie les benchmarks par preset (vide s'il n'y en a pas).
 func loadBenchStore() map[string]savedBench {
 	m := map[string]savedBench{}
-	b, err := os.ReadFile(benchStorePath())
-	if err != nil {
-		return m
+	getJSON(bkState, "bench_presets", &m)
+	if m == nil {
+		m = map[string]savedBench{}
 	}
-	_ = json.Unmarshal(b, &m)
 	return m
 }
 
 // saveBenchForActivePreset records res under the name of the currently active
-// preset (the one whose config.env matches the live config). No-op if no preset
-// matches — the bench still lives in .last_bench.json via saveLastBench.
+// preset (celui qui correspond à la configuration active). Sans effet si aucun
+// preset ne correspond — le benchmark reste enregistré par saveLastBench.
 func saveBenchForActivePreset(res *benchResult) {
 	list, err := ListPresets()
 	if err != nil {
@@ -203,9 +188,7 @@ func saveBenchForActivePreset(res *benchResult) {
 	}
 	m := loadBenchStore()
 	m[id] = savedBench{Result: *res, Model: filepath.Base(ReadConfig()["MODEL"]), At: time.Now().Unix()}
-	if b, err := json.Marshal(m); err == nil {
-		_ = os.WriteFile(benchStorePath(), b, 0o644)
-	}
+	_ = putJSON(bkState, "bench_presets", m)
 }
 
 func cmdBench(args []string) error {

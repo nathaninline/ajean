@@ -7,7 +7,7 @@ import (
 )
 
 // Un chemin relatif du modèle doit atterrir dans le workspace, jamais dans le
-// répertoire courant du processus (Bureau, C:\ProgramData\jean\bin…).
+// répertoire courant du processus (Bureau, C:\ProgramData\ajean\bin…).
 func TestResolveAgentPathRelative(t *testing.T) {
 	got := resolveAgentPath("meteo.json")
 	want := filepath.Join(agentWorkspace(), "meteo.json")

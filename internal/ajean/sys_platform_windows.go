@@ -15,7 +15,7 @@ import (
 )
 
 // init makes the Windows console behave like a modern terminal: UTF-8 so the
-// Unicode glyphs jean prints (✓ ▶ …) and child-process output don't turn into
+// Unicode glyphs ajean prints (✓ ▶ …) and child-process output don't turn into
 // mojibake (the default OEM codepage, e.g. cp850, renders "✓" as "├ö"), and VT
 // processing so the ANSI colour/cursor escapes (including the build progress
 // line) are interpreted instead of printed literally. Best-effort: a redirected
@@ -43,7 +43,7 @@ func init() {
 // homeRoot is the parent directory of the data root: %ProgramData% (machine-wide,
 // the closest analogue to /etc), falling back to %LOCALAPPDATA% for unprivileged
 // setups. Ancien et nouveau dossier partagent ce parent, ce qui garantit que la
-// migration jean → ajean est un rename intra-volume (voir sys_migrate.go).
+// migration ajean → ajean est un rename intra-volume (voir sys_migrate.go).
 func homeRoot() string {
 	if pd := os.Getenv("ProgramData"); pd != "" {
 		return pd
@@ -54,11 +54,11 @@ func homeRoot() string {
 	return os.TempDir()
 }
 
-// defaultAjeanHome is the data root when no AJEAN_HOME/JEAN_HOME is set.
+// defaultAjeanHome is the data root when no AJEAN_HOME/AJEAN_HOME is set.
 func defaultAjeanHome() string { return filepath.Join(homeRoot(), "ajean") }
 
 // legacyDefaultHome is the pre-rename data root, migrated on first run.
-func legacyDefaultHome() string { return filepath.Join(homeRoot(), "jean") }
+func legacyDefaultHome() string { return filepath.Join(homeRoot(), "ajean") }
 
 // defaultEditor is used by `ajean edit` when $EDITOR is unset.
 func defaultEditor() string { return "notepad" }
@@ -70,7 +70,7 @@ func openBrowser(url string) error {
 }
 
 // hideCmd empêche une commande externe d'ouvrir une fenêtre de console
-// (CREATE_NO_WINDOW). Indispensable quand Jean tourne sans console (mode app) :
+// (CREATE_NO_WINDOW). Indispensable quand AJEAN tourne sans console (mode app) :
 // sinon chaque `nvidia-smi`/`git`/… ferait clignoter une fenêtre noire. Fusionne
 // avec les flags déjà présents pour ne pas écraser un éventuel détachement.
 func hideCmd(cmd *exec.Cmd) *exec.Cmd {
@@ -389,7 +389,7 @@ func cudaPathEnv(toolkitDir string) []string {
 }
 
 // newShellCmd builds the command used by the run_shell tool. hideCmd évite un
-// flash de console à chaque commande d'agent quand Jean tourne en mode app.
+// flash de console à chaque commande d'agent quand AJEAN tourne en mode app.
 func newShellCmd(ctx context.Context, command string) *exec.Cmd {
 	return hideCmd(exec.CommandContext(ctx, "cmd", "/C", command))
 }

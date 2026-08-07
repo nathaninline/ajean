@@ -16,7 +16,7 @@ import (
 // service itself is managed by the PID-file supervisor in sys_service_windows.go
 // (ajean start / stop / status), which needs no admin rights.
 
-const configTemplate = `# Configuration JEAN — édite-moi puis: ajean restart
+const configTemplate = `# Configuration AJEAN — édite-moi puis: ajean restart
 # ajean serve lit ce fichier et lance ton binaire llama.cpp.
 
 # Chemins (utilise des chemins Windows ; les antislashs ou slashs marchent)
@@ -38,18 +38,6 @@ EXTRA_ARGS=""
 `
 
 func cmdInstall(args []string) error {
-	// Lancé en administrateur, `install` est le moment où la migration peut
-	// enfin aboutir sur un poste où l'utilisateur courant n'a pas les droits sur
-	// %ProgramData%. On la retente donc AVANT de résoudre le dossier : l'inverse
-	// laisserait la variable pointer sur l'ancien chemin et installerait à côté.
-	// elevateForHomeMigration ne demande l'élévation que si elle peut débloquer
-	// la situation : jamais quand il n'y a rien à migrer, ni quand l'obstacle
-	// est un fichier verrouillé que des droits administrateur ne libéreraient pas.
-	if retryHomeMigration() || elevateForHomeMigration() {
-		fmt.Printf("%s dossier de données migré vers %s\n", green("✓"), AjeanHome())
-	} else if notice := homeMigrationNotice(); notice != "" {
-		fmt.Printf("%s %s\n", yellow("[info]"), notice)
-	}
 	ajeanHome := AjeanHome()
 
 	fmt.Printf("Installation (Windows)\n")
@@ -70,7 +58,7 @@ func cmdInstall(args []string) error {
 		fmt.Printf("  %s écrit %s\n", green("✓"), conf)
 	}
 
-	// 3. Install the binary into JEAN_HOME\bin and put that dir on the user PATH,
+	// 3. Install the binary into AJEAN_HOME\bin and put that dir on the user PATH,
 	//    so `ajean` is callable from any shell (this is the Windows analogue of the
 	//    /usr/local/bin symlink the Unix installer creates).
 	binDir := filepath.Join(ajeanHome, "bin")
@@ -102,16 +90,16 @@ func cmdInstall(args []string) error {
 	fmt.Printf("  2. démarre le service: %s\n", bold("ajean start"))
 	fmt.Printf("  3. UI web :            %s\n", bold("ajean web"))
 	if onPath {
-		fmt.Printf("\n%s ouvre un NOUVEAU terminal pour que 'jean' soit reconnu (le PATH n'est lu qu'au démarrage du shell).\n", dim("[info]"))
+		fmt.Printf("\n%s ouvre un NOUVEAU terminal pour que 'ajean' soit reconnu (le PATH n'est lu qu'au démarrage du shell).\n", dim("[info]"))
 	} else {
-		fmt.Printf("\n%s pour exécuter 'jean' depuis n'importe où, ajoute son dossier au PATH.\n", dim("[info]"))
+		fmt.Printf("\n%s pour exécuter 'ajean' depuis n'importe où, ajoute son dossier au PATH.\n", dim("[info]"))
 	}
 	return nil
 }
 
 // installSelf copies the currently running executable into binDir as ajean.exe
 // and returns the destination path. If the running exe already lives there
-// (re-install), it's a no-op. Une copie « jean.exe » est posée à côté pour que
+// (re-install), it's a no-op. Une copie « ajean.exe » est posée à côté pour que
 // l'ancienne commande reste tapable (voir installLegacyAlias).
 //
 // binDir est créé ici, et pas seulement par l'appelant : sur une machine vierge,
@@ -142,7 +130,7 @@ func installSelf(binDir string) (string, error) {
 	return dst, nil
 }
 
-// installLegacyAlias pose une copie « jean.exe » à côté de « ajean.exe ».
+// installLegacyAlias pose une copie « ajean.exe » à côté de « ajean.exe ».
 //
 // Une copie et pas un lien : créer un lien symbolique sous Windows demande des
 // droits particuliers qu'on n'a pas toujours, et un binaire de quelques dizaines
@@ -151,7 +139,7 @@ func installSelf(binDir string) (string, error) {
 // écrits eux-mêmes. Best-effort : un échec ne compromet pas l'installation,
 // « ajean » reste disponible.
 func installLegacyAlias(binDir, src string) {
-	alias := filepath.Join(binDir, "jean.exe")
+	alias := filepath.Join(binDir, "ajean.exe")
 	if strings.EqualFold(src, alias) {
 		return
 	}
@@ -162,7 +150,7 @@ func installLegacyAlias(binDir, src string) {
 //
 // Windows refuse d'écraser un .exe en cours d'exécution, mais accepte de le
 // RENOMMER : on décale l'ancien puis on écrit le nouveau à sa place. Sans ça,
-// l'alias « jean.exe » restait figé sur une version périmée dès qu'il tournait
+// l'alias « ajean.exe » restait figé sur une version périmée dès qu'il tournait
 // au moment de la mise à jour — et comme les raccourcis existants le visent
 // encore, chaque lancement relançait l'ancienne version, qui constatait qu'une
 // plus récente était installée et le disait. À chaque fois. Constaté en usage.
@@ -264,7 +252,7 @@ func cmdUninstall(args []string) error {
 	// Stop the background server if it's running.
 	_ = svcStop(false)
 
-	// Pull JEAN_HOME\bin off the user PATH (best-effort).
+	// Pull AJEAN_HOME\bin off the user PATH (best-effort).
 	binDir := filepath.Join(AjeanHome(), "bin")
 	if removed, err := removeFromUserPath(binDir); err == nil && removed {
 		fmt.Printf("  %s %s retiré du PATH utilisateur\n", green("✓"), binDir)

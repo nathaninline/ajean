@@ -5,7 +5,7 @@ package ajean
 // venir) propose « en un clic » un modèle adapté à la machine.
 //
 // La liste vit sur https://ajean.link/models.json (éditée par l'opérateur, voir
-// jean-relay/models_catalog.go). Si le réseau échoue, on retombe sur un
+// ajean-relay/models_catalog.go). Si le réseau échoue, on retombe sur un
 // catalogue minimal embarqué (fallbackCatalogJSON) pour ne jamais bloquer.
 
 import (

@@ -51,42 +51,27 @@ func withDisplayName(content, name string) string {
 	return line + "\n" + content
 }
 
-// presetFingerprint hashes config content while IGNORING the device-level keys
-// (preservedKeys) that SwitchToPreset re-applies on top of a freshly copied
-// preset. Without this, those injected MEM_MODE/CRAWL4AI_URL lines make
-// config.env differ from every preset file, so no preset is ever detected as
-// active (regression introduced when preservedKeys were added). We strip those
-// assignment lines symmetrically from both sides before hashing so a plain
-// content match still identifies the active preset.
-func presetFingerprint(content []byte) string {
-	// On réduit le fichier à l'ENSEMBLE de ses affectations KEY=VALUE effectives,
-	// puis on hache cet ensemble TRIÉ. On ignore : commentaires (dont `# NAME=`),
-	// lignes vides, l'ordre des lignes, et les clés « appareil » (preservedKeys,
-	// réappliquées par SwitchToPreset). Ainsi un simple reformatage de config.env
-	// — réécriture par un toggle mémoire/internet, réordonnancement, commentaires —
-	// ne « perd » plus le preset actif : seule la config effective est comparée.
-	// (Avant : hachage ligne à ligne, cassé par le moindre changement cosmétique →
-	// aucun preset détecté comme actif, souvent après un changement de réglage.)
-	pairs := []string{}
-	for _, line := range strings.Split(string(content), "\n") {
-		t := strings.TrimSpace(line)
-		if t == "" || strings.HasPrefix(t, "#") {
+// configFingerprint réduit une configuration à l'ENSEMBLE TRIÉ de ses
+// affectations effectives, puis le hache. Les clés « appareil » (preservedKeys,
+// réappliquées par SwitchToPreset) sont ignorées : sans ça, les MEM_MODE /
+// CRAWL4AI_URL injectés rendraient la config active différente de TOUS les
+// presets, et aucun ne serait jamais détecté comme actif.
+func configFingerprint(m map[string]string) string {
+	pairs := make([]string, 0, len(m))
+	for k, v := range m {
+		if isPreservedKey(k) {
 			continue
 		}
-		t = strings.TrimPrefix(t, "export ")
-		eq := strings.IndexByte(t, '=')
-		if eq < 0 {
-			continue
-		}
-		key := strings.TrimSpace(t[:eq])
-		if isPreservedKey(key) {
-			continue
-		}
-		pairs = append(pairs, key+"="+strings.TrimSpace(t[eq+1:]))
+		pairs = append(pairs, k+"="+v)
 	}
 	sort.Strings(pairs)
 	h := sha1.Sum([]byte(strings.Join(pairs, "\n")))
 	return hex.EncodeToString(h[:])
+}
+
+// presetFingerprint est configFingerprint appliqué au contenu d'un preset.
+func presetFingerprint(content []byte) string {
+	return configFingerprint(parseEnv(string(content)))
 }
 
 // isPreservedKey reports whether key is one of the device-level preservedKeys.
@@ -99,15 +84,12 @@ func isPreservedKey(key string) bool {
 	return false
 }
 
-// ListPresets returns all configs/*.env, marking the one whose contents match
-// the current config.env (ignoring device-level preservedKeys), sorted by name.
+// ListPresets renvoie tous les presets/*.env, en marquant celui qui correspond
+// à la configuration active (clés « appareil » ignorées), triés par nom.
 func ListPresets() ([]Preset, error) {
 	dir := presetsDir()
 	_ = os.MkdirAll(dir, 0o755)
-	cur := ""
-	if b, err := os.ReadFile(confPath()); err == nil {
-		cur = presetFingerprint(b)
-	}
+	cur := configFingerprint(ReadConfig())
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -213,57 +195,40 @@ var preservedKeys = []string{"MEM_MODE", "CRAWL4AI_URL", "WEB_ENGINE", "CUDA_VIS
 // « cudaMalloc failed: out of memory ». Le preset explicite gagne.
 var softPreservedKeys = map[string]bool{"CUDA_VISIBLE_DEVICES": true}
 
-// presetDefines dit si le contenu d'un preset affecte explicitement la clé.
-func presetDefines(content []byte, key string) bool {
-	for _, line := range strings.Split(string(content), "\n") {
-		t := strings.TrimSpace(line)
-		if t == "" || strings.HasPrefix(t, "#") {
-			continue
-		}
-		t = strings.TrimPrefix(t, "export ")
-		if eq := strings.IndexByte(t, '='); eq >= 0 && strings.TrimSpace(t[:eq]) == key {
-			return true
-		}
-	}
-	return false
-}
-
-// applyPresetFile copie le preset dans config.env en réinjectant les réglages
-// « appareil » par-dessus. Séparé de SwitchToPreset pour être testable sans
-// redémarrer le service (donc sans lancer un llama-server pour de vrai).
+// applyPresetFile installe le preset comme configuration active, en réinjectant
+// les réglages « appareil » par-dessus. Séparé de SwitchToPreset pour être
+// testable sans redémarrer le service (donc sans lancer un vrai llama-server).
 func applyPresetFile(target string) error {
 	src, err := os.ReadFile(target)
 	if err != nil {
 		return err
 	}
-	// Capture les réglages appareil AVANT d'écraser config.env.
+	next := parseEnv(string(src))
+	// Ré-applique les réglages appareil par-dessus le preset — sauf ceux que le
+	// preset revendique explicitement (softPreservedKeys).
 	cur := ReadConfig()
-	if err := os.WriteFile(confPath(), src, 0o644); err != nil {
-		return err
-	}
-	// Ré-applique les réglages appareil par-dessus le preset fraîchement copié —
-	// sauf ceux que le preset revendique explicitement (softPreservedKeys).
 	for _, k := range preservedKeys {
 		v, ok := cur[k]
 		if !ok {
 			continue
 		}
-		if softPreservedKeys[k] && presetDefines(src, k) {
-			continue // le preset a son mot à dire sur cette clé : on le laisse gagner
+		if softPreservedKeys[k] {
+			if _, claimed := next[k]; claimed {
+				continue // le preset a son mot à dire sur cette clé : il gagne
+			}
 		}
-		_ = SetConfigKey(k, v)
+		next[k] = v
 	}
-	return nil
+	return WriteConfig(next)
 }
 
-// SwitchToPreset backs up the current config and copies the target into place,
-// then restarts the service. Les réglages « appareil » (preservedKeys) sont
-// conservés à travers la bascule.
+// SwitchToPreset installe le preset et redémarre le service. Les réglages
+// « appareil » (preservedKeys) sont conservés à travers la bascule.
 func SwitchToPreset(target string) error {
 	if err := applyPresetFile(target); err != nil {
 		return err
 	}
-	fmt.Printf("%s config.env <- %s\n", green("[ok]"), filepath.Base(target))
+	fmt.Printf("%s configuration <- %s\n", green("[ok]"), filepath.Base(target))
 	fmt.Println(dim("[info] redémarrage du service..."))
 	return serviceAction("restart")
 }
@@ -342,12 +307,11 @@ func DeletePreset(id string) error {
 	if err != nil {
 		return err
 	}
-	cur, _ := os.ReadFile(confPath())
 	target, err := os.ReadFile(p)
 	if err != nil {
 		return fmt.Errorf("introuvable")
 	}
-	if sha1.Sum(cur) == sha1.Sum(target) {
+	if presetFingerprint(target) == configFingerprint(ReadConfig()) {
 		return fmt.Errorf("preset actif, switche d'abord")
 	}
 	return os.Remove(p)

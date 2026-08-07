@@ -16,16 +16,37 @@ import (
 //
 // editConfig and showVram live here because they work the same everywhere.
 
+// editConfig ouvre la configuration dans $EDITOR. La configuration vit en base
+// (voir store.go) : on la déroule dans un fichier temporaire au format clé=valeur,
+// on laisse l'éditeur faire son travail, puis on relit. Le contenu n'est réécrit
+// que si l'éditeur sort proprement — un éditeur avorté ne doit rien effacer.
 func editConfig() error {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = defaultEditor()
 	}
-	cmd := exec.Command(editor, confPath())
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	tmp, err := os.CreateTemp("", "ajean-config-*.env")
+	if err != nil {
+		return err
+	}
+	path := tmp.Name()
+	defer os.Remove(path)
+	if _, err := tmp.WriteString(formatEnv(ReadConfig())); err != nil {
+		tmp.Close()
+		return err
+	}
+	tmp.Close()
+
+	cmd := exec.Command(editor, path)
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
+		return err
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	if err := WriteConfig(parseEnv(string(b))); err != nil {
 		return err
 	}
 	fmt.Println(dim("[info] ajean restart pour appliquer"))

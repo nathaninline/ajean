@@ -135,7 +135,7 @@ func compactWouldTrigger(msgs []Message, knownTokens int) bool {
 }
 
 // logCompact trace UNE ligne par décision de compaction sur la sortie d'erreur
-// (donc dans `journalctl -u jean-link`). Sans ça, une compaction qui ne se
+// (donc dans `journalctl -u ajean-link`). Sans ça, une compaction qui ne se
 // déclenche pas — ou qui se déclenche et n'enlève rien — est invisible : côté
 // UI on ne voit qu'une jauge qui reste haute, sans savoir si le seuil n'a pas
 // été atteint ou si la réduction a été refusée.
@@ -294,7 +294,7 @@ func compactMessages(ctx context.Context, msgs []Message, caps Caps) ([]Message,
 
 	// Garantie de réduction : on n'accepte la compaction que si elle enlève au
 	// moins ~20% du contexte estimé. Sinon (torse déjà maigre, résumé peu rentable)
-	// on la refuse — sans ça, jean « compactait » à presque chaque message sans
+	// on la refuse — sans ça, ajean « compactait » à presque chaque message sans
 	// vraiment réduire, puis re-déclenchait aussitôt.
 	before, after := estimateTokens(msgs), estimateTokens(out)
 	if after > before*4/5 {
@@ -363,7 +363,7 @@ Strict rules: no preamble or conclusion, no verbatim or long quotes, no throwawa
 Write the summary in the SAME language as the conversation.`
 
 	payload := map[string]any{
-		"model": "jean",
+		"model": "ajean",
 		"messages": []Message{
 			{Role: "system", Content: sys},
 			{Role: "user", Content: transcript},

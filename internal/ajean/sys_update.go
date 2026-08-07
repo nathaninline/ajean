@@ -22,9 +22,6 @@ import (
 // l'OS/arch courant, remplace le binaire en place, puis affiche quoi redémarrer.
 // AUCUN redémarrage de service automatique (choix volontaire, plus sûr).
 
-// Le dépôt a été renommé jean → ajean ; GitHub redirige les anciennes URL et
-// l'API REST, donc les binaires déjà installés qui pointent encore sur
-// « nathaninline/jean » continuent de trouver les releases.
 const updateRepo = "nathaninline/ajean"
 
 type ghRelease struct {
@@ -37,36 +34,23 @@ type ghRelease struct {
 	} `json:"assets"`
 }
 
-// updateAssetNames reconstruit les noms d'asset acceptables pour la plateforme
-// courante, par ordre de préférence : ajean-<os>-<arch>[.exe] puis, en repli,
-// l'ancien nom jean-<os>-<arch>[.exe].
-//
-// Le repli n'est pas de la coquetterie : pendant la transition, les releases
-// publient les DEUX noms (mêmes binaires) pour que le parc déjà installé — qui
-// ne connaît que « jean-* » — continue de se mettre à jour. Ce binaire-ci sait
-// lire les deux, il fonctionne donc aussi bien avec une release de transition
-// qu'avec une release future qui n'aura plus que « ajean-* ».
-func updateAssetNames() []string {
+// updateAssetName est le nom de l'asset de release pour la plateforme courante :
+// ajean-<os>-<arch>[.exe]. Un seul nom publié, un seul nom cherché.
+func updateAssetName() string {
 	suffix := runtime.GOOS + "-" + runtime.GOARCH
 	if runtime.GOOS == "windows" {
 		suffix += ".exe"
 	}
-	return []string{"ajean-" + suffix, "jean-" + suffix}
+	return "ajean-" + suffix
 }
 
-// updateAssetName renvoie le nom d'asset préféré (usage : messages à l'écran).
-func updateAssetName() string { return updateAssetNames()[0] }
-
-// pickAsset choisit dans la release le premier asset correspondant à la
-// plateforme, en respectant l'ordre de préférence. Renvoie son nom, son URL et
-// sa taille — le nom retourné est celui qui servira à vérifier le SHA-256, qui
-// doit donc être celui réellement téléchargé, pas celui qu'on préférait.
+// pickAsset trouve dans la release l'asset de cette plateforme. Renvoie son nom
+// (celui qui servira à vérifier le SHA-256), son URL et sa taille.
 func pickAsset(rel *ghRelease) (name, url string, size int64) {
-	for _, want := range updateAssetNames() {
-		for _, a := range rel.Assets {
-			if a.Name == want {
-				return a.Name, a.BrowserDownloadURL, a.Size
-			}
+	want := updateAssetName()
+	for _, a := range rel.Assets {
+		if a.Name == want {
+			return a.Name, a.BrowserDownloadURL, a.Size
 		}
 	}
 	return "", "", 0
@@ -145,7 +129,7 @@ func applyUpdate() (string, error) {
 	want, url, size := pickAsset(rel)
 	if url == "" {
 		return "", fmt.Errorf("aucun binaire %s dans la release %s (os/arch %s/%s)",
-			strings.Join(updateAssetNames(), " ni "), latest, runtime.GOOS, runtime.GOARCH)
+			updateAssetName(), latest, runtime.GOOS, runtime.GOARCH)
 	}
 
 	exe, err := os.Executable()
@@ -197,7 +181,7 @@ func applyUpdate() (string, error) {
 	return strings.TrimPrefix(latest, "v"), nil
 }
 
-// updatePermissionError formule le seul message utile quand jean n'a pas les
+// updatePermissionError formule le seul message utile quand ajean n'a pas les
 // droits d'écrire son propre binaire : la commande exacte à lancer.
 func updatePermissionError(exe string) error {
 	if runtime.GOOS == "windows" {
@@ -240,7 +224,7 @@ func cmdUpdate(args []string) error {
 		return fmt.Errorf("impossible de contacter GitHub : %w", err)
 	}
 	if !info.Available {
-		fmt.Printf("jean est déjà à jour (%s).\n", Version)
+		fmt.Printf("ajean est déjà à jour (%s).\n", Version)
 		return nil
 	}
 	fmt.Printf("nouvelle version disponible : %s  (actuelle : %s)\n", info.Latest, Version)
@@ -255,10 +239,6 @@ func cmdUpdate(args []string) error {
 		return err
 	}
 	fmt.Printf("✓ ajean mis à jour en %s\n", newVer)
-	// Sous Windows, c'est ICI qu'on peut enfin migrer le dossier : `update` est
-	// le geste délibéré de l'utilisateur, et c'est le seul que la plupart
-	// feront. No-op ailleurs (Unix migre dans restartAfterUpdate, déjà en root).
-	postUpdateMigrate()
 	printRestartHint()
 	return nil
 }
@@ -412,7 +392,7 @@ func cleanupOldBinary() {
 	removeOldBinaries(exe)
 	// L'alias herite laisse le meme reliquat quand il etait en cours d'execution
 	// au moment ou on l'a remplace (voir replaceExe).
-	removeOldBinaries(filepath.Join(filepath.Dir(exe), "jean.exe"))
+	removeOldBinaries(filepath.Join(filepath.Dir(exe), "ajean.exe"))
 }
 
 // handleUpdateCheck (GET /api/update) : renvoie l'état de mise à jour pour l'UI.
@@ -427,7 +407,7 @@ func handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
 
 // handleUpdateApply (POST /api/update/apply) : télécharge et installe la dernière
 // version. Sur un serveur Linux/systemd, relance ensuite AUTOMATIQUEMENT le service
-// jean-link (celui qui sert l'UI, le chat et le tunnel) pour appliquer la MAJ sans
+// ajean-link (celui qui sert l'UI, le chat et le tunnel) pour appliquer la MAJ sans
 // avoir à SSH — voir restartAfterUpdate. Renvoie la version + le message de statut.
 func handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 	newVer, err := applyUpdate()
@@ -443,10 +423,10 @@ func handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true, "version": newVer, "restart": msg, "restarting": restarting})
 }
 
-// restartAfterUpdate relance le service jean-link juste après une MAJ déclenchée
-// depuis l'UI, pour éviter le SSH manuel. Conditions : Linux/systemd + jean-link
+// restartAfterUpdate relance le service ajean-link juste après une MAJ déclenchée
+// depuis l'UI, pour éviter le SSH manuel. Conditions : Linux/systemd + ajean-link
 // actif (le service tourne en root → systemctl passe sans sudo). On NE touche PAS à
-// jean.service (llama-server) pour ne pas recharger le modèle (long et inattendu
+// ajean.service (llama-server) pour ne pas recharger le modèle (long et inattendu
 // depuis un bouton « mettre à jour »). Le redémarrage est DIFFÉRÉ (la réponse HTTP
 // doit partir d'abord) et lancé en --no-block : systemd enregistre le job puis nous
 // arrête/relance ; la clé E2E (.e2e_key) survit au restart, donc pas de ré-appairage
@@ -463,15 +443,6 @@ func restartAfterUpdate() (bool, string) {
 	if runtime.GOOS != "linux" || !linkServiceActive() {
 		return false, ""
 	}
-	// Le seul moment où l'on peut migrer l'agencement d'une machine déjà
-	// installée : on est root (jean-link tourne en root), le binaire vient
-	// d'être remplacé, et le service va être relancé dans la foulée. Les
-	// utilisateurs ne relancent jamais `install`, donc ne rien faire ici
-	// reviendrait à ne jamais migrer un serveur Linux. Sans effet si la machine
-	// est déjà en ajean ou si un chemin a été imposé à la main.
-	if err := migrateLayout(updateLayoutPlan()); err != nil {
-		fmt.Fprintf(os.Stderr, "[warn] migration de l'agencement non effectuée : %v\n", err)
-	}
 	go func() {
 		time.Sleep(1500 * time.Millisecond) // laisser la réponse HTTP atteindre le client
 		// --no-block : on enregistre le job puis on rend la main ; systemd exécute le
@@ -485,7 +456,7 @@ func restartHintText() string {
 	if runtime.GOOS == "windows" {
 		return "Redémarre AJEAN (quitte puis relance) pour appliquer la mise à jour."
 	}
-	return "Redémarre les services pour appliquer : sudo systemctl restart jean jean-link"
+	return "Redémarre les services pour appliquer : sudo systemctl restart ajean ajean-link"
 }
 
 func printRestartHint() { fmt.Println(restartHintText()) }

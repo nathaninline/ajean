@@ -3,7 +3,6 @@ package ajean
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -11,14 +10,14 @@ import (
 
 // Configuration des serveurs MCP (Model Context Protocol).
 //
-// jean peut se connecter à des serveurs MCP tiers pour enrichir la palette
+// ajean peut se connecter à des serveurs MCP tiers pour enrichir la palette
 // d'outils de l'IA (accès fichiers rapide type desktop-commander, bases de
 // données, APIs métier…). Deux transports :
 //
-//   - stdio : jean lance un process local (command + args) et parle en
+//   - stdio : ajean lance un process local (command + args) et parle en
 //     JSON-RPC sur stdin/stdout. C'est le cas de desktop-commander, du serveur
 //     filesystem officiel, etc. — lancés via npx/uvx/un binaire.
-//   - http  : jean parle à un serveur MCP distant en Streamable HTTP (url +
+//   - http  : ajean parle à un serveur MCP distant en Streamable HTTP (url +
 //     éventuels en-têtes d'auth).
 //
 // Le format du fichier mcp.json reprend celui de Claude Desktop (clé
@@ -26,7 +25,7 @@ import (
 // leurs configs existantes. On ajoute un champ "enabled" par serveur.
 //
 // IMPORTANT (sécurité) : un serveur MCP stdio exécute un process arbitraire sur
-// la machine où tourne jean — même niveau de confiance que l'outil `bash` du
+// la machine où tourne ajean — même niveau de confiance que l'outil `bash` du
 // mode agent. La configuration MCP est donc réservée au propriétaire local de la
 // machine et ne doit JAMAIS être pilotable depuis le relais/accès distant.
 
@@ -118,11 +117,11 @@ type mcpConfigFile struct {
 	MCPServers map[string]MCPServerConfig `json:"mcpServers"`
 }
 
-// mcpConfigMu sérialise les accès concurrents au fichier mcp.json (l'UI web et
-// les tours de chat peuvent lire/écrire en parallèle).
+// mcpConfigMu sérialise les accès concurrents à la déclaration des serveurs
+// MCP (l'UI web et les tours de chat peuvent lire/écrire en parallèle).
 var mcpConfigMu sync.Mutex
 
-// LoadMCPConfig lit mcp.json. Fichier absent => config vide (pas d'erreur).
+// LoadMCPConfig lit les serveurs MCP déclarés. Aucun => map vide, pas d'erreur.
 func LoadMCPConfig() (map[string]MCPServerConfig, error) {
 	mcpConfigMu.Lock()
 	defer mcpConfigMu.Unlock()
@@ -130,36 +129,16 @@ func LoadMCPConfig() (map[string]MCPServerConfig, error) {
 }
 
 func loadMCPConfigLocked() (map[string]MCPServerConfig, error) {
-	b, err := os.ReadFile(mcpConfigPath())
-	if err != nil {
-		if os.IsNotExist(err) {
-			return map[string]MCPServerConfig{}, nil
-		}
-		return nil, err
+	servers := map[string]MCPServerConfig{}
+	getJSON(bkState, "mcp", &servers)
+	if servers == nil {
+		servers = map[string]MCPServerConfig{}
 	}
-	var f mcpConfigFile
-	if err := json.Unmarshal(b, &f); err != nil {
-		return nil, fmt.Errorf("mcp.json invalide: %w", err)
-	}
-	if f.MCPServers == nil {
-		f.MCPServers = map[string]MCPServerConfig{}
-	}
-	return f.MCPServers, nil
+	return servers, nil
 }
 
-// saveMCPConfigLocked écrit atomiquement mcp.json (write temp + rename).
 func saveMCPConfigLocked(servers map[string]MCPServerConfig) error {
-	_ = os.MkdirAll(AjeanHome(), 0o755)
-	f := mcpConfigFile{MCPServers: servers}
-	b, err := json.MarshalIndent(f, "", "  ")
-	if err != nil {
-		return err
-	}
-	tmp := mcpConfigPath() + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, mcpConfigPath())
+	return putJSON(bkState, "mcp", servers)
 }
 
 // SetMCPServer ajoute ou remplace un serveur nommé, puis invalide le pool de

@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// La mémoire de jean = des fichiers Markdown plats sous MEMORY/<nom>.md.
+// La mémoire de ajean = des fichiers Markdown plats sous MEMORY/<nom>.md.
 // L'IA y range ce qu'elle veut retenir entre les sessions (préférences,
 // décisions, procédures, infos projet). Quatre outils : mem_search, mem_read,
 // mem_add, mem_edit.
@@ -297,47 +297,6 @@ func MemDelete(name string) error {
 		return fmt.Errorf("introuvable")
 	}
 	return os.Remove(p)
-}
-
-// migrateSkillsToMemory copie une seule fois les anciens skills
-// (SKILLS/<nom>/SKILL.md) vers la mémoire (MEMORY/<nom>.md). Idempotente : ne
-// touche pas une page mémoire déjà existante, et pose un drapeau .migrated pour
-// ne pas reparcourir à chaque lancement. Silencieuse en cas d'absence de SKILLS.
-func migrateSkillsToMemory() {
-	flag := filepath.Join(memoryDir(), ".skills_migrated")
-	if _, err := os.Stat(flag); err == nil {
-		return // déjà fait
-	}
-	entries, err := os.ReadDir(skillsDir())
-	if err != nil {
-		return // pas d'anciens skills
-	}
-	migrated := 0
-	for _, e := range entries {
-		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
-			continue
-		}
-		src := filepath.Join(skillsDir(), e.Name(), "SKILL.md")
-		b, rerr := os.ReadFile(src)
-		if rerr != nil {
-			continue
-		}
-		dst, derr := safeMemPath(e.Name())
-		if derr != nil {
-			continue
-		}
-		if _, err := os.Stat(dst); err == nil {
-			continue // page mémoire homonyme déjà présente : on ne l'écrase pas
-		}
-		if err := os.MkdirAll(memoryDir(), 0o755); err != nil {
-			return
-		}
-		if os.WriteFile(dst, b, 0o644) == nil {
-			migrated++
-		}
-	}
-	_ = os.MkdirAll(memoryDir(), 0o755)
-	_ = os.WriteFile(flag, []byte(fmt.Sprintf("%d skills migrés\n", migrated)), 0o644)
 }
 
 // MemMode gouverne l'accès de l'IA à sa mémoire persistante, indépendamment du

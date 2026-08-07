@@ -72,38 +72,23 @@ func runOAIFront(rawLn net.Listener, tlsCfg *tls.Config) error {
 	return srv.Serve(tls.NewListener(rawLn, tlsCfg))
 }
 
-// oaiPublicPath est le drapeau qui active l'accès OpenAI public (piloté par l'UI,
-// lu en direct → activable/coupable sans redémarrer le service de lien).
-func oaiPublicPath() string { return filepath.Join(AjeanHome(), ".oai_public") }
-
-// oaiPublicEnabled indique si l'accès OpenAI public est activé pour cette machine.
-func oaiPublicEnabled() bool {
-	if _, err := os.Stat(oaiPublicPath()); err == nil {
-		return true
-	}
-	return os.Getenv("JEAN_LINK_ALLOW_OAI") == "1" // rétro-compat (ancien drapeau env)
-}
+// oaiPublicEnabled indique si l'accès OpenAI public est activé pour cette
+// machine. Piloté par l'UI et lu en direct → activable/coupable sans redémarrer
+// le service de lien.
+func oaiPublicEnabled() bool { return getBool(bkState, "oai_public") }
 
 // setOAIPublic active (on) ou coupe (off) l'accès OpenAI public.
-func setOAIPublic(on bool) error {
-	if on {
-		return os.WriteFile(oaiPublicPath(), []byte("1\n"), 0o600)
-	}
-	if err := os.Remove(oaiPublicPath()); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	return nil
-}
+func setOAIPublic(on bool) error { return putBool(bkState, "oai_public", on) }
 
 // oaiTLSConfig renvoie une config TLS qui, à la demande, obtient/renouvelle via
 // Let's Encrypt (TLS-ALPN-01) le certificat de tout nom en *.oai.ajean.link, et
 // répond elle-même aux challenges ACME. La clé privée est stockée dans
-// $JEAN_HOME/certs et ne quitte jamais la machine. Toujours construite ; c'est le
+// $AJEAN_HOME/certs et ne quitte jamais la machine. Toujours construite ; c'est le
 // démux (oaiPublicEnabled, lu en direct) qui décide de router ou non le trafic.
 func oaiTLSConfig() *tls.Config {
 	certmagic.Default.Storage = &certmagic.FileStorage{Path: filepath.Join(AjeanHome(), "certs")}
 	certmagic.DefaultACME.Agreed = true
-	certmagic.DefaultACME.Email = envAny("AJEAN_ACME_EMAIL", "JEAN_ACME_EMAIL")
+	certmagic.DefaultACME.Email = os.Getenv("AJEAN_ACME_EMAIL")
 	certmagic.DefaultACME.DisableHTTPChallenge = true // pas de :80 accessible (CGNAT) → TLS-ALPN uniquement
 	magic := certmagic.NewDefault()
 	magic.OnDemand = &certmagic.OnDemandConfig{
@@ -256,7 +241,7 @@ func cmdOAI(args []string) error {
 	default:
 		fmt.Println("usage: ajean oai serve [port] [host]   (front TLS de test → llama /v1)")
 		fmt.Println("  en prod, le front TLS est servi automatiquement dans le tunnel (ajean link)")
-		fmt.Println("  quand JEAN_LINK_ALLOW_OAI=1 ; cert Let's Encrypt via TLS-ALPN-01.")
+		fmt.Println("  quand AJEAN_LINK_ALLOW_OAI=1 ; cert Let's Encrypt via TLS-ALPN-01.")
 		return nil
 	}
 }

@@ -153,7 +153,7 @@ async function openItem(kind, key){
     document.getElementById('m-quant').value = currentQuantInTextarea();
     populateSettings();
     attachDownload();                      // téléchargement encore en cours côté serveur ?
-    await Promise.all([populateBackend(), populateModelPicker()]);
+    await Promise.all([populateBackend(), populateModelPicker(), populateDlDirs()]);
     if(seq !== openSeq) return;
   }
   // On lève le voile SANS transition (voir la note dans styles.css), puis on rend
@@ -252,7 +252,8 @@ async function populateModelDirs(){
     const info = document.createElement('span');
     info.className = 'muted';
     const n = x.count >= 0 ? (x.count + ' modèle' + (x.count>1?'s':'')) : 'illisible';
-    info.textContent = '(' + n + (x.home ? ', dossier jean' : '') + ')';
+    const free = x.free >= 0 ? ', ' + fmtSize(x.free) + ' libres' : '';
+    info.textContent = '(' + n + free + (x.home ? ', dossier jean' : '') + ')';
     row.append(p, info);
     if(!x.home){
       const del = document.createElement('button');
@@ -273,13 +274,13 @@ async function addModelDir(){
   if(!r.ok){ toast('erreur : ' + (r.error||'')); return; }
   inp.value = '';
   toast('dossier ajouté');
-  await Promise.all([populateModelDirs(), populateModelPicker()]);
+  await Promise.all([populateModelDirs(), populateModelPicker(), populateDlDirs()]);
 }
 async function removeModelDir(p){
   const r = await jpost('/api/models/dirs', {path: p, action: 'remove'});
   if(!r.ok){ toast('erreur : ' + (r.error||'')); return; }
   toast('dossier retiré');
-  await Promise.all([populateModelDirs(), populateModelPicker()]);
+  await Promise.all([populateModelDirs(), populateModelPicker(), populateDlDirs()]);
 }
 function onPickModel(){
   const val = document.getElementById('m-model').value;
@@ -772,17 +773,50 @@ function resetDlUI(){
   e.prog.style.display='none'; e.bar.style.display='none';
   e.cancel.style.display='none'; e.btn.disabled=false;
 }
+// Remplit le sélecteur de destination avec les dossiers de modèles connus.
+// L'espace libre est dans le libellé de l'option : c'est l'info utile au moment
+// de choisir, et ça évite une ligne de plus dans une modale déjà chargée.
+// Même source que « Dossiers de modèles » : ajouter un disque externe là-bas le
+// rend aussitôt disponible ici.
+let dlDirList = [];
+async function populateDlDirs(){
+  const sel = document.getElementById('m-hf-dir');
+  if(!sel) return;
+  let d = {};
+  try{ d = await jget('/api/models/dirs'); }catch(_){ return; }
+  dlDirList = d.dirs || [];
+  const prev = sel.value;
+  sel.innerHTML = '';
+  for(const x of dlDirList){
+    const o = document.createElement('option');
+    o.value = x.path;
+    o.textContent = x.path + (x.free >= 0 ? ' — ' + fmtSize(x.free) + ' libres' : '');
+    sel.append(o);
+  }
+  if(prev && dlDirList.some(x => samePath(x.path, prev))) sel.value = prev;
+}
 async function startDownload(){
   const url = document.getElementById('m-hf-url').value.trim();
   if(!url){ toast('colle un lien .gguf'); return; }
+  const dir = (document.getElementById('m-hf-dir')||{}).value || '';
   const e = dlEls();
   e.btn.disabled = true;
   e.prog.style.display = 'block';
-  e.prog.textContent = 'démarrage…';
+  e.prog.textContent = 'vérification de la taille et de l’espace disque…';
   e.bar.style.display = 'block';
   e.bar.className = 'pe-bar indet';
   e.bar.firstElementChild.style.width = '';
-  const r = await jpost('/api/models/download', {url});
+  // Sonde d'abord : on connaît la taille exacte du fichier et l'espace restant
+  // AVANT d'écrire quoi que ce soit, plutôt que d'échouer à 90 % du transfert.
+  const p = await jpost('/api/models/download/probe', {url, dir});
+  if(!p.ok || !p.enough){
+    e.prog.innerHTML = '<span style="color:var(--err)">erreur : '+escHtml(p.error||'espace insuffisant')+'</span>';
+    e.bar.style.display = 'none'; e.btn.disabled=false;
+    await populateDlDirs();
+    return;
+  }
+  e.prog.textContent = fmtSize(p.size)+' à télécharger — '+fmtSize(p.free)+' libres';
+  const r = await jpost('/api/models/download', {url, dir});
   if(!r.ok){
     e.prog.innerHTML = '<span style="color:var(--err)">erreur : '+(r.error||'')+'</span>';
     e.bar.style.display = 'none'; e.btn.disabled=false; return;
@@ -825,8 +859,12 @@ function watchDownload(fname){
       e.prog.innerHTML = '<span style="color:var(--ok)">✓ '+fname+' téléchargé ('+fmtSize(st.done)+')</span>';
       e.bar.className = 'pe-bar done'; e.bar.firstElementChild.style.width = '100%';
       stop();
-      await populateModelPicker();
-      document.getElementById('m-model').value = fname; onPickModel();
+      await Promise.all([populateModelPicker(), populateDlDirs()]);
+      // Le modèle a pu atterrir hors du dossier jean : l'option porte alors le
+      // chemin complet, pas le simple nom de fichier.
+      const sel = document.getElementById('m-model');
+      const opt = Array.from(sel.options).find(o => samePath(baseName(o.value), fname));
+      if(opt){ sel.value = opt.value; onPickModel(); }
       return;
     }
     const pct = st.total>0 ? st.done*100/st.total : 0;

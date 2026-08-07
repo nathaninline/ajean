@@ -73,7 +73,7 @@ func detectBuildPlan() buildPlan {
 		// L'UI web embarquée de llama-server exige npm (ou un téléchargement
 		// d'assets pré-compilés depuis HuggingFace) pour générer un service-worker
 		// PWA — une dépendance lourde qui casse le build sur une machine sans node.
-		// jean fournit sa propre UI, donc on la désactive : build plus rapide et
+		// ajean fournit sa propre UI, donc on la désactive : build plus rapide et
 		// sans dépendance réseau/npm. BUILD_UI=OFF coupe npm ; USE_PREBUILT_UI=OFF
 		// coupe le téléchargement d'assets pré-compilés depuis HuggingFace (qui
 		// échoue sur un réseau restreint et fait planter l'embed). Sur un checkout
