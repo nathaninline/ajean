@@ -25,6 +25,24 @@ import (
 	"unsafe"
 )
 
+// win appelle une procédure Win32 et renvoie (résultat, trouvée).
+//
+// LazyProc.Call PANIQUE quand la procédure est introuvable. Or tout ce fichier
+// s'exécute AVANT le reste du programme : une panique ici et il ne reste rien à
+// l'écran pour la comprendre, l'application ne démarre tout simplement plus.
+// C'est exactement ce qui est arrivé en cherchant ShowWindow dans kernel32
+// alors qu'elle vit dans user32. Aucun réglage de confort ne mérite ça.
+func win(dll *syscall.LazyDLL, name string, a ...uintptr) (uintptr, bool) {
+	p := dll.NewProc(name)
+	if err := p.Find(); err != nil {
+		return 0, false
+	}
+	r, _, _ := p.Call(a...)
+	return r, true
+}
+
+var kernel32 = syscall.NewLazyDLL("kernel32.dll")
+
 // setupConsole décide dans quel monde on tourne et renvoie true en usage CLI.
 //
 // Le signal est le nombre de processus rattachés à notre console : si nous
@@ -32,27 +50,21 @@ import (
 // ne nous a lancés. On la fait disparaître et on bascule en mode application.
 // Un shell rattaché (cmd, PowerShell, Windows Terminal) en fait au moins deux.
 func setupConsole() bool {
-	k := syscall.NewLazyDLL("kernel32.dll")
-
-	// Combien de processus partagent notre console ? Nous seul (1) = personne ne
-	// nous a lancés depuis un terminal, Windows a créé cette console pour nous :
-	// c'est un double-clic. Un shell rattaché en fait au moins deux.
-	//
 	// Le compte vaut 0 quand il n'y a aucune console (parent détaché). On répond
 	// alors « CLI », le cas contraire étant couvert autrement : les relances
 	// internes passent « app » explicitement (voir launch, sys_firstrun_windows.go).
 	// Mieux vaut afficher une aide inutile que démarrer un serveur en silence.
 	var pids [8]uint32
-	n, _, _ := k.NewProc("GetConsoleProcessList").Call(
+	n, ok := win(kernel32, "GetConsoleProcessList",
 		uintptr(unsafe.Pointer(&pids[0])), uintptr(len(pids)))
-	if n == 1 {
-		if hwnd, _, _ := k.NewProc("GetConsoleWindow").Call(); hwnd != 0 {
-			// Masquer AVANT de libérer : sinon la fenêtre reste peinte le temps
-			// que Windows la détruise.
+	if ok && n == 1 {
+		// Masquer AVANT de libérer : sinon la fenêtre reste peinte le temps que
+		// Windows la détruise. ShowWindow est dans user32, pas kernel32.
+		if hwnd, ok := win(kernel32, "GetConsoleWindow"); ok && hwnd != 0 {
 			const swHide = 0
-			_, _, _ = k.NewProc("ShowWindow").Call(hwnd, swHide)
+			win(u32s, "ShowWindow", hwnd, swHide)
 		}
-		_, _, _ = k.NewProc("FreeConsole").Call()
+		win(kernel32, "FreeConsole")
 		return false
 	}
 
@@ -71,13 +83,15 @@ func configureConsole() {
 		enableVirtualTerminalProcessing = 0x0004
 		stdOutputHandle                 = ^uintptr(10) // -11
 	)
-	k := syscall.NewLazyDLL("kernel32.dll")
-	_, _, _ = k.NewProc("SetConsoleOutputCP").Call(uintptr(cpUTF8))
-	_, _, _ = k.NewProc("SetConsoleCP").Call(uintptr(cpUTF8))
-	h, _, _ := k.NewProc("GetStdHandle").Call(stdOutputHandle)
+	win(kernel32, "SetConsoleOutputCP", uintptr(cpUTF8))
+	win(kernel32, "SetConsoleCP", uintptr(cpUTF8))
+	h, ok := win(kernel32, "GetStdHandle", stdOutputHandle)
+	if !ok {
+		return
+	}
 	var mode uint32
-	if r, _, _ := k.NewProc("GetConsoleMode").Call(h, uintptr(unsafe.Pointer(&mode))); r != 0 {
-		_, _, _ = k.NewProc("SetConsoleMode").Call(h, uintptr(mode|enableVirtualTerminalProcessing))
+	if r, ok := win(kernel32, "GetConsoleMode", h, uintptr(unsafe.Pointer(&mode))); ok && r != 0 {
+		win(kernel32, "SetConsoleMode", h, uintptr(mode|enableVirtualTerminalProcessing))
 	}
 }
 
