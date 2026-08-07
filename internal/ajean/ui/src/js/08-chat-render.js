@@ -115,7 +115,7 @@ function setLabelCounts(el, add, del){
   if(del) cnt.appendChild(Object.assign(document.createElement('span'),{className:'d',textContent:'-'+del}));
   lab.appendChild(cnt);
 }
-// Ligne de mesures sous une réponse (prefill / decode). Les étiquettes VOUS/JEAN
+// Ligne de mesures sous une réponse (prefill / decode). Les étiquettes VOUS/AJEAN
 // sont masquées dans cette mise en page, donc les chiffres qu'on y écrivait
 // avaient disparu : ils ont leur propre ligne, discrète, sous le texte. Masquée
 // par la préférence d'affichage « masquer la vitesse de génération » (CSS).
@@ -276,7 +276,7 @@ async function compactContext(){
 }
 // Persistance de la conversation : on garde user+assistant en localStorage pour
 // survivre à un refresh (les bulles tool/reasoning sont éphémères, non stockées).
-function saveChat(){ try{ localStorage.setItem('jean.chat', JSON.stringify(msgs)); }catch(e){} }
+function saveChat(){ try{ localStorage.setItem('ajean.chat', JSON.stringify(msgs)); }catch(e){} }
 // Source de vérité = SERVEUR. Au chargement on ouvre le flux d'abonnement
 // permanent (connectStream), qui rejoue tout le fil depuis le serveur — texte,
 // appels d'outils, vitesses, raisonnement — puis suit le direct. Plus de

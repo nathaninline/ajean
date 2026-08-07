@@ -16,9 +16,8 @@ import (
 	"time"
 )
 
-// defaultAjeanHome is the data root when neither $AJEAN_HOME/$AJEAN_HOME nor
-// /etc/default/* override it. legacyDefaultHome est son équivalent d'avant le
-// renommage, migré au premier lancement (voir sys_migrate.go).
+// defaultAjeanHome est la racine des données quand ni $AJEAN_HOME ni
+// /etc/default/ajean n'en imposent une.
 //
 // Linux : /etc/ajean (machine de prod, service systemd lancé par root).
 // macOS : /etc/ajean n'est PAS écrivable par une app lancée depuis le Finder
@@ -26,8 +25,6 @@ import (
 // pas un serveur — on retombe donc sur le dossier utilisateur standard, sauf si
 // un `sudo ajean install` a déjà créé /etc/ajean à notre nom.
 func defaultAjeanHome() string { return unixHome("ajean") }
-
-func legacyDefaultHome() string { return unixHome("ajean") }
 
 func unixHome(name string) string {
 	if runtime.GOOS != "darwin" || os.Geteuid() == 0 {

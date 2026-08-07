@@ -112,11 +112,6 @@ func (c MCPServerConfig) Validate() error {
 	return nil
 }
 
-// mcpConfigFile est la représentation sur disque de mcp.json.
-type mcpConfigFile struct {
-	MCPServers map[string]MCPServerConfig `json:"mcpServers"`
-}
-
 // mcpConfigMu sérialise les accès concurrents à la déclaration des serveurs
 // MCP (l'UI web et les tours de chat peuvent lire/écrire en parallèle).
 var mcpConfigMu sync.Mutex

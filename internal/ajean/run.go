@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const Version = "0.7.13"
+const Version = "0.8.0"
 
 // Main est le vrai main() du binaire (cmd/ajean ne fait que l'appeler).
 func Main() {

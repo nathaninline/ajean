@@ -257,34 +257,3 @@ func writeE2EResp(w http.ResponseWriter, gcm cipher.AEAD, status int, body []byt
 	w.Header().Set("Content-Type", "text/plain")
 	_, _ = w.Write([]byte(base64.StdEncoding.EncodeToString(sealed)))
 }
-
-// e2eSeal (côté agent : utilisé uniquement pour les tests) scelle un secret vers
-// une clé publique X25519. La version navigateur est en WASM (wasmclient).
-func e2eSeal(agentPub, secret []byte) ([]byte, error) {
-	pub, err := ecdh.X25519().NewPublicKey(agentPub)
-	if err != nil {
-		return nil, err
-	}
-	eph, err := ecdh.X25519().GenerateKey(rand.Reader)
-	if err != nil {
-		return nil, err
-	}
-	shared, err := eph.ECDH(pub)
-	if err != nil {
-		return nil, err
-	}
-	key := sealKey(shared, eph.PublicKey().Bytes(), agentPub)
-	gcm, err := newGCM(key)
-	if err != nil {
-		return nil, err
-	}
-	nonce := make([]byte, 12)
-	if _, err := rand.Read(nonce); err != nil {
-		return nil, err
-	}
-	ct := gcm.Seal(nil, nonce, secret, nil)
-	out := append([]byte{}, eph.PublicKey().Bytes()...)
-	out = append(out, nonce...)
-	out = append(out, ct...)
-	return out, nil
-}

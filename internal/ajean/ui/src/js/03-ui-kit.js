@@ -49,7 +49,7 @@ function _askKey(e){
   else if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); askResolve(true); }
 }
 function _openAsk(kind, message, opts){
-  // Compat 2 conventions : (message, opts) [UI jean] ET l'objet unique
+  // Compat 2 conventions : (message, opts) [UI ajean] ET l'objet unique
   // {title,msg,yes,no,placeholder} passé par e2e.js sur ajean.link (server.html,
   // où cette fonction remplace le window.askConfirm du bootstrap boîte noire).
   if(message && typeof message==='object'){ const o=message; opts={title:o.title, okText:o.yes, cancelText:o.no, placeholder:o.placeholder, default:o.default, danger:o.danger}; message=o.msg||''; }

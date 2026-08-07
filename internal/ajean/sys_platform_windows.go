@@ -54,11 +54,8 @@ func homeRoot() string {
 	return os.TempDir()
 }
 
-// defaultAjeanHome is the data root when no AJEAN_HOME/AJEAN_HOME is set.
+// defaultAjeanHome est la racine des données quand $AJEAN_HOME est absent.
 func defaultAjeanHome() string { return filepath.Join(homeRoot(), "ajean") }
-
-// legacyDefaultHome is the pre-rename data root, migrated on first run.
-func legacyDefaultHome() string { return filepath.Join(homeRoot(), "ajean") }
 
 // defaultEditor is used by `ajean edit` when $EDITOR is unset.
 func defaultEditor() string { return "notepad" }

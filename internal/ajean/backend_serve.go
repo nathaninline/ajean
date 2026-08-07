@@ -100,9 +100,7 @@ func cmdServe(args []string) error {
 		llmArgs = append(llmArgs, "--api-key", k)
 	}
 	// EXTRA_ARGS is appended verbatim, split on whitespace like the shell would.
-	for _, a := range trimSplit(cfg["EXTRA_ARGS"], " ") {
-		llmArgs = append(llmArgs, a)
-	}
+	llmArgs = append(llmArgs, trimSplit(cfg["EXTRA_ARGS"], " ")...)
 
 	// Working dir = AJEAN_HOME so relative paths in EXTRA_ARGS (e.g. --mmproj
 	// mmproj-F16.gguf) still resolve.

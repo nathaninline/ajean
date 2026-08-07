@@ -9,7 +9,7 @@ function applyTheme(id){
   // désormais la variante, déduite du suffixe.
   const dark = id==='dark' || (typeof id==='string' && id.endsWith('-dark'));
   document.documentElement.setAttribute('data-theme', dark?'dark':'light');
-  try{ localStorage.setItem('jean-theme', dark?'dark':'light'); }catch(e){}
+  try{ localStorage.setItem('ajean-theme', dark?'dark':'light'); }catch(e){}
   const sw=document.getElementById('theme-dark'); if(sw) sw.checked=dark;
 }
 function toggleThemeDark(){
@@ -17,7 +17,7 @@ function toggleThemeDark(){
   savePrefs();
 }
 function initTheme(){
-  let id='light'; try{ id=localStorage.getItem('jean-theme')||'light'; }catch(e){}
+  let id='light'; try{ id=localStorage.getItem('ajean-theme')||'light'; }catch(e){}
   applyTheme(id);
 }
 // ===== Affichage ============================================================
@@ -34,7 +34,7 @@ const VIEW_OPTS=[
 function viewOn(id){ return document.documentElement.getAttribute('data-'+id)==='1'; }
 function applyView(id, on){
   document.documentElement.setAttribute('data-'+id, on?'1':'0');
-  try{ localStorage.setItem('jean-'+id, on?'1':'0'); }catch(e){}
+  try{ localStorage.setItem('ajean-'+id, on?'1':'0'); }catch(e){}
   const box=document.getElementById('view-'+id); if(box) box.checked=!!on;
   // La barre latérale peut rester ouverte quand on repasse en mode fixe.
   if(id==='hide-side' && !on){
@@ -46,7 +46,7 @@ function applyView(id, on){
 function toggleView(id){ applyView(id, document.getElementById('view-'+id).checked); savePrefs(); }
 function initView(){
   VIEW_OPTS.forEach(o=>{
-    let v=null; try{ v=localStorage.getItem('jean-'+o.id); }catch(e){}
+    let v=null; try{ v=localStorage.getItem('ajean-'+o.id); }catch(e){}
     applyView(o.id, v==='1');
   });
 }

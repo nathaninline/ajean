@@ -9,7 +9,7 @@ const HRESERVE=['cfg','vram','ram-details','presets','internet-status','mcp-list
 function reserveHeights(){
   HRESERVE.forEach(id=>{
     try{
-      const h=parseInt(localStorage.getItem('jean-h-'+id)||'0',10);
+      const h=parseInt(localStorage.getItem('ajean-h-'+id)||'0',10);
       const el=document.getElementById(id);
       if(el && h>0) el.style.minHeight=h+'px';
     }catch(e){}
@@ -19,7 +19,7 @@ function releaseHeights(){
   HRESERVE.forEach(id=>{
     const el=document.getElementById(id); if(!el) return;
     el.style.minHeight='';
-    try{ localStorage.setItem('jean-h-'+id, String(el.offsetHeight||0)); }catch(e){}
+    try{ localStorage.setItem('ajean-h-'+id, String(el.offsetHeight||0)); }catch(e){}
   });
 }
 document.addEventListener('DOMContentLoaded', reserveHeights);
@@ -98,7 +98,7 @@ async function loadPresets(){
   });
 }
 // « Mode agent » = accès machine + skills réunis en un seul interrupteur.
-// Quand il est actif, un « a » blanc apparaît en fondu devant « jean » → « ajean ».
+// Quand il est actif, un « a » blanc apparaît en fondu devant « ajean » → « ajean ».
 async function loadAgent(){
   const s=await jget('/api/agent');
   const on = s.enabled;

@@ -146,7 +146,7 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 .ask-ok.danger{border-color:var(--err);color:var(--err)}
 #brand-a{display:inline-flex;line-height:0;color:var(--text);margin-right:2px}
 /* Mode agent : le A passe en couleur d'accent (il était masqué hors agent,
-   la marque se lisant alors « JEAN »). L'état agent reste signalé par sa
+   la marque se lisant alors « AJEAN »). L'état agent reste signalé par sa
    pastille dans les réglages. */
 #brand.agent #brand-a{color:var(--accent)}
 /* interrupteur (switch) */
@@ -935,7 +935,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 /* ===== Mise en page de la conversation =============================
    Colonne de lecture centrée, réponses SANS bulle (texte nu sur le fond),
    question de l'utilisateur en pastille arrondie à droite, composer en
-   « pilule », pas d'étiquettes VOUS/JEAN. Ces règles surchargent la mise en
+   « pilule », pas d'étiquettes VOUS/AJEAN. Ces règles surchargent la mise en
    page générique plus haut : elles doivent donc rester APRÈS elle. */
 body{font-size:15px}
 h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
@@ -949,7 +949,7 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
 /* Question : pastille arrondie à droite, texte lisible sur fond clair OU sombre. */
 #chat .msg.user{background:var(--bubble);color:var(--text);border-radius:20px;padding:11px 18px;max-width:75%;line-height:1.6}
 #chat .msg.user .label{color:var(--dim)}
-/* Étiquettes VOUS / JEAN : inutiles ici (l'alignement suffit), sauf pour les
+/* Étiquettes VOUS / AJEAN : inutiles ici (l'alignement suffit), sauf pour les
    bulles repliables (raisonnement / outils) où le label est le bouton de repli. */
 #chat .msg .label{display:none}
 #chat .msg.collapsible .label{display:block}

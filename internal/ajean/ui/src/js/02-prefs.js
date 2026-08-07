@@ -1,11 +1,11 @@
 // ===== Persistance côté serveur (partagée entre appareils) ==================
-// L'apparence est aussi enregistrée sur la machine jean (/api/prefs) : ainsi le
+// L'apparence est aussi enregistrée sur la machine ajean (/api/prefs) : ainsi le
 // thème/affichage choisi sur un appareil se retrouve sur tous les autres. Le
 // localStorage reste utilisé pour appliquer instantanément au chargement (sans
 // flash), puis loadPrefs() aligne sur la valeur du serveur (source de vérité).
 function savePrefs(){
   let theme='light';
-  try{ theme=localStorage.getItem('jean-theme')||'light'; }catch(e){}
+  try{ theme=localStorage.getItem('ajean-theme')||'light'; }catch(e){}
   const p={theme};
   VIEW_OPTS.forEach(o=>{ p[o.id.replace('-','_')] = viewOn(o.id)?'1':'0'; });
   jpost('/api/prefs', p).catch(()=>{});
@@ -27,4 +27,4 @@ async function loadPrefs(){
     }
   }catch(e){}
 }
-document.addEventListener('DOMContentLoaded', ()=>{ initTheme(); initView(); document.getElementById('sysprompt').value = localStorage.getItem('jean.sys') || ''; loadSys(); restoreChat(); });
+document.addEventListener('DOMContentLoaded', ()=>{ initTheme(); initView(); document.getElementById('sysprompt').value = localStorage.getItem('ajean.sys') || ''; loadSys(); restoreChat(); });

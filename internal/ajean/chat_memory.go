@@ -368,23 +368,3 @@ func cmdMemory(args []string) error {
 	fmt.Printf("%s mémoire : %s — %s\n", green("[ok]"), bold(string(m)), label[m])
 	return nil
 }
-
-// memorySystemPrompt liste les pages mémoire à injecter quand le mode agent est
-// actif, pour que l'IA sache ce qu'elle a déjà retenu.
-func memorySystemPrompt(caps Caps) string {
-	if !caps.Agent {
-		return ""
-	}
-	list := MemList()
-	var b strings.Builder
-	b.WriteString("Memory: persistent Markdown pages under MEMORY/. Use mem_search FIRST whenever the user asks about something you might already know (preferences, ongoing projects, past decisions). Open the most relevant page with mem_read. Save anything worth keeping across sessions with mem_add (one topic per page, descriptive kebab-case name); update a page with mem_edit (old must match exactly once). The first content line is a short title (#).\n")
-	if len(list) == 0 {
-		b.WriteString("Pages: none yet.")
-		return b.String()
-	}
-	b.WriteString("Pages:\n")
-	for _, p := range list {
-		fmt.Fprintf(&b, "- %s: %s\n", p.Name, p.Title)
-	}
-	return strings.TrimRight(b.String(), "\n")
-}

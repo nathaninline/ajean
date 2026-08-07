@@ -56,13 +56,13 @@ function toggleSide(){ document.getElementById('side').classList.toggle('open');
 let _sysT = null;
 function saveSys(){
   const v = document.getElementById('sysprompt').value;
-  localStorage.setItem('jean.sys', v);
+  localStorage.setItem('ajean.sys', v);
   clearTimeout(_sysT);
   _sysT = setTimeout(()=>{ jpost('/api/sysprompt', {text:v}).catch(()=>{}); }, 600);
 }
 async function loadSys(){
   try{
     const d = await jget('/api/sysprompt');
-    if(d && d.ok){ document.getElementById('sysprompt').value = d.text || ''; localStorage.setItem('jean.sys', d.text || ''); }
+    if(d && d.ok){ document.getElementById('sysprompt').value = d.text || ''; localStorage.setItem('ajean.sys', d.text || ''); }
   }catch(e){}
 }

@@ -22,7 +22,7 @@
      garde `display-mode` en second pour les PWA Android/desktop à manifeste. -->
 <script>try{var pwa=(window.navigator.standalone===true)||(window.matchMedia&&window.matchMedia('(display-mode:standalone)').matches)||(window.matchMedia&&window.matchMedia('(display-mode:fullscreen)').matches);document.documentElement.setAttribute('data-pwa',pwa?'1':'0');}catch(e){document.documentElement.setAttribute('data-pwa','0');}</script>
 <!-- Applique le thème AVANT le rendu (pas de flash) : lit le choix persisté. -->
-<script>try{var t=localStorage.getItem('jean-theme')||'light';document.documentElement.setAttribute('data-theme',(t==='dark'||t.endsWith('-dark'))?'dark':'light');['hide-reasoning','hide-tools','fold-tools','hide-side','hide-stats'].forEach(function(k){document.documentElement.setAttribute('data-'+k,localStorage.getItem('jean-'+k)==='1'?'1':'0')})}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
+<script>try{var t=localStorage.getItem('ajean-theme')||'light';document.documentElement.setAttribute('data-theme',(t==='dark'||t.endsWith('-dark'))?'dark':'light');['hide-reasoning','hide-tools','fold-tools','hide-side','hide-stats'].forEach(function(k){document.documentElement.setAttribute('data-'+k,localStorage.getItem('ajean-'+k)==='1'?'1':'0')})}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
 <style>
 @@CSS@@
 </style></head><body>
@@ -180,7 +180,7 @@
          trois îlots pour un même réglage. -->
     <div class="slist">
       <div class="rowbody">
-        <div class="muted" style="margin:0 0 6px">Adresse locale (réseau) — modèle <code>jean</code></div>
+        <div class="muted" style="margin:0 0 6px">Adresse locale (réseau) — modèle <code>ajean</code></div>
         <div class="row" style="margin:0">
           <input id="oai-url" readonly class="io-input">
           <button class="iconbtn" onclick="copyText(document.getElementById('oai-url').value,'adresse copiée')" title="copier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2.5"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
@@ -210,7 +210,7 @@
     </div></div>
   </details>
   <details id="remote-details"><summary><span class="stitle">Accès distant</span><span id="remote-badge" class="sbadge"></span></summary>
-    <div class="subhead">ajean.link<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Accédez à ce serveur Jean depuis <b>n'importe où</b>, sans ouvrir de port, à travers le relais <b>ajean.link</b>. Le trafic est chiffré de <b>bout en bout</b> : le relais ne voit rien. Abonnement 4,80 €/mois.</span></span></div>
+    <div class="subhead">ajean.link<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Accédez à ce serveur AJEAN depuis <b>n'importe où</b>, sans ouvrir de port, à travers le relais <b>ajean.link</b>. Le trafic est chiffré de <b>bout en bout</b> : le relais ne voit rien. Abonnement 4,80 €/mois.</span></span></div>
     <!-- Non connecté : un seul bouton, tout se passe dans la popup (compte + paiement). -->
     <div id="remote-off" class="slist"><div class="rowbody">
       <p class="muted" style="margin:0 0 8px">Ouvrez l'accès distant à ce serveur en quelques clics, sans terminal.</p>

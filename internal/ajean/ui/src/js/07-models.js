@@ -194,7 +194,7 @@ async function populateModelPicker(){
   const list = await jget('/api/models');
   const cur = currentModelInTextarea();
   // Les modèles peuvent venir de plusieurs dossiers (disque externe…) : on les
-  // regroupe par dossier, JEAN_HOME d'abord (l'API les renvoie dans cet ordre).
+  // regroupe par dossier, AJEAN_HOME d'abord (l'API les renvoie dans cet ordre).
   const groups = [];
   for(const m of (list||[])){
     let g = groups.find(x => x.dir === m.dir);
@@ -213,7 +213,7 @@ async function populateModelPicker(){
       opts += '<option value="'+escHtml(m.value)+'"'+on+'>'+escHtml(m.name)+'  ('+fmtSize(m.size)+')</option>';
     }
     html += groups.length > 1
-      ? '<optgroup label="'+escHtml(g.home ? 'dossier jean' : g.dir)+'">'+opts+'</optgroup>'
+      ? '<optgroup label="'+escHtml(g.home ? 'dossier ajean' : g.dir)+'">'+opts+'</optgroup>'
       : opts;
   }
   // MODEL pointe vers un fichier qu'on ne trouve dans aucun dossier déclaré :
@@ -224,7 +224,7 @@ async function populateModelPicker(){
   sel.innerHTML = html;
   if(cur && !matched) setModelDirsOpen(true);
 }
-// ---- Dossiers de modèles : JEAN_HOME + dossiers ajoutés (disque externe…) ---
+// ---- Dossiers de modèles : AJEAN_HOME + dossiers ajoutés (disque externe…) ---
 // Réglage rare : replié derrière une ligne, comme l'éditeur de .env brut.
 function setModelDirsOpen(open){
   const b = document.getElementById('m-dirs-body');
@@ -253,7 +253,7 @@ async function populateModelDirs(){
     info.className = 'muted';
     const n = x.count >= 0 ? (x.count + ' modèle' + (x.count>1?'s':'')) : 'illisible';
     const free = x.free >= 0 ? ', ' + fmtSize(x.free) + ' libres' : '';
-    info.textContent = '(' + n + free + (x.home ? ', dossier jean' : '') + ')';
+    info.textContent = '(' + n + free + (x.home ? ', dossier ajean' : '') + ')';
     row.append(p, info);
     if(!x.home){
       const del = document.createElement('button');
@@ -324,13 +324,13 @@ function underDir(p, dir){
 }
 let beFastPath = '', beOptPath = '', beFastDir = '';
 async function populateBackend(){
-  // Chemins des deux moteurs gérés + liste des backends détectés (dossier jean).
+  // Chemins des deux moteurs gérés + liste des backends détectés (dossier ajean).
   let lc = {}; try{ lc = await jget('/api/llamacpp'); }catch(_){}
   beFastPath = (lc.prebuilt && lc.prebuilt.bin) || '';
   beFastDir  = (lc.prebuilt && lc.prebuilt.dir) || '';
   beOptPath  = lc.bin || '';
   // Menu « backend détecté » du mode personnalisé : tout ce qu'on trouve dans
-  // le dossier backends de jean (l'utilisateur peut y déposer son propre build).
+  // le dossier backends de ajean (l'utilisateur peut y déposer son propre build).
   const detected = await jget('/api/backends');
   const sel = document.getElementById('m-backend-detected');
   let html = '<option value="">— ou choisir un backend détecté —</option>';
@@ -664,7 +664,7 @@ function populateSettings(){
 // --- Décodage spéculatif (--spec-type / --spec-draft-n-max) ----------------
 // Sélectionne le type courant. --spec-type accepte en réalité une LISTE séparée
 // par des virgules ; une valeur composée (ou un type sorti après cette version
-// de jean) ne correspondrait à aucune option et serait silencieusement effacée
+// de ajean) ne correspondrait à aucune option et serait silencieusement effacée
 // au premier changement. On l'ajoute donc telle quelle à la liste plutôt que de
 // la perdre.
 function setSpecType(v){
@@ -860,7 +860,7 @@ function watchDownload(fname){
       e.bar.className = 'pe-bar done'; e.bar.firstElementChild.style.width = '100%';
       stop();
       await Promise.all([populateModelPicker(), populateDlDirs()]);
-      // Le modèle a pu atterrir hors du dossier jean : l'option porte alors le
+      // Le modèle a pu atterrir hors du dossier ajean : l'option porte alors le
       // chemin complet, pas le simple nom de fichier.
       const sel = document.getElementById('m-model');
       const opt = Array.from(sel.options).find(o => samePath(baseName(o.value), fname));

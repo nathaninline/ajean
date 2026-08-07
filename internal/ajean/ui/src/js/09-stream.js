@@ -1,5 +1,5 @@
 // ===== Conversation SERVEUR (source de vérité, partagée entre appareils) =====
-// L'historique et la génération vivent sur le serveur jean. Le client ouvre un
+// L'historique et la génération vivent sur le serveur ajean. Le client ouvre un
 // flux d'ABONNEMENT permanent (SSE) qui rejoue le journal depuis lastSeq puis
 // suit le direct. Fermer l'onglet n'arrête plus la génération (détachée côté
 // serveur) ; se reconnecter rejoue tout le fil, détails compris.
@@ -197,7 +197,7 @@ function handleDelta(d){
 }
 // Flux d'abonnement permanent + reconnexion auto (from=lastSeq → pas de
 // re-téléchargement complet après une coupure / bascule d'appareil).
-// Un onglet caché RELÂCHE son flux SSE. Sans ça, chaque onglet Jean laissé
+// Un onglet caché RELÂCHE son flux SSE. Sans ça, chaque onglet AJEAN laissé
 // ouvert monopolise une des ~6 connexions simultanées autorisées par domaine :
 // au-delà, toute requête (journal, installation du moteur…) reste en file
 // d'attente sans jamais partir ni échouer — un blocage silencieux très

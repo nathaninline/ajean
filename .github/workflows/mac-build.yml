@@ -18,17 +18,17 @@ jobs:
           mkdir -p dist
           CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
             go build -trimpath -ldflags="-s -w" -o dist/ajean-darwin-arm64 ./cmd/ajean
-          mkdir -p /tmp/jean.iconset
+          mkdir -p /tmp/ajean.iconset
           sips -s format png 'cmd/ajean/icon.ico' --out /tmp/icon.png >/dev/null 2>&1 || true
           for s in 16 32 128 256 512; do
-            sips -z $s $s /tmp/icon.png --out "/tmp/jean.iconset/icon_${s}x${s}.png" >/dev/null 2>&1 || true
+            sips -z $s $s /tmp/icon.png --out "/tmp/ajean.iconset/icon_${s}x${s}.png" >/dev/null 2>&1 || true
           done
-          iconutil -c icns /tmp/jean.iconset -o /tmp/jean.icns >/dev/null 2>&1 || true
+          iconutil -c icns /tmp/ajean.iconset -o /tmp/ajean.icns >/dev/null 2>&1 || true
           app="dist/AJEAN.app"
           mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
           cp dist/ajean-darwin-arm64 "$app/Contents/MacOS/ajean"
           chmod +x "$app/Contents/MacOS/ajean"
-          cp /tmp/jean.icns "$app/Contents/Resources/jean.icns" 2>/dev/null || true
+          cp /tmp/ajean.icns "$app/Contents/Resources/ajean.icns" 2>/dev/null || true
           printf '%s\n' \
             '<?xml version="1.0" encoding="UTF-8"?>' \
             '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
@@ -48,5 +48,5 @@ jobs:
           ls -l dist
       - uses: actions/upload-artifact@v4
         with:
-          name: Jean-macos-arm64
-          path: dist/Jean-macos-arm64.zip
+          name: AJEAN-macos-arm64
+          path: dist/AJEAN-macos-arm64.zip

@@ -1,7 +1,7 @@
 // Accès distant (ajean.link) — piloté depuis l'UI, sans terminal.
 // « Connecter » ouvre une popup app.ajean.link/connect.html qui gère compte +
 // abonnement, puis renvoie une clé de liaison par postMessage. On la POSTe à
-// l'agent local (/api/link/connect) qui fait le `jean link` (token + service).
+// l'agent local (/api/link/connect) qui fait le `ajean link` (token + service).
 
 const AJEAN_APP_ORIGIN = 'https://app.ajean.link';
 

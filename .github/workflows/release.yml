@@ -1,9 +1,9 @@
 # Release : sur tag vX.Y.Z, compile les 6 cibles et publie la release GitHub
 # avec les binaires (mêmes noms d'assets que les releases manuelles historiques)
-# ET le fichier SHA256SUMS que `jean update` (v0.4.6+) vérifie avant d'installer.
+# ET le fichier SHA256SUMS que `ajean update` (v0.4.6+) vérifie avant d'installer.
 # ⚠️ NE PAS uploader de binaires à la main en plus : ce workflow écrase les
 # assets du même nom (softprops remplace), et des sommes qui ne correspondent
-# plus aux binaires font échouer `jean update` (vécu sur v0.4.7).
+# plus aux binaires font échouer `ajean update` (vécu sur v0.4.7).
 #
 # Deux jobs de build : macOS a besoin d'un vrai runner Apple (l'icône de barre de
 # menus passe par Cocoa → CGO, pas cross-compilable depuis Linux) ; Linux et
@@ -34,29 +34,29 @@ jobs:
             CGO_CFLAGS="-arch x86_64" CGO_LDFLAGS="-arch x86_64" \
             go build -trimpath -ldflags="-s -w" -o dist/ajean-darwin-amd64 ./cmd/ajean
           file dist/ajean-darwin-*
-      - name: bundles Jean.app
+      - name: bundles AJEAN.app
         run: |
           # Un binaire nu double-cliqué ouvrirait le Terminal. On publie donc
-          # aussi un vrai bundle Jean.app (zippé pour garder le bit exécutable) :
-          # au clic, le Finder lance Contents/MacOS/jean, qui détecte le bundle
+          # aussi un vrai bundle AJEAN.app (zippé pour garder le bit exécutable) :
+          # au clic, le Finder lance Contents/MacOS/ajean, qui détecte le bundle
           # et bascule en mode « application » (UI web + navigateur + icône dans
-          # la barre de menus), comme le double-clic sur jean.exe sous Windows.
+          # la barre de menus), comme le double-clic sur ajean.exe sous Windows.
           # LSUIElement : app de barre de menus, aucune icône dans le Dock.
           # L'icône part du PNG 1024 généré avec le reste de la marque
           # (cmd/ajean/icon.png, voir tools/gen-icon) : plus de conversion depuis
           # le .ico, dont l'échec silencieux donnait une app sans icône.
-          mkdir -p /tmp/jean.iconset
+          mkdir -p /tmp/ajean.iconset
           for s in 16 32 128 256 512; do
-            sips -z $s $s 'cmd/ajean/icon.png' --out "/tmp/jean.iconset/icon_${s}x${s}.png" >/dev/null
+            sips -z $s $s 'cmd/ajean/icon.png' --out "/tmp/ajean.iconset/icon_${s}x${s}.png" >/dev/null
           done
-          iconutil -c icns /tmp/jean.iconset -o /tmp/jean.icns
+          iconutil -c icns /tmp/ajean.iconset -o /tmp/ajean.icns
           v="${GITHUB_REF_NAME#v}"
           for arch in amd64 arm64; do
             app="dist/mac-$arch/AJEAN.app"
             mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
             cp "dist/ajean-darwin-$arch" "$app/Contents/MacOS/ajean"
             chmod +x "$app/Contents/MacOS/ajean"
-            cp /tmp/jean.icns "$app/Contents/Resources/ajean.icns" 2>/dev/null || true
+            cp /tmp/ajean.icns "$app/Contents/Resources/ajean.icns" 2>/dev/null || true
             printf '%s\n' \
               '<?xml version="1.0" encoding="UTF-8"?>' \
               '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
@@ -80,7 +80,7 @@ jobs:
             # Nom hérité conservé : les liens de téléchargement déjà publiés
             # (site, mails, messages) pointent dessus et doivent continuer de
             # fonctionner. Même contenu, deux noms.
-            cp "dist/AJEAN-macos-$arch.zip" "dist/Jean-macos-$arch.zip"
+            cp "dist/AJEAN-macos-$arch.zip" "dist/AJEAN-macos-$arch.zip"
             rm -rf "dist/mac-$arch"
           done
           ls -l dist
@@ -112,22 +112,10 @@ jobs:
         with:
           name: macos
           path: dist
-      - name: assets hérités jean-* (transition)
-        run: |
-          # Le parc déjà installé ne sait chercher QUE « jean-<os>-<arch> » : sans
-          # ces copies, aucun des utilisateurs actuels ne pourrait se mettre à
-          # jour — pas même vers la version qui apprend à lire « ajean-* ».
-          # Après cette étape SEULEMENT, donc une fois les binaires macOS
-          # récupérés, les deux jeux de noms sont complets.
-          # À supprimer quand le parc aura basculé (quelques versions).
-          for f in dist/ajean-*; do
-            cp "$f" "dist/jean-${f#dist/ajean-}"
-          done
-          ls -l dist
       - name: SHA256SUMS
         run: |
-          chmod +x dist/ajean-darwin-* dist/jean-darwin-*
-          (cd dist && sha256sum ajean-* jean-* *.zip > SHA256SUMS)
+          chmod +x dist/ajean-darwin-*
+          (cd dist && sha256sum ajean-* *.zip > SHA256SUMS)
           ls -l dist && cat dist/SHA256SUMS
       - name: publier la release
         uses: softprops/action-gh-release@v2

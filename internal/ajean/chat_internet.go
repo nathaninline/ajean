@@ -471,7 +471,6 @@ type searchResult struct {
 }
 
 var (
-	htmlTagRe   = regexp.MustCompile(`<[^>]+>`)
 	wsRe        = regexp.MustCompile(`\s+`)
 	numEntityRe = regexp.MustCompile(`&#(\d+);`)
 	ddgHeadRe   = regexp.MustCompile(`^##\s+\[([^\]]+)\]\(([^)]+)\)\s*$`)

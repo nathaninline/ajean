@@ -41,7 +41,7 @@ Aucune dépendance à l'exécution, aucun flag CMake à retenir, aucun conteneur
 ### 1. Le binaire
 
 ```bash
-curl -L -o jean https://github.com/nathaninline/ajean/releases/latest/download/jean-linux-amd64
+curl -L -o ajean https://github.com/nathaninline/ajean/releases/latest/download/ajean-linux-amd64
 chmod +x ajean
 sudo mv ajean /usr/local/bin/ajean
 ```
@@ -78,7 +78,7 @@ Service :
   start | stop | restart        gérer le service
   status | logs                 état / logs en direct
   enable | disable              démarrage au boot
-  edit                          éditer $AJEAN_HOME/config.env
+  edit                          éditer la configuration dans $EDITOR
   test | bench [N]              vérifier que le modèle répond / mesurer les tok/s
   vram | gpu [index…]           VRAM / choix des GPU (gpu all = tous)
   set-api-key [clé]             protéger le moteur d'inférence (Bearer)
@@ -90,7 +90,7 @@ Capacités de l'IA :
   internet [on|off|engine <go|crawl4ai>|url <url>|key <clé>]   accès web
 
 Presets et moteur :
-  switch [N]                    changer de preset (configs/)
+  switch [N]                    changer de preset (presets/)
   llamacpp install|update|status
 
 Accès distant (ajean.link) :
@@ -107,7 +107,11 @@ Installation :
 
 ## Configuration
 
-Tout vit sous **`$AJEAN_HOME`** (`/etc/ajean` sous Linux/macOS, `%ProgramData%\ajean` sous Windows). Le service lit `config.env` :
+Tout vit sous **`$AJEAN_HOME`** (`/etc/ajean` sous Linux/macOS, `%ProgramData%\ajean` sous Windows), qui contient exactement six dossiers — `backends/`, `bin/`, `presets/`, `memory/`, `models/`, `workspace/` — et la base `ajean.db`.
+
+Cette base, un unique fichier [bbolt](https://github.com/etcd-io/bbolt), remplace la dizaine de fichiers d'état d'autrefois : configuration, préférences de l'interface, conversation, clés et interrupteurs y vivent désormais ensemble. Restent des fichiers ce qui se lit et s'édite à la main : les presets (`presets/*.env`), les pages de mémoire (`memory/*.md`) et, bien sûr, les modèles.
+
+La configuration du moteur s'édite avec `ajean edit`, qui la déroule au format `clé=valeur` dans `$EDITOR` :
 
 | Clé | Signification | Défaut |
 |-----|---------------|--------|
@@ -127,9 +131,9 @@ Tout vit sous **`$AJEAN_HOME`** (`/etc/ajean` sous Linux/macOS, `%ProgramData%\a
 | `CRAWL4AI_URL` / `CRAWL4AI_KEY` | serveur d'accès internet | — |
 | `EXTRA_ARGS` | ajouté tel quel à la ligne de commande du moteur | — |
 
-La clé API (`ajean set-api-key`) vit dans `$AJEAN_HOME/.api_key`, à part, afin de survivre aux changements de preset.
+La clé API (`ajean set-api-key`) est rangée hors de la configuration, afin de survivre aux changements de preset.
 
-**Modèles sur un autre disque.** Les `.gguf` n'ont pas à résider dans `$AJEAN_HOME` : dans l'éditeur de preset de l'interface, section *Modèle → Dossiers de modèles*, ajoutez le dossier voulu. Ses modèles apparaissent dans la liste, groupés par dossier. La liste est enregistrée dans `model_dirs.json`, donc conservée d'un preset à l'autre.
+**Modèles sur un autre disque.** Les `.gguf` n'ont pas à résider dans `$AJEAN_HOME/models` : dans l'éditeur de preset de l'interface, section *Modèle → Dossiers de modèles*, ajoutez le dossier voulu. Ses modèles apparaissent dans la liste, groupés par dossier. La liste est enregistrée dans la base, donc conservée d'un preset à l'autre.
 
 ### Variables d'environnement
 
@@ -137,7 +141,7 @@ La clé API (`ajean set-api-key`) vit dans `$AJEAN_HOME/.api_key`, à part, afin
 |----------|------|--------|
 | `AJEAN_HOME` | racine des données | `/etc/ajean`, `%ProgramData%\ajean` |
 | `AJEAN_MODEL_DIRS` | dossiers de modèles (séparés par `:`, `;` sous Windows) | — |
-| `JEAN_SERVICE` | nom de l'unité systemd | `ajean` |
+| `AJEAN_SERVICE` | nom de l'unité systemd | `ajean` |
 | `HF_TOKEN` | token Hugging Face pour les modèles privés | — |
 | `AJEAN_DL_CONNS` | connexions parallèles au téléchargement | — |
 | `EDITOR` | éditeur pour `ajean edit` | `nano` / `notepad` |
@@ -146,7 +150,7 @@ La clé API (`ajean set-api-key`) vit dans `$AJEAN_HOME/.api_key`, à part, afin
 
 ### Mémoire
 
-L'IA tient des pages Markdown sous `$AJEAN_HOME/MEMORY/`, relues et mises à jour entre les sessions. Trois modes, indépendants du mode agent :
+L'IA tient des pages Markdown sous `$AJEAN_HOME/memory/`, relues et mises à jour entre les sessions. Trois modes, indépendants du mode agent :
 
 ```bash
 ajean memory always     # (défaut) elle cherche avant de répondre et enregistre d'elle-même
@@ -182,7 +186,7 @@ Les outils web ne sont proposés au modèle que si le mode agent est actif, l'ac
 
 AJEAN parle le [Model Context Protocol](https://modelcontextprotocol.io) : on y branche des serveurs tiers (fichiers, bases de données, API…) et leurs outils s'ajoutent à ceux de l'IA, nommés `mcp__<serveur>__<outil>`.
 
-La configuration se fait depuis l'interface web (section *Serveurs MCP*) ou en éditant `$AJEAN_HOME/mcp.json`, au **même format que Claude Desktop**, si bien qu'un fichier existant se réutilise tel quel :
+La configuration se fait depuis l'interface web (section *Serveurs MCP*) (section *Serveurs MCP*). Le format des serveurs est celui de Claude Desktop, si bien qu'une configuration existante se recopie telle quelle :
 
 ```json
 {
@@ -199,7 +203,7 @@ Les transports **stdio** et **HTTP** sont pris en charge. Comme le terminal, un 
 
 - **Pas de systemd** : `ajean start` lance le service en arrière-plan (suivi par fichier PID) ; `stop`, `restart`, `status` et `logs` agissent dessus, sans droits administrateur. `enable` / `disable` ne sont pas gérés, il faut passer par une tâche planifiée.
 - `AJEAN_HOME` vaut `%ProgramData%\ajean` (repli `%LOCALAPPDATA%\ajean`).
-- `ajean install` crée seulement le dossier de données et un `config.env` de départ.
+- `ajean install` crée seulement l'arborescence de données et une configuration de départ.
 - Le terminal de l'IA passe par `cmd.exe`. Elle le sait, et écrit ses fichiers par l'outil dédié plutôt que par le shell, ce qui lui permet de produire des scripts contenant des guillemets.
 
 ```powershell

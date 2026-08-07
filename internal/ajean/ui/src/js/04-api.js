@@ -1,13 +1,13 @@
 // Clé de pilotage : envoyée en Authorization: Bearer sur chaque appel /api/*.
 // Sur un 401 on la (re)demande et on rejoue la requête. Stockée en localStorage.
-let TOKEN = localStorage.getItem('jean.key') || '';
+let TOKEN = localStorage.getItem('ajean.key') || '';
 function authHeaders(h){ h = Object.assign({}, h||{}); if(TOKEN) h['Authorization']='Bearer '+TOKEN; return h; }
 // Base d'URL : "" en local (page à "/"), "/u/<id>" servie via le relais ajean.link.
 // Garde les chemins absolus (/api/…) corrects derrière le tunnel.
 const API_BASE = location.pathname.replace(/\/(index\.html)?$/, '');
 // Délai maximal d'un appel /api/* ordinaire. Sans lui, une requête que le
 // navigateur met en file d'attente (plafond de ~6 connexions par domaine, atteint
-// dès qu'on laisse traîner plusieurs onglets Jean) reste suspendue POUR TOUJOURS :
+// dès qu'on laisse traîner plusieurs onglets AJEAN) reste suspendue POUR TOUJOURS :
 // ni réponse, ni erreur, et une UI figée sur « chargement… » sans rien à afficher.
 // Mieux vaut une erreur franche. Les flux longs (SSE) passent leur propre signal
 // et ne sont donc jamais concernés.
@@ -30,8 +30,8 @@ async function jfetch(u, opts){
   }
   finally{ if(timer) clearTimeout(timer); }
   if(r.status === 401){
-    const k = await askPrompt('Clé de pilotage jean requise :', {title:'Authentification', placeholder:'clé…'});
-    if(k){ TOKEN = k.trim(); localStorage.setItem('jean.key', TOKEN); opts.headers = authHeaders(opts.headers); r = await fetch(u, opts); }
+    const k = await askPrompt('Clé de pilotage ajean requise :', {title:'Authentification', placeholder:'clé…'});
+    if(k){ TOKEN = k.trim(); localStorage.setItem('ajean.key', TOKEN); opts.headers = authHeaders(opts.headers); r = await fetch(u, opts); }
   }
   return r;
 }

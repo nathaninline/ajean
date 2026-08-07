@@ -32,7 +32,7 @@ var glyphRects = [][4]float64{{6, 3, 2, 2}, {6, 5, 2, 2}, {4, 7, 2, 2}}
 
 // brandIconImage dessine l'icône à la taille n. bg peint le carré arrondi, fg le
 // « j ». Les deux peuvent être transparents : c'est ce qui produit l'icône
-// « template » de macOS (voir brandTemplatePNG).
+// « template » de macOS.
 func brandIconImage(n int, bg, fg color.RGBA) *image.RGBA {
 	const r = 2.0 // rayon des coins, en unités de la grille 12
 	outside := func(gx, gy float64) bool {
@@ -83,14 +83,6 @@ func encodePNG(img *image.RGBA) []byte {
 // BrandIconPNG rend l'icône de marque (noir + « j » blanc) en PNG de n pixels.
 // Exporté pour le générateur d'icône du .exe (tools/gen-icon).
 func BrandIconPNG(n int) []byte { return encodePNG(brandIconImage(n, brandBlack, brandWhite)) }
-
-// brandTemplatePNG rend la variante « template » attendue par macOS : seule la
-// couche alpha compte, le système colore la forme selon le thème de la barre de
-// menus. Le « j » est donc DÉCOUPÉ (transparent) dans un carré opaque — sans ça,
-// une icône entièrement noire disparaît sur une barre de menus sombre.
-func brandTemplatePNG(n int) []byte {
-	return encodePNG(brandIconImage(n, brandBlack, brandClear))
-}
 
 // BrandICO emballe une ou plusieurs tailles PNG dans un conteneur .ico. Windows
 // accepte le PNG comme image d'une entrée .ico (alpha conservé pour les coins
