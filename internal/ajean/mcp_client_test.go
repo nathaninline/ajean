@@ -12,7 +12,7 @@ import (
 // tentative de connexion : sans ça, connecter en parallèle multiplierait les
 // process stdio lancés pour un même serveur.
 func TestMCPEnsureDeduplicatesConcurrentConnects(t *testing.T) {
-	t.Setenv("AJEAN_HOME", t.TempDir())
+	testHome(t)
 	t.Cleanup(mcpCloseAll)
 
 	// Commande inexistante : la connexion échoue, mais l'entrée du pool est bien
@@ -53,7 +53,7 @@ func TestMCPEndToEnd(t *testing.T) {
 	if _, err := exec.LookPath("npx"); err != nil {
 		t.Skip("npx indisponible — test MCP e2e ignoré")
 	}
-	t.Setenv("AJEAN_HOME", t.TempDir())
+	testHome(t)
 
 	cfg := MCPServerConfig{
 		Command: "npx",

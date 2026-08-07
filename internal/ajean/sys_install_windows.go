@@ -16,7 +16,6 @@ import (
 // service itself is managed by the PID-file supervisor in sys_service_windows.go
 // (ajean start / stop / status), which needs no admin rights.
 
-
 func cmdInstall(args []string) error {
 	ajeanHome := AjeanHome()
 

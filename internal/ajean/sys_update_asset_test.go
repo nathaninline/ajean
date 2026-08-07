@@ -15,48 +15,21 @@ func relWith(names ...string) *ghRelease {
 	return rel
 }
 
-// Une release de transition publie les deux noms : on doit préférer ajean-*.
-func TestPickAssetPrefersAjean(t *testing.T) {
-	names := updateAssetNames()
-	got, url, _ := pickAsset(relWith(names[1], names[0]))
-	if got != names[0] {
-		t.Fatalf("got %q, attendu la préférence %q", got, names[0])
+// L'asset de la plateforme est trouvé au milieu des autres, et le nom renvoyé
+// est bien celui qui servira à vérifier le SHA-256.
+func TestPickAssetTrouveSaPlateforme(t *testing.T) {
+	want := updateAssetName()
+	got, url, size := pickAsset(relWith("SHA256SUMS", "ajean-plan9-386", want))
+	if got != want {
+		t.Fatalf("got %q, attendu %q", got, want)
 	}
-	if url == "" {
-		t.Fatal("URL vide")
-	}
-}
-
-// Release future, purgée des anciens noms : ajean-* seul suffit.
-func TestPickAssetAjeanOnly(t *testing.T) {
-	names := updateAssetNames()
-	if got, _, _ := pickAsset(relWith(names[0])); got != names[0] {
-		t.Fatalf("got %q, attendu %q", got, names[0])
-	}
-}
-
-// Ancienne release, antérieure au renommage : le repli sur ajean-* doit marcher,
-// sinon un client neuf ne pourrait pas s'installer depuis une release existante.
-func TestPickAssetFallsBackToLegacy(t *testing.T) {
-	names := updateAssetNames()
-	got, _, _ := pickAsset(relWith(names[1]))
-	if got != names[1] {
-		t.Fatalf("got %q, attendu le repli %q", got, names[1])
-	}
-}
-
-// Le nom renvoyé sert à vérifier le SHA-256 : il doit être celui réellement
-// choisi, pas le nom préféré, sinon la vérification échoue sur un repli.
-func TestPickAssetReturnsCheckedName(t *testing.T) {
-	names := updateAssetNames()
-	got, url, size := pickAsset(relWith(names[1]))
-	if got != names[1] || url != "https://example.invalid/"+names[1] || size != 42 {
-		t.Fatalf("incohérence nom/URL/taille: %q %q %d", got, url, size)
+	if url != "https://example.invalid/"+want || size != 42 {
+		t.Fatalf("incohérence URL/taille : %q %d", url, size)
 	}
 }
 
 // Aucun asset pour cette plateforme → pas d'URL, l'appelant doit pouvoir le voir.
-func TestPickAssetNoMatch(t *testing.T) {
+func TestPickAssetSansCorrespondance(t *testing.T) {
 	if _, url, _ := pickAsset(relWith("ajean-plan9-386", "SHA256SUMS")); url != "" {
 		t.Fatalf("URL inattendue: %q", url)
 	}

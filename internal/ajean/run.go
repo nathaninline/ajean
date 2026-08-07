@@ -66,15 +66,11 @@ func Main() {
 		mustExit(cmdLink(args))
 	case "oai":
 		mustExit(cmdOAI(args))
-	case "agent", "skills", "machine", "tools":
-		// « mode agent » unifie l'ancien couple machine + skills : un seul
-		// interrupteur active TOUS les outils de l'IA (shell + mémoire ; les
-		// skills ont été fondus dans la mémoire). Les anciens noms restent
-		// acceptés comme alias rétro-compatibles.
+	case "agent":
 		mustExit(cmdAgent(args))
-	case "internet", "web-access":
+	case "internet":
 		mustExit(cmdInternet(args))
-	case "memory", "mem":
+	case "memory":
 		mustExit(cmdMemory(args))
 	case "serve":
 		mustExit(cmdServe(args))
@@ -82,15 +78,15 @@ func Main() {
 		mustExit(cmdTest(args))
 	case "bench":
 		mustExit(cmdBench(args))
-	case "llamacpp", "llama":
+	case "llamacpp":
 		mustExit(cmdLlamacpp(args))
-	case "update", "upgrade", "self-update":
+	case "update":
 		mustExit(cmdUpdate(args))
-	case "where", "paths":
+	case "where":
 		mustExit(cmdWhere(args))
 	case restartArg:
-		// Sous-commande interne, absente de l'aide : l'accompagnateur detache qui
-		// attend la fermeture de l'app, migre, puis la relance.
+		// Sous-commande interne, absente de l'aide : l'accompagnateur détaché qui
+		// attend la fermeture de l'app puis la relance.
 		mustExit(cmdRestartAfterUpdate(args))
 	case "install":
 		mustExit(cmdInstall(args))
@@ -116,58 +112,46 @@ Application:
   app                           lance l'UI web + ouvre le navigateur (auto au double-clic du binaire)
 
 Service:
-  start | stop | restart        gérer le service (systemd sous Linux, processus en arrière-plan sous Windows)
+  start | stop | restart        gérer le service
   status | logs                 état / logs en direct
   enable | disable              auto-démarrage au boot
-  edit                          éditer $AJEAN_HOME/config.env
-  set-api-key [clé]             protéger llama-server (clé Bearer); vide = générer, "" = retirer
-  set-web-key [clé]             protéger l'API de pilotage 'ajean web'; vide = générer, "" = retirer
+  edit                          éditer la configuration dans $EDITOR
+  switch [N]                    activer un preset de presets/ (interactif ou par numéro)
+  test | bench [N]              vérifier que l'IA répond / mesurer prefill + decode tok/s
   vram                          utilisation GPU/VRAM (nvidia-smi)
   gpu [index…]                  liste les GPU / choisit le(s)quel(s) utiliser (gpu all = tous)
-  test                          vérifie que l'IA répond (health + completion)
-  bench [N]                     mesure prefill + decode tok/s (prompt 2000 tok, N=200 par défaut)
-
-Presets:
-  switch [N]                    choisir un preset dans configs/ (interactif ou par numéro)
+  set-api-key [clé]             protéger llama-server (clé Bearer); vide = générer, "" = retirer
+  set-web-key [clé]             protéger l'API de pilotage; vide = générer, "" = retirer
 
 Interaction:
   chat [system-prompt]          chat terminal streamé
   web [PORT]                    UI web (défaut :8090) — chat + presets + mode agent
+  agent [on|off|status]         donne à l'IA ses outils (shell, fichiers, mémoire)
+  memory [off|ondemand|always|status]  mode mémoire de l'IA
   internet [on|off|status|engine <go|crawl4ai>|url <url>|key <clé>]
-                                accès web de l'IA (web_search/open/read/grep) — moteur intégré ou serveur Crawl4AI
-  memory [off|ondemand|always|status]  mode mémoire de l'IA (off / sur demande / auto)
+                                accès web de l'IA (moteur intégré ou serveur Crawl4AI)
 
 Accès distant (ajean.link) :
-  link <token>                  enregistre le token et démarre le lien au relais (token = 1re fois / pour le changer)
-  link start | restart | stop   démarre / redémarre / arrête le service de lien
-  link code                     génère un code d'appairage (valable 10 min, à usage unique) pour le portail
+  link <token>                  enregistre le token et démarre le lien au relais
+  link start | restart | stop   pilote le service de lien
+  link code                     code d'appairage (10 min, usage unique) pour le portail
   link status | logout          état du lien / oublier le token
-  link                          (sans argument) affiche l'aide des sous-commandes link
-  link serve                    exécute le worker au premier plan (utilisé par ajean-link.service ; pendant de 'ajean serve')
-
-Mode agent:
-  agent [on|off|status]         active TOUS les outils de l'IA (shell complet + mémoire) — un seul interrupteur
+  link serve                    worker au premier plan (lancé par ajean-link.service)
 
 Backend llama.cpp :
-  llamacpp install              clone + compile llama.cpp (détecte CUDA/ROCm/Metal/CPU), pointe BIN dessus
-  llamacpp update               git pull + recompile le backend existant (arrête/redémarre le service)
+  llamacpp install              clone + compile llama.cpp (CUDA/ROCm/Metal/CPU), pointe BIN dessus
+  llamacpp update               git pull + recompile le backend existant
   llamacpp status               commit courant, backend détecté, retard sur origin
 
-Entrypoint (utilisé par ajean.service) :
-  serve                         lit config.env et exec le binaire llama-server
-
 Installation:
-  where                         affiche où sont le binaire, la config, la mémoire et le dossier de travail de l'agent
-  install                       installer (Linux: unité systemd, sudoers, dossiers ; Windows: dossiers + config)
-  uninstall                     désinstaller
-  update [--check]              mettre à jour AJEAN depuis les releases GitHub (--check = signale sans installer)
+  where                         affiche l'emplacement du binaire, de la base et des dossiers
+  install | uninstall           installer / désinstaller
+  update [--check]              mettre à jour depuis les releases GitHub
+  serve                         entrypoint du service : exec llama-server (usage interne)
 
 Env:
-  AJEAN_HOME   racine (défaut: /etc/ajean sur Linux/macOS, %%ProgramData%%\ajean sur Windows)
-               AJEAN_HOME reste accepté (héritage)
-  EDITOR       éditeur pour 'ajean edit' (défaut: nano sur Unix, notepad sur Windows)
-
-Config: $AJEAN_HOME/config.env
+  AJEAN_HOME   racine des données (défaut : /etc/ajean, %%ProgramData%%\ajean sous Windows)
+  EDITOR       éditeur pour 'ajean edit' (défaut : nano, notepad sous Windows)
 `, Version)
 }
 

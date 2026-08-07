@@ -39,9 +39,9 @@ func cmdLlamacpp(args []string) error {
 	switch sub {
 	case "install":
 		return llamacppInstall(args)
-	case "update", "upgrade":
+	case "update":
 		return llamacppUpdate(args)
-	case "status", "info", "":
+	case "status", "":
 		return llamacppStatus(args)
 	case "prebuilt":
 		// Binaires officiels précompilés (aucune compilation) — voir backend_prebuilt.go.

@@ -6,12 +6,11 @@ import (
 	"testing"
 )
 
-// Un modèle posé hors de AJEAN_HOME (disque externe) doit être utilisable dès
+// Un modèle posé hors de models/ (disque externe) doit être utilisable dès
 // que son dossier est déclaré — et refusé tant qu'il ne l'est pas.
 func TestResolveModelPathExtraDir(t *testing.T) {
-	home := t.TempDir()
+	testHome(t)
 	ext := t.TempDir()
-	t.Setenv("AJEAN_HOME", home)
 	t.Setenv("AJEAN_MODEL_DIRS", "")
 
 	extModel := filepath.Join(ext, "gros.gguf")
@@ -39,20 +38,22 @@ func TestResolveModelPathExtraDir(t *testing.T) {
 	}
 }
 
-// AJEAN_HOME garde la priorité et les non-.gguf restent refusés.
+// models/ garde la priorité et les non-.gguf restent refusés.
 func TestResolveModelPathHomeFirst(t *testing.T) {
-	home := t.TempDir()
+	testHome(t)
 	ext := t.TempDir()
-	t.Setenv("AJEAN_HOME", home)
 	t.Setenv("AJEAN_MODEL_DIRS", ext)
-	for _, d := range []string{home, ext} {
+	if err := os.MkdirAll(modelsDir(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range []string{modelsDir(), ext} {
 		if err := os.WriteFile(filepath.Join(d, "m.gguf"), []byte("x"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
 	got, err := resolveModelPath("m.gguf")
-	if err != nil || got != filepath.Join(home, "m.gguf") {
-		t.Fatalf("got %q (%v), attendu le fichier de AJEAN_HOME", got, err)
+	if err != nil || got != filepath.Join(modelsDir(), "m.gguf") {
+		t.Fatalf("got %q (%v), attendu le fichier de models/", got, err)
 	}
 	if _, err := resolveModelPath("/etc/passwd"); err == nil {
 		t.Fatal("un fichier non-.gguf devrait être refusé")

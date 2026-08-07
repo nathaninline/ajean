@@ -26,7 +26,7 @@ func cmdAgent(args []string) error {
 			return err
 		}
 		fmt.Println(green("[ok]") + " mode agent désactivé")
-	case "", "status", "list":
+	case "", "status":
 		state := dim("off")
 		if agentEnabled() {
 			state = green("on")

@@ -12,7 +12,7 @@ func TestCompiledFile(t *testing.T) {
 		`[123/456] Building CUDA object ggml/src/ggml-cuda/CMakeFiles/ggml-cuda.dir/acc.cu.o`: "acc.cu",
 		// La ligne de commande nvcc géante ne doit PAS être prise pour un fichier.
 		`  C:\...\nvcc.exe -x cu ... -o ggml-cuda.dir\Release\acc.obj "C:\...\acc.cu"`: "",
-		`Building Custom Rule C:/ProgramData/ajean/...`:                                 "",
+		`Building Custom Rule C:/ProgramData/ajean/...`:                                "",
 		`-- UI: running npm install`:                                                   "",
 	}
 	for in, want := range cases {

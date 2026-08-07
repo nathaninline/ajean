@@ -12,17 +12,16 @@ import (
 )
 
 func TestDownloadDestPathDir(t *testing.T) {
-	home := t.TempDir()
+	testHome(t)
 	extra := t.TempDir()
-	t.Setenv("AJEAN_HOME", home)
 	t.Setenv("AJEAN_MODEL_DIRS", extra)
 
-	// Dossier vide → AJEAN_HOME.
+	// Dossier vide → models/.
 	got, err := downloadDestPath("m.gguf", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := filepath.Join(home, "m.gguf"); got != want {
+	if want := filepath.Join(modelsDir(), "m.gguf"); got != want {
 		t.Fatalf("défaut = %s, attendu %s", got, want)
 	}
 
@@ -76,8 +75,8 @@ func TestDiskFreeAndCheck(t *testing.T) {
 
 // Les .part orphelins doivent aussi être nettoyés dans les dossiers ajoutés.
 func TestCleanStalePartFilesExtraDirs(t *testing.T) {
-	home, extra := t.TempDir(), t.TempDir()
-	t.Setenv("AJEAN_HOME", home)
+	testHome(t)
+	extra := t.TempDir()
 	t.Setenv("AJEAN_MODEL_DIRS", extra)
 	stale := filepath.Join(extra, "coupe.gguf.part")
 	if err := os.WriteFile(stale, []byte("x"), 0o644); err != nil {

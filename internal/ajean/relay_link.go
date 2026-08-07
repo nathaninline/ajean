@@ -87,7 +87,7 @@ func cmdLink(args []string) error {
 		// éviter de prendre un mot pour un token et d'écraser le vrai).
 		printLinkHelp()
 		return nil
-	case "serve", "--foreground", "fg":
+	case "serve":
 		// Le worker réel (boucle de connexion au relais), pendant de `ajean serve`.
 		// C'est ce que lance l'unité systemd ; il NE doit PAS rendre la main.
 		return runLinkForeground()

@@ -75,8 +75,11 @@ func TestRunDownloadCancelLeavesNothing(t *testing.T) {
 
 // cleanStalePartFiles doit balayer les .part orphelins sans toucher aux .gguf.
 func TestCleanStalePartFiles(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("AJEAN_HOME", dir)
+	testHome(t)
+	dir := modelsDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	keep := filepath.Join(dir, "bon.gguf")
 	stale := filepath.Join(dir, "coupe.gguf.part")
 	for _, p := range []string{keep, stale} {

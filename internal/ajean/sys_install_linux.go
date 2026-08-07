@@ -11,7 +11,6 @@ import (
 	"strings"
 )
 
-
 const sudoersTemplate = `# Allow %s to manage the %s systemd unit without a password (installed by ajean).
 %s ALL=(root) NOPASSWD: /bin/systemctl start %s, /bin/systemctl stop %s, /bin/systemctl restart %s, /bin/systemctl enable %s, /bin/systemctl disable %s
 `
@@ -110,7 +109,7 @@ func cmdInstall(args []string) error {
 	}
 	fmt.Printf("  %s /etc/default/ajean\n", green("✓"))
 
-	// 5. Write the systemd unit (ExecStart = `ajean serve`, no start.sh needed)
+	// 4. Write the systemd unit (ExecStart = `ajean serve`, no start.sh needed)
 	unit := fmt.Sprintf(serviceUnitTemplate, targetUser, ajeanHome, installedExePath()+" serve")
 	unitPath := "/etc/systemd/system/" + svc + ".service"
 	if err := os.WriteFile(unitPath, []byte(unit), 0o644); err != nil {

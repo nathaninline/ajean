@@ -17,7 +17,6 @@ import (
 // sur « systemctl: command not found » / « /etc/default/ajean », cf. issue #4).
 // Implémentation prudente ; à valider sur une machine Apple.
 
-
 // launchdPlistTemplate — champs formatés : Label, chemin du binaire, UserName,
 // WorkingDirectory, AJEAN_HOME, StandardOutPath, StandardErrorPath.
 // KeepAlive/SuccessfulExit=false ≈ Restart=on-failure ; RunAtLoad relance au

@@ -67,8 +67,7 @@ func TestExtractArchiveSymlink(t *testing.T) {
 // comme sur une machine mise à jour plusieurs fois.
 func fakePrebuilt(t *testing.T, version string, tags ...string) string {
 	t.Helper()
-	home := t.TempDir()
-	t.Setenv("AJEAN_HOME", home)
+	home := testHome(t)
 	dir := filepath.Join(home, "backends", "llama.cpp-prebuilt")
 	name := "llama-server"
 	if runtime.GOOS == "windows" {

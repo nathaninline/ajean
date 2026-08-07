@@ -317,9 +317,9 @@ const (
 // actuel). Toute valeur inconnue retombe sur always.
 func memMode() MemMode {
 	switch strings.ToLower(strings.TrimSpace(ReadConfig()["MEM_MODE"])) {
-	case "off", "0", "false", "none", "no", "non":
+	case "off":
 		return MemOff
-	case "ondemand", "on-demand", "demand", "manual", "manuel":
+	case "ondemand":
 		return MemOnDemand
 	default: // "always", "auto", "" et inconnus
 		return MemAlways
@@ -343,7 +343,7 @@ func cmdMemory(args []string) error {
 		MemAlways:   "auto (l'IA cherche et sauve d'elle-même)",
 	}
 	switch sub {
-	case "off", "none", "0", "false":
+	case "off":
 		if err := setMemMode(MemOff); err != nil {
 			return err
 		}
@@ -351,11 +351,11 @@ func cmdMemory(args []string) error {
 		if err := setMemMode(MemOnDemand); err != nil {
 			return err
 		}
-	case "always", "auto", "on":
+	case "always":
 		if err := setMemMode(MemAlways); err != nil {
 			return err
 		}
-	case "", "status", "list":
+	case "", "status":
 		m := memMode()
 		fmt.Printf("%s  mode: %s — %s\n", cyan("Mémoire"), bold(string(m)), label[m])
 		pages := MemList()

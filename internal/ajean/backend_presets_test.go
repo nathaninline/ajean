@@ -6,6 +6,14 @@ import (
 	"testing"
 )
 
+// setConfig installe une configuration décrite au format des presets.
+func setConfig(t *testing.T, body string) {
+	t.Helper()
+	if err := WriteConfig(parseEnv(body)); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // TestPresetFingerprintIgnoresCosmetics vérifie que la détection du preset actif
 // ne dépend QUE de la config effective (ensemble KEY=VALUE), pas de la mise en
 // forme : ordre des lignes, commentaires (dont `# NAME=`), lignes vides, `export`,
@@ -32,15 +40,14 @@ func TestPresetFingerprintIgnoresCosmetics(t *testing.T) {
 // suivante l'écrasait, llama.cpp revoyait les deux cartes et réétalait le modèle
 // sur la petite — pendant que `ajean gpu` réaffichait « auto ».
 func TestSwitchToPresetGardeLesReglagesMachine(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("AJEAN_HOME", home)
+	home := testHome(t)
 	write := func(p, body string) {
 		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
-	// config.env courante : un preset + les réglages machine.
-	write(confPath(), "MODEL=ancien.gguf\nCTX=4096\nCUDA_VISIBLE_DEVICES=1\nWEB_ENGINE=go\nMEM_MODE=always\n")
+	// Configuration courante : un preset + les réglages machine.
+	setConfig(t, "MODEL=ancien.gguf\nCTX=4096\nCUDA_VISIBLE_DEVICES=1\nWEB_ENGINE=go\nMEM_MODE=always\n")
 	target := filepath.Join(home, "cible.env")
 	write(target, "MODEL=nouveau.gguf\nCTX=8192\n")
 
@@ -66,14 +73,13 @@ func TestSwitchToPresetGardeLesReglagesMachine(t *testing.T) {
 // --tensor-split ait deux cartes. Écraser ça par une sélection mono-GPU faisait
 // mourir le chargement sur « cudaMalloc failed: out of memory ».
 func TestSwitchToPresetLaisseLePresetImposerSesGPU(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("AJEAN_HOME", home)
+	home := testHome(t)
 	write := func(p, body string) {
 		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
-	write(confPath(), "MODEL=ancien.gguf\nCUDA_VISIBLE_DEVICES=1\nWEB_ENGINE=go\n")
+	setConfig(t, "MODEL=ancien.gguf\nCUDA_VISIBLE_DEVICES=1\nWEB_ENGINE=go\n")
 	deuxGPU := filepath.Join(home, "deux-gpu.env")
 	write(deuxGPU, "MODEL=fable.gguf\nCUDA_VISIBLE_DEVICES=1,0\n")
 	if err := applyPresetFile(deuxGPU); err != nil {

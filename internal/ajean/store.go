@@ -33,49 +33,69 @@ const (
 	bkChat   = "chat"   // conversation partagée
 )
 
+// Les connexions sont mises en cache PAR CHEMIN, et non dans un singleton.
+// $AJEAN_HOME peut désigner un autre dossier d'un appel à l'autre — c'est le cas
+// dans les tests, qui donnent à chacun son dossier temporaire. Un singleton
+// figerait la toute première base et tous les appels suivants écriraient dans le
+// mauvais fichier, sans erreur et sans bruit.
 var (
-	dbOnce sync.Once
-	dbConn *bolt.DB
-	dbErr  error
+	dbMu    sync.Mutex
+	dbConns = map[string]*bolt.DB{}
 )
 
 func dbPath() string { return filepath.Join(AjeanHome(), "ajean.db") }
 
-// db ouvre la base à la première utilisation et la garde ouverte pour la durée
-// du process. bbolt prend un verrou exclusif sur le fichier : le délai d'attente
-// évite qu'un second process (l'app lancée deux fois) se bloque indéfiniment.
+// db ouvre la base (ou renvoie celle déjà ouverte pour ce chemin) et la garde
+// ouverte pour la durée du process. bbolt prend un verrou exclusif sur le
+// fichier : le délai d'attente évite qu'un second process (l'app lancée deux
+// fois) se bloque indéfiniment.
 func db() (*bolt.DB, error) {
-	dbOnce.Do(func() {
-		if err := os.MkdirAll(AjeanHome(), 0o755); err != nil {
-			dbErr = err
-			return
-		}
-		d, err := bolt.Open(dbPath(), 0o600, &bolt.Options{Timeout: 3 * time.Second})
-		if err != nil {
-			dbErr = fmt.Errorf("base %s inaccessible : %w", dbPath(), err)
-			return
-		}
-		err = d.Update(func(tx *bolt.Tx) error {
-			for _, b := range []string{bkConfig, bkPrefs, bkState, bkChat} {
-				if _, err := tx.CreateBucketIfNotExists([]byte(b)); err != nil {
-					return err
-				}
+	path := dbPath()
+
+	dbMu.Lock()
+	defer dbMu.Unlock()
+	if d, ok := dbConns[path]; ok {
+		return d, nil
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, err
+	}
+	d, err := bolt.Open(path, 0o600, &bolt.Options{Timeout: 3 * time.Second})
+	if err != nil {
+		return nil, fmt.Errorf("base %s inaccessible : %w", path, err)
+	}
+	err = d.Update(func(tx *bolt.Tx) error {
+		for _, b := range []string{bkConfig, bkPrefs, bkState, bkChat} {
+			if _, err := tx.CreateBucketIfNotExists([]byte(b)); err != nil {
+				return err
 			}
-			return nil
-		})
-		if err != nil {
-			d.Close()
-			dbErr = err
-			return
 		}
-		dbConn = d
+		return nil
 	})
-	return dbConn, dbErr
+	if err != nil {
+		d.Close()
+		return nil, err
+	}
+	dbConns[path] = d
+	return d, nil
 }
 
 // getBytes lit une valeur. Une base inaccessible se comporte comme une base
 // vide : les appelants sont des lecteurs de réglages, aucun n'a de recours utile
 // face à une erreur d'E/S, et tous ont déjà un défaut.
+// closeDB ferme la base ouverte pour le dossier courant, s'il y en a une. bbolt
+// garde un verrou exclusif sur son fichier tant qu'il est ouvert : sans ça,
+// impossible de supprimer ou déplacer le dossier de données sous Windows.
+func closeDB() {
+	path := dbPath()
+	dbMu.Lock()
+	defer dbMu.Unlock()
+	if d, ok := dbConns[path]; ok {
+		_ = d.Close()
+		delete(dbConns, path)
+	}
+}
+
 func getBytes(bucket, key string) []byte {
 	d, err := db()
 	if err != nil {
