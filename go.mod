@@ -10,6 +10,7 @@ require (
 	github.com/getlantern/systray v1.2.2
 	github.com/hashicorp/yamux v0.1.2
 	github.com/modelcontextprotocol/go-sdk v1.6.1
+	go.etcd.io/bbolt v1.5.0
 	golang.org/x/mod v0.35.0
 	golang.org/x/net v0.55.0
 )
@@ -38,7 +39,6 @@ require (
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	github.com/zeebo/blake3 v0.2.4 // indirect
-	go.etcd.io/bbolt v1.5.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.1 // indirect
 	go.uber.org/zap/exp v0.3.0 // indirect
