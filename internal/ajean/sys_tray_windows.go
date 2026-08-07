@@ -26,7 +26,7 @@ func runTray(url string) {
 		systray.SetTooltip("AJEAN — votre IA locale")
 		mOpen := systray.AddMenuItem("Ouvrir AJEAN", "Ouvrir l'interface")
 		systray.AddSeparator()
-		mQuit := systray.AddMenuItem("Quitter", "Arrêter AJEAN")
+		mQuit := systray.AddMenuItem("Quitter", "Arrêter AJEAN et décharger le modèle")
 
 		go func() {
 			for {
@@ -40,7 +40,20 @@ func runTray(url string) {
 			}
 		}()
 	}, func() {
-		os.Exit(0) // « Quitter » → arrête tout le process (serveur inclus)
+		// « Quitter » doit tout arrêter, moteur compris.
+		//
+		// Le moteur tourne dans un process DÉTACHÉ (voir svcStart) : il survit
+		// délibérément à la fermeture de l'app pour que le modèle reste chargé
+		// entre deux ouvertures de l'interface. Mais quand on quitte pour de
+		// bon, il n'a plus rien pour le piloter et garde des dizaines de Go de
+		// RAM, sans la moindre fenêtre pour l'expliquer. svcStop tue l'arbre
+		// (taskkill /T), donc llama-server avec lui.
+		//
+		// Windows seulement : ici l'app EST le propriétaire du moteur. Sous
+		// Linux et macOS c'est systemd ou launchd, et fermer une interface n'a
+		// pas à arrêter un service système.
+		_ = svcStop(false)
+		os.Exit(0)
 	})
 }
 

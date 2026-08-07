@@ -43,6 +43,13 @@ func runTray(url string) {
 			}
 		}()
 	}, func() {
-		os.Exit(0) // « Quitter » → arrête tout le process (serveur inclus)
+		// « Quitter » arrête l'application : l'interface et, avec elle, le
+		// tunnel d'accès distant qui tourne dans ce process.
+		//
+		// Le MOTEUR, lui, n'est pas arrêté : sous macOS c'est un daemon launchd,
+		// que seul root peut piloter. Fermer une interface n'a pas à arrêter un
+		// service système. Sous Windows, où l'app est propriétaire du moteur,
+		// « Quitter » l'arrête bel et bien (voir sys_tray_windows.go).
+		os.Exit(0)
 	})
 }
