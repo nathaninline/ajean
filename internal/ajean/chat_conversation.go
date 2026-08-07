@@ -208,12 +208,16 @@ func (c *Conversation) state() map[string]any {
 // ErrBusy : une génération est déjà en cours (un seul tour à la fois).
 var ErrBusy = fmt.Errorf("génération en cours")
 
+// errModelLoading est renvoyée telle quelle à l'utilisateur, dans le chat : ce
+// n'est pas un défaut mais une attente, et le message doit le dire.
+var errModelLoading = fmt.Errorf("⏳ Le modèle est encore en train de charger — réessaie dans quelques secondes.")
+
 // StartTurn ajoute le message utilisateur et lance la génération EN ARRIÈRE-PLAN
 // (context.Background, détaché de toute connexion HTTP). Renvoie ErrBusy si un
 // tour est déjà en cours, ou une erreur si le modèle n'est pas prêt.
 func (c *Conversation) StartTurn(text string, caps Caps, temperature float64) error {
 	if !healthCheck() {
-		return fmt.Errorf("⏳ Le modèle est encore en train de charger — réessaie dans quelques secondes.")
+		return errModelLoading
 	}
 	c.mu.Lock()
 	if c.Generating {
@@ -440,7 +444,7 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 // progression. Renvoie ErrBusy si un tour est déjà en cours.
 func (c *Conversation) CompactNow() error {
 	if !healthCheck() {
-		return fmt.Errorf("⏳ Le modèle est encore en train de charger — réessaie dans quelques secondes.")
+		return errModelLoading
 	}
 	c.mu.Lock()
 	if c.Generating {

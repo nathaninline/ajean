@@ -2,6 +2,7 @@ package ajean
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	bolt "go.etcd.io/bbolt"
+	bolterrors "go.etcd.io/bbolt/errors"
 )
 
 // store.go — l'unique endroit où AJEAN écrit son état.
@@ -176,7 +178,7 @@ func allKV(bucket string) map[string]string {
 func replaceKV(bucket string, m map[string]string) error {
 	return withDB(func(d *bolt.DB) error {
 		return d.Update(func(tx *bolt.Tx) error {
-			if err := tx.DeleteBucket([]byte(bucket)); err != nil && err != bolt.ErrBucketNotFound {
+			if err := tx.DeleteBucket([]byte(bucket)); err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 				return err
 			}
 			b, err := tx.CreateBucket([]byte(bucket))
