@@ -1,6 +1,8 @@
 # Release : sur tag vX.Y.Z, compile les 6 cibles et publie la release GitHub
-# avec les binaires (mêmes noms d'assets que les releases manuelles historiques)
-# ET le fichier SHA256SUMS que `ajean update` (v0.4.6+) vérifie avant d'installer.
+# avec les binaires (ajean-linux, ajean-macos, ajean-windows.exe et leurs
+# variantes -arm) ET le fichier SHA256SUMS que `ajean update` vérifie avant
+# d'installer. Ces noms doivent rester en phase avec assetNameFor (sys_update.go),
+# sinon plus aucune machine ne se met à jour.
 # ⚠️ NE PAS uploader de binaires à la main en plus : ce workflow écrase les
 # assets du même nom (softprops remplace), et des sommes qui ne correspondent
 # plus aux binaires font échouer `ajean update` (vécu sur v0.4.7).

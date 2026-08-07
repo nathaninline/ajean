@@ -39,6 +39,7 @@ func fake07Home(t *testing.T) string {
 	write("mcp.json", `{"mcpServers":{"fs":{"command":"npx","enabled":true}}}`)
 	write("sysprompt.txt", "Tu es AJEAN.\n")
 	write("conversation.json", `{"seq":42,"messages":[{"role":"user","content":"salut"}]}`)
+	write("SKILLS/vieux-skill/SKILL.md", "# un skill d'avant\n")
 	return home
 }
 
@@ -102,8 +103,13 @@ func TestMigration07(t *testing.T) {
 	}
 
 	// Les fichiers consommés sont rangés, pas détruits.
-	if _, err := os.Stat(filepath.Join(home, "avant-0.8", "config.env")); err != nil {
-		t.Error("config.env n'a pas été conservée dans avant-0.8/")
+	for _, archive := range []string{"config.env", "SKILLS"} {
+		if _, err := os.Stat(filepath.Join(home, "avant-0.8", archive)); err != nil {
+			t.Errorf("%s n'a pas été conservé dans avant-0.8/", archive)
+		}
+	}
+	if hasEntry(home, "SKILLS") {
+		t.Error("SKILLS/ traîne encore à la racine")
 	}
 
 	// Idempotence : relancer ne doit plus rien voir à migrer.

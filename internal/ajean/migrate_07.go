@@ -131,6 +131,12 @@ func migrateFrom07(home string) error {
 	if err := importLegacyState(home); err != nil {
 		return err
 	}
+	// SKILLS/ : les skills ont été fondus dans la mémoire avant la 0.8, le
+	// dossier ne sert plus à rien mais peut contenir du travail de l'utilisateur.
+	// On l'archive au lieu de le laisser traîner ou de l'effacer.
+	if hasEntry(home, "SKILLS") {
+		_ = os.Rename(filepath.Join(home, "SKILLS"), filepath.Join(home, "avant-0.8", "SKILLS"))
+	}
 	fmt.Printf("%s reprise terminée — les anciens fichiers sont dans avant-0.8/\n\n", green("[ok]"))
 	return nil
 }
