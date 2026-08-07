@@ -29,11 +29,11 @@ import (
 //
 // Maintenant, deux cas seulement :
 //
-//  1. AJEAN n'est pas installé. On DEMANDE : c'est le seul moment où
-//     l'utilisateur gagne à savoir ce qu'on pose sur sa machine et où. Puis
-//     copie + PATH + raccourcis, et on démarre depuis la copie installée. Un
-//     refus vaut « pas maintenant » et la question revient au prochain lancement
-//     du fichier : mémorisé, il ne laissait AUCUN moyen d'installer AJEAN.
+//  1. AJEAN n'est pas installé. On installe, sans demander : rester à
+//     l'emplacement du fichier téléchargé ne donne pas une installation
+//     utilisable, la question n'avait donc qu'une réponse. Copie + PATH +
+//     raccourcis, un message qui dit ce qui a été fait, et on démarre depuis la
+//     copie installée.
 //
 //  2. AJEAN est déjà installé. Le fichier téléchargé se comporte en installeur de
 //     mise à jour, avec trois situations bien distinctes (voir runAsInstaller) :
@@ -131,7 +131,12 @@ func appFirstRun() bool {
 // Renvoie false si le lancement échoue, auquel cas l'exécutable courant prend le
 // relais : mieux vaut démarrer depuis le mauvais dossier que pas du tout.
 func launch(target string) bool {
-	cmd := exec.Command(target)
+	// « app » est passé EXPLICITEMENT plutôt que de compter sur la détection du
+	// mode application. Celle-ci répond à une seule question — « ai-je été
+	// double-cliqué ? » — en regardant qui partage notre console. Un processus
+	// lancé sans console du tout (relance après mise à jour) ne peut pas y
+	// répondre, et se serait retrouvé à afficher l'aide au lieu de démarrer.
+	cmd := exec.Command(target, "app")
 	cmd.Dir = filepath.Dir(target)
 	return cmd.Start() == nil
 }
@@ -404,6 +409,10 @@ foreach ($d in @($progs, [Environment]::GetFolderPath('Desktop'))) {
     $s.TargetPath=$t
     $s.WorkingDirectory=(Split-Path $t)
     $s.Description='AJEAN, votre IA locale'
+    # Minimisé (7) : le binaire étant en sous-système console, Windows lui alloue
+    # une console au lancement. AJEAN la referme aussitôt, mais demander un
+    # démarrage minimisé garantit qu'elle n'est jamais peinte à l'écran.
+    $s.WindowStyle=7
     $s.Save()
     $done+=$d
   } catch {}

@@ -107,9 +107,10 @@ jobs:
                    windows/amd64:ajean-windows.exe windows/arm64:ajean-windows-arm.exe; do
             target=${t%%:*}; name=${t#*:}
             os=${target%/*}; arch=${target#*/}; ldflags="-s -w"
-            # Windows : sous-système GUI → aucune console noire au double-clic
-            # (l'app se rattache à la console du terminal parent si lancée en CLI).
-            [ "$os" = windows ] && ldflags="$ldflags -H=windowsgui"
+            # Windows : sous-système CONSOLE, pour que `cmd` attende la fin du
+            # programme et que redirections, tubes et commandes interactives
+            # fonctionnent. La console créée au double-clic est refermée par le
+            # programme lui-même (voir setupConsole, sys_console_windows.go).
             GOOS=$os GOARCH=$arch CGO_ENABLED=0 \
               go build -trimpath -ldflags="$ldflags" -o "dist/$name" ./cmd/ajean
           done
