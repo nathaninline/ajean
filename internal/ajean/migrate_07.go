@@ -26,6 +26,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 )
 
@@ -263,6 +264,27 @@ func importLegacyState(home string) error {
 			}
 		}
 	}
+	// .authorized_users : les identités appairées pour le chat chiffré de bout en
+	// bout, une clé publique par ligne. L'oublier coûte cher et de façon peu
+	// lisible : le tunnel s'établit, la machine s'affiche en ligne, mais le
+	// portail refuse toute conversation chiffrée — il faut ré-appairer sans
+	// comprendre pourquoi. Vécu sur le serveur de test.
+	if v := read(".authorized_users"); v != "" {
+		var list []string
+		for _, line := range strings.Split(v, "\n") {
+			if h := strings.ToLower(strings.TrimSpace(line)); h != "" {
+				list = append(list, h)
+			}
+		}
+		if len(list) > 0 {
+			sort.Strings(list)
+			_ = putJSON(bkState, "authorized_users", list)
+			fmt.Printf("  %s %d identité(s) appairée(s)\n", green("✓"), len(list))
+		}
+	}
+	// .pair_codes n'est PAS repris : ces codes expirent au bout de 10 minutes,
+	// les reprendre n'aurait aucun sens.
+
 	// mcp.json : on ne garde que la map interne, la clé « mcpServers » disparaît.
 	if v := read("mcp.json"); v != "" {
 		var f struct {

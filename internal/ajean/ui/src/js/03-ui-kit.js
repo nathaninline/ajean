@@ -54,6 +54,10 @@ function _openAsk(kind, message, opts){
   // où cette fonction remplace le window.askConfirm du bootstrap boîte noire).
   if(message && typeof message==='object'){ const o=message; opts={title:o.title, okText:o.yes, cancelText:o.no, placeholder:o.placeholder, default:o.default, danger:o.danger}; message=o.msg||''; }
   opts=opts||{};
+  // Une modale déjà ouverte ne doit pas être écrasée en silence : son appelant
+  // attend une réponse, et l'écraser laissait sa promesse pendante POUR
+  // TOUJOURS (requête suspendue, bouton figé). On l'annule proprement d'abord.
+  if(_askResolver){ const prev=_askResolver; _askResolver=null; prev(_askKind==='prompt' ? null : false); }
   _askKind=kind;
   document.getElementById('ask-title').textContent = opts.title || (kind==='alert'?'Info':kind==='prompt'?'Saisie':'Confirmation');
   document.getElementById('ask-msg').textContent = message||'';

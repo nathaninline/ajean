@@ -30,10 +30,30 @@ async function jfetch(u, opts){
   }
   finally{ if(timer) clearTimeout(timer); }
   if(r.status === 401){
-    const k = await askPrompt('Clé de pilotage ajean requise :', {title:'Authentification', placeholder:'clé…'});
-    if(k){ TOKEN = k.trim(); localStorage.setItem('ajean.key', TOKEN); opts.headers = authHeaders(opts.headers); r = await fetch(u, opts); }
+    const k = await askKeyOnce();
+    if(k){ opts.headers = authHeaders(opts.headers); r = await fetch(u, opts); }
   }
   return r;
+}
+// askKeyOnce : UNE seule demande de clé à la fois, partagée par tous les appels.
+//
+// Le chargement de l'UI lance une dizaine d'appels /api/* en parallèle, et le
+// rafraîchissement périodique en relance autant. Sans ce partage, CHAQUE 401
+// rouvrait la modale, laquelle vide son champ à l'ouverture : impossible de
+// taper la clé, les caractères disparaissaient au fur et à mesure. Les appels
+// concurrents attendent désormais la même promesse, et repartent tous avec la
+// clé saisie une seule fois.
+let _keyAsk = null;
+function askKeyOnce(){
+  if(!_keyAsk){
+    _keyAsk = askPrompt('Clé de pilotage AJEAN requise :', {title:'Authentification', placeholder:'clé…'})
+      .then(k => {
+        _keyAsk = null;
+        if(k){ TOKEN = k.trim(); localStorage.setItem('ajean.key', TOKEN); }
+        return k;
+      }, e => { _keyAsk = null; throw e; });
+  }
+  return _keyAsk;
 }
 async function jget(u){ const r=await jfetch(u); return r.json(); }
 async function jpost(u,b){ const r=await jfetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})}); return r.json(); }

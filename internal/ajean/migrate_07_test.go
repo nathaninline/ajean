@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -40,6 +41,7 @@ func fake07Home(t *testing.T) string {
 	write("sysprompt.txt", "Tu es AJEAN.\n")
 	write("conversation.json", `{"seq":42,"messages":[{"role":"user","content":"salut"}]}`)
 	write("SKILLS/vieux-skill/SKILL.md", "# un skill d'avant\n")
+	write(".authorized_users", "AABBCCDDEEFF00112233445566778899AABBCCDDEEFF001122334455667788AA\n")
 	return home
 }
 
@@ -100,6 +102,14 @@ func TestMigration07(t *testing.T) {
 	LoadConversation()
 	if conv.Seq != 42 {
 		t.Errorf("conversation perdue (seq %d)", conv.Seq)
+	}
+	// Les identités appairées : les perdre casse le chat chiffré du portail
+	// sans que rien ne le dise (le tunnel, lui, s'établit normalement).
+	// La liste est mise en cache une fois par process (authOnce) : en production
+	// c'est un process neuf qui sert après l'install, ici il faut le dire.
+	authOnce, authSet = sync.Once{}, map[string]bool{}
+	if !isAuthorizedUser("aabbccddeeff00112233445566778899aabbccddeeff001122334455667788aa") {
+		t.Error("identité appairée perdue : le chat E2E du portail serait refusé")
 	}
 
 	// Les fichiers consommés sont rangés, pas détruits.
