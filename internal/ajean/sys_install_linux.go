@@ -77,7 +77,7 @@ func installServices(targetUser, ajeanHome string) error {
 		fmt.Printf("  %s %s\n", green("✓"), path)
 
 		sudoers := fmt.Sprintf(sudoersTemplate, targetUser, name)
-		sudoersPath := "/etc/sudoers.d/ajean-" + name
+		sudoersPath := "/etc/sudoers.d/" + name
 		if err := os.WriteFile(sudoersPath, []byte(sudoers), 0o440); err != nil {
 			return err
 		}
@@ -99,8 +99,8 @@ func uninstallServices() {
 	for _, p := range []string{
 		"/etc/systemd/system/" + svc + ".service",
 		"/etc/systemd/system/" + uiUnitName + ".service",
-		"/etc/sudoers.d/ajean-" + svc,
-		"/etc/sudoers.d/ajean-" + uiUnitName,
+		"/etc/sudoers.d/" + svc,
+		"/etc/sudoers.d/" + uiUnitName,
 	} {
 		if err := os.Remove(p); err == nil {
 			fmt.Printf("  %s %s\n", green("✓"), p)
