@@ -109,9 +109,21 @@ Installation :
 
 ## Configuration
 
-Tout vit sous **`$AJEAN_HOME`** (`/etc/ajean` sous Linux/macOS, `%ProgramData%\ajean` sous Windows), qui contient exactement six dossiers — `backends/`, `bin/`, `presets/`, `memory/`, `models/`, `workspace/` — et la base `ajean.db`.
+Tout vit sous **`$AJEAN_HOME`** (`/etc/ajean` sous Linux/macOS, `%ProgramData%\ajean` sous Windows) :
 
-Cette base, un unique fichier [bbolt](https://github.com/etcd-io/bbolt), remplace la dizaine de fichiers d'état d'autrefois : configuration, préférences de l'interface, conversation, clés et interrupteurs y vivent désormais ensemble. Restent des fichiers ce qui se lit et s'édite à la main : les presets (`presets/*.env`), les pages de mémoire (`memory/*.md`) et, bien sûr, les modèles.
+| | |
+|---|---|
+| `backends/` | llama.cpp, compilé ou téléchargé |
+| `bin/` | le binaire installé (Windows) |
+| `models/` | les `.gguf` |
+| `presets/` | un `.env` par preset |
+| `memory/` | les pages de mémoire de l'IA (`.md`) |
+| `workspace/` | ce que l'IA écrit en mode agent |
+| `ajean.db` | tout l'état : configuration, préférences, conversation, clés, interrupteurs |
+
+S'y ajoutent à la racine les quelques fichiers qui ne peuvent pas aller ailleurs : `.e2e_key` (clé privée du chiffrement de bout en bout), `certs/` (certificats TLS gérés par certmagic), et les journaux et fichiers PID des services.
+
+La base, un unique fichier [bbolt](https://github.com/etcd-io/bbolt), remplace la dizaine de fichiers d'état d'autrefois. Restent des fichiers ce qui se lit et s'édite à la main : les presets, les pages de mémoire et, bien sûr, les modèles.
 
 La configuration du moteur s'édite avec `ajean edit`, qui la déroule au format `clé=valeur` dans `$EDITOR` :
 

@@ -12,7 +12,9 @@ Restent des fichiers ceux qui sont faits pour être lus, édités et sauvegardé
 
 ## Six dossiers, et rien d'autre
 
-`$AJEAN_HOME` contient exactement `backends/`, `bin/`, `presets/`, `memory/`, `models/`, `workspace/`, plus la base. `configs/` devient `presets/`, `MEMORY/` devient `memory/`, et les `.gguf` ont enfin leur `models/` au lieu d'être posés à la racine.
+`$AJEAN_HOME` contient `backends/`, `bin/`, `presets/`, `memory/`, `models/`, `workspace/`, plus la base. `configs/` devient `presets/`, `MEMORY/` devient `memory/`, et les `.gguf` ont enfin leur `models/` au lieu d'être posés à la racine.
+
+Ne restent à la racine que ce qui ne peut pas aller ailleurs : la clé privée du chiffrement de bout en bout, le dossier des certificats TLS, et les journaux et fichiers PID des services.
 
 ## Deux services qui portent enfin leur nom
 

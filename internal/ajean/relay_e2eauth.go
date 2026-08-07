@@ -25,8 +25,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -44,17 +43,12 @@ var (
 	authSet  = map[string]bool{}
 )
 
-func authUsersPath() string { return filepath.Join(AjeanHome(), ".authorized_users") }
-
 func loadAuthUsers() {
 	authOnce.Do(func() {
-		b, err := os.ReadFile(authUsersPath())
-		if err != nil {
-			return
-		}
-		for _, line := range strings.Split(string(b), "\n") {
-			h := strings.ToLower(strings.TrimSpace(line))
-			if isHexPub(h) {
+		var list []string
+		getJSON(bkState, "authorized_users", &list)
+		for _, h := range list {
+			if h = strings.ToLower(strings.TrimSpace(h)); isHexPub(h) {
 				authSet[h] = true
 			}
 		}
@@ -88,23 +82,21 @@ func authorizeUser(uPubHex string) error {
 		return nil
 	}
 	authSet[uPubHex] = true
-	_ = os.MkdirAll(AjeanHome(), 0o755)
-	f, err := os.OpenFile(authUsersPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-	if err != nil {
-		return err
+	list := make([]string, 0, len(authSet))
+	for h := range authSet {
+		list = append(list, h)
 	}
-	defer f.Close()
-	_, err = f.WriteString(uPubHex + "\n")
-	return err
+	sort.Strings(list)
+	return putJSON(bkState, "authorized_users", list)
 }
 
 // ---- Codes d'appairage : à la demande, usage unique, TTL 10 min --------------
 //
 // Générés par « ajean link code » (ou affichés par « ajean link »), ils sont
-// partagés avec le worker « ajean link --foreground » (systemd, autre process) via
-// un fichier AjeanHome/.pair_codes — sinon les deux process ne s'accorderaient pas.
-// Stockés HACHÉS (SHA-256) : le fichier ne révèle aucun code. Chaque code expire
-// au bout de 10 min et est consommé (retiré) au premier appairage réussi.
+// partagés avec le service d'interface (autre process) via la base — sinon les
+// deux ne s'accorderaient pas. Stockés HACHÉS (SHA-256) : la base ne révèle
+// aucun code. Chaque code expire au bout de 10 min et est consommé (retiré) au
+// premier appairage réussi.
 
 const pairCodeTTL = 10 * time.Minute
 
@@ -113,8 +105,6 @@ type pairEntry struct {
 	Exp  int64  `json:"e"` // expiration (unix ms)
 }
 
-func pairCodesPath() string { return filepath.Join(AjeanHome(), ".pair_codes") }
-
 func hashPairCode(code string) string {
 	h := sha256.Sum256([]byte(strings.ToUpper(strings.TrimSpace(code))))
 	return hex.EncodeToString(h[:])
@@ -122,12 +112,8 @@ func hashPairCode(code string) string {
 
 // loadPairEntries lit le store et purge au passage les entrées expirées.
 func loadPairEntries() []pairEntry {
-	b, err := os.ReadFile(pairCodesPath())
-	if err != nil {
-		return nil
-	}
 	var es []pairEntry
-	if json.Unmarshal(b, &es) != nil {
+	if !getJSON(bkState, "pair_codes", &es) {
 		return nil
 	}
 	now := time.Now().UnixMilli()
@@ -140,17 +126,7 @@ func loadPairEntries() []pairEntry {
 	return kept
 }
 
-func savePairEntries(es []pairEntry) error {
-	if err := os.MkdirAll(AjeanHome(), 0o755); err != nil {
-		return err
-	}
-	b, _ := json.Marshal(es)
-	tmp := pairCodesPath() + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, pairCodesPath()) // remplacement atomique
-}
+func savePairEntries(es []pairEntry) error { return putJSON(bkState, "pair_codes", es) }
 
 // newPairCode génère un code frais (usage unique, 10 min), le persiste haché et
 // le retourne en clair.

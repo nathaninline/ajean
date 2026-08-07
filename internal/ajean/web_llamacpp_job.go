@@ -19,8 +19,10 @@ import (
 	"time"
 )
 
-func lcJobStatePath() string { return filepath.Join(AjeanHome(), ".lc_job.json") }
-func lcJobLogPath() string   { return filepath.Join(AjeanHome(), ".lc_job.log") }
+// L'ENTÊTE du job vit en base ; ses LIGNES restent un fichier, écrit en append.
+// Une compilation en produit des milliers : les faire transiter par une
+// transaction chacune coûterait un fsync par ligne.
+func lcJobLogPath() string { return filepath.Join(AjeanHome(), "ajean-build.log") }
 
 // lcPersisted est la forme sur disque : l'entête du job, sans les lignes (elles
 // vivent dans le .log à côté, en append).
@@ -60,7 +62,7 @@ func lcSave(force bool) {
 		OldCommit: lcCur.OldCommit, NewCommit: lcCur.NewCommit,
 	})
 	if err == nil {
-		_ = os.WriteFile(lcJobStatePath(), b, 0o644)
+		_ = putBytes(bkState, "build_job", b)
 	}
 }
 
@@ -82,12 +84,8 @@ func lcResetLog() { _ = os.Remove(lcJobLogPath()) }
 // compilation est morte avec le process précédent, on le marque interrompu
 // plutôt que de le faire passer pour vivant ou de l'effacer en silence.
 func lcRestore() {
-	b, err := os.ReadFile(lcJobStatePath())
-	if err != nil {
-		return
-	}
 	var p lcPersisted
-	if json.Unmarshal(b, &p) != nil || p.Action == "" {
+	if !getJSON(bkState, "build_job", &p) || p.Action == "" {
 		return
 	}
 	j := &lcJob{

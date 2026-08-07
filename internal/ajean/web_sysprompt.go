@@ -1,6 +1,6 @@
 // web_sysprompt.go — prompt système personnalisé de l'utilisateur, persisté
-// CÔTÉ SERVEUR ($AJEAN_HOME/sysprompt.txt) et partagé entre appareils, comme la
-// conversation elle-même. Historique : avant la conversation serveur (v0.4.x),
+// CÔTÉ SERVEUR (en base) et partagé entre appareils, comme la conversation
+// elle-même. Historique : avant la conversation serveur (v0.4.x),
 // l'UI envoyait son prompt système dans chaque requête /api/chat ; depuis,
 // /api/chat/send ne porte que le message → le champ de l'UI n'avait plus aucun
 // effet. Il est maintenant lu ici par la génération (chat_conversation.go), et
@@ -10,32 +10,14 @@ package ajean
 import (
 	"encoding/json"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 )
 
-func sysPromptPath() string { return filepath.Join(AjeanHome(), "sysprompt.txt") }
-
 // readSysPrompt renvoie le prompt système personnalisé ("" si absent).
-func readSysPrompt() string {
-	b, err := os.ReadFile(sysPromptPath())
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(b))
-}
+func readSysPrompt() string { return getStr(bkState, "sysprompt") }
 
 func saveSysPrompt(text string) error {
-	text = strings.TrimSpace(text)
-	if text == "" {
-		err := os.Remove(sysPromptPath())
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-	return os.WriteFile(sysPromptPath(), []byte(text+"\n"), 0o644)
+	return putStr(bkState, "sysprompt", strings.TrimSpace(text))
 }
 
 // handleSysPrompt :
