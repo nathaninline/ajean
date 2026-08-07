@@ -20,6 +20,13 @@
 // Les suffixes _windows/_linux/_darwin/_unix/_other portent les contraintes de
 // compilation par OS.
 //
+// ⚠️ Les fichiers macOS ne se compilent qu'AVEC CGO (l'icône de barre de menus
+// passe par Cocoa). Une compilation croisée depuis Windows ou Linux, comme les
+// analyseurs lancés sans CGO, ne les voit PAS : un symbole qu'eux seuls
+// utilisent passe pour du code mort, et le supprimer casse le build macOS sans
+// aucun avertissement local. Seul le job « macos » de la CI le détecte. Avant de
+// supprimer un symbole jugé inutilisé, vérifier `grep` sur les fichiers _darwin.
+//
 // DEUX SERVICES à l'exécution, un seul binaire :
 //   - ajean-engine (« ajean serve ») exec llama-server ;
 //   - ajean-ui (« ajean web ») sert l'UI locale, le tunnel du relais et

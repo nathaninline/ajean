@@ -95,7 +95,6 @@ func serviceAction(action string) error {
 			fmt.Printf("%s %s: arrêté\n", yellow("[info]"), svc)
 		}
 		fmt.Printf("  logs   : %s\n", launchdLogPath())
-		fmt.Printf("  config : %s\n", confPath())
 		return nil
 	}
 	return fmt.Errorf("action inconnue: %s", action)
@@ -171,7 +170,6 @@ func userSvcAction(action string) error {
 			fmt.Printf("%s %s: arrêté\n", yellow("[info]"), serviceName())
 		}
 		fmt.Printf("  logs   : %s\n", logFilePath())
-		fmt.Printf("  config : %s\n", confPath())
 		return nil
 	case "enable", "disable":
 		fmt.Printf("%s '%s' réclame un service système : lance %s pour installer le LaunchDaemon.\n",

@@ -84,6 +84,18 @@ func encodePNG(img *image.RGBA) []byte {
 // Exporté pour le générateur d'icône du .exe (tools/gen-icon).
 func BrandIconPNG(n int) []byte { return encodePNG(brandIconImage(n, brandBlack, brandWhite)) }
 
+// brandTemplatePNG rend la variante « template » attendue par macOS : seule la
+// couche alpha compte, le système colore la forme selon le thème de la barre de
+// menus. Le « j » est donc DÉCOUPÉ (transparent) dans un carré opaque, sans quoi
+// une icône entièrement noire disparaît sur une barre de menus sombre.
+//
+// Utilisée par sys_tray_darwin.go — un fichier que seule une compilation avec
+// CGO voit. Les analyseurs lancés sans CGO la croient morte : elle avait été
+// supprimée à ce titre, ce qui a cassé la compilation macOS en CI.
+func brandTemplatePNG(n int) []byte {
+	return encodePNG(brandIconImage(n, brandBlack, brandClear))
+}
+
 // BrandICO emballe une ou plusieurs tailles PNG dans un conteneur .ico. Windows
 // accepte le PNG comme image d'une entrée .ico (alpha conservé pour les coins
 // arrondis). Plusieurs tailles = un rendu net partout, de la barre des tâches
