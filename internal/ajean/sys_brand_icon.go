@@ -92,6 +92,7 @@ func BrandIconPNG(n int) []byte { return encodePNG(brandIconImage(n, brandBlack,
 // Utilisée par sys_tray_darwin.go — un fichier que seule une compilation avec
 // CGO voit. Les analyseurs lancés sans CGO la croient morte : elle avait été
 // supprimée à ce titre, ce qui a cassé la compilation macOS en CI.
+//lint:ignore U1000 utilisée par sys_tray_darwin.go, invisible sans CGO/macOS
 func brandTemplatePNG(n int) []byte {
 	return encodePNG(brandIconImage(n, brandBlack, brandClear))
 }
