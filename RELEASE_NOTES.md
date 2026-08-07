@@ -42,6 +42,10 @@ Séparer les deux services garde son intérêt : redémarrer l'interface est ins
 
 **« Quitter » arrête vraiment tout.** Le moteur tourne dans un processus détaché, qui survit volontairement à la fermeture de l'interface pour garder le modèle chargé entre deux ouvertures. Mais après un « Quitter » depuis la zone de notification, plus rien ne le pilotait et il conservait des dizaines de gigaoctets de mémoire, sans la moindre fenêtre pour l'expliquer. Quitter décharge désormais le modèle. Ailleurs, rien ne change : sous Linux et macOS le moteur appartient à systemd ou launchd, et fermer une interface n'a pas à arrêter un service système.
 
+**La redirection et les tubes fonctionnent.** `ajean where > fichier.txt` n'écrivait rien dans le fichier, et `ajean help | findstr quelquechose` ne transmettait rien : tout partait sur la console. Le programme réouvrait sa sortie sur la console pour avoir où écrire, et écrasait ce faisant ce que le shell lui avait branché.
+
+À savoir : lancé depuis `cmd`, AJEAN rend la main immédiatement et son affichage arrive après la nouvelle invite. C'est le prix du sous-système graphique, celui-là même qui évite la fenêtre noire au double-clic.
+
 **Plus de question au premier lancement.** Le double-clic demandait s'il fallait installer AJEAN ou seulement le lancer. La question n'avait qu'une réponse utile : rester à l'emplacement du fichier téléchargé ne donne pas une installation exploitable, sans raccourci, sans rien dans le PATH, et avec une application qui disparaît le jour où l'on vide ses téléchargements. L'installation se fait donc directement, et le message qui suit dit ce qui a été fait au lieu de demander une permission.
 
 ## Ce qui a été retiré
