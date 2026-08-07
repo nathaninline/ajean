@@ -21,6 +21,14 @@ import (
 // Retourne true si on dispose d'une console (→ usage CLI), false sinon (double-
 // clic sans console → expérience « application »).
 func setupConsole() bool {
+	// Relevé AVANT le rattachement, et c'est tout l'enjeu : AttachConsole
+	// REMPLACE lui-même les handles standard du processus par ceux de la
+	// console. Interrogé après, on ne voit donc plus jamais qu'une console, et
+	// la trace de la redirection posée par le shell est déjà perdue.
+	outRedirected := stdRedirected(stdOutputHandle)
+	errRedirected := stdRedirected(stdErrorHandle)
+	inRedirected := stdRedirected(stdInputHandle)
+
 	const attachParentProcess = ^uintptr(0) // (DWORD)-1 = ATTACH_PARENT_PROCESS
 	k := syscall.NewLazyDLL("kernel32.dll")
 	r, _, _ := k.NewProc("AttachConsole").Call(attachParentProcess)
@@ -29,15 +37,58 @@ func setupConsole() bool {
 	}
 	// Réouvre les flux standard sur la console fraîchement rattachée : sans ça,
 	// os.Stdout/Stderr pointent sur des handles invalides (sous-système GUI).
-	if con, err := os.OpenFile("CONOUT$", os.O_WRONLY, 0); err == nil {
-		os.Stdout = con
-		os.Stderr = con
+	//
+	// MAIS seulement ceux que le shell n'a pas déjà branchés ailleurs. Réouvrir
+	// systématiquement sur CONOUT$ écrasait la redirection : « ajean where >
+	// fichier.txt » n'écrivait rien dans le fichier, et « ajean where | findstr »
+	// ne transmettait rien au tube — tout partait sur la console. On ne touche
+	// donc qu'aux flux réellement inutilisables.
+	if !outRedirected {
+		if con, err := os.OpenFile("CONOUT$", os.O_WRONLY, 0); err == nil {
+			os.Stdout = con
+		}
 	}
-	if cin, err := os.OpenFile("CONIN$", os.O_RDONLY, 0); err == nil {
-		os.Stdin = cin
+	if !errRedirected {
+		if con, err := os.OpenFile("CONOUT$", os.O_WRONLY, 0); err == nil {
+			os.Stderr = con
+		}
+	}
+	if !inRedirected {
+		if cin, err := os.OpenFile("CONIN$", os.O_RDONLY, 0); err == nil {
+			os.Stdin = cin
+		}
 	}
 	configureConsole()
 	return true
+}
+
+// Handles standard, tels que les nomme GetStdHandle.
+const (
+	stdInputHandle  = ^uintptr(9)  // -10
+	stdOutputHandle = ^uintptr(10) // -11
+	stdErrorHandle  = ^uintptr(11) // -12
+)
+
+// stdRedirected dit si un flux standard est DÉJÀ branché sur un fichier ou un
+// tube par le processus parent. Dans ce cas il ne faut surtout pas le remplacer
+// par la console : c'est ce qui cassait « > fichier » et « | commande ».
+//
+// Un flux de type « caractère » (la console elle-même) ou inutilisable n'est pas
+// considéré comme redirigé : on le réouvre alors sur CONOUT$/CONIN$, ce dont un
+// binaire GUI a besoin pour écrire quelque part.
+func stdRedirected(which uintptr) bool {
+	const (
+		invalidHandle = ^uintptr(0) // INVALID_HANDLE_VALUE
+		fileTypeDisk  = 1
+		fileTypePipe  = 3
+	)
+	k := syscall.NewLazyDLL("kernel32.dll")
+	h, _, _ := k.NewProc("GetStdHandle").Call(which)
+	if h == 0 || h == invalidHandle {
+		return false
+	}
+	t, _, _ := k.NewProc("GetFileType").Call(h)
+	return t == fileTypeDisk || t == fileTypePipe
 }
 
 // configureConsole passe la console en UTF-8 + traitement des séquences ANSI
