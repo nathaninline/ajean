@@ -2,15 +2,11 @@ package ajean
 
 import "testing"
 
-// testHome donne au test un $AJEAN_HOME à lui et ferme la base à la fin.
-//
-// La fermeture n'est pas une politesse : bbolt garde un verrou exclusif sur son
-// fichier, et sous Windows le ménage de t.TempDir() échoue tant qu'il est ouvert.
+// testHome donne au test un $AJEAN_HOME à lui.
 func testHome(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("AJEAN_HOME", home)
-	t.Cleanup(closeDB)
 	return home
 }
 

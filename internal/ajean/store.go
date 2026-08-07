@@ -33,77 +33,75 @@ const (
 	bkChat   = "chat"   // conversation partagée
 )
 
-// Les connexions sont mises en cache PAR CHEMIN, et non dans un singleton.
-// $AJEAN_HOME peut désigner un autre dossier d'un appel à l'autre — c'est le cas
-// dans les tests, qui donnent à chacun son dossier temporaire. Un singleton
-// figerait la toute première base et tous les appels suivants écriraient dans le
-// mauvais fichier, sans erreur et sans bruit.
-var (
-	dbMu    sync.Mutex
-	dbConns = map[string]*bolt.DB{}
-)
+// La base n'est PAS gardée ouverte entre deux opérations, et c'est délibéré.
+//
+// bbolt pose un verrou EXCLUSIF sur son fichier tant qu'il est ouvert. Or une
+// machine installée fait tourner en permanence le service de lien, qui sert le
+// tunnel et l'UI : s'il gardait la base ouverte, plus une seule commande ne
+// fonctionnerait à côté — « ajean status », « ajean switch », « ajean edit »
+// échoueraient toutes sur un délai d'attente, sur la machine même où tout est
+// censé marcher. On ouvre donc pour la durée d'une opération, puis on referme.
+//
+// Le coût est celui d'un open+close sur un fichier de quelques dizaines de Ko,
+// négligeable devant le moindre appel au modèle. Le délai d'attente absorbe la
+// contention entre process ; dbMu la sérialise à l'intérieur du process.
+var dbMu sync.Mutex
 
 func dbPath() string { return filepath.Join(AjeanHome(), "ajean.db") }
 
-// db ouvre la base (ou renvoie celle déjà ouverte pour ce chemin) et la garde
-// ouverte pour la durée du process. bbolt prend un verrou exclusif sur le
-// fichier : le délai d'attente évite qu'un second process (l'app lancée deux
-// fois) se bloque indéfiniment.
-func db() (*bolt.DB, error) {
+// withDB ouvre la base, exécute fn, puis referme — toujours, même en erreur.
+func withDB(fn func(*bolt.DB) error) error {
 	path := dbPath()
 
 	dbMu.Lock()
 	defer dbMu.Unlock()
-	if d, ok := dbConns[path]; ok {
-		return d, nil
-	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return nil, err
+		return err
 	}
-	d, err := bolt.Open(path, 0o600, &bolt.Options{Timeout: 3 * time.Second})
+	d, err := bolt.Open(path, 0o600, &bolt.Options{Timeout: 5 * time.Second})
 	if err != nil {
-		return nil, fmt.Errorf("base %s inaccessible : %w", path, err)
+		return fmt.Errorf("base %s inaccessible : %w", path, err)
 	}
-	err = d.Update(func(tx *bolt.Tx) error {
-		for _, b := range []string{bkConfig, bkPrefs, bkState, bkChat} {
-			if _, err := tx.CreateBucketIfNotExists([]byte(b)); err != nil {
+	defer d.Close()
+	return fn(d)
+}
+
+// view exécute une lecture. Un bucket encore absent (base neuve) est traité
+// comme vide : les buckets ne sont créés QU'À l'écriture, pour qu'une simple
+// lecture n'ouvre jamais de transaction d'écriture — elle coûterait un fsync,
+// et les lectures sont de loin les plus fréquentes.
+func view(bucket string, fn func(b *bolt.Bucket) error) error {
+	return withDB(func(d *bolt.DB) error {
+		return d.View(func(tx *bolt.Tx) error {
+			b := tx.Bucket([]byte(bucket))
+			if b == nil {
+				return nil
+			}
+			return fn(b)
+		})
+	})
+}
+
+// update exécute une écriture, en créant le bucket au besoin.
+func update(bucket string, fn func(b *bolt.Bucket) error) error {
+	return withDB(func(d *bolt.DB) error {
+		return d.Update(func(tx *bolt.Tx) error {
+			b, err := tx.CreateBucketIfNotExists([]byte(bucket))
+			if err != nil {
 				return err
 			}
-		}
-		return nil
+			return fn(b)
+		})
 	})
-	if err != nil {
-		d.Close()
-		return nil, err
-	}
-	dbConns[path] = d
-	return d, nil
 }
 
 // getBytes lit une valeur. Une base inaccessible se comporte comme une base
 // vide : les appelants sont des lecteurs de réglages, aucun n'a de recours utile
 // face à une erreur d'E/S, et tous ont déjà un défaut.
-// closeDB ferme la base ouverte pour le dossier courant, s'il y en a une. bbolt
-// garde un verrou exclusif sur son fichier tant qu'il est ouvert : sans ça,
-// impossible de supprimer ou déplacer le dossier de données sous Windows.
-func closeDB() {
-	path := dbPath()
-	dbMu.Lock()
-	defer dbMu.Unlock()
-	if d, ok := dbConns[path]; ok {
-		_ = d.Close()
-		delete(dbConns, path)
-	}
-}
-
 func getBytes(bucket, key string) []byte {
-	d, err := db()
-	if err != nil {
-		return nil
-	}
 	var out []byte
-	_ = d.View(func(tx *bolt.Tx) error {
-		if v := tx.Bucket([]byte(bucket)).Get([]byte(key)); v != nil {
+	_ = view(bucket, func(b *bolt.Bucket) error {
+		if v := b.Get([]byte(key)); v != nil {
 			out = append([]byte(nil), v...) // la valeur ne survit pas à la transaction
 		}
 		return nil
@@ -113,12 +111,7 @@ func getBytes(bucket, key string) []byte {
 
 // putBytes écrit une valeur. Une valeur nil supprime la clé.
 func putBytes(bucket, key string, val []byte) error {
-	d, err := db()
-	if err != nil {
-		return err
-	}
-	return d.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(bucket))
+	return update(bucket, func(b *bolt.Bucket) error {
 		if val == nil {
 			return b.Delete([]byte(key))
 		}
@@ -168,12 +161,8 @@ func putJSON(bucket, key string, v any) error {
 // les clés ne sont pas connues à l'avance (EXTRA_ARGS et consorts).
 func allKV(bucket string) map[string]string {
 	m := map[string]string{}
-	d, err := db()
-	if err != nil {
-		return m
-	}
-	_ = d.View(func(tx *bolt.Tx) error {
-		return tx.Bucket([]byte(bucket)).ForEach(func(k, v []byte) error {
+	_ = view(bucket, func(b *bolt.Bucket) error {
+		return b.ForEach(func(k, v []byte) error {
 			m[string(k)] = string(v)
 			return nil
 		})
@@ -185,26 +174,24 @@ func allKV(bucket string) map[string]string {
 // C'est ce qu'exige l'application d'un preset : à aucun instant la config ne
 // doit être un mélange de l'ancienne et de la nouvelle.
 func replaceKV(bucket string, m map[string]string) error {
-	d, err := db()
-	if err != nil {
-		return err
-	}
-	return d.Update(func(tx *bolt.Tx) error {
-		if err := tx.DeleteBucket([]byte(bucket)); err != nil {
-			return err
-		}
-		b, err := tx.CreateBucket([]byte(bucket))
-		if err != nil {
-			return err
-		}
-		for k, v := range m {
-			if v == "" {
-				continue
-			}
-			if err := b.Put([]byte(k), []byte(v)); err != nil {
+	return withDB(func(d *bolt.DB) error {
+		return d.Update(func(tx *bolt.Tx) error {
+			if err := tx.DeleteBucket([]byte(bucket)); err != nil && err != bolt.ErrBucketNotFound {
 				return err
 			}
-		}
-		return nil
+			b, err := tx.CreateBucket([]byte(bucket))
+			if err != nil {
+				return err
+			}
+			for k, v := range m {
+				if v == "" {
+					continue
+				}
+				if err := b.Put([]byte(k), []byte(v)); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
 	})
 }
