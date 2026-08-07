@@ -44,9 +44,9 @@ jobs:
             '<key>NSHighResolutionCapable</key><true/>' \
             '</dict></plist>' > "$app/Contents/Info.plist"
           codesign --force --deep -s - "$app" || true
-          (cd dist && zip -qry AJEAN-macos-arm.zip AJEAN.app && rm -rf AJEAN.app)
+          (cd dist && zip -qry ajean-macos-arm.zip AJEAN.app && rm -rf AJEAN.app)
           ls -l dist
       - uses: actions/upload-artifact@v4
         with:
-          name: AJEAN-macos-arm
-          path: dist/AJEAN-macos-arm.zip
+          name: ajean-macos-arm
+          path: dist/ajean-macos-arm.zip

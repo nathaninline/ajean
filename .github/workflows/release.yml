@@ -78,7 +78,7 @@ jobs:
             # Signature ad-hoc : sans elle, macOS refuse purement et simplement
             # de lancer un binaire arm64 non signé (pas juste un avertissement).
             codesign --force --deep -s - "$app" || true
-            (cd "dist/bundle-$bin" && zip -qry "../AJEAN-${bin#ajean-}.zip" AJEAN.app)
+            (cd "dist/bundle-$bin" && zip -qry "../$bin.zip" AJEAN.app)
             rm -rf "dist/bundle-$bin"
           done
           ls -l dist
@@ -119,8 +119,11 @@ jobs:
           path: dist
       - name: SHA256SUMS
         run: |
-          chmod +x dist/ajean-macos*
-          (cd dist && sha256sum ajean-* *.zip > SHA256SUMS)
+          chmod +x dist/ajean-macos dist/ajean-macos-arm
+          # Tous les assets commencent par « ajean- », zips compris : un seul
+          # motif suffit. Ajouter « *.zip » les compterait DEUX fois, et un
+          # SHA256SUMS à doublons est exactement ce que `ajean update` vérifie.
+          (cd dist && sha256sum ajean-* > SHA256SUMS)
           ls -l dist && cat dist/SHA256SUMS
       - name: publier la release
         uses: softprops/action-gh-release@v2

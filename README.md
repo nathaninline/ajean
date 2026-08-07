@@ -231,7 +231,7 @@ ajean status
 
 ## macOS
 
-La page [Releases](../../releases) publie `AJEAN-macos-arm.zip` (Apple Silicon) et `AJEAN-macos.zip` (Intel), un bundle **`AJEAN.app`**. Dézipper, glisser dans *Applications*, ouvrir : l'interface démarre sur `http://localhost:8090`, s'ouvre dans le navigateur, et l'icône se pose dans la **barre de menus**. Pas de fenêtre de Terminal, pas d'icône dans le Dock.
+La page [Releases](../../releases) publie `ajean-macos-arm.zip` (Apple Silicon) et `ajean-macos.zip` (Intel), un bundle **`AJEAN.app`**. Dézipper, glisser dans *Applications*, ouvrir : l'interface démarre sur `http://localhost:8090`, s'ouvre dans le navigateur, et l'icône se pose dans la **barre de menus**. Pas de fenêtre de Terminal, pas d'icône dans le Dock.
 
 L'application n'est signée qu'en ad-hoc : au premier lancement, faire **clic droit → Ouvrir**.
 
