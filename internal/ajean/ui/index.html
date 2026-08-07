@@ -2051,7 +2051,7 @@ async function showPaths(){
   el.textContent='…';
   try{
     const p=await jget('/api/paths');
-    const rows=[['Données',p.home],['Configuration',p.config],['Fichiers créés par l\'IA',p.workspace],['Mémoire',p.memory],['Programme',p.exe]];
+    const rows=[['Données',p.home],['Base (config, préférences, conversation)',p.database],['Modèles',p.models],['Presets',p.presets],['Mémoire',p.memory],['Fichiers créés par l\'IA',p.workspace],['Moteur llama.cpp',p.backends],['Programme',p.exe]];
     el.innerHTML=rows.map(r=>'<div style="margin-bottom:4px">'+r[0]+'<br><code style="word-break:break-all">'+escHtml(r[1]||'')+'</code></div>').join('');
   }catch(e){ el.textContent='Erreur'; }
 }
@@ -2519,7 +2519,7 @@ async function switchTo(n,name){
   const r=await jpost('/api/switch',{n:n});
   if(!r.ok){ pendingPreset = 0; toast('erreur'); loadPresets(); return; }
   toast('switched');
-  // Le preset ACTIF, c'est celui dont l'empreinte est dans config.env : le serveur
+  // Le preset ACTIF, c'est celui dont l'empreinte est celle de la configuration : le serveur
   // l'écrit AVANT de répondre (et relance le service en arrière-plan, voir
   // handleSwitch), donc un rafraîchissement immédiat suffit — la barre passe au
   // blanc tout de suite. Le chargement du modèle par llama-server continue
@@ -2566,7 +2566,7 @@ async function openItem(kind, key){
   document.getElementById('m-name').placeholder = K.nameHint;
   document.getElementById('m-content').value = '';
   document.getElementById('m-del').style.display = key ? 'inline-flex' : 'none';
-  // Model picker is preset-only: it edits the MODEL= line of config.env.
+  // Model picker is preset-only: it edits the MODEL= line of the preset.
   const modelRow = document.getElementById('m-model-row');
   const settingsRow = document.getElementById('m-settings-row');
   const rawHead = document.getElementById('m-raw-head');

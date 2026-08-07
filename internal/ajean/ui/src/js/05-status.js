@@ -73,7 +73,7 @@ async function showPaths(){
   el.textContent='…';
   try{
     const p=await jget('/api/paths');
-    const rows=[['Données',p.home],['Configuration',p.config],['Fichiers créés par l\'IA',p.workspace],['Mémoire',p.memory],['Programme',p.exe]];
+    const rows=[['Données',p.home],['Base (config, préférences, conversation)',p.database],['Modèles',p.models],['Presets',p.presets],['Mémoire',p.memory],['Fichiers créés par l\'IA',p.workspace],['Moteur llama.cpp',p.backends],['Programme',p.exe]];
     el.innerHTML=rows.map(r=>'<div style="margin-bottom:4px">'+r[0]+'<br><code style="word-break:break-all">'+escHtml(r[1]||'')+'</code></div>').join('');
   }catch(e){ el.textContent='Erreur'; }
 }

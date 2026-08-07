@@ -51,7 +51,7 @@ async function switchTo(n,name){
   const r=await jpost('/api/switch',{n:n});
   if(!r.ok){ pendingPreset = 0; toast('erreur'); loadPresets(); return; }
   toast('switched');
-  // Le preset ACTIF, c'est celui dont l'empreinte est dans config.env : le serveur
+  // Le preset ACTIF, c'est celui dont l'empreinte est celle de la configuration : le serveur
   // l'écrit AVANT de répondre (et relance le service en arrière-plan, voir
   // handleSwitch), donc un rafraîchissement immédiat suffit — la barre passe au
   // blanc tout de suite. Le chargement du modèle par llama-server continue
@@ -98,7 +98,7 @@ async function openItem(kind, key){
   document.getElementById('m-name').placeholder = K.nameHint;
   document.getElementById('m-content').value = '';
   document.getElementById('m-del').style.display = key ? 'inline-flex' : 'none';
-  // Model picker is preset-only: it edits the MODEL= line of config.env.
+  // Model picker is preset-only: it edits the MODEL= line of the preset.
   const modelRow = document.getElementById('m-model-row');
   const settingsRow = document.getElementById('m-settings-row');
   const rawHead = document.getElementById('m-raw-head');
