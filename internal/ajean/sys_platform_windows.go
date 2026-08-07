@@ -63,7 +63,7 @@ func defaultEditor() string { return "notepad" }
 // openBrowser ouvre l'URL dans le navigateur par défaut. rundll32 évite les
 // pièges de quoting de `cmd /c start`.
 func openBrowser(url string) error {
-	return exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	return hideCmd(exec.Command("rundll32", "url.dll,FileProtocolHandler", url)).Start()
 }
 
 // hideCmd empêche une commande externe d'ouvrir une fenêtre de console

@@ -3,7 +3,10 @@
 package ajean
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -127,6 +130,51 @@ func appFirstRun() bool {
 	return launch(target)
 }
 
+// exeSelf renvoie le chemin réel du binaire en cours (liens résolus).
+func exeSelf() string {
+	p, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	if r, err := filepath.EvalSymlinks(p); err == nil {
+		return r
+	}
+	return p
+}
+
+// sameFile dit si deux fichiers ont exactement le même contenu. Taille d'abord :
+// deux binaires qui diffèrent ont presque toujours des tailles différentes, et
+// c'est immédiat, là où le hachage lit 15 Mo.
+func sameFile(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	fa, err1 := os.Stat(a)
+	fb, err2 := os.Stat(b)
+	if err1 != nil || err2 != nil {
+		return false
+	}
+	if fa.Size() != fb.Size() {
+		return false
+	}
+	ha, err1 := hashFile(a)
+	hb, err2 := hashFile(b)
+	return err1 == nil && err2 == nil && ha == hb
+}
+
+func hashFile(p string) (string, error) {
+	f, err := os.Open(p)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
 // launch démarre la copie installée et demande à l'appelant de rendre la main.
 // Renvoie false si le lancement échoue, auquel cas l'exécutable courant prend le
 // relais : mieux vaut démarrer depuis le mauvais dossier que pas du tout.
@@ -136,7 +184,11 @@ func launch(target string) bool {
 	// double-cliqué ? » — en regardant qui partage notre console. Un processus
 	// lancé sans console du tout (relance après mise à jour) ne peut pas y
 	// répondre, et se serait retrouvé à afficher l'aide au lieu de démarrer.
-	cmd := exec.Command(target, "app")
+	// hideCmd : le binaire est en sous-système console, donc Windows allouerait
+	// une console à l'enfant et on verrait une fenêtre noire apparaître. Comme
+	// « app » est passé explicitement, l'absence de console ne gêne pas la
+	// détection du mode application.
+	cmd := hideCmd(exec.Command(target, "app"))
 	cmd.Dir = filepath.Dir(target)
 	return cmd.Start() == nil
 }
@@ -155,6 +207,14 @@ func runAsInstaller(target string) bool {
 	cmp := 1
 	if installed != "" {
 		cmp = semver.Compare(ensureV(Version), ensureV(installed))
+	}
+	// Même numéro de version ne veut pas dire même binaire : une préversion
+	// republiée en garde le sien. Sans cette comparaison des fichiers, relancer
+	// le nouveau téléchargement démarrait simplement l'ancienne copie installée,
+	// sans rien remplacer et sans rien dire. On traite alors ce cas comme une
+	// mise à jour ordinaire.
+	if cmp == 0 && !sameFile(exeSelf(), target) {
+		cmp = 1
 	}
 	running := runningPIDs(target)
 
@@ -396,11 +456,19 @@ foreach ($d in @($progs, [Environment]::GetFolderPath('Desktop'))) {
   if (Test-Path $lnk) {
     try {
       $s=$w.CreateShortcut($lnk)
+      $chg=$false
       if ($s.TargetPath -and $s.TargetPath -ne $t -and (Test-Path $s.TargetPath)) {
         $s.TargetPath=$t
         $s.WorkingDirectory=(Split-Path $t)
-        $s.Save()
+        $chg=$true
       }
+      # Les raccourcis posés avant le passage en sous-système console n'ont pas
+      # le démarrage minimisé, et laissent donc apparaître une fenêtre noire.
+      if ($s.WindowStyle -ne 7) { $s.WindowStyle=7; $chg=$true }
+      # Icône épinglée sur l'exe : sans ça, Windows garde parfois en cache
+      # l'icône d'un binaire remplacé et affiche un carré blanc.
+      if ($s.IconLocation -ne "$t,0") { $s.IconLocation="$t,0"; $chg=$true }
+      if ($chg) { $s.Save() }
     } catch {}
     $done+=$d; continue
   }
@@ -413,6 +481,7 @@ foreach ($d in @($progs, [Environment]::GetFolderPath('Desktop'))) {
     # une console au lancement. AJEAN la referme aussitôt, mais demander un
     # démarrage minimisé garantit qu'elle n'est jamais peinte à l'écran.
     $s.WindowStyle=7
+    $s.IconLocation="$t,0"
     $s.Save()
     $done+=$d
   } catch {}
