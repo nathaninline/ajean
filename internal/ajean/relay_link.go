@@ -416,10 +416,10 @@ func uiUserSvcCtl(action string) error {
 	}
 	defer logf.Close()
 
-	cmd := spawnDetached(self, "link", "serve")
+	cmd := spawnDetached(self, "web")
 	cmd.Stdout, cmd.Stderr = logf, logf
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("démarrage de « ajean link serve »: %w", err)
+		return fmt.Errorf("démarrage de « ajean web »: %w", err)
 	}
 	pid := cmd.Process.Pid
 	// PID + binaire d'origine : la 2e ligne dit QUELLE copie de l'app a lancé ce

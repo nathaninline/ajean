@@ -1,19 +1,12 @@
 # Binaires compilés
-/jean
-/jean.exe
+/ajean
+/ajean.exe
 /dist/
 
 # Artefacts de build Go
 *.exe
 *.test
 *.out
-
-# Config locale / secrets runtime (générés à l'install, jamais versionnés)
-config.env
-.api_key
-.web_key
-.link_token
-.link_machine
 
 # OS / éditeurs
 .DS_Store
