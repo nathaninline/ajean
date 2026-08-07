@@ -1,6 +1,6 @@
 Le renommage est terminé. Plus rien ne s'appelle jean : ni le binaire, ni les services, ni les variables, ni les dossiers. Et le dossier de données, qui s'était couvert d'une douzaine de petits fichiers d'état, tient désormais dans six dossiers et une base.
 
-**La reprise d'une installation 0.7 tient en une commande : `sudo ajean install`.** Il déplace les dossiers, reprend les réglages en base, désactive les anciens services et installe les nouveaux. Rien n'est supprimé : presets, mémoire et modèles sont déplacés, les anciens fichiers d'état rangés dans `avant-0.8/`. C'est le seul code de compatibilité de la version, isolé dans un fichier prévu pour être supprimé.
+**Une installation 0.7 doit être RÉINSTALLÉE : ne passez pas par le bouton de mise à jour.** Téléchargez le binaire 0.8, puis `sudo ajean install` — il fait la reprise complète. Il déplace les dossiers, reprend les réglages en base, désactive les anciens services et installe les nouveaux. Rien n'est supprimé : presets, mémoire et modèles sont déplacés, les anciens fichiers d'état rangés dans `avant-0.8/`. C'est le seul code de compatibilité de la version, isolé dans un fichier prévu pour être supprimé.
 
 ## Une base à la place des fichiers d'état
 
@@ -32,4 +32,6 @@ Tout le code écrit pour ménager les installations « jean » : la migration du
 
 La CLI perd ses alias hérités — `skills`, `machine`, `tools`, `web-access`, `mem`, `upgrade`, `self-update`, `paths`, `llama` — et son aide est réorganisée autour des deux services. Chaque commande a désormais un seul nom. `app` quitte l'aide : c'est le comportement du double-clic, qu'on n'atteint pas en tapant son nom.
 
-Les releases ne publient plus qu'un jeu de binaires, `ajean-<os>-<arch>`. La double publication qui accompagnait la transition n'a plus d'objet.
+Les releases ne publient plus qu'un jeu de binaires, et sous des noms lisibles : `ajean-linux`, `ajean-linux-arm`, `ajean-macos`, `ajean-macos-arm`, `ajean-windows.exe`, `ajean-windows-arm.exe`. La double publication qui accompagnait la transition n'a plus d'objet.
+
+Ce changement de noms n'est pas cosmétique. Les versions 0.7 cherchent leur mise à jour sous la forme `ajean-<GOOS>-<GOARCH>` : ne trouvant aucun asset qui corresponde, leur bouton « mettre à jour » échoue proprement, sans rien remplacer. C'est délibéré. Laisser la 0.7 installer ce binaire aurait remplacé l'exécutable sans migrer les données ni les unités : le service de lien serait reparti en boucle d'échec sur une sous-commande disparue, et le moteur n'aurait plus trouvé sa configuration — une machine à réparer en SSH après un clic dans un navigateur.

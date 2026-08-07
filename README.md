@@ -41,12 +41,12 @@ Aucune dépendance à l'exécution, aucun flag CMake à retenir, aucun conteneur
 ### 1. Le binaire
 
 ```bash
-curl -L -o ajean https://github.com/nathaninline/ajean/releases/latest/download/ajean-linux-amd64
+curl -L -o ajean https://github.com/nathaninline/ajean/releases/latest/download/ajean-linux
 chmod +x ajean
 sudo mv ajean /usr/local/bin/ajean
 ```
 
-(Autres cibles sur la page [Releases](../../releases) : Linux, macOS et Windows, en amd64 et arm64.)
+Les binaires publiés : `ajean-linux`, `ajean-linux-arm`, `ajean-macos`, `ajean-macos-arm`, `ajean-windows.exe`, `ajean-windows-arm.exe` — le suffixe `-arm` désigne l'arm64, l'absence de suffixe l'x86-64.
 
 ### 2. Installation et compilation du moteur
 
@@ -231,11 +231,11 @@ ajean status
 
 ## macOS
 
-La page [Releases](../../releases) publie `AJEAN-macos-arm64.zip` / `AJEAN-macos-amd64.zip`, un bundle **`AJEAN.app`**. Dézipper, glisser dans *Applications*, ouvrir : l'interface démarre sur `http://localhost:8090`, s'ouvre dans le navigateur, et l'icône se pose dans la **barre de menus**. Pas de fenêtre de Terminal, pas d'icône dans le Dock.
+La page [Releases](../../releases) publie `AJEAN-macos-arm.zip` (Apple Silicon) et `AJEAN-macos.zip` (Intel), un bundle **`AJEAN.app`**. Dézipper, glisser dans *Applications*, ouvrir : l'interface démarre sur `http://localhost:8090`, s'ouvre dans le navigateur, et l'icône se pose dans la **barre de menus**. Pas de fenêtre de Terminal, pas d'icône dans le Dock.
 
 L'application n'est signée qu'en ad-hoc : au premier lancement, faire **clic droit → Ouvrir**.
 
-Pour un usage en ligne de commande, prendre le binaire nu `ajean-darwin-arm64` : hors bundle, il conserve son comportement CLI. Les services passent par **launchd**.
+Pour un usage en ligne de commande, prendre le binaire nu `ajean-macos-arm` : hors bundle, il conserve son comportement CLI. Les services passent par **launchd**.
 
 ## Accès distant via ajean.link
 

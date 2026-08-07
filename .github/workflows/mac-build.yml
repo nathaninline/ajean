@@ -17,7 +17,7 @@ jobs:
         run: |
           mkdir -p dist
           CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
-            go build -trimpath -ldflags="-s -w" -o dist/ajean-darwin-arm64 ./cmd/ajean
+            go build -trimpath -ldflags="-s -w" -o dist/ajean-macos-arm ./cmd/ajean
           mkdir -p /tmp/ajean.iconset
           sips -s format png 'cmd/ajean/icon.ico' --out /tmp/icon.png >/dev/null 2>&1 || true
           for s in 16 32 128 256 512; do
@@ -26,7 +26,7 @@ jobs:
           iconutil -c icns /tmp/ajean.iconset -o /tmp/ajean.icns >/dev/null 2>&1 || true
           app="dist/AJEAN.app"
           mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-          cp dist/ajean-darwin-arm64 "$app/Contents/MacOS/ajean"
+          cp dist/ajean-macos-arm "$app/Contents/MacOS/ajean"
           chmod +x "$app/Contents/MacOS/ajean"
           cp /tmp/ajean.icns "$app/Contents/Resources/ajean.icns" 2>/dev/null || true
           printf '%s\n' \
@@ -44,9 +44,9 @@ jobs:
             '<key>NSHighResolutionCapable</key><true/>' \
             '</dict></plist>' > "$app/Contents/Info.plist"
           codesign --force --deep -s - "$app" || true
-          (cd dist && zip -qry AJEAN-macos-arm64.zip AJEAN.app && rm -rf AJEAN.app)
+          (cd dist && zip -qry AJEAN-macos-arm.zip AJEAN.app && rm -rf AJEAN.app)
           ls -l dist
       - uses: actions/upload-artifact@v4
         with:
-          name: AJEAN-macos-arm64
-          path: dist/AJEAN-macos-arm64.zip
+          name: AJEAN-macos-arm
+          path: dist/AJEAN-macos-arm.zip

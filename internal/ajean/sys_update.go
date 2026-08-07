@@ -35,13 +35,33 @@ type ghRelease struct {
 }
 
 // updateAssetName est le nom de l'asset de release pour la plateforme courante :
-// ajean-<os>-<arch>[.exe]. Un seul nom publié, un seul nom cherché.
-func updateAssetName() string {
-	suffix := runtime.GOOS + "-" + runtime.GOARCH
-	if runtime.GOOS == "windows" {
-		suffix += ".exe"
+// ajean-linux, ajean-linux-arm, ajean-macos, ajean-macos-arm, ajean-windows.exe,
+// ajean-windows-arm.exe. Un seul nom publié, un seul nom cherché.
+//
+// Ces noms sont volontairement lisibles — « macos » plutôt que « darwin », pas
+// de « amd64 » pour le cas courant — et volontairement DIFFÉRENTS du schéma
+// ajean-<GOOS>-<GOARCH> qu'utilisaient les versions 0.7 : leur mise à jour
+// automatique ne trouve donc aucun asset et échoue sans rien remplacer, au lieu
+// d'installer un binaire 0.8 sur une machine encore agencée en 0.7 — ce qui
+// laissait le service de lien en boucle d'échec. La 0.7 se met à jour à la main,
+// par réinstallation.
+func updateAssetName() string { return assetNameFor(runtime.GOOS, runtime.GOARCH) }
+
+// assetNameFor est séparée pour être vérifiable sur les six plateformes, et pas
+// seulement sur celle qui exécute les tests.
+func assetNameFor(goos, goarch string) string {
+	name := "ajean-" + map[string]string{
+		"darwin":  "macos",
+		"linux":   "linux",
+		"windows": "windows",
+	}[goos]
+	if goarch == "arm64" {
+		name += "-arm"
 	}
-	return "ajean-" + suffix
+	if goos == "windows" {
+		name += ".exe"
+	}
+	return name
 }
 
 // pickAsset trouve dans la release l'asset de cette plateforme. Renvoie son nom

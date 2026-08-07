@@ -29,11 +29,11 @@ jobs:
           mkdir -p dist
           # arm64 = natif ; amd64 = cross avec le SDK universel (-arch x86_64).
           CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
-            go build -trimpath -ldflags="-s -w" -o dist/ajean-darwin-arm64 ./cmd/ajean
+            go build -trimpath -ldflags="-s -w" -o dist/ajean-macos-arm ./cmd/ajean
           CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
             CGO_CFLAGS="-arch x86_64" CGO_LDFLAGS="-arch x86_64" \
-            go build -trimpath -ldflags="-s -w" -o dist/ajean-darwin-amd64 ./cmd/ajean
-          file dist/ajean-darwin-*
+            go build -trimpath -ldflags="-s -w" -o dist/ajean-macos ./cmd/ajean
+          file dist/ajean-macos*
       - name: bundles AJEAN.app
         run: |
           # Un binaire nu double-cliqué ouvrirait le Terminal. On publie donc
@@ -51,10 +51,10 @@ jobs:
           done
           iconutil -c icns /tmp/ajean.iconset -o /tmp/ajean.icns
           v="${GITHUB_REF_NAME#v}"
-          for arch in amd64 arm64; do
-            app="dist/mac-$arch/AJEAN.app"
+          for bin in ajean-macos ajean-macos-arm; do
+            app="dist/bundle-$bin/AJEAN.app"
             mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-            cp "dist/ajean-darwin-$arch" "$app/Contents/MacOS/ajean"
+            cp "dist/$bin" "$app/Contents/MacOS/ajean"
             chmod +x "$app/Contents/MacOS/ajean"
             cp /tmp/ajean.icns "$app/Contents/Resources/ajean.icns" 2>/dev/null || true
             printf '%s\n' \
@@ -76,12 +76,8 @@ jobs:
             # Signature ad-hoc : sans elle, macOS refuse purement et simplement
             # de lancer un binaire arm64 non signé (pas juste un avertissement).
             codesign --force --deep -s - "$app" || true
-            (cd "dist/mac-$arch" && zip -qry "../AJEAN-macos-$arch.zip" AJEAN.app)
-            # Nom hérité conservé : les liens de téléchargement déjà publiés
-            # (site, mails, messages) pointent dessus et doivent continuer de
-            # fonctionner. Même contenu, deux noms.
-            cp "dist/AJEAN-macos-$arch.zip" "dist/AJEAN-macos-$arch.zip"
-            rm -rf "dist/mac-$arch"
+            (cd "dist/bundle-$bin" && zip -qry "../AJEAN-${bin#ajean-}.zip" AJEAN.app)
+            rm -rf "dist/bundle-$bin"
           done
           ls -l dist
       - uses: actions/upload-artifact@v4
@@ -100,13 +96,20 @@ jobs:
       - name: build Linux + Windows
         run: |
           mkdir -p dist
-          for t in linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
-            os=${t%/*}; arch=${t#*/}; ext=""; ldflags="-s -w"
+          # Noms d'asset : ajean-<os>[-arm][.exe]. Volontairement lisibles, et
+          # volontairement DIFFÉRENTS du schéma ajean-<GOOS>-<GOARCH> des 0.7 :
+          # leur mise à jour automatique ne trouve alors aucun asset et échoue
+          # sans rien remplacer, au lieu d'installer un binaire 0.8 sur une
+          # machine encore agencée en 0.7 (voir updateAssetName, sys_update.go).
+          for t in linux/amd64:ajean-linux linux/arm64:ajean-linux-arm \
+                   windows/amd64:ajean-windows.exe windows/arm64:ajean-windows-arm.exe; do
+            target=${t%%:*}; name=${t#*:}
+            os=${target%/*}; arch=${target#*/}; ldflags="-s -w"
             # Windows : sous-système GUI → aucune console noire au double-clic
             # (l'app se rattache à la console du terminal parent si lancée en CLI).
-            [ "$os" = windows ] && { ext=".exe"; ldflags="$ldflags -H=windowsgui"; }
+            [ "$os" = windows ] && ldflags="$ldflags -H=windowsgui"
             GOOS=$os GOARCH=$arch CGO_ENABLED=0 \
-              go build -trimpath -ldflags="$ldflags" -o "dist/ajean-$os-$arch$ext" ./cmd/ajean
+              go build -trimpath -ldflags="$ldflags" -o "dist/$name" ./cmd/ajean
           done
       - uses: actions/download-artifact@v4
         with:
@@ -114,7 +117,7 @@ jobs:
           path: dist
       - name: SHA256SUMS
         run: |
-          chmod +x dist/ajean-darwin-*
+          chmod +x dist/ajean-macos*
           (cd dist && sha256sum ajean-* *.zip > SHA256SUMS)
           ls -l dist && cat dist/SHA256SUMS
       - name: publier la release
