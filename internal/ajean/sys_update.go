@@ -440,16 +440,16 @@ func restartAfterUpdate() (bool, string) {
 	if runtime.GOOS == "windows" {
 		return scheduleAppRestart()
 	}
-	if runtime.GOOS != "linux" || !linkServiceActive() {
+	if runtime.GOOS != "linux" || !uiServiceActive() {
 		return false, ""
 	}
 	go func() {
 		time.Sleep(1500 * time.Millisecond) // laisser la réponse HTTP atteindre le client
 		// --no-block : on enregistre le job puis on rend la main ; systemd exécute le
 		// stop/start même si ce process (et le client systemctl) sont tués entre-temps.
-		_ = exec.Command("systemctl", "--no-block", "restart", linkServiceName()).Run()
+		_ = exec.Command("systemctl", "--no-block", "restart", uiServiceName()).Run()
 	}()
-	return true, "Service " + linkServiceName() + " redémarré automatiquement — la page va se reconnecter seule (le modèle n'est pas rechargé)."
+	return true, "Service " + uiServiceName() + " redémarré automatiquement — la page va se reconnecter seule (le modèle n'est pas rechargé)."
 }
 
 func restartHintText() string {

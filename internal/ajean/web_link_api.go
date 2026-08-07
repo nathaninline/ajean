@@ -27,7 +27,7 @@ func handleLinkStatus(w http.ResponseWriter, r *http.Request) {
 	tok := readLinkToken()
 	sendJSON(w, http.StatusOK, map[string]any{
 		"linked":      tok != "",
-		"active":      linkServiceActive(),
+		"active":      uiServiceActive(),
 		"machineURL":  remoteServerURL(),
 		"fingerprint": e2eFingerprint(),
 	})
@@ -47,17 +47,17 @@ func handleLinkConnect(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
 	}
-	// (re)démarre le worker pour qu'il prenne la nouvelle clé. Sur une machine sans
-	// systemd (dev/Windows), le token est quand même enregistré : on renvoie l'info
-	// mais on signale que le service n'a pas pu démarrer ici.
+	// Redémarre le service d'interface pour qu'il relise la clé et ouvre le
+	// tunnel. Sur une machine sans systemd (dev/Windows), la clé est quand même
+	// enregistrée : on renvoie l'info en signalant que le service n'a pas démarré.
 	svcErr := ""
-	if err := startLink(true); err != nil {
+	if err := uiServiceCtl("restart"); err != nil {
 		svcErr = err.Error()
 	}
 	sendJSON(w, http.StatusOK, map[string]any{
 		"ok":         true,
 		"linked":     true,
-		"active":     linkServiceActive(),
+		"active":     uiServiceActive(),
 		"machineURL": remoteServerURL(),
 		"serviceErr": svcErr,
 	})
@@ -71,17 +71,17 @@ func handleLinkStart(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, http.StatusBadRequest, map[string]any{"error": "aucune clé de liaison enregistrée"})
 		return
 	}
-	if err := linkServiceCtl("restart"); err != nil {
-		sendJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error(), "active": linkServiceActive()})
+	if err := uiServiceCtl("restart"); err != nil {
+		sendJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error(), "active": uiServiceActive()})
 		return
 	}
-	sendJSON(w, http.StatusOK, map[string]any{"ok": true, "active": linkServiceActive()})
+	sendJSON(w, http.StatusOK, map[string]any{"ok": true, "active": uiServiceActive()})
 }
 
 // handleLinkDisconnect (POST /api/link/disconnect) : arrête le service et oublie
 // la clé (équivalent `ajean link stop` + `ajean link logout`).
 func handleLinkDisconnect(w http.ResponseWriter, r *http.Request) {
-	_ = linkServiceCtl("stop")
+	_ = uiServiceCtl("stop")
 	_ = removeLinkToken()
 	sendJSON(w, http.StatusOK, map[string]any{"ok": true, "linked": false, "active": false})
 }

@@ -52,6 +52,23 @@ func cmdWeb(args []string) error {
 	} else {
 		fmt.Printf("%s API protégée par clé (Authorization: Bearer …)\n", green("[ok]"))
 	}
+
+	// Accès distant : le tunnel vers le relais est ouvert ICI, dans le process qui
+	// sert déjà l'UI, et avec le MÊME mux. C'est la condition d'une conversation
+	// unique — elle vit en mémoire (voir chat_conversation.go), donc deux process
+	// qui la servent, c'est deux fils qui divergent et s'écrasent l'un l'autre.
+	// Sans jeton enregistré, startAppLink ne fait rien : l'UI locale suffit.
+	appOwnsLink = true
+	appWebMux = mux
+	if readLinkToken() != "" {
+		killForeignUIWorker() // rescapé d'une version antérieure ou d'une autre copie
+		fmt.Printf("%s connexion au relais %s …\n", cyan("[link]"), relayURL())
+		if fp := e2eFingerprint(); fp != "" {
+			fmt.Printf("%s empreinte E2E : %s   (code d'appairage : ajean link code)\n", green("[e2e]"), bold(fp))
+		}
+		fmt.Printf("%s front OpenAI public prêt (activation en direct via l'UI ; état: %v)\n", green("[oai]"), oaiPublicEnabled())
+		startAppLink(mux)
+	}
 	return http.Serve(ln, mux)
 }
 

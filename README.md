@@ -30,7 +30,7 @@ Aucune dépendance à l'exécution, aucun flag CMake à retenir, aucun conteneur
 
 **Le matériel et le moteur, gérés pour vous.** `ajean llamacpp install` clone et compile llama.cpp avec les bons flags pour *cette* machine : CUDA (capacité de calcul détectée par GPU, donc le multi-GPU fonctionne), ROCm, Metal, Vulkan, ou repli CPU. `ajean llamacpp update` récupère le dernier commit, arrête le service le temps de recompiler, puis le redémarre.
 
-**Un service, pas un script.** `ajean install` écrit l'unité systemd, la règle sudoers et les dossiers. Ensuite `start` / `stop` / `status` / `logs`. Windows et macOS ont leurs équivalents natifs (voir plus bas).
+**Des services, pas des scripts.** `ajean install` écrit les deux unités systemd, les règles sudoers et les dossiers. Ensuite `start` / `stop` / `status` / `logs`. Windows et macOS ont leurs équivalents natifs (voir plus bas).
 
 **Plusieurs modèles, un clic.** Les presets gardent chacun leur configuration complète ; basculer de l'un à l'autre recharge le modèle sans toucher à un fichier. Les `.gguf` peuvent vivre sur n'importe quel disque.
 
@@ -61,48 +61,50 @@ Nécessite `git` et `cmake`, plus le toolkit de l'accélérateur (CUDA, ROCm…)
 
 ```bash
 ajean edit      # régler MODEL=/chemin/vers/le-modele.gguf
-ajean start
+ajean start     # démarre le moteur (ajean-engine)
 ajean test      # vérifier que le modèle répond
-ajean web       # http://<hôte>:8090
+ajean ui start  # démarre l'interface (ajean-ui) sur http://<hôte>:8090
 ```
+
+AJEAN tourne en **deux services** : `ajean-engine`, qui exécute le modèle, et
+`ajean-ui`, qui sert l'interface web, le tunnel d'accès distant et l'endpoint
+OpenAI. Les séparer permet de redémarrer l'interface — ce qui est instantané —
+sans recharger des dizaines de gigaoctets de modèle.
 
 ## Commandes
 
 ```
-Application :
-  app                           lance l'UI web + ouvre le navigateur (auto au double-clic)
-  web [PORT]                    UI web seule (défaut :8090)
-  chat [prompt-système]         chat dans le terminal
-
-Service :
+Moteur (ajean-engine) :
   start | stop | restart        gérer le service
   status | logs                 état / logs en direct
   enable | disable              démarrage au boot
   edit                          éditer la configuration dans $EDITOR
+  switch [N]                    changer de preset (presets/)
   test | bench [N]              vérifier que le modèle répond / mesurer les tok/s
   vram | gpu [index…]           VRAM / choix des GPU (gpu all = tous)
   set-api-key [clé]             protéger le moteur d'inférence (Bearer)
+  llamacpp install|update|status
+
+Interface (ajean-ui) :
+  ui [start|stop|restart|status]  piloter le service d'interface
+  web [PORT]                    servir l'interface au premier plan (défaut :8090)
   set-web-key [clé]             protéger l'API de pilotage
 
 Capacités de l'IA :
+  chat [prompt-système]         chat dans le terminal
   agent [on|off|status]         active TOUS les outils (terminal, fichiers, mémoire)
   memory [off|ondemand|always]  mode mémoire
   internet [on|off|engine <go|crawl4ai>|url <url>|key <clé>]   accès web
 
-Presets et moteur :
-  switch [N]                    changer de preset (presets/)
-  llamacpp install|update|status
-
 Accès distant (ajean.link) :
-  link <token>                  enregistre le token et démarre le lien
-  link start|restart|stop       gérer le service de lien
+  link <token>                  enregistre le jeton et ouvre le tunnel
   link code                     code d'appairage (10 min, usage unique)
   link status|logout
 
 Installation :
   install | uninstall
   update [--check]              mise à jour depuis les releases GitHub
-  version
+  where | version
 ```
 
 ## Configuration
@@ -141,7 +143,7 @@ La clé API (`ajean set-api-key`) est rangée hors de la configuration, afin de 
 |----------|------|--------|
 | `AJEAN_HOME` | racine des données | `/etc/ajean`, `%ProgramData%\ajean` |
 | `AJEAN_MODEL_DIRS` | dossiers de modèles (séparés par `:`, `;` sous Windows) | — |
-| `AJEAN_SERVICE` | nom de l'unité systemd | `ajean` |
+| `AJEAN_SERVICE` | nom de l'unité du moteur | `ajean-engine` |
 | `HF_TOKEN` | token Hugging Face pour les modèles privés | — |
 | `AJEAN_DL_CONNS` | connexions parallèles au téléchargement | — |
 | `EDITOR` | éditeur pour `ajean edit` | `nano` / `notepad` |
@@ -232,7 +234,7 @@ ajean link <token>        # token fourni sur ajean.link
 ajean link code           # code d'appairage à saisir dans le portail
 ```
 
-Le lien tourne comme un service : la commande rend la main, la connexion continue en tâche de fond. Inutile de lancer `ajean web`, l'interface est servie dans le tunnel. Le portail donne accès à l'interface du serveur avec un chat chiffré, à la gestion de plusieurs machines, et en option à un endpoint compatible OpenAI.
+Le tunnel n'est pas un service à part : il est ouvert par `ajean-ui`, le service qui sert déjà l'interface, dès qu'un jeton est enregistré. Un seul process sert donc l'interface locale et l'accès distant — c'est ce qui garantit **une seule conversation**, identique sur les deux. Le portail donne accès à l'interface du serveur avec un chat chiffré, à la gestion de plusieurs machines, et en option à un endpoint compatible OpenAI.
 
 Il s'agit d'un service optionnel et payant ; tout le reste d'AJEAN est et restera open source et gratuit.
 
@@ -255,7 +257,7 @@ Le VPS effectue un simple **passthrough SNI** : le TLS est terminé sur la machi
 
 ## API de pilotage
 
-`ajean web` expose une API HTTP pour piloter AJEAN à distance. À protéger avant toute exposition :
+Le service d'interface expose une API HTTP pour piloter AJEAN à distance. À protéger avant toute exposition :
 
 ```bash
 ajean set-web-key      # génère une clé

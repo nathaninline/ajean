@@ -56,7 +56,7 @@ func cmdApp(args []string) error {
 		// Worker détaché rescapé (version antérieure, autre copie de l'app) : il
 		// possède SA propre conversation et écrase la nôtre. On le supprime avant
 		// de prendre la main.
-		killForeignLinkWorker()
+		killForeignUIWorker()
 		startAppLink(appWebMux)
 	}()
 

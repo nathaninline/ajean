@@ -71,11 +71,16 @@ func relayURL() string {
 	return defaultRelayURL
 }
 
-// linkUnitName est l'unité qui exécute le worker « ajean link serve ».
-const linkUnitName = "ajean-link"
+// uiUnitName est l'unité qui exécute « ajean web » : l'UI locale, le tunnel du
+// relais et l'endpoint OpenAI, dans un seul et même process.
+const uiUnitName = "ajean-ui"
 
-func linkServiceName() string { return linkUnitName }
+func uiServiceName() string { return uiUnitName }
 
+// cmdLink ne gère QUE le compte d'accès distant : le jeton, l'appairage, l'état.
+// Le tunnel n'est plus un service à part — il est ouvert par « ajean web » dès
+// qu'un jeton est enregistré. Piloter le tunnel, c'est donc piloter le service
+// d'interface (voir cmdUI).
 func cmdLink(args []string) error {
 	sub := ""
 	if len(args) > 0 {
@@ -83,40 +88,29 @@ func cmdLink(args []string) error {
 	}
 	switch sub {
 	case "":
-		// `ajean link` seul : afficher l'aide des sous-commandes (NE démarre pas —
-		// éviter de prendre un mot pour un token et d'écraser le vrai).
+		// `ajean link` seul : afficher l'aide (NE démarre rien — éviter de prendre
+		// un mot pour un jeton et d'écraser le vrai).
 		printLinkHelp()
 		return nil
-	case "serve":
-		// Le worker réel (boucle de connexion au relais), pendant de `ajean serve`.
-		// C'est ce que lance l'unité systemd ; il NE doit PAS rendre la main.
-		return runLinkForeground()
-	case "start":
-		return startLink(false)
 	case "status":
 		tok := readLinkToken()
 		if tok == "" {
-			fmt.Println(yellow("[info]") + " aucun token enregistré — lance: ajean link <token>")
+			fmt.Println(yellow("[info]") + " aucun jeton enregistré — lance: ajean link <token>")
 			return nil
 		}
-		fmt.Printf("%s token enregistré (%s…), relais: %s\n", green("[ok]"), tok[:min(8, len(tok))], relayURL())
-		if linkServiceActive() {
-			fmt.Printf("%s service %s: actif\n", green("[ok]"), linkServiceName())
+		fmt.Printf("%s jeton enregistré (%s…), relais: %s\n", green("[ok]"), tok[:min(8, len(tok))], relayURL())
+		if uiServiceActive() {
+			fmt.Printf("%s service %s actif — le tunnel est ouvert\n", green("[ok]"), uiServiceName())
 		} else {
-			fmt.Printf("%s service %s: arrêté (ajean link pour démarrer)\n", yellow("[info]"), linkServiceName())
+			fmt.Printf("%s service %s arrêté — pas de tunnel (ajean ui start)\n", yellow("[info]"), uiServiceName())
 		}
 		return nil
 	case "logout":
-		_ = removeLinkToken()
-		fmt.Println(green("[ok]") + " token supprimé")
-		return nil
-	case "stop":
-		return linkServiceCtl("stop")
-	case "restart":
-		if err := linkServiceCtl("restart"); err != nil {
+		if err := removeLinkToken(); err != nil {
 			return err
 		}
-		return linkPrintIdentity()
+		fmt.Println(green("[ok]") + " jeton supprimé — « ajean ui restart » pour fermer le tunnel")
+		return nil
 	case "code":
 		code, err := newPairCode()
 		if err != nil {
@@ -126,9 +120,9 @@ func cmdLink(args []string) error {
 		return nil
 	}
 
-	// Un argument restant n'est traité comme TOKEN que s'il en a la forme (`jl_…`).
+	// Un argument restant n'est traité comme JETON que s'il en a la forme (`jl_…`).
 	// Sinon c'est une faute de frappe / sous-commande inconnue : on REFUSE, sans
-	// jamais écraser le token enregistré (le bug qui rendait le serveur injoignable).
+	// jamais écraser le jeton enregistré (le bug qui rendait le serveur injoignable).
 	if !strings.HasPrefix(sub, "jl_") {
 		fmt.Fprintf(os.Stderr, "%s sous-commande inconnue : %q\n\n", yellow("[link]"), sub)
 		printLinkHelp()
@@ -137,30 +131,37 @@ func cmdLink(args []string) error {
 	if err := saveLinkToken(strings.TrimSpace(sub)); err != nil {
 		return err
 	}
-	// Nouveau token → on (re)démarre le worker pour qu'il le prenne en compte.
-	return startLink(true)
-}
-
-// startLink démarre (ou redémarre si force) le service de lien puis affiche
-// l'identité (empreinte + code). Si le service tourne déjà et qu'on ne force pas,
-// on le signale au lieu d'un faux « démarré ».
-func startLink(force bool) error {
-	if readLinkToken() == "" {
-		return fmt.Errorf("aucun token. Usage: ajean link <token>  (token fourni à l'achat sur la boutique)")
-	}
-	switch {
-	case force:
-		if err := linkServiceCtl("restart"); err != nil {
-			return err
-		}
-	case linkServiceActive():
-		fmt.Printf("%s service %s déjà en cours — « ajean link restart » pour le relancer\n", yellow("[info]"), linkServiceName())
-	default:
-		if err := linkServiceCtl("start"); err != nil {
-			return err
-		}
+	// Nouveau jeton : le service d'interface doit le relire pour ouvrir le tunnel.
+	if err := uiServiceCtl("restart"); err != nil {
+		return err
 	}
 	return linkPrintIdentity()
+}
+
+// cmdUI pilote le service d'interface — « ajean web » en arrière-plan : l'UI
+// locale, le tunnel du relais et l'endpoint OpenAI, servis par le MÊME process.
+// C'est ce qui garantit une conversation unique, identique en local et à distance.
+func cmdUI(args []string) error {
+	action := "status"
+	if len(args) > 0 && args[0] != "" {
+		action = args[0]
+	}
+	switch action {
+	case "start", "stop", "restart":
+		return uiServiceCtl(action)
+	case "status":
+		if uiServiceActive() {
+			fmt.Printf("%s service %s : actif\n", green("[ok]"), uiServiceName())
+		} else {
+			fmt.Printf("%s service %s : arrêté\n", yellow("[info]"), uiServiceName())
+		}
+		if readLinkToken() != "" {
+			fmt.Printf("  accès distant : jeton enregistré — le tunnel s'ouvre avec le service\n")
+		}
+		return nil
+	default:
+		return fmt.Errorf("usage: ajean ui [start|stop|restart|status]")
+	}
 }
 
 // printLinkHelp liste les sous-commandes de `ajean link`.
@@ -168,15 +169,14 @@ func printLinkHelp() {
 	fmt.Print(`ajean link — accès distant via le relais ajean.link
 
 Usage :
-  ajean link <token>     enregistre le token (1re fois / pour le changer) et démarre le lien
-  ajean link start       démarre le lien en arrière-plan (service)
-  ajean link restart     redémarre le service de lien
-  ajean link stop        arrête le service de lien
-  ajean link status      état du token et du service
+  ajean link <token>     enregistre le jeton (1re fois / pour le changer) et ouvre le tunnel
+  ajean link status      état du jeton et du tunnel
   ajean link code        génère un code d'appairage (valable 10 min, à usage unique)
-  ajean link logout      oublie le token enregistré
+  ajean link logout      oublie le jeton enregistré
 
-Le token est fourni sur ajean.link. « ajean link » seul affiche cette aide.
+Le jeton est fourni sur ajean.link. Le tunnel est ouvert par le service
+d'interface (« ajean ui ») dès qu'un jeton est enregistré : il n'y a pas de
+service séparé pour l'accès distant.
 `)
 }
 
@@ -195,50 +195,6 @@ func linkPrintIdentity() error {
 	}
 	fmt.Printf("       Code d'appairage (valable 10 min, usage unique) : %s\n\n", bold(code))
 	return nil
-}
-
-// runLinkForeground exécute la boucle de connexion au relais (le worker supervisé
-// par systemd). Reconnexion automatique avec backoff. Ne rend jamais la main.
-func runLinkForeground() error {
-	token := readLinkToken()
-	if token == "" {
-		return fmt.Errorf("aucun token. Usage: ajean link <token>")
-	}
-	fmt.Printf("%s connexion au relais %s …\n", cyan("[link]"), relayURL())
-	fmt.Printf("       (UI AJEAN + endpoint OpenAI servis dans le tunnel — pas besoin de 'ajean web')\n")
-	if fp := e2eFingerprint(); fp != "" {
-		fmt.Printf("%s empreinte E2E : %s   (code d'appairage : ajean link code)\n", green("[e2e]"), bold(fp))
-	}
-
-	// UNE seule instance du mux web → UNE seule conversation en mémoire, PARTAGÉE
-	// entre l'UI locale (:8090, ajean.example.org) et le tunnel (app.ajean.link). Avant,
-	// `ajean web` et `ajean link` étaient deux process distincts avec chacun leur
-	// historique → confusion. Désormais le process ajean-link est l'unique
-	// propriétaire de la conversation et sert les DEUX surfaces.
-	webMux := newWebMux()
-	go serveLocalWebMux(webMux)
-	// On construit le handler une seule fois ; il est servi à travers chaque tunnel.
-	handler := newLinkHandler(webMux)
-	// Front TLS de l'accès OpenAI public. Toujours prêt ; c'est le drapeau
-	// oaiPublicEnabled (piloté par l'UI, lu en direct au démux) qui autorise ou non
-	// le trafic. Cert obtenu à la demande via TLS-ALPN-01 à travers le tunnel.
-	oaiTLS := oaiTLSConfig()
-	fmt.Printf("%s front OpenAI public prêt (activation en direct via l'UI ; état: %v)\n", green("[oai]"), oaiPublicEnabled())
-
-	backoff := time.Second
-	for {
-		err := runLinkSession(token, handler, oaiTLS)
-		if err != nil {
-			fmt.Printf("%s lien perdu: %v — reconnexion dans %s\n", yellow("[link]"), err, backoff)
-		}
-		time.Sleep(backoff)
-		if backoff < 30*time.Second {
-			backoff *= 2
-			if backoff > 30*time.Second {
-				backoff = 30 * time.Second
-			}
-		}
-	}
 }
 
 // ---------------------------------------------------------------------------
@@ -262,7 +218,7 @@ var appLink struct {
 }
 
 // appOwnsLink : vrai dans le process de l'app de bureau, qui pilote le tunnel
-// en interne. linkServiceCtl s'y adapte pour ne PAS lancer de worker concurrent.
+// en interne. uiServiceCtl s'y adapte pour ne PAS lancer de worker concurrent.
 // appWebMux est le mux servi par l'app — réutilisé pour le tunnel afin que les
 // deux surfaces partagent la même conversation.
 var (
@@ -327,45 +283,30 @@ func appLinkRunning() bool {
 	return appLink.running
 }
 
-// killForeignLinkWorker tue un worker de lien détaché encore en vie (laissé par
+// killForeignUIWorker tue un worker de lien détaché encore en vie (laissé par
 // une version antérieure ou une autre copie de l'app). Indispensable AVANT que
 // l'app ne prenne la main : sinon deux process servent la même conversation et
 // les fils divergent entre l'UI locale et app.ajean.link.
-func killForeignLinkWorker() {
-	if pid := linkUserPID(); pid > 0 {
+func killForeignUIWorker() {
+	if pid := uiUserPID(); pid > 0 {
 		killTree(pid)
-		_ = os.Remove(linkPIDPath())
+		_ = os.Remove(uiPIDPath())
 	}
 }
 
-// serveLocalWebMux sert l'UI web locale sur :8090 avec le mux fourni — le MÊME
-// que celui exposé dans le tunnel. Le process ajean-link devient ainsi l'unique
-// propriétaire de la conversation, partagée entre l'accès local et l'accès
-// distant. Remplace le `ajean web` autonome (à ne plus lancer séparément).
-func serveLocalWebMux(mux *http.ServeMux) {
-	addr := "0.0.0.0:8090"
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		fmt.Printf("%s UI locale non démarrée (%s occupé ? tue le vieux « ajean web ») : %v\n", yellow("[web]"), addr, err)
-		return
-	}
-	fmt.Printf("%s UI locale sur http://%s (même conversation que le tunnel)\n", green("[web]"), addr)
-	_ = http.Serve(ln, mux)
-}
-
-// linkPIDPath / linkLogPath : suivi du worker de lien hors systemd (macOS,
+// uiPIDPath / uiLogPath : suivi du worker de lien hors systemd (macOS,
 // Windows), où AJEAN est une app de bureau lancée sans droits root.
-func linkPIDPath() string { return filepath.Join(AjeanHome(), linkUnitName+".pid") }
-func linkLogPath() string { return filepath.Join(AjeanHome(), linkUnitName+".log") }
+func uiPIDPath() string { return filepath.Join(AjeanHome(), uiUnitName+".pid") }
+func uiLogPath() string { return filepath.Join(AjeanHome(), uiUnitName+".log") }
 
-// linkServiceCtl pilote le worker de lien (start/stop/restart). Sous Linux c'est
+// uiServiceCtl pilote le worker de lien (start/stop/restart). Sous Linux c'est
 // l'unité systemd ajean-link (avec sudo non interactif si on n'est pas root) ;
 // ailleurs — macOS et Windows, où il n'y a ni systemd ni droits root — on lance
 // « ajean link serve » en processus détaché suivi par un fichier PID, comme le
 // fait déjà le service principal. Sans ça, l'accès distant restait définitivement
 // « arrêté » sur un Mac ou un PC : le token était enregistré mais rien ne
 // composait jamais le tunnel.
-func linkServiceCtl(action string) error {
+func uiServiceCtl(action string) error {
 	if runtime.GOOS != "linux" {
 		// Dans l'app de bureau, le tunnel tourne DANS ce process (conversation
 		// unique) : on ne lance surtout pas un worker séparé.
@@ -375,7 +316,7 @@ func linkServiceCtl(action string) error {
 				stopAppLink()
 			case "start", "restart":
 				stopAppLink()
-				killForeignLinkWorker()
+				killForeignUIWorker()
 				startAppLink(appWebMux)
 				if !appLinkRunning() {
 					return fmt.Errorf("tunnel non démarré (clé de liaison absente ?)")
@@ -385,43 +326,43 @@ func linkServiceCtl(action string) error {
 			}
 			return nil
 		}
-		return linkUserSvcCtl(action)
+		return uiUserSvcCtl(action)
 	}
 	bin, pre := "systemctl", []string{}
 	if os.Geteuid() != 0 {
 		bin, pre = "sudo", []string{"-n", "systemctl"}
 	}
-	cmd := exec.Command(bin, append(pre, action, linkServiceName())...)
+	cmd := exec.Command(bin, append(pre, action, uiServiceName())...)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("systemctl %s %s: %w", action, linkServiceName(), err)
+		return fmt.Errorf("systemctl %s %s: %w", action, uiServiceName(), err)
 	}
 	switch action {
 	case "start", "restart":
-		fmt.Printf("%s service %s %s\n", green("[ok]"), linkServiceName(), action+"é")
+		fmt.Printf("%s service %s %s\n", green("[ok]"), uiServiceName(), action+"é")
 	case "stop":
-		fmt.Printf("%s service %s arrêté\n", green("[ok]"), linkServiceName())
+		fmt.Printf("%s service %s arrêté\n", green("[ok]"), uiServiceName())
 	}
 	return nil
 }
 
-// linkServiceActive indique si le worker de lien tourne (unité systemd sous
+// uiServiceActive indique si le worker de lien tourne (unité systemd sous
 // Linux, processus suivi par fichier PID ailleurs).
-func linkServiceActive() bool {
+func uiServiceActive() bool {
 	if runtime.GOOS != "linux" {
 		if appOwnsLink {
 			return appLinkRunning()
 		}
-		return linkUserPID() > 0
+		return uiUserPID() > 0
 	}
-	out, _ := exec.Command("systemctl", "is-active", linkServiceName()).Output()
+	out, _ := exec.Command("systemctl", "is-active", uiServiceName()).Output()
 	return strings.TrimSpace(string(out)) == "active"
 }
 
-// linkUserPID renvoie le PID du worker de lien s'il tourne vraiment, 0 sinon
+// uiUserPID renvoie le PID du worker de lien s'il tourne vraiment, 0 sinon
 // (fichier absent, illisible, ou process mort → on nettoie le fichier obsolète).
-func linkUserPID() int {
-	b, err := os.ReadFile(linkPIDPath())
+func uiUserPID() int {
+	b, err := os.ReadFile(uiPIDPath())
 	if err != nil {
 		return 0
 	}
@@ -435,24 +376,24 @@ func linkUserPID() int {
 	return pid
 }
 
-// linkUserSvcCtl : équivalent de systemctl pour les OS sans systemd.
-func linkUserSvcCtl(action string) error {
+// uiUserSvcCtl : équivalent de systemctl pour les OS sans systemd.
+func uiUserSvcCtl(action string) error {
 	switch action {
 	case "stop", "restart":
-		if pid := linkUserPID(); pid > 0 {
+		if pid := uiUserPID(); pid > 0 {
 			killTree(pid)
 			for i := 0; i < 30 && pidAlive(pid); i++ {
 				time.Sleep(100 * time.Millisecond)
 			}
 		}
-		_ = os.Remove(linkPIDPath())
+		_ = os.Remove(uiPIDPath())
 		if action == "stop" {
-			fmt.Printf("%s service %s arrêté\n", green("[ok]"), linkServiceName())
+			fmt.Printf("%s service %s arrêté\n", green("[ok]"), uiServiceName())
 			return nil
 		}
 	case "start":
-		if linkUserPID() > 0 {
-			fmt.Printf("%s service %s déjà en cours\n", yellow("[info]"), linkServiceName())
+		if uiUserPID() > 0 {
+			fmt.Printf("%s service %s déjà en cours\n", yellow("[info]"), uiServiceName())
 			return nil
 		}
 	default:
@@ -469,9 +410,9 @@ func linkUserSvcCtl(action string) error {
 	if err := os.MkdirAll(AjeanHome(), 0o755); err != nil {
 		return err
 	}
-	logf, err := os.OpenFile(linkLogPath(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	logf, err := os.OpenFile(uiLogPath(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
-		return fmt.Errorf("ouverture du log %s: %w", linkLogPath(), err)
+		return fmt.Errorf("ouverture du log %s: %w", uiLogPath(), err)
 	}
 	defer logf.Close()
 
@@ -483,7 +424,7 @@ func linkUserSvcCtl(action string) error {
 	pid := cmd.Process.Pid
 	// PID + binaire d'origine : la 2e ligne dit QUELLE copie de l'app a lancé ce
 	// worker — précieux pour diagnostiquer un process rescapé d'une autre version.
-	if err := os.WriteFile(linkPIDPath(), []byte(strconv.Itoa(pid)+"\n"+self+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(uiPIDPath(), []byte(strconv.Itoa(pid)+"\n"+self+"\n"), 0o644); err != nil {
 		return fmt.Errorf("écriture du PID: %w", err)
 	}
 	_ = cmd.Process.Release()
@@ -493,10 +434,10 @@ func linkUserSvcCtl(action string) error {
 	// « en ligne » sur un process déjà mort.
 	time.Sleep(1500 * time.Millisecond)
 	if !pidAlive(pid) {
-		_ = os.Remove(linkPIDPath())
-		return fmt.Errorf("le lien s'est arrêté aussitôt — voir %s", linkLogPath())
+		_ = os.Remove(uiPIDPath())
+		return fmt.Errorf("le lien s'est arrêté aussitôt — voir %s", uiLogPath())
 	}
-	fmt.Printf("%s service %s démarré (PID %d)\n", green("[ok]"), linkServiceName(), pid)
+	fmt.Printf("%s service %s démarré (PID %d)\n", green("[ok]"), uiServiceName(), pid)
 	return nil
 }
 

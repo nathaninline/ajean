@@ -11,8 +11,32 @@ import (
 	"strings"
 )
 
-const sudoersTemplate = `# Allow %s to manage the %s systemd unit without a password (installed by ajean).
+// sudoersTemplate autorise l'utilisateur à piloter UNE unité sans mot de passe.
+// Posé pour les deux unités : l'interface, qui tourne sans privilèges, doit
+// pouvoir redémarrer le moteur (bascule de preset) comme elle-même (nouveau
+// jeton de liaison).
+const sudoersTemplate = `# Permet à %s de piloter l'unité %s sans mot de passe (posé par ajean install).
 %s ALL=(root) NOPASSWD: /bin/systemctl start %s, /bin/systemctl stop %s, /bin/systemctl restart %s, /bin/systemctl enable %s, /bin/systemctl disable %s
+`
+
+// uiUnitTemplate — le service d'interface : UI web locale, tunnel du relais et
+// endpoint OpenAI, servis par un seul process (donc une seule conversation).
+// Champs formatés : User, WorkingDirectory, ExecStart.
+const uiUnitTemplate = `[Unit]
+Description=AJEAN interface web + accès distant
+After=network-online.target %s.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%s
+WorkingDirectory=%s
+ExecStart=%s
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
 `
 
 const serviceUnitTemplate = `[Unit]
@@ -109,21 +133,29 @@ func cmdInstall(args []string) error {
 	}
 	fmt.Printf("  %s /etc/default/ajean\n", green("✓"))
 
-	// 4. Write the systemd unit (ExecStart = `ajean serve`, no start.sh needed)
-	unit := fmt.Sprintf(serviceUnitTemplate, targetUser, ajeanHome, installedExePath()+" serve")
-	unitPath := "/etc/systemd/system/" + svc + ".service"
-	if err := os.WriteFile(unitPath, []byte(unit), 0o644); err != nil {
-		return err
+	// 4. Les deux unités : le moteur (exec llama-server) et l'interface.
+	units := map[string]string{
+		svc:        fmt.Sprintf(serviceUnitTemplate, targetUser, ajeanHome, installedExePath()+" serve"),
+		uiUnitName: fmt.Sprintf(uiUnitTemplate, svc, targetUser, ajeanHome, installedExePath()+" web"),
 	}
-	fmt.Printf("  %s %s\n", green("✓"), unitPath)
+	for name, body := range units {
+		path := "/etc/systemd/system/" + name + ".service"
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			return err
+		}
+		fmt.Printf("  %s %s\n", green("✓"), path)
+	}
 
-	// 5. Sudoers drop-in
-	sudoers := fmt.Sprintf(sudoersTemplate, targetUser, svc, targetUser, svc, svc, svc, svc, svc)
-	sudoersPath := "/etc/sudoers.d/ajean-" + svc
-	if err := os.WriteFile(sudoersPath, []byte(sudoers), 0o440); err != nil {
-		return err
+	// 5. Sudoers : une règle par unité, pour que l'interface (sans privilèges)
+	//    puisse redémarrer le moteur ET elle-même.
+	for _, name := range []string{svc, uiUnitName} {
+		sudoers := fmt.Sprintf(sudoersTemplate, targetUser, name, targetUser, name, name, name, name, name)
+		path := "/etc/sudoers.d/ajean-" + name
+		if err := os.WriteFile(path, []byte(sudoers), 0o440); err != nil {
+			return err
+		}
+		fmt.Printf("  %s %s\n", green("✓"), path)
 	}
-	fmt.Printf("  %s %s\n", green("✓"), sudoersPath)
 
 	// 6. chown AJEAN_HOME contents to target user
 	chown(ajeanHome, u)
@@ -155,11 +187,15 @@ func cmdUninstall(args []string) error {
 			keepData = true
 		}
 	}
-	_ = exec.Command("systemctl", "stop", svc).Run()
-	_ = exec.Command("systemctl", "disable", svc).Run()
+	for _, name := range []string{uiUnitName, svc} {
+		_ = exec.Command("systemctl", "stop", name).Run()
+		_ = exec.Command("systemctl", "disable", name).Run()
+	}
 	for _, p := range []string{
 		"/etc/systemd/system/" + svc + ".service",
+		"/etc/systemd/system/" + uiUnitName + ".service",
 		"/etc/sudoers.d/ajean-" + svc,
+		"/etc/sudoers.d/ajean-" + uiUnitName,
 		"/etc/default/ajean",
 		installedExePath(),
 	} {

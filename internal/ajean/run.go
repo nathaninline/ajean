@@ -64,6 +64,8 @@ func Main() {
 		mustExit(cmdWeb(args))
 	case "link":
 		mustExit(cmdLink(args))
+	case "ui":
+		mustExit(cmdUI(args))
 	case "oai":
 		mustExit(cmdOAI(args))
 	case "agent":
@@ -108,10 +110,10 @@ func printHelp() {
 
 Usage: ajean <commande> [args]
 
-Application:
-  app                           lance l'UI web + ouvre le navigateur (auto au double-clic du binaire)
+AJEAN tourne en deux services : ajean-engine (le modèle) et ajean-ui
+(l'interface web, le tunnel d'accès distant et l'endpoint OpenAI).
 
-Service:
+Moteur (ajean-engine) :
   start | stop | restart        gérer le service
   status | logs                 état / logs en direct
   enable | disable              auto-démarrage au boot
@@ -121,22 +123,24 @@ Service:
   vram                          utilisation GPU/VRAM (nvidia-smi)
   gpu [index…]                  liste les GPU / choisit le(s)quel(s) utiliser (gpu all = tous)
   set-api-key [clé]             protéger llama-server (clé Bearer); vide = générer, "" = retirer
+
+Interface (ajean-ui) :
+  ui [start|stop|restart|status]  pilote le service d'interface
+  web [PORT]                    sert l'interface au premier plan (défaut :8090) —
+                                ouvre aussi le tunnel si un jeton est enregistré
   set-web-key [clé]             protéger l'API de pilotage; vide = générer, "" = retirer
 
 Interaction:
   chat [system-prompt]          chat terminal streamé
-  web [PORT]                    UI web (défaut :8090) — chat + presets + mode agent
   agent [on|off|status]         donne à l'IA ses outils (shell, fichiers, mémoire)
   memory [off|ondemand|always|status]  mode mémoire de l'IA
   internet [on|off|status|engine <go|crawl4ai>|url <url>|key <clé>]
                                 accès web de l'IA (moteur intégré ou serveur Crawl4AI)
 
 Accès distant (ajean.link) :
-  link <token>                  enregistre le token et démarre le lien au relais
-  link start | restart | stop   pilote le service de lien
+  link <token>                  enregistre le jeton et ouvre le tunnel
   link code                     code d'appairage (10 min, usage unique) pour le portail
-  link status | logout          état du lien / oublier le token
-  link serve                    worker au premier plan (lancé par ajean-link.service)
+  link status | logout          état du jeton / l'oublier
 
 Backend llama.cpp :
   llamacpp install              clone + compile llama.cpp (CUDA/ROCm/Metal/CPU), pointe BIN dessus
@@ -203,12 +207,13 @@ func memoryDir() string    { return filepath.Join(AjeanHome(), "memory") }
 func modelsDir() string    { return filepath.Join(AjeanHome(), "models") }
 func workspaceDir() string { return filepath.Join(AjeanHome(), "workspace") }
 
-// serviceName est le nom de l'unité qui exécute llama-server.
+// serviceName est le nom de l'unité qui exécute llama-server. Son pendant est
+// uiUnitName (« ajean-ui »), qui sert l'interface et le tunnel.
 func serviceName() string {
 	if n := os.Getenv("AJEAN_SERVICE"); n != "" {
 		return n
 	}
-	return "ajean"
+	return "ajean-engine"
 }
 
 // Color helpers (ANSI). Disabled when stdout is not a TTY.
