@@ -521,10 +521,18 @@ func newLinkHandler(mux *http.ServeMux) http.Handler {
 // par le tunnel. Le navigateur distant ne connaît que le token (vérifié par le
 // relais) ; c'est ici, en local, qu'on satisfait l'auth de l'API web sans
 // exposer la clé au client.
+//
+// ⚠️ La clé est relue À CHAQUE REQUÊTE, et surtout pas capturée une fois pour
+// toutes à l'ouverture du tunnel. Avec une capture, changer la clé (depuis
+// l'interface ou `ajean set-web-key`) faisait injecter l'ANCIENNE jusqu'au
+// prochain redémarrage du service : tout l'accès distant tombait en 401, et
+// comme le chat n'affiche pas le code HTTP d'un flux qui n'arrive jamais, le
+// symptôme était un « chargement de la conversation » infini, sans la moindre
+// erreur pour dire pourquoi. Le coût est nul : requireWebAuth relit déjà la clé
+// à chaque requête de l'autre côté.
 func withLocalAuth(next http.Handler) http.Handler {
-	webKey := readWebKey()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if webKey != "" && r.Header.Get("Authorization") == "" {
+		if webKey := readWebKey(); webKey != "" && r.Header.Get("Authorization") == "" {
 			r.Header.Set("Authorization", "Bearer "+webKey)
 		}
 		next.ServeHTTP(w, r)
