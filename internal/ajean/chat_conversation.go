@@ -243,7 +243,16 @@ func (c *Conversation) compactAndPublish(ctx context.Context, epoch int, phase s
 func (c *Conversation) state() map[string]any {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return map[string]any{"seq": c.Seq, "generating": c.Generating, "ctx_used": c.CtxUsed}
+	// `turns` = nombre d'échanges, borne du curseur de portée de l'export (voir
+	// countTurns). Compté ici plutôt que par un appel dédié : c'est un balayage
+	// du journal déjà en main, et l'état est de toute façon relu à l'ouverture.
+	turns := 0
+	for _, ev := range c.Log {
+		if _, ok := ev.Delta["user"]; ok {
+			turns++
+		}
+	}
+	return map[string]any{"seq": c.Seq, "generating": c.Generating, "ctx_used": c.CtxUsed, "turns": turns}
 }
 
 // ErrBusy : une génération est déjà en cours (un seul tour à la fois).

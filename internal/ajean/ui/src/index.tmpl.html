@@ -361,57 +361,63 @@
 </div>
 <!-- Fenêtre d'export. Un fil relu pour retrouver une réponse n'a que faire des
      mille lignes de raisonnement qui l'ont produite : on choisit ce qu'on
-     emporte plutôt que de tout prendre ou rien. Les options du format non
-     retenu sont MASQUÉES, pas grisées : un réglage sans effet visible n'a rien
-     à faire à l'écran. -->
-<div id="export-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:30;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeExportModal()">
-  <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;width:100%;max-width:460px;display:flex;flex-direction:column">
-    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+     emporte plutôt que de tout prendre ou rien. Les options de CONTENU sont les
+     mêmes pour les deux formats : le format ne décide que du contenant. -->
+<div id="export-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeExportModal()">
+  <div class="modal-card" style="max-width:460px">
+    <div class="modal-head">
       <strong>Exporter la conversation</strong>
-      <button onclick="closeExportModal()" style="margin:0">×</button>
+      <button class="modal-x" onclick="closeExportModal()" title="fermer">×</button>
     </div>
-    <div style="padding:16px 20px;display:flex;flex-direction:column;gap:14px">
-      <div>
-        <div class="subhead" style="margin:0 0 6px">Format</div>
-        <!-- Contrôle segmenté (.seg), comme le choix de moteur dans l'éditeur de
-             preset : deux cases côte à côte se lisent d'un coup d'œil là où deux
-             boutons radio empilés obligent à lire ligne par ligne. -->
-        <div class="seg">
-          <label><input type="radio" name="x-fmt" value="md" checked onchange="onExportFormat()">Markdown<span class="be-note">à lire</span></label>
-          <label><input type="radio" name="x-fmt" value="json" onchange="onExportFormat()">JSON<span class="be-note">à retraiter</span></label>
-        </div>
-      </div>
-      <div id="x-md-opts">
-        <div class="subhead" style="margin:0 0 6px">Contenu</div>
-        <label class="switchrow"><span class="switch"><input type="checkbox" id="x-reasoning" checked onchange="onExportPreview()"><span class="slider"></span></span> raisonnements</label>
-        <label class="switchrow"><span class="switch"><input type="checkbox" id="x-tools" checked onchange="onExportPreview()"><span class="slider"></span></span> appels d'outils</label>
-        <label class="switchrow"><span class="switch"><input type="checkbox" id="x-results" checked onchange="onExportPreview()"><span class="slider"></span></span> sorties des outils</label>
-      </div>
-      <div id="x-json-opts" style="display:none">
-        <div class="subhead" style="margin:0 0 6px">Contenu</div>
-        <label class="switchrow"><span class="switch"><input type="checkbox" id="x-full" checked onchange="onExportPreview()"><span class="slider"></span></span> journal d'affichage<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Le fil tel qu'il s'affiche : raisonnements, appels d'outils, vitesses. Décoché, l'export ne garde que les messages envoyés au modèle.</span></span></label>
-      </div>
-      <div>
-        <div class="subhead" style="margin:0 0 6px">Portée</div>
-        <!-- Curseur borné au nombre RÉEL d'échanges du fil (rempli à l'ouverture
-             par /api/chat/export?probe=1) : la butée de droite vaut « toute la
-             conversation ». Un menu à valeurs fixes proposait « 25 derniers
-             échanges » sur un fil qui en comptait trois, sans jamais dire
-             combien il y en avait. -->
-        <div class="xr">
-          <div class="xr-track"><div class="xr-fill" id="x-fill"></div></div>
-          <input type="range" class="xr-range" id="x-turns" min="1" max="1" value="1" oninput="onExportPreview()" aria-label="nombre d'échanges à exporter">
-        </div>
-        <div class="xr-legend">
-          <span id="x-scope">toute la conversation</span>
-          <span id="x-size" class="xr-size">…</span>
-        </div>
-      </div>
-      <div id="x-note" class="muted" style="font-size:11px"></div>
+    <!-- Conversation vide : pas d'options à régler, un seul message. Proposer
+         des réglages pour un fichier qui ne contiendrait rien n'a aucun sens. -->
+    <div id="x-empty" class="xempty" style="display:none">
+      <div class="xempty-i">⤓</div>
+      <div>Rien à exporter</div>
+      <div class="pe-note">La conversation est vide.</div>
     </div>
-    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:6px">
-      <button onclick="closeExportModal()">annuler</button>
-      <button id="x-go" onclick="runExport()" style="border-color:var(--accent);color:var(--accent)">⤓ télécharger</button>
+    <div id="x-body" class="pe-body" style="gap:20px">
+      <div class="pe-group">
+        <div class="pe-gh">Format</div>
+        <div class="pe-seg">
+          <label><input type="radio" name="x-fmt" value="md" checked onchange="onExportFormat()"><span>Markdown</span><span class="be-note">à lire</span></label>
+          <label><input type="radio" name="x-fmt" value="json" onchange="onExportFormat()"><span>JSON</span><span class="be-note">à retraiter</span></label>
+        </div>
+      </div>
+      <div class="pe-group">
+        <div class="pe-gh">Portée</div>
+        <div class="pe-list">
+          <div class="pe-row stack">
+            <div class="xr">
+              <div class="xr-track"><div class="xr-fill" id="x-fill"></div></div>
+              <input type="range" class="xr-range" id="x-turns" min="1" max="1" value="1" oninput="onExportPreview()" aria-label="nombre d'échanges à exporter">
+            </div>
+            <div class="pe-note" id="x-scope"></div>
+          </div>
+        </div>
+      </div>
+      <div class="pe-group">
+        <div class="pe-gh">Contenu</div>
+        <div class="pe-list">
+          <div class="pe-row">
+            <span class="pe-row-l">Raisonnements<span class="pe-sub">la réflexion du modèle, souvent plus longue que la réponse</span></span>
+            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="x-reasoning" checked onchange="onExportPreview()"><span class="pe-sl"></span></label></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">Appels d'outils<span class="pe-sub">commandes, lectures et écritures de fichiers</span></span>
+            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="x-tools" checked onchange="onExportPreview()"><span class="pe-sl"></span></label></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">Sorties des outils<span class="pe-sub">ce que chaque outil a répondu</span></span>
+            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="x-results" checked onchange="onExportPreview()"><span class="pe-sl"></span></label></span>
+          </div>
+        </div>
+      </div>
+      <div class="pe-note" id="x-note"></div>
+    </div>
+    <div class="modal-foot" style="justify-content:flex-end">
+      <button class="pe-btn" onclick="closeExportModal()">annuler</button>
+      <button class="pe-btn primary" id="x-go" onclick="runExport()">⤓ télécharger</button>
     </div>
   </div>
 </div>

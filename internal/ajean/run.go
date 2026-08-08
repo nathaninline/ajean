@@ -146,8 +146,8 @@ Interaction:
   chat [system-prompt]          chat terminal streamé
   export [options] [fichier]    exporte la conversation de l'interface web
                                 (Markdown par défaut, « - » = sortie standard)
-                                --json  --last N  --no-reasoning  --no-tools
-                                --no-results  --messages-only
+                                --json  --last N  --no-reasoning
+                                --no-tools  --no-results
   agent [on|off|status]         donne à l'IA ses outils (shell, fichiers, mémoire)
   memory [off|ondemand|always|status]  mode mémoire de l'IA
   internet [on|off|status|engine <go|crawl4ai>|url <url>|key <clé>]

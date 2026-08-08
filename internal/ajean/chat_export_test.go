@@ -138,8 +138,8 @@ func TestExportOptsFromQueryDefautComplet(t *testing.T) {
 	if o != defaultExportOpts() {
 		t.Fatalf("défauts modifiés : %+v", o)
 	}
-	o = exportOptsFromQuery(map[string][]string{"format": {"json"}, "turns": {"2"}, "full": {"0"}})
-	if o.Format != "json" || o.Turns != 2 || o.JSONFull {
+	o = exportOptsFromQuery(map[string][]string{"format": {"json"}, "turns": {"2"}})
+	if o.Format != "json" || o.Turns != 2 {
 		t.Fatalf("options mal lues : %+v", o)
 	}
 	// Une valeur de tours absurde ne doit pas vider l'export.
@@ -187,60 +187,44 @@ func TestExportDerniersEchanges(t *testing.T) {
 	if len(p.Messages) != 2 || p.Messages[0].Content != "et 3+3 ?" {
 		t.Fatalf("messages mal découpés : %+v", p.Messages)
 	}
-	// --messages-only laisse tomber le journal. ⚠️ Structure NEUVE : Unmarshal ne
-	// remet pas à zéro les champs absents du JSON, un `p` réutilisé garderait le
-	// journal de l'appel précédent et le test passerait pour de mauvaises raisons.
-	o.JSONFull = false
+	// Les cases de contenu valent AUSSI pour le JSON : le format ne choisit que le
+	// contenant. ⚠️ Structure NEUVE à chaque Unmarshal : les champs absents du JSON
+	// ne sont pas remis à zéro, un `p` réutilisé garderait le journal précédent et
+	// le test passerait pour de mauvaises raisons.
+	o = defaultExportOpts()
+	o.Reasoning = false
 	b, _ = conv.ExportJSON(o)
-	var sansLog exportPayload
-	if err := json.Unmarshal(b, &sansLog); err != nil {
+	var sansRaison exportPayload
+	if err := json.Unmarshal(b, &sansRaison); err != nil {
 		t.Fatal(err)
 	}
-	if len(sansLog.Log) != 0 {
-		t.Fatalf("journal présent malgré --messages-only : %d événements", len(sansLog.Log))
+	for _, ev := range sansRaison.Log {
+		if _, ok := ev.Delta["reasoning_content"]; ok {
+			t.Fatal("raisonnement présent dans le JSON malgré l'option coupée")
+		}
 	}
-	if len(sansLog.Messages) == 0 {
-		t.Fatal("messages perdus avec --messages-only")
+	if len(sansRaison.Messages) == 0 || len(sansRaison.Log) == 0 {
+		t.Fatal("le JSON a été vidé alors que seule la réflexion était exclue")
 	}
 }
 
-// La sonde alimente le curseur de portée et la taille annoncée : elle doit
-// rendre la taille EXACTE du fichier qui serait téléchargé avec les mêmes
-// options, sinon l'interface annonce un poids qu'elle ne tient pas.
-func TestHandleChatExportProbe(t *testing.T) {
+// Le curseur de portée est borné par le nombre d'échanges publié dans l'état de
+// la conversation : sans lui, l'interface ne saurait pas jusqu'où aller.
+func TestChatStatePublieLeNombreDEchanges(t *testing.T) {
 	convDeTest(t)
-	probe := func(q string) (size, turns int) {
-		rr := httptest.NewRecorder()
-		handleChatExport(rr, httptest.NewRequest("GET", "/api/chat/export?probe=1&"+q, nil))
-		if rr.Code != 200 {
-			t.Fatalf("%s : HTTP %d", q, rr.Code)
-		}
-		var out struct {
-			Size  int `json:"size"`
-			Turns int `json:"turns"`
-		}
-		if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
-			t.Fatal(err)
-		}
-		return out.Size, out.Turns
+	if n, _ := conv.state()["turns"].(int); n != 1 {
+		t.Fatalf("échanges = %v ; le fil de test en a 1", conv.state()["turns"])
 	}
-	download := func(q string) int {
-		rr := httptest.NewRecorder()
-		handleChatExport(rr, httptest.NewRequest("GET", "/api/chat/export?"+q, nil))
-		return rr.Body.Len()
+	conv.mu.Lock()
+	conv.Log = append(conv.Log, LogEvent{Seq: 6, TS: 6, Delta: map[string]any{"user": "et 3+3 ?"}})
+	conv.mu.Unlock()
+	if n, _ := conv.state()["turns"].(int); n != 2 {
+		t.Fatalf("échanges = %v après un second tour", conv.state()["turns"])
 	}
-	for _, q := range []string{"", "reasoning=0", "format=json", "turns=1"} {
-		if s, _ := probe(q); s != download(q) {
-			t.Errorf("q=%q : sonde %d o, téléchargement %d o", q, s, download(q))
-		}
-	}
-	// Le compte d'échanges ne dépend PAS des options : c'est la borne du curseur,
-	// elle ne doit pas rétrécir quand on réduit la portée.
-	if _, n := probe("turns=1"); n != 1 {
-		t.Errorf("échanges comptés = %d ; le fil de test en a 1", n)
-	}
-	if got := conv.countTurns(); got != 1 {
-		t.Errorf("countTurns = %d", got)
+	// Conversation vide : zéro échange, c'est ce qui déclenche « rien à exporter ».
+	conv.Reset()
+	if n, _ := conv.state()["turns"].(int); n != 0 {
+		t.Fatalf("échanges = %v sur un fil vide", conv.state()["turns"])
 	}
 }
 

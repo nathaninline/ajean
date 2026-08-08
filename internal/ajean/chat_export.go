@@ -20,24 +20,24 @@ import (
 // personne ne peut les récupérer. C'est une régression pour qui relisait ses
 // échanges, et ce fichier la répare.
 //
-// Deux formats : le Markdown est fait pour être LU (et se taille avec des
-// options — un fil relu pour retrouver une réponse n'a que faire des mille
-// lignes de raisonnement qui l'ont produite), le JSON est fait pour être
-// RETRAITÉ et reste fidèle par défaut.
+// Deux formats pour un même contenu : le Markdown est fait pour être LU, le
+// JSON pour être RETRAITÉ. Les options de contenu (raisonnements, outils,
+// portée) sont les MÊMES pour les deux — le format ne choisit que le
+// contenant. Un fil relu pour retrouver une réponse n'a que faire des mille
+// lignes de raisonnement qui l'ont produite, et ça vaut dans les deux formats.
 
 // exportOpts décrit ce qu'on veut sortir. Le zéro de la structure n'est PAS un
 // défaut utilisable (tout serait à false) : passer par defaultExportOpts.
 type exportOpts struct {
 	Format    string // "md" | "json"
-	Reasoning bool   // Markdown : inclure les blocs de raisonnement
-	Tools     bool   // Markdown : inclure les appels d'outils
-	Results   bool   // Markdown : inclure la sortie des outils (implique Tools)
+	Reasoning bool   // inclure les blocs de raisonnement
+	Tools     bool   // inclure les appels d'outils
+	Results   bool   // inclure la sortie des outils (exige Tools)
 	Turns     int    // 0 = tout le fil ; N = les N derniers échanges
-	JSONFull  bool   // JSON : joindre le journal d'affichage en plus des messages
 }
 
 func defaultExportOpts() exportOpts {
-	return exportOpts{Format: "md", Reasoning: true, Tools: true, Results: true, JSONFull: true}
+	return exportOpts{Format: "md", Reasoning: true, Tools: true, Results: true}
 }
 
 // exportOptsFromQuery lit les options d'une requête. Toute clé absente garde sa
@@ -64,7 +64,6 @@ func exportOptsFromQuery(q map[string][]string) exportOpts {
 	o.Reasoning = flag("reasoning", o.Reasoning)
 	o.Tools = flag("tools", o.Tools)
 	o.Results = flag("results", o.Results)
-	o.JSONFull = flag("full", o.JSONFull)
 	if v, ok := get("turns"); ok {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			o.Turns = n
@@ -105,11 +104,50 @@ func (c *Conversation) ExportJSON(o exportOpts) ([]byte, error) {
 		ExportedAt: time.Now().Format(time.RFC3339),
 		CtxUsed:    ctxUsed,
 		Messages:   msgs,
-	}
-	if o.JSONFull {
-		p.Log = log
+		Log:        filterLog(log, o),
 	}
 	return json.MarshalIndent(p, "", "  ")
+}
+
+// filterLog applique au journal les MÊMES cases que le Markdown. Les deux
+// formats avaient auparavant des options distinctes (le JSON proposait un
+// obscur « journal d'affichage » à la place des trois autres) : personne ne
+// pouvait deviner ce que ça changeait, et cocher une case n'avait pas le même
+// sens selon le format choisi juste au-dessus. Le format ne décide plus que du
+// contenant ; ce qu'on emporte se règle une fois pour toutes.
+func filterLog(log []LogEvent, o exportOpts) []LogEvent {
+	if o.Reasoning && o.Tools && o.Results {
+		return log
+	}
+	out := make([]LogEvent, 0, len(log))
+	for _, ev := range log {
+		if _, ok := ev.Delta["reasoning_content"]; ok && !o.Reasoning {
+			continue
+		}
+		if tu, ok := ev.Delta["tool_used"].(map[string]any); ok {
+			if !o.Tools {
+				continue
+			}
+			if !o.Results {
+				// Copie : l'événement appartient à la conversation vivante, le
+				// modifier en place amputerait le fil affiché dans les navigateurs.
+				cp := make(map[string]any, len(tu))
+				for k, v := range tu {
+					if k != "result" {
+						cp[k] = v
+					}
+				}
+				d := make(map[string]any, len(ev.Delta))
+				for k, v := range ev.Delta {
+					d[k] = v
+				}
+				d["tool_used"] = cp
+				ev.Delta = d
+			}
+		}
+		out = append(out, ev)
+	}
+	return out
 }
 
 // lastTurnsMessages garde les n derniers échanges de la vue modèle, un échange
@@ -282,7 +320,7 @@ func exportBody(o exportOpts) ([]byte, string, string, error) {
 //
 // Options de contenu, les mêmes que la fenêtre d'export de l'interface :
 //
-//	--no-reasoning  --no-tools  --no-results  --last N  --messages-only
+//	--no-reasoning  --no-tools  --no-results  --last N
 //
 // La conversation est relue depuis la base à chaque appel : la commande marche
 // pendant que le service tourne (bbolt n'est jamais gardé ouvert, voir store.go).
@@ -302,8 +340,6 @@ func cmdExport(args []string) error {
 			o.Tools, o.Results = false, false
 		case "--no-results":
 			o.Results = false
-		case "--messages-only":
-			o.JSONFull = false
 		case "--last":
 			if i+1 >= len(args) {
 				return fmt.Errorf("--last attend un nombre d'échanges")
@@ -352,40 +388,8 @@ func cmdExport(args []string) error {
 	return nil
 }
 
-// countTurns compte les échanges du journal d'affichage (un échange = un
-// message utilisateur). C'est la borne du curseur de portée dans l'interface :
-// proposer « 25 derniers échanges » sur un fil qui en compte trois n'avait
-// aucun sens, et ne disait pas non plus combien il y en avait.
-func (c *Conversation) countTurns() int {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	n := 0
-	for _, ev := range c.Log {
-		if _, ok := ev.Delta["user"]; ok {
-			n++
-		}
-	}
-	return n
-}
-
-// handleChatExport sert la conversation en téléchargement. Options en paramètres
-// d'URL (voir exportOptsFromQuery) ; sans aucun paramètre, c'est l'export complet.
-//
-// Avec `probe=1`, on ne renvoie PAS le fichier mais sa taille et le nombre
-// d'échanges disponibles : l'interface annonce ainsi le poids réel avant de
-// télécharger. Le rendu est fait puis jeté, ce qui coûte quelques millisecondes
-// et évite d'entretenir un second calcul de taille qui finirait par mentir.
 func handleChatExport(w http.ResponseWriter, r *http.Request) {
 	o := exportOptsFromQuery(r.URL.Query())
-	if r.URL.Query().Get("probe") == "1" {
-		body, _, _, err := exportBody(o)
-		if err != nil {
-			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
-			return
-		}
-		sendJSON(w, 200, map[string]any{"ok": true, "size": len(body), "turns": conv.countTurns()})
-		return
-	}
 	body, ctype, ext, err := exportBody(o)
 	if err != nil {
 		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})

@@ -1065,5 +1065,6 @@ button:hover{border-color:var(--dim);color:var(--text)}
 .xr-range:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(--accent-bg)}
 .xr-range:focus-visible::-moz-range-thumb{box-shadow:0 0 0 3px var(--accent-bg)}
 .xr-range:disabled{cursor:default;opacity:.5}
-.xr-legend{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:8px;font-size:12px}
-.xr-legend .xr-size{color:var(--dim);font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
+/* Conversation vide : un seul message centré à la place des réglages. */
+.xempty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:44px 20px;text-align:center;color:var(--text);font-size:14px}
+.xempty-i{font-size:30px;line-height:1;color:var(--dim);opacity:.7}
