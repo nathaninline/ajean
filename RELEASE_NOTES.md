@@ -1,44 +1,48 @@
-Une version de corrections, née de vos retours sur la 0.8.0 : un moteur qui refusait de démarrer sans jamais le dire, et des presets qui se mélangeaient.
+Une version d'audit. Aucune fonctionnalité nouvelle : une relecture du cœur du code, et la correction de ce qu'elle a mis au jour. Deux de ces défauts pouvaient vous mordre pour de bon.
 
-## « ajean start » ne ment plus
+## Le mode agent redevient un vrai interrupteur
 
-Le cas le plus pénible remonté cette semaine : `ajean start` répondait `[ok] ajean-engine: activating`, puis `ajean test` répondait « /health ne répond pas ». Rien dans les deux messages ne permettait de comprendre.
+L'API de chat acceptait, dans le corps de la requête, une surcharge qui **rallumait** le mode agent. Autrement dit : agent éteint sur la machine, mais un client qui envoyait le bon drapeau récupérait quand même le shell, l'écriture de fichiers et les outils MCP. Comme l'API de pilotage n'est pas protégée par défaut et écoute sur toutes les interfaces, l'interrupteur ne garantissait rien sur un réseau local partagé.
 
-L'explication tenait à une nuance de systemd. Un service qui meurt au lancement est relancé toutes les trois secondes, et pendant ces trois secondes il est en `activating`, exactement comme un moteur en train de charger un modèle. AJEAN prenait donc un échec en boucle pour un démarrage en cours. Il distingue désormais les deux : un vrai chargement reste annoncé comme tel (un gros .gguf prend des minutes, c'est normal), une boucle d'échec affiche l'erreur, les vingt dernières lignes du journal et quoi corriger.
+Désormais une surcharge ne peut que **restreindre**. Ce qui est éteint sur la machine ne peut plus être rallumé par une requête, et couper l'agent coupe aussi, du même geste, l'accès web qui en dépend. Deux tests verrouillent la règle dans les deux sens.
 
-Mieux : `ajean start` et `ajean restart` vérifient d'abord ce sans quoi le moteur ne peut pas démarrer, et refusent de lancer un service condamné. Moteur absent, modèle non renseigné, fichier .gguf introuvable : c'est dit tout de suite, avec la commande qui répare.
+Le champ hérité qui portait cette surcharge venait du temps où l'ancien portail gérait ses propres interrupteurs. Il reste accepté, mais borné.
 
-## Un modèle peut vivre où vous voulez
+## Une base illisible ne désarme plus l'authentification
 
-`MODEL=/home/moi/modeles/mon-modele.gguf` était refusé si le dossier n'avait pas été déclaré au préalable dans l'interface web. Le moteur mourait alors en boucle sur un « dossier non autorisé » que personne ne voyait passer, et le seul remède connu consistait à ouvrir l'interface pour y ajouter le dossier. Un utilisateur l'a trouvé tout seul, à tâtons ; ce n'était pas une découverte à lui imposer.
+Quand aucune clé de pilotage n'est enregistrée, l'API est ouverte : c'est le confort du local. Mais la lecture de cette clé traitait « je n'ai pas pu lire la base » exactement comme « il n'y a pas de clé ». Une base momentanément verrouillée par une commande lancée à côté suffisait donc, en théorie, à ouvrir l'API le temps de la contention.
 
-Ce garde-fou existe pour empêcher l'interface web de supprimer un fichier n'importe où sur la machine. Il n'avait aucune raison de s'appliquer à « ouvrir ce modèle en lecture ». Un chemin absolu vers un .gguf qui existe est maintenant accepté tel quel, quel que soit le disque. La protection reste entière là où elle sert.
+La lecture des secrets distingue maintenant les deux cas, et l'authentification **ferme** en cas de doute (503) au lieu d'ouvrir.
 
-## La configuration s'explique enfin
+## Le bouton d'envoi ne peut plus rester bloqué
 
-Depuis que la configuration vit en base, `ajean edit` déroulait dans votre éditeur les seules clés déjà définies. Sur une installation neuve, cela donnait un fichier quasiment vide : impossible de deviner quoi écrire.
+Avant chaque tour, AJEAN vérifie que le moteur répond. Cet appel n'avait aucun délai maximum. Un moteur qui accepte la connexion sans jamais répondre, ce qui est exactement ce que fait un très gros modèle pendant son chargement, laissait donc l'envoi du message suspendu indéfiniment, sans erreur et sans retour. Il abandonne maintenant au bout de trois secondes et vous dit que le modèle n'est pas prêt.
 
-L'éditeur propose désormais un squelette commenté. Chaque réglage utile y figure avec son rôle et son défaut (BIN, MODEL, CTX, NGL, batch, threads, cache KV, raisonnement, mémoire, EXTRA_ARGS). Les valeurs que vous avez déjà réglées sont en clair, les autres restent commentées, donc inactives, et toute clé que le squelette ne connaît pas est conservée en fin de fichier.
+## L'accès distant ne peut plus se dédoubler
 
-Les étapes affichées à la fin de `ajean install` ont été corrigées dans la foulée : elles oubliaient `ajean llamacpp install`, sans quoi la clé BIN reste vide et le moteur ne peut pas démarrer.
+Redémarrer le lien depuis l'interface arrêtait la boucle de connexion, mais la session en cours, elle, continuait de vivre : elle n'écoutait aucun signal d'arrêt et attendait la mort naturelle du WebSocket, qui n'arrive pas tant que le relais répond. Le nouveau tunnel s'ouvrait donc pendant que l'ancien tenait encore, et le relais voyait deux agents pour une seule machine.
 
-## Presets : un nouveau preset repart propre (issue #17)
+L'arrêt est maintenant immédiat et attendu : une session se ferme quand on le lui demande, et la suivante ne démarre qu'après.
 
-Créer un preset avec le bouton « + » recopiait la configuration active en entier. Les réglages du modèle précédent (les experts déportés sur le CPU, la répartition entre cartes, le contexte, jusqu'au modèle lui-même) se mélangeaient donc aux options cochées pour le nouveau, et il fallait penser à tout nettoyer à la main.
+Dans la foulée, le délai entre deux tentatives de reconnexion se remet à zéro après une session qui a tenu. Il grimpait sans jamais redescendre et finissait collé à trente secondes, y compris pour rattraper un lien qui venait de fonctionner des heures.
 
-Un nouveau preset ne reprend plus que ce qui relève de la machine : le moteur, l'adresse et le port. Tout le reste part des valeurs par défaut, que vous ajustez pour ce modèle-là.
+## Le flux de chat ne relit plus tout le fil à chaque mot
 
-## Presets : les guillemets ne sont plus mangés
+Pour envoyer les nouveaux événements à votre navigateur, le serveur reparcourait la totalité du journal de conversation, à chaque token généré, et pour chaque appareil connecté, en tenant le verrou que la génération elle-même attend. Sur une longue conversation, c'est un coût qui grandit avec l'historique et qui ralentit ce qu'il est censé diffuser.
 
-Le rapport parlait de contenu tronqué et de guillemets non appariés, et c'était exact, avec une cause plus profonde qu'il n'y paraissait. En relisant une ligne de configuration, AJEAN retirait tout guillemet en début et en fin de valeur, sans vérifier qu'il s'agissait d'une paire. Une valeur comme :
+Le journal étant trié, la recherche du premier événement neuf se fait par dichotomie. Le coût ne dépend plus de la longueur de la conversation.
 
-```
-EXTRA_ARGS=--jinja --chat-template-file "/etc/ajean/gabarit.jinja"
-```
+## La configuration n'est plus relue depuis le disque cent fois par tour
 
-ressortait donc amputée de son guillemet final, déséquilibrée, et repartait ainsi dans le preset enregistré. Le défaut existait des deux côtés, dans le moteur comme dans l'interface. Seule une paire entourante est maintenant retirée, et l'écriture est faite pour être relue à l'identique. Un test verrouille l'aller-retour.
+La base de données est délibérément fermée entre deux opérations : c'est ce qui permet aux commandes du terminal de fonctionner pendant que le service tourne. Mais la boucle d'inférence relisait le port, la clé et le seuil de compactage à chaque itération, et le compactage se re-testait après chaque appel d'outil. Un tour agentique un peu fourni rouvrait le fichier une centaine de fois.
 
-Dans la même zone : EXTRA_ARGS était découpé sur les espaces sans tenir compte des guillemets, si bien qu'un chemin contenant une espace devenait deux arguments et que llama-server refusait de démarrer. Le découpage respecte désormais les guillemets, comme le ferait un shell.
+Un cache de lecture s'interpose, invalidé par toute écriture locale, par une écriture venue d'un autre processus (date et taille du fichier) et, en dernier filet, par l'âge. Le comportement ne change pas d'un iota, le travail inutile disparaît.
+
+## Le reste
+
+Les erreurs du moteur sont classées sur leur type plutôt que sur le texte du message : « connexion refusée » d'un Windows en français ne ressemblait à aucun des motifs anglais reconnus, et l'utilisateur recevait alors l'erreur brute au lieu de l'explication.
+
+Les trois compactions (début de tour, fin de tour, bouton manuel) déroulaient la même douzaine de lignes recopiées ; elles partagent maintenant un seul chemin, ce qui ferme la porte aux corrections qui n'atterrissaient que dans une des trois copies. La ligne de journal de la compaction de secours comparait le résultat à lui-même, elle compare enfin l'avant et l'après. Deux champs de l'API de chat que plus personne ne lisait depuis que la conversation vit côté serveur ont été retirés. Les serveurs HTTP posent un délai de lecture des en-têtes, pour qu'une connexion qui n'envoie jamais rien ne retienne pas de ressources.
 
 ## Mise à jour
 
@@ -46,4 +50,4 @@ Dans la même zone : EXTRA_ARGS était découpé sur les espaces sans tenir comp
 ajean update
 ```
 
-Ou, depuis l'interface, le bandeau de mise à jour. Rien à migrer : les presets, la configuration et la mémoire sont inchangés.
+Rien à migrer : presets, configuration et mémoire sont inchangés.

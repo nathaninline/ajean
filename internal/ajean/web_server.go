@@ -69,7 +69,12 @@ func cmdWeb(args []string) error {
 		fmt.Printf("%s front OpenAI public prêt (activation en direct via l'UI ; état: %v)\n", green("[oai]"), oaiPublicEnabled())
 		startAppLink(mux)
 	}
-	return http.Serve(ln, mux)
+	// ReadHeaderTimeout : sans lui, une connexion qui n'envoie jamais sa requête
+	// immobilise une goroutine pour toujours — et ce port écoute sur 0.0.0.0.
+	// Surtout PAS de WriteTimeout ici : il couperait les flux SSE du chat, qui
+	// restent ouverts aussi longtemps que l'utilisateur regarde la page.
+	srv := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+	return srv.Serve(ln)
 }
 
 // newWebMux construit le routeur HTTP de l'UI web. Extrait de cmdWeb pour être

@@ -178,3 +178,50 @@ func TestReplayMarksReplaceWhenClientSawPartOfBlock(t *testing.T) {
 		t.Fatalf("replace ne doit PAS être posé quand le client n'a rien vu du bloc")
 	}
 }
+
+// Le direct sélectionne les événements neufs par dichotomie (c.Log est trié par
+// Seq). Deux cas limites doivent rester justes : un journal TRONQUÉ, dont le
+// premier Seq est très supérieur au `from` du client, et un client déjà à jour.
+func TestLiveSelectionSurJournalTronque(t *testing.T) {
+	c := newTestConv()
+	// Journal amputé de son début, comme après la troncature à maxLogEvents.
+	c.Log = []LogEvent{
+		{Seq: 500, Delta: map[string]any{"user": "a"}},
+		{Seq: 501, Delta: map[string]any{"user": "b"}},
+		{Seq: 502, Delta: map[string]any{"user": "c"}},
+	}
+	c.Seq = 502
+
+	for _, tc := range []struct {
+		from  int
+		first int // premier seq attendu
+	}{
+		{from: 0, first: 500},   // client neuf : il reçoit tout ce qui reste
+		{from: 500, first: 501}, // au milieu du journal
+		{from: 501, first: 502},
+	} {
+		ctx, cancel := context.WithCancel(context.Background())
+		got := make(chan int, 8)
+		go c.Subscribe(ctx, tc.from, func(m map[string]any) bool {
+			if s, ok := m["seq"].(int); ok {
+				got <- s
+			}
+			return true
+		})
+		waitSeq(t, got, tc.first)
+		cancel()
+	}
+
+	// Client déjà à jour : rien à rejouer, mais le direct doit suivre.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	got := make(chan int, 8)
+	go c.Subscribe(ctx, 502, func(m map[string]any) bool {
+		if s, ok := m["seq"].(int); ok {
+			got <- s
+		}
+		return true
+	})
+	c.appendDelta(c.epoch, map[string]any{"content": "suite"})
+	waitSeq(t, got, 503)
+}

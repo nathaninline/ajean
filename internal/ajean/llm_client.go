@@ -8,10 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 	"unicode/utf8"
 )
 
@@ -472,22 +475,53 @@ const thinkClose = "</think>"
 // « actively refused » (Windows) — arrive quand le moteur redémarre ou charge
 // encore le modèle ; l'erreur brute (« dial tcp 127.0.0.1:8080… ») ne dit rien à
 // l'utilisateur. On garde le silence sur une annulation volontaire (/stop).
+// On classe d'abord sur les erreurs TYPÉES (errors.Is / net.Error) : la
+// reconnaissance par sous-chaîne dépend de la langue et du format des messages
+// de l'OS, et « connexion refusée » d'un Windows français ne ressemble à aucun
+// des motifs anglais. Les sous-chaînes restent en second rideau, pour les
+// erreurs enveloppées par une bibliothèque qui perd le type d'origine.
 func friendlyLLMError(err error) error {
 	if err == nil {
 		return nil
 	}
+	if errors.Is(err, context.Canceled) {
+		return err // /stop : pas d'alarme
+	}
+	switch {
+	case errors.Is(err, syscall.ECONNREFUSED):
+		return errEngineDown()
+	case errors.Is(err, context.DeadlineExceeded), isNetTimeout(err):
+		return fmt.Errorf("⚠️ Le moteur (llama-server) met trop de temps à répondre (port %d) — il est peut-être surchargé ou en plein chargement. Réessaie dans un instant.", LLMPort())
+	case errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, syscall.ECONNRESET):
+		return errEngineReset()
+	}
 	low := strings.ToLower(err.Error())
 	switch {
 	case strings.Contains(low, "context canceled"):
-		return err // /stop : pas d'alarme
+		return err
 	case strings.Contains(low, "connection refused"), strings.Contains(low, "actively refused"), strings.Contains(low, "connectex"), strings.Contains(low, "no connection could be made"):
-		return fmt.Errorf("⚠️ Le moteur (llama-server) ne répond pas sur le port %d. Il est probablement en train de démarrer ou de charger le modèle — réessaie dans quelques secondes.", LLMPort())
+		return errEngineDown()
 	case strings.Contains(low, "timeout"), strings.Contains(low, "deadline exceeded"):
 		return fmt.Errorf("⚠️ Le moteur (llama-server) met trop de temps à répondre (port %d) — il est peut-être surchargé ou en plein chargement. Réessaie dans un instant.", LLMPort())
 	case strings.Contains(low, "eof"), strings.Contains(low, "connection reset"):
-		return fmt.Errorf("⚠️ Connexion au moteur (llama-server, port %d) interrompue — il a peut-être redémarré. Réessaie.", LLMPort())
+		return errEngineReset()
 	}
 	return err
+}
+
+func errEngineDown() error {
+	return fmt.Errorf("⚠️ Le moteur (llama-server) ne répond pas sur le port %d. Il est probablement en train de démarrer ou de charger le modèle — réessaie dans quelques secondes.", LLMPort())
+}
+
+func errEngineReset() error {
+	return fmt.Errorf("⚠️ Connexion au moteur (llama-server, port %d) interrompue — il a peut-être redémarré. Réessaie.", LLMPort())
+}
+
+// isNetTimeout : une erreur réseau qui se déclare elle-même comme un délai
+// dépassé (net.Error.Timeout), quel que soit son libellé.
+func isNetTimeout(err error) bool {
+	var ne net.Error
+	return errors.As(err, &ne) && ne.Timeout()
 }
 
 func runChat(ctx context.Context, messages []Message, temperature float64, caps Caps, cb ChatCallback) ([]Message, error) {
@@ -575,8 +609,11 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			if compactEnabled() && !compactedRetry {
 				if c, changed := compactMessages(ctx, messages, caps); changed {
 					compactedRetry = true
-					messages = c
+					// ⚠️ Journaliser AVANT d'installer le résultat : l'ancien ordre
+					// passait `messages` déjà remplacé comme état « avant », donc la
+					// ligne comparait le résultat à lui-même et n'apprenait rien.
 					logCompact("réactif", 0, messages, c, changed)
+					messages = c
 					// Même publication qu'en cours de tour : sans elle, la compaction de
 					// secours ne survit pas à la fin du tour et le prompt re-déborde au
 					// message suivant.
@@ -1023,9 +1060,17 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 	}
 }
 
+// healthClient : /health doit répondre tout de suite ou pas du tout. Sans
+// timeout (http.Get et son client par défaut n'en ont aucun), un moteur qui
+// accepte la connexion sans jamais répondre — cas classique d'un très gros
+// modèle en cours de chargement, ou d'un process figé — bloquait healthCheck
+// indéfiniment. Et comme StartTurn commence par là, /api/chat/send restait
+// pendu : l'utilisateur voyait un bouton d'envoi qui ne rendait jamais la main.
+var healthClient = &http.Client{Timeout: 3 * time.Second}
+
 // healthCheck pings llama.cpp's /health endpoint.
 func healthCheck() bool {
-	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/health", LLMPort()))
+	resp, err := healthClient.Get(fmt.Sprintf("http://localhost:%d/health", LLMPort()))
 	if err != nil {
 		return false
 	}

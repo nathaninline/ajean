@@ -214,7 +214,8 @@ func linkPrintIdentity() error {
 var appLink struct {
 	mu      sync.Mutex
 	running bool
-	stop    chan struct{}
+	stop    context.CancelFunc
+	done    chan struct{} // fermé quand la boucle a vraiment rendu la main
 }
 
 // appOwnsLink : vrai dans le process de l'app de bureau, qui pilote le tunnel
@@ -238,21 +239,25 @@ func startAppLink(mux *http.ServeMux) {
 	if token == "" {
 		return
 	}
-	stop := make(chan struct{})
-	appLink.running, appLink.stop = true, stop
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	appLink.running, appLink.stop, appLink.done = true, cancel, done
 	handler := newLinkHandler(mux)
 	oaiTLS := oaiTLSConfig()
 	go func() {
+		defer close(done)
 		backoff := time.Second
-		for {
-			select {
-			case <-stop:
-				return
-			default:
+		for ctx.Err() == nil {
+			started := time.Now()
+			_ = runLinkSession(ctx, token, handler, oaiTLS)
+			// Une session qui a TENU repart de zéro. Sans cette remise, le délai
+			// grimpait de coupure en coupure et restait collé à 30 s pour toujours,
+			// y compris pour reconnecter un lien qui venait de vivre des heures.
+			if time.Since(started) > time.Minute {
+				backoff = time.Second
 			}
-			_ = runLinkSession(token, handler, oaiTLS)
 			select {
-			case <-stop:
+			case <-ctx.Done():
 				return
 			case <-time.After(backoff):
 			}
@@ -266,15 +271,25 @@ func startAppLink(mux *http.ServeMux) {
 	}()
 }
 
-// stopAppLink arrête la boucle interne (la session en cours se termine d'elle-même).
+// stopAppLink arrête la boucle interne ET attend qu'elle ait rendu la main.
+// L'attente est ce qui garantit qu'un redémarrage ne fait pas cohabiter deux
+// sessions : sans elle, le nouveau tunnel s'ouvrait pendant que l'ancien vivait
+// encore, et le relais voyait deux agents pour la même machine.
 func stopAppLink() {
 	appLink.mu.Lock()
-	defer appLink.mu.Unlock()
 	if !appLink.running {
+		appLink.mu.Unlock()
 		return
 	}
-	close(appLink.stop)
-	appLink.running = false
+	cancel, done := appLink.stop, appLink.done
+	appLink.running, appLink.stop, appLink.done = false, nil, nil
+	appLink.mu.Unlock()
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second): // filet : on ne bloque pas l'UI indéfiniment
+	}
 }
 
 func appLinkRunning() bool {
@@ -519,8 +534,14 @@ func withLocalAuth(next http.Handler) http.Handler {
 // runLinkSession opens one WebSocket→yamux session and serves it until it dies.
 // It blocks for the lifetime of the connection and returns the error that ended
 // it (so the caller can reconnect).
-func runLinkSession(token string, handler http.Handler, oaiTLS *tls.Config) error {
-	ctx := context.Background()
+// runLinkSession tient UNE session de tunnel, jusqu'à ce qu'elle meure ou que
+// ctx soit annulé. Le contexte est indispensable : sans lui, un « arrêter le
+// lien » ne prenait effet qu'à la mort naturelle du WebSocket, qui n'arrive
+// jamais tant que le relais répond. Un redémarrage (stop puis start enchaînés)
+// lançait donc une seconde session pendant que la première vivait encore : deux
+// agents connectés au relais pour la même machine, une seule conversation
+// derrière.
+func runLinkSession(ctx context.Context, token string, handler http.Handler, oaiTLS *tls.Config) error {
 	dialCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 
@@ -569,7 +590,10 @@ func runLinkSession(token string, handler http.Handler, oaiTLS *tls.Config) erro
 	// va au HTTP (comportement historique inchangé).
 	httpLn := newChanListener(sess.Addr())
 	defer httpLn.Close()
-	srv := &http.Server{Handler: handler}
+	// Même garde-fou que le serveur local : un stream du tunnel qui n'envoie
+	// jamais d'en-têtes ne doit pas retenir une goroutine indéfiniment. Pas de
+	// WriteTimeout : le chat E2E est un flux SSE de longue durée.
+	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 30 * time.Second}
 	go srv.Serve(httpLn)
 
 	var oaiLn *chanListener
@@ -579,9 +603,19 @@ func runLinkSession(token string, handler http.Handler, oaiTLS *tls.Config) erro
 		go runOAIFront(oaiLn, oaiTLS)
 	}
 
+	// Annulation : fermer la session yamux débloque l'Accept ci-dessous, qui est
+	// le seul point où cette fonction attend. La goroutine meurt avec la session.
+	go func() {
+		<-ctx.Done()
+		_ = sess.Close()
+	}()
+
 	for {
 		stream, err := sess.Accept()
 		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err() // arrêt demandé, pas une panne
+			}
 			return fmt.Errorf("accept: %w", err)
 		}
 		go demuxTunnelStream(stream, httpLn, oaiLn)

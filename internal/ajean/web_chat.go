@@ -11,15 +11,30 @@ import (
 	"time"
 )
 
+// capsFromBody dérive les capacités d'un tour à partir de la configuration
+// machine et des surcharges portées par la requête.
+//
+// ⚠️ Une surcharge ne peut que RESTREINDRE. Elle pouvait auparavant rallumer le
+// mode agent : un simple {"agent":true} redonnait bash, write, edit et les
+// outils MCP alors que l'interrupteur de la machine était sur OFF. Comme l'API
+// n'est pas protégée par défaut et écoute sur 0.0.0.0, l'interrupteur ne
+// garantissait donc rien. Il redevient une vraie fermeture : ce qui est éteint
+// sur la machine ne peut pas être rallumé par un client.
 func capsFromBody(body chatReq) Caps {
 	caps := globalCaps()
-	if body.Agent != nil {
-		caps.Agent = *body.Agent
-	} else if body.Tools != nil || body.Skills != nil {
-		caps.Agent = (body.Tools != nil && *body.Tools) || (body.Skills != nil && *body.Skills)
+	switch {
+	case body.Agent != nil:
+		caps.Agent = caps.Agent && *body.Agent
+	case body.Tools != nil || body.Skills != nil:
+		want := (body.Tools != nil && *body.Tools) || (body.Skills != nil && *body.Skills)
+		caps.Agent = caps.Agent && want
 	}
 	if body.Internet != nil {
-		caps.Internet = *body.Internet && crawlReachable()
+		caps.Internet = caps.Internet && *body.Internet
+	}
+	// Les outils dépendent du mode agent : agent coupé, tout est coupé.
+	if !caps.Agent {
+		caps.Internet = false
 	}
 	return caps
 }

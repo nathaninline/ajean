@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -198,6 +199,46 @@ func (c *Conversation) compactLogLocked() {
 	c.Log = out
 }
 
+// compactAndPublish exécute UNE compaction et en publie tout le cycle de vie :
+// bannière de progression, journal, installation du résultat, jauge de contexte.
+// Renvoie l'historique (compacté ou inchangé) et s'il a changé.
+//
+// Les trois compactions (début de tour, fin de tour, bouton manuel) déroulaient
+// la même douzaine de lignes recopiées, y compris le calcul du surcoût fixe :
+// une correction dans l'une ne suivait pas dans les deux autres.
+//
+// Le surcoût, justement : le contexte RÉEL mesuré moins l'estimation des
+// messages donne ce que l'estimation ne voit pas (prompt système injecté,
+// schémas d'outils, gabarit de chat). On le rajoute à l'estimation d'après
+// compaction, sinon la jauge s'effondre puis resaute au tour suivant.
+func (c *Conversation) compactAndPublish(ctx context.Context, epoch int, phase string, msgs []Message, ctxUsed int, caps Caps) ([]Message, bool) {
+	c.appendDelta(epoch, map[string]any{"compacting": true})
+	compacted, changed := compactMessages(ctx, msgs, caps)
+	c.appendDelta(epoch, map[string]any{"compacting": false})
+	logCompact(phase, ctxUsed, msgs, compacted, changed)
+	if !changed {
+		// Seuil franchi mais compaction sans effet (torse vide, ou réduction sous
+		// le minimum exigé) : on le DIT. Retirer la bannière sans un mot donnait,
+		// vu de l'UI, « le compactage automatique ne fait rien ».
+		c.appendDelta(epoch, map[string]any{"compact_noop": true})
+		return msgs, false
+	}
+	overhead := ctxUsed - estimateTokens(msgs)
+	if overhead < 0 {
+		overhead = 0
+	}
+	est := estimateTokens(compacted) + overhead
+	c.mu.Lock()
+	if c.epoch == epoch {
+		c.Messages = compacted
+		c.CtxUsed = est // le vrai compte reviendra avec les stats du prochain tour
+	}
+	c.mu.Unlock()
+	c.appendDelta(epoch, map[string]any{"compacted": true})
+	c.appendDelta(epoch, map[string]any{"ctx_used": est}) // fait chuter la jauge tout de suite
+	return compacted, true
+}
+
 // convState renvoie un instantané léger (pour /api/chat/state).
 func (c *Conversation) state() map[string]any {
 	c.mu.Lock()
@@ -272,46 +313,13 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 	c.mu.Unlock()
 
 	// Compaction proactive (façon Hermes) sur la vue MODÈLE uniquement ; le journal
-	// d'affichage garde le fil complet. On signale juste un toast au client.
-	// Si le contexte dépasse le seuil, le résumé (un appel modèle non streamé) va
-	// bloquer plusieurs secondes AVANT que la vraie réponse commence. On affiche
-	// une bannière « compactage en cours » pendant ce temps (sinon l'UI se fige
-	// sans aucune info), puis on la retire — que le compactage ait changé quelque
-	// chose ou non.
-	willCompact := compactWouldTrigger(msgs, ctxUsed)
-	if willCompact {
-		c.appendDelta(epoch, map[string]any{"compacting": true})
-	}
-	compacted, changed := MaybeCompact(ctx, msgs, caps, ctxUsed)
-	if willCompact {
-		logCompact("début-tour", ctxUsed, msgs, compacted, changed)
-	}
-	if changed {
-		// Surcoût fixe non compactable (prompt système injecté + schémas d'outils +
-		// gabarit) = contexte réel mesuré − estimation des messages. On le rajoute à
-		// l'estimation post-compaction pour que la jauge affiche une valeur réaliste
-		// (sinon elle chute trop bas puis resaute au tour suivant).
-		overhead := ctxUsed - estimateTokens(msgs)
-		if overhead < 0 {
-			overhead = 0
+	// d'affichage garde le fil complet. Le résumé est un appel modèle non streamé :
+	// il bloque plusieurs secondes AVANT que la vraie réponse commence, d'où la
+	// bannière de progression émise par compactAndPublish.
+	if compactWouldTrigger(msgs, ctxUsed) {
+		if out, changed := c.compactAndPublish(ctx, epoch, "début-tour", msgs, ctxUsed, caps); changed {
+			msgs = out
 		}
-		est := estimateTokens(compacted) + overhead
-		msgs = compacted
-		c.mu.Lock()
-		if c.epoch == epoch {
-			c.Messages = compacted
-			c.CtxUsed = est // le vrai compte reviendra avec les stats du tour
-		}
-		c.mu.Unlock()
-		c.appendDelta(epoch, map[string]any{"compacting": false})
-		c.appendDelta(epoch, map[string]any{"compacted": true})
-		c.appendDelta(epoch, map[string]any{"ctx_used": est}) // fait chuter la jauge tout de suite
-	} else if willCompact {
-		// Seuil franchi mais compaction sans effet (torse vide, ou réduction sous les
-		// 20% exigés) : on le DIT. Avant, on retirait juste la bannière sans un mot —
-		// vu de l'UI, « le compactage automatique ne fait rien » sans aucune trace.
-		c.appendDelta(epoch, map[string]any{"compacting": false})
-		c.appendDelta(epoch, map[string]any{"compact_noop": true})
 	}
 
 	// Prompt système personnalisé (UI → /api/sysprompt, fichier côté serveur).
@@ -414,27 +422,9 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 	if stale || ctx.Err() != nil || !compactWouldTrigger(msgs, ctxUsed) {
 		return
 	}
-	c.appendDelta(epoch, map[string]any{"compacting": true})
-	compacted, changed = compactMessages(context.Background(), msgs, caps)
-	c.appendDelta(epoch, map[string]any{"compacting": false})
-	logCompact("fin-tour", ctxUsed, msgs, compacted, changed)
-	if !changed {
-		c.appendDelta(epoch, map[string]any{"compact_noop": true})
-		return
-	}
-	overhead := ctxUsed - estimateTokens(msgs)
-	if overhead < 0 {
-		overhead = 0
-	}
-	est := estimateTokens(compacted) + overhead
-	c.mu.Lock()
-	if c.epoch == epoch {
-		c.Messages = compacted
-		c.CtxUsed = est
-	}
-	c.mu.Unlock()
-	c.appendDelta(epoch, map[string]any{"compacted": true})
-	c.appendDelta(epoch, map[string]any{"ctx_used": est})
+	// context.Background() et non ctx : le tour est terminé, son contexte peut
+	// être annulé alors que cette compaction-là doit aller au bout.
+	c.compactAndPublish(context.Background(), epoch, "fin-tour", msgs, ctxUsed, caps)
 }
 
 // CompactNow force une compaction du contexte MAINTENANT, sans attendre le seuil
@@ -466,28 +456,9 @@ func (c *Conversation) CompactNow() error {
 			c.cancel = nil
 			c.mu.Unlock()
 		}()
-		c.appendDelta(epoch, map[string]any{"compacting": true})
-		compacted, changed := compactMessages(ctx, msgs, Caps{})
-		c.appendDelta(epoch, map[string]any{"compacting": false})
-		logCompact("manuel", lastReal, msgs, compacted, changed)
-		if !changed {
-			c.appendDelta(epoch, map[string]any{"compact_noop": true})
-			return
+		if _, changed := c.compactAndPublish(ctx, epoch, "manuel", msgs, lastReal, Caps{}); changed {
+			c.persist()
 		}
-		overhead := lastReal - estimateTokens(msgs)
-		if overhead < 0 {
-			overhead = 0
-		}
-		est := estimateTokens(compacted) + overhead // + surcoût fixe (système+outils) pour une jauge réaliste
-		c.mu.Lock()
-		if c.epoch == epoch {
-			c.Messages = compacted
-			c.CtxUsed = est // feedback immédiat ; le vrai compte revient au prochain tour
-		}
-		c.mu.Unlock()
-		c.appendDelta(epoch, map[string]any{"compacted": true})
-		c.appendDelta(epoch, map[string]any{"ctx_used": est})
-		c.persist()
 	}()
 	return nil
 }
@@ -727,11 +698,16 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[st
 		// Copie des événements en attente SOUS verrou, émission HORS verrou : on
 		// n'itère jamais sur c.Log pendant que la génération peut y écrire ou que
 		// la troncature (maxLogEvents) peut le déplacer.
+		//
+		// c.Log est trié par Seq croissant : on trouve le premier événement neuf
+		// par dichotomie plutôt qu'en relisant tout. Le balayage complet coûtait
+		// la longueur du journal (jusqu'à 20 000) À CHAQUE TOKEN et pour CHAQUE
+		// appareil connecté, verrou tenu — donc au détriment de la génération
+		// elle-même. C'est quadratique sur un long fil.
+		i := sort.Search(len(c.Log), func(i int) bool { return c.Log[i].Seq > last })
 		var pending []LogEvent
-		for _, ev := range c.Log {
-			if ev.Seq > last {
-				pending = append(pending, ev)
-			}
+		if i < len(c.Log) {
+			pending = append(pending, c.Log[i:]...)
 		}
 		if len(pending) == 0 {
 			c.cond.Wait()

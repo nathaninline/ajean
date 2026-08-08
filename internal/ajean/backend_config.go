@@ -89,8 +89,10 @@ func cmdSetAPIKey(args []string) error {
 	return serviceAction("restart")
 }
 
-// ReadConfig renvoie la configuration active de llama-server.
-func ReadConfig() map[string]string { return allKV(bkConfig) }
+// ReadConfig renvoie la configuration active de llama-server. Passe par le cache
+// de lecture (store.go) : elle est relue à chaque itération de la boucle
+// d'inférence et après chaque appel d'outil.
+func ReadConfig() map[string]string { return cachedKV(bkConfig) }
 
 // SetConfigKey définit une clé de configuration. Une valeur vide la supprime.
 func SetConfigKey(key, value string) error { return putStr(bkConfig, key, value) }

@@ -19,15 +19,33 @@ import (
 // et inversement. Elle est relue à chaque requête (pas de cache) pour qu'un
 // changement de clé prenne effet sans redémarrer le serveur web.
 
-// readWebKey renvoie la clé de pilotage, ou "" si aucune n'est définie.
-func readWebKey() string { return getStr(bkState, "web_key") }
+// readWebKeyErr renvoie la clé de pilotage en distinguant « aucune clé » d'une
+// LECTURE RATÉE. La nuance est tout sauf cosmétique : sans clé, l'API est
+// ouverte. Confondre les deux, c'est ouvrir l'API parce que la base était
+// momentanément verrouillée par une commande CLI — une panne d'E/S qui désarme
+// l'authentification. requireWebAuth refuse donc plutôt que d'ouvrir.
+func readWebKeyErr() (string, error) {
+	b, err := getBytesErr(bkState, "web_key")
+	return string(b), err
+}
+
+// readWebKey renvoie la clé de pilotage, ou "" si aucune n'est définie (ou
+// illisible). Réservé à l'affichage ; toute décision d'accès passe par
+// readWebKeyErr.
+func readWebKey() string { k, _ := readWebKeyErr(); return k }
 
 // requireWebAuth wraps an HTTP handler, rejecting requests that don't present
 // the configured Bearer token. When no key is configured the handler is left
 // open (pratique en local) — cmdWeb avertit alors bruyamment au démarrage.
 func requireWebAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		key := readWebKey()
+		key, err := readWebKeyErr()
+		if err != nil {
+			// On ne sait pas si une clé protège cette API : on ferme.
+			sendJSON(w, http.StatusServiceUnavailable,
+				map[string]any{"error": "configuration illisible — réessaie dans un instant"})
+			return
+		}
 		if key == "" {
 			next(w, r)
 			return

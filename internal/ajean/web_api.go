@@ -899,29 +899,26 @@ func handleBenchLast(w http.ResponseWriter, r *http.Request) {
 }
 
 // chatReq est le corps d'une requête de chat (commun au chat clair et au chat E2E).
+//
+// `messages` et `ctx_used`, que les clients envoyaient du temps où l'historique
+// vivait dans le navigateur, ont été RETIRÉS : depuis que la conversation est
+// possédée par le serveur (chat_conversation.go), plus personne ne les lisait.
+// Les garder laissait croire qu'un client pouvait encore imposer son historique
+// ou son décompte de contexte. Un client qui les envoie encore n'est pas gêné :
+// le décodeur JSON ignore les champs qu'il ne connaît pas.
 type chatReq struct {
-	Messages    []Message `json:"messages"`
-	Temperature float64   `json:"temperature"`
-	// Optional per-request override of the agent mode (used by ajean.link
-	// agents, which carry their own toggle). nil = inherit the machine's
-	// global config. Tools/Skills sont conservés pour la rétro-compat des
-	// anciens clients relais : l'un OU l'autre à true active le mode agent.
+	Temperature float64 `json:"temperature"`
+	// Surcharges par requête, portées par les agents ajean.link qui ont leurs
+	// propres interrupteurs. nil = on prend la configuration de la machine.
+	// ⚠️ Elles ne peuvent que RESTREINDRE, jamais rallumer (voir capsFromBody).
+	// Tools/Skills : rétro-compat des anciens clients relais.
 	Agent  *bool `json:"agent"`
 	Tools  *bool `json:"tools"`
 	Skills *bool `json:"skills"`
-	// Override par requête de l'accès internet (outils web). nil = config machine.
+	// Surcharge par requête de l'accès internet (outils web).
 	Internet *bool `json:"internet"`
-	// Taille réelle du contexte au tour précédent (usage.prompt_tokens + tokens
-	// générés), rapportée par le client qui l'affiche déjà. Sert à décider du
-	// compactage sur le VRAI décompte plutôt qu'une estimation. 0 = inconnu.
-	CtxUsed int `json:"ctx_used"`
-	// Nouveau modèle « conversation serveur » : Message = texte du tour à lancer
-	// (via /api/chat/send) ; From = dernier Seq déjà vu par le client (le flux
-	// d'abonnement rejoue Log[From:] puis suit le direct).
+	// Message = texte du tour à lancer (/api/chat/send) ; From = dernier Seq déjà
+	// vu par le client (le flux d'abonnement rejoue Log[From:] puis suit le direct).
 	Message string `json:"message"`
 	From    int    `json:"from"`
 }
-
-// capsFromBody dérive les capacités du tour à partir des overrides éventuels du
-// corps de requête (agents ajean.link portant leurs propres toggles), sinon la
-// config machine.
