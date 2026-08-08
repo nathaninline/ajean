@@ -1,49 +1,36 @@
-Trois retours d'utilisateurs après la 0.8.3, trois vrais trous dans le logiciel. Ils sont bouchés.
+Une correction qui compte, et la fenêtre d'export refaite d'après vos retours.
 
-## Récupérer sa conversation
+## Le chat qui s'arrête sans un mot
 
-Jusqu'à la 0.7, l'historique vivait dans un fichier `conversation.json` qu'on pouvait ouvrir, relire et copier pour archive. La 0.8 l'a rangé dans `ajean.db`, une base binaire, verrouillée tant que le service tourne : impossible ne serait ce que de la copier. Le fil et les raisonnements étaient toujours là, mais plus personne ne pouvait les sortir. C'était une régression, et elle n'aurait pas dû passer.
+Symptôme rapporté : l'agent réfléchit, lance quelques commandes, puis s'arrête au milieu du travail et rend la main sans avoir terminé ni commenté. Aucune erreur nulle part, et dans le journal du moteur un « stop processing » parfaitement normal.
 
-Deux façons de récupérer le fil, désormais.
+La cause est dans AJEAN, pas dans le moteur. La lecture du flux de réponse s'arrête aussi bien à la fin normale qu'à la première erreur, et AJEAN ne regardait jamais laquelle des deux venait de se produire. Une connexion coupée en plein milieu était donc traitée comme une réponse terminée : le tour se refermait en silence.
 
-Depuis l'interface, dans le panneau « Actions » : un bouton exporte la conversation en Markdown (les raisonnements sont repliés sous un « Raisonnement », les appels d'outils apparaissent avec leur résultat), un autre en JSON fidèle si vous voulez retraiter les données.
+Plus ennuyeux, un cas que personne n'avait encore vu passer : quand la coupure tombait pendant que le modèle demandait un outil, l'appel à moitié reçu était exécuté quand même, avec des arguments tronqués.
 
-Depuis le terminal :
+Désormais, un flux coupé est annoncé, avec la cause exacte dans le message, et le tour est abandonné plutôt que de lancer un appel incomplet. Le texte déjà reçu reste affiché. Un arrêt que vous demandez vous même reste silencieux, comme avant.
 
-```bash
-ajean export                  # ajean-conversation-<date>.md
-ajean export --json           # même chose en JSON
-ajean export mon-fil.md       # nom imposé, l'extension choisit le format
-ajean export -                # sur la sortie standard, pour enchaîner un tube
-```
+À noter : cette correction rend la coupure VISIBLE, elle ne l'empêche pas. Si le message apparaît chez vous, l'erreur qu'il nomme (« unexpected EOF », « connection reset », « ligne trop longue »…) est exactement ce qu'il nous faut pour trouver la suite. Signalez la.
 
-La commande fonctionne pendant que le service tourne.
+La taille maximale d'une ligne du flux passe de 1 à 8 Mio au passage : la seule chose qui puisse la dépasser est un appel d'outil démesuré, et jusqu'ici il partait dans le même silence.
 
-## Le moteur joignable depuis le réseau
+## La fenêtre d'export
 
-Symptôme rapporté : « à part le chat dans le navigateur, impossible d'utiliser ton URL dans les logiciels en local ». L'adresse `http://<machine>:8080/v1` s'affichait bien dans l'interface, mais rien ne répondait depuis un autre ordinateur.
+Elle est arrivée en 0.8.4 sous forme de deux boutons qui ne laissaient aucun choix. C'est maintenant une vraie fenêtre.
 
-Deux causes, cumulées, et aucune des deux n'était visible.
+Le format, Markdown à lire ou JSON à retraiter, ne décide plus que du contenant : les trois mêmes options de contenu valent pour les deux, raisonnements, appels d'outils, sorties des outils. La version précédente proposait des options différentes selon le format, dont un obscur « journal d'affichage » côté JSON que personne ne pouvait comprendre.
 
-Sous Windows, l'installation posait `HOST=127.0.0.1` : le moteur n'écoutait que sur la machine elle même. Le chat du navigateur marchait, puisqu'il passe par le serveur web d'AJEAN, sur place. Tout le reste était invisible. Et ce réglage n'était modifiable nulle part dans l'interface, il fallait connaître `ajean edit` et savoir quoi y écrire.
+La portée se règle à présent avec un curseur qui va de 1 au nombre réel d'échanges de votre conversation, butée à droite pour tout prendre, au lieu de valeurs prédéfinies qui proposaient « 25 derniers échanges » sur un fil qui en comptait trois.
 
-Deuxième cause : même ouvert sur toutes les interfaces, le pare feu Windows bloque les connexions entrantes tant qu'aucune règle n'autorise le port. AJEAN n'en posait aucune.
+Conversation vide, la fenêtre le dit simplement au lieu d'offrir des réglages pour un fichier qui serait vide.
 
-Il y a maintenant un interrupteur « joignable depuis le réseau local », dans le panneau « Accès OpenAI », juste sous l'adresse qu'il conditionne. Il règle l'adresse d'écoute et pose la règle de pare feu dans le même geste. Poser une règle exige les droits administrateur, que l'installation d'AJEAN ne réclame pas : quand ça échoue, l'interface le dit et donne la commande exacte à coller dans un terminal administrateur, au lieu de laisser croire que c'est fait.
+Enfin, « clear chat » descend en dernière position du panneau Actions et se retrouve seul sur sa ligne : c'est la seule action destructive de ce panneau, elle n'a rien à faire sous le doigt qui visait « refresh ».
 
-En ligne de commande : `ajean network`, `ajean network on`, `ajean network off`. Le moteur doit redémarrer pour appliquer, l'interface le propose.
+## Corrections plus discrètes
 
-L'adresse d'écoute est aussi devenue un réglage de machine et non de modèle : basculer sur un preset écrit avant cette version ne la remet plus à zéro. Une machine volontairement fermée reste fermée.
+Le prompt système et la description de l'outil de recherche en mémoire annonçaient encore au modèle une mémoire rangée dans `MEMORY/`, nom d'avant la 0.8. Il pouvait donc aller chercher un dossier qui n'existe plus. Merci à qui l'a remarqué.
 
-## Les modèles en plusieurs fichiers
-
-Au delà d'une certaine taille, un dépôt Hugging Face publie son GGUF en tranches : `...-00001-of-00003.gguf`, et ainsi de suite. llama.cpp n'a besoin que de la première, il ouvre les suivantes tout seul. AJEAN, lui, traitait chaque tranche comme un modèle indépendant, avec trois conséquences.
-
-Le lien collé ne rapatriait qu'un fichier sur trois, et le moteur mourait ensuite sur un tenseur introuvable. Le sélecteur affichait trois entrées pour un seul modèle, dont deux qui ne démarrent pas. Et supprimer « le modèle » n'effaçait que sa première tranche, laissant des dizaines de Go que plus rien ne référençait et que l'interface ne savait plus montrer.
-
-Une famille de tranches est maintenant un seul modèle. Coller le lien de n'importe laquelle télécharge la famille entière, avec une barre de progression unique et un compteur de fichiers ; la vérification d'espace disque porte sur le total, plus sur une tranche. La liste n'affiche que la première, avec la taille de l'ensemble et une mention « 3 fichiers ». S'il en manque une, elle est signalée dans la liste, et le démarrage du moteur s'arrête sur un message qui nomme le fichier absent au lieu de laisser le service boucler. La suppression emporte toutes les tranches.
-
-Un téléchargement interrompu à la deuxième tranche peut être relancé : les fichiers déjà complets sont conservés.
+Le mécanisme qui met de côté l'ancien binaire pendant une mise à jour tirait son nom de l'horloge seule. Sous Windows, deux appels rapprochés pouvaient obtenir la même valeur, et le second écrasait le binaire mis de côté par le premier.
 
 ## Mise à jour
 
@@ -53,4 +40,4 @@ ajean update
 
 Puis, si vous utilisez l'accès distant, rechargez la page du portail pour prendre la nouvelle interface.
 
-Ce qui n'a pas été vérifié sur machine réelle : le téléchargement d'un vrai modèle découpé de bout en bout (la logique est couverte par des tests, mais pas un transfert complet depuis Hugging Face), et le comportement sur macOS, toujours pas testé sur un Mac.
+Ce qui n'a pas été vérifié sur machine réelle : le téléchargement d'un modèle découpé en plusieurs fichiers de bout en bout (arrivé en 0.8.4, couvert par des tests mais pas par un vrai transfert), et le comportement sur macOS, toujours pas testé sur un Mac.
