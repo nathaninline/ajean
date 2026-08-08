@@ -171,11 +171,24 @@ function fmtSize(b){
   if(b > 1e3) return (b/1e3).toFixed(0)+' KB';
   return b+' B';
 }
+// Retire les guillemets ENTOURANTS d'une valeur, et seulement eux. Les anciens
+// motifs `"?([^"\n]*)"?` s'arrêtaient au premier guillemet INTERNE : une valeur
+// comme `--chat-template-file "/etc/ajean/tpl.jinja"` était lue tronquée, puis
+// réécrite avec des guillemets non appariés (issue #17).
+function unquoteVal(v){
+  v = String(v==null?'':v).trim();
+  const q = v[0];
+  if(v.length >= 2 && (q === '"' || q === "'") && v[v.length-1] === q) return v.slice(1,-1);
+  return v;
+}
+// Lit la valeur d'une clé KEY= dans un texte au format .env.
+function readEnvKey(txt, key){
+  const m = String(txt).match(new RegExp('^[ \\t]*'+key+'[ \\t]*=(.*)$','m'));
+  return m ? unquoteVal(m[1]) : '';
+}
 // Read the current MODEL= value out of the textarea, handling quotes / spaces.
 function currentModelInTextarea(){
-  const txt = document.getElementById('m-content').value;
-  const m = txt.match(/^\s*MODEL\s*=\s*"?([^"\n]*)"?\s*$/m);
-  return m ? m[1].trim() : '';
+  return readEnvKey(document.getElementById('m-content').value, 'MODEL');
 }
 // Échappe une valeur avant de l'injecter dans du HTML (chemins de fichiers :
 // on ne contrôle pas ce que l'utilisateur y met).
@@ -299,9 +312,7 @@ function onPickModel(){
 // qui réécrivent la ligne BIN= du preset. C'est LE point où on décide quel
 // backend fait tourner ce modèle — la barre latérale ne fait qu'installer.
 function currentBinInTextarea(){
-  const txt = document.getElementById('m-content').value;
-  const m = txt.match(/^\s*BIN\s*=\s*"?([^"\n]*)"?\s*$/m);
-  return m ? m[1].trim() : '';
+  return readEnvKey(document.getElementById('m-content').value, 'BIN');
 }
 // Compare deux chemins de binaire en neutralisant séparateurs et casse (Windows).
 function sameBinPath(a, b){
@@ -587,8 +598,8 @@ function onGpuPick(){
 
 // Read/write the QUANT= override line in the preset textarea.
 function currentQuantInTextarea(){
-  const m = document.getElementById('m-content').value.match(/^\s*#?\s*QUANT\s*=\s*"?([^"\n]*)"?\s*$/mi);
-  return m ? m[1].trim() : '';
+  const m = document.getElementById('m-content').value.match(/^\s*#?\s*QUANT\s*=(.*)$/mi);
+  return m ? unquoteVal(m[1]) : '';
 }
 function applyQuant(){
   const val = document.getElementById('m-quant').value.trim();
@@ -605,8 +616,7 @@ function applyQuant(){
 // Le fichier de config (textarea m-content) reste la source de vérité : chaque
 // champ lit/écrit sa ligne KEY=… , comme le font déjà MODEL/BIN/QUANT.
 function cfgReadKey(key){
-  const m = document.getElementById('m-content').value.match(new RegExp('^[ \\t]*'+key+'[ \\t]*=[ \\t]*"?([^"\\n]*)"?[ \\t]*$','m'));
-  return m ? m[1].trim() : '';
+  return readEnvKey(document.getElementById('m-content').value, key);
 }
 function cfgWriteKey(key, val){
   const ta = document.getElementById('m-content');

@@ -42,20 +42,63 @@ func serviceAction(action string) error {
 	return nil
 }
 
+// unitState renvoie ActiveState et SubState de l'unité (« activating » /
+// « auto-restart » par exemple).
+func unitState(svc string) (active, sub string) {
+	out, _ := exec.Command("systemctl", "show", svc, "-p", "ActiveState", "-p", "SubState").Output()
+	for _, line := range strings.Split(string(out), "\n") {
+		k, v, ok := strings.Cut(strings.TrimSpace(line), "=")
+		if !ok {
+			continue
+		}
+		switch k {
+		case "ActiveState":
+			active = v
+		case "SubState":
+			sub = v
+		}
+	}
+	return
+}
+
+// checkStarted attend que l'unité se stabilise, puis dit la vérité.
+//
+// ⚠️ « activating » n'est PAS un succès : avec Restart=on-failure, un moteur qui
+// meurt au démarrage repasse en boucle par activating (SubState auto-restart).
+// L'ancien test l'acceptait, et `ajean start` répondait « [ok] activating » sur
+// un service qui ne démarrerait jamais — d'où des rapports « ajean start dit ok
+// mais ajean test ne répond pas ». On distingue donc le SubState, et on laisse
+// au moteur le temps de charger un gros modèle (il reste en activating, mais
+// PAS en auto-restart).
 func checkStarted(svc string) error {
-	time.Sleep(2 * time.Second)
-	out, _ := exec.Command("systemctl", "is-active", svc).Output()
-	state := strings.TrimSpace(string(out))
-	if state == "active" || state == "activating" {
-		fmt.Printf("%s %s: %s\n", green("[ok]"), svc, state)
+	var state, sub string
+	for i := 0; i < 5; i++ {
+		time.Sleep(2 * time.Second)
+		state, sub = unitState(svc)
+		if state == "active" {
+			fmt.Printf("%s %s: actif\n", green("[ok]"), svc)
+			return nil
+		}
+		if state == "failed" || sub == "auto-restart" {
+			break // inutile d'attendre : il boucle sur un échec
+		}
+	}
+	if state == "activating" && sub != "auto-restart" {
+		// Chargement en cours (un gros .gguf prend des minutes) : légitime.
+		fmt.Printf("%s %s: démarrage en cours (chargement du modèle) — %s pour suivre\n",
+			green("[ok]"), svc, bold("ajean logs"))
 		return nil
 	}
-	fmt.Printf("%s %s: %s — derniers logs :\n", red("[ERREUR]"), svc, state)
+	what := state
+	if sub == "auto-restart" {
+		what = "redémarre en boucle (le moteur meurt au lancement)"
+	}
+	fmt.Printf("%s %s: %s — derniers logs :\n", red("[ERREUR]"), svc, what)
 	fmt.Println("------------------------------------------------")
 	logs, _ := exec.Command("journalctl", "-u", svc, "-n", "20", "--no-pager").Output()
 	fmt.Print(string(logs))
 	fmt.Println("------------------------------------------------")
-	fmt.Printf("→ ajean logs   pour plus de détails\n→ ajean edit   pour corriger config.env\n")
+	fmt.Printf("→ ajean logs   pour plus de détails\n→ ajean edit   pour corriger la configuration (BIN, MODEL…)\n")
 	return fmt.Errorf("service %s non démarré", svc)
 }
 

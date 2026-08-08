@@ -25,7 +25,7 @@ func cmdServe(args []string) error {
 	// juste ; lancé depuis une app de bureau, le répertoire courant est « / » et
 	// llama-server ne trouvait rien. On résout donc explicitement, quel que soit
 	// le contexte de lancement.
-	resolved, err := resolveModelPath(model)
+	resolved, err := resolveServeModelPath(model)
 	if err != nil {
 		return err
 	}
@@ -99,8 +99,9 @@ func cmdServe(args []string) error {
 	} else if k := cfg["API_KEY"]; k != "" {
 		llmArgs = append(llmArgs, "--api-key", k)
 	}
-	// EXTRA_ARGS is appended verbatim, split on whitespace like the shell would.
-	llmArgs = append(llmArgs, trimSplit(cfg["EXTRA_ARGS"], " ")...)
+	// EXTRA_ARGS is appended verbatim, split like the shell would — quotes kept
+	// together so a path with spaces stays one argument.
+	llmArgs = append(llmArgs, splitArgs(cfg["EXTRA_ARGS"])...)
 
 	// Working dir = AJEAN_HOME so relative paths in EXTRA_ARGS (e.g. --mmproj
 	// mmproj-F16.gguf) still resolve.

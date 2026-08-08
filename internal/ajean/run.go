@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const Version = "0.8.0"
+const Version = "0.8.1"
 
 // Main est le vrai main() du binaire (cmd/ajean ne fait que l'appeler).
 func Main() {
@@ -42,7 +42,13 @@ func Main() {
 	switch cmd {
 	case "app":
 		mustExit(cmdApp(args))
-	case "start", "stop", "restart", "status", "enable", "disable":
+	case "start", "restart":
+		// Un moteur sans BIN ni MODEL démarre, meurt, et systemd le relance en
+		// boucle : l'utilisateur ne voyait qu'un « activating » rassurant et un
+		// /health muet. On le dit AVANT de lancer le service.
+		mustExit(preflightEngine())
+		mustExit(serviceAction(cmd))
+	case "stop", "status", "enable", "disable":
 		mustExit(serviceAction(cmd))
 	case "logs":
 		mustExit(serviceLogs())

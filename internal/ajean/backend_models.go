@@ -53,7 +53,7 @@ func presetReasoning(content string) string {
 			continue
 		}
 		if strings.EqualFold(strings.TrimSpace(s[:i]), "REASONING") {
-			return strings.Trim(strings.TrimSpace(s[i+1:]), `"`)
+			return unquoteValue(strings.TrimSpace(s[i+1:]))
 		}
 	}
 	return ""
@@ -78,7 +78,7 @@ func detectQuant(content string) string {
 		s := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "#"))
 		i := strings.IndexByte(s, '=')
 		if i >= 0 && strings.EqualFold(strings.TrimSpace(s[:i]), "QUANT") {
-			if v := strings.Trim(strings.TrimSpace(s[i+1:]), `"`); v != "" {
+			if v := unquoteValue(strings.TrimSpace(s[i+1:])); v != "" {
 				return strings.ToUpper(v)
 			}
 		}
@@ -117,7 +117,7 @@ func modelFromPresetContent(content string) string {
 			continue
 		}
 		if strings.TrimSpace(s[:i]) == "MODEL" {
-			return strings.Trim(strings.TrimSpace(s[i+1:]), "\"")
+			return unquoteValue(strings.TrimSpace(s[i+1:]))
 		}
 	}
 	return ""

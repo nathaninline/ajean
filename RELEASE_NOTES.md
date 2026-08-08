@@ -1,63 +1,49 @@
-Le renommage est terminé. Plus rien ne s'appelle jean : ni le binaire, ni les services, ni les variables, ni les dossiers. Et le dossier de données, qui s'était couvert d'une douzaine de petits fichiers d'état, tient désormais dans six dossiers et une base.
+Une version de corrections, née de vos retours sur la 0.8.0 : un moteur qui refusait de démarrer sans jamais le dire, et des presets qui se mélangeaient.
 
-## Mise à jour : il faut réinstaller
+## « ajean start » ne ment plus
 
-**Ne passez pas par le bouton « mettre à jour » de la 0.7.** Il ne trouvera d'ailleurs rien : les binaires de cette version portent de nouveaux noms, que la 0.7 ne sait pas chercher. C'est délibéré. La laisser installer ce binaire aurait remplacé l'exécutable sans migrer ni les données ni les unités : le service de lien serait reparti en boucle d'échec sur une sous-commande disparue, et le moteur n'aurait plus trouvé sa configuration. Une machine à réparer en SSH après un clic dans un navigateur.
+Le cas le plus pénible remonté cette semaine : `ajean start` répondait `[ok] ajean-engine: activating`, puis `ajean test` répondait « /health ne répond pas ». Rien dans les deux messages ne permettait de comprendre.
 
-La marche à suivre, sur une machine déjà installée :
+L'explication tenait à une nuance de systemd. Un service qui meurt au lancement est relancé toutes les trois secondes, et pendant ces trois secondes il est en `activating`, exactement comme un moteur en train de charger un modèle. AJEAN prenait donc un échec en boucle pour un démarrage en cours. Il distingue désormais les deux : un vrai chargement reste annoncé comme tel (un gros .gguf prend des minutes, c'est normal), une boucle d'échec affiche l'erreur, les vingt dernières lignes du journal et quoi corriger.
 
-```bash
-curl -L -o ajean https://github.com/nathaninline/ajean/releases/latest/download/ajean-linux
-chmod +x ajean && sudo mv ajean /usr/local/bin/ajean
-sudo ajean install
+Mieux : `ajean start` et `ajean restart` vérifient d'abord ce sans quoi le moteur ne peut pas démarrer, et refusent de lancer un service condamné. Moteur absent, modèle non renseigné, fichier .gguf introuvable : c'est dit tout de suite, avec la commande qui répare.
+
+## Un modèle peut vivre où vous voulez
+
+`MODEL=/home/moi/modeles/mon-modele.gguf` était refusé si le dossier n'avait pas été déclaré au préalable dans l'interface web. Le moteur mourait alors en boucle sur un « dossier non autorisé » que personne ne voyait passer, et le seul remède connu consistait à ouvrir l'interface pour y ajouter le dossier. Un utilisateur l'a trouvé tout seul, à tâtons ; ce n'était pas une découverte à lui imposer.
+
+Ce garde-fou existe pour empêcher l'interface web de supprimer un fichier n'importe où sur la machine. Il n'avait aucune raison de s'appliquer à « ouvrir ce modèle en lecture ». Un chemin absolu vers un .gguf qui existe est maintenant accepté tel quel, quel que soit le disque. La protection reste entière là où elle sert.
+
+## La configuration s'explique enfin
+
+Depuis que la configuration vit en base, `ajean edit` déroulait dans votre éditeur les seules clés déjà définies. Sur une installation neuve, cela donnait un fichier quasiment vide : impossible de deviner quoi écrire.
+
+L'éditeur propose désormais un squelette commenté. Chaque réglage utile y figure avec son rôle et son défaut (BIN, MODEL, CTX, NGL, batch, threads, cache KV, raisonnement, mémoire, EXTRA_ARGS). Les valeurs que vous avez déjà réglées sont en clair, les autres restent commentées, donc inactives, et toute clé que le squelette ne connaît pas est conservée en fin de fichier.
+
+Les étapes affichées à la fin de `ajean install` ont été corrigées dans la foulée : elles oubliaient `ajean llamacpp install`, sans quoi la clé BIN reste vide et le moteur ne peut pas démarrer.
+
+## Presets : un nouveau preset repart propre (issue #17)
+
+Créer un preset avec le bouton « + » recopiait la configuration active en entier. Les réglages du modèle précédent (les experts déportés sur le CPU, la répartition entre cartes, le contexte, jusqu'au modèle lui-même) se mélangeaient donc aux options cochées pour le nouveau, et il fallait penser à tout nettoyer à la main.
+
+Un nouveau preset ne reprend plus que ce qui relève de la machine : le moteur, l'adresse et le port. Tout le reste part des valeurs par défaut, que vous ajustez pour ce modèle-là.
+
+## Presets : les guillemets ne sont plus mangés
+
+Le rapport parlait de contenu tronqué et de guillemets non appariés, et c'était exact, avec une cause plus profonde qu'il n'y paraissait. En relisant une ligne de configuration, AJEAN retirait tout guillemet en début et en fin de valeur, sans vérifier qu'il s'agissait d'une paire. Une valeur comme :
+
+```
+EXTRA_ARGS=--jinja --chat-template-file "/etc/ajean/gabarit.jinja"
 ```
 
-`install` fait la reprise complète : il arrête et désactive les anciens services, déplace `configs/` vers `presets/`, `MEMORY/` vers `memory/` et les `.gguf` vers `models/`, reprend en base la configuration, les préférences, la conversation, les clés, le jeton de liaison, les interrupteurs, les serveurs MCP et les benchmarks, puis installe les deux nouvelles unités.
+ressortait donc amputée de son guillemet final, déséquilibrée, et repartait ainsi dans le preset enregistré. Le défaut existait des deux côtés, dans le moteur comme dans l'interface. Seule une paire entourante est maintenant retirée, et l'écriture est faite pour être relue à l'identique. Un test verrouille l'aller-retour.
 
-Rien n'est supprimé. Les presets, la mémoire et les modèles sont déplacés, jamais copiés ni effacés. Les anciens fichiers d'état sont rangés dans `avant-0.8/`, que vous pourrez supprimer quand tout ira bien. La clé du chiffrement de bout en bout n'est pas touchée, donc l'empreinte confirmée dans le portail reste valable.
+Dans la même zone : EXTRA_ARGS était découpé sur les espaces sans tenir compte des guillemets, si bien qu'un chemin contenant une espace devenait deux arguments et que llama-server refusait de démarrer. Le découpage respecte désormais les guillemets, comme le ferait un shell.
 
-## Une base à la place des fichiers d'état
+## Mise à jour
 
-`config.env`, `webprefs.json`, `conversation.json`, `model_dirs.json`, `mcp.json`, `.api_key`, `.web_key`, `.link_token`, `.agent_enabled`, `.internet_enabled` et le reste ont disparu. Tout cela vit maintenant dans **`ajean.db`**, un fichier unique en [bbolt](https://github.com/etcd-io/bbolt), pur Go, transactionnel, sans dépendance système.
+```bash
+ajean update
+```
 
-Ce n'est pas qu'un rangement. Chaque fichier avait sa façon d'être écrit, et donc sa façon de rater une écriture concurrente : l'interface et un tour de chat qui touchaient au même réglage au même instant pouvaient en perdre un. Une transaction remplace tout ça. Une bascule de preset, en particulier, remplace la configuration d'un bloc : il n'existe plus d'instant où elle serait à moitié l'ancienne et à moitié la nouvelle.
-
-Restent des fichiers ceux qui sont faits pour être lus, édités et sauvegardés à la main : les presets, les pages de mémoire, les modèles. `ajean edit` déroule donc la configuration au format `clé=valeur` dans votre éditeur, puis la relit ; le fichier n'existe que le temps de l'édition.
-
-## Six dossiers
-
-`$AJEAN_HOME` contient `backends/`, `bin/`, `presets/`, `memory/`, `models/`, `workspace/`, plus la base. `configs/` devient `presets/`, `MEMORY/` devient `memory/`, et les `.gguf` ont enfin leur `models/` au lieu d'être posés à la racine. Ne restent à côté que ce qui ne peut pas aller ailleurs : la clé privée du chiffrement de bout en bout, le dossier des certificats TLS, les journaux et les fichiers PID des services.
-
-## Deux services qui portent enfin leur nom
-
-`ajean.service` et `ajean-link.service` deviennent **`ajean-engine`** et **`ajean-ui`**. Le premier exécute le modèle, le second sert l'interface web, le tunnel d'accès distant et l'endpoint OpenAI. Le nom « link » cachait l'essentiel : ce service est d'abord le serveur web.
-
-Surtout, il n'y a plus **qu'une seule façon** de servir l'interface. Avant, `ajean web` et `ajean link serve` savaient tous deux le faire, ce qui posait un piège permanent : lancer les deux, c'était un conflit sur le port 8090 et surtout deux fils de conversation qui divergeaient (la conversation vit en mémoire, deux process qui la servent finissent par s'écraser l'un l'autre). La consigne « ne jamais lancer `ajean web` » circulait comme une règle à retenir ; elle n'existait que parce que le code offrait deux portes pour la même pièce.
-
-Désormais `ajean web` est cette porte unique : il sert l'interface et, si un jeton de liaison est enregistré, ouvre le tunnel dans le même process. `ajean link` ne s'occupe plus que du compte (jeton, code d'appairage, état), et `ajean ui start|stop|restart|status` pilote le service. `ajean link serve`, `link start`, `link stop` et `link restart` disparaissent.
-
-Séparer les deux services garde son intérêt : redémarrer l'interface est instantané, alors que redémarrer le moteur recharge des dizaines de gigaoctets.
-
-## Sur Windows
-
-**« Quitter » arrête vraiment tout.** Le moteur tourne dans un processus détaché, qui survit volontairement à la fermeture de l'interface pour garder le modèle chargé entre deux ouvertures. Mais après un « Quitter » depuis la zone de notification, plus rien ne le pilotait et il conservait des dizaines de gigaoctets de mémoire, sans la moindre fenêtre pour l'expliquer. Quitter décharge désormais le modèle. Ailleurs, rien ne change : sous Linux et macOS le moteur appartient à systemd ou launchd, et fermer une interface n'a pas à arrêter un service système.
-
-**AJEAN se comporte enfin comme une vraie commande.** Dans un terminal, `ajean` rendait la main avant d'avoir écrit quoi que ce soit : l'invite se réaffichait, et la sortie du programme arrivait par-dessus, comme si la commande avait été tapée deux fois.
-
-La même cause empêchait `ajean where > fichier.txt` d'écrire dans le fichier, `ajean help | findstr ...` de transmettre quoi que ce soit, et rendait `ajean chat` inutilisable depuis un terminal, le shell et AJEAN se disputant le clavier. Le binaire était compilé en sous-système graphique, et Windows n'attend jamais la fin d'un programme de ce type.
-
-Il est désormais en sous-système console. La contrepartie, une fenêtre noire au double-clic, est traitée par le programme lui-même : constatant qu'aucun terminal ne l'a lancé, il referme aussitôt la console que Windows lui a allouée. Les raccourcis posés à l'installation demandent en plus un démarrage minimisé, si bien qu'elle n'est jamais peinte à l'écran.
-
-**Plus de question au premier lancement.** Le double-clic demandait s'il fallait installer AJEAN ou seulement le lancer. La question n'avait qu'une réponse utile : rester à l'emplacement du fichier téléchargé ne donne pas une installation exploitable, sans raccourci, sans rien dans le PATH, et avec une application qui disparaît le jour où l'on vide ses téléchargements. L'installation se fait donc directement, et le message qui suit dit ce qui a été fait au lieu de demander une permission.
-
-## Ce qui a été retiré
-
-Tout le code écrit pour ménager les installations « jean » : la migration du dossier de données et ses reprises après échec, la migration de l'agencement système (unités, `/etc/default`, réécriture des chemins), l'élévation Windows qu'elle demandait, la résolution du nom d'unité réellement installée, la reprise des fichiers PID et des skills, les alias `jean` posés à l'installation, les variables `JEAN_*` lues en second.
-
-La CLI perd ses alias hérités (`skills`, `machine`, `tools`, `web-access`, `mem`, `upgrade`, `self-update`, `paths`, `llama`) et son aide est réorganisée autour des deux services. Chaque commande a désormais un seul nom. `app` quitte l'aide : c'est le comportement du double-clic, qu'on n'atteint pas en tapant son nom.
-
-Les binaires publiés prennent des noms lisibles : `ajean-linux`, `ajean-linux-arm`, `ajean-macos`, `ajean-macos-arm`, `ajean-windows.exe`, `ajean-windows-arm.exe`. Le suffixe `-arm` désigne l'arm64, son absence l'x86-64.
-
-## Ce qui n'a pas été testé
-
-La reprise 0.7 vers 0.8 a été vérifiée sur Linux (un serveur réel, avec 9 presets, 24 pages de mémoire et 8 modèles) et sur Windows (dossier de test complet), plus par trois tests automatisés. **Elle n'a pas été essayée sur macOS**, faute de machine : le support macOS reste globalement non validé sur du matériel Apple. Sauvegardez `$AJEAN_HOME` avant de vous lancer.
+Ou, depuis l'interface, le bandeau de mise à jour. Rien à migrer : les presets, la configuration et la mémoire sont inchangés.

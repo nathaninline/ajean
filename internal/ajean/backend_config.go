@@ -99,8 +99,24 @@ func SetConfigKey(key, value string) error { return putStr(bkConfig, key, value)
 // qu'exige l'application d'un preset : jamais un état mi-ancien mi-nouveau.
 func WriteConfig(m map[string]string) error { return replaceKV(bkConfig, m) }
 
+// unquoteValue retire les guillemets ENTOURANTS d'une valeur, et seulement
+// eux : une paire ouvrante/fermante du même caractère.
+//
+// Un simple Trim(v, `"`) mangeait le guillemet d'un argument interne — par
+// exemple EXTRA_ARGS=--chat-template-file "/etc/ajean/tpl.jinja" perdait son
+// guillemet final et repartait déséquilibré dans le preset (issue #17 : contenu
+// tronqué / guillemets non appariés à la création d'un preset).
+func unquoteValue(v string) string {
+	if len(v) >= 2 {
+		if q := v[0]; (q == '"' || q == '\'') && v[len(v)-1] == q {
+			return v[1 : len(v)-1]
+		}
+	}
+	return v
+}
+
 // parseEnv lit un fichier au format clé=valeur (les presets). Les lignes vides
-// et les commentaires sont ignorés, les guillemets retirés.
+// et les commentaires sont ignorés, les guillemets entourants retirés.
 func parseEnv(text string) map[string]string {
 	m := map[string]string{}
 	for _, line := range strings.Split(text, "\n") {
@@ -112,9 +128,23 @@ func parseEnv(text string) map[string]string {
 		if !ok {
 			continue
 		}
-		m[strings.TrimSpace(k)] = strings.Trim(strings.TrimSpace(v), "\"")
+		m[strings.TrimSpace(k)] = unquoteValue(strings.TrimSpace(v))
 	}
 	return m
+}
+
+// quoteValue rend une valeur telle que parseEnv la relise à l'identique. On
+// n'entoure de guillemets que ce qui en a besoin (espaces), et jamais une valeur
+// qui contient déjà un guillemet : elle est écrite telle quelle, unquoteValue ne
+// touchant qu'à une paire entourante.
+func quoteValue(v string) string {
+	if v == "" || strings.ContainsRune(v, '"') {
+		return v
+	}
+	if strings.ContainsAny(v, " \t") || unquoteValue(v) != v {
+		return `"` + v + `"`
+	}
+	return v
 }
 
 // formatEnv rend une configuration au format des presets, clés triées pour que
@@ -127,9 +157,47 @@ func formatEnv(m map[string]string) string {
 	sort.Strings(keys)
 	var b strings.Builder
 	for _, k := range keys {
-		fmt.Fprintf(&b, "%s=%s\n", k, m[k])
+		fmt.Fprintf(&b, "%s=%s\n", k, quoteValue(m[k]))
 	}
 	return b.String()
+}
+
+// splitArgs découpe EXTRA_ARGS comme le ferait un shell : sur les espaces, mais
+// en respectant les guillemets, pour qu'un chemin qui en contient reste UN seul
+// argument (--chat-template-file "/mes modèles/tpl.jinja"). trimSplit sur " "
+// le coupait en deux et llama-server refusait de démarrer.
+func splitArgs(s string) []string {
+	out := []string{}
+	var cur strings.Builder
+	var quote rune
+	flush := func() {
+		if cur.Len() > 0 {
+			out = append(out, cur.String())
+			cur.Reset()
+		}
+	}
+	for _, r := range s {
+		switch {
+		case quote != 0:
+			if r == quote {
+				quote = 0
+				// Guillemets vides ("" ) : on garde l'argument vide explicite.
+				if cur.Len() == 0 {
+					out = append(out, "")
+				}
+			} else {
+				cur.WriteRune(r)
+			}
+		case r == '"' || r == '\'':
+			quote = r
+		case r == ' ' || r == '\t' || r == '\n' || r == '\r':
+			flush()
+		default:
+			cur.WriteRune(r)
+		}
+	}
+	flush()
+	return out
 }
 
 // Le plafond d'appels d'outils par tour (TOOL_LIMIT) et l'anti-boucle ont été

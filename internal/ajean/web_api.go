@@ -337,9 +337,7 @@ func handlePresets(w http.ResponseWriter, r *http.Request) {
 func handlePreset(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(r.URL.Query().Get("id"))
 	if id == "" {
-		// nouveau preset → pré-rempli avec la configuration active, pour ajuster
-		// plutôt que partir d'une page blanche
-		sendJSON(w, 200, map[string]any{"id": "", "name": "", "content": formatEnv(ReadConfig())})
+		sendJSON(w, 200, map[string]any{"id": "", "name": "", "content": formatEnv(newPresetSeed())})
 		return
 	}
 	content, err := ReadPreset(id)

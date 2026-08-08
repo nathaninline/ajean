@@ -101,6 +101,29 @@ func baseName(p string) string {
 	return p
 }
 
+// resolveServeModelPath résout MODEL= pour LANCER le moteur. Différence avec
+// resolveModelPath : un chemin absolu qui pointe sur un .gguf existant est
+// accepté même hors des dossiers déclarés. L'allowlist protège des opérations
+// destructrices pilotées depuis l'UI (suppression d'un fichier) ; l'appliquer à
+// « ouvrir ce modèle en lecture » rendait la config éditée à la main
+// inutilisable : MODEL=/home/moi/models/x.gguf renvoyait « dossier non
+// autorisé », le moteur mourait en boucle, et le seul remède connu était
+// d'aller déclarer le dossier dans l'interface web.
+func resolveServeModelPath(name string) (string, error) {
+	p, err := resolveModelPath(name)
+	if err == nil {
+		return p, nil
+	}
+	s := strings.TrimSpace(strings.Trim(strings.TrimSpace(name), `"`))
+	if filepath.IsAbs(s) && strings.HasSuffix(strings.ToLower(s), ".gguf") {
+		abs := filepath.Clean(s)
+		if st, e := os.Stat(abs); e == nil && !st.IsDir() {
+			return abs, nil
+		}
+	}
+	return "", err
+}
+
 // resolveModelPath transforme une valeur MODEL= (nom de fichier OU chemin
 // absolu) en chemin absolu vers un .gguf. Un chemin absolu n'est accepté que
 // s'il est dans un des dossiers déclarés — sinon l'UI web deviendrait un moyen

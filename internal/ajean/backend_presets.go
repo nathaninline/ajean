@@ -33,7 +33,7 @@ func presetDisplayName(content, fallback string) string {
 		s := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "#"))
 		i := strings.IndexByte(s, '=')
 		if i >= 0 && strings.EqualFold(strings.TrimSpace(s[:i]), "NAME") {
-			if v := strings.Trim(strings.TrimSpace(s[i+1:]), `"`); v != "" {
+			if v := unquoteValue(strings.TrimSpace(s[i+1:])); v != "" {
 				return v
 			}
 		}
@@ -269,6 +269,30 @@ func cmdSwitch(args []string) error {
 		return fmt.Errorf("choix invalide")
 	}
 	return SwitchToPreset(list[n-1].Path)
+}
+
+// newPresetSeedKeys : les SEULES clés reprises de la configuration active quand
+// on crée un preset. Ce sont des réglages de MACHINE (quel moteur, où il écoute),
+// pas des réglages de modèle.
+//
+// Issue #17 : le nouveau preset repartait d'une copie COMPLÈTE de la config
+// active. Les réglages du modèle précédent (EXTRA_ARGS — --n-cpu-moe,
+// --tensor-split, --flash-attn… — mais aussi CTX, NGL, KV_TYPE, MODEL) se
+// mélangeaient donc aux options cochées pour le nouveau, et il fallait penser à
+// tout nettoyer à la main. On repart d'une base vide : les valeurs non
+// renseignées sont les défauts documentés (CTX 32768, NGL 999, BATCH 2048…).
+var newPresetSeedKeys = []string{"BIN", "HOST", "PORT"}
+
+// newPresetSeed renvoie la configuration de départ d'un preset créé depuis l'UI.
+func newPresetSeed() map[string]string {
+	cur := ReadConfig()
+	seed := map[string]string{}
+	for _, k := range newPresetSeedKeys {
+		if v := cur[k]; v != "" {
+			seed[k] = v
+		}
+	}
+	return seed
 }
 
 // SavePreset writes a preset. When id == "" it creates a NEW preset under a
