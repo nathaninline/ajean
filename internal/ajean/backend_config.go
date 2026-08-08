@@ -164,8 +164,9 @@ func formatEnv(m map[string]string) string {
 
 // splitArgs découpe EXTRA_ARGS comme le ferait un shell : sur les espaces, mais
 // en respectant les guillemets, pour qu'un chemin qui en contient reste UN seul
-// argument (--chat-template-file "/mes modèles/tpl.jinja"). trimSplit sur " "
-// le coupait en deux et llama-server refusait de démarrer.
+// argument (--chat-template-file "/mes modèles/tpl.jinja"). Le découpage
+// précédent, sur le seul caractère espace, le coupait en deux et llama-server
+// refusait de démarrer.
 func splitArgs(s string) []string {
 	out := []string{}
 	var cur strings.Builder

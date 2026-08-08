@@ -238,15 +238,3 @@ func red(s string) string     { return col("31", s) }
 func dim(s string) string     { return col("2", s) }
 func yellow(s string) string  { return col("33", s) }
 func magenta(s string) string { return col("35", s) }
-
-// trimSplit splits and drops empty tokens.
-func trimSplit(s, sep string) []string {
-	out := []string{}
-	for _, p := range strings.Split(s, sep) {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
-}
