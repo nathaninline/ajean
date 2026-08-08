@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/mod/semver"
@@ -380,8 +381,14 @@ func replaceBinary(exe, tmp string) error {
 // permet de remplacer l'image d'un exécutable en cours d'exécution. Reproduit
 // puis vérifié corrigé sur banc d'essai, deux processus vivants sur les deux
 // noms : avec un suffixe unique le renommage passe.
+// asideSeq départage deux écartements rapprochés. UnixNano seul ne suffit PAS :
+// la granularité de l'horloge Windows peut rendre la même valeur à deux appels
+// consécutifs, et les deux écartements se disputaient alors le même nom — le
+// second renommage écrasant le premier, donc le binaire précédent perdu.
+var asideSeq atomic.Uint64
+
 func renameAside(path string) (string, error) {
-	aside := fmt.Sprintf("%s.old-%d", path, time.Now().UnixNano())
+	aside := fmt.Sprintf("%s.old-%d-%d", path, time.Now().UnixNano(), asideSeq.Add(1))
 	if err := os.Rename(path, aside); err != nil {
 		return "", err
 	}

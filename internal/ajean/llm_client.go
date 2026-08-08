@@ -517,6 +517,17 @@ func errEngineReset() error {
 	return fmt.Errorf("⚠️ Connexion au moteur (llama-server, port %d) interrompue — il a peut-être redémarré. Réessaie.", LLMPort())
 }
 
+// streamCutError explique un flux de complétion coupé en cours de route. Cas à
+// part de friendlyLLMError : ici la requête avait ABOUTI (200 reçu, tokens déjà
+// reçus), c'est la lecture qui a lâché. Le dire autrement qu'un « le moteur ne
+// répond pas » évite d'envoyer l'utilisateur vérifier un moteur qui va bien.
+func streamCutError(err error) error {
+	if errors.Is(err, bufio.ErrTooLong) {
+		return fmt.Errorf("⚠️ Réponse du moteur illisible : une ligne du flux dépasse la taille maximale (%d Mio). C'est presque toujours un appel d'outil démesuré (écriture d'un très gros fichier). Le tour est abandonné pour ne pas exécuter un appel tronqué.", 8)
+	}
+	return fmt.Errorf("⚠️ Le flux de réponse du moteur (llama-server, port %d) a été coupé en cours de route : %v. La réponse est incomplète et le tour est abandonné — réessaie.", LLMPort(), err)
+}
+
 // isNetTimeout : une erreur réseau qui se déclare elle-même comme un délai
 // dépassé (net.Error.Timeout), quel que soit son libellé.
 func isNetTimeout(err error) bool {
@@ -650,9 +661,12 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		sawReasoningField := false
 		thinkOpen := reasoningOn
 		var thinkTail strings.Builder
-		// scanner with a big buffer — some chunks include large arguments JSON
+		// Scanner à gros tampon : un chunk peut porter un gros JSON d'arguments
+		// (écriture de fichier). 8 Mio et non 1 : au-delà du tampon, le scanner
+		// s'arrête sur « token too long » AU MILIEU du flux, et jusqu'à la 0.8.4
+		// personne ne le voyait (voir sc.Err() plus bas).
 		sc := bufio.NewScanner(resp.Body)
-		sc.Buffer(make([]byte, 0, 64*1024), 1<<20)
+		sc.Buffer(make([]byte, 0, 64*1024), 8<<20)
 		aborted := false
 		for sc.Scan() {
 			line := strings.TrimSpace(sc.Text())
@@ -832,9 +846,24 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		if !aborted && thinkOpen && thinkTail.Len() > 0 {
 			cb(StreamEvent{Content: strings.TrimLeft(thinkTail.String(), "\r\n")})
 		}
+		// ⚠️ Le flux a-t-il fini, ou CASSÉ ? sc.Scan() renvoie false dans les deux
+		// cas, et l'erreur n'était jamais consultée : une lecture coupée en plein
+		// milieu (connexion réinitialisée, ligne plus longue que le tampon) était
+		// donc indiscernable d'une fin normale. Vécu par l'utilisateur : l'agent
+		// enchaîne quelques commandes puis « s'arrête et rend la main sans avoir
+		// terminé, ni même commenté », pendant que le journal de llama-server
+		// affiche un « stop processing » parfaitement normal (issue #19). Pire,
+		// des appels d'outils accumulés à moitié auraient été EXÉCUTÉS avec des
+		// arguments tronqués. On refuse donc le tour, en le disant.
+		scanErr := sc.Err()
 		resp.Body.Close()
 		if aborted {
 			return extra, nil
+		}
+		if scanErr != nil && ctx.Err() == nil {
+			err := streamCutError(scanErr)
+			cb(StreamEvent{Err: err})
+			return extra, err
 		}
 
 		// Treat any accumulated tool calls as a tool turn even if the backend set
