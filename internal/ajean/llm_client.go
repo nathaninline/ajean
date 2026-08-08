@@ -874,6 +874,12 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			extra = append(extra, assistant)
 			// 2. Execute each tool locally and append a "tool" reply.
 			for _, tc := range tcs {
+				// Arrêt demandé : on n'enchaîne pas les outils restants. Sans ce
+				// garde, un stop pendant une série d'appels laissait défiler toute
+				// la série avant de reprendre la main.
+				if ctx.Err() != nil {
+					return extra, nil
+				}
 				var args map[string]any
 				_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
 				// Derive the human label (command / skill name) up front so we can
@@ -989,7 +995,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					case int:
 						to = v
 					}
-					result = runShell(label, to)
+					result = runShell(ctx, label, to)
 				case "web_search":
 					result = capWebOutput(toolWebSearch(args))
 				case "web_open":

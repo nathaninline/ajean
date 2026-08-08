@@ -1,10 +1,38 @@
 package ajean
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
+	"time"
 )
+
+// binSupportsReasoningFlag dit si ce llama-server accepte « --reasoning ».
+//
+// Le drapeau est récent : les moteurs plus anciens, et certains forks, ne le
+// connaissent pas et REFUSENT de démarrer sur un argument inconnu. Comme on ne
+// l'ajoute que pour interdire le raisonnement, mieux vaut demander au binaire
+// que parier : on lit son aide, une fois, au lancement du moteur.
+//
+// L'aide se lit avec le même chemin de bibliothèques que le vrai lancement
+// (setLibraryPath a déjà été appelé) : sans ça un moteur parfaitement valide
+// échoue à s'exécuter (« libllama-common.so introuvable ») et on conclurait à
+// tort qu'il ne gère pas le drapeau.
+func binSupportsReasoningFlag(bin string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin, "--help")
+	var out bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &out
+	if err := cmd.Run(); err != nil && out.Len() == 0 {
+		return false // aide illisible : on ne prend pas le risque
+	}
+	return strings.Contains(out.String(), "--reasoning ")
+}
 
 // cmdServe replaces the historic start.sh: read config.env, build the
 // llama-server invocation, and exec it (replacing this process so systemd
@@ -81,14 +109,35 @@ func cmdServe(args []string) error {
 	if vtv != "" {
 		llmArgs = append(llmArgs, "-ctv", vtv)
 	}
-	if r := cfg["REASONING"]; r != "" {
-		// budget illimité par défaut (-1) : on laisse le modèle réfléchir jusqu'au
-		// bout au lieu de le couper à 2048, ce qui tronquait la vraie réponse (la
-		// réflexion atteignait le plafond et il ne restait plus de marge pour le
-		// contenu). L'anti-boucle côté llm_client.go reste le garde-fou. NE PAS forcer 0 :
-		// sur llama.cpp vanilla, 0 = "immediate end" → coupe tout le raisonnement
-		// (le fork ik_llama.cpp l'ignore). Configurable via REASONING_BUDGET.
-		llmArgs = append(llmArgs, "--reasoning", r, "--reasoning-budget", get("REASONING_BUDGET", "-1"))
+	// Raisonnement. Trois cas, et la nuance compte :
+	//
+	//   REASONING=on|auto|deepseek → --reasoning <valeur>
+	//   REASONING=off              → --reasoning off  (interdiction EXPLICITE)
+	//   clé absente                → aucun drapeau, le moteur fait son défaut
+	//
+	// L'interface écrivait « off » en EFFAÇANT la ligne, ce qui n'est pas du tout
+	// la même chose : sans drapeau, llama-server suit le gabarit du modèle, et un
+	// modèle à raisonnement raisonne. L'interrupteur affichait donc « désactivé »
+	// pendant que le modèle réfléchissait quand même. Il faut le dire au moteur.
+	if r := strings.TrimSpace(cfg["REASONING"]); r != "" {
+		if reasoningActive(r) {
+			// budget illimité par défaut (-1) : on laisse le modèle réfléchir jusqu'au
+			// bout au lieu de le couper à 2048, ce qui tronquait la vraie réponse (la
+			// réflexion atteignait le plafond et il ne restait plus de marge pour le
+			// contenu). L'anti-boucle côté llm_client.go reste le garde-fou. NE PAS forcer 0 :
+			// sur llama.cpp vanilla, 0 = "immediate end" → coupe tout le raisonnement
+			// (le fork ik_llama.cpp l'ignore). Configurable via REASONING_BUDGET.
+			llmArgs = append(llmArgs, "--reasoning", r, "--reasoning-budget", get("REASONING_BUDGET", "-1"))
+		} else if binSupportsReasoningFlag(bin) {
+			// Pas de budget ici : « off » suffit, et un budget sur un moteur qui
+			// n'attend rien d'autre ne ferait qu'ajouter une occasion d'échouer.
+			llmArgs = append(llmArgs, "--reasoning", "off")
+		} else {
+			// Vieux moteur (ou fork) qui ne connaît pas le drapeau : le lui passer
+			// le ferait sortir en erreur au démarrage, donc boucler. On le dit et on
+			// continue sans — mieux vaut un modèle qui réfléchit qu'un moteur mort.
+			fmt.Fprintf(os.Stderr, "[ajean serve] ce moteur ne connaît pas --reasoning : impossible de désactiver le raisonnement\n")
+		}
 	}
 	// API_KEY protège le serveur quand il est exposé sur internet : llama-server
 	// exige alors l'en-tête "Authorization: Bearer <clé>". La clé est lue depuis

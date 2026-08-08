@@ -292,9 +292,16 @@ func (c *Conversation) StartTurn(text string, caps Caps, temperature float64) er
 func (c *Conversation) generate(ctx context.Context, caps Caps, temperature float64, epoch int) {
 	defer func() {
 		c.mu.Lock()
-		c.Generating = false
-		c.cancel = nil
 		stale := c.epoch != epoch
+		// ⚠️ Un tour périmé ne touche PAS à l'état courant. Depuis que Reset
+		// débloque lui-même la conversation, un tour abandonné peut se terminer
+		// APRÈS le démarrage du suivant : remettre Generating à false ici
+		// déclarerait « libre » une génération toute neuve, et l'UI afficherait
+		// un fil qui se remplit avec un bouton « envoyer » actif.
+		if !stale {
+			c.Generating = false
+			c.cancel = nil
+		}
 		c.mu.Unlock()
 		if stale {
 			return // Reset pendant le tour : Reset a déjà persisté l'état vide
@@ -452,8 +459,12 @@ func (c *Conversation) CompactNow() error {
 	go func() {
 		defer func() {
 			c.mu.Lock()
-			c.Generating = false
-			c.cancel = nil
+			// Même précaution que dans generate : une compaction abandonnée par un
+			// Reset ne doit pas déclarer « libre » le tour qui a démarré depuis.
+			if c.epoch == epoch {
+				c.Generating = false
+				c.cancel = nil
+			}
 			c.mu.Unlock()
 		}()
 		if _, changed := c.compactAndPublish(ctx, epoch, "manuel", msgs, lastReal, Caps{}); changed {
@@ -476,6 +487,15 @@ func (c *Conversation) Stop() {
 // Reset démarre une nouvelle conversation (vide) pour TOUS les appareils. On
 // interrompt une éventuelle génération, on vide tout et on bump epoch pour que
 // les abonnés reçoivent l'ordre de nettoyer leur affichage.
+//
+// Reset DÉBLOQUE toujours, et c'est sa deuxième raison d'être. Il se contentait
+// avant de vider le fil : si un tour restait coincé (moteur redémarré sous ses
+// pieds, commande shell accrochée à ses tubes), Generating restait vrai pour
+// toujours et tout message suivant se voyait refusé « génération en cours ».
+// Vider le fil ne changeait rien, rafraîchir non plus : il fallait redémarrer le
+// service. « Nouvelle conversation » est le geste qu'on tente naturellement dans
+// ce cas ; il doit donc rendre la main, quoi qu'il arrive au tour abandonné, que
+// le bump d'epoch réduit de toute façon au silence.
 func (c *Conversation) Reset() {
 	c.Stop()
 	c.mu.Lock()
@@ -484,6 +504,8 @@ func (c *Conversation) Reset() {
 	c.Seq = 0
 	c.CtxUsed = 0
 	c.epoch++
+	c.Generating = false
+	c.cancel = nil
 	c.cond.Broadcast()
 	c.mu.Unlock()
 	c.persist()

@@ -1658,8 +1658,8 @@ button:hover{border-color:var(--dim);color:var(--text)}
             <span class="pe-row-c"><input id="s-spec-n" class="pe-val" type="number" min="1" step="1" placeholder="3" oninput="eaSetValued('--spec-draft-n-max', this.value)"></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l">Raisonnement<span class="pe-sub">réflexion étape par étape</span></span>
-            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-reasoning" onchange="cfgWriteKey('REASONING', this.checked?'on':'')"><span class="pe-sl"></span></label></span>
+            <span class="pe-row-l">Raisonnement<span class="pe-sub" id="s-reasoning-sub">réflexion étape par étape</span></span>
+            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-reasoning" onchange="cfgWriteKey('REASONING', this.checked?'on':'off')"><span class="pe-sl"></span></label></span>
           </div>
           <div class="pe-row">
             <span class="pe-row-l">Flash attention<span class="pe-sub">plus rapide, moins de VRAM</span></span>
@@ -3158,7 +3158,19 @@ function populateSettings(){
   set('s-spec-n', eaGetValued('--spec-draft-n-max'));
   setSpecType(eaGetValued('--spec-type'));
   const chk = (id,v)=>{ const e=document.getElementById(id); if(e) e.checked=v; };
-  chk('s-reasoning', /^(on|1|true|auto|deepseek)$/i.test(cfgReadKey('REASONING')));
+  // Raisonnement : trois états dans le fichier, deux positions sur l'interrupteur.
+  // « off » est une interdiction explicite passée au moteur ; la clé ABSENTE, elle,
+  // laisse le moteur suivre le gabarit du modèle — donc un modèle à raisonnement
+  // réfléchit quand même. L'interrupteur ne peut pas montrer cette nuance, le
+  // sous-titre la dit. (Les presets créés ou modifiés depuis cette version
+  // écrivent toujours on ou off, la question ne se pose plus pour eux.)
+  const rz = cfgReadKey('REASONING');
+  chk('s-reasoning', /^(on|1|true|auto|deepseek)$/i.test(rz));
+  const rzSub = document.getElementById('s-reasoning-sub');
+  if(rzSub){
+    rzSub.textContent = rz ? 'réflexion étape par étape'
+                           : 'réflexion étape par étape — non précisé : le modèle décide';
+  }
   chk('s-flash', eaHasFlag('--flash-attn') && !/^off$/i.test(eaGetValued('--flash-attn')));
   chk('s-mlock', eaHasFlag('--mlock'));
   chk('s-nommap', eaHasFlag('--no-mmap'));

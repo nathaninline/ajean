@@ -666,7 +666,19 @@ function populateSettings(){
   set('s-spec-n', eaGetValued('--spec-draft-n-max'));
   setSpecType(eaGetValued('--spec-type'));
   const chk = (id,v)=>{ const e=document.getElementById(id); if(e) e.checked=v; };
-  chk('s-reasoning', /^(on|1|true|auto|deepseek)$/i.test(cfgReadKey('REASONING')));
+  // Raisonnement : trois états dans le fichier, deux positions sur l'interrupteur.
+  // « off » est une interdiction explicite passée au moteur ; la clé ABSENTE, elle,
+  // laisse le moteur suivre le gabarit du modèle — donc un modèle à raisonnement
+  // réfléchit quand même. L'interrupteur ne peut pas montrer cette nuance, le
+  // sous-titre la dit. (Les presets créés ou modifiés depuis cette version
+  // écrivent toujours on ou off, la question ne se pose plus pour eux.)
+  const rz = cfgReadKey('REASONING');
+  chk('s-reasoning', /^(on|1|true|auto|deepseek)$/i.test(rz));
+  const rzSub = document.getElementById('s-reasoning-sub');
+  if(rzSub){
+    rzSub.textContent = rz ? 'réflexion étape par étape'
+                           : 'réflexion étape par étape — non précisé : le modèle décide';
+  }
   chk('s-flash', eaHasFlag('--flash-attn') && !/^off$/i.test(eaGetValued('--flash-attn')));
   chk('s-mlock', eaHasFlag('--mlock'));
   chk('s-nommap', eaHasFlag('--no-mmap'));

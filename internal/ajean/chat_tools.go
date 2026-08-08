@@ -2,6 +2,7 @@ package ajean
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -135,25 +136,52 @@ func machineSystemPrompt(caps Caps) string {
 // on Windows — see newShellCmd in sys_platform_*.go) with a clamped timeout,
 // returning a single string formatted "exit: N\n\nstdout:\n...\n\nstderr:\n..."
 // truncated to keep tool output bounded.
-func runShell(command string, timeoutSec int) string {
+//
+// ⚠️ parent est le contexte DU TOUR : c'est lui qui rend le bouton stop utile.
+// La commande naissait auparavant d'un context.Background(), donc arrêter la
+// génération n'arrêtait rien du tout — le tour restait bloqué jusqu'au bout du
+// délai (5 minutes au maximum), bouton stop sans effet.
+func runShell(parent context.Context, command string, timeoutSec int) string {
 	if timeoutSec <= 0 {
 		timeoutSec = toolDefaultTimeout
 	}
 	if timeoutSec > toolMaxTimeout {
 		timeoutSec = toolMaxTimeout
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
+	ctx, cancel := context.WithTimeout(parent, time.Duration(timeoutSec)*time.Second)
 	defer cancel()
 	cmd := newShellCmd(ctx, command)
 	// Le shell démarre dans le workspace, pas dans le dossier d'où ajean a été
 	// lancé : un `> notes.txt` du modèle ne doit pas atterrir sur le Bureau.
-	cmd.Dir = agentWorkspace()
+	//
+	// Le dossier est résolu UNE fois par process (agentWorkspace), donc s'il
+	// disparaît ensuite — l'utilisateur fait le ménage, ou le modèle lui-même le
+	// supprime — toutes les commandes suivantes échouaient sur un « chdir : no
+	// such file or directory » incompréhensible, et ce jusqu'au redémarrage. On
+	// le recrée au besoin, et à défaut on démarre là où on peut plutôt que de
+	// tout refuser.
+	if ws := agentWorkspace(); ws != "" {
+		if err := os.MkdirAll(ws, 0o755); err == nil {
+			cmd.Dir = ws
+		}
+	}
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+	// ⚠️ WaitDelay borne l'attente APRÈS la fin (ou la mise à mort) du process.
+	// Sans elle, Wait attend que les tubes de sortie soient fermés — donc que
+	// TOUS ceux qui les tiennent aient disparu, petits-enfants compris. Une
+	// commande du genre « ./serveur & » rend la main tout de suite mais laisse
+	// un process en arrière-plan accroché aux tubes : runShell ne revenait alors
+	// JAMAIS, ni au délai, ni au stop. Le tour restait bloqué à vie, et la seule
+	// issue connue était de redémarrer ajean-ui.
+	cmd.WaitDelay = 2 * time.Second
 	err := cmd.Run()
-	if ctx.Err() == context.DeadlineExceeded {
+	switch {
+	case errors.Is(ctx.Err(), context.DeadlineExceeded):
 		return fmt.Sprintf("[timeout après %ds]", timeoutSec)
+	case errors.Is(parent.Err(), context.Canceled):
+		return "[commande interrompue]"
 	}
 	exit := 0
 	if err != nil {

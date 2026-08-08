@@ -611,8 +611,8 @@
             <span class="pe-row-c"><input id="s-spec-n" class="pe-val" type="number" min="1" step="1" placeholder="3" oninput="eaSetValued('--spec-draft-n-max', this.value)"></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l">Raisonnement<span class="pe-sub">réflexion étape par étape</span></span>
-            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-reasoning" onchange="cfgWriteKey('REASONING', this.checked?'on':'')"><span class="pe-sl"></span></label></span>
+            <span class="pe-row-l">Raisonnement<span class="pe-sub" id="s-reasoning-sub">réflexion étape par étape</span></span>
+            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-reasoning" onchange="cfgWriteKey('REASONING', this.checked?'on':'off')"><span class="pe-sl"></span></label></span>
           </div>
           <div class="pe-row">
             <span class="pe-row-l">Flash attention<span class="pe-sub">plus rapide, moins de VRAM</span></span>
