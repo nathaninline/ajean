@@ -8,10 +8,6 @@ package ajean
 // n'en pilote donc aucun : « inconnu » dit exactement ça, et l'interface
 // n'affiche pas d'avertissement de pare-feu là où il n'y a rien à avertir.
 
-// firewallInert n'a de rôle que sous Windows (voir sys_firewall_windows.go) ;
-// il existe ici pour que le code de test reste commun aux trois plateformes.
-var firewallInert bool
-
 func firewallOpen(int) error  { return nil }
 func firewallClose(int) error { return nil }
 

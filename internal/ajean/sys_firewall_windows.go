@@ -29,12 +29,6 @@ func firewallRuleName(port int) string {
 
 // netsh exécute netsh sans faire clignoter de console (hideCmd) et renvoie sa
 // sortie combinée.
-//
-// firewallInert coupe tout appel à netsh. Positionné par les tests : une suite
-// qui laisse une règle entrante derrière elle est un effet de bord inacceptable,
-// et sur un runner élevé elle ouvrirait le port pour de bon.
-var firewallInert bool
-
 func netsh(args ...string) (string, error) {
 	if firewallInert {
 		return "", fmt.Errorf("pare-feu non piloté")

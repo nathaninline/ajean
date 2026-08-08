@@ -25,6 +25,14 @@ import (
 // faire (poser une règle de pare-feu exige les droits administrateur, que
 // l'installation d'AJEAN ne réclame pas).
 
+// firewallInert coupe tout pilotage du pare-feu. Positionné par les tests : une
+// suite qui laisse une règle entrante derrière elle est un effet de bord
+// inacceptable, et sur un runner élevé elle ouvrirait le port pour de bon.
+// Déclaré ici, et non dans sys_firewall_windows.go, pour être LU sur les trois
+// plateformes (sinon il n'est qu'écrit par les tests hors Windows, ce que
+// staticcheck signale à juste titre comme une variable morte).
+var firewallInert bool
+
 // hostLocalOnly est l'adresse d'écoute « cette machine seulement ».
 const hostLocalOnly = "127.0.0.1"
 
@@ -84,9 +92,12 @@ func setLANExposure(on bool) (netStatus, error) {
 		return netStatus{}, err
 	}
 	port := LLMPort()
-	if on {
+	switch {
+	case firewallInert:
+		// rien : voir la note sur firewallInert
+	case on:
 		_ = firewallOpen(port)
-	} else {
+	default:
 		_ = firewallClose(port)
 	}
 	return networkStatus(), nil
