@@ -61,6 +61,13 @@ func cmdServe(args []string) error {
 	if _, err := os.Stat(model); err != nil {
 		return fmt.Errorf("modèle introuvable : %s", model)
 	}
+	// Modèle découpé en tranches : llama-server ouvre les suivantes tout seul, mais
+	// s'il en manque une il démarre puis meurt sur un tenseur introuvable — message
+	// incompréhensible, et systemd relance en boucle. On le dit ici, en clair.
+	if missing := shardFamilyMissing(filepath.Dir(model), filepath.Base(model)); len(missing) > 0 {
+		return fmt.Errorf("modèle incomplet : il manque %s dans %s — ce modèle tient en %d fichiers, télécharge-les tous",
+			strings.Join(missing, ", "), filepath.Dir(model), len(shardFamily(filepath.Base(model))))
+	}
 	if !filepath.IsAbs(bin) {
 		bin = filepath.Join(AjeanHome(), bin)
 	}

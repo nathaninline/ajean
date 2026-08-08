@@ -1,32 +1,49 @@
-Deux bugs signalés par l'usage, tous les deux confirmés, tous les deux réparés. Le premier pouvait bloquer le chat jusqu'au redémarrage du service. Le second faisait mentir un interrupteur.
+Trois retours d'utilisateurs après la 0.8.3, trois vrais trous dans le logiciel. Ils sont bouchés.
 
-## Le bouton stop arrête vraiment, et le chat ne se bloque plus
+## Récupérer sa conversation
 
-Le scénario, tel qu'il était vécu : le modèle lance une commande, elle dure, on clique sur stop, rien ne se passe. On redémarre alors le moteur, et là le chat reste figé avec son bouton stop, sans plus rien accepter. Vider la conversation ne suffit pas, rafraîchir la page non plus ; il faut redémarrer le service d'interface.
+Jusqu'à la 0.7, l'historique vivait dans un fichier `conversation.json` qu'on pouvait ouvrir, relire et copier pour archive. La 0.8 l'a rangé dans `ajean.db`, une base binaire, verrouillée tant que le service tourne : impossible ne serait ce que de la copier. Le fil et les raisonnements étaient toujours là, mais plus personne ne pouvait les sortir. C'était une régression, et elle n'aurait pas dû passer.
 
-Trois défauts se cumulaient, et ils sont corrigés ensemble.
+Deux façons de récupérer le fil, désormais.
 
-**La commande ignorait l'arrêt.** Elle démarrait avec un contexte à elle, indépendant du tour. Annuler la génération n'annulait donc rien du tout : le tour restait suspendu jusqu'au bout du délai, cinq minutes au maximum. La commande hérite désormais du contexte du tour, et stop la tue pour de bon. Dans la foulée, un arrêt demandé au milieu d'une série d'appels d'outils interrompt la série au lieu de la dérouler jusqu'au bout.
+Depuis l'interface, dans le panneau « Actions » : un bouton exporte la conversation en Markdown (les raisonnements sont repliés sous un « Raisonnement », les appels d'outils apparaissent avec leur résultat), un autre en JSON fidèle si vous voulez retraiter les données.
 
-**Une commande qui laisse un processus en arrière-plan bloquait le tour pour toujours.** Quelque chose comme `./serveur &` rend la main tout de suite, mais le processus détaché garde les tubes de sortie ouverts, et l'attente de fin de commande attendait leur fermeture, c'est à dire jamais. Ni le délai ni le stop n'en venaient à bout. L'attente est maintenant bornée après la fin ou la mise à mort du processus.
+Depuis le terminal :
 
-**Vider la conversation ne débloquait pas.** C'est pourtant le geste qu'on tente quand le chat est coincé. « Nouvelle conversation » libère désormais toujours l'état de génération, quel que soit le sort du tour abandonné. Plus besoin de redémarrer quoi que ce soit.
+```bash
+ajean export                  # ajean-conversation-<date>.md
+ajean export --json           # même chose en JSON
+ajean export mon-fil.md       # nom imposé, l'extension choisit le format
+ajean export -                # sur la sortie standard, pour enchaîner un tube
+```
 
-Au passage, un tour abandonné qui se termine après le démarrage du suivant ne vient plus déclarer ce dernier terminé.
+La commande fonctionne pendant que le service tourne.
 
-## Un troisième défaut, trouvé en écrivant les tests
+## Le moteur joignable depuis le réseau
 
-Le dossier de travail de l'agent est résolu une fois pour toutes au démarrage. S'il disparaissait ensuite, parce que vous avez fait le ménage ou parce que le modèle l'a supprimé lui-même, **toutes** les commandes suivantes échouaient sur un « chdir : no such file or directory » incompréhensible, et ce jusqu'au redémarrage. Il est maintenant recréé au besoin.
+Symptôme rapporté : « à part le chat dans le navigateur, impossible d'utiliser ton URL dans les logiciels en local ». L'adresse `http://<machine>:8080/v1` s'affichait bien dans l'interface, mais rien ne répondait depuis un autre ordinateur.
 
-## Raisonnement désactivé veut enfin dire désactivé
+Deux causes, cumulées, et aucune des deux n'était visible.
 
-Couper le raisonnement dans l'éditeur de preset **effaçait** la ligne `REASONING` au lieu d'écrire `off`. Ce n'est pas la même chose : sans consigne, le moteur suit le gabarit du modèle, et un modèle à raisonnement raisonne. L'interrupteur affichait donc « désactivé » pendant que le modèle réfléchissait tranquillement.
+Sous Windows, l'installation posait `HOST=127.0.0.1` : le moteur n'écoutait que sur la machine elle même. Le chat du navigateur marchait, puisqu'il passe par le serveur web d'AJEAN, sur place. Tout le reste était invisible. Et ce réglage n'était modifiable nulle part dans l'interface, il fallait connaître `ajean edit` et savoir quoi y écrire.
 
-L'interface écrit maintenant `on` ou `off`, explicitement, et `off` est transmis au moteur comme une interdiction.
+Deuxième cause : même ouvert sur toutes les interfaces, le pare feu Windows bloque les connexions entrantes tant qu'aucune règle n'autorise le port. AJEAN n'en posait aucune.
 
-Avec une précaution : le drapeau qui désactive le raisonnement est récent, et certains moteurs, notamment le fork ik_llama.cpp, ne le connaissent pas. Le leur passer les ferait refuser de démarrer, donc boucler. AJEAN demande au binaire ce qu'il sait faire avant de le lui passer, et le dit dans le journal quand le moteur choisi ne permet pas de couper la réflexion.
+Il y a maintenant un interrupteur « joignable depuis le réseau local », dans le panneau « Accès OpenAI », juste sous l'adresse qu'il conditionne. Il règle l'adresse d'écoute et pose la règle de pare feu dans le même geste. Poser une règle exige les droits administrateur, que l'installation d'AJEAN ne réclame pas : quand ça échoue, l'interface le dit et donne la commande exacte à coller dans un terminal administrateur, au lieu de laisser croire que c'est fait.
 
-Vos presets existants ne sont pas modifiés. Ceux dont la ligne est absente gardent le comportement d'avant, et l'éditeur ne prétend plus que le raisonnement y est coupé : il indique que rien n'est précisé et que le modèle décide. Basculez l'interrupteur une fois pour trancher.
+En ligne de commande : `ajean network`, `ajean network on`, `ajean network off`. Le moteur doit redémarrer pour appliquer, l'interface le propose.
+
+L'adresse d'écoute est aussi devenue un réglage de machine et non de modèle : basculer sur un preset écrit avant cette version ne la remet plus à zéro. Une machine volontairement fermée reste fermée.
+
+## Les modèles en plusieurs fichiers
+
+Au delà d'une certaine taille, un dépôt Hugging Face publie son GGUF en tranches : `...-00001-of-00003.gguf`, et ainsi de suite. llama.cpp n'a besoin que de la première, il ouvre les suivantes tout seul. AJEAN, lui, traitait chaque tranche comme un modèle indépendant, avec trois conséquences.
+
+Le lien collé ne rapatriait qu'un fichier sur trois, et le moteur mourait ensuite sur un tenseur introuvable. Le sélecteur affichait trois entrées pour un seul modèle, dont deux qui ne démarrent pas. Et supprimer « le modèle » n'effaçait que sa première tranche, laissant des dizaines de Go que plus rien ne référençait et que l'interface ne savait plus montrer.
+
+Une famille de tranches est maintenant un seul modèle. Coller le lien de n'importe laquelle télécharge la famille entière, avec une barre de progression unique et un compteur de fichiers ; la vérification d'espace disque porte sur le total, plus sur une tranche. La liste n'affiche que la première, avec la taille de l'ensemble et une mention « 3 fichiers ». S'il en manque une, elle est signalée dans la liste, et le démarrage du moteur s'arrête sur un message qui nomme le fichier absent au lieu de laisser le service boucler. La suppression emporte toutes les tranches.
+
+Un téléchargement interrompu à la deuxième tranche peut être relancé : les fichiers déjà complets sont conservés.
 
 ## Mise à jour
 
@@ -35,3 +52,5 @@ ajean update
 ```
 
 Puis, si vous utilisez l'accès distant, rechargez la page du portail pour prendre la nouvelle interface.
+
+Ce qui n'a pas été vérifié sur machine réelle : le téléchargement d'un vrai modèle découpé de bout en bout (la logique est couverte par des tests, mais pas un transfert complet depuis Hugging Face), et le comportement sur macOS, toujours pas testé sur un Mac.

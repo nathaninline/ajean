@@ -52,14 +52,14 @@ func TestRunDownloadCancelLeavesNothing(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	st := &dlState{Filename: "m.gguf", cancel: cancel}
 	done := make(chan struct{})
-	go func() { runDownload(ctx, st, srv.URL+"/m.gguf", dest); close(done) }()
+	go func() { runDownloadSet(ctx, st, []string{srv.URL + "/m.gguf"}, []string{dest}); close(done) }()
 
 	time.Sleep(300 * time.Millisecond)
 	cancel()
 	select {
 	case <-done:
 	case <-time.After(10 * time.Second):
-		t.Fatal("runDownload n'a pas rendu la main après annulation")
+		t.Fatal("runDownloadSet n a pas rendu la main apres annulation")
 	}
 
 	if !st.Canceled || !st.Finished {
@@ -106,7 +106,7 @@ func TestRunDownloadParallelAndFallback(t *testing.T) {
 		dir := t.TempDir()
 		dest := filepath.Join(dir, "m.gguf")
 		st := &dlState{Filename: "m.gguf"}
-		runDownload(context.Background(), st, srv.URL+"/m.gguf", dest)
+		runDownloadSet(context.Background(), st, []string{srv.URL + "/m.gguf"}, []string{dest})
 		srv.Close()
 
 		if st.Err != "" {

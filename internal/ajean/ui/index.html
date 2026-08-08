@@ -1233,6 +1233,12 @@ button:hover{border-color:var(--dim);color:var(--text)}
           <button class="iconbtn" onclick="copyText(document.getElementById('oai-url').value,'adresse copiée')" title="copier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2.5"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
         </div>
       </div>
+      <!-- L'adresse ci-dessus ne sert à RIEN si le moteur n'écoute que sur la
+           boucle locale (le défaut sous Windows) : le chat du navigateur marche,
+           mais aucun logiciel du réseau ne peut s'y brancher. Cet interrupteur
+           règle HOST et pose la règle de pare-feu, voir sys_network.go. -->
+      <label class="switchrow"><span class="switch"><input type="checkbox" id="lan-toggle" onchange="toggleLAN()"><span class="slider"></span></span> joignable depuis le réseau local<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Éteint, le moteur n'écoute que sur <b>cette machine</b> : l'adresse ci-dessus ne répond qu'ici. Allumez-le pour brancher un logiciel depuis un autre ordinateur du réseau (sous Windows, la règle de pare-feu est posée en même temps). <b>Redémarre le moteur.</b></span></span></label>
+      <div id="lan-warn" class="rowbody" style="display:none"></div>
       <label class="switchrow"><span class="switch"><input type="checkbox" id="oai-public-toggle" onchange="toggleOAIPublic()"><span class="slider"></span></span> exposer en public (ajean.link)<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Rend votre IA joignable depuis <b>n'importe où</b> via <code>https://&lt;machine&gt;.oai.ajean.link/v1</code> (pour brancher un SaaS). Le trafic est chiffré <b>de bout en bout</b> jusqu'à ce serveur — le relais ajean.link ne voit rien. Nécessite l'accès distant actif.</span></span></label>
       <div id="oai-public-wrap" class="rowbody" style="display:none">
         <div class="muted" style="margin:0 0 6px">Adresse publique — chiffrée de bout en bout, accessible partout</div>
@@ -1339,6 +1345,14 @@ button:hover{border-color:var(--dim);color:var(--text)}
         <button onclick="loadAll()">↻ refresh</button>
         <button onclick="resetChat()">⌫ clear chat</button>
         <button id="btn-bench" onclick="runBenchUI()">bench</button>
+      </div>
+      <!-- Export du fil. Depuis la 0.8 la conversation vit dans ajean.db (bbolt,
+           binaire et verrouillé tant que le service tourne) : sans ce bouton,
+           plus personne ne peut relire ni archiver ses échanges, ce que
+           permettait l'ancien conversation.json. -->
+      <div class="row" style="margin-bottom:0">
+        <button onclick="exportChat('md')" title="conversation complète, raisonnements compris">⤓ exporter (.md)</button>
+        <button onclick="exportChat('json')" title="format fidèle : vue modèle + journal d'affichage">.json</button>
       </div>
     </div></div>
   </details>
@@ -2420,6 +2434,75 @@ function renderApiKey(d){
   document.getElementById('oai-key-eye').style.display = d.set ? '' : 'none';
 }
 async function loadApiKey(){ renderApiKey(await jget('/api/apikey')); }
+// --- Export de la conversation ---------------------------------------------
+// On passe par jfetch (et pas par un simple <a href>) pour deux raisons : la clé
+// de pilotage voyage dans un en-tête Authorization, qu'un lien ne porterait pas,
+// et le chemin de base change derrière le tunnel (/u/<id>).
+async function exportChat(format){
+  toast('préparation de l\'export…');
+  try{
+    const r = await jfetch('/api/chat/export?format=' + encodeURIComponent(format||'md'));
+    if(!r.ok){ toast('erreur : HTTP ' + r.status); return; }
+    const blob = await r.blob();
+    // Nom du fichier : celui proposé par le serveur (horodaté), à défaut un nom local.
+    let name = 'ajean-conversation.' + (format==='json' ? 'json' : 'md');
+    const cd = r.headers.get('Content-Disposition') || '';
+    const m = cd.match(/filename="([^"]+)"/);
+    if(m) name = m[1];
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    // Révocation différée : Safari annule le téléchargement si l'URL disparaît
+    // dans la foulée du clic.
+    setTimeout(()=>URL.revokeObjectURL(url), 10000);
+    toast('exporté : ' + name);
+  }catch(e){ toast('erreur : ' + e.message); }
+}
+// --- Écoute réseau du moteur (HOST + pare-feu) ------------------------------
+// Le retour d'utilisateur qui a motivé ce réglage : « à part le chat dans le
+// navigateur, impossible d'utiliser ton URL dans les logiciels en local ». Le
+// moteur écoutait sur 127.0.0.1 et rien ne le disait nulle part.
+function renderNetwork(st){
+  if(!st) return;
+  const cb = document.getElementById('lan-toggle');
+  if(cb) cb.checked = !!st.exposed;
+  const warn = document.getElementById('lan-warn');
+  if(!warn) return;
+  if(!st.exposed){
+    warn.style.display = '';
+    warn.innerHTML = '<div class="muted" style="margin:0">Le moteur n\'écoute que sur cette machine : l\'adresse ci-dessus ne répond pas depuis un autre ordinateur.</div>';
+    return;
+  }
+  // Exposé mais bloqué par le pare-feu : le cas le plus déroutant (« ça écoute
+  // partout » et pourtant rien ne passe). On donne la commande à coller.
+  if(st.hint){
+    warn.style.display = '';
+    // --err et non --warn : la palette est volontairement monochrome et --warn y
+    // est un gris, illisible comme alerte. Ici il y a une vraie action à faire.
+    warn.innerHTML = '<div style="margin:0;color:var(--err)">⚠ '
+      + escHtml(st.hint).replace(/\n/g,'<br>') + '</div>';
+    return;
+  }
+  warn.style.display = 'none';
+}
+async function loadNetwork(){
+  try{ const r = await jget('/api/network'); renderNetwork(r && r.status); }catch(e){}
+}
+async function toggleLAN(){
+  const cb = document.getElementById('lan-toggle');
+  const on = cb.checked;
+  const r = await jpost('/api/network', {exposed:on});
+  if(!r || !r.ok){ cb.checked = !on; toast('erreur : ' + ((r&&r.error)||'')); return; }
+  renderNetwork(r.status);
+  // llama-server ne lit --host qu'au lancement : sans redémarrage, l'interrupteur
+  // affiche un état que le moteur en cours ne respecte pas encore.
+  if(await askConfirm('Le moteur doit redémarrer pour appliquer ce changement (le modèle sera rechargé).',
+                      {title: on ? 'Ouvrir sur le réseau' : 'Fermer sur le réseau', okText:'Redémarrer'})){
+    await act('restart'); // même chemin que les boutons du panneau Moteur
+  }
+  loadApiKey();
+}
 function toggleKeyReveal(){ OAI_REVEAL=!OAI_REVEAL; const inp=document.getElementById('oai-key'); if(OAI_KEY) inp.value = OAI_REVEAL ? OAI_KEY : (OAI_KEY.slice(0,8)+'…'+OAI_KEY.slice(-4)); const eye=document.getElementById('oai-key-eye'); if(eye) eye.textContent = OAI_REVEAL ? 'masquer' : 'afficher'; }
 async function apiKeyAction(action){
   if(action==='clear' && !await askConfirm('Retirer la clé rend l\'endpoint OpenAI accessible SANS authentification. Le service va redémarrer.', {title:'Retirer la clé API ?', okText:'Retirer'})) return;
@@ -2486,7 +2569,7 @@ async function loadAll(){
   // allSettled et pas all : un seul chargement en échec (accès distant coupé,
   // clé API absente…) ne doit pas empêcher la suite — et surtout pas laisser les
   // hauteurs réservées en place pour toujours.
-  await Promise.allSettled([loadStatus(),loadVram(),loadRam(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadApiKey(),loadPrefs(),loadLlamacpp(),loadRemote()]);
+  await Promise.allSettled([loadStatus(),loadVram(),loadRam(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadRemote()]);
   releaseHeights(); // tout est en place : on rend la main et on mesure pour la prochaine fois
 }
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }
@@ -2715,7 +2798,14 @@ async function populateModelPicker(){
       const on = samePath(cur, m.value) || samePath(cur, m.path) ||
                  (g.home && samePath(baseName(cur), m.name)) ? ' selected' : '';
       if(on) matched = true;
-      opts += '<option value="'+escHtml(m.value)+'"'+on+'>'+escHtml(m.name)+'  ('+fmtSize(m.size)+')</option>';
+      // Modèle en plusieurs fichiers : l'API ne renvoie que la première tranche
+      // (les autres ne se lancent pas seules) et la taille de la famille entière.
+      // On le dit, et surtout on signale les tranches manquantes — sinon le
+      // modèle se sélectionne sans broncher puis le moteur meurt au démarrage.
+      let tag = '';
+      if(m.shards > 1) tag = ' · ' + m.shards + ' fichiers';
+      if(m.missing && m.missing.length) tag += ' · ⚠ ' + m.missing.length + ' manquant' + (m.missing.length>1?'s':'');
+      opts += '<option value="'+escHtml(m.value)+'"'+on+'>'+escHtml(m.name)+'  ('+fmtSize(m.size)+tag+')</option>';
     }
     html += groups.length > 1
       ? '<optgroup label="'+escHtml(g.home ? 'dossier ajean' : g.dir)+'">'+opts+'</optgroup>'
@@ -3329,7 +3419,10 @@ async function startDownload(){
     await populateDlDirs();
     return;
   }
-  e.prog.textContent = fmtSize(p.size)+' à télécharger — '+fmtSize(p.free)+' libres';
+  // p.size couvre TOUTES les tranches : un modèle découpé annonce ses 45 Go, pas
+  // les 15 Go du fichier dont le lien a été collé.
+  const nparts = p.parts > 1 ? ' en '+p.parts+' fichiers' : '';
+  e.prog.textContent = fmtSize(p.size)+nparts+' à télécharger — '+fmtSize(p.free)+' libres';
   const r = await jpost('/api/models/download', {url, dir});
   if(!r.ok){
     e.prog.innerHTML = '<span style="color:var(--err)">erreur : '+(r.error||'')+'</span>';
@@ -3398,7 +3491,10 @@ function watchDownload(fname){
         extra += ' — reste '+(m>0 ? m+' min '+s+' s' : s+' s');
       }
     }
-    e.prog.textContent = '↓ '+fmtSize(st.done)+tot+extra+' — '+fname;
+    // Une seule barre pour tout le modèle ; le compteur de tranches dit où on en
+    // est, sans quoi un téléchargement en 3 fichiers semble se figer par paliers.
+    const part = st.parts > 1 ? ' — fichier '+(st.part||1)+'/'+st.parts : '';
+    e.prog.textContent = '↓ '+fmtSize(st.done)+tot+extra+part+' — '+fname;
   };
   dlPoll = setInterval(tick, 800);
   tick();

@@ -167,7 +167,10 @@ func modelDirCount(dir string) int {
 	}
 	n := 0
 	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(strings.ToLower(e.Name()), ".gguf") {
+		// Les tranches 2..N d'un modèle découpé ne comptent pas pour un modèle :
+		// sinon « 3 modèles » s'affichait pour un seul, celui qui tient en trois
+		// fichiers. Même règle que la liste du sélecteur (handleModels).
+		if !e.IsDir() && strings.HasSuffix(strings.ToLower(e.Name()), ".gguf") && !isFollowerShard(e.Name()) {
 			n++
 		}
 	}

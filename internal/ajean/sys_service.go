@@ -47,6 +47,12 @@ func preflightEngine() error {
 	if _, err := os.Stat(p); err != nil {
 		return fmt.Errorf("modèle introuvable : %s — corrige MODEL avec %s", p, bold("ajean edit"))
 	}
+	// Modèle en plusieurs fichiers : une tranche manquante ne se voit qu'au moment
+	// où llama-server réclame un tenseur absent, dans le journal du service.
+	if missing := shardFamilyMissing(filepath.Dir(p), filepath.Base(p)); len(missing) > 0 {
+		return fmt.Errorf("modèle incomplet : il manque %s dans %s — ce modèle tient en %d fichiers, télécharge-les tous",
+			strings.Join(missing, ", "), filepath.Dir(p), len(shardFamily(filepath.Base(p))))
+	}
 	return nil
 }
 

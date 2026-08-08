@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const Version = "0.8.3"
+const Version = "0.8.4"
 
 // Main est le vrai main() du binaire (cmd/ajean ne fait que l'appeler).
 func Main() {
@@ -62,10 +62,14 @@ func Main() {
 		mustExit(showVram())
 	case "gpu":
 		mustExit(cmdGPU(args))
+	case "network":
+		mustExit(cmdNetwork(args))
 	case "switch":
 		mustExit(cmdSwitch(args))
 	case "chat":
 		mustExit(cmdChat(args))
+	case "export":
+		mustExit(cmdExport(args))
 	case "web":
 		mustExit(cmdWeb(args))
 	case "link":
@@ -129,6 +133,8 @@ Moteur (ajean-engine) :
   vram                          utilisation GPU/VRAM (nvidia-smi)
   gpu [index…]                  liste les GPU / choisit le(s)quel(s) utiliser (gpu all = tous)
   set-api-key [clé]             protéger llama-server (clé Bearer); vide = générer, "" = retirer
+  network [on|off|status]       rendre l'endpoint OpenAI joignable depuis le réseau local
+                                (HOST + règle de pare-feu sous Windows)
 
 Interface (ajean-ui) :
   ui [start|stop|restart|status]  pilote le service d'interface
@@ -138,6 +144,8 @@ Interface (ajean-ui) :
 
 Interaction:
   chat [system-prompt]          chat terminal streamé
+  export [--json] [fichier]     exporte la conversation de l'interface web
+                                (Markdown par défaut, « - » = sortie standard)
   agent [on|off|status]         donne à l'IA ses outils (shell, fichiers, mémoire)
   memory [off|ondemand|always|status]  mode mémoire de l'IA
   internet [on|off|status|engine <go|crawl4ai>|url <url>|key <clé>]

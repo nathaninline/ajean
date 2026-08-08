@@ -281,6 +281,12 @@ func handleModels(w http.ResponseWriter, r *http.Request) {
 			if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".gguf") {
 				continue
 			}
+			// Modèle découpé : seule la première tranche est un modèle lançable, les
+			// suivantes sont ouvertes par llama-server tout seul. Les lister toutes
+			// donnait trois entrées pour un modèle, dont deux qui échouent au démarrage.
+			if isFollowerShard(e.Name()) {
+				continue
+			}
 			full := filepath.Join(dir, e.Name())
 			if seen[normDir(full)] {
 				continue
@@ -295,10 +301,21 @@ func handleModels(w http.ResponseWriter, r *http.Request) {
 			if isHome {
 				value = e.Name()
 			}
-			out = append(out, map[string]any{
+			m := map[string]any{
 				"name": e.Name(), "size": size, "value": value,
 				"path": full, "dir": dir, "home": isHome,
-			})
+			}
+			// Taille annoncée = la famille entière, et on signale les tranches
+			// manquantes : un modèle incomplet démarre puis meurt sur un tenseur
+			// introuvable, autant le voir avant de le sélectionner.
+			if _, total, ok := shardInfo(e.Name()); ok {
+				m["shards"] = total
+				m["size"] = shardFamilySize(dir, e.Name())
+				if missing := shardFamilyMissing(dir, e.Name()); len(missing) > 0 {
+					m["missing"] = missing
+				}
+			}
+			out = append(out, m)
 		}
 	}
 	sendJSON(w, 200, out)

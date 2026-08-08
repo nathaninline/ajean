@@ -251,6 +251,75 @@ function renderApiKey(d){
   document.getElementById('oai-key-eye').style.display = d.set ? '' : 'none';
 }
 async function loadApiKey(){ renderApiKey(await jget('/api/apikey')); }
+// --- Export de la conversation ---------------------------------------------
+// On passe par jfetch (et pas par un simple <a href>) pour deux raisons : la clé
+// de pilotage voyage dans un en-tête Authorization, qu'un lien ne porterait pas,
+// et le chemin de base change derrière le tunnel (/u/<id>).
+async function exportChat(format){
+  toast('préparation de l\'export…');
+  try{
+    const r = await jfetch('/api/chat/export?format=' + encodeURIComponent(format||'md'));
+    if(!r.ok){ toast('erreur : HTTP ' + r.status); return; }
+    const blob = await r.blob();
+    // Nom du fichier : celui proposé par le serveur (horodaté), à défaut un nom local.
+    let name = 'ajean-conversation.' + (format==='json' ? 'json' : 'md');
+    const cd = r.headers.get('Content-Disposition') || '';
+    const m = cd.match(/filename="([^"]+)"/);
+    if(m) name = m[1];
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    // Révocation différée : Safari annule le téléchargement si l'URL disparaît
+    // dans la foulée du clic.
+    setTimeout(()=>URL.revokeObjectURL(url), 10000);
+    toast('exporté : ' + name);
+  }catch(e){ toast('erreur : ' + e.message); }
+}
+// --- Écoute réseau du moteur (HOST + pare-feu) ------------------------------
+// Le retour d'utilisateur qui a motivé ce réglage : « à part le chat dans le
+// navigateur, impossible d'utiliser ton URL dans les logiciels en local ». Le
+// moteur écoutait sur 127.0.0.1 et rien ne le disait nulle part.
+function renderNetwork(st){
+  if(!st) return;
+  const cb = document.getElementById('lan-toggle');
+  if(cb) cb.checked = !!st.exposed;
+  const warn = document.getElementById('lan-warn');
+  if(!warn) return;
+  if(!st.exposed){
+    warn.style.display = '';
+    warn.innerHTML = '<div class="muted" style="margin:0">Le moteur n\'écoute que sur cette machine : l\'adresse ci-dessus ne répond pas depuis un autre ordinateur.</div>';
+    return;
+  }
+  // Exposé mais bloqué par le pare-feu : le cas le plus déroutant (« ça écoute
+  // partout » et pourtant rien ne passe). On donne la commande à coller.
+  if(st.hint){
+    warn.style.display = '';
+    // --err et non --warn : la palette est volontairement monochrome et --warn y
+    // est un gris, illisible comme alerte. Ici il y a une vraie action à faire.
+    warn.innerHTML = '<div style="margin:0;color:var(--err)">⚠ '
+      + escHtml(st.hint).replace(/\n/g,'<br>') + '</div>';
+    return;
+  }
+  warn.style.display = 'none';
+}
+async function loadNetwork(){
+  try{ const r = await jget('/api/network'); renderNetwork(r && r.status); }catch(e){}
+}
+async function toggleLAN(){
+  const cb = document.getElementById('lan-toggle');
+  const on = cb.checked;
+  const r = await jpost('/api/network', {exposed:on});
+  if(!r || !r.ok){ cb.checked = !on; toast('erreur : ' + ((r&&r.error)||'')); return; }
+  renderNetwork(r.status);
+  // llama-server ne lit --host qu'au lancement : sans redémarrage, l'interrupteur
+  // affiche un état que le moteur en cours ne respecte pas encore.
+  if(await askConfirm('Le moteur doit redémarrer pour appliquer ce changement (le modèle sera rechargé).',
+                      {title: on ? 'Ouvrir sur le réseau' : 'Fermer sur le réseau', okText:'Redémarrer'})){
+    await act('restart'); // même chemin que les boutons du panneau Moteur
+  }
+  loadApiKey();
+}
 function toggleKeyReveal(){ OAI_REVEAL=!OAI_REVEAL; const inp=document.getElementById('oai-key'); if(OAI_KEY) inp.value = OAI_REVEAL ? OAI_KEY : (OAI_KEY.slice(0,8)+'…'+OAI_KEY.slice(-4)); const eye=document.getElementById('oai-key-eye'); if(eye) eye.textContent = OAI_REVEAL ? 'masquer' : 'afficher'; }
 async function apiKeyAction(action){
   if(action==='clear' && !await askConfirm('Retirer la clé rend l\'endpoint OpenAI accessible SANS authentification. Le service va redémarrer.', {title:'Retirer la clé API ?', okText:'Retirer'})) return;
@@ -317,7 +386,7 @@ async function loadAll(){
   // allSettled et pas all : un seul chargement en échec (accès distant coupé,
   // clé API absente…) ne doit pas empêcher la suite — et surtout pas laisser les
   // hauteurs réservées en place pour toujours.
-  await Promise.allSettled([loadStatus(),loadVram(),loadRam(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadApiKey(),loadPrefs(),loadLlamacpp(),loadRemote()]);
+  await Promise.allSettled([loadStatus(),loadVram(),loadRam(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadRemote()]);
   releaseHeights(); // tout est en place : on rend la main et on mesure pour la prochaine fois
 }
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }

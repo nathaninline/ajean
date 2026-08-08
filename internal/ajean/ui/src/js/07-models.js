@@ -223,7 +223,14 @@ async function populateModelPicker(){
       const on = samePath(cur, m.value) || samePath(cur, m.path) ||
                  (g.home && samePath(baseName(cur), m.name)) ? ' selected' : '';
       if(on) matched = true;
-      opts += '<option value="'+escHtml(m.value)+'"'+on+'>'+escHtml(m.name)+'  ('+fmtSize(m.size)+')</option>';
+      // Modèle en plusieurs fichiers : l'API ne renvoie que la première tranche
+      // (les autres ne se lancent pas seules) et la taille de la famille entière.
+      // On le dit, et surtout on signale les tranches manquantes — sinon le
+      // modèle se sélectionne sans broncher puis le moteur meurt au démarrage.
+      let tag = '';
+      if(m.shards > 1) tag = ' · ' + m.shards + ' fichiers';
+      if(m.missing && m.missing.length) tag += ' · ⚠ ' + m.missing.length + ' manquant' + (m.missing.length>1?'s':'');
+      opts += '<option value="'+escHtml(m.value)+'"'+on+'>'+escHtml(m.name)+'  ('+fmtSize(m.size)+tag+')</option>';
     }
     html += groups.length > 1
       ? '<optgroup label="'+escHtml(g.home ? 'dossier ajean' : g.dir)+'">'+opts+'</optgroup>'
@@ -837,7 +844,10 @@ async function startDownload(){
     await populateDlDirs();
     return;
   }
-  e.prog.textContent = fmtSize(p.size)+' à télécharger — '+fmtSize(p.free)+' libres';
+  // p.size couvre TOUTES les tranches : un modèle découpé annonce ses 45 Go, pas
+  // les 15 Go du fichier dont le lien a été collé.
+  const nparts = p.parts > 1 ? ' en '+p.parts+' fichiers' : '';
+  e.prog.textContent = fmtSize(p.size)+nparts+' à télécharger — '+fmtSize(p.free)+' libres';
   const r = await jpost('/api/models/download', {url, dir});
   if(!r.ok){
     e.prog.innerHTML = '<span style="color:var(--err)">erreur : '+(r.error||'')+'</span>';
@@ -906,7 +916,10 @@ function watchDownload(fname){
         extra += ' — reste '+(m>0 ? m+' min '+s+' s' : s+' s');
       }
     }
-    e.prog.textContent = '↓ '+fmtSize(st.done)+tot+extra+' — '+fname;
+    // Une seule barre pour tout le modèle ; le compteur de tranches dit où on en
+    // est, sans quoi un téléchargement en 3 fichiers semble se figer par paliers.
+    const part = st.parts > 1 ? ' — fichier '+(st.part||1)+'/'+st.parts : '';
+    e.prog.textContent = '↓ '+fmtSize(st.done)+tot+extra+part+' — '+fname;
   };
   dlPoll = setInterval(tick, 800);
   tick();

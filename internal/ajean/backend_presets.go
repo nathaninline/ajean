@@ -183,7 +183,13 @@ func safePresetPath(name string) (string, error) {
 // paramètres de modèle) qui doivent survivre à un changement de preset. Sans ça,
 // écraser config.env avec le preset ré-imposerait le mode mémoire et effacerait
 // l'URL du serveur internet à chaque bascule — ce qui obligeait à tout remettre.
-var preservedKeys = []string{"MEM_MODE", "CRAWL4AI_URL", "WEB_ENGINE", "CUDA_VISIBLE_DEVICES"}
+// HOST y figure depuis la 0.8.4 : c'est un réglage de MACHINE (« le moteur
+// est-il joignable depuis le réseau ? », voir sys_network.go), pas un réglage de
+// modèle. Sans lui dans cette liste, basculer sur un preset écrit avant cette
+// version effaçait la clé, et le moteur repartait sur le défaut « toutes les
+// interfaces » : une machine volontairement fermée se rouvrait toute seule au
+// premier changement de preset.
+var preservedKeys = []string{"MEM_MODE", "CRAWL4AI_URL", "WEB_ENGINE", "CUDA_VISIBLE_DEVICES", "HOST"}
 
 // softPreservedKeys : préservées SEULEMENT si le preset d'arrivée ne les définit
 // pas lui-même. CUDA_VISIBLE_DEVICES est dans ce cas : c'est d'ordinaire un
@@ -193,7 +199,7 @@ var preservedKeys = []string{"MEM_MODE", "CRAWL4AI_URL", "WEB_ENGINE", "CUDA_VIS
 // inconditionnellement écrasait cette valeur par l'ancienne (mono-GPU) : le
 // modèle se retrouvait entièrement sur une seule carte et mourait sur
 // « cudaMalloc failed: out of memory ». Le preset explicite gagne.
-var softPreservedKeys = map[string]bool{"CUDA_VISIBLE_DEVICES": true}
+var softPreservedKeys = map[string]bool{"CUDA_VISIBLE_DEVICES": true, "HOST": true}
 
 // applyPresetFile installe le preset comme configuration active, en réinjectant
 // les réglages « appareil » par-dessus. Séparé de SwitchToPreset pour être

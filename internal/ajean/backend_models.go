@@ -124,7 +124,10 @@ func modelFromPresetContent(content string) string {
 }
 
 // deleteModelFile removes a .gguf file from one of the declared model folders
-// after validating the name.
+// after validating the name. Un modèle découpé emporte TOUTES ses tranches :
+// n'effacer que la première laissait des dizaines de Go de fichiers que plus
+// rien ne référence, et que rien ne sait plus supprimer depuis l'interface (les
+// tranches suivantes n'y apparaissent pas).
 func deleteModelFile(name string) error {
 	p, err := resolveModelPath(name)
 	if err != nil {
@@ -135,6 +138,10 @@ func deleteModelFile(name string) error {
 			return fmt.Errorf("modèle introuvable: %s", filepath.Base(p))
 		}
 		return err
+	}
+	dir := filepath.Dir(p)
+	for _, n := range shardFamily(filepath.Base(p)) {
+		_ = os.Remove(filepath.Join(dir, n)) // déjà supprimée ou absente = rien à faire
 	}
 	return nil
 }
@@ -166,6 +173,8 @@ type dlState struct {
 	Done      int64  `json:"done"`
 	Speed     int64  `json:"speed"` // bytes/s, smoothed over the last samples
 	Conns     int    `json:"conns"` // parallel connections actually used
+	Parts     int    `json:"parts"` // nombre de tranches (1 pour un modèle en un seul fichier)
+	Part      int    `json:"part"`  // tranche en cours (1-based)
 	Finished  bool   `json:"finished"`
 	Canceled  bool   `json:"canceled"`
 	Err       string `json:"error"`
@@ -263,14 +272,33 @@ func handleModelDownload(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	dest, err := downloadDestPath(name, req.Dir)
-	if err != nil {
-		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
-		return
+	// Modèle découpé : le lien ne désigne qu'une tranche, on rapatrie la famille.
+	// Le modèle porte le nom de sa PREMIÈRE tranche — c'est elle qu'on passe à
+	// llama-server, et c'est donc elle qui identifie le téléchargement.
+	urls, names := shardURLSet(dlURL, name)
+	name = names[0]
+	dests := make([]string, len(names))
+	for i, n := range names {
+		if dests[i], err = downloadDestPath(n, req.Dir); err != nil {
+			sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
 	}
-	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dests[0]), 0o755); err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "dossier de destination inaccessible : " + err.Error()})
 		return
+	}
+
+	// Tranches déjà là : on ne les retélécharge pas. C'est aussi ce qui permet de
+	// relancer un téléchargement en plusieurs fichiers interrompu à la deuxième
+	// tranche sans repayer les 15 Go de la première.
+	var todoURLs, todoDests []string
+	for i := range names {
+		if st, err := os.Stat(dests[i]); err == nil && !st.IsDir() {
+			continue
+		}
+		todoURLs = append(todoURLs, urls[i])
+		todoDests = append(todoDests, dests[i])
 	}
 
 	dlMu.Lock()
@@ -279,18 +307,21 @@ func handleModelDownload(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 409, map[string]any{"ok": false, "error": "téléchargement déjà en cours pour " + name})
 		return
 	}
-	if _, err := os.Stat(dest); err == nil {
+	if len(todoURLs) == 0 {
 		dlMu.Unlock()
 		sendJSON(w, 409, map[string]any{"ok": false, "error": "le modèle existe déjà: " + name})
 		return
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	st := &dlState{Filename: name, URL: dlURL, Dir: filepath.Dir(dest), StartedAt: time.Now().Unix(), cancel: cancel}
+	st := &dlState{
+		Filename: name, URL: urls[0], Dir: filepath.Dir(dests[0]),
+		Parts: len(todoURLs), StartedAt: time.Now().Unix(), cancel: cancel,
+	}
 	dlDownloads[name] = st
 	dlMu.Unlock()
 
-	go runDownload(ctx, st, dlURL, dest)
-	sendJSON(w, 200, map[string]any{"ok": true, "filename": name})
+	go runDownloadSet(ctx, st, todoURLs, todoDests)
+	sendJSON(w, 200, map[string]any{"ok": true, "filename": name, "parts": len(todoURLs)})
 }
 
 // dlSpaceMargin est la marge laissée libre après le téléchargement : un disque
@@ -346,14 +377,23 @@ func handleModelDownloadProbe(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
+	// Un modèle découpé se sonde EN ENTIER : annoncer les 15 Go de la première
+	// tranche alors qu'il en faut 45 sur le disque, c'est promettre que ça tient
+	// puis échouer au deux tiers du transfert.
+	urls, names := shardURLSet(dlURL, name)
+	name = names[0]
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	total, _, err := dlProbe(ctx, dlURL)
-	if err != nil {
-		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
-		return
+	var total int64
+	for _, u := range urls {
+		n, _, err := dlProbe(ctx, u)
+		if err != nil {
+			sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		total += n
 	}
-	out := map[string]any{"ok": true, "filename": name, "dir": dir, "size": total, "free": diskFree(dir), "enough": true}
+	out := map[string]any{"ok": true, "filename": name, "dir": dir, "size": total, "free": diskFree(dir), "enough": true, "parts": len(urls)}
 	if err := checkDiskSpace(dir, total); err != nil {
 		out["enough"] = false
 		out["error"] = err.Error()
@@ -420,15 +460,18 @@ func dlProbe(ctx context.Context, dlURL string) (total int64, ranged bool, err e
 	}
 }
 
-// runDownload fetches the URL into a .part file then renames it on success.
-// When the source honours byte ranges (Hugging Face's CDN does), the file is
-// split across several connections written in place with WriteAt, which is what
-// makes a multi-GB .gguf saturate the link instead of a single TCP stream.
-// Cancelling the context aborts every worker and the partial .part is removed,
-// so a cancelled download leaves nothing behind.
-func runDownload(ctx context.Context, st *dlState, dlURL, dest string) {
-	tmp := dest + ".part"
-	var done int64 // atomic: total bytes written across all workers
+// runDownloadSet fetches one model, qui peut tenir en plusieurs fichiers (un
+// GGUF découpé en tranches). Les tranches se suivent SÉQUENTIELLEMENT — chacune
+// sature déjà le lien à elle seule grâce aux connexions parallèles, les mener de
+// front ne ferait que multiplier les fichiers à jeter en cas d'annulation.
+// La progression publiée (Done / Total) couvre l'ENSEMBLE : une barre unique du
+// début à la fin, pas trois barres qui repartent de zéro.
+//
+// Annulation ou échec : toutes les tranches déjà écrites par CE téléchargement
+// sont supprimées. Un modèle amputé d'une tranche ne démarre pas ; le laisser
+// sur le disque n'offrirait qu'un modèle mort et des dizaines de Go occupés.
+func runDownloadSet(ctx context.Context, st *dlState, urls, dests []string) {
+	var done int64 // atomique : octets écrits, toutes tranches confondues
 
 	finish := func(e error) {
 		dlMu.Lock()
@@ -447,54 +490,33 @@ func runDownload(ctx context.Context, st *dlState, dlURL, dest string) {
 		dlMu.Unlock()
 	}
 
-	total, ranged, err := dlProbe(ctx, dlURL)
-	if err != nil {
-		finish(err)
-		return
+	// Sonde de TOUTES les tranches avant d'écrire quoi que ce soit : la place
+	// disque se vérifie sur le total, pas tranche par tranche.
+	totals := make([]int64, len(urls))
+	rangeds := make([]bool, len(urls))
+	var grand int64
+	for i, u := range urls {
+		n, ranged, err := dlProbe(ctx, u)
+		if err != nil {
+			finish(err)
+			return
+		}
+		totals[i], rangeds[i] = n, ranged
+		grand += n
 	}
 	// Vérification serveur : l'UI a déjà prévenu, mais rien ne garantit qu'elle
 	// l'ait fait (autre client, disque rempli entre-temps).
-	if err := checkDiskSpace(filepath.Dir(dest), total); err != nil {
+	if err := checkDiskSpace(filepath.Dir(dests[0]), grand); err != nil {
 		finish(err)
 		return
-	}
-
-	conns := 1
-	if ranged && total > 0 {
-		conns = dlConns()
-		if max := int((total + dlMinChunk - 1) / dlMinChunk); conns > max {
-			conns = max
-		}
-		if conns < 1 {
-			conns = 1
-		}
 	}
 
 	dlMu.Lock()
-	st.Total = total
-	st.Conns = conns
+	st.Total = grand
+	st.Parts = len(urls)
 	dlMu.Unlock()
 
-	f, err := os.Create(tmp)
-	if err != nil {
-		finish(err)
-		return
-	}
-	fail := func(e error) {
-		f.Close()
-		_ = os.Remove(tmp)
-		finish(e)
-	}
-	if conns > 1 {
-		// Preallocate so the filesystem can lay the file out contiguously and
-		// concurrent WriteAt calls never race to extend it.
-		if err := f.Truncate(total); err != nil {
-			fail(err)
-			return
-		}
-	}
-
-	// Publish progress + a smoothed speed once a second.
+	// Publication de la progression + vitesse lissée, une fois par seconde.
 	stop := make(chan struct{})
 	go func() {
 		t := time.NewTicker(time.Second)
@@ -514,7 +536,7 @@ func runDownload(ctx context.Context, st *dlState, dlURL, dest string) {
 					if st.Speed == 0 {
 						st.Speed = inst
 					} else {
-						st.Speed = (st.Speed*2 + inst) / 3 // EMA, smooths CDN jitter
+						st.Speed = (st.Speed*2 + inst) / 3 // EMA, lisse les à-coups du CDN
 					}
 				}
 				dlMu.Unlock()
@@ -523,23 +545,74 @@ func runDownload(ctx context.Context, st *dlState, dlURL, dest string) {
 		}
 	}()
 
-	err = dlFetch(ctx, f, dlURL, total, conns, &done)
+	var written []string // tranches menées à bien par CE téléchargement
+	for i := range urls {
+		dlMu.Lock()
+		st.Part = i + 1
+		dlMu.Unlock()
+		if err := dlOnePart(ctx, st, urls[i], dests[i], totals[i], rangeds[i], &done); err != nil {
+			close(stop)
+			for _, p := range written {
+				_ = os.Remove(p)
+			}
+			finish(err) // annulation comprise : le .part est supprimé dans tous les cas
+			return
+		}
+		written = append(written, dests[i])
+	}
 	close(stop)
+	finish(nil)
+}
+
+// dlOnePart télécharge UN fichier dans un .part puis le renomme au succès.
+// Quand la source honore les plages d'octets (le CDN de Hugging Face le fait),
+// le fichier est réparti sur plusieurs connexions écrites en place via WriteAt :
+// c'est ce qui fait qu'un .gguf de plusieurs Go sature le lien au lieu de se
+// traîner sur un seul flux TCP. done est incrémenté globalement (il compte pour
+// tout le modèle, pas seulement pour cette tranche).
+func dlOnePart(ctx context.Context, st *dlState, dlURL, dest string, total int64, ranged bool, done *int64) error {
+	tmp := dest + ".part"
+	conns := 1
+	if ranged && total > 0 {
+		conns = dlConns()
+		if max := int((total + dlMinChunk - 1) / dlMinChunk); conns > max {
+			conns = max
+		}
+		if conns < 1 {
+			conns = 1
+		}
+	}
+	dlMu.Lock()
+	st.Conns = conns
+	dlMu.Unlock()
+
+	f, err := os.Create(tmp)
 	if err != nil {
-		fail(err) // includes cancellation: the .part is deleted either way
-		return
+		return err
+	}
+	if conns > 1 {
+		// Préallocation : le système de fichiers pose le fichier d'un bloc et les
+		// WriteAt concurrents n'ont jamais à l'étendre en même temps.
+		if err := f.Truncate(total); err != nil {
+			f.Close()
+			_ = os.Remove(tmp)
+			return err
+		}
+	}
+	if err := dlFetch(ctx, f, dlURL, total, conns, done); err != nil {
+		f.Close()
+		_ = os.Remove(tmp)
+		return err
 	}
 	if err := f.Close(); err != nil {
 		_ = os.Remove(tmp)
-		finish(err)
-		return
+		return err
 	}
 	if err := os.Rename(tmp, dest); err != nil {
 		_ = os.Remove(tmp)
-		finish(err)
-		return
+		return err
 	}
-	finish(nil)
+	return nil
 }
 
 // dlFetch writes the whole body into f, either as one stream or as `conns`
