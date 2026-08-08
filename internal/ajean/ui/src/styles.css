@@ -1046,3 +1046,24 @@ button:hover{border-color:var(--dim);color:var(--text)}
 /* Sélecteurs segmentés : noir plein quand c'est coché, pas de couleur. */
 .pe-seg>label:has(input:checked),.seg>label:has(input:checked){background:var(--text);border-color:var(--text);color:var(--bg)}
 
+
+/* Curseur de portée de l'export. Même vocabulaire visuel que la répartition GPU
+   (piste arrondie + pastille cerclée), mais une seule valeur : la position tout
+   à droite vaut « toute la conversation ». Le libellé sous la piste donne le
+   compte RÉEL d'échanges et le poids du fichier, la question qu'on se pose
+   vraiment avant d'exporter. */
+.xr{position:relative;display:flex;align-items:center;height:22px}
+.xr-track{width:100%;height:10px;border-radius:999px;overflow:hidden;background:color-mix(in srgb,var(--dim) 20%,transparent)}
+.xr-fill{height:100%;background:var(--accent);border-radius:999px;transition:width .12s}
+.xr-range{position:absolute;inset:0;width:100%;height:22px;margin:0;padding:0;background:transparent;-webkit-appearance:none;appearance:none;cursor:ew-resize}
+.xr-range:focus{outline:none}
+.xr-range::-webkit-slider-runnable-track{height:22px;background:transparent;border:none}
+.xr-range::-moz-range-track{height:22px;background:transparent;border:none}
+.xr-range::-moz-range-progress{background:transparent}
+.xr-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;margin-top:3px;border-radius:50%;background:var(--bg);border:2px solid var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.3);cursor:ew-resize}
+.xr-range::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--bg);border:2px solid var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.3);cursor:ew-resize}
+.xr-range:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(--accent-bg)}
+.xr-range:focus-visible::-moz-range-thumb{box-shadow:0 0 0 3px var(--accent-bg)}
+.xr-range:disabled{cursor:default;opacity:.5}
+.xr-legend{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:8px;font-size:12px}
+.xr-legend .xr-size{color:var(--dim);font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}

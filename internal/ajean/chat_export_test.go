@@ -204,6 +204,46 @@ func TestExportDerniersEchanges(t *testing.T) {
 	}
 }
 
+// La sonde alimente le curseur de portée et la taille annoncée : elle doit
+// rendre la taille EXACTE du fichier qui serait téléchargé avec les mêmes
+// options, sinon l'interface annonce un poids qu'elle ne tient pas.
+func TestHandleChatExportProbe(t *testing.T) {
+	convDeTest(t)
+	probe := func(q string) (size, turns int) {
+		rr := httptest.NewRecorder()
+		handleChatExport(rr, httptest.NewRequest("GET", "/api/chat/export?probe=1&"+q, nil))
+		if rr.Code != 200 {
+			t.Fatalf("%s : HTTP %d", q, rr.Code)
+		}
+		var out struct {
+			Size  int `json:"size"`
+			Turns int `json:"turns"`
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+			t.Fatal(err)
+		}
+		return out.Size, out.Turns
+	}
+	download := func(q string) int {
+		rr := httptest.NewRecorder()
+		handleChatExport(rr, httptest.NewRequest("GET", "/api/chat/export?"+q, nil))
+		return rr.Body.Len()
+	}
+	for _, q := range []string{"", "reasoning=0", "format=json", "turns=1"} {
+		if s, _ := probe(q); s != download(q) {
+			t.Errorf("q=%q : sonde %d o, téléchargement %d o", q, s, download(q))
+		}
+	}
+	// Le compte d'échanges ne dépend PAS des options : c'est la borne du curseur,
+	// elle ne doit pas rétrécir quand on réduit la portée.
+	if _, n := probe("turns=1"); n != 1 {
+		t.Errorf("échanges comptés = %d ; le fil de test en a 1", n)
+	}
+	if got := conv.countTurns(); got != 1 {
+		t.Errorf("countTurns = %d", got)
+	}
+}
+
 func TestCmdExportEcritLeFichier(t *testing.T) {
 	testHome(t)
 	convDeTest(t)

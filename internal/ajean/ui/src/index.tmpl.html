@@ -373,8 +373,13 @@
     <div style="padding:16px 20px;display:flex;flex-direction:column;gap:14px">
       <div>
         <div class="subhead" style="margin:0 0 6px">Format</div>
-        <label class="switchrow" style="cursor:pointer"><input type="radio" name="x-fmt" value="md" checked onchange="onExportFormat()" style="margin-right:8px"> Markdown <span class="muted" style="margin-left:6px">à lire</span></label>
-        <label class="switchrow" style="cursor:pointer"><input type="radio" name="x-fmt" value="json" onchange="onExportFormat()" style="margin-right:8px"> JSON <span class="muted" style="margin-left:6px">à retraiter</span></label>
+        <!-- Contrôle segmenté (.seg), comme le choix de moteur dans l'éditeur de
+             preset : deux cases côte à côte se lisent d'un coup d'œil là où deux
+             boutons radio empilés obligent à lire ligne par ligne. -->
+        <div class="seg">
+          <label><input type="radio" name="x-fmt" value="md" checked onchange="onExportFormat()">Markdown<span class="be-note">à lire</span></label>
+          <label><input type="radio" name="x-fmt" value="json" onchange="onExportFormat()">JSON<span class="be-note">à retraiter</span></label>
+        </div>
       </div>
       <div id="x-md-opts">
         <div class="subhead" style="margin:0 0 6px">Contenu</div>
@@ -388,13 +393,19 @@
       </div>
       <div>
         <div class="subhead" style="margin:0 0 6px">Portée</div>
-        <select id="x-turns" class="io-input" onchange="onExportPreview()">
-          <option value="0">toute la conversation</option>
-          <option value="1">dernier échange</option>
-          <option value="3">3 derniers échanges</option>
-          <option value="10">10 derniers échanges</option>
-          <option value="25">25 derniers échanges</option>
-        </select>
+        <!-- Curseur borné au nombre RÉEL d'échanges du fil (rempli à l'ouverture
+             par /api/chat/export?probe=1) : la butée de droite vaut « toute la
+             conversation ». Un menu à valeurs fixes proposait « 25 derniers
+             échanges » sur un fil qui en comptait trois, sans jamais dire
+             combien il y en avait. -->
+        <div class="xr">
+          <div class="xr-track"><div class="xr-fill" id="x-fill"></div></div>
+          <input type="range" class="xr-range" id="x-turns" min="1" max="1" value="1" oninput="onExportPreview()" aria-label="nombre d'échanges à exporter">
+        </div>
+        <div class="xr-legend">
+          <span id="x-scope">toute la conversation</span>
+          <span id="x-size" class="xr-size">…</span>
+        </div>
       </div>
       <div id="x-note" class="muted" style="font-size:11px"></div>
     </div>

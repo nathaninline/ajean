@@ -252,7 +252,24 @@ function renderApiKey(d){
 }
 async function loadApiKey(){ renderApiKey(await jget('/api/apikey')); }
 // --- Export de la conversation ---------------------------------------------
-function openExportModal(){ onExportFormat(); showModal('export-modal'); }
+// Taille d'un export, en français et avec une décimale. fmtSize convient aux
+// modèles (des Go, où l'arrondi ne se voit pas) mais pas ici : un fil de 2585
+// octets s'y affichait « 3 KB », soit une taille fausse dans le seul endroit de
+// l'interface qui prétend annoncer la taille réelle.
+function fmtExportSize(b){
+  b = Number(b) || 0;
+  if(b < 1024) return b + ' o';
+  if(b < 1024*1024) return (b/1024).toFixed(1).replace('.', ',') + ' Ko';
+  return (b/(1024*1024)).toFixed(1).replace('.', ',') + ' Mo';
+}
+// xTurnsTotal : nombre d'échanges du fil, borne haute du curseur. Connu
+// seulement après la sonde ; d'ici là le curseur est désactivé plutôt que faux.
+let xTurnsTotal = 0;
+function openExportModal(){
+  onExportFormat();
+  showModal('export-modal');
+  probeExport(); // remplit la borne du curseur et la taille réelle
+}
 function closeExportModal(){ hideModal('export-modal'); }
 // Le format décide des options AFFICHÉES : les réglages Markdown n'ont aucun
 // effet sur un JSON, les montrer grisés ne ferait qu'encombrer.
@@ -281,10 +298,19 @@ function exportQuery(){
     if(!on('x-tools')) p.set('tools','0');
     if(!on('x-results')) p.set('results','0');
   }
-  const t = document.getElementById('x-turns').value;
-  if(t !== '0') p.set('turns', t);
+  const t = exportTurns();
+  if(t > 0) p.set('turns', String(t));
   const q = p.toString();
   return '/api/chat/export' + (q ? '?'+q : '');
+}
+// Valeur de portée à envoyer : 0 = tout le fil. La butée DROITE du curseur vaut
+// « toute la conversation », donc on n'envoie rien plutôt qu'un nombre qui se
+// périmerait à l'échange suivant.
+function exportTurns(){
+  const el = document.getElementById('x-turns');
+  const v = parseInt(el.value, 10) || 0;
+  if(!xTurnsTotal || v >= xTurnsTotal) return 0;
+  return v;
 }
 // Dit en une ligne ce que l'export va contenir. Sans ça on découvre en ouvrant
 // le fichier que le raisonnement qu'on venait chercher n'y est pas.
@@ -294,9 +320,8 @@ function onExportPreview(){
   const results = document.getElementById('x-results');
   results.disabled = !tools.checked;
   if(!tools.checked) results.checked = false;
+  paintExportRange();
   const parts = [];
-  const t = document.getElementById('x-turns');
-  parts.push(t.value === '0' ? 'toute la conversation' : t.options[t.selectedIndex].text);
   if(exportFormat() === 'json'){
     parts.push(document.getElementById('x-full').checked ? 'messages + journal complet' : 'messages seuls');
   } else {
@@ -307,6 +332,61 @@ function onExportPreview(){
     parts.push(off.length ? 'sans ' + off.join(' ni ') : 'tout le contenu');
   }
   document.getElementById('x-note').textContent = parts.join(' · ');
+  probeExportSoon();
+}
+// Remplit la piste du curseur et son libellé. Purement local : appelé à chaque
+// pixel de glissement, il ne doit RIEN demander au serveur.
+function paintExportRange(){
+  const el = document.getElementById('x-turns');
+  const n = parseInt(el.value, 10) || 0;
+  const max = Math.max(1, xTurnsTotal);
+  // La pastille ne parcourt pas toute la largeur : elle va de THUMB/2 à
+  // largeur - THUMB/2. On coupe le remplissage dans SON repère, sinon la piste
+  // colorée déborde à côté d'elle aux extrémités (même calcul que la barre GPU).
+  const frac = max > 1 ? (n - 1) / (max - 1) : 1;
+  const fill = document.getElementById('x-fill');
+  if(fill) fill.style.width = 'calc(' + (frac*100).toFixed(2) + '% - ' + ((frac - .5) * GPU_THUMB).toFixed(2) + 'px)';
+  const scope = document.getElementById('x-scope');
+  if(!scope) return;
+  if(!xTurnsTotal) scope.textContent = 'conversation vide';
+  else if(n >= xTurnsTotal) scope.textContent = 'toute la conversation (' + xTurnsTotal + ' échange' + (xTurnsTotal>1?'s':'') + ')';
+  else scope.textContent = n + ' dernier' + (n>1?'s':'') + ' échange' + (n>1?'s':'') + ' sur ' + xTurnsTotal;
+}
+// Sonde la taille RÉELLE du fichier pour les options courantes. Le serveur rend
+// l'export puis le jette : c'est peu coûteux, mais pas au point de le refaire à
+// chaque pixel du curseur, d'où le délai. Un `seq` protège du désordre : sur un
+// glissement rapide, une réponse en retard ne doit pas écraser la plus récente.
+let xProbeTimer = null, xProbeSeq = 0;
+function probeExportSoon(){
+  document.getElementById('x-size').textContent = '…';
+  // ⚠️ On périme TOUT DE SUITE la sonde en vol, sans attendre que la suivante
+  // parte. Sans ça, une réponse partie avant le changement d'options revenait
+  // écraser le « … » par la taille de l'état PRÉCÉDENT : le poids affiché
+  // retardait d'un cran sur le curseur, ce qui est pire que pas de chiffre.
+  xProbeSeq++;
+  clearTimeout(xProbeTimer);
+  xProbeTimer = setTimeout(probeExport, 250);
+}
+async function probeExport(){
+  const seq = ++xProbeSeq;
+  const sep = exportQuery().includes('?') ? '&' : '?';
+  try{
+    const r = await jget(exportQuery() + sep + 'probe=1');
+    if(seq !== xProbeSeq) return;              // une sonde plus récente a pris la main
+    if(!r || !r.ok) throw new Error('probe');
+    // La borne du curseur n'est connue qu'ici : on la pose (et on la garde en
+    // butée droite) avant de repeindre.
+    const el = document.getElementById('x-turns');
+    const atMax = parseInt(el.value,10) >= (xTurnsTotal || 1);
+    xTurnsTotal = r.turns || 0;
+    el.max = String(Math.max(1, xTurnsTotal));
+    el.disabled = xTurnsTotal < 2;             // 0 ou 1 échange : rien à trancher
+    if(atMax || parseInt(el.value,10) > xTurnsTotal) el.value = el.max;
+    document.getElementById('x-size').textContent = fmtExportSize(r.size);
+    paintExportRange();
+  }catch(e){
+    if(seq === xProbeSeq) document.getElementById('x-size').textContent = '';
+  }
 }
 async function runExport(){
   const btn = document.getElementById('x-go');

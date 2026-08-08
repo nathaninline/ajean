@@ -352,10 +352,40 @@ func cmdExport(args []string) error {
 	return nil
 }
 
+// countTurns compte les échanges du journal d'affichage (un échange = un
+// message utilisateur). C'est la borne du curseur de portée dans l'interface :
+// proposer « 25 derniers échanges » sur un fil qui en compte trois n'avait
+// aucun sens, et ne disait pas non plus combien il y en avait.
+func (c *Conversation) countTurns() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	n := 0
+	for _, ev := range c.Log {
+		if _, ok := ev.Delta["user"]; ok {
+			n++
+		}
+	}
+	return n
+}
+
 // handleChatExport sert la conversation en téléchargement. Options en paramètres
 // d'URL (voir exportOptsFromQuery) ; sans aucun paramètre, c'est l'export complet.
+//
+// Avec `probe=1`, on ne renvoie PAS le fichier mais sa taille et le nombre
+// d'échanges disponibles : l'interface annonce ainsi le poids réel avant de
+// télécharger. Le rendu est fait puis jeté, ce qui coûte quelques millisecondes
+// et évite d'entretenir un second calcul de taille qui finirait par mentir.
 func handleChatExport(w http.ResponseWriter, r *http.Request) {
 	o := exportOptsFromQuery(r.URL.Query())
+	if r.URL.Query().Get("probe") == "1" {
+		body, _, _, err := exportBody(o)
+		if err != nil {
+			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		sendJSON(w, 200, map[string]any{"ok": true, "size": len(body), "turns": conv.countTurns()})
+		return
+	}
 	body, ctype, ext, err := exportBody(o)
 	if err != nil {
 		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
