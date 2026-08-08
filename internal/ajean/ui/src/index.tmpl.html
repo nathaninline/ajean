@@ -294,18 +294,20 @@
         <button id="upd-check" onclick="checkUpdate()">↥ Vérifier les mises à jour</button>
       </div>
       <div id="upd-msg" class="muted"></div>
-      <div class="row" style="margin-bottom:0">
-        <button onclick="loadAll()">↻ refresh</button>
-        <button onclick="resetChat()">⌫ clear chat</button>
-        <button id="btn-bench" onclick="runBenchUI()">bench</button>
-      </div>
       <!-- Export du fil. Depuis la 0.8 la conversation vit dans ajean.db (bbolt,
            binaire et verrouillé tant que le service tourne) : sans ce bouton,
            plus personne ne peut relire ni archiver ses échanges, ce que
            permettait l'ancien conversation.json. -->
       <div class="row" style="margin-bottom:0">
-        <button onclick="exportChat('md')" title="conversation complète, raisonnements compris">⤓ exporter (.md)</button>
-        <button onclick="exportChat('json')" title="format fidèle : vue modèle + journal d'affichage">.json</button>
+        <button onclick="loadAll()">↻ refresh</button>
+        <button id="btn-bench" onclick="runBenchUI()">bench</button>
+        <button onclick="openExportModal()" title="choisir le format et ce qu'on emporte">⤓ exporter…</button>
+      </div>
+      <!-- « clear chat » est en DERNIER, et seul sur sa ligne : c'est la seule
+           action destructive du panneau, elle ne doit pas se trouver sous le
+           doigt qui visait « refresh ». -->
+      <div class="row" style="margin-bottom:0">
+        <button onclick="resetChat()">⌫ clear chat</button>
       </div>
     </div></div>
   </details>
@@ -354,6 +356,51 @@
     <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:6px">
       <button onclick="closeBenchModal()">fermer</button>
       <button id="bench-rerun" onclick="runBenchUI()" style="border-color:var(--accent);color:var(--accent)">relancer</button>
+    </div>
+  </div>
+</div>
+<!-- Fenêtre d'export. Un fil relu pour retrouver une réponse n'a que faire des
+     mille lignes de raisonnement qui l'ont produite : on choisit ce qu'on
+     emporte plutôt que de tout prendre ou rien. Les options du format non
+     retenu sont MASQUÉES, pas grisées : un réglage sans effet visible n'a rien
+     à faire à l'écran. -->
+<div id="export-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:30;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeExportModal()">
+  <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;width:100%;max-width:460px;display:flex;flex-direction:column">
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <strong>Exporter la conversation</strong>
+      <button onclick="closeExportModal()" style="margin:0">×</button>
+    </div>
+    <div style="padding:16px 20px;display:flex;flex-direction:column;gap:14px">
+      <div>
+        <div class="subhead" style="margin:0 0 6px">Format</div>
+        <label class="switchrow" style="cursor:pointer"><input type="radio" name="x-fmt" value="md" checked onchange="onExportFormat()" style="margin-right:8px"> Markdown <span class="muted" style="margin-left:6px">à lire</span></label>
+        <label class="switchrow" style="cursor:pointer"><input type="radio" name="x-fmt" value="json" onchange="onExportFormat()" style="margin-right:8px"> JSON <span class="muted" style="margin-left:6px">à retraiter</span></label>
+      </div>
+      <div id="x-md-opts">
+        <div class="subhead" style="margin:0 0 6px">Contenu</div>
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="x-reasoning" checked onchange="onExportPreview()"><span class="slider"></span></span> raisonnements</label>
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="x-tools" checked onchange="onExportPreview()"><span class="slider"></span></span> appels d'outils</label>
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="x-results" checked onchange="onExportPreview()"><span class="slider"></span></span> sorties des outils</label>
+      </div>
+      <div id="x-json-opts" style="display:none">
+        <div class="subhead" style="margin:0 0 6px">Contenu</div>
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="x-full" checked onchange="onExportPreview()"><span class="slider"></span></span> journal d'affichage<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Le fil tel qu'il s'affiche : raisonnements, appels d'outils, vitesses. Décoché, l'export ne garde que les messages envoyés au modèle.</span></span></label>
+      </div>
+      <div>
+        <div class="subhead" style="margin:0 0 6px">Portée</div>
+        <select id="x-turns" class="io-input" onchange="onExportPreview()">
+          <option value="0">toute la conversation</option>
+          <option value="1">dernier échange</option>
+          <option value="3">3 derniers échanges</option>
+          <option value="10">10 derniers échanges</option>
+          <option value="25">25 derniers échanges</option>
+        </select>
+      </div>
+      <div id="x-note" class="muted" style="font-size:11px"></div>
+    </div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:6px">
+      <button onclick="closeExportModal()">annuler</button>
+      <button id="x-go" onclick="runExport()" style="border-color:var(--accent);color:var(--accent)">⤓ télécharger</button>
     </div>
   </div>
 </div>

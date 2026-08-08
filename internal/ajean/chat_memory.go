@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// La mémoire de ajean = des fichiers Markdown plats sous MEMORY/<nom>.md.
+// La mémoire de ajean = des fichiers Markdown plats sous memory/<nom>.md.
 // L'IA y range ce qu'elle veut retenir entre les sessions (préférences,
 // décisions, procédures, infos projet). Quatre outils : mem_search, mem_read,
 // mem_add, mem_edit.

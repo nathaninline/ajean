@@ -252,27 +252,93 @@ function renderApiKey(d){
 }
 async function loadApiKey(){ renderApiKey(await jget('/api/apikey')); }
 // --- Export de la conversation ---------------------------------------------
+function openExportModal(){ onExportFormat(); showModal('export-modal'); }
+function closeExportModal(){ hideModal('export-modal'); }
+// Le format décide des options AFFICHÉES : les réglages Markdown n'ont aucun
+// effet sur un JSON, les montrer grisés ne ferait qu'encombrer.
+function onExportFormat(){
+  const json = exportFormat() === 'json';
+  document.getElementById('x-md-opts').style.display = json ? 'none' : '';
+  document.getElementById('x-json-opts').style.display = json ? '' : 'none';
+  onExportPreview();
+}
+function exportFormat(){
+  const r = document.querySelector('input[name=x-fmt]:checked');
+  return r ? r.value : 'md';
+}
+// Construit la requête d'export à partir des cases. On n'envoie QUE ce qui
+// s'écarte du défaut : l'URL reste lisible, et un export complet redevient le
+// simple /api/chat/export.
+function exportQuery(){
+  const p = new URLSearchParams();
+  const fmt = exportFormat();
+  if(fmt === 'json') p.set('format','json');
+  const on = id => document.getElementById(id).checked;
+  if(fmt === 'json'){
+    if(!on('x-full')) p.set('full','0');
+  } else {
+    if(!on('x-reasoning')) p.set('reasoning','0');
+    if(!on('x-tools')) p.set('tools','0');
+    if(!on('x-results')) p.set('results','0');
+  }
+  const t = document.getElementById('x-turns').value;
+  if(t !== '0') p.set('turns', t);
+  const q = p.toString();
+  return '/api/chat/export' + (q ? '?'+q : '');
+}
+// Dit en une ligne ce que l'export va contenir. Sans ça on découvre en ouvrant
+// le fichier que le raisonnement qu'on venait chercher n'y est pas.
+function onExportPreview(){
+  // Sortie d'outil sans bulle d'outil n'a aucun sens : la case suit.
+  const tools = document.getElementById('x-tools');
+  const results = document.getElementById('x-results');
+  results.disabled = !tools.checked;
+  if(!tools.checked) results.checked = false;
+  const parts = [];
+  const t = document.getElementById('x-turns');
+  parts.push(t.value === '0' ? 'toute la conversation' : t.options[t.selectedIndex].text);
+  if(exportFormat() === 'json'){
+    parts.push(document.getElementById('x-full').checked ? 'messages + journal complet' : 'messages seuls');
+  } else {
+    const off = [];
+    if(!document.getElementById('x-reasoning').checked) off.push('raisonnements');
+    if(!tools.checked) off.push('outils');
+    else if(!results.checked) off.push('sorties d\'outils');
+    parts.push(off.length ? 'sans ' + off.join(' ni ') : 'tout le contenu');
+  }
+  document.getElementById('x-note').textContent = parts.join(' · ');
+}
+async function runExport(){
+  const btn = document.getElementById('x-go');
+  btn.disabled = true;
+  try{ await downloadExport(exportQuery()); closeExportModal(); }
+  finally{ btn.disabled = false; }
+}
 // On passe par jfetch (et pas par un simple <a href>) pour deux raisons : la clé
 // de pilotage voyage dans un en-tête Authorization, qu'un lien ne porterait pas,
 // et le chemin de base change derrière le tunnel (/u/<id>).
-async function exportChat(format){
+async function downloadExport(url){
   toast('préparation de l\'export…');
   try{
-    const r = await jfetch('/api/chat/export?format=' + encodeURIComponent(format||'md'));
+    const r = await jfetch(url);
     if(!r.ok){ toast('erreur : HTTP ' + r.status); return; }
     const blob = await r.blob();
-    // Nom du fichier : celui proposé par le serveur (horodaté), à défaut un nom local.
-    let name = 'ajean-conversation.' + (format==='json' ? 'json' : 'md');
+    // Nom du fichier : celui proposé par le serveur (horodaté), à défaut un nom
+    // local déduit du type renvoyé.
     const cd = r.headers.get('Content-Disposition') || '';
     const m = cd.match(/filename="([^"]+)"/);
-    if(m) name = m[1];
-    const url = URL.createObjectURL(blob);
+    const name = m ? m[1]
+      : 'ajean-conversation.' + ((r.headers.get('Content-Type')||'').includes('json') ? 'json' : 'md');
+    // ⚠️ blobURL, surtout pas `url` : ce nom est déjà celui du paramètre, et le
+    // redéclarer ici mettrait la ligne `jfetch(url)` ci-dessus dans la zone morte
+    // du const — l'export échouerait avant même de partir.
+    const blobURL = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = name;
+    a.href = blobURL; a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
     // Révocation différée : Safari annule le téléchargement si l'URL disparaît
     // dans la foulée du clic.
-    setTimeout(()=>URL.revokeObjectURL(url), 10000);
+    setTimeout(()=>URL.revokeObjectURL(blobURL), 10000);
     toast('exporté : ' + name);
   }catch(e){ toast('erreur : ' + e.message); }
 }

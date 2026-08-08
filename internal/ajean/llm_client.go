@@ -56,7 +56,7 @@ func memSearchTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "mem_search",
-			Description: "Search your memory (Markdown pages under MEMORY/). Returns a ranked list of {file, title, snippet}. Use it FIRST when the user mentions something you might already know (preferences, ongoing projects, past decisions). Follow up with mem_read on the most relevant page.",
+			Description: "Search your memory (Markdown pages under memory/). Returns a ranked list of {file, title, snippet}. Use it FIRST when the user mentions something you might already know (preferences, ongoing projects, past decisions). Follow up with mem_read on the most relevant page.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{

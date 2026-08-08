@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -19,8 +20,62 @@ import (
 // personne ne peut les récupérer. C'est une régression pour qui relisait ses
 // échanges, et ce fichier la répare.
 //
-// Deux formats, un même contenu : le JSON est fidèle (vue modèle + journal
-// d'affichage complet, rejouable), le Markdown est fait pour être lu.
+// Deux formats : le Markdown est fait pour être LU (et se taille avec des
+// options — un fil relu pour retrouver une réponse n'a que faire des mille
+// lignes de raisonnement qui l'ont produite), le JSON est fait pour être
+// RETRAITÉ et reste fidèle par défaut.
+
+// exportOpts décrit ce qu'on veut sortir. Le zéro de la structure n'est PAS un
+// défaut utilisable (tout serait à false) : passer par defaultExportOpts.
+type exportOpts struct {
+	Format    string // "md" | "json"
+	Reasoning bool   // Markdown : inclure les blocs de raisonnement
+	Tools     bool   // Markdown : inclure les appels d'outils
+	Results   bool   // Markdown : inclure la sortie des outils (implique Tools)
+	Turns     int    // 0 = tout le fil ; N = les N derniers échanges
+	JSONFull  bool   // JSON : joindre le journal d'affichage en plus des messages
+}
+
+func defaultExportOpts() exportOpts {
+	return exportOpts{Format: "md", Reasoning: true, Tools: true, Results: true, JSONFull: true}
+}
+
+// exportOptsFromQuery lit les options d'une requête. Toute clé absente garde sa
+// valeur par défaut : `/api/chat/export` tout court reste l'export complet.
+func exportOptsFromQuery(q map[string][]string) exportOpts {
+	o := defaultExportOpts()
+	get := func(k string) (string, bool) {
+		v, ok := q[k]
+		if !ok || len(v) == 0 {
+			return "", false
+		}
+		return v[0], true
+	}
+	flag := func(k string, cur bool) bool {
+		v, ok := get(k)
+		if !ok {
+			return cur
+		}
+		return v == "1" || v == "true" || v == "on"
+	}
+	if v, ok := get("format"); ok && v == "json" {
+		o.Format = "json"
+	}
+	o.Reasoning = flag("reasoning", o.Reasoning)
+	o.Tools = flag("tools", o.Tools)
+	o.Results = flag("results", o.Results)
+	o.JSONFull = flag("full", o.JSONFull)
+	if v, ok := get("turns"); ok {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			o.Turns = n
+		}
+	}
+	// Sans les bulles d'outils, leur sortie n'a nulle part où aller.
+	if !o.Tools {
+		o.Results = false
+	}
+	return o
+}
 
 // exportPayload est la forme du fichier JSON exporté. `messages` est la vue
 // envoyée au modèle, `log` le journal d'affichage (celui qui porte les
@@ -30,21 +85,63 @@ type exportPayload struct {
 	ExportedAt string     `json:"exported_at"`
 	CtxUsed    int        `json:"ctx_used"`
 	Messages   []Message  `json:"messages"`
-	Log        []LogEvent `json:"log"`
+	Log        []LogEvent `json:"log,omitempty"`
 }
 
-// ExportJSON rend la conversation entière en JSON indenté.
-func (c *Conversation) ExportJSON() ([]byte, error) {
+// ExportJSON rend la conversation en JSON indenté.
+func (c *Conversation) ExportJSON(o exportOpts) ([]byte, error) {
 	c.mu.Lock()
+	msgs := append([]Message(nil), c.Messages...)
+	log := append([]LogEvent(nil), c.Log...)
+	ctxUsed := c.CtxUsed
+	c.mu.Unlock()
+
+	if o.Turns > 0 {
+		msgs = lastTurnsMessages(msgs, o.Turns)
+		log = lastTurnsLog(log, o.Turns)
+	}
 	p := exportPayload{
 		Version:    Version,
 		ExportedAt: time.Now().Format(time.RFC3339),
-		CtxUsed:    c.CtxUsed,
-		Messages:   append([]Message(nil), c.Messages...),
-		Log:        append([]LogEvent(nil), c.Log...),
+		CtxUsed:    ctxUsed,
+		Messages:   msgs,
 	}
-	c.mu.Unlock()
+	if o.JSONFull {
+		p.Log = log
+	}
 	return json.MarshalIndent(p, "", "  ")
+}
+
+// lastTurnsMessages garde les n derniers échanges de la vue modèle, un échange
+// commençant à un message `user`.
+func lastTurnsMessages(msgs []Message, n int) []Message {
+	seen := 0
+	for i := len(msgs) - 1; i >= 0; i-- {
+		if msgs[i].Role != "user" {
+			continue
+		}
+		seen++
+		if seen == n {
+			return msgs[i:]
+		}
+	}
+	return msgs
+}
+
+// lastTurnsLog fait de même sur le journal d'affichage, où un échange commence à
+// un événement `user`.
+func lastTurnsLog(log []LogEvent, n int) []LogEvent {
+	seen := 0
+	for i := len(log) - 1; i >= 0; i-- {
+		if _, ok := log[i].Delta["user"]; !ok {
+			continue
+		}
+		seen++
+		if seen == n {
+			return log[i:]
+		}
+	}
+	return log
 }
 
 // ExportMarkdown rend la conversation en Markdown lisible : un bloc par tour,
@@ -55,53 +152,64 @@ func (c *Conversation) ExportJSON() ([]byte, error) {
 // les raisonnements et la trace des outils, précisément ce qu'on vient chercher
 // dans un export. coalesceReplay est réutilisé tel quel pour recoller les
 // milliers de deltas d'un tour en un bloc de texte par bulle.
-func (c *Conversation) ExportMarkdown() string {
+func (c *Conversation) ExportMarkdown(o exportOpts) string {
 	c.mu.Lock()
 	snapshot := append([]LogEvent(nil), c.Log...)
 	c.mu.Unlock()
+	if o.Turns > 0 {
+		snapshot = lastTurnsLog(snapshot, o.Turns)
+	}
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "# Conversation AJEAN\n\nExportée le %s par AJEAN %s.\n",
 		time.Now().Format("02/01/2006 à 15:04"), Version)
+	// Un export tronqué ou allégé doit le DIRE : relu six mois plus tard, un fil
+	// sans ses raisonnements ne doit pas passer pour le fil complet.
+	if note := exportNote(o); note != "" {
+		fmt.Fprintf(&b, "\n%s\n", note)
+	}
 
 	// openBubble : une bulle assistant est ouverte (au moins un bout de réponse a
 	// été écrit). Sert à ne poser l'en-tête « AJEAN » qu'une fois par tour, même
 	// quand la réponse est entrecoupée d'appels d'outils.
 	openBubble := false
+	head := func() {
+		if !openBubble {
+			b.WriteString("\n## AJEAN\n")
+			openBubble = true
+		}
+	}
 	for _, ev := range coalesceReplay(snapshot, 0) {
 		switch {
 		case ev["user"] != nil:
 			openBubble = false
 			fmt.Fprintf(&b, "\n---\n\n## Vous\n\n%s\n", mdText(ev["user"]))
 		case ev["reasoning_content"] != nil:
-			if !openBubble {
-				b.WriteString("\n## AJEAN\n")
-				openBubble = true
+			if !o.Reasoning {
+				break
 			}
+			head()
 			fmt.Fprintf(&b, "\n<details>\n<summary>Raisonnement</summary>\n\n%s\n\n</details>\n",
 				mdText(ev["reasoning_content"]))
 		case ev["content"] != nil:
-			if !openBubble {
-				b.WriteString("\n## AJEAN\n")
-				openBubble = true
-			}
+			head()
 			fmt.Fprintf(&b, "\n%s\n", mdText(ev["content"]))
 		case ev["tool_used"] != nil:
+			if !o.Tools {
+				break
+			}
 			tu, _ := ev["tool_used"].(map[string]any)
 			if tu == nil {
 				break
 			}
-			if !openBubble {
-				b.WriteString("\n## AJEAN\n")
-				openBubble = true
-			}
+			head()
 			label, _ := tu["label"].(string)
 			name, _ := tu["name"].(string)
 			if label == "" {
 				label = name
 			}
 			fmt.Fprintf(&b, "\n> 🔧 **%s** — %s\n", mdInline(name), mdInline(label))
-			if res, _ := tu["result"].(string); strings.TrimSpace(res) != "" {
+			if res, _ := tu["result"].(string); o.Results && strings.TrimSpace(res) != "" {
 				fmt.Fprintf(&b, "\n```\n%s\n```\n", strings.TrimRight(res, "\n"))
 			}
 		case ev["compacted"] != nil:
@@ -112,6 +220,26 @@ func (c *Conversation) ExportMarkdown() string {
 		b.WriteString("\n_Conversation vide._\n")
 	}
 	return b.String()
+}
+
+// exportNote résume en une ligne ce que l'export ne contient PAS.
+func exportNote(o exportOpts) string {
+	var parts []string
+	if o.Turns > 0 {
+		parts = append(parts, fmt.Sprintf("%d derniers échanges seulement", o.Turns))
+	}
+	if !o.Reasoning {
+		parts = append(parts, "raisonnements retirés")
+	}
+	if !o.Tools {
+		parts = append(parts, "appels d'outils retirés")
+	} else if !o.Results {
+		parts = append(parts, "sorties d'outils retirées")
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "_Export partiel : " + strings.Join(parts, ", ") + "._"
 }
 
 // mdText rend une valeur d'événement en texte de bloc Markdown.
@@ -135,6 +263,16 @@ func exportFilename(ext string) string {
 	return "ajean-conversation-" + time.Now().Format("2006-01-02-1504") + "." + ext
 }
 
+// exportBody rend la conversation selon les options. Renvoie le corps, son type
+// MIME et l'extension de fichier.
+func exportBody(o exportOpts) ([]byte, string, string, error) {
+	if o.Format == "json" {
+		b, err := conv.ExportJSON(o)
+		return b, "application/json; charset=utf-8", "json", err
+	}
+	return []byte(conv.ExportMarkdown(o)), "text/markdown; charset=utf-8", "md", nil
+}
+
 // cmdExport écrit la conversation dans un fichier (ou sur la sortie standard).
 //
 //	ajean export                  → ajean-conversation-<date>.md dans le dossier courant
@@ -142,19 +280,43 @@ func exportFilename(ext string) string {
 //	ajean export mon-fil.md       → nom de fichier imposé (l'extension choisit le format)
 //	ajean export -                → sur la sortie standard, pour enchaîner un tube
 //
+// Options de contenu, les mêmes que la fenêtre d'export de l'interface :
+//
+//	--no-reasoning  --no-tools  --no-results  --last N  --messages-only
+//
 // La conversation est relue depuis la base à chaque appel : la commande marche
 // pendant que le service tourne (bbolt n'est jamais gardé ouvert, voir store.go).
 func cmdExport(args []string) error {
-	format, out := "md", ""
-	for _, a := range args {
+	o := defaultExportOpts()
+	out := ""
+	for i := 0; i < len(args); i++ {
+		a := args[i]
 		switch a {
 		case "--json", "-j":
-			format = "json"
+			o.Format = "json"
 		case "--md", "--markdown", "-m":
-			format = "md"
+			o.Format = "md"
+		case "--no-reasoning":
+			o.Reasoning = false
+		case "--no-tools":
+			o.Tools, o.Results = false, false
+		case "--no-results":
+			o.Results = false
+		case "--messages-only":
+			o.JSONFull = false
+		case "--last":
+			if i+1 >= len(args) {
+				return fmt.Errorf("--last attend un nombre d'échanges")
+			}
+			i++
+			n, err := strconv.Atoi(args[i])
+			if err != nil || n <= 0 {
+				return fmt.Errorf("--last : nombre d'échanges invalide (%s)", args[i])
+			}
+			o.Turns = n
 		default:
 			if strings.HasPrefix(a, "-") && a != "-" {
-				return fmt.Errorf("option inconnue : %s (attendu --json ou --md)", a)
+				return fmt.Errorf("option inconnue : %s (voir « ajean help »)", a)
 			}
 			out = a
 		}
@@ -162,21 +324,15 @@ func cmdExport(args []string) error {
 	// Une extension explicite l'emporte sur le drapeau : `ajean export fil.json`
 	// qui produirait du Markdown serait un piège.
 	if strings.HasSuffix(strings.ToLower(out), ".json") {
-		format = "json"
+		o.Format = "json"
 	} else if strings.HasSuffix(strings.ToLower(out), ".md") {
-		format = "md"
+		o.Format = "md"
 	}
 
 	LoadConversation()
-	var body []byte
-	if format == "json" {
-		b, err := conv.ExportJSON()
-		if err != nil {
-			return err
-		}
-		body = b
-	} else {
-		body = []byte(conv.ExportMarkdown())
+	body, _, ext, err := exportBody(o)
+	if err != nil {
+		return err
 	}
 
 	if out == "-" {
@@ -184,7 +340,7 @@ func cmdExport(args []string) error {
 		return err
 	}
 	if out == "" {
-		out = exportFilename(format)
+		out = exportFilename(ext)
 	}
 	if err := os.WriteFile(out, body, 0o644); err != nil {
 		return err
@@ -196,20 +352,14 @@ func cmdExport(args []string) error {
 	return nil
 }
 
-// handleChatExport sert la conversation en téléchargement. `format=md` (défaut)
-// ou `format=json`.
+// handleChatExport sert la conversation en téléchargement. Options en paramètres
+// d'URL (voir exportOptsFromQuery) ; sans aucun paramètre, c'est l'export complet.
 func handleChatExport(w http.ResponseWriter, r *http.Request) {
-	var body []byte
-	var ctype, ext string
-	if r.URL.Query().Get("format") == "json" {
-		b, err := conv.ExportJSON()
-		if err != nil {
-			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
-			return
-		}
-		body, ctype, ext = b, "application/json; charset=utf-8", "json"
-	} else {
-		body, ctype, ext = []byte(conv.ExportMarkdown()), "text/markdown; charset=utf-8", "md"
+	o := exportOptsFromQuery(r.URL.Query())
+	body, ctype, ext, err := exportBody(o)
+	if err != nil {
+		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+		return
 	}
 	w.Header().Set("Content-Type", ctype)
 	w.Header().Set("Content-Disposition", `attachment; filename="`+exportFilename(ext)+`"`)

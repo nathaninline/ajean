@@ -34,7 +34,7 @@ func convDeTest(t *testing.T) {
 
 func TestExportMarkdownPorteToutLeFil(t *testing.T) {
 	convDeTest(t)
-	md := conv.ExportMarkdown()
+	md := conv.ExportMarkdown(defaultExportOpts())
 	for _, want := range []string{
 		"## Vous", "combien font 2+2 ?",
 		"## AJEAN",
@@ -54,7 +54,7 @@ func TestExportMarkdownPorteToutLeFil(t *testing.T) {
 
 func TestExportJSONRelisible(t *testing.T) {
 	convDeTest(t)
-	b, err := conv.ExportJSON()
+	b, err := conv.ExportJSON(defaultExportOpts())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,6 +93,114 @@ func TestHandleChatExportEnPieceJointe(t *testing.T) {
 		if rr.Body.Len() == 0 {
 			t.Errorf("format=%q : corps vide", tc.format)
 		}
+	}
+}
+
+// Les options taillent l'export, et un export tronqué le DIT (sans quoi, relu
+// plus tard, il passerait pour le fil complet).
+func TestExportOptionsTaillentLeMarkdown(t *testing.T) {
+	convDeTest(t)
+	o := defaultExportOpts()
+	o.Reasoning = false
+	md := conv.ExportMarkdown(o)
+	if strings.Contains(md, "addition simple") {
+		t.Error("raisonnement présent malgré --no-reasoning")
+	}
+	if !strings.Contains(md, "Export partiel") || !strings.Contains(md, "raisonnements retirés") {
+		t.Errorf("export allégé non signalé :\n%s", md)
+	}
+	if !strings.Contains(md, "echo 4") {
+		t.Error("les outils ont disparu alors que seule la réflexion était exclue")
+	}
+
+	o = defaultExportOpts()
+	o.Results = false
+	if md := conv.ExportMarkdown(o); strings.Contains(md, "```") {
+		t.Error("sortie d'outil présente malgré --no-results")
+	}
+
+	// Couper les outils coupe forcément leurs sorties : la sortie n'a plus de
+	// bulle où s'accrocher.
+	o = exportOptsFromQuery(map[string][]string{"tools": {"0"}, "results": {"1"}})
+	if o.Results {
+		t.Error("results resté actif alors que tools est coupé")
+	}
+	md = conv.ExportMarkdown(o)
+	if strings.Contains(md, "echo 4") {
+		t.Error("outil présent malgré tools=0")
+	}
+}
+
+// Sans paramètre, l'endpoint reste l'export COMPLET : les options ne doivent pas
+// silencieusement appauvrir ceux qui ne les connaissent pas.
+func TestExportOptsFromQueryDefautComplet(t *testing.T) {
+	o := exportOptsFromQuery(map[string][]string{})
+	if o != defaultExportOpts() {
+		t.Fatalf("défauts modifiés : %+v", o)
+	}
+	o = exportOptsFromQuery(map[string][]string{"format": {"json"}, "turns": {"2"}, "full": {"0"}})
+	if o.Format != "json" || o.Turns != 2 || o.JSONFull {
+		t.Fatalf("options mal lues : %+v", o)
+	}
+	// Une valeur de tours absurde ne doit pas vider l'export.
+	if o := exportOptsFromQuery(map[string][]string{"turns": {"-3"}}); o.Turns != 0 {
+		t.Fatalf("turns=-3 accepté : %d", o.Turns)
+	}
+}
+
+func TestExportDerniersEchanges(t *testing.T) {
+	convDeTest(t)
+	// Un deuxième échange s'ajoute au fil de test.
+	conv.mu.Lock()
+	conv.Messages = append(conv.Messages,
+		Message{Role: "user", Content: "et 3+3 ?"}, Message{Role: "assistant", Content: "6"})
+	conv.Log = append(conv.Log,
+		LogEvent{Seq: 6, TS: 6, Delta: map[string]any{"user": "et 3+3 ?"}},
+		LogEvent{Seq: 7, TS: 7, Delta: map[string]any{"content": "6"}})
+	conv.mu.Unlock()
+
+	o := defaultExportOpts()
+	o.Turns = 1
+	md := conv.ExportMarkdown(o)
+	if strings.Contains(md, "2+2") {
+		t.Errorf("le premier échange est encore là avec turns=1 :\n%s", md)
+	}
+	if !strings.Contains(md, "3+3") || !strings.Contains(md, "1 derniers échanges") {
+		t.Errorf("dernier échange absent ou non signalé :\n%s", md)
+	}
+	// Demander plus d'échanges qu'il n'en existe rend tout le fil, sans erreur.
+	o.Turns = 99
+	if md := conv.ExportMarkdown(o); !strings.Contains(md, "2+2") {
+		t.Error("turns supérieur au nombre d'échanges a tronqué le fil")
+	}
+	// Même découpe côté JSON.
+	o = defaultExportOpts()
+	o.Turns = 1
+	b, err := conv.ExportJSON(o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var p exportPayload
+	if err := json.Unmarshal(b, &p); err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Messages) != 2 || p.Messages[0].Content != "et 3+3 ?" {
+		t.Fatalf("messages mal découpés : %+v", p.Messages)
+	}
+	// --messages-only laisse tomber le journal. ⚠️ Structure NEUVE : Unmarshal ne
+	// remet pas à zéro les champs absents du JSON, un `p` réutilisé garderait le
+	// journal de l'appel précédent et le test passerait pour de mauvaises raisons.
+	o.JSONFull = false
+	b, _ = conv.ExportJSON(o)
+	var sansLog exportPayload
+	if err := json.Unmarshal(b, &sansLog); err != nil {
+		t.Fatal(err)
+	}
+	if len(sansLog.Log) != 0 {
+		t.Fatalf("journal présent malgré --messages-only : %d événements", len(sansLog.Log))
+	}
+	if len(sansLog.Messages) == 0 {
+		t.Fatal("messages perdus avec --messages-only")
 	}
 }
 

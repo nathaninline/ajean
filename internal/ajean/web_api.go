@@ -785,7 +785,7 @@ func handleMCPTest(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleMem / handleMemSave / handleMemDelete : éditeur web des pages mémoire
-// (MEMORY/<nom>.md). Payload partagé saveReq (name/old/content) ; "name" = nom
+// (memory/<nom>.md). Payload partagé saveReq (name/old/content) ; "name" = nom
 // de fichier de la page.
 func handleMem(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(r.URL.Query().Get("name"))

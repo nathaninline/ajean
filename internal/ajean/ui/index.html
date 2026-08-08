@@ -1341,18 +1341,20 @@ button:hover{border-color:var(--dim);color:var(--text)}
         <button id="upd-check" onclick="checkUpdate()">↥ Vérifier les mises à jour</button>
       </div>
       <div id="upd-msg" class="muted"></div>
-      <div class="row" style="margin-bottom:0">
-        <button onclick="loadAll()">↻ refresh</button>
-        <button onclick="resetChat()">⌫ clear chat</button>
-        <button id="btn-bench" onclick="runBenchUI()">bench</button>
-      </div>
       <!-- Export du fil. Depuis la 0.8 la conversation vit dans ajean.db (bbolt,
            binaire et verrouillé tant que le service tourne) : sans ce bouton,
            plus personne ne peut relire ni archiver ses échanges, ce que
            permettait l'ancien conversation.json. -->
       <div class="row" style="margin-bottom:0">
-        <button onclick="exportChat('md')" title="conversation complète, raisonnements compris">⤓ exporter (.md)</button>
-        <button onclick="exportChat('json')" title="format fidèle : vue modèle + journal d'affichage">.json</button>
+        <button onclick="loadAll()">↻ refresh</button>
+        <button id="btn-bench" onclick="runBenchUI()">bench</button>
+        <button onclick="openExportModal()" title="choisir le format et ce qu'on emporte">⤓ exporter…</button>
+      </div>
+      <!-- « clear chat » est en DERNIER, et seul sur sa ligne : c'est la seule
+           action destructive du panneau, elle ne doit pas se trouver sous le
+           doigt qui visait « refresh ». -->
+      <div class="row" style="margin-bottom:0">
+        <button onclick="resetChat()">⌫ clear chat</button>
       </div>
     </div></div>
   </details>
@@ -1401,6 +1403,51 @@ button:hover{border-color:var(--dim);color:var(--text)}
     <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:6px">
       <button onclick="closeBenchModal()">fermer</button>
       <button id="bench-rerun" onclick="runBenchUI()" style="border-color:var(--accent);color:var(--accent)">relancer</button>
+    </div>
+  </div>
+</div>
+<!-- Fenêtre d'export. Un fil relu pour retrouver une réponse n'a que faire des
+     mille lignes de raisonnement qui l'ont produite : on choisit ce qu'on
+     emporte plutôt que de tout prendre ou rien. Les options du format non
+     retenu sont MASQUÉES, pas grisées : un réglage sans effet visible n'a rien
+     à faire à l'écran. -->
+<div id="export-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:30;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeExportModal()">
+  <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;width:100%;max-width:460px;display:flex;flex-direction:column">
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <strong>Exporter la conversation</strong>
+      <button onclick="closeExportModal()" style="margin:0">×</button>
+    </div>
+    <div style="padding:16px 20px;display:flex;flex-direction:column;gap:14px">
+      <div>
+        <div class="subhead" style="margin:0 0 6px">Format</div>
+        <label class="switchrow" style="cursor:pointer"><input type="radio" name="x-fmt" value="md" checked onchange="onExportFormat()" style="margin-right:8px"> Markdown <span class="muted" style="margin-left:6px">à lire</span></label>
+        <label class="switchrow" style="cursor:pointer"><input type="radio" name="x-fmt" value="json" onchange="onExportFormat()" style="margin-right:8px"> JSON <span class="muted" style="margin-left:6px">à retraiter</span></label>
+      </div>
+      <div id="x-md-opts">
+        <div class="subhead" style="margin:0 0 6px">Contenu</div>
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="x-reasoning" checked onchange="onExportPreview()"><span class="slider"></span></span> raisonnements</label>
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="x-tools" checked onchange="onExportPreview()"><span class="slider"></span></span> appels d'outils</label>
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="x-results" checked onchange="onExportPreview()"><span class="slider"></span></span> sorties des outils</label>
+      </div>
+      <div id="x-json-opts" style="display:none">
+        <div class="subhead" style="margin:0 0 6px">Contenu</div>
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="x-full" checked onchange="onExportPreview()"><span class="slider"></span></span> journal d'affichage<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Le fil tel qu'il s'affiche : raisonnements, appels d'outils, vitesses. Décoché, l'export ne garde que les messages envoyés au modèle.</span></span></label>
+      </div>
+      <div>
+        <div class="subhead" style="margin:0 0 6px">Portée</div>
+        <select id="x-turns" class="io-input" onchange="onExportPreview()">
+          <option value="0">toute la conversation</option>
+          <option value="1">dernier échange</option>
+          <option value="3">3 derniers échanges</option>
+          <option value="10">10 derniers échanges</option>
+          <option value="25">25 derniers échanges</option>
+        </select>
+      </div>
+      <div id="x-note" class="muted" style="font-size:11px"></div>
+    </div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:6px">
+      <button onclick="closeExportModal()">annuler</button>
+      <button id="x-go" onclick="runExport()" style="border-color:var(--accent);color:var(--accent)">⤓ télécharger</button>
     </div>
   </div>
 </div>
@@ -2435,27 +2482,93 @@ function renderApiKey(d){
 }
 async function loadApiKey(){ renderApiKey(await jget('/api/apikey')); }
 // --- Export de la conversation ---------------------------------------------
+function openExportModal(){ onExportFormat(); showModal('export-modal'); }
+function closeExportModal(){ hideModal('export-modal'); }
+// Le format décide des options AFFICHÉES : les réglages Markdown n'ont aucun
+// effet sur un JSON, les montrer grisés ne ferait qu'encombrer.
+function onExportFormat(){
+  const json = exportFormat() === 'json';
+  document.getElementById('x-md-opts').style.display = json ? 'none' : '';
+  document.getElementById('x-json-opts').style.display = json ? '' : 'none';
+  onExportPreview();
+}
+function exportFormat(){
+  const r = document.querySelector('input[name=x-fmt]:checked');
+  return r ? r.value : 'md';
+}
+// Construit la requête d'export à partir des cases. On n'envoie QUE ce qui
+// s'écarte du défaut : l'URL reste lisible, et un export complet redevient le
+// simple /api/chat/export.
+function exportQuery(){
+  const p = new URLSearchParams();
+  const fmt = exportFormat();
+  if(fmt === 'json') p.set('format','json');
+  const on = id => document.getElementById(id).checked;
+  if(fmt === 'json'){
+    if(!on('x-full')) p.set('full','0');
+  } else {
+    if(!on('x-reasoning')) p.set('reasoning','0');
+    if(!on('x-tools')) p.set('tools','0');
+    if(!on('x-results')) p.set('results','0');
+  }
+  const t = document.getElementById('x-turns').value;
+  if(t !== '0') p.set('turns', t);
+  const q = p.toString();
+  return '/api/chat/export' + (q ? '?'+q : '');
+}
+// Dit en une ligne ce que l'export va contenir. Sans ça on découvre en ouvrant
+// le fichier que le raisonnement qu'on venait chercher n'y est pas.
+function onExportPreview(){
+  // Sortie d'outil sans bulle d'outil n'a aucun sens : la case suit.
+  const tools = document.getElementById('x-tools');
+  const results = document.getElementById('x-results');
+  results.disabled = !tools.checked;
+  if(!tools.checked) results.checked = false;
+  const parts = [];
+  const t = document.getElementById('x-turns');
+  parts.push(t.value === '0' ? 'toute la conversation' : t.options[t.selectedIndex].text);
+  if(exportFormat() === 'json'){
+    parts.push(document.getElementById('x-full').checked ? 'messages + journal complet' : 'messages seuls');
+  } else {
+    const off = [];
+    if(!document.getElementById('x-reasoning').checked) off.push('raisonnements');
+    if(!tools.checked) off.push('outils');
+    else if(!results.checked) off.push('sorties d\'outils');
+    parts.push(off.length ? 'sans ' + off.join(' ni ') : 'tout le contenu');
+  }
+  document.getElementById('x-note').textContent = parts.join(' · ');
+}
+async function runExport(){
+  const btn = document.getElementById('x-go');
+  btn.disabled = true;
+  try{ await downloadExport(exportQuery()); closeExportModal(); }
+  finally{ btn.disabled = false; }
+}
 // On passe par jfetch (et pas par un simple <a href>) pour deux raisons : la clé
 // de pilotage voyage dans un en-tête Authorization, qu'un lien ne porterait pas,
 // et le chemin de base change derrière le tunnel (/u/<id>).
-async function exportChat(format){
+async function downloadExport(url){
   toast('préparation de l\'export…');
   try{
-    const r = await jfetch('/api/chat/export?format=' + encodeURIComponent(format||'md'));
+    const r = await jfetch(url);
     if(!r.ok){ toast('erreur : HTTP ' + r.status); return; }
     const blob = await r.blob();
-    // Nom du fichier : celui proposé par le serveur (horodaté), à défaut un nom local.
-    let name = 'ajean-conversation.' + (format==='json' ? 'json' : 'md');
+    // Nom du fichier : celui proposé par le serveur (horodaté), à défaut un nom
+    // local déduit du type renvoyé.
     const cd = r.headers.get('Content-Disposition') || '';
     const m = cd.match(/filename="([^"]+)"/);
-    if(m) name = m[1];
-    const url = URL.createObjectURL(blob);
+    const name = m ? m[1]
+      : 'ajean-conversation.' + ((r.headers.get('Content-Type')||'').includes('json') ? 'json' : 'md');
+    // ⚠️ blobURL, surtout pas `url` : ce nom est déjà celui du paramètre, et le
+    // redéclarer ici mettrait la ligne `jfetch(url)` ci-dessus dans la zone morte
+    // du const — l'export échouerait avant même de partir.
+    const blobURL = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = name;
+    a.href = blobURL; a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
     // Révocation différée : Safari annule le téléchargement si l'URL disparaît
     // dans la foulée du clic.
-    setTimeout(()=>URL.revokeObjectURL(url), 10000);
+    setTimeout(()=>URL.revokeObjectURL(blobURL), 10000);
     toast('exporté : ' + name);
   }catch(e){ toast('erreur : ' + e.message); }
 }

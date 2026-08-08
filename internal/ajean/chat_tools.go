@@ -54,7 +54,7 @@ func baseSystemPrompt(caps Caps) string {
 		b.WriteString("- edit — patch a file by exact replacement (old → new, old must be unique).\n")
 	}
 	if hasMem {
-		b.WriteString("- mem_search / mem_read / mem_add / mem_edit — your persistent Markdown memory under MEMORY/.\n")
+		b.WriteString("- mem_search / mem_read / mem_add / mem_edit — your persistent Markdown memory under memory/.\n")
 	}
 	// Politique d'usage de la mémoire selon le mode.
 	switch caps.Mem {
