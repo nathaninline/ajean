@@ -162,3 +162,72 @@ func TestExportFileNamesBothForms(t *testing.T) {
 		t.Fatalf("sans pièce jointe : %v", got)
 	}
 }
+
+// upload envoie un morceau et renvoie la réponse décodée.
+func uploadChunk(t *testing.T, body map[string]any) (int, map[string]any) {
+	t.Helper()
+	b, _ := json.Marshal(body)
+	rec := httptest.NewRecorder()
+	handleChatUpload(rec, httptest.NewRequest("POST", "/api/chat/upload", strings.NewReader(string(b))))
+	var out map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &out)
+	return rec.Code, out
+}
+
+// Un fichier arrive en plusieurs morceaux et doit être reconstitué à l'octet
+// près. C'est ce découpage qui permet le gigaoctet : sans lui, tout le fichier
+// passait dans un seul corps JSON, gardé en mémoire des deux côtés.
+func TestChatUploadChunked(t *testing.T) {
+	part1 := strings.Repeat("A", 5000)
+	part2 := strings.Repeat("B", 3000)
+	part3 := "fin"
+
+	code, resp := uploadChunk(t, map[string]any{
+		"name": "gros.bin", "data": base64.StdEncoding.EncodeToString([]byte(part1)), "more": true})
+	if code != 200 || resp["id"] == nil {
+		t.Fatalf("1er morceau : code %d, resp %+v", code, resp)
+	}
+	id := resp["id"].(string)
+	if got := resp["received"].(float64); got != 5000 {
+		t.Fatalf("avancement après 1er morceau = %v", got)
+	}
+	if code, resp = uploadChunk(t, map[string]any{
+		"id": id, "data": base64.StdEncoding.EncodeToString([]byte(part2)), "more": true}); code != 200 {
+		t.Fatalf("2e morceau : code %d, resp %+v", code, resp)
+	}
+	code, resp = uploadChunk(t, map[string]any{
+		"id": id, "data": base64.StdEncoding.EncodeToString([]byte(part3))})
+	if code != 200 || resp["ok"] != true {
+		t.Fatalf("dernier morceau : code %d, resp %+v", code, resp)
+	}
+	abs := resp["abs"].(string)
+	defer os.Remove(abs)
+	if resp["path"] != "uploads/gros.bin" {
+		t.Fatalf("chemin = %v", resp["path"])
+	}
+	got, err := os.ReadFile(abs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != part1+part2+part3 {
+		t.Fatalf("reconstitution : %d octets, attendu %d", len(got), len(part1+part2+part3))
+	}
+	// Aucun .part ne doit traîner une fois l'envoi terminé.
+	dir, _ := uploadsDir()
+	entries, _ := os.ReadDir(dir)
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".part") {
+			t.Fatalf("fichier temporaire laissé : %s", e.Name())
+		}
+	}
+}
+
+// Un identifiant inconnu (envoi expiré, serveur redémarré) ne doit pas produire
+// un fichier tronqué qui repart de son milieu.
+func TestChatUploadUnknownSessionRefused(t *testing.T) {
+	code, resp := uploadChunk(t, map[string]any{
+		"id": "inconnu-1234.part", "data": base64.StdEncoding.EncodeToString([]byte("x"))})
+	if code != 409 {
+		t.Fatalf("code %d, attendu 409 — resp %+v", code, resp)
+	}
+}

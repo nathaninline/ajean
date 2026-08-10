@@ -92,6 +92,9 @@ func newWebMux() *http.ServeMux {
 	// Un téléchargement de modèle coupé net (crash, restart du service) laisse un
 	// .part orphelin non reprenable : on nettoie au démarrage.
 	cleanStalePartFiles()
+	// Idem pour un envoi de fichier coupé en plein transfert : les sessions vivent
+	// en mémoire, aucun .part ne survit utilement à l'arrêt du process.
+	cleanStaleUploadParts()
 	// Idem pour une installation de moteur : elle meurt avec le process. On
 	// recharge son état pour l'annoncer « interrompue » au lieu de n'afficher
 	// plus rien du tout.

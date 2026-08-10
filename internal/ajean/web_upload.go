@@ -19,13 +19,22 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 	"unicode"
 )
 
-// uploadMaxBytes borne la taille d'UN fichier. Tout le chemin (corps JSON, E2E,
-// écriture) passe par la mémoire : au-delà, un envoi maladroit ferait gonfler le
-// process de plusieurs centaines de Mo. 24 Mo décodés ≈ 32 Mo de base64.
-const uploadMaxBytes = 24 << 20
+const (
+	// uploadMaxBytes borne la taille d'UN fichier. Le fichier n'est jamais tenu en
+	// mémoire (voir upSession) : cette limite protège le disque, pas la RAM.
+	uploadMaxBytes = 1 << 30 // 1 Go
+
+	// uploadChunkMax borne UN morceau, et c'est LUI qui décide de la mémoire du
+	// process : un morceau est reçu en JSON, donc entièrement en RAM, puis décodé.
+	// 8 Mo décodés ≈ 11 Mo de base64. C'est aussi la taille demandée au client ;
+	// un morceau plus gros est refusé plutôt que d'être avalé.
+	uploadChunkMax = 8 << 20
+)
 
 // uploadsDir renvoie (en le créant) le dossier de dépôt, dans le workspace agent.
 func uploadsDir() (string, error) {
@@ -194,15 +203,61 @@ func handleChatFile(w http.ResponseWriter, r *http.Request) {
 
 type uploadReq struct {
 	Name string `json:"name"`
-	Data string `json:"data"` // base64 (accepte un data: URL complet)
+	Data string `json:"data"` // base64 d'UN morceau (accepte un data: URL complet)
+	// Envoi en plusieurs morceaux. Le premier appel n'a pas d'ID et reçoit celui
+	// que le serveur attribue ; les suivants le rappellent. `More` à false ferme
+	// le fichier. Un envoi en un seul morceau (More absent) reste valable.
+	ID   string `json:"id"`
+	More bool   `json:"more"`
 }
 
-// handleChatUpload écrit un fichier dans le workspace et renvoie son chemin
-// relatif, celui que le client joindra au message (/api/chat/send, champ files).
+// upSession = un envoi en cours, adossé à un fichier .part sur le disque.
+//
+// Rien n'est accumulé en mémoire : chaque morceau est décodé puis écrit tout de
+// suite, et seul le descripteur reste ouvert. C'est ce qui permet de passer à
+// 1 Go — la version d'avant gardait le fichier entier en RAM, deux fois (le
+// base64 reçu et le binaire décodé), ce qui plafonnait l'envoi à quelques Mo
+// utilisables sans faire gonfler le process.
+type upSession struct {
+	f       *os.File
+	name    string
+	written int64
+	last    time.Time
+}
+
+var (
+	upMu       sync.Mutex
+	upSessions = map[string]*upSession{}
+)
+
+// upSessionTTL : au-delà, un envoi interrompu (onglet fermé, réseau coupé) est
+// abandonné et son .part supprimé. Sans ça, un fichier à moitié transféré
+// resterait ouvert et occuperait le disque indéfiniment.
+const upSessionTTL = 10 * time.Minute
+
+// sweepUploadSessions ferme et efface les envois abandonnés. Appelé à chaque
+// nouveau morceau : pas de goroutine de ménage à faire vivre.
+func sweepUploadSessions() {
+	now := time.Now()
+	for id, s := range upSessions {
+		if now.Sub(s.last) > upSessionTTL {
+			name := s.f.Name()
+			s.f.Close()
+			os.Remove(name)
+			delete(upSessions, id)
+		}
+	}
+}
+
+// handleChatUpload reçoit un fichier, en un ou plusieurs morceaux, et renvoie
+// son chemin relatif — celui que le client joindra au message (/api/chat/send,
+// champ files).
 func handleChatUpload(w http.ResponseWriter, r *http.Request) {
 	var body uploadReq
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 2*uploadMaxBytes)).Decode(&body); err != nil {
-		sendJSON(w, 400, map[string]any{"ok": false, "error": "fichier trop gros ou requête invalide"})
+	// Le plafond porte sur UN morceau, pas sur le fichier : c'est la seule borne
+	// qui compte pour la mémoire du process.
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 2*uploadChunkMax)).Decode(&body); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "morceau trop gros ou requête invalide"})
 		return
 	}
 	data := body.Data
@@ -218,29 +273,103 @@ func handleChatUpload(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "contenu illisible (base64 attendu)"})
 		return
 	}
-	if len(raw) == 0 {
+
+	upMu.Lock()
+	defer upMu.Unlock()
+	sweepUploadSessions()
+
+	s := upSessions[body.ID]
+	if s == nil {
+		if body.ID != "" {
+			// L'envoi a expiré ou le serveur a redémarré en cours de route : le dire,
+			// plutôt que de recommencer un fichier à partir de son milieu.
+			sendJSON(w, 409, map[string]any{"ok": false, "error": "envoi expiré — recommence le fichier"})
+			return
+		}
+		dir, err := uploadsDir()
+		if err != nil {
+			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		f, err := os.CreateTemp(dir, ".upload-*.part")
+		if err != nil {
+			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		s = &upSession{f: f, name: safeUploadName(body.Name)}
+		body.ID = filepath.Base(f.Name())
+		upSessions[body.ID] = s
+	}
+	s.last = time.Now()
+
+	abort := func(code int, msg string) {
+		name := s.f.Name()
+		s.f.Close()
+		os.Remove(name)
+		delete(upSessions, body.ID)
+		sendJSON(w, code, map[string]any{"ok": false, "error": msg})
+	}
+	if s.written+int64(len(raw)) > uploadMaxBytes {
+		abort(413, fmt.Sprintf("fichier trop gros (max %s)", humanBytes(uploadMaxBytes)))
+		return
+	}
+	if len(raw) > 0 {
+		if _, err := s.f.Write(raw); err != nil {
+			abort(500, err.Error())
+			return
+		}
+		s.written += int64(len(raw))
+	}
+	if body.More {
+		// Morceau intermédiaire : on rend l'ID pour la suite et l'avancement, qui
+		// alimente la barre de progression côté client.
+		sendJSON(w, 200, map[string]any{"ok": true, "id": body.ID, "received": s.written})
+		return
+	}
+
+	// Dernier morceau : on ferme et on donne au fichier son vrai nom.
+	delete(upSessions, body.ID)
+	part := s.f.Name()
+	if err := s.f.Close(); err != nil {
+		os.Remove(part)
+		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if s.written == 0 {
+		os.Remove(part)
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "fichier vide"})
 		return
 	}
-	if len(raw) > uploadMaxBytes {
-		sendJSON(w, 413, map[string]any{"ok": false, "error": fmt.Sprintf("fichier trop gros (max %s)", humanBytes(int64(uploadMaxBytes)))})
-		return
-	}
-	dir, err := uploadsDir()
-	if err != nil {
+	dest := uniqueUploadPath(filepath.Dir(part), s.name)
+	if err := os.Rename(part, dest); err != nil {
+		os.Remove(part)
 		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	dest := uniqueUploadPath(dir, safeUploadName(body.Name))
-	if err := os.WriteFile(dest, raw, 0o644); err != nil {
-		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
-		return
-	}
-	rel := "uploads/" + filepath.Base(dest)
 	sendJSON(w, 200, map[string]any{
 		"ok":   true,
-		"path": rel,  // ce que le modèle verra (résolu par resolveAgentPath)
+		"path": "uploads/" + filepath.Base(dest),
 		"abs":  dest, // affiché à l'utilisateur, jamais renvoyé au serveur
-		"size": len(raw),
+		"size": s.written,
 	})
+}
+
+// cleanStaleUploadParts efface les .part laissés par un envoi que le process n'a
+// pas pu terminer (arrêt du service, crash). Appelé au démarrage : les sessions
+// vivent en mémoire, aucun de ces fichiers n'est reprenable.
+func cleanStaleUploadParts() {
+	dir, err := uploadsDir()
+	if err != nil {
+		return
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		n := e.Name()
+		if !e.IsDir() && strings.HasPrefix(n, ".upload-") && strings.HasSuffix(n, ".part") {
+			os.Remove(filepath.Join(dir, n))
+		}
+	}
 }

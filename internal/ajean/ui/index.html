@@ -5021,11 +5021,17 @@ async function remotePairCode(){
 // Le transfert passe par du base64 dans du JSON (et non du multipart) : c'est la
 // seule forme qui traverse le tunnel E2E d'app.ajean.link, donc l'accès distant
 // fonctionne sans code particulier.
-const ATTACH_MAX = 24*1024*1024;   // doit rester aligné sur uploadMaxBytes (web_upload.go)
+// Doivent rester alignés sur uploadMaxBytes / uploadChunkMax (web_upload.go).
+// Le fichier part par MORCEAUX : ni le navigateur ni le serveur n'en tiennent
+// plus d'un à la fois en mémoire, ce qui rend le gigaoctet possible. Envoyer
+// 1 Go en un seul corps JSON demanderait ~1,4 Go de base64 de chaque côté.
+const ATTACH_MAX = 1024*1024*1024;
+const ATTACH_CHUNK = 8*1024*1024;
 let ATTACH = [];
 let ATTACH_SEQ = 0;
 
 function fmtSize(n){
+  if(n >= 1024*1024*1024) return (n/(1024*1024*1024)).toFixed(1)+' Go';
   if(n >= 1024*1024) return (n/(1024*1024)).toFixed(n >= 10*1024*1024 ? 0 : 1)+' Mo';
   if(n >= 1024) return Math.round(n/1024)+' Ko';
   return n+' o';
@@ -5158,7 +5164,11 @@ function renderAttach(){
     el.appendChild(fileChip(a.name, a.size, {
       cls: a.state==='up' ? 'up' : (a.state==='err' ? 'err' : ''),
       title: a.error || a.name,
-      sizeText: a.state==='err' ? 'échec' : fmtSize(a.size),
+      // Un gros fichier prend du temps : on montre l'avancement plutôt qu'un
+      // anneau qui tourne sans rien dire. Sous un morceau, il n'y a rien à suivre.
+      sizeText: a.state==='err' ? 'échec'
+        : (a.state==='up' && a.size>ATTACH_CHUNK) ? Math.round((a.sent||0)*100/a.size)+' %'
+        : fmtSize(a.size),
       onRemove: ()=>{ ATTACH=ATTACH.filter(o=>o.id!==a.id); renderAttach(); }
     }));
   }
@@ -5177,22 +5187,43 @@ function readAsBase64(file){
     fr.readAsDataURL(file);
   });
 }
+// Envoie UN morceau. Pas de jfetch : son délai de 30 s est calibré pour de
+// petits appels et couperait un transfert.
+async function sendChunk(payload){
+  const r=await fetch(API_BASE+'/api/chat/upload',{
+    method:'POST', headers:authHeaders({'Content-Type':'application/json'}),
+    body:JSON.stringify(payload)
+  });
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok || !j.ok) throw new Error(j.error||('erreur '+r.status));
+  return j;
+}
 // Le dépôt n'a lieu qu'à l'ENVOI du message, jamais à l'ajout : tant qu'on n'a
 // pas cliqué, rien ne doit atterrir dans le dossier de travail de l'IA. Retirer
 // un fichier de la liste ne laisse donc aucune trace sur le disque.
+//
+// Découpage en morceaux de 8 Mo : le navigateur ne lit qu'une tranche à la fois
+// (Blob.slice), le serveur l'écrit et l'oublie. Un fichier d'un gigaoctet passe
+// donc sans que personne ne le tienne entier en mémoire — et on sait dire où on
+// en est, ce qu'un envoi monolithique ne permettait pas.
 async function uploadAttach(a){
-  a.state='up'; renderAttach();
+  a.state='up'; a.sent=0; renderAttach();
   try{
-    const data=await readAsBase64(a.file);
-    // Pas de jfetch ici : son délai de 30 s est calibré pour de petits appels,
-    // et couperait le transfert d'un fichier de plusieurs Mo.
-    const r=await fetch(API_BASE+'/api/chat/upload',{
-      method:'POST', headers:authHeaders({'Content-Type':'application/json'}),
-      body:JSON.stringify({name:a.name, data:data})
-    });
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok || !j.ok) throw new Error(j.error||('erreur '+r.status));
-    a.path=j.path; a.state='ok'; a.file=null;   // le contenu ne sert plus à rien côté page
+    let id='';
+    // `do…while` et non `while` : un fichier plus petit qu'un morceau doit quand
+    // même faire un tour de boucle, sinon rien ne part.
+    let off=0;
+    do{
+      const end=Math.min(off+ATTACH_CHUNK, a.size);
+      const data=await readAsBase64(a.file.slice(off, end));
+      const last=end>=a.size;
+      const j=await sendChunk({name:a.name, data:data, id:id, more:!last});
+      if(j.id) id=j.id;
+      off=end;
+      a.sent=off; renderAttach();
+      if(last){ a.path=j.path; }
+    } while(off<a.size);
+    a.state='ok'; a.file=null;   // le contenu ne sert plus à rien côté page
   }catch(e){
     a.state='err'; a.error=(e&&e.message)||'échec';
     toast('« '+a.name+' » : '+a.error);

@@ -1,39 +1,18 @@
-Les fichiers circulent enfin dans les deux sens : vous pouvez en envoyer à l'IA, et récupérer ceux qu'elle produit.
+La limite d'envoi de fichiers passe de 24 Mo à 1 Go.
 
-## Envoyer un fichier
+## Des fichiers d'un gigaoctet
 
-Un trombone est apparu dans le bas du composeur. Vous pouvez aussi glisser un fichier n'importe où dans la fenêtre, ou le coller avec Ctrl+V — une capture d'écran passe donc directement dans le chat.
+La 0.8.7 plafonnait à 24 Mo, et ce n'était pas un caprice : le fichier partait dans un seul message, encodé en base64, gardé entier en mémoire par le navigateur puis par le serveur. Un gigaoctet ainsi transmis, c'est près d'un gigaoctet et demi de mémoire de chaque côté — de quoi faire tomber la machine.
 
-Le fichier est déposé dans le dossier de travail de l'IA, sous `uploads/`, et son chemin est annoncé dans le message. Elle en fait ensuite ce qu'elle veut avec ses outils : le lire, le convertir, le lancer. Rien n'est interprété au passage, donc n'importe quel type de fichier fonctionne — à condition que le mode agent soit actif, sans quoi elle voit le nom mais n'a aucun outil pour l'ouvrir.
+Le fichier part maintenant par tranches de 8 Mo. Le navigateur n'en lit qu'une à la fois, le serveur l'écrit sur le disque et l'oublie aussitôt : plus personne ne détient le fichier entier. Mesuré sur un envoi de 120 Mo, la mémoire du serveur n'a pas bougé d'un mégaoctet.
 
-Deux détails qui comptent à l'usage. Le dépôt n'a lieu qu'à **l'envoi** du message : tant que vous n'avez pas cliqué, rien n'atterrit sur le disque, et retirer un fichier de la liste ne laisse aucune trace. Et joindre un fichier ne déplace pas la zone de saisie d'un pixel — les vignettes se posent au-dessus de la carte, dans l'espace qu'elle réservait déjà.
+Au passage, la vignette affiche l'avancement en pourcentage : sur un gros fichier, l'anneau qui tournait sans rien dire n'était pas d'un grand secours.
 
-Le transfert passe par le tunnel chiffré comme le reste : l'envoi de fichiers fonctionne aussi depuis l'accès distant, sans rien configurer.
+Un envoi interrompu — onglet fermé, réseau coupé, service redémarré — ne laisse rien derrière lui : le fichier partiel est effacé au bout de dix minutes, et au démarrage du service.
 
-Taille maximale : 24 Mo par fichier.
+Ce qui n'a pas changé : le dépôt n'a toujours lieu qu'à l'envoi du message, et l'accès distant fonctionne pareil, les tranches passant par le tunnel chiffré comme le reste.
 
-## Recevoir un fichier
-
-Quand vous demandiez un fichier à l'IA, elle répondait par un chemin sur le serveur — `/etc/ajean/workspace/rapport.pdf` — parfaitement inutilisable depuis un navigateur.
-
-Elle écrit maintenant un lien Markdown ordinaire, et cliquer dessus télécharge le fichier :
-
-> C'est prêt : [le rapport](rapport.pdf)
-
-Aucune syntaxe particulière à connaître de son côté, et les liens web restent des liens web. Seul le dossier de travail est accessible ; un chemin qui en sort est refusé, et les fichiers sont toujours servis en téléchargement, jamais affichés.
-
-## Un quart de contexte rendu au mode agent
-
-Le préambule envoyé au modèle à chaque tour est passé d'environ 2350 à 1770 tokens, sans qu'une seule consigne disparaisse.
-
-L'essentiel du poids n'était pas dans le texte du prompt mais dans les schémas des outils, qui pèsent le double. Le prompt réénumérait des outils que ces schémas décrivent déjà, et la règle « écris les fichiers avec `write`, jamais avec `echo` » y figurait trois fois. Elle ne vit plus que là où elle s'applique.
-
-C'est autant de fenêtre rendue à la conversation, et un compactage qui arrive plus tard.
-
-## Aussi
-
-- L'export d'une conversation mentionne les fichiers joints. Un message envoyé sans texte, juste avec un fichier, y apparaissait comme une section vide.
-- Le décompte de contexte, sous la zone de saisie, ne s'écrit plus « contexte 4210 / 32768 » mais « 4210 / 32768 » — la jauge juste en dessous dit déjà de quoi il s'agit, et la place gagnée sert au nom du modèle.
+Pensez tout de même à la place disque de la machine qui héberge AJEAN : les fichiers envoyés s'accumulent dans `uploads/`, à l'intérieur du dossier de travail de l'IA.
 
 ## Mise à jour
 
