@@ -1,8 +1,10 @@
 package ajean
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http/httptest"
 	"net/url"
 	"os"
@@ -229,5 +231,74 @@ func TestChatUploadUnknownSessionRefused(t *testing.T) {
 		"id": "inconnu-1234.part", "data": base64.StdEncoding.EncodeToString([]byte("x"))})
 	if code != 409 {
 		t.Fatalf("code %d, attendu 409 — resp %+v", code, resp)
+	}
+}
+
+// Le téléchargement via app.ajean.link : le proxy chiffré réemballe toute
+// réponse en JSON, où du binaire ne survit pas. Le handler doit donc annoncer
+// qu'on est derrière le tunnel, puis savoir servir des tranches base64.
+func TestChatFileB64ForE2E(t *testing.T) {
+	dir, _ := uploadsDir()
+	// Des octets NON-UTF8 : c'est exactement ce que le réemballage JSON massacre.
+	raw := make([]byte, 5000)
+	for i := range raw {
+		raw[i] = byte(i % 256)
+	}
+	p := filepath.Join(dir, "binaire.bin")
+	if err := os.WriteFile(p, raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(p)
+
+	// La fiche dit « tunnel » quand la requête vient du proxy, et pas autrement.
+	meta := func(viaTunnel bool) map[string]any {
+		req := httptest.NewRequest("GET", "/api/chat/file?meta=1&path=uploads/binaire.bin", nil)
+		if viaTunnel {
+			req.Header.Set(e2eInnerHeader, "1")
+		}
+		rec := httptest.NewRecorder()
+		handleChatFile(rec, req)
+		var m map[string]any
+		_ = json.Unmarshal(rec.Body.Bytes(), &m)
+		return m
+	}
+	if m := meta(true); m["e2e"] != true || m["size"].(float64) != 5000 {
+		t.Fatalf("fiche via tunnel : %+v", m)
+	}
+	if m := meta(false); m["e2e"] != false {
+		t.Fatalf("fiche en local annoncée comme tunnel : %+v", m)
+	}
+
+	// Reconstitution par tranches : l'octet doit revenir intact.
+	var got []byte
+	for off, guard := 0, 0; ; guard++ {
+		if guard > 50 {
+			t.Fatal("boucle de tranches sans fin")
+		}
+		rec := httptest.NewRecorder()
+		handleChatFile(rec, httptest.NewRequest("GET",
+			fmt.Sprintf("/api/chat/file?b64=1&len=1024&offset=%d&path=uploads/binaire.bin", off), nil))
+		if rec.Code != 200 {
+			t.Fatalf("tranche à %d : code %d — %s", off, rec.Code, rec.Body.String())
+		}
+		var j struct {
+			Data string `json:"data"`
+			EOF  bool   `json:"eof"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &j); err != nil {
+			t.Fatal(err)
+		}
+		b, err := base64.StdEncoding.DecodeString(j.Data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, b...)
+		off += len(b)
+		if j.EOF {
+			break
+		}
+	}
+	if !bytes.Equal(got, raw) {
+		t.Fatalf("fichier reconstitué : %d octets, attendu %d", len(got), len(raw))
 	}
 }

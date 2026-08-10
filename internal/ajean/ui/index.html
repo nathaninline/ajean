@@ -2713,13 +2713,21 @@ async function downloadExport(url){
   try{
     const r = await jfetch(url);
     if(!r.ok){ toast('erreur : HTTP ' + r.status); return; }
-    const blob = await r.blob();
+    // Derrière app.ajean.link, le proxy chiffré réemballe TOUTE réponse en JSON :
+    // un export Markdown revenait donc comme une chaîne JSON entre guillemets,
+    // échappements compris. On la déballe. En local, rien à faire — le type de
+    // contenu n'est pas du JSON, et un export JSON est déjà à sa place.
+    let text = await r.text();
+    if((r.headers.get('Content-Type')||'').includes('json')){
+      try{ const v = JSON.parse(text); if(typeof v === 'string') text = v; }catch(_){}
+    }
+    const blob = new Blob([text]);
     // Nom du fichier : celui proposé par le serveur (horodaté), à défaut un nom
-    // local déduit du type renvoyé.
+    // déduit du format DEMANDÉ — le type renvoyé ne dit plus rien derrière le
+    // tunnel, où tout arrive en application/json.
     const cd = r.headers.get('Content-Disposition') || '';
     const m = cd.match(/filename="([^"]+)"/);
-    const name = m ? m[1]
-      : 'ajean-conversation.' + ((r.headers.get('Content-Type')||'').includes('json') ? 'json' : 'md');
+    const name = m ? m[1] : 'ajean-conversation.' + (url.includes('format=json') ? 'json' : 'md');
     // ⚠️ blobURL, surtout pas `url` : ce nom est déjà celui du paramètre, et le
     // redéclarer ici mettrait la ligne `jfetch(url)` ci-dessus dans la zone morte
     // du const — l'export échouerait avant même de partir.
@@ -5089,23 +5097,62 @@ function hasMsgFiles(el){
 // Un simple href ne suffirait pas : la clé de pilotage voyage dans un en-tête
 // Authorization que le navigateur ne mettrait pas sur une navigation, et le
 // chemin de base change derrière le tunnel (/u/<id>). D'où le fetch + blob.
+const DL_CHUNK = 8*1024*1024;   // aligné sur downloadChunkMax (web_upload.go)
+// Décode une tranche base64 en octets.
+function b64ToBytes(s){
+  const bin=atob(s), out=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i);
+  return out;
+}
+// Récupère le fichier en tranches base64. C'est la voie OBLIGATOIRE derrière
+// app.ajean.link : le proxy chiffré réemballe toute réponse en JSON, et du
+// binaire n'y survit pas — on téléchargeait l'enveloppe JSON à la place du
+// fichier. Le base64, lui, traverse intact.
+async function fetchFileB64(path, size, chip){
+  const parts=[]; let off=0;
+  do{
+    const r=await jfetch('/api/chat/file?b64=1&len='+DL_CHUNK+'&offset='+off+'&path='+encodeURIComponent(path));
+    const j=await r.json();
+    if(!r.ok || !j.ok) throw new Error(j.error||('HTTP '+r.status));
+    parts.push(b64ToBytes(j.data||''));
+    off=(j.offset||0)+(parts[parts.length-1].length);
+    if(chip && size) chip.title='téléchargement '+Math.round(off*100/size)+' %';
+    if(j.eof) break;
+  } while(off<size);
+  return new Blob(parts);
+}
 async function downloadWorkspaceFile(path, name, a){
   if(a) a.classList.add('busy');
+  const wasTitle=a?a.title:'';
   try{
-    const r=await jfetch('/api/chat/file?path='+encodeURIComponent(path));
-    if(!r.ok){
-      let m='HTTP '+r.status; try{ m=(await r.json()).error||m; }catch(_){}
-      toast('téléchargement impossible : '+m); return;
+    // La fiche d'abord : elle est minuscule, elle passe partout, et elle dit si
+    // on est derrière le tunnel — ce que le client ne peut pas deviner seul, le
+    // proxy lui rendant des réponses JSON parfaitement ordinaires.
+    const m=await jfetch('/api/chat/file?meta=1&path='+encodeURIComponent(path));
+    const meta=await m.json().catch(()=>({}));
+    if(!m.ok || !meta.ok){
+      toast('téléchargement impossible : '+(meta.error||('HTTP '+m.status))); return;
     }
-    const blobURL=URL.createObjectURL(await r.blob());
+    let blob;
+    if(meta.e2e){
+      blob=await fetchFileB64(path, meta.size||0, a);
+    } else {
+      const r=await jfetch('/api/chat/file?path='+encodeURIComponent(path));
+      if(!r.ok){
+        let msg='HTTP '+r.status; try{ msg=(await r.json()).error||msg; }catch(_){}
+        toast('téléchargement impossible : '+msg); return;
+      }
+      blob=await r.blob();
+    }
+    const blobURL=URL.createObjectURL(blob);
     const link=document.createElement('a');
-    link.href=blobURL; link.download=name||'fichier';
+    link.href=blobURL; link.download=name||meta.name||'fichier';
     document.body.appendChild(link); link.click(); link.remove();
     // Révocation différée : Safari annule le téléchargement si l'URL disparaît
     // dans la foulée du clic.
     setTimeout(()=>URL.revokeObjectURL(blobURL), 10000);
   }catch(e){ toast('téléchargement impossible : '+((e&&e.message)||'erreur')); }
-  finally{ if(a) a.classList.remove('busy'); }
+  finally{ if(a){ a.classList.remove('busy'); a.title=wasTitle; } }
 }
 // Markdown refuse les espaces NON échappés dans la cible d'un lien : le modèle
 // écrit [le rapport](mon rapport.pdf), et rien n'est rendu du tout — même pas un

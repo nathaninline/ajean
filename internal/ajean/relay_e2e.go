@@ -232,6 +232,11 @@ func handleE2EReq(w http.ResponseWriter, r *http.Request, inner http.Handler) {
 	}
 	ir := httptest.NewRequest(method, req.Path, bodyReader)
 	ir.Header.Set("Content-Type", "application/json")
+	// Marque la requête comme arrivée PAR LE TUNNEL. Tout ce qui ressort d'ici est
+	// réemballé en JSON (voir plus bas) : un handler qui renvoie du binaire — le
+	// téléchargement d'un fichier — doit le savoir pour proposer une forme qui
+	// traverse, sans quoi le client reçoit l'enveloppe JSON à la place du fichier.
+	ir.Header.Set(e2eInnerHeader, "1")
 	rec := httptest.NewRecorder()
 	inner.ServeHTTP(rec, ir)
 	respBody := rec.Body.Bytes()

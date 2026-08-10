@@ -353,13 +353,21 @@ async function downloadExport(url){
   try{
     const r = await jfetch(url);
     if(!r.ok){ toast('erreur : HTTP ' + r.status); return; }
-    const blob = await r.blob();
+    // Derrière app.ajean.link, le proxy chiffré réemballe TOUTE réponse en JSON :
+    // un export Markdown revenait donc comme une chaîne JSON entre guillemets,
+    // échappements compris. On la déballe. En local, rien à faire — le type de
+    // contenu n'est pas du JSON, et un export JSON est déjà à sa place.
+    let text = await r.text();
+    if((r.headers.get('Content-Type')||'').includes('json')){
+      try{ const v = JSON.parse(text); if(typeof v === 'string') text = v; }catch(_){}
+    }
+    const blob = new Blob([text]);
     // Nom du fichier : celui proposé par le serveur (horodaté), à défaut un nom
-    // local déduit du type renvoyé.
+    // déduit du format DEMANDÉ — le type renvoyé ne dit plus rien derrière le
+    // tunnel, où tout arrive en application/json.
     const cd = r.headers.get('Content-Disposition') || '';
     const m = cd.match(/filename="([^"]+)"/);
-    const name = m ? m[1]
-      : 'ajean-conversation.' + ((r.headers.get('Content-Type')||'').includes('json') ? 'json' : 'md');
+    const name = m ? m[1] : 'ajean-conversation.' + (url.includes('format=json') ? 'json' : 'md');
     // ⚠️ blobURL, surtout pas `url` : ce nom est déjà celui du paramètre, et le
     // redéclarer ici mettrait la ligne `jfetch(url)` ci-dessus dans la zone morte
     // du const — l'export échouerait avant même de partir.

@@ -14,10 +14,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -34,6 +36,11 @@ const (
 	// 8 Mo décodés ≈ 11 Mo de base64. C'est aussi la taille demandée au client ;
 	// un morceau plus gros est refusé plutôt que d'être avalé.
 	uploadChunkMax = 8 << 20
+
+	// downloadChunkMax borne UNE tranche de téléchargement encodée en base64 (voir
+	// handleChatFile). Même logique que pour l'envoi : c'est la mémoire du process
+	// qu'on protège, pas la taille du fichier.
+	downloadChunkMax = 8 << 20
 )
 
 // uploadsDir renvoie (en le créant) le dossier de dépôt, dans le workspace agent.
@@ -172,8 +179,25 @@ func workspaceRel(abs string) (string, bool) {
 	return filepath.ToSlash(rel), true
 }
 
+// e2eInnerHeader marque une requête dispatchée depuis le proxy chiffré
+// (relay_e2e.go). Cf. handleChatFile : c'est le seul moyen pour un handler de
+// savoir que sa réponse sera réemballée en JSON.
+const e2eInnerHeader = "X-Ajean-E2E"
+
 // handleChatFile sert un fichier du dossier de travail, en pièce jointe. Le
 // client passe le chemin RELATIF que le modèle a écrit dans sa réponse.
+//
+// Trois formes de réponse, pour une raison de transport :
+//   - par défaut, le fichier brut — le chemin direct, en local ou sur le LAN ;
+//   - `meta=1`, une fiche {name, size, e2e} : le client y apprend s'il est
+//     derrière le tunnel, donc quelle forme demander ensuite ;
+//   - `b64=1&offset=&len=`, une tranche encodée en base64.
+//
+// La raison : à travers app.ajean.link, TOUTE réponse est réemballée en JSON par
+// le proxy chiffré. Du binaire n'y survit pas — les octets non-UTF8 sont
+// massacrés, et on téléchargeait une enveloppe JSON au lieu du fichier. Le
+// base64 traverse, et le découpage en tranches évite de tenir un gigaoctet en
+// mémoire pour le transporter.
 func handleChatFile(w http.ResponseWriter, r *http.Request) {
 	rel := r.URL.Query().Get("path")
 	if strings.TrimSpace(rel) == "" {
@@ -193,6 +217,51 @@ func handleChatFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := filepath.Base(abs)
+	q := r.URL.Query()
+	if q.Get("meta") != "" {
+		sendJSON(w, 200, map[string]any{
+			"ok": true, "name": name, "size": st.Size(),
+			// Le client ne peut pas deviner seul qu'il passe par le tunnel : le
+			// proxy lui rend des réponses JSON parfaitement ordinaires.
+			"e2e": r.Header.Get(e2eInnerHeader) != "",
+		})
+		return
+	}
+	if q.Get("b64") != "" {
+		off, _ := strconv.ParseInt(q.Get("offset"), 10, 64)
+		length, _ := strconv.ParseInt(q.Get("len"), 10, 64)
+		if length <= 0 || length > downloadChunkMax {
+			length = downloadChunkMax
+		}
+		if off < 0 || off > st.Size() {
+			sendJSON(w, 400, map[string]any{"ok": false, "error": "position hors du fichier"})
+			return
+		}
+		if off+length > st.Size() {
+			length = st.Size() - off
+		}
+		f, err := os.Open(abs)
+		if err != nil {
+			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		defer f.Close()
+		buf := make([]byte, length)
+		// ReadAt : positionne et lit en une fois, et remplit tout le tampon (ce
+		// qu'un simple Read ne garantit pas). io.EOF sur la dernière tranche est
+		// normal, pas une erreur.
+		n, err := f.ReadAt(buf, off)
+		if err != nil && err != io.EOF {
+			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		sendJSON(w, 200, map[string]any{
+			"ok": true, "name": name, "size": st.Size(), "offset": off,
+			"data": base64.StdEncoding.EncodeToString(buf[:n]),
+			"eof":  off+int64(n) >= st.Size(),
+		})
+		return
+	}
 	// Toujours en TÉLÉCHARGEMENT, jamais rendu : un .html écrit par le modèle ne
 	// doit pas s'exécuter dans l'origine de l'UI (il y lirait la clé de pilotage).
 	w.Header().Set("Content-Type", "application/octet-stream")
