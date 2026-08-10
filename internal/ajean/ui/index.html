@@ -5114,8 +5114,12 @@ async function fetchFileB64(path, size, chip){
     const r=await jfetch('/api/chat/file?b64=1&len='+DL_CHUNK+'&offset='+off+'&path='+encodeURIComponent(path));
     const j=await r.json();
     if(!r.ok || !j.ok) throw new Error(j.error||('HTTP '+r.status));
-    parts.push(b64ToBytes(j.data||''));
-    off=(j.offset||0)+(parts[parts.length-1].length);
+    const bytes=b64ToBytes(j.data||'');
+    parts.push(bytes);
+    // Une tranche vide sans marque de fin ne ferait pas avancer la boucle : on
+    // s'arrête plutôt que de tourner indéfiniment sur le même octet.
+    if(!bytes.length && !j.eof) throw new Error('transfert interrompu');
+    off=(j.offset||0)+bytes.length;
     if(chip && size) chip.title='téléchargement '+Math.round(off*100/size)+' %';
     if(j.eof) break;
   } while(off<size);
@@ -5264,7 +5268,9 @@ async function uploadAttach(a){
       const end=Math.min(off+ATTACH_CHUNK, a.size);
       const data=await readAsBase64(a.file.slice(off, end));
       const last=end>=a.size;
-      const j=await sendChunk({name:a.name, data:data, id:id, more:!last});
+      // `size` au premier morceau : le serveur vérifie la place disque AVANT
+      // d'entamer un envoi d'un gigaoctet, plutôt que de le découvrir à la fin.
+      const j=await sendChunk({name:a.name, data:data, id:id, more:!last, size:(id?0:a.size)});
       if(j.id) id=j.id;
       off=end;
       a.sent=off; renderAttach();

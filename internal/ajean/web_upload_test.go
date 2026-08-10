@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -300,5 +301,57 @@ func TestChatFileB64ForE2E(t *testing.T) {
 	}
 	if !bytes.Equal(got, raw) {
 		t.Fatalf("fichier reconstitué : %d octets, attendu %d", len(got), len(raw))
+	}
+}
+
+// Plusieurs fichiers partent DE FRONT depuis le navigateur (un envoi par pièce
+// jointe). Les sessions doivent donc être indépendantes : le verrou global ne
+// protège que la table, l'écriture se fait sous le verrou de la session.
+func TestChatUploadConcurrentSessions(t *testing.T) {
+	const files, chunks = 4, 6
+	var wg sync.WaitGroup
+	paths := make([]string, files)
+	errs := make([]string, files)
+	for i := 0; i < files; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			id, want := "", ""
+			for c := 0; c < chunks; c++ {
+				piece := strings.Repeat(string(rune('A'+i)), 100+c)
+				want += piece
+				code, resp := uploadChunk(t, map[string]any{
+					"name": fmt.Sprintf("concurrent-%d.txt", i),
+					"data": base64.StdEncoding.EncodeToString([]byte(piece)),
+					"id":   id, "more": c < chunks-1,
+				})
+				if code != 200 {
+					errs[i] = fmt.Sprintf("morceau %d : code %d (%v)", c, code, resp["error"])
+					return
+				}
+				if v, ok := resp["id"].(string); ok && v != "" {
+					id = v
+				}
+				if c == chunks-1 {
+					abs, _ := resp["abs"].(string)
+					paths[i] = abs
+					got, err := os.ReadFile(abs)
+					if err != nil || string(got) != want {
+						errs[i] = fmt.Sprintf("contenu melange : %d octets lus, %d attendus (err %v)", len(got), len(want), err)
+					}
+				}
+			}
+		}(i)
+	}
+	wg.Wait()
+	for _, p := range paths {
+		if p != "" {
+			defer os.Remove(p)
+		}
+	}
+	for i, e := range errs {
+		if e != "" {
+			t.Fatalf("fichier %d : %s", i, e)
+		}
 	}
 }

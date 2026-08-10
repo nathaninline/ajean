@@ -278,6 +278,10 @@ type uploadReq struct {
 	// le fichier. Un envoi en un seul morceau (More absent) reste valable.
 	ID   string `json:"id"`
 	More bool   `json:"more"`
+	// Size = taille totale annoncée au PREMIER morceau, pour vérifier l'espace
+	// disque avant d'entamer un envoi d'un gigaoctet. Purement indicatif : le
+	// vrai plafond reste vérifié morceau par morceau.
+	Size int64 `json:"size"`
 }
 
 // upSession = un envoi en cours, adossé à un fichier .part sur le disque.
@@ -288,6 +292,12 @@ type uploadReq struct {
 // base64 reçu et le binaire décodé), ce qui plafonnait l'envoi à quelques Mo
 // utilisables sans faire gonfler le process.
 type upSession struct {
+	// mu sérialise les écritures d'UNE session. Le verrou global ne couvre que la
+	// table : le tenir pendant l'écriture disque mettait tous les envois à la
+	// queue leu leu, alors que le client en lance plusieurs de front (un par
+	// fichier joint).
+	mu      sync.Mutex
+	busy    bool // écriture en cours : le ménage doit passer son tour
 	f       *os.File
 	name    string
 	written int64
@@ -299,6 +309,11 @@ var (
 	upSessions = map[string]*upSession{}
 )
 
+// uploadSpaceMargin : place qu'on refuse d'entamer sur le disque. Remplir le
+// volume de la machine qui fait tourner le modèle est autrement plus grave que
+// de refuser un envoi — llama-server, la base et les journaux vivent dessus.
+const uploadSpaceMargin = 512 << 20
+
 // upSessionTTL : au-delà, un envoi interrompu (onglet fermé, réseau coupé) est
 // abandonné et son .part supprimé. Sans ça, un fichier à moitié transféré
 // resterait ouvert et occuperait le disque indéfiniment.
@@ -309,7 +324,9 @@ const upSessionTTL = 10 * time.Minute
 func sweepUploadSessions() {
 	now := time.Now()
 	for id, s := range upSessions {
-		if now.Sub(s.last) > upSessionTTL {
+		// `busy` : une écriture est en cours dans cette session. La balayer
+		// fermerait le fichier sous les pieds de la requête qui l'écrit.
+		if !s.busy && now.Sub(s.last) > upSessionTTL {
 			name := s.f.Name()
 			s.f.Close()
 			os.Remove(name)
@@ -343,25 +360,38 @@ func handleChatUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Le verrou global ne protège QUE la table des sessions. L'écriture, elle, se
+	// fait sous le verrou de la session — sinon deux fichiers envoyés en même
+	// temps (le client les lance de front) s'attendraient l'un l'autre.
 	upMu.Lock()
-	defer upMu.Unlock()
 	sweepUploadSessions()
-
 	s := upSessions[body.ID]
 	if s == nil {
 		if body.ID != "" {
 			// L'envoi a expiré ou le serveur a redémarré en cours de route : le dire,
 			// plutôt que de recommencer un fichier à partir de son milieu.
+			upMu.Unlock()
 			sendJSON(w, 409, map[string]any{"ok": false, "error": "envoi expiré — recommence le fichier"})
 			return
 		}
 		dir, err := uploadsDir()
 		if err != nil {
+			upMu.Unlock()
 			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		// Espace disque : refuser franchement vaut mieux que remplir le volume de
+		// la machine qui fait tourner le modèle. La taille annoncée par le client
+		// n'engage que lui — le plafond réel reste vérifié morceau par morceau.
+		if free := diskFree(dir); free > 0 && body.Size > 0 && free < body.Size+uploadSpaceMargin {
+			upMu.Unlock()
+			sendJSON(w, 507, map[string]any{"ok": false,
+				"error": fmt.Sprintf("espace insuffisant : %s libres, %s nécessaires", humanBytes(free), humanBytes(body.Size+uploadSpaceMargin))})
 			return
 		}
 		f, err := os.CreateTemp(dir, ".upload-*.part")
 		if err != nil {
+			upMu.Unlock()
 			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 			return
 		}
@@ -370,12 +400,28 @@ func handleChatUpload(w http.ResponseWriter, r *http.Request) {
 		upSessions[body.ID] = s
 	}
 	s.last = time.Now()
+	s.busy = true
+	upMu.Unlock()
 
-	abort := func(code int, msg string) {
+	s.mu.Lock()
+	defer func() {
+		s.mu.Unlock()
+		upMu.Lock()
+		s.busy = false
+		upMu.Unlock()
+	}()
+
+	// drop ferme et oublie la session : sur erreur, et à la fin de l'envoi.
+	drop := func() string {
 		name := s.f.Name()
 		s.f.Close()
-		os.Remove(name)
+		upMu.Lock()
 		delete(upSessions, body.ID)
+		upMu.Unlock()
+		return name
+	}
+	abort := func(code int, msg string) {
+		os.Remove(drop())
 		sendJSON(w, code, map[string]any{"ok": false, "error": msg})
 	}
 	if s.written+int64(len(raw)) > uploadMaxBytes {
@@ -396,12 +442,15 @@ func handleChatUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Dernier morceau : on ferme et on donne au fichier son vrai nom.
-	delete(upSessions, body.ID)
+	// Dernier morceau : on ferme et on donne au fichier son vrai nom. Le Close est
+	// dans drop() ; son erreur éventuelle est celle d'un tampon non vidé, donc
+	// d'un fichier incomplet — on ne le publie pas dans ce cas.
 	part := s.f.Name()
-	if err := s.f.Close(); err != nil {
+	syncErr := s.f.Sync()
+	drop()
+	if syncErr != nil {
 		os.Remove(part)
-		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+		sendJSON(w, 500, map[string]any{"ok": false, "error": syncErr.Error()})
 		return
 	}
 	if s.written == 0 {
