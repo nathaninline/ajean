@@ -938,4 +938,9 @@ type chatReq struct {
 	// vu par le client (le flux d'abonnement rejoue Log[From:] puis suit le direct).
 	Message string `json:"message"`
 	From    int    `json:"from"`
+	// Files = chemins relatifs des fichiers déposés juste avant par
+	// /api/chat/upload ("uploads/rapport.pdf"). Ils sont annoncés au modèle en
+	// tête du message (voir attachNote) ; le contenu, lui, reste sur le disque et
+	// n'entre dans le contexte que si le modèle décide de le lire.
+	Files []string `json:"files"`
 }

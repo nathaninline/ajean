@@ -56,12 +56,12 @@ func memSearchTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "mem_search",
-			Description: "Search your memory (Markdown pages under memory/). Returns a ranked list of {file, title, snippet}. Use it FIRST when the user mentions something you might already know (preferences, ongoing projects, past decisions). Follow up with mem_read on the most relevant page.",
+			Description: "Search your memory (Markdown pages under memory/) → ranked {file, title, snippet}. Use FIRST when the user mentions something you might already know, then mem_read the best page.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"query": map[string]any{"type": "string", "description": "Keywords or a short phrase"},
-					"limit": map[string]any{"type": "integer", "description": "Max results (default 8, max 30)"},
+					"query": map[string]any{"type": "string", "description": "Keywords"},
+					"limit": map[string]any{"type": "integer", "description": "Default 8, max 30"},
 				},
 				"required": []string{"query"},
 			},
@@ -74,13 +74,13 @@ func memReadTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "mem_read",
-			Description: "Read a memory page (Markdown file). 1-indexed output, lines prefixed with their number. offset/limit for long pages.",
+			Description: "Read a memory page. Lines prefixed with their 1-indexed number; offset/limit for long pages.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
 					"file":   map[string]any{"type": "string", "description": "Page name (e.g. docker-notes.md)"},
-					"offset": map[string]any{"type": "integer", "description": "Start line (1-indexed, default 1)"},
-					"limit":  map[string]any{"type": "integer", "description": "Number of lines (default 500, max 500)"},
+					"offset": map[string]any{"type": "integer", "description": "Start line (default 1)"},
+					"limit":  map[string]any{"type": "integer", "description": "Lines (max 500)"},
 				},
 				"required": []string{"file"},
 			},
@@ -93,12 +93,12 @@ func memAddTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "mem_add",
-			Description: "Create a new memory page (Markdown). One topic per page, descriptive kebab-case name. First line = short title (#). Refuses to overwrite an existing page (use mem_edit).",
+			Description: "Create a memory page. One topic per page, kebab-case name, first line = title (#). Refuses to overwrite an existing page (use mem_edit).",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"file":    map[string]any{"type": "string", "description": "Page name (e.g. docker-notes.md)"},
-					"content": map[string]any{"type": "string", "description": "Markdown content (first line = title #)"},
+					"file":    map[string]any{"type": "string", "description": "Page name"},
+					"content": map[string]any{"type": "string", "description": "Markdown, first line = title #"},
 				},
 				"required": []string{"file", "content"},
 			},
@@ -111,13 +111,13 @@ func memEditTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "mem_edit",
-			Description: "Edit a memory page by exact replacement: old → new. old must appear EXACTLY once in the page (add context to make it unique). To append, put the current end of the page in old and the extended version in new.",
+			Description: "Patch a memory page: old → new, old unique in the page. To append, put the current end of the page in old and the extended version in new.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
 					"file": map[string]any{"type": "string", "description": "Page name"},
-					"old":  map[string]any{"type": "string", "description": "Exact text to replace (unique in the page)"},
-					"new":  map[string]any{"type": "string", "description": "Replacement text"},
+					"old":  map[string]any{"type": "string", "description": "Exact text to replace (unique)"},
+					"new":  map[string]any{"type": "string", "description": "Replacement"},
 				},
 				"required": []string{"file", "old", "new"},
 			},
@@ -130,13 +130,13 @@ func editTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "edit",
-			Description: "Modify a file on disk by exact replacement: old → new. old must appear EXACTLY once in the file (add surrounding context to make it unique). Prefer this over rewriting the whole file — it avoids retyping everything.",
+			Description: "Patch a file by exact replacement: old → new. old must appear EXACTLY once (add context to make it unique). Prefer this over rewriting a whole file.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"file": map[string]any{"type": "string", "description": "Path of the file to modify"},
-					"old":  map[string]any{"type": "string", "description": "Exact text to replace (unique in the file)"},
-					"new":  map[string]any{"type": "string", "description": "Replacement text"},
+					"file": map[string]any{"type": "string", "description": "Path"},
+					"old":  map[string]any{"type": "string", "description": "Exact text to replace (unique)"},
+					"new":  map[string]any{"type": "string", "description": "Replacement"},
 				},
 				"required": []string{"file", "old", "new"},
 			},
@@ -149,12 +149,12 @@ func writeTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "write",
-			Description: "Write a file on disk with the exact content given (creates it, or replaces it whole; parent directories are created). ALWAYS use this to create a script or any text file — NEVER build a file through the shell with echo, cat, python -c or Set-Content: the shell mangles quotes and breaks the file. Content is written verbatim, no escaping needed.",
+			Description: "Create or replace a file with the exact content given (parent dirs created, content verbatim, no escaping). ALWAYS use this for a script or any text file — NEVER build one through the shell with echo, cat, python -c or Set-Content: quoting breaks.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"file":    map[string]any{"type": "string", "description": "Path of the file to write"},
-					"content": map[string]any{"type": "string", "description": "Full content of the file, verbatim"},
+					"file":    map[string]any{"type": "string", "description": "Path"},
+					"content": map[string]any{"type": "string", "description": "Full content"},
 				},
 				"required": []string{"file", "content"},
 			},
@@ -167,11 +167,11 @@ func bashTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "bash",
-			Description: "Execute a shell command on this machine (" + shellName() + ") and return stdout, stderr and the exit code. Use " + shellName() + " syntax, not another shell's. For inspecting the system, running scripts, reading files, reading logs. To CREATE or REWRITE a file, use the write tool instead — never echo/cat/python -c. Avoid destructive commands unless explicitly asked.",
+			Description: "Run a shell command (" + shellName() + " syntax) and return stdout, stderr and exit code: inspect the system, read files and logs, run scripts. To CREATE or REWRITE a file use write instead — never echo/cat/python -c. Avoid destructive commands unless asked.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"command": map[string]any{"type": "string", "description": "The bash command"},
+					"command": map[string]any{"type": "string", "description": "The command"},
 					"timeout": map[string]any{"type": "integer", "description": fmt.Sprintf("Timeout s (default %d, max %d)", toolDefaultTimeout, toolMaxTimeout)},
 				},
 				"required": []string{"command"},

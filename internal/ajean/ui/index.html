@@ -599,7 +599,6 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 #ctxtrack{position:absolute;top:0;left:0;right:0;height:3px;background:var(--panel);overflow:hidden}
 #ctx-fill{height:100%;width:0%;background:var(--ok,#3a7);transition:width .3s,background .3s}
 #ctxmeta{position:relative;display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:8px 12px 0}
-#ctx-text{font-size:10px;letter-spacing:.03em;white-space:nowrap}
 #ctx-compact{display:none;margin:0;padding:2px 10px;font-size:10px;background:var(--warn-bg);border-color:var(--warn,#c93)}
 #inputbar{padding:8px 12px;display:flex;gap:8px}
 /* Astuce clavier sous la saisie (style repris du HTML : un thème doit pouvoir
@@ -644,7 +643,6 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
   #send,#stop{padding:0 14px}
   #composer .muted{display:none}
   #ctxmeta{padding:3px 10px 0}
-  #ctx-text{font-size:9px}
   h1{font-size:15px}
   h2,details>summary{font-size:13px}
   #menubtn{width:32px;height:32px;font-size:15px;top:calc(6px + env(safe-area-inset-top))}
@@ -1031,7 +1029,7 @@ html[data-hide-stats="1"] #chat .msg .statline{display:none}
    coque à visualViewport.height, ni décaler le composer de la hauteur du
    clavier. Dans les deux cas la carte part en haut de l'écran en PWA iOS.
    iOS gère déjà correctement le clavier tout seul — on le laisse faire. */
-#ctx-text,#status-preset{color:var(--dim);font-size:10px;letter-spacing:.02em}
+#ctx-text,#status-preset{color:var(--dim);font-size:10px;letter-spacing:.02em;white-space:nowrap}
 #ctx-compact{border-radius:999px;padding:2px 10px;font-size:10px;background:transparent;border-color:var(--border);color:var(--dim)}
 #ctx-compact:hover{border-color:var(--dim);color:var(--text)}
 /* Jauge = bord bas de la carte : épaisse, plaquée au ras du bord, rognée par
@@ -1039,6 +1037,80 @@ html[data-hide-stats="1"] #chat .msg .statline{display:none}
 #ctxtrack{top:auto;bottom:0;height:7px;background:var(--border)}
 #ctx-fill{background:var(--text);opacity:.75}
 #sendhint{order:4;padding:12px var(--col) 2px}
+
+/* ===== Pièces jointes ==============================================
+   Un fichier joint n'est jamais lu par la page : il est déposé dans le dossier
+   de travail de l'IA et seul son nom revient. L'affichage se limite donc à une
+   pastille — pas d'aperçu, pas de vignette, rien qui promette plus que ça.
+
+   Le trombone vit dans le PIED de la carte, à droite avec le décompte de contexte
+   et « compacter ». Il est à LEUR échelle (une ligne d'outils de 10 px), pas à
+   celle de « send » : joindre un fichier est un geste occasionnel. */
+#attach{width:18px;height:18px;min-height:18px;flex:none;margin:0;padding:0;
+  display:flex;align-items:center;justify-content:center;border-radius:999px;
+  background:transparent;border:1px solid transparent;color:var(--dim)}
+#attach:hover{background:var(--row-bg-on);border-color:transparent;color:var(--text)}
+#attach:active{transform:scale(.9)}
+#attach svg{display:block}
+/* Fichiers en attente : de petites bulles POSÉES AU-DESSUS de la carte.
+   Le composeur réserve déjà 34 px transparents au-dessus de lui (la bande de
+   dégradé qui fond vers le fil) : les pastilles s'y logent, et on retire d'autant
+   le rembourrage. La carte ne bouge donc pas — c'est la bande vide qui se
+   remplit, au lieu du composeur qui grandit vers le haut.
+   Elles ne vont PAS dans le pied : cette ligne appartient au nom du modèle. */
+#attach-list{order:0;display:none;gap:6px;margin:0 var(--col);padding:0 2px 8px;
+  overflow-x:auto;scrollbar-width:none}
+#attach-list::-webkit-scrollbar{display:none}
+#attach-list.show{display:flex}
+#composer:has(#attach-list.show){padding-top:6px}
+/* Posées sur le fil (et non sur la carte) : il leur faut un fond opaque et un
+   cadre, sinon le texte de la conversation transparaît derrière. */
+#attach-list .chip-file{flex:0 0 auto;background:var(--panel);border-color:var(--border);
+  box-shadow:0 2px 10px rgba(0,0,0,.10)}
+/* Pastille de fichier. Le × n'apparaît qu'au survol : au repos la pastille doit
+   rester lisible d'un coup d'œil (nom + poids), pas encombrée d'un bouton. */
+.chip-file{display:flex;align-items:center;gap:8px;max-width:230px;min-width:0;
+  padding:4px 12px;border-radius:999px;background:var(--row-bg-on);
+  border:1px solid transparent;font-size:12px;line-height:1.3}
+/* Avec un × à droite, la pastille se ferme SUR lui : le rembourrage de droite
+   revient à l'épaisseur du rond, sinon le bouton flotte loin du bord et la
+   pastille paraît de travers. */
+.chip-file:has(button){padding-right:4px}
+.chip-file .cf-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip-file .cf-size{flex:none;color:var(--dim);font-size:11px}
+/* Le × est TOUJOURS visible : le révéler au survol le rendait inatteignable sur
+   mobile, où il n'y a pas de survol — donc impossible de retirer un fichier. */
+.chip-file button{flex:none;margin:0;padding:0;width:20px;height:20px;font-size:14px;
+  display:flex;align-items:center;justify-content:center;line-height:1;
+  border-radius:50%;border:none;background:transparent;color:var(--dim)}
+.chip-file button:hover{background:var(--bubble);color:var(--text)}
+/* Transfert en cours : un liseré qui tourne, plutôt qu'une pastille grisée dont
+   on ne sait pas si elle travaille ou si elle a échoué. */
+.chip-file.up .cf-size::after{content:"";display:inline-block;vertical-align:-2px;
+  margin-left:7px;width:10px;height:10px;border-radius:50%;
+  border:1.5px solid var(--border);border-top-color:var(--text);animation:spin .7s linear infinite}
+.chip-file.err{background:var(--danger-bg);color:var(--err)}
+.chip-file.err .cf-size{color:var(--err)}
+@media (prefers-reduced-motion:reduce){.chip-file.up .cf-size::after{animation:none}}
+/* Fichiers d'un message envoyé : leur propre rangée AU-DESSUS de la bulle,
+   alignée à droite comme elle. Rangée et bulle restent deux objets distincts,
+   séparés par l'espacement normal du fil — les rapprocher les faisait lire comme
+   une seule bulle difforme qui déborde vers le haut. */
+#chat .msg-files{align-self:flex-end;display:flex;flex-wrap:wrap;justify-content:flex-end;
+  gap:6px;max-width:75%}
+#chat .msg-files .chip-file{background:var(--bubble);max-width:100%}
+/* Lien de téléchargement dans une réponse : un lien normal, mais la flèche dit
+   qu'il ramène un fichier plutôt qu'il n'ouvre une page. */
+#chat .msg .filelink{cursor:pointer}
+#chat .msg .filelink::after{content:"↓";margin-left:5px;font-size:.9em;opacity:.7;text-decoration:none;display:inline-block}
+#chat .msg .filelink.busy{opacity:.55;pointer-events:none}
+/* Voile de dépôt. Il couvre la zone de conversation, curseur inclus : c'est la
+   réponse à « est-ce que je peux lâcher ici ? », elle doit être sans ambiguïté. */
+#dropveil{position:absolute;inset:0;z-index:20;display:none;align-items:center;
+  justify-content:center;padding:24px;background:rgba(0,0,0,.28);pointer-events:none}
+#dropveil.show{display:flex}
+#dropveil>div{padding:22px 30px;border:2px dashed var(--border);border-radius:20px;
+  background:var(--panel);color:var(--text);font-size:14px;box-shadow:0 8px 30px rgba(0,0,0,.18)}
 /* Reste de l'UI : coins arrondis et contrastes doux, dans le même esprit. */
 button,.mem-search{border-radius:10px}
 /* Champ + bouton accolés : on ne garde l'arrondi que sur les coins extérieurs. */
@@ -1397,17 +1469,31 @@ button:hover{border-color:var(--dim);color:var(--text)}
     <div id="ce-title">On commence par quoi ?</div>
   </div>
   <button id="scrollbtn" onclick="jumpBottom()" title="aller en bas">↓</button>
+  <!-- Voile de dépôt : révélé pendant qu'on survole la fenêtre avec un fichier. -->
+  <div id="dropveil" aria-hidden="true"><div>Déposer pour joindre au message</div></div>
   <div id="composer">
     <div id="ctxmeta">
       <div id="ctxtrack"><div id="ctx-fill"></div></div>
       <span id="status-preset" class="muted" style="font-size:10px;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
-      <span style="display:flex;align-items:center;gap:10px;margin-left:auto">
-        <span id="ctx-text" class="muted">contexte 0 / 0</span>
+      <!-- Pied de carte, à droite : le décompte de contexte, compacter, puis le
+           trombone — tous à la même échelle, c'est une seule ligne d'outils. -->
+      <span style="display:flex;align-items:center;gap:8px;margin-left:auto">
+        <span id="ctx-text" class="muted">0 / 0</span>
         <button id="ctx-compact" onclick="compactContext()">compacter</button>
+        <input type="file" id="attach-input" multiple style="display:none" onchange="onAttachPick(event)">
+        <button id="attach" onclick="document.getElementById('attach-input').click()" title="joindre un fichier" aria-label="joindre un fichier">
+          <!-- Trombone dessiné en SVG : pas de dépendance à une police d'emoji,
+               dont le rendu varie énormément d'un système à l'autre. -->
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.4 11.05 12.25 20.2a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.67 3.67 0 1 1 5.18 5.18l-9.2 9.2a1.83 1.83 0 1 1-2.59-2.6l8.49-8.48"/></svg>
+        </button>
       </span>
     </div>
+    <!-- Pièces jointes en attente : remplie par addFiles(), vidée à l'envoi.
+         Petites bulles POSÉES AU-DESSUS de la carte, dans la bande de dégradé
+         qui la sépare du fil — la carte ne bouge donc pas d'un pixel. -->
+    <div id="attach-list"></div>
     <div id="inputbar">
-      <textarea id="input" rows="1" placeholder="message…" onkeydown="onKey(event)" oninput="autoGrow(this)"></textarea>
+      <textarea id="input" rows="1" placeholder="message…" onkeydown="onKey(event)" oninput="autoGrow(this)" onpaste="onPaste(event)"></textarea>
       <button id="send" onclick="send()">send</button>
       <button id="stop" onclick="stopGen()" style="display:none;background:var(--danger-bg);border-color:var(--err);color:var(--err)">stop</button>
     </div>
@@ -2213,7 +2299,12 @@ function updateCtxMeter(){
   const fill=document.getElementById('ctx-fill');
   fill.style.width=pct+'%';
   fill.style.background = pct>=90 ? 'var(--err,#c44)' : pct>=70 ? 'var(--warn,#c93)' : 'var(--ok,#3a7)';
-  document.getElementById('ctx-text').textContent='contexte '+CTX_USED+' / '+CTX_MAX+' ('+pct+'%)';
+  // Les chiffres SANS le mot « contexte » : la jauge juste en dessous dit déjà de
+  // quoi on parle, et le pied de carte est étroit. Le libellé complet reste en
+  // infobulle.
+  const ct=document.getElementById('ctx-text');
+  ct.textContent=CTX_USED+' / '+CTX_MAX+' ('+pct+'%)';
+  ct.title='contexte utilisé';
   // Bouton de compaction MANUELLE : visible dès la moitié du contexte pour qu'on
   // puisse compacter à la demande avant que l'auto-compaction (75%) ne s'en charge.
   document.getElementById('ctx-compact').style.display = (pct>=50 && CTX_USED>0) ? 'inline-block' : 'none';
@@ -3828,7 +3919,7 @@ function setStats(el, text){
 }
 function bodyOf(el){ return el.querySelector('.body'); }
 // Render markdown into a message body in place; safe because md() escapes HTML.
-function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(text); markNotices(b); addCopyButtons(b); scrollMaybe(); }
+function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(encodeMdLinkSpaces(text)); markNotices(b); addCopyButtons(b); markFileLinks(b); scrollMaybe(); }
 // Render a tool call as its own conversation message: the command the model
 // wrote, then the response it got back. textContent keeps it injection-safe.
 function renderToolMsg(el, tu){
@@ -4059,7 +4150,14 @@ let lastSeq=0, streamAbort=null;
 // l'événement `user` revient par le flux — preuve que le serveur l'a bien
 // enregistré. En cas d'échec d'envoi, elle est retirée et le texte est rendu.
 let PENDING=null;
-function clearPending(){ if(PENDING){ PENDING.remove(); PENDING=null; } }
+// Retire aussi la rangée de pièces jointes, qui vit JUSTE AVANT la bulle : sans
+// ça, un envoi échoué laissait les fichiers seuls dans le fil, sans message.
+function clearPending(){
+  if(!PENDING) return;
+  const f=PENDING.previousElementSibling;
+  if(f&&f.classList.contains('msg-files')) f.remove();
+  PENDING.remove(); PENDING=null;
+}
 function addPending(text){
   clearPending();
   PENDING=addMsg('user', text);
@@ -4195,7 +4293,15 @@ function handleDelta(d){
     syncChatEmpty();
     return; }
   if(d.reset!==undefined){ PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
-  if(d.user!==undefined){ newTurn(); if(!confirmPending(d.user)) addMsg('user', d.user); setBusy(true); T.typingEl=addTyping(); return; }
+  if(d.user!==undefined){
+    newTurn();
+    let el=PENDING;
+    if(!confirmPending(d.user)) el=addMsg('user', d.user);
+    // Pièces jointes du tour : rendues DANS la bulle. La bulle en attente en
+    // porte déjà (posées à l'envoi), on ne les ajoute donc qu'au replay/à une
+    // bulle neuve — sinon elles apparaîtraient en double.
+    if(d.files && !hasMsgFiles(el)) addMsgFiles(el, d.files);
+    setBusy(true); T.typingEl=addTyping(); return; }
   if(d.turn_done){ removeTyping(); collapseAll(T.turnCollapsibles); if(T.serverStats) renderStats(T.contentEl||T.reasonEl, T.serverStats); setBusy(false); return; }
   if(d.error){ removeTyping(); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
   if(d.compacting!==undefined){ setCompacting(d.compacting); return; }
@@ -4303,15 +4409,25 @@ async function send(){
   // Garde-fou : le bouton est déjà désactivé, mais l'Entrée passe aussi par ici.
   if(STATUS_SEEN && !MODEL_READY){ toast('le modèle n\'est pas encore prêt'); return; }
   const ta=document.getElementById('input'); const text=ta.value.trim();
-  if(!text) return;
+  // Un envoi sans texte est légitime s'il porte une pièce jointe (« tiens, regarde »).
+  if(!text && !ATTACH.length) return;
   ta.value=''; autoGrow(ta);
   // Le message s'affiche TOUT DE SUITE, en gris : il ne disparaît plus le temps
   // de l'aller-retour. Il s'éclaircit quand le flux le confirme (confirmPending).
   addPending(text);
   const fail=(m)=>{ clearPending(); toast(m); ta.value=text; autoGrow(ta); };
+  // C'est ici que les fichiers partent vers le serveur — pas avant. Les pastilles
+  // ne sont retirées qu'une fois le message accepté : tant qu'il n'est pas parti,
+  // on doit pouvoir en enlever une, et un échec doit rester visible.
+  const files=await attachPaths();
+  if(!text && !files.length){ fail('aucun fichier n\'a pu être déposé'); return; }
+  // Les pastilles passent dans la bulle en attente : le message porte ses
+  // fichiers dès l'envoi, sans attendre l'aller-retour.
+  if(PENDING) addMsgFiles(PENDING, attachSent());
   for(let attempt=0; attempt<3; attempt++){
     try{
-      const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,ctx_used:CTX_USED})});
+      const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,files:files,ctx_used:CTX_USED})});
+      if(r.status===409 || r.ok) clearAttach();
       if(r.status===409) return;               // déjà en cours (notre envoi a abouti) → OK
       if(r.ok) return;                          // la bulle + les tokens arrivent par le flux
       if(r.status<500){ let m='erreur'; try{ m=(await r.json()).error||m; }catch(_){} fail(m); return; }
@@ -4895,4 +5011,241 @@ async function remotePairCode(){
     }
   }catch(e){ box.textContent='erreur : '+e; }
 }
+// ===== Pièces jointes du chat ==============================================
+// Un fichier joint n'est PAS lu par le navigateur ni injecté dans le contexte :
+// il est déposé tel quel dans le dossier de travail de l'IA (uploads/, côté
+// serveur), et seul son chemin est annoncé dans le message. Le modèle l'ouvre
+// s'il en a besoin, avec ses outils — ce qui marche pour n'importe quel type de
+// fichier sans que l'UI ait à en connaître le format.
+//
+// Le transfert passe par du base64 dans du JSON (et non du multipart) : c'est la
+// seule forme qui traverse le tunnel E2E d'app.ajean.link, donc l'accès distant
+// fonctionne sans code particulier.
+const ATTACH_MAX = 24*1024*1024;   // doit rester aligné sur uploadMaxBytes (web_upload.go)
+let ATTACH = [];
+let ATTACH_SEQ = 0;
+
+function fmtSize(n){
+  if(n >= 1024*1024) return (n/(1024*1024)).toFixed(n >= 10*1024*1024 ? 0 : 1)+' Mo';
+  if(n >= 1024) return Math.round(n/1024)+' Ko';
+  return n+' o';
+}
+// Pastille de fichier, partagée par le composeur et les bulles du fil : même
+// objet visuel des deux côtés, seul le contexte (CSS) change.
+function fileChip(name, size, opts){
+  opts=opts||{};
+  const chip=document.createElement('div');
+  chip.className='chip-file'+(opts.cls?' '+opts.cls:'');
+  const n=document.createElement('span');
+  n.className='cf-name'; n.textContent=name; n.title=opts.title||name;
+  const s=document.createElement('span');
+  s.className='cf-size'; s.textContent=opts.sizeText||fmtSize(size);
+  chip.appendChild(n); chip.appendChild(s);
+  if(opts.onRemove){
+    const x=document.createElement('button');
+    x.type='button'; x.textContent='×'; x.title='retirer';
+    x.setAttribute('aria-label','retirer '+name);
+    x.onclick=opts.onRemove;
+    chip.appendChild(x);
+  }
+  return chip;
+}
+// Fichiers joints à un message DÉJÀ envoyé : posés AU-DESSUS de la bulle, dans
+// leur propre rangée. Les mettre dedans étirait la bulle vers le haut et donnait
+// un bloc bâtard, moitié texte moitié pastilles.
+function addMsgFiles(el, files){
+  if(!el || !files || !files.length) return;
+  const box=document.createElement('div');
+  box.className='msg-files';
+  for(const f of files) box.appendChild(fileChip(f.name, f.size, {title:f.path||f.name}));
+  el.parentNode.insertBefore(box, el);
+  // Envoi sans un mot : la bulle serait un rectangle vide sous les pastilles.
+  markEmptyMsg(el);
+  return box;
+}
+// Une bulle sans texte n'a rien à montrer — seules ses pièces jointes parlent.
+function markEmptyMsg(el){
+  const b=el&&el.querySelector('.body');
+  if(b) el.classList.toggle('empty', b.textContent==='');
+}
+// La rangée de fichiers précède la bulle : c'est là qu'on vérifie sa présence
+// avant d'en ajouter une seconde (replay + bulle en attente).
+function hasMsgFiles(el){
+  const p=el&&el.previousElementSibling;
+  return !!(p&&p.classList.contains('msg-files'));
+}
+// ===== Fichiers remis par l'IA ============================================
+// Aucun outil, aucune syntaxe maison : l'IA écrit un lien Markdown ordinaire
+// vers un fichier de son dossier de travail — [Télécharger](rapport.pdf) — et
+// c'est l'UI qui le transforme en téléchargement. Le modèle n'a rien à savoir
+// de plus que ce qu'il fait déjà naturellement.
+//
+// Un simple href ne suffirait pas : la clé de pilotage voyage dans un en-tête
+// Authorization que le navigateur ne mettrait pas sur une navigation, et le
+// chemin de base change derrière le tunnel (/u/<id>). D'où le fetch + blob.
+async function downloadWorkspaceFile(path, name, a){
+  if(a) a.classList.add('busy');
+  try{
+    const r=await jfetch('/api/chat/file?path='+encodeURIComponent(path));
+    if(!r.ok){
+      let m='HTTP '+r.status; try{ m=(await r.json()).error||m; }catch(_){}
+      toast('téléchargement impossible : '+m); return;
+    }
+    const blobURL=URL.createObjectURL(await r.blob());
+    const link=document.createElement('a');
+    link.href=blobURL; link.download=name||'fichier';
+    document.body.appendChild(link); link.click(); link.remove();
+    // Révocation différée : Safari annule le téléchargement si l'URL disparaît
+    // dans la foulée du clic.
+    setTimeout(()=>URL.revokeObjectURL(blobURL), 10000);
+  }catch(e){ toast('téléchargement impossible : '+((e&&e.message)||'erreur')); }
+  finally{ if(a) a.classList.remove('busy'); }
+}
+// Markdown refuse les espaces NON échappés dans la cible d'un lien : le modèle
+// écrit [le rapport](mon rapport.pdf), et rien n'est rendu du tout — même pas un
+// lien mort. Or les noms de fichiers à espaces sont la règle, pas l'exception. On
+// les encode donc avant le rendu (fileLinkPath les redécode).
+//
+// Les cibles avec un titre — [x](chemin "Titre") — sont laissées tranquilles :
+// leurs espaces sont syntaxiques.
+function encodeMdLinkSpaces(text){
+  return String(text).replace(/\]\(([^)\n]*)\)/g, (whole, target)=>{
+    if(target.indexOf(' ')<0 || /["']/.test(target)) return whole;
+    if(/^[a-z][a-z0-9+.-]*:\/\//i.test(target)) return whole; // URL : pas notre affaire
+    return '](' + target.replace(/ /g, '%20') + ')';
+  });
+}
+// Chemin visé par un lien de la réponse, ramené au dossier de travail — ou ''
+// si le lien pointe ailleurs (page web, ancre, mailto…).
+//
+// Le modèle écrit indifféremment un chemin relatif, un chemin absolu du serveur,
+// ou le préfixe `sandbox:` qu'il a vu ailleurs : les trois doivent marcher, on
+// ne va pas lui demander d'être rigoureux sur un détail pareil.
+function fileLinkPath(href){
+  if(!href) return '';
+  let h=href.trim();
+  if(/^(https?:|mailto:|tel:|data:|blob:|#)/i.test(h)) return '';
+  h=h.replace(/^sandbox:/i,'').replace(/^file:\/\//i,'');
+  try{ h=decodeURI(h); }catch(_){}
+  h=h.replace(/\\/g,'/');
+  // Chemin absolu : on ne garde que ce qui suit le dossier de travail. Le serveur
+  // revérifie de toute façon — c'est lui qui fait autorité sur le périmètre.
+  const m=h.match(/(?:^|\/)workspace\/(.+)$/);
+  if(m) h=m[1];
+  h=h.replace(/^\/+/,'').replace(/^\.\//,'');
+  if(!h || h.indexOf('..')>=0) return '';
+  return h;
+}
+// Transforme en téléchargements les liens d'une réponse qui visent un fichier.
+function markFileLinks(root){
+  for(const a of root.querySelectorAll('a[href]')){
+    const p=fileLinkPath(a.getAttribute('href'));
+    if(!p) continue;
+    a.classList.add('filelink');
+    a.removeAttribute('target');
+    a.setAttribute('href','#');
+    const name=p.split('/').pop();
+    a.title='télécharger '+name;
+    a.onclick=(e)=>{ e.preventDefault(); downloadWorkspaceFile(p, name, a); };
+  }
+}
+function attachListEl(){ return document.getElementById('attach-list'); }
+function renderAttach(){
+  const el = attachListEl(); if(!el) return;
+  el.innerHTML='';
+  el.classList.toggle('show', ATTACH.length>0);
+  for(const a of ATTACH){
+    el.appendChild(fileChip(a.name, a.size, {
+      cls: a.state==='up' ? 'up' : (a.state==='err' ? 'err' : ''),
+      title: a.error || a.name,
+      sizeText: a.state==='err' ? 'échec' : fmtSize(a.size),
+      onRemove: ()=>{ ATTACH=ATTACH.filter(o=>o.id!==a.id); renderAttach(); }
+    }));
+  }
+}
+function clearAttach(){ ATTACH=[]; renderAttach(); }
+// Ce qui part avec le message, pour l'afficher dans sa bulle.
+function attachSent(){ return ATTACH.filter(a=>a.state==='ok').map(a=>({name:a.name,size:a.size,path:a.path})); }
+
+// Lecture en base64. readAsDataURL préfixe par "data:<mime>;base64," — le
+// serveur sait retirer cet en-tête, on n'a donc rien à découper ici.
+function readAsBase64(file){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onload=()=>res(String(fr.result||''));
+    fr.onerror=()=>rej(new Error('lecture impossible'));
+    fr.readAsDataURL(file);
+  });
+}
+// Le dépôt n'a lieu qu'à l'ENVOI du message, jamais à l'ajout : tant qu'on n'a
+// pas cliqué, rien ne doit atterrir dans le dossier de travail de l'IA. Retirer
+// un fichier de la liste ne laisse donc aucune trace sur le disque.
+async function uploadAttach(a){
+  a.state='up'; renderAttach();
+  try{
+    const data=await readAsBase64(a.file);
+    // Pas de jfetch ici : son délai de 30 s est calibré pour de petits appels,
+    // et couperait le transfert d'un fichier de plusieurs Mo.
+    const r=await fetch(API_BASE+'/api/chat/upload',{
+      method:'POST', headers:authHeaders({'Content-Type':'application/json'}),
+      body:JSON.stringify({name:a.name, data:data})
+    });
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok || !j.ok) throw new Error(j.error||('erreur '+r.status));
+    a.path=j.path; a.state='ok'; a.file=null;   // le contenu ne sert plus à rien côté page
+  }catch(e){
+    a.state='err'; a.error=(e&&e.message)||'échec';
+    toast('« '+a.name+' » : '+a.error);
+  }
+  renderAttach();
+}
+function addFiles(files){
+  for(const f of files||[]){
+    if(f.size>ATTACH_MAX){ toast('« '+f.name+' » fait '+fmtSize(f.size)+' — maximum '+fmtSize(ATTACH_MAX)); continue; }
+    if(!f.size){ toast('« '+f.name+' » est vide'); continue; }
+    ATTACH.push({id:++ATTACH_SEQ, name:f.name||'fichier', size:f.size, file:f, path:null, state:'queued'});
+  }
+  renderAttach();
+}
+function onAttachPick(e){
+  addFiles(e.target.files);
+  e.target.value='';   // sinon re-choisir le même fichier ne déclenche pas change
+}
+// Coller un fichier (capture d'écran, fichier copié depuis l'explorateur). On ne
+// touche à rien quand le presse-papier ne contient que du texte : le collage
+// normal dans la zone de saisie doit rester intact.
+function onPaste(e){
+  const items=(e.clipboardData&&e.clipboardData.files)||[];
+  if(!items.length) return;
+  e.preventDefault();
+  addFiles(items);
+}
+// Glisser-déposer sur toute la fenêtre. Le compteur de profondeur est nécessaire :
+// dragenter/dragleave se déclenchent aussi au passage d'un enfant à l'autre, et
+// sans lui le voile clignote dès que le curseur traverse une bulle du fil.
+let DRAG_DEPTH=0;
+function dropVeil(on){
+  const v=document.getElementById('dropveil'); if(v) v.classList.toggle('show', on);
+}
+function hasFiles(e){
+  const dt=e.dataTransfer; if(!dt) return false;
+  if(dt.types) for(const t of dt.types){ if(t==='Files') return true; }
+  return false;
+}
+window.addEventListener('dragenter', e=>{ if(!hasFiles(e)) return; e.preventDefault(); DRAG_DEPTH++; dropVeil(true); });
+window.addEventListener('dragover', e=>{ if(hasFiles(e)) e.preventDefault(); });
+window.addEventListener('dragleave', e=>{ if(!hasFiles(e)) return; DRAG_DEPTH=Math.max(0,DRAG_DEPTH-1); if(!DRAG_DEPTH) dropVeil(false); });
+window.addEventListener('drop', e=>{
+  if(!hasFiles(e)) return;
+  e.preventDefault(); DRAG_DEPTH=0; dropVeil(false);
+  addFiles(e.dataTransfer.files);
+});
+// Appelé par send() : c'est ICI que les fichiers partent réellement vers le
+// serveur. Ceux qui échouent sont ignorés — leur pastille reste à l'écran en
+// rouge, elle dit déjà ce qui s'est passé.
+async function attachPaths(){
+  await Promise.all(ATTACH.filter(a=>a.state==='queued').map(uploadAttach));
+  return ATTACH.filter(a=>a.state==='ok'&&a.path).map(a=>a.path);
+}
+renderAttach();
 </script></body></html>

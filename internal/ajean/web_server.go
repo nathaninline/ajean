@@ -181,6 +181,8 @@ func newWebMux() *http.ServeMux {
 	api("/api/bench/last", handleBenchLast)
 	api("/api/chat", handleChat)                // flux d'ABONNEMENT (SSE) : rejoue + suit le fil
 	api("/api/chat/send", handleChatSend)       // envoie un message (lance la génération détachée)
+	api("/api/chat/upload", handleChatUpload)   // dépose un fichier dans le workspace agent (joint au message suivant)
+	api("/api/chat/file", handleChatFile)       // télécharge un fichier produit par l'agent (dossier de travail only)
 	api("/api/chat/stop", handleChatStop)       // interrompt la génération en cours
 	api("/api/chat/reset", handleChatReset)     // nouvelle conversation (pour tous les appareils)
 	api("/api/chat/compact", handleChatCompact) // compaction manuelle du contexte

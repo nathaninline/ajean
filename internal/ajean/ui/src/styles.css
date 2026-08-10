@@ -573,7 +573,6 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 #ctxtrack{position:absolute;top:0;left:0;right:0;height:3px;background:var(--panel);overflow:hidden}
 #ctx-fill{height:100%;width:0%;background:var(--ok,#3a7);transition:width .3s,background .3s}
 #ctxmeta{position:relative;display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:8px 12px 0}
-#ctx-text{font-size:10px;letter-spacing:.03em;white-space:nowrap}
 #ctx-compact{display:none;margin:0;padding:2px 10px;font-size:10px;background:var(--warn-bg);border-color:var(--warn,#c93)}
 #inputbar{padding:8px 12px;display:flex;gap:8px}
 /* Astuce clavier sous la saisie (style repris du HTML : un thème doit pouvoir
@@ -618,7 +617,6 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
   #send,#stop{padding:0 14px}
   #composer .muted{display:none}
   #ctxmeta{padding:3px 10px 0}
-  #ctx-text{font-size:9px}
   h1{font-size:15px}
   h2,details>summary{font-size:13px}
   #menubtn{width:32px;height:32px;font-size:15px;top:calc(6px + env(safe-area-inset-top))}
@@ -1005,7 +1003,7 @@ html[data-hide-stats="1"] #chat .msg .statline{display:none}
    coque à visualViewport.height, ni décaler le composer de la hauteur du
    clavier. Dans les deux cas la carte part en haut de l'écran en PWA iOS.
    iOS gère déjà correctement le clavier tout seul — on le laisse faire. */
-#ctx-text,#status-preset{color:var(--dim);font-size:10px;letter-spacing:.02em}
+#ctx-text,#status-preset{color:var(--dim);font-size:10px;letter-spacing:.02em;white-space:nowrap}
 #ctx-compact{border-radius:999px;padding:2px 10px;font-size:10px;background:transparent;border-color:var(--border);color:var(--dim)}
 #ctx-compact:hover{border-color:var(--dim);color:var(--text)}
 /* Jauge = bord bas de la carte : épaisse, plaquée au ras du bord, rognée par
@@ -1013,6 +1011,80 @@ html[data-hide-stats="1"] #chat .msg .statline{display:none}
 #ctxtrack{top:auto;bottom:0;height:7px;background:var(--border)}
 #ctx-fill{background:var(--text);opacity:.75}
 #sendhint{order:4;padding:12px var(--col) 2px}
+
+/* ===== Pièces jointes ==============================================
+   Un fichier joint n'est jamais lu par la page : il est déposé dans le dossier
+   de travail de l'IA et seul son nom revient. L'affichage se limite donc à une
+   pastille — pas d'aperçu, pas de vignette, rien qui promette plus que ça.
+
+   Le trombone vit dans le PIED de la carte, à droite avec le décompte de contexte
+   et « compacter ». Il est à LEUR échelle (une ligne d'outils de 10 px), pas à
+   celle de « send » : joindre un fichier est un geste occasionnel. */
+#attach{width:18px;height:18px;min-height:18px;flex:none;margin:0;padding:0;
+  display:flex;align-items:center;justify-content:center;border-radius:999px;
+  background:transparent;border:1px solid transparent;color:var(--dim)}
+#attach:hover{background:var(--row-bg-on);border-color:transparent;color:var(--text)}
+#attach:active{transform:scale(.9)}
+#attach svg{display:block}
+/* Fichiers en attente : de petites bulles POSÉES AU-DESSUS de la carte.
+   Le composeur réserve déjà 34 px transparents au-dessus de lui (la bande de
+   dégradé qui fond vers le fil) : les pastilles s'y logent, et on retire d'autant
+   le rembourrage. La carte ne bouge donc pas — c'est la bande vide qui se
+   remplit, au lieu du composeur qui grandit vers le haut.
+   Elles ne vont PAS dans le pied : cette ligne appartient au nom du modèle. */
+#attach-list{order:0;display:none;gap:6px;margin:0 var(--col);padding:0 2px 8px;
+  overflow-x:auto;scrollbar-width:none}
+#attach-list::-webkit-scrollbar{display:none}
+#attach-list.show{display:flex}
+#composer:has(#attach-list.show){padding-top:6px}
+/* Posées sur le fil (et non sur la carte) : il leur faut un fond opaque et un
+   cadre, sinon le texte de la conversation transparaît derrière. */
+#attach-list .chip-file{flex:0 0 auto;background:var(--panel);border-color:var(--border);
+  box-shadow:0 2px 10px rgba(0,0,0,.10)}
+/* Pastille de fichier. Le × n'apparaît qu'au survol : au repos la pastille doit
+   rester lisible d'un coup d'œil (nom + poids), pas encombrée d'un bouton. */
+.chip-file{display:flex;align-items:center;gap:8px;max-width:230px;min-width:0;
+  padding:4px 12px;border-radius:999px;background:var(--row-bg-on);
+  border:1px solid transparent;font-size:12px;line-height:1.3}
+/* Avec un × à droite, la pastille se ferme SUR lui : le rembourrage de droite
+   revient à l'épaisseur du rond, sinon le bouton flotte loin du bord et la
+   pastille paraît de travers. */
+.chip-file:has(button){padding-right:4px}
+.chip-file .cf-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip-file .cf-size{flex:none;color:var(--dim);font-size:11px}
+/* Le × est TOUJOURS visible : le révéler au survol le rendait inatteignable sur
+   mobile, où il n'y a pas de survol — donc impossible de retirer un fichier. */
+.chip-file button{flex:none;margin:0;padding:0;width:20px;height:20px;font-size:14px;
+  display:flex;align-items:center;justify-content:center;line-height:1;
+  border-radius:50%;border:none;background:transparent;color:var(--dim)}
+.chip-file button:hover{background:var(--bubble);color:var(--text)}
+/* Transfert en cours : un liseré qui tourne, plutôt qu'une pastille grisée dont
+   on ne sait pas si elle travaille ou si elle a échoué. */
+.chip-file.up .cf-size::after{content:"";display:inline-block;vertical-align:-2px;
+  margin-left:7px;width:10px;height:10px;border-radius:50%;
+  border:1.5px solid var(--border);border-top-color:var(--text);animation:spin .7s linear infinite}
+.chip-file.err{background:var(--danger-bg);color:var(--err)}
+.chip-file.err .cf-size{color:var(--err)}
+@media (prefers-reduced-motion:reduce){.chip-file.up .cf-size::after{animation:none}}
+/* Fichiers d'un message envoyé : leur propre rangée AU-DESSUS de la bulle,
+   alignée à droite comme elle. Rangée et bulle restent deux objets distincts,
+   séparés par l'espacement normal du fil — les rapprocher les faisait lire comme
+   une seule bulle difforme qui déborde vers le haut. */
+#chat .msg-files{align-self:flex-end;display:flex;flex-wrap:wrap;justify-content:flex-end;
+  gap:6px;max-width:75%}
+#chat .msg-files .chip-file{background:var(--bubble);max-width:100%}
+/* Lien de téléchargement dans une réponse : un lien normal, mais la flèche dit
+   qu'il ramène un fichier plutôt qu'il n'ouvre une page. */
+#chat .msg .filelink{cursor:pointer}
+#chat .msg .filelink::after{content:"↓";margin-left:5px;font-size:.9em;opacity:.7;text-decoration:none;display:inline-block}
+#chat .msg .filelink.busy{opacity:.55;pointer-events:none}
+/* Voile de dépôt. Il couvre la zone de conversation, curseur inclus : c'est la
+   réponse à « est-ce que je peux lâcher ici ? », elle doit être sans ambiguïté. */
+#dropveil{position:absolute;inset:0;z-index:20;display:none;align-items:center;
+  justify-content:center;padding:24px;background:rgba(0,0,0,.28);pointer-events:none}
+#dropveil.show{display:flex}
+#dropveil>div{padding:22px 30px;border:2px dashed var(--border);border-radius:20px;
+  background:var(--panel);color:var(--text);font-size:14px;box-shadow:0 8px 30px rgba(0,0,0,.18)}
 /* Reste de l'UI : coins arrondis et contrastes doux, dans le même esprit. */
 button,.mem-search{border-radius:10px}
 /* Champ + bouton accolés : on ne garde l'arrondi que sur les coins extérieurs. */

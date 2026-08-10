@@ -47,38 +47,45 @@ func baseSystemPrompt(caps Caps) string {
 	if caps.Mem == MemAlways {
 		b.WriteString(" You evolve with every conversation: you actively maintain a persistent memory so nothing useful is lost between sessions.")
 	}
-	b.WriteString("\n\nTools:\n")
+	// PAS de catalogue d'outils ici : leurs schémas, envoyés dans la même requête,
+	// les décrivent déjà un par un. Les réénumérer coûtait ~120 tokens à chaque
+	// tour pour répéter ce que le modèle a juste à côté. Ne restent que les
+	// consignes que les schémas ne portent pas — le shell utilisé, et les
+	// politiques d'usage.
 	if caps.Agent {
-		b.WriteString("- bash — run a shell command on this machine (inspect files, processes, logs, run scripts). The shell is " + shellName() + ": use its syntax.\n")
-		b.WriteString("- write — create or rewrite a file with exact content.\n")
-		b.WriteString("- edit — patch a file by exact replacement (old → new, old must be unique).\n")
-	}
-	if hasMem {
-		b.WriteString("- mem_search / mem_read / mem_add / mem_edit — your persistent Markdown memory under memory/.\n")
+		b.WriteString("\n\nThe shell is " + shellName() + ": use its syntax.\n")
+	} else {
+		b.WriteString("\n\n")
 	}
 	// Politique d'usage de la mémoire selon le mode.
 	switch caps.Mem {
 	case MemAlways:
 		b.WriteString("\nManaging your memory is part of the job, not optional:\n")
-		b.WriteString("- When the user tells you to remember something, or shares a preference, fact, decision, or how-to worth keeping, save it with mem_add (or mem_edit to update an existing page) — do it on your own, without being asked.\n")
-		b.WriteString("- Before doing any task or answering, first call mem_search to see whether your memory already holds the answer or how to do it, then mem_read the best page. Do this even when the request has new specifics like a name, a place or a value — your saved method still applies, only the parameter changes.\n")
+		b.WriteString("- Save anything worth keeping (a preference, fact, decision, how-to) with mem_add, or mem_edit to update a page — on your own, without being asked.\n")
+		b.WriteString("- Before any task or answer, call mem_search first, then mem_read the best page. Do this even when the request has new specifics (a name, a place, a value): your saved method still applies, only the parameter changes.\n")
 	case MemOnDemand:
 		b.WriteString("\nMemory is ON-DEMAND: you have the mem_* tools but do NOT read or write memory on your own. Call mem_search/mem_read only when the user explicitly asks you to recall or look something up, and mem_add/mem_edit only when the user explicitly asks you to remember something. Otherwise leave memory untouched and answer directly.\n")
 	}
 	if caps.Agent {
-		// Règle courte mais indispensable : sans elle le modèle fabrique ses scripts
-		// avec echo/python -c, ce que cmd.exe massacre (guillemets imbriqués).
-		b.WriteString("\nTo create or rewrite a file, always use write (or edit to patch one) — never echo, cat, python -c or Set-Content through the shell; quoting breaks. Write the script with write, then run it with bash.\n")
+		// La règle « write, jamais echo/cat » est INDISPENSABLE (cmd.exe massacre
+		// les guillemets imbriqués) mais elle vit maintenant dans les schémas de
+		// write et bash, là où elle s'applique. Elle était écrite trois fois.
 		b.WriteString("For anything about the system or files, use bash instead of guessing. Act immediately — call the right tool, then answer. Never end your turn after only thinking. Be concise.\n")
+		// Un lien Markdown ordinaire, comme dans n'importe quel chat : l'UI en fait
+		// un téléchargement (voir /api/chat/file). Aucun outil ni syntaxe spéciale
+		// à connaître pour le modèle — juste [texte](chemin).
+		b.WriteString("To give the user a file, link it in Markdown with its path relative to your working directory — [le rapport](rapport.pdf) — which downloads it. A raw server path is useless: they read you in a browser.\n")
 		if caps.Mem == MemAlways {
-			b.WriteString("Before answering any question about yourself or this machine, always call mem_search first — even trivial-seeming ones. Testing with a tool never replaces this: memory may hold context the tool won't reveal. Search memory, then verify, then answer.\n")
+			b.WriteString("Before answering anything about yourself or this machine, call mem_search first — even trivial-seeming questions. A tool check never replaces it: memory may hold context the tool won't reveal.\n")
 		}
 	}
 	if caps.Internet {
-		b.WriteString("\nWeb access (Crawl4AI): web_search (DuckDuckGo), web_open (fetch a URL → metadata + outline), web_read (read a line range of an opened URL), web_grep (regex in an opened URL). Workflow: web_open first, then web_read/web_grep.\n")
+		// Le catalogue des outils web est parti dans leurs schémas ; ne reste ici
+		// que l'ordre d'appel, que les schémas pris isolément ne disent pas.
 		year := time.Now().Format("2006")
-		b.WriteString("Your training data is stale. For ANY question about recent/latest/current things (releases, versions, news, prices, scores, fixtures, 'since when') call web_search BEFORE writing any date or version. Your answer must match the dates/facts you actually read.\n")
-		b.WriteString("SEARCH QUERY YEAR RULE: today is in " + year + ". If your query includes a year, use ONLY " + year + " — NEVER write a past year like " + prevYear(year) + " that you remember from training; it silently biases results toward stale pages. Default: put no year at all and let the freshest result win. Don't hedge ('probably', 'I think') about a fact a tool can verify — search instead.\n")
+		b.WriteString("\nWeb: web_open first, then web_read/web_grep on it.\n")
+		b.WriteString("Your training data is stale. For ANY question about recent/latest/current things (releases, versions, news, prices, scores, 'since when') call web_search BEFORE writing any date or version, and match what you actually read.\n")
+		b.WriteString("Today is in " + year + ". If a query needs a year use ONLY " + year + ", never a remembered past year like " + prevYear(year) + " — it biases results toward stale pages; better still, omit the year. Don't hedge ('probably') about a fact a tool can verify — search instead.\n")
 	}
 	if caps.Agent {
 		if line := mcpPromptLine(); line != "" {

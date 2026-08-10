@@ -265,7 +265,10 @@ var errModelLoading = fmt.Errorf("⏳ Le modèle est encore en train de charger 
 // StartTurn ajoute le message utilisateur et lance la génération EN ARRIÈRE-PLAN
 // (context.Background, détaché de toute connexion HTTP). Renvoie ErrBusy si un
 // tour est déjà en cours, ou une erreur si le modèle n'est pas prêt.
-func (c *Conversation) StartTurn(text string, caps Caps, temperature float64) error {
+// files = pièces jointes déjà déposées (web_upload.go). Elles sont annoncées au
+// MODÈLE en tête du message, mais rendues comme pastilles dans la bulle : le fil
+// doit montrer ce que l'utilisateur a écrit, pas la consigne qu'on ajoute pour lui.
+func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, temperature float64) error {
 	if !healthCheck() {
 		return errModelLoading
 	}
@@ -277,14 +280,25 @@ func (c *Conversation) StartTurn(text string, caps Caps, temperature float64) er
 	c.Generating = true
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
-	c.Messages = append(c.Messages, Message{Role: "user", Content: text})
+	// Envoi sans un mot, juste un fichier : la bulle reste vide (les pastilles
+	// disent tout), mais le modèle a besoin d'une demande — sans elle il reçoit
+	// une liste de fichiers et rien à en faire.
+	prompt := text
+	if strings.TrimSpace(prompt) == "" {
+		prompt = "Prends-en connaissance."
+	}
+	c.Messages = append(c.Messages, Message{Role: "user", Content: attachNote(files) + prompt})
 	epoch := c.epoch
 	c.mu.Unlock()
 
 	// Borne de tour + bulle utilisateur (rejouables). Persistée tout de suite :
 	// si le process meurt en pleine génération (crash, restart après MAJ), le
 	// message de l'utilisateur survit au lieu de disparaître avec le tour.
-	c.appendDelta(epoch, map[string]any{"user": text})
+	delta := map[string]any{"user": text}
+	if len(files) > 0 {
+		delta["files"] = files
+	}
+	c.appendDelta(epoch, delta)
 	c.persist()
 	if temperature == 0 {
 		temperature = 0.7

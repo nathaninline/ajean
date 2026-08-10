@@ -222,6 +222,11 @@ func (c *Conversation) ExportMarkdown(o exportOpts) string {
 		case ev["user"] != nil:
 			openBubble = false
 			fmt.Fprintf(&b, "\n---\n\n## Vous\n\n%s\n", mdText(ev["user"]))
+			// Pièces jointes du tour. Sans elles, un message envoyé SANS texte
+			// (juste un fichier) donnait une section « Vous » entièrement vide.
+			if names := exportFileNames(ev["files"]); len(names) > 0 {
+				fmt.Fprintf(&b, "\nFichiers joints : %s\n", strings.Join(names, ", "))
+			}
 		case ev["reasoning_content"] != nil:
 			if !o.Reasoning {
 				break
@@ -399,4 +404,28 @@ func handleChatExport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", `attachment; filename="`+exportFilename(ext)+`"`)
 	w.Header().Set("Content-Length", fmt.Sprint(len(body)))
 	_, _ = w.Write(body)
+}
+
+// exportFileNames lit les noms des pièces jointes portées par un événement `user`.
+//
+// Deux formes possibles pour la même donnée : []attachInfo quand l'événement
+// vient d'être produit, et []any de maps quand il a été relu depuis le journal
+// persisté (JSON). L'export travaille sur les deux, d'où le double cas.
+func exportFileNames(v any) []string {
+	var out []string
+	switch files := v.(type) {
+	case []attachInfo:
+		for _, f := range files {
+			out = append(out, f.Name)
+		}
+	case []any:
+		for _, it := range files {
+			if m, ok := it.(map[string]any); ok {
+				if n, ok := m["name"].(string); ok && n != "" {
+					out = append(out, n)
+				}
+			}
+		}
+	}
+	return out
 }

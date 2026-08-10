@@ -92,11 +92,13 @@ func handleChatSend(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	if strings.TrimSpace(body.Message) == "" {
+	// Un envoi SANS texte mais AVEC pièce jointe est légitime (« tiens, regarde »).
+	files := attachFiles(body.Files)
+	if strings.TrimSpace(body.Message) == "" && len(files) == 0 {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "message vide"})
 		return
 	}
-	if err := conv.StartTurn(body.Message, capsFromBody(body), body.Temperature); err != nil {
+	if err := conv.StartTurn(body.Message, files, capsFromBody(body), body.Temperature); err != nil {
 		// 409 = occupé (génération en cours) ; 503 = modèle pas prêt.
 		code := 503
 		if err == ErrBusy {

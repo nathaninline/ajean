@@ -135,7 +135,7 @@ function setStats(el, text){
 }
 function bodyOf(el){ return el.querySelector('.body'); }
 // Render markdown into a message body in place; safe because md() escapes HTML.
-function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(text); markNotices(b); addCopyButtons(b); scrollMaybe(); }
+function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(encodeMdLinkSpaces(text)); markNotices(b); addCopyButtons(b); markFileLinks(b); scrollMaybe(); }
 // Render a tool call as its own conversation message: the command the model
 // wrote, then the response it got back. textContent keeps it injection-safe.
 function renderToolMsg(el, tu){

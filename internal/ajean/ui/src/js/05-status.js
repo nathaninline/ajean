@@ -111,7 +111,12 @@ function updateCtxMeter(){
   const fill=document.getElementById('ctx-fill');
   fill.style.width=pct+'%';
   fill.style.background = pct>=90 ? 'var(--err,#c44)' : pct>=70 ? 'var(--warn,#c93)' : 'var(--ok,#3a7)';
-  document.getElementById('ctx-text').textContent='contexte '+CTX_USED+' / '+CTX_MAX+' ('+pct+'%)';
+  // Les chiffres SANS le mot « contexte » : la jauge juste en dessous dit déjà de
+  // quoi on parle, et le pied de carte est étroit. Le libellé complet reste en
+  // infobulle.
+  const ct=document.getElementById('ctx-text');
+  ct.textContent=CTX_USED+' / '+CTX_MAX+' ('+pct+'%)';
+  ct.title='contexte utilisé';
   // Bouton de compaction MANUELLE : visible dès la moitié du contexte pour qu'on
   // puisse compacter à la demande avant que l'auto-compaction (75%) ne s'en charge.
   document.getElementById('ctx-compact').style.display = (pct>=50 && CTX_USED>0) ? 'inline-block' : 'none';

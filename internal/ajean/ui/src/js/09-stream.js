@@ -10,7 +10,14 @@ let lastSeq=0, streamAbort=null;
 // l'événement `user` revient par le flux — preuve que le serveur l'a bien
 // enregistré. En cas d'échec d'envoi, elle est retirée et le texte est rendu.
 let PENDING=null;
-function clearPending(){ if(PENDING){ PENDING.remove(); PENDING=null; } }
+// Retire aussi la rangée de pièces jointes, qui vit JUSTE AVANT la bulle : sans
+// ça, un envoi échoué laissait les fichiers seuls dans le fil, sans message.
+function clearPending(){
+  if(!PENDING) return;
+  const f=PENDING.previousElementSibling;
+  if(f&&f.classList.contains('msg-files')) f.remove();
+  PENDING.remove(); PENDING=null;
+}
 function addPending(text){
   clearPending();
   PENDING=addMsg('user', text);
@@ -146,7 +153,15 @@ function handleDelta(d){
     syncChatEmpty();
     return; }
   if(d.reset!==undefined){ PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
-  if(d.user!==undefined){ newTurn(); if(!confirmPending(d.user)) addMsg('user', d.user); setBusy(true); T.typingEl=addTyping(); return; }
+  if(d.user!==undefined){
+    newTurn();
+    let el=PENDING;
+    if(!confirmPending(d.user)) el=addMsg('user', d.user);
+    // Pièces jointes du tour : rendues DANS la bulle. La bulle en attente en
+    // porte déjà (posées à l'envoi), on ne les ajoute donc qu'au replay/à une
+    // bulle neuve — sinon elles apparaîtraient en double.
+    if(d.files && !hasMsgFiles(el)) addMsgFiles(el, d.files);
+    setBusy(true); T.typingEl=addTyping(); return; }
   if(d.turn_done){ removeTyping(); collapseAll(T.turnCollapsibles); if(T.serverStats) renderStats(T.contentEl||T.reasonEl, T.serverStats); setBusy(false); return; }
   if(d.error){ removeTyping(); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
   if(d.compacting!==undefined){ setCompacting(d.compacting); return; }
@@ -254,15 +269,25 @@ async function send(){
   // Garde-fou : le bouton est déjà désactivé, mais l'Entrée passe aussi par ici.
   if(STATUS_SEEN && !MODEL_READY){ toast('le modèle n\'est pas encore prêt'); return; }
   const ta=document.getElementById('input'); const text=ta.value.trim();
-  if(!text) return;
+  // Un envoi sans texte est légitime s'il porte une pièce jointe (« tiens, regarde »).
+  if(!text && !ATTACH.length) return;
   ta.value=''; autoGrow(ta);
   // Le message s'affiche TOUT DE SUITE, en gris : il ne disparaît plus le temps
   // de l'aller-retour. Il s'éclaircit quand le flux le confirme (confirmPending).
   addPending(text);
   const fail=(m)=>{ clearPending(); toast(m); ta.value=text; autoGrow(ta); };
+  // C'est ici que les fichiers partent vers le serveur — pas avant. Les pastilles
+  // ne sont retirées qu'une fois le message accepté : tant qu'il n'est pas parti,
+  // on doit pouvoir en enlever une, et un échec doit rester visible.
+  const files=await attachPaths();
+  if(!text && !files.length){ fail('aucun fichier n\'a pu être déposé'); return; }
+  // Les pastilles passent dans la bulle en attente : le message porte ses
+  // fichiers dès l'envoi, sans attendre l'aller-retour.
+  if(PENDING) addMsgFiles(PENDING, attachSent());
   for(let attempt=0; attempt<3; attempt++){
     try{
-      const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,ctx_used:CTX_USED})});
+      const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,files:files,ctx_used:CTX_USED})});
+      if(r.status===409 || r.ok) clearAttach();
       if(r.status===409) return;               // déjà en cours (notre envoi a abouti) → OK
       if(r.ok) return;                          // la bulle + les tokens arrivent par le flux
       if(r.status<500){ let m='erreur'; try{ m=(await r.json()).error||m; }catch(_){} fail(m); return; }

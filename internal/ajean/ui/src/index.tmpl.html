@@ -328,17 +328,31 @@
     <div id="ce-title">On commence par quoi ?</div>
   </div>
   <button id="scrollbtn" onclick="jumpBottom()" title="aller en bas">↓</button>
+  <!-- Voile de dépôt : révélé pendant qu'on survole la fenêtre avec un fichier. -->
+  <div id="dropveil" aria-hidden="true"><div>Déposer pour joindre au message</div></div>
   <div id="composer">
     <div id="ctxmeta">
       <div id="ctxtrack"><div id="ctx-fill"></div></div>
       <span id="status-preset" class="muted" style="font-size:10px;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
-      <span style="display:flex;align-items:center;gap:10px;margin-left:auto">
-        <span id="ctx-text" class="muted">contexte 0 / 0</span>
+      <!-- Pied de carte, à droite : le décompte de contexte, compacter, puis le
+           trombone — tous à la même échelle, c'est une seule ligne d'outils. -->
+      <span style="display:flex;align-items:center;gap:8px;margin-left:auto">
+        <span id="ctx-text" class="muted">0 / 0</span>
         <button id="ctx-compact" onclick="compactContext()">compacter</button>
+        <input type="file" id="attach-input" multiple style="display:none" onchange="onAttachPick(event)">
+        <button id="attach" onclick="document.getElementById('attach-input').click()" title="joindre un fichier" aria-label="joindre un fichier">
+          <!-- Trombone dessiné en SVG : pas de dépendance à une police d'emoji,
+               dont le rendu varie énormément d'un système à l'autre. -->
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.4 11.05 12.25 20.2a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.67 3.67 0 1 1 5.18 5.18l-9.2 9.2a1.83 1.83 0 1 1-2.59-2.6l8.49-8.48"/></svg>
+        </button>
       </span>
     </div>
+    <!-- Pièces jointes en attente : remplie par addFiles(), vidée à l'envoi.
+         Petites bulles POSÉES AU-DESSUS de la carte, dans la bande de dégradé
+         qui la sépare du fil — la carte ne bouge donc pas d'un pixel. -->
+    <div id="attach-list"></div>
     <div id="inputbar">
-      <textarea id="input" rows="1" placeholder="message…" onkeydown="onKey(event)" oninput="autoGrow(this)"></textarea>
+      <textarea id="input" rows="1" placeholder="message…" onkeydown="onKey(event)" oninput="autoGrow(this)" onpaste="onPaste(event)"></textarea>
       <button id="send" onclick="send()">send</button>
       <button id="stop" onclick="stopGen()" style="display:none;background:var(--danger-bg);border-color:var(--err);color:var(--err)">stop</button>
     </div>
