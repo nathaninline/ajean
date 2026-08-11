@@ -7,9 +7,8 @@ package ajean
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	"github.com/nathaninline/ajean/internal/nodewire"
 )
 
 const (
@@ -28,13 +28,14 @@ const (
 )
 
 // pairedNode est un poste appairé, tel que persisté dans bkState["nodes"].
-// On ne garde JAMAIS la clé en clair : seulement son SHA-256. Le poste, lui,
-// conserve la clé en local (voir node_client.go).
+// L'identité du poste = sa CLÉ PUBLIQUE X25519 (PubHex). Il n'y a plus de « clé
+// d'appareil » partagée : le poste prouve son identité en sachant chiffrer le
+// canal (ECDH avec sa clé privée), ce que le relais ne peut pas reproduire.
 type pairedNode struct {
 	ID        string   `json:"id"`
 	Name      string   `json:"name"`
 	OS        string   `json:"os"`
-	KeyHash   string   `json:"key_hash"`
+	PubHex    string   `json:"pub"`  // clé publique X25519 du poste (son identité)
 	Caps      []string `json:"caps"` // capacités AUTORISÉES par le propriétaire
 	Root      string   `json:"root,omitempty"`
 	CreatedAt int64    `json:"created_at"`
@@ -49,25 +50,30 @@ func loadNodes() []pairedNode {
 
 func saveNodes(l []pairedNode) error { return putJSON(bkState, "nodes", l) }
 
-// findNodeByKey retrouve un poste appairé à partir de la clé d'appareil présentée
-// (comparaison à temps constant sur le hash). Renvoie nil si aucune ne matche.
-func findNodeByKey(key string) *pairedNode {
-	if key == "" {
+// findNodeByPub retrouve un poste appairé à partir de sa clé publique.
+func findNodeByPub(pub string) *pairedNode {
+	pub = strings.ToLower(strings.TrimSpace(pub))
+	if pub == "" {
 		return nil
 	}
-	want := nodeHashKey(key)
 	nodes := loadNodes()
 	for i := range nodes {
-		if subtle.ConstantTimeCompare([]byte(nodes[i].KeyHash), []byte(want)) == 1 {
+		if strings.ToLower(nodes[i].PubHex) == pub {
 			return &nodes[i]
 		}
 	}
 	return nil
 }
 
-func nodeHashKey(key string) string {
-	sum := sha256.Sum256([]byte(key))
-	return hex.EncodeToString(sum[:])
+// agentPrivHex renvoie la clé privée X25519 de l'agent en hex (pour dériver la
+// clé de canal poste↔agent via nodewire). Même clé que le canal navigateur, mais
+// domaine séparé par la constante de dérivation.
+func agentPrivHex() (string, error) {
+	k, err := e2ePrivateKey()
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(k.Bytes()), nil
 }
 
 // nodeRandHex renvoie n octets aléatoires en hexadécimal (2n caractères).
@@ -112,18 +118,42 @@ type nodeConn struct {
 
 	conn    *websocket.Conn
 	ctx     context.Context
+	ch      *nodewire.Chan // canal chiffré poste↔agent (relais aveugle)
 	writeMu sync.Mutex
 
 	mu      sync.Mutex
 	pending map[string]chan string
 }
 
+// send chiffre le message et l'envoie en un frame opaque : le relais ne voit
+// que du ciphertext.
 func (nc *nodeConn) send(m nodeMsg) error {
 	nc.writeMu.Lock()
 	defer nc.writeMu.Unlock()
+	raw, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
 	ctx, cancel := context.WithTimeout(nc.ctx, 15*time.Second)
 	defer cancel()
-	return wsjson.Write(ctx, nc.conn, m)
+	return wsjson.Write(ctx, nc.conn, nc.ch.Seal(raw))
+}
+
+// readMsg lit un frame chiffré et le déchiffre en nodeMsg.
+func (nc *nodeConn) readMsg(ctx context.Context) (nodeMsg, error) {
+	var fr nodewire.Frame
+	if err := wsjson.Read(ctx, nc.conn, &fr); err != nil {
+		return nodeMsg{}, err
+	}
+	plain, err := nc.ch.Open(fr)
+	if err != nil {
+		return nodeMsg{}, err
+	}
+	var m nodeMsg
+	if err := json.Unmarshal(plain, &m); err != nil {
+		return nodeMsg{}, err
+	}
+	return m, nil
 }
 
 var (
@@ -169,16 +199,12 @@ func nodeConnected() []*nodeConn {
 
 // ─── Endpoint WebSocket : le poste se connecte ici ─────────────────────────
 
-// handleNodeWS accueille la connexion sortante d'un poste. Route PUBLIQUE (pas
-// derrière la clé de pilotage) : l'authentification se fait par la clé d'appareil
-// remise à l'appairage, présentée en Bearer.
+// handleNodeWS accueille la connexion sortante d'un poste. Route PUBLIQUE : elle
+// peut arriver en direct (LAN) OU tunnelée par le relais ajean.link. Dans les
+// deux cas le canal est chiffré de BOUT EN BOUT (poste↔agent) : le relais ne voit
+// que de l'opaque. L'authentification = la capacité du poste à chiffrer avec la
+// clé de canal, que seul le détenteur de la clé privée appairée peut calculer.
 func handleNodeWS(w http.ResponseWriter, r *http.Request) {
-	key := bearerToken(r)
-	pn := findNodeByKey(key)
-	if pn == nil {
-		http.Error(w, "poste non appairé", http.StatusUnauthorized)
-		return
-	}
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{OriginPatterns: []string{"*"}})
 	if err != nil {
 		return
@@ -186,43 +212,77 @@ func handleNodeWS(w http.ResponseWriter, r *http.Request) {
 	c.SetReadLimit(-1)
 	ctx := r.Context()
 
-	// 1er message : le hello où le poste déclare son nom/os et ce qu'il sait faire.
+	// Poignée de main : 1er frame EN CLAIR = la clé publique du poste (elle est
+	// publique, aucun secret). Elle nous dit QUI se connecte et permet de dériver
+	// la clé de canal. Le poste ne pourra chiffrer/déchiffrer que s'il détient la
+	// clé privée correspondante — c'est ça, l'authentification.
 	helloCtx, cancel := context.WithTimeout(ctx, nodeHelloWait)
-	var hello nodeMsg
-	err = wsjson.Read(helloCtx, c, &hello)
+	var hp struct {
+		Type string `json:"type"`
+		Pub  string `json:"pub"`
+	}
+	err = wsjson.Read(helloCtx, c, &hp)
 	cancel()
-	if err != nil || hello.Type != "hello" {
-		_ = c.Close(websocket.StatusProtocolError, "hello attendu")
+	if err != nil || hp.Type != "hello_pub" || hp.Pub == "" {
+		_ = c.Close(websocket.StatusProtocolError, "hello_pub attendu")
+		return
+	}
+	pn := findNodeByPub(hp.Pub)
+	if pn == nil {
+		_ = c.Close(websocket.StatusPolicyViolation, "poste non appairé")
+		return
+	}
+	privHex, err := agentPrivHex()
+	if err != nil {
+		_ = c.Close(websocket.StatusInternalError, "clé agent indisponible")
+		return
+	}
+	key, err := nodewire.ChannelKey(privHex, hp.Pub)
+	if err != nil {
+		_ = c.Close(websocket.StatusInternalError, "canal")
+		return
+	}
+	ch, err := nodewire.NewChan(key, false) // agent = côté d'envoi 2
+	if err != nil {
+		_ = c.Close(websocket.StatusInternalError, "canal")
 		return
 	}
 
+	nc := &nodeConn{
+		id:      pn.ID,
+		conn:    c,
+		ctx:     ctx,
+		ch:      ch,
+		pending: map[string]chan string{},
+		root:    pn.Root,
+	}
+
+	// 1er frame CHIFFRÉ : le hello (nom/os/capacités déclarées). S'il ne déchiffre
+	// pas, le poste n'a pas la bonne clé privée → connexion refusée.
+	helloCtx2, cancel2 := context.WithTimeout(ctx, nodeHelloWait)
+	hello, err := nc.readMsg(helloCtx2)
+	cancel2()
+	if err != nil || hello.Type != "hello" {
+		_ = c.Close(websocket.StatusPolicyViolation, "hello chiffré attendu")
+		return
+	}
 	name := strings.TrimSpace(hello.Name)
 	if name == "" {
 		name = pn.Name
 	}
-	caps := nodeCapIntersect(pn.Caps, hello.Caps)
+	nc.name = name
+	nc.slug = nodeSlug(name)
+	nc.os = strings.TrimSpace(hello.OS)
+	nc.caps = nodeCapIntersect(pn.Caps, hello.Caps)
 
-	nc := &nodeConn{
-		id:      pn.ID,
-		slug:    nodeSlug(name),
-		name:    name,
-		os:      strings.TrimSpace(hello.OS),
-		caps:    caps,
-		root:    pn.Root,
-		conn:    c,
-		ctx:     ctx,
-		pending: map[string]chan string{},
-	}
 	nodeRegister(nc)
 	defer nodeUnregister(nc)
 	touchNodeSeen(pn.ID)
 
-	// Boucle de lecture : les seules entrées attendues sont des « result » qui
-	// débloquent l'appel en attente correspondant. Le ping/keepalive est géré par
-	// coder/websocket.
+	// Boucle de lecture : des « result » chiffrés qui débloquent l'appel en attente.
 	for {
-		var m nodeMsg
-		if err := wsjson.Read(ctx, c, &m); err != nil {
+		m, err := nc.readMsg(ctx)
+		if err != nil {
 			_ = c.CloseNow()
 			return
 		}
@@ -247,15 +307,6 @@ func touchNodeSeen(id string) {
 			return
 		}
 	}
-}
-
-// bearerToken extrait le jeton d'un en-tête « Authorization: Bearer … ».
-func bearerToken(r *http.Request) string {
-	h := r.Header.Get("Authorization")
-	if s, ok := strings.CutPrefix(h, "Bearer "); ok {
-		return strings.TrimSpace(s)
-	}
-	return ""
 }
 
 // ─── Appel d'un outil de poste (routage serveur→poste→serveur) ─────────────

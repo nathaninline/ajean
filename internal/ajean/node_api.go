@@ -9,6 +9,7 @@
 package ajean
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -42,25 +43,48 @@ func handleNodePair(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJSON(w, 200, map[string]any{
-		"ok":      true,
-		"code":    p.Code,
-		"caps":    p.Caps,
-		"root":    p.Root,
-		"expires": p.Expires,
-		"ttl_min": int(nodePairCodeTTL.Minutes()),
+		"ok":          true,
+		"code":        p.Code,
+		"caps":        p.Caps,
+		"root":        p.Root,
+		"expires":     p.Expires,
+		"ttl_min":     int(nodePairCodeTTL.Minutes()),
+		"machine":     machineID(),      // pour l'accès via ajean.link (/node/<machine>/)
+		"agent_pub":   e2ePubHex(),      // clé publique de l'agent (le poste scelle vers elle)
+		"fingerprint": e2eFingerprint(), // empreinte, ancre de confiance
 	})
 }
 
-// handleNodeEnroll (PUBLIC) échange un code d'appairage contre une clé
-// d'appareil. Le code est à usage unique : consommé dès qu'il sert.
+// handleNodeEnroll (PUBLIC) enrôle un poste. Le corps est un SCEAU anonyme vers
+// la clé publique de l'agent contenant {pub, code, name, os} : le relais ne peut
+// ni l'ouvrir, ni voir le code, ni la clé publique du poste. Si le code matche,
+// la clé publique est enregistrée comme identité autorisée du poste.
 func handleNodeEnroll(w http.ResponseWriter, r *http.Request) {
 	var req struct {
+		Sealed string `json:"sealed"` // base64(ephPub||nonce||ct) vers la clé agent
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Sealed == "" {
+		sendJSON(w, 400, map[string]any{"error": "requête invalide"})
+		return
+	}
+	blob, err := base64.StdEncoding.DecodeString(req.Sealed)
+	if err != nil {
+		sendJSON(w, 400, map[string]any{"error": "format du sceau"})
+		return
+	}
+	plain, err := e2eOpenSeal(blob)
+	if err != nil {
+		sendJSON(w, 400, map[string]any{"error": "sceau invalide"})
+		return
+	}
+	var pm struct {
+		Pub  string `json:"pub"`
 		Code string `json:"code"`
 		Name string `json:"name"`
 		OS   string `json:"os"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		sendJSON(w, 400, map[string]any{"error": "requête invalide"})
+	if err := json.Unmarshal(plain, &pm); err != nil {
+		sendJSON(w, 400, map[string]any{"error": "contenu du sceau"})
 		return
 	}
 	pending, ok := loadPairPending()
@@ -68,23 +92,26 @@ func handleNodeEnroll(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 403, map[string]any{"error": "aucun code d'appairage actif — générez-en un dans l'interface"})
 		return
 	}
-	if !strings.EqualFold(strings.TrimSpace(req.Code), pending.Code) {
+	if !strings.EqualFold(strings.TrimSpace(pm.Code), pending.Code) {
 		sendJSON(w, 403, map[string]any{"error": "code incorrect"})
 		return
 	}
-	// Consomme le code immédiatement (usage unique), même si la suite échoue.
-	clearPairPending()
+	clearPairPending() // usage unique
 
-	key := nodeRandHex(24)
-	name := strings.TrimSpace(req.Name)
+	pub := strings.ToLower(strings.TrimSpace(pm.Pub))
+	if len(pub) != 64 {
+		sendJSON(w, 400, map[string]any{"error": "clé publique du poste invalide"})
+		return
+	}
+	name := strings.TrimSpace(pm.Name)
 	if name == "" {
 		name = "poste"
 	}
 	node := pairedNode{
 		ID:        nodeRandHex(8),
 		Name:      name,
-		OS:        strings.TrimSpace(req.OS),
-		KeyHash:   nodeHashKey(key),
+		OS:        strings.TrimSpace(pm.OS),
+		PubHex:    pub,
 		Caps:      pending.Caps,
 		Root:      pending.Root,
 		CreatedAt: time.Now().Unix(),
@@ -94,14 +121,15 @@ func handleNodeEnroll(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 500, map[string]any{"error": err.Error()})
 		return
 	}
-	// La clé n'est renvoyée QU'ICI, une seule fois : le poste la stocke en local.
+	// Réponse en clair : elle ne contient AUCUN secret (le secret, la clé privée,
+	// n'a jamais quitté le poste). machine_id sert au poste pour l'URL relais.
 	sendJSON(w, 200, map[string]any{
-		"ok":   true,
-		"id":   node.ID,
-		"key":  key,
-		"caps": node.Caps,
-		"root": node.Root,
-		"name": node.Name,
+		"ok":         true,
+		"id":         node.ID,
+		"machine_id": machineID(),
+		"caps":       node.Caps,
+		"root":       node.Root,
+		"name":       node.Name,
 	})
 }
 

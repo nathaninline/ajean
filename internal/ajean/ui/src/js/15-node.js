@@ -112,8 +112,17 @@ async function genNodeCode(){
   document.getElementById('node-pair-ttl').textContent = r.ttl_min || 10;
   const allow = caps.join(',');
   const rootArg = root ? (' --root "'+root+'"') : '';
-  document.getElementById('node-pair-cmd').textContent =
-    'ajean-remote install '+location.origin+' --code '+r.code+' --allow '+allow+rootArg;
+  // Commande d'accès À DISTANCE (partout) via ajean.link : chiffrée de bout en
+  // bout, le relais reste aveugle. --key = clé publique de l'agent (le poste
+  // scelle vers elle), --machine = quelle machine joindre.
+  const remote = 'ajean-remote install https://ajean.link --machine '+r.machine+
+    ' --key '+r.agent_pub+' --code '+r.code+' --allow '+allow+rootArg;
+  // Variante RÉSEAU LOCAL (connexion directe, sans passer par le relais).
+  const lan = 'ajean-remote install '+location.origin+
+    ' --key '+r.agent_pub+' --code '+r.code+' --allow '+allow+rootArg;
+  document.getElementById('node-pair-cmd').textContent = remote;
+  const lanEl = document.getElementById('node-pair-cmd-lan');
+  if(lanEl) lanEl.textContent = lan;
   document.getElementById('node-pair-out').style.display = '';
   loadNode();
 }

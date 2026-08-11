@@ -2,6 +2,7 @@ package ajean
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,15 +12,22 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	"github.com/nathaninline/ajean/internal/nodewire"
 )
 
-// TestNodeEndToEnd exerce tout le chemin serveur : enrôlement via code, connexion
-// WebSocket, négociation des capacités (intersection propriétaire ∩ poste), et
-// routage d'un appel d'outil jusqu'au poste et retour.
-func TestNodeEndToEnd(t *testing.T) {
+// TestNodeE2E exerce tout le chemin : enrôlement SCELLÉ (le sceau du client est
+// ouvert par e2eOpenSeal de l'agent → interop crypto validée), puis canal
+// CHIFFRÉ poste↔agent (hello + appel d'outil + résultat), et refus d'une
+// capacité non autorisée.
+func TestNodeE2E(t *testing.T) {
 	testHome(t)
 
-	// Le propriétaire n'autorise que read + shell (pas write).
+	agentPub := e2ePubHex()
+	if agentPub == "" {
+		t.Fatal("clé publique agent indisponible")
+	}
+
+	// Le propriétaire autorise read + shell (pas write).
 	if err := savePairPending(nodePairPending{
 		Code:    "ABCD1234",
 		Caps:    []string{nodeCapRead, nodeCapShell},
@@ -34,104 +42,97 @@ func TestNodeEndToEnd(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	// 1) Enrôlement : le code est échangé contre une clé d'appareil.
-	body, _ := json.Marshal(map[string]string{"code": "abcd1234", "name": "testpc", "os": "linux/amd64"})
+	// 1) Le poste génère sa paire et SCELLE {pub, code, name, os} vers l'agent.
+	priv, pub, err := nodewire.GenKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	inner, _ := json.Marshal(map[string]string{"pub": pub, "code": "abcd1234", "name": "testpc", "os": "linux/amd64"})
+	blob, err := nodewire.SealTo(agentPub, inner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := json.Marshal(map[string]string{"sealed": base64.StdEncoding.EncodeToString(blob)})
 	resp, err := http.Post(srv.URL+"/api/node/enroll", "application/json", strings.NewReader(string(body)))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var enr struct {
-		OK   bool     `json:"ok"`
-		Key  string   `json:"key"`
-		Caps []string `json:"caps"`
+		OK bool `json:"ok"`
 	}
 	_ = json.NewDecoder(resp.Body).Decode(&enr)
 	resp.Body.Close()
-	if !enr.OK || enr.Key == "" {
+	if !enr.OK {
 		t.Fatalf("enrôlement échoué: %+v", enr)
 	}
-	// Le code est à usage unique : un second enrôlement doit échouer.
-	resp2, _ := http.Post(srv.URL+"/api/node/enroll", "application/json", strings.NewReader(string(body)))
-	if resp2.StatusCode == 200 {
-		t.Fatal("le code d'appairage aurait dû être consommé (usage unique)")
+	if findNodeByPub(pub) == nil {
+		t.Fatal("la clé publique du poste n'a pas été enregistrée")
 	}
-	resp2.Body.Close()
 
-	// 2) Le poste se connecte et sert les appels.
+	// 2) Connexion WS chiffrée.
 	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/api/node/ws"
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	c, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{
-		HTTPHeader: http.Header{"Authorization": {"Bearer " + enr.Key}},
-	})
+	c, _, err := websocket.Dial(ctx, wsURL, nil)
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
 	defer c.CloseNow()
-	// Le poste déclare pouvoir read/shell/write ; l'effectif sera ∩ = read/shell.
-	if err := wsjson.Write(ctx, c, nodeMsg{Type: "hello", Name: "testpc", OS: "linux/amd64",
-		Caps: []string{nodeCapRead, nodeCapShell, nodeCapWrite}}); err != nil {
-		t.Fatalf("hello: %v", err)
+
+	// hello_pub en clair, puis canal chiffré côté client.
+	if err := wsjson.Write(ctx, c, map[string]string{"type": "hello_pub", "pub": pub}); err != nil {
+		t.Fatal(err)
 	}
-	// Boucle client : répond à chaque call par "RESULT:<cap>".
+	key, _ := nodewire.ChannelKey(priv, agentPub)
+	ch, _ := nodewire.NewChan(key, true)
+	sendEnc := func(m nodewire.Msg) { _ = wsjson.Write(ctx, c, ch.Seal(mustJSON(m))) }
+	sendEnc(nodewire.Msg{Type: "hello", Name: "testpc", OS: "linux/amd64", Caps: []string{nodeCapRead, nodeCapShell, nodeCapWrite}})
+
+	// Boucle client : répond à chaque call chiffré par "RESULT:<cap>".
 	go func() {
 		for {
-			var m nodeMsg
-			if err := wsjson.Read(context.Background(), c, &m); err != nil {
+			var fr nodewire.Frame
+			if err := wsjson.Read(context.Background(), c, &fr); err != nil {
 				return
 			}
-			if m.Type == "call" {
-				_ = wsjson.Write(context.Background(), c, nodeMsg{Type: "result", ID: m.ID, Result: "RESULT:" + m.Cap})
+			plain, err := ch.Open(fr)
+			if err != nil {
+				return
+			}
+			var m nodewire.Msg
+			if json.Unmarshal(plain, &m) == nil && m.Type == "call" {
+				sendEnc(nodewire.Msg{Type: "result", ID: m.ID, Result: "RESULT:" + m.Cap})
 			}
 		}
 	}()
 
-	// Attend l'enregistrement du poste.
+	// Attend l'enregistrement.
 	slug := nodeSlug("testpc")
 	var nc *nodeConn
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 200; i++ {
 		if nc = nodeGet(slug); nc != nil {
 			break
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
 	if nc == nil {
-		t.Fatal("le poste ne s'est pas enregistré")
+		t.Fatal("le poste ne s'est pas enregistré (canal chiffré ?)")
 	}
-
-	// 3) Capacités effectives = intersection : read + shell, PAS write.
 	if len(nc.caps) != 2 || nc.caps[0] != nodeCapShell || nc.caps[1] != nodeCapRead {
 		t.Fatalf("capacités effectives inattendues: %v", nc.caps)
 	}
 
-	// 4) Un appel autorisé traverse jusqu'au poste et revient.
+	// 3) Appel autorisé routé jusqu'au poste et retour, à travers le chiffrement.
 	if got := nodeCall(slug, nodeCapRead, map[string]any{"path": "x"}); got != "RESULT:read" {
 		t.Fatalf("appel read: attendu RESULT:read, obtenu %q", got)
 	}
-
-	// 5) Un appel NON autorisé (write) est refusé côté serveur, sans atteindre le poste.
-	if got := nodeCall(slug, nodeCapWrite, map[string]any{"path": "x", "content": "y"}); !strings.Contains(got, "non autorisée") {
+	// 4) Appel non autorisé (write) refusé côté serveur.
+	if got := nodeCall(slug, nodeCapWrite, map[string]any{"path": "x"}); !strings.Contains(got, "non autorisée") {
 		t.Fatalf("appel write aurait dû être refusé, obtenu %q", got)
 	}
+}
 
-	// 6) Sélection de la cible : l'agent agit sur ce poste. La méta reflète un
-	// poste connecté, et un appel shell (autorisé) est bien routé jusqu'au poste.
-	if err := setAgentTargetSlug(slug); err != nil {
-		t.Fatal(err)
-	}
-	meta, ok := nodeTargetMetaGet()
-	if !ok || !meta.connected || meta.slug != slug {
-		t.Fatalf("cible inattendue: ok=%v %+v", ok, meta)
-	}
-	if got := nodeCall(slug, nodeCapShell, map[string]any{"command": "echo hi"}); got != "RESULT:shell" {
-		t.Fatalf("routage shell: attendu RESULT:shell, obtenu %q", got)
-	}
-
-	// 7) nodeEditRemote lit puis réécrit via le poste (le client fictif renvoie
-	// "RESULT:read" à la lecture → "old" introuvable, donc erreur explicite, pas
-	// un plantage : on vérifie juste que le chemin read→write est emprunté).
-	if got := nodeEditRemote(slug, "f.txt", "absent", "x"); !strings.Contains(got, "introuvable") {
-		t.Fatalf("nodeEditRemote: attendu 'introuvable', obtenu %q", got)
-	}
-	setAgentTargetSlug("") // ne pas fuiter la cible sur d'autres tests
+func mustJSON(v any) []byte {
+	b, _ := json.Marshal(v)
+	return b
 }

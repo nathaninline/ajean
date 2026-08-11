@@ -77,24 +77,34 @@ Options :
 // doConnect appaire au besoin, sauvegarde, puis installe (service) ou lance
 // (avant-plan) selon install.
 func doConnect(args []string, install bool) error {
-	url, code, allow, root, yes := parseFlags(args)
+	f := parseFlags(args)
 	cfg, lerr := nodeclient.LoadConfig()
-	needEnroll := lerr != nil || cfg.Key == ""
-	if url != "" {
-		cfg.ServerURL = url
+	needEnroll := lerr != nil || cfg.Priv == ""
+	if f.url != "" {
+		cfg.ServerURL = f.url
+	}
+	if f.key != "" {
+		cfg.AgentPub = f.key
+	}
+	if f.machine != "" {
+		cfg.MachineID = f.machine
 	}
 	if needEnroll {
 		if cfg.ServerURL == "" {
 			return fmt.Errorf("url du serveur requise (ex: http://192.168.1.127:8090)")
 		}
-		if code == "" {
+		if f.code == "" {
 			return fmt.Errorf("code d'appairage requis : --code CODE")
 		}
-		if err := nodeclient.Enroll(&cfg, code); err != nil {
+		if cfg.AgentPub == "" {
+			return fmt.Errorf("clé de l'agent requise : --key <clé> (fournie par la commande d'appairage)")
+		}
+		if err := nodeclient.Enroll(&cfg, f.code); err != nil {
 			return err
 		}
 		fmt.Printf("[ok] appairé (id %s)\n", cfg.ID)
 	}
+	allow, root, yes := f.allow, f.root, f.yes
 	if len(allow) > 0 {
 		cfg.Caps = nodeclient.SanitizeCaps(allow)
 	}
@@ -150,7 +160,14 @@ func doStatus() error {
 	return nil
 }
 
-func parseFlags(args []string) (url, code string, allow []string, root string, yes bool) {
+type flags struct {
+	url, code, root, key, machine string
+	allow                         []string
+	yes                           bool
+}
+
+func parseFlags(args []string) flags {
+	var f flags
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		next := func() string {
@@ -162,20 +179,24 @@ func parseFlags(args []string) (url, code string, allow []string, root string, y
 		}
 		switch {
 		case a == "--code":
-			code = next()
+			f.code = next()
+		case a == "--key":
+			f.key = next()
+		case a == "--machine":
+			f.machine = next()
 		case a == "--allow":
 			for _, p := range strings.Split(next(), ",") {
 				if p = strings.TrimSpace(p); p != "" {
-					allow = append(allow, p)
+					f.allow = append(f.allow, p)
 				}
 			}
 		case a == "--root":
-			root = next()
+			f.root = next()
 		case a == "--yes" || a == "-y":
-			yes = true
-		case !strings.HasPrefix(a, "-") && url == "":
-			url = a
+			f.yes = true
+		case !strings.HasPrefix(a, "-") && f.url == "":
+			f.url = a
 		}
 	}
-	return
+	return f
 }

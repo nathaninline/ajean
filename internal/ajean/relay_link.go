@@ -499,6 +499,13 @@ func newLinkHandler(mux *http.ServeMux) http.Handler {
 			web.ServeHTTP(w, r) // /api/e2e/chat est routé par le mux
 			return
 		}
+		// Poste distant : l'enrôlement (sceau anonyme) et le WebSocket (canal
+		// chiffré poste↔agent) sont E2E — le relais ne voit que de l'opaque. On les
+		// laisse donc passer, comme /api/e2e/*, sans casser la boîte noire.
+		if p == "/api/node/enroll" || p == "/api/node/ws" {
+			web.ServeHTTP(w, r)
+			return
+		}
 		if strings.HasPrefix(p, "/api/") {
 			http.Error(w, "via le relais : seuls les endpoints chiffrés /api/e2e/* sont autorisés (boîte noire)", http.StatusForbidden)
 			return

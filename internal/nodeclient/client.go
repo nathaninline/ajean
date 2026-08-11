@@ -13,6 +13,7 @@ package nodeclient
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,14 +39,33 @@ const (
 )
 
 // Config persiste l'appairage et les préférences locales du poste.
+//
+// L'identité du poste = sa paire de clés X25519 (Priv/Pub). Le canal vers l'agent
+// est chiffré de bout en bout (relais aveugle). AgentPub est la clé publique de
+// l'agent (fournie à l'install, hors-bande, via la commande d'appairage) : le
+// poste scelle vers elle et en dérive la clé de canal. MachineID, s'il est
+// renseigné, fait passer par le relais ajean.link (/node/<machine>/).
 type Config struct {
 	ServerURL string   `json:"server_url"`
 	ID        string   `json:"id"`
-	Key       string   `json:"key"`
+	Priv      string   `json:"priv"` // clé privée X25519 du poste (hex) — LE secret
+	Pub       string   `json:"pub"`  // clé publique X25519 du poste (hex)
+	AgentPub  string   `json:"agent_pub"`
+	MachineID string   `json:"machine_id,omitempty"` // non vide = passer par le relais
 	Name      string   `json:"name"`
 	Caps      []string `json:"caps"`
 	Root      string   `json:"root"`
 	AutoYes   bool     `json:"auto_yes"`
+}
+
+// baseURL est la racine à laquelle joindre l'agent : directe (LAN) ou via le
+// relais ajean.link quand un MachineID est configuré.
+func (c Config) baseURL() string {
+	u := strings.TrimRight(c.ServerURL, "/")
+	if c.MachineID != "" {
+		u += "/node/" + c.MachineID
+	}
+	return u
 }
 
 // dataDir est le dossier de données du poste. Sur Windows : C:\ProgramData\
@@ -102,13 +122,27 @@ func SaveConfig(c Config) error {
 	return os.WriteFile(p, b, 0o600) // 0600 : la clé d'appareil est un secret
 }
 
-// Enroll échange un code d'appairage contre une clé d'appareil et complète cfg.
+// Enroll appaire le poste : génère sa paire de clés, SCELLE {pub, code, name, os}
+// vers la clé publique de l'agent (le relais ne voit rien), et l'envoie. La clé
+// privée ne quitte JAMAIS le poste.
 func Enroll(cfg *Config, code string) error {
+	if cfg.AgentPub == "" {
+		return errors.New("clé publique de l'agent requise (--key, fournie par la commande d'appairage)")
+	}
+	priv, pub, err := nodewire.GenKeyPair()
+	if err != nil {
+		return err
+	}
 	name, _ := os.Hostname()
-	body, _ := json.Marshal(map[string]string{
-		"code": code, "name": name, "os": runtime.GOOS + "/" + runtime.GOARCH,
+	inner, _ := json.Marshal(map[string]string{
+		"pub": pub, "code": code, "name": name, "os": runtime.GOOS + "/" + runtime.GOARCH,
 	})
-	endpoint := strings.TrimRight(cfg.ServerURL, "/") + "/api/node/enroll"
+	blob, err := nodewire.SealTo(cfg.AgentPub, inner)
+	if err != nil {
+		return fmt.Errorf("scellement: %w", err)
+	}
+	body, _ := json.Marshal(map[string]string{"sealed": base64.StdEncoding.EncodeToString(blob)})
+	endpoint := cfg.baseURL() + "/api/node/enroll"
 	req, _ := http.NewRequest("POST", endpoint, strings.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := (&http.Client{Timeout: 20 * time.Second}).Do(req)
@@ -119,20 +153,19 @@ func Enroll(cfg *Config, code string) error {
 	var out struct {
 		OK   bool     `json:"ok"`
 		ID   string   `json:"id"`
-		Key  string   `json:"key"`
 		Caps []string `json:"caps"`
 		Root string   `json:"root"`
 		Name string   `json:"name"`
 		Err  string   `json:"error"`
 	}
 	_ = json.NewDecoder(resp.Body).Decode(&out)
-	if !out.OK || out.Key == "" {
+	if !out.OK {
 		if out.Err == "" {
 			out.Err = "réponse inattendue du serveur (" + resp.Status + ")"
 		}
 		return errors.New(out.Err)
 	}
-	cfg.ID, cfg.Key, cfg.Caps = out.ID, out.Key, out.Caps
+	cfg.Priv, cfg.Pub, cfg.ID, cfg.Caps = priv, pub, out.ID, out.Caps
 	if out.Root != "" {
 		cfg.Root = out.Root
 	}
@@ -165,8 +198,8 @@ func Run(ctx context.Context, cfg Config, quiet bool) {
 	}
 }
 
-func wsURL(server string) string {
-	s := strings.TrimRight(server, "/")
+func wsURL(cfg Config) string {
+	s := cfg.baseURL()
 	switch {
 	case strings.HasPrefix(s, "https://"):
 		s = "wss://" + strings.TrimPrefix(s, "https://")
@@ -181,35 +214,55 @@ func wsURL(server string) string {
 func session(ctx context.Context, cfg Config, quiet bool) error {
 	dialCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	c, _, err := websocket.Dial(dialCtx, wsURL(cfg.ServerURL), &websocket.DialOptions{
-		HTTPHeader: http.Header{"Authorization": {"Bearer " + cfg.Key}},
-	})
+	c, _, err := websocket.Dial(dialCtx, wsURL(cfg), nil)
 	if err != nil {
 		return fmt.Errorf("connexion: %w", err)
 	}
 	c.SetReadLimit(-1)
 	defer c.CloseNow()
 
-	hello := nodewire.Msg{Type: "hello", Name: cfg.Name, OS: runtime.GOOS + "/" + runtime.GOARCH, Caps: cfg.Caps}
-	if err := wsjson.Write(dialCtx, c, hello); err != nil {
+	// Poignée de main : 1er frame EN CLAIR = notre clé publique (elle est publique).
+	if err := wsjson.Write(dialCtx, c, map[string]string{"type": "hello_pub", "pub": cfg.Pub}); err != nil {
+		return fmt.Errorf("hello_pub: %w", err)
+	}
+	// Canal chiffré : K = ECDH(notre priv, clé publique agent). Le relais ne l'a pas.
+	key, err := nodewire.ChannelKey(cfg.Priv, cfg.AgentPub)
+	if err != nil {
+		return fmt.Errorf("canal: %w", err)
+	}
+	ch, err := nodewire.NewChan(key, true) // poste = côté d'envoi 1
+	if err != nil {
+		return err
+	}
+	sendEnc := func(m nodewire.Msg) error {
+		raw, _ := json.Marshal(m)
+		return wsjson.Write(ctx, c, ch.Seal(raw))
+	}
+	// 1er frame CHIFFRÉ : le hello (nom/os/capacités). Prouve qu'on a la bonne clé.
+	if err := sendEnc(nodewire.Msg{Type: "hello", Name: cfg.Name, OS: runtime.GOOS + "/" + runtime.GOARCH, Caps: cfg.Caps}); err != nil {
 		return fmt.Errorf("hello: %w", err)
 	}
 	if !quiet {
-		fmt.Printf("[node] connecté ✓ (en attente des demandes de l'IA)\n")
+		fmt.Printf("[node] connecté ✓ (canal chiffré, en attente des demandes de l'IA)\n")
 	}
 	for {
+		var fr nodewire.Frame
+		if err := wsjson.Read(ctx, c, &fr); err != nil {
+			return err
+		}
+		plain, err := ch.Open(fr)
+		if err != nil {
+			return fmt.Errorf("déchiffrement: %w", err)
+		}
 		var m nodewire.Msg
-		if err := wsjson.Read(ctx, c, &m); err != nil {
+		if err := json.Unmarshal(plain, &m); err != nil {
 			return err
 		}
 		if m.Type != "call" {
 			continue
 		}
 		result := execute(ctx, cfg, m, quiet)
-		wc, wcancel := context.WithTimeout(ctx, 15*time.Second)
-		err := wsjson.Write(wc, c, nodewire.Msg{Type: "result", ID: m.ID, Result: result})
-		wcancel()
-		if err != nil {
+		if err := sendEnc(nodewire.Msg{Type: "result", ID: m.ID, Result: result}); err != nil {
 			return err
 		}
 	}

@@ -1,21 +1,15 @@
-L'IA peut maintenant agir sur un autre PC que le serveur : un petit client à installer, et tu choisis la machine sur laquelle elle travaille.
+Piloter un autre PC fonctionne maintenant à distance, à travers ajean.link, sans que le relais ne voie jamais rien.
 
-## Piloter un autre PC depuis l'IA
+## Le poste distant passe par ajean.link, chiffré de bout en bout
 
-Parfois la puissance est sur le serveur, mais ce que tu veux faire est ailleurs — sur ton portable, un poste de travail, une autre machine. AJEAN sait maintenant s'y étendre.
+La 0.8.9 a introduit le poste distant, mais uniquement sur le réseau local. Il fonctionne désormais **depuis n'importe où**, via ajean.link — et avec la même exigence que le reste d'ajean.link : le **relais reste aveugle**.
 
-Sur le PC à piloter, tu installes **ajean-remote** : un client minuscule et séparé (quelques mégaoctets, aucune interface ni moteur), qui ne fait qu'une chose — ouvrir une connexion **sortante** vers ton serveur et exécuter ce que l'IA lui demande. Aucun port à ouvrir, rien à configurer dans la box.
+Concrètement, l'identité d'un poste n'est plus une clé partagée mais une **paire de clés** qui lui est propre. À l'appairage, le poste scelle sa demande vers la clé publique de ton serveur : le relais ne voit ni le code, ni rien d'autre. Ensuite, tout ce qui circule entre le poste et ton serveur — les commandes de l'IA comme leurs résultats — est **chiffré de bout en bout** avec une clé que seuls ton serveur et ton poste peuvent calculer. Le relais ne transporte que de l'opaque.
 
-Dans l'interface, une section **Postes distants** : tu génères un code d'appairage, tu choisis les capacités autorisées (shell, lecture, écriture, listing) et un dossier de travail. Sur l'autre PC :
+## Rien à changer pour toi
 
-    ajean-remote install https://ton-serveur --code TONCODE --allow shell,read,write,list
+Dans **Réglages → Postes distants**, générer un code affiche maintenant deux commandes : une pour l'**accès à distance** (via ajean.link) et une pour le **réseau local** (connexion directe). Tu choisis, tu copies, tu colles sur l'autre PC.
 
-Le client se connecte, s'installe en service (invisible, au démarrage), et se reconnecte tout seul.
+## Un client, toujours aussi léger
 
-## Tu choisis la machine cible
-
-Pas de nouveaux outils à apprendre pour l'IA : elle garde son shell, son écriture et son édition de fichiers. Un sélecteur **« L'IA agit sur : Ce serveur / <ton poste> »** décide simplement *où* ces outils s'exécutent. Tu bascules d'un clic. Et si le poste choisi est hors ligne, l'action échoue proprement plutôt que de retomber par erreur sur le serveur.
-
-## Pensé pour ne pas se retourner contre toi
-
-Le poste se connecte en sortant, sa clé d'appareil est stockée hachée côté serveur, et c'est **toi** qui décides, machine par machine, ce que l'IA a le droit de faire et dans quel dossier. Lecture et écriture sont confinées à ce dossier ; les capacités effectives sont l'intersection de ce que tu autorises et de ce que le poste accepte localement.
+Le petit client s'appelle **ajean-remote** (quelques mégaoctets, aucune interface). Il s'installe en service — invisible, au démarrage, reconnexion automatique — et se télécharge depuis ajean.link, section « Piloter un autre PC ».
