@@ -27,7 +27,6 @@ var nodeAllCaps = nodewire.AllCaps
 // nodeMsg : enveloppe du fil (alias de type → interop garantie avec le client).
 type nodeMsg = nodewire.Msg
 
-func nodeCapLabel(cap string) string                   { return nodewire.CapLabel(cap) }
 func nodeCapAllowed(allowed []string, cap string) bool { return nodewire.CapAllowed(allowed, cap) }
 func nodeCapIntersect(allowed, declared []string) []string {
 	return nodewire.CapIntersect(allowed, declared)
