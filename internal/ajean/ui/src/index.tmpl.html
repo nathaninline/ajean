@@ -146,6 +146,15 @@
         </div>
       </div>
     </div>
+    <div id="node-block" class="gated-group">
+      <div class="subhead">Postes distants<span id="node-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Pilote un <b>autre PC</b> depuis l'IA. installe le petit client <b>ajean-remote</b> sur le PC secondaire et lance <code>ajean-remote install &lt;url&gt; --code CODE</code> : il se connecte en sortant (aucun port à ouvrir) et expose à l'IA un jeu d'outils restreint (shell, fichiers). ⚠ tu décides des capacités et du dossier autorisé pour chaque poste ; le poste peut aussi demander confirmation localement.</span></span></div>
+      <div class="slist">
+        <div class="rowbody">
+          <div id="node-list" class="mcp-list"><div class="muted" style="font-size:12px">(aucun poste — appaire un PC pour que l'IA puisse agir dessus)</div></div>
+          <button class="addbtn" style="margin-top:6px" onclick="openNodePair()">+ appairer un poste</button>
+        </div>
+      </div>
+    </div>
     <div id="param-block" class="gated-group">
       <div class="subhead">Paramètres</div>
       <div class="slist">
@@ -535,6 +544,40 @@
       <div class="foot-r">
         <button onclick="closeMcp()">annuler</button>
         <button class="btn-save" onclick="saveMcp()">enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="node-pair-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)hideModal('node-pair-modal')">
+  <div class="modal-card">
+    <div class="modal-head">
+      <strong>Appairer un poste distant</strong>
+      <button class="modal-x" onclick="hideModal('node-pair-modal')" aria-label="Fermer">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="fld">
+        <label class="fld-l">Capacités autorisées <span class="opt">(ce que l'IA pourra faire sur ce poste)</span></label>
+        <div id="node-pair-caps" class="node-caps"></div>
+      </div>
+      <div class="fld">
+        <label class="fld-l" for="node-pair-root">Dossier autorisé <span class="opt">(confine lecture/écriture ; laisser vide = dossier de travail par défaut du poste)</span></label>
+        <input id="node-pair-root" class="ctl" placeholder="C:\\Users\\moi\\ajean ou /home/moi/ajean" spellcheck="false">
+      </div>
+      <div id="node-pair-out" style="display:none">
+        <div class="subhead" style="margin-top:6px">Code d'appairage</div>
+        <div class="node-code" id="node-pair-code">——</div>
+        <div class="muted" style="font-size:12px;line-height:1.5">
+          Sur le PC à piloter, installe AJEAN puis lance :
+          <pre class="node-cmd" id="node-pair-cmd"></pre>
+          Le code expire dans <span id="node-pair-ttl">10</span> min et ne sert qu'une fois.
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <div class="foot-l"></div>
+      <div class="foot-r">
+        <button onclick="hideModal('node-pair-modal')">fermer</button>
+        <button class="btn-save" onclick="genNodeCode()">générer le code</button>
       </div>
     </div>
   </div>

@@ -167,7 +167,7 @@ func bashTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "bash",
-			Description: "Run a shell command (" + shellName() + " syntax) and return stdout, stderr and exit code: inspect the system, read files and logs, run scripts. To CREATE or REWRITE a file use write instead — never echo/cat/python -c. Avoid destructive commands unless asked.",
+			Description: "Run a shell command (" + agentTargetShellName() + " syntax) and return stdout, stderr and exit code: inspect the system, read files and logs, run scripts. To CREATE or REWRITE a file use write instead — never echo/cat/python -c. Avoid destructive commands unless asked.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -264,6 +264,10 @@ func EnabledTools(caps Caps) []Tool {
 	if caps.Agent {
 		tools = append(tools, mcpTools()...)
 	}
+	// Postes distants : PAS de nouveaux outils. L'IA garde bash/write/edit ; c'est
+	// leur CIBLE D'EXÉCUTION qui change quand un poste est sélectionné (voir le
+	// routage dans la boucle d'outils et agentTargetSlug). Redonner des outils que
+	// le modèle a déjà (node__…__shell alors qu'il a bash) doublonnait le catalogue.
 	return tools
 }
 
@@ -1004,17 +1008,27 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					}
 				case "write":
 					content, _ := args["content"].(string)
-					result = fileWrite(label, content)
-					if !strings.HasPrefix(result, "[erreur]") {
-						diff = addedDiff(content)
+					if tgt := agentTargetSlug(); tgt != "" {
+						// Cible = un poste distant : on écrit LÀ-BAS. Pas de diff (on
+						// n'a pas l'ancien contenu du fichier distant).
+						result = nodeCall(tgt, nodeCapWrite, map[string]any{"path": label, "content": content})
+					} else {
+						result = fileWrite(label, content)
+						if !strings.HasPrefix(result, "[erreur]") {
+							diff = addedDiff(content)
+						}
 					}
 				case "edit":
 					oldText, _ := args["old"].(string)
 					newText, _ := args["new"].(string)
-					result = fileEdit(label, oldText, newText)
-					// Diff seulement si l'édition a réussi (sinon le fichier n'a pas bougé).
-					if !strings.HasPrefix(result, "[erreur]") {
-						diff = lineDiff(oldText, newText)
+					if tgt := agentTargetSlug(); tgt != "" {
+						result = nodeEditRemote(tgt, label, oldText, newText)
+					} else {
+						result = fileEdit(label, oldText, newText)
+						// Diff seulement si l'édition a réussi (sinon le fichier n'a pas bougé).
+						if !strings.HasPrefix(result, "[erreur]") {
+							diff = lineDiff(oldText, newText)
+						}
 					}
 				case "bash":
 					to := 0
@@ -1024,7 +1038,14 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					case int:
 						to = v
 					}
-					result = runShell(ctx, label, to)
+					if tgt := agentTargetSlug(); tgt != "" {
+						// Cible = un poste distant : la commande s'exécute LÀ-BAS via le
+						// canal du poste (fail-closed : nodeCall renvoie une erreur si le
+						// poste est déconnecté, on n'exécute JAMAIS sur le serveur à sa place).
+						result = nodeCall(tgt, nodeCapShell, map[string]any{"command": label, "timeout": to})
+					} else {
+						result = runShell(ctx, label, to)
+					}
 				case "web_search":
 					result = capWebOutput(toolWebSearch(args))
 				case "web_open":

@@ -103,6 +103,12 @@ func newWebMux() *http.ServeMux {
 	// Pages publiques : le HTML et le JS ne contiennent aucun secret. Toute la
 	// donnée et toutes les actions passent par /api/* qui, lui, exige la clé.
 	mux.HandleFunc("/", handleIndex)
+	// Poste distant : deux routes PUBLIQUES (pas derrière la clé de pilotage).
+	// L'enrôlement est authentifié par le code d'appairage à usage unique, et le
+	// WebSocket par la clé d'appareil (Bearer) — le poste ne connaît pas la clé
+	// de pilotage. Voir node_api.go / node_server.go.
+	mux.HandleFunc("/api/node/enroll", handleNodeEnroll)
+	mux.HandleFunc("/api/node/ws", handleNodeWS)
 	mux.HandleFunc("/marked.min.js", func(w http.ResponseWriter, r *http.Request) {
 		b, _ := uiFS.ReadFile("ui/marked.min.js")
 		w.Header().Set("Content-Type", "application/javascript")
@@ -155,6 +161,12 @@ func newWebMux() *http.ServeMux {
 	api("/api/link/start", handleLinkStart)           // (re)démarre le tunnel avec la clé déjà enregistrée
 	api("/api/link/disconnect", handleLinkDisconnect) // arrête le lien + oublie la clé
 	api("/api/link/paircode", handleLinkPairCode)     // code d'appairage + empreinte pour la 1re connexion
+	// Postes distants : gestion réservée au propriétaire (clé de pilotage).
+	api("/api/node", handleNodes)             // liste + état de connexion
+	api("/api/node/pair", handleNodePair)     // génère un code d'appairage
+	api("/api/node/caps", handleNodeCaps)     // règle capacités + dossier racine
+	api("/api/node/target", handleNodeTarget) // choisit la machine cible de l'agent
+	api("/api/node/revoke", handleNodeRevoke) // oublie la clé + déconnecte
 	api("/api/internet", handleInternet)
 	api("/api/mcp", handleMCP)
 	api("/api/mcp/save", handleMCPSave)

@@ -53,7 +53,9 @@ func baseSystemPrompt(caps Caps) string {
 	// consignes que les schémas ne portent pas — le shell utilisé, et les
 	// politiques d'usage.
 	if caps.Agent {
-		b.WriteString("\n\nThe shell is " + shellName() + ": use its syntax.\n")
+		// Le shell de la machine CIBLE (cmd.exe pour un poste Windows), pas celui du
+		// serveur : sinon le modèle écrit du bash là où tourne cmd.exe (et inversement).
+		b.WriteString("\n\nThe shell is " + agentTargetShellName() + ": use its syntax.\n")
 	} else {
 		b.WriteString("\n\n")
 	}
@@ -113,6 +115,31 @@ func prevYear(year string) string {
 func machineSystemPrompt(caps Caps) string {
 	if !caps.Agent {
 		return ""
+	}
+	// Cible = un poste distant : bash/write/edit s'exécutent LÀ-BAS, pas sur ce
+	// serveur. Le modèle doit le savoir explicitement, sinon il croit agir sur
+	// l'hôte du serveur et se trompe de machine.
+	if tgt, ok := nodeTargetMetaGet(); ok {
+		var b strings.Builder
+		b.WriteString("Machine: you are operating on a REMOTE node named " + tgt.name)
+		if tgt.os != "" {
+			b.WriteString(" (" + tgt.os + ")")
+		}
+		b.WriteString(". Your bash, write and edit tools run on THAT machine — a different computer than this server.")
+		if strings.HasPrefix(strings.ToLower(tgt.os), "windows") {
+			b.WriteString(" Its shell is cmd.exe: use cmd syntax (never bash idioms like ls, 2>nul, single quotes, or 'cmd //c'). To create a file, use the write tool, never echo/type into it.")
+		}
+		if tgt.root != "" {
+			b.WriteString(" File paths in write/edit resolve inside its working folder " + tgt.root + "; read/write are confined there.")
+		}
+		// Le poste peut tourner en compte de service (Windows: LocalSystem) : les
+		// variables d'environnement personnelles (%USERPROFILE%, $HOME) ne désignent
+		// PAS forcément l'utilisateur interactif. Utiliser des chemins absolus.
+		b.WriteString(" It may run as a background service account, so %USERPROFILE%/$HOME may not point to the interactive user — prefer absolute paths (e.g. C:\\Users\\<name>\\...).")
+		if !tgt.connected {
+			b.WriteString(" ⚠ It is currently OFFLINE: those tools will fail until it reconnects. Tell the user instead of trying repeatedly.")
+		}
+		return b.String()
 	}
 	host, _ := os.Hostname()
 	if host == "" {

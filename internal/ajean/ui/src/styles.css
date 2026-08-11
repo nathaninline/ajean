@@ -1140,3 +1140,18 @@ button:hover{border-color:var(--dim);color:var(--text)}
 /* Conversation vide : un seul message centré à la place des réglages. */
 .xempty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:44px 20px;text-align:center;color:var(--text);font-size:14px}
 .xempty-i{font-size:30px;line-height:1;color:var(--dim);opacity:.7}
+
+/* Postes distants : cases de capacités, code d'appairage, commande. */
+.node-caps{display:flex;flex-wrap:wrap;gap:6px}
+.node-cap{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid var(--border);border-radius:7px;font-size:12px;cursor:pointer;user-select:none}
+.node-cap input{margin:0}
+.node-code{font-family:var(--mono,monospace);font-size:22px;font-weight:700;letter-spacing:3px;color:var(--accent);padding:8px 0}
+.node-cmd{white-space:pre-wrap;word-break:break-all;background:var(--code-bg);border:1px solid var(--border);border-radius:7px;padding:8px;margin:6px 0;font-size:12px}
+
+/* Poste distant : sélecteur de cible d'exécution. */
+.node-target{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:8px}
+.node-target-l{font-size:12px;color:var(--dim);margin-right:2px;width:100%}
+.node-target-opt{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid var(--border);border-radius:7px;font-size:12px;cursor:pointer}
+.node-target-opt.on{border-color:var(--accent);color:var(--accent)}
+.node-target-opt.off{opacity:.6}
+.node-target-opt input{margin:0}

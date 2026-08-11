@@ -1166,6 +1166,21 @@ button:hover{border-color:var(--dim);color:var(--text)}
 /* Conversation vide : un seul message centré à la place des réglages. */
 .xempty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:44px 20px;text-align:center;color:var(--text);font-size:14px}
 .xempty-i{font-size:30px;line-height:1;color:var(--dim);opacity:.7}
+
+/* Postes distants : cases de capacités, code d'appairage, commande. */
+.node-caps{display:flex;flex-wrap:wrap;gap:6px}
+.node-cap{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid var(--border);border-radius:7px;font-size:12px;cursor:pointer;user-select:none}
+.node-cap input{margin:0}
+.node-code{font-family:var(--mono,monospace);font-size:22px;font-weight:700;letter-spacing:3px;color:var(--accent);padding:8px 0}
+.node-cmd{white-space:pre-wrap;word-break:break-all;background:var(--code-bg);border:1px solid var(--border);border-radius:7px;padding:8px;margin:6px 0;font-size:12px}
+
+/* Poste distant : sélecteur de cible d'exécution. */
+.node-target{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:8px}
+.node-target-l{font-size:12px;color:var(--dim);margin-right:2px;width:100%}
+.node-target-opt{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid var(--border);border-radius:7px;font-size:12px;cursor:pointer}
+.node-target-opt.on{border-color:var(--accent);color:var(--accent)}
+.node-target-opt.off{opacity:.6}
+.node-target-opt input{margin:0}
 </style></head><body>
 <button id="menubtn" onclick="toggleSide()">☰</button>
 <!-- Installation d'un moteur en cours : le détail vit dans le panneau, qui est
@@ -1284,6 +1299,15 @@ button:hover{border-color:var(--dim);color:var(--text)}
                serveur : sinon la carte partait vide puis grandissait d'une ligne. -->
           <div id="mcp-list" class="mcp-list"><div class="muted" style="font-size:12px">(aucun serveur — ajoute un serveur fichiers, une base de données, une API…)</div></div>
           <button class="addbtn" style="margin-top:6px" onclick="openMcp('')">+ ajouter un serveur</button>
+        </div>
+      </div>
+    </div>
+    <div id="node-block" class="gated-group">
+      <div class="subhead">Postes distants<span id="node-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Pilote un <b>autre PC</b> depuis l'IA. installe le petit client <b>ajean-remote</b> sur le PC secondaire et lance <code>ajean-remote install &lt;url&gt; --code CODE</code> : il se connecte en sortant (aucun port à ouvrir) et expose à l'IA un jeu d'outils restreint (shell, fichiers). ⚠ tu décides des capacités et du dossier autorisé pour chaque poste ; le poste peut aussi demander confirmation localement.</span></span></div>
+      <div class="slist">
+        <div class="rowbody">
+          <div id="node-list" class="mcp-list"><div class="muted" style="font-size:12px">(aucun poste — appaire un PC pour que l'IA puisse agir dessus)</div></div>
+          <button class="addbtn" style="margin-top:6px" onclick="openNodePair()">+ appairer un poste</button>
         </div>
       </div>
     </div>
@@ -1676,6 +1700,40 @@ button:hover{border-color:var(--dim);color:var(--text)}
       <div class="foot-r">
         <button onclick="closeMcp()">annuler</button>
         <button class="btn-save" onclick="saveMcp()">enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="node-pair-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)hideModal('node-pair-modal')">
+  <div class="modal-card">
+    <div class="modal-head">
+      <strong>Appairer un poste distant</strong>
+      <button class="modal-x" onclick="hideModal('node-pair-modal')" aria-label="Fermer">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="fld">
+        <label class="fld-l">Capacités autorisées <span class="opt">(ce que l'IA pourra faire sur ce poste)</span></label>
+        <div id="node-pair-caps" class="node-caps"></div>
+      </div>
+      <div class="fld">
+        <label class="fld-l" for="node-pair-root">Dossier autorisé <span class="opt">(confine lecture/écriture ; laisser vide = dossier de travail par défaut du poste)</span></label>
+        <input id="node-pair-root" class="ctl" placeholder="C:\\Users\\moi\\ajean ou /home/moi/ajean" spellcheck="false">
+      </div>
+      <div id="node-pair-out" style="display:none">
+        <div class="subhead" style="margin-top:6px">Code d'appairage</div>
+        <div class="node-code" id="node-pair-code">——</div>
+        <div class="muted" style="font-size:12px;line-height:1.5">
+          Sur le PC à piloter, installe AJEAN puis lance :
+          <pre class="node-cmd" id="node-pair-cmd"></pre>
+          Le code expire dans <span id="node-pair-ttl">10</span> min et ne sert qu'une fois.
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <div class="foot-l"></div>
+      <div class="foot-r">
+        <button onclick="hideModal('node-pair-modal')">fermer</button>
+        <button class="btn-save" onclick="genNodeCode()">générer le code</button>
       </div>
     </div>
   </div>
@@ -2478,7 +2536,7 @@ async function loadAgent(){
 // les outils mem_* ni les outils web ne sont fournis (voir globalCaps côté Go). On
 // grise donc ces blocs quand l'agent est off pour que l'UI ne mente pas.
 function setAgentGate(on){
-  ['mem-block','net-block','mcp-block','param-block'].forEach(id=>{
+  ['mem-block','net-block','mcp-block','node-block','param-block'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.classList.toggle('gated', !on);
   });
 }
@@ -2851,7 +2909,7 @@ async function loadAll(){
   // allSettled et pas all : un seul chargement en échec (accès distant coupé,
   // clé API absente…) ne doit pas empêcher la suite — et surtout pas laisser les
   // hauteurs réservées en place pour toujours.
-  await Promise.allSettled([loadStatus(),loadVram(),loadRam(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadRemote()]);
+  await Promise.allSettled([loadStatus(),loadVram(),loadRam(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadNode(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadRemote()]);
   releaseHeights(); // tout est en place : on rend la main et on mesure pour la prochaine fois
 }
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }
@@ -5332,4 +5390,166 @@ async function attachPaths(){
   return ATTACH.filter(a=>a.state==='ok'&&a.path).map(a=>a.path);
 }
 renderAttach();
+// ─── Postes distants ─────────────────────────────────────────────────────────
+// Gestion des « postes » : d'autres PC qui se connectent au serveur pour que
+// l'IA puisse agir dessus. Le propriétaire génère un code d'appairage, choisit
+// les capacités autorisées et le dossier racine, puis peut lister/révoquer les
+// postes. Sous-réglage du mode agent (grisé quand l'agent est off).
+let nodeList = [];
+let nodeTarget = '';
+let nodeAllCaps = ['shell','read','write','list'];
+const nodeCapLabels = {shell:'shell', read:'lire', write:'écrire', list:'lister'};
+
+async function loadNode(){ renderNode(await jget('/api/node')); }
+
+function renderNode(r){
+  nodeList = (r && r.nodes) || [];
+  nodeTarget = (r && r.target) || '';
+  if(r && r.all_caps && r.all_caps.length) nodeAllCaps = r.all_caps;
+  const connected = nodeList.filter(n=>n.connected).length;
+  setBadge('node-badge', connected ? connected : null);
+  const list = document.getElementById('node-list');
+  list.textContent = '';
+  if(!nodeList.length){
+    list.innerHTML = '<div class="muted" style="font-size:12px">(aucun poste — appaire un PC pour que l\'IA puisse agir dessus)</div>';
+    return;
+  }
+  // Sélecteur de CIBLE : sur quelle machine l'IA agit (ses outils bash/write/edit).
+  renderNodeTarget(list, connected);
+  nodeList.forEach(n=>{
+    const row = document.createElement('div'); row.className = 'mcp-row'+(n.connected?'':' off');
+    const dot = document.createElement('span'); dot.className = 'mcp-dot '+(n.connected?'mcp-dot-ok':'mcp-dot-off');
+    dot.title = n.connected ? 'connecté' : 'hors ligne';
+
+    const info = document.createElement('div'); info.className = 'mcp-info';
+    const nm = document.createElement('div'); nm.className = 'mcp-name'; nm.textContent = n.name; nm.title = n.os||'';
+    const meta = document.createElement('div'); meta.className = 'mcp-meta';
+    const os = document.createElement('span'); os.className = 'mcp-tag'; os.textContent = n.os||'?'; meta.appendChild(os);
+    const caps = document.createElement('span'); caps.className = 'mcp-tools';
+    caps.textContent = (n.caps&&n.caps.length) ? n.caps.map(c=>nodeCapLabels[c]||c).join(', ') : 'aucune capacité';
+    meta.appendChild(caps);
+    if(n.root){ const rt = document.createElement('span'); rt.className='mcp-tools'; rt.textContent = '📁 '+n.root; rt.title=n.root; meta.appendChild(rt); }
+    info.appendChild(nm); info.appendChild(meta);
+
+    const edit = document.createElement('button'); edit.className='mcp-edit'; edit.title='régler'; edit.textContent='✎';
+    edit.onclick = (e)=>{ e.stopPropagation(); openNodeEdit(n.id); };
+    row.appendChild(dot); row.appendChild(info); row.appendChild(edit);
+    row.onclick = ()=>openNodeEdit(n.id);
+    list.appendChild(row);
+  });
+}
+
+// Sélecteur « L'IA agit sur : Ce serveur / <poste connecté> ». Les mêmes outils
+// (bash/write/edit) s'exécutent sur la machine choisie ; un poste hors ligne ne
+// peut pas être cible (fail-closed côté serveur).
+function renderNodeTarget(list, connected){
+  const wrap = document.createElement('div'); wrap.className = 'node-target';
+  const lab = document.createElement('div'); lab.className = 'node-target-l';
+  lab.textContent = "L'IA agit sur :"; wrap.appendChild(lab);
+  const opts = [{slug:'', name:'Ce serveur'}].concat(nodeList.filter(n=>n.connected).map(n=>({slug:n.slug, name:n.name})));
+  // Cible sélectionnée mais hors ligne : on l'ajoute quand même, marquée, pour ne
+  // pas la perdre silencieusement.
+  if(nodeTarget && !opts.some(o=>o.slug===nodeTarget)){
+    const n = nodeList.find(x=>x.slug===nodeTarget);
+    opts.push({slug:nodeTarget, name:(n?n.name:nodeTarget)+' (hors ligne)', off:true});
+  }
+  opts.forEach(o=>{
+    const l = document.createElement('label'); l.className = 'node-target-opt'+(o.slug===nodeTarget?' on':'')+(o.off?' off':'');
+    const rb = document.createElement('input'); rb.type='radio'; rb.name='node-target'; rb.checked = o.slug===nodeTarget;
+    rb.onchange = ()=>setNodeTarget(o.slug);
+    const sp = document.createElement('span'); sp.textContent = o.name;
+    l.appendChild(rb); l.appendChild(sp); wrap.appendChild(l);
+  });
+  list.appendChild(wrap);
+}
+
+async function setNodeTarget(slug){
+  const r = await jpost('/api/node/target', {slug});
+  nodeTarget = (r && r.target) || '';
+  toast(slug ? ('l\'IA agit sur « '+slug+' »') : 'l\'IA agit sur ce serveur');
+  loadNode();
+}
+
+// ── Appairage : génère un code que le poste échange contre sa clé ────────────
+function nodeCapCheckboxes(containerId, selected){
+  const box = document.getElementById(containerId);
+  box.textContent = '';
+  const sel = new Set(selected||[]);
+  nodeAllCaps.forEach(c=>{
+    const lab = document.createElement('label'); lab.className='node-cap';
+    const cb = document.createElement('input'); cb.type='checkbox'; cb.value=c; cb.checked = sel.has(c);
+    const sp = document.createElement('span'); sp.textContent = nodeCapLabels[c]||c;
+    lab.appendChild(cb); lab.appendChild(sp);
+    box.appendChild(lab);
+  });
+}
+function nodeCapValues(containerId){
+  return [...document.querySelectorAll('#'+containerId+' input:checked')].map(cb=>cb.value);
+}
+
+function openNodePair(){
+  nodeCapCheckboxes('node-pair-caps', ['read','list']); // défaut prudent
+  document.getElementById('node-pair-root').value = '';
+  document.getElementById('node-pair-out').style.display = 'none';
+  showModal('node-pair-modal');
+}
+
+async function genNodeCode(){
+  const caps = nodeCapValues('node-pair-caps');
+  if(!caps.length){ toast('choisis au moins une capacité'); return; }
+  const root = document.getElementById('node-pair-root').value.trim();
+  const r = await jpost('/api/node/pair', {caps, root});
+  if(!r.ok){ toast(r.error||'échec'); return; }
+  document.getElementById('node-pair-code').textContent = r.code;
+  document.getElementById('node-pair-ttl').textContent = r.ttl_min || 10;
+  const allow = caps.join(',');
+  const rootArg = root ? (' --root "'+root+'"') : '';
+  document.getElementById('node-pair-cmd').textContent =
+    'ajean-remote install '+location.origin+' --code '+r.code+' --allow '+allow+rootArg;
+  document.getElementById('node-pair-out').style.display = '';
+  loadNode();
+}
+
+// ── Édition d'un poste appairé : capacités, dossier, révocation ──────────────
+let nodeEditing = null;
+function openNodeEdit(id){
+  const n = nodeList.find(x=>x.id===id); if(!n) return;
+  nodeEditing = id;
+  nodeCapCheckboxes('node-pair-caps', n.caps);
+  document.getElementById('node-pair-root').value = n.root||'';
+  document.getElementById('node-pair-out').style.display = 'none';
+  // Réutilise la modale d'appairage en mode édition : on remplace le pied.
+  document.querySelector('#node-pair-modal .modal-head strong').textContent = 'Poste « '+n.name+' »'+(n.connected?' (connecté)':'');
+  const footR = document.querySelector('#node-pair-modal .foot-r');
+  footR.innerHTML = '';
+  const cancel = document.createElement('button'); cancel.textContent='fermer'; cancel.onclick=()=>{ hideModal('node-pair-modal'); resetNodeFoot(); };
+  const save = document.createElement('button'); save.className='btn-save'; save.textContent='enregistrer'; save.onclick=saveNodeCaps;
+  footR.appendChild(cancel); footR.appendChild(save);
+  const footL = document.querySelector('#node-pair-modal .foot-l');
+  footL.innerHTML = '';
+  const del = document.createElement('button'); del.className='btn-danger'; del.textContent='révoquer'; del.onclick=()=>revokeNode(id);
+  footL.appendChild(del);
+  showModal('node-pair-modal');
+}
+function resetNodeFoot(){
+  document.querySelector('#node-pair-modal .modal-head strong').textContent = 'Appairer un poste distant';
+  document.querySelector('#node-pair-modal .foot-l').innerHTML = '';
+  const footR = document.querySelector('#node-pair-modal .foot-r');
+  footR.innerHTML = '<button onclick="hideModal(\'node-pair-modal\')">fermer</button><button class="btn-save" onclick="genNodeCode()">générer le code</button>';
+  nodeEditing = null;
+}
+async function saveNodeCaps(){
+  if(!nodeEditing) return;
+  const caps = nodeCapValues('node-pair-caps');
+  const root = document.getElementById('node-pair-root').value.trim();
+  const r = await jpost('/api/node/caps', {id:nodeEditing, caps, root});
+  if(!r.ok){ toast(r.error||'échec'); return; }
+  toast('poste mis à jour'); hideModal('node-pair-modal'); resetNodeFoot(); loadNode();
+}
+async function revokeNode(id){
+  const n = nodeList.find(x=>x.id===id);
+  if(!await askConfirm('Révoquer le poste « '+(n?n.name:'')+' » ? Sa clé sera oubliée et il sera déconnecté.', {title:'Révoquer le poste ?', okText:'Révoquer', danger:true})) return;
+  await jpost('/api/node/revoke', {id});
+  hideModal('node-pair-modal'); resetNodeFoot(); loadNode(); toast('poste révoqué');
+}
 </script></body></html>
