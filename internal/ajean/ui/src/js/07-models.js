@@ -74,7 +74,7 @@ const KINDS = {
   // skills keep name-as-identity (param 'name').
   // newLabel / nameHint : « Nouveau Page » et « Nom du preset » dans l'éditeur de
   // mémoire venaient d'un libellé unique décliné mécaniquement.
-  preset: {label:'Preset', newLabel:'Nouveau preset', nameHint:'Nom du preset',
+  preset: {label:'', newLabel:'Nouveau preset', nameHint:'Nom du preset',
            param:'id',   getUrl:'/api/preset', saveUrl:'/api/preset/save', delUrl:'/api/preset/delete', reload:()=>loadPresets()},
   mem:    {label:'Page',   newLabel:'Nouvelle page',  nameHint:'Nom de la page',
            param:'name', getUrl:'/api/mem',    saveUrl:'/api/mem/save',    delUrl:'/api/mem/delete',    reload:()=>loadMem()},
@@ -93,7 +93,7 @@ async function openItem(kind, key){
   const K = KINDS[kind];
   const seq = ++openSeq;
   editingKind = kind; editingKey = key || '';
-  document.getElementById('modal-title').textContent = key ? (K.label + ' · ' + key) : K.newLabel;
+  document.getElementById('modal-title').textContent = key ? (K.label ? K.label + ' · ' + key : key) : K.newLabel;
   document.getElementById('m-name').value = key || '';
   document.getElementById('m-name').placeholder = K.nameHint;
   document.getElementById('m-content').value = '';
@@ -145,7 +145,7 @@ async function openItem(kind, key){
   const d = await r.json();
   if(seq !== openSeq) return;              // une autre ouverture a pris la main
   const display = d.name || key || '';
-  document.getElementById('modal-title').textContent = key ? (K.label + ' · ' + display) : K.newLabel;
+  document.getElementById('modal-title').textContent = key ? (K.label ? K.label + ' · ' + display : display) : K.newLabel;
   document.getElementById('m-name').value = display;
   document.getElementById('m-content').value = d.content || '';
   if(kind === 'preset'){

@@ -3,9 +3,12 @@ async function loadStatus(){
   const el=document.getElementById('status-svc');
   // Trois états : service coupé (err) · service actif mais modèle pas encore
   // chargé (loading, llama-server renvoie 503) · modèle prêt (ok).
-  let cls='err', txt=s.state;
+  // Pastille COURTE et honnête. Le détail (cause exacte) va dans #model-err
+  // dessous : la pastille ne doit pas affirmer « incompatible » quand l'échec
+  // peut être tout autre chose.
+  let cls='err', txt='arrêté';
   if(s.active && s.health){ cls='ok'; txt='prêt'; }
-  else if(s.load_error){ cls='err'; txt='modèle incompatible'; }
+  else if(s.load_error){ cls='err'; txt='erreur'; }
   else if(s.active){ cls='loading'; txt='chargement…'; }
   el.className='statuspill '+cls;
   el.innerHTML='<span class="dot"></span>'+txt;

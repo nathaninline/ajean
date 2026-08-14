@@ -102,8 +102,19 @@ func modelLoadError() string {
 	if loaded || reason == "" {
 		return ""
 	}
-	return "Le modèle n'a pas pu être chargé : " + reason +
-		". Il est probablement incompatible avec le moteur sélectionné — choisis un autre backend pour ce modèle (édite le modèle → section Moteur)."
+	// Message PRÉCIS selon la cause : n'affirmer l'incompatibilité que quand le
+	// journal la montre vraiment (quant/architecture). Un échec générique de
+	// chargement peut avoir bien d'autres causes (mémoire, fichier, tenseur) — on
+	// renvoie alors vers le journal plutôt que d'accuser à tort le moteur.
+	switch reason {
+	case "format de quantification non reconnu par ce moteur",
+		"type/architecture de modèle inconnu de ce moteur":
+		return "Modèle incompatible avec le moteur : " + reason +
+			". Choisis un autre backend (édite le modèle → Moteur)."
+	default:
+		return "Le modèle n'a pas pu être chargé (" + reason +
+			"). Ouvre le journal du moteur pour le détail."
+	}
 }
 
 // handleServiceLog (GET /api/service/log) : dernières lignes du journal du

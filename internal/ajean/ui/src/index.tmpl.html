@@ -79,7 +79,7 @@
       <div class="slist">
         <label class="switchrow"><span>mode</span>
           <select id="mem-mode" onchange="setMemMode()" class="sctl">
-            <option value="always">auto (proactive)</option>
+            <option value="always">auto</option>
             <option value="ondemand">sur demande</option>
             <option value="off">désactivée</option>
           </select>
@@ -290,23 +290,17 @@
   </details>
   <details id="upd-details"><summary><span class="stitle">Actions</span></summary>
     <div class="slist"><div class="rowbody">
+      <!-- Ligne 1 : mise à jour + export du fil. Depuis la 0.8 la conversation vit
+           dans ajean.db (bbolt, verrouillé tant que le service tourne) : sans le
+           bouton exporter, plus personne ne peut relire/archiver ses échanges. -->
       <div class="row" style="margin:0">
         <button id="upd-check" onclick="checkUpdate()">↥ Vérifier les mises à jour</button>
-      </div>
-      <div id="upd-msg" class="muted"></div>
-      <!-- Export du fil. Depuis la 0.8 la conversation vit dans ajean.db (bbolt,
-           binaire et verrouillé tant que le service tourne) : sans ce bouton,
-           plus personne ne peut relire ni archiver ses échanges, ce que
-           permettait l'ancien conversation.json. -->
-      <div class="row" style="margin-bottom:0">
-        <button onclick="loadAll()">↻ refresh</button>
-        <button id="btn-bench" onclick="runBenchUI()">bench</button>
         <button onclick="openExportModal()" title="choisir le format et ce qu'on emporte">⤓ exporter…</button>
       </div>
-      <!-- « clear chat » est en DERNIER, et seul sur sa ligne : c'est la seule
-           action destructive du panneau, elle ne doit pas se trouver sous le
-           doigt qui visait « refresh ». -->
+      <div id="upd-msg" class="muted"></div>
+      <!-- Ligne 2 : bench + clear chat (seule action destructive, gardée en dernier). -->
       <div class="row" style="margin-bottom:0">
+        <button id="btn-bench" onclick="runBenchUI()">bench</button>
         <button onclick="resetChat()">⌫ clear chat</button>
       </div>
     </div></div>

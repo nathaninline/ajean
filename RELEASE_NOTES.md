@@ -1,19 +1,13 @@
-Les postes distants se pilotent maintenant depuis le chat, et l'envoi de fichiers à travers ajean.link est réparé.
+Quelques réglages d'interface pour une lecture plus claire, et un statut du moteur enfin honnête.
 
-## Les postes distants à portée de main
+## Un statut du moteur plus juste
 
-Un nouveau bouton apparaît dans la barre de saisie, juste à côté du trombone. Son icône dit **sur quelle machine l'IA agit** : un écran quand c'est ce serveur, des ondes wifi quand c'est un poste distant. Un clic ouvre une **fenêtre dédiée** où tu choisis la cible, vois tes postes appairés (avec leurs capacités et leur dossier autorisé) et en ajoutes de nouveaux.
+La pastille d'état affichait « modèle incompatible » dès qu'un chargement échouait — même quand la vraie cause était ailleurs. Désormais elle reste courte et neutre (**prêt**, **chargement…**, **erreur**, **arrêté**), et le message détaillé en dessous n'accuse le moteur d'incompatibilité **que lorsque le journal le montre vraiment** (quantification ou architecture non reconnue). Pour tout autre échec, il renvoie simplement au journal du moteur au lieu de donner une fausse piste.
 
-Plus besoin d'aller fouiller dans les réglages : tout est là, au moment où on en a besoin.
+## Panneau « Actions » réorganisé
 
-## Envoi de fichiers réparé sur ajean.link
+Le bouton « refresh », qui ne servait à rien, est retiré. Les actions sont regroupées deux par deux : **mise à jour** et **exporter** sur une ligne, **bench** et **effacer la conversation** sur l'autre.
 
-Depuis l'accès distant, joindre un fichier à un message échouait. La cause : l'envoi ne passait pas par le tunnel chiffré de bout en bout, contrairement au téléchargement. C'est corrigé — l'envoi emprunte désormais le même chemin, et un gigaoctet traverse toujours par morceaux, sans que le relais ne voie rien.
+## Petits nettoyages
 
-## Installer un poste, en une commande ré-exécutable
-
-`ajean remote install …` peut maintenant être relancé tel quel : fournir un code d'appairage force toujours le (ré)appairage, et la commande retire proprement un service déjà en place au lieu d'échouer sur un fichier verrouillé. Fini le `logout` manuel entre deux essais.
-
-## Mise à jour depuis l'interface, même sans root
-
-Sur un serveur où le service tourne sous un compte non-root, le bouton « mettre à jour » de l'interface redémarre désormais correctement le service (via sudo non interactif) au lieu d'échouer en silence.
+Le titre de l'éditeur de preset n'affiche plus le mot « Preset » redondant (juste le nom), et le mode mémoire automatique s'appelle simplement « auto ».
