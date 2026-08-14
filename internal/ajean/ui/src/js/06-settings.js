@@ -118,7 +118,7 @@ async function loadAgent(){
 // les outils mem_* ni les outils web ne sont fournis (voir globalCaps côté Go). On
 // grise donc ces blocs quand l'agent est off pour que l'UI ne mente pas.
 function setAgentGate(on){
-  ['mem-block','net-block','mcp-block','node-block','param-block'].forEach(id=>{
+  ['mem-block','net-block','mcp-block','param-block'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.classList.toggle('gated', !on);
   });
 }

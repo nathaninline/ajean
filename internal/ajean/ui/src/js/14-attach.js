@@ -14,6 +14,9 @@
 // 1 Go en un seul corps JSON demanderait ~1,4 Go de base64 de chaque côté.
 const ATTACH_MAX = 1024*1024*1024;
 const ATTACH_CHUNK = 8*1024*1024;
+// Délai par MORCEAU (et pas les 30 s d'un appel /api/* ordinaire) : une tranche de
+// 8 Mo, base64 + tunnel E2E, peut dépasser 30 s sur une liaison lente.
+const UPLOAD_CHUNK_TIMEOUT_MS = 120000;
 let ATTACH = [];
 let ATTACH_SEQ = 0;
 
@@ -217,16 +220,24 @@ function readAsBase64(file){
     fr.readAsDataURL(file);
   });
 }
-// Envoie UN morceau. Pas de jfetch : son délai de 30 s est calibré pour de
-// petits appels et couperait un transfert.
+// Envoie UN morceau. VIA jfetch, pas un fetch brut : derrière app.ajean.link,
+// jfetch est réécrit pour traverser la boîte noire E2E — un POST direct vers
+// /api/chat/upload n'atteint PAS ton serveur (le relais est aveugle) et l'envoi
+// échouait « impossible d'envoyer ». On fournit notre PROPRE signal pour ne pas
+// hériter du plafond de 30 s de jfetch (calibré pour de petits appels), un morceau
+// pouvant être plus long ; le download passe déjà par jfetch, on symétrise.
 async function sendChunk(payload){
-  const r=await fetch(API_BASE+'/api/chat/upload',{
-    method:'POST', headers:authHeaders({'Content-Type':'application/json'}),
-    body:JSON.stringify(payload)
-  });
-  const j=await r.json().catch(()=>({}));
-  if(!r.ok || !j.ok) throw new Error(j.error||('erreur '+r.status));
-  return j;
+  const ac=new AbortController();
+  const timer=setTimeout(()=>ac.abort(), UPLOAD_CHUNK_TIMEOUT_MS);
+  try{
+    const r=await jfetch('/api/chat/upload',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload), signal:ac.signal
+    });
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok || !j.ok) throw new Error(j.error||('erreur '+r.status));
+    return j;
+  } finally { clearTimeout(timer); }
 }
 // Le dépôt n'a lieu qu'à l'ENVOI du message, jamais à l'ajout : tant qu'on n'a
 // pas cliqué, rien ne doit atterrir dans le dossier de travail de l'IA. Retirer

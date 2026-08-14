@@ -1,19 +1,19 @@
-Le poste distant est maintenant intégré à AJEAN : plus de binaire séparé, plus de téléchargement à part.
+Les postes distants se pilotent maintenant depuis le chat, et l'envoi de fichiers à travers ajean.link est réparé.
 
-## Une seule application
+## Les postes distants à portée de main
 
-Jusqu'ici, piloter un autre PC demandait d'installer un second binaire, « ajean-remote ». C'était une application de plus à télécharger, à suivre et à mettre à jour. On l'a supprimée : tout vit désormais dans **AJEAN**.
+Un nouveau bouton apparaît dans la barre de saisie, juste à côté du trombone. Son icône dit **sur quelle machine l'IA agit** : un écran quand c'est ce serveur, des ondes wifi quand c'est un poste distant. Un clic ouvre une **fenêtre dédiée** où tu choisis la cible, vois tes postes appairés (avec leurs capacités et leur dossier autorisé) et en ajoutes de nouveaux.
 
-Sur le PC à piloter, tu installes simplement AJEAN, puis tu lances :
+Plus besoin d'aller fouiller dans les réglages : tout est là, au moment où on en a besoin.
 
-```
-ajean remote install https://ajean.link --machine <id> --key <clé> --code <code> --allow shell,read,write,list
-```
+## Envoi de fichiers réparé sur ajean.link
 
-La commande s'installe en service — invisible, au démarrage, reconnexion automatique — exactement comme avant. Rien ne change au chiffrement : l'accès reste **chiffré de bout en bout**, le relais ajean.link ne voit toujours rien.
+Depuis l'accès distant, joindre un fichier à un message échouait. La cause : l'envoi ne passait pas par le tunnel chiffré de bout en bout, contrairement au téléchargement. C'est corrigé — l'envoi emprunte désormais le même chemin, et un gigaoctet traverse toujours par morceaux, sans que le relais ne voie rien.
 
-## Rien à changer dans ton usage
+## Installer un poste, en une commande ré-exécutable
 
-Dans **Réglages → Postes distants**, générer un code affiche la commande prête à copier — à distance (via ajean.link) ou en réseau local. Seul le nom de la commande change : `ajean remote install …` au lieu de `ajean-remote install …`.
+`ajean remote install …` peut maintenant être relancé tel quel : fournir un code d'appairage force toujours le (ré)appairage, et la commande retire proprement un service déjà en place au lieu d'échouer sur un fichier verrouillé. Fini le `logout` manuel entre deux essais.
 
-Les postes déjà appairés continuent de fonctionner sans réappairage.
+## Mise à jour depuis l'interface, même sans root
+
+Sur un serveur où le service tourne sous un compte non-root, le bouton « mettre à jour » de l'interface redémarre désormais correctement le service (via sudo non interactif) au lieu d'échouer en silence.

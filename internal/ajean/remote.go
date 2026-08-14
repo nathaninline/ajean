@@ -82,7 +82,13 @@ Options :
 func remoteConnect(args []string, install bool) error {
 	f := parseRemoteFlags(args)
 	cfg, lerr := nodeclient.LoadConfig()
-	needEnroll := lerr != nil || cfg.Priv == ""
+	// Un --code est un jeton d'appairage à usage unique : le fournir veut TOUJOURS
+	// dire « (ré)appaire-moi maintenant ». Sans ce « || f.code != "" », une config
+	// résiduelle (test précédent, ancien binaire ajean-remote au même emplacement
+	// %ProgramData%\ajean-remote\config.json) faisait sauter l'appairage en silence :
+	// le service démarrait avec de vieilles clés que le serveur ignore et le poste
+	// ne remontait jamais, alors que tout affichait « [ok] ».
+	needEnroll := lerr != nil || cfg.Priv == "" || f.code != ""
 	if f.url != "" {
 		cfg.ServerURL = f.url
 	}

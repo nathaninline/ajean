@@ -434,7 +434,7 @@ func handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
 
 // handleUpdateApply (POST /api/update/apply) : télécharge et installe la dernière
 // version. Sur un serveur Linux/systemd, relance ensuite AUTOMATIQUEMENT le service
-// ajean-link (celui qui sert l'UI, le chat et le tunnel) pour appliquer la MAJ sans
+// d'UI (ajean-ui : il sert l'UI, le chat et le tunnel) pour appliquer la MAJ sans
 // avoir à SSH — voir restartAfterUpdate. Renvoie la version + le message de statut.
 func handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 	newVer, err := applyUpdate()
@@ -450,15 +450,15 @@ func handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true, "version": newVer, "restart": msg, "restarting": restarting})
 }
 
-// restartAfterUpdate relance le service ajean-link juste après une MAJ déclenchée
-// depuis l'UI, pour éviter le SSH manuel. Conditions : Linux/systemd + ajean-link
-// actif (le service tourne en root → systemctl passe sans sudo). On NE touche PAS à
-// ajean.service (llama-server) pour ne pas recharger le modèle (long et inattendu
-// depuis un bouton « mettre à jour »). Le redémarrage est DIFFÉRÉ (la réponse HTTP
-// doit partir d'abord) et lancé en --no-block : systemd enregistre le job puis nous
-// arrête/relance ; la clé E2E (.e2e_key) survit au restart, donc pas de ré-appairage
-// et l'UI se reconnecte toute seule (boucle de reconnexion du flux). Renvoie
-// (déclenché, message). Non-serveur (poste client, Windows) → (false, "").
+// restartAfterUpdate relance le service d'UI (uiServiceName, « ajean-ui » : il sert
+// l'interface, le chat et le tunnel) juste après une MAJ déclenchée depuis l'UI, pour
+// éviter le SSH manuel. Conditions : Linux/systemd + service actif. On NE touche PAS à
+// ajean-engine (llama-server) pour ne pas recharger le modèle (long et inattendu depuis
+// un bouton « mettre à jour »). Le redémarrage est DIFFÉRÉ (la réponse HTTP doit partir
+// d'abord) et lancé en --no-block : systemd enregistre le job puis nous arrête/relance ;
+// la clé E2E (.e2e_key) survit au restart, donc pas de ré-appairage et l'UI se reconnecte
+// toute seule (boucle de reconnexion du flux). Renvoie (déclenché, message). Non-serveur
+// (poste client, Windows) → (false, "").
 func restartAfterUpdate() (bool, string) {
 	// Windows : pas de superviseur pour nous relancer, on delegue a un
 	// accompagnateur detache (voir sys_restart_windows.go). C'est aussi ce qui
@@ -472,9 +472,16 @@ func restartAfterUpdate() (bool, string) {
 	}
 	go func() {
 		time.Sleep(1500 * time.Millisecond) // laisser la réponse HTTP atteindre le client
+		// Le service tourne souvent en User=<utilisateur> (pas root) : systemctl brut
+		// échouerait alors (polkit). On repli sur « sudo -n systemctl » comme
+		// uiServiceCtl, les sudoers /etc/sudoers.d/ajean-ui autorisant le restart.
 		// --no-block : on enregistre le job puis on rend la main ; systemd exécute le
 		// stop/start même si ce process (et le client systemctl) sont tués entre-temps.
-		_ = exec.Command("systemctl", "--no-block", "restart", uiServiceName()).Run()
+		bin, args := "systemctl", []string{"--no-block", "restart", uiServiceName()}
+		if os.Geteuid() != 0 {
+			bin, args = "sudo", append([]string{"-n", "systemctl"}, args...)
+		}
+		_ = exec.Command(bin, args...).Run()
 	}()
 	return true, "Service " + uiServiceName() + " redémarré automatiquement — la page va se reconnecter seule (le modèle n'est pas rechargé)."
 }
@@ -483,7 +490,8 @@ func restartHintText() string {
 	if runtime.GOOS == "windows" {
 		return "Redémarre AJEAN (quitte puis relance) pour appliquer la mise à jour."
 	}
-	return "Redémarre les services pour appliquer : sudo systemctl restart ajean ajean-link"
+	return "Redémarre pour appliquer : sudo systemctl restart " + uiServiceName() +
+		" (ajoute " + serviceName() + " si la mise à jour touche le moteur)."
 }
 
 func printRestartHint() { fmt.Println(restartHintText()) }

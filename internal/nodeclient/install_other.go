@@ -100,5 +100,10 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
+	// Ré-installation : Linux refuse d'ÉCRASER l'image d'un binaire en cours
+	// (ETXTBSY « text file busy ») mais autorise à le DÉLIER — le service vivant
+	// garde son inode ouvert, et le nouveau fichier prend la place du nom. Sans ce
+	// unlink, « ajean remote install » relancé échouait tant que le service tournait.
+	_ = os.Remove(dst)
 	return os.WriteFile(dst, b, 0o755)
 }

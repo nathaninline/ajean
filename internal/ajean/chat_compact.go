@@ -135,7 +135,7 @@ func compactWouldTrigger(msgs []Message, knownTokens int) bool {
 }
 
 // logCompact trace UNE ligne par décision de compaction sur la sortie d'erreur
-// (donc dans `journalctl -u ajean-link`). Sans ça, une compaction qui ne se
+// (donc dans `journalctl -u ajean-ui`). Sans ça, une compaction qui ne se
 // déclenche pas — ou qui se déclenche et n'enlève rien — est invisible : côté
 // UI on ne voit qu'une jauge qui reste haute, sans savoir si le seuil n'a pas
 // été atteint ou si la réduction a été refusée.

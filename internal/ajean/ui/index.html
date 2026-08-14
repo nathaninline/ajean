@@ -1052,6 +1052,20 @@ html[data-hide-stats="1"] #chat .msg .statline{display:none}
 #attach:hover{background:var(--row-bg-on);border-color:transparent;color:var(--text)}
 #attach:active{transform:scale(.9)}
 #attach svg{display:block}
+/* Bouton « Postes distants » du composeur : même gabarit que le trombone. L'icône
+   dépend de la cible active — écran (local) par défaut, ondes wifi quand un poste
+   distant est sélectionné, alors teinté en accent pour signaler « l'IA agit
+   ailleurs ». Les deux SVG coexistent ; on n'en montre qu'un via la classe. */
+#node-btn{width:18px;height:18px;min-height:18px;flex:none;margin:0;padding:0;
+  display:flex;align-items:center;justify-content:center;border-radius:999px;
+  background:transparent;border:1px solid transparent;color:var(--dim)}
+#node-btn:hover{background:var(--row-bg-on);border-color:transparent;color:var(--text)}
+#node-btn:active{transform:scale(.9)}
+#node-btn svg{display:block}
+#node-btn .ic-remote{display:none}
+#node-btn.remote{color:var(--accent)}
+#node-btn.remote .ic-here{display:none}
+#node-btn.remote .ic-remote{display:block}
 /* Fichiers en attente : de petites bulles POSÉES AU-DESSUS de la carte.
    Le composeur réserve déjà 34 px transparents au-dessus de lui (la bande de
    dégradé qui fond vers le fil) : les pastilles s'y logent, et on retire d'autant
@@ -1302,15 +1316,6 @@ button:hover{border-color:var(--dim);color:var(--text)}
         </div>
       </div>
     </div>
-    <div id="node-block" class="gated-group">
-      <div class="subhead">Postes distants<span id="node-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Pilote un <b>autre PC</b> depuis l'IA. installe <b>ajean</b> sur le PC secondaire et lance <code>ajean remote install &lt;url&gt; --code CODE</code> : il se connecte en sortant (aucun port à ouvrir) et expose à l'IA un jeu d'outils restreint (shell, fichiers). ⚠ tu décides des capacités et du dossier autorisé pour chaque poste ; le poste peut aussi demander confirmation localement.</span></span></div>
-      <div class="slist">
-        <div class="rowbody">
-          <div id="node-list" class="mcp-list"><div class="muted" style="font-size:12px">(aucun poste — appaire un PC pour que l'IA puisse agir dessus)</div></div>
-          <button class="addbtn" style="margin-top:6px" onclick="openNodePair()">+ appairer un poste</button>
-        </div>
-      </div>
-    </div>
     <div id="param-block" class="gated-group">
       <div class="subhead">Paramètres</div>
       <div class="slist">
@@ -1504,6 +1509,13 @@ button:hover{border-color:var(--dim);color:var(--text)}
       <span style="display:flex;align-items:center;gap:8px;margin-left:auto">
         <span id="ctx-text" class="muted">0 / 0</span>
         <button id="ctx-compact" onclick="compactContext()">compacter</button>
+        <!-- Postes distants : l'icône dit SUR QUOI l'IA agit. Écran = ce serveur
+             (cible locale) ; ondes wifi = un poste distant est la cible active.
+             Un clic ouvre la modale de gestion (cible, liste, appairage). -->
+        <button id="node-btn" onclick="openNodeHub()" title="Postes distants" aria-label="Postes distants">
+          <svg class="ic-here" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          <svg class="ic-remote" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.55a11 11 0 0 1 14 0"/><path d="M8.5 16.1a6 6 0 0 1 7 0"/><path d="M12 20h.01"/></svg>
+        </button>
         <input type="file" id="attach-input" multiple style="display:none" onchange="onAttachPick(event)">
         <button id="attach" onclick="document.getElementById('attach-input').click()" title="joindre un fichier" aria-label="joindre un fichier">
           <!-- Trombone dessiné en SVG : pas de dépendance à une police d'emoji,
@@ -1701,6 +1713,23 @@ button:hover{border-color:var(--dim);color:var(--text)}
         <button onclick="closeMcp()">annuler</button>
         <button class="btn-save" onclick="saveMcp()">enregistrer</button>
       </div>
+    </div>
+  </div>
+</div>
+<div id="node-hub-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)hideModal('node-hub-modal')">
+  <div class="modal-card">
+    <div class="modal-head">
+      <strong>Postes distants</strong>
+      <button class="modal-x" onclick="hideModal('node-hub-modal')" aria-label="Fermer">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="muted" style="font-size:12px;line-height:1.5;margin-bottom:10px">
+        Pilote un <b>autre PC</b> depuis l'IA. Choisis sur quelle machine l'IA agit
+        (ses outils shell/fichiers) et appaire de nouveaux postes. Tu décides des
+        capacités et du dossier autorisé pour chaque poste.
+      </div>
+      <div id="node-hub-list" class="mcp-list"></div>
+      <button class="addbtn" style="margin-top:10px" onclick="openNodePair()">+ appairer un poste</button>
     </div>
   </div>
 </div>
@@ -2538,7 +2567,7 @@ async function loadAgent(){
 // les outils mem_* ni les outils web ne sont fournis (voir globalCaps côté Go). On
 // grise donc ces blocs quand l'agent est off pour que l'UI ne mente pas.
 function setAgentGate(on){
-  ['mem-block','net-block','mcp-block','node-block','param-block'].forEach(id=>{
+  ['mem-block','net-block','mcp-block','param-block'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.classList.toggle('gated', !on);
   });
 }
@@ -5095,6 +5124,9 @@ async function remotePairCode(){
 // 1 Go en un seul corps JSON demanderait ~1,4 Go de base64 de chaque côté.
 const ATTACH_MAX = 1024*1024*1024;
 const ATTACH_CHUNK = 8*1024*1024;
+// Délai par MORCEAU (et pas les 30 s d'un appel /api/* ordinaire) : une tranche de
+// 8 Mo, base64 + tunnel E2E, peut dépasser 30 s sur une liaison lente.
+const UPLOAD_CHUNK_TIMEOUT_MS = 120000;
 let ATTACH = [];
 let ATTACH_SEQ = 0;
 
@@ -5298,16 +5330,24 @@ function readAsBase64(file){
     fr.readAsDataURL(file);
   });
 }
-// Envoie UN morceau. Pas de jfetch : son délai de 30 s est calibré pour de
-// petits appels et couperait un transfert.
+// Envoie UN morceau. VIA jfetch, pas un fetch brut : derrière app.ajean.link,
+// jfetch est réécrit pour traverser la boîte noire E2E — un POST direct vers
+// /api/chat/upload n'atteint PAS ton serveur (le relais est aveugle) et l'envoi
+// échouait « impossible d'envoyer ». On fournit notre PROPRE signal pour ne pas
+// hériter du plafond de 30 s de jfetch (calibré pour de petits appels), un morceau
+// pouvant être plus long ; le download passe déjà par jfetch, on symétrise.
 async function sendChunk(payload){
-  const r=await fetch(API_BASE+'/api/chat/upload',{
-    method:'POST', headers:authHeaders({'Content-Type':'application/json'}),
-    body:JSON.stringify(payload)
-  });
-  const j=await r.json().catch(()=>({}));
-  if(!r.ok || !j.ok) throw new Error(j.error||('erreur '+r.status));
-  return j;
+  const ac=new AbortController();
+  const timer=setTimeout(()=>ac.abort(), UPLOAD_CHUNK_TIMEOUT_MS);
+  try{
+    const r=await jfetch('/api/chat/upload',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload), signal:ac.signal
+    });
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok || !j.ok) throw new Error(j.error||('erreur '+r.status));
+    return j;
+  } finally { clearTimeout(timer); }
 }
 // Le dépôt n'a lieu qu'à l'ENVOI du message, jamais à l'ajout : tant qu'on n'a
 // pas cliqué, rien ne doit atterrir dans le dossier de travail de l'IA. Retirer
@@ -5404,18 +5444,34 @@ const nodeCapLabels = {shell:'shell', read:'lire', write:'écrire', list:'lister
 
 async function loadNode(){ renderNode(await jget('/api/node')); }
 
+// Ouvre la modale de gestion (rafraîchit d'abord pour un état à jour). Appelée
+// par le bouton PC/wifi du composeur.
+function openNodeHub(){ loadNode(); showModal('node-hub-modal'); }
+
+// Le bouton du composeur reflète SUR QUOI l'IA agit : écran = ce serveur, ondes
+// wifi (teinté accent) = un poste distant est la cible active.
+function updateNodeBtn(){
+  const btn = document.getElementById('node-btn');
+  if(!btn) return;
+  const remote = !!nodeTarget;
+  btn.classList.toggle('remote', remote);
+  const n = remote ? nodeList.find(x=>x.slug===nodeTarget) : null;
+  btn.title = remote ? ('Postes distants — l\'IA agit sur « '+(n?n.name:nodeTarget)+' »') : 'Postes distants — l\'IA agit sur ce serveur';
+}
+
 function renderNode(r){
   nodeList = (r && r.nodes) || [];
   nodeTarget = (r && r.target) || '';
   if(r && r.all_caps && r.all_caps.length) nodeAllCaps = r.all_caps;
-  const connected = nodeList.filter(n=>n.connected).length;
-  setBadge('node-badge', connected ? connected : null);
-  const list = document.getElementById('node-list');
+  updateNodeBtn();
+  const list = document.getElementById('node-hub-list');
+  if(!list) return;
   list.textContent = '';
   if(!nodeList.length){
-    list.innerHTML = '<div class="muted" style="font-size:12px">(aucun poste — appaire un PC pour que l\'IA puisse agir dessus)</div>';
+    list.innerHTML = '<div class="muted" style="font-size:12px">(aucun poste appairé — appaire un PC pour que l\'IA puisse agir dessus)</div>';
     return;
   }
+  const connected = nodeList.filter(n=>n.connected).length;
   // Sélecteur de CIBLE : sur quelle machine l'IA agit (ses outils bash/write/edit).
   renderNodeTarget(list, connected);
   nodeList.forEach(n=>{

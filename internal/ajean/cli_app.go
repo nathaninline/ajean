@@ -40,7 +40,7 @@ func cmdApp(args []string) error {
 		return openBrowser(url)
 	}
 
-	// UN SEUL process propriétaire de la conversation, comme le service ajean-link
+	// UN SEUL process propriétaire de la conversation, comme le service ajean-ui
 	// sous Linux : l'app sert l'UI locale ET le tunnel avec le MÊME mux. Deux
 	// process qui servent la conversation (objet en mémoire persisté dans
 	// conversation.json) donnent deux fils divergents entre le local et

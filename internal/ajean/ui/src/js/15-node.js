@@ -10,18 +10,34 @@ const nodeCapLabels = {shell:'shell', read:'lire', write:'écrire', list:'lister
 
 async function loadNode(){ renderNode(await jget('/api/node')); }
 
+// Ouvre la modale de gestion (rafraîchit d'abord pour un état à jour). Appelée
+// par le bouton PC/wifi du composeur.
+function openNodeHub(){ loadNode(); showModal('node-hub-modal'); }
+
+// Le bouton du composeur reflète SUR QUOI l'IA agit : écran = ce serveur, ondes
+// wifi (teinté accent) = un poste distant est la cible active.
+function updateNodeBtn(){
+  const btn = document.getElementById('node-btn');
+  if(!btn) return;
+  const remote = !!nodeTarget;
+  btn.classList.toggle('remote', remote);
+  const n = remote ? nodeList.find(x=>x.slug===nodeTarget) : null;
+  btn.title = remote ? ('Postes distants — l\'IA agit sur « '+(n?n.name:nodeTarget)+' »') : 'Postes distants — l\'IA agit sur ce serveur';
+}
+
 function renderNode(r){
   nodeList = (r && r.nodes) || [];
   nodeTarget = (r && r.target) || '';
   if(r && r.all_caps && r.all_caps.length) nodeAllCaps = r.all_caps;
-  const connected = nodeList.filter(n=>n.connected).length;
-  setBadge('node-badge', connected ? connected : null);
-  const list = document.getElementById('node-list');
+  updateNodeBtn();
+  const list = document.getElementById('node-hub-list');
+  if(!list) return;
   list.textContent = '';
   if(!nodeList.length){
-    list.innerHTML = '<div class="muted" style="font-size:12px">(aucun poste — appaire un PC pour que l\'IA puisse agir dessus)</div>';
+    list.innerHTML = '<div class="muted" style="font-size:12px">(aucun poste appairé — appaire un PC pour que l\'IA puisse agir dessus)</div>';
     return;
   }
+  const connected = nodeList.filter(n=>n.connected).length;
   // Sélecteur de CIBLE : sur quelle machine l'IA agit (ses outils bash/write/edit).
   renderNodeTarget(list, connected);
   nodeList.forEach(n=>{

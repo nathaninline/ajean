@@ -61,8 +61,15 @@ func Install() error {
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}
+	// Ré-installation : un service AjeanRemote déjà présent tient ajean-remote.exe
+	// OUVERT (verrou Windows sur l'image d'un processus en cours) → la copie
+	// échouerait avec « used by another process » et CreateService avec « déjà
+	// installé ». On le retire d'abord (best-effort : absent = rien à faire), ce qui
+	// arrête le service et libère le fichier, rendant « ajean remote install »
+	// ré-exécutable tel quel — sans imposer un « uninstall » manuel préalable.
+	_ = Uninstall()
 	if abs, _ := filepath.Abs(self); abs != dst {
-		if err := copyFile(self, dst); err != nil {
+		if err := replaceExe(self, dst); err != nil {
 			return fmt.Errorf("copie du binaire: %w", err)
 		}
 	}
@@ -71,10 +78,6 @@ func Install() error {
 		return fmt.Errorf("gestionnaire de services (droits admin requis ?): %w", err)
 	}
 	defer m.Disconnect()
-	if s, err := m.OpenService(serviceName); err == nil {
-		s.Close()
-		return fmt.Errorf("service déjà installé — « ajean remote uninstall » d'abord")
-	}
 	s, err := m.CreateService(serviceName, dst, mgr.Config{
 		StartType:   mgr.StartAutomatic,
 		DisplayName: "AJEAN — poste distant",
@@ -105,6 +108,38 @@ func Uninstall() error {
 	_, _ = s.Control(svc.Stop)
 	time.Sleep(700 * time.Millisecond)
 	return s.Delete()
+}
+
+// replaceExe copie src vers dst, y compris quand dst est un exécutable ENCORE en
+// cours. Windows refuse d'écraser l'image d'un processus vivant mais accepte de la
+// RENOMMER : on décale l'ancien fichier puis on écrit le nouveau à sa place. Utile
+// juste après un Uninstall(), le temps que le service en cours d'arrêt relâche le
+// fichier — et en dernier recours si un autre processus le tient encore.
+func replaceExe(src, dst string) error {
+	if err := copyFile(src, dst); err == nil {
+		return nil
+	}
+	// Nom unique : un « .old » figé par un ancien remplacement ne doit pas bloquer
+	// celui-ci. Ces reliquats sont balayés au passage.
+	for _, old := range oldBinaries(dst) {
+		_ = os.Remove(old)
+	}
+	aside := fmt.Sprintf("%s.old-%d", dst, time.Now().UnixNano())
+	if err := os.Rename(dst, aside); err != nil {
+		return err // ni écrasable ni renommable
+	}
+	if err := copyFile(src, dst); err != nil {
+		_ = os.Rename(aside, dst) // rien ne doit disparaître
+		return err
+	}
+	_ = os.Remove(aside) // échoue tant que l'ancien tourne ; nettoyé au prochain coup
+	return nil
+}
+
+// oldBinaries liste les reliquats « <dst>.old-* » d'un remplacement précédent.
+func oldBinaries(dst string) []string {
+	m, _ := filepath.Glob(dst + ".old-*")
+	return m
 }
 
 func copyFile(src, dst string) error {

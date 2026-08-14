@@ -1026,6 +1026,20 @@ html[data-hide-stats="1"] #chat .msg .statline{display:none}
 #attach:hover{background:var(--row-bg-on);border-color:transparent;color:var(--text)}
 #attach:active{transform:scale(.9)}
 #attach svg{display:block}
+/* Bouton « Postes distants » du composeur : même gabarit que le trombone. L'icône
+   dépend de la cible active — écran (local) par défaut, ondes wifi quand un poste
+   distant est sélectionné, alors teinté en accent pour signaler « l'IA agit
+   ailleurs ». Les deux SVG coexistent ; on n'en montre qu'un via la classe. */
+#node-btn{width:18px;height:18px;min-height:18px;flex:none;margin:0;padding:0;
+  display:flex;align-items:center;justify-content:center;border-radius:999px;
+  background:transparent;border:1px solid transparent;color:var(--dim)}
+#node-btn:hover{background:var(--row-bg-on);border-color:transparent;color:var(--text)}
+#node-btn:active{transform:scale(.9)}
+#node-btn svg{display:block}
+#node-btn .ic-remote{display:none}
+#node-btn.remote{color:var(--accent)}
+#node-btn.remote .ic-here{display:none}
+#node-btn.remote .ic-remote{display:block}
 /* Fichiers en attente : de petites bulles POSÉES AU-DESSUS de la carte.
    Le composeur réserve déjà 34 px transparents au-dessus de lui (la bande de
    dégradé qui fond vers le fil) : les pastilles s'y logent, et on retire d'autant

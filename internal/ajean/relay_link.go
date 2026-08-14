@@ -315,7 +315,7 @@ func uiPIDPath() string { return filepath.Join(AjeanHome(), uiUnitName+".pid") }
 func uiLogPath() string { return filepath.Join(AjeanHome(), uiUnitName+".log") }
 
 // uiServiceCtl pilote le worker de lien (start/stop/restart). Sous Linux c'est
-// l'unité systemd ajean-link (avec sudo non interactif si on n'est pas root) ;
+// l'unité systemd ajean-ui (avec sudo non interactif si on n'est pas root) ;
 // ailleurs — macOS et Windows, où il n'y a ni systemd ni droits root — on lance
 // « ajean link serve » en processus détaché suivi par un fichier PID, comme le
 // fait déjà le service principal. Sans ça, l'accès distant restait définitivement
