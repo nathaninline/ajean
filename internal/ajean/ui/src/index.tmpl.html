@@ -147,7 +147,7 @@
       </div>
     </div>
     <div id="node-block" class="gated-group">
-      <div class="subhead">Postes distants<span id="node-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Pilote un <b>autre PC</b> depuis l'IA. installe le petit client <b>ajean-remote</b> sur le PC secondaire et lance <code>ajean-remote install &lt;url&gt; --code CODE</code> : il se connecte en sortant (aucun port à ouvrir) et expose à l'IA un jeu d'outils restreint (shell, fichiers). ⚠ tu décides des capacités et du dossier autorisé pour chaque poste ; le poste peut aussi demander confirmation localement.</span></span></div>
+      <div class="subhead">Postes distants<span id="node-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Pilote un <b>autre PC</b> depuis l'IA. installe <b>ajean</b> sur le PC secondaire et lance <code>ajean remote install &lt;url&gt; --code CODE</code> : il se connecte en sortant (aucun port à ouvrir) et expose à l'IA un jeu d'outils restreint (shell, fichiers). ⚠ tu décides des capacités et du dossier autorisé pour chaque poste ; le poste peut aussi demander confirmation localement.</span></span></div>
       <div class="slist">
         <div class="rowbody">
           <div id="node-list" class="mcp-list"><div class="muted" style="font-size:12px">(aucun poste — appaire un PC pour que l'IA puisse agir dessus)</div></div>
@@ -567,7 +567,7 @@
         <div class="subhead" style="margin-top:6px">Code d'appairage</div>
         <div class="node-code" id="node-pair-code">——</div>
         <div class="muted" style="font-size:12px;line-height:1.5">
-          Sur le PC à piloter, installe <b>ajean-remote</b> (ajean.link/download) puis lance — <b>accès à distance</b>, chiffré de bout en bout :
+          Sur le PC à piloter, installe <b>ajean</b> (ajean.link/download) puis lance — <b>accès à distance</b>, chiffré de bout en bout :
           <pre class="node-cmd" id="node-pair-cmd"></pre>
           <span style="opacity:.8">Ou en <b>réseau local</b> (connexion directe) :</span>
           <pre class="node-cmd" id="node-pair-cmd-lan"></pre>

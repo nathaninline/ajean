@@ -114,18 +114,6 @@ jobs:
             GOOS=$os GOARCH=$arch CGO_ENABLED=0 \
               go build -trimpath -ldflags="$ldflags" -o "dist/$name" ./cmd/ajean
           done
-          # Client léger « poste distant » ajean-remote : pas de CGO (ni UI ni
-          # systray), donc les 6 cibles se cross-compilent ici, macOS compris.
-          # Noms d'asset ajean-remote-<os>[-arm][.exe] — la page /download les
-          # présente à part (« piloter un autre PC »).
-          for t in linux/amd64:ajean-remote-linux linux/arm64:ajean-remote-linux-arm \
-                   windows/amd64:ajean-remote-windows.exe windows/arm64:ajean-remote-windows-arm.exe \
-                   darwin/amd64:ajean-remote-macos darwin/arm64:ajean-remote-macos-arm; do
-            target=${t%%:*}; name=${t#*:}
-            os=${target%/*}; arch=${target#*/}
-            GOOS=$os GOARCH=$arch CGO_ENABLED=0 \
-              go build -trimpath -ldflags="-s -w" -o "dist/$name" ./cmd/ajean-remote
-          done
       - uses: actions/download-artifact@v4
         with:
           name: macos

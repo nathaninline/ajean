@@ -73,13 +73,13 @@ func Install() error {
 	defer m.Disconnect()
 	if s, err := m.OpenService(serviceName); err == nil {
 		s.Close()
-		return fmt.Errorf("service déjà installé — « ajean-remote uninstall » d'abord")
+		return fmt.Errorf("service déjà installé — « ajean remote uninstall » d'abord")
 	}
 	s, err := m.CreateService(serviceName, dst, mgr.Config{
 		StartType:   mgr.StartAutomatic,
 		DisplayName: "AJEAN — poste distant",
 		Description: "Pont léger permettant à votre serveur IA AJEAN d'agir sur ce PC.",
-	}, "run")
+	}, "remote", "run")
 	if err != nil {
 		return fmt.Errorf("création du service: %w", err)
 	}

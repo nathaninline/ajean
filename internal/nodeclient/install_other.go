@@ -40,7 +40,7 @@ func Install() error {
 	case "darwin":
 		return installLaunchd(dst)
 	}
-	return fmt.Errorf("installation auto non gérée sur %s — lance « ajean-remote connect » via ton propre gestionnaire de démarrage", runtime.GOOS)
+	return fmt.Errorf("installation auto non gérée sur %s — lance « ajean remote connect » via ton propre gestionnaire de démarrage", runtime.GOOS)
 }
 
 func Uninstall() error {
@@ -58,7 +58,7 @@ func Uninstall() error {
 
 func installSystemd(exe string) error {
 	unit := "[Unit]\nDescription=AJEAN poste distant\nAfter=network-online.target\n\n" +
-		"[Service]\nExecStart=" + exe + " run\nRestart=always\nRestartSec=5\n\n" +
+		"[Service]\nExecStart=" + exe + " remote run\nRestart=always\nRestartSec=5\n\n" +
 		"[Install]\nWantedBy=default.target\n"
 	dir := filepath.Join(os.Getenv("HOME"), ".config/systemd/user")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -79,7 +79,7 @@ func installLaunchd(exe string) error {
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>Label</key><string>link.ajean.remote</string>
-  <key>ProgramArguments</key><array><string>` + exe + `</string><string>run</string></array>
+  <key>ProgramArguments</key><array><string>` + exe + `</string><string>remote</string><string>run</string></array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
 </dict></plist>

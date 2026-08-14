@@ -115,10 +115,10 @@ async function genNodeCode(){
   // Commande d'accès À DISTANCE (partout) via ajean.link : chiffrée de bout en
   // bout, le relais reste aveugle. --key = clé publique de l'agent (le poste
   // scelle vers elle), --machine = quelle machine joindre.
-  const remote = 'ajean-remote install https://ajean.link --machine '+r.machine+
+  const remote = 'ajean remote install https://ajean.link --machine '+r.machine+
     ' --key '+r.agent_pub+' --code '+r.code+' --allow '+allow+rootArg;
   // Variante RÉSEAU LOCAL (connexion directe, sans passer par le relais).
-  const lan = 'ajean-remote install '+location.origin+
+  const lan = 'ajean remote install '+location.origin+
     ' --key '+r.agent_pub+' --code '+r.code+' --allow '+allow+rootArg;
   document.getElementById('node-pair-cmd').textContent = remote;
   const lanEl = document.getElementById('node-pair-cmd-lan');

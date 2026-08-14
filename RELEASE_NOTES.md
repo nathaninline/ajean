@@ -1,15 +1,19 @@
-Piloter un autre PC fonctionne maintenant à distance, à travers ajean.link, sans que le relais ne voie jamais rien.
+Le poste distant est maintenant intégré à AJEAN : plus de binaire séparé, plus de téléchargement à part.
 
-## Le poste distant passe par ajean.link, chiffré de bout en bout
+## Une seule application
 
-La 0.8.9 a introduit le poste distant, mais uniquement sur le réseau local. Il fonctionne désormais **depuis n'importe où**, via ajean.link — et avec la même exigence que le reste d'ajean.link : le **relais reste aveugle**.
+Jusqu'ici, piloter un autre PC demandait d'installer un second binaire, « ajean-remote ». C'était une application de plus à télécharger, à suivre et à mettre à jour. On l'a supprimée : tout vit désormais dans **AJEAN**.
 
-Concrètement, l'identité d'un poste n'est plus une clé partagée mais une **paire de clés** qui lui est propre. À l'appairage, le poste scelle sa demande vers la clé publique de ton serveur : le relais ne voit ni le code, ni rien d'autre. Ensuite, tout ce qui circule entre le poste et ton serveur — les commandes de l'IA comme leurs résultats — est **chiffré de bout en bout** avec une clé que seuls ton serveur et ton poste peuvent calculer. Le relais ne transporte que de l'opaque.
+Sur le PC à piloter, tu installes simplement AJEAN, puis tu lances :
 
-## Rien à changer pour toi
+```
+ajean remote install https://ajean.link --machine <id> --key <clé> --code <code> --allow shell,read,write,list
+```
 
-Dans **Réglages → Postes distants**, générer un code affiche maintenant deux commandes : une pour l'**accès à distance** (via ajean.link) et une pour le **réseau local** (connexion directe). Tu choisis, tu copies, tu colles sur l'autre PC.
+La commande s'installe en service — invisible, au démarrage, reconnexion automatique — exactement comme avant. Rien ne change au chiffrement : l'accès reste **chiffré de bout en bout**, le relais ajean.link ne voit toujours rien.
 
-## Un client, toujours aussi léger
+## Rien à changer dans ton usage
 
-Le petit client s'appelle **ajean-remote** (quelques mégaoctets, aucune interface). Il s'installe en service — invisible, au démarrage, reconnexion automatique — et se télécharge depuis ajean.link, section « Piloter un autre PC ».
+Dans **Réglages → Postes distants**, générer un code affiche la commande prête à copier — à distance (via ajean.link) ou en réseau local. Seul le nom de la commande change : `ajean remote install …` au lieu de `ajean-remote install …`.
+
+Les postes déjà appairés continuent de fonctionner sans réappairage.
