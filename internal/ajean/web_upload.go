@@ -155,6 +155,72 @@ func attachNote(files []attachInfo) string {
 	return head + "\n" + strings.Join(lines, "\n") + "\n\n"
 }
 
+// imageMimes : les extensions qu'on peut ENVOYER AU MODÈLE comme image (contenu
+// multimodal), quand la vision est active. Un format hors de cette liste reste
+// un simple fichier du workspace, que le modèle ouvre avec ses outils.
+var imageMimes = map[string]string{
+	".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+	".gif": "image/gif", ".webp": "image/webp", ".bmp": "image/bmp",
+}
+
+// imageMime renvoie le type MIME image d'un nom de fichier, ou "" si ce n'est
+// pas une image qu'on sait montrer au modèle.
+func imageMime(name string) string {
+	return imageMimes[strings.ToLower(filepath.Ext(name))]
+}
+
+// visionEnabled dit si un projecteur multimodal est configuré (clé MMPROJ) —
+// c'est la condition pour que backend_serve.go passe --mmproj au moteur, donc la
+// seule où envoyer une image AU MODÈLE a un sens. Sans projecteur, llama-server
+// rejetterait un contenu image ; on s'en tient alors au dépôt-fichier.
+func visionEnabled() bool {
+	return strings.TrimSpace(ReadConfig()["MMPROJ"]) != ""
+}
+
+// userMessageContent construit le champ Content du message utilisateur. Cas
+// courant : une simple chaîne (note des fichiers joints + texte). Quand la vision
+// est active ET qu'au moins une pièce jointe est une image, on renvoie le format
+// multimodal d'OpenAI — une partie `text` suivie d'une partie `image_url` par
+// image (data URI base64) — que llama-server comprend une fois --mmproj chargé :
+// le modèle VOIT alors l'image au lieu de devoir l'ouvrir comme un fichier binaire.
+// Les images ainsi intégrées sortent de la note textuelle (inutile de dire au
+// modèle d'aller ouvrir un fichier qu'il a déjà sous les yeux) ; les autres
+// fichiers, eux, restent annoncés comme avant.
+func userMessageContent(files []attachInfo, prompt string) any {
+	if !visionEnabled() {
+		return attachNote(files) + prompt
+	}
+	dir, err := uploadsDir()
+	if err != nil {
+		return attachNote(files) + prompt
+	}
+	var imgParts []map[string]any
+	var textFiles []attachInfo
+	for _, f := range files {
+		mime := imageMime(f.Name)
+		if mime == "" {
+			textFiles = append(textFiles, f)
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(dir, f.Name))
+		if err != nil {
+			textFiles = append(textFiles, f) // illisible ici : au moins l'annoncer comme fichier
+			continue
+		}
+		imgParts = append(imgParts, map[string]any{
+			"type": "image_url",
+			"image_url": map[string]any{
+				"url": "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(b),
+			},
+		})
+	}
+	if len(imgParts) == 0 {
+		return attachNote(files) + prompt
+	}
+	parts := []map[string]any{{"type": "text", "text": attachNote(textFiles) + prompt}}
+	return append(parts, imgParts...)
+}
+
 // workspaceRel dit si `abs` se trouve DANS le dossier de travail de l'agent et,
 // si oui, renvoie son chemin relatif en séparateurs '/'.
 //

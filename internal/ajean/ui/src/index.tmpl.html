@@ -624,8 +624,12 @@
               <span class="pe-row-l">Quantization<span class="pe-sub">auto si vide</span></span>
               <span class="pe-row-c"><input id="m-quant" class="pe-val" oninput="applyQuant()" placeholder="Auto"></span>
             </div>
+            <div class="pe-row">
+              <span class="pe-row-l">Vision<span class="pe-sub">projecteur mmproj</span></span>
+              <span class="pe-row-c"><span class="pe-selc"><select id="m-mmproj" onchange="onPickMmproj()"></select></span></span>
+            </div>
             <div class="pe-row stack">
-              <span class="pe-row-l">Télécharger un modèle <span class="pe-sub">lien direct vers un .gguf</span></span>
+              <span class="pe-row-l">Télécharger un modèle <span class="pe-sub">ou un projecteur mmproj — lien direct vers un .gguf</span></span>
               <div class="pe-inpbtn">
                 <input id="m-hf-url" class="pe-inp" placeholder="https://…/model.gguf">
                 <button id="m-hf-btn" onclick="startDownload()" title="Télécharger">↓</button>

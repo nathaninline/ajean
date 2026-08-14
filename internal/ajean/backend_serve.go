@@ -116,6 +116,23 @@ func cmdServe(args []string) error {
 	if vtv != "" {
 		llmArgs = append(llmArgs, "-ctv", vtv)
 	}
+	// Vision : le projecteur multimodal (mmproj-*.gguf) donne des yeux au modèle.
+	// C'est un fichier .gguf À PART du modèle, chargé via --mmproj. On le résout
+	// comme le modèle (nom simple cherché dans les dossiers déclarés, ou chemin
+	// absolu), pour qu'un preset écrit sous Windows reste lançable ailleurs et que
+	// le champ « Vision » de l'interface n'ait qu'à écrire le nom du fichier.
+	// Introuvable = on préfère le dire clairement plutôt que laisser llama-server
+	// mourir en boucle sur un « failed to load mmproj » cryptique.
+	if mm := strings.TrimSpace(cfg["MMPROJ"]); mm != "" {
+		mmPath, err := resolveServeModelPath(mm)
+		if err != nil {
+			return fmt.Errorf("projecteur vision introuvable : %s (%v)", mm, err)
+		}
+		if _, err := os.Stat(mmPath); err != nil {
+			return fmt.Errorf("projecteur vision introuvable : %s", mmPath)
+		}
+		llmArgs = append(llmArgs, "--mmproj", mmPath)
+	}
 	// Raisonnement. Trois cas, et la nuance compte :
 	//
 	//   REASONING=on|auto|deepseek → --reasoning <valeur>

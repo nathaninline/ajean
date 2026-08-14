@@ -153,7 +153,7 @@ async function openItem(kind, key){
     document.getElementById('m-quant').value = currentQuantInTextarea();
     populateSettings();
     attachDownload();                      // téléchargement encore en cours côté serveur ?
-    await Promise.all([populateBackend(), populateModelPicker(), populateDlDirs()]);
+    await Promise.all([populateBackend(), populateModelPicker(), populateMmproj(), populateDlDirs()]);
     if(seq !== openSeq) return;
   }
   // On lève le voile SANS transition (voir la note dans styles.css), puis on rend
@@ -313,6 +313,50 @@ function onPickModel(){
     ta.value = 'MODEL="'+val+'"\n' + ta.value;
   }
   toast('MODEL='+val);
+}
+
+// --- Vision (projecteur multimodal --mmproj) --------------------------------
+// Le projecteur est un .gguf séparé du modèle : il apparaît donc dans la même
+// liste que les modèles (/api/models). On le range dans sa PROPRE clé MMPROJ,
+// que backend_serve.go traduit en --mmproj — plutôt que dans EXTRA_ARGS, pour
+// que le chemin soit résolu comme celui du modèle (nom simple = cherché dans
+// les dossiers déclarés).
+function currentMmprojInTextarea(){
+  // Clé dédiée d'abord ; à défaut, un --mmproj posé à la main dans EXTRA_ARGS
+  // (anciens presets), pour que le champ montre la vision déjà configurée.
+  return readEnvKey(document.getElementById('m-content').value, 'MMPROJ')
+      || eaGetValued('--mmproj');
+}
+function onPickMmproj(){
+  // On retire un éventuel --mmproj d'EXTRA_ARGS pour ne pas le charger deux fois,
+  // et on centralise le choix dans la clé MMPROJ.
+  eaSetValued('--mmproj', '');
+  cfgWriteKey('MMPROJ', document.getElementById('m-mmproj').value);
+}
+// Un projecteur multimodal se reconnaît à « mmproj » dans son nom : c'est la
+// convention de nommage universelle (llama.cpp, HF). On ne liste que ceux-là —
+// mêler les modèles de plusieurs Go n'aiderait pas à choisir des yeux.
+function isMmprojName(name){ return /mmproj/i.test(String(name||'')); }
+async function populateMmproj(){
+  const sel = document.getElementById('m-mmproj');
+  if(!sel) return;
+  const list = await jget('/api/models');
+  const cur = currentMmprojInTextarea();
+  const items = (list||[]).filter(m => isMmprojName(m.name));
+  let html = '<option value="">— aucune —</option>';
+  let matched = false;
+  for(const m of items){
+    const on = samePath(cur, m.value) || samePath(cur, m.path) ||
+               samePath(baseName(cur), m.name) ? ' selected' : '';
+    if(on) matched = true;
+    html += '<option value="'+escHtml(m.value)+'"'+on+'>'+escHtml(m.name)+' ('+fmtSize(m.size)+')</option>';
+  }
+  // MMPROJ pointe sur un fichier absent des dossiers déclarés (ou nommé hors
+  // convention) : on le garde affiché plutôt que de l'effacer silencieusement.
+  if(cur && !matched){
+    html += '<option value="'+escHtml(cur)+'" selected>'+escHtml(baseName(cur)||cur)+' (introuvable)</option>';
+  }
+  sel.innerHTML = html;
 }
 
 // Choix du moteur PAR MODÈLE : 3 options (précompilé / compilé / personnalisé)
@@ -891,12 +935,18 @@ function watchDownload(fname){
       e.prog.innerHTML = '<span style="color:var(--ok)">✓ '+fname+' téléchargé ('+fmtSize(st.done)+')</span>';
       e.bar.className = 'pe-bar done'; e.bar.firstElementChild.style.width = '100%';
       stop();
-      await Promise.all([populateModelPicker(), populateDlDirs()]);
-      // Le modèle a pu atterrir hors du dossier ajean : l'option porte alors le
-      // chemin complet, pas le simple nom de fichier.
-      const sel = document.getElementById('m-model');
-      const opt = Array.from(sel.options).find(o => samePath(baseName(o.value), fname));
-      if(opt){ sel.value = opt.value; onPickModel(); }
+      await Promise.all([populateModelPicker(), populateMmproj(), populateDlDirs()]);
+      // Un projecteur (mmproj) se sélectionne dans le champ Vision, un modèle dans
+      // le sélecteur de modèle — d'après le nom du fichier téléchargé. Le fichier
+      // a pu atterrir hors du dossier ajean : l'option porte alors le chemin
+      // complet, pas le simple nom de fichier.
+      const pick = (id, cb)=>{
+        const s = document.getElementById(id);
+        const o = Array.from(s.options).find(o => samePath(baseName(o.value), fname));
+        if(o){ s.value = o.value; cb(); }
+      };
+      if(isMmprojName(fname)) pick('m-mmproj', onPickMmproj);
+      else pick('m-model', onPickModel);
       return;
     }
     const pct = st.total>0 ? st.done*100/st.total : 0;

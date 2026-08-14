@@ -78,10 +78,34 @@ func ctxWindow() int {
 }
 
 // msgText extrait le texte d'un message (Content est `any`, en pratique string
-// ou nil quand l'assistant n'a que des tool_calls).
+// ou nil quand l'assistant n'a que des tool_calls). Un message multimodal
+// (userMessageContent : parties texte + image quand la vision est active) porte
+// un tableau de parties ; on en recolle les segments `text` pour que l'estimation
+// de contexte et le transcript de compaction ne partent pas d'un texte vide.
 func msgText(m Message) string {
-	if s, ok := m.Content.(string); ok {
-		return s
+	switch v := m.Content.(type) {
+	case string:
+		return v
+	case []map[string]any:
+		var b strings.Builder
+		for _, part := range v {
+			if part["type"] == "text" {
+				if s, ok := part["text"].(string); ok {
+					b.WriteString(s)
+				}
+			}
+		}
+		return b.String()
+	case []any: // même contenu relu depuis le JSON persisté (map générique)
+		var b strings.Builder
+		for _, p := range v {
+			if part, ok := p.(map[string]any); ok && part["type"] == "text" {
+				if s, ok := part["text"].(string); ok {
+					b.WriteString(s)
+				}
+			}
+		}
+		return b.String()
 	}
 	return ""
 }

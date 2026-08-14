@@ -287,7 +287,9 @@ func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, tem
 	if strings.TrimSpace(prompt) == "" {
 		prompt = "Prends-en connaissance."
 	}
-	c.Messages = append(c.Messages, Message{Role: "user", Content: attachNote(files) + prompt})
+	// Content = simple texte d'ordinaire ; format multimodal (texte + images) quand
+	// la vision est active et qu'une pièce jointe est une image (userMessageContent).
+	c.Messages = append(c.Messages, Message{Role: "user", Content: userMessageContent(files, prompt)})
 	epoch := c.epoch
 	c.mu.Unlock()
 
