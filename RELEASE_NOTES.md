@@ -1,10 +1,10 @@
-Cette version fiabilise le mode agent sous Windows.
+Cette version corrige une erreur avec les modèles Qwen3.x en mode agent.
 
-## Les commandes shell ne se cassent plus sur les guillemets et les accents
+## Plus d'erreur « System message must be at the beginning »
 
-Sous Windows, en mode agent, les commandes partaient à cmd.exe en un seul bloc (`cmd /C "..."`). Or cmd.exe a des règles de guillemets impitoyables : dès qu'une commande contenait des guillemets imbriqués, des caractères spéciaux (`& | < >`) ou des accents, elle se cassait. Le modèle s'en sortait en tâtonnant (il réessayait en PowerShell, puis via un fichier Python), ce qui allongeait chaque réponse de raisonnements inutiles.
+Avec certains modèles (Qwen3.x notamment) lancés en mode strict, une commande pouvait échouer avec une erreur 500 de llama-server : « System message must be at the beginning ». En cause : dans un tour d'agent, après une commande d'outil ratée, AJEAN glissait une instruction système en fin de séquence pour relancer le modèle. Or ces gabarits exigent que le message système soit uniquement en tête, et refusaient la requête.
 
-Désormais la commande est écrite dans un petit fichier de commandes temporaire, exécuté proprement : l'analyseur de cmd.exe est bien plus tolérant ligne par ligne, l'encodage UTF-8 est forcé (les accents passent), le code de sortie est préservé, et les commandes sur plusieurs lignes fonctionnent enfin. Le fichier temporaire est nettoyé tout seul après chaque commande. Rien ne change sous Linux et macOS.
+Désormais, juste avant chaque envoi, les messages système sont fusionnés en un seul, placé au début. La séquence envoyée reste donc toujours valide, quel que soit le gabarit du modèle. Pour une conversation normale, rien ne change : la séquence est identique à avant.
 
 ## Mise à jour
 
@@ -12,4 +12,4 @@ Désormais la commande est écrite dans un petit fichier de commandes temporaire
 ajean update
 ```
 
-Merci à Cal pour le signalement détaillé et la piste de correction. Corrigé et vérifié directement sous Windows.
+Merci à juanpa669 pour le signalement clair et bien analysé.

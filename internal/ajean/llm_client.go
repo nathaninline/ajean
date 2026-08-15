@@ -241,6 +241,51 @@ func InjectSkills(msgs []Message, caps Caps) []Message {
 	return append([]Message{{Role: "system", Content: prefix}}, msgs...)
 }
 
+// normalizeSystemMessages garantit un UNIQUE message system, en tête de séquence.
+// Certains gabarits de chat (Qwen3.x notamment) rejettent tout message system
+// ailleurs qu'en position 0, ou en plusieurs exemplaires, avec « System message
+// must be at the beginning » (500 côté llama-server, issue #26). Or la boucle
+// d'agent peut en insérer un plus loin : la relance « n'appelle plus d'outil »
+// (voir plus bas) l'ajoute en fin de séquence, et le résumé de compaction
+// (chat_compact.go) en insère un aussi. On fusionne donc tous les system en un
+// seul, placé au début, juste avant l'envoi.
+//
+// La séquence renvoyée est une COPIE : l'historique d'origine garde sa forme pour
+// l'affichage, la persistance et la compaction. Un modèle qui accepte le system
+// n'importe où n'est pas gêné par un system en tête, donc la normalisation est
+// sûre pour tous.
+func normalizeSystemMessages(msgs []Message) []Message {
+	var sys []string
+	sawSystem := false
+	rest := make([]Message, 0, len(msgs))
+	for _, m := range msgs {
+		if m.Role == "system" {
+			if s, ok := m.Content.(string); ok {
+				sawSystem = true
+				if strings.TrimSpace(s) != "" {
+					sys = append(sys, s)
+				}
+				continue
+			}
+			// Contenu system non textuel (cas théorique) : on le préserve tel quel
+			// plutôt que de le perdre.
+		}
+		rest = append(rest, m)
+	}
+	// Aucun message system du tout : rien à réordonner, on rend l'entrée telle quelle.
+	if !sawSystem {
+		return msgs
+	}
+	// Des system existaient mais tous vides : on les a retirés (un system vide en
+	// position non-nulle casserait tout autant), sans en réinsérer.
+	if len(sys) == 0 {
+		return rest
+	}
+	out := make([]Message, 0, len(rest)+1)
+	out = append(out, Message{Role: "system", Content: strings.Join(sys, "\n\n")})
+	return append(out, rest...)
+}
+
 // EnabledTools returns the tools to advertise on the next inference call.
 func EnabledTools(caps Caps) []Tool {
 	tools := []Tool{}
@@ -575,8 +620,10 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 	// le contexte — c'est un choix assumé.
 	for iter := 0; ; iter++ {
 		payload := map[string]any{
-			"model":       "ajean",
-			"messages":    messages,
+			"model": "ajean",
+			// Normalisé juste avant l'envoi : un seul system, en tête. Les gabarits
+			// stricts (Qwen3.x) refusent un system ailleurs qu'en position 0 (issue #26).
+			"messages":    normalizeSystemMessages(messages),
 			"stream":      true,
 			"temperature": temperature,
 			// include_usage → chunk final avec `usage.prompt_tokens` = taille TOTALE
