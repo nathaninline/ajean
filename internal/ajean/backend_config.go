@@ -203,6 +203,62 @@ func splitArgs(s string) []string {
 	return out
 }
 
+// samplingKeys : les paramètres d'échantillonnage réglables par preset. Ils sont
+// injectés dans CHAQUE requête de complétion (applySampling), et non passés à
+// llama-server au lancement — une valeur présente dans la requête l'emporte de
+// toute façon sur le défaut du serveur, donc c'est le seul endroit où le réglage
+// prend vraiment effet. Sans ça, seule la température était transmise (codée en
+// dur), et top_k/min_p/… retombaient sur les défauts de llama.cpp, rarement ceux
+// que recommande le modèle (Qwen3.8 veut top_k 20 / min_p 0, pas 40 / 0.05).
+//
+// Correspondance clé de config -> champ du corps OpenAI. Une valeur vide vaut
+// « clé absente » : llama-server garde alors son propre défaut pour ce champ.
+var samplingKeys = []struct {
+	cfg, field string
+	integer    bool
+}{
+	{"TEMP", "temperature", false},
+	{"TOP_P", "top_p", false},
+	{"TOP_K", "top_k", true},
+	{"MIN_P", "min_p", false},
+	{"PRESENCE_PENALTY", "presence_penalty", false},
+	{"REPEAT_PENALTY", "repeat_penalty", false},
+}
+
+// applySampling superpose les paramètres d'échantillonnage du preset au corps
+// d'une requête de complétion. Les clés vides sont ignorées (le serveur garde son
+// défaut) ; TEMP, s'il est défini, l'emporte sur la température déjà posée dans le
+// payload — c'est le réglage recommandé du modèle, et l'UI n'a de toute façon pas
+// de curseur de température qui pourrait le contredire.
+//
+// REASONING_EFFORT (Qwen3.8 : low/medium/high/xhigh…) passe par le mécanisme des
+// gabarits jinja de llama.cpp (chat_template_kwargs) : il n'a d'effet que si le
+// serveur tourne avec --jinja, mais on ne l'envoie que lorsqu'un preset le
+// définit explicitement, donc jamais à l'aveugle.
+func applySampling(payload map[string]any) { applySamplingFrom(payload, ReadConfig()) }
+
+// applySamplingFrom est la partie pure d'applySampling : testable sans base.
+func applySamplingFrom(payload map[string]any, cfg map[string]string) {
+	for _, s := range samplingKeys {
+		v := strings.TrimSpace(cfg[s.cfg])
+		if v == "" {
+			continue
+		}
+		if s.integer {
+			if n, err := strconv.Atoi(v); err == nil {
+				payload[s.field] = n
+			}
+			continue
+		}
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			payload[s.field] = f
+		}
+	}
+	if eff := strings.TrimSpace(cfg["REASONING_EFFORT"]); eff != "" {
+		payload["chat_template_kwargs"] = map[string]any{"reasoning_effort": eff}
+	}
+}
+
 // Le plafond d'appels d'outils par tour (TOOL_LIMIT) et l'anti-boucle ont été
 // retirés : ils coupaient surtout des tours légitimes. Le bouton stop est le
 // seul frein.

@@ -101,6 +101,7 @@ async function openItem(kind, key){
   // Model picker is preset-only: it edits the MODEL= line of the preset.
   const modelRow = document.getElementById('m-model-row');
   const settingsRow = document.getElementById('m-settings-row');
+  const samplingRow = document.getElementById('m-sampling-row');
   const rawHead = document.getElementById('m-raw-head');
   const rawToggle = document.getElementById('m-raw-toggle');
   const rawBody = document.getElementById('m-raw-body');
@@ -108,6 +109,7 @@ async function openItem(kind, key){
   if(kind === 'preset'){
     modelRow.style.display = 'flex';
     settingsRow.style.display = 'flex';
+    if(samplingRow) samplingRow.style.display = 'flex';
     document.getElementById('m-hf-url').value = '';
     resetDlUI();
     // Preset : la config brute est une ligne repliable, fermée par défaut.
@@ -121,6 +123,7 @@ async function openItem(kind, key){
   } else {
     modelRow.style.display = 'none';
     settingsRow.style.display = 'none';
+    if(samplingRow) samplingRow.style.display = 'none';
     // Page mémoire : le contenu EST le champ principal — affiché en clair.
     rawHead.textContent = 'Contenu';
     rawToggle.style.display = 'none';
@@ -713,6 +716,13 @@ function populateSettings(){
   set('s-ubatch', cfgReadKey('UBATCH'));
   set('s-tbatch', cfgReadKey('THREADS_BATCH'));
   set('s-kv', cfgReadKey('KV_TYPE'));
+  // Échantillonnage (envoyé par requête, voir applySampling côté serveur).
+  set('s-temp', cfgReadKey('TEMP'));
+  set('s-topp', cfgReadKey('TOP_P'));
+  set('s-topk', cfgReadKey('TOP_K'));
+  set('s-minp', cfgReadKey('MIN_P'));
+  set('s-presp', cfgReadKey('PRESENCE_PENALTY'));
+  set('s-effort', cfgReadKey('REASONING_EFFORT'));
   set('s-moe', eaGetValued('--n-cpu-moe'));
   set('s-spec-n', eaGetValued('--spec-draft-n-max'));
   setSpecType(eaGetValued('--spec-type'));
@@ -751,6 +761,16 @@ function setSpecType(v){
   }
   sel.value = v;
   syncSpecRow();
+}
+// Effort de réflexion : REASONING_EFFORT part dans la requête (chat_template_kwargs)
+// mais n'a d'effet que si le moteur tourne avec --jinja. Comme éditer le preset
+// impose déjà un switch (= redémarrage du moteur), autant ajouter --jinja tout de
+// suite quand on choisit un effort. On ne le RETIRE pas en repassant sur « défaut » :
+// il a pu être posé à la main pour les appels d'outils, et le laisser est sans
+// risque.
+function onEffort(val){
+  cfgWriteKey('REASONING_EFFORT', val);
+  if(val) eaToggleFlag('--jinja', true);
 }
 // Le nombre de jetons anticipés ne veut rien dire sans type : ligne masquée, et
 // flag retiré pour ne pas laisser un réglage orphelin dans le preset.

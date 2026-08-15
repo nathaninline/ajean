@@ -139,20 +139,58 @@ function syncSendBtn(){
     hint.classList.toggle('waiting', !ready);
   }
 }
+// Rendu THROTTLÉ du bloc en cours de streaming (issue #24). Re-parser le Markdown
+// du bloc ENTIER à chaque token est en O(n²) : sur un long raisonnement (des
+// dizaines de milliers de tokens) l'app se met à ramer, les tokens arrivent au
+// ralenti, et un refresh « répare » tout simplement parce qu'il rend le bloc une
+// seule fois. On coalesce donc : le texte s'accumule (concat, quasi gratuit) et on
+// ne re-rend qu'à intervalle borné. Le rendu final exact est garanti par
+// flushRender(), appelé à chaque frontière de bloc (nouvel élément, outil, fin de
+// tour, caught_up).
+let renderTimer=null, renderPending=null, lastRenderMs=0; // {el, text}
+function scheduleRender(el, text){
+  // Changement de bloc en cours de route : on rend d'abord l'ancien à sa dernière
+  // valeur, sinon son ultime bout de texte serait perdu.
+  if(renderPending && renderPending.el!==el) flushRender();
+  renderPending={el, text};
+  if(renderTimer) return;
+  // Cadence ADAPTATIVE : on vise à ne pas passer plus d'~1/6 du temps à re-parser
+  // le Markdown. Tant que le bloc est petit, un rendu coûte 1-2 ms → plancher 16 ms
+  // ≈ 60 img/s, l'apparition reste fluide token par token. Quand le raisonnement
+  // devient énorme, le rendu coûte cher et on espace tout seul jusqu'à 500 ms, ce
+  // qui casse le O(n²) sans jamais figer l'interface (issue #24).
+  const delay=Math.min(500, Math.max(16, lastRenderMs*6));
+  renderTimer=setTimeout(flushRender, delay);
+}
+function flushRender(){
+  if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; }
+  const p=renderPending; renderPending=null;
+  if(!p) return;
+  const t0=performance.now();
+  renderBody(p.el, p.text);
+  lastRenderMs=performance.now()-t0;
+}
 // Traite UN événement du flux — même sémantique que l'ancien switch inline, mais
 // piloté par le serveur et rejouable à l'identique.
 function handleDelta(d){
   if(typeof d.seq==='number' && d.seq>lastSeq) lastSeq=d.seq;
   if(d.caught_up){
+    flushRender(); // rendre le dernier bloc rejoué à sa valeur exacte
     // Fin du replay initial : on saute en bas puis on révèle (une seule fois — pas
     // sur les reconnexions, pour ne pas te ramener en bas si tu lisais plus haut).
     setChatLoading(null);
     if(REPLAYING){ REPLAYING=false; jumpBottom(); syncSendBtn(); const c=chatEl(); c.style.transition='opacity .15s'; c.style.opacity='1'; }
+    // Le bouton envoyer/stop doit refléter l'état RÉEL du serveur, pas seulement les
+    // événements rejoués (issue #24) : un reload en pleine génération pouvait laisser
+    // « envoyer » alors que l'IA répondait encore, car l'événement `user` qui met
+    // busy=true n'est pas toujours redéroulé sur une reconnexion depuis lastSeq. On
+    // se recale donc sur /api/chat/state, source de vérité de « generating ».
+    reconcileBusy();
     // Fil vide : aucune bulle n'a été rejouée, donc aucune mutation ne viendra
     // déclencher la synchro — c'est ici qu'on décide d'afficher l'accueil.
     syncChatEmpty();
     return; }
-  if(d.reset!==undefined){ PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
+  if(d.reset!==undefined){ if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
   if(d.user!==undefined){
     newTurn();
     let el=PENDING;
@@ -162,8 +200,8 @@ function handleDelta(d){
     // bulle neuve — sinon elles apparaîtraient en double.
     if(d.files && !hasMsgFiles(el)) addMsgFiles(el, d.files);
     setBusy(true); T.typingEl=addTyping(); return; }
-  if(d.turn_done){ removeTyping(); collapseAll(T.turnCollapsibles); if(T.serverStats) renderStats(T.contentEl||T.reasonEl, T.serverStats); setBusy(false); return; }
-  if(d.error){ removeTyping(); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
+  if(d.turn_done){ flushRender(); removeTyping(); collapseAll(T.turnCollapsibles); if(T.serverStats) renderStats(T.contentEl||T.reasonEl, T.serverStats); setBusy(false); return; }
+  if(d.error){ flushRender(); removeTyping(); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
   if(d.compacting!==undefined){ setCompacting(d.compacting); return; }
   if(d.compacted){ setCompacting(false); addCompactMark(); return; }
   // Pas de toast au REPLAY : le journal est rejoué à chaque chargement de page,
@@ -177,6 +215,7 @@ function handleDelta(d){
     if(d.stats.prompt_tokens_total){ setCtxUsed((d.stats.prompt_tokens_total||0)+(d.stats.gen_tokens||0)); }
     if(T.contentEl||T.reasonEl) renderStats(T.contentEl||T.reasonEl, d.stats); return; }
   if(d.tool_used){
+    flushRender(); // le bloc texte précédent (raisonnement/contenu) est terminé
     killTyping('tool'); T.contentEl=null; T.reasonEl=null; const tu=d.tool_used;
     if(!T.pendingToolEl){ collapseAll(T.turnCollapsibles); T.pendingToolEl=addMsg('tool',''); if(REPLAYING||viewOn('fold-tools')) collapseInstant(T.pendingToolEl); T.turnCollapsibles.push(T.pendingToolEl); }
     renderToolMsg(T.pendingToolEl, tu);
@@ -186,6 +225,7 @@ function handleDelta(d){
     if(tu.done){ T.pendingToolEl=null; if(tu.name==='mem_add'||tu.name==='mem_edit') loadMem(); }
     return; }
   if(d.drop_reasoning){
+    if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; // le bloc raisonnement disparaît
     if(T.reasonEl){ const i=T.turnCollapsibles.indexOf(T.reasonEl); if(i>=0) T.turnCollapsibles.splice(i,1); T.reasonEl.remove(); T.reasonEl=null; T.fullReason=''; }
     return; }
   if(d.reasoning_content){
@@ -195,7 +235,7 @@ function handleDelta(d){
     // le début (voir decorateEvent/coalesceReplay côté serveur) → on repart de zéro
     // au lieu de concaténer, sinon le texte apparaît en double.
     if(d.replace){ T.fullReason=''; T.reasonTok=0; T.reasonFirstTs=0; }
-    showTyping('reasoning'); T.fullReason+=d.reasoning_content; renderBody(T.reasonEl, T.fullReason);
+    showTyping('reasoning'); T.fullReason+=d.reasoning_content; scheduleRender(T.reasonEl, T.fullReason);
     // d.toks/d.ts0 présents quand l'événement est coalescé (replay) : plusieurs
     // tokens d'un coup. Sinon (direct), 1 token, ts0=ts.
     if(!T.reasonFirstTs) T.reasonFirstTs=d.ts0||d.ts||0; T.reasonLastTs=d.ts||T.reasonLastTs; T.reasonTok+=(d.toks||1);
@@ -205,7 +245,7 @@ function handleDelta(d){
     removeTyping();
     if(!T.contentEl){ collapseAll(T.turnCollapsibles); T.contentEl=addMsg('assistant',''); T.fullContent=''; }
     if(d.replace){ T.fullContent=''; T.contentTok=0; T.contentFirstTs=0; }
-    T.fullContent+=d.content; renderBody(T.contentEl, T.fullContent);
+    T.fullContent+=d.content; scheduleRender(T.contentEl, T.fullContent);
     if(!T.contentFirstTs) T.contentFirstTs=d.ts0||d.ts||0; T.contentLastTs=d.ts||T.contentLastTs; T.contentTok+=(d.toks||1);
     labelTokens(T.contentEl, 'assistant', T.contentTok, T.contentFirstTs, T.contentLastTs);
     return; }
@@ -259,6 +299,15 @@ async function connectStream(){
 // Interrompt la génération en cours côté serveur (la goroutine détachée est
 // annulée). Le serveur émet alors turn_done → le bouton repasse en « send ».
 function stopGen(){ jfetch('/api/chat/stop',{method:'POST'}).catch(()=>{}); toast('stop'); }
+// Recale l'état du bouton sur la vérité serveur. Ne touche à rien pendant le replay
+// initial (l'état final y est posé au caught_up) ni si l'appel échoue : dans le
+// doute on garde ce que les événements ont déjà établi.
+async function reconcileBusy(){
+  try{
+    const s=await (await jfetch('/api/chat/state')).json();
+    if(typeof s.generating==='boolean' && s.generating!==busy) setBusy(s.generating);
+  }catch(_){}
+}
 // Envoi RÉSILIENT : sur le tunnel E2E, un aller-retour peut échouer transitoirement
 // alors qu'il a en fait abouti (la génération démarre). On réessaie, et un 409
 // (« déjà en cours ») = succès (c'est notre envoi qui est passé). On ne montre une

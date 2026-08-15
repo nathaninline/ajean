@@ -1,14 +1,18 @@
-La grande nouveauté de cette version : AJEAN sait enfin voir les images.
+Cette version rend les réglages d'échantillonnage pilotables par preset, et corrige deux soucis d'affichage du chat sur les très longues réponses.
 
-## La vision, configurable par preset
+## Les réglages d'échantillonnage, par modèle
 
-Jusqu'ici rien dans l'interface ne permettait de donner des yeux à un modèle. Il fallait glisser l'option `--mmproj` à la main dans la configuration brute, et son chemin n'était même pas résolu comme celui du modèle. L'éditeur de preset gagne un champ **Vision** : tu y choisis le projecteur multimodal (fichier `mmproj`) qui accompagne le modèle, et c'est tout. Au démarrage du moteur, AJEAN le charge tout seul.
+Jusqu'ici AJEAN n'envoyait qu'une seule chose au moteur : la température, figée à 0.7. Tout le reste (top_p, top_k, min_p, pénalité de présence) retombait sur les défauts de llama.cpp, qui ne sont presque jamais ceux que recommande le modèle. Impossible, par exemple, de coller aux réglages conseillés pour Qwen3.8 (température 1.0, top_k 20, min_p 0) sans bricoler.
 
-Le champ ne liste que les projecteurs (les fichiers dont le nom contient `mmproj`), pas les modèles de plusieurs Go, pour que le choix reste lisible. Et s'il te manque un projecteur, le champ « télécharger un modèle » accepte aussi un lien vers un `mmproj` : une fois récupéré, il se place directement dans le champ Vision.
+L'éditeur de preset gagne un bloc **Échantillonnage** : température, top_p, top_k, min_p, pénalité de présence, et un menu **Effort de réflexion** (low, medium, high, xhigh) pour les modèles qui savent doser leur raisonnement. Un champ laissé vide ne change rien : le moteur garde son propre défaut, exactement comme avant. Choisir un effort de réflexion ajoute tout seul l'option nécessaire côté moteur.
 
-## Les images arrivent vraiment au modèle
+## Les longues réponses ne font plus ramer l'app
 
-Avant, une image collée dans le chat était simplement déposée comme un fichier dans le dossier de travail, à charge pour le modèle de l'ouvrir avec ses outils (ce qui ne donnait qu'un tas d'octets illisibles). Désormais, quand un projecteur est configuré, l'image part au modèle en contenu multimodal : il la voit, et peut en parler.
+Sur un très gros raisonnement, l'application se mettait à ralentir de plus en plus : le texte finissait par arriver au compte-gouttes, et il fallait rafraîchir la page pour que tout reparte vite. La cause : à chaque mot reçu, le chat re-analysait la réponse entière, un travail qui grossissait sans fin. Le rendu se cadence désormais selon son coût réel, ce qui garde l'apparition fluide sur une réponse normale et empêche l'app de s'enliser sur une réponse énorme.
+
+## Le bouton stop reste stop
+
+Après un rafraîchissement en pleine génération, le bouton pouvait repasser à « envoyer » alors que le modèle répondait encore. Il se recale maintenant sur l'état réel du serveur, et affiche bien « stop » tant que la réponse n'est pas finie.
 
 ## Mise à jour
 
@@ -16,4 +20,4 @@ Avant, une image collée dans le chat était simplement déposée comme un fichi
 ajean update
 ```
 
-Non vérifié sur cette version : le résultat final dépend d'un modèle vision et de son projecteur compatibles (Qwen2.5-VL, Gemma 3, etc.). À noter, l'image reste dans l'historique de la conversation et repart au moteur à chaque tour tant que la conversation dure.
+Non vérifié en conditions réelles : le comportement sur une réponse proche de la limite de contexte (le rendu s'y espace volontairement pour ne pas figer l'interface).

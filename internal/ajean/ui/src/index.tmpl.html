@@ -779,6 +779,47 @@
         </div>
       </div>
 
+      <!-- Échantillonnage : ces valeurs sont envoyées à CHAQUE requête (pas au
+           lancement du moteur), c'est le seul endroit où elles prennent effet.
+           Vide = on n'envoie rien, llama-server garde son défaut. Les valeurs
+           recommandées dépendent du modèle (ex. Qwen3.8 en thinking : temp 1.0,
+           top_p 0.95, top_k 20, min_p 0). -->
+      <div id="m-sampling-row" class="pe-group" style="display:none">
+        <div class="pe-gh">Échantillonnage</div>
+        <div class="pe-list">
+          <div class="pe-row">
+            <span class="pe-row-l">Température<span class="pe-sub">vide = défaut du modèle</span></span>
+            <span class="pe-row-c"><input id="s-temp" class="pe-val" type="number" min="0" step="0.05" placeholder="—" oninput="cfgWriteKey('TEMP', this.value)"></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">top_p<span class="pe-sub">noyau de probabilité</span></span>
+            <span class="pe-row-c"><input id="s-topp" class="pe-val" type="number" min="0" max="1" step="0.01" placeholder="—" oninput="cfgWriteKey('TOP_P', this.value)"></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">top_k<span class="pe-sub">0 = désactivé</span></span>
+            <span class="pe-row-c"><input id="s-topk" class="pe-val" type="number" min="0" step="1" placeholder="—" oninput="cfgWriteKey('TOP_K', this.value)"></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">min_p<span class="pe-sub">seuil de probabilité</span></span>
+            <span class="pe-row-c"><input id="s-minp" class="pe-val" type="number" min="0" max="1" step="0.01" placeholder="—" oninput="cfgWriteKey('MIN_P', this.value)"></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">Pénalité de présence<span class="pe-sub">réduit les répétitions</span></span>
+            <span class="pe-row-c"><input id="s-presp" class="pe-val" type="number" min="0" max="2" step="0.1" placeholder="—" oninput="cfgWriteKey('PRESENCE_PENALTY', this.value)"></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">Effort de réflexion<span class="pe-sub">ajoute --jinja automatiquement</span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="s-effort" onchange="onEffort(this.value)">
+              <option value="">défaut du modèle</option>
+              <option value="low">low (rapide)</option>
+              <option value="medium">medium</option>
+              <option value="high">high</option>
+              <option value="xhigh">xhigh (max)</option>
+            </select></span></span>
+          </div>
+        </div>
+      </div>
+
       <div id="m-raw" class="pe-group">
         <div class="pe-gh" id="m-raw-head">Configuration</div>
         <div class="pe-list">
