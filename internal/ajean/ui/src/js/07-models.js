@@ -722,6 +722,7 @@ function populateSettings(){
   set('s-topk', cfgReadKey('TOP_K'));
   set('s-minp', cfgReadKey('MIN_P'));
   set('s-presp', cfgReadKey('PRESENCE_PENALTY'));
+  set('s-reppen', cfgReadKey('REPEAT_PENALTY'));
   set('s-effort', cfgReadKey('REASONING_EFFORT'));
   set('s-moe', eaGetValued('--n-cpu-moe'));
   set('s-spec-n', eaGetValued('--spec-draft-n-max'));

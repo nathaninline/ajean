@@ -804,8 +804,12 @@
             <span class="pe-row-c"><input id="s-minp" class="pe-val" type="number" min="0" max="1" step="0.01" placeholder="—" oninput="cfgWriteKey('MIN_P', this.value)"></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l">Pénalité de présence<span class="pe-sub">réduit les répétitions</span></span>
+            <span class="pe-row-l">Pénalité de présence<span class="pe-sub">pousse vers de nouveaux mots (0 = off)</span></span>
             <span class="pe-row-c"><input id="s-presp" class="pe-val" type="number" min="0" max="2" step="0.1" placeholder="—" oninput="cfgWriteKey('PRESENCE_PENALTY', this.value)"></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">Pénalité de répétition<span class="pe-sub">anti-répétition (1 = neutre)</span></span>
+            <span class="pe-row-c"><input id="s-reppen" class="pe-val" type="number" min="0" step="0.05" placeholder="—" oninput="cfgWriteKey('REPEAT_PENALTY', this.value)"></span>
           </div>
           <div class="pe-row">
             <span class="pe-row-l">Effort de réflexion<span class="pe-sub">ajoute --jinja automatiquement</span></span>

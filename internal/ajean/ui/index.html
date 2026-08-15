@@ -1974,8 +1974,12 @@ button:hover{border-color:var(--dim);color:var(--text)}
             <span class="pe-row-c"><input id="s-minp" class="pe-val" type="number" min="0" max="1" step="0.01" placeholder="—" oninput="cfgWriteKey('MIN_P', this.value)"></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l">Pénalité de présence<span class="pe-sub">réduit les répétitions</span></span>
+            <span class="pe-row-l">Pénalité de présence<span class="pe-sub">pousse vers de nouveaux mots (0 = off)</span></span>
             <span class="pe-row-c"><input id="s-presp" class="pe-val" type="number" min="0" max="2" step="0.1" placeholder="—" oninput="cfgWriteKey('PRESENCE_PENALTY', this.value)"></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">Pénalité de répétition<span class="pe-sub">anti-répétition (1 = neutre)</span></span>
+            <span class="pe-row-c"><input id="s-reppen" class="pe-val" type="number" min="0" step="0.05" placeholder="—" oninput="cfgWriteKey('REPEAT_PENALTY', this.value)"></span>
           </div>
           <div class="pe-row">
             <span class="pe-row-l">Effort de réflexion<span class="pe-sub">ajoute --jinja automatiquement</span></span>
@@ -3710,6 +3714,7 @@ function populateSettings(){
   set('s-topk', cfgReadKey('TOP_K'));
   set('s-minp', cfgReadKey('MIN_P'));
   set('s-presp', cfgReadKey('PRESENCE_PENALTY'));
+  set('s-reppen', cfgReadKey('REPEAT_PENALTY'));
   set('s-effort', cfgReadKey('REASONING_EFFORT'));
   set('s-moe', eaGetValued('--n-cpu-moe'));
   set('s-spec-n', eaGetValued('--spec-draft-n-max'));
