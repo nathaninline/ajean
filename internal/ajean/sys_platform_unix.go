@@ -257,9 +257,11 @@ func execServer(bin string, args []string) error {
 	return syscall.Exec(bin, args, os.Environ())
 }
 
-// newShellCmd builds the command used by the run_shell tool.
-func newShellCmd(ctx context.Context, command string) *exec.Cmd {
-	return exec.CommandContext(ctx, "/bin/bash", "-c", command)
+// newShellCmd builds the command used by the run_shell tool. The second return
+// value is a cleanup func the caller must defer (a no-op here; on Windows it
+// removes the temporary .bat file — see the Windows twin).
+func newShellCmd(ctx context.Context, command string) (*exec.Cmd, func()) {
+	return exec.CommandContext(ctx, "/bin/bash", "-c", command), func() {}
 }
 
 // ramUsageMB renvoie (utilisée, totale) en Mo pour /api/ram. Linux : /proc/meminfo.

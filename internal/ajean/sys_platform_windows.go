@@ -385,10 +385,47 @@ func cudaPathEnv(toolkitDir string) []string {
 	return out
 }
 
-// newShellCmd builds the command used by the run_shell tool. hideCmd évite un
-// flash de console à chaque commande d'agent quand AJEAN tourne en mode app.
-func newShellCmd(ctx context.Context, command string) *exec.Cmd {
-	return hideCmd(exec.CommandContext(ctx, "cmd", "/C", command))
+// newShellCmd builds the command used by the run_shell tool. On Windows the
+// command is written to a temporary .bat and run as `cmd /c call "file"` instead
+// of `cmd /C "<command>"`.
+//
+// Pourquoi : passer une commande générée par le modèle en UN seul argument /C
+// tombe dans l'enfer du quoting de cmd.exe — guillemets imbriqués, &|<>^, %VAR%,
+// accents… se cassent tous, et le modèle enchaîne alors des tentatives inutiles
+// (bash, puis PowerShell, puis un fichier Python) avant de s'en sortir. Un .bat
+// est lu par l'analyseur batch ligne par ligne, bien plus tolérant ; `chcp 65001`
+// remet la sortie en UTF-8 pour les accents. On propage le code de sortie via
+// %errorlevel% et on NE supprime PAS le fichier depuis le .bat (un script batch ne
+// peut pas se supprimer proprement en cours d'exécution) : le nettoyage se fait en
+// Go, dans le cleanup rendu à l'appelant, après la fin du process.
+//
+// Merci au signalement de la communauté (le workaround « écrire un .bat » venait
+// d'un utilisateur Windows).
+func newShellCmd(ctx context.Context, command string) (*exec.Cmd, func()) {
+	f, err := os.CreateTemp("", "ajean-cmd-*.bat")
+	if err != nil {
+		// Repli : si le fichier temporaire échoue, on garde l'ancien chemin plutôt
+		// que de ne rien lancer. Le quoting peut souffrir, mais la commande part.
+		return hideCmd(exec.CommandContext(ctx, "cmd", "/C", command)), func() {}
+	}
+	batPath := f.Name()
+	// Pas de BOM UTF-8 : le placer avant `@echo off` fait échouer cmd.exe
+	// (« '∩╗┐@echo' n'est pas reconnu »). chcp suffit pour les accents.
+	// \r\n obligatoire : cmd.exe est pointilleux sur les fins de ligne d'un .bat.
+	// Fins de ligne normalisées en \r\n : une commande multi-ligne devient
+	// plusieurs lignes de batch exécutées l'une après l'autre (cmd.exe exige des
+	// \r\n, et un \n seul est mal interprété). C'est un gain net sur `cmd /C`, qui
+	// ne sait pas exécuter de commande multi-ligne du tout.
+	script := strings.ReplaceAll(command, "\r\n", "\n")
+	script = strings.ReplaceAll(script, "\n", "\r\n")
+	_, _ = f.WriteString("@echo off\r\n")
+	_, _ = f.WriteString("chcp 65001 >nul\r\n")
+	_, _ = f.WriteString(script + "\r\n")
+	_, _ = f.WriteString("exit /b %errorlevel%\r\n")
+	f.Close()
+	cleanup := func() { _ = os.Remove(batPath) }
+	// `call "chemin"` : les guillemets protègent un TempDir contenant des espaces.
+	return hideCmd(exec.CommandContext(ctx, "cmd", "/c", "call", batPath)), cleanup
 }
 
 // ramUsageMB renvoie (utilisée, totale) en Mo pour /api/ram (GlobalMemoryStatusEx).

@@ -1,10 +1,10 @@
-Petite correction du bloc d'échantillonnage arrivé en 0.9.5.
+Cette version fiabilise le mode agent sous Windows.
 
-## Présence et répétition, deux réglages distincts
+## Les commandes shell ne se cassent plus sur les guillemets et les accents
 
-Le champ « Pénalité de présence » portait le sous-titre « réduit les répétitions », ce qui prêtait à confusion : ce sont deux choses différentes. La présence pousse le modèle vers des mots nouveaux, la répétition est le vrai bouton anti-répétition. Le libellé est corrigé.
+Sous Windows, en mode agent, les commandes partaient à cmd.exe en un seul bloc (`cmd /C "..."`). Or cmd.exe a des règles de guillemets impitoyables : dès qu'une commande contenait des guillemets imbriqués, des caractères spéciaux (`& | < >`) ou des accents, elle se cassait. Le modèle s'en sortait en tâtonnant (il réessayait en PowerShell, puis via un fichier Python), ce qui allongeait chaque réponse de raisonnements inutiles.
 
-Et surtout, la pénalité de répétition manquait carrément à l'interface alors que le moteur savait déjà la recevoir. Un champ **Pénalité de répétition** rejoint donc le bloc Échantillonnage (valeur neutre : 1). Celui qui cherchait comment limiter les répétitions le trouvera maintenant.
+Désormais la commande est écrite dans un petit fichier de commandes temporaire, exécuté proprement : l'analyseur de cmd.exe est bien plus tolérant ligne par ligne, l'encodage UTF-8 est forcé (les accents passent), le code de sortie est préservé, et les commandes sur plusieurs lignes fonctionnent enfin. Le fichier temporaire est nettoyé tout seul après chaque commande. Rien ne change sous Linux et macOS.
 
 ## Mise à jour
 
@@ -12,4 +12,4 @@ Et surtout, la pénalité de répétition manquait carrément à l'interface alo
 ajean update
 ```
 
-Merci à juanpa669 pour le signalement.
+Merci à Cal pour le signalement détaillé et la piste de correction. Corrigé et vérifié directement sous Windows.

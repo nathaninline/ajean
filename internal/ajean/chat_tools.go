@@ -184,7 +184,8 @@ func runShell(parent context.Context, command string, timeoutSec int) string {
 	}
 	ctx, cancel := context.WithTimeout(parent, time.Duration(timeoutSec)*time.Second)
 	defer cancel()
-	cmd := newShellCmd(ctx, command)
+	cmd, cleanup := newShellCmd(ctx, command)
+	defer cleanup()
 	// Le shell démarre dans le workspace, pas dans le dossier d'où ajean a été
 	// lancé : un `> notes.txt` du modèle ne doit pas atterrir sur le Bureau.
 	//
