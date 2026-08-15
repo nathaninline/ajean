@@ -21,12 +21,23 @@ func handleTasks(w http.ResponseWriter, r *http.Request) {
 	conv.mu.Lock()
 	runningID := conv.runningTaskID
 	conv.mu.Unlock()
+	// Presets (id + nom + actif) pour peupler le sélecteur du formulaire de tâche.
+	presets := []map[string]any{}
+	if list, err := ListPresets(); err == nil {
+		for _, p := range list {
+			presets = append(presets, map[string]any{"id": p.ID, "name": p.Name, "active": p.Active})
+		}
+	}
 	sendJSON(w, 200, map[string]any{
 		"ok":         true,
 		"tasks":      tasks,
 		"paused":     tasksPaused(),
 		"agent":      agentEnabled(),
 		"running_id": runningID,
+		"presets":    presets,
+		// État global mémoire/web, pour proposer des défauts cohérents à la création.
+		"mem_on": memMode() != MemOff,
+		"web_on": internetEnabled() && crawlReachable(),
 	})
 }
 
@@ -38,6 +49,10 @@ func handleTaskSave(w http.ResponseWriter, r *http.Request) {
 		Name     string `json:"name"`
 		Prompt   string `json:"prompt"`
 		Schedule string `json:"schedule"`
+		TZ       string `json:"tz"`
+		Preset   string `json:"preset"`
+		NoMem    bool   `json:"no_mem"`
+		NoWeb    bool   `json:"no_web"`
 		Enabled  bool   `json:"enabled"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -51,7 +66,7 @@ func handleTaskSave(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "nom et consigne obligatoires"})
 		return
 	}
-	if err := validateSchedule(req.Schedule); err != nil {
+	if err := validateSchedule(req.Schedule, req.TZ); err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "fréquence invalide : " + err.Error()})
 		return
 	}
@@ -68,9 +83,11 @@ func handleTaskSave(w http.ResponseWriter, r *http.Request) {
 		t.ID = newTaskID()
 	}
 	t.Name, t.Prompt, t.Enabled = req.Name, req.Prompt, req.Enabled
+	t.TZ, t.Preset = req.TZ, req.Preset
+	t.NoMem, t.NoWeb = req.NoMem, req.NoWeb
 	// Recalcule NextRun si la fréquence a changé (ou à la création).
 	if t.Schedule != req.Schedule || t.NextRun == 0 {
-		t.NextRun = computeNextRun(req.Schedule, time.Now())
+		t.NextRun = computeNextRun(req.Schedule, req.TZ, time.Now())
 	}
 	t.Schedule = req.Schedule
 	if err := saveTask(t); err != nil {
@@ -112,7 +129,7 @@ func handleTaskToggle(w http.ResponseWriter, r *http.Request) {
 	}
 	t.Enabled = req.On
 	if req.On {
-		t.NextRun = computeNextRun(t.Schedule, time.Now())
+		t.NextRun = computeNextRun(t.Schedule, t.TZ, time.Now())
 	}
 	if err := saveTask(t); err != nil {
 		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})

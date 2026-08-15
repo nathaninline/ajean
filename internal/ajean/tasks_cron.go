@@ -23,29 +23,102 @@ import (
 // les quelques secondes n'a pas de sens.
 const minInterval = time.Minute
 
+// loc résout un fuseau IANA (ex. « Europe/Paris »). Vide ou introuvable → heure
+// locale du serveur. Nécessaire parce que le serveur tourne souvent en UTC : sans
+// ça, « tous les jours à 23h » et les expressions cron se calculeraient en UTC et
+// se déclencheraient à la mauvaise heure pour l'utilisateur.
+func loc(tz string) *time.Location {
+	if tz == "" {
+		return time.Local
+	}
+	l, err := time.LoadLocation(tz)
+	if err != nil {
+		return time.Local
+	}
+	return l
+}
+
 // nextAfter renvoie le prochain instant (strictement après `from`) où `schedule`
-// se déclenche. Erreur si le schedule est invalide.
-func nextAfter(schedule string, from time.Time) (time.Time, error) {
+// se déclenche, dans le fuseau tz. Erreur si le schedule est invalide.
+//
+// Formes acceptées :
+//   - "@every 30m" / "@every 2h" : intervalle glissant depuis `from`.
+//   - "@every 1d@23:00" : tous les N jours, ancré à une heure de la journée.
+//   - expression cron 5 champs.
+func nextAfter(schedule, tz string, from time.Time) (time.Time, error) {
 	s := strings.TrimSpace(schedule)
 	if s == "" {
 		return time.Time{}, fmt.Errorf("fréquence vide")
 	}
 	if rest, ok := cutPrefix(s, "@every"); ok {
-		d, err := time.ParseDuration(strings.TrimSpace(rest))
-		if err != nil {
-			return time.Time{}, fmt.Errorf("intervalle invalide (ex. « 2h », « 30m ») : %w", err)
-		}
-		if d < minInterval {
-			return time.Time{}, fmt.Errorf("intervalle minimum : 1 minute")
-		}
-		return from.Add(d), nil
+		return nextEvery(strings.TrimSpace(rest), tz, from)
 	}
-	return nextCron(s, from)
+	return nextCron(s, tz, from)
+}
+
+// nextEvery gère les intervalles « @every … », avec ou sans ancre horaire.
+func nextEvery(spec, tz string, from time.Time) (time.Time, error) {
+	durPart, timePart, hasTime := strings.Cut(spec, "@")
+	durPart = strings.TrimSpace(durPart)
+
+	// Jours : time.ParseDuration ne connaît pas « d ». On les gère à part, ce qui
+	// permet aussi l'ancre horaire (« tous les N jours à HH:MM »).
+	if n, ok := cutSuffix(durPart, "d"); ok {
+		days, err := strconv.Atoi(n)
+		if err != nil || days < 1 {
+			return time.Time{}, fmt.Errorf("nombre de jours invalide : %q", durPart)
+		}
+		if !hasTime {
+			return from.Add(time.Duration(days) * 24 * time.Hour), nil
+		}
+		hh, mm, err := parseHHMM(timePart)
+		if err != nil {
+			return time.Time{}, err
+		}
+		l := loc(tz)
+		now := from.In(l)
+		cand := time.Date(now.Year(), now.Month(), now.Day(), hh, mm, 0, 0, l)
+		for !cand.After(now) {
+			cand = cand.AddDate(0, 0, days)
+		}
+		return cand, nil
+	}
+
+	d, err := time.ParseDuration(durPart)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("intervalle invalide (ex. « 2h », « 30m ») : %w", err)
+	}
+	if d < minInterval {
+		return time.Time{}, fmt.Errorf("intervalle minimum : 1 minute")
+	}
+	return from.Add(d), nil
+}
+
+// parseHHMM lit « 23:00 » / « 9:30 » en heures/minutes.
+func parseHHMM(s string) (int, int, error) {
+	hs, ms, ok := strings.Cut(strings.TrimSpace(s), ":")
+	if !ok {
+		return 0, 0, fmt.Errorf("heure invalide (attendu HH:MM) : %q", s)
+	}
+	h, err1 := strconv.Atoi(strings.TrimSpace(hs))
+	m, err2 := strconv.Atoi(strings.TrimSpace(ms))
+	if err1 != nil || err2 != nil || h < 0 || h > 23 || m < 0 || m > 59 {
+		return 0, 0, fmt.Errorf("heure hors bornes : %q", s)
+	}
+	return h, m, nil
+}
+
+// cutSuffix : strings.CutSuffix (Go 1.20+) réécrit pour rester lisible ici.
+func cutSuffix(s, suffix string) (string, bool) {
+	if strings.HasSuffix(s, suffix) {
+		return s[:len(s)-len(suffix)], true
+	}
+	return "", false
 }
 
 // validateSchedule vérifie qu'un schedule est acceptable, sans calculer de date.
-func validateSchedule(schedule string) error {
-	_, err := nextAfter(schedule, time.Now())
+func validateSchedule(schedule, tz string) error {
+	_, err := nextAfter(schedule, tz, time.Now())
 	return err
 }
 
@@ -57,13 +130,14 @@ type cronSpec struct {
 // nextCron parse une expression cron 5 champs et cherche le prochain match à la
 // minute, en partant de la minute qui suit `from`. Une borne (~366 j) évite une
 // boucle infinie sur une expression jamais satisfiable (ex. « 31 février »).
-func nextCron(expr string, from time.Time) (time.Time, error) {
+func nextCron(expr, tz string, from time.Time) (time.Time, error) {
 	spec, err := parseCron(expr)
 	if err != nil {
 		return time.Time{}, err
 	}
-	// On repart de la minute suivante, secondes/nanos remis à zéro.
-	t := from.Truncate(time.Minute).Add(time.Minute)
+	// On repart de la minute suivante, dans le fuseau visé (l'heure murale de
+	// l'expression cron est celle de l'utilisateur, pas celle du serveur).
+	t := from.In(loc(tz)).Truncate(time.Minute).Add(time.Minute)
 	limit := t.Add(366 * 24 * time.Hour)
 	for ; t.Before(limit); t = t.Add(time.Minute) {
 		if spec.matches(t) {

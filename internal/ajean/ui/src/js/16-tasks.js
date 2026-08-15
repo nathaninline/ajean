@@ -7,6 +7,9 @@
 let tasksList = [];
 let taskEditing = null; // id en cours d'édition ('' = nouvelle, null = fermé)
 let TASK_RUNNING = '';  // id de la tâche en cours d'exécution ('' = aucune)
+let TASK_PRESETS = [];  // presets disponibles (pour le sélecteur de la modale)
+let TASK_MEM_ON = true; // état mémoire global (défaut d'une nouvelle tâche)
+let TASK_WEB_ON = true; // état web global (défaut d'une nouvelle tâche)
 let tasksPollTimer = null;
 
 async function loadTasks(){ renderTasks(await jget('/api/tasks')); }
@@ -26,6 +29,9 @@ function renderTasks(r){
   tasksList = (r && r.tasks) || [];
   const paused = !!(r && r.paused);
   const agentOn = !!(r && r.agent);
+  TASK_PRESETS = (r && r.presets) || [];
+  TASK_MEM_ON = !r || r.mem_on !== false;
+  TASK_WEB_ON = !r || r.web_on !== false;
   TASK_RUNNING = (r && r.running_id) || '';
   ensureTasksPoll();
   const pc = document.getElementById('tasks-pause-toggle');
@@ -41,7 +47,7 @@ function renderTasks(r){
   const list = document.getElementById('tasks-list');
   list.textContent = '';
   if(!tasksList.length){
-    list.innerHTML = '<div class="muted" style="font-size:12px">(aucune tâche — ex. « toutes les 2h, regarde mes mails et prépare des brouillons de réponse »)</div>';
+    list.innerHTML = '<div class="muted" style="font-size:12px">(aucune tâche)</div>';
     return;
   }
   tasksList.forEach(t=>{
@@ -73,6 +79,11 @@ function renderTasks(r){
     } else {
       const fr = document.createElement('span'); fr.className = 'mcp-tag';
       fr.textContent = scheduleLabel(t.schedule); meta.appendChild(fr);
+      if(t.preset){
+        const pr = document.createElement('span'); pr.className = 'mcp-tag';
+        const pn = (TASK_PRESETS.find(p=>p.id===t.preset)||{}).name || t.preset;
+        pr.textContent = pn; pr.title = 'preset : '+pn; meta.appendChild(pr);
+      }
       if(t.enabled && t.next_run){
         const nx = document.createElement('span'); nx.className = 'mcp-tools';
         nx.textContent = 'prochaine : '+fmtWhen(t.next_run);
@@ -127,20 +138,29 @@ function fmtWhen(ms){
   return p(d.getDate())+'/'+p(d.getMonth()+1)+' '+p(d.getHours())+':'+p(d.getMinutes());
 }
 
+// fmtDur met une durée en ms sous forme lisible (« 8 s », « 2 min 5 s »).
+function fmtDur(ms){
+  const s = ms/1000;
+  if(s < 60) return (s<10 ? s.toFixed(1) : Math.round(s))+' s';
+  const m = Math.floor(s/60), r = Math.round(s%60);
+  return m+' min'+(r ? ' '+r+' s' : '');
+}
+
 // scheduleLabel rend une fréquence lisible pour la pastille de la liste.
 function scheduleLabel(s){
   s = (s||'').trim();
   const m = /^@every\s+(.+)$/i.exec(s);
   if(m){
     const d = m[1].trim();
-    const mm = /^(\d+)(m|h|d)$/.exec(d);
+    const mm = /^(\d+)(m|h|d)(?:@(\d{1,2}:\d{2}))?$/.exec(d);
     if(mm){
-      let n = parseInt(mm[1], 10), u = mm[2];
-      // Les jours sont stockés en heures (time.ParseDuration ne connaît pas « d ») :
-      // on les reconvertit pour l'affichage quand c'est un multiple de 24.
+      let n = parseInt(mm[1], 10), u = mm[2]; const tm = mm[3];
+      // Anciennes tâches « jours » stockées en heures (multiple de 24).
       if(u === 'h' && n % 24 === 0 && n >= 24){ n = n/24; u = 'd'; }
       const ul = {m:'min', h:'h', d:'jour'}[u] || u;
-      return 'toutes les '+n+' '+ul+((u==='d'&&n>1)?'s':'');
+      let lbl = 'toutes les '+n+' '+ul+((u==='d'&&n>1)?'s':'');
+      if(u==='d' && tm) lbl += ' à '+tm;
+      return lbl;
     }
     return 'toutes les '+d;
   }
@@ -168,19 +188,28 @@ function openTask(id){
   document.getElementById('task-name').value = t ? t.name : '';
   document.getElementById('task-prompt').value = t ? t.prompt : '';
   document.getElementById('task-enabled').checked = t ? !!t.enabled : true;
+  // Accès mémoire/web : sur une tâche existante on lit son réglage (no_mem/no_web,
+  // stockés en négation) ; sur une nouvelle on suit l'état global de la machine.
+  document.getElementById('task-mem').checked = t ? !t.no_mem : TASK_MEM_ON;
+  document.getElementById('task-web').checked = t ? !t.no_web : TASK_WEB_ON;
+  fillPresetSelect(t ? (t.preset||'') : '');
 
-  // Décompose le schedule en intervalle (par défaut) ou cron.
+  // Décompose le schedule en intervalle (par défaut) ou cron. Forme intervalle :
+  // « @every N(m|h|d)[@HH:MM] » (l'heure n'existe que pour les jours).
   const sched = t ? (t.schedule||'') : '@every 2h';
-  const m = /^@every\s+(\d+)(m|h|d)\s*$/i.exec(sched);
+  const m = /^@every\s+(\d+)(m|h|d)(?:@(\d{1,2}:\d{2}))?\s*$/i.exec(sched);
+  document.getElementById('task-time').value = '09:00';
   if(m || !t){
     setTaskFreqMode('interval');
     document.getElementById('task-interval-n').value = m ? m[1] : '2';
     document.getElementById('task-interval-unit').value = m ? m[2] : 'h';
+    if(m && m[3]){ const tm = m[3]; document.getElementById('task-time').value = tm.length===4 ? '0'+tm : tm; }
     document.getElementById('task-cron').value = '';
   } else {
     setTaskFreqMode('cron');
     document.getElementById('task-cron').value = sched;
   }
+  taskUnitUI();
 
   document.getElementById('task-modal-status').textContent = '';
   renderTaskResult(t);
@@ -205,7 +234,10 @@ function renderTaskResult(t){
     box.textContent = 'exécution en cours…';
     return;
   }
-  when.textContent = t.last_run ? '· '+new Date(t.last_run).toLocaleString() : '';
+  const parts = [];
+  if(t.last_run) parts.push(new Date(t.last_run).toLocaleString());
+  if(t.last_dur_ms) parts.push('en '+fmtDur(t.last_dur_ms));
+  when.textContent = parts.length ? '· '+parts.join('  ·  ') : '';
   if(!t.last_ok){
     box.classList.add('report-err');
     box.textContent = 'Échec : '+(t.last_error||'erreur inconnue');
@@ -218,6 +250,21 @@ function renderTaskResult(t){
 
 function closeTask(){ hideModal('task-modal'); taskEditing = null; }
 
+// fillPresetSelect peuple le sélecteur de preset. Première option = « preset
+// actif » (vide) : la tâche utilise le modèle en cours au moment de l'exécution.
+function fillPresetSelect(selected){
+  const sel = document.getElementById('task-preset');
+  sel.textContent = '';
+  const opt0 = document.createElement('option'); opt0.value = ''; opt0.textContent = 'preset actif';
+  sel.appendChild(opt0);
+  TASK_PRESETS.forEach(p=>{
+    const o = document.createElement('option'); o.value = p.id;
+    o.textContent = p.name + (p.active ? ' (actif)' : '');
+    sel.appendChild(o);
+  });
+  sel.value = selected || '';
+}
+
 function setTaskFreqMode(mode){
   const r = document.querySelector('input[name="task-freq-mode"][value="'+mode+'"]');
   if(r) r.checked = true;
@@ -226,6 +273,14 @@ function setTaskFreqMode(mode){
 function taskFreqUI(mode){
   document.getElementById('task-interval-fields').style.display = mode==='interval' ? '' : 'none';
   document.getElementById('task-cron-fields').style.display = mode==='cron' ? '' : 'none';
+  taskUnitUI();
+}
+// taskUnitUI : la ligne « À (heure) » n'apparaît que pour un intervalle en JOURS
+// (« tous les N jours à HH:MM »). Sans intérêt pour des minutes/heures.
+function taskUnitUI(){
+  const mode = (document.querySelector('input[name="task-freq-mode"]:checked')||{}).value;
+  const unit = document.getElementById('task-interval-unit').value;
+  document.getElementById('task-time-row').style.display = (mode==='interval' && unit==='d') ? '' : 'none';
 }
 
 // buildSchedule sérialise l'état du formulaire de fréquence en chaîne serveur.
@@ -235,8 +290,11 @@ function buildSchedule(){
   const n = parseInt(document.getElementById('task-interval-n').value, 10);
   const u = document.getElementById('task-interval-unit').value;
   if(!n || n < 1) return '';
-  // Le serveur ne connaît que m/h de time.ParseDuration : les jours deviennent des heures.
-  if(u === 'd') return '@every '+(n*24)+'h';
+  // Jours : on ancre à une heure de la journée (« @every Nd@HH:MM »).
+  if(u === 'd'){
+    const tm = document.getElementById('task-time').value || '09:00';
+    return '@every '+n+'d@'+tm;
+  }
   return '@every '+n+u;
 }
 
@@ -245,10 +303,14 @@ async function saveTask(){
   const prompt = document.getElementById('task-prompt').value.trim();
   const schedule = buildSchedule();
   const enabled = document.getElementById('task-enabled').checked;
+  const preset = document.getElementById('task-preset').value;
+  const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || '';
+  const no_mem = !document.getElementById('task-mem').checked;
+  const no_web = !document.getElementById('task-web').checked;
   const st = document.getElementById('task-modal-status');
   if(!name || !prompt){ st.textContent = 'nom et consigne obligatoires'; st.style.color = 'var(--err)'; return; }
   if(!schedule){ st.textContent = 'fréquence invalide'; st.style.color = 'var(--err)'; return; }
-  const r = await jpost('/api/tasks/save', {id: taskEditing||'', name, prompt, schedule, enabled});
+  const r = await jpost('/api/tasks/save', {id: taskEditing||'', name, prompt, schedule, enabled, preset, tz, no_mem, no_web});
   if(!r || !r.ok){ st.textContent = (r && r.error) || 'échec'; st.style.color = 'var(--err)'; return; }
   closeTask();
   await loadTasks();
@@ -270,7 +332,7 @@ async function runTaskNow(){
   const st = document.getElementById('task-modal-status');
   const r = await jpost('/api/tasks/run', {id: taskEditing});
   if(r && r.ok){
-    st.textContent = 'lancée — suis son avancement dans la liste';
+    st.textContent = 'lancée, suis son avancement dans la liste';
     st.style.color = '';
     closeTask();
     // Rafraîchit tout de suite : loadTasks détecte running_id et lance le sondage

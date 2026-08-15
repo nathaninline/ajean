@@ -13,6 +13,7 @@ package ajean
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -83,7 +84,17 @@ const reportMax = 4000
 // run, succès/échec, compte-rendu). Relit la tâche juste avant d'écrire pour ne
 // pas écraser une modification concurrente (toggle/édition depuis l'UI).
 func runTask(t Task) {
-	report, err := conv.RunAutonomous(context.Background(), t.ID, t.Name, t.Prompt, globalCaps(), 0)
+	start := time.Now()
+
+	// Preset épinglé : on bascule le moteur dessus AVANT d'exécuter (rechargement du
+	// modèle). Vide = on garde le preset actif. Un échec de bascule est un vrai échec
+	// de la tâche (on ne veut pas la faire tourner sur le mauvais modèle).
+	if err := ensureTaskPreset(t.Preset); err != nil {
+		recordTaskEnd(t.ID, start, "", fmt.Errorf("changement de preset : %w", err))
+		return
+	}
+
+	report, err := conv.RunAutonomous(context.Background(), t.ID, t.Name, t.Prompt, taskCaps(t), 0)
 
 	// Occupé ou modèle pas encore prêt : ce n'est pas un échec de la tâche, juste
 	// un mauvais moment. On ne touche pas à son état (NextRun reste dans le passé)
@@ -91,14 +102,85 @@ func runTask(t Task) {
 	if err == ErrBusy || err == errModelLoading {
 		return
 	}
+	recordTaskEnd(t.ID, start, report, err)
+}
 
+// taskCaps dérive les capacités d'une tâche : on part du mode agent de la machine
+// (qui débloque les outils), puis on applique les réglages propres à la tâche pour
+// la mémoire et le web. Le web reste borné à ce que la machine offre réellement
+// (serveur Crawl4AI configuré et joignable) : une tâche ne peut pas l'inventer.
+func taskCaps(t Task) Caps {
+	c := Caps{Agent: agentEnabled()}
+	if !c.Agent {
+		return c // agent coupé : aucun outil, mémoire et web n'ont pas de sens
+	}
+	if t.NoWeb {
+		c.Internet = false
+	} else {
+		c.Internet = internetEnabled() && crawlReachable()
+	}
+	if t.NoMem {
+		c.Mem = MemOff
+	} else if m := memMode(); m == MemOff {
+		// La tâche veut la mémoire mais la machine l'a coupée globalement : on donne
+		// au moins les outils à la demande, sans l'injection proactive.
+		c.Mem = MemOnDemand
+	} else {
+		c.Mem = m
+	}
+	return c
+}
+
+// ensureTaskPreset bascule le moteur sur le preset d'id `id` s'il n'est pas déjà
+// actif, puis attend que le modèle ait rechargé. Vide = rien à faire.
+func ensureTaskPreset(id string) error {
+	if id == "" {
+		return nil
+	}
+	list, err := ListPresets()
+	if err != nil {
+		return err
+	}
+	var target *Preset
+	for i := range list {
+		if list[i].ID == id {
+			target = &list[i]
+			break
+		}
+	}
+	if target == nil {
+		return fmt.Errorf("preset introuvable : %s", id)
+	}
+	if target.Active {
+		return nil
+	}
+	if err := SwitchToPreset(target.Path); err != nil {
+		return err
+	}
+	// Le service redémarre : on attend que le modèle réponde à nouveau (le
+	// chargement d'un gros modèle peut prendre un moment).
+	deadline := time.Now().Add(4 * time.Minute)
+	for time.Now().Before(deadline) {
+		if healthCheck() {
+			return nil
+		}
+		time.Sleep(3 * time.Second)
+	}
+	return fmt.Errorf("le modèle n'a pas fini de charger après le changement de preset")
+}
+
+// recordTaskEnd met à jour l'état persisté d'une tâche après une exécution :
+// durée, dernier passage, prochain passage, succès/échec, compte-rendu. Relit la
+// tâche juste avant d'écrire pour ne pas écraser une modification concurrente.
+func recordTaskEnd(id string, start time.Time, report string, err error) {
 	now := time.Now()
-	cur, ok := getTask(t.ID)
+	cur, ok := getTask(id)
 	if !ok {
 		return // supprimée entre-temps : rien à écrire
 	}
+	cur.LastDurMs = now.Sub(start).Milliseconds()
 	cur.LastRun = now.UnixMilli()
-	cur.NextRun = computeNextRun(cur.Schedule, now)
+	cur.NextRun = computeNextRun(cur.Schedule, cur.TZ, now)
 	if errors.Is(err, context.Canceled) {
 		// Arrêt volontaire (bouton stop) : ce n'est pas un échec. On garde la trace
 		// « interrompue » sans allumer l'indicateur rouge d'erreur.

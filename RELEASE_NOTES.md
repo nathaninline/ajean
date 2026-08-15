@@ -1,19 +1,22 @@
-Cette version ajoute les tâches planifiées : l'IA peut travailler toute seule, en arrière-plan, sur une fréquence que tu règles.
+Cette version intègre pleinement les tâches planifiées : l'IA peut travailler toute seule, en arrière-plan, sur une fréquence que tu règles, avec un vrai contrôle sur ce qu'elle a le droit de faire.
 
 ## Tâches planifiées
 
-Tu peux maintenant créer des tâches que l'IA exécute automatiquement, sans toi. Par exemple : toutes les 2 heures, regarder tes nouveaux mails et te préparer des brouillons de réponse. Chaque tâche est une consigne en langage naturel plus une fréquence.
+Tu crées une tâche en écrivant une consigne en langage naturel et en choisissant sa fréquence. L'IA l'exécute automatiquement, isolée de ta conversation, et agit avec ses propres outils (mail via un serveur MCP, fichiers, web). Le mode agent doit être actif pour qu'une tâche puisse faire quelque chose.
 
-Ce qu'on peut faire :
+Ce qui est nouveau ou complété dans cette version :
 
-* Régler la fréquence en intervalle simple (toutes les N minutes, heures ou jours) ou en horaire précis (expression cron, ex. tous les jours ouvrés à 9h).
-* Activer ou désactiver chaque tâche individuellement.
-* Suspendre toutes les tâches d'un coup avec un interrupteur maître, pratique quand tu veux juste discuter sans être dérangé.
-* Lancer une tâche à la main pour la tester, et voir son dernier compte-rendu (rendu en markdown) directement dans l'interface.
+* Fréquence en intervalle simple (toutes les N minutes, heures ou jours) ou en horaire précis (expression cron).
+* Choix de l'heure pour les intervalles en jours, par exemple tous les jours à 23h. L'heure est interprétée dans ton fuseau, plus dans celui du serveur, donc fini le décalage.
+* Choix du preset (donc du modèle) utilisé par la tâche : le preset actif par défaut, ou un preset précis que la tâche activera avant de s'exécuter.
+* Réglage par tâche de l'accès à la mémoire et de l'accès au web, indépendamment l'un de l'autre.
+* Activer ou désactiver chaque tâche, ou tout suspendre d'un coup avec un interrupteur maître pour discuter tranquille.
+* Bouton pour lancer une tâche à la main et suivre son exécution en direct dans la liste, avec possibilité de l'arrêter.
+* Compte-rendu du dernier passage affiché en markdown, avec l'état, l'horodatage à ton heure locale et le temps que la tâche a mis.
 
-Comment ça marche : une tâche tourne isolée de ta conversation (elle ne pollue pas le fil), avec les mêmes outils que le mode agent. C'est l'IA elle-même qui agit avec ses outils (mail via un serveur MCP, shell, accès web). Le mode agent doit donc être actif pour qu'une tâche puisse faire quoi que ce soit, et ta consigne doit dire explicitement quoi faire du résultat.
+## Fonctionnement
 
-Une seule génération tourne à la fois : si tu discutes au moment où une tâche est due, elle attend son tour, et inversement tu peux arrêter une tâche en cours depuis la liste ou depuis le chat.
+Une seule génération tourne à la fois : si tu discutes au moment où une tâche est due, elle attend son tour, et inversement. Une tâche épinglée sur un autre preset recharge le modèle correspondant avant de s'exécuter.
 
 ## Mise à jour
 
@@ -21,4 +24,4 @@ Une seule génération tourne à la fois : si tu discutes au moment où une tâc
 ajean update
 ```
 
-Note : le système d'ordonnancement est nouveau, teste tes premières tâches sur des fréquences courtes avant de leur faire confiance sur des créneaux plus longs.
+Note : le système d'ordonnancement est jeune, teste tes premières tâches sur des fréquences courtes avant de leur confier des créneaux plus longs.

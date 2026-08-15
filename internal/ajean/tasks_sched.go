@@ -38,7 +38,7 @@ func primeNextRuns() {
 	now := time.Now()
 	for _, t := range listTasks() {
 		if t.Enabled && t.NextRun == 0 {
-			t.NextRun = computeNextRun(t.Schedule, now)
+			t.NextRun = computeNextRun(t.Schedule, t.TZ, now)
 			_ = saveTask(t)
 		}
 	}
@@ -60,7 +60,7 @@ func tickTasks(now time.Time) {
 		if t.NextRun == 0 {
 			// Priming raté (schedule invalide) ou tâche neuve : on tente de le poser,
 			// sans la déclencher ce tour-ci.
-			t.NextRun = computeNextRun(t.Schedule, now)
+			t.NextRun = computeNextRun(t.Schedule, t.TZ, now)
 			_ = saveTask(t)
 			continue
 		}

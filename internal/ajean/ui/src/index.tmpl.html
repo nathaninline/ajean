@@ -160,12 +160,12 @@
          MCP, shell…). D'où l'avertissement quand le mode agent est off : sans
          lui, aucune tâche ne peut agir. -->
     <div class="slist">
-      <label class="switchrow"><span class="switch"><input type="checkbox" id="tasks-pause-toggle" onchange="toggleTasksPause()"><span class="slider"></span></span> suspendre toutes les tâches<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Interrupteur maître : coche pour que <b>plus aucune tâche</b> ne se déclenche — pratique quand tu veux discuter tranquille. Les tâches individuelles gardent leur réglage et repartent quand tu décoches.</span></span></label>
+      <label class="switchrow"><span class="switch"><input type="checkbox" id="tasks-pause-toggle" onchange="toggleTasksPause()"><span class="slider"></span></span> suspendre toutes les tâches<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Interrupteur maître : coche pour que plus aucune tâche ne se déclenche. Les tâches gardent leur réglage et repartent quand tu décoches.</span></span></label>
     </div>
     <div id="tasks-agent-warn" class="muted" style="display:none;font-size:12px;line-height:1.5;margin:8px 2px">Le <b>mode agent</b> est désactivé : les tâches s'exécuteront mais l'IA n'aura <b>aucun outil</b> pour agir (envoyer un mail, lire des fichiers…). Active le mode agent ci-dessus.</div>
     <div class="slist">
       <div class="rowbody">
-        <div id="tasks-list" class="mcp-list"><div class="muted" style="font-size:12px">(aucune tâche — ex. « toutes les 2h, regarde mes mails et prépare des brouillons de réponse »)</div></div>
+        <div id="tasks-list" class="mcp-list"><div class="muted" style="font-size:12px">(aucune tâche)</div></div>
         <button class="addbtn" style="margin-top:6px" onclick="openTask('')">+ ajouter une tâche</button>
       </div>
     </div>
@@ -589,7 +589,7 @@
       <div class="pe-group">
         <div class="pe-gh">Nom</div>
         <div class="pe-list">
-          <div class="pe-row stack plain"><input id="task-name" class="pe-inp" placeholder="Brouillons de réponse aux mails"></div>
+          <div class="pe-row stack plain"><input id="task-name" class="pe-inp" placeholder="Nom de la tâche"></div>
         </div>
       </div>
 
@@ -597,8 +597,17 @@
         <div class="pe-gh">Consigne</div>
         <div class="pe-list">
           <div class="pe-row stack">
-            <span class="pe-row-l">Ce que l'IA doit faire<span class="pe-sub">dis-lui aussi comment livrer le résultat, ex. « envoie-le-moi par mail »</span></span>
-            <textarea id="task-prompt" class="pe-inp" spellcheck="false" style="min-height:120px;resize:vertical;line-height:1.5" placeholder="Regarde mes nouveaux mails. Pour ceux qui attendent une réponse, prépare un brouillon et envoie-le-moi par mail."></textarea>
+            <textarea id="task-prompt" class="pe-inp" spellcheck="false" style="min-height:120px;resize:vertical;line-height:1.5" placeholder="Ce que l'IA doit faire, et comment livrer le résultat."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="pe-group">
+        <div class="pe-gh">Preset</div>
+        <div class="pe-list">
+          <div class="pe-row">
+            <span class="pe-row-l">Modèle utilisé</span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="task-preset"></select></span></span>
           </div>
         </div>
       </div>
@@ -614,16 +623,34 @@
             <span class="pe-row-l">Toutes les</span>
             <span class="pe-row-c">
               <input id="task-interval-n" class="pe-val" type="number" min="1" value="2" style="width:54px">
-              <span class="pe-selc"><select id="task-interval-unit">
+              <span class="pe-selc"><select id="task-interval-unit" onchange="taskUnitUI()">
                 <option value="m">minutes</option>
                 <option value="h" selected>heures</option>
                 <option value="d">jours</option>
               </select></span>
             </span>
           </div>
+          <div id="task-time-row" class="pe-row" style="display:none">
+            <span class="pe-row-l">À</span>
+            <span class="pe-row-c"><input id="task-time" class="pe-val" type="time" value="09:00" style="width:110px"></span>
+          </div>
           <div id="task-cron-fields" class="pe-row stack" style="display:none">
             <input id="task-cron" class="pe-inp" placeholder="0 9 * * 1-5" spellcheck="false" style="font-family:var(--mono)">
-            <div class="pe-note"><code>minute heure jour mois jour-semaine</code> — ex. <code>0 9 * * 1-5</code> = jours ouvrés à 9h · <code>*/30 * * * *</code> = toutes les 30 min.</div>
+            <div class="pe-note"><code>minute heure jour mois jour-semaine</code></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pe-group">
+        <div class="pe-gh">Accès</div>
+        <div class="pe-list">
+          <div class="pe-row">
+            <span class="pe-row-l">Accès à la mémoire</span>
+            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="task-mem" checked><span class="pe-sl"></span></label></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">Accès au web</span>
+            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="task-web" checked><span class="pe-sl"></span></label></span>
           </div>
         </div>
       </div>
@@ -631,7 +658,7 @@
       <div class="pe-group">
         <div class="pe-list">
           <div class="pe-row">
-            <span class="pe-row-l">Tâche active<span class="pe-sub">décoche pour la garder sans qu'elle se déclenche</span></span>
+            <span class="pe-row-l">Tâche active</span>
             <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="task-enabled" checked><span class="pe-sl"></span></label></span>
           </div>
         </div>
