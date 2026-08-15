@@ -56,6 +56,13 @@ type Conversation struct {
 	Generating bool               `json:"-"`
 	cancel     context.CancelFunc // annule la génération en cours (/stop)
 	epoch      int                // incrémenté à chaque reset → invalide les abonnés
+
+	// Quand le verrou de génération est pris par une TÂCHE de fond (RunAutonomous)
+	// et non par un tour utilisateur, on retient son id/nom : l'UI affiche alors
+	// « tâche en cours » au lieu de faire croire à l'utilisateur qu'il génère, et
+	// le bouton stop s'étiquette en conséquence. Vides = c'est un tour normal.
+	runningTaskID   string
+	runningTaskName string
 }
 
 var conv = func() *Conversation {
@@ -252,7 +259,12 @@ func (c *Conversation) state() map[string]any {
 			turns++
 		}
 	}
-	return map[string]any{"seq": c.Seq, "generating": c.Generating, "ctx_used": c.CtxUsed, "turns": turns}
+	return map[string]any{
+		"seq": c.Seq, "generating": c.Generating, "ctx_used": c.CtxUsed, "turns": turns,
+		// Non vide seulement quand une tâche de fond occupe le verrou de génération.
+		"running_task":    c.runningTaskName,
+		"running_task_id": c.runningTaskID,
+	}
 }
 
 // ErrBusy : une génération est déjà en cours (un seul tour à la fois).

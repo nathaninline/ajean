@@ -947,6 +947,45 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .mcp-tool-switch{flex:none;transform:scale(.85)}
 .mcp-tool-name{font-size:12px;color:var(--text);word-break:break-all}
 
+/* Tâches planifiées : ligne en cours d'exécution + modale d'édition. */
+.mcp-row.task-running{border-color:var(--accent);background:var(--accent-bg);cursor:default}
+.task-dot-run{animation:taskpulse 1.1s ease-in-out infinite}
+@keyframes taskpulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
+.task-run-badge{font-size:10px;font-weight:600;color:var(--accent);letter-spacing:.02em}
+.task-stop-btn{flex:none;margin:0;padding:3px 10px;font-size:11px;border-radius:6px;background:var(--danger-bg);border:1px solid var(--err);color:var(--err)}
+.task-stop-btn:hover{background:var(--danger-bg);border-color:var(--err);color:var(--err);opacity:.85}
+/* La modale des tâches emprunte tout le design de l'éditeur de preset (.pe-*) :
+   même largeur, même mise en carte. */
+#task-modal .modal-card{max-width:520px;overflow:hidden}
+#task-modal-status:empty{display:none}
+/* Panneau « Dernier résultat » : le compte-rendu complet de l'IA, lisible et
+   défilable — pas une mini-ligne tronquée. Posé dans une carte .pe-list-like. */
+.task-report{font-size:13px;line-height:1.55;color:var(--text);background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:11px 14px;max-height:240px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+.task-report.report-err{border-color:var(--err);color:var(--err)}
+.task-report.report-run{color:var(--dim);font-style:italic}
+.task-report.report-empty{color:var(--dim)}
+/* Compte-rendu rendu en markdown : c'est du HTML de blocs, donc plus de pre-wrap
+   (sinon les sauts de ligne du HTML généré ajoutent des lignes vides). Styles
+   alignés sur ceux des bulles de chat (.msg .body). */
+.task-report.md-report{white-space:normal}
+.md-report>*{margin:.6em 0}
+.md-report>*:first-child{margin-top:0}
+.md-report>*:last-child{margin-bottom:0}
+.md-report h1,.md-report h2,.md-report h3,.md-report h4{font-weight:600;line-height:1.25;margin:.9em 0 .4em}
+.md-report h1{font-size:1.2em}.md-report h2{font-size:1.1em}.md-report h3{font-size:1em}.md-report h4{font-size:.95em}
+.md-report ul,.md-report ol{padding-left:1.4em;margin:.5em 0}
+.md-report li{margin:.15em 0}
+.md-report li>p{margin:0}
+.md-report code{background:var(--code-bg);padding:1px 5px;border-radius:3px;font-size:.9em;word-break:break-word}
+.md-report pre{background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:10px;overflow-x:auto;max-width:100%;margin:.5em 0}
+.md-report pre code{background:transparent;padding:0;font-size:.85em;line-height:1.4}
+.md-report blockquote{border-left:3px solid var(--border);padding:0 0 0 10px;margin:.4em 0;color:var(--dim)}
+.md-report a{color:var(--accent);text-decoration:none}
+.md-report a:hover{text-decoration:underline}
+.md-report table{border-collapse:collapse;margin:.5em 0}
+.md-report th,.md-report td{border:1px solid var(--border);padding:4px 8px}
+.md-report hr{border:none;border-top:1px solid var(--border);margin:.6em 0}
+
 /* Accès OpenAI / Accès distant : champs lecture seule (URL, clé) + libellés
    compacts, pour une présentation homogène et sans surcharge visuelle. */
 .io-input{flex:1;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:8px 10px;font:inherit;font-size:13px}
@@ -1320,6 +1359,23 @@ button:hover{border-color:var(--dim);color:var(--text)}
       <div class="subhead">Paramètres</div>
       <div class="slist">
         <label class="switchrow"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> compactage automatique du contexte<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
+      </div>
+    </div>
+  </details>
+  <details id="tasks-details"><summary><span class="stitle">Tâches</span><span id="tasks-badge" class="sbadge"></span></summary>
+    <!-- Tâches planifiées : l'IA exécute une consigne toute seule sur une
+         fréquence réglable (voir tasks.go). Chaque tâche tourne ISOLÉE de la
+         conversation — elle livre son résultat via les outils de l'IA (mail via
+         MCP, shell…). D'où l'avertissement quand le mode agent est off : sans
+         lui, aucune tâche ne peut agir. -->
+    <div class="slist">
+      <label class="switchrow"><span class="switch"><input type="checkbox" id="tasks-pause-toggle" onchange="toggleTasksPause()"><span class="slider"></span></span> suspendre toutes les tâches<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Interrupteur maître : coche pour que <b>plus aucune tâche</b> ne se déclenche — pratique quand tu veux discuter tranquille. Les tâches individuelles gardent leur réglage et repartent quand tu décoches.</span></span></label>
+    </div>
+    <div id="tasks-agent-warn" class="muted" style="display:none;font-size:12px;line-height:1.5;margin:8px 2px">Le <b>mode agent</b> est désactivé : les tâches s'exécuteront mais l'IA n'aura <b>aucun outil</b> pour agir (envoyer un mail, lire des fichiers…). Active le mode agent ci-dessus.</div>
+    <div class="slist">
+      <div class="rowbody">
+        <div id="tasks-list" class="mcp-list"><div class="muted" style="font-size:12px">(aucune tâche — ex. « toutes les 2h, regarde mes mails et prépare des brouillons de réponse »)</div></div>
+        <button class="addbtn" style="margin-top:6px" onclick="openTask('')">+ ajouter une tâche</button>
       </div>
     </div>
   </details>
@@ -1724,6 +1780,83 @@ button:hover{border-color:var(--dim);color:var(--text)}
       </div>
       <div id="node-hub-list" class="mcp-list"></div>
       <button class="addbtn" style="margin-top:10px" onclick="openNodePair()">+ appairer un poste</button>
+    </div>
+  </div>
+</div>
+<div id="task-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeTask()">
+  <div class="modal-card">
+    <div class="modal-head">
+      <strong id="task-modal-title">Tâche planifiée</strong>
+      <button class="modal-x" onclick="closeTask()" aria-label="Fermer">×</button>
+    </div>
+    <div class="pe-body">
+      <div id="task-result-block" class="pe-group" style="display:none">
+        <div class="pe-gh">Dernier résultat <span id="task-result-when" class="pe-sub" style="display:inline;margin:0"></span></div>
+        <div id="task-result" class="task-report"></div>
+      </div>
+
+      <div class="pe-group">
+        <div class="pe-gh">Nom</div>
+        <div class="pe-list">
+          <div class="pe-row stack plain"><input id="task-name" class="pe-inp" placeholder="Brouillons de réponse aux mails"></div>
+        </div>
+      </div>
+
+      <div class="pe-group">
+        <div class="pe-gh">Consigne</div>
+        <div class="pe-list">
+          <div class="pe-row stack">
+            <span class="pe-row-l">Ce que l'IA doit faire<span class="pe-sub">dis-lui aussi comment livrer le résultat, ex. « envoie-le-moi par mail »</span></span>
+            <textarea id="task-prompt" class="pe-inp" spellcheck="false" style="min-height:120px;resize:vertical;line-height:1.5" placeholder="Regarde mes nouveaux mails. Pour ceux qui attendent une réponse, prépare un brouillon et envoie-le-moi par mail."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="pe-group">
+        <div class="pe-gh">Fréquence</div>
+        <div class="pe-seg">
+          <label><input type="radio" name="task-freq-mode" value="interval" onchange="taskFreqUI('interval')"><span>Intervalle</span></label>
+          <label><input type="radio" name="task-freq-mode" value="cron" onchange="taskFreqUI('cron')"><span>Horaire précis</span></label>
+        </div>
+        <div class="pe-list" style="margin-top:8px">
+          <div id="task-interval-fields" class="pe-row">
+            <span class="pe-row-l">Toutes les</span>
+            <span class="pe-row-c">
+              <input id="task-interval-n" class="pe-val" type="number" min="1" value="2" style="width:54px">
+              <span class="pe-selc"><select id="task-interval-unit">
+                <option value="m">minutes</option>
+                <option value="h" selected>heures</option>
+                <option value="d">jours</option>
+              </select></span>
+            </span>
+          </div>
+          <div id="task-cron-fields" class="pe-row stack" style="display:none">
+            <input id="task-cron" class="pe-inp" placeholder="0 9 * * 1-5" spellcheck="false" style="font-family:var(--mono)">
+            <div class="pe-note"><code>minute heure jour mois jour-semaine</code> — ex. <code>0 9 * * 1-5</code> = jours ouvrés à 9h · <code>*/30 * * * *</code> = toutes les 30 min.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pe-group">
+        <div class="pe-list">
+          <div class="pe-row">
+            <span class="pe-row-l">Tâche active<span class="pe-sub">décoche pour la garder sans qu'elle se déclenche</span></span>
+            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="task-enabled" checked><span class="pe-sl"></span></label></span>
+          </div>
+        </div>
+      </div>
+
+      <div id="task-modal-status" class="pe-seg-note" style="padding:0 6px"></div>
+    </div>
+    <div class="pe-foot">
+      <div class="foot-l">
+        <button id="task-del" class="pe-del" onclick="deleteTaskUI()" title="supprimer" aria-label="supprimer" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
+      </div>
+      <div class="foot-r">
+        <button id="task-run" class="pe-btn" onclick="runTaskNow()" style="display:none">tester maintenant</button>
+        <button class="pe-btn" onclick="closeTask()">annuler</button>
+        <button class="pe-btn primary" onclick="saveTask()">enregistrer</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2986,7 +3119,7 @@ async function loadAll(){
   // allSettled et pas all : un seul chargement en échec (accès distant coupé,
   // clé API absente…) ne doit pas empêcher la suite — et surtout pas laisser les
   // hauteurs réservées en place pour toujours.
-  await Promise.allSettled([loadStatus(),loadVram(),loadRam(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadNode(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadRemote()]);
+  await Promise.allSettled([loadStatus(),loadVram(),loadRam(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadNode(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadRemote(),loadTasks()]);
   releaseHeights(); // tout est en place : on rend la main et on mesure pour la prochaine fois
 }
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }
@@ -4475,10 +4608,23 @@ function labelTokens(el, role, n, firstTs, lastTs){
 // (sinon user→stop puis turn_done→send à chaque tour rejoué = flottement visible).
 // L'état final est appliqué une seule fois au caught_up via syncSendBtn().
 function setBusy(on){ busy=on; if(!REPLAYING) syncSendBtn(); }
+// RUNNING_TASK = nom de la tâche de fond qui occupe le moteur (vide = un tour
+// utilisateur normal). Sert à distinguer les deux dans le bouton stop : sinon une
+// tâche qui tourne fait croire à l'utilisateur qu'il génère lui-même.
+let RUNNING_TASK='';
 function syncSendBtn(){
   const sb=document.getElementById('send');
   sb.style.display=busy?'none':'inline-block';
-  document.getElementById('stop').style.display=busy?'inline-block':'none';
+  const stop=document.getElementById('stop');
+  stop.style.display=busy?'inline-block':'none';
+  // Étiquette explicite quand c'est une TÂCHE qui occupe le moteur.
+  if(busy && RUNNING_TASK){
+    stop.textContent='arrêter la tâche';
+    stop.title='Tâche « '+RUNNING_TASK+' » en cours';
+  } else {
+    stop.textContent='stop';
+    stop.title='';
+  }
   // Tant que le moteur n'a pas fini de charger le modèle, envoyer ne mène à rien :
   // on bloque le bouton et l'Entrée, et on le DIT sous le champ. `STATUS_SEEN`
   // évite de verrouiller le chat quand /api/status n'a pas encore répondu (ou ne
@@ -4659,9 +4805,15 @@ function stopGen(){ jfetch('/api/chat/stop',{method:'POST'}).catch(()=>{}); toas
 async function reconcileBusy(){
   try{
     const s=await (await jfetch('/api/chat/state')).json();
+    const rt = s.running_task || '';
+    if(rt !== RUNNING_TASK){ RUNNING_TASK = rt; if(!REPLAYING) syncSendBtn(); }
     if(typeof s.generating==='boolean' && s.generating!==busy) setBusy(s.generating);
   }catch(_){}
 }
+// Recalage périodique : une tâche de fond prend le moteur SANS émettre d'événement
+// dans le fil (elle est isolée), donc seul un sondage de l'état permet au bouton de
+// refléter « moteur occupé par une tâche » en direct.
+setInterval(reconcileBusy, 3000);
 // Envoi RÉSILIENT : sur le tunnel E2E, un aller-retour peut échouer transitoirement
 // alors qu'il a en fait abouti (la génération démarre). On réessaie, et un 409
 // (« déjà en cours ») = succès (c'est notre envoi qui est passé). On ne montre une
@@ -5784,5 +5936,288 @@ async function revokeNode(id){
   if(!await askConfirm('Révoquer le poste « '+(n?n.name:'')+' » ? Sa clé sera oubliée et il sera déconnecté.', {title:'Révoquer le poste ?', okText:'Révoquer', danger:true})) return;
   await jpost('/api/node/revoke', {id});
   hideModal('node-pair-modal'); resetNodeFoot(); loadNode(); toast('poste révoqué');
+}
+// ─── Tâches planifiées ───────────────────────────────────────────────────────
+// L'IA exécute une consigne toute seule sur une fréquence réglable (intervalle
+// simple ou cron). Chaque tâche tourne ISOLÉE de la conversation : elle livre son
+// résultat via les propres outils de l'IA (mail via MCP, shell…). L'interrupteur
+// maître (« suspendre toutes les tâches ») permet de tout figer d'un coup pour
+// discuter tranquille. Réutilise le gabarit visuel des serveurs MCP (mcp-row).
+let tasksList = [];
+let taskEditing = null; // id en cours d'édition ('' = nouvelle, null = fermé)
+let TASK_RUNNING = '';  // id de la tâche en cours d'exécution ('' = aucune)
+let tasksPollTimer = null;
+
+async function loadTasks(){ renderTasks(await jget('/api/tasks')); }
+
+// Tant qu'une tâche tourne, on rafraîchit la liste toutes les 2 s (l'exécution est
+// isolée du fil : sans sondage, on ne verrait ni son démarrage ni sa fin). On
+// arrête le sondage dès qu'aucune tâche ne tourne — pas de poll permanent.
+function ensureTasksPoll(){
+  if(TASK_RUNNING && !tasksPollTimer){
+    tasksPollTimer = setInterval(loadTasks, 2000);
+  } else if(!TASK_RUNNING && tasksPollTimer){
+    clearInterval(tasksPollTimer); tasksPollTimer = null;
+  }
+}
+
+function renderTasks(r){
+  tasksList = (r && r.tasks) || [];
+  const paused = !!(r && r.paused);
+  const agentOn = !!(r && r.agent);
+  TASK_RUNNING = (r && r.running_id) || '';
+  ensureTasksPoll();
+  const pc = document.getElementById('tasks-pause-toggle');
+  if(pc) pc.checked = paused;
+  // Avertissement : sans mode agent, une tâche n'a aucun outil pour agir.
+  const warn = document.getElementById('tasks-agent-warn');
+  if(warn) warn.style.display = (tasksList.length && !agentOn) ? '' : 'none';
+  // Pastille : « en cours » l'emporte, sinon le nombre de tâches actives.
+  const nActive = tasksList.filter(t=>t.enabled).length;
+  if(TASK_RUNNING) setBadge('tasks-badge', 'warn', 'en cours');
+  else setBadge('tasks-badge', nActive ? true : null, nActive ? nActive+' active'+(nActive>1?'s':'') : '');
+
+  const list = document.getElementById('tasks-list');
+  list.textContent = '';
+  if(!tasksList.length){
+    list.innerHTML = '<div class="muted" style="font-size:12px">(aucune tâche — ex. « toutes les 2h, regarde mes mails et prépare des brouillons de réponse »)</div>';
+    return;
+  }
+  tasksList.forEach(t=>{
+    const running = (t.id === TASK_RUNNING);
+    const row = document.createElement('div');
+    row.className = 'mcp-row'+(t.enabled?'':' off')+(running?' task-running':'');
+
+    const dot = document.createElement('span');
+    dot.className = 'mcp-dot';
+    if(running){
+      // Point animé pendant l'exécution.
+      dot.classList.add('mcp-dot-ok','task-dot-run');
+    } else if(!t.enabled){ dot.classList.add('mcp-dot-off'); }
+    else if(t.last_run && !t.last_ok){ dot.classList.add('mcp-dot-err'); }
+    else if(t.last_run && t.last_ok){ dot.classList.add('mcp-dot-ok'); }
+    else { dot.classList.add('mcp-dot-off'); }
+    dot.title = running ? 'en cours d’exécution'
+      : (!t.enabled ? 'désactivée'
+      : (t.last_run ? (t.last_ok ? 'dernier passage : ok' : 'dernier passage : échec') : 'jamais exécutée'));
+
+    const info = document.createElement('div');
+    info.className = 'mcp-info';
+    const nm = document.createElement('div'); nm.className = 'mcp-name';
+    nm.textContent = t.name; nm.title = t.name;
+    const meta = document.createElement('div'); meta.className = 'mcp-meta';
+    if(running){
+      const rn = document.createElement('span'); rn.className = 'task-run-badge';
+      rn.textContent = 'en cours…'; meta.appendChild(rn);
+    } else {
+      const fr = document.createElement('span'); fr.className = 'mcp-tag';
+      fr.textContent = scheduleLabel(t.schedule); meta.appendChild(fr);
+      if(t.enabled && t.next_run){
+        const nx = document.createElement('span'); nx.className = 'mcp-tools';
+        nx.textContent = 'prochaine : '+fmtWhen(t.next_run);
+        meta.appendChild(nx);
+      }
+      if(t.last_run && !t.last_ok && t.last_error){
+        const er = document.createElement('span'); er.className = 'mcp-err';
+        er.textContent = 'échec'; er.title = t.last_error;
+        meta.appendChild(er);
+      }
+    }
+    info.appendChild(nm); info.appendChild(meta);
+
+    row.appendChild(dot); row.appendChild(info);
+
+    if(running){
+      // Bouton arrêter : passe par /api/chat/stop (conv.Stop annule le contexte de
+      // la tâche, cf. RunAutonomous).
+      const st = document.createElement('button');
+      st.className = 'task-stop-btn'; st.textContent = 'arrêter';
+      st.onclick = (e)=>{ e.stopPropagation(); stopRunningTask(); };
+      row.appendChild(st);
+    } else {
+      const sw = document.createElement('label'); sw.className = 'switch mcp-switch';
+      sw.onclick = (e)=>e.stopPropagation();
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!t.enabled;
+      cb.onchange = ()=>toggleTask(t.id, cb.checked);
+      const sl = document.createElement('span'); sl.className = 'slider';
+      sw.appendChild(cb); sw.appendChild(sl);
+      const edit = document.createElement('button');
+      edit.className = 'mcp-edit'; edit.title = 'éditer'; edit.textContent = '✎';
+      edit.onclick = (e)=>{ e.stopPropagation(); openTask(t.id); };
+      row.appendChild(sw); row.appendChild(edit);
+    }
+    row.onclick = ()=> running ? null : openTask(t.id);
+    list.appendChild(row);
+  });
+}
+
+async function stopRunningTask(){
+  await jfetch('/api/chat/stop',{method:'POST'}).catch(()=>{});
+  toast('arrêt de la tâche…');
+  setTimeout(loadTasks, 800);
+}
+
+// fmtWhen met en forme un epoch ms dans le FUSEAU du navigateur (jj/mm HH:MM) —
+// le serveur envoie l'horodatage brut, sinon il serait figé en UTC (décalage).
+function fmtWhen(ms){
+  if(!ms) return '';
+  const d = new Date(ms);
+  const p = n => String(n).padStart(2,'0');
+  return p(d.getDate())+'/'+p(d.getMonth()+1)+' '+p(d.getHours())+':'+p(d.getMinutes());
+}
+
+// scheduleLabel rend une fréquence lisible pour la pastille de la liste.
+function scheduleLabel(s){
+  s = (s||'').trim();
+  const m = /^@every\s+(.+)$/i.exec(s);
+  if(m){
+    const d = m[1].trim();
+    const mm = /^(\d+)(m|h|d)$/.exec(d);
+    if(mm){
+      let n = parseInt(mm[1], 10), u = mm[2];
+      // Les jours sont stockés en heures (time.ParseDuration ne connaît pas « d ») :
+      // on les reconvertit pour l'affichage quand c'est un multiple de 24.
+      if(u === 'h' && n % 24 === 0 && n >= 24){ n = n/24; u = 'd'; }
+      const ul = {m:'min', h:'h', d:'jour'}[u] || u;
+      return 'toutes les '+n+' '+ul+((u==='d'&&n>1)?'s':'');
+    }
+    return 'toutes les '+d;
+  }
+  return 'cron : '+s;
+}
+
+async function toggleTask(id, on){
+  await jpost('/api/tasks/toggle', {id, on});
+  await loadTasks();
+  toast(on ? 'tâche activée' : 'tâche désactivée');
+}
+
+async function toggleTasksPause(){
+  const on = document.getElementById('tasks-pause-toggle').checked;
+  await jpost('/api/tasks/pause', {on});
+  toast(on ? 'tâches suspendues' : 'tâches réactivées');
+  loadTasks();
+}
+
+// Ouvre la modale d'ajout (id='') ou d'édition (id existant).
+function openTask(id){
+  taskEditing = id || '';
+  const t = id ? tasksList.find(x=>x.id===id) : null;
+  document.getElementById('task-modal-title').textContent = t ? 'Éditer « '+t.name+' »' : 'Nouvelle tâche';
+  document.getElementById('task-name').value = t ? t.name : '';
+  document.getElementById('task-prompt').value = t ? t.prompt : '';
+  document.getElementById('task-enabled').checked = t ? !!t.enabled : true;
+
+  // Décompose le schedule en intervalle (par défaut) ou cron.
+  const sched = t ? (t.schedule||'') : '@every 2h';
+  const m = /^@every\s+(\d+)(m|h|d)\s*$/i.exec(sched);
+  if(m || !t){
+    setTaskFreqMode('interval');
+    document.getElementById('task-interval-n').value = m ? m[1] : '2';
+    document.getElementById('task-interval-unit').value = m ? m[2] : 'h';
+    document.getElementById('task-cron').value = '';
+  } else {
+    setTaskFreqMode('cron');
+    document.getElementById('task-cron').value = sched;
+  }
+
+  document.getElementById('task-modal-status').textContent = '';
+  renderTaskResult(t);
+  document.getElementById('task-del').style.display = t ? '' : 'none';
+  document.getElementById('task-run').style.display = t ? '' : 'none';
+  showModal('task-modal');
+}
+
+// renderTaskResult remplit le panneau « Dernier résultat » avec le compte-rendu
+// COMPLET (défilable), l'état (ok / échec / en cours) et l'horodatage. Masqué pour
+// une tâche neuve ou jamais exécutée.
+function renderTaskResult(t){
+  const block = document.getElementById('task-result-block');
+  const box = document.getElementById('task-result');
+  const when = document.getElementById('task-result-when');
+  box.className = 'task-report';
+  if(!t || (!t.last_run && t.id !== TASK_RUNNING)){ block.style.display = 'none'; return; }
+  block.style.display = '';
+  if(t.id === TASK_RUNNING){
+    when.textContent = '(en cours)';
+    box.classList.add('report-run');
+    box.textContent = 'exécution en cours…';
+    return;
+  }
+  when.textContent = t.last_run ? '· '+new Date(t.last_run).toLocaleString() : '';
+  if(!t.last_ok){
+    box.classList.add('report-err');
+    box.textContent = 'Échec : '+(t.last_error||'erreur inconnue');
+    return;
+  }
+  const rep = (t.last_report||'').trim();
+  if(rep){ box.classList.add('md-report'); box.innerHTML = md(rep); }
+  else { box.classList.add('report-empty'); box.textContent = '(terminée sans texte de compte-rendu — l\'action a été faite via les outils)'; }
+}
+
+function closeTask(){ hideModal('task-modal'); taskEditing = null; }
+
+function setTaskFreqMode(mode){
+  const r = document.querySelector('input[name="task-freq-mode"][value="'+mode+'"]');
+  if(r) r.checked = true;
+  taskFreqUI(mode);
+}
+function taskFreqUI(mode){
+  document.getElementById('task-interval-fields').style.display = mode==='interval' ? '' : 'none';
+  document.getElementById('task-cron-fields').style.display = mode==='cron' ? '' : 'none';
+}
+
+// buildSchedule sérialise l'état du formulaire de fréquence en chaîne serveur.
+function buildSchedule(){
+  const mode = (document.querySelector('input[name="task-freq-mode"]:checked')||{}).value || 'interval';
+  if(mode==='cron') return document.getElementById('task-cron').value.trim();
+  const n = parseInt(document.getElementById('task-interval-n').value, 10);
+  const u = document.getElementById('task-interval-unit').value;
+  if(!n || n < 1) return '';
+  // Le serveur ne connaît que m/h de time.ParseDuration : les jours deviennent des heures.
+  if(u === 'd') return '@every '+(n*24)+'h';
+  return '@every '+n+u;
+}
+
+async function saveTask(){
+  const name = document.getElementById('task-name').value.trim();
+  const prompt = document.getElementById('task-prompt').value.trim();
+  const schedule = buildSchedule();
+  const enabled = document.getElementById('task-enabled').checked;
+  const st = document.getElementById('task-modal-status');
+  if(!name || !prompt){ st.textContent = 'nom et consigne obligatoires'; st.style.color = 'var(--err)'; return; }
+  if(!schedule){ st.textContent = 'fréquence invalide'; st.style.color = 'var(--err)'; return; }
+  const r = await jpost('/api/tasks/save', {id: taskEditing||'', name, prompt, schedule, enabled});
+  if(!r || !r.ok){ st.textContent = (r && r.error) || 'échec'; st.style.color = 'var(--err)'; return; }
+  closeTask();
+  await loadTasks();
+  toast('tâche enregistrée');
+}
+
+async function deleteTaskUI(){
+  if(!taskEditing) return;
+  const t = tasksList.find(x=>x.id===taskEditing);
+  if(!await askConfirm('Supprimer la tâche « '+(t?t.name:'')+' » ?', {title:'Supprimer', okText:'Supprimer', danger:true})) return;
+  await jpost('/api/tasks/delete', {id: taskEditing});
+  closeTask();
+  await loadTasks();
+  toast('tâche supprimée');
+}
+
+async function runTaskNow(){
+  if(!taskEditing) return;
+  const st = document.getElementById('task-modal-status');
+  const r = await jpost('/api/tasks/run', {id: taskEditing});
+  if(r && r.ok){
+    st.textContent = 'lancée — suis son avancement dans la liste';
+    st.style.color = '';
+    closeTask();
+    // Rafraîchit tout de suite : loadTasks détecte running_id et lance le sondage
+    // qui suivra l'exécution jusqu'à la fin.
+    setTimeout(loadTasks, 400);
+  } else {
+    st.textContent = (r && r.error) || 'impossible de lancer maintenant';
+    st.style.color = 'var(--err)';
+  }
 }
 </script></body></html>

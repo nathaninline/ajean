@@ -1,10 +1,19 @@
-Cette version corrige une erreur avec les modèles Qwen3.x en mode agent.
+Cette version ajoute les tâches planifiées : l'IA peut travailler toute seule, en arrière-plan, sur une fréquence que tu règles.
 
-## Plus d'erreur « System message must be at the beginning »
+## Tâches planifiées
 
-Avec certains modèles (Qwen3.x notamment) lancés en mode strict, une commande pouvait échouer avec une erreur 500 de llama-server : « System message must be at the beginning ». En cause : dans un tour d'agent, après une commande d'outil ratée, AJEAN glissait une instruction système en fin de séquence pour relancer le modèle. Or ces gabarits exigent que le message système soit uniquement en tête, et refusaient la requête.
+Tu peux maintenant créer des tâches que l'IA exécute automatiquement, sans toi. Par exemple : toutes les 2 heures, regarder tes nouveaux mails et te préparer des brouillons de réponse. Chaque tâche est une consigne en langage naturel plus une fréquence.
 
-Désormais, juste avant chaque envoi, les messages système sont fusionnés en un seul, placé au début. La séquence envoyée reste donc toujours valide, quel que soit le gabarit du modèle. Pour une conversation normale, rien ne change : la séquence est identique à avant.
+Ce qu'on peut faire :
+
+* Régler la fréquence en intervalle simple (toutes les N minutes, heures ou jours) ou en horaire précis (expression cron, ex. tous les jours ouvrés à 9h).
+* Activer ou désactiver chaque tâche individuellement.
+* Suspendre toutes les tâches d'un coup avec un interrupteur maître, pratique quand tu veux juste discuter sans être dérangé.
+* Lancer une tâche à la main pour la tester, et voir son dernier compte-rendu (rendu en markdown) directement dans l'interface.
+
+Comment ça marche : une tâche tourne isolée de ta conversation (elle ne pollue pas le fil), avec les mêmes outils que le mode agent. C'est l'IA elle-même qui agit avec ses outils (mail via un serveur MCP, shell, accès web). Le mode agent doit donc être actif pour qu'une tâche puisse faire quoi que ce soit, et ta consigne doit dire explicitement quoi faire du résultat.
+
+Une seule génération tourne à la fois : si tu discutes au moment où une tâche est due, elle attend son tour, et inversement tu peux arrêter une tâche en cours depuis la liste ou depuis le chat.
 
 ## Mise à jour
 
@@ -12,4 +21,4 @@ Désormais, juste avant chaque envoi, les messages système sont fusionnés en u
 ajean update
 ```
 
-Merci à juanpa669 pour le signalement clair et bien analysé.
+Note : le système d'ordonnancement est nouveau, teste tes premières tâches sur des fréquences courtes avant de leur faire confiance sur des créneaux plus longs.

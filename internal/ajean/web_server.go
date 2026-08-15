@@ -204,6 +204,16 @@ func newWebMux() *http.ServeMux {
 	api("/api/chat/state", handleChatState)     // instantané léger {seq, generating, ctx_used}
 	api("/api/chat/export", handleChatExport)   // téléchargement du fil (?format=md|json)
 	api("/api/e2e/chat", handleE2EChat)         // même flux mais chiffré E2E (boîte noire via le relais)
+	// Tâches planifiées : l'IA exécute des consignes toute seule sur une fréquence
+	// réglable (tasks.go). Le scheduler tourne dans CE process (celui qui possède la
+	// conversation et le modèle).
+	api("/api/tasks", handleTasks)
+	api("/api/tasks/save", handleTaskSave)
+	api("/api/tasks/delete", handleTaskDelete)
+	api("/api/tasks/toggle", handleTaskToggle)
+	api("/api/tasks/pause", handleTasksPause)
+	api("/api/tasks/run", handleTaskRun)
+	StartTaskScheduler()
 	return mux
 }
 

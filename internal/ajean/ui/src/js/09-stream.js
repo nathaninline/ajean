@@ -121,10 +121,23 @@ function labelTokens(el, role, n, firstTs, lastTs){
 // (sinon user→stop puis turn_done→send à chaque tour rejoué = flottement visible).
 // L'état final est appliqué une seule fois au caught_up via syncSendBtn().
 function setBusy(on){ busy=on; if(!REPLAYING) syncSendBtn(); }
+// RUNNING_TASK = nom de la tâche de fond qui occupe le moteur (vide = un tour
+// utilisateur normal). Sert à distinguer les deux dans le bouton stop : sinon une
+// tâche qui tourne fait croire à l'utilisateur qu'il génère lui-même.
+let RUNNING_TASK='';
 function syncSendBtn(){
   const sb=document.getElementById('send');
   sb.style.display=busy?'none':'inline-block';
-  document.getElementById('stop').style.display=busy?'inline-block':'none';
+  const stop=document.getElementById('stop');
+  stop.style.display=busy?'inline-block':'none';
+  // Étiquette explicite quand c'est une TÂCHE qui occupe le moteur.
+  if(busy && RUNNING_TASK){
+    stop.textContent='arrêter la tâche';
+    stop.title='Tâche « '+RUNNING_TASK+' » en cours';
+  } else {
+    stop.textContent='stop';
+    stop.title='';
+  }
   // Tant que le moteur n'a pas fini de charger le modèle, envoyer ne mène à rien :
   // on bloque le bouton et l'Entrée, et on le DIT sous le champ. `STATUS_SEEN`
   // évite de verrouiller le chat quand /api/status n'a pas encore répondu (ou ne
@@ -305,9 +318,15 @@ function stopGen(){ jfetch('/api/chat/stop',{method:'POST'}).catch(()=>{}); toas
 async function reconcileBusy(){
   try{
     const s=await (await jfetch('/api/chat/state')).json();
+    const rt = s.running_task || '';
+    if(rt !== RUNNING_TASK){ RUNNING_TASK = rt; if(!REPLAYING) syncSendBtn(); }
     if(typeof s.generating==='boolean' && s.generating!==busy) setBusy(s.generating);
   }catch(_){}
 }
+// Recalage périodique : une tâche de fond prend le moteur SANS émettre d'événement
+// dans le fil (elle est isolée), donc seul un sondage de l'état permet au bouton de
+// refléter « moteur occupé par une tâche » en direct.
+setInterval(reconcileBusy, 3000);
 // Envoi RÉSILIENT : sur le tunnel E2E, un aller-retour peut échouer transitoirement
 // alors qu'il a en fait abouti (la génération démarre). On réessaie, et un 409
 // (« déjà en cours ») = succès (c'est notre envoi qui est passé). On ne montre une

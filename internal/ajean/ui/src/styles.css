@@ -921,6 +921,45 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .mcp-tool-switch{flex:none;transform:scale(.85)}
 .mcp-tool-name{font-size:12px;color:var(--text);word-break:break-all}
 
+/* Tâches planifiées : ligne en cours d'exécution + modale d'édition. */
+.mcp-row.task-running{border-color:var(--accent);background:var(--accent-bg);cursor:default}
+.task-dot-run{animation:taskpulse 1.1s ease-in-out infinite}
+@keyframes taskpulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
+.task-run-badge{font-size:10px;font-weight:600;color:var(--accent);letter-spacing:.02em}
+.task-stop-btn{flex:none;margin:0;padding:3px 10px;font-size:11px;border-radius:6px;background:var(--danger-bg);border:1px solid var(--err);color:var(--err)}
+.task-stop-btn:hover{background:var(--danger-bg);border-color:var(--err);color:var(--err);opacity:.85}
+/* La modale des tâches emprunte tout le design de l'éditeur de preset (.pe-*) :
+   même largeur, même mise en carte. */
+#task-modal .modal-card{max-width:520px;overflow:hidden}
+#task-modal-status:empty{display:none}
+/* Panneau « Dernier résultat » : le compte-rendu complet de l'IA, lisible et
+   défilable — pas une mini-ligne tronquée. Posé dans une carte .pe-list-like. */
+.task-report{font-size:13px;line-height:1.55;color:var(--text);background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:11px 14px;max-height:240px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+.task-report.report-err{border-color:var(--err);color:var(--err)}
+.task-report.report-run{color:var(--dim);font-style:italic}
+.task-report.report-empty{color:var(--dim)}
+/* Compte-rendu rendu en markdown : c'est du HTML de blocs, donc plus de pre-wrap
+   (sinon les sauts de ligne du HTML généré ajoutent des lignes vides). Styles
+   alignés sur ceux des bulles de chat (.msg .body). */
+.task-report.md-report{white-space:normal}
+.md-report>*{margin:.6em 0}
+.md-report>*:first-child{margin-top:0}
+.md-report>*:last-child{margin-bottom:0}
+.md-report h1,.md-report h2,.md-report h3,.md-report h4{font-weight:600;line-height:1.25;margin:.9em 0 .4em}
+.md-report h1{font-size:1.2em}.md-report h2{font-size:1.1em}.md-report h3{font-size:1em}.md-report h4{font-size:.95em}
+.md-report ul,.md-report ol{padding-left:1.4em;margin:.5em 0}
+.md-report li{margin:.15em 0}
+.md-report li>p{margin:0}
+.md-report code{background:var(--code-bg);padding:1px 5px;border-radius:3px;font-size:.9em;word-break:break-word}
+.md-report pre{background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:10px;overflow-x:auto;max-width:100%;margin:.5em 0}
+.md-report pre code{background:transparent;padding:0;font-size:.85em;line-height:1.4}
+.md-report blockquote{border-left:3px solid var(--border);padding:0 0 0 10px;margin:.4em 0;color:var(--dim)}
+.md-report a{color:var(--accent);text-decoration:none}
+.md-report a:hover{text-decoration:underline}
+.md-report table{border-collapse:collapse;margin:.5em 0}
+.md-report th,.md-report td{border:1px solid var(--border);padding:4px 8px}
+.md-report hr{border:none;border-top:1px solid var(--border);margin:.6em 0}
+
 /* Accès OpenAI / Accès distant : champs lecture seule (URL, clé) + libellés
    compacts, pour une présentation homogène et sans surcharge visuelle. */
 .io-input{flex:1;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:8px 10px;font:inherit;font-size:13px}
