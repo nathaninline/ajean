@@ -134,7 +134,7 @@ func editTool() Tool {
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"file": map[string]any{"type": "string", "description": "Path"},
+					"file": map[string]any{"type": "string", "description": "Path. Relative names resolve inside your working folder; pass an absolute path only for a file the user explicitly located there."},
 					"old":  map[string]any{"type": "string", "description": "Exact text to replace (unique)"},
 					"new":  map[string]any{"type": "string", "description": "Replacement"},
 				},
@@ -153,7 +153,7 @@ func writeTool() Tool {
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"file":    map[string]any{"type": "string", "description": "Path"},
+					"file":    map[string]any{"type": "string", "description": "Path. A relative name lands in your working folder — the default for anything you create. Absolute path only if the user named a location; never into system dirs (/usr, /bin, /etc, /usr/local/bin)."},
 					"content": map[string]any{"type": "string", "description": "Full content"},
 				},
 				"required": []string{"file", "content"},

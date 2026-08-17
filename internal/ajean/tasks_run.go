@@ -23,7 +23,9 @@ import (
 // Prend le MÊME gate que StartTurn : renvoie ErrBusy si un tour (utilisateur ou
 // une autre tâche) est déjà en cours, ou errModelLoading si le modèle n'est pas
 // prêt. caps gouverne l'accès aux outils (mode agent, mémoire, internet).
-func (c *Conversation) RunAutonomous(ctx context.Context, taskID, taskName, prompt string, caps Caps, temperature float64) (string, error) {
+// lastReport est le compte-rendu du run précédent (vide au premier passage) : il
+// est réinjecté pour donner à l'IA une continuité entre exécutions.
+func (c *Conversation) RunAutonomous(ctx context.Context, taskID, taskName, prompt, lastReport string, caps Caps, temperature float64) (string, error) {
 	if !healthCheck() {
 		return "", errModelLoading
 	}
@@ -59,10 +61,20 @@ func (c *Conversation) RunAutonomous(ctx context.Context, taskID, taskName, prom
 	msgs := []Message{{Role: "user", Content: prompt}}
 	// Même préambule que la vraie génération : sysprompt perso + préambule agent
 	// + briefing machine (via InjectSkills), pour que l'IA ait le même contexte et
-	// les mêmes outils qu'en chat.
+	// les mêmes outils qu'en chat. On préfixe le tout d'une note de contexte tâche
+	// (conscience du mode autonome + mémoire du run précédent), fusionnée dans UN
+	// SEUL message système : certains templates (Qwen) exigent le system en tête et
+	// unique.
 	final := msgs
-	if sp := readSysPrompt(); sp != "" {
-		final = append([]Message{{Role: "system", Content: sp}}, msgs...)
+	sys := readSysPrompt()
+	note := taskContextNote(taskName, lastReport)
+	switch {
+	case sys != "" && note != "":
+		final = append([]Message{{Role: "system", Content: sys + "\n\n" + note}}, msgs...)
+	case sys != "":
+		final = append([]Message{{Role: "system", Content: sys}}, msgs...)
+	case note != "":
+		final = append([]Message{{Role: "system", Content: note}}, msgs...)
 	}
 
 	var content strings.Builder
@@ -74,6 +86,29 @@ func (c *Conversation) RunAutonomous(ctx context.Context, taskID, taskName, prom
 	})
 	_ = extra // les messages d'outils ne sont pas conservés : la tâche est éphémère
 	return strings.TrimSpace(content.String()), err
+}
+
+// taskContextNote construit la note de contexte injectée en tête du fil d'une
+// tâche : d'abord la conscience du mode (l'IA tourne seule, sans utilisateur en
+// face), puis — s'il existe — le compte-rendu de l'exécution précédente pour la
+// continuité. Renvoie "" seulement si on n'a rien à dire (jamais, en pratique).
+func taskContextNote(taskName, lastReport string) string {
+	var b strings.Builder
+	b.WriteString("[Tâche planifiée")
+	if taskName != "" {
+		b.WriteString(" « " + taskName + " »")
+	}
+	b.WriteString("] Tu es exécuté automatiquement en arrière-plan, sans utilisateur " +
+		"présent pour te répondre. Mène la tâche à son terme de façon autonome, puis " +
+		"termine par un compte-rendu clair et court de ce que tu as fait ou trouvé.")
+	if r := strings.TrimSpace(lastReport); r != "" {
+		if len(r) > reportMax {
+			r = r[:reportMax] + "…"
+		}
+		b.WriteString("\n\nCompte-rendu de ta dernière exécution (pour la continuité — " +
+			"appuie-toi dessus, ne le répète pas tel quel) :\n" + r)
+	}
+	return b.String()
 }
 
 // reportMax borne la taille du compte-rendu conservé (le texte final peut être
@@ -94,7 +129,7 @@ func runTask(t Task) {
 		return
 	}
 
-	report, err := conv.RunAutonomous(context.Background(), t.ID, t.Name, t.Prompt, taskCaps(t), 0)
+	report, err := conv.RunAutonomous(context.Background(), t.ID, t.Name, t.Prompt, t.LastReport, taskCaps(t), 0)
 
 	// Occupé ou modèle pas encore prêt : ce n'est pas un échec de la tâche, juste
 	// un mauvais moment. On ne touche pas à son état (NextRun reste dans le passé)

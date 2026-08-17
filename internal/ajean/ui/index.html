@@ -748,6 +748,10 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .gpu-share input{width:62px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:5px 7px;font:inherit;text-align:right}
 .gpu-share input:focus{outline:none;border-color:var(--accent)}
 .pe-inp{width:100%;box-sizing:border-box;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font:inherit;transition:border-color .12s,box-shadow .12s}
+/* Consigne d'une tâche : textarea posé DIRECTEMENT dans le groupe (pas de cadre
+   .pe-list ni de .pe-row autour), donc à ras — on récupère le padding de carte
+   inutile et la double bordure. Sa propre bordure (.pe-inp) fait tout le cadre. */
+.task-consigne{min-height:260px;resize:vertical;line-height:1.6;padding:12px}
 .pe-inp:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
 .pe-row.stack.plain .pe-inp{border:none;background:transparent;padding:6px 0;font-size:15px}
 .pe-row.stack.plain .pe-inp:focus{box-shadow:none}
@@ -856,6 +860,30 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .modal-card{position:relative;background:var(--bg);border:1px solid var(--border);border-radius:12px;width:100%;max-width:600px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 16px 50px rgba(0,0,0,.18)}
 .modal-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
 .modal-head strong{font-size:14px}
+/* ===== Modales sur téléphone : feuille pleine largeur ancrée en bas ==========
+   Sur petit écran, le voile gardait 20px de marge de chaque côté + les paddings
+   internes (corps 16, carte 15) : le contenu se retrouvait sur ~60% de la largeur
+   et tout paraissait écrasé (surtout l'éditeur de tâche, dense). On passe donc en
+   feuille : le voile ne rogne plus les côtés, la carte occupe toute la largeur et
+   colle au bas de l'écran (coins hauts arrondis), et on resserre les paddings. */
+@media (max-width:720px){
+  .modal-ov{padding:0;align-items:flex-end}
+  .modal-card,#modal .modal-card{max-width:none;width:100%;max-height:94vh;
+    border-radius:16px 16px 0 0;border-bottom:none;
+    padding-bottom:env(safe-area-inset-bottom)}
+  .pe-body{padding:14px 12px 20px;gap:20px}
+  .modal-body{padding:14px 12px}
+  .pe-row{padding:9px 12px;gap:10px}
+  /* Le contrôle de droite a droit à plus de place : sur mobile les selects
+     (preset, unité) et les valeurs se serraient jusqu'à devenir illisibles. On
+     élargit le plafond sans toucher à la répartition (le libellé garde son flex:1
+     et ne rétrécit donc pas jusqu'à passer sur deux lignes). */
+  .pe-row-c{max-width:72%}
+  .pe-val{max-width:40vw}
+  /* Le pied peut passer à deux lignes plutôt que d'écraser les 3 boutons. */
+  .pe-foot{flex-wrap:wrap;row-gap:8px}
+  .pe-foot .foot-r{flex:1;justify-content:flex-end}
+}
 /* Croix de fermeture : un CARRÉ, pas un rectangle. Avec un padding asymétrique
    (3px vertical / 10px horizontal) le glyphe paraissait écrasé et la cible de
    clic était basse. 32px, glyphe centré, taille de cible correcte au doigt. */
@@ -934,10 +962,19 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .mcp-dot-off{background:var(--dim)}
 .mcp-info{flex:1;min-width:0}
 .mcp-name{font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mcp-meta{display:flex;align-items:center;gap:6px;margin-top:2px}
-.mcp-tag{font-size:10px;padding:1px 7px;border-radius:9px;border:1px solid var(--border);color:var(--dim);text-transform:uppercase;letter-spacing:.04em}
-.mcp-tools{font-size:10px;color:var(--accent)}
-.mcp-err{font-size:10px;color:var(--err)}
+/* Méta d'une tâche = fréquence + preset + prochaine exécution, sur UNE SEULE
+   ligne. Dans le tiroir étroit du téléphone, empiler ces infos faisait exploser
+   la hauteur de chaque tâche (pastilles qui s'enroulaient sur 3 lignes). On force
+   donc une ligne unique (nowrap) qui déborde en douceur : le preset, plus long,
+   rétrécit et tronque à l'ellipse en premier ; la fréquence et la date restent
+   lisibles. Le détail complet reste dans l'éditeur et les title=. */
+.mcp-meta{display:flex;align-items:center;flex-wrap:nowrap;gap:6px;margin-top:2px;min-width:0;overflow:hidden}
+.mcp-tag{font-size:10px;padding:1px 7px;border-radius:9px;border:1px solid var(--border);color:var(--dim);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;flex:0 0 auto;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+/* Le preset est le maillon sacrifiable : il peut rétrécir (flex-shrink) jusqu'à
+   une petite ellipse pour laisser la place à la fréquence et à la date. */
+.mcp-tag.mcp-tag-preset{flex:0 1 auto;min-width:2.5em}
+.mcp-tools{font-size:10px;color:var(--accent);white-space:nowrap;flex:0 0 auto;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.mcp-err{font-size:10px;color:var(--err);white-space:nowrap;flex:none}
 .mcp-switch{flex:none}
 .mcp-edit{flex:none;padding:2px 5px;font-size:13px;line-height:1;background:transparent;border:none;opacity:.5}
 .mcp-edit:hover{opacity:1;color:var(--accent)}
@@ -1805,11 +1842,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
 
       <div class="pe-group">
         <div class="pe-gh">Consigne</div>
-        <div class="pe-list">
-          <div class="pe-row stack">
-            <textarea id="task-prompt" class="pe-inp" spellcheck="false" style="min-height:120px;resize:vertical;line-height:1.5" placeholder="Ce que l'IA doit faire, et comment livrer le résultat."></textarea>
-          </div>
-        </div>
+        <textarea id="task-prompt" class="pe-inp task-consigne" spellcheck="false" placeholder="Ce que l'IA doit faire, et comment livrer le résultat.&#10;&#10;Tu peux détailler librement : contexte, étapes, format du compte-rendu attendu…"></textarea>
       </div>
 
       <div class="pe-group">
@@ -6056,13 +6089,14 @@ function renderTasks(r){
       const fr = document.createElement('span'); fr.className = 'mcp-tag';
       fr.textContent = scheduleLabel(t.schedule); meta.appendChild(fr);
       if(t.preset){
-        const pr = document.createElement('span'); pr.className = 'mcp-tag';
+        const pr = document.createElement('span'); pr.className = 'mcp-tag mcp-tag-preset';
         const pn = (TASK_PRESETS.find(p=>p.id===t.preset)||{}).name || t.preset;
         pr.textContent = pn; pr.title = 'preset : '+pn; meta.appendChild(pr);
       }
       if(t.enabled && t.next_run){
         const nx = document.createElement('span'); nx.className = 'mcp-tools';
-        nx.textContent = 'prochaine : '+fmtWhen(t.next_run);
+        nx.textContent = '→ '+fmtWhen(t.next_run);
+        nx.title = 'prochaine exécution : '+fmtWhen(t.next_run);
         meta.appendChild(nx);
       }
       if(t.last_run && !t.last_ok && t.last_error){

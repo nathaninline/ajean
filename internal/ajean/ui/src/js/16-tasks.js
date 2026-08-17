@@ -80,13 +80,14 @@ function renderTasks(r){
       const fr = document.createElement('span'); fr.className = 'mcp-tag';
       fr.textContent = scheduleLabel(t.schedule); meta.appendChild(fr);
       if(t.preset){
-        const pr = document.createElement('span'); pr.className = 'mcp-tag';
+        const pr = document.createElement('span'); pr.className = 'mcp-tag mcp-tag-preset';
         const pn = (TASK_PRESETS.find(p=>p.id===t.preset)||{}).name || t.preset;
         pr.textContent = pn; pr.title = 'preset : '+pn; meta.appendChild(pr);
       }
       if(t.enabled && t.next_run){
         const nx = document.createElement('span'); nx.className = 'mcp-tools';
-        nx.textContent = 'prochaine : '+fmtWhen(t.next_run);
+        nx.textContent = '→ '+fmtWhen(t.next_run);
+        nx.title = 'prochaine exécution : '+fmtWhen(t.next_run);
         meta.appendChild(nx);
       }
       if(t.last_run && !t.last_ok && t.last_error){
