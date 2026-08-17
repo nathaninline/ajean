@@ -26,12 +26,26 @@ function fmtSize(n){
   if(n >= 1024) return Math.round(n/1024)+' Ko';
   return n+' o';
 }
+// Est-ce une image ? (pour montrer une vignette plutôt que le seul nom.)
+const IMG_RE=/\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif)$/i;
+function isImageName(n){ return IMG_RE.test(String(n||'')); }
 // Pastille de fichier, partagée par le composeur et les bulles du fil : même
 // objet visuel des deux côtés, seul le contexte (CSS) change.
+// Pour une image, on affiche une VIGNETTE : `imgSrc` (URL déjà prête, ex. un
+// objectURL du fichier local dans le composeur) ou `imgPath` (chemin dans le
+// dossier de travail, chargé à la demande pour une bulle du fil).
 function fileChip(name, size, opts){
   opts=opts||{};
   const chip=document.createElement('div');
   chip.className='chip-file'+(opts.cls?' '+opts.cls:'');
+  if(isImageName(name) && (opts.imgSrc || opts.imgPath)){
+    chip.classList.add('has-thumb');
+    const img=document.createElement('img');
+    img.className='cf-thumb'; img.alt=name; img.loading='lazy';
+    chip.appendChild(img);
+    if(opts.imgSrc) img.src=opts.imgSrc;
+    else loadThumb(img, opts.imgPath);
+  }
   const n=document.createElement('span');
   n.className='cf-name'; n.textContent=name; n.title=opts.title||name;
   const s=document.createElement('span');
@@ -53,7 +67,7 @@ function addMsgFiles(el, files){
   if(!el || !files || !files.length) return;
   const box=document.createElement('div');
   box.className='msg-files';
-  for(const f of files) box.appendChild(fileChip(f.name, f.size, {title:f.path||f.name}));
+  for(const f of files) box.appendChild(fileChip(f.name, f.size, {title:f.path||f.name, imgPath:f.path||f.name}));
   el.parentNode.insertBefore(box, el);
   // Envoi sans un mot : la bulle serait un rectangle vide sous les pastilles.
   markEmptyMsg(el);
@@ -106,6 +120,26 @@ async function fetchFileB64(path, size, chip){
     if(j.eof) break;
   } while(off<size);
   return new Blob(parts);
+}
+// Ramène un fichier du dossier de travail sous forme de Blob, en choisissant
+// tout seul la bonne voie : base64 par tranches derrière le tunnel E2E, corps
+// binaire ordinaire sinon (voir downloadWorkspaceFile pour le pourquoi).
+async function getWorkspaceBlob(path){
+  const m=await jfetch('/api/chat/file?meta=1&path='+encodeURIComponent(path));
+  const meta=await m.json().catch(()=>({}));
+  if(!m.ok || !meta.ok) throw new Error(meta.error||('HTTP '+m.status));
+  if(meta.e2e) return await fetchFileB64(path, meta.size||0, null);
+  const r=await jfetch('/api/chat/file?path='+encodeURIComponent(path));
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return await r.blob();
+}
+// Charge la vignette d'une image du fil. En cas d'échec on ne fait rien : la
+// pastille reste avec son nom, comme avant. L'objectURL n'est pas révoqué —
+// la vignette vit aussi longtemps que la bulle, et le fil n'en accumule pas des
+// milliers.
+async function loadThumb(img, path){
+  try{ img.src=URL.createObjectURL(await getWorkspaceBlob(path)); }
+  catch(_){ img.remove(); }
 }
 async function downloadWorkspaceFile(path, name, a){
   if(a) a.classList.add('busy');
@@ -197,16 +231,20 @@ function renderAttach(){
     el.appendChild(fileChip(a.name, a.size, {
       cls: a.state==='up' ? 'up' : (a.state==='err' ? 'err' : ''),
       title: a.error || a.name,
+      imgSrc: a.thumb,
       // Un gros fichier prend du temps : on montre l'avancement plutôt qu'un
       // anneau qui tourne sans rien dire. Sous un morceau, il n'y a rien à suivre.
       sizeText: a.state==='err' ? 'échec'
         : (a.state==='up' && a.size>ATTACH_CHUNK) ? Math.round((a.sent||0)*100/a.size)+' %'
         : fmtSize(a.size),
-      onRemove: ()=>{ ATTACH=ATTACH.filter(o=>o.id!==a.id); renderAttach(); }
+      onRemove: ()=>{ releaseThumb(a); ATTACH=ATTACH.filter(o=>o.id!==a.id); renderAttach(); }
     }));
   }
 }
-function clearAttach(){ ATTACH=[]; renderAttach(); }
+// L'objectURL d'une vignette du composeur tient un blob en mémoire : on le libère
+// dès que le fichier quitte la liste (retrait ou envoi terminé).
+function releaseThumb(a){ if(a&&a.thumb){ try{ URL.revokeObjectURL(a.thumb); }catch(_){} a.thumb=null; } }
+function clearAttach(){ for(const a of ATTACH) releaseThumb(a); ATTACH=[]; renderAttach(); }
 // Ce qui part avec le message, pour l'afficher dans sa bulle.
 function attachSent(){ return ATTACH.filter(a=>a.state==='ok').map(a=>({name:a.name,size:a.size,path:a.path})); }
 
@@ -277,7 +315,11 @@ function addFiles(files){
   for(const f of files||[]){
     if(f.size>ATTACH_MAX){ toast('« '+f.name+' » fait '+fmtSize(f.size)+' — maximum '+fmtSize(ATTACH_MAX)); continue; }
     if(!f.size){ toast('« '+f.name+' » est vide'); continue; }
-    ATTACH.push({id:++ATTACH_SEQ, name:f.name||'fichier', size:f.size, file:f, path:null, state:'queued'});
+    const rec={id:++ATTACH_SEQ, name:f.name||'fichier', size:f.size, file:f, path:null, state:'queued'};
+    // Vignette immédiate depuis le fichier local, sans le renvoyer : la même image
+    // qu'on verra dans la bulle une fois envoyée.
+    if(isImageName(rec.name)){ try{ rec.thumb=URL.createObjectURL(f); }catch(_){} }
+    ATTACH.push(rec);
   }
   renderAttach();
 }

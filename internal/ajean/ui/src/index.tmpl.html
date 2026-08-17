@@ -745,6 +745,10 @@
               <span class="pe-row-l">Vision<span class="pe-sub">projecteur mmproj</span></span>
               <span class="pe-row-c"><span class="pe-selc"><select id="m-mmproj" onchange="onPickMmproj()"></select></span></span>
             </div>
+            <div class="pe-row" id="s-mmproj-cpu-row">
+              <span class="pe-row-l">Projecteur vision sur le CPU<span class="pe-sub">garde le mmproj hors du GPU — libère de la VRAM (--no-mmproj-offload)</span></span>
+              <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-mmproj-cpu" onchange="eaToggleFlag('--no-mmproj-offload', this.checked)"><span class="pe-sl"></span></label></span>
+            </div>
             <div class="pe-row stack">
               <span class="pe-row-l">Télécharger un modèle <span class="pe-sub">ou un projecteur mmproj — lien direct vers un .gguf</span></span>
               <div class="pe-inpbtn">

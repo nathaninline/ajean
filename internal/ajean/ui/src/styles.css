@@ -1141,6 +1141,11 @@ html[data-hide-stats="1"] #chat .msg .statline{display:none}
    revient à l'épaisseur du rond, sinon le bouton flotte loin du bord et la
    pastille paraît de travers. */
 .chip-file:has(button){padding-right:4px}
+/* Vignette d'image : un petit carré à gauche du nom. La pastille se resserre à
+   gauche pour se fermer dessus, comme elle le fait à droite autour du ×. */
+.chip-file.has-thumb{padding-left:5px}
+.chip-file .cf-thumb{flex:none;width:34px;height:34px;object-fit:cover;border-radius:7px;
+  background:var(--code-bg);display:block}
 .chip-file .cf-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chip-file .cf-size{flex:none;color:var(--dim);font-size:11px}
 /* Le × est TOUJOURS visible : le révéler au survol le rendait inatteignable sur
@@ -1164,6 +1169,10 @@ html[data-hide-stats="1"] #chat .msg .statline{display:none}
 #chat .msg-files{align-self:flex-end;display:flex;flex-wrap:wrap;justify-content:flex-end;
   gap:6px;max-width:75%}
 #chat .msg-files .chip-file{background:var(--bubble);max-width:100%}
+/* Message envoyé SANS un mot : la bulle serait un rectangle vide sous les
+   pastilles (markEmptyMsg lui pose .empty). On la retire du fil — seules les
+   pièces jointes parlent. */
+#chat .msg.empty{display:none}
 /* Lien de téléchargement dans une réponse : un lien normal, mais la flèche dit
    qu'il ramène un fichier plutôt qu'il n'ouvre une page. */
 #chat .msg .filelink{cursor:pointer}

@@ -335,6 +335,18 @@ function onPickMmproj(){
   // et on centralise le choix dans la clé MMPROJ.
   eaSetValued('--mmproj', '');
   cfgWriteKey('MMPROJ', document.getElementById('m-mmproj').value);
+  syncMmprojCpuRow();
+}
+// L'option « projecteur sur le CPU » n'a de sens qu'avec un mmproj chargé : on
+// masque la ligne quand aucune vision n'est sélectionnée, plutôt que de laisser
+// un interrupteur sans effet occuper la place.
+function syncMmprojCpuRow(){
+  const row = document.getElementById('s-mmproj-cpu-row');
+  if(!row) return;
+  // Source de vérité = la config (clé MMPROJ / --mmproj), pas le select : à
+  // l'ouverture du preset cette ligne est synchronisée AVANT que le select des
+  // projecteurs soit rempli, donc lire sa valeur masquerait la ligne à tort.
+  row.style.display = currentMmprojInTextarea() ? '' : 'none';
 }
 // Un projecteur multimodal se reconnaît à « mmproj » dans son nom : c'est la
 // convention de nommage universelle (llama.cpp, HF). On ne liste que ceux-là —
@@ -746,6 +758,8 @@ function populateSettings(){
   chk('s-flash', eaHasFlag('--flash-attn') && !/^off$/i.test(eaGetValued('--flash-attn')));
   chk('s-mlock', eaHasFlag('--mlock'));
   chk('s-nommap', eaHasFlag('--no-mmap'));
+  chk('s-mmproj-cpu', eaHasFlag('--no-mmproj-offload'));
+  syncMmprojCpuRow();
 }
 // --- Décodage spéculatif (--spec-type / --spec-draft-n-max) ----------------
 // Sélectionne le type courant. --spec-type accepte en réalité une LISTE séparée
