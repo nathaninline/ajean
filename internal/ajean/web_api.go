@@ -346,6 +346,9 @@ func handlePresets(w http.ResponseWriter, r *http.Request) {
 			if q := detectQuant(content); q != "" {
 				item["quant"] = q
 			}
+			if c := presetCtx(content); c != "" {
+				item["ctx"] = c
+			}
 			if r := presetReasoning(content); reasoningActive(r) {
 				item["reasoning"] = strings.ToLower(r)
 			}

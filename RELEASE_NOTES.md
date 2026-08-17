@@ -1,22 +1,21 @@
-Cette version intègre pleinement les tâches planifiées : l'IA peut travailler toute seule, en arrière-plan, sur une fréquence que tu règles, avec un vrai contrôle sur ce qu'elle a le droit de faire.
+Cette version règle un plafond de contexte trompeur sur les modèles à décodage spéculatif MTP, et sort de l'ombre les réglages moteur qui en étaient la cause.
 
-## Tâches planifiées
+## Contexte des modèles MTP
 
-Tu crées une tâche en écrivant une consigne en langage naturel et en choisissant sa fréquence. L'IA l'exécute automatiquement, isolée de ta conversation, et agit avec ses propres outils (mail via un serveur MCP, fichiers, web). Le mode agent doit être actif pour qu'une tâche puisse faire quelque chose.
+Sur un modèle avec tête MTP (décodage spéculatif), le contexte restait bloqué très bas et finissait en mémoire saturée dès qu'on montait, alors que la même carte tenait bien plus sur un autre modèle de taille identique. La cause n'était pas la mémoire vidéo mais un réglage manquant : sans une seule séquence forcée, llama.cpp réservait le cache de contexte pour plusieurs séquences à la fois, ce qui divisait le contexte utile et provoquait la saturation, aggravée par le second cache qu'ouvre le décodage spéculatif.
 
-Ce qui est nouveau ou complété dans cette version :
+* Une seule séquence est désormais le défaut sur tous les presets, existants comme nouveaux, sans rien éditer. Un preset peut toujours remonter cette valeur s'il en a besoin.
 
-* Fréquence en intervalle simple (toutes les N minutes, heures ou jours) ou en horaire précis (expression cron).
-* Choix de l'heure pour les intervalles en jours, par exemple tous les jours à 23h. L'heure est interprétée dans ton fuseau, plus dans celui du serveur, donc fini le décalage.
-* Choix du preset (donc du modèle) utilisé par la tâche : le preset actif par défaut, ou un preset précis que la tâche activera avant de s'exécuter.
-* Réglage par tâche de l'accès à la mémoire et de l'accès au web, indépendamment l'un de l'autre.
-* Activer ou désactiver chaque tâche, ou tout suspendre d'un coup avec un interrupteur maître pour discuter tranquille.
-* Bouton pour lancer une tâche à la main et suivre son exécution en direct dans la liste, avec possibilité de l'arrêter.
-* Compte-rendu du dernier passage affiché en markdown, avec l'état, l'horodatage à ton heure locale et le temps que la tâche a mis.
+## Éditeur de preset
 
-## Fonctionnement
+Les réglages qui manquaient pour diagnostiquer ce genre de blocage sont maintenant dans le panneau de réglages du preset, plus besoin de passer par la config brute :
 
-Une seule génération tourne à la fois : si tu discutes au moment où une tâche est due, elle attend son tour, et inversement. Une tâche épinglée sur un autre preset recharge le modèle correspondant avant de s'exécuter.
+* Séquences parallèles, avec la mention qui explique que monter cette valeur multiplie le cache de contexte.
+* Cache KV unifié, regroupé avec les autres interrupteurs en bas de la liste.
+
+## Presets
+
+* Petite bulle d'info du contexte (par exemple 32K, 50K, 128K) à côté de la quantization et du benchmark, pour voir la fenêtre de chaque preset d'un coup d'œil.
 
 ## Mise à jour
 
@@ -24,4 +23,4 @@ Une seule génération tourne à la fois : si tu discutes au moment où une tâc
 ajean update
 ```
 
-Note : le système d'ordonnancement est jeune, teste tes premières tâches sur des fréquences courtes avant de leur confier des créneaux plus longs.
+Note : le défaut d'une seule séquence s'applique au prochain lancement de chaque preset. Un preset qui servait volontairement plusieurs requêtes en parallèle doit remonter le réglage à la main.

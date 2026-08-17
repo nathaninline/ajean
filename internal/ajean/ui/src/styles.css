@@ -97,8 +97,8 @@ option,optgroup{background:var(--panel);color:var(--text)}
 /* Desktop : menu plus large et bulles (badges) un peu plus grosses. */
 @media (min-width:721px){
   .side{width:380px}
-  .preset-meta .qtag,.preset-meta .rtag,.preset-meta .btag{font-size:11px;padding:2px 9px;border-radius:9px}
-  .preset-meta .qtag svg,.preset-meta .rtag svg,.preset-meta .btag svg{width:11px;height:11px}
+  .preset-meta .ctag,.preset-meta .qtag,.preset-meta .rtag,.preset-meta .btag{font-size:11px;padding:2px 9px;border-radius:9px}
+  .preset-meta .ctag svg,.preset-meta .rtag svg,.preset-meta .btag svg{width:11px;height:11px}
 }
 h1{margin:0;font-size:18px;color:var(--accent)}
 /* Logo : « AJEAN » dessiné en pixels (SVG 4x5 par lettre, trait d'un module). Le « A »
@@ -250,6 +250,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
   margin:0 -2px 0 0;padding:4px;line-height:0;background:transparent;border:none;opacity:.55}
 .preset-edit:hover{opacity:1;color:var(--accent);background:transparent}
 .preset-meta{display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap}
+.ctag{flex-shrink:0;display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em}
 .qtag{flex-shrink:0;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em;text-transform:uppercase}
 .rtag{flex-shrink:0;display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em}
 .btag{flex-shrink:0;display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em}

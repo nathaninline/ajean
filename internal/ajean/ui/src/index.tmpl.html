@@ -844,6 +844,10 @@
             <span class="pe-row-c"><input id="s-ubatch" class="pe-val" type="number" min="0" step="128" placeholder="512" oninput="cfgWriteKey('UBATCH', this.value)"></span>
           </div>
           <div class="pe-row">
+            <span class="pe-row-l">Séquences parallèles<span class="pe-sub">1 = recommandé · &gt;1 multiplie le cache KV (-np)</span></span>
+            <span class="pe-row-c"><input id="s-np" class="pe-val" type="number" min="1" step="1" placeholder="1" oninput="eaSetValued('-np', this.value)"></span>
+          </div>
+          <div class="pe-row">
             <span class="pe-row-l">Cache KV<span class="pe-sub">compression du contexte</span></span>
             <span class="pe-row-c"><span class="pe-selc"><select id="s-kv" onchange="cfgWriteKey('KV_TYPE', this.value)">
               <option value="">f16 (max qualité)</option>
@@ -896,6 +900,10 @@
           <div class="pe-row">
             <span class="pe-row-l">Charger tout en mémoire<span class="pe-sub">désactive le mmap</span></span>
             <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-nommap" onchange="eaToggleFlag('--no-mmap', this.checked)"><span class="pe-sl"></span></label></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">Cache KV unifié<span class="pe-sub">un seul cache partagé (--kv-unified)</span></span>
+            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-kvunified" onchange="eaToggleFlag('--kv-unified', this.checked)"><span class="pe-sl"></span></label></span>
           </div>
         </div>
       </div>

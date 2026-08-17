@@ -86,6 +86,55 @@ func detectQuant(content string) string {
 	return quantFromName(baseName(modelFromPresetContent(content)))
 }
 
+// presetCtx returns the context window of a preset formatted for the UI badge
+// (ex. "32K", "128K", "1M"). Reads the CTX= line, falling back to the same
+// 32768 default the engine uses (backend_serve.go). Returns "" if CTX is set
+// to something non-numeric.
+func presetCtx(content string) string {
+	raw := "32768"
+	for _, line := range strings.Split(content, "\n") {
+		s := strings.TrimSpace(line)
+		if s == "" || strings.HasPrefix(s, "#") {
+			continue
+		}
+		i := strings.IndexByte(s, '=')
+		if i < 0 {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(s[:i]), "CTX") {
+			if v := unquoteValue(strings.TrimSpace(s[i+1:])); v != "" {
+				raw = v
+			}
+			break
+		}
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || n <= 0 {
+		return ""
+	}
+	return fmtCtx(n)
+}
+
+// fmtCtx formats a token count for the badge in decimal-K/M (ce que l'utilisateur
+// tape : 40000→"40K", 128000→"128K", 1000000→"1M"). Base 1000, arrondi à l'entier
+// pour les K (pas de "39.1K" quand on a saisi 40000) et une décimale pour les M.
+func fmtCtx(n int) string {
+	switch {
+	case n >= 1000000:
+		return trimDot(float64(n)/1000000) + "M"
+	case n >= 1000:
+		return strconv.Itoa((n+500)/1000) + "K"
+	default:
+		return strconv.Itoa(n)
+	}
+}
+
+// trimDot renders a float with at most one decimal, dropping a trailing ".0".
+func trimDot(f float64) string {
+	s := strconv.FormatFloat(f, 'f', 1, 64)
+	return strings.TrimSuffix(s, ".0")
+}
+
 // downloadDestPath resolves the destination of a downloaded model : le dossier
 // demandé (vide = AJEAN_HOME) parmi les dossiers de modèles déclarés, en
 // refusant tout ce qui en sortirait (path traversal).

@@ -123,8 +123,8 @@ option,optgroup{background:var(--panel);color:var(--text)}
 /* Desktop : menu plus large et bulles (badges) un peu plus grosses. */
 @media (min-width:721px){
   .side{width:380px}
-  .preset-meta .qtag,.preset-meta .rtag,.preset-meta .btag{font-size:11px;padding:2px 9px;border-radius:9px}
-  .preset-meta .qtag svg,.preset-meta .rtag svg,.preset-meta .btag svg{width:11px;height:11px}
+  .preset-meta .ctag,.preset-meta .qtag,.preset-meta .rtag,.preset-meta .btag{font-size:11px;padding:2px 9px;border-radius:9px}
+  .preset-meta .ctag svg,.preset-meta .rtag svg,.preset-meta .btag svg{width:11px;height:11px}
 }
 h1{margin:0;font-size:18px;color:var(--accent)}
 /* Logo : « AJEAN » dessiné en pixels (SVG 4x5 par lettre, trait d'un module). Le « A »
@@ -276,6 +276,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
   margin:0 -2px 0 0;padding:4px;line-height:0;background:transparent;border:none;opacity:.55}
 .preset-edit:hover{opacity:1;color:var(--accent);background:transparent}
 .preset-meta{display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap}
+.ctag{flex-shrink:0;display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em}
 .qtag{flex-shrink:0;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em;text-transform:uppercase}
 .rtag{flex-shrink:0;display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em}
 .btag{flex-shrink:0;display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em}
@@ -2053,6 +2054,10 @@ button:hover{border-color:var(--dim);color:var(--text)}
             <span class="pe-row-c"><input id="s-ubatch" class="pe-val" type="number" min="0" step="128" placeholder="512" oninput="cfgWriteKey('UBATCH', this.value)"></span>
           </div>
           <div class="pe-row">
+            <span class="pe-row-l">Séquences parallèles<span class="pe-sub">1 = recommandé · &gt;1 multiplie le cache KV (-np)</span></span>
+            <span class="pe-row-c"><input id="s-np" class="pe-val" type="number" min="1" step="1" placeholder="1" oninput="eaSetValued('-np', this.value)"></span>
+          </div>
+          <div class="pe-row">
             <span class="pe-row-l">Cache KV<span class="pe-sub">compression du contexte</span></span>
             <span class="pe-row-c"><span class="pe-selc"><select id="s-kv" onchange="cfgWriteKey('KV_TYPE', this.value)">
               <option value="">f16 (max qualité)</option>
@@ -2105,6 +2110,10 @@ button:hover{border-color:var(--dim);color:var(--text)}
           <div class="pe-row">
             <span class="pe-row-l">Charger tout en mémoire<span class="pe-sub">désactive le mmap</span></span>
             <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-nommap" onchange="eaToggleFlag('--no-mmap', this.checked)"><span class="pe-sl"></span></label></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l">Cache KV unifié<span class="pe-sub">un seul cache partagé (--kv-unified)</span></span>
+            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-kvunified" onchange="eaToggleFlag('--kv-unified', this.checked)"><span class="pe-sl"></span></label></span>
           </div>
         </div>
       </div>
@@ -2727,12 +2736,11 @@ async function loadPresets(){
       q.textContent=x.quant; q.title='quantization';
       meta.appendChild(q);
     }
-    if(x.reasoning){
-      const rt=document.createElement('span'); rt.className='rtag';
-      rt.title='raisonnement actif ('+x.reasoning+')';
-      rt.innerHTML='<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>';
-      rt.appendChild(document.createTextNode(x.reasoning));
-      meta.appendChild(rt);
+    if(x.ctx){
+      const c=document.createElement('span'); c.className='ctag';
+      c.title='taille du contexte';
+      c.textContent=x.ctx;
+      meta.appendChild(c);
     }
     if(x.bench){
       const bt=document.createElement('span'); bt.className='btag';
@@ -3867,6 +3875,7 @@ function populateSettings(){
   set('s-batch', cfgReadKey('BATCH'));
   set('s-ubatch', cfgReadKey('UBATCH'));
   set('s-tbatch', cfgReadKey('THREADS_BATCH'));
+  set('s-np', eaGetValued('-np'));
   set('s-kv', cfgReadKey('KV_TYPE'));
   // Échantillonnage (envoyé par requête, voir applySampling côté serveur).
   set('s-temp', cfgReadKey('TEMP'));
@@ -3893,6 +3902,7 @@ function populateSettings(){
     rzSub.textContent = rz ? 'réflexion étape par étape'
                            : 'réflexion étape par étape — non précisé : le modèle décide';
   }
+  chk('s-kvunified', eaHasFlag('--kv-unified'));
   chk('s-flash', eaHasFlag('--flash-attn') && !/^off$/i.test(eaGetValued('--flash-attn')));
   chk('s-mlock', eaHasFlag('--mlock'));
   chk('s-nommap', eaHasFlag('--no-mmap'));

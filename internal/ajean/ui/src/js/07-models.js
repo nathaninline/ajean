@@ -715,6 +715,7 @@ function populateSettings(){
   set('s-batch', cfgReadKey('BATCH'));
   set('s-ubatch', cfgReadKey('UBATCH'));
   set('s-tbatch', cfgReadKey('THREADS_BATCH'));
+  set('s-np', eaGetValued('-np'));
   set('s-kv', cfgReadKey('KV_TYPE'));
   // Échantillonnage (envoyé par requête, voir applySampling côté serveur).
   set('s-temp', cfgReadKey('TEMP'));
@@ -741,6 +742,7 @@ function populateSettings(){
     rzSub.textContent = rz ? 'réflexion étape par étape'
                            : 'réflexion étape par étape — non précisé : le modèle décide';
   }
+  chk('s-kvunified', eaHasFlag('--kv-unified'));
   chk('s-flash', eaHasFlag('--flash-attn') && !/^off$/i.test(eaGetValued('--flash-attn')));
   chk('s-mlock', eaHasFlag('--mlock'));
   chk('s-nommap', eaHasFlag('--no-mmap'));

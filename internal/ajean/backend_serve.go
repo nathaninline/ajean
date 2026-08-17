@@ -107,6 +107,12 @@ func cmdServe(args []string) error {
 		"-tb", get("THREADS_BATCH", "0"),
 		"-b", get("BATCH", "2048"),
 		"-ub", get("UBATCH", "512"),
+		// Une seule séquence par défaut : au-delà, llama-server DIVISE le contexte
+		// entre les slots (n_ctx/n_parallel) ET réserve le cache KV pour chacune,
+		// ce qui plafonnait le contexte utile et faisait OOM en spéculatif MTP. Un
+		// preset peut remonter ça via NP= ou un -np dans EXTRA_ARGS (ajouté après,
+		// donc prioritaire pour llama-server).
+		"-np", get("NP", "1"),
 		"--host", get("HOST", "0.0.0.0"),
 		"--port", get("PORT", "8080"),
 	}
