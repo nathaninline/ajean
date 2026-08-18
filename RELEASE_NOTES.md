@@ -1,14 +1,10 @@
-Cette version soigne l'affichage du chat : le texte s'écoule de façon fluide pendant la génération, et deux petits défauts de mise en page autour de la zone de saisie sont corrigés.
-
-## Apparition fluide du texte
-
-* Avec le décodage spéculatif (MTP) et surtout la répartition sur plusieurs cartes graphiques, les mots arrivaient par paquets : plusieurs tokens d'un coup, puis une pause, ce qui donnait une lecture saccadée.
-* L'affichage est maintenant lissé : les caractères apparaissent à un rythme régulier, quelle que soit la façon dont le moteur les produit. Ça ne bride jamais la vitesse (un modèle rapide reste rapide, un lent reste lent), et le compteur de tokens par seconde reflète toujours la vraie performance.
+Cette version peaufine la zone de saisie du chat, dans la continuité de la 0.10.5.
 
 ## Zone de saisie
 
-* Sur une conversation courte, la fin d'une réponse pouvait se glisser sous la zone de saisie sans qu'on puisse la faire remonter. Le fil garde désormais toujours assez d'espace en bas, même quand la saisie s'agrandit sur plusieurs lignes ou qu'un fichier est joint.
-* La barre de défilement était masquée par le dégradé du bas et devenait difficile à attraper. Elle reste maintenant saisissable jusqu'en bas.
+* L'ombre dégradée du bas s'étendait sur toute la largeur et recouvrait la barre de défilement, qui devenait invisible et difficile à attraper. L'ombre est maintenant limitée à la colonne centrale, alignée sur la carte de saisie : les côtés restent dégagés et la barre de défilement reste visible jusqu'en bas.
+* L'espace entre la carte de saisie et la fin de la réponse a été légèrement resserré.
+* En mode plein écran avec la barre latérale escamotée, l'espace au-dessus du premier message était trop grand : il est désormais identique au mode normal.
 
 ## Mise à jour
 
@@ -18,4 +14,4 @@ Depuis un terminal :
 ajean update
 ```
 
-Changements d'interface uniquement, aucun impact sur le moteur ni sur les modèles installés.
+Retouches d'interface uniquement, aucun impact sur le moteur ni sur les modèles installés.
