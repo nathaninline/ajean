@@ -183,12 +183,55 @@ function flushRender(){
   renderBody(p.el, p.text);
   lastRenderMs=performance.now()-t0;
 }
+// Lissage d'apparition (« machine à écrire »). Le MTP et le dual-GPU débitent les
+// tokens PAR RAFALES : plusieurs tokens acceptés d'un coup, puis une pause → le
+// texte grandit par paquets et saute à l'écran. On découple donc l'ARRIVÉE (les
+// rafales réseau) de l'AFFICHAGE : `target` = tout ce qui est reçu, `shown` avance
+// à cadence régulière (requestAnimationFrame) et on n'affiche que le préfixe
+// révélé. Le rendu passe TOUJOURS par scheduleRender pour conserver le throttle
+// anti-O(n²) (issue #24) : sur un bloc énorme le lissage devient grossier, mais
+// on ne perçoit plus les à-coups token par token de toute façon.
+// UNIQUEMENT EN DIRECT : au replay, tout est posé d'un bloc (voir handleDelta),
+// sinon relire le fil deviendrait une lente réécriture caractère par caractère.
+let smooth=null, smoothLast=0; // {el, target, shown, raf}
+function smoothReset(){ if(smooth&&smooth.raf) cancelAnimationFrame(smooth.raf); smooth=null; smoothLast=0; }
+// Solde le bloc courant : on affiche TOUT immédiatement. Appelé à chaque frontière
+// (fin de tour, outil, changement de bloc) — sinon l'ultime bout de texte resterait
+// « en retard » derrière le curseur de révélation.
+function smoothSnap(){ if(!smooth) return; const el=smooth.el, target=smooth.target; smoothReset(); scheduleRender(el, target); }
+// Débit BASÉ SUR LE TEMPS (indépendant du frame-rate). La vitesse de révélation
+// est proportionnelle au RETARD accumulé, avec une constante de temps TAU : le
+// curseur traîne volontairement ~TAU derrière l'arrivée, ce qui donne un
+// écoulement CONTINU malgré les rafales du MTP, et se vide en douceur (drain
+// exponentiel) quand la génération s'arrête. Un plancher garantit un progrès
+// même quand le retard est minuscule, sans jamais figer.
+const SMOOTH_TAU=260; // ms — plus grand = plus lisse mais traîne davantage
+function smoothStep(ts){
+  if(!smooth){ return; }
+  if(!smoothLast) smoothLast=ts;
+  const dt=Math.min(120, ts-smoothLast); smoothLast=ts;
+  const remaining=smooth.target.length - smooth.shown;
+  if(remaining<=0){ smooth.raf=null; smoothLast=0; return; }
+  let adv=remaining*dt/SMOOTH_TAU;      // vitesse ∝ retard
+  if(adv<0.4) adv=0.4;                  // progrès minimal
+  smooth.shown=Math.min(smooth.target.length, smooth.shown+Math.ceil(adv));
+  scheduleRender(smooth.el, smooth.target.slice(0, smooth.shown));
+  smooth.raf=requestAnimationFrame(smoothStep);
+}
+function smoothFeed(el, target){
+  if(smooth && smooth.el!==el) smoothSnap();   // changement de bloc : solder l'ancien
+  if(!smooth) smooth={el, target, shown:0, raf:null};
+  smooth.target=target;
+  if(!smooth.raf) smooth.raf=requestAnimationFrame(smoothStep);
+}
+// Rend un bloc en streaming : lissé en direct, instantané au replay.
+function feedBlock(el, full){ if(REPLAYING) scheduleRender(el, full); else smoothFeed(el, full); }
 // Traite UN événement du flux — même sémantique que l'ancien switch inline, mais
 // piloté par le serveur et rejouable à l'identique.
 function handleDelta(d){
   if(typeof d.seq==='number' && d.seq>lastSeq) lastSeq=d.seq;
   if(d.caught_up){
-    flushRender(); // rendre le dernier bloc rejoué à sa valeur exacte
+    smoothSnap(); flushRender(); // rendre le dernier bloc rejoué à sa valeur exacte
     // Fin du replay initial : on saute en bas puis on révèle (une seule fois — pas
     // sur les reconnexions, pour ne pas te ramener en bas si tu lisais plus haut).
     setChatLoading(null);
@@ -203,7 +246,7 @@ function handleDelta(d){
     // déclencher la synchro — c'est ici qu'on décide d'afficher l'accueil.
     syncChatEmpty();
     return; }
-  if(d.reset!==undefined){ if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
+  if(d.reset!==undefined){ smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
   if(d.user!==undefined){
     newTurn();
     let el=PENDING;
@@ -213,8 +256,8 @@ function handleDelta(d){
     // bulle neuve — sinon elles apparaîtraient en double.
     if(d.files && !hasMsgFiles(el)) addMsgFiles(el, d.files);
     setBusy(true); T.typingEl=addTyping(); return; }
-  if(d.turn_done){ flushRender(); removeTyping(); collapseAll(T.turnCollapsibles); if(T.serverStats) renderStats(T.contentEl||T.reasonEl, T.serverStats); setBusy(false); return; }
-  if(d.error){ flushRender(); removeTyping(); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
+  if(d.turn_done){ smoothSnap(); flushRender(); removeTyping(); collapseAll(T.turnCollapsibles); if(T.serverStats) renderStats(T.contentEl||T.reasonEl, T.serverStats); setBusy(false); return; }
+  if(d.error){ smoothSnap(); flushRender(); removeTyping(); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
   if(d.compacting!==undefined){ setCompacting(d.compacting); return; }
   if(d.compacted){ setCompacting(false); addCompactMark(); return; }
   // Pas de toast au REPLAY : le journal est rejoué à chaque chargement de page,
@@ -228,7 +271,7 @@ function handleDelta(d){
     if(d.stats.prompt_tokens_total){ setCtxUsed((d.stats.prompt_tokens_total||0)+(d.stats.gen_tokens||0)); }
     if(T.contentEl||T.reasonEl) renderStats(T.contentEl||T.reasonEl, d.stats); return; }
   if(d.tool_used){
-    flushRender(); // le bloc texte précédent (raisonnement/contenu) est terminé
+    smoothSnap(); flushRender(); // le bloc texte précédent (raisonnement/contenu) est terminé
     killTyping('tool'); T.contentEl=null; T.reasonEl=null; const tu=d.tool_used;
     if(!T.pendingToolEl){ collapseAll(T.turnCollapsibles); T.pendingToolEl=addMsg('tool',''); if(REPLAYING||viewOn('fold-tools')) collapseInstant(T.pendingToolEl); T.turnCollapsibles.push(T.pendingToolEl); }
     renderToolMsg(T.pendingToolEl, tu);
@@ -238,7 +281,7 @@ function handleDelta(d){
     if(tu.done){ T.pendingToolEl=null; if(tu.name==='mem_add'||tu.name==='mem_edit') loadMem(); }
     return; }
   if(d.drop_reasoning){
-    if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; // le bloc raisonnement disparaît
+    smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; // le bloc raisonnement disparaît
     if(T.reasonEl){ const i=T.turnCollapsibles.indexOf(T.reasonEl); if(i>=0) T.turnCollapsibles.splice(i,1); T.reasonEl.remove(); T.reasonEl=null; T.fullReason=''; }
     return; }
   if(d.reasoning_content){
@@ -247,8 +290,8 @@ function handleDelta(d){
     // d.replace : le serveur renvoie le bloc ENTIER alors qu'on en affichait déjà
     // le début (voir decorateEvent/coalesceReplay côté serveur) → on repart de zéro
     // au lieu de concaténer, sinon le texte apparaît en double.
-    if(d.replace){ T.fullReason=''; T.reasonTok=0; T.reasonFirstTs=0; }
-    showTyping('reasoning'); T.fullReason+=d.reasoning_content; scheduleRender(T.reasonEl, T.fullReason);
+    if(d.replace){ smoothSnap(); T.fullReason=''; T.reasonTok=0; T.reasonFirstTs=0; }
+    showTyping('reasoning'); T.fullReason+=d.reasoning_content; feedBlock(T.reasonEl, T.fullReason);
     // d.toks/d.ts0 présents quand l'événement est coalescé (replay) : plusieurs
     // tokens d'un coup. Sinon (direct), 1 token, ts0=ts.
     if(!T.reasonFirstTs) T.reasonFirstTs=d.ts0||d.ts||0; T.reasonLastTs=d.ts||T.reasonLastTs; T.reasonTok+=(d.toks||1);
@@ -257,8 +300,8 @@ function handleDelta(d){
   if(d.content){
     removeTyping();
     if(!T.contentEl){ collapseAll(T.turnCollapsibles); T.contentEl=addMsg('assistant',''); T.fullContent=''; }
-    if(d.replace){ T.fullContent=''; T.contentTok=0; T.contentFirstTs=0; }
-    T.fullContent+=d.content; scheduleRender(T.contentEl, T.fullContent);
+    if(d.replace){ smoothSnap(); T.fullContent=''; T.contentTok=0; T.contentFirstTs=0; }
+    T.fullContent+=d.content; feedBlock(T.contentEl, T.fullContent);
     if(!T.contentFirstTs) T.contentFirstTs=d.ts0||d.ts||0; T.contentLastTs=d.ts||T.contentLastTs; T.contentTok+=(d.toks||1);
     labelTokens(T.contentEl, 'assistant', T.contentTok, T.contentFirstTs, T.contentLastTs);
     return; }

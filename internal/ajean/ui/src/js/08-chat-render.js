@@ -16,6 +16,23 @@ function syncGutter(){
 }
 addEventListener('resize', syncGutter);
 addEventListener('DOMContentLoaded', syncGutter);
+// Le composeur flotte au-dessus du fil et sa hauteur VARIE (saisie multi-lignes,
+// pièces jointes en attente). On la mesure et on la reporte en variable CSS pour
+// que le padding bas du fil dégage toujours exactement la carte — sinon, sur une
+// conversation courte pas encore défilable, le texte se glissait sous le composeur
+// sans qu'on puisse le faire remonter. On re-scrolle après coup si on était collé
+// en bas (le padding qui change déplace le bas).
+function syncComposerPad(){
+  const comp=document.getElementById('composer'); if(!comp) return;
+  document.documentElement.style.setProperty('--composer-h', comp.offsetHeight+'px');
+  scrollMaybe();
+}
+addEventListener('resize', syncComposerPad);
+addEventListener('DOMContentLoaded', ()=>{
+  syncComposerPad();
+  const comp=document.getElementById('composer');
+  if(comp && window.ResizeObserver){ new ResizeObserver(syncComposerPad).observe(comp); }
+});
 
 function scrollMaybe(){
   // Pendant le replay initial on NE force AUCUN reflow : lire scrollHeight à chaque
