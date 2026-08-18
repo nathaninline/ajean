@@ -57,7 +57,7 @@ const compactSummaryPrefix = "[CONTEXT COMPACTED]"
 
 // compactEnabled indique si le compactage automatique du contexte est actif.
 // Défaut : true. Seule une valeur off/false/0/no/non explicite (config.env
-// COMPACT) le désactive — cohérent avec toolLimitEnabled().
+// COMPACT) le désactive.
 func compactEnabled() bool {
 	switch strings.ToLower(strings.TrimSpace(ReadConfig()["COMPACT"])) {
 	case "off", "false", "0", "no", "non":

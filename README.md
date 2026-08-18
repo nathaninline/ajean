@@ -295,8 +295,16 @@ Go 1.25+. AJEAN est écrit à 100 % en Go, l'interface est embarquée via `go:em
 ```bash
 git clone https://github.com/nathaninline/ajean.git
 cd ajean
+
+# Linux / Windows :
 CGO_ENABLED=0 go build -o ajean ./cmd/ajean
+
+# macOS : le systray passe par Cocoa (CGO obligatoire), donc PAS de CGO_ENABLED=0.
+#         Xcode Command Line Tools requis (xcode-select --install).
+go build -o ajean ./cmd/ajean
 ```
+
+> Sur macOS, `CGO_ENABLED=0` exclut les fichiers natifs du systray et échoue sur `undefined: nativeLoop` (issue #30). Compiler sans ce drapeau : CGO est actif par défaut.
 
 > Compiler **AJEAN** ne demande que Go. Compiler le **moteur llama.cpp** demande `git`, `cmake` et le toolkit de l'accélérateur.
 
