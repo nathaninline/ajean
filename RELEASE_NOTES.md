@@ -1,13 +1,13 @@
-Cette version soigne l'affichage des images dans le chat et ajoute un réglage pour économiser la VRAM quand la vision est active.
+Cette version corrige des problèmes remontés dans les issues GitHub : la détection Vulkan qui ratait les distributions type Fedora, et la doc de compilation sur macOS.
 
-## Images dans le chat
+## Détection Vulkan (Fedora / Bazzite / RHEL)
 
-* Quand tu joins une image, tu vois maintenant une vignette (un petit aperçu) au lieu du seul nom de fichier, aussi bien dans la zone de saisie que dans la bulle du message une fois envoyé.
-* Envoyer une image sans écrire un mot ne laisse plus une bulle vide sous la pièce jointe : seule la vignette reste.
+* La détection du backend Vulkan ne regardait que le chemin Debian/Ubuntu (`/usr/lib/x86_64-linux-gnu/`). Sur Fedora, Bazzite et les dérivés RHEL, la bibliothèque vit dans `/usr/lib64/`, donc le GPU passait inaperçu et AJEAN retombait sur le CPU.
+* AJEAN interroge maintenant `ldconfig` (la référence du système pour les bibliothèques) puis, en secours, teste plusieurs emplacements connus (`/usr/lib64`, `/lib64`, `/usr/lib`, Debian multiarch). Ton GPU Vulkan est reconnu quelle que soit la distribution.
 
-## Éditeur de preset
+## Compilation sur macOS
 
-* Nouveau réglage « Projecteur vision sur le CPU » : il garde le projecteur multimodal (mmproj) hors du GPU et libère la VRAM qu'il occupait, utile quand un gros modèle remplit déjà la carte. Le réglage n'apparaît que si une vision est sélectionnée, pour ne pas encombrer.
+* Le README indiquait `CGO_ENABLED=0` pour compiler, ce qui casse le build sur macOS (le systray passe par Cocoa, qui exige CGO). La doc documente désormais les deux variantes : macOS sans ce drapeau (avec les Xcode Command Line Tools), Linux et Windows avec.
 
 ## Mise à jour
 
@@ -17,4 +17,4 @@ Depuis un terminal :
 ajean update
 ```
 
-Testé sur le serveur Linux (déploiement direct). Le réglage « projecteur sur le CPU » a été vérifié côté génération d'arguments, mais son effet exact sur la VRAM dépend de ta configuration matérielle.
+Corrections de portabilité et de documentation, sans changement de comportement pour les installations existantes.
