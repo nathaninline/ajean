@@ -22,17 +22,33 @@ addEventListener('DOMContentLoaded', syncGutter);
 // conversation courte pas encore défilable, le texte se glissait sous le composeur
 // sans qu'on puisse le faire remonter. On re-scrolle après coup si on était collé
 // en bas (le padding qui change déplace le bas).
+// Mesure la hauteur RÉELLE du composeur → --composer-h. Le composeur est en
+// superposition (absolu) : #chat réserve cette hauteur (+ marge) en padding-bas
+// pour que le fil défile derrière la carte sans que la fin se cache dessous.
 function syncComposerPad(){
   const comp=document.getElementById('composer'); if(!comp) return;
   document.documentElement.style.setProperty('--composer-h', comp.offsetHeight+'px');
   scrollMaybe();
 }
-addEventListener('resize', syncComposerPad);
-addEventListener('DOMContentLoaded', ()=>{
+// Initialise la mesure de la hauteur du composeur de façon ROBUSTE sur iOS Safari.
+// Piège : au retour via le cache page (bfcache) ou selon le timing, `DOMContentLoaded`
+// peut ne PAS se redéclencher → sans ça `--composer-h` restait à sa valeur par
+// défaut (150px), souvent plus petite que le composeur réel (safe-area, nom du
+// preset sur 2 lignes…), donc la fin de la réponse se cachait sous la carte de
+// saisie. On (re)mesure sur tous les points d'entrée + quelques filets différés
+// (polices/statut chargés tard), et l'observateur est posé une seule fois.
+function initComposerPad(){
   syncComposerPad();
   const comp=document.getElementById('composer');
-  if(comp && window.ResizeObserver){ new ResizeObserver(syncComposerPad).observe(comp); }
-});
+  if(comp && window.ResizeObserver && !comp._roPad){ comp._roPad=new ResizeObserver(syncComposerPad); comp._roPad.observe(comp); }
+  setTimeout(syncComposerPad, 300);
+  setTimeout(syncComposerPad, 1200);
+}
+addEventListener('resize', syncComposerPad);
+addEventListener('orientationchange', syncComposerPad);
+addEventListener('DOMContentLoaded', initComposerPad);
+addEventListener('load', initComposerPad);
+addEventListener('pageshow', initComposerPad); // iOS : rechargement depuis le bfcache
 
 function scrollMaybe(){
   // Pendant le replay initial on NE force AUCUN reflow : lire scrollHeight à chaque
@@ -76,7 +92,7 @@ function addMsg(role, text){
 function addTyping(){
   const el=document.createElement('div');
   el.className='msg assistant typing';
-  el.innerHTML='<span></span><span></span><span></span>';
+  el.innerHTML='<span class="dot"></span>';
   chatEl().appendChild(el); scrollMaybe();
   return el;
 }

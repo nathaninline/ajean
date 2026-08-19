@@ -37,7 +37,6 @@ RestartSec=3
 # en inference GPU). Nice négatif + scheduling normal réactif.
 Nice=-10
 CPUSchedulingPolicy=other
-CPUAccounting=yes
 
 [Install]
 WantedBy=multi-user.target

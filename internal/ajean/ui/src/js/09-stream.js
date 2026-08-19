@@ -47,6 +47,105 @@ let T=null;
 function newTurn(){ T={ reasonEl:null, contentEl:null, pendingToolEl:null, typingEl:null, fullContent:'', fullReason:'', turnCollapsibles:[], serverStats:null, reasonTok:0, contentTok:0, reasonFirstTs:0, reasonLastTs:0, contentFirstTs:0, contentLastTs:0 }; }
 newTurn();
 const simpleMode=()=>document.documentElement.getAttribute('data-display')==='simple';
+// Ligne d'état de génération (issue #34, façon Claude Code). Un raisonnement ou
+// une exécution d'outil peut durer plusieurs minutes ; sans repère on croit à un
+// plantage silencieux. On affiche donc EN PERMANENCE pendant la réponse, en bas
+// (#genstatus) le chrono + les tokens produits (la vitesse exacte est figée à la
+// fin). Purement client, EN DIRECT seulement : au replay on n'a pas l'instant de
+// départ, et un chrono qui « recommencerait » à chaque rechargement tromperait.
+let ELAPSED=null; // {start, timer}
+// fmtElapsed : durée EN SECONDES → « 42s », « 15 mn 42s », « 1 h 05 mn ». Nom
+// distinct de fmtDur() (16-tasks.js, en millisecondes) : les fichiers JS sont
+// concaténés dans un même scope, une collision de nom écrasait celui-ci.
+function fmtElapsed(secs){
+  secs=Math.max(0,Math.round(secs));
+  const h=Math.floor(secs/3600), m=Math.floor((secs%3600)/60), s=secs%60;
+  if(h) return h+' h '+String(m).padStart(2,'0')+' mn';
+  if(m) return m+' mn '+String(s).padStart(2,'0')+'s';
+  return s+'s';
+}
+// Tokens produits ce tour (raisonnement + réponse) : ce qui défile côté modèle.
+function genTokCount(){ return (T.reasonTok||0)+(T.contentTok||0); }
+// La ligne d'état vit DANS le fil (dernier enfant de #chat) : elle se pose donc
+// juste sous le texte de l'IA et suit le défilement, au lieu de flotter en bas
+// de l'écran. Créée à la volée, retirée en fin de tour.
+let GENEL=null;
+function ensureGenEl(){
+  const chat=chatEl();
+  if(!GENEL){ GENEL=document.createElement('div'); GENEL.className='genstatus';
+    // Le J du favicon AJEAN : deux carrés empilés (la barre) + un carré décalé à
+    // gauche en bas (le pied du J). Statique, en accent. Classe (pas id) : plusieurs
+    // lignes figées coexistent dans le fil, une par tour terminé.
+    GENEL.innerHTML='<svg class="jlogo" viewBox="0 0 12 12" aria-hidden="true"><rect x="6" y="3" width="2" height="2"/><rect x="6" y="5" width="2" height="2"/><rect x="4" y="7" width="2" height="2"/></svg><span class="gtxt"></span>'; }
+  if(GENEL.parentNode!==chat || chat.lastElementChild!==GENEL) chat.appendChild(GENEL); // toujours en dernier
+  return GENEL;
+}
+function removeGenEl(){ if(GENEL&&GENEL.parentNode) GENEL.parentNode.removeChild(GENEL); GENEL=null; }
+// Vitesse decode STABLE en direct, basée sur les HORODATAGES SERVEUR des tokens
+// (d.ts), pas l'heure d'arrivée côté client : les ts serveur reflètent le vrai
+// rythme de génération et ignorent la bufferisation réseau/MTP (qui rendait la
+// mesure erratique). On additionne les écarts serveur entre tokens en EXCLUANT
+// les gros trous (attente d'outil / re-prefill) → tokens / temps de decode pur.
+const DECODE_GAP_MAX=800; // ms d'écart serveur au-delà = attente, pas du decode
+function noteDecode(d){
+  if(!ELAPSED) return;
+  const ts=d.ts||0; if(!ts) return;
+  const ts0=d.ts0||ts; // paquet coalescé (replay) : [ts0..ts] ; direct : ts0==ts
+  if(ELAPSED.lastTs){ const gap=ts0-ELAPSED.lastTs; if(gap>0 && gap<DECODE_GAP_MAX) ELAPSED.decodeMs+=gap; }
+  if(ts>ts0) ELAPSED.decodeMs+=(ts-ts0); // durée interne du paquet coalescé
+  ELAPSED.lastTs=ts;
+}
+function genRate(){
+  if(!ELAPSED || ELAPSED.decodeMs<600) return null; // pas avant ~0,6s de decode (bruit initial)
+  return genTokCount()/(ELAPSED.decodeMs/1000);
+}
+// EN DIRECT : chrono (temps total du tour) + tokens qui montent + vitesse decode
+// stable. La vitesse EXACTE (timings serveur) est figée à la fin par finalizeTurn.
+function paintGenStatus(){
+  if(!ELAPSED) return;
+  const g=ensureGenEl(); const txt=g.querySelector('.gtxt');
+  const secs=(Date.now()-ELAPSED.start)/1000;
+  const tok=genTokCount();
+  const parts=[fmtElapsed(secs)];
+  if(tok>0){
+    parts.push(tok+' tok');
+    const rate=genRate();
+    if(rate!=null) parts.push(rate.toFixed(1)+' tok/s');
+  }
+  txt.textContent=parts.join('  ·  ');
+  scrollMaybe();
+}
+function genStatusOn(on){ chatEl().classList.toggle('genon', !!on); }
+function elapsedStart(){
+  if(REPLAYING) return;
+  elapsedStop();
+  ELAPSED={start:Date.now(), timer:setInterval(paintGenStatus,500), decodeMs:0, lastTs:0};
+  genStatusOn(true); paintGenStatus();
+}
+// Arrêt SANS conserver la ligne (erreur/reset) : le tour n'a pas de fin propre.
+function elapsedStop(){ if(ELAPSED){ clearInterval(ELAPSED.timer); ELAPSED=null; } genStatusOn(false); removeGenEl(); }
+// FIN DE TOUR (direct ET replay) : pose la ligne définitive sous le message, à
+// partir de la durée SERVEUR (elapsed_ms, rejouée donc identique après reload) et
+// des mesures serveur (tokens + vitesse decode réelle). On détache GENEL pour que
+// le tour suivant en crée une neuve, laissant celle-ci comme trace du tour fini.
+function finalizeTurn(elapsedMs){
+  const st=T.serverStats||{};
+  // Tokens = TOTAL du tour (cumul client sur tous les appels d'outils) — pas
+  // st.gen_tokens, qui ne compte que la DERNIÈRE complétion (d'où le chiffre qui
+  // baissait à la fin).
+  const tok=genTokCount();
+  // Vitesse = decode PUR du serveur (timings llama.cpp, exact, hors prefill/outils).
+  const rate=st.gen_per_second||null;
+  if(ELAPSED){ clearInterval(ELAPSED.timer); ELAPSED=null; }
+  genStatusOn(false);
+  const parts=[];
+  if(elapsedMs>0) parts.push(fmtElapsed(elapsedMs/1000));
+  if(tok>0){ parts.push(tok+' tok'); if(rate!=null) parts.push(rate.toFixed(1)+' tok/s'); }
+  if(!parts.length){ removeGenEl(); scrollMaybe(); return; }
+  const g=ensureGenEl(); g.querySelector('.gtxt').textContent=parts.join('  ·  ');
+  GENEL=null;
+  scrollMaybe(); // révèle la fin (et cette ligne) même sur un fil à peine défilable
+}
 function removeTyping(){ if(T.typingEl){ T.typingEl.remove(); T.typingEl=null; } }
 // Compactage : on ÉTIQUETTE l'indicateur de frappe déjà à l'écran au lieu
 // d'ouvrir une bannière à part (on avait les deux en même temps pour un seul
@@ -246,7 +345,7 @@ function handleDelta(d){
     // déclencher la synchro — c'est ici qu'on décide d'afficher l'accueil.
     syncChatEmpty();
     return; }
-  if(d.reset!==undefined){ smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
+  if(d.reset!==undefined){ elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
   if(d.user!==undefined){
     newTurn();
     let el=PENDING;
@@ -255,9 +354,13 @@ function handleDelta(d){
     // porte déjà (posées à l'envoi), on ne les ajoute donc qu'au replay/à une
     // bulle neuve — sinon elles apparaîtraient en double.
     if(d.files && !hasMsgFiles(el)) addMsgFiles(el, d.files);
-    setBusy(true); T.typingEl=addTyping(); return; }
-  if(d.turn_done){ smoothSnap(); flushRender(); removeTyping(); collapseAll(T.turnCollapsibles); if(T.serverStats) renderStats(T.contentEl||T.reasonEl, T.serverStats); setBusy(false); return; }
-  if(d.error){ smoothSnap(); flushRender(); removeTyping(); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
+    setBusy(true); T.typingEl=addTyping(); elapsedStart(); return; }
+  if(d.turn_done){ smoothSnap(); flushRender();
+    // MÊME ligne en direct et au replay : durée serveur (elapsed_ms, rejouée) +
+    // mesures serveur. removeTyping AVANT finalize pour que la ligne soit bien le
+    // dernier enfant du fil (donc sous le message).
+    removeTyping(); finalizeTurn(d.elapsed_ms||0); collapseAll(T.turnCollapsibles); setBusy(false); return; }
+  if(d.error){ smoothSnap(); flushRender(); elapsedStop(); removeTyping(); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
   if(d.compacting!==undefined){ setCompacting(d.compacting); return; }
   if(d.compacted){ setCompacting(false); addCompactMark(); return; }
   // Pas de toast au REPLAY : le journal est rejoué à chaque chargement de page,
@@ -269,7 +372,9 @@ function handleDelta(d){
   if(d.ctx_used!==undefined){ setCtxUsed(d.ctx_used); return; }
   if(d.stats){ T.serverStats=d.stats;
     if(d.stats.prompt_tokens_total){ setCtxUsed((d.stats.prompt_tokens_total||0)+(d.stats.gen_tokens||0)); }
-    if(T.contentEl||T.reasonEl) renderStats(T.contentEl||T.reasonEl, d.stats); return; }
+    // Les mesures définitives sont posées par finalizeTurn (à turn_done), même
+    // ligne en direct et au replay — on se contente ici de mémoriser les stats.
+    return; }
   if(d.tool_used){
     smoothSnap(); flushRender(); // le bloc texte précédent (raisonnement/contenu) est terminé
     killTyping('tool'); T.contentEl=null; T.reasonEl=null; const tu=d.tool_used;
@@ -279,6 +384,7 @@ function handleDelta(d){
     // tour continue, et rien d'autre n'est visible). Sinon, comportement inchangé.
     if(!tu.done || viewOn('hide-tools')) showTyping('tool');
     if(tu.done){ T.pendingToolEl=null; if(tu.name==='mem_add'||tu.name==='mem_edit') loadMem(); }
+    if(ELAPSED) ensureGenEl(); // re-ancre la ligne EN DERNIER dans le même cycle : la bulle d'outil ne passe pas au-dessus (pas de saut)
     return; }
   if(d.drop_reasoning){
     smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; // le bloc raisonnement disparaît
@@ -296,6 +402,7 @@ function handleDelta(d){
     // tokens d'un coup. Sinon (direct), 1 token, ts0=ts.
     if(!T.reasonFirstTs) T.reasonFirstTs=d.ts0||d.ts||0; T.reasonLastTs=d.ts||T.reasonLastTs; T.reasonTok+=(d.toks||1);
     labelTokens(T.reasonEl, 'reasoning', T.reasonTok, T.reasonFirstTs, T.reasonLastTs);
+    noteDecode(d); paintGenStatus();
     return; }
   if(d.content){
     removeTyping();
@@ -304,6 +411,7 @@ function handleDelta(d){
     T.fullContent+=d.content; feedBlock(T.contentEl, T.fullContent);
     if(!T.contentFirstTs) T.contentFirstTs=d.ts0||d.ts||0; T.contentLastTs=d.ts||T.contentLastTs; T.contentTok+=(d.toks||1);
     labelTokens(T.contentEl, 'assistant', T.contentTok, T.contentFirstTs, T.contentLastTs);
+    noteDecode(d); paintGenStatus();
     return; }
 }
 // Flux d'abonnement permanent + reconnexion auto (from=lastSeq → pas de

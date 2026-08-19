@@ -327,6 +327,10 @@ func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, tem
 // tout ce que ce tour produirait ensuite (deltas, messages, persistance) est
 // abandonné au lieu de ressusciter des morceaux de l'ancienne conversation.
 func (c *Conversation) generate(ctx context.Context, caps Caps, temperature float64, epoch int) {
+	// Horloge du tour : durée réelle (préchauffe + réflexion + outils + réponse),
+	// journalisée dans turn_done pour que l'UI affiche la MÊME durée en direct et
+	// après un rechargement (le chrono client, lui, n'existe qu'en direct).
+	turnStart := time.Now()
 	defer func() {
 		c.mu.Lock()
 		stale := c.epoch != epoch
@@ -343,7 +347,7 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 		if stale {
 			return // Reset pendant le tour : Reset a déjà persisté l'état vide
 		}
-		c.appendDelta(epoch, map[string]any{"turn_done": true})
+		c.appendDelta(epoch, map[string]any{"turn_done": true, "elapsed_ms": time.Since(turnStart).Milliseconds()})
 		c.mu.Lock()
 		c.compactLogLocked() // le tour est fini : coalesce ses tokens pour garder le journal petit
 		c.mu.Unlock()

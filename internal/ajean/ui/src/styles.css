@@ -330,19 +330,30 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .msg.tool .tool-caret{color:var(--accent);animation:toolblink 1s step-end infinite}
 .msg.tool .tool-wait{font-size:12px;color:var(--dim);margin-top:8px;animation:toolblink 1.2s ease-in-out infinite}
 @keyframes toolblink{0%,100%{opacity:.45}50%{opacity:1}}
-/* Indicateur « le modèle réfléchit » : 3 points animés avant le 1er token. */
-.msg.typing{display:inline-flex;gap:5px;align-items:center;padding:14px 16px}
-.msg.typing span{width:7px;height:7px;border-radius:50%;background:var(--dim);animation:typingdot 1.2s infinite ease-in-out}
-.msg.typing span:nth-child(2){animation-delay:.16s}
-.msg.typing span:nth-child(3){animation-delay:.32s}
-@keyframes typingdot{0%,70%,100%{opacity:.25;transform:translateY(0)}35%{opacity:1;transform:translateY(-4px)}}
-/* Compactage du contexte : le MÊME indicateur, juste étiqueté. Avant, une
-   mini-bannière au-dessus de la saisie doublonnait les 3 points animés — deux
-   éléments pour un seul état d'attente. Ici les points passent en accent et un
-   libellé apparaît à côté : un seul objet à l'écran, au bon endroit. */
-.msg.typing.compacting span:not(.tlabel){background:var(--accent)}
-.msg.typing .tlabel{width:auto;height:auto;border-radius:0;background:none;animation:tlabelfade 1.6s ease-in-out infinite;font-size:12px;color:var(--accent);margin-left:3px;white-space:nowrap}
+/* Indicateur « le modèle travaille » : UN seul point qui pulse (grossit et
+   rétrécit), à l'endroit où l'assistant va écrire. La progression détaillée
+   (chrono, tokens, vitesse) vit dans la ligne d'état persistante #genstatus. */
+.msg.typing{display:inline-flex;gap:8px;align-items:center;padding:14px 16px}
+.msg.typing .dot{width:8px;height:8px;border-radius:50%;background:var(--dim);animation:pulsedot 1.15s infinite ease-in-out}
+@keyframes pulsedot{0%,100%{transform:scale(.55);opacity:.45}50%{transform:scale(1);opacity:1}}
+/* Compactage du contexte : le MÊME indicateur, juste étiqueté (le point passe
+   en accent, un libellé apparaît à côté). Un seul objet à l'écran, au bon
+   endroit — pas de bannière qui doublonne. */
+.msg.typing.compacting .dot{background:var(--accent)}
+.msg.typing .tlabel{animation:tlabelfade 1.6s ease-in-out infinite;font-size:12px;color:var(--accent);margin-left:1px;white-space:nowrap}
 @keyframes tlabelfade{0%,100%{opacity:.6}50%{opacity:1}}
+/* Ligne d'état de génération (façon Claude Code) : posée DANS le fil, en dernier,
+   donc juste SOUS le texte de l'IA. Reste affichée pendant toute la génération et
+   montre point pulsant + chrono + tokens produits + vitesse en direct. Pendant la
+   génération, la bulle de points redondante du fil est masquée (ce point-ci sert
+   d'indicateur) — sauf en compactage, qui porte son propre libellé. */
+.genstatus{display:flex;align-items:center;gap:8px;margin-top:-8px;font-family:var(--mono);font-size:10.5px;letter-spacing:.02em;color:var(--dim)}
+html[data-hide-stats="1"] .genstatus{display:none}
+/* Logo AJEAN (le J du favicon : la barre + le carré du pied), en accent, SANS
+   animation — simple marque à côté des mesures. */
+.genstatus .jlogo{width:16px;height:16px;flex:none;color:var(--accent)}
+.genstatus .jlogo rect{fill:currentColor}
+#chat.genon .msg.typing:not(.compacting){display:none}
 /* Trace laissée DANS le fil quand le contexte a été compacté : un séparateur
    discret, à sa place chronologique — un toast qui disparaît ne dit pas OÙ la
    coupure a eu lieu. */
@@ -1065,19 +1076,31 @@ html[data-hide-stats="1"] #chat .msg .statline{display:none}
    recouvre. Le padding bas du fil suit la HAUTEUR RÉELLE du composeur (--composer-h,
    mesurée en JS) car elle varie (saisie multi-lignes, pièces jointes) : sinon, sur
    une conversation courte, du texte se cachait sous la carte sans pouvoir défiler. */
-#composer{position:absolute;left:0;right:0;bottom:0;z-index:4;border-top:none;display:flex;flex-direction:column;padding:34px 0 calc(8px + env(safe-area-inset-bottom));--col:calc(max(16px,calc(50% - 380px)) + var(--sbw,0px));background:none;pointer-events:none;isolation:isolate}
-/* L'ombre (dégradé) est peinte par ::before et LIMITÉE À LA COLONNE CENTRALE,
-   alignée exactement sur la carte de saisie (inset gauche/droite = --col, la même
-   marge que la carte). Elle ne s'étend donc plus jusqu'aux bords : les marges
-   latérales restent dégagées, en particulier la gouttière de droite où vit la
-   barre de défilement du fil (elle n'est plus masquée par le noir).
-   z-index:0 : au-dessus du fil (le composeur isole son contexte) mais SOUS les
-   enfants, qui repassent devant via z-index:1. Ne PAS utiliser z-index négatif
-   (ça faisait plonger le dégradé DERRIÈRE le fil → texte visible en bandeau). */
-#composer::before{content:"";position:absolute;inset:0 var(--col) 0 var(--col);background:linear-gradient(to bottom,transparent 0,var(--bg) 34%);pointer-events:none;z-index:0}
+/* Composeur DANS LE FLUX (plus en superposition). #chat (flex:1) occupe donc
+   exactement la place au-dessus : il défile toujours correctement et la fin d'une
+   réponse ne peut JAMAIS se cacher derrière la carte (le calcul de padding basé
+   sur une hauteur mesurée était fragile sur iOS Safari — cf. scrollH == clientH
+   alors que du texte débordait). Un léger dégradé (::before) adoucit la jointure
+   au-dessus de la carte sans masquer la dernière ligne. */
+/* Composeur EN SUPERPOSITION : le fil défile DERRIÈRE la carte et s'efface en
+   fondu → le texte disparaît vers le milieu de la zone de saisie (pas un arrêt
+   net). #chat réserve la hauteur RÉELLE du composeur + une marge, pour que la
+   dernière ligne garde toujours de l'espace au-dessus de la carte ET que le fil
+   défile quand ça dépasse. */
+#composer{position:absolute;left:0;right:0;bottom:0;z-index:4;display:flex;flex-direction:column;padding:32px 0 calc(8px + env(safe-area-inset-bottom));--col:calc(max(16px,calc(50% - 380px)) + var(--sbw,0px));background:none;border-top:none;pointer-events:none;isolation:isolate}
+/* Dégradé PLEINE LARGEUR (left/right:0 → pas de segments sur les côtés) : opaque
+   dès ~45 % de la hauteur, donc le texte est totalement fondu autour du haut de
+   la carte. z-index:0 = au-dessus du fil mais sous les enfants du composeur. */
+#composer::before{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,transparent,var(--bg) 45%);pointer-events:none;z-index:0}
 #composer>*{pointer-events:auto;position:relative;z-index:1}
-#chat{padding-bottom:calc(var(--composer-h,150px) + 10px)}
-#scrollbtn{bottom:calc(var(--composer-h,150px) + 14px);border-radius:999px}
+/* Espace réservé sous le fil = un VRAI bloc (::after), pas un padding-bottom :
+   iOS Safari n'inclut PAS le padding-bottom d'un conteneur scrollable dans sa
+   hauteur de défilement → quand la réponse finissait derrière la carte,
+   scrollHeight == clientHeight, donc AUCUN scroll possible et le texte restait
+   piégé dessous. Un bloc, lui, compte toujours dans le débordement → le fil peut
+   remonter pour dégager la dernière ligne au-dessus de la carte. */
+#chat::after{content:"";display:block;flex:none;height:calc(var(--composer-h,150px) + 6px)}
+#scrollbtn{bottom:calc(var(--composer-h,150px) + 6px);border-radius:999px}
 #inputbar{order:1;margin:0 var(--col);padding:8px 8px 8px 16px;gap:8px;align-items:flex-end;background:var(--panel);border:1px solid var(--border);border-bottom:none;border-radius:26px 26px 0 0}
 #input{background:transparent;border:none;border-radius:0;padding:9px 0;min-height:36px;line-height:18px;max-height:160px}
 /* Pas de cadre qui s'assombrit au focus : la carte garde exactement la même
