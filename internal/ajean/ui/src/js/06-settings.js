@@ -54,7 +54,11 @@ async function loadPresets(){
     const row=document.createElement('div');
     const pend = !x.active && pendingPreset===i+1;
     row.className='preset'+(x.active?' active':'')+(pend?' pending':'')+(moved?' sel-anim':'');
-    row.onclick=()=>switchTo(i+1, x.name);
+    // Réordonnable à la souris (SortableJS, init plus bas). data-id sert à relire
+    // l'ordre après un déplacement.
+    row.dataset.id = x.id;
+    // Guard : un glissement ne doit pas être pris pour un clic qui bascule le preset.
+    row.onclick=()=>{ if(presetJustDragged) return; switchTo(i+1, x.name); };
     const info=document.createElement('div'); info.className='preset-info';
     const nm=document.createElement('div'); nm.className='preset-name';
     // Puce de l'actif : un ÉLÉMENT rond en CSS, pas le caractère « ● ». Le glyphe
@@ -84,6 +88,23 @@ async function loadPresets(){
       bt.textContent=x.bench.prefill.toFixed(0)+'-'+x.bench.decode.toFixed(0)+' t/s';
       meta.appendChild(bt);
     }
+    // Bulle « capacités » à droite des autres : icônes vision (œil) et raisonnement
+    // (ampoule), regroupées dans une seule pastille comme les autres tags.
+    const caps=[], capTitle=[];
+    if(x.vision){
+      caps.push('<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>');
+      capTitle.push('vision (analyse d\'images)');
+    }
+    if(x.reasoning){
+      caps.push('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>');
+      capTitle.push('raisonnement'+(typeof x.reasoning==='string'?' ('+x.reasoning+')':''));
+    }
+    if(caps.length){
+      const cap=document.createElement('span'); cap.className='captag';
+      cap.innerHTML=caps.join('');
+      cap.title=capTitle.join(' · ');
+      meta.appendChild(cap);
+    }
     info.appendChild(nm);
     if(meta.children.length) info.appendChild(meta);
     const edit=document.createElement('button');
@@ -92,8 +113,45 @@ async function loadPresets(){
     edit.className='preset-edit'; edit.title='réglages du preset';
     edit.innerHTML='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>';
     edit.onclick=(e)=>{ e.stopPropagation(); openPreset(x.id); };
+    // Pas de poignée : la ligne entière est déplaçable, on attrape où on veut.
     row.appendChild(info); row.appendChild(edit);
     cont.appendChild(row);
+  });
+  initPresetSortable(cont);
+}
+// ─── Réordonnancement des presets (SortableJS) ───────────────────────────────
+// Glissement fluide (animation de poussée des voisins), ordre persisté côté
+// serveur (/api/presets/order). SortableJS est vendorisé dans l'UI (00-sortable).
+let presetJustDragged = false;
+let presetSortable = null;
+function initPresetSortable(cont){
+  if(typeof Sortable==='undefined') return; // lib absente : on garde la liste simple
+  // Une seule instance, attachée au conteneur (qui persiste entre les rendus).
+  if(presetSortable) return;
+  presetSortable = Sortable.create(cont, {
+    animation: 160,
+    easing: 'cubic-bezier(.2,.7,.3,1)',
+    // forceFallback : Sortable gère lui-même le clone qui suit le curseur, au lieu
+    // de l'image native du navigateur (rendue semi-transparente, non stylable).
+    // Le clone (.preset-drag) reste donc PLEIN, comme la ligne d'origine.
+    forceFallback: true,
+    fallbackTolerance: 3,
+    // Il faut MAINTENIR l'appui avant que le glissement démarre : sinon, sur mobile,
+    // un simple défilement attrapait un preset. Le délai ne s'applique qu'au toucher
+    // (souris immédiate), et un petit mouvement pendant le délai est toléré.
+    delay: 220,
+    delayOnTouchOnly: true,
+    touchStartThreshold: 6,
+    ghostClass: 'preset-ghost',   // l'emplacement cible laissé dans la liste
+    chosenClass: 'preset-chosen', // l'élément saisi
+    dragClass: 'preset-drag',     // le clone plein qui suit le curseur
+    onStart(){ presetJustDragged = true; },
+    onEnd(){
+      // Un léger délai pour que le clic de fin de drag ne bascule pas le preset.
+      setTimeout(()=>{ presetJustDragged = false; }, 60);
+      const ids=[...cont.children].map(r=>r.dataset.id).filter(Boolean);
+      jpost('/api/presets/order', {ids}).catch(()=>{});
+    },
   });
 }
 // « Mode agent » = accès machine + skills réunis en un seul interrupteur.

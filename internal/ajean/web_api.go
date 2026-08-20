@@ -352,6 +352,12 @@ func handlePresets(w http.ResponseWriter, r *http.Request) {
 			if r := presetReasoning(content); reasoningActive(r) {
 				item["reasoning"] = strings.ToLower(r)
 			}
+			// Vision : le preset charge un projecteur multimodal (MMPROJ) → il sait
+			// recevoir des images. L'UI affiche un œil pour le repérer sans ouvrir
+			// les options (issue #35).
+			if strings.TrimSpace(parseEnv(content)["MMPROJ"]) != "" {
+				item["vision"] = true
+			}
 		}
 		if sb, ok := store[p.ID]; ok {
 			item["bench"] = map[string]any{
@@ -363,6 +369,23 @@ func handlePresets(w http.ResponseWriter, r *http.Request) {
 		out = append(out, item)
 	}
 	sendJSON(w, 200, out)
+}
+
+// handlePresetsOrder enregistre l'ordre d'affichage des presets (drag & drop de
+// l'UI). On stocke la liste d'IDs telle quelle ; ListPresets s'en sert ensuite.
+func handlePresetsOrder(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		IDs []string `json:"ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if err := savePresetOrder(req.IDs); err != nil {
+		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true})
 }
 
 func handlePreset(w http.ResponseWriter, r *http.Request) {

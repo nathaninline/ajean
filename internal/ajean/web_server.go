@@ -148,6 +148,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/llamacpp/prebuilt/check", handleLlamacppPrebuiltCheck)     // dernière release officielle vs installée
 	api("/api/llamacpp/use", handleLlamacppUse)                          // bascule BIN entre versions déjà installées
 	api("/api/presets", handlePresets)
+	api("/api/presets/order", handlePresetsOrder)
 	api("/api/preset", handlePreset)
 	api("/api/preset/save", handlePresetSave)
 	api("/api/preset/delete", handlePresetDelete)

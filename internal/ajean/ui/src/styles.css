@@ -97,8 +97,11 @@ option,optgroup{background:var(--panel);color:var(--text)}
 /* Desktop : menu plus large et bulles (badges) un peu plus grosses. */
 @media (min-width:721px){
   .side{width:380px}
-  .preset-meta .ctag,.preset-meta .qtag,.preset-meta .rtag,.preset-meta .btag{font-size:11px;padding:2px 9px;border-radius:9px}
+  .preset-meta .ctag,.preset-meta .qtag,.preset-meta .rtag,.preset-meta .btag,.preset-meta .captag{font-size:11px;padding:2px 9px;border-radius:9px}
   .preset-meta .ctag svg,.preset-meta .rtag svg,.preset-meta .btag svg{width:11px;height:11px}
+  /* Sur desktop (tags en 11px), 1.35em ferait des icônes trop grosses : on les
+     ramène à 1.2em pour qu'elles épousent la hauteur du texte. Mobile inchangé. */
+  .preset-meta .captag svg{width:1.2em;height:1.2em}
 }
 h1{margin:0;font-size:18px;color:var(--accent)}
 /* Logo : « AJEAN » dessiné en pixels (SVG 4x5 par lettre, trait d'un module). Le « A »
@@ -254,6 +257,22 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .qtag{flex-shrink:0;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em;text-transform:uppercase}
 .rtag{flex-shrink:0;display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em}
 .btag{flex-shrink:0;display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em}
+/* Bulle « capacités » : regroupe les icônes vision (œil) et raisonnement (ampoule)
+   d'un preset, dans une pastille au même style que les autres tags (issue #35). */
+.captag{flex-shrink:0;display:inline-flex;align-items:center;gap:5px;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px}
+/* Caractère invisible : donne à la bulle la MÊME hauteur de ligne de texte que
+   les autres tags, indépendamment de la taille de l'icône (qui reste centrée). */
+.captag::before{content:"\200b";margin-right:-5px}
+/* Icônes dimensionnées en em : elles suivent le font-size du tag (9px base, 11px
+   desktop via la media query) → la bulle a EXACTEMENT la même hauteur que les
+   autres tags, qui eux se dimensionnent au texte. */
+.captag svg{display:block;width:1.35em;height:1.35em}
+/* Réordonnancement des presets (SortableJS). Le clone qui suit le curseur est
+   bien mis en avant (fond + ombre + contour accent) ; l'emplacement cible reste
+   discret pour montrer où ça va tomber. */
+.preset-drag{cursor:grabbing;background:var(--row-bg-on);border:none;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.35);outline:none;opacity:1}
+.preset-ghost{opacity:.35}
+.preset-chosen{cursor:grabbing}
 /* Petit « ? » d'aide : bulle au survol/clic au lieu d'un pavé de texte permanent. */
 .help{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;margin-left:6px;flex-shrink:0;font-size:10px;font-weight:600;line-height:1;color:var(--dim);border:1px solid var(--border);border-radius:50%;cursor:help;user-select:none;vertical-align:middle}
 .help:hover{color:var(--accent);border-color:var(--accent)}

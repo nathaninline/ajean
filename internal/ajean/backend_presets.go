@@ -113,7 +113,44 @@ func ListPresets() ([]Preset, error) {
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
-	return out, nil
+	return applyPresetOrder(out), nil
+}
+
+// presetOrder : ordre d'affichage personnalisé (drag & drop dans l'UI), une liste
+// d'IDs persistée en base. Les presets absents de la liste (fraîchement créés)
+// restent classés après, par nom.
+func loadPresetOrder() []string {
+	var ids []string
+	getJSON(bkState, "preset_order", &ids)
+	return ids
+}
+
+func savePresetOrder(ids []string) error { return putJSON(bkState, "preset_order", ids) }
+
+// applyPresetOrder réordonne `list` (déjà trié par nom) selon l'ordre stocké :
+// d'abord les presets classés dans l'ordre choisi, puis les non classés dans leur
+// ordre alphabétique. Tri STABLE pour préserver l'alphabétique des non classés.
+func applyPresetOrder(list []Preset) []Preset {
+	order := loadPresetOrder()
+	if len(order) == 0 {
+		return list
+	}
+	pos := map[string]int{}
+	for i, id := range order {
+		pos[id] = i
+	}
+	sort.SliceStable(list, func(i, j int) bool {
+		pi, oki := pos[list[i].ID]
+		pj, okj := pos[list[j].ID]
+		if oki && okj {
+			return pi < pj
+		}
+		if oki != okj {
+			return oki // un preset classé passe avant un non classé
+		}
+		return false // deux non classés : on garde l'ordre alphabétique
+	})
+	return list
 }
 
 // uniquePresetID derives a unique filename id from a display name, appending
