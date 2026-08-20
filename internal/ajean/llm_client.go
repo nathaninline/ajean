@@ -56,7 +56,7 @@ func memSearchTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "mem_search",
-			Description: "Search your memory (Markdown pages under memory/) → ranked {file, title, snippet}. Use FIRST when the user mentions something you might already know, then mem_read the best page.",
+			Description: "Search your memory for pages matching a query.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -74,11 +74,11 @@ func memReadTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "mem_read",
-			Description: "Read a memory page. Lines prefixed with their 1-indexed number; offset/limit for long pages.",
+			Description: "Read the content of a memory page.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"file":   map[string]any{"type": "string", "description": "Page name (e.g. docker-notes.md)"},
+					"file":   map[string]any{"type": "string", "description": "Page name"},
 					"offset": map[string]any{"type": "integer", "description": "Start line (default 1)"},
 					"limit":  map[string]any{"type": "integer", "description": "Lines (max 500)"},
 				},
@@ -93,11 +93,11 @@ func memAddTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "mem_add",
-			Description: "Create a memory page. One topic per page, kebab-case name, first line = title (#). Refuses to overwrite an existing page (use mem_edit).",
+			Description: "Create a new memory page.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"file":    map[string]any{"type": "string", "description": "Page name"},
+					"file":    map[string]any{"type": "string", "description": "Kebab-case page name"},
 					"content": map[string]any{"type": "string", "description": "Markdown, first line = title #"},
 				},
 				"required": []string{"file", "content"},
@@ -111,7 +111,7 @@ func memEditTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "mem_edit",
-			Description: "Patch a memory page: old → new, old unique in the page. To append, put the current end of the page in old and the extended version in new.",
+			Description: "Replace an exact, unique snippet of text in a memory page.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -125,12 +125,46 @@ func memEditTool() Tool {
 	}
 }
 
+func seeImageTool() Tool {
+	return Tool{
+		Type: "function",
+		Function: ToolFunction{
+			Name:        "see_image",
+			Description: "Load an image file from disk so you can actually see it (png, jpg, gif, webp, bmp).",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"file": map[string]any{"type": "string", "description": "Path to the image (relative to your working folder unless absolute)"},
+				},
+				"required": []string{"file"},
+			},
+		},
+	}
+}
+
+func memDeleteTool() Tool {
+	return Tool{
+		Type: "function",
+		Function: ToolFunction{
+			Name:        "mem_delete",
+			Description: "Delete a memory page.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"file": map[string]any{"type": "string", "description": "Page name"},
+				},
+				"required": []string{"file"},
+			},
+		},
+	}
+}
+
 func editTool() Tool {
 	return Tool{
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "edit",
-			Description: "Patch a file by exact replacement: old → new. old must appear EXACTLY once (add context to make it unique). Prefer this over rewriting a whole file.",
+			Description: "Replace an exact, unique snippet of text in a file.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -149,7 +183,7 @@ func writeTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "write",
-			Description: "Create or replace a file with the exact content given (parent dirs created, content verbatim, no escaping). ALWAYS use this for a script or any text file — NEVER build one through the shell with echo, cat, python -c or Set-Content: quoting breaks.",
+			Description: "Create or overwrite a file with exact content — always use this to write files, never shell redirection.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -167,7 +201,7 @@ func bashTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "bash",
-			Description: "Run a shell command (" + agentTargetShellName() + " syntax) and return stdout, stderr and exit code: inspect the system, read files and logs, run scripts. To CREATE or REWRITE a file use write instead — never echo/cat/python -c. Avoid destructive commands unless asked.",
+			Description: "Run a " + agentTargetShellName() + " command and return its stdout, stderr, and exit code.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -291,11 +325,21 @@ func EnabledTools(caps Caps) []Tool {
 	tools := []Tool{}
 	if caps.Agent {
 		tools = append(tools, bashTool(), writeTool(), editTool())
+		// Tâches planifiées : l'IA peut se donner elle-même des rappels/veilles
+		// récurrents et les gérer. Réservé au mode agent (une tâche sans outils
+		// pour agir n'aurait rien à livrer).
+		tools = append(tools, taskListTool(), taskCreateTool(), taskUpdateTool(), taskDeleteTool())
+		// Voir une image du disque : seulement quand la vision est réellement active
+		// (projecteur MMPROJ). Sinon l'outil ne pourrait que renvoyer une erreur, et
+		// l'annoncer ferait croire au modèle qu'il a des yeux qu'il n'a pas.
+		if visionEnabled() {
+			tools = append(tools, seeImageTool())
+		}
 	}
 	// Mémoire = axe indépendant du mode agent : les outils mem_* sont fournis dès
 	// que le mode mémoire n'est pas « off » (que l'agent soit actif ou non).
 	if caps.Mem != MemOff {
-		tools = append(tools, memSearchTool(), memReadTool(), memAddTool(), memEditTool())
+		tools = append(tools, memSearchTool(), memReadTool(), memAddTool(), memEditTool(), memDeleteTool())
 	}
 	// Outils web : seulement si le mode agent ET l'accès internet sont actifs.
 	// caps.Internet intègre déjà la joignabilité (globalCaps / override web_server.go),
@@ -801,10 +845,16 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					switch cur.Function.Name {
 					case "mem_search", "web_search":
 						key = "query"
-					case "mem_read", "mem_add", "mem_edit", "edit", "write":
+					case "mem_read", "mem_add", "mem_edit", "mem_delete", "edit", "write", "see_image":
 						key = "file"
 					case "web_open", "web_read", "web_grep":
 						key = "url"
+					case "task_create", "task_update":
+						key = "name"
+					case "task_delete":
+						key = "id"
+					case "task_list":
+						key = ""
 					}
 					p := previewArg(cur.Function.Arguments, key)
 					// Corps en cours de frappe pour les outils d'écriture : on le diffuse
@@ -974,7 +1024,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				switch tc.Function.Name {
 				case "mem_search", "web_search":
 					label, _ = args["query"].(string)
-				case "mem_read", "mem_add", "mem_edit", "edit", "write":
+				case "mem_read", "mem_add", "mem_edit", "mem_delete", "edit", "write", "see_image":
 					label, _ = args["file"].(string)
 				case "bash":
 					label, _ = args["command"].(string)
@@ -984,6 +1034,10 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					u, _ := args["url"].(string)
 					p, _ := args["pattern"].(string)
 					label = p + " @ " + u
+				case "task_create", "task_update":
+					label, _ = args["name"].(string)
+				case "task_delete":
+					label, _ = args["id"].(string)
 				default:
 					// Outils MCP : libellé = un aperçu compact des arguments.
 					if isMCPTool(tc.Function.Name) {
@@ -996,6 +1050,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				// diff : rempli par les outils d'écriture (edit / mémoire) pour que
 				// l'UI montre les lignes ajoutées et retirées.
 				var diff []DiffLine
+				var visionImg map[string]any // partie image_url (see_image), réinjectée après le résultat
 				// Appel rigoureusement identique déjà exécuté dans ce tour : on ne le
 				// rejoue pas. Les petits modèles réémettent volontiers deux fois la
 				// même écriture ; la rejouer produisait une fausse erreur (« old
@@ -1098,6 +1153,22 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					} else {
 						result = runShell(ctx, label, to)
 					}
+				case "mem_delete":
+					if werr := MemDelete(label); werr != nil {
+						result = "[erreur] " + werr.Error()
+					} else {
+						result = fmt.Sprintf("[ok] page '%s' supprimée", label)
+					}
+				case "task_list":
+					result = toolTaskList(args)
+				case "see_image":
+					result, visionImg = toolSeeImage(label)
+				case "task_create":
+					result = toolTaskCreate(args)
+				case "task_update":
+					result = toolTaskUpdate(args)
+				case "task_delete":
+					result = toolTaskDelete(args)
 				case "web_search":
 					result = capWebOutput(toolWebSearch(args))
 				case "web_open":
@@ -1120,6 +1191,18 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				toolMsg := Message{Role: "tool", ToolCallID: tc.ID, Content: result}
 				messages = append(messages, toolMsg)
 				extra = append(extra, toolMsg)
+				// see_image a réussi : on donne l'image à VOIR au modèle. Le message
+				// tool ne porte que du texte ; l'image passe donc dans un message
+				// utilisateur multimodal juste après (même format que les pièces
+				// jointes, compris par --mmproj), et le tour reprend en la voyant.
+				if visionImg != nil {
+					imgMsg := Message{Role: "user", Content: []map[string]any{
+						{"type": "text", "text": "Image demandée (" + label + ") :"},
+						visionImg,
+					}}
+					messages = append(messages, imgMsg)
+					extra = append(extra, imgMsg)
+				}
 			}
 			// Compaction EN COURS DE TOUR. Le seuil n'était testé qu'AU DÉBUT du tour :
 			// une boucle d'outils peut à elle seule remplir la fenêtre (résultats

@@ -1,20 +1,33 @@
-Cette version ajoute un retour visuel pendant la génération et corrige un défilement bloqué sur mobile.
+Cette version donne à l'IA la capacité de gérer ses propres tâches planifiées et de voir une image du disque, corrige un bug de répartition GPU dans l'éditeur de preset, et nettoie l'interface et le prompt système.
 
-## Génération
+## Tâches planifiées
 
-* Pendant que l'IA répond, une ligne d'état s'affiche sous le message : logo AJEAN, temps écoulé qui défile, nombre de tokens produits, puis la vitesse une fois terminé. Sur un long raisonnement ou une exécution d'outil, on voit ainsi que ça travaille au lieu de se demander si ça a planté (issue #34).
-* La durée totale et les mesures sont figées sous la réponse et restent identiques après un rechargement de la page.
-* La vitesse en tokens par seconde est la vitesse de génération pure : elle exclut le temps de préchauffe et les attentes d'exécution d'outils, et se calcule à partir des horodatages du serveur pour rester stable même à travers l'accès distant.
-* Le compteur de tokens affiche bien le total du tour, y compris quand plusieurs outils sont appelés.
+* L'IA peut désormais gérer ses tâches elle-même : en créer une (rappel, veille, ménage périodique), les lister, les modifier, les activer ou les supprimer. Utile quand quelque chose doit se répéter ou arriver plus tard.
+* Le compte-rendu d'une tâche ne contient plus toute la narration intermédiaire de l'exécution, seulement le message final. On récupère le compte-rendu complet d'une tâche précise, plus seulement un aperçu tronqué.
+* Dans le menu, la liste des tâches, la pastille du nombre de tâches actives et l'état suspendu se mettent à jour en direct quand l'IA (ou vous) change quelque chose, sans avoir à recharger la page. Un état clair « suspendues » apparaît quand l'interrupteur maître fige tout.
 
-## Mobile
+## Vision
 
-* La fin d'une réponse pouvait rester cachée derrière la zone de saisie, sans possibilité de faire défiler pour la lire. En cause : Safari iOS n'inclut pas la marge basse d'un conteneur défilable dans sa hauteur de défilement, donc le fil se croyait entièrement affiché. L'espace sous le fil est désormais réservé par un vrai bloc, toujours pris en compte : on peut à nouveau tout faire défiler.
-* Le texte s'efface en fondu derrière la carte de saisie, avec une marge au-dessus pour que la dernière ligne garde de l'air.
+* L'IA peut regarder d'elle-même un fichier image du disque (png, jpg, gif, webp, bmp), sans que vous ayez à le joindre. Il suffit de lui donner un chemin. Disponible seulement quand la vision est active sur le modèle.
 
-## Linux
+## Mémoire
 
-* L'option CPUAccounting du service systemd, dépréciée puis supprimée dans les versions récentes de systemd, provoquait un avertissement au démarrage. Elle a été retirée (issue #31).
+* Un outil de suppression permet à l'IA de garder sa mémoire rangée : retirer une page fausse, obsolète ou en double. La consigne l'oriente vers beaucoup de petites pages courtes et logiques plutôt qu'une seule très longue.
+
+## GPU
+
+* Dans l'éditeur de preset, les cartes graphiques pouvaient apparaître dans l'ordre inverse de celui utilisé au lancement du moteur : le curseur de répartition agissait alors sur la mauvaise carte. La liste des cartes suit maintenant exactement l'ordre du moteur en marche.
+
+## Interface
+
+* L'ombre au-dessus de la zone de saisie ne déborde plus sur toute la largeur de la page : elle s'arrête à la largeur de la zone de saisie, sans passer par-dessus la barre de défilement.
+* La fenêtre d'édition d'une page mémoire n'a plus de double contour autour du contenu, ce qui récupère de la largeur.
+* La vitesse de génération n'est plus répétée sur chaque bulle de raisonnement : elle reste affichée en bas dans la ligne d'état.
+* L'animation de compactage du contexte réutilise la même barre d'état avec le logo, qui indique « compactage… » pendant le travail.
+
+## Modèle
+
+* L'assistant s'appelle Jean et fonctionne dans AJEAN. Le prompt système et les descriptions d'outils ont été raccourcis et uniformisés.
 
 ## Mettre à jour
 
@@ -22,4 +35,4 @@ Cette version ajoute un retour visuel pendant la génération et corrige un déf
 ajean update
 ```
 
-Testé sur le serveur de Alice et sur iPhone (Safari). La mesure de hauteur de la zone de saisie a été rendue plus robuste pour iOS, mais le rendu n'a pas été vérifié sur toutes les tailles d'écran.
+Testé sur le serveur de Alice.

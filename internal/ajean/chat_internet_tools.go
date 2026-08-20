@@ -10,14 +10,13 @@ import (
 
 func webSearchTool() Tool {
 	return Tool{Type: "function", Function: ToolFunction{
-		Name: "web_search",
-		Description: "Recherche web (DuckDuckGo) → liste classée de {title, url, snippet}. " +
-			"Pour une question sans URL ou une information récente. Enchaîner avec web_open + web_read sur le meilleur résultat.",
+		Name:        "web_search",
+		Description: "Search the web and return ranked results.",
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"query": map[string]any{"type": "string", "description": "Requête"},
-				"limit": map[string]any{"type": "integer", "description": "Défaut 8, max 20"},
+				"query": map[string]any{"type": "string", "description": "Query"},
+				"limit": map[string]any{"type": "integer", "description": "Default 8, max 20"},
 			},
 			"required": []string{"query"},
 		},
@@ -34,20 +33,23 @@ func webSearchTool() Tool {
 // donc que ce que le moteur sait réellement faire, et on annonce la limite du JS
 // dans la description pour que le modèle change de source au lieu d'insister.
 func webOpenTool() Tool {
-	desc := "Récupère une URL et renvoie SEULEMENT ses métadonnées (taille, nb de lignes, plan des titres), " +
-		"PAS le contenu. Toujours l'appeler avant de lire ; mis en cache 10 min pour les web_read/web_grep suivants."
-	props := map[string]any{
-		"url":     map[string]any{"type": "string", "description": "URL complète"},
-		"refresh": map[string]any{"type": "boolean", "description": "Ignore le cache. Défaut false."},
-	}
+	desc := "Fetch a URL and return its metadata and outline, not the content; call this before web_read or web_grep."
+	// La limite JavaScript vit dans la description du paramètre url (pas dans la
+	// phrase de l'outil) : c'est un avertissement de comportement, pas un exemple,
+	// et il évite que le modèle réessaie en boucle une page rendue côté client.
+	urlDesc := "Full URL"
 	if webEngine() == engineGo {
-		desc += " ⚠ Ce moteur ne lit que le HTML servi, SANS JavaScript : une page rendue côté client " +
-			"ressort vide. Dans ce cas ne réessaie pas la même URL, change de source."
-	} else {
+		urlDesc += " (this engine reads served HTML only, no JavaScript: a client-rendered page comes back empty — switch source instead of retrying)"
+	}
+	props := map[string]any{
+		"url":     map[string]any{"type": "string", "description": urlDesc},
+		"refresh": map[string]any{"type": "boolean", "description": "Bypass the 10-minute cache (default false)"},
+	}
+	if webEngine() != engineGo {
 		props["actions"] = map[string]any{"type": "array", "items": map[string]any{"type": "string"},
-			"description": "Snippets JS à exécuter sur la page AVANT extraction (déplier des sections, cliquer 'voir plus', etc.)."}
-		props["dismiss_popups"] = map[string]any{"type": "boolean", "description": "Ferme auto les bandeaux cookies/overlays. Défaut true."}
-		props["wait_for"] = map[string]any{"type": "string", "description": "Sélecteur CSS ou expr JS à attendre après les actions."}
+			"description": "JS snippets to run on the page before extraction (expand sections, click 'show more', etc.)"}
+		props["dismiss_popups"] = map[string]any{"type": "boolean", "description": "Auto-close cookie/overlay banners (default true)"}
+		props["wait_for"] = map[string]any{"type": "string", "description": "CSS selector or JS expression to wait for after the actions"}
 	}
 	return Tool{Type: "function", Function: ToolFunction{
 		Name:        "web_open",
@@ -63,13 +65,13 @@ func webOpenTool() Tool {
 func webReadTool() Tool {
 	return Tool{Type: "function", Function: ToolFunction{
 		Name:        "web_read",
-		Description: "Lit une plage de lignes d'une URL déjà ouverte avec web_open. Lignes 1-indexées, préfixées par leur numéro.",
+		Description: "Read a range of lines from a URL already opened with web_open.",
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"url":    map[string]any{"type": "string", "description": "URL ouverte avec web_open"},
-				"offset": map[string]any{"type": "integer", "description": "Ligne de départ (défaut 1)"},
-				"limit":  map[string]any{"type": "integer", "description": "Défaut 80, max 500"},
+				"url":    map[string]any{"type": "string", "description": "URL opened with web_open"},
+				"offset": map[string]any{"type": "integer", "description": "Start line (default 1)"},
+				"limit":  map[string]any{"type": "integer", "description": "Default 80, max 500"},
 			},
 			"required": []string{"url"},
 		},
@@ -78,16 +80,15 @@ func webReadTool() Tool {
 
 func webGrepTool() Tool {
 	return Tool{Type: "function", Function: ToolFunction{
-		Name: "web_grep",
-		Description: "Recherche regex dans une URL déjà ouverte avec web_open → lignes correspondantes, " +
-			"avec contexte et numéros. Idéal sur une page longue dont on connaît un mot-clé.",
+		Name:        "web_grep",
+		Description: "Find lines matching a regex in a URL already opened with web_open.",
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"url":         map[string]any{"type": "string", "description": "URL ouverte avec web_open"},
-				"pattern":     map[string]any{"type": "string", "description": "Regex (insensible à la casse)"},
-				"context":     map[string]any{"type": "integer", "description": "Lignes de contexte. Défaut 2."},
-				"max_matches": map[string]any{"type": "integer", "description": "Plafond. Défaut 30."},
+				"url":         map[string]any{"type": "string", "description": "URL opened with web_open"},
+				"pattern":     map[string]any{"type": "string", "description": "Regex (case-insensitive)"},
+				"context":     map[string]any{"type": "integer", "description": "Context lines (default 2)"},
+				"max_matches": map[string]any{"type": "integer", "description": "Cap (default 30)"},
 			},
 			"required": []string{"url", "pattern"},
 		},

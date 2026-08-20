@@ -22,7 +22,7 @@
      garde `display-mode` en second pour les PWA Android/desktop à manifeste. -->
 <script>try{var pwa=(window.navigator.standalone===true)||(window.matchMedia&&window.matchMedia('(display-mode:standalone)').matches)||(window.matchMedia&&window.matchMedia('(display-mode:fullscreen)').matches);document.documentElement.setAttribute('data-pwa',pwa?'1':'0');}catch(e){document.documentElement.setAttribute('data-pwa','0');}</script>
 <!-- Applique le thème AVANT le rendu (pas de flash) : lit le choix persisté. -->
-<script>try{var t=localStorage.getItem('ajean-theme')||'light';document.documentElement.setAttribute('data-theme',(t==='dark'||t.endsWith('-dark'))?'dark':'light');['hide-reasoning','hide-tools','fold-tools','hide-side','hide-stats'].forEach(function(k){document.documentElement.setAttribute('data-'+k,localStorage.getItem('ajean-'+k)==='1'?'1':'0')})}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
+<script>try{var t=localStorage.getItem('ajean-theme')||'light';document.documentElement.setAttribute('data-theme',(t==='dark'||t.endsWith('-dark'))?'dark':'light');['hide-reasoning','hide-tools','fold-tools','hide-side'].forEach(function(k){document.documentElement.setAttribute('data-'+k,localStorage.getItem('ajean-'+k)==='1'?'1':'0')})}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
 <style>
 /* ===== Palette =====================================================
    Un seul thème (« Clean ») : noir et blanc, sobre. Deux variantes — claire par
@@ -374,12 +374,16 @@ button:disabled{opacity:.5;cursor:not-allowed}
    génération, la bulle de points redondante du fil est masquée (ce point-ci sert
    d'indicateur) — sauf en compactage, qui porte son propre libellé. */
 .genstatus{display:flex;align-items:center;gap:8px;margin-top:-8px;font-family:var(--mono);font-size:10.5px;letter-spacing:.02em;color:var(--dim)}
-html[data-hide-stats="1"] .genstatus{display:none}
 /* Logo AJEAN (le J du favicon : la barre + le carré du pied), en accent, SANS
    animation — simple marque à côté des mesures. */
 .genstatus .jlogo{width:16px;height:16px;flex:none;color:var(--accent)}
 .genstatus .jlogo rect{fill:currentColor}
 #chat.genon .msg.typing:not(.compacting){display:none}
+/* Compactage : MÊME barre, texte « compactage… » en accent, logo dont l'opacité
+   baisse puis remonte (fondu, pas de zoom) pour montrer que ça travaille. */
+.genstatus.compacting{color:var(--accent)}
+.genstatus.compacting .jlogo{animation:jpulse 1.1s ease-in-out infinite}
+@keyframes jpulse{0%,100%{opacity:1}50%{opacity:.25}}
 /* Trace laissée DANS le fil quand le contexte a été compacté : un séparateur
    discret, à sa place chronologique — un toast qui disparaît ne dit pas OÙ la
    coupure a eu lieu. */
@@ -817,6 +821,14 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-caret{display:inline-block;width:7px;height:7px;border-right:1.5px solid var(--dim);border-bottom:1.5px solid var(--dim);transform:rotate(-45deg);transition:transform .15s}
 .pe-caret.open{transform:rotate(45deg)}
 #m-content{min-height:220px;resize:vertical;line-height:1.5;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;overflow-x:hidden}
+/* Page mémoire : le contenu EST le champ principal. On retire la carte .pe-list
+   (bordure + fond) qui l'entourait — le textarea a déjà sa propre bordure, ce
+   double contour et son padding grignotaient la largeur pour rien. */
+#modal.kind-mem #m-raw .pe-list{background:none;border:none;border-radius:0;overflow:visible}
+/* padding:0 récupère la largeur ; border-top:none retire la « barre » que la règle
+   .pe-row + .pe-row posait au-dessus du textarea (son frère #m-raw-toggle, même
+   masqué, reste un .pe-row pour le sélecteur d'adjacence). */
+#modal.kind-mem #m-raw-body{padding:0;border-top:none}
 /* Nombres avancés : chaque paire label/valeur sur sa propre ligne (réutilise pe-row). */
 .pe-adv .pe-list{margin:0}
 /* Variante « champ en clair » : page mémoire → le contenu est le champ principal. */
@@ -1066,12 +1078,11 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
 #chat .msg .label{display:none}
 #chat .msg.collapsible .label{display:block}
 /* Mesures de génération sous la réponse (prefill / decode). Assez discrètes pour
-   ne pas concurrencer le texte, assez lisibles pour être utiles. Escamotables
-   depuis Apparence → Affichage. */
+   ne pas concurrencer le texte, assez lisibles pour être utiles. Toujours
+   affichées : ces chiffres font partie de l'identité de l'app (IA locale). */
 #chat .msg .statline{margin-top:10px;font-family:var(--mono);font-size:10.5px;letter-spacing:.02em;
   color:var(--dim);opacity:.75}
 #chat .msg .statline:empty{display:none}
-html[data-hide-stats="1"] #chat .msg .statline{display:none}
 /* Arrivée en fondu montant plutôt qu'un surgissement sec. L'opacité finale (.75)
    est celle de la règle ci-dessus : l'animation doit y ATTERRIR, sinon la ligne
    clignote en repassant à sa valeur de repos. */
@@ -1114,10 +1125,12 @@ html[data-hide-stats="1"] #chat .msg .statline{display:none}
    dernière ligne garde toujours de l'espace au-dessus de la carte ET que le fil
    défile quand ça dépasse. */
 #composer{position:absolute;left:0;right:0;bottom:0;z-index:4;display:flex;flex-direction:column;padding:32px 0 calc(8px + env(safe-area-inset-bottom));--col:calc(max(16px,calc(50% - 380px)) + var(--sbw,0px));background:none;border-top:none;pointer-events:none;isolation:isolate}
-/* Dégradé PLEINE LARGEUR (left/right:0 → pas de segments sur les côtés) : opaque
-   dès ~45 % de la hauteur, donc le texte est totalement fondu autour du haut de
-   la carte. z-index:0 = au-dessus du fil mais sous les enfants du composeur. */
-#composer::before{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,transparent,var(--bg) 45%);pointer-events:none;z-index:0}
+/* Dégradé limité à la LARGEUR DE LA ZONE DE SAISIE (left/right:var(--col), comme
+   #inputbar) : sinon l'ombre débordait jusqu'aux bords de la page et passait
+   PAR-DESSUS la barre de défilement du navigateur. Opaque dès ~45 % de la
+   hauteur, donc le texte est totalement fondu autour du haut de la carte.
+   z-index:0 = au-dessus du fil mais sous les enfants du composeur. */
+#composer::before{content:"";position:absolute;top:0;bottom:0;left:var(--col);right:var(--col);background:linear-gradient(to bottom,transparent,var(--bg) 45%);pointer-events:none;z-index:0}
 #composer>*{pointer-events:auto;position:relative;z-index:1}
 /* Espace réservé sous le fil = un VRAI bloc (::after), pas un padding-bottom :
    iOS Safari n'inclut PAS le padding-bottom d'un conteneur scrollable dans sa
@@ -1478,7 +1491,6 @@ button:hover{border-color:var(--dim);color:var(--text)}
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-tools" onchange="toggleView('hide-tools')"><span class="slider"></span></span> masquer les appels d'outils</label>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-fold-tools" onchange="toggleView('fold-tools')"><span class="slider"></span></span> garder les bulles repliées<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Les bulles de raisonnement et d'outil arrivent <b>déjà fermées</b> au lieu de s'ouvrir puis se refermer. Un clic sur leur étiquette les déplie.</span></span></label>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-side" onchange="toggleView('hide-side')"><span class="slider"></span></span> barre latérale escamotable<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">La barre latérale devient un tiroir <b>même sur ordinateur</b> : elle reste fermée et s'ouvre avec le bouton ☰. Toute la largeur pour la conversation.</span></span></label>
-    <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-stats" onchange="toggleView('hide-stats')"><span class="slider"></span></span> masquer la vitesse de génération<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Sous chaque réponse : <b>prefill</b> (lecture du contexte) et <b>decode</b> (écriture), en tokens et en tokens/seconde. Coche pour ne plus les afficher.</span></span></label>
     </div>
   </details>
   <details><summary><span class="stitle">System prompt</span></summary>
@@ -2378,7 +2390,6 @@ const VIEW_OPTS=[
   {id:'hide-tools',     label:"masquer les appels d'outils"},
   {id:'fold-tools',     label:'garder les bulles repliées'},
   {id:'hide-side',      label:'barre latérale escamotable'},
-  {id:'hide-stats',     label:'masquer la vitesse de génération'},
 ];
 function viewOn(id){ return document.documentElement.getAttribute('data-'+id)==='1'; }
 function applyView(id, on){
@@ -3352,6 +3363,9 @@ async function openItem(kind, key){
   const rawToggle = document.getElementById('m-raw-toggle');
   const rawBody = document.getElementById('m-raw-body');
   const rawCaret = document.getElementById('m-raw-caret');
+  // Marque le type sur la modale : le CSS s'en sert pour retirer la carte autour
+  // du contenu d'une page mémoire (le textarea a déjà sa propre bordure).
+  document.getElementById('modal').classList.toggle('kind-mem', kind === 'mem');
   if(kind === 'preset'){
     modelRow.style.display = 'flex';
     settingsRow.style.display = 'flex';
@@ -4418,8 +4432,8 @@ function setLabelCounts(el, add, del){
 }
 // Ligne de mesures sous une réponse (prefill / decode). Les étiquettes VOUS/AJEAN
 // sont masquées dans cette mise en page, donc les chiffres qu'on y écrivait
-// avaient disparu : ils ont leur propre ligne, discrète, sous le texte. Masquée
-// par la préférence d'affichage « masquer la vitesse de génération » (CSS).
+// avaient disparu : ils ont leur propre ligne, discrète, sous le texte. Toujours
+// affichée (plus de réglage pour la cacher).
 function setStats(el, text){
   if(!el) return;
   let s = el.querySelector(':scope > .statline');
@@ -4450,9 +4464,19 @@ function renderToolMsg(el, tu){
     web_open:   {lbl:'page web',  head:'ouverture'},
     web_read:   {lbl:'page web',  head:'lecture'},
     web_grep:   {lbl:'page web',  head:'recherche'},
+    mem_search: {lbl:'mémoire',   head:'recherche mémoire'},
+    mem_read:   {lbl:'mémoire',   head:'lecture mémoire'},
+    mem_add:    {lbl:'mémoire',   head:'nouvelle page'},
+    mem_edit:   {lbl:'mémoire',   head:'édition mémoire'},
+    mem_delete: {lbl:'mémoire',   head:'suppression mémoire'},
+    task_list:  {lbl:'tâches',    head:'tâches planifiées'},
+    task_create:{lbl:'tâche',     head:'nouvelle tâche'},
+    task_update:{lbl:'tâche',     head:'modification tâche'},
+    task_delete:{lbl:'tâche',     head:'suppression tâche'},
+    see_image:  {lbl:'image',     head:'vision'},
   };
   // Outils MCP (nom mcp__<serveur>__<outil>) : en-tête = nom du serveur, libellé lisible,
-  // pas le fallback mémoire. On extrait serveur et outil du nom namespacé.
+  // pas le fallback générique. On extrait serveur et outil du nom namespacé.
   let meta = META[tu.name];
   if(!meta && tu.name && tu.name.indexOf('mcp__')===0){
     const parts = tu.name.slice(5).split('__');
@@ -4460,7 +4484,7 @@ function renderToolMsg(el, tu){
     const tool = parts.join('__') || tu.name;
     meta = {lbl: tool, head: server};
   }
-  meta = meta || {lbl:'mémoire', head:'mémoire'};
+  meta = meta || {lbl:'outil', head:'outil'};
   let lbl = meta.lbl;
   // Indication du volume de la réponse de l'outil (~tokens, estimation 1 tok ≈ 4 car).
   if(tu.result){ lbl += '  ·  ~' + Math.max(1, Math.round(tu.result.length/4)) + ' tok'; }
@@ -4760,6 +4784,7 @@ function genRate(){
 // stable. La vitesse EXACTE (timings serveur) est figée à la fin par finalizeTurn.
 function paintGenStatus(){
   if(!ELAPSED) return;
+  if(COMPACTING) return; // pendant un compactage la barre affiche « compactage… »
   const g=ensureGenEl(); const txt=g.querySelector('.gtxt');
   const secs=(Date.now()-ELAPSED.start)/1000;
   const tok=genTokCount();
@@ -4804,36 +4829,38 @@ function finalizeTurn(elapsedMs){
   scrollMaybe(); // révèle la fin (et cette ligne) même sur un fil à peine défilable
 }
 function removeTyping(){ if(T.typingEl){ T.typingEl.remove(); T.typingEl=null; } }
-// Compactage : on ÉTIQUETTE l'indicateur de frappe déjà à l'écran au lieu
-// d'ouvrir une bannière à part (on avait les deux en même temps pour un seul
-// état d'attente). En fin de tour l'indicateur a déjà été retiré : on le
-// recrée, en le marquant pour le reprendre quand le compactage est fini.
+// Compactage : on réutilise LA MÊME barre d'état de génération (logo J + texte),
+// pas une bannière à part, en y écrivant « compactage… » et en faisant pulser le
+// logo. Que le compactage soit proactif (début de tour, sans chrono en cours) ou
+// en cours de tour (chrono qui tourne), la barre est la même ; le drapeau
+// COMPACTING gèle paintGenStatus pour qu'il ne réécrive pas le chrono par-dessus.
+let COMPACTING=false;
 function setCompacting(on){
+  COMPACTING=on;
   if(on){
-    if(!T.typingEl){ T.typingEl=addTyping(); T.typingEl.dataset.forCompact='1'; }
-    T.typingEl.classList.add('compacting');
-    if(!T.typingEl.querySelector('.tlabel')){
-      const s=document.createElement('span');
-      s.className='tlabel';
-      s.textContent='compactage du contexte…';
-      T.typingEl.appendChild(s);
-    }
+    const g=ensureGenEl();
+    genStatusOn(true);
+    g.classList.add('compacting');
+    g.querySelector('.gtxt').textContent='compactage…';
     scrollMaybe();
     return;
   }
-  if(!T.typingEl) return;
-  if(T.typingEl.dataset.forCompact){ removeTyping(); return; }
-  T.typingEl.classList.remove('compacting');
-  const s=T.typingEl.querySelector('.tlabel'); if(s) s.remove();
+  if(GENEL) GENEL.classList.remove('compacting');
+  // Hors d'un tour en cours (compactage proactif) : la barre n'a plus lieu d'être.
+  // Sinon on la laisse : paintGenStatus reprend le chrono au prochain tick.
+  if(!ELAPSED){ genStatusOn(false); removeGenEl(); }
 }
 // Séparateur laissé dans le fil à l'endroit exact de la coupure.
 function addCompactMark(){
   const el=document.createElement('div');
   el.className='compact-mark';
-  el.textContent='contexte compacté — anciens tours résumés';
-  // Devant l'indicateur de frappe s'il est encore là (compactage en cours de
-  // tour) : la suite de la réponse doit rester APRÈS la marque de coupure.
-  if(T.typingEl && T.typingEl.parentNode===chatEl()) chatEl().insertBefore(el, T.typingEl);
+  el.textContent='contexte compacté : anciens tours résumés';
+  // Devant la barre d'état encore à l'écran (compactage en cours de tour) : la
+  // suite de la réponse doit rester APRÈS la marque de coupure. La barre de
+  // génération (GENEL) est le repère ; à défaut l'ancien indicateur de frappe.
+  const anchor = (GENEL && GENEL.parentNode===chatEl()) ? GENEL
+    : (T.typingEl && T.typingEl.parentNode===chatEl()) ? T.typingEl : null;
+  if(anchor) chatEl().insertBefore(el, anchor);
   else chatEl().appendChild(el);
   scrollMaybe();
 }
@@ -4863,15 +4890,13 @@ function renderStats(el, s){
   if(el.classList.contains('collapsible')) setLabel(el, ['reasoning'].concat(parts).join('  ·  '));
   else setStats(el, parts.join('  ·  '));
 }
-// Label d'une bulle : nombre de tokens + vitesse. La vitesse est calculée à
-// partir des HORODATAGES SERVEUR (firstTs→lastTs) : le temps réel de génération,
-// donc correct aussi bien en direct qu'au replay (où les deltas arrivent d'un
-// bloc côté client, mais leurs ts serveur restent espacés du vrai temps écoulé).
+// Label d'une bulle de raisonnement : rôle + nombre de tokens. PAS de vitesse
+// (tok/s) : elle est déjà affichée en bas dans la ligne d'état de génération, la
+// répéter sur chaque bulle de raisonnement n'apporte rien (firstTs/lastTs restent
+// dans la signature pour les appelants, désormais inutilisés).
 function labelTokens(el, role, n, firstTs, lastTs){
   if(!el) return;
-  const secs=(lastTs-firstTs)/1000;
-  if(secs>0.05 && n>1){ setLabel(el, role+'  ·  '+n+' tok  ·  '+(n/secs).toFixed(1)+' tok/s'); }
-  else { setLabel(el, role+'  ·  '+n+' tok'); }
+  setLabel(el, role+'  ·  '+n+' tok');
 }
 // Pendant le replay on met à jour l'état `busy` mais on NE touche PAS aux boutons
 // (sinon user→stop puis turn_done→send à chaque tour rejoué = flottement visible).
@@ -5040,7 +5065,14 @@ function handleDelta(d){
     // Outils masqués : on garde l'indicateur même quand l'appel est terminé (le
     // tour continue, et rien d'autre n'est visible). Sinon, comportement inchangé.
     if(!tu.done || viewOn('hide-tools')) showTyping('tool');
-    if(tu.done){ T.pendingToolEl=null; if(tu.name==='mem_add'||tu.name==='mem_edit') loadMem(); }
+    if(tu.done){
+      T.pendingToolEl=null;
+      if(tu.name==='mem_add'||tu.name==='mem_edit'||tu.name==='mem_delete') loadMem();
+      // L'IA vient de créer/modifier/supprimer/activer une tâche : la liste, la
+      // pastille « N actives » et l'état suspendu doivent se remettre à jour tout
+      // de suite, sans attendre un refresh manuel de la page.
+      if(tu.name==='task_create'||tu.name==='task_update'||tu.name==='task_delete') loadTasks();
+    }
     if(ELAPSED) ensureGenEl(); // re-ancre la ligne EN DERNIER dans le même cycle : la bulle d'outil ne passe pas au-dessus (pas de saut)
     return; }
   if(d.drop_reasoning){
@@ -6341,9 +6373,11 @@ function renderTasks(r){
   // Avertissement : sans mode agent, une tâche n'a aucun outil pour agir.
   const warn = document.getElementById('tasks-agent-warn');
   if(warn) warn.style.display = (tasksList.length && !agentOn) ? '' : 'none';
-  // Pastille : « en cours » l'emporte, sinon le nombre de tâches actives.
+  // Pastille : « en cours » l'emporte, puis l'interrupteur maître (tout suspendu),
+  // sinon le nombre de tâches actives.
   const nActive = tasksList.filter(t=>t.enabled).length;
   if(TASK_RUNNING) setBadge('tasks-badge', 'warn', 'en cours');
+  else if(paused && tasksList.length) setBadge('tasks-badge', 'warn', 'suspendues');
   else setBadge('tasks-badge', nActive ? true : null, nActive ? nActive+' active'+(nActive>1?'s':'') : '');
 
   const list = document.getElementById('tasks-list');

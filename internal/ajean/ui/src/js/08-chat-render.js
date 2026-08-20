@@ -150,8 +150,8 @@ function setLabelCounts(el, add, del){
 }
 // Ligne de mesures sous une réponse (prefill / decode). Les étiquettes VOUS/AJEAN
 // sont masquées dans cette mise en page, donc les chiffres qu'on y écrivait
-// avaient disparu : ils ont leur propre ligne, discrète, sous le texte. Masquée
-// par la préférence d'affichage « masquer la vitesse de génération » (CSS).
+// avaient disparu : ils ont leur propre ligne, discrète, sous le texte. Toujours
+// affichée (plus de réglage pour la cacher).
 function setStats(el, text){
   if(!el) return;
   let s = el.querySelector(':scope > .statline');
@@ -182,9 +182,19 @@ function renderToolMsg(el, tu){
     web_open:   {lbl:'page web',  head:'ouverture'},
     web_read:   {lbl:'page web',  head:'lecture'},
     web_grep:   {lbl:'page web',  head:'recherche'},
+    mem_search: {lbl:'mémoire',   head:'recherche mémoire'},
+    mem_read:   {lbl:'mémoire',   head:'lecture mémoire'},
+    mem_add:    {lbl:'mémoire',   head:'nouvelle page'},
+    mem_edit:   {lbl:'mémoire',   head:'édition mémoire'},
+    mem_delete: {lbl:'mémoire',   head:'suppression mémoire'},
+    task_list:  {lbl:'tâches',    head:'tâches planifiées'},
+    task_create:{lbl:'tâche',     head:'nouvelle tâche'},
+    task_update:{lbl:'tâche',     head:'modification tâche'},
+    task_delete:{lbl:'tâche',     head:'suppression tâche'},
+    see_image:  {lbl:'image',     head:'vision'},
   };
   // Outils MCP (nom mcp__<serveur>__<outil>) : en-tête = nom du serveur, libellé lisible,
-  // pas le fallback mémoire. On extrait serveur et outil du nom namespacé.
+  // pas le fallback générique. On extrait serveur et outil du nom namespacé.
   let meta = META[tu.name];
   if(!meta && tu.name && tu.name.indexOf('mcp__')===0){
     const parts = tu.name.slice(5).split('__');
@@ -192,7 +202,7 @@ function renderToolMsg(el, tu){
     const tool = parts.join('__') || tu.name;
     meta = {lbl: tool, head: server};
   }
-  meta = meta || {lbl:'mémoire', head:'mémoire'};
+  meta = meta || {lbl:'outil', head:'outil'};
   let lbl = meta.lbl;
   // Indication du volume de la réponse de l'outil (~tokens, estimation 1 tok ≈ 4 car).
   if(tu.result){ lbl += '  ·  ~' + Math.max(1, Math.round(tu.result.length/4)) + ' tok'; }

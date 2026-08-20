@@ -103,6 +103,7 @@ function genRate(){
 // stable. La vitesse EXACTE (timings serveur) est figée à la fin par finalizeTurn.
 function paintGenStatus(){
   if(!ELAPSED) return;
+  if(COMPACTING) return; // pendant un compactage la barre affiche « compactage… »
   const g=ensureGenEl(); const txt=g.querySelector('.gtxt');
   const secs=(Date.now()-ELAPSED.start)/1000;
   const tok=genTokCount();
@@ -147,36 +148,38 @@ function finalizeTurn(elapsedMs){
   scrollMaybe(); // révèle la fin (et cette ligne) même sur un fil à peine défilable
 }
 function removeTyping(){ if(T.typingEl){ T.typingEl.remove(); T.typingEl=null; } }
-// Compactage : on ÉTIQUETTE l'indicateur de frappe déjà à l'écran au lieu
-// d'ouvrir une bannière à part (on avait les deux en même temps pour un seul
-// état d'attente). En fin de tour l'indicateur a déjà été retiré : on le
-// recrée, en le marquant pour le reprendre quand le compactage est fini.
+// Compactage : on réutilise LA MÊME barre d'état de génération (logo J + texte),
+// pas une bannière à part, en y écrivant « compactage… » et en faisant pulser le
+// logo. Que le compactage soit proactif (début de tour, sans chrono en cours) ou
+// en cours de tour (chrono qui tourne), la barre est la même ; le drapeau
+// COMPACTING gèle paintGenStatus pour qu'il ne réécrive pas le chrono par-dessus.
+let COMPACTING=false;
 function setCompacting(on){
+  COMPACTING=on;
   if(on){
-    if(!T.typingEl){ T.typingEl=addTyping(); T.typingEl.dataset.forCompact='1'; }
-    T.typingEl.classList.add('compacting');
-    if(!T.typingEl.querySelector('.tlabel')){
-      const s=document.createElement('span');
-      s.className='tlabel';
-      s.textContent='compactage du contexte…';
-      T.typingEl.appendChild(s);
-    }
+    const g=ensureGenEl();
+    genStatusOn(true);
+    g.classList.add('compacting');
+    g.querySelector('.gtxt').textContent='compactage…';
     scrollMaybe();
     return;
   }
-  if(!T.typingEl) return;
-  if(T.typingEl.dataset.forCompact){ removeTyping(); return; }
-  T.typingEl.classList.remove('compacting');
-  const s=T.typingEl.querySelector('.tlabel'); if(s) s.remove();
+  if(GENEL) GENEL.classList.remove('compacting');
+  // Hors d'un tour en cours (compactage proactif) : la barre n'a plus lieu d'être.
+  // Sinon on la laisse : paintGenStatus reprend le chrono au prochain tick.
+  if(!ELAPSED){ genStatusOn(false); removeGenEl(); }
 }
 // Séparateur laissé dans le fil à l'endroit exact de la coupure.
 function addCompactMark(){
   const el=document.createElement('div');
   el.className='compact-mark';
-  el.textContent='contexte compacté — anciens tours résumés';
-  // Devant l'indicateur de frappe s'il est encore là (compactage en cours de
-  // tour) : la suite de la réponse doit rester APRÈS la marque de coupure.
-  if(T.typingEl && T.typingEl.parentNode===chatEl()) chatEl().insertBefore(el, T.typingEl);
+  el.textContent='contexte compacté : anciens tours résumés';
+  // Devant la barre d'état encore à l'écran (compactage en cours de tour) : la
+  // suite de la réponse doit rester APRÈS la marque de coupure. La barre de
+  // génération (GENEL) est le repère ; à défaut l'ancien indicateur de frappe.
+  const anchor = (GENEL && GENEL.parentNode===chatEl()) ? GENEL
+    : (T.typingEl && T.typingEl.parentNode===chatEl()) ? T.typingEl : null;
+  if(anchor) chatEl().insertBefore(el, anchor);
   else chatEl().appendChild(el);
   scrollMaybe();
 }
@@ -206,15 +209,13 @@ function renderStats(el, s){
   if(el.classList.contains('collapsible')) setLabel(el, ['reasoning'].concat(parts).join('  ·  '));
   else setStats(el, parts.join('  ·  '));
 }
-// Label d'une bulle : nombre de tokens + vitesse. La vitesse est calculée à
-// partir des HORODATAGES SERVEUR (firstTs→lastTs) : le temps réel de génération,
-// donc correct aussi bien en direct qu'au replay (où les deltas arrivent d'un
-// bloc côté client, mais leurs ts serveur restent espacés du vrai temps écoulé).
+// Label d'une bulle de raisonnement : rôle + nombre de tokens. PAS de vitesse
+// (tok/s) : elle est déjà affichée en bas dans la ligne d'état de génération, la
+// répéter sur chaque bulle de raisonnement n'apporte rien (firstTs/lastTs restent
+// dans la signature pour les appelants, désormais inutilisés).
 function labelTokens(el, role, n, firstTs, lastTs){
   if(!el) return;
-  const secs=(lastTs-firstTs)/1000;
-  if(secs>0.05 && n>1){ setLabel(el, role+'  ·  '+n+' tok  ·  '+(n/secs).toFixed(1)+' tok/s'); }
-  else { setLabel(el, role+'  ·  '+n+' tok'); }
+  setLabel(el, role+'  ·  '+n+' tok');
 }
 // Pendant le replay on met à jour l'état `busy` mais on NE touche PAS aux boutons
 // (sinon user→stop puis turn_done→send à chaque tour rejoué = flottement visible).
@@ -383,7 +384,14 @@ function handleDelta(d){
     // Outils masqués : on garde l'indicateur même quand l'appel est terminé (le
     // tour continue, et rien d'autre n'est visible). Sinon, comportement inchangé.
     if(!tu.done || viewOn('hide-tools')) showTyping('tool');
-    if(tu.done){ T.pendingToolEl=null; if(tu.name==='mem_add'||tu.name==='mem_edit') loadMem(); }
+    if(tu.done){
+      T.pendingToolEl=null;
+      if(tu.name==='mem_add'||tu.name==='mem_edit'||tu.name==='mem_delete') loadMem();
+      // L'IA vient de créer/modifier/supprimer/activer une tâche : la liste, la
+      // pastille « N actives » et l'état suspendu doivent se remettre à jour tout
+      // de suite, sans attendre un refresh manuel de la page.
+      if(tu.name==='task_create'||tu.name==='task_update'||tu.name==='task_delete') loadTasks();
+    }
     if(ELAPSED) ensureGenEl(); // re-ancre la ligne EN DERNIER dans le même cycle : la bulle d'outil ne passe pas au-dessus (pas de saut)
     return; }
   if(d.drop_reasoning){

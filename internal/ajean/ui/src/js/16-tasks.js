@@ -39,9 +39,11 @@ function renderTasks(r){
   // Avertissement : sans mode agent, une tâche n'a aucun outil pour agir.
   const warn = document.getElementById('tasks-agent-warn');
   if(warn) warn.style.display = (tasksList.length && !agentOn) ? '' : 'none';
-  // Pastille : « en cours » l'emporte, sinon le nombre de tâches actives.
+  // Pastille : « en cours » l'emporte, puis l'interrupteur maître (tout suspendu),
+  // sinon le nombre de tâches actives.
   const nActive = tasksList.filter(t=>t.enabled).length;
   if(TASK_RUNNING) setBadge('tasks-badge', 'warn', 'en cours');
+  else if(paused && tasksList.length) setBadge('tasks-badge', 'warn', 'suspendues');
   else setBadge('tasks-badge', nActive ? true : null, nActive ? nActive+' active'+(nActive>1?'s':'') : '');
 
   const list = document.getElementById('tasks-list');

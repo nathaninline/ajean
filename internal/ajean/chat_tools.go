@@ -41,9 +41,11 @@ func baseSystemPrompt(caps Caps) string {
 	// sur-raisonner les modèles à reasoning (Qwen3) : ils émettent leur <think>
 	// puis le token de fin SANS appeler d'outil (~25-45 % de tours « morts »
 	// mesurés). Une version courte et directe ramène ça à 0 %. NE PAS regonfler.
-	// « AJEAN » avec une majuscule : c'est un nom propre, et le modèle recopie
-	// littéralement la casse d'ici quand il se présente (« je suis ajean »).
-	b.WriteString("You are AJEAN, an expert assistant operating directly on this machine with real tools.")
+	// L'assistant s'appelle « Jean » ; « AJEAN » est l'APP dans laquelle il tourne
+	// (l'IA locale de Alice). Le modèle recopie la casse d'ici quand il se
+	// présente, d'où « Jean » et « AJEAN » écrits tels quels. Éviter « real tools »,
+	// qui sonnait bizarre à l'oral (« je fonctionne avec de vrais outils »).
+	b.WriteString("You are Jean, the assistant inside AJEAN, an AI app that runs on this machine. You can act on it directly through your tools.")
 	if caps.Mem == MemAlways {
 		b.WriteString(" You evolve with every conversation: you actively maintain a persistent memory so nothing useful is lost between sessions.")
 	}
@@ -64,7 +66,8 @@ func baseSystemPrompt(caps Caps) string {
 	case MemAlways:
 		b.WriteString("\nManaging your memory is part of the job, not optional:\n")
 		b.WriteString("- Save anything worth keeping (a preference, fact, decision, how-to) with mem_add, or mem_edit to update a page — on your own, without being asked.\n")
-		b.WriteString("- Before any task or answer, call mem_search first, then mem_read the best page. Do this even when the request has new specifics (a name, a place, a value): your saved method still applies, only the parameter changes.\n")
+		b.WriteString("- Before any task or answer, call mem_search first, then mem_read the best page — even for trivial-seeming questions or ones with new specifics (a name, a value): your saved method still applies, only the parameter changes. A tool check never replaces this; memory may hold context the tools won't reveal.\n")
+		b.WriteString("- Keep memory tidy: many small focused pages (one topic each, kept short and logical) rather than a few giant ones you'll struggle to read. mem_edit the right page instead of duplicating; split a page that grew too long; mem_delete what's wrong, obsolete, or merged elsewhere.\n")
 	case MemOnDemand:
 		b.WriteString("\nMemory is ON-DEMAND: you have the mem_* tools but do NOT read or write memory on your own. Call mem_search/mem_read only when the user explicitly asks you to recall or look something up, and mem_add/mem_edit only when the user explicitly asks you to remember something. Otherwise leave memory untouched and answer directly.\n")
 	}
@@ -76,10 +79,11 @@ func baseSystemPrompt(caps Caps) string {
 		// Un lien Markdown ordinaire, comme dans n'importe quel chat : l'UI en fait
 		// un téléchargement (voir /api/chat/file). Aucun outil ni syntaxe spéciale
 		// à connaître pour le modèle — juste [texte](chemin).
-		b.WriteString("To give the user a file, link it in Markdown with its path relative to your working directory — [le rapport](rapport.pdf) — which downloads it. A raw server path is useless: they read you in a browser.\n")
-		if caps.Mem == MemAlways {
-			b.WriteString("Before answering anything about yourself or this machine, call mem_search first — even trivial-seeming questions. A tool check never replaces it: memory may hold context the tool won't reveal.\n")
-		}
+		b.WriteString("To give the user a file, link it in Markdown with its path relative to your working directory — [the report](report.pdf) — which downloads it. A raw server path is useless: they read you in a browser.\n")
+		// Auto-planification : le modèle a les outils task_* (schémas joints). On ne
+		// répète pas leur usage, juste QUE la capacité existe et QUAND s'en servir —
+		// sinon il ne penserait jamais à se planifier quoi que ce soit.
+		b.WriteString("You can also schedule work for yourself: task_create sets a future/recurring job (reminders, watches, cleanups), task_list/task_update/task_delete manage them. Only for something that must recur or happen later, not a one-off you can do now.\n")
 	}
 	if caps.Internet {
 		// Le catalogue des outils web est parti dans leurs schémas ; ne reste ici

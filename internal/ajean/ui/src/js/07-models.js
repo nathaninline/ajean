@@ -106,6 +106,9 @@ async function openItem(kind, key){
   const rawToggle = document.getElementById('m-raw-toggle');
   const rawBody = document.getElementById('m-raw-body');
   const rawCaret = document.getElementById('m-raw-caret');
+  // Marque le type sur la modale : le CSS s'en sert pour retirer la carte autour
+  // du contenu d'une page mémoire (le textarea a déjà sa propre bordure).
+  document.getElementById('modal').classList.toggle('kind-mem', kind === 'mem');
   if(kind === 'preset'){
     modelRow.style.display = 'flex';
     settingsRow.style.display = 'flex';

@@ -77,8 +77,17 @@ func (c *Conversation) RunAutonomous(ctx context.Context, taskID, taskName, prom
 		final = append([]Message{{Role: "system", Content: note}}, msgs...)
 	}
 
+	// Le compte-rendu = le SEUL message final, pas toute la narration. Entre les
+	// appels d'outils l'IA raconte ce qu'elle fait (« Je lance le cycle… »,
+	// « Login OK… ») : ce sont des messages intermédiaires, pas le rapport. On
+	// remet donc le tampon à zéro à chaque usage d'outil ; ne survit que le texte
+	// produit APRÈS le dernier outil, c'est-à-dire le compte-rendu que l'IA rédige
+	// pour clore la tâche. (Un run sans aucun outil garde son unique réponse.)
 	var content strings.Builder
 	extra, err := runChat(ctx, InjectSkills(final, caps), temperature, caps, func(ev StreamEvent) bool {
+		if ev.ToolUsed != nil {
+			content.Reset()
+		}
 		if ev.Content != "" {
 			content.WriteString(ev.Content)
 		}

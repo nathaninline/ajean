@@ -156,14 +156,27 @@ func handleBackendDevices(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "ce chemin n'est pas un llama-server"})
 		return
 	}
-	if devs, ok := devCacheGet(bin); ok {
+	// L'ordre d'énumération DOIT être celui du serveur en marche, sinon la liste
+	// affichée (et donc le --tensor-split que l'utilisateur règle carte par carte)
+	// se retrouve inversée par rapport à la réalité. Le moteur réel force
+	// CUDA_DEVICE_ORDER=PCI_BUS_ID (+ le filtre CUDA_VISIBLE_DEVICES) dans
+	// backend_serve.go ; par défaut CUDA classe « le plus rapide d'abord », ce qui
+	// peut être l'ordre INVERSE. On reproduit donc le même environnement ici.
+	cfg := ReadConfig()
+	cvd := cfg["CUDA_VISIBLE_DEVICES"]
+	cacheKey := bin + "\x00" + cvd
+	if devs, ok := devCacheGet(cacheKey); ok {
 		sendJSON(w, 200, map[string]any{"ok": true, "devices": devs})
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
 	cmd := hideCmd(exec.CommandContext(ctx, bin, "--list-devices"))
-	cmd.Env = libraryPathEnv(filepath.Dir(bin))
+	env := libraryPathEnv(filepath.Dir(bin))
+	if cvd != "" {
+		env = append(env, "CUDA_VISIBLE_DEVICES="+cvd, "CUDA_DEVICE_ORDER=PCI_BUS_ID")
+	}
+	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	if err != nil && len(out) == 0 {
 		sendJSON(w, 200, map[string]any{"ok": false, "error": "le moteur n'a pas répondu : " + err.Error()})
@@ -175,7 +188,7 @@ func handleBackendDevices(w http.ResponseWriter, r *http.Request) {
 	// annoncer 0 Mio de mémoire : c'est une lecture transitoire, on ne la fige
 	// pas dans le cache (sinon l'UI affiche « 0 Go » pendant dix minutes).
 	if !hasZeroMemory(devs) {
-		devCachePut(bin, devs)
+		devCachePut(cacheKey, devs)
 	}
 	sendJSON(w, 200, map[string]any{"ok": true, "devices": devs})
 }

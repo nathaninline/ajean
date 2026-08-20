@@ -17,7 +17,13 @@ import (
 //
 // Approximation 1 tok ≈ 4 caractères : suffisante pour une alerte, et sans
 // dépendance à un tokenizer.
-const promptCharBudget = 7500 // ~1875 tokens, tout allumé
+//
+// Relevé une fois, volontairement, quand l'IA a reçu la capacité de gérer
+// elle-même ses tâches planifiées (outils task_*) et de supprimer une page de
+// mémoire (mem_delete) pour la garder rangée : cinq schémas d'outils en plus,
+// ~600 tokens, ajout demandé et accepté. Le garde-fou reste là pour bloquer le
+// regonflement LIGNE À LIGNE du prompt lui-même, qui, lui, doit rester court.
+const promptCharBudget = 8400 // ~2100 tokens, tout allumé (agent+web+mémoire)
 
 func TestSystemPromptStaysLean(t *testing.T) {
 	caps := Caps{Agent: true, Internet: true, Mem: MemAlways}
