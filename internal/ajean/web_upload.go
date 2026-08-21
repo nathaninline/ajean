@@ -273,8 +273,29 @@ func handleChatFile(w http.ResponseWriter, r *http.Request) {
 	// Un chemin ABSOLU fourni par le client ne doit pas être suivi : on le traite
 	// comme relatif au dossier de travail, et le contrôle ci-dessous tranche.
 	abs := filepath.Join(agentWorkspace(), filepath.FromSlash(rel))
-	if _, ok := workspaceRel(abs); !ok {
-		sendJSON(w, 403, map[string]any{"ok": false, "error": "hors du dossier de travail"})
+	localOK := false
+	if _, ok := workspaceRel(abs); ok {
+		if st, err := os.Stat(abs); err == nil && !st.IsDir() {
+			localOK = true
+		}
+	}
+	// Le fichier n'est pas dans le workspace LOCAL mais l'IA pilote un POSTE
+	// DISTANT : les fichiers qu'elle y produit vivent là-bas, on les rapatrie depuis
+	// le poste (issue #33 remote). Les fichiers locaux (pièces jointes de
+	// l'utilisateur, par ex.) restent servis en local — priorité au local, le poste
+	// n'est qu'un repli.
+	if !localOK {
+		if slug := agentTargetSlug(); slug != "" {
+			handleChatFileNode(w, r, slug, rel)
+			return
+		}
+	}
+	if !localOK {
+		if _, ok := workspaceRel(abs); !ok {
+			sendJSON(w, 403, map[string]any{"ok": false, "error": "hors du dossier de travail"})
+			return
+		}
+		sendJSON(w, 404, map[string]any{"ok": false, "error": "fichier introuvable"})
 		return
 	}
 	st, err := os.Stat(abs)
@@ -334,6 +355,51 @@ func handleChatFile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+url.PathEscape(name))
 	http.ServeFile(w, r, abs)
+}
+
+// handleChatFileNode sert un fichier d'un POSTE DISTANT (l'IA y opère). Même
+// contrat que handleChatFile mais la source est le poste : meta renvoie la taille
+// + `remote:true` (le client sait qu'il doit passer par les tranches base64, le
+// binaire brut ne peut pas être servi depuis ici), b64 relaie une tranche
+// rapatriée du poste. Le confinement au dossier autorisé est fait CÔTÉ POSTE
+// (ResolvePath), on ne suit donc pas de chemin local ici.
+func handleChatFileNode(w http.ResponseWriter, r *http.Request, slug, rel string) {
+	q := r.URL.Query()
+	if q.Get("meta") != "" {
+		f, err := nodeFetchFile(slug, rel, 0, 0)
+		if err != nil {
+			sendJSON(w, 404, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		sendJSON(w, 200, map[string]any{
+			"ok": true, "name": f.Name, "size": f.Size,
+			// remote → le navigateur récupère par tranches base64 (comme e2e) ; e2e
+			// signale en plus le tunnel chiffré, les deux peuvent coexister.
+			"remote": true,
+			"e2e":    r.Header.Get(e2eInnerHeader) != "",
+		})
+		return
+	}
+	if q.Get("b64") != "" {
+		off, _ := strconv.ParseInt(q.Get("offset"), 10, 64)
+		length, _ := strconv.ParseInt(q.Get("len"), 10, 64)
+		if length <= 0 || length > downloadChunkMax {
+			length = downloadChunkMax
+		}
+		f, err := nodeFetchFile(slug, rel, off, length)
+		if err != nil {
+			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		sendJSON(w, 200, map[string]any{
+			"ok": true, "name": f.Name, "size": f.Size, "offset": f.Offset,
+			"data": f.Data, "eof": f.EOF,
+		})
+		return
+	}
+	// Téléchargement binaire direct impossible depuis un poste (pas de fichier local
+	// à streamer) : le client passe toujours par meta puis b64 quand remote=true.
+	sendJSON(w, 400, map[string]any{"ok": false, "error": "fichier distant : utiliser le mode base64"})
 }
 
 type uploadReq struct {

@@ -97,7 +97,14 @@ function noteDecode(d){
 }
 function genRate(){
   if(!ELAPSED || ELAPSED.decodeMs<600) return null; // pas avant ~0,6s de decode (bruit initial)
-  return genTokCount()/(ELAPSED.decodeMs/1000);
+  // decodeMs ne compte que le temps de decode ACCUMULÉ depuis le (re)démarrage de la
+  // ligne. Après un refresh en plein tour, les tokens déjà rejoués (tokBase) sont
+  // là mais leur temps de decode, lui, n'a pas été mesuré → il faut diviser par les
+  // seuls tokens produits DEPUIS la reprise, sinon la vitesse explose puis se
+  // « normalise » à mesure que decodeMs rattrape. tokBase=0 en tour normal.
+  const tok=genTokCount()-(ELAPSED.tokBase||0);
+  if(tok<=0) return null;
+  return tok/(ELAPSED.decodeMs/1000);
 }
 // EN DIRECT : chrono (temps total du tour) + tokens qui montent + vitesse decode
 // stable. La vitesse EXACTE (timings serveur) est figée à la fin par finalizeTurn.
@@ -120,7 +127,7 @@ function genStatusOn(on){ chatEl().classList.toggle('genon', !!on); }
 function elapsedStart(){
   if(REPLAYING) return;
   elapsedStop();
-  ELAPSED={start:Date.now(), timer:setInterval(paintGenStatus,500), decodeMs:0, lastTs:0};
+  ELAPSED={start:Date.now(), timer:setInterval(paintGenStatus,500), decodeMs:0, lastTs:0, tokBase:0};
   genStatusOn(true); paintGenStatus();
 }
 // Arrêt SANS conserver la ligne (erreur/reset) : le tour n'a pas de fin propre.
@@ -346,7 +353,13 @@ function handleDelta(d){
     // déclencher la synchro — c'est ici qu'on décide d'afficher l'accueil.
     syncChatEmpty();
     return; }
-  if(d.reset!==undefined){ elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
+  if(d.reset!==undefined){
+    // reset de RESTAURATION (d.replay) : un fil complet suit, on repasse en mode
+    // REPLAY pour que les bulles de raisonnement/outil arrivent DÉJÀ repliées
+    // (comme au chargement de page), sans l'animation « ouvre puis se ferme ». Le
+    // caught_up qui clôt le rejeu remettra REPLAYING à false.
+    if(d.replay) REPLAYING=true;
+    elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
   if(d.user!==undefined){
     newTurn();
     let el=PENDING;
@@ -480,6 +493,24 @@ async function reconcileBusy(){
     const rt = s.running_task || '';
     if(rt !== RUNNING_TASK){ RUNNING_TASK = rt; if(!REPLAYING) syncSendBtn(); }
     if(typeof s.generating==='boolean' && s.generating!==busy) setBusy(s.generating);
+    // Reprise d'une génération DÉJÀ en cours (page actualisée en plein tour) : au
+    // replay, l'événement `user` qui démarre la ligne d'état a été rejoué alors que
+    // REPLAYING gelait elapsedStart — la ligne (chrono · tokens · tok/s) restait donc
+    // absente jusqu'à la fin du tour. On la (re)pose ici, une seule fois (garde
+    // !ELAPSED, sinon le tick des 3 s la remettrait à zéro). Le serveur nous donne la
+    // durée DÉJÀ écoulée du tour (gen_elapsed_ms) : on cale le départ dessus pour que
+    // le chrono reprenne à la BONNE valeur, pas à zéro. Pas pour une tâche de fond
+    // (RUNNING_TASK) : elle n'a pas de bulle dans le fil sous laquelle s'afficher.
+    if(s.generating && !REPLAYING && !RUNNING_TASK && !ELAPSED){
+      elapsedStart();
+      if(ELAPSED){
+        const e=+s.gen_elapsed_ms||0;
+        if(e>0) ELAPSED.start=Date.now()-e; // chrono à la vraie valeur, pas zéro
+        // Les tokens déjà rejoués ne comptent pas dans la vitesse LIVE (leur temps
+        // de decode n'a pas été mesuré) : on mesure à partir d'ici.
+        ELAPSED.tokBase=genTokCount();
+      }
+    }
   }catch(_){}
 }
 // Recalage périodique : une tâche de fond prend le moteur SANS émettre d'événement

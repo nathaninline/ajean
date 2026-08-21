@@ -40,6 +40,7 @@ func (c *Conversation) RunAutonomous(ctx context.Context, taskID, taskName, prom
 		return "", ErrBusy
 	}
 	c.Generating = true
+	c.genStart = time.Now()
 	c.cancel = cancel
 	c.runningTaskID = taskID
 	c.runningTaskName = taskName

@@ -53,9 +53,15 @@ type Conversation struct {
 	Seq      int        `json:"seq"`
 	CtxUsed  int        `json:"ctx_used"` // taille réelle du contexte au dernier tour
 
-	Generating bool               `json:"-"`
-	cancel     context.CancelFunc // annule la génération en cours (/stop)
-	epoch      int                // incrémenté à chaque reset → invalide les abonnés
+	Generating bool      `json:"-"`
+	genStart   time.Time // début du tour en cours → permet à un client qui se reconnecte de reprendre le chrono à la BONNE valeur (pas à zéro)
+	// pendingReplay distingue les deux causes d'un bump d'epoch : une RESTAURATION
+	// depuis l'historique (true → un fil complet suit, à rejouer REPLIÉ comme au
+	// chargement de page) vs un « clear chat » (false → conversation vide). Lu par
+	// les abonnés au moment où ils constatent le changement d'epoch.
+	pendingReplay bool
+	cancel        context.CancelFunc // annule la génération en cours (/stop)
+	epoch         int                // incrémenté à chaque reset → invalide les abonnés
 
 	// Quand le verrou de génération est pris par une TÂCHE de fond (RunAutonomous)
 	// et non par un tour utilisateur, on retient son id/nom : l'UI affiche alors
@@ -259,8 +265,17 @@ func (c *Conversation) state() map[string]any {
 			turns++
 		}
 	}
+	// Durée écoulée du tour EN COURS (ms) : un client qui recharge la page en pleine
+	// génération reprend ainsi le chrono à la vraie valeur, au lieu de le faire
+	// repartir de zéro (l'événement `user` qui l'aurait démarré a été consommé au
+	// replay). 0 hors génération.
+	var genElapsed int64
+	if c.Generating && !c.genStart.IsZero() {
+		genElapsed = time.Since(c.genStart).Milliseconds()
+	}
 	return map[string]any{
 		"seq": c.Seq, "generating": c.Generating, "ctx_used": c.CtxUsed, "turns": turns,
+		"gen_elapsed_ms": genElapsed,
 		// Non vide seulement quand une tâche de fond occupe le verrou de génération.
 		"running_task":    c.runningTaskName,
 		"running_task_id": c.runningTaskID,
@@ -290,6 +305,7 @@ func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, tem
 		return ErrBusy
 	}
 	c.Generating = true
+	c.genStart = time.Now()
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
 	// Envoi sans un mot, juste un fichier : la bulle reste vide (les pastilles
@@ -385,7 +401,15 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 	extra, _ := runChat(ctx, InjectSkills(final, caps), temperature, caps, func(ev StreamEvent) bool {
 		switch {
 		case ev.Err != nil:
-			c.appendDelta(epoch, map[string]any{"error": ev.Err.Error()})
+			// Arrêt volontaire (bouton stop → cancel du contexte) : ce n'est pas une
+			// erreur, juste une interruption. Afficher « Post http://…: context
+			// canceled » en rouge est laid et alarmant pour rien — on pose à la place
+			// une note discrète. Un vrai échec (ctx non annulé) garde son message.
+			if ctx.Err() != nil {
+				c.appendDelta(epoch, map[string]any{"content": "\n\n⏹ _Génération interrompue._"})
+			} else {
+				c.appendDelta(epoch, map[string]any{"error": ev.Err.Error()})
+			}
 		case ev.ToolUsed != nil:
 			tu := map[string]any{
 				"name": ev.ToolUsed.Name, "label": ev.ToolUsed.Label,
@@ -490,6 +514,7 @@ func (c *Conversation) CompactNow() error {
 		return ErrBusy
 	}
 	c.Generating = true
+	c.genStart = time.Now()
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
 	msgs := append([]Message(nil), c.Messages...)
@@ -545,6 +570,7 @@ func (c *Conversation) Reset() {
 	c.Seq = 0
 	c.CtxUsed = 0
 	c.epoch++
+	c.pendingReplay = false // conversation vide : rien à rejouer
 	c.Generating = false
 	c.cancel = nil
 	c.cond.Broadcast()
@@ -742,6 +768,11 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[st
 	}
 
 	// 2. Direct : événements granulaires au-delà de `last`.
+	// awaitingCaughtUp : après un reset de RESTAURATION (un fil complet suit), on
+	// doit clore le rejeu par un caught_up — c'est lui qui fait sortir le client du
+	// mode « replay » (bulles repliées, pas d'animation). Un reset de « clear chat »
+	// (conversation vide) n'en a pas besoin.
+	awaitingCaughtUp := false
 	c.mu.Lock()
 	for {
 		if ctx.Err() != nil {
@@ -751,10 +782,12 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[st
 		if c.epoch != epoch { // reset → on ordonne au client de nettoyer et on repart
 			epoch = c.epoch
 			last = 0
+			replay := c.pendingReplay
 			c.mu.Unlock()
-			if !emit(map[string]any{"reset": true}) {
+			if !emit(map[string]any{"reset": true, "replay": replay}) {
 				return
 			}
+			awaitingCaughtUp = replay
 			c.mu.Lock()
 			continue
 		}
@@ -773,6 +806,17 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[st
 			pending = append(pending, c.Log[i:]...)
 		}
 		if len(pending) == 0 {
+			// Fil restauré entièrement rejoué : on clôt par caught_up (le client
+			// quitte alors le mode replay). Une seule fois par restauration.
+			if awaitingCaughtUp {
+				awaitingCaughtUp = false
+				c.mu.Unlock()
+				if !emit(map[string]any{"caught_up": true}) {
+					return
+				}
+				c.mu.Lock()
+				continue
+			}
 			c.cond.Wait()
 			continue
 		}

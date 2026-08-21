@@ -21,7 +21,23 @@ const (
 	CapRead  = "read"  // lire un fichier (confiné à la racine)
 	CapWrite = "write" // écrire un fichier (confiné à la racine)
 	CapList  = "list"  // lister un dossier (confiné à la racine)
+	// CapFetch RAPATRIE un fichier binaire du poste (par tranches base64) pour que
+	// l'IA puisse te LIVRER un fichier créé à distance, téléchargeable dans le chat.
+	// Ce n'est PAS une capacité à part accordée au pairage : c'est une forme de
+	// lecture, donc autorisée partout où `read` l'est (voir CapAuthFor). Elle ne
+	// figure donc pas dans AllCaps — inutile de re-pairer un poste existant.
+	CapFetch = "fetch"
 )
+
+// CapAuthFor renvoie la capacité RÉELLEMENT requise pour autoriser `cap`. Un
+// `fetch` (téléchargement) est un `read` privilégié : on l'autorise là où la
+// lecture l'est, sans l'ajouter aux listes de capacités (pas de re-pairage).
+func CapAuthFor(cap string) string {
+	if cap == CapFetch {
+		return CapRead
+	}
+	return cap
+}
 
 // AllCaps est l'ordre canonique d'affichage/itération.
 var AllCaps = []string{CapShell, CapRead, CapWrite, CapList}
@@ -37,6 +53,8 @@ func CapLabel(cap string) string {
 		return "écrire des fichiers"
 	case CapList:
 		return "lister des dossiers"
+	case CapFetch:
+		return "télécharger un fichier"
 	}
 	return cap
 }

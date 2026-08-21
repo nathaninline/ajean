@@ -79,6 +79,26 @@ func lcSaveLine(line string) {
 // lcResetLog repart d'un journal vide au démarrage d'un nouveau job.
 func lcResetLog() { _ = os.Remove(lcJobLogPath()) }
 
+// lcDismiss efface un job TERMINÉ (l'entête persistée + le journal + l'état en
+// mémoire). Sert au bouton « masquer » : sans ça, l'erreur en rouge d'une
+// tentative ratée (ex. moteur personnalisé impossible à compiler sous Windows
+// 10) était rechargée à CHAQUE démarrage et ne disparaissait jamais (issue #37).
+// Un job EN COURS n'est jamais effacé — on ne masque pas une compilation vivante.
+func lcDismiss() bool {
+	lcMu.Lock()
+	defer lcMu.Unlock()
+	if lcCur == nil {
+		return true
+	}
+	if lcCur.Running {
+		return false
+	}
+	lcCur = nil
+	_ = putBytes(bkState, "build_job", nil)
+	lcResetLog()
+	return true
+}
+
 // lcRestore recharge le dernier job connu au démarrage du process. Un job noté
 // « en cours » ne peut pas être le nôtre (on vient de démarrer) : sa
 // compilation est morte avec le process précédent, on le marque interrompu

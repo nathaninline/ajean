@@ -1159,7 +1159,7 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
    l'arrondi du pied de carte. */
 #ctxtrack{top:auto;bottom:0;height:7px;background:var(--border)}
 #ctx-fill{background:var(--text);opacity:.75}
-#sendhint{order:4;padding:12px var(--col) 2px}
+#sendhint{order:4;padding:8px var(--col) 4px}
 
 /* ===== Pièces jointes ==============================================
    Un fichier joint n'est jamais lu par la page : il est déposé dans le dossier
@@ -1195,9 +1195,13 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
    le rembourrage. La carte ne bouge donc pas — c'est la bande vide qui se
    remplit, au lieu du composeur qui grandit vers le haut.
    Elles ne vont PAS dans le pied : cette ligne appartient au nom du modèle. */
-#attach-list{order:0;display:none;gap:6px;margin:0 var(--col);padding:0 2px 8px;
-  overflow-x:auto;scrollbar-width:none}
-#attach-list::-webkit-scrollbar{display:none}
+/* Les pastilles s'enroulent sur plusieurs lignes (flex-wrap) : avant, une seule
+   rangée à défilement horizontal SANS barre visible cachait tout fichier au-delà
+   du troisième — impossible de vérifier sa sélection avant d'envoyer (issue #36).
+   La hauteur est plafonnée pour ne pas manger tout le composeur ; au-delà, on
+   défile verticalement, avec une barre visible et attrapable. */
+#attach-list{order:0;display:none;flex-wrap:wrap;gap:6px;margin:0 var(--col);
+  padding:0 2px 8px;max-height:33vh;overflow-y:auto}
 #attach-list.show{display:flex}
 #composer:has(#attach-list.show){padding-top:6px}
 /* Posées sur le fil (et non sur la carte) : il leur faut un fond opaque et un

@@ -287,7 +287,10 @@
       </div>
     </div>
     <div id="lc-job" class="rowbody" style="display:none">
-      <div id="lc-job-phase" style="font-size:12px;display:flex;align-items:center;gap:6px"></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div id="lc-job-phase" style="font-size:12px;display:flex;align-items:center;gap:6px;flex:1;min-width:0"></div>
+        <button id="lc-job-dismiss" type="button" class="lc-update-link" hidden onclick="lcDismissJob()">masquer</button>
+      </div>
       <div class="lc-logbar" onclick="lcToggleLog()"><span id="lc-log-caret">▸</span> détails</div>
       <pre id="lc-log" hidden></pre>
     </div>
@@ -316,6 +319,7 @@
       <div id="upd-msg" class="muted"></div>
       <!-- Ligne 2 : bench + clear chat (seule action destructive, gardée en dernier). -->
       <div class="row" style="margin-bottom:0">
+        <button onclick="openHistoryModal()" title="conversations passées (récupérables)">↺ historique</button>
         <button id="btn-bench" onclick="runBenchUI()">bench</button>
         <button onclick="resetChat()">⌫ clear chat</button>
       </div>
@@ -493,6 +497,28 @@
       <div class="foot-r">
         <button onclick="closeCustomBackends()">fermer</button>
         <button class="btn-save" onclick="lcInstallCustom()">Installer &amp; compiler</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Historique des conversations (issue #33). « clear chat » archive la
+     conversation courante ici ; on peut la recharger (elle redevient active, la
+     courante étant archivée à son tour) ou la supprimer définitivement. -->
+<div id="history-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeHistoryModal()">
+  <div class="modal-card" style="max-width:560px">
+    <div class="modal-head">
+      <strong>Historique des conversations</strong>
+      <button class="modal-x" onclick="closeHistoryModal()" aria-label="Fermer">×</button>
+    </div>
+    <div class="modal-body mform">
+      <div class="muted" style="font-size:12px;line-height:1.5">Chaque <b>clear chat</b> range la conversation ici. La recharger la remet comme conversation active (la conversation en cours, si elle existe, est archivée à son tour). La supprimer est <b>définitif</b>.</div>
+      <div id="history-list" class="mcp-list"></div>
+    </div>
+    <div class="modal-foot">
+      <div class="foot-l"></div>
+      <div class="foot-r">
+        <button onclick="closeHistoryModal()">fermer</button>
       </div>
     </div>
   </div>

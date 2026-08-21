@@ -1185,7 +1185,7 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
    l'arrondi du pied de carte. */
 #ctxtrack{top:auto;bottom:0;height:7px;background:var(--border)}
 #ctx-fill{background:var(--text);opacity:.75}
-#sendhint{order:4;padding:12px var(--col) 2px}
+#sendhint{order:4;padding:8px var(--col) 4px}
 
 /* ===== Pièces jointes ==============================================
    Un fichier joint n'est jamais lu par la page : il est déposé dans le dossier
@@ -1221,9 +1221,13 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
    le rembourrage. La carte ne bouge donc pas — c'est la bande vide qui se
    remplit, au lieu du composeur qui grandit vers le haut.
    Elles ne vont PAS dans le pied : cette ligne appartient au nom du modèle. */
-#attach-list{order:0;display:none;gap:6px;margin:0 var(--col);padding:0 2px 8px;
-  overflow-x:auto;scrollbar-width:none}
-#attach-list::-webkit-scrollbar{display:none}
+/* Les pastilles s'enroulent sur plusieurs lignes (flex-wrap) : avant, une seule
+   rangée à défilement horizontal SANS barre visible cachait tout fichier au-delà
+   du troisième — impossible de vérifier sa sélection avant d'envoyer (issue #36).
+   La hauteur est plafonnée pour ne pas manger tout le composeur ; au-delà, on
+   défile verticalement, avec une barre visible et attrapable. */
+#attach-list{order:0;display:none;flex-wrap:wrap;gap:6px;margin:0 var(--col);
+  padding:0 2px 8px;max-height:33vh;overflow-y:auto}
 #attach-list.show{display:flex}
 #composer:has(#attach-list.show){padding-top:6px}
 /* Posées sur le fil (et non sur la carte) : il leur faut un fond opaque et un
@@ -1615,7 +1619,10 @@ button:hover{border-color:var(--dim);color:var(--text)}
       </div>
     </div>
     <div id="lc-job" class="rowbody" style="display:none">
-      <div id="lc-job-phase" style="font-size:12px;display:flex;align-items:center;gap:6px"></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div id="lc-job-phase" style="font-size:12px;display:flex;align-items:center;gap:6px;flex:1;min-width:0"></div>
+        <button id="lc-job-dismiss" type="button" class="lc-update-link" hidden onclick="lcDismissJob()">masquer</button>
+      </div>
       <div class="lc-logbar" onclick="lcToggleLog()"><span id="lc-log-caret">▸</span> détails</div>
       <pre id="lc-log" hidden></pre>
     </div>
@@ -1644,6 +1651,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
       <div id="upd-msg" class="muted"></div>
       <!-- Ligne 2 : bench + clear chat (seule action destructive, gardée en dernier). -->
       <div class="row" style="margin-bottom:0">
+        <button onclick="openHistoryModal()" title="conversations passées (récupérables)">↺ historique</button>
         <button id="btn-bench" onclick="runBenchUI()">bench</button>
         <button onclick="resetChat()">⌫ clear chat</button>
       </div>
@@ -1821,6 +1829,28 @@ button:hover{border-color:var(--dim);color:var(--text)}
       <div class="foot-r">
         <button onclick="closeCustomBackends()">fermer</button>
         <button class="btn-save" onclick="lcInstallCustom()">Installer &amp; compiler</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Historique des conversations (issue #33). « clear chat » archive la
+     conversation courante ici ; on peut la recharger (elle redevient active, la
+     courante étant archivée à son tour) ou la supprimer définitivement. -->
+<div id="history-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeHistoryModal()">
+  <div class="modal-card" style="max-width:560px">
+    <div class="modal-head">
+      <strong>Historique des conversations</strong>
+      <button class="modal-x" onclick="closeHistoryModal()" aria-label="Fermer">×</button>
+    </div>
+    <div class="modal-body mform">
+      <div class="muted" style="font-size:12px;line-height:1.5">Chaque <b>clear chat</b> range la conversation ici. La recharger la remet comme conversation active (la conversation en cours, si elle existe, est archivée à son tour). La supprimer est <b>définitif</b>.</div>
+      <div id="history-list" class="mcp-list"></div>
+    </div>
+    <div class="modal-foot">
+      <div class="foot-l"></div>
+      <div class="foot-r">
+        <button onclick="closeHistoryModal()">fermer</button>
       </div>
     </div>
   </div>
@@ -4659,6 +4689,55 @@ function addCopyButtons(root){
 // Nouvelle conversation POUR TOUS LES APPAREILS : le serveur vide le fil et
 // diffuse un {reset} ; le flux d'abonnement nettoie alors l'affichage.
 function resetChat(){ jfetch('/api/chat/reset',{method:'POST'}).catch(()=>{}); toast('nouvelle conversation'); }
+// ===== Historique des conversations (issue #33) ============================
+// « clear chat » archive la conversation côté serveur ; ce modal les liste, avec
+// pour chacune « recharger » (elle redevient active, la courante étant archivée à
+// son tour) et « supprimer » (définitif).
+function openHistoryModal(){ showModal('history-modal'); loadHistory(); }
+function closeHistoryModal(){ hideModal('history-modal'); }
+function fmtHistDate(ms){
+  const d = new Date(ms||0);
+  try{ return d.toLocaleString([], {dateStyle:'medium', timeStyle:'short'}); }
+  catch(_){ return d.toLocaleString(); }
+}
+async function loadHistory(){
+  const box = document.getElementById('history-list'); if(!box) return;
+  box.innerHTML = '<span class="muted" style="font-size:12px">chargement…</span>';
+  let list = [];
+  try{ const r = await jget('/api/chat/history'); list = (r && r.conversations) || []; }
+  catch(_){ box.innerHTML = '<span class="muted" style="font-size:12px">erreur de chargement</span>'; return; }
+  if(!list.length){ box.innerHTML = '<span class="muted" style="font-size:12px">aucune conversation archivée. « clear chat » en rangera une ici.</span>'; return; }
+  box.innerHTML = '';
+  for(const c of list){
+    const row = document.createElement('div'); row.className = 'mcp-row'; row.style.cursor = 'default';
+    const info = document.createElement('div'); info.className = 'mcp-info';
+    const name = document.createElement('div'); name.className = 'mcp-name'; name.textContent = c.title || 'Conversation';
+    const meta = document.createElement('div'); meta.className = 'mcp-meta';
+    const sub = document.createElement('span'); sub.style.cssText = 'font-size:11px;color:var(--dim)';
+    const n = c.turns || 0;
+    sub.textContent = fmtHistDate(c.saved_at) + ' · ' + n + ' message' + (n>1?'s':'');
+    meta.appendChild(sub);
+    info.appendChild(name); info.appendChild(meta);
+    const load = document.createElement('button'); load.textContent = '↺ recharger';
+    load.style.cssText = 'padding:3px 8px;font-size:11px'; load.onclick = ()=>restoreHistory(c.id);
+    const del = document.createElement('button'); del.className = 'btn-danger'; del.textContent = 'supprimer';
+    del.style.cssText = 'padding:3px 8px;font-size:11px'; del.onclick = ()=>deleteHistory(c.id, c.title);
+    row.appendChild(info); row.appendChild(load); row.appendChild(del);
+    box.appendChild(row);
+  }
+}
+async function restoreHistory(id){
+  let r; try{ r = await jpost('/api/chat/history/restore', {id}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error || 'impossible de recharger'); return; }
+  closeHistoryModal();
+  toast('conversation rechargée');
+}
+async function deleteHistory(id, title){
+  if(!await askConfirm('Supprimer définitivement « ' + (title || 'cette conversation') + ' » ? Cette action est irréversible.', {title:'Supprimer la conversation', okText:'Supprimer', danger:true})) return;
+  let r; try{ r = await jpost('/api/chat/history/delete', {id}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error || 'suppression impossible'); return; }
+  loadHistory();
+}
 // Compaction : on demande à l'IA un résumé de la conversation destiné à la
 // reprendre dans une session neuve, puis on repart d'un contexte propre seedé
 // avec ce résumé. Réduit drastiquement les tokens tout en gardant le fil.
@@ -4856,7 +4935,14 @@ function noteDecode(d){
 }
 function genRate(){
   if(!ELAPSED || ELAPSED.decodeMs<600) return null; // pas avant ~0,6s de decode (bruit initial)
-  return genTokCount()/(ELAPSED.decodeMs/1000);
+  // decodeMs ne compte que le temps de decode ACCUMULÉ depuis le (re)démarrage de la
+  // ligne. Après un refresh en plein tour, les tokens déjà rejoués (tokBase) sont
+  // là mais leur temps de decode, lui, n'a pas été mesuré → il faut diviser par les
+  // seuls tokens produits DEPUIS la reprise, sinon la vitesse explose puis se
+  // « normalise » à mesure que decodeMs rattrape. tokBase=0 en tour normal.
+  const tok=genTokCount()-(ELAPSED.tokBase||0);
+  if(tok<=0) return null;
+  return tok/(ELAPSED.decodeMs/1000);
 }
 // EN DIRECT : chrono (temps total du tour) + tokens qui montent + vitesse decode
 // stable. La vitesse EXACTE (timings serveur) est figée à la fin par finalizeTurn.
@@ -4879,7 +4965,7 @@ function genStatusOn(on){ chatEl().classList.toggle('genon', !!on); }
 function elapsedStart(){
   if(REPLAYING) return;
   elapsedStop();
-  ELAPSED={start:Date.now(), timer:setInterval(paintGenStatus,500), decodeMs:0, lastTs:0};
+  ELAPSED={start:Date.now(), timer:setInterval(paintGenStatus,500), decodeMs:0, lastTs:0, tokBase:0};
   genStatusOn(true); paintGenStatus();
 }
 // Arrêt SANS conserver la ligne (erreur/reset) : le tour n'a pas de fin propre.
@@ -5105,7 +5191,13 @@ function handleDelta(d){
     // déclencher la synchro — c'est ici qu'on décide d'afficher l'accueil.
     syncChatEmpty();
     return; }
-  if(d.reset!==undefined){ elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
+  if(d.reset!==undefined){
+    // reset de RESTAURATION (d.replay) : un fil complet suit, on repasse en mode
+    // REPLAY pour que les bulles de raisonnement/outil arrivent DÉJÀ repliées
+    // (comme au chargement de page), sans l'animation « ouvre puis se ferme ». Le
+    // caught_up qui clôt le rejeu remettra REPLAYING à false.
+    if(d.replay) REPLAYING=true;
+    elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
   if(d.user!==undefined){
     newTurn();
     let el=PENDING;
@@ -5239,6 +5331,24 @@ async function reconcileBusy(){
     const rt = s.running_task || '';
     if(rt !== RUNNING_TASK){ RUNNING_TASK = rt; if(!REPLAYING) syncSendBtn(); }
     if(typeof s.generating==='boolean' && s.generating!==busy) setBusy(s.generating);
+    // Reprise d'une génération DÉJÀ en cours (page actualisée en plein tour) : au
+    // replay, l'événement `user` qui démarre la ligne d'état a été rejoué alors que
+    // REPLAYING gelait elapsedStart — la ligne (chrono · tokens · tok/s) restait donc
+    // absente jusqu'à la fin du tour. On la (re)pose ici, une seule fois (garde
+    // !ELAPSED, sinon le tick des 3 s la remettrait à zéro). Le serveur nous donne la
+    // durée DÉJÀ écoulée du tour (gen_elapsed_ms) : on cale le départ dessus pour que
+    // le chrono reprenne à la BONNE valeur, pas à zéro. Pas pour une tâche de fond
+    // (RUNNING_TASK) : elle n'a pas de bulle dans le fil sous laquelle s'afficher.
+    if(s.generating && !REPLAYING && !RUNNING_TASK && !ELAPSED){
+      elapsedStart();
+      if(ELAPSED){
+        const e=+s.gen_elapsed_ms||0;
+        if(e>0) ELAPSED.start=Date.now()-e; // chrono à la vraie valeur, pas zéro
+        // Les tokens déjà rejoués ne comptent pas dans la vitesse LIVE (leur temps
+        // de decode n'a pas été mesuré) : on mesure à partir d'ici.
+        ELAPSED.tokBase=genTokCount();
+      }
+    }
   }catch(_){}
 }
 // Recalage périodique : une tâche de fond prend le moteur SANS émettre d'événement
@@ -5524,6 +5634,7 @@ function lcBusy(on){ document.querySelector('.lc-modes').classList.toggle('busy'
 function lcStartPolling(){
   document.getElementById('lc-job').style.display = '';
   document.getElementById('lc-log').textContent = '';
+  const dis = document.getElementById('lc-job-dismiss'); if(dis) dis.hidden = true;
   lcLogNext = 0;
   lcSeenEnd = false; lcEndShown = false;
   lcBusy(true);
@@ -5551,17 +5662,35 @@ async function lcPollJob(quiet){
   }
   if(lcPoll){ clearInterval(lcPoll); lcPoll = null; }
   lcBusy(false);
+  // Job terminé : le bouton « masquer » devient utile — il efface définitivement
+  // ce résultat pour qu'une erreur ne réapparaisse pas à chaque démarrage (#37).
+  const dis = document.getElementById('lc-job-dismiss');
+  if(dis) dis.hidden = false;
   if(j.error){
     phaseEl.innerHTML = '<span style="color:var(--err)">✗ '+String(j.error).replace(/[<>&]/g,'')+'</span>';
     const pre = document.getElementById('lc-log');
     if(pre.hasAttribute('hidden')) lcToggleLog();
     pre.scrollTop = pre.scrollHeight;
-    toast('échec — voir les détails');
+    if(!quiet) toast('échec — voir les détails');
   } else {
     phaseEl.innerHTML = '<span style="color:var(--ok)">✓ '+String(j.phase||'terminé').replace(/[<>&]/g,'')+'</span>';
-    toast('c\'est prêt ✓');
+    if(!quiet) toast('c\'est prêt ✓');
   }
-  loadAll();
+  if(!quiet) loadAll();
+}
+
+// Masque (efface) un job terminé : côté serveur l'entête persistée et le journal
+// sont supprimés, donc l'erreur en rouge ne revient plus au prochain démarrage.
+async function lcDismissJob(){
+  try{
+    const r = await jpost('/api/llamacpp/job/dismiss', {});
+    if(!r.ok){ toast(r.error||'impossible de masquer'); return; }
+  }catch(_){ toast('erreur réseau'); return; }
+  if(lcPoll){ clearInterval(lcPoll); lcPoll = null; }
+  document.getElementById('lc-job').style.display = 'none';
+  const dis = document.getElementById('lc-job-dismiss'); if(dis) dis.hidden = true;
+  lcSeenEnd = true; lcEndShown = false;
+  lcChipSync(null);
 }
 
 function lcToggleLog(){
@@ -5987,7 +6116,9 @@ async function getWorkspaceBlob(path){
   const m=await jfetch('/api/chat/file?meta=1&path='+encodeURIComponent(path));
   const meta=await m.json().catch(()=>({}));
   if(!m.ok || !meta.ok) throw new Error(meta.error||('HTTP '+m.status));
-  if(meta.e2e) return await fetchFileB64(path, meta.size||0, null);
+  // e2e = tunnel chiffré ; remote = fichier sur un poste distant. Dans les deux cas
+  // le binaire brut ne traverse pas : on passe par les tranches base64.
+  if(meta.e2e || meta.remote) return await fetchFileB64(path, meta.size||0, null);
   const r=await jfetch('/api/chat/file?path='+encodeURIComponent(path));
   if(!r.ok) throw new Error('HTTP '+r.status);
   return await r.blob();
@@ -6013,7 +6144,7 @@ async function downloadWorkspaceFile(path, name, a){
       toast('téléchargement impossible : '+(meta.error||('HTTP '+m.status))); return;
     }
     let blob;
-    if(meta.e2e){
+    if(meta.e2e || meta.remote){
       blob=await fetchFileB64(path, meta.size||0, a);
     } else {
       const r=await jfetch('/api/chat/file?path='+encodeURIComponent(path));

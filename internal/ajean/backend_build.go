@@ -63,7 +63,28 @@ func (s *sinkWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func detectBuildPlan() buildPlan {
+// buildBackends liste les backends d'accélération qu'on sait forcer via
+// `--backend` (issue #28 : sur une machine où HIP est détecté mais cassé,
+// pouvoir imposer Vulkan ou CPU sans bricoler le PATH).
+var buildBackends = []string{"cuda", "hip", "vulkan", "cpu"}
+
+func isKnownBuildBackend(b string) bool {
+	for _, k := range buildBackends {
+		if k == b {
+			return true
+		}
+	}
+	return b == "metal"
+}
+
+func detectBuildPlan() buildPlan { return buildPlanFor("") }
+
+// buildPlanFor construit le plan CMake. `force` vide = détection automatique de
+// l'accélérateur ; sinon on impose ce backend ("cuda"|"hip"|"vulkan"|"cpu"|
+// "metal") sans passer par la détection — utile quand la détection choisit un
+// backend cassé sur la machine (HIP à demi installé, etc.).
+func buildPlanFor(force string) buildPlan {
+	force = strings.ToLower(strings.TrimSpace(force))
 	p := buildPlan{backend: "cpu", jobs: numJobs()}
 	// Flags communs : Release + tuning natif pour la machine de build.
 	// (libcurl est activé d'office par llama.cpp ; LLAMA_CURL est déprécié.)
@@ -95,10 +116,41 @@ func detectBuildPlan() buildPlan {
 		}
 	}
 
-	if runtime.GOOS == "darwin" {
+	if runtime.GOOS == "darwin" && (force == "" || force == "metal") {
 		// Metal est activé par défaut sur Apple Silicon ; on l'explicite.
 		p.backend = "metal"
 		p.flags = append(p.flags, "-DGGML_METAL=ON")
+		return p
+	}
+
+	// Forçage explicite : on saute la détection et on impose le backend demandé.
+	// CPU ne demande aucun flag (déjà le défaut du plan).
+	if force == "cpu" {
+		return p
+	}
+	if force == "vulkan" {
+		p.backend = "vulkan"
+		p.flags = append(p.flags, "-DGGML_VULKAN=ON")
+		return p
+	}
+	if force == "hip" {
+		p.backend = "hip"
+		p.flags = append(p.flags, "-DGGML_HIP=ON")
+		return p
+	}
+	if force == "cuda" {
+		p.backend = "cuda"
+		if nvcc := findNvcc(); nvcc != "" {
+			p.cudaCXX = nvcc
+			if root := cudaToolkitRoot(nvcc); root != "" && runtime.GOOS != "windows" {
+				p.flags = append(p.flags, "-DCUDAToolkit_ROOT="+root, "-DCMAKE_CUDA_COMPILER="+nvcc)
+			}
+		}
+		p.flags = append(p.flags, "-DGGML_CUDA=ON", "-DGGML_CUDA_F16=ON")
+		if arch := detectCudaArch(); arch != "" {
+			p.cudaArch = arch
+			p.flags = append(p.flags, "-DCMAKE_CUDA_ARCHITECTURES="+arch)
+		}
 		return p
 	}
 

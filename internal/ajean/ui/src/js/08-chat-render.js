@@ -299,6 +299,55 @@ function addCopyButtons(root){
 // Nouvelle conversation POUR TOUS LES APPAREILS : le serveur vide le fil et
 // diffuse un {reset} ; le flux d'abonnement nettoie alors l'affichage.
 function resetChat(){ jfetch('/api/chat/reset',{method:'POST'}).catch(()=>{}); toast('nouvelle conversation'); }
+// ===== Historique des conversations (issue #33) ============================
+// « clear chat » archive la conversation côté serveur ; ce modal les liste, avec
+// pour chacune « recharger » (elle redevient active, la courante étant archivée à
+// son tour) et « supprimer » (définitif).
+function openHistoryModal(){ showModal('history-modal'); loadHistory(); }
+function closeHistoryModal(){ hideModal('history-modal'); }
+function fmtHistDate(ms){
+  const d = new Date(ms||0);
+  try{ return d.toLocaleString([], {dateStyle:'medium', timeStyle:'short'}); }
+  catch(_){ return d.toLocaleString(); }
+}
+async function loadHistory(){
+  const box = document.getElementById('history-list'); if(!box) return;
+  box.innerHTML = '<span class="muted" style="font-size:12px">chargement…</span>';
+  let list = [];
+  try{ const r = await jget('/api/chat/history'); list = (r && r.conversations) || []; }
+  catch(_){ box.innerHTML = '<span class="muted" style="font-size:12px">erreur de chargement</span>'; return; }
+  if(!list.length){ box.innerHTML = '<span class="muted" style="font-size:12px">aucune conversation archivée. « clear chat » en rangera une ici.</span>'; return; }
+  box.innerHTML = '';
+  for(const c of list){
+    const row = document.createElement('div'); row.className = 'mcp-row'; row.style.cursor = 'default';
+    const info = document.createElement('div'); info.className = 'mcp-info';
+    const name = document.createElement('div'); name.className = 'mcp-name'; name.textContent = c.title || 'Conversation';
+    const meta = document.createElement('div'); meta.className = 'mcp-meta';
+    const sub = document.createElement('span'); sub.style.cssText = 'font-size:11px;color:var(--dim)';
+    const n = c.turns || 0;
+    sub.textContent = fmtHistDate(c.saved_at) + ' · ' + n + ' message' + (n>1?'s':'');
+    meta.appendChild(sub);
+    info.appendChild(name); info.appendChild(meta);
+    const load = document.createElement('button'); load.textContent = '↺ recharger';
+    load.style.cssText = 'padding:3px 8px;font-size:11px'; load.onclick = ()=>restoreHistory(c.id);
+    const del = document.createElement('button'); del.className = 'btn-danger'; del.textContent = 'supprimer';
+    del.style.cssText = 'padding:3px 8px;font-size:11px'; del.onclick = ()=>deleteHistory(c.id, c.title);
+    row.appendChild(info); row.appendChild(load); row.appendChild(del);
+    box.appendChild(row);
+  }
+}
+async function restoreHistory(id){
+  let r; try{ r = await jpost('/api/chat/history/restore', {id}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error || 'impossible de recharger'); return; }
+  closeHistoryModal();
+  toast('conversation rechargée');
+}
+async function deleteHistory(id, title){
+  if(!await askConfirm('Supprimer définitivement « ' + (title || 'cette conversation') + ' » ? Cette action est irréversible.', {title:'Supprimer la conversation', okText:'Supprimer', danger:true})) return;
+  let r; try{ r = await jpost('/api/chat/history/delete', {id}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error || 'suppression impossible'); return; }
+  loadHistory();
+}
 // Compaction : on demande à l'IA un résumé de la conversation destiné à la
 // reprendre dans une session neuve, puis on repart d'un contexte propre seedé
 // avec ce résumé. Réduit drastiquement les tokens tout en gardant le fil.

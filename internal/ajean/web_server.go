@@ -144,6 +144,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/llamacpp/uninstall-custom", handleLlamacppUninstallCustom) // supprime un backend custom (backends/<name>)
 	api("/api/llamacpp/update", handleLlamacppUpdate)                    // job : pull + rebuild + restart
 	api("/api/llamacpp/job", handleLlamacppJob)                          // progression + logs du job
+	api("/api/llamacpp/job/dismiss", handleLlamacppJobDismiss)           // masque un job terminé (l'erreur ne revient plus au démarrage)
 	api("/api/llamacpp/prebuilt", handleLlamacppPrebuilt)                // job : binaires officiels précompilés
 	api("/api/llamacpp/prebuilt/check", handleLlamacppPrebuiltCheck)     // dernière release officielle vs installée
 	api("/api/llamacpp/use", handleLlamacppUse)                          // bascule BIN entre versions déjà installées
@@ -195,16 +196,19 @@ func newWebMux() *http.ServeMux {
 	api("/api/restart", svcHandler("restart"))
 	api("/api/bench", handleBench)
 	api("/api/bench/last", handleBenchLast)
-	api("/api/chat", handleChat)                // flux d'ABONNEMENT (SSE) : rejoue + suit le fil
-	api("/api/chat/send", handleChatSend)       // envoie un message (lance la génération détachée)
-	api("/api/chat/upload", handleChatUpload)   // dépose un fichier dans le workspace agent (joint au message suivant)
-	api("/api/chat/file", handleChatFile)       // télécharge un fichier produit par l'agent (dossier de travail only)
-	api("/api/chat/stop", handleChatStop)       // interrompt la génération en cours
-	api("/api/chat/reset", handleChatReset)     // nouvelle conversation (pour tous les appareils)
-	api("/api/chat/compact", handleChatCompact) // compaction manuelle du contexte
-	api("/api/chat/state", handleChatState)     // instantané léger {seq, generating, ctx_used}
-	api("/api/chat/export", handleChatExport)   // téléchargement du fil (?format=md|json)
-	api("/api/e2e/chat", handleE2EChat)         // même flux mais chiffré E2E (boîte noire via le relais)
+	api("/api/chat", handleChat)                               // flux d'ABONNEMENT (SSE) : rejoue + suit le fil
+	api("/api/chat/send", handleChatSend)                      // envoie un message (lance la génération détachée)
+	api("/api/chat/upload", handleChatUpload)                  // dépose un fichier dans le workspace agent (joint au message suivant)
+	api("/api/chat/file", handleChatFile)                      // télécharge un fichier produit par l'agent (dossier de travail only)
+	api("/api/chat/stop", handleChatStop)                      // interrompt la génération en cours
+	api("/api/chat/reset", handleChatReset)                    // nouvelle conversation (archive la courante dans l'historique)
+	api("/api/chat/history", handleChatHistory)                // liste des conversations archivées
+	api("/api/chat/history/restore", handleChatHistoryRestore) // recharge une conversation archivée
+	api("/api/chat/history/delete", handleChatHistoryDelete)   // supprime définitivement une archive
+	api("/api/chat/compact", handleChatCompact)                // compaction manuelle du contexte
+	api("/api/chat/state", handleChatState)                    // instantané léger {seq, generating, ctx_used}
+	api("/api/chat/export", handleChatExport)                  // téléchargement du fil (?format=md|json)
+	api("/api/e2e/chat", handleE2EChat)                        // même flux mais chiffré E2E (boîte noire via le relais)
 	// Tâches planifiées : l'IA exécute des consignes toute seule sur une fréquence
 	// réglable (tasks.go). Le scheduler tourne dans CE process (celui qui possède la
 	// conversation et le modèle).

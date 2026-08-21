@@ -113,6 +113,7 @@ func llamacppInstall(args []string) error {
 	noSwitch := false
 	customURL := ""
 	customName := ""
+	backend := ""
 	for _, a := range args {
 		switch {
 		case strings.HasPrefix(a, "--dir="):
@@ -123,6 +124,11 @@ func llamacppInstall(args []string) error {
 			customURL = strings.TrimPrefix(a, "--repo=")
 		case strings.HasPrefix(a, "--name="):
 			customName = strings.TrimPrefix(a, "--name=")
+		case strings.HasPrefix(a, "--backend="):
+			backend = strings.ToLower(strings.TrimSpace(strings.TrimPrefix(a, "--backend=")))
+			if !isKnownBuildBackend(backend) {
+				return fmt.Errorf("backend inconnu: %s (attendu cuda | hip | vulkan | cpu)", backend)
+			}
 		case a == "--force":
 			force = true
 		case a == "--no-switch":
@@ -186,7 +192,10 @@ func llamacppInstall(args []string) error {
 		}
 	}
 
-	plan := detectBuildPlan()
+	plan := buildPlanFor(backend)
+	if backend != "" {
+		fmt.Printf("%s backend forcé : %s\n", yellow("[info]"), bold(backend))
+	}
 	printPlan(plan, repo)
 
 	if err := buildLlamacpp(repo, plan, true); err != nil {

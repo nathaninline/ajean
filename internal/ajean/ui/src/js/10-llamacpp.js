@@ -234,6 +234,7 @@ function lcBusy(on){ document.querySelector('.lc-modes').classList.toggle('busy'
 function lcStartPolling(){
   document.getElementById('lc-job').style.display = '';
   document.getElementById('lc-log').textContent = '';
+  const dis = document.getElementById('lc-job-dismiss'); if(dis) dis.hidden = true;
   lcLogNext = 0;
   lcSeenEnd = false; lcEndShown = false;
   lcBusy(true);
@@ -261,17 +262,35 @@ async function lcPollJob(quiet){
   }
   if(lcPoll){ clearInterval(lcPoll); lcPoll = null; }
   lcBusy(false);
+  // Job terminé : le bouton « masquer » devient utile — il efface définitivement
+  // ce résultat pour qu'une erreur ne réapparaisse pas à chaque démarrage (#37).
+  const dis = document.getElementById('lc-job-dismiss');
+  if(dis) dis.hidden = false;
   if(j.error){
     phaseEl.innerHTML = '<span style="color:var(--err)">✗ '+String(j.error).replace(/[<>&]/g,'')+'</span>';
     const pre = document.getElementById('lc-log');
     if(pre.hasAttribute('hidden')) lcToggleLog();
     pre.scrollTop = pre.scrollHeight;
-    toast('échec — voir les détails');
+    if(!quiet) toast('échec — voir les détails');
   } else {
     phaseEl.innerHTML = '<span style="color:var(--ok)">✓ '+String(j.phase||'terminé').replace(/[<>&]/g,'')+'</span>';
-    toast('c\'est prêt ✓');
+    if(!quiet) toast('c\'est prêt ✓');
   }
-  loadAll();
+  if(!quiet) loadAll();
+}
+
+// Masque (efface) un job terminé : côté serveur l'entête persistée et le journal
+// sont supprimés, donc l'erreur en rouge ne revient plus au prochain démarrage.
+async function lcDismissJob(){
+  try{
+    const r = await jpost('/api/llamacpp/job/dismiss', {});
+    if(!r.ok){ toast(r.error||'impossible de masquer'); return; }
+  }catch(_){ toast('erreur réseau'); return; }
+  if(lcPoll){ clearInterval(lcPoll); lcPoll = null; }
+  document.getElementById('lc-job').style.display = 'none';
+  const dis = document.getElementById('lc-job-dismiss'); if(dis) dis.hidden = true;
+  lcSeenEnd = true; lcEndShown = false;
+  lcChipSync(null);
 }
 
 function lcToggleLog(){

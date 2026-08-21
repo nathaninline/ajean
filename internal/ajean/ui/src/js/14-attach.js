@@ -128,7 +128,9 @@ async function getWorkspaceBlob(path){
   const m=await jfetch('/api/chat/file?meta=1&path='+encodeURIComponent(path));
   const meta=await m.json().catch(()=>({}));
   if(!m.ok || !meta.ok) throw new Error(meta.error||('HTTP '+m.status));
-  if(meta.e2e) return await fetchFileB64(path, meta.size||0, null);
+  // e2e = tunnel chiffré ; remote = fichier sur un poste distant. Dans les deux cas
+  // le binaire brut ne traverse pas : on passe par les tranches base64.
+  if(meta.e2e || meta.remote) return await fetchFileB64(path, meta.size||0, null);
   const r=await jfetch('/api/chat/file?path='+encodeURIComponent(path));
   if(!r.ok) throw new Error('HTTP '+r.status);
   return await r.blob();
@@ -154,7 +156,7 @@ async function downloadWorkspaceFile(path, name, a){
       toast('téléchargement impossible : '+(meta.error||('HTTP '+m.status))); return;
     }
     let blob;
-    if(meta.e2e){
+    if(meta.e2e || meta.remote){
       blob=await fetchFileB64(path, meta.size||0, a);
     } else {
       const r=await jfetch('/api/chat/file?path='+encodeURIComponent(path));

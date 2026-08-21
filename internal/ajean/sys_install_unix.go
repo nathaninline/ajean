@@ -5,6 +5,7 @@ package ajean
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"os/user"
 	"path/filepath"
 	"strings"
@@ -64,6 +65,12 @@ func cmdInstall(args []string) error {
 	if err := linkInstalledExe(); err != nil {
 		return err
 	}
+	// 2b. Sur un système SELinux en mode enforcing (Fedora Atomic / Bazzite…),
+	//     un binaire posé dans /usr/local/bin hérite du contexte user_home_t au
+	//     lieu de bin_t : systemd refuse alors de l'exécuter (Permission denied,
+	//     203/EXEC) tant qu'on n'a pas relancé restorecon à la main. On le fait
+	//     ici, best-effort (issue #28).
+	restoreconInstalledExe()
 
 	// 3. /etc/default/ajean, pour que les invocations root résolvent AJEAN_HOME.
 	if err := os.MkdirAll("/etc/default", 0o755); err != nil {
@@ -131,6 +138,31 @@ func linkInstalledExe() error {
 	}
 	fmt.Printf("  %s %s -> %s\n", green("✓"), target, self)
 	return nil
+}
+
+// restoreconInstalledExe recolle le bon contexte SELinux sur le binaire installé
+// quand le système est en SELinux enforcing. Entièrement best-effort et
+// silencieux hors SELinux : sur une machine sans SELinux, /sys/fs/selinux est
+// absent et restorecon introuvable, on ne fait donc rien.
+func restoreconInstalledExe() {
+	// Signature d'un noyau SELinux monté : le pseudo-fs /sys/fs/selinux.
+	if !isDir("/sys/fs/selinux") {
+		return
+	}
+	if !hasTool("restorecon") {
+		return
+	}
+	target := installedExePath()
+	if rp, e := filepath.EvalSymlinks(target); e == nil {
+		target = rp
+	}
+	// -F force le réétiquetage même si le contexte semble déjà correct.
+	if err := hideCmd(exec.Command("restorecon", "-F", target)).Run(); err != nil {
+		fmt.Printf("  %s restorecon a échoué (%v) — si systemd refuse de démarrer (203/EXEC), lance : restorecon -v %s\n",
+			yellow("[warn]"), err, target)
+		return
+	}
+	fmt.Printf("  %s contexte SELinux rétabli (restorecon) sur %s\n", green("✓"), target)
 }
 
 func cmdUninstall(args []string) error {

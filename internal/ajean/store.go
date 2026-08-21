@@ -29,11 +29,12 @@ import (
 // Buckets. Un par nature de donnée : ça garde les itérations bornées et rend le
 // contenu de la base lisible au débogage.
 const (
-	bkConfig = "config" // configuration de llama-server (ex-config.env)
-	bkPrefs  = "prefs"  // préférences de l'UI web
-	bkState  = "state"  // clés, jetons, drapeaux, listes de dossiers, MCP
-	bkChat   = "chat"   // conversation partagée
-	bkTasks  = "tasks"  // tâches planifiées (une entrée JSON par tâche)
+	bkConfig   = "config"   // configuration de llama-server (ex-config.env)
+	bkPrefs    = "prefs"    // préférences de l'UI web
+	bkState    = "state"    // clés, jetons, drapeaux, listes de dossiers, MCP
+	bkChat     = "chat"     // conversation partagée
+	bkChatHist = "chathist" // conversations archivées (historique) — une entrée JSON par conversation
+	bkTasks    = "tasks"    // tâches planifiées (une entrée JSON par tâche)
 )
 
 // La base n'est PAS gardée ouverte entre deux opérations, et c'est délibéré.

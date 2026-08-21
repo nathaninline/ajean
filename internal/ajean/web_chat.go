@@ -115,8 +115,52 @@ func handleChatStop(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true})
 }
 
+// handleChatReset : « clear chat ». La conversation courante n'est pas jetée mais
+// ARCHIVÉE dans l'historique (récupérable dans le modal Historique), puis une
+// conversation vierge démarre.
 func handleChatReset(w http.ResponseWriter, r *http.Request) {
-	conv.Reset()
+	id := conv.ArchiveAndReset()
+	sendJSON(w, 200, map[string]any{"ok": true, "archived": id})
+}
+
+// handleChatHistory (GET) : liste des conversations archivées (métadonnées).
+func handleChatHistory(w http.ResponseWriter, r *http.Request) {
+	sendJSON(w, 200, map[string]any{"ok": true, "conversations": listArchives()})
+}
+
+// handleChatHistoryRestore (POST {id}) : recharge une conversation archivée comme
+// conversation active (en archivant d'abord la courante si besoin).
+func handleChatHistoryRestore(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ID string `json:"id"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if strings.TrimSpace(body.ID) == "" {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "id manquant"})
+		return
+	}
+	if err := conv.RestoreArchive(body.ID); err != nil {
+		sendJSON(w, 404, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
+// handleChatHistoryDelete (POST {id}) : supprime DÉFINITIVEMENT une conversation
+// archivée.
+func handleChatHistoryDelete(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ID string `json:"id"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if strings.TrimSpace(body.ID) == "" {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "id manquant"})
+		return
+	}
+	if err := deleteArchive(body.ID); err != nil {
+		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
 	sendJSON(w, 200, map[string]any{"ok": true})
 }
 

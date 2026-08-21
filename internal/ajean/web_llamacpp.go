@@ -404,6 +404,17 @@ func handleLlamacppJob(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, lcJobSnapshot(from, true))
 }
 
+// handleLlamacppJobDismiss (POST) efface un job TERMINÉ pour que son résultat
+// (surtout une erreur en rouge) cesse d'être réaffiché à chaque démarrage. Un
+// job en cours n'est pas effaçable — la réponse le dit.
+func handleLlamacppJobDismiss(w http.ResponseWriter, r *http.Request) {
+	if lcDismiss() {
+		sendJSON(w, 200, map[string]any{"ok": true})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": false, "error": "opération en cours — impossible de masquer"})
+}
+
 // lcJobSnapshot construit la vue JSON du job courant. withLines=false renvoie
 // juste l'entête (imbriquée dans /api/llamacpp).
 func lcJobSnapshot(from int, withLines bool) map[string]any {

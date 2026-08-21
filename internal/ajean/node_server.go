@@ -319,7 +319,9 @@ func nodeCall(slug, cap string, args map[string]any) string {
 	if nc == nil {
 		return "[erreur] poste « " + slug + " » déconnecté"
 	}
-	if !nodeCapAllowed(nc.caps, cap) {
+	// fetch (téléchargement) est autorisé partout où read l'est (CapAuthFor) : pas
+	// besoin de re-pairer un poste pour lui permettre de te livrer un fichier.
+	if !nodeCapAllowed(nc.caps, nodewire.CapAuthFor(cap)) {
 		return "[erreur] capacité « " + cap + " » non autorisée sur ce poste"
 	}
 	id := nodeRandHex(8)
@@ -369,6 +371,34 @@ func nodeEditRemote(slug, path, oldText, newText string) string {
 	}
 	updated := strings.Replace(content, oldText, newText, 1)
 	return nodeCall(slug, nodeCapWrite, map[string]any{"path": path, "content": updated})
+}
+
+// nodeFetchedFile = une tranche de fichier rapatriée d'un poste (miroir de ce
+// que fetchFile encode côté client).
+type nodeFetchedFile struct {
+	Name   string `json:"name"`
+	Size   int64  `json:"size"`
+	Offset int64  `json:"offset"`
+	Data   string `json:"data"` // base64 de la tranche
+	EOF    bool   `json:"eof"`
+}
+
+// nodeFetchFile rapatrie une tranche binaire d'un fichier du poste `slug`
+// (offset/length en octets), pour le téléchargement. `length<=0` = requête de
+// métadonnées (nom+taille sans données). Renvoie l'erreur telle que rapportée
+// par le poste (chaîne « [erreur] … ») le cas échéant.
+func nodeFetchFile(slug, path string, offset, length int64) (nodeFetchedFile, error) {
+	res := nodeCall(slug, nodeCapFetch, map[string]any{
+		"path": path, "offset": offset, "len": length,
+	})
+	if isNodeErr(res) {
+		return nodeFetchedFile{}, fmt.Errorf("%s", strings.TrimSpace(res))
+	}
+	var f nodeFetchedFile
+	if err := json.Unmarshal([]byte(res), &f); err != nil {
+		return nodeFetchedFile{}, fmt.Errorf("réponse du poste illisible")
+	}
+	return f, nil
 }
 
 // isNodeErr indique si un résultat d'appel de poste est un échec (à ne pas

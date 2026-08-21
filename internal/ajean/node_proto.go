@@ -19,6 +19,7 @@ const (
 	nodeCapRead  = nodewire.CapRead
 	nodeCapWrite = nodewire.CapWrite
 	nodeCapList  = nodewire.CapList
+	nodeCapFetch = nodewire.CapFetch
 )
 
 // nodeAllCaps : ordre canonique partagé.

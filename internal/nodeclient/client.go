@@ -34,8 +34,9 @@ import (
 const (
 	defaultTimeoutSec = 30
 	maxTimeoutSec     = 300
-	maxOutput         = 8000   // caractères de stdout/stderr renvoyés
-	readMax           = 100000 // caractères max d'une lecture de fichier
+	maxOutput         = 8000    // caractères de stdout/stderr renvoyés
+	readMax           = 100000  // caractères max d'une lecture de fichier
+	fetchChunkMax     = 8 << 20 // octets max d'UNE tranche de téléchargement (aligné sur downloadChunkMax côté serveur)
 )
 
 // Config persiste l'appairage et les préférences locales du poste.
@@ -270,7 +271,8 @@ func session(ctx context.Context, cfg Config, quiet bool) error {
 
 // execute applique les gardes locales puis exécute la demande.
 func execute(ctx context.Context, cfg Config, m nodewire.Msg, quiet bool) string {
-	if !nodewire.CapAllowed(cfg.Caps, m.Cap) {
+	// fetch (téléchargement) est autorisé partout où read l'est — voir CapAuthFor.
+	if !nodewire.CapAllowed(cfg.Caps, nodewire.CapAuthFor(m.Cap)) {
 		return "[refusé] la capacité « " + m.Cap + " » n'est pas activée sur ce poste"
 	}
 	if !cfg.AutoYes && (m.Cap == nodewire.CapShell || m.Cap == nodewire.CapWrite) {
@@ -288,14 +290,19 @@ func execute(ctx context.Context, cfg Config, m nodewire.Msg, quiet bool) string
 		return runShell(ctx, command, to, cfg.Root)
 	case nodewire.CapRead:
 		path, _ := m.Args["path"].(string)
-		return readFile(cfg.Root, path)
+		return withActiveUser(func() string { return readFile(cfg.Root, path) })
+	case nodewire.CapFetch:
+		path, _ := m.Args["path"].(string)
+		off, _ := m.Args["offset"].(float64)
+		length, _ := m.Args["len"].(float64)
+		return withActiveUser(func() string { return fetchFile(cfg.Root, path, int64(off), int64(length)) })
 	case nodewire.CapWrite:
 		path, _ := m.Args["path"].(string)
 		content, _ := m.Args["content"].(string)
-		return writeFile(cfg.Root, path, content)
+		return withActiveUser(func() string { return writeFile(cfg.Root, path, content) })
 	case nodewire.CapList:
 		path, _ := m.Args["path"].(string)
-		return listDir(cfg.Root, path)
+		return withActiveUser(func() string { return listDir(cfg.Root, path) })
 	}
 	return "[erreur] capacité inconnue: " + m.Cap
 }
@@ -340,6 +347,11 @@ func runShell(parent context.Context, command string, timeoutSec int, dir string
 			cmd.Dir = dir
 		}
 	}
+	// Sur Windows en service LocalSystem : exécuter sous le compte de l'utilisateur
+	// connecté (jeton + environnement) s'il y en a un, pour toucher SON bureau et
+	// SES fichiers. Personne de connecté → no-op (SYSTEM). Ailleurs → no-op.
+	cleanup := applyRunAsUser(cmd)
+	defer cleanup()
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -383,6 +395,61 @@ func readFile(root, path string) string {
 	if len(b) > readMax {
 		return string(b[:readMax]) + "\n…[tronqué]"
 	}
+	return string(b)
+}
+
+// fetchFile rapatrie UNE tranche binaire d'un fichier du poste, encodée en
+// base64, pour le téléchargement (voir CapFetch). Contrairement à readFile
+// (texte, tronqué), il gère le binaire et n'importe quelle taille par tranches.
+// Réponse = un objet JSON {ok,name,size,offset,data,eof} sérialisé en chaîne
+// (le fil ne transporte que des `result` string) ; erreur = "[erreur] …".
+// `length<=0` → tranche vide : sert à la requête de métadonnées (taille+nom).
+func fetchFile(root, path string, offset, length int64) string {
+	abs, err := nodewire.ResolvePath(root, path)
+	if err != nil {
+		return "[erreur] " + err.Error()
+	}
+	st, err := os.Stat(abs)
+	if err != nil {
+		return "[erreur] " + err.Error()
+	}
+	if st.IsDir() {
+		return "[erreur] c'est un dossier, pas un fichier"
+	}
+	size := st.Size()
+	if offset < 0 || offset > size {
+		return "[erreur] position hors du fichier"
+	}
+	if length > fetchChunkMax {
+		length = fetchChunkMax
+	}
+	if length < 0 {
+		length = 0
+	}
+	if offset+length > size {
+		length = size - offset
+	}
+	data := ""
+	var n int64
+	if length > 0 {
+		f, err := os.Open(abs)
+		if err != nil {
+			return "[erreur] " + err.Error()
+		}
+		defer f.Close()
+		buf := make([]byte, length)
+		rn, rerr := f.ReadAt(buf, offset)
+		if rerr != nil && rerr != io.EOF {
+			return "[erreur] " + rerr.Error()
+		}
+		n = int64(rn)
+		data = base64.StdEncoding.EncodeToString(buf[:rn])
+	}
+	out := map[string]any{
+		"ok": true, "name": filepath.Base(abs), "size": size,
+		"offset": offset, "data": data, "eof": offset+n >= size,
+	}
+	b, _ := json.Marshal(out)
 	return string(b)
 }
 

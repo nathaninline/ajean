@@ -154,6 +154,15 @@ func handleVram(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 	}
+	// Aucune carte NVIDIA (nvidia-smi absent ou muet) → on tente amd-smi, pour que
+	// les GPU AMD apparaissent aussi dans l'UI (issue #32). Mélanger les deux
+	// n'aurait pas de sens sur les rares machines mixtes : nvidia-smi prime, on ne
+	// bascule sur AMD que s'il n'a rien donné.
+	if len(gpus) == 0 {
+		if amd := amdVramGPUs(); len(amd) > 0 {
+			gpus = amd
+		}
+	}
 	sendJSON(w, 200, gpus)
 }
 
