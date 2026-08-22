@@ -25,7 +25,10 @@ import (
 func binSupportsReasoningFlag(bin string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, bin, "--help")
+	// hideCmd : sans lui, ce « llama-server --help » ouvre une fenêtre de console
+	// noire sous Windows (llama-server est une app console), qui clignote à chaque
+	// (re)démarrage du moteur et à chaque changement de preset. No-op sous Unix.
+	cmd := hideCmd(exec.CommandContext(ctx, bin, "--help"))
 	var out bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &out
 	if err := cmd.Run(); err != nil && out.Len() == 0 {
