@@ -15,6 +15,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -73,6 +74,45 @@ func devCachePut(bin string, devs []map[string]any) {
 	devCacheMu.Lock()
 	devCache[bin] = devCacheEntry{devices: devs, at: time.Now()}
 	devCacheMu.Unlock()
+}
+
+// Cache PERSISTANT de la dernière énumération RÉUSSIE (exit 0) de --list-devices,
+// par clé moteur+CVD. But : quand le moteur tourne et sature déjà une carte, un
+// nouvel appel --list-devices peut PLANTER (CUDA out of memory en initialisant le
+// device plein) et ne renvoyer qu'une partie des cartes — l'UI perdait alors le
+// tensor split (slider caché faute de 2e GPU) après un simple redémarrage de
+// l'interface, qui vide le cache mémoire. On garde donc sur disque la dernière
+// liste complète : identité, ordre et mémoire TOTALE sont des faits matériels
+// stables issus du moteur lui-même (pas de nvidia-smi, dont l'ordre peut différer,
+// voir l'en-tête de ce fichier). Seule la mémoire LIBRE y est périmée, ce qui est
+// sans importance pour choisir les cartes et régler la répartition.
+var devPersistMu sync.Mutex
+
+func devPersistPath() string { return filepath.Join(AjeanHome(), "devices.json") }
+
+func devPersistLoad() map[string][]map[string]any {
+	m := map[string][]map[string]any{}
+	if b, err := os.ReadFile(devPersistPath()); err == nil {
+		_ = json.Unmarshal(b, &m)
+	}
+	return m
+}
+
+func devPersistGet(key string) ([]map[string]any, bool) {
+	devPersistMu.Lock()
+	defer devPersistMu.Unlock()
+	d, ok := devPersistLoad()[key]
+	return d, ok && len(d) > 0
+}
+
+func devPersistPut(key string, devs []map[string]any) {
+	devPersistMu.Lock()
+	defer devPersistMu.Unlock()
+	m := devPersistLoad()
+	m[key] = devs
+	if b, err := json.MarshalIndent(m, "", "  "); err == nil {
+		_ = os.WriteFile(devPersistPath(), b, 0o644)
+	}
 }
 
 // fillMissingMemory complète les mémoires que le moteur n'a pas su lire. Quand
@@ -178,17 +218,38 @@ func handleBackendDevices(w http.ResponseWriter, r *http.Request) {
 	}
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
-	if err != nil && len(out) == 0 {
-		sendJSON(w, 200, map[string]any{"ok": false, "error": "le moteur n'a pas répondu : " + err.Error()})
+	devs := parseListDevices(string(out))
+	// err != nil = le moteur est sorti en erreur (typiquement il a PLANTÉ en OOM
+	// sur une carte déjà pleine pendant qu'il l'énumérait, cf. « CUDA error: out of
+	// memory »). La sortie est alors TRONQUÉE : on ne peut pas s'y fier (il manque
+	// des cartes). On rend plutôt la dernière liste complète connue, pour ne pas
+	// perdre le tensor split pendant que le moteur tourne.
+	if err != nil {
+		if good, ok := devPersistGet(cacheKey); ok {
+			sendJSON(w, 200, map[string]any{"ok": true, "devices": good, "stale": true})
+			return
+		}
+		if len(devs) == 0 {
+			sendJSON(w, 200, map[string]any{"ok": false, "error": "le moteur n'a pas répondu : " + err.Error()})
+			return
+		}
+		// Pas de repli disponible : on rend ce qu'on a lu, sans le figer (ni cache
+		// mémoire ni persistant) puisque la liste est probablement incomplète.
+		sendJSON(w, 200, map[string]any{"ok": true, "devices": devs, "stale": true})
 		return
 	}
-	devs := parseListDevices(string(out))
 	fillMissingMemory(devs)
 	// Quand une carte est déjà saturée par le modèle en cours, le moteur peut
 	// annoncer 0 Mio de mémoire : c'est une lecture transitoire, on ne la fige
 	// pas dans le cache (sinon l'UI affiche « 0 Go » pendant dix minutes).
 	if !hasZeroMemory(devs) {
 		devCachePut(cacheKey, devs)
+	}
+	// Énumération propre (exit 0) = liste complète et faisant foi : on la garde sur
+	// disque comme repli pour les futurs appels où le moteur, chargé, ferait planter
+	// --list-devices.
+	if len(devs) > 0 {
+		devPersistPut(cacheKey, devs)
 	}
 	sendJSON(w, 200, map[string]any{"ok": true, "devices": devs})
 }
