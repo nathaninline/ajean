@@ -87,20 +87,44 @@ func amdSmiNames() map[int]string {
 	return names
 }
 
-// amdSmiJSON lance `amd-smi <sub> --json` et décode la sortie en liste
-// d'objets. Accepte aussi un objet seul (certaines versions n'enveloppent pas
-// dans un tableau quand il n'y a qu'un GPU).
+// amdSmiJSON lance `amd-smi <sub> --json` et décode la sortie en liste d'objets
+// GPU. Le schéma varie selon la version d'amd-smi :
+//   - un TABLEAU d'objets GPU (ancien schéma) ;
+//   - un OBJET RACINE enveloppant le tableau sous « gpu_data » (schéma récent,
+//     ex. amd-smi sur RX 7800 XT / Bazzite — issue #39) ;
+//   - un OBJET GPU seul (certaines versions, un seul GPU non enveloppé).
+// Sans le déballage de « gpu_data », on prenait le wrapper pour un GPU : ni
+// « gpu » ni « mem_usage » à l'intérieur → toutes les valeurs à 0.
 func amdSmiJSON(sub string) []map[string]any {
 	out, err := hideCmd(exec.Command("amd-smi", sub, "--json")).Output()
 	if err != nil || len(out) == 0 {
 		return nil
 	}
+	return amdParseJSON(out)
+}
+
+// amdParseJSON décode la sortie JSON d'amd-smi en liste d'objets GPU, en gérant
+// les trois schémas connus (tableau, objet racine « gpu_data », objet GPU seul).
+// Séparé d'amdSmiJSON pour être testable sans amd-smi installé.
+func amdParseJSON(out []byte) []map[string]any {
 	var arr []map[string]any
 	if json.Unmarshal(out, &arr) == nil && len(arr) > 0 {
 		return arr
 	}
 	var one map[string]any
 	if json.Unmarshal(out, &one) == nil && len(one) > 0 {
+		// Objet racine enveloppant le tableau des GPU (« gpu_data »).
+		if raw, ok := one["gpu_data"].([]any); ok {
+			gpus := make([]map[string]any, 0, len(raw))
+			for _, g := range raw {
+				if gm, ok := g.(map[string]any); ok {
+					gpus = append(gpus, gm)
+				}
+			}
+			if len(gpus) > 0 {
+				return gpus
+			}
+		}
 		return []map[string]any{one}
 	}
 	return nil
@@ -123,11 +147,13 @@ func amdDig(m map[string]any, keys ...string) int {
 	return amdNum(cur)
 }
 
-// amdTemp choisit une température représentative parmi celles exposées, dans
-// l'ordre où elles ont un sens pour « la carte chauffe » : bord, point chaud,
-// puis mémoire.
+// amdTemp choisit une température représentative parmi celles exposées. On
+// privilégie le POINT CHAUD (hotspot/junction, la temp max du die) plutôt que le
+// bord (edge) : c'est lui qui déclenche le throttling et raconte vraiment « la
+// carte chauffe ». Sur une RX 7800 XT, l'edge peut rester bas pendant que le
+// hotspot frôle les 100° (issue #39). Repli sur edge puis mémoire si absent.
 func amdTemp(e map[string]any) int {
-	for _, k := range []string{"edge", "hotspot", "junction", "mem"} {
+	for _, k := range []string{"hotspot", "junction", "edge", "mem"} {
 		if v := amdDig(e, "temperature", k); v > 0 {
 			return v
 		}
