@@ -1,26 +1,16 @@
-Version de correction : la mise à jour depuis l'interface web redémarre enfin le service toute seule sous Linux, l'éditeur de preset gagne un sélecteur de modèle de draft pour le décodage spéculatif, et le flash de console au changement de preset sous Windows est corrigé.
+Le niveau de réflexion se règle maintenant en un clic depuis la barre de saisie, sans rouvrir l'éditeur de preset ni redémarrer le moteur.
 
-## Mise à jour (Linux)
+## Interface
 
-* Le bouton « Mettre à jour » de l'interface web disait « installé ✓ » mais le service ne redémarrait pas : on restait sur l'ancienne version. Le redémarrage automatique utilisait un drapeau (`--no-block`) que la règle sudoers n'autorisait pas, l'ordre échouait donc en silence. C'est corrigé, le service se relance bien après la mise à jour.
+* Nouveau raccourci **« niveau de réflexion »** dans la barre du composeur, à côté du bouton des postes distants : une petite jauge à barres montre le niveau du preset actif (low, medium, high, xhigh). Le nombre de barres allumées correspond au niveau, tu le vois donc d'un coup d'oeil, sans cliquer. Un clic ouvre un menu pour en changer, le niveau courant y est coché.
+* Le changement est pris en compte dès le message suivant, sans redémarrer le moteur. Le raccourci n'apparaît que sur un preset qui définit déjà un effort de réflexion (il n'a d'effet qu'avec `--jinja`, on ne le propose donc que là où il compte).
+* Le décompte de contexte au bas de la carte est abrégé (par exemple `10.2K / 40K`) pour gagner de la place. Les valeurs exactes et le pourcentage restent dans l'infobulle.
 
-> Note : cette correction ne prend effet qu'à partir de CETTE version. En passant d'une version antérieure à la 0.11.2, il faut encore relancer le service une dernière fois à la main (`sudo systemctl restart ajean-ui`) si l'interface reste sur l'ancienne version. Les mises à jour suivantes seront automatiques.
+## Corrections
 
-## Éditeur de preset
+* Changer le niveau de réflexion ne désélectionnait plus le preset actif : l'état « actif » était déduit en comparant la configuration vivante au fichier du preset, et écrire le niveau les faisait diverger. Le preset chargé est désormais mémorisé explicitement, il reste donc coché quand tu ajustes le niveau à chaud. La bascule se répare toute seule au premier chargement, sans devoir re-sélectionner le preset après la mise à jour.
 
-* Nouveau sélecteur **« Modèle de draft »** pour le décodage spéculatif : quand tu choisis un type à brouillon externe (EAGLE-3, dFlash, dSpark, modèle séparé, et optionnellement MTP), tu peux désigner le petit `.gguf` qui anticipe les jetons. Il est rangé dans le preset et passé au moteur en `--model-draft`. La ligne se masque pour les n-grammes et « aucun ». La liste ne montre que les modèles de draft.
-
-## Windows
-
-* À chaque démarrage du moteur (donc à chaque changement de preset), une fenêtre de console noire clignotait : une vérification interne du binaire llama.cpp n'était pas masquée. Corrigé.
-
-## Cartes graphiques AMD
-
-* Sur les versions récentes d'amd-smi (ex. RX 7800 XT), la carte « GPU / VRAM » affichait tout à zéro : la sortie enveloppe désormais les données dans un objet `gpu_data` qu'AJEAN ne déballait pas. Corrigé, et la température affichée est celle du point chaud (hotspot) plutôt que du bord (issue #39).
-
-## Accès distant
-
-* Sur `app.ajean.link`, un bandeau prévient quand le serveur AJEAN de la machine n'est pas à jour, avec un bouton pour lancer la mise à jour.
+> Note : version purement interface, le moteur d'inférence n'a pas été touché (aucun rechargement de modèle à la mise à jour). Vérifiée sur le serveur de Alice (Linux) ; le comportement sous macOS n'a pas été testé.
 
 ## Mettre à jour
 
