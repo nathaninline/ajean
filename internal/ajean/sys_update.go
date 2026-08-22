@@ -475,9 +475,16 @@ func restartAfterUpdate() (bool, string) {
 		// Le service tourne souvent en User=<utilisateur> (pas root) : systemctl brut
 		// échouerait alors (polkit). On repli sur « sudo -n systemctl » comme
 		// uiServiceCtl, les sudoers /etc/sudoers.d/ajean-ui autorisant le restart.
-		// --no-block : on enregistre le job puis on rend la main ; systemd exécute le
-		// stop/start même si ce process (et le client systemctl) sont tués entre-temps.
-		bin, args := "systemctl", []string{"--no-block", "restart", uiServiceName()}
+		//
+		// SURTOUT PAS de --no-block : la règle sudoers (« systemctl restart <unit> »)
+		// matche les arguments À L'IDENTIQUE, donc « --no-block restart <unit> » n'est
+		// PAS couvert → sudo exige un mot de passe → échec silencieux, le service ne
+		// redémarrait jamais et l'utilisateur restait sur l'ancienne version tout en
+		// voyant « installé ✓ ». Le restart bloquant est fiable : systemd tue tout le
+		// cgroup (ce process ET le client systemctl) d'un coup, le job de restart est
+		// déjà enregistré côté PID 1 et aboutit. C'est la MÊME invocation que le switch
+		// de preset et « ajean ui restart », qui eux marchaient déjà.
+		bin, args := "systemctl", []string{"restart", uiServiceName()}
 		if os.Geteuid() != 0 {
 			bin, args = "sudo", append([]string{"-n", "systemctl"}, args...)
 		}
