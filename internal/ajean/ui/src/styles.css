@@ -712,6 +712,12 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-row-l{font-size:14px;color:var(--text);flex:1;min-width:0;line-height:1.3}
 .pe-row-l .pe-sub{display:block;font-size:11px;color:var(--dim);margin-top:2px}
 .pe-row-c{flex:none;display:flex;align-items:center;gap:6px;max-width:62%;justify-content:flex-end}
+/* Modèle de draft : le nom de fichier peut être long. On garde le libellé sur UNE
+   ligne (largeur naturelle) et on laisse le select céder la place et se tronquer
+   (ellipsis) plutôt que d'écraser le libellé qui passait alors sur deux lignes. */
+#s-spec-draft-row .pe-row-l{flex:0 0 auto;white-space:nowrap}
+#s-spec-draft-row .pe-row-c{flex:1 1 auto;min-width:0;max-width:none;overflow:hidden}
+#s-spec-draft-row .pe-selc{min-width:0;overflow:hidden}
 /* Valeur éditable sans bordure, alignée à droite (nombre / texte). */
 .pe-val{border:none;background:transparent;color:var(--accent);font:inherit;text-align:right;padding:4px 0;width:110px;max-width:44vw}
 .pe-val::placeholder{color:var(--dim)}

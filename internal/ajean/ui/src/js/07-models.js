@@ -812,6 +812,10 @@ function onPickSpecDraft(){
 }
 // Peuple la liste des modèles de draft (mêmes .gguf que le modèle principal, hors
 // projecteurs vision). Repli d'affichage si le fichier configuré est introuvable.
+// Un modèle de draft se reconnaît à son nom : convention « draft » (llama.cpp/HF),
+// ou le nom de la méthode spéculative (eagle, mtp, dflash, dspark). On ne liste que
+// ceux-là — noyer la liste dans TOUS les modèles n'aiderait pas à choisir le bon.
+function isDraftName(name){ return /draft|eagle|mtp|dflash|dspark/i.test(String(name||'')); }
 async function populateSpecDraft(){
   const sel = document.getElementById('m-spec-draft');
   if(!sel) return;
@@ -820,7 +824,7 @@ async function populateSpecDraft(){
   let html = '<option value="">— aucun —</option>';
   let matched = false;
   for(const m of (list||[])){
-    if(isMmprojName(m.name)) continue; // un projecteur n'est pas un modèle de draft
+    if(!isDraftName(m.name)) continue; // ne garder que les modèles de draft
     const on = samePath(cur, m.value) || samePath(cur, m.path) ||
                samePath(baseName(cur), m.name) ? ' selected' : '';
     if(on) matched = true;

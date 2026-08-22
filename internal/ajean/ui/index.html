@@ -738,6 +738,12 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-row-l{font-size:14px;color:var(--text);flex:1;min-width:0;line-height:1.3}
 .pe-row-l .pe-sub{display:block;font-size:11px;color:var(--dim);margin-top:2px}
 .pe-row-c{flex:none;display:flex;align-items:center;gap:6px;max-width:62%;justify-content:flex-end}
+/* Modèle de draft : le nom de fichier peut être long. On garde le libellé sur UNE
+   ligne (largeur naturelle) et on laisse le select céder la place et se tronquer
+   (ellipsis) plutôt que d'écraser le libellé qui passait alors sur deux lignes. */
+#s-spec-draft-row .pe-row-l{flex:0 0 auto;white-space:nowrap}
+#s-spec-draft-row .pe-row-c{flex:1 1 auto;min-width:0;max-width:none;overflow:hidden}
+#s-spec-draft-row .pe-selc{min-width:0;overflow:hidden}
 /* Valeur éditable sans bordure, alignée à droite (nombre / texte). */
 .pe-val{border:none;background:transparent;color:var(--accent);font:inherit;text-align:right;padding:4px 0;width:110px;max-width:44vw}
 .pe-val::placeholder{color:var(--dim)}
@@ -2245,7 +2251,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
                Obligatoire pour EAGLE-3/dFlash/dSpark/modèle séparé, OPTIONNEL pour
                MTP (souvent intégré au modèle). Masqué pour les n-grammes / « aucun ». -->
           <div class="pe-row" id="s-spec-draft-row" style="display:none">
-            <span class="pe-row-l">Modèle de draft<span class="pe-sub">le .gguf qui anticipe — optionnel pour MTP (souvent intégré)</span></span>
+            <span class="pe-row-l">Modèle de draft<span class="pe-sub">le brouillon qui anticipe</span></span>
             <span class="pe-row-c"><span class="pe-selc"><select id="m-spec-draft" onchange="onPickSpecDraft()"></select></span></span>
           </div>
           <div class="pe-row" id="s-spec-n-row" style="display:none">
@@ -4221,6 +4227,10 @@ function onPickSpecDraft(){
 }
 // Peuple la liste des modèles de draft (mêmes .gguf que le modèle principal, hors
 // projecteurs vision). Repli d'affichage si le fichier configuré est introuvable.
+// Un modèle de draft se reconnaît à son nom : convention « draft » (llama.cpp/HF),
+// ou le nom de la méthode spéculative (eagle, mtp, dflash, dspark). On ne liste que
+// ceux-là — noyer la liste dans TOUS les modèles n'aiderait pas à choisir le bon.
+function isDraftName(name){ return /draft|eagle|mtp|dflash|dspark/i.test(String(name||'')); }
 async function populateSpecDraft(){
   const sel = document.getElementById('m-spec-draft');
   if(!sel) return;
@@ -4229,7 +4239,7 @@ async function populateSpecDraft(){
   let html = '<option value="">— aucun —</option>';
   let matched = false;
   for(const m of (list||[])){
-    if(isMmprojName(m.name)) continue; // un projecteur n'est pas un modèle de draft
+    if(!isDraftName(m.name)) continue; // ne garder que les modèles de draft
     const on = samePath(cur, m.value) || samePath(cur, m.path) ||
                samePath(baseName(cur), m.name) ? ' selected' : '';
     if(on) matched = true;
