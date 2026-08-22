@@ -93,6 +93,7 @@ func amdSmiNames() map[int]string {
 //   - un OBJET RACINE enveloppant le tableau sous « gpu_data » (schéma récent,
 //     ex. amd-smi sur RX 7800 XT / Bazzite — issue #39) ;
 //   - un OBJET GPU seul (certaines versions, un seul GPU non enveloppé).
+//
 // Sans le déballage de « gpu_data », on prenait le wrapper pour un GPU : ni
 // « gpu » ni « mem_usage » à l'intérieur → toutes les valeurs à 0.
 func amdSmiJSON(sub string) []map[string]any {
