@@ -179,6 +179,41 @@ func handleConfigEnv(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, ReadConfig())
 }
 
+// handleReasoning (POST {effort}) change l'effort de réflexion de la config
+// ACTIVE à chaud : REASONING_EFFORT est relu par applySampling à chaque tour, il
+// prend donc effet dès le prochain message, sans redémarrage du moteur. C'est le
+// raccourci du composeur (à côté du bouton « postes distants ») pour ajuster le
+// niveau sans rouvrir l'éditeur de preset.
+//
+// La valeur n'a d'effet réel que si le moteur tourne avec --jinja ; on ne montre
+// le raccourci côté UI que lorsque le preset a déjà défini un effort (donc --jinja
+// posé), et on n'ajoute rien ici — écrire --jinja imposerait un redémarrage, tout
+// l'intérêt du raccourci étant justement de l'éviter.
+//
+// Effort accepté : "" (défaut du modèle), low, medium, high, xhigh. Une valeur
+// inconnue est refusée pour ne pas glisser n'importe quoi dans chat_template_kwargs.
+func handleReasoning(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Effort string `json:"effort"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	eff := strings.TrimSpace(req.Effort)
+	switch eff {
+	case "", "low", "medium", "high", "xhigh":
+	default:
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "effort inconnu"})
+		return
+	}
+	if err := SetConfigKey("REASONING_EFFORT", eff); err != nil {
+		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "effort": eff})
+}
+
 // handleBackends scans AJEAN_HOME/backends/<name>/ for a llama-server binary,
 // trying common build subpaths (build/bin, build-sm120/bin, bin, .).
 // Returns [{name, path}].

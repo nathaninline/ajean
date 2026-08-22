@@ -123,6 +123,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/vram", handleVram)
 	api("/api/ram", handleRam)
 	api("/api/config", handleConfigEnv)
+	api("/api/reasoning", handleReasoning) // change l'effort de réflexion à chaud (raccourci composeur)
 	api("/api/catalog", handleCatalog)
 	api("/api/paths", handlePaths)
 	api("/api/update", handleUpdateCheck)

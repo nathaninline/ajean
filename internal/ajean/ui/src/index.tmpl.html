@@ -356,6 +356,13 @@
       <span style="display:flex;align-items:center;gap:8px;margin-left:auto">
         <span id="ctx-text" class="muted">0 / 0</span>
         <button id="ctx-compact" onclick="compactContext()">compacter</button>
+        <!-- Raccourci « niveau de réflexion » : n'apparaît que si le preset actif a
+             défini un effort (REASONING_EFFORT). Un clic ouvre un petit menu pour
+             changer le niveau à chaud (pris en compte au prochain message, sans
+             redémarrer le moteur). Gagne la place de l'ancien libellé écrit. -->
+        <button id="reason-btn" onclick="toggleReasonMenu(event)" style="display:none" title="Niveau de réflexion" aria-label="Niveau de réflexion" aria-haspopup="true">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path class="rb" data-l="1" d="M4 20v-3"/><path class="rb" data-l="2" d="M10 20v-7"/><path class="rb" data-l="3" d="M16 20v-11"/><path class="rb" data-l="4" d="M21 20V5"/></svg>
+        </button>
         <!-- Postes distants : l'icône dit SUR QUOI l'IA agit. Écran = ce serveur
              (cible locale) ; ondes wifi = un poste distant est la cible active.
              Un clic ouvre la modale de gestion (cible, liste, appairage). -->
@@ -382,6 +389,15 @@
     </div>
     <div id="sendhint" class="muted">Entrée pour envoyer · Maj+Entrée = nouvelle ligne</div>
   </div>
+</div>
+<!-- Menu du raccourci « niveau de réflexion ». Position fixée par JS (getBoundingClientRect
+     du bouton) et posé DIRECTEMENT sous <body> pour échapper à l'overflow:hidden de la
+     carte du composeur. Chaque ligne écrit l'effort à chaud via /api/reasoning. -->
+<div id="reason-menu" style="display:none">
+  <button data-eff="low" onclick="pickReason('low')">low <span class="rm-h">rapide</span></button>
+  <button data-eff="medium" onclick="pickReason('medium')">medium</button>
+  <button data-eff="high" onclick="pickReason('high')">high</button>
+  <button data-eff="xhigh" onclick="pickReason('xhigh')">xhigh <span class="rm-h">max</span></button>
 </div>
 <div id="toast"></div>
 <div id="bench-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:30;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeBenchModal()">

@@ -149,14 +149,80 @@ function updateCtxMeter(){
   fill.style.width=pct+'%';
   fill.style.background = pct>=90 ? 'var(--err,#c44)' : pct>=70 ? 'var(--warn,#c93)' : 'var(--ok,#3a7)';
   // Les chiffres SANS le mot « contexte » : la jauge juste en dessous dit déjà de
-  // quoi on parle, et le pied de carte est étroit. Le libellé complet reste en
-  // infobulle.
+  // quoi on parle, et le pied de carte est étroit. On abrège en milliers (10.2K /
+  // 40K) pour gagner la place — les valeurs exactes + le % restent en infobulle.
   const ct=document.getElementById('ctx-text');
-  ct.textContent=CTX_USED+' / '+CTX_MAX+' ('+pct+'%)';
-  ct.title='contexte utilisé';
+  ct.textContent=fmtCtxTokens(CTX_USED)+' / '+fmtCtxTokens(CTX_MAX);
+  ct.title='contexte utilisé : '+CTX_USED.toLocaleString('fr')+' / '+CTX_MAX.toLocaleString('fr')+' jetons ('+pct+'%)';
   // Bouton de compaction MANUELLE : visible dès la moitié du contexte pour qu'on
   // puisse compacter à la demande avant que l'auto-compaction (75%) ne s'en charge.
   document.getElementById('ctx-compact').style.display = (pct>=50 && CTX_USED>0) ? 'inline-block' : 'none';
+}
+// Abrège un nombre de jetons pour le pied de carte : < 1000 tel quel, sinon en
+// milliers avec une décimale utile (10 240 → « 10.2K », 40 960 → « 41K », le .0
+// tombant). Gagne de la place là où c'est étroit.
+function fmtCtxTokens(n){
+  n = n||0;
+  if(n < 1000) return String(n);
+  const k = n/1000;
+  return (k>=100 ? Math.round(k) : (Math.round(k*10)/10).toFixed(1).replace(/\.0$/,'')) + 'K';
+}
+// ─── Raccourci « niveau de réflexion » (composeur) ───────────────────────────
+// Reflète l'effort défini sur le PRESET ACTIF (REASONING_EFFORT). Le bouton
+// n'apparaît que si un effort est défini — c'est le sens de « quand on a défini un
+// niveau sur un preset » : on ne propose de le changer que là où il compte.
+let REASON_EFFORT = null; // null = pas encore chargé
+function updateReasonBtn(eff){
+  REASON_EFFORT = eff==null ? REASON_EFFORT : eff;
+  const btn=document.getElementById('reason-btn');
+  if(!btn) return;
+  const e=(REASON_EFFORT||'').trim();
+  // Pas d'effort défini sur le preset → pas de raccourci (on ne veut pas envoyer
+  // reasoning_effort à un moteur lancé sans --jinja, où il n'aurait aucun effet).
+  if(!e){ btn.style.display='none'; return; }
+  btn.style.display='flex';
+  // Jauge de signal : on allume autant de barres que le niveau (low=1 … xhigh=4),
+  // les autres restent estompées. On lit le mode d'un coup d'œil, sans cliquer.
+  const n={low:1, medium:2, high:3, xhigh:4}[e] || 0;
+  btn.querySelectorAll('.rb').forEach(p=>{ p.style.opacity = (Number(p.dataset.l)<=n) ? '1' : '.28'; });
+  btn.title = 'Niveau de réflexion : '+e+' — clic pour changer';
+}
+function toggleReasonMenu(ev){
+  ev.stopPropagation();
+  const menu=document.getElementById('reason-menu');
+  if(menu.style.display==='block'){ menu.style.display='none'; return; }
+  // Surligne le niveau courant.
+  const cur=(REASON_EFFORT||'').trim();
+  menu.querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.eff===cur));
+  // Position : au-dessus du bouton, aligné à droite dessus (fixed, hors flux).
+  const r=document.getElementById('reason-btn').getBoundingClientRect();
+  menu.style.display='block';
+  menu.style.visibility='hidden';       // mesurer avant de placer, sans clignoter
+  const mw=menu.offsetWidth, mh=menu.offsetHeight;
+  let left=Math.max(8, r.right-mw);
+  let top=r.top-mh-6;
+  if(top<8) top=r.bottom+6;             // pas de place au-dessus : sous le bouton
+  menu.style.left=left+'px';
+  menu.style.top=top+'px';
+  menu.style.visibility='';
+}
+function closeReasonMenu(){ const m=document.getElementById('reason-menu'); if(m) m.style.display='none'; }
+document.addEventListener('click', (e)=>{
+  const m=document.getElementById('reason-menu');
+  if(m && m.style.display==='block' && !m.contains(e.target) && e.target.closest('#reason-btn')===null){ m.style.display='none'; }
+});
+async function pickReason(eff){
+  closeReasonMenu();
+  const prev=REASON_EFFORT;
+  updateReasonBtn(eff);                 // retour visuel immédiat
+  try{
+    const r=await jpost('/api/reasoning', {effort:eff});
+    if(!r || !r.ok){ throw new Error((r&&r.error)||'échec'); }
+    toast('réflexion : '+(eff||'défaut du modèle'));
+  }catch(err){
+    updateReasonBtn(prev);              // on remet l'ancien niveau si l'écriture échoue
+    toast('réglage du niveau impossible');
+  }
 }
 async function loadVram(){
   const gpus=await jget('/api/vram');
@@ -206,4 +272,8 @@ async function loadCfg(){
   const m=(c.EXTRA_ARGS||'').match(/--n-cpu-moe\s+(\d+)/);
   if(m) rows.push(row('N-CPU-MOE', m[1]));
   document.getElementById('cfg').innerHTML = rows.join('');
+  // Raccourci « niveau de réflexion » du composeur : présent seulement si le preset
+  // actif définit un effort. Rafraîchi à chaque loadCfg (donc après une bascule de
+  // preset ou une édition).
+  updateReasonBtn(c.REASONING_EFFORT || '');
 }

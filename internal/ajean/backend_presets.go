@@ -90,9 +90,19 @@ func ListPresets() ([]Preset, error) {
 	dir := presetsDir()
 	_ = os.MkdirAll(dir, 0o755)
 	cur := configFingerprint(ReadConfig())
+	// Preset explicitement chargé au dernier switch (voir applyPresetFile). Quand il
+	// est renseigné et existe encore, IL décide de l'actif — insensible aux retouches
+	// à chaud de la config. Sinon on retombe sur l'empreinte (presets d'avant cette
+	// version, ou config posée hors switch).
+	activeID := getStr(bkState, "active_preset")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
+	}
+	if activeID != "" {
+		if _, e := os.Stat(filepath.Join(dir, activeID+".env")); e != nil {
+			activeID = "" // le fichier a disparu : repli sur l'empreinte
+		}
 	}
 	out := []Preset{}
 	for _, e := range entries {
@@ -105,12 +115,33 @@ func ListPresets() ([]Preset, error) {
 			continue
 		}
 		id := strings.TrimSuffix(e.Name(), ".env")
+		active := presetFingerprint(b) == cur
+		if activeID != "" {
+			active = id == activeID
+		}
 		out = append(out, Preset{
 			ID:     id,
 			Name:   presetDisplayName(string(b), id),
 			Path:   p,
-			Active: presetFingerprint(b) == cur,
+			Active: active,
 		})
+	}
+	// Auto-adoption : sur une base d'avant cette version (ou après une MAJ), aucun
+	// id d'actif n'est mémorisé. Si l'empreinte désigne EXACTEMENT un preset, on
+	// l'adopte comme actif mémorisé — ainsi une retouche à chaud (niveau de
+	// réflexion) ne le désélectionnera pas, sans exiger un switch manuel d'abord.
+	if activeID == "" {
+		matched := ""
+		n := 0
+		for _, p := range out {
+			if p.Active {
+				matched = p.ID
+				n++
+			}
+		}
+		if n == 1 {
+			_ = putStr(bkState, "active_preset", matched)
+		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return applyPresetOrder(out), nil
@@ -262,7 +293,16 @@ func applyPresetFile(target string) error {
 		}
 		next[k] = v
 	}
-	return WriteConfig(next)
+	if err := WriteConfig(next); err != nil {
+		return err
+	}
+	// Mémorise QUEL preset a été chargé. Le marqueur « actif » se base dessus
+	// (ListPresets), et non plus seulement sur une empreinte de la config vivante :
+	// un réglage à chaud (ex. le raccourci « niveau de réflexion » qui écrit
+	// REASONING_EFFORT) fait diverger la config du fichier preset, ce qui
+	// désélectionnait le preset à tort. L'id explicite survit à ces retouches.
+	_ = putStr(bkState, "active_preset", strings.TrimSuffix(filepath.Base(target), ".env"))
+	return nil
 }
 
 // SwitchToPreset installe le preset et redémarre le service. Les réglages
