@@ -1371,6 +1371,9 @@ button:hover{border-color:var(--dim);color:var(--text)}
   </div>
   <!-- Avertissement de lancement (App Translocation macOS) — masqué par défaut. -->
   <div id="app-warn" class="muted" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:8px;color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)"></div>
+  <!-- Accès distant (app.ajean.link / *.ajean.link) : le front est toujours à jour
+       mais le serveur local peut être ancien. Bandeau passif si une mise à jour existe. -->
+  <div id="server-stale" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:8px;color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)"></div>
   <div id="model-err" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:8px;color:var(--err);border:1px solid color-mix(in srgb,var(--err) 45%,transparent);background:color-mix(in srgb,var(--err) 12%,transparent)"></div>
   <!-- Journal du moteur : replié par défaut, ouvert au clic sur la pastille d'état.
        C'est le seul endroit où l'on voit pourquoi un modèle refuse de charger. -->
@@ -2671,6 +2674,40 @@ async function loadStatus(){
     if(s.load_error){ me.textContent='⚠ '+s.load_error; me.style.display=''; }
     else { me.style.display='none'; }
   }
+}
+// checkServerFreshness : en accès distant (app.ajean.link / <machine>.ajean.link),
+// le front est toujours la dernière version publiée, mais le serveur AJEAN de la
+// machine peut être ancien. Un vieux serveur = endpoints/champs manquants → des
+// fonctionnalités du front cassent en silence. On interroge /api/update (le
+// serveur compare SA version à la dernière release GitHub) et, si une mise à jour
+// existe, on affiche un bandeau passif invitant à mettre à jour. Silencieux en
+// local (la carte « Mise à jour » des réglages joue déjà ce rôle là-bas).
+async function checkServerFreshness(){
+  if(!/(^|\.)ajean\.link$/.test(location.hostname)) return; // seulement en accès distant
+  const box=document.getElementById('server-stale');
+  if(!box) return;
+  let r;
+  try{ r=await jget('/api/update'); }catch(e){ return; } // hors-ligne / GitHub injoignable : on n'insiste pas
+  if(!r || r.error || !r.available || !r.latest){ box.style.display='none'; return; }
+  // Ne pas reharceler si l'utilisateur a déjà écarté ce bandeau POUR CETTE version.
+  if(localStorage.getItem('ajean.staleDismissed')===r.latest){ box.style.display='none'; return; }
+  const cur=r.current ? ' (actuellement v'+escHtml(r.current)+')' : '';
+  box.innerHTML='⚠ Le serveur AJEAN de cette machine n\'est pas à jour'+cur+'. '+
+    'La version <b>v'+escHtml(r.latest)+'</b> est disponible. Il est recommandé de le mettre à jour '+
+    'pour profiter de toutes les fonctionnalités et éviter d\'éventuels bugs de compatibilité. '+
+    '<span style="white-space:nowrap"><span id="stale-go" style="cursor:pointer;text-decoration:underline">Mettre à jour</span> '+
+    '· <span id="stale-x" style="cursor:pointer;text-decoration:underline">ignorer</span></span>';
+  box.style.display='';
+  // « Mettre à jour » : on lance directement la MAJ existante (même chemin que le
+  // bouton des réglages — /api/update/apply tourne côté serveur via le tunnel).
+  const go=document.getElementById('stale-go');
+  if(go) go.onclick=function(){
+    box.innerHTML='⏳ Mise à jour en cours… le serveur va redémarrer et l\'interface se reconnectera seule.';
+    if(typeof toast==='function') toast('mise à jour du serveur lancée…');
+    if(typeof applyUpdate==='function') applyUpdate();
+  };
+  const x=document.getElementById('stale-x');
+  if(x) x.onclick=function(){ localStorage.setItem('ajean.staleDismissed', r.latest); box.style.display='none'; };
 }
 // Journal du moteur — replié par défaut, on l'ouvre en cliquant la pastille.
 function toggleSvcLog(){
@@ -5395,6 +5432,9 @@ async function send(){
   fail('échec de l\'envoi — réessaie');
 }
 loadAll();
+// Une seule fois au démarrage (interroge GitHub côté serveur) : prévient en accès
+// distant si le serveur AJEAN de la machine est plus ancien que le front hébergé.
+checkServerFreshness();
 setInterval(loadStatus, 5000);
 setInterval(loadVram, 3000);
 setInterval(loadRam, 3000);

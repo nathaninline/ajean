@@ -36,6 +36,40 @@ async function loadStatus(){
     else { me.style.display='none'; }
   }
 }
+// checkServerFreshness : en accès distant (app.ajean.link / <machine>.ajean.link),
+// le front est toujours la dernière version publiée, mais le serveur AJEAN de la
+// machine peut être ancien. Un vieux serveur = endpoints/champs manquants → des
+// fonctionnalités du front cassent en silence. On interroge /api/update (le
+// serveur compare SA version à la dernière release GitHub) et, si une mise à jour
+// existe, on affiche un bandeau passif invitant à mettre à jour. Silencieux en
+// local (la carte « Mise à jour » des réglages joue déjà ce rôle là-bas).
+async function checkServerFreshness(){
+  if(!/(^|\.)ajean\.link$/.test(location.hostname)) return; // seulement en accès distant
+  const box=document.getElementById('server-stale');
+  if(!box) return;
+  let r;
+  try{ r=await jget('/api/update'); }catch(e){ return; } // hors-ligne / GitHub injoignable : on n'insiste pas
+  if(!r || r.error || !r.available || !r.latest){ box.style.display='none'; return; }
+  // Ne pas reharceler si l'utilisateur a déjà écarté ce bandeau POUR CETTE version.
+  if(localStorage.getItem('ajean.staleDismissed')===r.latest){ box.style.display='none'; return; }
+  const cur=r.current ? ' (actuellement v'+escHtml(r.current)+')' : '';
+  box.innerHTML='⚠ Le serveur AJEAN de cette machine n\'est pas à jour'+cur+'. '+
+    'La version <b>v'+escHtml(r.latest)+'</b> est disponible. Il est recommandé de le mettre à jour '+
+    'pour profiter de toutes les fonctionnalités et éviter d\'éventuels bugs de compatibilité. '+
+    '<span style="white-space:nowrap"><span id="stale-go" style="cursor:pointer;text-decoration:underline">Mettre à jour</span> '+
+    '· <span id="stale-x" style="cursor:pointer;text-decoration:underline">ignorer</span></span>';
+  box.style.display='';
+  // « Mettre à jour » : on lance directement la MAJ existante (même chemin que le
+  // bouton des réglages — /api/update/apply tourne côté serveur via le tunnel).
+  const go=document.getElementById('stale-go');
+  if(go) go.onclick=function(){
+    box.innerHTML='⏳ Mise à jour en cours… le serveur va redémarrer et l\'interface se reconnectera seule.';
+    if(typeof toast==='function') toast('mise à jour du serveur lancée…');
+    if(typeof applyUpdate==='function') applyUpdate();
+  };
+  const x=document.getElementById('stale-x');
+  if(x) x.onclick=function(){ localStorage.setItem('ajean.staleDismissed', r.latest); box.style.display='none'; };
+}
 // Journal du moteur — replié par défaut, on l'ouvre en cliquant la pastille.
 function toggleSvcLog(){
   const box=document.getElementById('svc-log-box');

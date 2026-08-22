@@ -557,6 +557,9 @@ async function send(){
   fail('échec de l\'envoi — réessaie');
 }
 loadAll();
+// Une seule fois au démarrage (interroge GitHub côté serveur) : prévient en accès
+// distant si le serveur AJEAN de la machine est plus ancien que le front hébergé.
+checkServerFreshness();
 setInterval(loadStatus, 5000);
 setInterval(loadVram, 3000);
 setInterval(loadRam, 3000);
