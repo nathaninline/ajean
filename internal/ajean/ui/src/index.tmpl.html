@@ -909,6 +909,13 @@
               </optgroup>
             </select></span></span>
           </div>
+          <!-- Modèle de draft : n'apparaît que pour les types à brouillon EXTERNE
+               (EAGLE-3, dFlash, dSpark, modèle séparé). MTP est intégré au modèle
+               et les n-grammes n'ont pas de brouillon → ligne masquée dans ces cas. -->
+          <div class="pe-row" id="s-spec-draft-row" style="display:none">
+            <span class="pe-row-l">Modèle de draft<span class="pe-sub">le petit .gguf qui anticipe les jetons</span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="m-spec-draft" onchange="onPickSpecDraft()"></select></span></span>
+          </div>
           <div class="pe-row" id="s-spec-n-row" style="display:none">
             <span class="pe-row-l">Jetons anticipés<span class="pe-sub">par étape — défaut 3</span></span>
             <span class="pe-row-c"><input id="s-spec-n" class="pe-val" type="number" min="1" step="1" placeholder="3" oninput="eaSetValued('--spec-draft-n-max', this.value)"></span>

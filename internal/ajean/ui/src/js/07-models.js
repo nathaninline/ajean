@@ -159,7 +159,7 @@ async function openItem(kind, key){
     document.getElementById('m-quant').value = currentQuantInTextarea();
     populateSettings();
     attachDownload();                      // téléchargement encore en cours côté serveur ?
-    await Promise.all([populateBackend(), populateModelPicker(), populateMmproj(), populateDlDirs()]);
+    await Promise.all([populateBackend(), populateModelPicker(), populateMmproj(), populateSpecDraft(), populateDlDirs()]);
     if(seq !== openSeq) return;
   }
   // On lève le voile SANS transition (voir la note dans styles.css), puis on rend
@@ -781,6 +781,54 @@ function setSpecType(v){
   }
   sel.value = v;
   syncSpecRow();
+  syncSpecDraftRow();
+}
+// Un type spéculatif à brouillon EXTERNE exige un fichier de draft à part (EAGLE-3,
+// dFlash, dSpark, modèle séparé). MTP est intégré au modèle, les n-grammes n'ont pas
+// de brouillon : eux n'ont pas de fichier à choisir.
+function specNeedsDraft(v){
+  v = String(v || '');
+  return v.indexOf('draft-') === 0 && v !== 'draft-mtp';
+}
+// Ligne « modèle de draft » : visible seulement pour les types qui en réclament un.
+function syncSpecDraftRow(){
+  const sel = document.getElementById('s-spec');
+  const row = document.getElementById('s-spec-draft-row');
+  if(!sel || !row) return;
+  row.style.display = specNeedsDraft(sel.value) ? '' : 'none';
+}
+// Modèle de draft courant : clé dédiée MODEL_DRAFT d'abord, sinon un --model-draft
+// posé à la main dans EXTRA_ARGS (anciens presets).
+function currentSpecDraftInTextarea(){
+  return readEnvKey(document.getElementById('m-content').value, 'MODEL_DRAFT')
+      || eaGetValued('--model-draft');
+}
+function onPickSpecDraft(){
+  // On centralise dans la clé MODEL_DRAFT (résolue comme le modèle) et on retire un
+  // éventuel --model-draft d'EXTRA_ARGS pour ne pas le passer deux fois.
+  eaSetValued('--model-draft', '');
+  cfgWriteKey('MODEL_DRAFT', document.getElementById('m-spec-draft').value);
+}
+// Peuple la liste des modèles de draft (mêmes .gguf que le modèle principal, hors
+// projecteurs vision). Repli d'affichage si le fichier configuré est introuvable.
+async function populateSpecDraft(){
+  const sel = document.getElementById('m-spec-draft');
+  if(!sel) return;
+  const list = await jget('/api/models');
+  const cur = currentSpecDraftInTextarea();
+  let html = '<option value="">— aucun —</option>';
+  let matched = false;
+  for(const m of (list||[])){
+    if(isMmprojName(m.name)) continue; // un projecteur n'est pas un modèle de draft
+    const on = samePath(cur, m.value) || samePath(cur, m.path) ||
+               samePath(baseName(cur), m.name) ? ' selected' : '';
+    if(on) matched = true;
+    html += '<option value="'+escHtml(m.value)+'"'+on+'>'+escHtml(m.name)+' ('+fmtSize(m.size)+')</option>';
+  }
+  if(cur && !matched){
+    html += '<option value="'+escHtml(cur)+'" selected>'+escHtml(baseName(cur)||cur)+' (introuvable)</option>';
+  }
+  sel.innerHTML = html;
 }
 // Effort de réflexion : REASONING_EFFORT part dans la requête (chat_template_kwargs)
 // mais n'a d'effet que si le moteur tourne avec --jinja. Comme éditer le preset
@@ -809,7 +857,15 @@ function onSpecType(){
     eaSetValued('--spec-draft-n-max', '');
     document.getElementById('s-spec-n').value = '';
   }
+  // Un type sans brouillon externe (MTP intégré, n-grammes, aucun) ne doit pas
+  // laisser traîner un modèle de draft orphelin qui serait quand même passé au moteur.
+  if(!specNeedsDraft(v)){
+    eaSetValued('--model-draft', '');
+    cfgWriteKey('MODEL_DRAFT', '');
+    const ds = document.getElementById('m-spec-draft'); if(ds) ds.value = '';
+  }
   syncSpecRow();
+  syncSpecDraftRow();
 }
 
 // Replie/déplie l'éditeur du fichier .env (config brute) dans le modal preset.
@@ -975,7 +1031,7 @@ function watchDownload(fname){
       e.prog.innerHTML = '<span style="color:var(--ok)">✓ '+fname+' téléchargé ('+fmtSize(st.done)+')</span>';
       e.bar.className = 'pe-bar done'; e.bar.firstElementChild.style.width = '100%';
       stop();
-      await Promise.all([populateModelPicker(), populateMmproj(), populateDlDirs()]);
+      await Promise.all([populateModelPicker(), populateMmproj(), populateSpecDraft(), populateDlDirs()]);
       // Un projecteur (mmproj) se sélectionne dans le champ Vision, un modèle dans
       // le sélecteur de modèle — d'après le nom du fichier téléchargé. Le fichier
       // a pu atterrir hors du dossier ajean : l'option porte alors le chemin
