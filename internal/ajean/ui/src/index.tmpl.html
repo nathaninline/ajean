@@ -876,13 +876,18 @@
             <span class="pe-row-c"><input id="s-np" class="pe-val" type="number" min="1" step="1" placeholder="1" oninput="eaSetValued('-np', this.value)"></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l">Cache KV<span class="pe-sub">compression du contexte</span></span>
-            <span class="pe-row-c"><span class="pe-selc"><select id="s-kv" onchange="cfgWriteKey('KV_TYPE', this.value)">
-              <option value="">f16 (max qualité)</option>
-              <option value="q8_0">q8_0 (léger)</option>
-              <option value="q4_0">q4_0 (très léger)</option>
-              <option value="q5_1">q5_1</option>
-              <option value="bf16">bf16</option>
+            <span class="pe-row-l">Cache KV<span class="pe-sub">compression du contexte — % = précision (tail 99,9%)</span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="s-kv" onchange="kvSetCombo(this.value)">
+              <option value="">f16 — max qualité (100%)</option>
+              <option value="q8_0|q8_0">q8_0 — léger (94,6%)</option>
+              <option value="q4_0|q4_0">q4_0 — très léger (89,8%)</option>
+              <option value="q5_1|q5_1">q5_1 (92,8%)</option>
+              <optgroup label="Combos K / V (K &gt; V)">
+                <option value="q8_0|q5_1">q8_0 / q5_1 (94,2%)</option>
+                <option value="q8_0|q5_0">q8_0 / q5_0 (93,7%)</option>
+                <option value="q5_0|q4_1">q5_0 / q4_1 (92,7%)</option>
+                <option value="q5_0|q4_0">q5_0 / q4_0 (91,4%)</option>
+              </optgroup>
             </select></span></span>
           </div>
           <!-- Décodage spéculatif : le type vient de la liste que llama-server
@@ -894,7 +899,7 @@
             <span class="pe-row-c"><span class="pe-selc"><select id="s-spec" onchange="onSpecType()">
               <option value="">non</option>
               <optgroup label="Modèle brouillon">
-                <option value="draft-mtp">MTP (intégré au modèle)</option>
+                <option value="draft-mtp">MTP</option>
                 <option value="draft-eagle3">EAGLE-3</option>
                 <option value="draft-simple">modèle brouillon séparé</option>
                 <option value="draft-dflash">dFlash</option>

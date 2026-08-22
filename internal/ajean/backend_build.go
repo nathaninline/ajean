@@ -146,7 +146,7 @@ func buildPlanFor(force string) buildPlan {
 				p.flags = append(p.flags, "-DCUDAToolkit_ROOT="+root, "-DCMAKE_CUDA_COMPILER="+nvcc)
 			}
 		}
-		p.flags = append(p.flags, "-DGGML_CUDA=ON", "-DGGML_CUDA_F16=ON")
+		p.flags = append(p.flags, "-DGGML_CUDA=ON", "-DGGML_CUDA_F16=ON", "-DGGML_CUDA_FA_ALL_QUANTS=ON")
 		if arch := detectCudaArch(); arch != "" {
 			p.cudaArch = arch
 			p.flags = append(p.flags, "-DCMAKE_CUDA_ARCHITECTURES="+arch)
@@ -158,10 +158,15 @@ func buildPlanFor(force string) buildPlan {
 	if nvcc := findNvcc(); nvcc != "" && hasNvidiaGPU() {
 		p.backend = "cuda"
 		p.cudaCXX = nvcc
-		// NB : on n'active PAS GGML_CUDA_FA_ALL_QUANTS — il compile les kernels
-		// Flash-Attention pour toutes les combinaisons de quant (des centaines de
-		// .cu), ce qui explose le temps de build pour un gain d'inférence marginal.
-		p.flags = append(p.flags, "-DGGML_CUDA=ON", "-DGGML_CUDA_F16=ON")
+		// GGML_CUDA_FA_ALL_QUANTS=ON : compile un noyau Flash-Attention pour CHAQUE
+		// combinaison de type de cache KV (K et V). Sans lui, llama.cpp ne compile
+		// qu'un sous-ensemble (f16, q8_0, q4_0) ; tout autre type — q5_0, q5_1, q4_1,
+		// et donc les combos asymétriques K/V recommandés (q5_0/q4_1…) — n'a pas de
+		// noyau et retombe sur l'attention générique avec déquantification par
+		// position : le PREFILL s'effondre (~10× plus lent), pas un gain marginal.
+		// Ça allonge le build (beaucoup de .cu en plus) mais rend tous les réglages
+		// KV du sélecteur de preset réellement utilisables.
+		p.flags = append(p.flags, "-DGGML_CUDA=ON", "-DGGML_CUDA_F16=ON", "-DGGML_CUDA_FA_ALL_QUANTS=ON")
 		// Racine du toolkit explicite : sans elle, CMake la déduit du chemin de
 		// nvcc. Avec un nvcc hors toolkit (/usr/bin/nvcc, paquet Ubuntu) il cherche
 		// cuda_runtime.h et cudart dans /usr, ne les trouve pas, et sort « CUDA

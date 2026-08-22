@@ -684,6 +684,26 @@ function applyQuant(){
 // ---- Réglages simples : champs de formulaire <-> lignes du fichier .env -----
 // Le fichier de config (textarea m-content) reste la source de vérité : chaque
 // champ lit/écrit sa ligne KEY=… , comme le font déjà MODEL/BIN/QUANT.
+// Cache KV : le moteur accepte un niveau distinct pour les clés (K, -ctk) et les
+// valeurs (V, -ctv). Le K mérite en général plus de bits que le V, donc on
+// propose des combos K/V et on les stocke en KV_TYPE_K / KV_TYPE_V. La liste
+// écrit toujours ces deux clés et retire l'ancienne clé unique KV_TYPE pour
+// éviter une config incohérente (les vieux presets à KV_TYPE seul restent lus
+// côté serveur, qui rabat K et V dessus par défaut).
+function kvSetCombo(val){
+  const [k, v] = String(val||'').split('|');
+  cfgWriteKey('KV_TYPE', '');           // retire l'ancienne clé symétrique
+  cfgWriteKey('KV_TYPE_K', k || '');
+  cfgWriteKey('KV_TYPE_V', v || '');
+}
+// Reconstruit la valeur "K|V" du sélecteur depuis le preset. On lit d'abord les
+// clés séparées, sinon on rabat sur KV_TYPE (ancien format symétrique).
+function kvReadCombo(){
+  const base = cfgReadKey('KV_TYPE');
+  const k = cfgReadKey('KV_TYPE_K') || base;
+  const v = cfgReadKey('KV_TYPE_V') || base;
+  return (k || v) ? (k + '|' + v) : '';
+}
 function cfgReadKey(key){
   return readEnvKey(document.getElementById('m-content').value, key);
 }
@@ -731,7 +751,7 @@ function populateSettings(){
   set('s-ubatch', cfgReadKey('UBATCH'));
   set('s-tbatch', cfgReadKey('THREADS_BATCH'));
   set('s-np', eaGetValued('-np'));
-  set('s-kv', cfgReadKey('KV_TYPE'));
+  set('s-kv', kvReadCombo());
   // Échantillonnage (envoyé par requête, voir applySampling côté serveur).
   set('s-temp', cfgReadKey('TEMP'));
   set('s-topp', cfgReadKey('TOP_P'));
@@ -797,6 +817,18 @@ function syncSpecDraftRow(){
   const row = document.getElementById('s-spec-draft-row');
   if(!sel || !row) return;
   row.style.display = specNeedsDraft(sel.value) ? '' : 'none';
+  syncSpecDraftEmptyLabel();
+}
+// L'option « sans fichier » de la liste des drafts change de sens selon le type :
+// pour MTP la tête est GÉNÉRALEMENT intégrée au modèle (aucun fichier à fournir),
+// alors que pour EAGLE-3/dFlash/dSpark/modèle séparé, ne rien choisir = pas de draft.
+function specDraftEmptyLabel(){
+  const sel = document.getElementById('s-spec');
+  return (sel && sel.value === 'draft-mtp') ? '— intégré au modèle —' : '— aucun —';
+}
+function syncSpecDraftEmptyLabel(){
+  const ds = document.getElementById('m-spec-draft');
+  if(ds && ds.options.length){ ds.options[0].textContent = specDraftEmptyLabel(); }
 }
 // Modèle de draft courant : clé dédiée MODEL_DRAFT d'abord, sinon un --model-draft
 // posé à la main dans EXTRA_ARGS (anciens presets).
@@ -821,7 +853,7 @@ async function populateSpecDraft(){
   if(!sel) return;
   const list = await jget('/api/models');
   const cur = currentSpecDraftInTextarea();
-  let html = '<option value="">— aucun —</option>';
+  let html = '<option value="">'+specDraftEmptyLabel()+'</option>';
   let matched = false;
   for(const m of (list||[])){
     if(!isDraftName(m.name)) continue; // ne garder que les modèles de draft

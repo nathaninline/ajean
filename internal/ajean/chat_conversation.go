@@ -406,7 +406,7 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 			// canceled » en rouge est laid et alarmant pour rien — on pose à la place
 			// une note discrète. Un vrai échec (ctx non annulé) garde son message.
 			if ctx.Err() != nil {
-				c.appendDelta(epoch, map[string]any{"content": "\n\n⏹ _Génération interrompue._"})
+				c.appendDelta(epoch, map[string]any{"content": "\n\n_Génération interrompue._"})
 			} else {
 				c.appendDelta(epoch, map[string]any{"error": ev.Err.Error()})
 			}
