@@ -142,12 +142,12 @@ func cmdServe(args []string) error {
 		}
 		llmArgs = append(llmArgs, "--mmproj", mmPath)
 	}
-	// Décodage spéculatif à modèle de draft EXTERNE (EAGLE-3, dFlash, dSpark,
-	// modèle brouillon séparé…) : le petit .gguf qui anticipe les jetons est choisi
-	// dans l'éditeur de preset et rangé dans la clé MODEL_DRAFT, traduite ici en
-	// --model-draft et résolue comme le modèle principal (nom simple cherché dans
-	// les dossiers déclarés, ou chemin absolu). MTP est INTÉGRÉ au modèle et les
-	// n-grammes n'ont pas de brouillon → aucun fichier dans ces cas.
+	// Décodage spéculatif à modèle de draft (EAGLE-3, dFlash, dSpark, modèle
+	// brouillon séparé, et parfois MTP quand la tête est fournie à part) : le .gguf
+	// qui anticipe les jetons est choisi dans l'éditeur de preset et rangé dans la
+	// clé MODEL_DRAFT, traduite ici en --model-draft et résolue comme le modèle
+	// principal (nom simple cherché dans les dossiers déclarés, ou chemin absolu).
+	// MTP est le plus souvent intégré au modèle → clé vide, pas de --model-draft.
 	if md := strings.TrimSpace(cfg["MODEL_DRAFT"]); md != "" {
 		mdPath, err := resolveServeModelPath(md)
 		if err != nil {

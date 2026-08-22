@@ -2241,11 +2241,11 @@ button:hover{border-color:var(--dim);color:var(--text)}
               </optgroup>
             </select></span></span>
           </div>
-          <!-- Modèle de draft : n'apparaît que pour les types à brouillon EXTERNE
-               (EAGLE-3, dFlash, dSpark, modèle séparé). MTP est intégré au modèle
-               et les n-grammes n'ont pas de brouillon → ligne masquée dans ces cas. -->
+          <!-- Modèle de draft : apparaît pour tous les types à brouillon (draft-*).
+               Obligatoire pour EAGLE-3/dFlash/dSpark/modèle séparé, OPTIONNEL pour
+               MTP (souvent intégré au modèle). Masqué pour les n-grammes / « aucun ». -->
           <div class="pe-row" id="s-spec-draft-row" style="display:none">
-            <span class="pe-row-l">Modèle de draft<span class="pe-sub">le petit .gguf qui anticipe les jetons</span></span>
+            <span class="pe-row-l">Modèle de draft<span class="pe-sub">le .gguf qui anticipe — optionnel pour MTP (souvent intégré)</span></span>
             <span class="pe-row-c"><span class="pe-selc"><select id="m-spec-draft" onchange="onPickSpecDraft()"></select></span></span>
           </div>
           <div class="pe-row" id="s-spec-n-row" style="display:none">
@@ -4192,12 +4192,13 @@ function setSpecType(v){
   syncSpecRow();
   syncSpecDraftRow();
 }
-// Un type spéculatif à brouillon EXTERNE exige un fichier de draft à part (EAGLE-3,
-// dFlash, dSpark, modèle séparé). MTP est intégré au modèle, les n-grammes n'ont pas
-// de brouillon : eux n'ont pas de fichier à choisir.
+// Les types à brouillon (draft-*) proposent un fichier de draft : OBLIGATOIRE pour
+// EAGLE-3, dFlash, dSpark, modèle séparé ; OPTIONNEL pour MTP (généralement intégré
+// au modèle, mais parfois fourni à part). Les n-grammes n'ont pas de brouillon : eux
+// seuls (et « aucun ») n'ont pas de fichier à choisir.
 function specNeedsDraft(v){
   v = String(v || '');
-  return v.indexOf('draft-') === 0 && v !== 'draft-mtp';
+  return v.indexOf('draft-') === 0;
 }
 // Ligne « modèle de draft » : visible seulement pour les types qui en réclament un.
 function syncSpecDraftRow(){

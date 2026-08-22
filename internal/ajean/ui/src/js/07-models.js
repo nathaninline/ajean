@@ -783,12 +783,13 @@ function setSpecType(v){
   syncSpecRow();
   syncSpecDraftRow();
 }
-// Un type spéculatif à brouillon EXTERNE exige un fichier de draft à part (EAGLE-3,
-// dFlash, dSpark, modèle séparé). MTP est intégré au modèle, les n-grammes n'ont pas
-// de brouillon : eux n'ont pas de fichier à choisir.
+// Les types à brouillon (draft-*) proposent un fichier de draft : OBLIGATOIRE pour
+// EAGLE-3, dFlash, dSpark, modèle séparé ; OPTIONNEL pour MTP (généralement intégré
+// au modèle, mais parfois fourni à part). Les n-grammes n'ont pas de brouillon : eux
+// seuls (et « aucun ») n'ont pas de fichier à choisir.
 function specNeedsDraft(v){
   v = String(v || '');
-  return v.indexOf('draft-') === 0 && v !== 'draft-mtp';
+  return v.indexOf('draft-') === 0;
 }
 // Ligne « modèle de draft » : visible seulement pour les types qui en réclament un.
 function syncSpecDraftRow(){
