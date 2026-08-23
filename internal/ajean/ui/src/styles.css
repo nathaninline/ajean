@@ -1014,6 +1014,27 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .task-run-badge{font-size:10px;font-weight:600;color:var(--accent);letter-spacing:.02em}
 .task-stop-btn{flex:none;margin:0;padding:3px 10px;font-size:11px;border-radius:6px;background:var(--danger-bg);border:1px solid var(--err);color:var(--err)}
 .task-stop-btn:hover{background:var(--danger-bg);border-color:var(--err);color:var(--err);opacity:.85}
+/* Sessions : liste de conversations persistantes (modal « Sessions »). */
+.sess-count{font-size:12px;color:var(--dim);background:var(--row-bg-on);padding:1px 8px;border-radius:20px}
+.sess-list{display:flex;flex-direction:column;gap:1px}
+.sess-head{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);padding:10px 8px 5px}
+.sess-head:first-child{padding-top:2px}
+.sess-row{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:9px;border:1px solid transparent;cursor:pointer}
+.sess-row:hover{background:var(--row-bg)}
+.sess-row.active{background:var(--accent-bg);border-color:#58a6ff;cursor:default}
+.sess-row:focus-visible{outline:none;box-shadow:0 0 0 2px var(--border)}
+/* Étoile favori : éteinte (contour dim), allumée (pleine, accent). */
+.sess-star{flex:none;display:flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;background:none;border:none;border-radius:7px;color:var(--dim);cursor:pointer}
+.sess-star:hover{background:var(--row-bg-on);color:var(--text)}
+.sess-star.on{color:var(--accent)}
+.sess-info{flex:1;min-width:0}
+.sess-name{font-size:13.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sess-meta{font-size:11.5px;color:var(--dim);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sess-acts{display:flex;align-items:center;gap:2px;flex:none;opacity:.5;transition:opacity .12s}
+.sess-row:hover .sess-acts,.sess-row.active .sess-acts,.sess-row:focus-within .sess-acts{opacity:1}
+.sess-act{display:flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;background:none;border:none;border-radius:7px;color:var(--dim);cursor:pointer}
+.sess-act:hover{background:var(--row-bg-on);color:var(--text)}
+.sess-badge{font-size:10px;font-weight:600;color:#58a6ff;letter-spacing:.03em;padding:0 4px;white-space:nowrap}
 /* La modale des tâches emprunte tout le design de l'éditeur de preset (.pe-*) :
    même largeur, même mise en carte. */
 #task-modal .modal-card{max-width:520px;overflow:hidden}

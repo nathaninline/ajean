@@ -34,6 +34,7 @@ const (
 	bkState    = "state"    // clés, jetons, drapeaux, listes de dossiers, MCP
 	bkChat     = "chat"     // conversation partagée
 	bkChatHist = "chathist" // conversations archivées (historique) — une entrée JSON par conversation
+	bkChatMeta = "chatmeta" // index LÉGER des sessions (id→métadonnées) pour lister sans parser les gros blobs
 	bkTasks    = "tasks"    // tâches planifiées (une entrée JSON par tâche)
 )
 

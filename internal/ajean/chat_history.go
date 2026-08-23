@@ -81,7 +81,14 @@ func countUserTurns(log []LogEvent) int {
 
 // --- persistance --------------------------------------------------------------
 
-func saveArchive(a *convArchive) error { return putJSON(bkChatHist, a.ID, a) }
+func saveArchive(a *convArchive) error {
+	if err := putJSON(bkChatHist, a.ID, a); err != nil {
+		return err
+	}
+	// Index léger tenu à jour en parallèle : lister ne relit alors que ces petites
+	// métadonnées, pas le fil complet de chaque session.
+	return putJSON(bkChatMeta, a.ID, convArchiveMeta{ID: a.ID, Title: a.Title, Fav: a.Fav, SavedAt: a.SavedAt, Turns: a.Turns})
+}
 
 func loadArchive(id string) (*convArchive, bool) {
 	var a convArchive
@@ -91,7 +98,10 @@ func loadArchive(id string) (*convArchive, bool) {
 	return &a, true
 }
 
-func deleteArchive(id string) error { return putBytes(bkChatHist, id, nil) }
+func deleteArchive(id string) error {
+	_ = putBytes(bkChatMeta, id, nil)
+	return putBytes(bkChatHist, id, nil)
+}
 
 // renameArchive donne un nom personnalisé à une conversation archivée. Un nom
 // vide re-dérive le titre automatique du premier message.
@@ -100,22 +110,24 @@ func renameArchive(id, title string) error {
 	if !ok {
 		return fmt.Errorf("conversation introuvable")
 	}
-	title = strings.TrimSpace(title)
-	if title == "" {
-		title = archiveTitle(a.Log)
-	} else if len([]rune(title)) > 120 {
-		title = string([]rune(title)[:120])
+	custom := strings.TrimSpace(title)
+	if len([]rune(custom)) > 120 {
+		custom = string([]rune(custom)[:120])
 	}
-	a.Title = title
+	if custom == "" {
+		a.Title = archiveTitle(a.Log)
+	} else {
+		a.Title = custom
+	}
 	return saveArchive(a)
 }
 
-// deleteNonFavArchives supprime toutes les conversations archivées SAUF les
-// favoris. Renvoie le nombre supprimé.
-func deleteNonFavArchives() int {
+// deleteNonFavArchives supprime toutes les sessions SAUF les favoris ET la
+// session active `activeID`. Renvoie le nombre supprimé.
+func deleteNonFavArchives(activeID string) int {
 	n := 0
 	for _, m := range listArchives() {
-		if m.Fav {
+		if m.Fav || m.ID == activeID {
 			continue
 		}
 		if deleteArchive(m.ID) == nil {
@@ -138,7 +150,23 @@ func setArchiveFav(id string, fav bool) error {
 // listArchives renvoie les métadonnées de toutes les conversations archivées, la
 // plus récente d'abord.
 func listArchives() []convArchiveMeta {
-	kv := allKV(bkChatHist)
+	kv := allKV(bkChatMeta)
+	// Sessions d'avant l'index (migration) : si le blob complet existe sans entrée
+	// d'index, on la reconstruit une fois. Après ce backfill, l'index suffit.
+	if hist := allKV(bkChatHist); len(hist) != len(kv) {
+		for id, v := range hist {
+			if _, ok := kv[id]; ok {
+				continue
+			}
+			var a convArchive
+			if json.Unmarshal([]byte(v), &a) == nil && a.ID != "" {
+				m := convArchiveMeta{ID: a.ID, Title: a.Title, Fav: a.Fav, SavedAt: a.SavedAt, Turns: a.Turns}
+				_ = putJSON(bkChatMeta, a.ID, m)
+				b, _ := json.Marshal(m)
+				kv[id] = string(b)
+			}
+		}
+	}
 	out := make([]convArchiveMeta, 0, len(kv))
 	for _, v := range kv {
 		var m convArchiveMeta
@@ -158,16 +186,16 @@ func listArchives() []convArchiveMeta {
 
 // --- opérations sur la conversation active ------------------------------------
 
-// snapshotForArchive prend une copie archivable de la conversation courante, ou
-// nil si elle est vide (rien à archiver). Prend le verrou lui-même.
-func (c *Conversation) snapshotForArchive() *convArchive {
+// snapshotForSession prend une copie de la conversation courante sous SON id de
+// session, ou nil si elle est vide (rien à enregistrer). Prend le verrou.
+func (c *Conversation) snapshotForSession() *convArchive {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if len(c.Log) == 0 && len(c.Messages) == 0 {
 		return nil
 	}
 	a := &convArchive{
-		ID:       fmt.Sprintf("%d", time.Now().UnixNano()),
+		ID:       c.ID, // id STABLE de la session (pas un nouvel id à chaque fois)
 		SavedAt:  time.Now().UnixMilli(),
 		Messages: append([]Message(nil), c.Messages...),
 		Log:      append([]LogEvent(nil), c.Log...),
@@ -175,53 +203,99 @@ func (c *Conversation) snapshotForArchive() *convArchive {
 		CtxUsed:  c.CtxUsed,
 	}
 	a.Turns = countUserTurns(c.Log)
-	a.Title = archiveTitle(c.Log)
+	// Nom personnalisé si défini, sinon titre dérivé du premier message.
+	if strings.TrimSpace(c.ActiveTitle) != "" {
+		a.Title = c.ActiveTitle
+	} else {
+		a.Title = archiveTitle(c.Log)
+	}
+	a.Fav = c.ActiveFav
 	return a
 }
 
-// ArchiveAndReset archive la conversation courante (si non vide) puis en démarre
-// une vierge — c'est le « clear chat ». Renvoie l'id archivé, vide si rien à
-// archiver.
-func (c *Conversation) ArchiveAndReset() string {
-	a := c.snapshotForArchive()
-	if a != nil {
+// upsertSession reflète la conversation active dans la liste des sessions (sous
+// son id stable). No-op si elle est vide (pas de session fantôme).
+func (c *Conversation) upsertSession() {
+	if a := c.snapshotForSession(); a != nil {
 		_ = saveArchive(a)
 	}
-	c.Reset()
-	if a != nil {
-		return a.ID
-	}
-	return ""
 }
 
-// RestoreArchive remplace la conversation courante par l'archive `id`. La
-// courante, si elle n'est pas vide, est archivée d'abord (clear chat implicite).
-// L'archive restaurée est retirée de l'historique (elle redevient active). Les
-// abonnés reçoivent un reset puis le rejeu du fil restauré (bump d'epoch).
-func (c *Conversation) RestoreArchive(id string) error {
+// NewSession sauvegarde la conversation courante dans SA session puis démarre une
+// session vierge (nouvel id) — c'est le « clear chat » / « nouvelle session ».
+func (c *Conversation) NewSession() string {
+	c.upsertSession()
+	c.Reset()
+	return c.ID
+}
+
+// OpenSession charge la session `id` comme conversation active. La conversation
+// courante est d'abord sauvegardée dans SA propre session (elle RESTE dans la
+// liste, aucun doublon). La session ouverte n'est PAS retirée : elle devient
+// l'active, toujours listée et marquée « en cours ».
+func (c *Conversation) OpenSession(id string) error {
 	a, ok := loadArchive(id)
 	if !ok {
-		return fmt.Errorf("conversation introuvable")
+		return fmt.Errorf("session introuvable")
 	}
-	// 1. Ne rien perdre : la conversation en cours part elle-même à l'historique.
-	if cur := c.snapshotForArchive(); cur != nil {
-		_ = saveArchive(cur)
-	}
-	// 2. Charger l'archive dans la conversation active.
+	// 1. Sauver la conversation en cours dans sa session (rien ne se perd).
+	c.upsertSession()
+	// 2. Charger la session demandée dans l'active.
 	c.Stop()
 	c.mu.Lock()
+	c.ID = a.ID
 	c.Messages = append([]Message(nil), a.Messages...)
 	c.Log = append([]LogEvent(nil), a.Log...)
 	c.Seq = a.Seq
 	c.CtxUsed = a.CtxUsed
-	c.epoch++              // invalide les abonnés → ils nettoient et rejouent le fil restauré
-	c.pendingReplay = true // un fil complet suit : les abonnés le rejouent REPLIÉ (comme au chargement de page)
+	c.ActiveTitle = a.Title
+	c.ActiveFav = a.Fav
+	c.epoch++              // invalide les abonnés → ils nettoient et rejouent le fil
+	c.pendingReplay = true // un fil complet suit : rejeu REPLIÉ (comme au chargement de page)
 	c.Generating = false
 	c.cancel = nil
 	c.cond.Broadcast()
 	c.mu.Unlock()
 	c.persist()
-	// 3. L'archive est désormais la conversation active : on la retire de la liste.
-	_ = deleteArchive(id)
+	return nil
+}
+
+// currentID renvoie l'id de la session active (sous verrou).
+func (c *Conversation) currentID() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.ID
+}
+
+// setActiveTitleIfMatch met à jour le nom de la conversation active si c'est la
+// session `id` qui vient d'être renommée (title vide = dérivation auto reprend).
+func (c *Conversation) setActiveTitleIfMatch(id, title string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.ID == id {
+		c.ActiveTitle = strings.TrimSpace(title)
+	}
+}
+
+// setActiveFavIfMatch met à jour le favori de la conversation active si c'est la
+// session `id` qui vient d'être (dé)favorisée.
+func (c *Conversation) setActiveFavIfMatch(id string, fav bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.ID == id {
+		c.ActiveFav = fav
+	}
+}
+
+// DeleteSession supprime définitivement la session `id`. Si c'est la session
+// active, on repart aussitôt sur une session vierge (pas de fil orphelin qui
+// pointerait vers une session effacée).
+func (c *Conversation) DeleteSession(id string) error {
+	if err := deleteArchive(id); err != nil {
+		return err
+	}
+	if c.currentID() == id {
+		c.Reset()
+	}
 	return nil
 }

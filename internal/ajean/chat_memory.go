@@ -3,6 +3,7 @@ package ajean
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -98,42 +99,112 @@ func MemList() []MemPage {
 // MemSearch cherche les termes de la requête dans le nom + le contenu de chaque
 // page, renvoie une liste classée {fichier, titre, extrait}. Comme un moteur de
 // recherche : à compléter par mem_read sur la page la plus pertinente.
+//
+// Classement en deux temps, pour ne PAS laisser une grosse page bourrée d'un mot
+// fréquent écraser une petite page qui matche VRAIMENT la requête :
+//  1. Couverture d'abord : les pages qui contiennent le PLUS de termes distincts
+//     de la requête passent devant (chercher « copine Alice » doit remonter la
+//     page qui a les deux mots, pas celle qui répète « Alice » 40 fois).
+//  2. À couverture égale, score pondéré par la RARETÉ du terme (IDF) : un mot
+//     rare et discriminant (« copine ») pèse bien plus qu'un mot omniprésent
+//     (« Alice »). La fréquence est amortie (log) pour que le bourrage ne gagne
+//     pas, et un match dans le NOM ou le TITRE est fortement bonifié.
 func MemSearch(query string, limit int) []MemHit {
 	if limit <= 0 || limit > 30 {
 		limit = 8
 	}
-	terms := strings.Fields(strings.ToLower(query))
-	type scored struct {
-		hit   MemHit
-		score int
+	terms := uniqueTerms(strings.ToLower(query))
+
+	type doc struct {
+		p       MemPage
+		name    string // minuscules
+		title   string // minuscules
+		content string // brut (pour l'extrait)
+		hay     string // minuscules : nom + contenu
 	}
-	var ranked []scored
+	docs := make([]doc, 0)
+	df := make(map[string]int) // nb de pages contenant chaque terme
 	for _, p := range MemList() {
 		b, _ := os.ReadFile(filepath.Join(memoryDir(), p.Name))
 		content := string(b)
-		hay := strings.ToLower(p.Name + "\n" + content)
-		score := 0
+		d := doc{
+			p:       p,
+			name:    strings.ToLower(p.Name),
+			title:   strings.ToLower(p.Title),
+			content: content,
+			hay:     strings.ToLower(p.Name + "\n" + content),
+		}
+		docs = append(docs, d)
 		for _, t := range terms {
-			score += strings.Count(hay, t)
-			if strings.Contains(strings.ToLower(p.Name), t) {
-				score += 3 // bonus si le terme est dans le nom de la page
+			if strings.Contains(d.hay, t) {
+				df[t]++
 			}
 		}
-		if score == 0 && query != "" {
+	}
+	n := len(docs)
+
+	type scored struct {
+		hit     MemHit
+		matched int     // termes distincts trouvés (clé de tri primaire)
+		score   float64 // pertinence pondérée (clé secondaire)
+	}
+	var ranked []scored
+	for _, d := range docs {
+		matched := 0
+		score := 0.0
+		for _, t := range terms {
+			cnt := strings.Count(d.hay, t)
+			if cnt == 0 {
+				continue
+			}
+			matched++
+			// IDF : rare = discriminant. +1 pour qu'un terme fréquent compte encore.
+			idf := math.Log(float64(n+1)/float64(df[t]+1)) + 1
+			// Fréquence amortie : 10 occurrences ne valent pas 10x une occurrence.
+			tf := 1.0 + math.Log(float64(cnt))
+			field := 1.0
+			if strings.Contains(d.name, t) {
+				field += 4 // le terme est dans le NOM de la page
+			}
+			if strings.Contains(d.title, t) {
+				field += 2 // ... ou dans son TITRE
+			}
+			score += idf * tf * field
+		}
+		if matched == 0 && len(terms) > 0 {
 			continue
 		}
 		ranked = append(ranked, scored{
-			hit:   MemHit{File: p.Name, Title: p.Title, Snippet: snippetAround(content, terms)},
-			score: score,
+			hit:     MemHit{File: d.p.Name, Title: d.p.Title, Snippet: snippetAround(d.content, terms)},
+			matched: matched,
+			score:   score,
 		})
 	}
-	sort.SliceStable(ranked, func(i, j int) bool { return ranked[i].score > ranked[j].score })
+	sort.SliceStable(ranked, func(i, j int) bool {
+		if ranked[i].matched != ranked[j].matched {
+			return ranked[i].matched > ranked[j].matched // couverture d'abord
+		}
+		return ranked[i].score > ranked[j].score
+	})
 	out := []MemHit{}
 	for i, r := range ranked {
 		if i >= limit {
 			break
 		}
 		out = append(out, r.hit)
+	}
+	return out
+}
+
+// uniqueTerms découpe une requête en mots distincts (dédupliqués, ordre gardé).
+func uniqueTerms(q string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, t := range strings.Fields(q) {
+		if !seen[t] {
+			seen[t] = true
+			out = append(out, t)
+		}
 	}
 	return out
 }

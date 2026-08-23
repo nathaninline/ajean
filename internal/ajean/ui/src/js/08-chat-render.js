@@ -301,10 +301,10 @@ function addCopyButtons(root){
 // Nouvelle conversation POUR TOUS LES APPAREILS : le serveur vide le fil et
 // diffuse un {reset} ; le flux d'abonnement nettoie alors l'affichage.
 function resetChat(){ jfetch('/api/chat/reset',{method:'POST'}).catch(()=>{}); toast('nouvelle conversation'); }
-// ===== Historique des conversations (issue #33) ============================
-// « clear chat » archive la conversation côté serveur ; ce modal les liste, avec
-// pour chacune « recharger » (elle redevient active, la courante étant archivée à
-// son tour) et « supprimer » (définitif).
+// ===== Sessions ============================================================
+// Chaque conversation est une session persistante à id stable. Le modal les
+// gère : ouvrir (garde tout dans la liste), renommer, favori, supprimer, et
+// démarrer une nouvelle session.
 function openHistoryModal(){ showModal('history-modal'); loadHistory(); }
 function closeHistoryModal(){ hideModal('history-modal'); }
 function fmtHistDate(ms){
@@ -312,74 +312,97 @@ function fmtHistDate(ms){
   try{ return d.toLocaleString([], {dateStyle:'medium', timeStyle:'short'}); }
   catch(_){ return d.toLocaleString(); }
 }
+// Icônes SVG en ligne (l'app n'a pas de police d'icônes) : traits nets, prennent
+// la couleur courante. On renvoie une chaîne SVG posée en innerHTML.
+const SESS_ICONS = {
+  star: '<path d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z"/>',
+  pencil: '<path d="M4 20h4l10.5 -10.5a2.83 2.83 0 1 0 -4 -4l-10.5 10.5v4"/><path d="M13.5 6.5l4 4"/>',
+  trash: '<path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"/><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/>'
+};
+function sessIconSvg(name, filled){
+  return '<svg viewBox="0 0 24 24" width="17" height="17" fill="'+(filled?'currentColor':'none')+'" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+SESS_ICONS[name]+'</svg>';
+}
+// Une ligne de session. Cliquer la ligne OUVRE la session (sauf l'active). L'étoile
+// bascule le favori, le crayon renomme, la corbeille supprime.
+function sessionRow(c, active){
+  const row = document.createElement('div'); row.className = 'sess-row' + (active?' active':'');
+  if(!active){ row.tabIndex = 0; row.title = 'Ouvrir cette session';
+    row.onclick = ()=>restoreHistory(c.id);
+    row.onkeydown = (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); restoreHistory(c.id); } };
+  }
+  // Étoile favori (clic = bascule), indépendante du clic d'ouverture.
+  const star = document.createElement('button');
+  star.className = 'sess-star' + (c.fav?' on':''); star.innerHTML = sessIconSvg('star', c.fav);
+  star.title = c.fav?'Retirer des favoris':'Mettre en favori';
+  star.onclick = (e)=>{ e.stopPropagation(); favHistory(c.id, !c.fav); };
+
+  const info = document.createElement('div'); info.className = 'sess-info';
+  const name = document.createElement('div'); name.className = 'sess-name'; name.textContent = c.title || 'Session';
+  const meta = document.createElement('div'); meta.className = 'sess-meta';
+  const n = c.turns || 0;
+  meta.textContent = fmtHistDate(c.saved_at) + ' · ' + n + ' message' + (n>1?'s':'') + (active?' · en cours':'');
+  info.appendChild(name); info.appendChild(meta);
+
+  const acts = document.createElement('div'); acts.className = 'sess-acts';
+  if(active){ const badge = document.createElement('span'); badge.className = 'sess-badge'; badge.textContent = 'en cours'; acts.appendChild(badge); }
+  const actBtn = (name, title, fn)=>{
+    const b = document.createElement('button'); b.className = 'sess-act'; b.innerHTML = sessIconSvg(name);
+    b.title = title; b.onclick = (e)=>{ e.stopPropagation(); fn(); };
+    return b;
+  };
+  acts.appendChild(actBtn('pencil', 'Renommer', ()=>renameHistory(c.id, c.title)));
+  acts.appendChild(actBtn('trash', 'Supprimer définitivement', ()=>deleteHistory(c.id, c.title)));
+
+  row.appendChild(star); row.appendChild(info); row.appendChild(acts);
+  return row;
+}
 async function loadHistory(){
   const box = document.getElementById('history-list'); if(!box) return;
-  box.innerHTML = '<span class="muted" style="font-size:12px">chargement…</span>';
-  let list = [];
-  try{ const r = await jget('/api/chat/history'); list = (r && r.conversations) || []; }
+  // Ne pas vider tout de suite : on garde l'affichage précédent (ou un discret
+  // « chargement » à la toute première ouverture) le temps de la requête, pour
+  // éviter le clignotement vide→plein.
+  if(!box.children.length) box.innerHTML = '<span class="muted" style="font-size:12px">chargement…</span>';
+  let list = [], active = '';
+  try{ const r = await jget('/api/chat/history'); list = (r && r.conversations) || []; active = (r && r.active) || ''; }
   catch(_){ box.innerHTML = '<span class="muted" style="font-size:12px">erreur de chargement</span>'; return; }
-  if(!list.length){ box.innerHTML = '<span class="muted" style="font-size:12px">aucune conversation archivée. « clear chat » en rangera une ici.</span>'; return; }
+  const cnt = document.getElementById('sess-count'); if(cnt) cnt.textContent = list.length || '';
+  if(!list.length){ box.innerHTML = '<span class="muted" style="font-size:12px">aucune session pour l\'instant. Commence à discuter, ta conversation apparaîtra ici.</span>'; return; }
   box.innerHTML = '';
-  for(const c of list){
-    const row = document.createElement('div'); row.className = 'mcp-row'; row.style.cursor = 'default';
-    // Étoile favori : épingle la conversation en tête de liste. Teintée accent
-    // quand active (pas de vert — préférence).
-    // Boutons compacts en icônes (info-bulle au survol) pour ne pas déborder.
-    const iconBtn = (glyph, title, onclick, extra)=>{
-      const b = document.createElement('button');
-      b.textContent = glyph; b.title = title; b.onclick = onclick;
-      b.style.cssText = 'padding:2px 6px;font-size:14px;line-height:1;background:none;border:none;cursor:pointer;color:var(--dim);' + (extra||'');
-      return b;
-    };
-    const info = document.createElement('div'); info.className = 'mcp-info'; info.style.minWidth = '0';
-    const name = document.createElement('div'); name.className = 'mcp-name';
-    // Étoile pleine (lecture seule) en tête d'un favori ; on l'épingle/dépingle
-    // depuis le modal de renommage.
-    name.textContent = (c.fav?'★ ':'') + (c.title || 'Conversation');
-    name.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' + (c.fav?';color:var(--accent)':'');
-    const meta = document.createElement('div'); meta.className = 'mcp-meta';
-    const sub = document.createElement('span'); sub.style.cssText = 'font-size:11px;color:var(--dim)';
-    const n = c.turns || 0;
-    sub.textContent = fmtHistDate(c.saved_at) + ' · ' + n + ' message' + (n>1?'s':'');
-    meta.appendChild(sub);
-    info.appendChild(name); info.appendChild(meta);
-    const load = iconBtn('↺', 'Recharger cette conversation', ()=>restoreHistory(c.id));
-    const ren = iconBtn('✎', 'Renommer / favori', ()=>renameHistory(c.id, c.title, c.fav));
-    const del = iconBtn('✕', 'Supprimer définitivement', ()=>deleteHistory(c.id, c.title));
-    row.appendChild(info); row.appendChild(load); row.appendChild(ren); row.appendChild(del);
-    box.appendChild(row);
-  }
+  const favs = list.filter(c=>c.fav), others = list.filter(c=>!c.fav);
+  const section = (label)=>{ const h=document.createElement('div'); h.className='sess-head'; h.textContent=label; box.appendChild(h); };
+  if(favs.length){ section('Favoris'); favs.forEach(c=>box.appendChild(sessionRow(c, c.id===active))); }
+  if(others.length){ if(favs.length) section('Récentes'); others.forEach(c=>box.appendChild(sessionRow(c, c.id===active))); }
 }
-// Renommer + (dé)favoriser dans le même modal : le champ nom + une case « favori »
-// pré-cochée selon l'état courant.
-async function renameHistory(id, current, wasFav){
-  wasFav = !!wasFav;
-  const name = await askPrompt('Nom de la conversation (laisser vide pour le nom automatique) :', {title:'Renommer la conversation', okText:'Enregistrer', default: current||'', placeholder:'ex. Config serveur GPU', check:'Favori (épinglé en tête)', checkOn:wasFav});
-  if(name===null) return; // annulé
-  const fav = askChecked();
-  try{
-    const r = await jpost('/api/chat/history/rename', {id, title:name});
-    if(!r.ok){ toast(r.error || 'renommage impossible'); return; }
-    if(fav!==wasFav){ await jpost('/api/chat/history/fav', {id, fav}); }
-  }catch(_){ toast('erreur réseau'); return; }
+// Bascule le favori d'une session (étoile).
+async function favHistory(id, fav){
+  let r; try{ r = await jpost('/api/chat/history/fav', {id, fav}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error || 'impossible'); return; }
   loadHistory();
 }
-// Supprime toutes les conversations SAUF les favoris.
+// Renommer une session (le favori se gère à l'étoile).
+async function renameHistory(id, current){
+  const name = await askPrompt('Nom de la session (laisser vide pour le nom automatique) :', {title:'Renommer la session', okText:'Enregistrer', default: current||'', placeholder:'ex. Config serveur GPU'});
+  if(name===null) return; // annulé
+  let r; try{ r = await jpost('/api/chat/history/rename', {id, title:name}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error || 'renommage impossible'); return; }
+  loadHistory();
+}
+// Supprime toutes les sessions SAUF les favoris (et la session en cours).
 async function clearAllHistory(){
-  if(!await askConfirm('Supprimer toutes les conversations archivées, sauf les favoris ? Cette action est irréversible.', {title:'Tout supprimer', okText:'Tout supprimer', danger:true})) return;
+  if(!await askConfirm('Supprimer toutes les sessions, sauf les favoris et celle en cours ? Cette action est irréversible.', {title:'Tout supprimer', okText:'Tout supprimer', danger:true})) return;
   let r; try{ r = await jpost('/api/chat/history/clear', {}); }catch(_){ toast('erreur réseau'); return; }
   if(!r.ok){ toast(r.error || 'suppression impossible'); return; }
-  toast((r.deleted||0) + ' conversation' + ((r.deleted>1)?'s':'') + ' supprimée' + ((r.deleted>1)?'s':''));
+  toast((r.deleted||0) + ' session' + ((r.deleted>1)?'s':'') + ' supprimée' + ((r.deleted>1)?'s':''));
   loadHistory();
 }
 async function restoreHistory(id){
   let r; try{ r = await jpost('/api/chat/history/restore', {id}); }catch(_){ toast('erreur réseau'); return; }
-  if(!r.ok){ toast(r.error || 'impossible de recharger'); return; }
+  if(!r.ok){ toast(r.error || 'impossible d\'ouvrir'); return; }
   closeHistoryModal();
-  toast('conversation rechargée');
+  toast('session ouverte');
 }
 async function deleteHistory(id, title){
-  if(!await askConfirm('Supprimer définitivement « ' + (title || 'cette conversation') + ' » ? Cette action est irréversible.', {title:'Supprimer la conversation', okText:'Supprimer', danger:true})) return;
+  if(!await askConfirm('Supprimer définitivement « ' + (title || 'cette session') + ' » ? Cette action est irréversible.', {title:'Supprimer la session', okText:'Supprimer', danger:true})) return;
   let r; try{ r = await jpost('/api/chat/history/delete', {id}); }catch(_){ toast('erreur réseau'); return; }
   if(!r.ok){ toast(r.error || 'suppression impossible'); return; }
   loadHistory();

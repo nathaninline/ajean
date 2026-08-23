@@ -48,10 +48,22 @@ type Conversation struct {
 	mu   sync.Mutex
 	cond *sync.Cond
 
+	// ID stable de la SESSION en cours. La conversation active est une session
+	// comme les autres (reflétée dans le bucket des sessions via upsertSession) :
+	// ouvrir/renommer/favoriser passe par cet id, qui survit à open→new.
+	ID string `json:"id"`
+
 	Messages []Message  `json:"messages"` // vue « modèle » (nourrit runChat)
 	Log      []LogEvent `json:"log"`      // vue « UI » rejouable
 	Seq      int        `json:"seq"`
 	CtxUsed  int        `json:"ctx_used"` // taille réelle du contexte au dernier tour
+
+	// Nom personnalisé et favori HÉRITÉS d'une conversation restaurée depuis
+	// l'historique : ils voyagent avec la conversation active pour qu'un
+	// « recharger » puis « clear chat » les conserve au ré-archivage (au lieu de
+	// repartir sur un titre auto sans favori). Vides pour une conversation neuve.
+	ActiveTitle string `json:"active_title,omitempty"`
+	ActiveFav   bool   `json:"active_fav,omitempty"`
 
 	Generating bool      `json:"-"`
 	genStart   time.Time // début du tour en cours → permet à un client qui se reconnecte de reprendre le chrono à la BONNE valeur (pas à zéro)
@@ -72,7 +84,7 @@ type Conversation struct {
 }
 
 var conv = func() *Conversation {
-	c := &Conversation{}
+	c := &Conversation{ID: newSessionID()}
 	c.cond = sync.NewCond(&c.mu)
 	return c
 }()
@@ -91,10 +103,19 @@ func LoadConversation() {
 	conv.mu.Lock()
 	defer conv.mu.Unlock()
 	_ = json.Unmarshal(b, conv)
+	// État d'avant l'id de session (migration) : on lui en attribue un pour qu'il
+	// devienne une session gérable comme les autres.
+	if conv.ID == "" {
+		conv.ID = newSessionID()
+	}
 	// Une génération n'a pas pu survivre à l'arrêt du process : on repart propre.
 	conv.Generating = false
 	conv.cancel = nil
 }
+
+// newSessionID génère un identifiant de session unique (nanosecondes), même
+// schéma que les archives.
+func newSessionID() string { return fmt.Sprintf("%d", time.Now().UnixNano()) }
 
 // persist enregistre l'état (appelé en fin de tour et sur reset, pas à chaque
 // delta). L'appelant NE doit PAS détenir mu.
@@ -106,6 +127,9 @@ func (c *Conversation) persist() {
 		return
 	}
 	_ = putBytes(bkChat, "conversation", b)
+	// La conversation active EST une session : on la reflète dans la liste des
+	// sessions pour qu'elle y apparaisse (marquée « en cours ») et reste à jour.
+	c.upsertSession()
 }
 
 // appendDelta journalise un événement d'affichage et réveille les abonnés.
@@ -569,6 +593,9 @@ func (c *Conversation) Reset() {
 	c.Log = nil
 	c.Seq = 0
 	c.CtxUsed = 0
+	c.ID = newSessionID() // session vierge = nouvel id stable
+	c.ActiveTitle = ""    // conversation neuve : ni nom hérité, ni favori
+	c.ActiveFav = false
 	c.epoch++
 	c.pendingReplay = false // conversation vide : rien à rejouer
 	c.Generating = false

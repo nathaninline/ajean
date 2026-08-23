@@ -119,17 +119,18 @@ func handleChatStop(w http.ResponseWriter, r *http.Request) {
 // ARCHIVÉE dans l'historique (récupérable dans le modal Historique), puis une
 // conversation vierge démarre.
 func handleChatReset(w http.ResponseWriter, r *http.Request) {
-	id := conv.ArchiveAndReset()
-	sendJSON(w, 200, map[string]any{"ok": true, "archived": id})
+	id := conv.NewSession()
+	sendJSON(w, 200, map[string]any{"ok": true, "active": id})
 }
 
-// handleChatHistory (GET) : liste des conversations archivées (métadonnées).
+// handleChatHistory (GET) : liste des sessions + id de la session active (pour
+// que l'UI marque « en cours »).
 func handleChatHistory(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, 200, map[string]any{"ok": true, "conversations": listArchives()})
+	sendJSON(w, 200, map[string]any{"ok": true, "conversations": listArchives(), "active": conv.currentID()})
 }
 
-// handleChatHistoryRestore (POST {id}) : recharge une conversation archivée comme
-// conversation active (en archivant d'abord la courante si besoin).
+// handleChatHistoryRestore (POST {id}) : ouvre une session comme conversation
+// active (la courante est d'abord sauvegardée dans SA session).
 func handleChatHistoryRestore(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		ID string `json:"id"`
@@ -139,7 +140,7 @@ func handleChatHistoryRestore(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "id manquant"})
 		return
 	}
-	if err := conv.RestoreArchive(body.ID); err != nil {
+	if err := conv.OpenSession(body.ID); err != nil {
 		sendJSON(w, 404, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
@@ -157,7 +158,7 @@ func handleChatHistoryDelete(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "id manquant"})
 		return
 	}
-	if err := deleteArchive(body.ID); err != nil {
+	if err := conv.DeleteSession(body.ID); err != nil {
 		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
@@ -180,6 +181,9 @@ func handleChatHistoryRename(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 404, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
+	// Si c'est la session active, garder son nom en phase (sinon le prochain
+	// upsertSession réécraserait l'archive avec l'ancien nom).
+	conv.setActiveTitleIfMatch(body.ID, body.Title)
 	sendJSON(w, 200, map[string]any{"ok": true})
 }
 
@@ -199,13 +203,14 @@ func handleChatHistoryFav(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 404, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
+	conv.setActiveFavIfMatch(body.ID, body.Fav)
 	sendJSON(w, 200, map[string]any{"ok": true})
 }
 
 // handleChatHistoryClear (POST) : supprime toutes les conversations archivées
 // SAUF les favoris.
 func handleChatHistoryClear(w http.ResponseWriter, r *http.Request) {
-	n := deleteNonFavArchives()
+	n := deleteNonFavArchives(conv.currentID())
 	sendJSON(w, 200, map[string]any{"ok": true, "deleted": n})
 }
 

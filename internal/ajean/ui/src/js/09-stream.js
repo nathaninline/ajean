@@ -342,7 +342,14 @@ function handleDelta(d){
     // Fin du replay initial : on saute en bas puis on révèle (une seule fois — pas
     // sur les reconnexions, pour ne pas te ramener en bas si tu lisais plus haut).
     setChatLoading(null);
-    if(REPLAYING){ REPLAYING=false; jumpBottom(); syncSendBtn(); const c=chatEl(); c.style.transition='opacity .15s'; c.style.opacity='1'; }
+    if(REPLAYING){ REPLAYING=false; jumpBottom(); syncSendBtn(); const c=chatEl(); c.style.transition='opacity .15s'; c.style.opacity='1';
+      // Le rejeu pose ses blocs de façon différée (scheduleRender) : la hauteur
+      // finale n'est pas encore établie au caught_up, donc jumpBottom() atterrit
+      // trop court (près du haut sur une session ouverte). On re-cale en bas une
+      // fois la mise en page settle. Sans effet visible au chargement initial.
+      requestAnimationFrame(()=>requestAnimationFrame(jumpBottom));
+      setTimeout(jumpBottom, 80); setTimeout(jumpBottom, 250);
+    }
     // Le bouton envoyer/stop doit refléter l'état RÉEL du serveur, pas seulement les
     // événements rejoués (issue #24) : un reload en pleine génération pouvait laisser
     // « envoyer » alors que l'IA répondait encore, car l'événement `user` qui met
