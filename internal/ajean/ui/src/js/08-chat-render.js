@@ -192,6 +192,8 @@ function renderToolMsg(el, tu){
     task_update:{lbl:'tâche',     head:'modification tâche'},
     task_delete:{lbl:'tâche',     head:'suppression tâche'},
     see_image:  {lbl:'image',     head:'vision'},
+    machines_list:{lbl:'machines', head:'postes disponibles'},
+    machines_use: {lbl:'machines', head:'bascule de machine'},
   };
   // Outils MCP (nom mcp__<serveur>__<outil>) : en-tête = nom du serveur, libellé lisible,
   // pas le fallback générique. On extrait serveur et outil du nom namespacé.
@@ -320,21 +322,55 @@ async function loadHistory(){
   box.innerHTML = '';
   for(const c of list){
     const row = document.createElement('div'); row.className = 'mcp-row'; row.style.cursor = 'default';
-    const info = document.createElement('div'); info.className = 'mcp-info';
-    const name = document.createElement('div'); name.className = 'mcp-name'; name.textContent = c.title || 'Conversation';
+    // Étoile favori : épingle la conversation en tête de liste. Teintée accent
+    // quand active (pas de vert — préférence).
+    // Boutons compacts en icônes (info-bulle au survol) pour ne pas déborder.
+    const iconBtn = (glyph, title, onclick, extra)=>{
+      const b = document.createElement('button');
+      b.textContent = glyph; b.title = title; b.onclick = onclick;
+      b.style.cssText = 'padding:2px 6px;font-size:14px;line-height:1;background:none;border:none;cursor:pointer;color:var(--dim);' + (extra||'');
+      return b;
+    };
+    const info = document.createElement('div'); info.className = 'mcp-info'; info.style.minWidth = '0';
+    const name = document.createElement('div'); name.className = 'mcp-name';
+    // Étoile pleine (lecture seule) en tête d'un favori ; on l'épingle/dépingle
+    // depuis le modal de renommage.
+    name.textContent = (c.fav?'★ ':'') + (c.title || 'Conversation');
+    name.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' + (c.fav?';color:var(--accent)':'');
     const meta = document.createElement('div'); meta.className = 'mcp-meta';
     const sub = document.createElement('span'); sub.style.cssText = 'font-size:11px;color:var(--dim)';
     const n = c.turns || 0;
     sub.textContent = fmtHistDate(c.saved_at) + ' · ' + n + ' message' + (n>1?'s':'');
     meta.appendChild(sub);
     info.appendChild(name); info.appendChild(meta);
-    const load = document.createElement('button'); load.textContent = '↺ recharger';
-    load.style.cssText = 'padding:3px 8px;font-size:11px'; load.onclick = ()=>restoreHistory(c.id);
-    const del = document.createElement('button'); del.className = 'btn-danger'; del.textContent = 'supprimer';
-    del.style.cssText = 'padding:3px 8px;font-size:11px'; del.onclick = ()=>deleteHistory(c.id, c.title);
-    row.appendChild(info); row.appendChild(load); row.appendChild(del);
+    const load = iconBtn('↺', 'Recharger cette conversation', ()=>restoreHistory(c.id));
+    const ren = iconBtn('✎', 'Renommer / favori', ()=>renameHistory(c.id, c.title, c.fav));
+    const del = iconBtn('✕', 'Supprimer définitivement', ()=>deleteHistory(c.id, c.title));
+    row.appendChild(info); row.appendChild(load); row.appendChild(ren); row.appendChild(del);
     box.appendChild(row);
   }
+}
+// Renommer + (dé)favoriser dans le même modal : le champ nom + une case « favori »
+// pré-cochée selon l'état courant.
+async function renameHistory(id, current, wasFav){
+  wasFav = !!wasFav;
+  const name = await askPrompt('Nom de la conversation (laisser vide pour le nom automatique) :', {title:'Renommer la conversation', okText:'Enregistrer', default: current||'', placeholder:'ex. Config serveur GPU', check:'Favori (épinglé en tête)', checkOn:wasFav});
+  if(name===null) return; // annulé
+  const fav = askChecked();
+  try{
+    const r = await jpost('/api/chat/history/rename', {id, title:name});
+    if(!r.ok){ toast(r.error || 'renommage impossible'); return; }
+    if(fav!==wasFav){ await jpost('/api/chat/history/fav', {id, fav}); }
+  }catch(_){ toast('erreur réseau'); return; }
+  loadHistory();
+}
+// Supprime toutes les conversations SAUF les favoris.
+async function clearAllHistory(){
+  if(!await askConfirm('Supprimer toutes les conversations archivées, sauf les favoris ? Cette action est irréversible.', {title:'Tout supprimer', okText:'Tout supprimer', danger:true})) return;
+  let r; try{ r = await jpost('/api/chat/history/clear', {}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error || 'suppression impossible'); return; }
+  toast((r.deleted||0) + ' conversation' + ((r.deleted>1)?'s':'') + ' supprimée' + ((r.deleted>1)?'s':''));
+  loadHistory();
 }
 async function restoreHistory(id){
   let r; try{ r = await jpost('/api/chat/history/restore', {id}); }catch(_){ toast('erreur réseau'); return; }

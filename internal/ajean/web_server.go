@@ -157,6 +157,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/agent", handleAgent)
 	api("/api/agent/toggle", handleAgentToggle)
 	api("/api/agent/compact", handleCompactToggle)
+	api("/api/agent/machines", handleMachinesToggle)
 	api("/api/apikey", handleAPIKey)
 	api("/api/oai/public", handleOAIPublic)
 	api("/api/link/status", handleLinkStatus)         // état de l'accès distant (ajean.link)
@@ -206,6 +207,9 @@ func newWebMux() *http.ServeMux {
 	api("/api/chat/history", handleChatHistory)                // liste des conversations archivées
 	api("/api/chat/history/restore", handleChatHistoryRestore) // recharge une conversation archivée
 	api("/api/chat/history/delete", handleChatHistoryDelete)   // supprime définitivement une archive
+	api("/api/chat/history/rename", handleChatHistoryRename)   // renomme une conversation archivée
+	api("/api/chat/history/fav", handleChatHistoryFav)         // épingle/dépingle en favori
+	api("/api/chat/history/clear", handleChatHistoryClear)     // supprime tout sauf les favoris
 	api("/api/chat/compact", handleChatCompact)                // compaction manuelle du contexte
 	api("/api/chat/state", handleChatState)                    // instantané léger {seq, generating, ctx_used}
 	api("/api/chat/export", handleChatExport)                  // téléchargement du fil (?format=md|json)

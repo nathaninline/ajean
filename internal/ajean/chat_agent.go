@@ -1,6 +1,9 @@
 package ajean
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Le « mode agent » est l'unique interrupteur qui donne à l'IA l'accès à ses
 // outils : le shell (run_shell), l'écriture de fichiers et sa mémoire
@@ -9,6 +12,20 @@ import "fmt"
 func agentEnabled() bool { return getBool(bkState, "agent") }
 
 func setAgentEnabled(on bool) error { return putBool(bkState, "agent", on) }
+
+// machinesEnabled indique si la gestion autonome des machines (postes) est
+// activée : l'IA reçoit alors les outils machines_list/machines_use et un
+// briefing la rend consciente de la procédure d'ajout/bascule. DÉSACTIVÉE par
+// défaut — sans une valeur on/true/1/yes/oui explicite (config.env MACHINES),
+// aucun outil machines ni bloc de prompt n'est ajouté (zéro impact). Miroir
+// inverse de compactEnabled (défaut on).
+func machinesEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(ReadConfig()["MACHINES"])) {
+	case "on", "true", "1", "yes", "oui":
+		return true
+	}
+	return false
+}
 
 func cmdAgent(args []string) error {
 	sub := ""

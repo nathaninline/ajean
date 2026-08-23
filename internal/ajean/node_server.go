@@ -446,6 +446,82 @@ func nodeTargetMetaGet() (nodeTargetMeta, bool) {
 	return m, true
 }
 
+// toolMachinesList rend une vue lisible des postes appairés et de la cible
+// d'exécution courante, pour l'outil machines_list. Tourne dans le process
+// serveur, donc l'état de connexion vif (nodeReg) est disponible.
+func toolMachinesList() string {
+	connected := map[string]bool{}
+	for _, nc := range nodeConnected() {
+		connected[nc.slug] = true
+	}
+	target := agentTargetSlug()
+	nodes := loadNodes()
+	var b strings.Builder
+	if target == "" {
+		b.WriteString("Current target: local (this server)\n")
+	} else {
+		b.WriteString("Current target: " + target + "\n")
+	}
+	if len(nodes) == 0 {
+		b.WriteString("\nNo poste paired yet. To add one, run `ajean postes pair` with bash to get a pairing code, then on the target machine (reachable by ssh) run the printed `ajean remote install ...` command.")
+		return b.String()
+	}
+	b.WriteString("\nPostes:")
+	for _, n := range nodes {
+		slug := nodeSlug(n.Name)
+		state := "offline"
+		if connected[slug] {
+			state = "online"
+		}
+		mark := ""
+		if slug == target {
+			mark = " (current target)"
+		}
+		fmt.Fprintf(&b, "\n- %s [slug: %s] — %s, %s", n.Name, slug, state, n.OS)
+		if len(n.Caps) > 0 {
+			b.WriteString(", caps: " + strings.Join(n.Caps, ","))
+		}
+		if n.Root != "" {
+			b.WriteString(", folder: " + n.Root)
+		}
+		b.WriteString(mark)
+	}
+	b.WriteString("\n\nUse machines_use with a slug to operate on that poste, or \"local\" for this server.")
+	return b.String()
+}
+
+// toolMachinesUse bascule la cible d'exécution de l'agent (outil machines_use).
+// "local"/"" = serveur local ; sinon un slug de poste appairé (validé).
+func toolMachinesUse(args map[string]any) string {
+	raw, _ := args["machine"].(string)
+	slug := strings.TrimSpace(raw)
+	if slug == "" || strings.EqualFold(slug, "local") || strings.EqualFold(slug, "serveur") || strings.EqualFold(slug, "server") {
+		if err := setAgentTargetSlug(""); err != nil {
+			return "[erreur] " + err.Error()
+		}
+		return "[ok] cible = local (ce serveur). Tes prochains bash/write/edit s'exécutent ici."
+	}
+	// Validation : le slug doit correspondre à un poste appairé.
+	found := ""
+	for _, n := range loadNodes() {
+		if nodeSlug(n.Name) == slug {
+			found = n.Name
+			break
+		}
+	}
+	if found == "" {
+		return "[erreur] aucun poste avec le slug « " + slug + " » — utilise machines_list pour voir les slugs disponibles"
+	}
+	if err := setAgentTargetSlug(slug); err != nil {
+		return "[erreur] " + err.Error()
+	}
+	warn := ""
+	if nodeGet(slug) == nil {
+		warn = " ⚠ Ce poste est actuellement hors ligne : tes outils échoueront jusqu'à sa reconnexion."
+	}
+	return "[ok] cible = « " + found + " » (slug " + slug + "). Tes prochains bash/write/edit s'exécutent sur cette machine." + warn
+}
+
 // agentTargetShellName renvoie le shell de la MACHINE CIBLE : cmd.exe si le poste
 // ciblé tourne sous Windows, bash sinon. Sans cible → le shell du serveur local.
 // Indispensable : le serveur peut être sous Linux (bash) alors que le poste est

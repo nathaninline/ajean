@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const Version = "0.11.5"
+const Version = "0.11.6"
 
 // Main est le vrai main() du binaire (cmd/ajean ne fait que l'appeler).
 func Main() {
@@ -76,6 +76,8 @@ func Main() {
 		mustExit(cmdLink(args))
 	case "remote":
 		mustExit(cmdRemote(args))
+	case "postes":
+		mustExit(cmdPostes(args))
 	case "ui":
 		mustExit(cmdUI(args))
 	case "oai":

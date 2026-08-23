@@ -214,6 +214,42 @@ func bashTool() Tool {
 	}
 }
 
+// machinesListTool advertises the read-only view of the paired postes (other
+// machines) and the current execution target. No arguments.
+func machinesListTool() Tool {
+	return Tool{
+		Type: "function",
+		Function: ToolFunction{
+			Name:        "machines_list",
+			Description: "List the paired postes (other machines you can operate on) with their connection state, and show which one is your current execution target.",
+			Parameters: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+			},
+		},
+	}
+}
+
+// machinesUseTool switches which machine the agent operates on: a poste slug, or
+// "local" to come back to this server. Same target the user picks by hand in the
+// Postes distants panel.
+func machinesUseTool() Tool {
+	return Tool{
+		Type: "function",
+		Function: ToolFunction{
+			Name:        "machines_use",
+			Description: "Switch the machine you operate on: your bash/write/edit tools then run on it. Pass a poste slug (from machines_list), or \"local\" to operate on this server.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"machine": map[string]any{"type": "string", "description": "Poste slug to switch to, or \"local\" for this server."},
+				},
+				"required": []string{"machine"},
+			},
+		},
+	}
+}
+
 // Caps are the per-request capabilities (tool access) for a chat turn. They let
 // a caller (e.g. an ajean.link agent with its own tools/skills toggles) scope
 // what the model can do for this conversation, instead of always inheriting the
@@ -262,6 +298,9 @@ func InjectSkills(msgs []Message, caps Caps) []Message {
 	}
 	if mp := machineSystemPrompt(caps); mp != "" {
 		parts = append(parts, mp)
+	}
+	if mm := machineMgmtSystemPrompt(caps); mm != "" {
+		parts = append(parts, mm)
 	}
 	if len(parts) == 0 {
 		return msgs
@@ -334,6 +373,12 @@ func EnabledTools(caps Caps) []Tool {
 		// l'annoncer ferait croire au modèle qu'il a des yeux qu'il n'a pas.
 		if visionEnabled() {
 			tools = append(tools, seeImageTool())
+		}
+		// Gestion des machines (postes) : donnée seulement quand la capacité est
+		// activée. machines_list voit les postes, machines_use bascule la cible.
+		// L'ajout d'un poste, Jean le fait avec bash (ssh + ajean remote install).
+		if machinesEnabled() {
+			tools = append(tools, machinesListTool(), machinesUseTool())
 		}
 	}
 	// Mémoire = axe indépendant du mode agent : les outils mem_* sont fournis dès
@@ -853,7 +898,9 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 						key = "name"
 					case "task_delete":
 						key = "id"
-					case "task_list":
+					case "machines_use":
+						key = "machine"
+					case "task_list", "machines_list":
 						key = ""
 					}
 					p := previewArg(cur.Function.Arguments, key)
@@ -1038,6 +1085,8 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					label, _ = args["name"].(string)
 				case "task_delete":
 					label, _ = args["id"].(string)
+				case "machines_use":
+					label, _ = args["machine"].(string)
 				default:
 					// Outils MCP : libellé = un aperçu compact des arguments.
 					if isMCPTool(tc.Function.Name) {
@@ -1169,6 +1218,10 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					result = toolTaskUpdate(args)
 				case "task_delete":
 					result = toolTaskDelete(args)
+				case "machines_list":
+					result = toolMachinesList()
+				case "machines_use":
+					result = toolMachinesUse(args)
 				case "web_search":
 					result = capWebOutput(toolWebSearch(args))
 				case "web_open":

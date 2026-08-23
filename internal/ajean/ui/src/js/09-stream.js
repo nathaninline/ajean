@@ -404,6 +404,10 @@ function handleDelta(d){
       // pastille « N actives » et l'état suspendu doivent se remettre à jour tout
       // de suite, sans attendre un refresh manuel de la page.
       if(tu.name==='task_create'||tu.name==='task_update'||tu.name==='task_delete') loadTasks();
+      // L'IA a basculé de machine elle-même (machines_use) : l'icône du composeur
+      // et le sélecteur de cible doivent refléter la nouvelle machine tout de
+      // suite, sans attendre un clic/refresh manuel.
+      if(tu.name==='machines_use') loadNode();
     }
     if(ELAPSED) ensureGenEl(); // re-ancre la ligne EN DERNIER dans le même cycle : la bulle d'outil ne passe pas au-dessus (pas de saut)
     return; }

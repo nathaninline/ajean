@@ -514,7 +514,7 @@ func handleAgent(w http.ResponseWriter, r *http.Request) {
 	for _, p := range pages {
 		out = append(out, map[string]any{"name": p.Name, "desc": p.Title})
 	}
-	sendJSON(w, 200, map[string]any{"enabled": agentEnabled(), "compact": compactEnabled(), "mem_mode": string(memMode()), "pages": out, "skills": out})
+	sendJSON(w, 200, map[string]any{"enabled": agentEnabled(), "compact": compactEnabled(), "machines": machinesEnabled(), "mem_mode": string(memMode()), "pages": out, "skills": out})
 }
 
 // handleMemoryMode lit/écrit le mode mémoire (off / ondemand / always).
@@ -562,6 +562,25 @@ func handleCompactToggle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJSON(w, 200, map[string]any{"ok": true, "compact": compactEnabled()})
+}
+
+// handleMachinesToggle active/désactive la gestion autonome des machines
+// (config.env MACHINES). Off par défaut : sans ça, ni outils machines_* ni bloc
+// de prompt. Miroir de handleCompactToggle mais défaut inverse.
+func handleMachinesToggle(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		On bool `json:"on"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	val := ""
+	if req.On {
+		val = "on"
+	}
+	if err := SetConfigKey("MACHINES", val); err != nil {
+		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "machines": machinesEnabled()})
 }
 
 func handleAgentToggle(w http.ResponseWriter, r *http.Request) {

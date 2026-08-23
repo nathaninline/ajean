@@ -161,6 +161,7 @@ async function loadAgent(){
   const on = s.enabled;
   document.getElementById('agent-toggle').checked = on;
   document.getElementById('compact-toggle').checked = (s.compact !== false);
+  document.getElementById('machines-toggle').checked = !!s.machines;
   setBadge('agent-badge', on, on?'actif':'inactif');
   document.getElementById('brand').classList.toggle('agent', on);
   setAgentGate(on);
@@ -227,6 +228,12 @@ async function toggleAgent(){
 async function toggleCompact(){
   const on=document.getElementById('compact-toggle').checked;
   await jpost('/api/agent/compact',{on});
+}
+// Gestion autonome des machines (postes) : donne à l'IA les outils machines_*
+// et le briefing. Off par défaut, aucun effet quand décoché.
+async function toggleMachines(){
+  const on=document.getElementById('machines-toggle').checked;
+  await jpost('/api/agent/machines',{on});
 }
 // Mode mémoire (3 états) — indépendant du mode agent.
 const MEM_DESC={

@@ -164,6 +164,51 @@ func handleChatHistoryDelete(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true})
 }
 
+// handleChatHistoryRename (POST {id, title}) : renomme une conversation
+// archivée. Titre vide = re-dérive le titre automatique.
+func handleChatHistoryRename(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ID    string `json:"id"`
+		Title string `json:"title"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if strings.TrimSpace(body.ID) == "" {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "id manquant"})
+		return
+	}
+	if err := renameArchive(body.ID, body.Title); err != nil {
+		sendJSON(w, 404, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
+// handleChatHistoryFav (POST {id, fav}) : épingle/dépingle une conversation
+// archivée en favori.
+func handleChatHistoryFav(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ID  string `json:"id"`
+		Fav bool   `json:"fav"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if strings.TrimSpace(body.ID) == "" {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "id manquant"})
+		return
+	}
+	if err := setArchiveFav(body.ID, body.Fav); err != nil {
+		sendJSON(w, 404, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
+// handleChatHistoryClear (POST) : supprime toutes les conversations archivées
+// SAUF les favoris.
+func handleChatHistoryClear(w http.ResponseWriter, r *http.Request) {
+	n := deleteNonFavArchives()
+	sendJSON(w, 200, map[string]any{"ok": true, "deleted": n})
+}
+
 // handleChatCompact lance une compaction manuelle du contexte (bouton UI). La
 // progression est diffusée via le flux d'abonnement (compacting/compacted).
 func handleChatCompact(w http.ResponseWriter, r *http.Request) {

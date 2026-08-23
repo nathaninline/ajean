@@ -153,6 +153,7 @@
       <div class="subhead">Paramètres</div>
       <div class="slist">
         <label class="switchrow"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> compactage automatique du contexte<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="machines-toggle" onchange="toggleMachines()"><span class="slider"></span></span> gestion autonome des machines<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">désactivé par défaut : donne à l'IA les outils pour <b>voir les postes</b> et <b>basculer</b> la machine sur laquelle elle agit, et la rend consciente de la procédure d'<b>ajout</b> d'un poste (qu'elle peut faire seule via ssh + <code>ajean remote install</code>). Sans effet quand décoché.</span></span></label>
       </div>
     </div>
   </details>
@@ -535,7 +536,7 @@
       <div id="history-list" class="mcp-list"></div>
     </div>
     <div class="modal-foot">
-      <div class="foot-l"></div>
+      <div class="foot-l"><button id="history-clear-all" class="btn-danger" onclick="clearAllHistory()">tout supprimer (sauf favoris)</button></div>
       <div class="foot-r">
         <button onclick="closeHistoryModal()">fermer</button>
       </div>

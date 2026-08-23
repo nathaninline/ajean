@@ -28,7 +28,8 @@ import (
 type convArchive struct {
 	ID       string     `json:"id"`
 	Title    string     `json:"title"`
-	SavedAt  int64      `json:"saved_at"` // ms
+	Fav      bool       `json:"fav,omitempty"` // épinglée en favori (remonte en tête)
+	SavedAt  int64      `json:"saved_at"`      // ms
 	Turns    int        `json:"turns"`
 	Messages []Message  `json:"messages"`
 	Log      []LogEvent `json:"log"`
@@ -41,6 +42,7 @@ type convArchive struct {
 type convArchiveMeta struct {
 	ID      string `json:"id"`
 	Title   string `json:"title"`
+	Fav     bool   `json:"fav"`
 	SavedAt int64  `json:"saved_at"`
 	Turns   int    `json:"turns"`
 }
@@ -91,6 +93,48 @@ func loadArchive(id string) (*convArchive, bool) {
 
 func deleteArchive(id string) error { return putBytes(bkChatHist, id, nil) }
 
+// renameArchive donne un nom personnalisé à une conversation archivée. Un nom
+// vide re-dérive le titre automatique du premier message.
+func renameArchive(id, title string) error {
+	a, ok := loadArchive(id)
+	if !ok {
+		return fmt.Errorf("conversation introuvable")
+	}
+	title = strings.TrimSpace(title)
+	if title == "" {
+		title = archiveTitle(a.Log)
+	} else if len([]rune(title)) > 120 {
+		title = string([]rune(title)[:120])
+	}
+	a.Title = title
+	return saveArchive(a)
+}
+
+// deleteNonFavArchives supprime toutes les conversations archivées SAUF les
+// favoris. Renvoie le nombre supprimé.
+func deleteNonFavArchives() int {
+	n := 0
+	for _, m := range listArchives() {
+		if m.Fav {
+			continue
+		}
+		if deleteArchive(m.ID) == nil {
+			n++
+		}
+	}
+	return n
+}
+
+// setArchiveFav épingle/dépingle une conversation archivée en favori.
+func setArchiveFav(id string, fav bool) error {
+	a, ok := loadArchive(id)
+	if !ok {
+		return fmt.Errorf("conversation introuvable")
+	}
+	a.Fav = fav
+	return saveArchive(a)
+}
+
 // listArchives renvoie les métadonnées de toutes les conversations archivées, la
 // plus récente d'abord.
 func listArchives() []convArchiveMeta {
@@ -102,7 +146,13 @@ func listArchives() []convArchiveMeta {
 			out = append(out, m)
 		}
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].SavedAt > out[j].SavedAt })
+	// Favoris épinglés en tête, puis les plus récentes d'abord.
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Fav != out[j].Fav {
+			return out[i].Fav
+		}
+		return out[i].SavedAt > out[j].SavedAt
+	})
 	return out
 }
 

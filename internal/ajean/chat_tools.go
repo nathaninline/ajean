@@ -170,6 +170,22 @@ func machineSystemPrompt(caps Caps) string {
 	return b.String()
 }
 
+// machineMgmtSystemPrompt returns a short briefing that makes the model aware it
+// can manage the postes (other machines) itself. Returns "" unless machine
+// management is enabled AND the agent has its tools — so it adds NOTHING to the
+// current prompt when the feature is off. Kept short on purpose (see the
+// anti-verbose note in baseSystemPrompt).
+func machineMgmtSystemPrompt(caps Caps) string {
+	if !caps.Agent || !machinesEnabled() {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("You manage the postes (other machines) yourself. machines_list shows the paired postes and your current target; machines_use switches which machine your bash/write/edit run on (a poste slug, or \"local\" for this server).")
+	b.WriteString(" To add a new machine: run `ajean postes pair` with bash (on this local server) to get a pairing code and a ready-to-run `ajean remote install ...` line, then run that line on the target machine over ssh (you have ssh through bash — you can also scan the LAN to find machines). Once it connects it shows up in machines_list; switch to it with machines_use.")
+	b.WriteString(" Do this on your own when it helps, without asking first. `ajean postes ...` commands only work while your target is local.")
+	return b.String()
+}
+
 // runShell executes a command via the platform shell (bash -c on Unix, cmd /C
 // on Windows — see newShellCmd in sys_platform_*.go) with a clamped timeout,
 // returning a single string formatted "exit: N\n\nstdout:\n...\n\nstderr:\n..."

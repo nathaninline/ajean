@@ -1515,6 +1515,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
       <div class="subhead">Paramètres</div>
       <div class="slist">
         <label class="switchrow"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> compactage automatique du contexte<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="machines-toggle" onchange="toggleMachines()"><span class="slider"></span></span> gestion autonome des machines<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">désactivé par défaut : donne à l'IA les outils pour <b>voir les postes</b> et <b>basculer</b> la machine sur laquelle elle agit, et la rend consciente de la procédure d'<b>ajout</b> d'un poste (qu'elle peut faire seule via ssh + <code>ajean remote install</code>). Sans effet quand décoché.</span></span></label>
       </div>
     </div>
   </details>
@@ -1897,7 +1898,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
       <div id="history-list" class="mcp-list"></div>
     </div>
     <div class="modal-foot">
-      <div class="foot-l"></div>
+      <div class="foot-l"><button id="history-clear-all" class="btn-danger" onclick="clearAllHistory()">tout supprimer (sauf favoris)</button></div>
       <div class="foot-r">
         <button onclick="closeHistoryModal()">fermer</button>
       </div>
@@ -2621,8 +2622,8 @@ function _openAsk(kind, message, opts){
   const chk=document.getElementById('ask-check');
   chk.style.display = opts.check ? 'inline-flex' : 'none';
   document.getElementById('ask-check-label').textContent = opts.check || '';
-  document.getElementById('ask-check-input').checked = false;
-  _askCheck=false;
+  document.getElementById('ask-check-input').checked = !!opts.checkOn;
+  _askCheck=!!opts.checkOn;
   const cancel=document.getElementById('ask-cancel'), ok=document.getElementById('ask-ok');
   cancel.style.display = kind==='alert' ? 'none' : '';
   cancel.textContent = opts.cancelText || 'Annuler';
@@ -3137,6 +3138,7 @@ async function loadAgent(){
   const on = s.enabled;
   document.getElementById('agent-toggle').checked = on;
   document.getElementById('compact-toggle').checked = (s.compact !== false);
+  document.getElementById('machines-toggle').checked = !!s.machines;
   setBadge('agent-badge', on, on?'actif':'inactif');
   document.getElementById('brand').classList.toggle('agent', on);
   setAgentGate(on);
@@ -3203,6 +3205,12 @@ async function toggleAgent(){
 async function toggleCompact(){
   const on=document.getElementById('compact-toggle').checked;
   await jpost('/api/agent/compact',{on});
+}
+// Gestion autonome des machines (postes) : donne à l'IA les outils machines_*
+// et le briefing. Off par défaut, aucun effet quand décoché.
+async function toggleMachines(){
+  const on=document.getElementById('machines-toggle').checked;
+  await jpost('/api/agent/machines',{on});
 }
 // Mode mémoire (3 états) — indépendant du mode agent.
 const MEM_DESC={
@@ -4840,6 +4848,8 @@ function renderToolMsg(el, tu){
     task_update:{lbl:'tâche',     head:'modification tâche'},
     task_delete:{lbl:'tâche',     head:'suppression tâche'},
     see_image:  {lbl:'image',     head:'vision'},
+    machines_list:{lbl:'machines', head:'postes disponibles'},
+    machines_use: {lbl:'machines', head:'bascule de machine'},
   };
   // Outils MCP (nom mcp__<serveur>__<outil>) : en-tête = nom du serveur, libellé lisible,
   // pas le fallback générique. On extrait serveur et outil du nom namespacé.
@@ -4968,21 +4978,55 @@ async function loadHistory(){
   box.innerHTML = '';
   for(const c of list){
     const row = document.createElement('div'); row.className = 'mcp-row'; row.style.cursor = 'default';
-    const info = document.createElement('div'); info.className = 'mcp-info';
-    const name = document.createElement('div'); name.className = 'mcp-name'; name.textContent = c.title || 'Conversation';
+    // Étoile favori : épingle la conversation en tête de liste. Teintée accent
+    // quand active (pas de vert — préférence).
+    // Boutons compacts en icônes (info-bulle au survol) pour ne pas déborder.
+    const iconBtn = (glyph, title, onclick, extra)=>{
+      const b = document.createElement('button');
+      b.textContent = glyph; b.title = title; b.onclick = onclick;
+      b.style.cssText = 'padding:2px 6px;font-size:14px;line-height:1;background:none;border:none;cursor:pointer;color:var(--dim);' + (extra||'');
+      return b;
+    };
+    const info = document.createElement('div'); info.className = 'mcp-info'; info.style.minWidth = '0';
+    const name = document.createElement('div'); name.className = 'mcp-name';
+    // Étoile pleine (lecture seule) en tête d'un favori ; on l'épingle/dépingle
+    // depuis le modal de renommage.
+    name.textContent = (c.fav?'★ ':'') + (c.title || 'Conversation');
+    name.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' + (c.fav?';color:var(--accent)':'');
     const meta = document.createElement('div'); meta.className = 'mcp-meta';
     const sub = document.createElement('span'); sub.style.cssText = 'font-size:11px;color:var(--dim)';
     const n = c.turns || 0;
     sub.textContent = fmtHistDate(c.saved_at) + ' · ' + n + ' message' + (n>1?'s':'');
     meta.appendChild(sub);
     info.appendChild(name); info.appendChild(meta);
-    const load = document.createElement('button'); load.textContent = '↺ recharger';
-    load.style.cssText = 'padding:3px 8px;font-size:11px'; load.onclick = ()=>restoreHistory(c.id);
-    const del = document.createElement('button'); del.className = 'btn-danger'; del.textContent = 'supprimer';
-    del.style.cssText = 'padding:3px 8px;font-size:11px'; del.onclick = ()=>deleteHistory(c.id, c.title);
-    row.appendChild(info); row.appendChild(load); row.appendChild(del);
+    const load = iconBtn('↺', 'Recharger cette conversation', ()=>restoreHistory(c.id));
+    const ren = iconBtn('✎', 'Renommer / favori', ()=>renameHistory(c.id, c.title, c.fav));
+    const del = iconBtn('✕', 'Supprimer définitivement', ()=>deleteHistory(c.id, c.title));
+    row.appendChild(info); row.appendChild(load); row.appendChild(ren); row.appendChild(del);
     box.appendChild(row);
   }
+}
+// Renommer + (dé)favoriser dans le même modal : le champ nom + une case « favori »
+// pré-cochée selon l'état courant.
+async function renameHistory(id, current, wasFav){
+  wasFav = !!wasFav;
+  const name = await askPrompt('Nom de la conversation (laisser vide pour le nom automatique) :', {title:'Renommer la conversation', okText:'Enregistrer', default: current||'', placeholder:'ex. Config serveur GPU', check:'Favori (épinglé en tête)', checkOn:wasFav});
+  if(name===null) return; // annulé
+  const fav = askChecked();
+  try{
+    const r = await jpost('/api/chat/history/rename', {id, title:name});
+    if(!r.ok){ toast(r.error || 'renommage impossible'); return; }
+    if(fav!==wasFav){ await jpost('/api/chat/history/fav', {id, fav}); }
+  }catch(_){ toast('erreur réseau'); return; }
+  loadHistory();
+}
+// Supprime toutes les conversations SAUF les favoris.
+async function clearAllHistory(){
+  if(!await askConfirm('Supprimer toutes les conversations archivées, sauf les favoris ? Cette action est irréversible.', {title:'Tout supprimer', okText:'Tout supprimer', danger:true})) return;
+  let r; try{ r = await jpost('/api/chat/history/clear', {}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error || 'suppression impossible'); return; }
+  toast((r.deleted||0) + ' conversation' + ((r.deleted>1)?'s':'') + ' supprimée' + ((r.deleted>1)?'s':''));
+  loadHistory();
 }
 async function restoreHistory(id){
   let r; try{ r = await jpost('/api/chat/history/restore', {id}); }catch(_){ toast('erreur réseau'); return; }
@@ -5500,6 +5544,10 @@ function handleDelta(d){
       // pastille « N actives » et l'état suspendu doivent se remettre à jour tout
       // de suite, sans attendre un refresh manuel de la page.
       if(tu.name==='task_create'||tu.name==='task_update'||tu.name==='task_delete') loadTasks();
+      // L'IA a basculé de machine elle-même (machines_use) : l'icône du composeur
+      // et le sélecteur de cible doivent refléter la nouvelle machine tout de
+      // suite, sans attendre un clic/refresh manuel.
+      if(tu.name==='machines_use') loadNode();
     }
     if(ELAPSED) ensureGenEl(); // re-ancre la ligne EN DERNIER dans le même cycle : la bulle d'outil ne passe pas au-dessus (pas de saut)
     return; }
