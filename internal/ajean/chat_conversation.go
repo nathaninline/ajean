@@ -397,7 +397,9 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 		// dans la conversation partagée — donc pas de spam. Détaché : l'envoi HTTP
 		// vers le service de push ne doit pas retenir la fin du tour. Corps générique
 		// (pas d'extrait de réponse) : la notif transite par Apple/Google.
-		go sendPushToAll("AJEAN", "Réponse prête · "+fmtDurFR(time.Since(turnStart)))
+		if hasPushSubs() {
+			go sendPushToAll("AJEAN", "Réponse prête · "+fmtDurFR(time.Since(turnStart)))
+		}
 	}()
 
 	// Snapshot de la vue modèle.
