@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	codeberg.org/readeck/go-readability/v2 v2.1.2
 	github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.2
+	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/caddyserver/certmagic v0.25.4
 	github.com/coder/websocket v1.8.15
 	github.com/getlantern/systray v1.2.2
@@ -13,6 +14,7 @@ require (
 	go.etcd.io/bbolt v1.5.0
 	golang.org/x/mod v0.35.0
 	golang.org/x/net v0.55.0
+	golang.org/x/sys v0.45.0
 )
 
 require (
@@ -28,6 +30,7 @@ require (
 	github.com/go-shiori/dom v0.0.0-20230515143342-73569d674e1c // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/gogs/chardet v0.0.0-20211120154057-b7413eaefb8f // indirect
+	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/itlightning/dateparse v0.2.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
@@ -45,7 +48,6 @@ require (
 	golang.org/x/crypto v0.51.0 // indirect
 	golang.org/x/oauth2 v0.35.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.45.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/tools v0.44.0 // indirect
 )

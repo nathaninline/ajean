@@ -392,6 +392,12 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 		c.compactLogLocked() // le tour est fini : coalesce ses tokens pour garder le journal petit
 		c.mu.Unlock()
 		c.persist()
+		// Notification Web Push : ce chemin (generate) ne sert QUE les tours
+		// utilisateur — les tâches de fond passent par RunAutonomous, sans turn_done
+		// dans la conversation partagée — donc pas de spam. Détaché : l'envoi HTTP
+		// vers le service de push ne doit pas retenir la fin du tour. Corps générique
+		// (pas d'extrait de réponse) : la notif transite par Apple/Google.
+		go sendPushToAll("AJEAN", "Réponse prête · "+fmtDurFR(time.Since(turnStart)))
 	}()
 
 	// Snapshot de la vue modèle.

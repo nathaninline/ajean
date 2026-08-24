@@ -1,0 +1,17 @@
+{
+  "name": "AJEAN",
+  "short_name": "AJEAN",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect width='12' height='12' rx='2' ry='2' fill='%23000'/><rect x='6' y='3' width='2' height='2' fill='%23fff'/><rect x='6' y='5' width='2' height='2' fill='%23fff'/><rect x='4' y='7' width='2' height='2' fill='%23fff'/></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

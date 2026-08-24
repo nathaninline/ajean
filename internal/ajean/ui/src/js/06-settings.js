@@ -176,9 +176,12 @@ async function loadAgent(){
 // les outils mem_* ni les outils web ne sont fournis (voir globalCaps côté Go). On
 // grise donc ces blocs quand l'agent est off pour que l'UI ne mente pas.
 function setAgentGate(on){
-  ['mem-block','net-block','mcp-block','param-block'].forEach(id=>{
+  ['mem-block','net-block','mcp-block'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.classList.toggle('gated', !on);
   });
+  // « Paramètres » n'a plus de wrapper gaté (la notification y cohabite mais reste
+  // toujours active) : on grise les lignes agent UNE PAR UNE via .agent-gated.
+  document.querySelectorAll('.agent-gated').forEach(el=>el.classList.toggle('gated', !on));
 }
 // Repli/dépli de la liste des pages mémoire (fermée par défaut → gagne de la place).
 function toggleMemPages(){

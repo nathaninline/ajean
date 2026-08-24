@@ -50,17 +50,35 @@ addEventListener('DOMContentLoaded', initComposerPad);
 addEventListener('load', initComposerPad);
 addEventListener('pageshow', initComposerPad); // iOS : rechargement depuis le bfcache
 
+// scrollMaybe est appelé À CHAQUE token (paintGenStatus) ET à chaque rendu Markdown
+// (renderBody) : en streaming, des dizaines de fois par seconde. Écrire scrollTop
+// aussi souvent avait deux effets pénibles sur iPhone (PWA) : un layout synchrone
+// forcé (lecture de scrollHeight) qui jankait le thread principal, et surtout un
+// défilement programmatique quasi permanent du #chat — pendant lequel iOS AVALE les
+// taps (il croit qu'un geste de défilement est en cours), d'où « le menu et stop ne
+// répondent pas toujours ». On COALESCE donc : au plus une écriture de scroll par
+// frame (rAF), et on n'écrit RIEN quand on est déjà en bas (write redondant =
+// défilement inutile qui vole quand même les taps).
+let _scrollRAF = 0;
 function scrollMaybe(){
   // Pendant le replay initial on NE force AUCUN reflow : lire scrollHeight à chaque
   // événement rejoué = un layout synchrone forcé sur un DOM qui grossit → coût
   // quadratique (20-30 s de rendu au refresh sur un long fil). Le scroll est fait
   // une seule fois à la fin du replay, via jumpBottom() au signal {caught_up}.
   if(REPLAYING) return;
-  if(stickyBottom){
-    const c = chatEl();
-    c.scrollTop = c.scrollHeight;
-  }
-  document.getElementById('scrollbtn').classList.toggle('show', !stickyBottom);
+  if(_scrollRAF) return;                 // déjà planifié pour cette frame
+  _scrollRAF = requestAnimationFrame(()=>{
+    _scrollRAF = 0;
+    const c = chatEl(); if(!c) return;
+    if(stickyBottom){
+      const target = c.scrollHeight - c.clientHeight;
+      // Seuil : n'écris que si on n'y est pas déjà (à 1px près). Sinon on relance
+      // la machinerie de scroll d'iOS pour rien, et les taps continuent d'être volés.
+      if(Math.abs(c.scrollTop - target) > 1) c.scrollTop = target;
+    }
+    const sb = document.getElementById('scrollbtn');
+    if(sb) sb.classList.toggle('show', !stickyBottom);
+  });
 }
 function jumpBottom(){ stickyBottom = true; scrollMaybe(); }
 document.addEventListener('DOMContentLoaded', ()=>{

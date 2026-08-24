@@ -14,6 +14,10 @@
      (iOS n'accepte pas le SVG pour l'icône d'accueil). Aucun fichier externe requis. -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect width='12' height='12' rx='2' ry='2' fill='%23000'/><rect x='6' y='3' width='2' height='2' fill='%23fff'/><rect x='6' y='5' width='2' height='2' fill='%23fff'/><rect x='4' y='7' width='2' height='2' fill='%23fff'/></svg>">
 <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAABBUlEQVR42u3SAQkAAAwCQfuX3lI4GNxF0E8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIArU2NbcYhDHOIQhzgQB+JAHIgDcSAOxIE4xCEOcYhDHIgDcSAOxIE4EAfiQBziEIc4xCEOcYgDcSAOxIE4EAfiQBziEIc4xCEOcYgDcSAOxIE4EAfiQByIQxziEIc4xIE4EAfiQByIA3EgDsQhDnGIQxziEIc4EAfiQByIAxciDsSBOBAH4kAc4hCHOMQhDnGIA3EgDsSBOBAH4kAc4hCHOMQhDnGIA3EgDsSBOBAH4kAciEMc4hCHOMQBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADfLBHMhi4TnG6EAAAAAElFTkSuQmCC">
+<!-- Manifeste PWA (installabilité Android/desktop + Web Push). iOS s'appuie sur
+     les métas apple-* ci-dessus ; le manifeste ne le gêne pas. Servi à la racine
+     (web_server.go en local/tunnel, ajean-app sur app.ajean.link). -->
+<link rel="manifest" href="manifest.webmanifest">
 <!-- Marque le mode PWA AVANT le rendu : la hauteur de coque et le défilement du
      document en dépendent (voir styles.css). ⚠️ On NE PEUT PAS se fier au média
      `display-mode:standalone` : WebKit l'adosse au `display` du MANIFESTE, or cette
@@ -149,12 +153,16 @@
         </div>
       </div>
     </div>
-    <div id="param-block" class="gated-group">
-      <div class="subhead">Paramètres</div>
-      <div class="slist">
-        <label class="switchrow"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> compactage automatique du contexte<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
-        <label class="switchrow"><span class="switch"><input type="checkbox" id="machines-toggle" onchange="toggleMachines()"><span class="slider"></span></span> gestion autonome des machines<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">désactivé par défaut : donne à l'IA les outils pour <b>voir les postes</b> et <b>basculer</b> la machine sur laquelle elle agit, et la rend consciente de la procédure d'<b>ajout</b> d'un poste (qu'elle peut faire seule via ssh + <code>ajean remote install</code>). Sans effet quand décoché.</span></span></label>
-      </div>
+    <!-- Paramètres : compactage + machines sont gatés PAR LIGNE (classe agent-gated,
+         grisées quand le mode agent est off) ; la notification, elle, marche toujours
+         donc n'est PAS gatée — mais elle vit dans la MÊME carte, collée aux deux autres.
+         Le gate est par ligne et non sur un wrapper car les séparateurs/rembourrages
+         exigent que les .switchrow soient enfants DIRECTS de .slist. -->
+    <div class="subhead">Paramètres</div>
+    <div class="slist">
+        <label class="switchrow agent-gated"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> compactage automatique du contexte<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
+        <label class="switchrow agent-gated"><span class="switch"><input type="checkbox" id="machines-toggle" onchange="toggleMachines()"><span class="slider"></span></span> gestion autonome des machines<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">désactivé par défaut : donne à l'IA les outils pour <b>voir les postes</b> et <b>basculer</b> la machine sur laquelle elle agit, et la rend consciente de la procédure d'<b>ajout</b> d'un poste (qu'elle peut faire seule via ssh + <code>ajean remote install</code>). Sans effet quand décoché.</span></span></label>
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="push-toggle" onchange="togglePush()"><span class="slider"></span></span> me prévenir quand la réponse est prête<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Le serveur t'envoie une <b>notification</b> à la fin de chaque réponse, même l'app fermée ou le téléphone verrouillé. Sur iPhone : <b>ajoute d'abord AJEAN à l'écran d'accueil</b> puis active depuis l'app installée. À régler sur chaque appareil.</span></span></label>
     </div>
   </details>
   <details id="tasks-details"><summary><span class="stitle">Tâches</span><span id="tasks-badge" class="sbadge"></span></summary>

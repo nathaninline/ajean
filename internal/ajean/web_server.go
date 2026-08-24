@@ -18,7 +18,7 @@ import (
 )
 
 //go:generate go run ../../tools/assemble-ui ui
-//go:embed ui/index.html ui/marked.min.js
+//go:embed ui/index.html ui/marked.min.js ui/sw.js ui/manifest.webmanifest
 var uiFS embed.FS
 
 // cmdWeb starts the HTTP server on the given port (default 8090).
@@ -113,6 +113,23 @@ func newWebMux() *http.ServeMux {
 		b, _ := uiFS.ReadFile("ui/marked.min.js")
 		w.Header().Set("Content-Type", "application/javascript")
 		w.Header().Set("Cache-Control", "public, max-age=86400")
+		w.Write(b)
+	})
+	// Service worker + manifeste des notifications Web Push (voir push.go / sw.js).
+	// PUBLICS (aucun secret) et servis en clair à la RACINE : un service worker doit
+	// venir de l'origine même, et son scope est celui de son URL. no-store sur le SW
+	// pour qu'une mise à jour du worker soit toujours reprise (pas de cache figé).
+	mux.HandleFunc("/sw.js", func(w http.ResponseWriter, r *http.Request) {
+		b, _ := uiFS.ReadFile("ui/sw.js")
+		w.Header().Set("Content-Type", "application/javascript")
+		w.Header().Set("Cache-Control", "no-store, max-age=0")
+		w.Header().Set("Service-Worker-Allowed", "/")
+		w.Write(b)
+	})
+	mux.HandleFunc("/manifest.webmanifest", func(w http.ResponseWriter, r *http.Request) {
+		b, _ := uiFS.ReadFile("ui/manifest.webmanifest")
+		w.Header().Set("Content-Type", "application/manifest+json")
+		w.Header().Set("Cache-Control", "public, max-age=3600")
 		w.Write(b)
 	})
 	// api enregistre une route /api/* protégée par la clé de pilotage (web_auth.go).
@@ -214,6 +231,11 @@ func newWebMux() *http.ServeMux {
 	api("/api/chat/state", handleChatState)                    // instantané léger {seq, generating, ctx_used}
 	api("/api/chat/export", handleChatExport)                  // téléchargement du fil (?format=md|json)
 	api("/api/e2e/chat", handleE2EChat)                        // même flux mais chiffré E2E (boîte noire via le relais)
+	// Notifications Web Push : le serveur pousse une notif à la fin d'un tour
+	// utilisateur (push.go), même app fermée / iPhone verrouillé.
+	api("/api/push/key", handlePushKey)                 // clé publique VAPID (pour s'abonner)
+	api("/api/push/subscribe", handlePushSubscribe)     // enregistre un abonnement
+	api("/api/push/unsubscribe", handlePushUnsubscribe) // retire un abonnement
 	// Tâches planifiées : l'IA exécute des consignes toute seule sur une fréquence
 	// réglable (tasks.go). Le scheduler tourne dans CE process (celui qui possède la
 	// conversation et le modèle).

@@ -1,22 +1,22 @@
-L'historique des conversations devient un vrai espace « Sessions » qu'on gère (renommer, favori, garder ses fils sans les perdre), et la recherche dans la mémoire de l'IA remonte enfin les bonnes pages.
+Ton serveur peut enfin te prévenir quand la réponse est prête, même l'app fermée ou le téléphone verrouillé. Et plusieurs petits accrocs de l'app mobile sont réglés.
 
-## Sessions (ex-Historique)
+## Notifications
 
-* Le modal « Historique » devient « Sessions » : chaque conversation est une session persistante que tu peux ouvrir, renommer et mettre en favori, et elle reste dans la liste. Fini le fil qu'on recharge et qui disparaît.
-* Ouvrir une session sauvegarde d'abord celle en cours dans la sienne (même identifiant, nom et favori conservés) : rien ne se perd, aucun doublon. Le nom et le favori survivent maintenant à un aller-retour recharger puis nouvelle conversation, ce qui n'était pas le cas avant.
-* Design revu pour coller au reste de l'app : titres lisibles, favoris en tête, session en cours mise en avant et entourée, actions en petites icônes nettes (favori, renommer, supprimer), et un bouton « tout supprimer sauf favoris ».
-* Ouverture plus rapide (la liste ne recharge plus le contenu entier de chaque conversation juste pour l'afficher) et, à l'ouverture d'une session, on arrive directement en bas sur les derniers messages.
+* Nouveau : le serveur t'envoie une notification à la fin de chaque réponse, même quand l'app est fermée ou le téléphone verrouillé. Pratique pour lancer une longue génération et lâcher le téléphone. Ça passe par le Web Push (le serveur pousse directement vers Apple ou Google), donc pas besoin de garder l'app ouverte.
+* À activer par appareil, dans Mode agent, juste sous « compactage automatique » et « gestion des machines ». Sur iPhone il faut d'abord ajouter AJEAN à l'écran d'accueil, puis activer depuis l'app installée (c'est une contrainte d'iOS, qui n'autorise les notifications que pour les apps installées).
 
-## Recherche dans la mémoire
+## Application mobile (app.ajean.link)
 
-* La recherche de l'IA dans sa mémoire remonte enfin les pages pertinentes quand plusieurs mots sont cherchés. Avant, une petite page qui contenait vraiment les mots cherchés pouvait être noyée par de grosses pages qui répètent un mot courant, au point de ne pas ressortir du tout.
-* Le classement privilégie désormais les pages qui contiennent le plus de mots de la recherche, puis pondère par la rareté des mots (un mot rare et précis compte plus qu'un mot omniprésent), avec un bonus quand le mot est dans le nom ou le titre de la page.
+* Au lancement de l'app installée, tu arrives directement sur ton dernier serveur au lieu de repasser à chaque fois par la liste « Mes serveurs ». Un glissement depuis le bord gauche ramène à la liste si tu veux en changer.
+* Plus de flash blanc au lancement quand tu es en thème sombre : le bon thème est appliqué avant le premier affichage.
+* Le petit écran de chargement ne clignote plus un « ajean.link » disgracieux au démarrage.
 
-## Gestion des machines par l'IA
+## Interface
 
-* Rappel de la 0.11.6 (option à activer dans Mode agent) : l'IA peut voir les postes distants disponibles et basculer elle-même la machine sur laquelle elle agit. Ici, quand elle bascule, l'icône de la barre de saisie se met à jour tout de suite.
+* Les boutons menu et stop répondent de nouveau de façon fiable pendant que la réponse défile. Avant, sur téléphone, un appui sur deux pouvait être ignoré parce que le fil se repositionnait en permanence pendant l'écriture.
+* L'animation des trois points du chargement d'une conversation refonctionne (elle était figée depuis quelques versions : son animation avait été retirée par erreur).
 
-> Note : versions interface et mémoire, le moteur d'inférence n'est pas touché (aucun rechargement de modèle à la mise à jour). Vérifiée sur le serveur de Alice (Linux) ; le comportement sous macOS n'a pas été testé.
+> Note : version interface et mobile, le moteur d'inférence n'est pas touché (aucun rechargement de modèle à la mise à jour). Vérifiée sur le serveur de Alice (Linux) et l'app iPhone ; le comportement sous macOS n'a pas été testé.
 
 ## Mettre à jour
 

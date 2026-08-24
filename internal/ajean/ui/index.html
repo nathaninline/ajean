@@ -14,6 +14,10 @@
      (iOS n'accepte pas le SVG pour l'icône d'accueil). Aucun fichier externe requis. -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect width='12' height='12' rx='2' ry='2' fill='%23000'/><rect x='6' y='3' width='2' height='2' fill='%23fff'/><rect x='6' y='5' width='2' height='2' fill='%23fff'/><rect x='4' y='7' width='2' height='2' fill='%23fff'/></svg>">
 <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAABBUlEQVR42u3SAQkAAAwCQfuX3lI4GNxF0E8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIArU2NbcYhDHOIQhzgQB+JAHIgDcSAOxIE4xCEOcYhDHIgDcSAOxIE4EAfiQBziEIc4xCEOcYgDcSAOxIE4EAfiQBziEIc4xCEOcYgDcSAOxIE4EAfiQByIQxziEIc4xIE4EAfiQByIA3EgDsQhDnGIQxziEIc4EAfiQByIAxciDsSBOBAH4kAc4hCHOMQhDnGIA3EgDsSBOBAH4kAc4hCHOMQhDnGIA3EgDsSBOBAH4kAciEMc4hCHOMQBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADfLBHMhi4TnG6EAAAAAElFTkSuQmCC">
+<!-- Manifeste PWA (installabilité Android/desktop + Web Push). iOS s'appuie sur
+     les métas apple-* ci-dessus ; le manifeste ne le gêne pas. Servi à la racine
+     (web_server.go en local/tunnel, ajean-app sur app.ajean.link). -->
+<link rel="manifest" href="manifest.webmanifest">
 <!-- Marque le mode PWA AVANT le rendu : la hauteur de coque et le défilement du
      document en dépendent (voir styles.css). ⚠️ On NE PEUT PAS se fier au média
      `display-mode:standalone` : WebKit l'adosse au `display` du MANIFESTE, or cette
@@ -95,7 +99,7 @@ select{color-scheme:inherit}
 option,optgroup{background:var(--panel);color:var(--text)}
 .side{width:320px;border-right:1px solid var(--border);padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));overflow-y:auto;flex-shrink:0}
 .main{flex:1;display:flex;flex-direction:column;min-width:0}
-#menubtn{display:none;position:fixed;top:calc(10px + env(safe-area-inset-top));left:calc(10px + env(safe-area-inset-left));z-index:20;background:var(--panel);border:1px solid var(--border);color:var(--text);width:40px;height:40px;border-radius:6px;font-size:18px;cursor:pointer}
+#menubtn{display:none;position:fixed;top:calc(10px + env(safe-area-inset-top));left:calc(10px + env(safe-area-inset-left));z-index:20;background:var(--panel);border:1px solid var(--border);color:var(--text);width:40px;height:40px;border-radius:6px;font-size:18px;cursor:pointer;touch-action:manipulation}
 #backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10}
 /* Pastille « installation en cours » : suit exactement les règles d'affichage
    du bouton ☰ (elle ne sert que quand le panneau est en tiroir, donc caché). */
@@ -188,6 +192,10 @@ h1{margin:0;font-size:18px;color:var(--accent)}
    (étiquette comprise), plus sur la carte seule. */
 .gated-group{margin:0 0 10px;transition:opacity .15s}
 .gated-group.gated{opacity:.4;pointer-events:none;filter:grayscale(.4)}
+/* Gate d'UNE ligne (ex. compactage/machines dans « Paramètres ») : même effet que
+   le groupe, mais appliqué à la .switchrow seule pour qu'une ligne voisine non gatée
+   (la notification) reste pleinement active dans la même carte. */
+.switchrow.gated{opacity:.4;pointer-events:none;filter:grayscale(.4);transition:opacity .15s}
 .switch{position:relative;display:inline-block;width:36px;height:20px;flex:none}
 .switch input{position:absolute;opacity:0;width:0;height:0}
 /* Piste décochée : un gris franc (pas --border), sinon le pavé blanc ne se
@@ -443,6 +451,11 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .cl-dots span{width:7px;height:7px;border-radius:50%;background:var(--dim);animation:typingdot 1.2s infinite ease-in-out}
 .cl-dots span:nth-child(2){animation-delay:.16s}
 .cl-dots span:nth-child(3){animation-delay:.32s}
+/* Les 3 points « qui sautent » du voile de chargement. Ce keyframes avait disparu
+   (renommé/supprimé lors d'un ménage), laissant l'animation pointer dans le vide →
+   points figés. On le redéfinit : petit saut vers le haut, échelonné par les délais
+   ci-dessus. */
+@keyframes typingdot{0%,80%,100%{transform:translateY(0);opacity:.45}40%{transform:translateY(-6px);opacity:1}}
 .msg .label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;display:block}
 /* Bulles repliables (reasoning / tool) : une fois la réponse arrivée, on les
    replie en douceur pour désencombrer le fil, tout en gardant le label (et son
@@ -1191,7 +1204,10 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
 /* Pas de cadre qui s'assombrit au focus : la carte garde exactement la même
    bordure, seule la saisie change (curseur). */
 #input:focus{border-color:transparent}
-#send,#stop{border-radius:999px;height:36px;min-height:36px;padding:0 18px;margin:0}
+/* touch-action:manipulation : supprime le délai de double-tap et lève l'ambiguïté
+   geste/tap sur iOS — le bouton stop répond au premier appui même pendant que le
+   fil défile en streaming (voir scrollMaybe, coalescé). */
+#send,#stop{border-radius:999px;height:36px;min-height:36px;padding:0 18px;margin:0;touch-action:manipulation}
 #send{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
 #send:hover:not(:disabled){opacity:.85;color:var(--bg);border-color:var(--text)}
 /* Pied de carte : c'est LUI qui porte l'arrondi bas (26 px, comme en haut) et
@@ -1532,12 +1548,16 @@ button:hover{border-color:var(--dim);color:var(--text)}
         </div>
       </div>
     </div>
-    <div id="param-block" class="gated-group">
-      <div class="subhead">Paramètres</div>
-      <div class="slist">
-        <label class="switchrow"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> compactage automatique du contexte<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
-        <label class="switchrow"><span class="switch"><input type="checkbox" id="machines-toggle" onchange="toggleMachines()"><span class="slider"></span></span> gestion autonome des machines<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">désactivé par défaut : donne à l'IA les outils pour <b>voir les postes</b> et <b>basculer</b> la machine sur laquelle elle agit, et la rend consciente de la procédure d'<b>ajout</b> d'un poste (qu'elle peut faire seule via ssh + <code>ajean remote install</code>). Sans effet quand décoché.</span></span></label>
-      </div>
+    <!-- Paramètres : compactage + machines sont gatés PAR LIGNE (classe agent-gated,
+         grisées quand le mode agent est off) ; la notification, elle, marche toujours
+         donc n'est PAS gatée — mais elle vit dans la MÊME carte, collée aux deux autres.
+         Le gate est par ligne et non sur un wrapper car les séparateurs/rembourrages
+         exigent que les .switchrow soient enfants DIRECTS de .slist. -->
+    <div class="subhead">Paramètres</div>
+    <div class="slist">
+        <label class="switchrow agent-gated"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> compactage automatique du contexte<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
+        <label class="switchrow agent-gated"><span class="switch"><input type="checkbox" id="machines-toggle" onchange="toggleMachines()"><span class="slider"></span></span> gestion autonome des machines<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">désactivé par défaut : donne à l'IA les outils pour <b>voir les postes</b> et <b>basculer</b> la machine sur laquelle elle agit, et la rend consciente de la procédure d'<b>ajout</b> d'un poste (qu'elle peut faire seule via ssh + <code>ajean remote install</code>). Sans effet quand décoché.</span></span></label>
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="push-toggle" onchange="togglePush()"><span class="slider"></span></span> me prévenir quand la réponse est prête<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Le serveur t'envoie une <b>notification</b> à la fin de chaque réponse, même l'app fermée ou le téléphone verrouillé. Sur iPhone : <b>ajoute d'abord AJEAN à l'écran d'accueil</b> puis active depuis l'app installée. À régler sur chaque appareil.</span></span></label>
     </div>
   </details>
   <details id="tasks-details"><summary><span class="stitle">Tâches</span><span id="tasks-badge" class="sbadge"></span></summary>
@@ -3173,9 +3193,12 @@ async function loadAgent(){
 // les outils mem_* ni les outils web ne sont fournis (voir globalCaps côté Go). On
 // grise donc ces blocs quand l'agent est off pour que l'UI ne mente pas.
 function setAgentGate(on){
-  ['mem-block','net-block','mcp-block','param-block'].forEach(id=>{
+  ['mem-block','net-block','mcp-block'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.classList.toggle('gated', !on);
   });
+  // « Paramètres » n'a plus de wrapper gaté (la notification y cohabite mais reste
+  // toujours active) : on grise les lignes agent UNE PAR UNE via .agent-gated.
+  document.querySelectorAll('.agent-gated').forEach(el=>el.classList.toggle('gated', !on));
 }
 // Repli/dépli de la liste des pages mémoire (fermée par défaut → gagne de la place).
 function toggleMemPages(){
@@ -4726,17 +4749,35 @@ addEventListener('DOMContentLoaded', initComposerPad);
 addEventListener('load', initComposerPad);
 addEventListener('pageshow', initComposerPad); // iOS : rechargement depuis le bfcache
 
+// scrollMaybe est appelé À CHAQUE token (paintGenStatus) ET à chaque rendu Markdown
+// (renderBody) : en streaming, des dizaines de fois par seconde. Écrire scrollTop
+// aussi souvent avait deux effets pénibles sur iPhone (PWA) : un layout synchrone
+// forcé (lecture de scrollHeight) qui jankait le thread principal, et surtout un
+// défilement programmatique quasi permanent du #chat — pendant lequel iOS AVALE les
+// taps (il croit qu'un geste de défilement est en cours), d'où « le menu et stop ne
+// répondent pas toujours ». On COALESCE donc : au plus une écriture de scroll par
+// frame (rAF), et on n'écrit RIEN quand on est déjà en bas (write redondant =
+// défilement inutile qui vole quand même les taps).
+let _scrollRAF = 0;
 function scrollMaybe(){
   // Pendant le replay initial on NE force AUCUN reflow : lire scrollHeight à chaque
   // événement rejoué = un layout synchrone forcé sur un DOM qui grossit → coût
   // quadratique (20-30 s de rendu au refresh sur un long fil). Le scroll est fait
   // une seule fois à la fin du replay, via jumpBottom() au signal {caught_up}.
   if(REPLAYING) return;
-  if(stickyBottom){
-    const c = chatEl();
-    c.scrollTop = c.scrollHeight;
-  }
-  document.getElementById('scrollbtn').classList.toggle('show', !stickyBottom);
+  if(_scrollRAF) return;                 // déjà planifié pour cette frame
+  _scrollRAF = requestAnimationFrame(()=>{
+    _scrollRAF = 0;
+    const c = chatEl(); if(!c) return;
+    if(stickyBottom){
+      const target = c.scrollHeight - c.clientHeight;
+      // Seuil : n'écris que si on n'y est pas déjà (à 1px près). Sinon on relance
+      // la machinerie de scroll d'iOS pour rien, et les taps continuent d'être volés.
+      if(Math.abs(c.scrollTop - target) > 1) c.scrollTop = target;
+    }
+    const sb = document.getElementById('scrollbtn');
+    if(sb) sb.classList.toggle('show', !stickyBottom);
+  });
 }
 function jumpBottom(){ stickyBottom = true; scrollMaybe(); }
 document.addEventListener('DOMContentLoaded', ()=>{
@@ -7248,4 +7289,119 @@ async function runTaskNow(){
     st.style.color = 'var(--err)';
   }
 }
+// 17-push.js — notifications Web Push côté client (voir push.go / sw.js).
+//
+// Le SERVEUR pousse une notif à la fin d'un tour utilisateur, même app fermée /
+// iPhone verrouillé. Ici on gère juste l'INSCRIPTION : enregistrer le service
+// worker, demander la permission (sur clic — geste utilisateur obligatoire),
+// s'abonner avec la clé publique VAPID du serveur, et transmettre l'abonnement.
+//
+// ⚠️ Le service worker est un fichier de l'ORIGINE (/sw.js), pas un appel /api :
+// en local et sur app.ajean.link (GitHub Pages) il est servi à la racine. La clé
+// VAPID et l'enregistrement de l'abonnement, eux, passent par jfetch (donc E2E).
+
+// pushSupported : le navigateur sait-il faire du Web Push ? (Safari macOS < 16.1,
+// iOS Safari hors PWA installée, vieux navigateurs → non.)
+function pushSupported(){
+  return ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
+}
+
+// La clé VAPID est renvoyée en base64url ; PushManager.subscribe veut un Uint8Array.
+function urlB64ToUint8Array(base64){
+  const pad = '='.repeat((4 - base64.length % 4) % 4);
+  const b64 = (base64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(b64);
+  const out = new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++) out[i]=raw.charCodeAt(i);
+  return out;
+}
+
+// Enregistre (une seule fois) le service worker et renvoie sa registration.
+// Scope racine : le worker doit couvrir toute l'app pour recevoir les push.
+let _swReg = null;
+async function pushRegisterSW(){
+  if(_swReg) return _swReg;
+  _swReg = await navigator.serviceWorker.register('/sw.js', {scope:'/'});
+  return _swReg;
+}
+
+function pushSetStatus(msg){
+  const el = document.getElementById('push-status');
+  if(el) el.textContent = msg || '';
+}
+
+// Reflète l'état réel (abonné ou non, permission refusée, non supporté) dans
+// l'interrupteur + la ligne d'état. Appelé au chargement et après chaque bascule.
+async function pushRefresh(){
+  const cb = document.getElementById('push-toggle');
+  if(!cb) return;
+  if(!pushSupported()){
+    cb.checked = false; cb.disabled = true;
+    // iOS ne sait faire du Web Push QUE depuis une PWA ajoutée à l'écran d'accueil.
+    if(document.documentElement.getAttribute('data-pwa')!=='1' && /iphone|ipad|ipod/i.test(navigator.userAgent))
+      pushSetStatus('Sur iPhone : ajoute d\'abord AJEAN à l\'écran d\'accueil, puis rouvre-le depuis l\'icône pour activer les notifications.');
+    else
+      pushSetStatus('Ce navigateur ne prend pas en charge les notifications.');
+    return;
+  }
+  if(Notification.permission === 'denied'){
+    cb.checked = false; cb.disabled = false;
+    pushSetStatus('Notifications bloquées dans les réglages du navigateur — réautorise-les pour ce site.');
+    return;
+  }
+  try{
+    const reg = await pushRegisterSW();
+    const sub = await reg.pushManager.getSubscription();
+    cb.checked = !!sub; cb.disabled = false;
+    pushSetStatus(sub ? 'Activées : une notif à chaque réponse terminée.' : '');
+  }catch(e){ cb.checked=false; pushSetStatus(''); }
+}
+
+// togglePush : abonne ou désabonne selon l'état de l'interrupteur.
+async function togglePush(){
+  const cb = document.getElementById('push-toggle');
+  const want = cb.checked;
+  if(!pushSupported()){ cb.checked=false; await pushRefresh(); return; }
+  try{
+    if(want){
+      // Permission (geste utilisateur = ce clic). Refus → on éteint et on explique.
+      const perm = await Notification.requestPermission();
+      if(perm !== 'granted'){ cb.checked=false; pushSetStatus('Permission refusée — rien ne sera envoyé.'); return; }
+      const reg = await pushRegisterSW();
+      let sub = await reg.pushManager.getSubscription();
+      if(!sub){
+        const r = await jget('/api/push/key');
+        if(!r || !r.key){ cb.checked=false; pushSetStatus('Clé serveur indisponible — réessaie.'); return; }
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,               // exigé par Chrome : pas de push silencieux
+          applicationServerKey: urlB64ToUint8Array(r.key)
+        });
+      }
+      const res = await jpost('/api/push/subscribe', sub.toJSON());
+      if(!res || !res.ok){ pushSetStatus('Échec de l\'enregistrement côté serveur.'); }
+      else pushSetStatus('Activées : une notif à chaque réponse terminée.');
+      toast('notifications activées');
+    } else {
+      const reg = await pushRegisterSW();
+      const sub = await reg.pushManager.getSubscription();
+      if(sub){
+        const ep = sub.endpoint;
+        await sub.unsubscribe().catch(()=>{});
+        await jpost('/api/push/unsubscribe', {endpoint:ep}).catch(()=>{});
+      }
+      pushSetStatus('');
+      toast('notifications coupées');
+    }
+  }catch(e){
+    cb.checked = !want;
+    pushSetStatus('Erreur : ' + (e && e.message ? e.message : e));
+  }
+}
+
+// Au chargement : enregistre le SW en avance (pour recevoir les push même sans
+// ouvrir les réglages) et cale l'interrupteur. Silencieux si non supporté.
+if(pushSupported()){
+  navigator.serviceWorker.register('/sw.js', {scope:'/'}).then(r=>{ _swReg=r; }).catch(()=>{});
+}
+document.addEventListener('DOMContentLoaded', ()=>{ pushRefresh(); });
 </script></body></html>
