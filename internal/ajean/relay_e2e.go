@@ -231,6 +231,11 @@ func handleE2EReq(w http.ResponseWriter, r *http.Request, inner http.Handler) {
 		bodyReader = bytes.NewReader(req.Body)
 	}
 	ir := httptest.NewRequest(method, req.Path, bodyReader)
+	// L'enveloppe E2E a déjà prouvé l'identité de l'utilisateur (e2eAuthOpenReq) :
+	// on marque la requête interne comme authentifiée (contexte non falsifiable),
+	// ce qui remplace l'ancienne injection de clé (withLocalAuth). requireWebAuth
+	// l'accepte alors sans exiger la clé de pilotage.
+	ir = markE2EAuthed(ir)
 	ir.Header.Set("Content-Type", "application/json")
 	// Marque la requête comme arrivée PAR LE TUNNEL. Tout ce qui ressort d'ici est
 	// réemballé en JSON (voir plus bas) : un handler qui renvoie du binaire — le

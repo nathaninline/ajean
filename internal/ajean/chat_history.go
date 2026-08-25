@@ -15,7 +15,6 @@ package ajean
 // ferait réapparaître un doublon au prochain clear.
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -82,17 +81,20 @@ func countUserTurns(log []LogEvent) int {
 // --- persistance --------------------------------------------------------------
 
 func saveArchive(a *convArchive) error {
-	if err := putJSON(bkChatHist, a.ID, a); err != nil {
+	// Chiffré si le chiffrement est actif ET déverrouillé (le fil ET son titre
+	// d'index contiennent des infos). Verrouillé : putStoreJSON refuse d'écrire du
+	// clair (errStoreLocked) — on ne dégrade jamais un blob chiffré.
+	if err := putStoreJSON(bkChatHist, a.ID, a); err != nil {
 		return err
 	}
 	// Index léger tenu à jour en parallèle : lister ne relit alors que ces petites
 	// métadonnées, pas le fil complet de chaque session.
-	return putJSON(bkChatMeta, a.ID, convArchiveMeta{ID: a.ID, Title: a.Title, Fav: a.Fav, SavedAt: a.SavedAt, Turns: a.Turns})
+	return putStoreJSON(bkChatMeta, a.ID, convArchiveMeta{ID: a.ID, Title: a.Title, Fav: a.Fav, SavedAt: a.SavedAt, Turns: a.Turns})
 }
 
 func loadArchive(id string) (*convArchive, bool) {
 	var a convArchive
-	if !getJSON(bkChatHist, id, &a) || a.ID == "" {
+	if !getStoreJSON(bkChatHist, id, &a) || a.ID == "" {
 		return nil, false
 	}
 	return &a, true
@@ -150,27 +152,28 @@ func setArchiveFav(id string, fav bool) error {
 // listArchives renvoie les métadonnées de toutes les conversations archivées, la
 // plus récente d'abord.
 func listArchives() []convArchiveMeta {
-	kv := allKV(bkChatMeta)
-	// Sessions d'avant l'index (migration) : si le blob complet existe sans entrée
-	// d'index, on la reconstruit une fois. Après ce backfill, l'index suffit.
-	if hist := allKV(bkChatHist); len(hist) != len(kv) {
-		for id, v := range hist {
-			if _, ok := kv[id]; ok {
-				continue
-			}
-			var a convArchive
-			if json.Unmarshal([]byte(v), &a) == nil && a.ID != "" {
-				m := convArchiveMeta{ID: a.ID, Title: a.Title, Fav: a.Fav, SavedAt: a.SavedAt, Turns: a.Turns}
-				_ = putJSON(bkChatMeta, a.ID, m)
-				b, _ := json.Marshal(m)
-				kv[id] = string(b)
-			}
+	// Les valeurs d'index peuvent être chiffrées : on les décode via getStoreJSON.
+	// Mémoire verrouillée = index illisible = liste vide (les sessions réapparaissent
+	// au déverrouillage), jamais une erreur.
+	metaKeys := allKV(bkChatMeta)
+	out := make([]convArchiveMeta, 0, len(metaKeys))
+	seen := map[string]bool{}
+	for id := range metaKeys {
+		var m convArchiveMeta
+		if getStoreJSON(bkChatMeta, id, &m) && m.ID != "" {
+			out = append(out, m)
+			seen[m.ID] = true
 		}
 	}
-	out := make([]convArchiveMeta, 0, len(kv))
-	for _, v := range kv {
-		var m convArchiveMeta
-		if json.Unmarshal([]byte(v), &m) == nil && m.ID != "" {
+	// Sessions d'avant l'index (migration) : blob complet présent sans entrée
+	// d'index. On le reconstruit une fois (respecte le chiffrement via load/save).
+	for id := range allKV(bkChatHist) {
+		if seen[id] {
+			continue
+		}
+		if a, ok := loadArchive(id); ok && a.ID != "" {
+			m := convArchiveMeta{ID: a.ID, Title: a.Title, Fav: a.Fav, SavedAt: a.SavedAt, Turns: a.Turns}
+			_ = putStoreJSON(bkChatMeta, a.ID, m)
 			out = append(out, m)
 		}
 	}

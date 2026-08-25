@@ -534,6 +534,10 @@ details>summary+.subhead{margin-top:4px}
   font-size:12.5px;cursor:pointer;user-select:none}
 .slist>.switchrow{padding:6px 10px}
 .slist>.switchrow:not(:last-child){border-bottom:1px solid var(--border)}
+/* Filet HAUT explicite : pour une ligne qui suit le navigateur de pages
+   (.pages-bar/.mem-pages-body ne portent pas de filet bas), sinon elle se colle
+   à la liste au-dessus sans séparation. */
+.slist>.switchrow.septop{border-top:1px solid var(--border)}
 .switchrow .switch{margin-left:auto;order:2;flex:none}
 .switchrow>span:first-child{min-width:0}
 

@@ -46,7 +46,7 @@ func cmdWeb(args []string) error {
 		}
 	}
 	fmt.Printf("[ajean web] http://%s  (Ctrl-C pour arrêter)\n", addr)
-	if readWebKey() == "" {
+	if !webKeyConfigured() {
 		fmt.Printf("%s API de pilotage NON protégée (aucune clé). Avant de l'exposer sur internet :\n", yellow("[!]"))
 		fmt.Printf("       %s\n", bold("ajean set-web-key"))
 	} else {
@@ -99,6 +99,16 @@ func newWebMux() *http.ServeMux {
 	// recharge son état pour l'annoncer « interrompue » au lieu de n'afficher
 	// plus rien du tout.
 	lcRestoreOnce.Do(lcRestore)
+	// Reprend une migration de chiffrement mémoire interrompue (crash/coupure).
+	// Sans DEK en RAM (démarrage à froid), laisse le journal en place : un
+	// déverrouillage ultérieur la reprendra. Ne perd jamais de données.
+	resumeMemMigration()
+	// La clé de pilotage n'est plus stockée en clair (juste son empreinte) : on
+	// convertit une ancienne valeur en clair une fois pour toutes.
+	migrateWebKeyToHash()
+	// Boucle de sauvegarde automatique vers ajean.link (no-op tant que non activée
+	// / non liée / non armée depuis le démarrage).
+	StartBackupScheduler()
 	mux := http.NewServeMux()
 	// Pages publiques : le HTML et le JS ne contiennent aucun secret. Toute la
 	// donnée et toutes les actions passent par /api/* qui, lui, exige la clé.
@@ -209,6 +219,17 @@ func newWebMux() *http.ServeMux {
 	api("/api/mem", handleMem)
 	api("/api/mem/save", handleMemSave)
 	api("/api/mem/delete", handleMemDelete)
+	api("/api/mem/health", handleMemHealth)     // état chiffrement/verrou/pages/snapshots
+	api("/api/mem/encrypt", handleMemEncrypt)   // active le chiffrement (renvoie la clé de récupération)
+	api("/api/mem/decrypt", handleMemDecrypt)   // remet la mémoire en clair
+	api("/api/mem/unlock", handleMemUnlock)     // déverrouille (mot de passe ou clé de récupération)
+	api("/api/mem/addkey", handleMemAddKey)     // ajoute un wrap (ex. clé d'API) au coffre déjà ouvert
+	api("/api/mem/lock", handleMemLock)         // reverrouille (purge la DEK de la RAM)
+	api("/api/mem/snapshots", handleMemSnapshots) // liste + restauration des snapshots locaux
+	api("/api/backup/status", handleBackupStatus)   // état sauvegarde ajean.link
+	api("/api/backup/now", handleBackupNow)         // sauvegarde immédiate (abonné)
+	api("/api/backup/restore", handleBackupRestore) // restauration depuis le relais
+	api("/api/backup/auto", handleBackupAuto)       // active/désactive l'auto
 	api("/api/switch", handleSwitch)
 	api("/api/start", svcHandler("start"))
 	api("/api/stop", svcHandler("stop"))
@@ -230,7 +251,9 @@ func newWebMux() *http.ServeMux {
 	api("/api/chat/compact", handleChatCompact)                // compaction manuelle du contexte
 	api("/api/chat/state", handleChatState)                    // instantané léger {seq, generating, ctx_used}
 	api("/api/chat/export", handleChatExport)                  // téléchargement du fil (?format=md|json)
-	api("/api/e2e/chat", handleE2EChat)                        // même flux mais chiffré E2E (boîte noire via le relais)
+	// /api/e2e/chat s'authentifie LUI-MÊME (e2eAuthOpenReq) : pas de requireWebAuth
+	// (sinon 401, l'injection de clé ayant disparu). Le canal E2E EST l'auth.
+	mux.HandleFunc("/api/e2e/chat", handleE2EChat)
 	// Notifications Web Push : le serveur pousse une notif à la fin d'un tour
 	// utilisateur (push.go), même app fermée / iPhone verrouillé.
 	api("/api/push/key", handlePushKey)                 // clé publique VAPID (pour s'abonner)

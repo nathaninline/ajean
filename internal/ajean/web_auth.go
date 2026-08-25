@@ -1,13 +1,82 @@
 package ajean
 
 import (
+	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strings"
 )
+
+// La clé de pilotage n'est plus stockée en CLAIR : seule son EMPREINTE (SHA-256)
+// est persistée, sous bkState "web_key_hash". Ainsi le serveur peut VALIDER un
+// Bearer présenté (il compare les empreintes) mais ne détient jamais la clé
+// elle-même — condition pour que cette même clé serve à ouvrir le coffre du
+// chiffrement sans que le serveur puisse l'ouvrir seul.
+
+func hashWebKey(k string) string {
+	sum := sha256.Sum256([]byte(k))
+	return hex.EncodeToString(sum[:])
+}
+
+// webKeyHashErr renvoie l'empreinte stockée en distinguant « aucune clé » d'une
+// lecture ratée (voir requireWebAuth : une lecture ratée FERME l'API).
+func webKeyHashErr() (string, error) {
+	b, err := getBytesErr(bkState, "web_key_hash")
+	return string(b), err
+}
+
+// webKeyConfigured indique qu'une clé de pilotage est définie (empreinte présente).
+func webKeyConfigured() bool { h, _ := webKeyHashErr(); return h != "" }
+
+// storeWebKey enregistre la clé de pilotage sous forme d'EMPREINTE uniquement
+// (jamais le clair), et efface tout ancien clair résiduel. key vide = protection
+// retirée.
+func storeWebKey(key string) error {
+	_ = putStr(bkState, "web_key", "") // le clair ne doit plus jamais traîner
+	hash := ""
+	if key != "" {
+		hash = hashWebKey(key)
+	}
+	return putStr(bkState, "web_key_hash", hash)
+}
+
+// migrateWebKeyToHash convertit une ancienne clé stockée en clair vers son
+// empreinte (une fois), puis efface le clair. Appelé au démarrage.
+func migrateWebKeyToHash() {
+	plain := getStr(bkState, "web_key")
+	if plain == "" {
+		return
+	}
+	if !webKeyConfigured() {
+		_ = putStr(bkState, "web_key_hash", hashWebKey(plain))
+	}
+	_ = putStr(bkState, "web_key", "") // le clair ne doit plus jamais traîner
+}
+
+// --- Authentification par identité E2E (contexte, non falsifiable) ------------
+//
+// Une requête arrivée par le tunnel ajean.link est DÉJÀ authentifiée par
+// l'identité E2E de l'utilisateur (voir handleE2EReq → e2eAuthOpenReq). On la
+// marque alors via le CONTEXTE de la requête — impossible à forger par un client
+// HTTP externe, contrairement à un en-tête. requireWebAuth l'accepte donc sans
+// exiger la clé de pilotage : plus besoin que le serveur détienne cette clé.
+
+type ctxKey int
+
+const e2eAuthedKey ctxKey = 1
+
+func markE2EAuthed(r *http.Request) *http.Request {
+	return r.WithContext(context.WithValue(r.Context(), e2eAuthedKey, true))
+}
+
+func isE2EAuthed(r *http.Request) bool {
+	v, _ := r.Context().Value(e2eAuthedKey).(bool)
+	return v
+}
 
 // web_auth.go protège l'API de pilotage (ajean web) quand elle est exposée sur
 // internet — c.-à-d. l'API que tout client (navigateur, app mobile, script…)
@@ -39,18 +108,24 @@ func readWebKey() string { k, _ := readWebKeyErr(); return k }
 // open (pratique en local) — cmdWeb avertit alors bruyamment au démarrage.
 func requireWebAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		key, err := readWebKeyErr()
+		// Requête arrivée par le tunnel ajean.link : déjà authentifiée par l'identité
+		// E2E de l'utilisateur (contexte non falsifiable). On n'exige pas la clé.
+		if isE2EAuthed(r) {
+			next(w, r)
+			return
+		}
+		hash, err := webKeyHashErr()
 		if err != nil {
 			// On ne sait pas si une clé protège cette API : on ferme.
 			sendJSON(w, http.StatusServiceUnavailable,
 				map[string]any{"error": "configuration illisible — réessaie dans un instant"})
 			return
 		}
-		if key == "" {
+		if hash == "" {
 			next(w, r)
 			return
 		}
-		if !checkBearer(r, key) {
+		if !checkBearer(r, hash) {
 			w.Header().Set("WWW-Authenticate", `Bearer realm="ajean"`)
 			sendJSON(w, http.StatusUnauthorized, map[string]any{"error": "non autorisé"})
 			return
@@ -59,15 +134,14 @@ func requireWebAuth(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// checkBearer reports whether the request carries the expected key as an
-// "Authorization: Bearer <clé>" header. La comparaison est à temps constant.
-// PAS de repli ?key=<clé> en query string : une clé dans l'URL finit dans les
-// logs des proxys (Caddy, Cloudflare), l'historique navigateur et les Referer.
-func checkBearer(r *http.Request, key string) bool {
-	want := []byte(key)
+// checkBearer reports whether the request carries a Bearer whose EMPREINTE égale
+// wantHash. On ne compare jamais la clé en clair (le serveur ne la détient pas) :
+// on hache le Bearer présenté et on compare à temps constant. PAS de repli
+// ?key=<clé> en query string (fuite dans les logs proxy / l'historique).
+func checkBearer(r *http.Request, wantHash string) bool {
 	if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
-		got := []byte(strings.TrimSpace(h[len("Bearer "):]))
-		if subtle.ConstantTimeCompare(got, want) == 1 {
+		got := hashWebKey(strings.TrimSpace(h[len("Bearer "):]))
+		if subtle.ConstantTimeCompare([]byte(got), []byte(wantHash)) == 1 {
 			return true
 		}
 	}
@@ -97,7 +171,7 @@ func cmdSetWebKey(args []string) error {
 	default:
 		key = strings.TrimSpace(args[0])
 	}
-	if err := putStr(bkState, "web_key", key); err != nil {
+	if err := storeWebKey(key); err != nil {
 		return err
 	}
 	if key == "" {

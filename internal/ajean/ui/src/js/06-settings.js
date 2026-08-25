@@ -171,6 +171,119 @@ async function loadAgent(){
   document.getElementById('mem-count').textContent = memPages.length ? '('+memPages.length+')' : '';
   document.getElementById('mem-search-row').style.display = memPages.length > MEM_PAGE ? '' : 'none';
   renderMemList();
+  loadMemEnc();
+}
+
+// --- Chiffrement (mémoire + conversations) ----------------------------------
+let memUnlockDone=false; // tentative de déverrouillage déjà faite ce chargement
+async function loadMemEnc(){
+  let h; try{ h=await jget('/api/mem/health'); }catch(e){ return; }
+  const tog=document.getElementById('mem-enc-toggle'); if(!tog) return;
+  // La case n'est cochée QUE si TOUT est réellement chiffré (h.fully). Un
+  // chiffrement partiel/raté ou verrouillé-incomplet la laisse décochée : si elle
+  // est cochée, tu es sûr que c'est vraiment chiffré.
+  tog.checked=!!h.fully;
+  // Aucun concept « verrouillé/déverrouillé » affiché : avoir accès à l'interface
+  // = clé d'accès fournie = mémoire ouverte. Le toggle seul dit si c'est chiffré.
+  if(h.encrypted && h.locked && !memUnlockDone){
+    memUnlockDone=true;
+    // La clé de chiffrement = ta clé d'API (localStorage 'ajean.key'), qui ne vit
+    // que côté client. Le serveur ne la détient jamais (juste son empreinte). Même
+    // logique en local et sur ajean.link.
+    const apiKey=localStorage.getItem('ajean.key')||'';
+    if(apiKey){ const r=await jpost('/api/mem/unlock',{secret:apiKey}); if(r.ok){ loadMem(); return; } }
+    // Migration d'un ancien coffre (créé avec un mot de passe distinct) : on l'ouvre
+    // avec l'ancien secret retenu, puis on ajoute la clé d'API pour la suite.
+    const legacy=localStorage.getItem('ajean.enckey')||'';
+    if(legacy && legacy!==apiKey){
+      const r=await jpost('/api/mem/unlock',{secret:legacy});
+      if(r.ok){ if(apiKey) await jpost('/api/mem/addkey',{secret:apiKey}); localStorage.removeItem('ajean.enckey'); loadMem(); return; }
+    }
+    // Boucle : une clé fausse redemande tout de suite (plus besoin de rafraîchir).
+    while(true){
+      const s=await askPrompt('Entre ta clé d\'API (ou ton ancien mot de passe de chiffrement) pour ouvrir ta mémoire et tes conversations. Ta clé d\'API sera ensuite mémorisée : tu ne retaperas plus rien.',{title:'Déverrouiller',placeholder:'clé d\'API ou ancien mot de passe'});
+      if(!s){ memUnlockDone=false; break; } // annulé : nouvelle tentative au prochain chargement
+      const r=await jpost('/api/mem/unlock',{secret:s});
+      if(r.ok){ if(apiKey && s!==apiKey) await jpost('/api/mem/addkey',{secret:apiKey}); loadMem(); return; }
+      await askAlert('Clé incorrecte, réessaie.',{title:'Refusé'});
+    }
+  }
+  loadBackup();
+}
+async function toggleMemEncrypt(){
+  const tog=document.getElementById('mem-enc-toggle');
+  if(tog.checked){
+    // Cas « déjà chiffré mais pas complet » (ex. conversations à migrer, ou
+    // verrouillé) : on ne relance PAS un chiffrement, on complète en déverrouillant.
+    let cur; try{ cur=await jget('/api/mem/health'); }catch(e){}
+    if(cur && cur.encrypted){ memUnlockDone=false; await loadMemEnc(); return; }
+    // La clé d'API (clé de pilotage) EST la clé de chiffrement. Elle ne vit que
+    // sur cet appareil ; le serveur n'en a que l'empreinte → il ne peut pas ouvrir
+    // le coffre seul. Une seule clé pour l'accès ET le chiffrement.
+    const apiKey=localStorage.getItem('ajean.key')||'';
+    if(!apiKey){ await askAlert('Définis d\'abord une clé d\'API (elle protège l\'accès à l\'interface) : c\'est elle qui chiffrera aussi ta mémoire.',{title:'Clé d\'API requise'}); tog.checked=false; return; }
+    const ok=await askConfirm('Ta mémoire ET tes conversations seront chiffrées au repos (AES-256), avec ta clé d\'API. Elle reste UNIQUEMENT sur cet appareil : le serveur ne pourra pas les lire seul. Tu recevras une CLÉ DE RÉCUPÉRATION à noter absolument. Un snapshot de sécurité est pris avant.',{title:'Activer le chiffrement ?',okText:'Continuer'});
+    if(!ok){ tog.checked=false; return; }
+    let r; try{ r=await jpost('/api/mem/encrypt',{password:apiKey}); }catch(e){ await askAlert('Échec : '+e); tog.checked=false; return; }
+    if(!r.ok){ await askAlert('Échec : '+(r.error||'inconnu')); tog.checked=false; loadMemEnc(); return; }
+    memUnlockDone=true;
+    await askAlert('Note-la MAINTENANT, elle ne sera plus jamais affichée :\n\n'+r.recovery+'\n\nRange-la hors ligne. Elle rouvre tout même si tu perds ta clé d\'API.',{title:'⚠️ Clé de récupération'});
+    toast('Chiffrement activé'); loadMem();
+  } else {
+    const ok=await askConfirm('Ta mémoire et tes conversations seront réécrites EN CLAIR sur le disque. Un snapshot de sécurité est pris avant. Continuer ?',{title:'Désactiver le chiffrement ?',okText:'Déchiffrer',danger:true});
+    if(!ok){ tog.checked=true; return; }
+    let r; try{ r=await jpost('/api/mem/decrypt',{}); }catch(e){ await askAlert('Échec : '+e); tog.checked=true; return; }
+    if(!r.ok){ await askAlert('Échec : '+(r.error||'inconnu')); tog.checked=true; loadMemEnc(); return; }
+    localStorage.removeItem('ajean.enckey');
+    toast('Chiffrement désactivé'); loadMem();
+  }
+}
+// --- Sauvegarde ajean.link ---------------------------------------------------
+async function loadBackup(){
+  const block=document.getElementById('backup-block'); if(!block) return;
+  let s; try{ s=await jget('/api/backup/status'); }catch(e){ block.style.display='none'; return; }
+  if(!s.linked){ block.style.display='none'; return; } // réservé aux serveurs liés à ajean.link
+  block.style.display='';
+  document.getElementById('backup-auto-toggle').checked=!!s.auto;
+  setBadge('backup-badge', !!s.auto, s.auto?'auto':'manuel');
+  const st=document.getElementById('backup-status');
+  let msg='';
+  if(s.last){ const d=new Date(s.last); msg='Dernière sauvegarde : '+(isNaN(d)?s.last:d.toLocaleString()); }
+  else msg='Aucune sauvegarde encore.';
+  if(Array.isArray(s.versions)) msg+=' · '+s.versions.length+' version(s) sur le relais';
+  if(s.error) msg+='\n⚠️ '+s.error;
+  st.textContent=msg; st.style.whiteSpace='pre-line';
+}
+async function toggleBackupAuto(){
+  const on=document.getElementById('backup-auto-toggle').checked;
+  await jpost('/api/backup/auto',{on});
+  if(on) await askAlert('La sauvegarde automatique tournera une fois par jour, tant que ta mémoire est déverrouillée (le paquet est chiffré avec ta clé, jamais stockée sur le serveur).',{title:'Sauvegarde auto activée'});
+  loadBackup();
+}
+async function backupNow(){
+  // Aucun mot de passe : le paquet est chiffré avec la clé de ta mémoire (déjà
+  // ouverte). La restauration se fera avec ta clé d'API.
+  toast('Sauvegarde en cours…');
+  let r; try{ r=await jpost('/api/backup/now',{}); }catch(e){ await askAlert('Échec : '+e); return; }
+  if(!r.ok){ await askAlert('Échec : '+(r.error||'inconnu')); return; }
+  toast('Sauvegarde envoyée'); loadBackup();
+}
+async function backupRestore(){
+  let s; try{ s=await jget('/api/backup/status'); }catch(e){ await askAlert('Relais injoignable.'); return; }
+  const vers=(s.versions||[]);
+  if(!vers.length){ await askAlert('Aucune sauvegarde disponible sur le relais.'); return; }
+  const latest=vers[0];
+  const when=latest.when? new Date(latest.when).toLocaleString():latest.id;
+  if(!await askConfirm('Restaurer la sauvegarde la plus récente ('+when+') ? Cela remplacera ta mémoire, tes presets et tes réglages actuels. Un snapshot de sécurité est pris avant.',{title:'Restaurer',okText:'Restaurer',danger:true})) return;
+  // Boucle : une clé fausse redemande tout de suite.
+  while(true){
+    const secret=await askPrompt('Ta clé d\'API (ou ta clé de récupération) pour ouvrir la sauvegarde :',{title:'Restaurer',placeholder:'clé d\'API ou clé de récupération'});
+    if(!secret) return; // annulé
+    toast('Restauration…');
+    let r; try{ r=await jpost('/api/backup/restore',{id:latest.id,secret}); }catch(e){ await askAlert('Échec : '+e); return; }
+    if(r.ok){ await askAlert('Restauration terminée.',{title:'OK'}); loadMem(); return; }
+    await askAlert((r.error&&r.error.indexOf('incorrecte')>=0)?'Clé incorrecte, réessaie.':('Échec : '+(r.error||'inconnu')),{title:'Refusé'});
+  }
 }
 // Mémoire + accès internet sont des sous-réglages du mode agent : sans agent, ni
 // les outils mem_* ni les outils web ne sont fournis (voir globalCaps côté Go). On

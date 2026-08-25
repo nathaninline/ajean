@@ -927,6 +927,202 @@ func handleMemDelete(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true})
 }
 
+// --- Chiffrement de la mémoire -----------------------------------------------
+
+// handleMemHealth renvoie l'état de santé (chiffré ? verrouillé ? pages lisibles ?
+// copies du keyvault, snapshots…). Sans secret, sûr à appeler à tout moment.
+func handleMemHealth(w http.ResponseWriter, r *http.Request) {
+	sendJSON(w, 200, memHealth())
+}
+
+// handleMemEncrypt active le chiffrement. Le corps porte le mot de passe mémoire.
+// La réponse contient la CLÉ DE RÉCUPÉRATION, à afficher UNE fois : elle n'est
+// jamais reconsultable ensuite.
+func handleMemEncrypt(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Password string `json:"password"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	rec, err := EnableMemEncryption(req.Password)
+	if err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "recovery": rec, "health": memHealth()})
+}
+
+// handleMemDecrypt remet la mémoire en clair (exige d'être déverrouillé).
+func handleMemDecrypt(w http.ResponseWriter, r *http.Request) {
+	if err := DisableMemEncryption(); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "health": memHealth()})
+}
+
+// handleMemUnlock déverrouille la mémoire : accepte le mot de passe OU la clé de
+// récupération (on tente les deux formes). Charge la DEK en RAM.
+func handleMemUnlock(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Secret string `json:"secret"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	if strings.TrimSpace(req.Secret) == "" {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "secret vide"})
+		return
+	}
+	v, err := loadVault()
+	if err != nil || v == nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "aucun keyvault (mémoire non chiffrée ?)"})
+		return
+	}
+	dek, kind, err := v.unlockWith(req.Secret)
+	if err != nil {
+		// La clé de récupération se saisit avec tirets/espaces : on retente normalisée.
+		if d2, k2, e2 := v.unlockWith(normalizeRecovery(req.Secret)); e2 == nil {
+			dek, kind, err = d2, k2, e2
+		}
+	}
+	if err != nil {
+		sendJSON(w, 401, map[string]any{"ok": false, "error": "secret incorrect"})
+		return
+	}
+	setMemDEK(dek)
+	resumeMemMigration()     // si une migration attendait le déverrouillage
+	reloadEncryptedStores()  // recharge la conversation chiffrée en RAM
+	// Migration douce : chiffre les conversations restées en clair (ex. mémoire
+	// activée avant que le chiffrement des conversations existe). Idempotent :
+	// n'encode que ce qui ne l'est pas encore.
+	if memEncActive() && memUnlocked() {
+		_ = reencryptChatStores()
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "kind": kind, "health": memHealth()})
+}
+
+// handleMemAddKey ajoute un nouveau wrap au coffre DÉJÀ OUVERT (DEK en RAM), sans
+// re-chiffrer. Sert à la migration douce : quand on déverrouille avec l'ancien
+// mot de passe, le client ajoute la clé d'API comme wrap pour que le
+// déverrouillage automatique marche ensuite. Zéro-connaissance préservé : le
+// serveur ne stocke pas ce secret, il ne fait que l'enfermer dans le coffre.
+func handleMemAddKey(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Secret string `json:"secret"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	if strings.TrimSpace(req.Secret) == "" {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "secret vide"})
+		return
+	}
+	dek, err := currentDEK()
+	if err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "mémoire verrouillée"})
+		return
+	}
+	v, _ := loadVault()
+	if v == nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "aucun coffre"})
+		return
+	}
+	if _, _, e := v.unlockWith(req.Secret); e == nil {
+		sendJSON(w, 200, map[string]any{"ok": true}) // déjà un wrap pour ce secret
+		return
+	}
+	if err := v.addSecretWrap(dek, wrapPassword, "clé d'api", req.Secret); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if err := saveVault(v); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
+// handleMemLock purge la DEK de la RAM (reverrouille sans redémarrer).
+func handleMemLock(w http.ResponseWriter, r *http.Request) {
+	clearMemDEK()
+	sendJSON(w, 200, map[string]any{"ok": true, "health": memHealth()})
+}
+
+// --- Sauvegarde ajean.link ----------------------------------------------------
+
+// handleBackupStatus renvoie l'état de la sauvegarde : liaison configurée ?
+// auto activé ? dernière sauvegarde ? versions distantes (best-effort).
+func handleBackupStatus(w http.ResponseWriter, r *http.Request) {
+	res := map[string]any{
+		"linked": backupLinked(),
+		"auto":   backupAutoEnabled(),
+		"last":   backupLast(),
+	}
+	if backupLinked() {
+		if versions, err := relayBackupList(); err == nil {
+			res["versions"] = versions
+		} else {
+			res["error"] = err.Error()
+		}
+	}
+	sendJSON(w, 200, res)
+}
+
+// handleBackupNow lance une sauvegarde immédiate. Aucun mot de passe : le paquet
+// est chiffré avec la clé de la mémoire (déjà ouverte).
+func handleBackupNow(w http.ResponseWriter, r *http.Request) {
+	id, err := RunBackupNow()
+	if err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "id": id})
+}
+
+// handleBackupRestore restaure une sauvegarde. Corps : {id, secret}.
+func handleBackupRestore(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ID     string `json:"id"`
+		Secret string `json:"secret"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	if err := RestoreBackup(req.ID, req.Secret); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
+// handleBackupAuto active/désactive la sauvegarde automatique. Corps : {on}.
+func handleBackupAuto(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		On bool `json:"on"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	val := ""
+	if req.On {
+		val = "1"
+	}
+	if err := SetConfigKey("BACKUP_AUTO", val); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "auto": backupAutoEnabled()})
+}
+
+// handleMemSnapshots : GET liste les snapshots, POST {id} en restaure un.
+func handleMemSnapshots(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		var req struct {
+			ID string `json:"id"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if err := restoreSnapshot(req.ID); err != nil {
+			sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		sendJSON(w, 200, map[string]any{"ok": true})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "snapshots": listSnapshots()})
+}
+
 func handleSwitch(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		N int `json:"n"`

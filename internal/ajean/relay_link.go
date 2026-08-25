@@ -462,7 +462,12 @@ func uiUserSvcCtl(action string) error {
 //     brancher OpenCode, Hermes, etc. sur ajean.link/oai/<machine>/v1
 //   - tout le reste → l'UI web de AJEAN (avec injection de la clé de pilotage)
 func newLinkHandler(mux *http.ServeMux) http.Handler {
-	web := withLocalAuth(mux)
+	// Plus d'injection de clé (withLocalAuth) : les requêtes du tunnel sont
+	// authentifiées par l'IDENTITÉ E2E de l'utilisateur (handleE2EReq marque la
+	// requête, requireWebAuth l'accepte). Le serveur n'a donc plus besoin de
+	// détenir la clé de pilotage en clair — ce qui permet à cette clé de servir de
+	// clé de chiffrement sans que le serveur puisse ouvrir le coffre.
+	web := http.Handler(mux)
 	llama := &url.URL{Scheme: "http", Host: fmt.Sprintf("127.0.0.1:%d", LLMPort())}
 	lp := httputil.NewSingleHostReverseProxy(llama)
 	lp.FlushInterval = -1 // streaming SSE des complétions
@@ -521,28 +526,6 @@ func newLinkHandler(mux *http.ServeMux) http.Handler {
 			return
 		}
 		web.ServeHTTP(w, r)
-	})
-}
-
-// withLocalAuth injecte la clé de pilotage locale dans chaque requête arrivant
-// par le tunnel. Le navigateur distant ne connaît que le token (vérifié par le
-// relais) ; c'est ici, en local, qu'on satisfait l'auth de l'API web sans
-// exposer la clé au client.
-//
-// ⚠️ La clé est relue À CHAQUE REQUÊTE, et surtout pas capturée une fois pour
-// toutes à l'ouverture du tunnel. Avec une capture, changer la clé (depuis
-// l'interface ou `ajean set-web-key`) faisait injecter l'ANCIENNE jusqu'au
-// prochain redémarrage du service : tout l'accès distant tombait en 401, et
-// comme le chat n'affiche pas le code HTTP d'un flux qui n'arrive jamais, le
-// symptôme était un « chargement de la conversation » infini, sans la moindre
-// erreur pour dire pourquoi. Le coût est nul : requireWebAuth relit déjà la clé
-// à chaque requête de l'autre côté.
-func withLocalAuth(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if webKey := readWebKey(); webKey != "" && r.Header.Get("Authorization") == "" {
-			r.Header.Set("Authorization", "Bearer "+webKey)
-		}
-		next.ServeHTTP(w, r)
 	})
 }
 

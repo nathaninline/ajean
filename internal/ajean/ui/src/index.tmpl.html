@@ -83,7 +83,10 @@
          entier est grisé/inerte quand l'agent est off (voir setAgentGate). -->
     <div id="mem-block" class="gated-group">
       <div class="subhead">Mémoire<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span id="mem-mode-desc" class="tip"></span></span></div>
+      <!-- Carte unique, trois lignes nettes séparées par un filet :
+           1) mode d'utilisation · 2) navigateur de pages · 3) chiffrement. -->
       <div class="slist">
+        <!-- 1. Mode : quand l'IA se sert de sa mémoire. -->
         <label class="switchrow"><span>mode</span>
           <select id="mem-mode" onchange="setMemMode()" class="sctl">
             <option value="always">auto</option>
@@ -91,18 +94,32 @@
             <option value="off">désactivée</option>
           </select>
         </label>
+        <!-- 2. Pages : liste dépliable + recherche + ajout. -->
         <div id="mem-pages-bar" class="pages-bar" onclick="toggleMemPages()">
           <span class="pages-title">Voir la mémoire <span id="mem-count" class="mem-count"></span></span>
           <button class="addbtn" onclick="event.stopPropagation();openMem('')" title="ajouter une page mémoire">+ ajouter</button>
         </div>
         <div id="mem-pages-body" hidden>
-          <!-- Le champ de filtre garde son rembourrage de ligne ; la liste, elle,
-               est à fleur de carte : ses pages sont des LIGNES séparées par un
-               filet, pas une pile de petites cartes. -->
           <div id="mem-search-row" class="rowbody" style="display:none">
             <input id="mem-search" class="mem-search" type="search" placeholder="filtrer la mémoire…" oninput="renderMemList()" style="margin:0">
           </div>
           <div id="mem-list" class="mem-list rowlist muted" style="font-size:12px"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Sauvegarde ajean.link (abonnés) : mémoire + presets + réglages, chiffrés
+         côté serveur avant l'envoi, relais aveugle. Section entière masquée si le
+         serveur n'est pas lié à un compte ajean.link. -->
+    <div id="backup-block" style="display:none">
+      <div class="subhead">Sauvegarde ajean.link<span id="backup-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Sauvegarde ta mémoire, tes presets et tes réglages sur ajean.link. Tout est <b>chiffré sur ton serveur avant l'envoi</b> : le relais ne voit qu'un blob opaque, illisible même s'il était piraté. Restaurable sur un serveur vierge avec ton mot de passe de sauvegarde.</span></span></div>
+      <div class="slist">
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="backup-auto-toggle" onchange="toggleBackupAuto()"><span class="slider"></span></span> sauvegarde automatique quotidienne</label>
+        <div class="rowbody">
+          <div id="backup-status" class="muted" style="font-size:12px;line-height:1.5"></div>
+          <div class="row" style="margin-top:8px">
+            <button onclick="backupNow()">Sauvegarder maintenant</button>
+            <button onclick="backupRestore()">Restaurer…</button>
+          </div>
         </div>
       </div>
     </div>
@@ -163,6 +180,12 @@
         <label class="switchrow agent-gated"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> compactage automatique du contexte<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
         <label class="switchrow agent-gated"><span class="switch"><input type="checkbox" id="machines-toggle" onchange="toggleMachines()"><span class="slider"></span></span> gestion autonome des machines<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">désactivé par défaut : donne à l'IA les outils pour <b>voir les postes</b> et <b>basculer</b> la machine sur laquelle elle agit, et la rend consciente de la procédure d'<b>ajout</b> d'un poste (qu'elle peut faire seule via ssh + <code>ajean remote install</code>). Sans effet quand décoché.</span></span></label>
         <label class="switchrow"><span class="switch"><input type="checkbox" id="push-toggle" onchange="togglePush()"><span class="slider"></span></span> me prévenir quand la réponse est prête<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Le serveur t'envoie une <b>notification</b> à la fin de chaque réponse, même l'app fermée ou le téléphone verrouillé. Sur iPhone : <b>ajoute d'abord AJEAN à l'écran d'accueil</b> puis active depuis l'app installée. À régler sur chaque appareil.</span></span></label>
+        <!-- Chiffrement (off par défaut) : UN seul interrupteur. Chiffre la mémoire
+             ET les conversations. Ton mot de passe ouvre le coffre, ton navigateur
+             le retient (déverrouillage auto ensuite), le serveur ne peut jamais
+             déchiffrer seul. Le corps (état + bouton déverrouiller) ne s'affiche
+             que lorsque c'est actif. -->
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="mem-enc-toggle" onchange="toggleMemEncrypt()"><span class="slider"></span></span> activer le chiffrement<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Chiffre ta <b>mémoire</b> ET tes <b>conversations</b> au repos (AES-256), protégées par ta <b>clé d'accès</b> : si tu as accès à l'interface, c'est déjà déverrouillé ; sinon on te demande ta clé d'accès. Une <b>clé de récupération</b> t'est donnée à l'activation (garde-la). Rien n'est perdu : snapshots automatiques avant chaque bascule.</span></span></label>
     </div>
   </details>
   <details id="tasks-details"><summary><span class="stitle">Tâches</span><span id="tasks-badge" class="sbadge"></span></summary>

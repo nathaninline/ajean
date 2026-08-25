@@ -96,8 +96,10 @@ var conv = func() *Conversation {
 // LoadConversation recharge l'état persisté au démarrage du process. Sans état
 // enregistré (première fois) on part d'une conversation vide.
 func LoadConversation() {
-	b := getBytes(bkChat, "conversation")
-	if len(b) == 0 {
+	b, ok := getStoreBytes(bkChat, "conversation")
+	if !ok || len(b) == 0 {
+		// Absente, ou chiffrée et mémoire encore verrouillée : on repart d'une
+		// conversation vide. Elle sera rechargée au déverrouillage (reloadEncryptedStores).
 		return
 	}
 	conv.mu.Lock()
@@ -117,6 +119,19 @@ func LoadConversation() {
 // schéma que les archives.
 func newSessionID() string { return fmt.Sprintf("%d", time.Now().UnixNano()) }
 
+// reloadEncryptedStores recharge en RAM la conversation courante après un
+// déverrouillage : au démarrage à froid (mémoire verrouillée) LoadConversation
+// n'a pas pu déchiffrer le blob, elle est repartie vide. On ne recharge QUE si la
+// conversation en RAM est encore vide, pour ne jamais écraser un fil actif.
+func reloadEncryptedStores() {
+	conv.mu.Lock()
+	empty := len(conv.Log) == 0
+	conv.mu.Unlock()
+	if empty {
+		LoadConversation()
+	}
+}
+
 // persist enregistre l'état (appelé en fin de tour et sur reset, pas à chaque
 // delta). L'appelant NE doit PAS détenir mu.
 func (c *Conversation) persist() {
@@ -126,7 +141,10 @@ func (c *Conversation) persist() {
 	if err != nil {
 		return
 	}
-	_ = putBytes(bkChat, "conversation", b)
+	// Si le chiffrement est actif mais la mémoire verrouillée, putStoreBytes refuse
+	// d'écrire du clair : on garde la conversation en RAM et on ne touche pas au
+	// blob chiffré sur disque (il sera rafraîchi une fois déverrouillé).
+	_ = putStoreBytes(bkChat, "conversation", b)
 	// La conversation active EST une session : on la reflète dans la liste des
 	// sessions pour qu'elle y apparaisse (marquée « en cours ») et reste à jour.
 	c.upsertSession()
