@@ -185,7 +185,12 @@ async function loadMemEnc(){
   tog.checked=!!h.fully;
   // Aucun concept « verrouillé/déverrouillé » affiché : avoir accès à l'interface
   // = clé d'accès fournie = mémoire ouverte. Le toggle seul dit si c'est chiffré.
-  if(h.encrypted && h.locked && !memUnlockDone){
+  // Résilience : si le drapeau MEM_ENCRYPTED a disparu (ex. effacé par un bug)
+  // mais qu'un coffre existe encore (vault_copies>0), on propose QUAND MÊME le
+  // déverrouillage au lieu de laisser la mémoire muette sans invite. Sinon l'IA
+  // se retrouve sans mémoire et rien ne demande la clé (incident du 2026-08-25).
+  const flagLost = !h.encrypted && (h.vault_copies|0) > 0;
+  if(((h.encrypted && h.locked) || flagLost) && !memUnlockDone){
     memUnlockDone=true;
     // La clé de chiffrement = ta clé d'API (localStorage 'ajean.key'), qui ne vit
     // que côté client. Le serveur ne la détient jamais (juste son empreinte). Même

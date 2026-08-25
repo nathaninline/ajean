@@ -1787,6 +1787,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
            trombone — tous à la même échelle, c'est une seule ligne d'outils. -->
       <span style="display:flex;align-items:center;gap:8px;margin-left:auto">
         <span id="ctx-text" class="muted">0 / 0</span>
+        <span id="ctx-compactions" class="muted" style="display:none;font-size:10px;white-space:nowrap" title="Compactages du contexte dans cette session"></span>
         <button id="ctx-compact" onclick="compactContext()">compacter</button>
         <!-- Raccourci « niveau de réflexion » : n'apparaît que si le preset actif a
              défini un effort (REASONING_EFFORT). Un clic ouvre un petit menu pour
@@ -2577,6 +2578,8 @@ function applyView(id, on){
   document.documentElement.setAttribute('data-'+id, on?'1':'0');
   try{ localStorage.setItem('ajean-'+id, on?'1':'0'); }catch(e){}
   const box=document.getElementById('view-'+id); if(box) box.checked=!!on;
+  // Le libellé sous le champ reflète le mode Entrée/Maj+Entrée (issue #48).
+  if(id==='enter-newline' && typeof refreshSendHint==='function') refreshSendHint();
   // La barre latérale peut rester ouverte quand on repasse en mode fixe.
   if(id==='hide-side' && !on){
     document.getElementById('side').classList.remove('open');
@@ -2909,6 +2912,23 @@ let CTX_MAX=0, CTX_USED=0, MODEL_READY=false;
 // bloqué par un état inconnu.
 let STATUS_SEEN=false;
 function setCtxUsed(n){ CTX_USED=n||0; updateCtxMeter(); }
+// Compteur de compactages de la session (issue #47) : combien de fois le contexte
+// a déjà été résumé. Masqué à zéro. Sert de repère pour décider de repartir sur une
+// nouvelle session avant que les tout premiers détails ne se diluent dans les
+// résumés successifs.
+let COMPACTIONS=0;
+function setCompactCount(n){
+  COMPACTIONS=n||0;
+  const el=document.getElementById('ctx-compactions');
+  if(!el) return;
+  if(COMPACTIONS>0){
+    el.textContent='· '+COMPACTIONS+'× compacté';
+    el.title='Le contexte de cette session a été résumé '+COMPACTIONS+' fois. Après plusieurs compactages, les tout premiers détails se diluent : pense à repartir sur une nouvelle session si le fil dérive.';
+    el.style.display='inline';
+  } else {
+    el.style.display='none';
+  }
+}
 function updateCtxMeter(){
   if(!CTX_MAX) return;
   const pct=Math.min(100, Math.round(CTX_USED*100/CTX_MAX));
@@ -3231,7 +3251,12 @@ async function loadMemEnc(){
   tog.checked=!!h.fully;
   // Aucun concept « verrouillé/déverrouillé » affiché : avoir accès à l'interface
   // = clé d'accès fournie = mémoire ouverte. Le toggle seul dit si c'est chiffré.
-  if(h.encrypted && h.locked && !memUnlockDone){
+  // Résilience : si le drapeau MEM_ENCRYPTED a disparu (ex. effacé par un bug)
+  // mais qu'un coffre existe encore (vault_copies>0), on propose QUAND MÊME le
+  // déverrouillage au lieu de laisser la mémoire muette sans invite. Sinon l'IA
+  // se retrouve sans mémoire et rien ne demande la clé (incident du 2026-08-25).
+  const flagLost = !h.encrypted && (h.vault_copies|0) > 0;
+  if(((h.encrypted && h.locked) || flagLost) && !memUnlockDone){
     memUnlockDone=true;
     // La clé de chiffrement = ta clé d'API (localStorage 'ajean.key'), qui ne vit
     // que côté client. Le serveur ne la détient jamais (juste son empreinte). Même
@@ -4255,6 +4280,7 @@ function renderGpu(){
       + '</div>';
   }).join('');
   if(sel.length > 1) html += splitHtml(sel);
+  if(sel.length > 1) html += splitModeHtml();
   document.getElementById('m-gpu-list').innerHTML = html;
   document.getElementById('m-gpu-note').textContent = sel.length === gpuDevices.length
     ? 'Toutes les cartes sont utilisées.'
@@ -4302,6 +4328,29 @@ function splitHtml(sel){
     + '<div class="pe-row stack">' + inner
     + '<div class="gpu-legend" id="m-split-legend"></div></div>';
 }
+
+// Mode de répartition multi-GPU (--split-mode / -sm). Façons de découper le modèle
+// entre les cartes : « layer » (défaut de llama.cpp) découpe par couches, carte par
+// carte ; « row » découpe chaque couche en rangées réparties sur les cartes ;
+// « tensor » est le vrai parallélisme de tenseurs (les backends récents l'ajoutent
+// à row) ; « none » garde tout sur une seule carte. row et tensor n'accélèrent que
+// si les cartes communiquent bien (NVLink…), sinon layer reste le plus sûr. Vide =
+// on n'écrit pas le flag, le moteur applique son défaut. Affiché seulement à partir
+// de deux cartes sélectionnées, là où le choix a un sens.
+function splitModeHtml(){
+  const cur = eaGetValued('--split-mode');
+  const opt = (v, l) => '<option value="' + v + '"' + (cur === v ? ' selected' : '') + '>' + l + '</option>';
+  return '<div class="pe-row">'
+    + '<span class="pe-row-l">Mode de répartition<span class="pe-sub">comment le modèle est découpé sur les cartes (--split-mode)</span></span>'
+    + '<span class="pe-row-c"><span class="pe-selc"><select onchange="onSplitMode(this.value)">'
+    + opt('', 'Automatique')
+    + opt('layer', 'Par couches (layer)')
+    + opt('row', 'Par rangées (row)')
+    + opt('tensor', 'Par tenseurs (tensor)')
+    + opt('none', 'Une seule carte (none)')
+    + '</select></span></span></div>';
+}
+function onSplitMode(v){ eaSetValued('--split-mode', v); }
 
 // Parts actuelles, normalisées à 1. Sans --tensor-split : proportionnelles à la
 // VRAM de chaque carte, ce que llama.cpp fait de son côté — la barre montre donc
@@ -5377,6 +5426,19 @@ function onKey(e){
   const shouldSend = viewOn('enter-newline') ? withMod : !e.shiftKey;
   if(shouldSend){ e.preventDefault(); send(); }
 }
+// Libellé sous le champ, cohérent avec l'option « Entrée = retour à la ligne »
+// (issue #48 : il restait figé sur le mode par défaut). refreshSendHint ne touche
+// pas au texte quand le modèle charge (état « waiting »), pour ne pas écraser le
+// message d'attente posé par le flux d'état.
+function sendHintText(){
+  return viewOn('enter-newline')
+    ? 'Entrée = nouvelle ligne · Maj+Entrée pour envoyer'
+    : 'Entrée pour envoyer · Maj+Entrée = nouvelle ligne';
+}
+function refreshSendHint(){
+  const h=document.getElementById('sendhint');
+  if(h && !h.classList.contains('waiting')) h.textContent=sendHintText();
+}
 // La zone de saisie s'ajuste à son contenu : une ligne au repos, puis elle
 // grandit jusqu'à sa max-height (au-delà, elle défile). Appelée à la frappe, à
 // l'envoi et au chargement.
@@ -5644,8 +5706,8 @@ function syncSendBtn(){
   sb.title = ready ? '' : 'le modèle n\'est pas encore chargé';
   const hint=document.getElementById('sendhint');
   if(hint){
-    hint.textContent = ready ? 'Entrée pour envoyer · Maj+Entrée = nouvelle ligne'
-                             : 'Le modèle charge — envoi possible dès qu\'il est prêt.';
+    hint.textContent = ready ? sendHintText()
+                             : 'Le modèle charge, envoi possible dès qu\'il est prêt.';
     hint.classList.toggle('waiting', !ready);
   }
 }
@@ -5756,7 +5818,7 @@ function handleDelta(d){
     // (comme au chargement de page), sans l'animation « ouvre puis se ferme ». Le
     // caught_up qui clôt le rejeu remettra REPLAYING à false.
     if(d.replay) REPLAYING=true;
-    elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
+    elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); setCompactCount(0); lastSeq=0; setBusy(false); return; }
   if(d.user!==undefined){
     newTurn();
     let el=PENDING;
@@ -5781,6 +5843,7 @@ function handleDelta(d){
   // une trace du fil et DOIT être rejouée.
   if(d.compact_noop){ setCompacting(false); if(!REPLAYING) toast('rien à compacter (contexte déjà minimal)'); return; }
   if(d.ctx_used!==undefined){ setCtxUsed(d.ctx_used); return; }
+  if(d.compact_count!==undefined){ setCompactCount(d.compact_count); return; }
   if(d.stats){ T.serverStats=d.stats;
     if(d.stats.prompt_tokens_total){ setCtxUsed((d.stats.prompt_tokens_total||0)+(d.stats.gen_tokens||0)); }
     // Les mesures définitives sont posées par finalizeTurn (à turn_done), même
@@ -5894,6 +5957,7 @@ async function reconcileBusy(){
     const rt = s.running_task || '';
     if(rt !== RUNNING_TASK){ RUNNING_TASK = rt; if(!REPLAYING) syncSendBtn(); }
     if(typeof s.generating==='boolean' && s.generating!==busy) setBusy(s.generating);
+    if(typeof s.compact_count==='number') setCompactCount(s.compact_count); // source de vérité après rejeu
     // Reprise d'une génération DÉJÀ en cours (page actualisée en plein tour) : au
     // replay, l'événement `user` qui démarre la ligne d'état a été rejoué alors que
     // REPLAYING gelait elapsedStart — la ligne (chrono · tokens · tok/s) restait donc

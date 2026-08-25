@@ -58,6 +58,13 @@ type Conversation struct {
 	Seq      int        `json:"seq"`
 	CtxUsed  int        `json:"ctx_used"` // taille réelle du contexte au dernier tour
 
+	// Nombre de compactages de contexte survenus dans CETTE session (issue #47).
+	// Sert à l'utilisateur à juger quand relancer une conversation neuve : au bout
+	// de plusieurs compactages, les tout premiers détails se diluent dans les
+	// résumés successifs. Remis à zéro sur une session vierge, voyage avec la
+	// session archivée.
+	CompactCount int `json:"compact_count,omitempty"`
+
 	// Nom personnalisé et favori HÉRITÉS d'une conversation restaurée depuis
 	// l'historique : ils voyagent avec la conversation active pour qu'un
 	// « recharger » puis « clear chat » les conserve au ré-archivage (au lieu de
@@ -284,13 +291,17 @@ func (c *Conversation) compactAndPublish(ctx context.Context, epoch int, phase s
 	}
 	est := estimateTokens(compacted) + overhead
 	c.mu.Lock()
+	var count int
 	if c.epoch == epoch {
 		c.Messages = compacted
 		c.CtxUsed = est // le vrai compte reviendra avec les stats du prochain tour
+		c.CompactCount++
+		count = c.CompactCount
 	}
 	c.mu.Unlock()
 	c.appendDelta(epoch, map[string]any{"compacted": true})
-	c.appendDelta(epoch, map[string]any{"ctx_used": est}) // fait chuter la jauge tout de suite
+	c.appendDelta(epoch, map[string]any{"ctx_used": est})        // fait chuter la jauge tout de suite
+	c.appendDelta(epoch, map[string]any{"compact_count": count}) // met à jour le compteur de session
 	return compacted, true
 }
 
@@ -317,6 +328,7 @@ func (c *Conversation) state() map[string]any {
 	}
 	return map[string]any{
 		"seq": c.Seq, "generating": c.Generating, "ctx_used": c.CtxUsed, "turns": turns,
+		"compact_count":  c.CompactCount,
 		"gen_elapsed_ms": genElapsed,
 		// Non vide seulement quand une tâche de fond occupe le verrou de génération.
 		"running_task":    c.runningTaskName,
@@ -415,7 +427,11 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 		// dans la conversation partagée — donc pas de spam. Détaché : l'envoi HTTP
 		// vers le service de push ne doit pas retenir la fin du tour. Corps générique
 		// (pas d'extrait de réponse) : la notif transite par Apple/Google.
-		if hasPushSubs() {
+		//
+		// ctx.Err() != nil = tour interrompu par un clic « stop » (c.cancel) : pas de
+		// notification, l'utilisateur est là et a coupé volontairement. Un Reset annule
+		// aussi le ctx, mais ce cas sort plus haut (stale) sans jamais atteindre ici.
+		if hasPushSubs() && ctx.Err() == nil {
 			go sendPushToAll("AJEAN", "Réponse prête · "+fmtDurFR(time.Since(turnStart)))
 		}
 	}()
@@ -619,6 +635,7 @@ func (c *Conversation) Reset() {
 	c.Log = nil
 	c.Seq = 0
 	c.CtxUsed = 0
+	c.CompactCount = 0    // session vierge : compteur de compactage remis à zéro
 	c.ID = newSessionID() // session vierge = nouvel id stable
 	c.ActiveTitle = ""    // conversation neuve : ni nom hérité, ni favori
 	c.ActiveFav = false

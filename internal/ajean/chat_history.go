@@ -25,15 +25,16 @@ import (
 // l'identique (Messages = vue modèle, Log = vue UI rejouable) + des métadonnées
 // d'affichage pour la liste de l'historique.
 type convArchive struct {
-	ID       string     `json:"id"`
-	Title    string     `json:"title"`
-	Fav      bool       `json:"fav,omitempty"` // épinglée en favori (remonte en tête)
-	SavedAt  int64      `json:"saved_at"`      // ms
-	Turns    int        `json:"turns"`
-	Messages []Message  `json:"messages"`
-	Log      []LogEvent `json:"log"`
-	Seq      int        `json:"seq"`
-	CtxUsed  int        `json:"ctx_used"`
+	ID           string     `json:"id"`
+	Title        string     `json:"title"`
+	Fav          bool       `json:"fav,omitempty"` // épinglée en favori (remonte en tête)
+	SavedAt      int64      `json:"saved_at"`      // ms
+	Turns        int        `json:"turns"`
+	Messages     []Message  `json:"messages"`
+	Log          []LogEvent `json:"log"`
+	Seq          int        `json:"seq"`
+	CtxUsed      int        `json:"ctx_used"`
+	CompactCount int        `json:"compact_count,omitempty"` // nb de compactages (issue #47)
 }
 
 // convArchiveMeta = la partie légère (sans Messages/Log) pour lister sans charger
@@ -198,12 +199,13 @@ func (c *Conversation) snapshotForSession() *convArchive {
 		return nil
 	}
 	a := &convArchive{
-		ID:       c.ID, // id STABLE de la session (pas un nouvel id à chaque fois)
-		SavedAt:  time.Now().UnixMilli(),
-		Messages: append([]Message(nil), c.Messages...),
-		Log:      append([]LogEvent(nil), c.Log...),
-		Seq:      c.Seq,
-		CtxUsed:  c.CtxUsed,
+		ID:           c.ID, // id STABLE de la session (pas un nouvel id à chaque fois)
+		SavedAt:      time.Now().UnixMilli(),
+		Messages:     append([]Message(nil), c.Messages...),
+		Log:          append([]LogEvent(nil), c.Log...),
+		Seq:          c.Seq,
+		CtxUsed:      c.CtxUsed,
+		CompactCount: c.CompactCount,
 	}
 	a.Turns = countUserTurns(c.Log)
 	// Nom personnalisé si défini, sinon titre dérivé du premier message.
@@ -251,6 +253,7 @@ func (c *Conversation) OpenSession(id string) error {
 	c.Log = append([]LogEvent(nil), a.Log...)
 	c.Seq = a.Seq
 	c.CtxUsed = a.CtxUsed
+	c.CompactCount = a.CompactCount
 	c.ActiveTitle = a.Title
 	c.ActiveFav = a.Fav
 	c.epoch++              // invalide les abonnés → ils nettoient et rejouent le fil

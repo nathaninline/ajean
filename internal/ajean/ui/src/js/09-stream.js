@@ -254,8 +254,8 @@ function syncSendBtn(){
   sb.title = ready ? '' : 'le modèle n\'est pas encore chargé';
   const hint=document.getElementById('sendhint');
   if(hint){
-    hint.textContent = ready ? 'Entrée pour envoyer · Maj+Entrée = nouvelle ligne'
-                             : 'Le modèle charge — envoi possible dès qu\'il est prêt.';
+    hint.textContent = ready ? sendHintText()
+                             : 'Le modèle charge, envoi possible dès qu\'il est prêt.';
     hint.classList.toggle('waiting', !ready);
   }
 }
@@ -366,7 +366,7 @@ function handleDelta(d){
     // (comme au chargement de page), sans l'animation « ouvre puis se ferme ». Le
     // caught_up qui clôt le rejeu remettra REPLAYING à false.
     if(d.replay) REPLAYING=true;
-    elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); lastSeq=0; setBusy(false); return; }
+    elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); setCompactCount(0); lastSeq=0; setBusy(false); return; }
   if(d.user!==undefined){
     newTurn();
     let el=PENDING;
@@ -391,6 +391,7 @@ function handleDelta(d){
   // une trace du fil et DOIT être rejouée.
   if(d.compact_noop){ setCompacting(false); if(!REPLAYING) toast('rien à compacter (contexte déjà minimal)'); return; }
   if(d.ctx_used!==undefined){ setCtxUsed(d.ctx_used); return; }
+  if(d.compact_count!==undefined){ setCompactCount(d.compact_count); return; }
   if(d.stats){ T.serverStats=d.stats;
     if(d.stats.prompt_tokens_total){ setCtxUsed((d.stats.prompt_tokens_total||0)+(d.stats.gen_tokens||0)); }
     // Les mesures définitives sont posées par finalizeTurn (à turn_done), même
@@ -504,6 +505,7 @@ async function reconcileBusy(){
     const rt = s.running_task || '';
     if(rt !== RUNNING_TASK){ RUNNING_TASK = rt; if(!REPLAYING) syncSendBtn(); }
     if(typeof s.generating==='boolean' && s.generating!==busy) setBusy(s.generating);
+    if(typeof s.compact_count==='number') setCompactCount(s.compact_count); // source de vérité après rejeu
     // Reprise d'une génération DÉJÀ en cours (page actualisée en plein tour) : au
     // replay, l'événement `user` qui démarre la ligne d'état a été rejoué alors que
     // REPLAYING gelait elapsedStart — la ligne (chrono · tokens · tok/s) restait donc

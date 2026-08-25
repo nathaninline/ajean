@@ -257,7 +257,25 @@ func safePresetPath(name string) (string, error) {
 // version effaçait la clé, et le moteur repartait sur le défaut « toutes les
 // interfaces » : une machine volontairement fermée se rouvrait toute seule au
 // premier changement de preset.
-var preservedKeys = []string{"MEM_MODE", "CRAWL4AI_URL", "WEB_ENGINE", "CUDA_VISIBLE_DEVICES", "HOST"}
+// ⚠️ Cette liste contient TOUS les réglages « utilisateur/appareil » qui vivent
+// dans le bucket config mais ne sont PAS des paramètres de modèle : ils doivent
+// survivre à un changement de preset (qui remplace TOUTE la config en bloc via
+// WriteConfig). Un réglage utilisateur oublié ici se fait effacer à chaque
+// bascule de preset et « se désactive tout seul » :
+//   - MEM_ENCRYPTED : drapeau du chiffrement mémoire. Effacé = l'UI croit le
+//     chiffrement off, ne propose plus le déverrouillage, et l'utilisateur se
+//     retrouve enfermé dehors de sa mémoire pourtant chiffrée sur le disque.
+//   - BACKUP_AUTO : sauvegarde ajean.link quotidienne. Effacé = elle « se
+//     désactivait toute seule » à chaque changement de preset.
+//   - COMPACT : compactage automatique du contexte (toggle utilisateur).
+//   - MACHINES : gestion autonome des machines (toggle utilisateur).
+// Les vrais réglages de modèle (BIN, MODEL, CTX, NGL, REASONING…) ne sont PAS ici :
+// ils appartiennent au preset. Les bascules agent/internet/oai/tâches, elles, sont
+// déjà rangées dans le bucket état (bkState), hors config, donc à l'abri.
+var preservedKeys = []string{
+	"MEM_MODE", "CRAWL4AI_URL", "WEB_ENGINE", "CUDA_VISIBLE_DEVICES", "HOST",
+	"MEM_ENCRYPTED", "BACKUP_AUTO", "COMPACT", "MACHINES",
+}
 
 // softPreservedKeys : préservées SEULEMENT si le preset d'arrivée ne les définit
 // pas lui-même. CUDA_VISIBLE_DEVICES est dans ce cas : c'est d'ordinaire un
@@ -405,7 +423,22 @@ func SavePreset(id, name, content string) (string, error) {
 		return "", err
 	}
 	_ = os.MkdirAll(filepath.Dir(p), 0o755)
-	return id, os.WriteFile(p, []byte(content), 0o644)
+	old, _ := os.ReadFile(p)
+	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+		return "", err
+	}
+	// Modifier le preset ACTIF le désélectionne : le fichier enregistré diverge
+	// alors de la config vivante (qui tourne encore l'ancienne définition), il faut
+	// « switcher » pour l'appliquer. On efface l'id d'actif explicite pour que
+	// ListPresets retombe sur l'empreinte, qui verra la divergence. On ne le fait
+	// que sur un vrai changement de config : un simple renommage (seule la ligne
+	// # NAME= bouge, ignorée par l'empreinte) ou un enregistrement à blanc ne
+	// désélectionne pas. Le raccourci « niveau de réflexion » (REASONING_EFFORT)
+	// ne passe pas par ici : il écrit la config vivante, donc reste sélectionné.
+	if id == getStr(bkState, "active_preset") && presetFingerprint(old) != presetFingerprint([]byte(content)) {
+		_ = putStr(bkState, "active_preset", "")
+	}
+	return id, nil
 }
 
 // DeletePreset removes a preset by id; refuses if it is the active config.

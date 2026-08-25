@@ -521,6 +521,19 @@ function onKey(e){
   const shouldSend = viewOn('enter-newline') ? withMod : !e.shiftKey;
   if(shouldSend){ e.preventDefault(); send(); }
 }
+// Libellé sous le champ, cohérent avec l'option « Entrée = retour à la ligne »
+// (issue #48 : il restait figé sur le mode par défaut). refreshSendHint ne touche
+// pas au texte quand le modèle charge (état « waiting »), pour ne pas écraser le
+// message d'attente posé par le flux d'état.
+function sendHintText(){
+  return viewOn('enter-newline')
+    ? 'Entrée = nouvelle ligne · Maj+Entrée pour envoyer'
+    : 'Entrée pour envoyer · Maj+Entrée = nouvelle ligne';
+}
+function refreshSendHint(){
+  const h=document.getElementById('sendhint');
+  if(h && !h.classList.contains('waiting')) h.textContent=sendHintText();
+}
 // La zone de saisie s'ajuste à son contenu : une ligne au repos, puis elle
 // grandit jusqu'à sa max-height (au-delà, elle défile). Appelée à la frappe, à
 // l'envoi et au chargement.

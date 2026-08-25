@@ -532,6 +532,7 @@ function renderGpu(){
       + '</div>';
   }).join('');
   if(sel.length > 1) html += splitHtml(sel);
+  if(sel.length > 1) html += splitModeHtml();
   document.getElementById('m-gpu-list').innerHTML = html;
   document.getElementById('m-gpu-note').textContent = sel.length === gpuDevices.length
     ? 'Toutes les cartes sont utilisées.'
@@ -579,6 +580,29 @@ function splitHtml(sel){
     + '<div class="pe-row stack">' + inner
     + '<div class="gpu-legend" id="m-split-legend"></div></div>';
 }
+
+// Mode de répartition multi-GPU (--split-mode / -sm). Façons de découper le modèle
+// entre les cartes : « layer » (défaut de llama.cpp) découpe par couches, carte par
+// carte ; « row » découpe chaque couche en rangées réparties sur les cartes ;
+// « tensor » est le vrai parallélisme de tenseurs (les backends récents l'ajoutent
+// à row) ; « none » garde tout sur une seule carte. row et tensor n'accélèrent que
+// si les cartes communiquent bien (NVLink…), sinon layer reste le plus sûr. Vide =
+// on n'écrit pas le flag, le moteur applique son défaut. Affiché seulement à partir
+// de deux cartes sélectionnées, là où le choix a un sens.
+function splitModeHtml(){
+  const cur = eaGetValued('--split-mode');
+  const opt = (v, l) => '<option value="' + v + '"' + (cur === v ? ' selected' : '') + '>' + l + '</option>';
+  return '<div class="pe-row">'
+    + '<span class="pe-row-l">Mode de répartition<span class="pe-sub">comment le modèle est découpé sur les cartes (--split-mode)</span></span>'
+    + '<span class="pe-row-c"><span class="pe-selc"><select onchange="onSplitMode(this.value)">'
+    + opt('', 'Automatique')
+    + opt('layer', 'Par couches (layer)')
+    + opt('row', 'Par rangées (row)')
+    + opt('tensor', 'Par tenseurs (tensor)')
+    + opt('none', 'Une seule carte (none)')
+    + '</select></span></span></div>';
+}
+function onSplitMode(v){ eaSetValued('--split-mode', v); }
 
 // Parts actuelles, normalisées à 1. Sans --tensor-split : proportionnelles à la
 // VRAM de chaque carte, ce que llama.cpp fait de son côté — la barre montre donc

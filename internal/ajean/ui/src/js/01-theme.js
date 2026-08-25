@@ -36,6 +36,8 @@ function applyView(id, on){
   document.documentElement.setAttribute('data-'+id, on?'1':'0');
   try{ localStorage.setItem('ajean-'+id, on?'1':'0'); }catch(e){}
   const box=document.getElementById('view-'+id); if(box) box.checked=!!on;
+  // Le libellé sous le champ reflète le mode Entrée/Maj+Entrée (issue #48).
+  if(id==='enter-newline' && typeof refreshSendHint==='function') refreshSendHint();
   // La barre latérale peut rester ouverte quand on repasse en mode fixe.
   if(id==='hide-side' && !on){
     document.getElementById('side').classList.remove('open');

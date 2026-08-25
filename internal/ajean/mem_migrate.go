@@ -73,6 +73,16 @@ func EnableMemEncryption(password string) (recoveryKey string, err error) {
 	if memEncActive() {
 		return "", fmt.Errorf("le chiffrement est déjà activé")
 	}
+	// GARDE-FOU ANTI-PERTE : refuser de créer un nouveau coffre si un coffre existe
+	// DÉJÀ sur le disque, même quand le drapeau MEM_ENCRYPTED a disparu. Sinon un
+	// « ré-activer » (drapeau perdu, ex. effacé par un changement de preset) forgeait
+	// une NOUVELLE DEK et re-chiffrait par-dessus : les pages déjà chiffrées sous
+	// l'ancienne DEK devenaient définitivement illisibles. Ici on impose de
+	// DÉVERROUILLER l'existant (unlock) au lieu de re-chiffrer. C'est ce bug qui a
+	// orphelin des pages le 2026-08-25.
+	if vaultExists() {
+		return "", fmt.Errorf("un coffre de chiffrement existe déjà : déverrouille la mémoire (unlock) au lieu de la re-chiffrer")
+	}
 	if err := memCryptoSelfTest(); err != nil {
 		return "", fmt.Errorf("auto-test crypto échoué, chiffrement refusé : %w", err)
 	}

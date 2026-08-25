@@ -44,6 +44,23 @@ func primeNextRuns() {
 	}
 }
 
+// rescheduleEnabledFromNow repose le NextRun de CHAQUE tâche activée à sa prochaine
+// échéance à partir de maintenant. Appelé à la reprise de l'interrupteur maître :
+// pendant une pause, tickTasks ne touche pas aux NextRun, donc toutes les échéances
+// tombées dans l'intervalle restent dans le passé. Sans ce recalcul, elles seraient
+// toutes « dues » à la reprise et se déclencheraient en rafale (une par tick). On
+// saute donc les occurrences manquées et on repart sur l'horaire normal.
+func rescheduleEnabledFromNow() {
+	now := time.Now()
+	for _, t := range listTasks() {
+		if !t.Enabled {
+			continue
+		}
+		t.NextRun = computeNextRun(t.Schedule, t.TZ, now)
+		_ = saveTask(t)
+	}
+}
+
 // tickTasks lance la première tâche due (si l'interrupteur maître n'est pas en
 // pause). Une seule par tick : lancer plusieurs inférences en parallèle est de
 // toute façon impossible (gate de génération), et étaler leur départ évite qu'une

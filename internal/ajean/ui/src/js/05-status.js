@@ -142,6 +142,23 @@ let CTX_MAX=0, CTX_USED=0, MODEL_READY=false;
 // bloqué par un état inconnu.
 let STATUS_SEEN=false;
 function setCtxUsed(n){ CTX_USED=n||0; updateCtxMeter(); }
+// Compteur de compactages de la session (issue #47) : combien de fois le contexte
+// a déjà été résumé. Masqué à zéro. Sert de repère pour décider de repartir sur une
+// nouvelle session avant que les tout premiers détails ne se diluent dans les
+// résumés successifs.
+let COMPACTIONS=0;
+function setCompactCount(n){
+  COMPACTIONS=n||0;
+  const el=document.getElementById('ctx-compactions');
+  if(!el) return;
+  if(COMPACTIONS>0){
+    el.textContent='· '+COMPACTIONS+'× compacté';
+    el.title='Le contexte de cette session a été résumé '+COMPACTIONS+' fois. Après plusieurs compactages, les tout premiers détails se diluent : pense à repartir sur une nouvelle session si le fil dérive.';
+    el.style.display='inline';
+  } else {
+    el.style.display='none';
+  }
+}
 function updateCtxMeter(){
   if(!CTX_MAX) return;
   const pct=Math.min(100, Math.round(CTX_USED*100/CTX_MAX));

@@ -144,9 +144,16 @@ func handleTasksPause(w http.ResponseWriter, r *http.Request) {
 		On bool `json:"on"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
+	was := tasksPaused()
 	if err := setTasksPaused(req.On); err != nil {
 		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 		return
+	}
+	// Reprise (pause → actif) : on replanifie les tâches à leur prochaine échéance
+	// pour ne PAS rejouer d'un coup toutes celles dont l'heure est passée pendant la
+	// pause. Elles repartent à leur horaire habituel, pas en rafale.
+	if was && !req.On {
+		rescheduleEnabledFromNow()
 	}
 	sendJSON(w, 200, map[string]any{"ok": true, "paused": tasksPaused()})
 }

@@ -1,16 +1,26 @@
-Version corrective. Deux réglages de l'interface qui ne se comportaient pas comme prévu à la création d'un preset et à la saisie d'un message.
+Version corrective importante, autour de la sécurité du chiffrement de la mémoire, des presets, du planificateur et de la répartition multi-GPU.
 
-## Presets : l'interrupteur Raisonnement écrit désormais sa valeur
+## Réglages effacés par un changement de preset : correction critique
 
-* À la création d'un preset, laisser l'interrupteur Raisonnement sur off n'écrivait aucune valeur dans la configuration. Or une valeur absente laisse le moteur suivre son défaut, et un modèle à raisonnement continue alors de réfléchir malgré l'interrupteur affiché sur off. Il fallait basculer l'interrupteur deux fois pour forcer l'écriture.
-* Désormais l'état de l'interrupteur est enregistré tel quel au moment de la sauvegarde : off inscrit une désactivation explicite, on l'active. Une valeur plus précise déjà en place (auto, deepseek) est préservée.
+* Un changement de preset remplace toute la configuration en bloc, ce qui effaçait des réglages utilisateur qui y étaient rangés, donnant l'impression qu'ils « se désactivaient tout seuls ». Ces réglages sont désormais préservés à travers les bascules de preset : le drapeau de chiffrement de la mémoire (MEM_ENCRYPTED), la sauvegarde automatique ajean.link (BACKUP_AUTO), le compactage automatique du contexte (COMPACT) et la gestion autonome des machines (MACHINES).
+* Conséquence la plus grave, corrigée : quand le drapeau de chiffrement disparaissait, l'interface croyait le chiffrement désactivé, ne proposait plus de déverrouiller, et la mémoire restait chiffrée mais inaccessible.
+* Garde-fou ajouté : activer le chiffrement est refusé si un coffre existe déjà (au lieu d'en forger un nouveau par-dessus, ce qui rendait illisibles les pages chiffrées sous l'ancienne clé). Dans ce cas, il faut déverrouiller la mémoire existante.
+* Résilience de l'interface : si le drapeau venait à manquer alors qu'un coffre existe, l'invite de déverrouillage est proposée quand même, au lieu de laisser la mémoire muette sans rien demander.
 
-## Saisie : option pour inverser Entrée et Maj+Entrée
+## Presets
 
-* Nouvelle option dans Apparence : **Entrée = retour à la ligne**. Désactivée par défaut, le comportement habituel ne change pas (Entrée envoie, Maj+Entrée va à la ligne).
-* Une fois activée, la logique est inversée : Entrée insère un retour à la ligne, et l'envoi se fait avec Maj+Entrée ou Ctrl+Entrée. Le réglage est partagé entre les appareils reliés au même serveur.
+* Modifier le preset actif le désélectionne de nouveau. Le fichier enregistré diverge alors de la configuration qui tourne encore, il faut « switcher » pour l'appliquer. Un simple renommage, ou le raccourci « niveau de réflexion », ne désélectionne pas.
+* Éditeur de preset, section Cartes graphiques : nouveau choix du mode de répartition multi-GPU (--split-mode), visible dès deux cartes sélectionnées. Options : automatique, par couches (layer), par rangées (row), par tenseurs (tensor), une seule carte (none).
 
-> Aucun rechargement de modèle à la mise à jour, le moteur d'inférence n'est pas touché. Le comportement sous macOS n'a pas été testé.
+## Planificateur de tâches
+
+* Réactiver les tâches après une pause ne les relance plus toutes d'un coup. Les échéances tombées pendant la pause sont ignorées, chaque tâche repart à son horaire habituel.
+
+## Chat
+
+* Compteur de compactages du contexte affiché à côté de la jauge, par session.
+* Plus de notification de fin de réponse quand la génération est arrêtée volontairement avec le bouton stop.
+* Le libellé sous le champ de saisie reflète désormais l'option « Entrée = retour à la ligne » au lieu de rester figé.
 
 ## Mettre à jour
 
