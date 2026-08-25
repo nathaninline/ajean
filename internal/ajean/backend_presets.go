@@ -269,6 +269,7 @@ func safePresetPath(name string) (string, error) {
 //     désactivait toute seule » à chaque changement de preset.
 //   - COMPACT : compactage automatique du contexte (toggle utilisateur).
 //   - MACHINES : gestion autonome des machines (toggle utilisateur).
+//
 // Les vrais réglages de modèle (BIN, MODEL, CTX, NGL, REASONING…) ne sont PAS ici :
 // ils appartiennent au preset. Les bascules agent/internet/oai/tâches, elles, sont
 // déjà rangées dans le bucket état (bkState), hors config, donc à l'abri.
