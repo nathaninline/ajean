@@ -219,13 +219,13 @@ func newWebMux() *http.ServeMux {
 	api("/api/mem", handleMem)
 	api("/api/mem/save", handleMemSave)
 	api("/api/mem/delete", handleMemDelete)
-	api("/api/mem/health", handleMemHealth)     // état chiffrement/verrou/pages/snapshots
-	api("/api/mem/encrypt", handleMemEncrypt)   // active le chiffrement (renvoie la clé de récupération)
-	api("/api/mem/decrypt", handleMemDecrypt)   // remet la mémoire en clair
-	api("/api/mem/unlock", handleMemUnlock)     // déverrouille (mot de passe ou clé de récupération)
-	api("/api/mem/addkey", handleMemAddKey)     // ajoute un wrap (ex. clé d'API) au coffre déjà ouvert
-	api("/api/mem/lock", handleMemLock)         // reverrouille (purge la DEK de la RAM)
-	api("/api/mem/snapshots", handleMemSnapshots) // liste + restauration des snapshots locaux
+	api("/api/mem/health", handleMemHealth)         // état chiffrement/verrou/pages/snapshots
+	api("/api/mem/encrypt", handleMemEncrypt)       // active le chiffrement (renvoie la clé de récupération)
+	api("/api/mem/decrypt", handleMemDecrypt)       // remet la mémoire en clair
+	api("/api/mem/unlock", handleMemUnlock)         // déverrouille (mot de passe ou clé de récupération)
+	api("/api/mem/addkey", handleMemAddKey)         // ajoute un wrap (ex. clé d'API) au coffre déjà ouvert
+	api("/api/mem/lock", handleMemLock)             // reverrouille (purge la DEK de la RAM)
+	api("/api/mem/snapshots", handleMemSnapshots)   // liste + restauration des snapshots locaux
 	api("/api/backup/status", handleBackupStatus)   // état sauvegarde ajean.link
 	api("/api/backup/now", handleBackupNow)         // sauvegarde immédiate (abonné)
 	api("/api/backup/restore", handleBackupRestore) // restauration depuis le relais

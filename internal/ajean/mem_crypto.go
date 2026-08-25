@@ -17,7 +17,6 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"crypto/subtle"
 	"errors"
 	"fmt"
 	"io"
@@ -142,9 +141,6 @@ func decPage(dek, blob []byte) ([]byte, error) {
 
 // looksEncrypted indique si un contenu disque est une page chiffrée (magic).
 func looksEncrypted(blob []byte) bool { return bytes.HasPrefix(blob, memPageMagic) }
-
-// constEqual compare deux tranches à temps constant.
-func constEqual(a, b []byte) bool { return subtle.ConstantTimeCompare(a, b) == 1 }
 
 // memCryptoSelfTest vérifie que la chaîne crypto marche RÉELLEMENT sur cette
 // machine/ce build avant qu'on chiffre la moindre donnée : round-trip DEK sur

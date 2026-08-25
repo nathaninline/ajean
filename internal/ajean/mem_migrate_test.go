@@ -10,9 +10,9 @@ import (
 func seedPages(t *testing.T) map[string]string {
 	t.Helper()
 	pages := map[string]string{
-		"projet.md":  "# Projet\n\nUn secret très important à ne jamais perdre.\n",
-		"copine.md":  "# Perso\n\nAnniversaire le 3 mars. éàçù ✔\n",
-		"vide.md":    "# Vide\n",
+		"projet.md": "# Projet\n\nUn secret très important à ne jamais perdre.\n",
+		"copine.md": "# Perso\n\nAnniversaire le 3 mars. éàçù ✔\n",
+		"vide.md":   "# Vide\n",
 	}
 	for name, content := range pages {
 		if err := MemAdd(name, content); err != nil {

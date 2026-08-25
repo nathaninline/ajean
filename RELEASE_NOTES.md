@@ -1,29 +1,29 @@
-Ta mémoire et tes conversations peuvent désormais être chiffrées, avec une clé qui ne vit que sur tes appareils et jamais sur le serveur. Et si tu es abonné à ajean.link, tu peux en plus les sauvegarder sur le relais, qui ne voit qu'un paquet opaque.
+La mémoire et les conversations peuvent désormais être chiffrées, avec une clé qui ne vit que sur les appareils du client et jamais sur le serveur. Pour les abonnés ajean.link, une sauvegarde chiffrée sur le relais est également disponible, le relais ne voyant qu'un paquet opaque.
 
 ## Chiffrement de la mémoire et des conversations
 
-* Nouveau réglage dans Paramètres : **activer le chiffrement**. Désactivé par défaut. Une fois activé, tes pages mémoire et tes conversations (fil courant + historique) sont chiffrées au repos sur le disque, en AES-256. Un dossier copié, une sauvegarde ou un disque volé sans ton serveur complet sont illisibles.
-* La clé, c'est ta **clé d'API** (celle qui te donne déjà accès à l'interface). Elle ne vit que dans ton navigateur, sur chaque appareil : le serveur n'en garde que l'empreinte, jamais la clé. **Ton serveur seul ne peut pas déchiffrer ta mémoire.**
-* Rien à retaper au quotidien : si tu as accès à l'interface, la mémoire s'ouvre toute seule. Sur un nouvel appareil, elle te demande ta clé une fois, puis la retient.
-* À l'activation, une **clé de récupération** t'est donnée : note-la, elle rouvre tout même si tu perds ta clé.
-* La case n'est cochée que si **tout** est réellement chiffré : si quelque chose n'est pas complet, elle reste décochée, tu es donc sûr de l'état.
+* Nouveau réglage dans Paramètres : **activer le chiffrement**. Désactivé par défaut. Une fois activé, les pages mémoire et les conversations (fil courant et historique) sont chiffrées au repos sur le disque, en AES-256. Un dossier copié, une sauvegarde ou un disque volé sans le serveur complet restent illisibles.
+* La clé est la **clé d'API** (celle qui donne déjà accès à l'interface). Elle ne vit que dans le navigateur, sur chaque appareil : le serveur n'en garde que l'empreinte, jamais la clé. **Le serveur seul ne peut pas déchiffrer la mémoire.**
+* Rien à ressaisir au quotidien : avoir accès à l'interface suffit à ouvrir la mémoire. Sur un nouvel appareil, la clé est demandée une fois, puis mémorisée.
+* Une **clé de récupération** est fournie à l'activation : à conserver, elle rouvre tout en cas de perte de la clé.
+* La case n'est cochée que si **tout** est réellement chiffré : un état incomplet la laisse décochée, ce qui rend l'état fiable d'un coup d'œil.
 
-## Sécurité, sans rien perdre
+## Sécurité, sans perte de données
 
 * Le passage au chiffrement (et le retour au clair) ne détruit jamais rien : chaque page est relue et vérifiée avant que l'ancienne ne soit retirée, un instantané de sécurité est pris avant chaque bascule, et une migration interrompue se reprend proprement.
-* Des instantanés locaux de ta mémoire sont conservés automatiquement, même sans abonnement, pour pouvoir revenir en arrière en cas de pépin.
+* Des instantanés locaux de la mémoire sont conservés automatiquement, même sans abonnement, pour permettre un retour en arrière en cas de problème.
 
 ## Sauvegarde sur ajean.link (abonnés)
 
-* Nouveau bloc **Sauvegarde ajean.link** dans Paramètres, visible si ton serveur est lié à ton compte. Il sauvegarde ta mémoire, tes presets et tes réglages sur le relais.
-* Tout est **chiffré sur ton serveur avant l'envoi** : le relais ne stocke qu'un blob opaque, illisible même s'il était piraté. La restauration se fait avec ta clé d'API sur n'importe quel serveur, même vierge.
+* Nouveau bloc **Sauvegarde ajean.link** dans Paramètres, visible lorsque le serveur est lié au compte. Il sauvegarde la mémoire, les presets et les réglages sur le relais.
+* Tout est **chiffré sur le serveur avant l'envoi** : le relais ne stocke qu'un blob opaque, illisible même en cas de piratage. La restauration se fait avec la clé d'API, sur n'importe quel serveur, même vierge.
 * Sauvegarde manuelle ou **automatique** une fois par jour, sans mot de passe à gérer. Les 10 dernières versions sont conservées, les plus anciennes tournent automatiquement.
 
 ## Sous le capot
 
-* La clé de pilotage n'est plus stockée en clair sur le serveur, seulement son empreinte, et l'accès distant via ajean.link est authentifié par ton identité chiffrée de bout en bout. Aucun changement visible pour toi, l'accès marche comme avant.
+* La clé de pilotage n'est plus stockée en clair sur le serveur, seulement son empreinte, et l'accès distant via ajean.link est authentifié par l'identité chiffrée de bout en bout. Aucun changement visible : l'accès fonctionne comme avant.
 
-> Note : le chiffrement est optionnel et désactivé par défaut, rien ne change si tu ne l'actives pas. Le moteur d'inférence n'est pas touché (aucun rechargement de modèle à la mise à jour). Vérifié sur le serveur de Alice (Linux) et via ajean.link ; le comportement sous macOS n'a pas été testé.
+> Note : le chiffrement est optionnel et désactivé par défaut, rien ne change s'il n'est pas activé. Le moteur d'inférence n'est pas touché (aucun rechargement de modèle à la mise à jour). Vérifié sur le serveur de Alice (Linux) et via ajean.link ; le comportement sous macOS n'a pas été testé.
 
 ## Mettre à jour
 

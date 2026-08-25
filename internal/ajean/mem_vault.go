@@ -40,11 +40,11 @@ type kekParams struct {
 }
 
 type vaultWrap struct {
-	Kind  string     `json:"kind"`
-	Label string     `json:"label"`
-	Salt  string     `json:"salt"` // base64 du sel Argon2id propre à ce wrap
-	KDF   kekParams  `json:"kdf"`
-	Box   string     `json:"box"` // base64 de gcmSeal(KEK, DEK, aad)
+	Kind  string    `json:"kind"`
+	Label string    `json:"label"`
+	Salt  string    `json:"salt"` // base64 du sel Argon2id propre à ce wrap
+	KDF   kekParams `json:"kdf"`
+	Box   string    `json:"box"` // base64 de gcmSeal(KEK, DEK, aad)
 }
 
 type keyVault struct {
@@ -58,7 +58,7 @@ func vaultWrapAAD(kind string) []byte { return []byte("ajean-vault/" + kind) }
 // --- Emplacements du keyvault (3 copies indépendantes) -----------------------
 
 func vaultPathPrimary() string { return filepath.Join(memoryDir(), ".keyvault") }
-func vaultPathBackup() string   { return filepath.Join(AjeanHome(), ".keyvault.bak") }
+func vaultPathBackup() string  { return filepath.Join(AjeanHome(), ".keyvault.bak") }
 
 const vaultDBKey = "mem_keyvault"
 

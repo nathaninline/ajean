@@ -6,7 +6,6 @@ package ajean
 
 import (
 	"os"
-	"strings"
 )
 
 // MemHealth résume l'état de la mémoire (sérialisé tel quel vers l'UI).
@@ -90,17 +89,4 @@ func memHealth() MemHealth {
 	}
 	_, h.MigrationBusy = readMigrationJournal()
 	return h
-}
-
-// memStatusLabel : phrase courte pour les logs / la CLI.
-func memStatusLabel() string {
-	h := memHealth()
-	switch {
-	case !h.Encrypted:
-		return "mémoire en clair"
-	case h.Locked:
-		return "mémoire chiffrée — verrouillée"
-	default:
-		return strings.TrimSpace("mémoire chiffrée — déverrouillée")
-	}
 }
