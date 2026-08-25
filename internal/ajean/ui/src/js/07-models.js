@@ -921,6 +921,21 @@ function closeModal(){ hideModal('modal'); document.getElementById('modal').clas
 async function saveItem(){
   const K = KINDS[editingKind];
   const name = document.getElementById('m-name').value.trim();
+  // Interrupteur « Raisonnement » : on matérialise son état dans le preset AVANT
+  // de lire le contenu. onchange ne part que sur une interaction : un switch
+  // laissé sur off à la création n'écrivait donc jamais REASONING=, et la clé
+  // ABSENTE laisse le moteur raisonner malgré l'interrupteur affiché sur off
+  // (issue #46). Décoché → REASONING=off explicite. Coché → on, sauf si une
+  // valeur active plus précise (auto/deepseek) est déjà là : on ne l'écrase pas.
+  if(editingKind==='preset'){
+    const rsw = document.getElementById('s-reasoning');
+    if(rsw){
+      const cur = cfgReadKey('REASONING');
+      const active = /^(on|1|true|auto|deepseek)$/i.test(cur);
+      if(!rsw.checked){ if(!/^off$/i.test(cur)) cfgWriteKey('REASONING', 'off'); }
+      else if(!active){ cfgWriteKey('REASONING', 'on'); }
+    }
+  }
   const content = document.getElementById('m-content').value;
   if(!name){ toast('nom requis'); return; }
   // Presets: keyed by id (filename); duplicate display names are allowed.

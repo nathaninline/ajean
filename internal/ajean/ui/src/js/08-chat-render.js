@@ -511,7 +511,16 @@ function restoreChat(){
   setTimeout(()=>{ setChatLoading(null); }, 15000);
   connectStream();
 }
-function onKey(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } }
+// Deux modes, réglables dans Apparence (issue #44). Par défaut : Entrée envoie,
+// Maj+Entrée fait un retour à la ligne. Avec « Entrée = retour à la ligne » coché,
+// on inverse : Entrée insère un saut de ligne et c'est Maj/Ctrl/Cmd+Entrée qui
+// envoie. isComposing évite d'envoyer en pleine saisie IME (accents, japonais…).
+function onKey(e){
+  if(e.key!=='Enter' || e.isComposing) return;
+  const withMod = e.shiftKey || e.ctrlKey || e.metaKey;
+  const shouldSend = viewOn('enter-newline') ? withMod : !e.shiftKey;
+  if(shouldSend){ e.preventDefault(); send(); }
+}
 // La zone de saisie s'ajuste à son contenu : une ligne au repos, puis elle
 // grandit jusqu'à sa max-height (au-delà, elle défile). Appelée à la frappe, à
 // l'envoi et au chargement.
