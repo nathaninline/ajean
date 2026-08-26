@@ -461,6 +461,27 @@ button:disabled{opacity:.5;cursor:not-allowed}
    replie en douceur pour désencombrer le fil, tout en gardant le label (et son
    compteur de tokens) cliquable pour redéplier. */
 .msg.collapsible .label{cursor:pointer;user-select:none;margin-bottom:0}
+/* Shimmer « voile blanc » façon Claude/DeepSeek : tant que la bulle travaille
+   (.working), un dégradé clair balaye l'étiquette de gauche à droite. On clippe
+   le dégradé sur le texte (background-clip:text) et on déplace sa position. Base
+   dim pour rester secondaire, pic clair (--text) pour le reflet. Le repli retire
+   .working → l'étiquette redevient statique. */
+#chat .msg.collapsible.working .label{
+  background:linear-gradient(90deg,var(--dim) 0%,var(--dim) 30%,var(--text) 50%,var(--dim) 70%,var(--dim) 100%);
+  background-size:300% 100%;background-repeat:no-repeat;
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:transparent;
+  animation:labelshimmer 2s linear infinite;
+}
+/* Rester dans [0%,100%] : hors de cette plage le dégradé ne couvre plus tout le
+   texte et les lettres non couvertes s'effacent. Avec un fond 300% + bande
+   étroite, aux deux bornes le reflet est HORS du texte (invisible), et la pause
+   70%→100% espace les passages : le bouclage va d'invisible à invisible, donc
+   aucune saccade. */
+@keyframes labelshimmer{0%{background-position:100% 0}70%,100%{background-position:0% 0}}
+@media (prefers-reduced-motion:reduce){
+  #chat .msg.collapsible.working .label{animation:none;background:none;-webkit-text-fill-color:var(--dim);color:var(--dim)}
+}
 /* ===== Barre latérale ==============================================
    Colonne de réglages dense : 12 sections repliées doivent tenir sans faire
    défiler. Un seul gabarit, repris des listes de la modale de preset.
@@ -1139,7 +1160,16 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
 /* Étiquettes VOUS / AJEAN : inutiles ici (l'alignement suffit), sauf pour les
    bulles repliables (raisonnement / outils) où le label est le bouton de repli. */
 #chat .msg .label{display:none}
-#chat .msg.collapsible .label{display:block}
+#chat .msg.collapsible .label{display:block;position:relative;padding-right:16px;width:fit-content;
+  text-transform:none;letter-spacing:0;font-size:13px;font-weight:500;color:var(--dim)}
+/* Chevron de repli, à droite du texte. Posé en ::after avec sa propre couleur :
+   le shimmer met -webkit-text-fill-color:transparent sur le label, ce qui se
+   propagerait au chevron — on le ré-affirme ici pour qu'il reste visible pendant
+   l'animation. Pivote de 0 (replié, pointe à droite) à 90° (déplié, pointe bas). */
+#chat .msg.collapsible .label::after{content:'\203A';position:absolute;right:0;top:50%;
+  transform:translateY(-50%);transition:transform .2s ease;color:var(--dim);
+  -webkit-text-fill-color:var(--dim);font-size:14px;line-height:1;opacity:.8}
+#chat .msg.collapsible:not(.collapsed) .label::after{transform:translateY(-50%) rotate(90deg)}
 /* Mesures de génération sous la réponse (prefill / decode). Assez discrètes pour
    ne pas concurrencer le texte, assez lisibles pour être utiles. Toujours
    affichées : ces chiffres font partie de l'identité de l'app (IA locale). */
@@ -1152,8 +1182,9 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
 #chat .msg .statline-in{animation:statin .28s cubic-bezier(.2,.7,.3,1) both}
 @keyframes statin{from{opacity:0;transform:translateY(3px)}to{opacity:.75;transform:none}}
 @media (prefers-reduced-motion:reduce){#chat .msg .statline-in{animation:none}}
-/* Raisonnement / outils : encart gris discret plutôt qu'un cadre pointillé. */
-#chat .msg.reasoning,#chat .msg.tool{background:var(--panel);border:1px solid var(--border);border-radius:14px;color:var(--dim);padding:12px 16px}
+/* Raisonnement / outils : plus d'encart du tout — juste la ligne de texte (le
+   label) avec un chevron pour déplier. Le corps s'affiche dépliée sans cadre. */
+#chat .msg.reasoning,#chat .msg.tool{background:none;border:none;border-radius:0;color:var(--dim);padding:0}
 #chat .msg.reasoning{color:var(--dim)}
 #chat .msg.tool .tool-head{color:var(--text)}
 #chat .msg.assistant .body pre,#chat .msg.reasoning .body pre,#chat .msg.tool pre{border-radius:12px;padding:12px 14px}
@@ -5031,7 +5062,12 @@ function addMsg(role, text){
   const collapsible = (role==='reasoning' || role==='tool');
   // .body must be a real block so <p>/<pre>/<ul> margins behave properly.
   if(collapsible){
+    // 'working' = bulle active : son étiquette (la ligne-résumé, qui survit au repli)
+    // reçoit le shimmer « voile blanc » façon Claude/DeepSeek tant que l'IA y travaille.
+    // Piloté par le flux (retiré à tu.done pour un outil, au passage reasoning→suite),
+    // PAS par le repli. Pas de shimmer pour les bulles historiques rejouées.
     el.classList.add('collapsible');
+    if(!(typeof REPLAYING!=='undefined' && REPLAYING)) el.classList.add('working');
     el.innerHTML='<span class="label">'+role+'</span><div class="bodywrap"><div class="body"></div></div>';
     el.querySelector('.label').onclick=()=>toggleCollapse(el);
   } else {
@@ -5055,6 +5091,9 @@ function addTyping(){
 // (ouverture), sans jamais dépasser. overflow:hidden clippe pendant l'animation.
 function collapseBody(el){
   const bw=el.querySelector('.bodywrap'); if(!bw || el.classList.contains('collapsed')) return;
+  // NB : on ne touche PAS à 'working' ici. Le repli est indépendant de l'activité —
+  // une bulle repliée peut être encore en cours (fold-tools la replie dès sa
+  // création). Le shimmer est piloté par le flux (création → done), pas par le repli.
   bw.style.height = bw.scrollHeight+'px';   // fige les dimensions courantes
   bw.style.width  = bw.scrollWidth+'px';
   void bw.offsetHeight;                      // reflow pour que la transition parte de là
@@ -5161,7 +5200,7 @@ function renderToolMsg(el, tu){
   meta = meta || {lbl:'outil', head:'outil'};
   let lbl = meta.lbl;
   // Indication du volume de la réponse de l'outil (~tokens, estimation 1 tok ≈ 4 car).
-  if(tu.result){ lbl += '  ·  ~' + Math.max(1, Math.round(tu.result.length/4)) + ' tok'; }
+  if(tu.result){ lbl += '  ·  ' + Math.max(1, Math.round(tu.result.length/4)) + ' tok'; }
   setLabel(el, lbl);
   // Volume de l'écriture (final si le diff est là, provisoire pendant la frappe)
   // reporté sur l'étiquette, pour rester lisible bulle repliée.
@@ -5527,7 +5566,12 @@ function confirmPending(text){
 let REPLAYING=true;
 // État de rendu du tour courant, délimité par les événements user / turn_done.
 let T=null;
-function newTurn(){ T={ reasonEl:null, contentEl:null, pendingToolEl:null, typingEl:null, fullContent:'', fullReason:'', turnCollapsibles:[], serverStats:null, reasonTok:0, contentTok:0, reasonFirstTs:0, reasonLastTs:0, contentFirstTs:0, contentLastTs:0 }; }
+function newTurn(){ T={ reasonEl:null, contentEl:null, pendingToolEl:null, activeEl:null, typingEl:null, fullContent:'', fullReason:'', turnCollapsibles:[], serverStats:null, reasonTok:0, contentTok:0, reasonFirstTs:0, reasonLastTs:0, contentFirstTs:0, contentLastTs:0 }; }
+// « Élément actif » = la bulle qui porte le shimmer. Le voile reste dessus tant
+// qu'une nouvelle étape (raisonnement / outil / réponse) n'a pas pris le relais —
+// y compris pendant que l'IA LIT la réponse d'un outil terminé. On ne coupe donc
+// PAS le shimmer à tu.done : c'est l'arrivée de l'étape suivante qui le transfère.
+function setActive(el){ if(T.activeEl && T.activeEl!==el) T.activeEl.classList.remove('working'); T.activeEl=el||null; }
 newTurn();
 const simpleMode=()=>document.documentElement.getAttribute('data-display')==='simple';
 // Ligne d'état de génération (issue #34, façon Claude Code). Un raisonnement ou
@@ -5537,6 +5581,13 @@ const simpleMode=()=>document.documentElement.getAttribute('data-display')==='si
 // fin). Purement client, EN DIRECT seulement : au replay on n'a pas l'instant de
 // départ, et un chrono qui « recommencerait » à chaque rechargement tromperait.
 let ELAPSED=null; // {start, timer}
+// TURN_ENDED : le dernier tour du fil est-il terminé ? Passe à false dès qu'un
+// delta `user` ouvre un tour (le SEUL marqueur d'une génération VISIBLE côté
+// client), à true sur turn_done. reconcileBusy s'en sert pour ne PAS ressusciter
+// un chrono quand le serveur repart en `generating=true` sans nouveau tour
+// (flag coincé, compactage/tâche auto) : sinon on voyait « 56s · 575 tok » monter
+// tout seul après une réponse finie, avec les tokens périmés du tour précédent.
+let TURN_ENDED=true;
 // fmtElapsed : durée EN SECONDES → « 42s », « 15 mn 42s », « 1 h 05 mn ». Nom
 // distinct de fmtDur() (16-tasks.js, en millisecondes) : les fichiers JS sont
 // concaténés dans un même scope, une collision de nom écrasait celui-ci.
@@ -5849,7 +5900,7 @@ function handleDelta(d){
     // (comme au chargement de page), sans l'animation « ouvre puis se ferme ». Le
     // caught_up qui clôt le rejeu remettra REPLAYING à false.
     if(d.replay) REPLAYING=true;
-    elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); setCompactCount(0); lastSeq=0; setBusy(false); return; }
+    TURN_ENDED=true; elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); setCompactCount(0); lastSeq=0; setBusy(false); return; }
   if(d.user!==undefined){
     newTurn();
     let el=PENDING;
@@ -5858,13 +5909,15 @@ function handleDelta(d){
     // porte déjà (posées à l'envoi), on ne les ajoute donc qu'au replay/à une
     // bulle neuve — sinon elles apparaîtraient en double.
     if(d.files && !hasMsgFiles(el)) addMsgFiles(el, d.files);
-    setBusy(true); T.typingEl=addTyping(); elapsedStart(); return; }
-  if(d.turn_done){ smoothSnap(); flushRender();
+    TURN_ENDED=false; setBusy(true); T.typingEl=addTyping(); elapsedStart(); return; }
+  if(d.turn_done){ TURN_ENDED=true; smoothSnap(); flushRender();
     // MÊME ligne en direct et au replay : durée serveur (elapsed_ms, rejouée) +
     // mesures serveur. removeTyping AVANT finalize pour que la ligne soit bien le
     // dernier enfant du fil (donc sous le message).
-    removeTyping(); finalizeTurn(d.elapsed_ms||0); collapseAll(T.turnCollapsibles); setBusy(false); return; }
-  if(d.error){ smoothSnap(); flushRender(); elapsedStop(); removeTyping(); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
+    removeTyping(); finalizeTurn(d.elapsed_ms||0);
+    for(const el of T.turnCollapsibles){ if(el) el.classList.remove('working'); } // fin de tour : plus rien n'est actif (avant collapseAll qui vide la liste)
+    collapseAll(T.turnCollapsibles); setBusy(false); return; }
+  if(d.error){ smoothSnap(); flushRender(); elapsedStop(); removeTyping(); setActive(null); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
   if(d.compacting!==undefined){ setCompacting(d.compacting); return; }
   if(d.compacted){ setCompacting(false); addCompactMark(); return; }
   // Pas de toast au REPLAY : le journal est rejoué à chaque chargement de page,
@@ -5883,12 +5936,14 @@ function handleDelta(d){
   if(d.tool_used){
     smoothSnap(); flushRender(); // le bloc texte précédent (raisonnement/contenu) est terminé
     killTyping('tool'); T.contentEl=null; T.reasonEl=null; const tu=d.tool_used;
-    if(!T.pendingToolEl){ collapseAll(T.turnCollapsibles); T.pendingToolEl=addMsg('tool',''); if(REPLAYING||viewOn('fold-tools')) collapseInstant(T.pendingToolEl); T.turnCollapsibles.push(T.pendingToolEl); }
+    if(!T.pendingToolEl){ collapseAll(T.turnCollapsibles); T.pendingToolEl=addMsg('tool',''); if(REPLAYING||viewOn('fold-tools')) collapseInstant(T.pendingToolEl); T.turnCollapsibles.push(T.pendingToolEl); setActive(T.pendingToolEl); }
     renderToolMsg(T.pendingToolEl, tu);
     // Outils masqués : on garde l'indicateur même quand l'appel est terminé (le
     // tour continue, et rien d'autre n'est visible). Sinon, comportement inchangé.
     if(!tu.done || viewOn('hide-tools')) showTyping('tool');
     if(tu.done){
+      // On NE coupe PAS le shimmer ici : la bulle reste « active » pendant que l'IA
+      // lit la réponse. setActive le transférera à l'étape suivante (voir plus haut).
       T.pendingToolEl=null;
       if(tu.name==='mem_add'||tu.name==='mem_edit'||tu.name==='mem_delete') loadMem();
       // L'IA vient de créer/modifier/supprimer/activer une tâche : la liste, la
@@ -5908,21 +5963,23 @@ function handleDelta(d){
     return; }
   if(d.reasoning_content){
     killTyping('reasoning');
-    if(!T.reasonEl){ collapseAll(T.turnCollapsibles); T.reasonEl=addMsg('reasoning',''); if(REPLAYING||viewOn('fold-tools')) collapseInstant(T.reasonEl); T.fullReason=''; T.turnCollapsibles.push(T.reasonEl); }
+    if(!T.reasonEl){ collapseAll(T.turnCollapsibles); T.reasonEl=addMsg('reasoning',''); if(REPLAYING||viewOn('fold-tools')) collapseInstant(T.reasonEl); T.fullReason=''; T.turnCollapsibles.push(T.reasonEl); setActive(T.reasonEl); T.reasonEl._tok=0; }
     // d.replace : le serveur renvoie le bloc ENTIER alors qu'on en affichait déjà
     // le début (voir decorateEvent/coalesceReplay côté serveur) → on repart de zéro
     // au lieu de concaténer, sinon le texte apparaît en double.
-    if(d.replace){ smoothSnap(); T.fullReason=''; T.reasonTok=0; T.reasonFirstTs=0; }
+    if(d.replace){ smoothSnap(); T.fullReason=''; T.reasonTok-=(T.reasonEl._tok||0); T.reasonEl._tok=0; }
     showTyping('reasoning'); T.fullReason+=d.reasoning_content; feedBlock(T.reasonEl, T.fullReason);
-    // d.toks/d.ts0 présents quand l'événement est coalescé (replay) : plusieurs
-    // tokens d'un coup. Sinon (direct), 1 token, ts0=ts.
-    if(!T.reasonFirstTs) T.reasonFirstTs=d.ts0||d.ts||0; T.reasonLastTs=d.ts||T.reasonLastTs; T.reasonTok+=(d.toks||1);
-    labelTokens(T.reasonEl, 'reasoning', T.reasonTok, T.reasonFirstTs, T.reasonLastTs);
+    // d.toks présents quand l'événement est coalescé (replay) : plusieurs tokens d'un
+    // coup. Sinon (direct), 1 token. Compteur PAR BULLE (T.reasonEl._tok) pour que
+    // chaque bloc de raisonnement affiche SES propres tokens, pas le cumul du tour ;
+    // T.reasonTok reste le total du tour, pour la ligne d'état en bas (genTokCount).
+    const inc=(d.toks||1); T.reasonEl._tok+=inc; T.reasonTok+=inc;
+    labelTokens(T.reasonEl, 'reasoning', T.reasonEl._tok);
     noteDecode(d); paintGenStatus();
     return; }
   if(d.content){
     removeTyping();
-    if(!T.contentEl){ collapseAll(T.turnCollapsibles); T.contentEl=addMsg('assistant',''); T.fullContent=''; }
+    if(!T.contentEl){ setActive(null); collapseAll(T.turnCollapsibles); T.contentEl=addMsg('assistant',''); T.fullContent=''; }
     if(d.replace){ smoothSnap(); T.fullContent=''; T.contentTok=0; T.contentFirstTs=0; }
     T.fullContent+=d.content; feedBlock(T.contentEl, T.fullContent);
     if(!T.contentFirstTs) T.contentFirstTs=d.ts0||d.ts||0; T.contentLastTs=d.ts||T.contentLastTs; T.contentTok+=(d.toks||1);
@@ -5997,7 +6054,7 @@ async function reconcileBusy(){
     // durée DÉJÀ écoulée du tour (gen_elapsed_ms) : on cale le départ dessus pour que
     // le chrono reprenne à la BONNE valeur, pas à zéro. Pas pour une tâche de fond
     // (RUNNING_TASK) : elle n'a pas de bulle dans le fil sous laquelle s'afficher.
-    if(s.generating && !REPLAYING && !RUNNING_TASK && !ELAPSED){
+    if(s.generating && !REPLAYING && !RUNNING_TASK && !ELAPSED && !TURN_ENDED){
       elapsedStart();
       if(ELAPSED){
         const e=+s.gen_elapsed_ms||0;

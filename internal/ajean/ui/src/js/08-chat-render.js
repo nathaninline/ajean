@@ -95,7 +95,12 @@ function addMsg(role, text){
   const collapsible = (role==='reasoning' || role==='tool');
   // .body must be a real block so <p>/<pre>/<ul> margins behave properly.
   if(collapsible){
+    // 'working' = bulle active : son étiquette (la ligne-résumé, qui survit au repli)
+    // reçoit le shimmer « voile blanc » façon Claude/DeepSeek tant que l'IA y travaille.
+    // Piloté par le flux (retiré à tu.done pour un outil, au passage reasoning→suite),
+    // PAS par le repli. Pas de shimmer pour les bulles historiques rejouées.
     el.classList.add('collapsible');
+    if(!(typeof REPLAYING!=='undefined' && REPLAYING)) el.classList.add('working');
     el.innerHTML='<span class="label">'+role+'</span><div class="bodywrap"><div class="body"></div></div>';
     el.querySelector('.label').onclick=()=>toggleCollapse(el);
   } else {
@@ -119,6 +124,9 @@ function addTyping(){
 // (ouverture), sans jamais dépasser. overflow:hidden clippe pendant l'animation.
 function collapseBody(el){
   const bw=el.querySelector('.bodywrap'); if(!bw || el.classList.contains('collapsed')) return;
+  // NB : on ne touche PAS à 'working' ici. Le repli est indépendant de l'activité —
+  // une bulle repliée peut être encore en cours (fold-tools la replie dès sa
+  // création). Le shimmer est piloté par le flux (création → done), pas par le repli.
   bw.style.height = bw.scrollHeight+'px';   // fige les dimensions courantes
   bw.style.width  = bw.scrollWidth+'px';
   void bw.offsetHeight;                      // reflow pour que la transition parte de là
@@ -225,7 +233,7 @@ function renderToolMsg(el, tu){
   meta = meta || {lbl:'outil', head:'outil'};
   let lbl = meta.lbl;
   // Indication du volume de la réponse de l'outil (~tokens, estimation 1 tok ≈ 4 car).
-  if(tu.result){ lbl += '  ·  ~' + Math.max(1, Math.round(tu.result.length/4)) + ' tok'; }
+  if(tu.result){ lbl += '  ·  ' + Math.max(1, Math.round(tu.result.length/4)) + ' tok'; }
   setLabel(el, lbl);
   // Volume de l'écriture (final si le diff est là, provisoire pendant la frappe)
   // reporté sur l'étiquette, pour rester lisible bulle repliée.

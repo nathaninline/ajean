@@ -44,7 +44,12 @@ function confirmPending(text){
 let REPLAYING=true;
 // État de rendu du tour courant, délimité par les événements user / turn_done.
 let T=null;
-function newTurn(){ T={ reasonEl:null, contentEl:null, pendingToolEl:null, typingEl:null, fullContent:'', fullReason:'', turnCollapsibles:[], serverStats:null, reasonTok:0, contentTok:0, reasonFirstTs:0, reasonLastTs:0, contentFirstTs:0, contentLastTs:0 }; }
+function newTurn(){ T={ reasonEl:null, contentEl:null, pendingToolEl:null, activeEl:null, typingEl:null, fullContent:'', fullReason:'', turnCollapsibles:[], serverStats:null, reasonTok:0, contentTok:0, reasonFirstTs:0, reasonLastTs:0, contentFirstTs:0, contentLastTs:0 }; }
+// « Élément actif » = la bulle qui porte le shimmer. Le voile reste dessus tant
+// qu'une nouvelle étape (raisonnement / outil / réponse) n'a pas pris le relais —
+// y compris pendant que l'IA LIT la réponse d'un outil terminé. On ne coupe donc
+// PAS le shimmer à tu.done : c'est l'arrivée de l'étape suivante qui le transfère.
+function setActive(el){ if(T.activeEl && T.activeEl!==el) T.activeEl.classList.remove('working'); T.activeEl=el||null; }
 newTurn();
 const simpleMode=()=>document.documentElement.getAttribute('data-display')==='simple';
 // Ligne d'état de génération (issue #34, façon Claude Code). Un raisonnement ou
@@ -54,6 +59,13 @@ const simpleMode=()=>document.documentElement.getAttribute('data-display')==='si
 // fin). Purement client, EN DIRECT seulement : au replay on n'a pas l'instant de
 // départ, et un chrono qui « recommencerait » à chaque rechargement tromperait.
 let ELAPSED=null; // {start, timer}
+// TURN_ENDED : le dernier tour du fil est-il terminé ? Passe à false dès qu'un
+// delta `user` ouvre un tour (le SEUL marqueur d'une génération VISIBLE côté
+// client), à true sur turn_done. reconcileBusy s'en sert pour ne PAS ressusciter
+// un chrono quand le serveur repart en `generating=true` sans nouveau tour
+// (flag coincé, compactage/tâche auto) : sinon on voyait « 56s · 575 tok » monter
+// tout seul après une réponse finie, avec les tokens périmés du tour précédent.
+let TURN_ENDED=true;
 // fmtElapsed : durée EN SECONDES → « 42s », « 15 mn 42s », « 1 h 05 mn ». Nom
 // distinct de fmtDur() (16-tasks.js, en millisecondes) : les fichiers JS sont
 // concaténés dans un même scope, une collision de nom écrasait celui-ci.
@@ -366,7 +378,7 @@ function handleDelta(d){
     // (comme au chargement de page), sans l'animation « ouvre puis se ferme ». Le
     // caught_up qui clôt le rejeu remettra REPLAYING à false.
     if(d.replay) REPLAYING=true;
-    elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); setCompactCount(0); lastSeq=0; setBusy(false); return; }
+    TURN_ENDED=true; elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); setCompactCount(0); lastSeq=0; setBusy(false); return; }
   if(d.user!==undefined){
     newTurn();
     let el=PENDING;
@@ -375,13 +387,15 @@ function handleDelta(d){
     // porte déjà (posées à l'envoi), on ne les ajoute donc qu'au replay/à une
     // bulle neuve — sinon elles apparaîtraient en double.
     if(d.files && !hasMsgFiles(el)) addMsgFiles(el, d.files);
-    setBusy(true); T.typingEl=addTyping(); elapsedStart(); return; }
-  if(d.turn_done){ smoothSnap(); flushRender();
+    TURN_ENDED=false; setBusy(true); T.typingEl=addTyping(); elapsedStart(); return; }
+  if(d.turn_done){ TURN_ENDED=true; smoothSnap(); flushRender();
     // MÊME ligne en direct et au replay : durée serveur (elapsed_ms, rejouée) +
     // mesures serveur. removeTyping AVANT finalize pour que la ligne soit bien le
     // dernier enfant du fil (donc sous le message).
-    removeTyping(); finalizeTurn(d.elapsed_ms||0); collapseAll(T.turnCollapsibles); setBusy(false); return; }
-  if(d.error){ smoothSnap(); flushRender(); elapsedStop(); removeTyping(); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
+    removeTyping(); finalizeTurn(d.elapsed_ms||0);
+    for(const el of T.turnCollapsibles){ if(el) el.classList.remove('working'); } // fin de tour : plus rien n'est actif (avant collapseAll qui vide la liste)
+    collapseAll(T.turnCollapsibles); setBusy(false); return; }
+  if(d.error){ smoothSnap(); flushRender(); elapsedStop(); removeTyping(); setActive(null); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
   if(d.compacting!==undefined){ setCompacting(d.compacting); return; }
   if(d.compacted){ setCompacting(false); addCompactMark(); return; }
   // Pas de toast au REPLAY : le journal est rejoué à chaque chargement de page,
@@ -400,12 +414,14 @@ function handleDelta(d){
   if(d.tool_used){
     smoothSnap(); flushRender(); // le bloc texte précédent (raisonnement/contenu) est terminé
     killTyping('tool'); T.contentEl=null; T.reasonEl=null; const tu=d.tool_used;
-    if(!T.pendingToolEl){ collapseAll(T.turnCollapsibles); T.pendingToolEl=addMsg('tool',''); if(REPLAYING||viewOn('fold-tools')) collapseInstant(T.pendingToolEl); T.turnCollapsibles.push(T.pendingToolEl); }
+    if(!T.pendingToolEl){ collapseAll(T.turnCollapsibles); T.pendingToolEl=addMsg('tool',''); if(REPLAYING||viewOn('fold-tools')) collapseInstant(T.pendingToolEl); T.turnCollapsibles.push(T.pendingToolEl); setActive(T.pendingToolEl); }
     renderToolMsg(T.pendingToolEl, tu);
     // Outils masqués : on garde l'indicateur même quand l'appel est terminé (le
     // tour continue, et rien d'autre n'est visible). Sinon, comportement inchangé.
     if(!tu.done || viewOn('hide-tools')) showTyping('tool');
     if(tu.done){
+      // On NE coupe PAS le shimmer ici : la bulle reste « active » pendant que l'IA
+      // lit la réponse. setActive le transférera à l'étape suivante (voir plus haut).
       T.pendingToolEl=null;
       if(tu.name==='mem_add'||tu.name==='mem_edit'||tu.name==='mem_delete') loadMem();
       // L'IA vient de créer/modifier/supprimer/activer une tâche : la liste, la
@@ -425,21 +441,23 @@ function handleDelta(d){
     return; }
   if(d.reasoning_content){
     killTyping('reasoning');
-    if(!T.reasonEl){ collapseAll(T.turnCollapsibles); T.reasonEl=addMsg('reasoning',''); if(REPLAYING||viewOn('fold-tools')) collapseInstant(T.reasonEl); T.fullReason=''; T.turnCollapsibles.push(T.reasonEl); }
+    if(!T.reasonEl){ collapseAll(T.turnCollapsibles); T.reasonEl=addMsg('reasoning',''); if(REPLAYING||viewOn('fold-tools')) collapseInstant(T.reasonEl); T.fullReason=''; T.turnCollapsibles.push(T.reasonEl); setActive(T.reasonEl); T.reasonEl._tok=0; }
     // d.replace : le serveur renvoie le bloc ENTIER alors qu'on en affichait déjà
     // le début (voir decorateEvent/coalesceReplay côté serveur) → on repart de zéro
     // au lieu de concaténer, sinon le texte apparaît en double.
-    if(d.replace){ smoothSnap(); T.fullReason=''; T.reasonTok=0; T.reasonFirstTs=0; }
+    if(d.replace){ smoothSnap(); T.fullReason=''; T.reasonTok-=(T.reasonEl._tok||0); T.reasonEl._tok=0; }
     showTyping('reasoning'); T.fullReason+=d.reasoning_content; feedBlock(T.reasonEl, T.fullReason);
-    // d.toks/d.ts0 présents quand l'événement est coalescé (replay) : plusieurs
-    // tokens d'un coup. Sinon (direct), 1 token, ts0=ts.
-    if(!T.reasonFirstTs) T.reasonFirstTs=d.ts0||d.ts||0; T.reasonLastTs=d.ts||T.reasonLastTs; T.reasonTok+=(d.toks||1);
-    labelTokens(T.reasonEl, 'reasoning', T.reasonTok, T.reasonFirstTs, T.reasonLastTs);
+    // d.toks présents quand l'événement est coalescé (replay) : plusieurs tokens d'un
+    // coup. Sinon (direct), 1 token. Compteur PAR BULLE (T.reasonEl._tok) pour que
+    // chaque bloc de raisonnement affiche SES propres tokens, pas le cumul du tour ;
+    // T.reasonTok reste le total du tour, pour la ligne d'état en bas (genTokCount).
+    const inc=(d.toks||1); T.reasonEl._tok+=inc; T.reasonTok+=inc;
+    labelTokens(T.reasonEl, 'reasoning', T.reasonEl._tok);
     noteDecode(d); paintGenStatus();
     return; }
   if(d.content){
     removeTyping();
-    if(!T.contentEl){ collapseAll(T.turnCollapsibles); T.contentEl=addMsg('assistant',''); T.fullContent=''; }
+    if(!T.contentEl){ setActive(null); collapseAll(T.turnCollapsibles); T.contentEl=addMsg('assistant',''); T.fullContent=''; }
     if(d.replace){ smoothSnap(); T.fullContent=''; T.contentTok=0; T.contentFirstTs=0; }
     T.fullContent+=d.content; feedBlock(T.contentEl, T.fullContent);
     if(!T.contentFirstTs) T.contentFirstTs=d.ts0||d.ts||0; T.contentLastTs=d.ts||T.contentLastTs; T.contentTok+=(d.toks||1);
@@ -514,7 +532,7 @@ async function reconcileBusy(){
     // durée DÉJÀ écoulée du tour (gen_elapsed_ms) : on cale le départ dessus pour que
     // le chrono reprenne à la BONNE valeur, pas à zéro. Pas pour une tâche de fond
     // (RUNNING_TASK) : elle n'a pas de bulle dans le fil sous laquelle s'afficher.
-    if(s.generating && !REPLAYING && !RUNNING_TASK && !ELAPSED){
+    if(s.generating && !REPLAYING && !RUNNING_TASK && !ELAPSED && !TURN_ENDED){
       elapsedStart();
       if(ELAPSED){
         const e=+s.gen_elapsed_ms||0;
