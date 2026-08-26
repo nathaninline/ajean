@@ -47,8 +47,11 @@ func scriptsPath(name string) (string, error) {
 	}
 	// Caractères hostiles au shell : le nom finit dans une ligne de commande
 	// (scriptRunCommand l'entoure de guillemets) ; on refuse tout ce qui pourrait
-	// en sortir. Un nom de fichier n'en a de toute façon pas besoin.
-	if i := strings.IndexAny(name, "\"'`$;&|<>*?\n\r"); i >= 0 {
+	// en sortir. Le backslash est inclus : sous Windows c'est un séparateur (utiliser
+	// « / » pour les sous-dossiers), sous Unix c'est un échappement shell. Refuser
+	// partout rend le comportement identique sur les deux plateformes. Un nom de
+	// fichier n'a de toute façon besoin d'aucun de ces caractères.
+	if i := strings.IndexAny(name, "\"'`$;&|<>*?\\\n\r"); i >= 0 {
 		return "", fmt.Errorf("nom de script invalide (caractère interdit %q) : %s", name[i:i+1], name)
 	}
 	clean := filepath.Clean(filepath.FromSlash(name))
