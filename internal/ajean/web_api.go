@@ -12,7 +12,15 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
+
+// procBoot marque l'instant de démarrage de CE process (celui qui sert l'UI et
+// détient le coffre mémoire déchiffré en RAM). Exposé dans /api/status : quand le
+// navigateur voit cette valeur changer, c'est que le serveur a redémarré et que
+// le coffre s'est reverrouillé — il relance alors le déverrouillage automatique
+// sans qu'on ait à rafraîchir la page. Voir loadStatus côté UI.
+var procBoot = time.Now().UnixMilli()
 
 func handlePing(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true, "service": "ajean", "version": Version})
@@ -53,6 +61,7 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 		"version":    Version,
 		"warn":       appWarning(), // ex. App Translocation macOS — vide si tout va bien
 		"load_error": loadErr,      // modèle qui ne charge pas (incompat moteur…) — vide sinon
+		"boot":       procBoot,     // empreinte de démarrage du process (détecte un redémarrage côté UI)
 	})
 }
 

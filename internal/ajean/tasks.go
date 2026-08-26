@@ -25,6 +25,12 @@ type Task struct {
 	Schedule string `json:"schedule"` // "@every 2h" | "@every 1d@23:00" | expr cron 5 champs
 	TZ       string `json:"tz"`       // fuseau IANA du navigateur (ex. "Europe/Paris") pour l'heure
 	Preset   string `json:"preset"`   // id du preset à activer avant l'exécution (vide = preset actif)
+	// Kind distingue une tâche IA d'une tâche script. Vide ou "agent" = Prompt est
+	// une consigne exécutée par le modèle (RunAutonomous). "script" = on lance
+	// directement le script Script du dossier protégé, SANS charger le modèle ni
+	// consommer de tokens. Le zéro JSON ("") garde le comportement historique (IA).
+	Kind   string `json:"kind"`
+	Script string `json:"script"` // pour Kind=="script" : nom du script dans scriptsDir()
 	// Accès de la tâche. On stocke la NÉGATION (« pas de… ») pour que le zéro JSON
 	// (tâches créées avant ces champs) garde le comportement historique : accès.
 	NoMem      bool   `json:"no_mem"` // true = pas d'accès à la mémoire pour cette tâche

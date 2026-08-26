@@ -129,6 +129,13 @@ const reportMax = 4000
 // run, succès/échec, compte-rendu). Relit la tâche juste avant d'écrire pour ne
 // pas écraser une modification concurrente (toggle/édition depuis l'UI).
 func runTask(t Task) {
+	// Tâche « script seul » : aucun modèle, aucun preset, aucun token. On exécute
+	// le script du dossier protégé et on garde sa sortie comme compte-rendu.
+	if t.Kind == "script" {
+		runScriptTask(t)
+		return
+	}
+
 	start := time.Now()
 
 	// Preset épinglé : on bascule le moteur dessus AVANT d'exécuter (rechargement du

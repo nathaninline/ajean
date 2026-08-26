@@ -45,18 +45,19 @@ func taskCreateTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "task_create",
-			Description: "Schedule work to run autonomously later, once or on a repeating schedule.",
+			Description: "Schedule work to run later, once or repeating. Give 'prompt' for an AI task, OR 'script' (a saved script name) for a script task that runs with no model and no tokens.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
 					"name":   map[string]any{"type": "string"},
-					"prompt": map[string]any{"type": "string", "description": "Self-contained instruction to run each time"},
+					"prompt": map[string]any{"type": "string", "description": "AI task: self-contained instruction to run each time (omit if using script)"},
+					"script": map[string]any{"type": "string", "description": "Script task: name of a script file you put in the scripts folder, run each time with no AI involved"},
 					// Le format du schedule est le seul point que le modèle ne peut pas
 					// deviner : il vit ici, dans le paramètre, pas dans la phrase de l'outil.
 					"schedule": map[string]any{"type": "string", "description": "\"@every 2h\" (interval), \"@every 1d@09:00\" (daily time), or a 5-field cron \"min hour dom mon dow\""},
 					"enabled":  map[string]any{"type": "boolean", "description": "Start active (default true)"},
 				},
-				"required": []string{"name", "prompt", "schedule"},
+				"required": []string{"name", "schedule"},
 			},
 		},
 	}
@@ -183,9 +184,20 @@ func previewReport(s string) string {
 func toolTaskCreate(args map[string]any) string {
 	name := strings.TrimSpace(str(args["name"]))
 	prompt := strings.TrimSpace(str(args["prompt"]))
+	script := strings.TrimSpace(str(args["script"]))
 	schedule := strings.TrimSpace(str(args["schedule"]))
-	if name == "" || prompt == "" || schedule == "" {
-		return "[erreur] name, prompt et schedule sont obligatoires"
+	if name == "" || schedule == "" {
+		return "[erreur] name et schedule sont obligatoires"
+	}
+	kind := ""
+	if script != "" {
+		// Tâche script : le script doit exister dans le dossier protégé.
+		kind = "script"
+		if err := scriptExists(script); err != nil {
+			return "[erreur] " + err.Error()
+		}
+	} else if prompt == "" {
+		return "[erreur] fournis soit 'prompt' (tâche IA) soit 'script' (tâche script)"
 	}
 	tz := defaultTaskTZ()
 	if err := validateSchedule(schedule, tz); err != nil {
@@ -197,7 +209,7 @@ func toolTaskCreate(args map[string]any) string {
 	}
 	t := Task{
 		ID: newTaskID(), Name: name, Prompt: prompt, Schedule: schedule,
-		TZ: tz, Enabled: enabled,
+		TZ: tz, Enabled: enabled, Kind: kind, Script: script,
 	}
 	t.NextRun = computeNextRun(schedule, tz, time.Now())
 	if err := saveTask(t); err != nil {

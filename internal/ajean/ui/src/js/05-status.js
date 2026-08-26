@@ -1,5 +1,16 @@
+let LAST_BOOT=null; // empreinte de démarrage du serveur vue au dernier poll
 async function loadStatus(){
   const s=await jget('/api/status');
+  // Redémarrage du serveur détecté (l'empreinte 'boot' a changé) : le coffre
+  // mémoire s'est reverrouillé en RAM. On relance le déverrouillage automatique
+  // avec la clé stockée, sinon la mémoire reste muette jusqu'à un refresh manuel.
+  if(typeof s.boot!=='undefined'){
+    if(LAST_BOOT!==null && s.boot!==LAST_BOOT){
+      if(typeof memUnlockDone!=='undefined') memUnlockDone=false;
+      if(typeof loadMemEnc==='function') loadMemEnc();
+    }
+    LAST_BOOT=s.boot;
+  }
   const el=document.getElementById('status-svc');
   // Trois états : service coupé (err) · service actif mais modèle pas encore
   // chargé (loading, llama-server renvoie 503) · modèle prêt (ok).

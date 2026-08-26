@@ -20,7 +20,8 @@ type ajeanPaths struct {
 	Database  string `json:"database"`  // ajean.db : config, préférences, conversation, clés
 	Exe       string `json:"exe"`       // binaire en cours d'exécution
 	Installed string `json:"installed"` // binaire installé (peut différer de Exe)
-	Workspace string `json:"workspace"` // dossier de travail du mode agent
+	Workspace string `json:"workspace"` // dossier de travail du mode agent (jetable)
+	Scripts   string `json:"scripts"`   // dossier des scripts de l'agent (protégé)
 	Memory    string `json:"memory"`
 	Presets   string `json:"presets"`
 	Models    string `json:"models"`
@@ -49,6 +50,7 @@ func currentPaths() ajeanPaths {
 		Exe:       exe,
 		Installed: installedExePath(),
 		Workspace: agentWorkspace(),
+		Scripts:   scriptsDir(),
 		Memory:    memoryDir(),
 		Presets:   presetsDir(),
 		Models:    modelsDir(),
@@ -65,6 +67,7 @@ func cmdWhere(args []string) error {
 		{"binaire en cours", p.Exe},
 		{"binaire installé", p.Installed},
 		{"travail de l'agent", p.Workspace},
+		{"scripts", p.Scripts},
 		{"mémoire", p.Memory},
 		{"presets", p.Presets},
 		{"modèles", p.Models},

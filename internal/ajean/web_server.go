@@ -268,6 +268,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/tasks/toggle", handleTaskToggle)
 	api("/api/tasks/pause", handleTasksPause)
 	api("/api/tasks/run", handleTaskRun)
+	api("/api/tasks/stop", handleTaskStop)
 	StartTaskScheduler()
 	return mux
 }

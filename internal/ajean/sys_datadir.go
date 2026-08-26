@@ -14,7 +14,7 @@ import (
 // dataDirs est l'arborescence complète de $AJEAN_HOME. Rien d'autre n'y est
 // créé : tout le reste vit dans ajean.db.
 func dataDirs() []string {
-	return []string{AjeanHome(), backendsDir(), binDir(), presetsDir(), memoryDir(), modelsDir(), workspaceDir()}
+	return []string{AjeanHome(), backendsDir(), binDir(), presetsDir(), memoryDir(), modelsDir(), workspaceDir(), scriptsDir()}
 }
 
 // defaultConfig est la configuration de départ d'une installation neuve. Les

@@ -1,26 +1,22 @@
-Version corrective importante, autour de la sécurité du chiffrement de la mémoire, des presets, du planificateur et de la répartition multi-GPU.
+Version qui ajoute un dossier de scripts dédié et des tâches planifiées de type script (sans IA), renforce la protection de la mémoire, et corrige le déverrouillage de la mémoire chiffrée après un redémarrage.
 
-## Réglages effacés par un changement de preset : correction critique
+## Dossier de scripts dédié
 
-* Un changement de preset remplace toute la configuration en bloc, ce qui effaçait des réglages utilisateur qui y étaient rangés, donnant l'impression qu'ils « se désactivaient tout seuls ». Ces réglages sont désormais préservés à travers les bascules de preset : le drapeau de chiffrement de la mémoire (MEM_ENCRYPTED), la sauvegarde automatique ajean.link (BACKUP_AUTO), le compactage automatique du contexte (COMPACT) et la gestion autonome des machines (MACHINES).
-* Conséquence la plus grave, corrigée : quand le drapeau de chiffrement disparaissait, l'interface croyait le chiffrement désactivé, ne proposait plus de déverrouiller, et la mémoire restait chiffrée mais inaccessible.
-* Garde-fou ajouté : activer le chiffrement est refusé si un coffre existe déjà (au lieu d'en forger un nouveau par-dessus, ce qui rendait illisibles les pages chiffrées sous l'ancienne clé). Dans ce cas, il faut déverrouiller la mémoire existante.
-* Résilience de l'interface : si le drapeau venait à manquer alors qu'un coffre existe, l'invite de déverrouillage est proposée quand même, au lieu de laisser la mémoire muette sans rien demander.
+* Nouveau dossier `scripts` dans les données d'AJEAN, à côté de la mémoire et des presets, distinct du dossier de travail de l'agent. Ce dernier est un bac à sable jetable où un clone ou un test peut tout effacer ; les scripts destinés à être conservés vivent désormais dans `scripts`, à l'abri d'un nettoyage du dossier de travail. Le nouvel emplacement apparaît dans `ajean where`.
 
-## Presets
+## Tâches planifiées de type script
 
-* Modifier le preset actif le désélectionne de nouveau. Le fichier enregistré diverge alors de la configuration qui tourne encore, il faut « switcher » pour l'appliquer. Un simple renommage, ou le raccourci « niveau de réflexion », ne désélectionne pas.
-* Éditeur de preset, section Cartes graphiques : nouveau choix du mode de répartition multi-GPU (--split-mode), visible dès deux cartes sélectionnées. Options : automatique, par couches (layer), par rangées (row), par tenseurs (tensor), une seule carte (none).
+* Une tâche planifiée peut désormais être de deux types : une consigne exécutée par l'IA, ou un script lancé directement, sans charger le modèle ni consommer de jetons. Le type se choisit dans le formulaire de tâche (Consigne IA ou Script seul), avec sélection du script à lancer.
+* Une tâche script en cours d'exécution s'affiche comme active dans la liste des tâches et peut y être arrêtée.
 
-## Planificateur de tâches
+## Protection de la mémoire et des dossiers
 
-* Réactiver les tâches après une pause ne les relance plus toutes d'un coup. Les échéances tombées pendant la pause sont ignorées, chaque tâche repart à son horaire habituel.
+* Le dossier de la mémoire n'est plus accessible directement par le shell ni par les outils d'écriture de l'IA : il passe exclusivement par les outils de mémoire dédiés. Cela évite les accès manuels erronés au profit des opérations prévues.
+* Garde-fou contre la suppression accidentelle : une commande destructrice visant en bloc la mémoire, les presets, la base, la racine des données ou le dossier scripts est refusée. La suppression d'un fichier précis et le vidage du dossier de travail restent possibles.
 
-## Chat
+## Mémoire chiffrée : déverrouillage après un redémarrage
 
-* Compteur de compactages du contexte affiché à côté de la jauge, par session.
-* Plus de notification de fin de réponse quand la génération est arrêtée volontairement avec le bouton stop.
-* Le libellé sous le champ de saisie reflète désormais l'option « Entrée = retour à la ligne » au lieu de rester figé.
+* Après un redémarrage du serveur, une mémoire chiffrée se reverrouille, la clé ne vivant qu'en mémoire vive. L'interface détecte désormais le redémarrage et relance le déverrouillage automatique avec la clé enregistrée, sans qu'il soit nécessaire de recharger la page.
 
 ## Mettre à jour
 

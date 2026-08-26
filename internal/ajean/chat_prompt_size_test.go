@@ -23,7 +23,12 @@ import (
 // mémoire (mem_delete) pour la garder rangée : cinq schémas d'outils en plus,
 // ~600 tokens, ajout demandé et accepté. Le garde-fou reste là pour bloquer le
 // regonflement LIGNE À LIGNE du prompt lui-même, qui, lui, doit rester court.
-const promptCharBudget = 8400 // ~2100 tokens, tout allumé (agent+web+mémoire)
+//
+// Léger relèvement (8400 → 8700) pour les tâches « script seul » : task_create
+// porte un paramètre 'script' en plus (un script du dossier scripts tourne sans
+// modèle ni tokens). Pas d'outils script_* dédiés — l'IA écrit ses scripts avec
+// write/bash dans le dossier scripts, la consigne vit dans le briefing machine.
+const promptCharBudget = 8700 // ~2175 tokens, tout allumé (agent+web+mémoire)
 
 func TestSystemPromptStaysLean(t *testing.T) {
 	caps := Caps{Agent: true, Internet: true, Mem: MemAlways}

@@ -84,6 +84,10 @@ func baseSystemPrompt(caps Caps) string {
 		// répète pas leur usage, juste QUE la capacité existe et QUAND s'en servir —
 		// sinon il ne penserait jamais à se planifier quoi que ce soit.
 		b.WriteString("You can also schedule work for yourself: task_create sets a future/recurring job (reminders, watches, cleanups), task_list/task_update/task_delete manage them. Only for something that must recur or happen later, not a one-off you can do now.\n")
+		// La consigne « garder les scripts dans le dossier scripts, pas le workspace »
+		// vit dans le briefing machine ; ici on n'ajoute que ce qu'elle ne dit pas —
+		// qu'un tel script peut tourner en tâche SANS modèle.
+		b.WriteString("A script kept in your scripts folder can be scheduled to run on its own with no model via task_create's 'script'.\n")
 	}
 	if caps.Internet {
 		// Le catalogue des outils web est parti dans leurs schémas ; ne reste ici
@@ -165,7 +169,11 @@ func machineSystemPrompt(caps Caps) string {
 	}
 	b.WriteString(".")
 	if cwd != "" {
-		b.WriteString(" This is your working folder: relative paths in write/edit/bash resolve here, and it is the DEFAULT place for everything you create — scripts, notes, outputs, even a command-line tool you build. Just use a relative name. Do NOT install or write files into system directories such as /usr/local/bin, /usr, /bin or /etc: those need root and are not yours. Only use an absolute path outside this folder when the user explicitly named that location.")
+		b.WriteString(" This is your working folder: relative paths in write/edit/bash resolve here, and it is the default place for scratch work — notes, outputs, downloads, a clone or a test. But it is DISPOSABLE: a cleanup or a test can wipe it, so never keep anything important here. Any script you want to KEEP (or schedule), write it into your scripts folder " + scriptsDir() + " instead — a separate folder a workspace wipe won't touch; you write and run scripts there normally. Do NOT install or write files into system directories such as /usr/local/bin, /usr, /bin or /etc: those need root and are not yours. Only use an absolute path outside this folder (except your scripts folder) when the user explicitly named that location.")
+		// memory reste réservé à ses outils : le modèle essaie parfois de `cat` le
+		// dossier memory, on lui dit explicitement de ne pas le faire (bash/write/edit
+		// le refuseront de toute façon).
+		b.WriteString(" The memory folder is OFF-LIMITS to bash, write and edit (those tools will refuse) — always use the mem_* tools for it.")
 	}
 	return b.String()
 }
@@ -196,6 +204,16 @@ func machineMgmtSystemPrompt(caps Caps) string {
 // génération n'arrêtait rien du tout — le tour restait bloqué jusqu'au bout du
 // délai (5 minutes au maximum), bouton stop sans effet.
 func runShell(parent context.Context, command string, timeoutSec int) string {
+	// Accès réservé aux outils : memory et scripts ne sont JAMAIS touchés au shell
+	// (ni lus, ni écrits, ni listés) — uniquement via mem_* et script_*.
+	if msg := guardToolOnlyCommand(command); msg != "" {
+		return msg
+	}
+	// Garde-fou : refuse une commande qui viserait à supprimer un dossier protégé
+	// (scripts, mémoire, presets, base, racine des données). Voir chat_scripts.go.
+	if msg := guardDestructive(command); msg != "" {
+		return msg
+	}
 	if timeoutSec <= 0 {
 		timeoutSec = toolDefaultTimeout
 	}
@@ -278,6 +296,10 @@ func fileWrite(path, content string) string {
 		return "[erreur] chemin vide"
 	}
 	path = resolveAgentPath(path)
+	// memory et scripts sont réservés à leurs outils dédiés : pas d'écriture directe.
+	if msg := guardToolOnlyPath(path); msg != "" {
+		return msg
+	}
 	if dir := filepath.Dir(path); dir != "" && dir != "." {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return "[erreur] " + err.Error()
@@ -312,6 +334,10 @@ func fileEdit(path, oldText, newText string) string {
 		return "[erreur] old vide"
 	}
 	path = resolveAgentPath(path)
+	// memory et scripts sont réservés à leurs outils dédiés : pas d'édition directe.
+	if msg := guardToolOnlyPath(path); msg != "" {
+		return msg
+	}
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return "[erreur] " + err.Error()

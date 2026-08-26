@@ -10,6 +10,7 @@ let TASK_RUNNING = '';  // id de la tâche en cours d'exécution ('' = aucune)
 let TASK_PRESETS = [];  // presets disponibles (pour le sélecteur de la modale)
 let TASK_MEM_ON = true; // état mémoire global (défaut d'une nouvelle tâche)
 let TASK_WEB_ON = true; // état web global (défaut d'une nouvelle tâche)
+let TASK_SCRIPTS = []; // scripts durables disponibles (pour une tâche « script seul »)
 let tasksPollTimer = null;
 
 async function loadTasks(){ renderTasks(await jget('/api/tasks')); }
@@ -32,6 +33,7 @@ function renderTasks(r){
   TASK_PRESETS = (r && r.presets) || [];
   TASK_MEM_ON = !r || r.mem_on !== false;
   TASK_WEB_ON = !r || r.web_on !== false;
+  TASK_SCRIPTS = (r && r.scripts) || [];
   TASK_RUNNING = (r && r.running_id) || '';
   ensureTasksPoll();
   const pc = document.getElementById('tasks-pause-toggle');
@@ -81,6 +83,11 @@ function renderTasks(r){
     } else {
       const fr = document.createElement('span'); fr.className = 'mcp-tag';
       fr.textContent = scheduleLabel(t.schedule); meta.appendChild(fr);
+      if(t.kind === 'script'){
+        const sc = document.createElement('span'); sc.className = 'mcp-tag';
+        sc.textContent = 'script'; sc.title = 'tâche script (sans IA) : '+(t.script||'');
+        meta.appendChild(sc);
+      }
       if(t.preset){
         const pr = document.createElement('span'); pr.className = 'mcp-tag mcp-tag-preset';
         const pn = (TASK_PRESETS.find(p=>p.id===t.preset)||{}).name || t.preset;
@@ -103,11 +110,11 @@ function renderTasks(r){
     row.appendChild(dot); row.appendChild(info);
 
     if(running){
-      // Bouton arrêter : passe par /api/chat/stop (conv.Stop annule le contexte de
-      // la tâche, cf. RunAutonomous).
+      // Bouton arrêter : /api/tasks/stop annule le bon contexte selon le type —
+      // conv.Stop pour une tâche IA, le registre des scripts pour une tâche script.
       const st = document.createElement('button');
       st.className = 'task-stop-btn'; st.textContent = 'arrêter';
-      st.onclick = (e)=>{ e.stopPropagation(); stopRunningTask(); };
+      st.onclick = (e)=>{ e.stopPropagation(); stopRunningTask(t.id); };
       row.appendChild(st);
     } else {
       const sw = document.createElement('label'); sw.className = 'switch mcp-switch';
@@ -126,8 +133,8 @@ function renderTasks(r){
   });
 }
 
-async function stopRunningTask(){
-  await jfetch('/api/chat/stop',{method:'POST'}).catch(()=>{});
+async function stopRunningTask(id){
+  await jpost('/api/tasks/stop',{id: id||TASK_RUNNING||''}).catch(()=>{});
   toast('arrêt de la tâche…');
   setTimeout(loadTasks, 800);
 }
@@ -196,6 +203,9 @@ function openTask(id){
   document.getElementById('task-mem').checked = t ? !t.no_mem : TASK_MEM_ON;
   document.getElementById('task-web').checked = t ? !t.no_web : TASK_WEB_ON;
   fillPresetSelect(t ? (t.preset||'') : '');
+  // Type de tâche (IA ou script) + sélecteur de script.
+  fillScriptSelect(t ? (t.script||'') : '');
+  setTaskKind(t && t.kind === 'script' ? 'script' : 'agent');
 
   // Décompose le schedule en intervalle (par défaut) ou cron. Forme intervalle :
   // « @every N(m|h|d)[@HH:MM] » (l'heure n'existe que pour les jours).
@@ -268,6 +278,34 @@ function fillPresetSelect(selected){
   sel.value = selected || '';
 }
 
+// setTaskKind bascule le formulaire entre tâche IA (consigne + preset + accès) et
+// tâche script (sélecteur de script). Masque les groupes sans objet.
+function setTaskKind(kind){
+  const r = document.querySelector('input[name="task-kind"][value="'+kind+'"]');
+  if(r) r.checked = true;
+  const isScript = kind === 'script';
+  document.getElementById('task-prompt-group').style.display = isScript ? 'none' : '';
+  document.getElementById('task-preset-group').style.display = isScript ? 'none' : '';
+  document.getElementById('task-access-group').style.display = isScript ? 'none' : '';
+  document.getElementById('task-script-group').style.display = isScript ? '' : 'none';
+}
+
+// fillScriptSelect peuple le sélecteur de script. Vide s'il n'y a aucun script.
+function fillScriptSelect(selected){
+  const sel = document.getElementById('task-script');
+  sel.textContent = '';
+  if(!TASK_SCRIPTS.length){
+    const o = document.createElement('option'); o.value = '';
+    o.textContent = '(aucun script enregistré)'; sel.appendChild(o);
+    return;
+  }
+  TASK_SCRIPTS.forEach(s=>{
+    const o = document.createElement('option'); o.value = s.name; o.textContent = s.name;
+    sel.appendChild(o);
+  });
+  sel.value = selected || TASK_SCRIPTS[0].name;
+}
+
 function setTaskFreqMode(mode){
   const r = document.querySelector('input[name="task-freq-mode"][value="'+mode+'"]');
   if(r) r.checked = true;
@@ -310,10 +348,15 @@ async function saveTask(){
   const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || '';
   const no_mem = !document.getElementById('task-mem').checked;
   const no_web = !document.getElementById('task-web').checked;
+  const kind = (document.querySelector('input[name="task-kind"]:checked')||{}).value || 'agent';
+  const script = document.getElementById('task-script').value;
   const st = document.getElementById('task-modal-status');
-  if(!name || !prompt){ st.textContent = 'nom et consigne obligatoires'; st.style.color = 'var(--err)'; return; }
+  if(!name){ st.textContent = 'nom obligatoire'; st.style.color = 'var(--err)'; return; }
+  if(kind === 'script'){
+    if(!script){ st.textContent = 'enregistre d\'abord un script à lancer'; st.style.color = 'var(--err)'; return; }
+  } else if(!prompt){ st.textContent = 'consigne obligatoire'; st.style.color = 'var(--err)'; return; }
   if(!schedule){ st.textContent = 'fréquence invalide'; st.style.color = 'var(--err)'; return; }
-  const r = await jpost('/api/tasks/save', {id: taskEditing||'', name, prompt, schedule, enabled, preset, tz, no_mem, no_web});
+  const r = await jpost('/api/tasks/save', {id: taskEditing||'', name, prompt, schedule, enabled, preset, tz, no_mem, no_web, kind, script});
   if(!r || !r.ok){ st.textContent = (r && r.error) || 'échec'; st.style.color = 'var(--err)'; return; }
   closeTask();
   await loadTasks();

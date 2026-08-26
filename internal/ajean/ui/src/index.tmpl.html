@@ -671,11 +671,31 @@
       </div>
 
       <div class="pe-group">
+        <div class="pe-gh">Type</div>
+        <div class="pe-seg">
+          <label><input type="radio" name="task-kind" value="agent" onchange="setTaskKind('agent')"><span>Consigne IA</span></label>
+          <label><input type="radio" name="task-kind" value="script" onchange="setTaskKind('script')"><span>Script seul</span></label>
+        </div>
+        <div class="pe-note" id="task-kind-note">Consigne IA : le modèle exécute une instruction. Script seul : lance un script enregistré, sans IA ni consommation de tokens.</div>
+      </div>
+
+      <div class="pe-group" id="task-prompt-group">
         <div class="pe-gh">Consigne</div>
         <textarea id="task-prompt" class="pe-inp task-consigne" spellcheck="false" placeholder="Ce que l'IA doit faire, et comment livrer le résultat.&#10;&#10;Tu peux détailler librement : contexte, étapes, format du compte-rendu attendu…"></textarea>
       </div>
 
-      <div class="pe-group">
+      <div class="pe-group" id="task-script-group" style="display:none">
+        <div class="pe-gh">Script</div>
+        <div class="pe-list">
+          <div class="pe-row">
+            <span class="pe-row-l">Script à lancer</span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="task-script"></select></span></span>
+          </div>
+        </div>
+        <div class="pe-note">Les scripts vivent dans le dossier protégé <code>scripts</code>, à l'abri d'un nettoyage du workspace.</div>
+      </div>
+
+      <div class="pe-group" id="task-preset-group">
         <div class="pe-gh">Preset</div>
         <div class="pe-list">
           <div class="pe-row">
@@ -714,7 +734,7 @@
         </div>
       </div>
 
-      <div class="pe-group">
+      <div class="pe-group" id="task-access-group">
         <div class="pe-gh">Accès</div>
         <div class="pe-list">
           <div class="pe-row">

@@ -21,12 +21,24 @@ func handleTasks(w http.ResponseWriter, r *http.Request) {
 	conv.mu.Lock()
 	runningID := conv.runningTaskID
 	conv.mu.Unlock()
+	// Une tâche script tourne hors du verrou de génération : conv ne la voit pas,
+	// on complète donc avec le registre des scripts en cours (tasks_script.go).
+	if runningID == "" {
+		if sid, _ := scriptRunningAny(); sid != "" {
+			runningID = sid
+		}
+	}
 	// Presets (id + nom + actif) pour peupler le sélecteur du formulaire de tâche.
 	presets := []map[string]any{}
 	if list, err := ListPresets(); err == nil {
 		for _, p := range list {
 			presets = append(presets, map[string]any{"id": p.ID, "name": p.Name, "active": p.Active})
 		}
+	}
+	// Scripts durables disponibles, pour le sélecteur d'une tâche « script seul ».
+	scripts, _ := listScripts()
+	if scripts == nil {
+		scripts = []scriptInfo{}
 	}
 	sendJSON(w, 200, map[string]any{
 		"ok":         true,
@@ -35,6 +47,7 @@ func handleTasks(w http.ResponseWriter, r *http.Request) {
 		"agent":      agentEnabled(),
 		"running_id": runningID,
 		"presets":    presets,
+		"scripts":    scripts,
 		// État global mémoire/web, pour proposer des défauts cohérents à la création.
 		"mem_on": memMode() != MemOff,
 		"web_on": internetEnabled() && crawlReachable(),
@@ -54,6 +67,8 @@ func handleTaskSave(w http.ResponseWriter, r *http.Request) {
 		NoMem    bool   `json:"no_mem"`
 		NoWeb    bool   `json:"no_web"`
 		Enabled  bool   `json:"enabled"`
+		Kind     string `json:"kind"`   // "" / "agent" = consigne IA ; "script" = script seul
+		Script   string `json:"script"` // nom du script (dossier protégé) pour kind=="script"
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
@@ -62,8 +77,24 @@ func handleTaskSave(w http.ResponseWriter, r *http.Request) {
 	req.Name = strings.TrimSpace(req.Name)
 	req.Prompt = strings.TrimSpace(req.Prompt)
 	req.Schedule = strings.TrimSpace(req.Schedule)
-	if req.Name == "" || req.Prompt == "" {
-		sendJSON(w, 400, map[string]any{"ok": false, "error": "nom et consigne obligatoires"})
+	req.Kind = strings.TrimSpace(req.Kind)
+	req.Script = strings.TrimSpace(req.Script)
+	if req.Name == "" {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "nom obligatoire"})
+		return
+	}
+	// Une tâche script exige un script existant ; une tâche IA exige une consigne.
+	if req.Kind == "script" {
+		if req.Script == "" {
+			sendJSON(w, 400, map[string]any{"ok": false, "error": "script obligatoire pour une tâche script"})
+			return
+		}
+		if err := scriptExists(req.Script); err != nil {
+			sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+	} else if req.Prompt == "" {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "consigne obligatoire"})
 		return
 	}
 	if err := validateSchedule(req.Schedule, req.TZ); err != nil {
@@ -85,6 +116,7 @@ func handleTaskSave(w http.ResponseWriter, r *http.Request) {
 	t.Name, t.Prompt, t.Enabled = req.Name, req.Prompt, req.Enabled
 	t.TZ, t.Preset = req.TZ, req.Preset
 	t.NoMem, t.NoWeb = req.NoMem, req.NoWeb
+	t.Kind, t.Script = req.Kind, req.Script
 	// Recalcule NextRun si la fréquence a changé (ou à la création).
 	if t.Schedule != req.Schedule || t.NextRun == 0 {
 		t.NextRun = computeNextRun(req.Schedule, req.TZ, time.Now())
@@ -171,18 +203,38 @@ func handleTaskRun(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 404, map[string]any{"ok": false, "error": "tâche introuvable"})
 		return
 	}
-	// Vérifie la disponibilité AVANT de détacher, pour pouvoir répondre 409/503.
-	conv.mu.Lock()
-	busy := conv.Generating
-	conv.mu.Unlock()
-	if busy {
-		sendJSON(w, 409, map[string]any{"ok": false, "error": ErrBusy.Error()})
-		return
-	}
-	if !healthCheck() {
-		sendJSON(w, 503, map[string]any{"ok": false, "error": errModelLoading.Error()})
-		return
+	// Une tâche script ne touche pas au modèle : on peut la lancer même si le
+	// modèle n'est pas chargé ou qu'une génération est en cours. Seules les tâches
+	// IA passent par le gate de génération (409/503).
+	if t.Kind != "script" {
+		conv.mu.Lock()
+		busy := conv.Generating
+		conv.mu.Unlock()
+		if busy {
+			sendJSON(w, 409, map[string]any{"ok": false, "error": ErrBusy.Error()})
+			return
+		}
+		if !healthCheck() {
+			sendJSON(w, 503, map[string]any{"ok": false, "error": errModelLoading.Error()})
+			return
+		}
 	}
 	go runTask(t)
+	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
+// handleTaskStop interrompt la tâche en cours. Une tâche script tourne hors du
+// verrou de génération : on l'annule via son registre. Sinon (tâche IA), on
+// retombe sur conv.Stop, qui annule le contexte de la génération autonome.
+func handleTaskStop(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ID string `json:"id"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	if req.ID != "" && scriptRunStop(req.ID) {
+		sendJSON(w, 200, map[string]any{"ok": true})
+		return
+	}
+	conv.Stop()
 	sendJSON(w, 200, map[string]any{"ok": true})
 }

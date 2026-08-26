@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const Version = "0.12.2"
+const Version = "0.12.3"
 
 // Main est le vrai main() du binaire (cmd/ajean ne fait que l'appeler).
 func Main() {
@@ -233,6 +233,12 @@ func presetsDir() string   { return filepath.Join(AjeanHome(), "presets") }
 func memoryDir() string    { return filepath.Join(AjeanHome(), "memory") }
 func modelsDir() string    { return filepath.Join(AjeanHome(), "models") }
 func workspaceDir() string { return filepath.Join(AjeanHome(), "workspace") }
+
+// scriptsDir est le dossier des scripts de l'agent : à côté de memory/presets,
+// HORS du workspace. Le workspace est un bac à sable jetable (clones, tests) qu'un
+// nettoyage peut raser ; les scripts qu'on veut CONSERVER vivent ici, protégés par
+// guardDestructive (voir chat_scripts.go) contre toute suppression récursive.
+func scriptsDir() string { return filepath.Join(AjeanHome(), "scripts") }
 
 // serviceName est le nom de l'unité qui exécute llama-server. Son pendant est
 // uiUnitName (« ajean-ui »), qui sert l'interface et le tunnel.
