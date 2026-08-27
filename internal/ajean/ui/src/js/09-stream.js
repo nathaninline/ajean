@@ -49,7 +49,11 @@ function newTurn(){ T={ reasonEl:null, contentEl:null, pendingToolEl:null, activ
 // qu'une nouvelle étape (raisonnement / outil / réponse) n'a pas pris le relais —
 // y compris pendant que l'IA LIT la réponse d'un outil terminé. On ne coupe donc
 // PAS le shimmer à tu.done : c'est l'arrivée de l'étape suivante qui le transfère.
-function setActive(el){ if(T.activeEl && T.activeEl!==el) T.activeEl.classList.remove('working'); T.activeEl=el||null; }
+function setActive(el){ if(T.activeEl && T.activeEl!==el){ T.activeEl.classList.remove('working'); finalizeReasonLabel(T.activeEl); } T.activeEl=el||null; }
+// Une bulle de raisonnement qui n'est plus active doit quitter « en cours… » pour
+// son décompte final : 'working' est retiré sans repasser par labelTokens, on le
+// force ici. Sans effet sur les autres bulles.
+function finalizeReasonLabel(el){ if(el && el.classList.contains('reasoning')) labelTokens(el, 'reasoning', el._tok||0); }
 newTurn();
 const simpleMode=()=>document.documentElement.getAttribute('data-display')==='simple';
 // Ligne d'état de génération (issue #34, façon Claude Code). Un raisonnement ou
@@ -225,7 +229,7 @@ function renderStats(el, s){
   // Réponse de l'assistant : ligne de mesures dédiée sous le texte (son étiquette
   // est masquée dans cette mise en page). Bulle repliable : l'étiquette EST le
   // bouton de repli, on y écrit comme avant.
-  if(el.classList.contains('collapsible')) setLabel(el, ['reasoning'].concat(parts).join('  ·  '));
+  if(el.classList.contains('collapsible')){ setIcon(el,'brain'); setLabel(el, ['Réflexion'].concat(parts).join('  ·  ')); }
   else setStats(el, parts.join('  ·  '));
 }
 // Label d'une bulle de raisonnement : rôle + nombre de tokens. PAS de vitesse
@@ -234,6 +238,14 @@ function renderStats(el, s){
 // dans la signature pour les appelants, désormais inutilisés).
 function labelTokens(el, role, n, firstTs, lastTs){
   if(!el) return;
+  // Raisonnement : libellé humain + cerveau. « en cours… » tant que la bulle
+  // travaille (classe 'working', retirée au passage reasoning→réponse), sinon le
+  // décompte de tokens final. Les autres rôles gardent leur libellé brut + tokens.
+  if(role==='reasoning'){
+    const active = el.classList.contains('working');
+    setLabel(el, active ? 'Réflexion en cours…' : 'Réflexion  ·  '+n+' tok');
+    return;
+  }
   setLabel(el, role+'  ·  '+n+' tok');
 }
 // Pendant le replay on met à jour l'état `busy` mais on NE touche PAS aux boutons
@@ -393,7 +405,7 @@ function handleDelta(d){
     // mesures serveur. removeTyping AVANT finalize pour que la ligne soit bien le
     // dernier enfant du fil (donc sous le message).
     removeTyping(); finalizeTurn(d.elapsed_ms||0);
-    for(const el of T.turnCollapsibles){ if(el) el.classList.remove('working'); } // fin de tour : plus rien n'est actif (avant collapseAll qui vide la liste)
+    for(const el of T.turnCollapsibles){ if(el){ el.classList.remove('working'); finalizeReasonLabel(el); } } // fin de tour : plus rien n'est actif (avant collapseAll qui vide la liste)
     collapseAll(T.turnCollapsibles); setBusy(false); return; }
   if(d.error){ smoothSnap(); flushRender(); elapsedStop(); removeTyping(); setActive(null); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
   if(d.compacting!==undefined){ setCompacting(d.compacting); return; }

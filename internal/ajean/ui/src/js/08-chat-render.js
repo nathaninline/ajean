@@ -89,10 +89,41 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 });
 
+// Jeu d'icônes SVG au trait (style Lucide, 24×24, stroke currentColor). Pas d'emoji :
+// rendu net, monochrome, qui suit la couleur du thème (clair/sombre) et le dim des
+// étiquettes. Le contenu est développeur (statique) → innerHTML sûr.
+const ICONS = {
+  brain:'<path d="M12 5a3 3 0 1 0-5.997.142 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.142 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/>',
+  terminal:'<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>',
+  file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
+  edit:'<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  search:'<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+  globe:'<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+  db:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>',
+  clock:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  image:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>',
+  monitor:'<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+  plug:'<path d="M9 2v6"/><path d="M15 2v6"/><path d="M6 8h12v3a6 6 0 0 1-6 6 6 6 0 0 1-6-6z"/><path d="M12 17v5"/>',
+  wrench:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.8 2.8-2-2 2.8-2.8z"/>',
+};
+function iconSvg(key){
+  const p = ICONS[key] || ICONS.wrench;
+  return '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+p+'</svg>';
+}
+// Icône du rôle d'une bulle à sa création, avant que le flux ne pose le vrai libellé.
+function roleIcon(role){ return role==='reasoning' ? 'brain' : role==='tool' ? 'wrench' : ''; }
+function roleLabel(role){
+  if(role==='reasoning') return 'Réflexion en cours…';
+  if(role==='tool') return 'Outil…';
+  return role;
+}
+// Pose (ou retire) l'icône d'une étiquette sans toucher au texte.
+function setIcon(el, key){ const s=el&&el.querySelector('.label .ic-slot'); if(s) s.innerHTML = key ? iconSvg(key) : ''; }
 function addMsg(role, text){
   const el=document.createElement('div');
   el.className='msg '+role;
   const collapsible = (role==='reasoning' || role==='tool');
+  const labelHTML='<span class="label"><span class="ic-slot"></span><span class="txt"></span></span>';
   // .body must be a real block so <p>/<pre>/<ul> margins behave properly.
   if(collapsible){
     // 'working' = bulle active : son étiquette (la ligne-résumé, qui survit au repli)
@@ -101,11 +132,13 @@ function addMsg(role, text){
     // PAS par le repli. Pas de shimmer pour les bulles historiques rejouées.
     el.classList.add('collapsible');
     if(!(typeof REPLAYING!=='undefined' && REPLAYING)) el.classList.add('working');
-    el.innerHTML='<span class="label">'+role+'</span><div class="bodywrap"><div class="body"></div></div>';
+    el.innerHTML=labelHTML+'<div class="bodywrap"><div class="body"></div></div>';
     el.querySelector('.label').onclick=()=>toggleCollapse(el);
   } else {
-    el.innerHTML='<span class="label">'+role+'</span><div class="body"></div>';
+    el.innerHTML=labelHTML+'<div class="body"></div>';
   }
+  setIcon(el, roleIcon(role));
+  setLabel(el, roleLabel(role));
   el.querySelector('.body').textContent=text;
   chatEl().appendChild(el);
   scrollMaybe();
@@ -162,7 +195,14 @@ function collapseInstant(el){
   bw.style.height='0px'; bw.style.width='0px';
   requestAnimationFrame(()=>{ bw.style.transition=''; });
 }
-function setLabel(el, text){ el.querySelector('.label').textContent = text; }
+// Écrit le texte de l'étiquette dans son slot .txt (préserve l'icône .ic-slot).
+// Repli sur l'ancien comportement (textContent entier) pour une étiquette non
+// structurée, au cas où.
+function setLabel(el, text){
+  const lab=el.querySelector('.label'); if(!lab) return;
+  const txt=lab.querySelector('.txt');
+  if(txt) txt.textContent=text; else lab.textContent=text;
+}
 // Ajoute « +N -N » colorés à l'étiquette d'une bulle. L'étiquette reste visible
 // une fois la bulle repliée : c'est le seul endroit où le volume d'une écriture
 // survit au repli, donc on le met là plutôt que dans le corps seul.
@@ -200,26 +240,28 @@ function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(encodeMdLink
 function renderToolMsg(el, tu){
   // Métadonnées d'affichage par outil : nom court + en-tête. Les outils web
   // (web_search/open/read/grep) ont leur propre libellé, pas le fallback mémoire.
+  // `ico` = clé d'icône SVG (voir ICONS) affichée devant l'étiquette pour repérer
+  // d'un coup d'œil le type d'action.
   const META = {
-    bash:       {lbl:'terminal',  head:'commande'},
-    write:      {lbl:'fichier',   head:'écriture'},
-    edit:       {lbl:'édition',   head:'édition'},
-    web_search: {lbl:'recherche', head:'recherche web'},
-    web_open:   {lbl:'page web',  head:'ouverture'},
-    web_read:   {lbl:'page web',  head:'lecture'},
-    web_grep:   {lbl:'page web',  head:'recherche'},
-    mem_search: {lbl:'mémoire',   head:'recherche mémoire'},
-    mem_read:   {lbl:'mémoire',   head:'lecture mémoire'},
-    mem_add:    {lbl:'mémoire',   head:'nouvelle page'},
-    mem_edit:   {lbl:'mémoire',   head:'édition mémoire'},
-    mem_delete: {lbl:'mémoire',   head:'suppression mémoire'},
-    task_list:  {lbl:'tâches',    head:'tâches planifiées'},
-    task_create:{lbl:'tâche',     head:'nouvelle tâche'},
-    task_update:{lbl:'tâche',     head:'modification tâche'},
-    task_delete:{lbl:'tâche',     head:'suppression tâche'},
-    see_image:  {lbl:'image',     head:'vision'},
-    machines_list:{lbl:'machines', head:'postes disponibles'},
-    machines_use: {lbl:'machines', head:'bascule de machine'},
+    bash:       {ico:'terminal', lbl:'Terminal',            head:'commande'},
+    write:      {ico:'file',     lbl:'Écriture fichier',    head:'écriture'},
+    edit:       {ico:'edit',     lbl:'Édition fichier',     head:'édition'},
+    web_search: {ico:'search',   lbl:'Recherche web',       head:'recherche web'},
+    web_open:   {ico:'globe',    lbl:'Ouverture de page',   head:'ouverture'},
+    web_read:   {ico:'globe',    lbl:'Lecture de page',     head:'lecture'},
+    web_grep:   {ico:'globe',    lbl:'Recherche dans page', head:'recherche'},
+    mem_search: {ico:'db',       lbl:'Recherche mémoire',   head:'recherche mémoire'},
+    mem_read:   {ico:'db',       lbl:'Lecture mémoire',     head:'lecture mémoire'},
+    mem_add:    {ico:'db',       lbl:'Nouvelle note',       head:'nouvelle page'},
+    mem_edit:   {ico:'db',       lbl:'Édition mémoire',     head:'édition mémoire'},
+    mem_delete: {ico:'db',       lbl:'Suppression mémoire', head:'suppression mémoire'},
+    task_list:  {ico:'clock',    lbl:'Tâches planifiées',   head:'tâches planifiées'},
+    task_create:{ico:'clock',    lbl:'Nouvelle tâche',      head:'nouvelle tâche'},
+    task_update:{ico:'clock',    lbl:'Mise à jour tâche',   head:'modification tâche'},
+    task_delete:{ico:'clock',    lbl:'Suppression tâche',   head:'suppression tâche'},
+    see_image:  {ico:'image',    lbl:'Vision',              head:'vision'},
+    machines_list:{ico:'monitor', lbl:'Machines',           head:'postes disponibles'},
+    machines_use: {ico:'monitor', lbl:'Changement machine', head:'bascule de machine'},
   };
   // Outils MCP (nom mcp__<serveur>__<outil>) : en-tête = nom du serveur, libellé lisible,
   // pas le fallback générique. On extrait serveur et outil du nom namespacé.
@@ -228,9 +270,10 @@ function renderToolMsg(el, tu){
     const parts = tu.name.slice(5).split('__');
     const server = parts.shift() || 'mcp';
     const tool = parts.join('__') || tu.name;
-    meta = {lbl: tool, head: server};
+    meta = {ico:'plug', lbl: tool, head: server};
   }
-  meta = meta || {lbl:'outil', head:'outil'};
+  meta = meta || {ico:'wrench', lbl:'Outil', head:'outil'};
+  setIcon(el, meta.ico);
   let lbl = meta.lbl;
   // Indication du volume de la réponse de l'outil (~tokens, estimation 1 tok ≈ 4 car).
   if(tu.result){ lbl += '  ·  ' + Math.max(1, Math.round(tu.result.length/4)) + ' tok'; }
@@ -242,9 +285,8 @@ function renderToolMsg(el, tu){
   else if(tu.body){ add=tu.body.split('\n').length; }
   if(add||del) setLabelCounts(el, add, del);
   const body=bodyOf(el); body.innerHTML='';
-  const head=document.createElement('div'); head.className='tool-head';
-  head.textContent = meta.head;
-  body.appendChild(head);
+  // Plus d'en-tête « commande / recherche web » ici : il répétait le label (icône +
+  // nom) juste au-dessus. La carte va droit à la commande puis au résultat.
   if(tu.label){
     const pre=document.createElement('pre'); pre.className='tool-cmd';
     const code=document.createElement('code'); code.textContent=tu.label;

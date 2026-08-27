@@ -315,7 +315,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .msg.assistant .body code{background:var(--code-bg);padding:1px 5px;border-radius:3px;font-size:.9em;overflow-wrap:anywhere;word-break:break-word}
 .msg.assistant .body pre,.msg.reasoning .body pre{position:relative;background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:10px;overflow-x:auto;max-width:100%;margin:.5em 0}
 .copybtn{position:absolute;bottom:6px;right:6px;font-size:11px;padding:3px 8px;margin:0;background:var(--panel);border:1px solid var(--border);color:var(--dim);border-radius:5px;opacity:.5;transition:opacity .15s,color .15s}
-.msg.assistant .body pre:hover .copybtn,.msg.reasoning .body pre:hover .copybtn{opacity:1}
+.msg.assistant .body pre:hover .copybtn,.msg.reasoning .body pre:hover .copybtn,.msg.tool .body pre:hover .copybtn{opacity:1}
 .copybtn:hover{border-color:var(--accent);color:var(--accent)}
 .copybtn.done{color:var(--ok);border-color:var(--ok);opacity:1}
 .msg.assistant .body pre code,.msg.reasoning .body pre code{background:transparent;padding:0;font-size:.85em;line-height:1.4}
@@ -435,8 +435,12 @@ button:disabled{opacity:.5;cursor:not-allowed}
    (.working), un dégradé clair balaye l'étiquette de gauche à droite. On clippe
    le dégradé sur le texte (background-clip:text) et on déplace sa position. Base
    dim pour rester secondaire, pic clair (--text) pour le reflet. Le repli retire
-   .working → l'étiquette redevient statique. */
-#chat .msg.collapsible.working .label{
+   .working → l'étiquette redevient statique.
+   ⚠️ Le clip s'applique sur le .txt SEUL, pas sur tout le .label : sur iOS/Safari,
+   -webkit-background-clip:text clippe AUSSI les enfants non-texte (notre SVG), donc
+   l'icône disparaissait tant que la bulle était active et ne revenait qu'à la fin.
+   En ciblant le texte, l'icône (sœur du .txt) reste visible pendant l'animation. */
+#chat .msg.collapsible.working .label .txt{
   background:linear-gradient(90deg,var(--dim) 0%,var(--dim) 30%,var(--text) 50%,var(--dim) 70%,var(--dim) 100%);
   background-size:300% 100%;background-repeat:no-repeat;
   -webkit-background-clip:text;background-clip:text;
@@ -450,7 +454,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
    aucune saccade. */
 @keyframes labelshimmer{0%{background-position:100% 0}70%,100%{background-position:0% 0}}
 @media (prefers-reduced-motion:reduce){
-  #chat .msg.collapsible.working .label{animation:none;background:none;-webkit-text-fill-color:var(--dim);color:var(--dim)}
+  #chat .msg.collapsible.working .label .txt{animation:none;background:none;-webkit-text-fill-color:var(--dim);color:var(--dim)}
 }
 /* ===== Barre latérale ==============================================
    Colonne de réglages dense : 12 sections repliées doivent tenir sans faire
@@ -1130,8 +1134,15 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
 /* Étiquettes VOUS / AJEAN : inutiles ici (l'alignement suffit), sauf pour les
    bulles repliables (raisonnement / outils) où le label est le bouton de repli. */
 #chat .msg .label{display:none}
-#chat .msg.collapsible .label{display:block;position:relative;padding-right:16px;width:fit-content;
+#chat .msg.collapsible .label{display:inline-flex;align-items:center;gap:6px;position:relative;padding-right:16px;width:fit-content;
   text-transform:none;letter-spacing:0;font-size:13px;font-weight:500;color:var(--dim)}
+/* Icône SVG de l'étiquette : au trait, alignée au texte, suit la couleur (--dim du
+   label). Le shimmer clippe un dégradé sur le TEXTE seul (background-clip:text) ;
+   le SVG, élément à part, n'est pas affecté → il reste net et lisible pendant
+   l'animation. Slot vide (bulles sans icône) : replié pour ne pas manger le gap. */
+#chat .msg.collapsible .label .ic-slot{display:inline-flex;flex:0 0 auto;line-height:0}
+#chat .msg.collapsible .label .ic-slot:empty{display:none}
+#chat .msg.collapsible .label .ic{width:15px;height:15px;display:block;opacity:.85;margin-top:-2px}
 /* Chevron de repli, à droite du texte. Posé en ::after avec sa propre couleur :
    le shimmer met -webkit-text-fill-color:transparent sur le label, ce qui se
    propagerait au chevron — on le ré-affirme ici pour qu'il reste visible pendant
@@ -1156,8 +1167,24 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
    label) avec un chevron pour déplier. Le corps s'affiche dépliée sans cadre. */
 #chat .msg.reasoning,#chat .msg.tool{background:none;border:none;border-radius:0;color:var(--dim);padding:0}
 #chat .msg.reasoning{color:var(--dim)}
-#chat .msg.tool .tool-head{color:var(--text)}
-#chat .msg.assistant .body pre,#chat .msg.reasoning .body pre,#chat .msg.tool pre{border-radius:12px;padding:12px 14px}
+#chat .msg.assistant .body pre,#chat .msg.reasoning .body pre{border-radius:12px;padding:12px 14px}
+/* --- Appel d'outil : épuré ------------------------------------------------
+   Pas de carte, pas de bordure, pas de barre d'accent. Juste des blocs de code
+   souples (fond code discret, coins arrondis) empilés avec un peu d'air, chacun
+   précédé d'un libellé minuscule et léger. Cohérent avec le reste (le raisonnement
+   n'a pas d'encadré non plus). */
+#chat .msg.tool .body{background:none;border:none;border-radius:0;padding:0;margin-top:2px;
+  display:flex;flex-direction:column;gap:5px}
+#chat .msg.tool .body:empty{display:none}
+#chat .msg.tool .body pre{background:var(--code-bg);border:none;border-radius:10px;margin:0;
+  padding:10px 13px;max-height:280px}
+/* Libellé de section (réponse / modifications / …) : discret, en minuscules, léger. */
+#chat .msg.tool .tool-sub{margin:0;padding:0 2px;border:none;background:none;
+  font-size:10px;color:var(--dim);text-transform:none;letter-spacing:0;opacity:.65}
+#chat .msg.tool pre.diff{padding:8px 0}
+#chat .msg.tool pre.diff .dl{padding:1px 13px}
+#chat .msg.tool .tool-wait{padding:0 2px;margin:0;color:var(--dim)}
+#chat .msg.tool .body pre .copybtn{bottom:7px;right:7px}
 #chat .msg.assistant .body a{text-decoration:underline;text-underline-offset:2px}
 /* Composer = UNE seule carte posée PAR-DESSUS le fil : la conversation
    continue de défiler DERRIÈRE elle et s'efface en fondu (dégradé vers le fond)

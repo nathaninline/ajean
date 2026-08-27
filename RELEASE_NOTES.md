@@ -1,10 +1,13 @@
-Suite à des retours utilisateurs, le prompt système est restauré tel qu'il était avant la v0.12.4.
+L'affichage de l'activité de l'agent est repensé : icônes vectorielles, libellés clairs et bulle d'appel d'outil épurée.
 
-## Prompt système restauré
+## Icônes et libellés
 
-* La v0.12.4 avait reformulé le prompt système pour rendre le raisonnement plus court et plus actif (réfléchir brièvement, annoncer l'action, agir, vérifier, continuer). Sur certains modèles, cette formulation favorisait des enchaînements d'actions qui tournaient en boucle.
-* Le prompt revient donc exactement à sa version d'avant la v0.12.4, avec la consigne « agir immédiatement, ne jamais terminer un tour après avoir seulement réfléchi, rester concis ».
-* Ce retour ne supprime pas à lui seul toute possibilité de boucle sur un modèle qui ignore ses consignes, mais il rétablit le comportement connu comme stable.
+* Chaque action de l'agent est désormais précédée d'une icône vectorielle au trait, monochrome et adaptée au thème clair comme sombre : un cerveau pour la réflexion, un terminal, un fichier, une loupe, une base de données pour la mémoire, une horloge pour les tâches, etc.
+* Les libellés passent en texte clair. La réflexion affiche « Réflexion en cours… » pendant qu'elle travaille, puis son décompte de tokens. Les outils sont nommés explicitement : Terminal, Recherche web, Lecture de page, Recherche mémoire, Nouvelle note, Nouvelle tâche, Vision, etc.
+
+## Bulle d'appel d'outil
+
+* Refonte épurée : plus d'en-tête redondant ni de cadres empilés. La commande et le résultat s'affichent en blocs de code souples, sans bordure, séparés par un libellé de section discret.
 
 ## Mettre à jour
 
