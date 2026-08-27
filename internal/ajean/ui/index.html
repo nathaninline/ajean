@@ -367,6 +367,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .msg.tool pre.diff .dl{display:block;padding:1px 10px;white-space:pre-wrap;word-break:break-word;color:var(--dim)}
 .msg.tool pre.diff .dl.add{color:var(--add);background:var(--add-bg)}
 .msg.tool pre.diff .dl.del{color:var(--del);background:var(--del-bg)}
+/* Marqueur +/- dans sa propre gouttière, séparé du texte (évite le « + - » collé
+   sur une ligne dont le contenu commence par une puce « - »). */
+.msg.tool pre.diff .dl .op{display:inline-block;width:1.2em;flex:0 0 auto;opacity:.5;user-select:none;text-align:left}
+.msg.tool pre.diff .dl .tx{white-space:pre-wrap}
 /* Écriture en direct : le bloc se remplit ligne à ligne pendant que le modèle
    tape. Seule la dernière ligne est en fondu (.fresh) — animer tout le bloc à
    chaque nouvelle ligne le ferait clignoter. Hauteur bornée + scroll auto en
@@ -1564,22 +1568,6 @@ button:hover{border-color:var(--dim);color:var(--text)}
         </div>
       </div>
     </div>
-    <!-- Sauvegarde ajean.link (abonnés) : mémoire + presets + réglages, chiffrés
-         côté serveur avant l'envoi, relais aveugle. Section entière masquée si le
-         serveur n'est pas lié à un compte ajean.link. -->
-    <div id="backup-block" style="display:none">
-      <div class="subhead">Sauvegarde ajean.link<span id="backup-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Sauvegarde ta mémoire, tes presets et tes réglages sur ajean.link. Tout est <b>chiffré sur ton serveur avant l'envoi</b> : le relais ne voit qu'un blob opaque, illisible même s'il était piraté. Restaurable sur un serveur vierge avec ton mot de passe de sauvegarde.</span></span></div>
-      <div class="slist">
-        <label class="switchrow"><span class="switch"><input type="checkbox" id="backup-auto-toggle" onchange="toggleBackupAuto()"><span class="slider"></span></span> sauvegarde automatique quotidienne</label>
-        <div class="rowbody">
-          <div id="backup-status" class="muted" style="font-size:12px;line-height:1.5"></div>
-          <div class="row" style="margin-top:8px">
-            <button onclick="backupNow()">Sauvegarder maintenant</button>
-            <button onclick="backupRestore()">Restaurer…</button>
-          </div>
-        </div>
-      </div>
-    </div>
     <div id="net-block" class="gated-group">
       <div class="subhead">Accès internet<span id="internet-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Ajoute les outils <b>web_search / web_open / web_read / web_grep</b>. Le moteur <b>intégré</b> ne demande aucune installation. Le moteur <b>Crawl4AI</b> exige un serveur que tu héberges toi-même (ex. <code>docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest</code>) mais exécute le JavaScript des pages. Actifs seulement si le <b>mode agent</b> est actif.</span></span></div>
       <div class="slist">
@@ -1724,8 +1712,8 @@ button:hover{border-color:var(--dim);color:var(--text)}
       </div>
     </div></div>
   </details>
-  <details id="remote-details"><summary><span class="stitle">Accès distant</span><span id="remote-badge" class="sbadge"></span></summary>
-    <div class="subhead">ajean.link<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Accédez à ce serveur AJEAN depuis <b>n'importe où</b>, sans ouvrir de port, à travers le relais <b>ajean.link</b>. Le trafic est chiffré de <b>bout en bout</b> : le relais ne voit rien. Abonnement 4,80 €/mois.</span></span></div>
+  <details id="remote-details"><summary><span class="stitle">ajean link</span><span id="remote-badge" class="sbadge"></span></summary>
+    <div class="subhead">Accès distant<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Accédez à ce serveur AJEAN depuis <b>n'importe où</b>, sans ouvrir de port, à travers le relais <b>ajean.link</b>. Le trafic est chiffré de <b>bout en bout</b> : le relais ne voit rien. Abonnement 4,80 €/mois.</span></span></div>
     <!-- Non connecté : un seul bouton, tout se passe dans la popup (compte + paiement). -->
     <div id="remote-off" class="slist"><div class="rowbody">
       <p class="muted" style="margin:0 0 8px">Ouvrez l'accès distant à ce serveur en quelques clics, sans terminal.</p>
@@ -1751,6 +1739,23 @@ button:hover{border-color:var(--dim);color:var(--text)}
         <div id="remote-pair" class="muted" style="display:none;margin-top:6px"></div>
         <div class="row" style="margin-bottom:0"><button onclick="remoteDisconnect()" class="btn-danger-o">déconnecter l'accès distant</button></div>
       </div></div>
+    </div>
+    <!-- Sauvegarde ajean.link (abonnés) : mémoire + presets + réglages, chiffrés
+         côté serveur avant l'envoi, relais aveugle. Bloc entier masqué si le
+         serveur n'est pas lié à un compte ajean.link. Rangé ici, dans la section
+         ajean link, car c'est une fonctionnalité du relais. -->
+    <div id="backup-block" style="display:none">
+      <div class="subhead">Sauvegarde<span id="backup-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Sauvegarde ta mémoire, tes presets et tes réglages sur ajean.link. Tout est <b>chiffré sur ton serveur avant l'envoi</b> : le relais ne voit qu'un blob opaque, illisible même s'il était piraté. Restaurable sur un serveur vierge avec ton mot de passe de sauvegarde.</span></span></div>
+      <div class="slist">
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="backup-auto-toggle" onchange="toggleBackupAuto()"><span class="slider"></span></span> sauvegarde automatique quotidienne</label>
+        <div class="rowbody">
+          <div id="backup-status" class="muted" style="font-size:12px;line-height:1.5"></div>
+          <div class="row" style="margin-top:8px">
+            <button onclick="backupNow()">Sauvegarder maintenant</button>
+            <button onclick="backupRestore()">Restaurer…</button>
+          </div>
+        </div>
+      </div>
     </div>
   </details>
   <details id="lc-details"><summary><span class="stitle">Moteur</span></summary>
@@ -5202,6 +5207,10 @@ function setLabel(el, text){
 // survit au repli, donc on le met là plutôt que dans le corps seul.
 function setLabelCounts(el, add, del){
   const lab=el.querySelector('.label');
+  // Idempotent : renderToolMsg est rappelé à CHAQUE événement de flux pour la même
+  // bulle. Sans purge, chaque passage empilait un badge (« +1 +2 +1 » observé) au
+  // lieu de refléter l'état courant. On retire donc l'ancien compteur d'abord.
+  lab.querySelectorAll('.diff-count').forEach(n=>n.remove());
   const cnt=document.createElement('span'); cnt.className='diff-count';
   if(add) cnt.appendChild(Object.assign(document.createElement('span'),{className:'a',textContent:'+'+add}));
   if(add && del) cnt.appendChild(document.createTextNode(' '));
@@ -5301,7 +5310,11 @@ function renderToolMsg(el, tu){
     lines.forEach((t,i)=>{
       const ln=document.createElement('span');
       ln.className='dl add'+(i===lines.length-1?' fresh':'');
-      ln.textContent='+ '+t;
+      // Marqueur +/- dans une gouttière séparée du texte : sinon un contenu qui
+      // commence lui-même par « - » (puce Markdown) donnait un « + - » collé et
+      // trompeur. Ici le « + » vit dans sa colonne, le texte reste intact à côté.
+      ln.appendChild(Object.assign(document.createElement('span'),{className:'op',textContent:'+'}));
+      ln.appendChild(Object.assign(document.createElement('span'),{className:'tx',textContent:t}));
       if(i===lines.length-1 && tu.typing){
         const car=document.createElement('span'); car.className='tool-caret'; car.textContent='▋';
         ln.appendChild(car);
@@ -5323,7 +5336,10 @@ function renderToolMsg(el, tu){
     tu.diff.forEach(l=>{
       const ln=document.createElement('span');
       ln.className='dl'+(l.op==='+'?' add':l.op==='-'?' del':'');
-      ln.textContent=(l.op==='+'?'+':l.op==='-'?'-':' ')+' '+l.text;
+      // Marqueur dans sa propre gouttière (voir bloc « écriture en cours ») : évite
+      // le « + - » collé quand la ligne ajoutée est elle-même une puce Markdown.
+      ln.appendChild(Object.assign(document.createElement('span'),{className:'op',textContent:(l.op==='+'?'+':l.op==='-'?'−':'')}));
+      ln.appendChild(Object.assign(document.createElement('span'),{className:'tx',textContent:l.text}));
       pre.appendChild(ln);
     });
     body.appendChild(pre);

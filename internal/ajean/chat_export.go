@@ -103,10 +103,76 @@ func (c *Conversation) ExportJSON(o exportOpts) ([]byte, error) {
 		Version:    Version,
 		ExportedAt: time.Now().Format(time.RFC3339),
 		CtxUsed:    ctxUsed,
-		Messages:   msgs,
+		Messages:   stripInlineImages(msgs),
 		Log:        filterLog(log, o),
 	}
 	return json.MarshalIndent(p, "", "  ")
+}
+
+// stripInlineImages remplace les images en base64 (data URI) portées par les
+// messages multimodaux (vision : pièces jointes images + outil see_image) par un
+// court marqueur. Sans ça, l'export JSON d'une conversation avec images embarquait
+// plusieurs Mo de base64 par image — un fichier énorme et illisible. Le Markdown,
+// lui, n'était pas concerné : il ne cite que les NOMS de fichiers. Le journal
+// d'affichage non plus (il ne porte pas les images). On ne touche donc qu'ici, et
+// sur une COPIE : les messages appartiennent à la conversation vivante.
+func stripInlineImages(msgs []Message) []Message {
+	out := make([]Message, len(msgs))
+	for i, m := range msgs {
+		out[i] = m
+		out[i].Content = stripInlineImagesValue(m.Content)
+	}
+	return out
+}
+
+func stripInlineImagesValue(v any) any {
+	// Une partie image (format OpenAI) : {"type":"image_url","image_url":{"url":"data:…"}}.
+	// On copie la partie et on élide l'URL data: en gardant l'en-tête (type MIME) lisible.
+	elide := func(part map[string]any) map[string]any {
+		cp := make(map[string]any, len(part))
+		for k, val := range part {
+			cp[k] = val
+		}
+		if iu, ok := cp["image_url"].(map[string]any); ok {
+			c2 := make(map[string]any, len(iu))
+			for k, val := range iu {
+				c2[k] = val
+			}
+			if url, ok := c2["url"].(string); ok && strings.HasPrefix(url, "data:") {
+				c2["url"] = elideDataURI(url)
+			}
+			cp["image_url"] = c2
+		}
+		return cp
+	}
+	switch parts := v.(type) {
+	case []map[string]any: // message fraîchement produit
+		out := make([]map[string]any, len(parts))
+		for i, p := range parts {
+			out[i] = elide(p)
+		}
+		return out
+	case []any: // message relu depuis la base (JSON) : []any de maps
+		out := make([]any, len(parts))
+		for i, p := range parts {
+			if mp, ok := p.(map[string]any); ok {
+				out[i] = elide(mp)
+			} else {
+				out[i] = p
+			}
+		}
+		return out
+	}
+	return v // simple chaîne (cas courant) : rien à faire
+}
+
+// elideDataURI garde l'en-tête « data:<mime>;base64, » (lisible) et remplace le
+// corps base64 par sa taille, pour que l'export reste informatif sans le poids.
+func elideDataURI(url string) string {
+	if i := strings.Index(url, ","); i >= 0 {
+		return url[:i+1] + fmt.Sprintf("<élidé — %s>", humanBytes(int64(len(url)-i-1)))
+	}
+	return "<image élidée>"
 }
 
 // filterLog applique au journal les MÊMES cases que le Markdown. Les deux

@@ -337,6 +337,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .msg.tool pre.diff .dl{display:block;padding:1px 10px;white-space:pre-wrap;word-break:break-word;color:var(--dim)}
 .msg.tool pre.diff .dl.add{color:var(--add);background:var(--add-bg)}
 .msg.tool pre.diff .dl.del{color:var(--del);background:var(--del-bg)}
+/* Marqueur +/- dans sa propre gouttière, séparé du texte (évite le « + - » collé
+   sur une ligne dont le contenu commence par une puce « - »). */
+.msg.tool pre.diff .dl .op{display:inline-block;width:1.2em;flex:0 0 auto;opacity:.5;user-select:none;text-align:left}
+.msg.tool pre.diff .dl .tx{white-space:pre-wrap}
 /* Écriture en direct : le bloc se remplit ligne à ligne pendant que le modèle
    tape. Seule la dernière ligne est en fondu (.fresh) — animer tout le bloc à
    chaque nouvelle ligne le ferait clignoter. Hauteur bornée + scroll auto en

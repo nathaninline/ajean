@@ -238,6 +238,21 @@ func (c *Conversation) compactLogLocked() {
 		bufKey, toks, ts0, seq0 = "", 0, 0, 0
 	}
 	for _, ev := range c.Log {
+		// Outils : un appel s'écrit en de nombreux événements (annonce done=false,
+		// frappe du corps, streaming des arguments) jusqu'au done=true, qui porte
+		// déjà l'état FINAL (résultat + diff). Les intermédiaires ne servent qu'à
+		// l'affichage EN DIRECT ; les garder dans le journal le faisait enfler sur
+		// une conversation agentique (gros write, appels en chaîne) jusqu'à
+		// maxLogEvents → troncature des plus VIEUX événements, donc perte des
+		// premiers messages à l'affichage. On ne conserve donc que le done=true
+		// (même politique que coalesceReplay au replay/export).
+		if tu, ok := ev.Delta["tool_used"].(map[string]any); ok {
+			flush()
+			if done, _ := tu["done"].(bool); done {
+				out = append(out, ev)
+			}
+			continue
+		}
 		key := textKey(ev.Delta)
 		if key == "" {
 			flush()
@@ -737,11 +752,15 @@ func coalesceReplay(events []LogEvent, from int) []map[string]any {
 			continue
 		}
 		_, isTool := ev.Delta["tool_used"].(map[string]any)
-		// Tout événement NON-outil clôt une éventuelle bulle d'outil en attente, pour
-		// préserver l'ordre (l'outil non terminé s'affiche avant ce qui le suit).
-		if !isTool {
-			flushTool()
-		}
+		// ⚠️ On ne « flushe » PAS l'annonce d'outil en attente sur un événement
+		// non-outil. Un appel d'outil s'écrit dans le journal en DEUX temps : une
+		// annonce (done=false, juste « je vais lancer X ») puis le résultat
+		// (done=true). Si un événement non-outil (stats, un bout de raisonnement)
+		// se glisse ENTRE les deux, flusher ici émettait l'annonce PUIS le done →
+		// le même outil apparaissait DEUX fois (à l'export Markdown et au replay).
+		// On garde donc l'annonce en attente : le done la remplace (émis une seule
+		// fois), et si aucun done n'arrive jamais (outil interrompu par un stop),
+		// le flushTool final l'émet une seule fois, en fin de fil.
 		// Delta texte ? (une seule clé content ou reasoning_content, valeur string)
 		key := ""
 		if s, ok := ev.Delta["content"].(string); ok {
@@ -812,6 +831,17 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[st
 	snapshot := append([]LogEvent(nil), c.Log...)
 	epoch := c.epoch
 	c.mu.Unlock()
+	// ⚠️ Garde-fou anti-« premiers messages manquants au changement de session ».
+	// Le client se réabonne avec from=lastSeq (le dernier Seq qu'il a vu). Les Seq
+	// ne sont PAS globaux : ouvrir une session PLUS ANCIENNE charge un journal dont
+	// les Seq sont plus bas. Si le client garde un from élevé (hérité de la session
+	// qu'il quittait) et se reconnecte, coalesceReplay saute tout (Seq <= from) →
+	// la conversation ouverte apparaît tronquée, voire vide. En session normale, le
+	// client ne peut jamais avoir un from SUPÉRIEUR au dernier Seq du journal ; s'il
+	// l'est, son curseur vient d'une autre session → on repart du début.
+	if n := len(snapshot); n > 0 && from > snapshot[n-1].Seq {
+		from = 0
+	}
 	last := from
 	for _, ev := range coalesceReplay(snapshot, from) {
 		if ctx.Err() != nil {

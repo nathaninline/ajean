@@ -107,22 +107,6 @@
         </div>
       </div>
     </div>
-    <!-- Sauvegarde ajean.link (abonnés) : mémoire + presets + réglages, chiffrés
-         côté serveur avant l'envoi, relais aveugle. Section entière masquée si le
-         serveur n'est pas lié à un compte ajean.link. -->
-    <div id="backup-block" style="display:none">
-      <div class="subhead">Sauvegarde ajean.link<span id="backup-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Sauvegarde ta mémoire, tes presets et tes réglages sur ajean.link. Tout est <b>chiffré sur ton serveur avant l'envoi</b> : le relais ne voit qu'un blob opaque, illisible même s'il était piraté. Restaurable sur un serveur vierge avec ton mot de passe de sauvegarde.</span></span></div>
-      <div class="slist">
-        <label class="switchrow"><span class="switch"><input type="checkbox" id="backup-auto-toggle" onchange="toggleBackupAuto()"><span class="slider"></span></span> sauvegarde automatique quotidienne</label>
-        <div class="rowbody">
-          <div id="backup-status" class="muted" style="font-size:12px;line-height:1.5"></div>
-          <div class="row" style="margin-top:8px">
-            <button onclick="backupNow()">Sauvegarder maintenant</button>
-            <button onclick="backupRestore()">Restaurer…</button>
-          </div>
-        </div>
-      </div>
-    </div>
     <div id="net-block" class="gated-group">
       <div class="subhead">Accès internet<span id="internet-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Ajoute les outils <b>web_search / web_open / web_read / web_grep</b>. Le moteur <b>intégré</b> ne demande aucune installation. Le moteur <b>Crawl4AI</b> exige un serveur que tu héberges toi-même (ex. <code>docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest</code>) mais exécute le JavaScript des pages. Actifs seulement si le <b>mode agent</b> est actif.</span></span></div>
       <div class="slist">
@@ -267,8 +251,8 @@
       </div>
     </div></div>
   </details>
-  <details id="remote-details"><summary><span class="stitle">Accès distant</span><span id="remote-badge" class="sbadge"></span></summary>
-    <div class="subhead">ajean.link<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Accédez à ce serveur AJEAN depuis <b>n'importe où</b>, sans ouvrir de port, à travers le relais <b>ajean.link</b>. Le trafic est chiffré de <b>bout en bout</b> : le relais ne voit rien. Abonnement 4,80 €/mois.</span></span></div>
+  <details id="remote-details"><summary><span class="stitle">ajean link</span><span id="remote-badge" class="sbadge"></span></summary>
+    <div class="subhead">Accès distant<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Accédez à ce serveur AJEAN depuis <b>n'importe où</b>, sans ouvrir de port, à travers le relais <b>ajean.link</b>. Le trafic est chiffré de <b>bout en bout</b> : le relais ne voit rien. Abonnement 4,80 €/mois.</span></span></div>
     <!-- Non connecté : un seul bouton, tout se passe dans la popup (compte + paiement). -->
     <div id="remote-off" class="slist"><div class="rowbody">
       <p class="muted" style="margin:0 0 8px">Ouvrez l'accès distant à ce serveur en quelques clics, sans terminal.</p>
@@ -294,6 +278,23 @@
         <div id="remote-pair" class="muted" style="display:none;margin-top:6px"></div>
         <div class="row" style="margin-bottom:0"><button onclick="remoteDisconnect()" class="btn-danger-o">déconnecter l'accès distant</button></div>
       </div></div>
+    </div>
+    <!-- Sauvegarde ajean.link (abonnés) : mémoire + presets + réglages, chiffrés
+         côté serveur avant l'envoi, relais aveugle. Bloc entier masqué si le
+         serveur n'est pas lié à un compte ajean.link. Rangé ici, dans la section
+         ajean link, car c'est une fonctionnalité du relais. -->
+    <div id="backup-block" style="display:none">
+      <div class="subhead">Sauvegarde<span id="backup-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Sauvegarde ta mémoire, tes presets et tes réglages sur ajean.link. Tout est <b>chiffré sur ton serveur avant l'envoi</b> : le relais ne voit qu'un blob opaque, illisible même s'il était piraté. Restaurable sur un serveur vierge avec ton mot de passe de sauvegarde.</span></span></div>
+      <div class="slist">
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="backup-auto-toggle" onchange="toggleBackupAuto()"><span class="slider"></span></span> sauvegarde automatique quotidienne</label>
+        <div class="rowbody">
+          <div id="backup-status" class="muted" style="font-size:12px;line-height:1.5"></div>
+          <div class="row" style="margin-top:8px">
+            <button onclick="backupNow()">Sauvegarder maintenant</button>
+            <button onclick="backupRestore()">Restaurer…</button>
+          </div>
+        </div>
+      </div>
     </div>
   </details>
   <details id="lc-details"><summary><span class="stitle">Moteur</span></summary>

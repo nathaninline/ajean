@@ -225,3 +225,87 @@ func TestLiveSelectionSurJournalTronque(t *testing.T) {
 	c.appendDelta(c.epoch, map[string]any{"content": "suite"})
 	waitSeq(t, got, 503)
 }
+
+// --- Régressions v0.12.7 : journal d'affichage (outils, replay, changement de session) ---
+
+// compactLogLocked doit coalescer les événements tool_used d'un même appel en un
+// seul (le done=true, qui porte l'état final) : les intermédiaires (annonce, frappe
+// du corps) ne servent qu'à l'affichage en direct et faisaient enfler le journal
+// jusqu'à la troncature des premiers messages.
+func TestCompactLogCoalesceTools(t *testing.T) {
+	c := newTestConv()
+	c.Log = []LogEvent{
+		{Seq: 1, Delta: map[string]any{"user": "édite"}},
+		{Seq: 2, Delta: map[string]any{"tool_used": map[string]any{"name": "edit", "label": "f"}}},
+		{Seq: 3, Delta: map[string]any{"tool_used": map[string]any{"name": "edit", "label": "f", "typing": true, "body": "a"}}},
+		{Seq: 4, Delta: map[string]any{"tool_used": map[string]any{"name": "edit", "label": "f", "result": "ok", "done": true}}},
+		{Seq: 5, Delta: map[string]any{"content": "fini"}},
+	}
+	c.mu.Lock()
+	c.compactLogLocked()
+	c.mu.Unlock()
+	nTool := 0
+	for _, ev := range c.Log {
+		if tu, ok := ev.Delta["tool_used"].(map[string]any); ok {
+			nTool++
+			if done, _ := tu["done"].(bool); !done {
+				t.Error("un tool_used non terminé a survécu à la compaction")
+			}
+		}
+	}
+	if nTool != 1 {
+		t.Fatalf("compactLogLocked garde %d tool_used au lieu de 1", nTool)
+	}
+}
+
+// coalesceReplay ne doit émettre un outil qu'UNE fois même si un événement non-outil
+// (stats, un bout de raisonnement) tombe entre l'annonce (done=false) et le done=true.
+func TestCoalesceReplayNoDoubleTool(t *testing.T) {
+	events := []LogEvent{
+		{Seq: 1, Delta: map[string]any{"tool_used": map[string]any{"name": "bash", "label": "ls"}}},
+		{Seq: 2, Delta: map[string]any{"stats": map[string]any{"gen_tokens": 3}}},
+		{Seq: 3, Delta: map[string]any{"tool_used": map[string]any{"name": "bash", "label": "ls", "result": "x", "done": true}}},
+	}
+	n := 0
+	for _, ev := range coalesceReplay(events, 0) {
+		if _, ok := ev["tool_used"]; ok {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Fatalf("outil émis %d fois au replay (attendu 1)", n)
+	}
+}
+
+// Un abonné qui arrive avec un `from` SUPÉRIEUR au dernier Seq du journal (curseur
+// hérité d'une autre session, plus récente) doit obtenir le fil COMPLET, pas rien :
+// sans ce garde-fou, ouvrir une session plus ancienne la montrait tronquée/vide.
+func TestSubscribeStaleFromCrossSession(t *testing.T) {
+	c := newTestConv()
+	c.appendDelta(c.epoch, map[string]any{"user": "premier message"})
+	c.appendDelta(c.epoch, map[string]any{"content": "réponse"})
+	// Le journal va jusqu'à Seq 2 ; on s'abonne avec from=9999 (curseur d'une autre session).
+	ctx, cancel := context.WithCancel(context.Background())
+	var got []map[string]any
+	done := make(chan struct{})
+	go func() {
+		c.Subscribe(ctx, 9999, func(ev map[string]any) bool {
+			got = append(got, ev)
+			if ev["caught_up"] != nil {
+				cancel()
+			}
+			return true
+		})
+		close(done)
+	}()
+	<-done
+	seen := ""
+	for _, ev := range got {
+		if u, ok := ev["user"].(string); ok {
+			seen += u
+		}
+	}
+	if !strings.Contains(seen, "premier message") {
+		t.Fatalf("le premier message n'a pas été rejoué avec un from périmé (reçu: %q)", seen)
+	}
+}

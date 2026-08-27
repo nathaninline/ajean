@@ -208,6 +208,10 @@ function setLabel(el, text){
 // survit au repli, donc on le met là plutôt que dans le corps seul.
 function setLabelCounts(el, add, del){
   const lab=el.querySelector('.label');
+  // Idempotent : renderToolMsg est rappelé à CHAQUE événement de flux pour la même
+  // bulle. Sans purge, chaque passage empilait un badge (« +1 +2 +1 » observé) au
+  // lieu de refléter l'état courant. On retire donc l'ancien compteur d'abord.
+  lab.querySelectorAll('.diff-count').forEach(n=>n.remove());
   const cnt=document.createElement('span'); cnt.className='diff-count';
   if(add) cnt.appendChild(Object.assign(document.createElement('span'),{className:'a',textContent:'+'+add}));
   if(add && del) cnt.appendChild(document.createTextNode(' '));
@@ -307,7 +311,11 @@ function renderToolMsg(el, tu){
     lines.forEach((t,i)=>{
       const ln=document.createElement('span');
       ln.className='dl add'+(i===lines.length-1?' fresh':'');
-      ln.textContent='+ '+t;
+      // Marqueur +/- dans une gouttière séparée du texte : sinon un contenu qui
+      // commence lui-même par « - » (puce Markdown) donnait un « + - » collé et
+      // trompeur. Ici le « + » vit dans sa colonne, le texte reste intact à côté.
+      ln.appendChild(Object.assign(document.createElement('span'),{className:'op',textContent:'+'}));
+      ln.appendChild(Object.assign(document.createElement('span'),{className:'tx',textContent:t}));
       if(i===lines.length-1 && tu.typing){
         const car=document.createElement('span'); car.className='tool-caret'; car.textContent='▋';
         ln.appendChild(car);
@@ -329,7 +337,10 @@ function renderToolMsg(el, tu){
     tu.diff.forEach(l=>{
       const ln=document.createElement('span');
       ln.className='dl'+(l.op==='+'?' add':l.op==='-'?' del':'');
-      ln.textContent=(l.op==='+'?'+':l.op==='-'?'-':' ')+' '+l.text;
+      // Marqueur dans sa propre gouttière (voir bloc « écriture en cours ») : évite
+      // le « + - » collé quand la ligne ajoutée est elle-même une puce Markdown.
+      ln.appendChild(Object.assign(document.createElement('span'),{className:'op',textContent:(l.op==='+'?'+':l.op==='-'?'−':'')}));
+      ln.appendChild(Object.assign(document.createElement('span'),{className:'tx',textContent:l.text}));
       pre.appendChild(ln);
     });
     body.appendChild(pre);

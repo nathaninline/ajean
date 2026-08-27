@@ -258,3 +258,35 @@ func TestCmdExportEcritLeFichier(t *testing.T) {
 		t.Fatal("option inconnue acceptée")
 	}
 }
+
+// L'export JSON d'un message multimodal (vision) doit ÉLIDER le base64 des images :
+// sinon le fichier pesait plusieurs Mo par image. Le Markdown, lui, n'a jamais porté
+// les images (juste les noms de fichiers).
+func TestExportJSONElideImages(t *testing.T) {
+	t.Cleanup(func() { conv.Reset() })
+	big := strings.Repeat("A", 300000)
+	conv.mu.Lock()
+	conv.Messages = []Message{
+		{Role: "user", Content: []map[string]any{
+			{"type": "text", "text": "regarde"},
+			{"type": "image_url", "image_url": map[string]any{"url": "data:image/png;base64," + big}},
+		}},
+		{Role: "assistant", Content: "vu"},
+	}
+	conv.Log = []LogEvent{{Seq: 1, TS: 1, Delta: map[string]any{"user": "regarde"}}}
+	conv.Seq = 1
+	conv.mu.Unlock()
+	b, err := conv.ExportJSON(defaultExportOpts())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), big) {
+		t.Error("le base64 brut d'une image est encore présent dans le JSON")
+	}
+	if len(b) > 10000 {
+		t.Errorf("JSON toujours énorme malgré l'élision : %d octets", len(b))
+	}
+	if !strings.Contains(string(b), "élidé") {
+		t.Error("marqueur d'élision absent du JSON")
+	}
+}
