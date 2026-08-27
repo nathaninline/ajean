@@ -1,18 +1,10 @@
-Version qui rend le raisonnement de l'IA plus court et plus actif, et qui refond l'affichage de son activité (raisonnement et outils) en une ligne épurée avec animation.
+Suite à des retours utilisateurs, le prompt système est restauré tel qu'il était avant la v0.12.4.
 
-## Raisonnement plus court et plus actif
+## Prompt système restauré
 
-* Le prompt système demande désormais un raisonnement bref : réfléchir en quelques phrases, annoncer à l'utilisateur ce qui va être fait, agir, vérifier, puis continuer, en découpant le travail en étapes. Objectif : éviter les longues réflexions qui n'aboutissent pas et garder l'IA active plutôt que perdue dans sa pensée.
-
-## Affichage de l'activité épuré
-
-* Les blocs de raisonnement et d'appels d'outils n'ont plus d'encadré : ils se résument à une ligne de texte décrivant l'étape, avec un chevron pour la déplier.
-* Tant qu'une étape est en cours, un reflet lumineux balaye sa ligne, y compris pendant que l'IA lit la réponse d'un outil. L'effet s'adapte au thème (clair ou sombre).
-* Chaque bloc de raisonnement affiche directement le nombre de jetons qu'il a lui-même produits, au lieu du cumul du tour.
-
-## Corrections
-
-* Suppression d'un compteur de durée qui pouvait réapparaître et défiler seul après la fin d'une réponse.
+* La v0.12.4 avait reformulé le prompt système pour rendre le raisonnement plus court et plus actif (réfléchir brièvement, annoncer l'action, agir, vérifier, continuer). Sur certains modèles, cette formulation favorisait des enchaînements d'actions qui tournaient en boucle.
+* Le prompt revient donc exactement à sa version d'avant la v0.12.4, avec la consigne « agir immédiatement, ne jamais terminer un tour après avoir seulement réfléchi, rester concis ».
+* Ce retour ne supprime pas à lui seul toute possibilité de boucle sur un modèle qui ignore ses consignes, mais il rétablit le comportement connu comme stable.
 
 ## Mettre à jour
 

@@ -46,11 +46,6 @@ func baseSystemPrompt(caps Caps) string {
 	// présente, d'où « Jean » et « AJEAN » écrits tels quels. Éviter « real tools »,
 	// qui sonnait bizarre à l'oral (« je fonctionne avec de vrais outils »).
 	b.WriteString("You are Jean, the assistant inside AJEAN, an AI app that runs on this machine. You can act on it directly through your tools.")
-	// Boucle de travail courte et active : penser bref, DIRE à l'utilisateur ce
-	// qu'on va faire, agir, vérifier, continuer — en découpant en étapes. Formulé
-	// serré : une méta-instruction longue sur la pensée fait sur-raisonner les
-	// modèles à reasoning (cf. plus bas), le but ici est l'inverse.
-	b.WriteString(" Work in short steps: think briefly, tell the user what you're about to do, act, then check and continue. Break bigger tasks into steps. Stay active — never spin in thought without acting or answering.")
 	if caps.Mem == MemAlways {
 		b.WriteString(" You evolve with every conversation: you actively maintain a persistent memory so nothing useful is lost between sessions.")
 	}
@@ -80,7 +75,7 @@ func baseSystemPrompt(caps Caps) string {
 		// La règle « write, jamais echo/cat » est INDISPENSABLE (cmd.exe massacre
 		// les guillemets imbriqués) mais elle vit maintenant dans les schémas de
 		// write et bash, là où elle s'applique. Elle était écrite trois fois.
-		b.WriteString("For anything about the system or files, use bash instead of guessing.\n")
+		b.WriteString("For anything about the system or files, use bash instead of guessing. Act immediately — call the right tool, then answer. Never end your turn after only thinking. Be concise.\n")
 		// Un lien Markdown ordinaire, comme dans n'importe quel chat : l'UI en fait
 		// un téléchargement (voir /api/chat/file). Aucun outil ni syntaxe spéciale
 		// à connaître pour le modèle — juste [texte](chemin).
