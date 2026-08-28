@@ -118,7 +118,7 @@ func rocmNum(e map[string]any, frags ...string) int64 {
 			case string:
 				s := strings.TrimSpace(t)
 				// Suffixes possibles (« 45.0 C », « 3 % »…) : on ne garde que le nombre.
-				if f, err := strconv.ParseFloat(strings.Fields(s+" ")[0], 64); err == nil {
+				if f, err := strconv.ParseFloat(strings.Fields(s + " ")[0], 64); err == nil {
 					return int64(f)
 				}
 			}

@@ -138,8 +138,8 @@ func guardToolOnlyPath(path string) string {
 }
 
 // guardToolOnlyCommand refuse une commande shell qui référence un dossier
-// « tool-only » (memory), lecture comprise (`cat`, `ls`, `>`…). Contrairement à
-// guardDestructive, on bloque TOUTE mention du dossier. Renvoie "" si autorisé.
+// « tool-only » (memory), lecture comprise (`cat`, `ls`, `>`…) : on bloque TOUTE
+// mention du dossier, pas seulement une suppression. Renvoie "" si autorisé.
 func guardToolOnlyCommand(command string) string {
 	lc := strings.ToLower(command)
 	for _, d := range toolOnlyDirs() {
@@ -173,4 +173,3 @@ func normPath(p string) string {
 	}
 	return p
 }
-
