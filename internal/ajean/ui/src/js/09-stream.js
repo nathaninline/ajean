@@ -44,12 +44,18 @@ function confirmPending(text){
 let REPLAYING=true;
 // État de rendu du tour courant, délimité par les événements user / turn_done.
 let T=null;
-function newTurn(){ T={ reasonEl:null, contentEl:null, pendingToolEl:null, activeEl:null, typingEl:null, fullContent:'', fullReason:'', turnCollapsibles:[], serverStats:null, reasonTok:0, contentTok:0, reasonFirstTs:0, reasonLastTs:0, contentFirstTs:0, contentLastTs:0 }; }
+function newTurn(){ T={ reasonEl:null, contentEl:null, pendingToolEl:null, activeEl:null, typingEl:null, fullContent:'', fullReason:'', turnCollapsibles:[], serverStats:null, reasonTok:0, contentTok:0, toolTok:0, reasonFirstTs:0, reasonLastTs:0, contentFirstTs:0, contentLastTs:0 }; }
 // « Élément actif » = la bulle qui porte le shimmer. Le voile reste dessus tant
 // qu'une nouvelle étape (raisonnement / outil / réponse) n'a pas pris le relais —
 // y compris pendant que l'IA LIT la réponse d'un outil terminé. On ne coupe donc
 // PAS le shimmer à tu.done : c'est l'arrivée de l'étape suivante qui le transfère.
 function setActive(el){ if(T.activeEl && T.activeEl!==el){ T.activeEl.classList.remove('working'); finalizeReasonLabel(T.activeEl); } T.activeEl=el||null; }
+// Après un refresh EN PLEINE génération, le bloc en cours a été REJOUÉ : addMsg le
+// crée alors SANS 'working' (pas de shimmer) et son libellé se fige sur le décompte
+// final (« Réflexion · N tok »). Mais l'IA écrit encore : dès qu'un token LIVE y
+// arrive à nouveau (après caught_up, REPLAYING=false), on lui rend son état actif —
+// shimmer + libellé « en cours… ». Sans effet pendant le replay lui-même.
+function reactivateLive(el){ if(REPLAYING || !el) return; if(!el.classList.contains('working')) el.classList.add('working'); setActive(el); }
 // Une bulle de raisonnement qui n'est plus active doit quitter « en cours… » pour
 // son décompte final : 'working' est retiré sans repasser par labelTokens, on le
 // force ici. Sans effet sur les autres bulles.
@@ -70,18 +76,36 @@ let ELAPSED=null; // {start, timer}
 // (flag coincé, compactage/tâche auto) : sinon on voyait « 56s · 575 tok » monter
 // tout seul après une réponse finie, avec les tokens périmés du tour précédent.
 let TURN_ENDED=true;
-// fmtElapsed : durée EN SECONDES → « 42s », « 15 mn 42s », « 1 h 05 mn ». Nom
+// fmtElapsed : durée EN SECONDES → « 42s », « 15m 42s », « 1h 05m ». Nom
 // distinct de fmtDur() (16-tasks.js, en millisecondes) : les fichiers JS sont
 // concaténés dans un même scope, une collision de nom écrasait celui-ci.
 function fmtElapsed(secs){
   secs=Math.max(0,Math.round(secs));
   const h=Math.floor(secs/3600), m=Math.floor((secs%3600)/60), s=secs%60;
-  if(h) return h+' h '+String(m).padStart(2,'0')+' mn';
-  if(m) return m+' mn '+String(s).padStart(2,'0')+'s';
+  if(h) return h+'h '+String(m).padStart(2,'0')+'m';
+  if(m) return m+'m '+String(s).padStart(2,'0')+'s';
   return s+'s';
 }
-// Tokens produits ce tour (raisonnement + réponse) : ce qui défile côté modèle.
-function genTokCount(){ return (T.reasonTok||0)+(T.contentTok||0); }
+// Tokens produits ce tour : raisonnement + réponse + ARGUMENTS d'outils (le code
+// que l'IA écrit dans un fichier, la commande d'un bash…). Ces derniers sont des
+// tokens générés par le modèle au même titre que le reste ; les omettre faisait
+// paraître une longue écriture de fichier « gratuite » dans le compteur du bas.
+function genTokCount(){ return (T.reasonTok||0)+(T.contentTok||0)+(T.toolTok||0); }
+// Tokens dont le TEMPS DE DECODE est mesuré (noteDecode n'est appelé que sur le
+// raisonnement et la réponse, pas sur les arguments d'outils). La vitesse en direct
+// se calcule SUR CEUX-LÀ uniquement : diviser le total (qui inclut les tokens
+// d'outils) par un decodeMs qui ne les couvre pas gonflait la vitesse à tort.
+function decodeTokCount(){ return (T.reasonTok||0)+(T.contentTok||0); }
+// Compteur lisible : en dessous de 1000 le nombre brut (« 999 »), au-delà en
+// milliers avec un chiffre après la virgule (« 1K », « 1.1K », « 12.3K »). Le « .0 »
+// est supprimé (1000 → « 1K », pas « 1.0K »). Sert à la ligne d'état en bas, qui
+// reste affichée en permanence : au-delà du millier, « 1.1K » se lit d'un coup d'œil
+// là où « 1100 tok » demandait de compter les chiffres.
+function fmtTok(n){
+  n=Math.max(0,Math.round(n||0));
+  if(n<1000) return String(n);
+  return (n/1000).toFixed(1).replace(/\.0$/,'')+'K';
+}
 // La ligne d'état vit DANS le fil (dernier enfant de #chat) : elle se pose donc
 // juste sous le texte de l'IA et suit le défilement, au lieu de flotter en bas
 // de l'écran. Créée à la volée, retirée en fin de tour.
@@ -118,7 +142,7 @@ function genRate(){
   // là mais leur temps de decode, lui, n'a pas été mesuré → il faut diviser par les
   // seuls tokens produits DEPUIS la reprise, sinon la vitesse explose puis se
   // « normalise » à mesure que decodeMs rattrape. tokBase=0 en tour normal.
-  const tok=genTokCount()-(ELAPSED.tokBase||0);
+  const tok=decodeTokCount()-(ELAPSED.tokBase||0);
   if(tok<=0) return null;
   return tok/(ELAPSED.decodeMs/1000);
 }
@@ -132,7 +156,7 @@ function paintGenStatus(){
   const tok=genTokCount();
   const parts=[fmtElapsed(secs)];
   if(tok>0){
-    parts.push(tok+' tok');
+    parts.push(fmtTok(tok)+' tok');
     const rate=genRate();
     if(rate!=null) parts.push(rate.toFixed(1)+' tok/s');
   }
@@ -164,11 +188,11 @@ function finalizeTurn(elapsedMs){
   genStatusOn(false);
   const parts=[];
   if(elapsedMs>0) parts.push(fmtElapsed(elapsedMs/1000));
-  if(tok>0){ parts.push(tok+' tok'); if(rate!=null) parts.push(rate.toFixed(1)+' tok/s'); }
-  if(!parts.length){ removeGenEl(); scrollMaybe(); return; }
+  if(tok>0){ parts.push(fmtTok(tok)+' tok'); if(rate!=null) parts.push(rate.toFixed(1)+' tok/s'); }
+  if(!parts.length){ removeGenEl(); scrollMaybe(true); return; }
   const g=ensureGenEl(); g.querySelector('.gtxt').textContent=parts.join('  ·  ');
   GENEL=null;
-  scrollMaybe(); // révèle la fin (et cette ligne) même sur un fil à peine défilable
+  scrollMaybe(true); // révèle la fin (et cette ligne) même sur un fil à peine défilable
 }
 function removeTyping(){ if(T.typingEl){ T.typingEl.remove(); T.typingEl=null; } }
 // Compactage : on réutilise LA MÊME barre d'état de génération (logo J + texte),
@@ -428,6 +452,12 @@ function handleDelta(d){
     killTyping('tool'); T.contentEl=null; T.reasonEl=null; const tu=d.tool_used;
     if(!T.pendingToolEl){ collapseAll(T.turnCollapsibles); T.pendingToolEl=addMsg('tool',''); if(REPLAYING||viewOn('fold-tools')) collapseInstant(T.pendingToolEl); T.turnCollapsibles.push(T.pendingToolEl); setActive(T.pendingToolEl); }
     renderToolMsg(T.pendingToolEl, tu);
+    if(!tu.done) reactivateLive(T.pendingToolEl); // outil encore en cours après un refresh : lui rendre le shimmer
+    // Tokens d'écriture des arguments (cumul par appel). On compte PAR BULLE (diff
+    // avec le dernier cumul vu) : robuste au direct (typing successifs) comme au
+    // replay (seul le done survit à la coalescence, il porte le cumul complet, la
+    // bulle neuve part de 0 → on ajoute le total une fois). Alimente le compteur du bas.
+    if(tu.arg_toks){ const el=T.pendingToolEl; if(el){ const prev=el._argTok||0; if(tu.arg_toks>prev){ T.toolTok=(T.toolTok||0)+(tu.arg_toks-prev); el._argTok=tu.arg_toks; if(ELAPSED) paintGenStatus(); } } }
     // Outils masqués : on garde l'indicateur même quand l'appel est terminé (le
     // tour continue, et rien d'autre n'est visible). Sinon, comportement inchangé.
     if(!tu.done || viewOn('hide-tools')) showTyping('tool');
@@ -458,7 +488,7 @@ function handleDelta(d){
     // le début (voir decorateEvent/coalesceReplay côté serveur) → on repart de zéro
     // au lieu de concaténer, sinon le texte apparaît en double.
     if(d.replace){ smoothSnap(); T.fullReason=''; T.reasonTok-=(T.reasonEl._tok||0); T.reasonEl._tok=0; }
-    showTyping('reasoning'); T.fullReason+=d.reasoning_content; feedBlock(T.reasonEl, T.fullReason);
+    showTyping('reasoning'); reactivateLive(T.reasonEl); T.fullReason+=d.reasoning_content; feedBlock(T.reasonEl, T.fullReason);
     // d.toks présents quand l'événement est coalescé (replay) : plusieurs tokens d'un
     // coup. Sinon (direct), 1 token. Compteur PAR BULLE (T.reasonEl._tok) pour que
     // chaque bloc de raisonnement affiche SES propres tokens, pas le cumul du tour ;
@@ -550,8 +580,9 @@ async function reconcileBusy(){
         const e=+s.gen_elapsed_ms||0;
         if(e>0) ELAPSED.start=Date.now()-e; // chrono à la vraie valeur, pas zéro
         // Les tokens déjà rejoués ne comptent pas dans la vitesse LIVE (leur temps
-        // de decode n'a pas été mesuré) : on mesure à partir d'ici.
-        ELAPSED.tokBase=genTokCount();
+        // de decode n'a pas été mesuré) : on mesure à partir d'ici. Base sur les
+        // tokens à decode mesuré (raisonnement+réponse), comme genRate.
+        ELAPSED.tokBase=decodeTokCount();
       }
     }
   }catch(_){}

@@ -172,6 +172,14 @@ func handleVram(w http.ResponseWriter, r *http.Request) {
 			gpus = amd
 		}
 	}
+	// Toujours rien ? Beaucoup d'installations ROCm n'ont que `rocm-smi` (pas
+	// `amd-smi`) : dernier repli pour que la carte AMD apparaisse quand même dans
+	// l'UI au lieu d'un « (pas de GPU) » trompeur (issue #49).
+	if len(gpus) == 0 {
+		if amd := rocmVramGPUs(); len(amd) > 0 {
+			gpus = amd
+		}
+	}
 	sendJSON(w, 200, gpus)
 }
 

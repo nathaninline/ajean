@@ -209,11 +209,6 @@ func runShell(parent context.Context, command string, timeoutSec int) string {
 	if msg := guardToolOnlyCommand(command); msg != "" {
 		return msg
 	}
-	// Garde-fou : refuse une commande qui viserait à supprimer un dossier protégé
-	// (scripts, mémoire, presets, base, racine des données). Voir chat_scripts.go.
-	if msg := guardDestructive(command); msg != "" {
-		return msg
-	}
 	if timeoutSec <= 0 {
 		timeoutSec = toolDefaultTimeout
 	}

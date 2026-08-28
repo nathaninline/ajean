@@ -506,6 +506,11 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 			if len(ev.ToolUsed.Diff) > 0 {
 				tu["diff"] = ev.ToolUsed.Diff
 			}
+			// Tokens d'écriture des arguments (cumul) : nourrit le compteur du bas. On
+			// ne l'ajoute que quand il y en a, pour ne pas alourdir chaque événement.
+			if ev.ToolUsed.ArgToks > 0 {
+				tu["arg_toks"] = ev.ToolUsed.ArgToks
+			}
 			c.appendDelta(epoch, map[string]any{"tool_used": tu})
 		case ev.NewHistory != nil:
 			// Compaction faite en cours de tour : elle remplace la base au lieu de

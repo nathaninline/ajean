@@ -446,6 +446,14 @@ type ToolUsedEvent struct {
 	// Diff : lignes ajoutées/retirées quand l'outil a MODIFIÉ quelque chose
 	// (edit, mem_add, mem_edit). L'UI les affiche en vert (+) et rouge (-).
 	Diff []DiffLine
+	// ArgToks : nombre CUMULÉ de tokens que le modèle a produits pour écrire les
+	// ARGUMENTS de cet appel (le code d'un write/edit, la commande d'un bash…). Ces
+	// tokens sont générés par le modèle au même titre que le raisonnement ou la
+	// réponse, mais n'étaient comptés nulle part dans le compteur du bas. On envoie
+	// le CUMUL (pas un incrément) pour que le replay — qui ne garde que l'événement
+	// final de chaque outil — retrouve le total exact. Le client fait la différence
+	// par bulle (voir handleDelta). 0 = rien à compter.
+	ArgToks int
 }
 
 // shownDisplayMax borne ce qu'un résultat d'outil occupe dans le FLUX vers l'UI.
@@ -465,6 +473,18 @@ func shownResult(s string) string {
 	}
 	return s
 }
+
+// dedupableTool indique si un appel RIGOUREUSEMENT identique (même outil, mêmes
+// arguments) doit être court-circuité au lieu d'être rejoué. Vrai pour les outils
+// où un ré-appel identique n'a pas de sens ou produit une fausse erreur (rejouer
+// une écriture déjà appliquée → « old introuvable »).
+//
+// FAUX pour bash : relancer la MÊME commande est un usage courant et légitime —
+// l'IA crée un fichier, le lance, le modifie, puis le RELANCE avec la même ligne ;
+// le résultat change parce que le fichier a changé. La dédup la bloquait par un
+// « [déjà fait] » exaspérant. bash a des effets de bord : on le laisse toujours
+// s'exécuter.
+func dedupableTool(name string) bool { return name != "bash" }
 
 // repeatedCallResult construit ce qu'on renvoie quand le modèle redemande un
 // appel RIGOUREUSEMENT identique (même outil, mêmes arguments) dans le même tour.
@@ -802,6 +822,24 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		var stats StatsEvent
 		lastPreview := ""   // last command preview emitted (to stream the typing)
 		lastBodyLines := -1 // lignes déjà diffusées du corps en cours d'écriture
+		// argToks : tokens produits pour écrire les ARGUMENTS d'outil dans cette
+		// complétion (≈ 1 par chunk de flux portant du texte d'arguments). Envoyé en
+		// CUMUL sur les événements tool_used pour alimenter le compteur du bas.
+		// argToksFlushed : n'attacher le cumul qu'UNE fois au done (cas de plusieurs
+		// appels dans une même complétion), pour ne pas le compter en double.
+		argToks := 0
+		argToksFlushed := false
+		// Renvoie le cumul d'argToks au PREMIER appel (le done du premier outil de la
+		// complétion), puis 0 : le client compte par bulle, une double attache le
+		// gonflerait. Le typing porte déjà le cumul en direct ; ce flush garantit le
+		// total exact au replay, où seul le done survit à la coalescence.
+		flushArgToks := func() int {
+			if argToksFlushed {
+				return 0
+			}
+			argToksFlushed = true
+			return argToks
+		}
 		// Per-completion reasoning-split state (see reasoningOn comment above).
 		sawReasoningField := false
 		thinkOpen := reasoningOn
@@ -882,6 +920,10 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 						cur.Function.Name = tc.Function.Name
 					}
 					cur.Function.Arguments += tc.Function.Arguments
+					// Un chunk de flux portant du texte d'arguments ≈ 1 token généré.
+					if tc.Function.Arguments != "" {
+						argToks++
+					}
 				}
 				// Stream the command being typed: extract the partial value and
 				// emit it whenever it grows, so the UI shows it appear live.
@@ -921,7 +963,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 						if grew {
 							lastBodyLines = strings.Count(body, "\n")
 						}
-						if !cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: cur.Function.Name, Label: lastPreview, Body: body, Typing: true}}) {
+						if !cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: cur.Function.Name, Label: lastPreview, Body: body, Typing: true, ArgToks: argToks}}) {
 							aborted = true
 							break
 						}
@@ -1105,10 +1147,10 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				// même écriture ; la rejouer produisait une fausse erreur (« old
 				// introuvable », puisque le remplacement est déjà fait).
 				callKey := tc.Function.Name + "\x00" + tc.Function.Arguments
-				if prev, seen := doneCalls[callKey]; seen {
+				if prev, seen := doneCalls[callKey]; seen && dedupableTool(tc.Function.Name) {
 					repeatCount[callKey]++
 					result = repeatedCallResult(prev, repeatCount[callKey])
-					cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label, Result: shownResult(result), Done: true}})
+					cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label, Result: shownResult(result), Done: true, ArgToks: flushArgToks()}})
 					toolMsg := Message{Role: "tool", ToolCallID: tc.ID, Content: result}
 					messages = append(messages, toolMsg)
 					extra = append(extra, toolMsg)
@@ -1240,7 +1282,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				if !strings.HasPrefix(result, "[erreur]") {
 					doneCalls[callKey] = result
 				}
-				cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label, Result: shownResult(result), Done: true, Diff: diff}})
+				cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label, Result: shownResult(result), Done: true, Diff: diff, ArgToks: flushArgToks()}})
 				toolMsg := Message{Role: "tool", ToolCallID: tc.ID, Content: result}
 				messages = append(messages, toolMsg)
 				extra = append(extra, toolMsg)

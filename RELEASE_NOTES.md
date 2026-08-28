@@ -1,20 +1,25 @@
-Corrections autour de l'historique et des exports, et finitions de l'affichage de l'activité.
+Postes distants plus stables, agent moins bridé, affichage de la génération plus lisible, et prise en charge GPU AMD améliorée.
 
-## Historique des conversations
+## Postes distants
 
-* Correction de conversations qui apparaissaient tronquées en rouvrant une session (premiers messages manquants). Deux causes : un curseur de replay hérité d'une autre session pouvait faire sauter le début du fil rejoué ; et le journal d'affichage enflait (les appels d'outils n'étaient pas coalescés) jusqu'à ce que ses plus anciens événements soient tronqués. Les appels d'outils sont désormais coalescés en fin de tour, et le rejeu repart du début quand le curseur ne correspond pas à la session ouverte.
+* Fin des déconnexions à répétition. Un ping WebSocket périodique maintient désormais la liaison entre un poste et le serveur, des deux côtés. Sans lui, une liaison inactive était coupée au bout d'une minute ou deux par les intermédiaires réseau (relais, proxy), puis reconnectée en boucle. Le symptôme « le poste se coupe tout seul, puis revient » disparaît.
 
-## Exports
+## Agent
 
-* Export JSON : les images des conversations avec vision ne sont plus incluses en base64. Elles pesaient plusieurs méga-octets chacune et gonflaient le fichier ; elles sont maintenant remplacées par un court marqueur indiquant leur taille. L'export Markdown n'était pas concerné.
-* Export Markdown : chaque appel d'outil n'apparaît plus qu'une seule fois (il pouvait être écrit en double lorsqu'un autre événement s'intercalait entre l'appel et son résultat).
+* Suppression du garde-fou qui refusait les commandes destructrices visant les dossiers internes. L'assistant peut de nouveau supprimer, déplacer et renommer des fichiers librement. La durabilité des scripts conservés repose sur leur séparation d'avec le dossier de travail jetable, pas sur un filtre de commandes. Le dossier de mémoire reste, lui, accessible uniquement par ses outils dédiés (il est chiffré).
+* La même commande peut être relancée à l'identique dans un même échange. Un appel de terminal répété n'est plus court-circuité par un « déjà fait » : relancer un fichier après l'avoir modifié fonctionne comme attendu.
 
-## Affichage de l'activité
+## Affichage de la génération
 
-* Bulle d'appel d'outil épurée : plus de cadre ni d'en-tête redondant, la commande et le résultat s'affichent en blocs de code sobres.
-* Libellés d'outils clarifiés (Terminal, Recherche web, Lecture mémoire, Nouvelle tâche, etc.).
-* Correction du compteur de modifications qui pouvait s'empiler, et marqueur de diff « + / - » désormais séparé du texte pour rester lisible sur une ligne commençant par un tiret.
-* Réglages : la section d'accès distant est regroupée sous « ajean link » (accès distant et sauvegarde).
+* L'interface reste réactive pendant que l'assistant répond. Le défilement automatique était réécrit à chaque image, ce qui, sur l'application installée (PWA), pouvait empêcher tout appui à l'écran tant que la réponse n'était pas terminée. Le défilement est désormais espacé pour laisser passer les interactions.
+* Le compteur de la ligne d'état inclut maintenant les jetons produits pour écrire le contenu d'un outil (le code écrit dans un fichier, une commande de terminal), qui n'étaient comptés nulle part.
+* Compteur de jetons abrégé au dela de mille (1K, 1.1K, 12.3K) et durée au format compact (5m 25s, 1h 05m).
+* Après un rafraîchissement en pleine génération, un bloc de raisonnement en cours reste affiché « en cours » et animé, au lieu de se figer sur son décompte final.
+
+## GPU AMD
+
+* La carte GPU / VRAM de l'interface reconnait aussi les installations ROCm qui ne disposent que de `rocm-smi` (et pas de `amd-smi`) : le GPU AMD apparait au lieu d'un « pas de GPU » trompeur alors que l'inference tourne dessus.
+* La commande `ajean gpu` indique clairement, sur une machine AMD, que le choix de carte se règle dans l'interface (via le moteur), et non par cette commande réservée aux cartes NVIDIA.
 
 ## Mettre à jour
 

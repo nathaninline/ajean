@@ -1,25 +1,19 @@
 package ajean
 
-// chat_scripts.go — le dossier de scripts DÉDIÉ et PROTÉGÉ de l'agent, et le
-// garde-fou qui empêche l'IA (ou un test qu'elle lance) de raser ses propres
-// dossiers.
+// chat_scripts.go — le dossier de scripts DÉDIÉ et PROTÉGÉ de l'agent.
 //
-// Pourquoi : un jour, l'agent a cloné son dépôt DANS son workspace et un test du
-// dépôt a fait un RemoveAll sur ce workspace — tout ce qui y vivait (des scripts
-// écrits à la main) est parti. Deux protections en découlent :
+// La durabilité des scripts vient d'une séparation STRUCTURELLE, pas d'un verrou
+// sur les commandes : les scripts qu'on veut CONSERVER vivent dans scriptsDir() =
+// AJEAN_HOME/scripts, à côté de memory, HORS du workspace jetable. Un nettoyage —
+// ou une catastrophe — dans le workspace ne peut plus les toucher. Le workspace
+// reste le bac à sable où l'IA peut tout casser sans risque (clones, tests,
+// fichiers temporaires).
 //
-//  1. Séparation structurelle (la vraie garantie). Les scripts qu'on veut
-//     CONSERVER vivent dans scriptsDir() = AJEAN_HOME/scripts, à côté de memory,
-//     HORS du workspace jetable. Un nettoyage — ou une catastrophe — dans le
-//     workspace ne peut plus les toucher. Le workspace reste le bac à sable où
-//     l'IA peut tout casser sans risque (clones, tests, fichiers temporaires).
-//
-//  2. Garde-fou (défense en profondeur). guardDestructive refuse toute commande
-//     shell qui viserait à supprimer/déplacer un dossier protégé (AJEAN_HOME
-//     lui-même, scripts, memory, presets, la base ajean.db). Ça ne peut pas
-//     arrêter du code arbitraire (un `go test` qui appelle os.RemoveAll), d'où le
-//     point 1 comme garantie de fond ; mais ça bloque le cas direct et fréquent
-//     du `rm -rf`/`Remove-Item` mal ciblé.
+// L'IA a par ailleurs la main libre sur le shell (suppression/déplacement/
+// renommage inclus) : aucun garde-fou « anti-rm » ne filtre les commandes. Le
+// SEUL accès réservé est le dossier memory, joignable uniquement par les outils
+// mem_* (voir guardToolOnly plus bas) — parce qu'il est chiffré, pas pour le
+// protéger d'une suppression.
 
 import (
 	"fmt"
@@ -156,14 +150,6 @@ func guardToolOnlyCommand(command string) string {
 	return ""
 }
 
-// protectedSubtrees : dossiers/fichiers dont la SUPPRESSION est refusée où qu'ils
-// soient cités (eux-mêmes ou plus profond) — ils portent l'état durable et ne se
-// suppriment jamais au shell. Le workspace ET le dossier scripts n'y sont PAS :
-// l'IA les gère librement (elle y crée, écrit, exécute et efface ses fichiers).
-func protectedSubtrees() []string {
-	return []string{memoryDir(), presetsDir(), dbPath()}
-}
-
 // underDir indique si path est égal à dir ou situé dessous, après nettoyage et
 // (sous Windows) insensibilité à la casse.
 func underDir(path, dir string) bool {
@@ -188,150 +174,3 @@ func normPath(p string) string {
 	return p
 }
 
-// destructiveVerbs : les mots d'une ligne de commande qui dénotent une
-// suppression, un déplacement ou un formatage — ceux qui peuvent faire
-// disparaître un dossier protégé. En minuscules ; comparaison insensible à la
-// casse. On vise large côté verbes (le faux positif se limite à un dossier
-// protégé cité dans la commande, cas rarissime en usage normal).
-var destructiveVerbs = []string{
-	"rm", "rmdir", "unlink", "shred", "rimraf",
-	"del", "erase", "rd",
-	"remove-item", "ri", // PowerShell (ri = alias de Remove-Item)
-	"mv", "move", "ren", "rename", "move-item", "mi",
-	"format", "mkfs",
-}
-
-// guardDestructive inspecte une commande shell AVANT exécution et renvoie un
-// message de refus (non vide) si elle a l'air de vouloir supprimer/déplacer un
-// dossier protégé. Renvoie "" si la commande est autorisée.
-//
-// Deux cas :
-//   - un sous-arbre protégé (memory, presets, base) cité N'IMPORTE OÙ (lui-même
-//     ou plus profond) → refus ;
-//   - la racine des données AJEAN_HOME (ou un de ses ancêtres) visée EN TANT QUE
-//     TELLE (rm -rf /etc/ajean, .../*) → refus, car ça emporterait tout ; mais un
-//     sous-dossier précis comme workspace ou scripts, lui, reste autorisé (l'IA
-//     les gère librement).
-//
-// Ce n'est pas un bac à sable — du code arbitraire lancé par la commande peut
-// toujours contourner ça ; la vraie garantie reste la séparation workspace. C'est
-// un filet contre le `rm -rf` mal ciblé.
-func guardDestructive(command string) string {
-	if !hasDestructiveVerb(command) {
-		return ""
-	}
-	lc := strings.ToLower(command)
-	for _, d := range protectedSubtrees() {
-		if strings.Contains(lc, strings.ToLower(normPath(d))) {
-			return refusDestructif(d)
-		}
-	}
-	// Dossier scripts : on protège le dossier LUI-MÊME (rm -rf scripts, scripts/*)
-	// mais on laisse supprimer un script précis (l'IA gère ses fichiers).
-	if mentionsDirTarget(command, scriptsDir()) {
-		return refusDestructif(scriptsDir())
-	}
-	// AJEAN_HOME et ses ancêtres : seulement si la commande les vise EUX-MÊMES.
-	for anc := normPath(AjeanHome()); anc != ""; anc = parentDir(anc) {
-		if mentionsDirTarget(command, anc) {
-			return refusDestructif(anc)
-		}
-	}
-	return ""
-}
-
-func refusDestructif(dir string) string {
-	return fmt.Sprintf("[refusé] commande destructrice visant un dossier/fichier protégé d'AJEAN (%s). "+
-		"Mémoire, presets, base, racine des données et le dossier scripts ne se suppriment pas EN BLOC. "+
-		"Tu peux en revanche supprimer un fichier précis (ex. un script), et le workspace reste librement videable.", dir)
-}
-
-func hasDestructiveVerb(command string) bool {
-	lc := strings.ToLower(command)
-	for _, v := range destructiveVerbs {
-		if containsWord(lc, v) {
-			return true
-		}
-	}
-	return false
-}
-
-// parentDir renvoie le dossier parent, ou "" une fois la racine atteinte (pour
-// arrêter une remontée d'ancêtres sans boucler).
-func parentDir(p string) string {
-	d := filepath.Dir(p)
-	if d == p || d == "." {
-		return ""
-	}
-	return d
-}
-
-// mentionsDirTarget indique si la commande vise le dossier `dir` LUI-MÊME (ou tout
-// son contenu via un glob), et non un sous-dossier nommé précis. « /etc/ajean »,
-// « /etc/ajean/ » et « /etc/ajean/* » ciblent le dossier ; « /etc/ajean/workspace »
-// ne le cible pas. Comparaison insensible à la casse.
-func mentionsDirTarget(command, dir string) bool {
-	lc := strings.ToLower(command)
-	d := strings.ToLower(normPath(dir))
-	if d == "" {
-		return false
-	}
-	for from := 0; ; {
-		i := strings.Index(lc[from:], d)
-		if i < 0 {
-			return false
-		}
-		i += from
-		if targetsHere(lc, i+len(d)) {
-			return true
-		}
-		from = i + 1
-	}
-}
-
-// targetsHere : le caractère à l'index `after` (juste après une occurrence du
-// dossier) indique-t-il qu'on vise ce dossier lui-même/son contenu ?
-func targetsHere(lc string, after int) bool {
-	if after >= len(lc) {
-		return true // dossier en fin de commande
-	}
-	switch lc[after] {
-	case ' ', '\t', '"', '\'', ';', '&', '|', '\n', '\r':
-		return true // borne : le dossier est l'argument
-	case '/', '\\':
-		// Séparateur : on vise le CONTENU seulement si suit une borne ou un glob
-		// (« .../ » ou « .../* »), pas un sous-dossier nommé (« .../workspace »).
-		if after+1 >= len(lc) {
-			return true
-		}
-		switch lc[after+1] {
-		case ' ', '\t', '"', '\'', '*', ';', '&', '|':
-			return true
-		}
-	}
-	return false
-}
-
-// containsWord teste la présence de `word` comme jeton délimité (bornes non
-// alphanumériques), pour éviter que « rm » matche « warm » ou « format » matche
-// « reformatted ».
-func containsWord(s, word string) bool {
-	for i := 0; ; {
-		j := strings.Index(s[i:], word)
-		if j < 0 {
-			return false
-		}
-		j += i
-		before := j == 0 || !isWordByte(s[j-1])
-		after := j+len(word) >= len(s) || !isWordByte(s[j+len(word)])
-		if before && after {
-			return true
-		}
-		i = j + 1
-	}
-}
-
-func isWordByte(b byte) bool {
-	return b == '-' || b == '_' ||
-		(b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
-}

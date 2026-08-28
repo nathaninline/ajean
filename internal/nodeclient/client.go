@@ -246,6 +246,32 @@ func session(ctx context.Context, cfg Config, quiet bool) error {
 	if !quiet {
 		fmt.Printf("[node] connecté ✓ (canal chiffré, en attente des demandes de l'IA)\n")
 	}
+	// Keepalive : un ping WebSocket périodique empêche les intermédiaires (relais
+	// ajean.link, Caddy, Cloudflare) de couper la connexion quand l'IA ne sollicite
+	// pas le poste. Sans lui, un canal inactif tombait au bout de ~60-100 s, la
+	// session se terminait et Run reconnectait après backoff — d'où les
+	// déconnexions à répétition, sur tous les postes. coder/websocket sérialise Ping
+	// avec les écritures de données : pas de course avec sendEnc.
+	pingCtx, stopPing := context.WithCancel(ctx)
+	defer stopPing()
+	go func() {
+		t := time.NewTicker(25 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-pingCtx.Done():
+				return
+			case <-t.C:
+				pc, cancel := context.WithTimeout(pingCtx, 10*time.Second)
+				err := c.Ping(pc)
+				cancel()
+				if err != nil {
+					_ = c.Close(websocket.StatusGoingAway, "ping sans réponse")
+					return
+				}
+			}
+		}
+	}()
 	for {
 		var fr nodewire.Frame
 		if err := wsjson.Read(ctx, c, &fr); err != nil {

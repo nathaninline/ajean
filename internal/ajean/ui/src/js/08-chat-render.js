@@ -59,28 +59,41 @@ addEventListener('pageshow', initComposerPad); // iOS : rechargement depuis le b
 // répondent pas toujours ». On COALESCE donc : au plus une écriture de scroll par
 // frame (rAF), et on n'écrit RIEN quand on est déjà en bas (write redondant =
 // défilement inutile qui vole quand même les taps).
-let _scrollRAF = 0;
-function scrollMaybe(){
+let _scrollRAF = 0, _lastScrollWrite = 0;
+// Écart MINIMAL entre deux écritures d'auto-scroll pendant le streaming. Le fil
+// grandit token par token : sans ce frein, scrollTop était réécrit à CHAQUE frame
+// (~60/s), un défilement programmatique continu pendant lequel iOS (PWA) AVALE les
+// taps — « je ne peux plus rien cliquer tant que l'IA répond ». En espaçant les
+// écritures, on laisse des fenêtres d'inactivité (~150 ms) où le tap est enregistré,
+// tout en suivant le bas d'assez près pour que ça reste fluide. `force` (jumpBottom,
+// fin de tour, caught_up) court-circuite le frein pour un recalage immédiat.
+const SCROLL_MIN_GAP = 150;
+function scrollMaybe(force){
   // Pendant le replay initial on NE force AUCUN reflow : lire scrollHeight à chaque
   // événement rejoué = un layout synchrone forcé sur un DOM qui grossit → coût
   // quadratique (20-30 s de rendu au refresh sur un long fil). Le scroll est fait
   // une seule fois à la fin du replay, via jumpBottom() au signal {caught_up}.
-  if(REPLAYING) return;
+  if(REPLAYING && !force) return;
   if(_scrollRAF) return;                 // déjà planifié pour cette frame
   _scrollRAF = requestAnimationFrame(()=>{
     _scrollRAF = 0;
     const c = chatEl(); if(!c) return;
     if(stickyBottom){
-      const target = c.scrollHeight - c.clientHeight;
-      // Seuil : n'écris que si on n'y est pas déjà (à 1px près). Sinon on relance
-      // la machinerie de scroll d'iOS pour rien, et les taps continuent d'être volés.
-      if(Math.abs(c.scrollTop - target) > 1) c.scrollTop = target;
+      const now = (window.performance&&performance.now)?performance.now():Date.now();
+      // Frein temporel : hors recalage forcé, au plus une écriture toutes ~150 ms.
+      // C'est ce qui rend les taps de nouveau captés pendant la génération (voir plus haut).
+      if(force || now - _lastScrollWrite >= SCROLL_MIN_GAP){
+        const target = c.scrollHeight - c.clientHeight;
+        // Seuil : n'écris que si on n'y est pas déjà (à 1px près). Sinon on relance
+        // la machinerie de scroll d'iOS pour rien, et les taps continuent d'être volés.
+        if(Math.abs(c.scrollTop - target) > 1){ c.scrollTop = target; _lastScrollWrite = now; }
+      }
     }
     const sb = document.getElementById('scrollbtn');
     if(sb) sb.classList.toggle('show', !stickyBottom);
   });
 }
-function jumpBottom(){ stickyBottom = true; scrollMaybe(); }
+function jumpBottom(){ stickyBottom = true; scrollMaybe(true); }
 document.addEventListener('DOMContentLoaded', ()=>{
   const c = chatEl();
   c.addEventListener('scroll', ()=>{

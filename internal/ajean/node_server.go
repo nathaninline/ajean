@@ -25,6 +25,9 @@ const (
 	nodePairCodeTTL = 10 * time.Minute
 	nodeCallTimeout = 5 * time.Minute // un shell distant peut être long
 	nodeHelloWait   = 15 * time.Second
+	// nodePingInterval : cadence du keepalive WebSocket poste↔serveur. 25 s tient
+	// sous les délais d'inactivité usuels des proxys/relais (~60-100 s).
+	nodePingInterval = 25 * time.Second
 )
 
 // pairedNode est un poste appairé, tel que persisté dans bkState["nodes"].
@@ -278,6 +281,34 @@ func handleNodeWS(w http.ResponseWriter, r *http.Request) {
 	nodeRegister(nc)
 	defer nodeUnregister(nc)
 	touchNodeSeen(pn.ID)
+
+	// Keepalive : un ping WebSocket périodique garde la connexion vivante à travers
+	// les intermédiaires qui coupent les canaux INACTIFS (relais ajean.link, Caddy,
+	// Cloudflare : ~60-100 s sans trafic). Sans lui, un poste au repos était
+	// déconnecté en boucle puis reconnecté après backoff — le fameux « ça se coupe
+	// tout le temps, j'attends et ça revient » sur TOUS les postes. coder/websocket
+	// sérialise Ping avec les écritures de données en interne : pas de course avec
+	// nc.send. Un échec de ping ferme la connexion, ce qui débloque le Read ci-dessous.
+	pingCtx, stopPing := context.WithCancel(ctx)
+	defer stopPing()
+	go func() {
+		t := time.NewTicker(nodePingInterval)
+		defer t.Stop()
+		for {
+			select {
+			case <-pingCtx.Done():
+				return
+			case <-t.C:
+				pc, cancel := context.WithTimeout(pingCtx, 10*time.Second)
+				err := c.Ping(pc)
+				cancel()
+				if err != nil {
+					_ = c.Close(websocket.StatusGoingAway, "ping sans réponse")
+					return
+				}
+			}
+		}
+	}()
 
 	// Boucle de lecture : des « result » chiffrés qui débloquent l'appel en attente.
 	for {

@@ -5,6 +5,19 @@ import (
 	"testing"
 )
 
+// bash ne doit JAMAIS être dédupliqué (relancer la même commande après avoir
+// modifié un fichier est légitime) ; les outils d'écriture/lecture, si.
+func TestDedupableToolExemptsBash(t *testing.T) {
+	if dedupableTool("bash") {
+		t.Error("bash ne doit pas être déduplicable : relancer la même commande est légitime")
+	}
+	for _, name := range []string{"edit", "write", "mem_edit", "mem_read", "web_read"} {
+		if !dedupableTool(name) {
+			t.Errorf("%s devrait rester déduplicable", name)
+		}
+	}
+}
+
 // Un appel d'outil redemandé à l'identique ne doit rendre son contenu qu'UNE
 // fois, et l'avertissement doit être en TÊTE (collé après un résultat de
 // plusieurs milliers de caractères, il passait inaperçu et le modèle rebouclait).

@@ -129,7 +129,16 @@ func gpuSet(value string) error {
 // detectGPUs queries nvidia-smi for the list of NVIDIA GPUs.
 func detectGPUs() ([]gpuInfo, error) {
 	if !hasTool("nvidia-smi") {
-		return nil, fmt.Errorf("nvidia-smi introuvable — sélection GPU disponible uniquement sur NVIDIA")
+		// Sur une machine AMD, `ajean gpu` (qui écrit CUDA_VISIBLE_DEVICES) n'a de
+		// toute façon aucun effet : le choix de carte AMD passe par --device du
+		// preset, réglable dans l'éditeur de modèle de l'UI web (issue #49). On le
+		// dit clairement plutôt que « uniquement sur NVIDIA », qui laissait croire
+		// qu'AJEAN ne gère pas du tout le GPU AMD (alors que l'inférence tourne bien).
+		if hasTool("rocm-smi") || hasTool("amd-smi") || isDir("/opt/rocm") {
+			return nil, fmt.Errorf("GPU AMD détecté : la sélection de carte se fait dans l'UI web " +
+				"(éditeur de modèle → « cartes graphiques »), pas via `ajean gpu` — cette commande ne pilote que CUDA_VISIBLE_DEVICES (NVIDIA)")
+		}
+		return nil, fmt.Errorf("nvidia-smi introuvable — sélection GPU par `ajean gpu` disponible uniquement sur NVIDIA")
 	}
 	out, err := hideCmd(exec.Command("nvidia-smi",
 		"--query-gpu=index,name,memory.total,memory.used,compute_cap",

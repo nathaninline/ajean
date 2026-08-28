@@ -7,45 +7,6 @@ import (
 	"testing"
 )
 
-// TestGuardDestructive vérifie que le garde-fou bloque la suppression EN BLOC des
-// dossiers protégés (mémoire, presets, base, racine, dossier scripts lui-même)
-// tout en laissant supprimer un fichier précis et vider le workspace. AJEAN_HOME
-// pointe sur un dossier temporaire pour des chemins déterministes.
-func TestGuardDestructive(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("AJEAN_HOME", home)
-
-	blocked := []string{
-		"rm -rf " + scriptsDir(),        // le dossier scripts lui-même
-		"rm -rf " + scriptsDir() + "/*", // tout son contenu (glob)
-		"rm -rf " + memoryDir(),         // sous-arbre protégé
-		"rm -rf " + presetsDir(),
-		"del " + dbPath(),
-		"Remove-Item -Recurse -Force " + home, // la racine elle-même
-		"rm -rf " + filepath.Dir(home),        // un ancêtre : l'emporterait aussi
-	}
-	for _, c := range blocked {
-		if msg := guardDestructive(c); msg == "" {
-			t.Errorf("aurait dû bloquer : %q", c)
-		}
-	}
-
-	allowed := []string{
-		"rm -rf ./build", // relatif au workspace
-		"echo bonjour",   // pas de verbe destructif
-		"rm -rf /tmp/other",
-		"rm " + scriptsDir() + "/old.sh",        // un script précis : OK
-		"rm -rf " + workspaceDir(),              // vider le workspace : OK
-		"rm -rf " + workspaceDir() + "/build",   // sous-dossier du workspace : OK
-		"git clone https://x " + workspaceDir(), // pas de verbe destructif
-	}
-	for _, c := range allowed {
-		if msg := guardDestructive(c); msg != "" {
-			t.Errorf("n'aurait pas dû bloquer : %q -> %s", c, msg)
-		}
-	}
-}
-
 // TestGuardToolOnly vérifie que memory est inaccessible en direct (shell/write/
 // edit) et n'autorise que les outils dédiés, tandis que scripts reste libre.
 func TestGuardToolOnly(t *testing.T) {
