@@ -207,9 +207,22 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 .switch input:focus-visible + .slider{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--accent)}
 h2{margin:20px 0 8px;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;font-weight:600}
 details>summary::-webkit-details-marker{display:none}
-.preset-add{display:none;font-size:14px;padding:0 8px;margin:0 8px 0 auto;line-height:1.4;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer}
-.preset-add:hover{border-color:var(--accent);color:var(--accent)}
-details[open]>summary>.preset-add{display:inline-block}
+/* Bouton « + » d'ajout de preset (dans la barre de titre, à côté du chevron).
+   La croix est DESSINÉE (deux filets via ::before/::after) et non un glyphe « + »
+   texte, qui se posait de travers et changeait de largeur selon la police — même
+   raison que .iconbtn. Petit carré arrondi, centrage parfait par fl<->box, discret
+   au repos (couleur atténuée, fond du panneau) et accent au survol. */
+.preset-add{display:none;position:relative;flex:none;box-sizing:border-box;
+  width:22px;height:22px;padding:0;margin:0 6px 0 auto;font-size:0;
+  background:var(--panel);color:var(--dim);border:1px solid var(--border);border-radius:7px;
+  cursor:pointer;transition:border-color .15s ease,color .15s ease,background .15s ease}
+.preset-add::before,.preset-add::after{content:"";position:absolute;top:50%;left:50%;
+  background:currentColor;border-radius:1px}
+.preset-add::before{width:10px;height:1.5px;transform:translate(-50%,-50%)}
+.preset-add::after{width:1.5px;height:10px;transform:translate(-50%,-50%)}
+.preset-add:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
+.preset-add:active{transform:scale(.92)}
+details[open]>summary>.preset-add{display:inline-flex}
 .tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;background:var(--panel);border:1px solid var(--border)}
 .tag.ok{color:var(--ok);border-color:var(--ok)}
 .tag.err{color:var(--err);border-color:var(--err)}
@@ -5271,6 +5284,8 @@ function renderToolMsg(el, tu){
     mem_add:    {ico:'db',       lbl:'Nouvelle note',       head:'nouvelle page'},
     mem_edit:   {ico:'db',       lbl:'Édition mémoire',     head:'édition mémoire'},
     mem_delete: {ico:'db',       lbl:'Suppression mémoire', head:'suppression mémoire'},
+    recall:       {ico:'db',     lbl:'Rappel historique',   head:'bloc rappelé'},
+    recall_search:{ico:'db',     lbl:'Recherche historique',head:'recherche historique'},
     task_list:  {ico:'clock',    lbl:'Tâches planifiées',   head:'tâches planifiées'},
     task_create:{ico:'clock',    lbl:'Nouvelle tâche',      head:'nouvelle tâche'},
     task_update:{ico:'clock',    lbl:'Mise à jour tâche',   head:'modification tâche'},

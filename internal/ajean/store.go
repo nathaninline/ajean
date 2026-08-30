@@ -36,6 +36,7 @@ const (
 	bkChatHist = "chathist" // conversations archivées (historique) — une entrée JSON par conversation
 	bkChatMeta = "chatmeta" // index LÉGER des sessions (id→métadonnées) pour lister sans parser les gros blobs
 	bkTasks    = "tasks"    // tâches planifiées (une entrée JSON par tâche)
+	bkRecall   = "recall"   // blocs archivés au compactage (id monotone → contenu verbatim, pour recall/recall_search)
 )
 
 // La base n'est PAS gardée ouverte entre deux opérations, et c'est délibéré.

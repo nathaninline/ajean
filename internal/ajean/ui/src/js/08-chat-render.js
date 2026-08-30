@@ -272,6 +272,8 @@ function renderToolMsg(el, tu){
     mem_add:    {ico:'db',       lbl:'Nouvelle note',       head:'nouvelle page'},
     mem_edit:   {ico:'db',       lbl:'Édition mémoire',     head:'édition mémoire'},
     mem_delete: {ico:'db',       lbl:'Suppression mémoire', head:'suppression mémoire'},
+    recall:       {ico:'db',     lbl:'Rappel historique',   head:'bloc rappelé'},
+    recall_search:{ico:'db',     lbl:'Recherche historique',head:'recherche historique'},
     task_list:  {ico:'clock',    lbl:'Tâches planifiées',   head:'tâches planifiées'},
     task_create:{ico:'clock',    lbl:'Nouvelle tâche',      head:'nouvelle tâche'},
     task_update:{ico:'clock',    lbl:'Mise à jour tâche',   head:'modification tâche'},

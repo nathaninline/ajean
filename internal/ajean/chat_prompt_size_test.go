@@ -28,7 +28,13 @@ import (
 // porte un paramètre 'script' en plus (un script du dossier scripts tourne sans
 // modèle ni tokens). Pas d'outils script_* dédiés — l'IA écrit ses scripts avec
 // write/bash dans le dossier scripts, la consigne vit dans le briefing machine.
-const promptCharBudget = 8700 // ~2175 tokens, tout allumé (agent+web+mémoire)
+//
+// Relèvement (8700 → 9600) pour la mémoire longue de conversation : deux schémas
+// en plus, recall (ramène un bloc archivé au compactage) et recall_search (le
+// retrouve par mots-clés). C'est ce qui rend les conversations quasi infinies
+// sans perdre le fil — ajout demandé et accepté. Le garde-fou reste là pour
+// bloquer le regonflement LIGNE À LIGNE du prompt lui-même.
+const promptCharBudget = 9600 // ~2400 tokens, tout allumé (agent+web+mémoire)
 
 func TestSystemPromptStaysLean(t *testing.T) {
 	caps := Caps{Agent: true, Internet: true, Mem: MemAlways}

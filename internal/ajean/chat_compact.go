@@ -34,7 +34,11 @@ const (
 	// Budget de la queue : fraction de la fenêtre gardée intacte (tours récents).
 	// Plus la queue est petite, plus on compacte de torse d'un coup → le contexte
 	// retombe bas et met longtemps à re-déclencher (au lieu de compacter souvent).
-	compactTailFrac = 0.25
+	// 0.20 (et non 0.25) : on garde un peu moins de tours récents verbatim pour
+	// compacter davantage à chaque passe. But affiché par les utilisateurs :
+	// conversations quasi infinies « sans s'en rendre compte », donc réductions
+	// franches et rares plutôt que fréquentes et molles.
+	compactTailFrac = 0.20
 	// Un résultat d'outil du torse plus long que ça est remplacé par un marqueur
 	// dans le torse DÉGRAISSÉ (repli si le résumé échoue).
 	compactToolPruneLen = 200
@@ -75,6 +79,25 @@ func ctxWindow() int {
 		}
 	}
 	return 32768
+}
+
+// compactSummaryBudget renvoie le budget en tokens du résumé, adapté à la
+// fenêtre. Assez pour PORTER LE FIL (la demande, les faits déjà trouvés, les
+// décisions, l'état d'avancement) sans jamais le perdre — c'était la plainte de
+// fond : à 700 tokens fixes, tout le passé d'une longue conversation était
+// écrasé en un demi-paragraphe et le modèle « perdait le fil ». Mais le résumé
+// reste toujours minuscule devant le torse compacté (souvent des dizaines de
+// milliers de tokens), donc la réduction demeure massive. Bornes : 700 (petites
+// fenêtres) à 1600 (grandes), ~4% de la fenêtre entre les deux.
+func compactSummaryBudget() int {
+	n := ctxWindow() * 4 / 100
+	if n < 700 {
+		n = 700
+	}
+	if n > 1600 {
+		n = 1600
+	}
+	return n
 }
 
 // msgText extrait le texte d'un message (Content est `any`, en pratique string
@@ -181,8 +204,15 @@ func MaybeCompact(ctx context.Context, msgs []Message, caps Caps, knownTokens in
 // l'historique compacté et true s'il a effectivement changé.
 // compactBounds calcule les frontières head/tail pour un historique donné et un
 // budget de queue (en tokens). Fonction pure (pas d'IO) → testable :
-//   - head : nb de messages protégés en tête = messages système + 1er message
-//     utilisateur (il ancre l'objectif). Un message user est une frontière sûre.
+//   - head : nb de messages protégés en tête = messages système UNIQUEMENT.
+//     Le 1er message utilisateur N'EST PLUS épinglé : il était gardé verbatim pour
+//     « ancrer l'objectif », mais quand la conversation avait changé de sujet, le
+//     modèle voyait cette vieille demande (à laquelle il avait déjà répondu) et y
+//     répondait à nouveau après compaction. L'objectif courant est désormais porté
+//     explicitement par le résumé roulant, et le 1er message tombe dans le torse :
+//     il est donc résumé ET archivé (rappelable par recall), sans rester planté en
+//     tête. La demande RÉELLEMENT en cours, elle, est réinjectée juste avant la
+//     queue (voir « pending » dans compactMessages).
 //   - tailStart : index de début de la queue protégée. On remonte depuis la fin
 //     jusqu'à remplir le budget, puis on recule jusqu'à une frontière SÛRE :
 //     un message `user`, ou un `assistant` (qui, s'il porte des tool_calls, part
@@ -202,9 +232,6 @@ func MaybeCompact(ctx context.Context, msgs []Message, caps Caps, knownTokens in
 // quand il n'y a rien à résumer.
 func compactBounds(msgs []Message, tailBudget int) (head, tailStart int) {
 	for head < len(msgs) && msgs[head].Role == "system" {
-		head++
-	}
-	if head < len(msgs) && msgs[head].Role == "user" {
 		head++
 	}
 	tailStart = len(msgs)
@@ -238,13 +265,46 @@ func compactMessages(ctx context.Context, msgs []Message, caps Caps) ([]Message,
 
 	torso := msgs[head:tailStart]
 
-	// 3. Dégraissage sans IA : les vieux résultats d'outils longs deviennent un
+	// 3. Archivage des gros blocs (mémoire longue). AVANT de compacter, chaque bloc
+	//    du torse assez long est enregistré VERBATIM sous un id (r7…) : le résumé et
+	//    le repli le remplacent par une référence à cet id, que le modèle pourra
+	//    rappeler avec recall(id). C'est ce qui rend le compactage sûr même s'il est
+	//    agressif — rien n'est perdu, seulement déplacé hors du contexte.
+	//    On n'archive QUE si le modèle a réellement ses outils (mode agent) : sans
+	//    eux il ne pourrait pas rappeler, autant garder un résumé propre sans ids.
+	//    Un échec d'écriture (base absente, tests) laisse archived[i] nil → repli
+	//    transparent sur le comportement classique (troncature/marqueur sans id).
+	archived := make([]*recallEntry, len(torso))
+	var index []recallEntry
+	if caps.Agent && compactEnabled() {
+		names := torsoToolNames(torso)
+		for i, m := range torso {
+			if !recallEligible(m) {
+				continue
+			}
+			content := msgText(m)
+			label := recallLabel(m.Role, names[m.ToolCallID], content)
+			id, aerr := archiveRecallBlock(label, m.Role, content)
+			if aerr != nil {
+				continue
+			}
+			archived[i] = &recallEntry{id: id, label: label}
+			index = append(index, recallEntry{id: id, label: label})
+		}
+	}
+
+	// 4. Dégraissage sans IA : les vieux résultats d'outils longs deviennent un
 	//    marqueur. On travaille sur une copie pour ne pas muter l'historique amont.
 	//    ⚠️ Ce torse dégraissé ne sert QUE de repli si le résumé échoue — surtout
-	//    PAS d'entrée au résumeur, cf. juste en dessous.
+	//    PAS d'entrée au résumeur, cf. juste en dessous. Un bloc archivé pointe vers
+	//    son id (récupérable par recall) au lieu d'être effacé aveuglément.
 	pruned := make([]Message, len(torso))
 	for i, m := range torso {
 		pruned[i] = m
+		if e := archived[i]; e != nil {
+			pruned[i].Content = recallMarker(e.id, e.label)
+			continue
+		}
 		if m.Role == "tool" {
 			if t := msgText(m); len(t) > compactToolPruneLen {
 				pruned[i].Content = compactPrunedMarker
@@ -252,7 +312,7 @@ func compactMessages(ctx context.Context, msgs []Message, caps Caps) ([]Message,
 		}
 	}
 
-	// 4. Résumé du torse par le modèle local (un seul appel).
+	// 5. Résumé du torse par le modèle local (un seul appel).
 	//
 	//    Le résumé se fait sur le torse ORIGINAL, pas sur le dégraissé. C'était LE
 	//    bug de fond : on effaçait tous les résultats d'outils PUIS on demandait un
@@ -262,12 +322,24 @@ func compactMessages(ctx context.Context, msgs []Message, caps Caps) ([]Message,
 	//    que des outils avaient tourné. À chaque compactage, l'IA repartait donc
 	//    d'une recherche vide et recommençait à zéro : elle ne s'arrêtait jamais.
 	//
-	//    Les résultats d'outils sont seulement RACCOURCIS (leur début, qui porte
-	//    l'essentiel : titre, en-tête, premières lignes) pour que la transcription
-	//    reste bornée. Les faits survivent, le volume reste maîtrisé.
+	//    Un bloc archivé est réduit à sa TÊTE (assez pour le résumer fidèlement).
+	//    On ne montre PAS l'id recall au résumeur : sa seule tâche est d'écrire de
+	//    la prose. Lui exposer « recall:rN » l'incitait à répondre juste par l'id
+	//    (résumé dégénéré observé en test) ; l'index des ids est de toute façon
+	//    ajouté séparément et de façon déterministe par compactSummaryUserMsg.
+	//    Les résultats d'outils non archivés sont seulement RACCOURCIS.
 	forSummary := make([]Message, len(torso))
 	for i, m := range torso {
 		forSummary[i] = m
+		if archived[i] != nil {
+			r := []rune(msgText(m))
+			headTxt := string(r)
+			if len(r) > recallSummaryHeadLen {
+				headTxt = string(r[:recallSummaryHeadLen]) + "…"
+			}
+			forSummary[i].Content = headTxt + "\n[…reste de ce bloc omis ici]"
+			continue
+		}
 		if m.Role == "tool" {
 			if r := []rune(msgText(m)); len(r) > compactToolSummaryLen {
 				forSummary[i].Content = string(r[:compactToolSummaryLen]) + "\n[…suite coupée]"
@@ -276,15 +348,20 @@ func compactMessages(ctx context.Context, msgs []Message, caps Caps) ([]Message,
 	}
 	summary, err := summarizeTranscript(ctx, renderTranscript(forSummary))
 	var mid []Message
-	if err != nil || strings.TrimSpace(summary) == "" {
+	if err != nil || summaryLooksEmpty(summary) {
+		// Résumé raté (erreur, vide, ou juste une référence recall) → on garde le
+		// torse dégraissé, qui porte au moins les têtes de blocs + les marqueurs
+		// recall : bien plus informatif qu'un résumé dégénéré.
 		mid = pruned
 	} else {
 		// Le résumé est injecté comme un tour utilisateur→assistant (jamais un
 		// message `system` au milieu : certains gabarits, ex. Qwen, exigent que le
 		// system soit uniquement en tête — cf. mémoire qwen36-chat-template-fix).
+		// Le message porte aussi la CONSCIENCE de la compaction et l'index des ids
+		// rappelables (voir compactSummaryUserMsg).
 		mid = []Message{
-			{Role: "user", Content: compactSummaryPrefix + " The earlier turns of this conversation were summarized to save context. Here is the summary:\n\n" + summary},
-			{Role: "assistant", Content: "Understood. I'll resume from exactly where I left off, using the findings above, without redoing work that is already done."},
+			{Role: "user", Content: compactSummaryUserMsg(summary, index)},
+			{Role: "assistant", Content: "Understood. I'll resume from exactly where I left off, using the findings above, and call recall(id) if I need the full content of an archived block, without redoing work that is already done."},
 		}
 	}
 
@@ -325,6 +402,94 @@ func compactMessages(ctx context.Context, msgs []Message, caps Caps) ([]Message,
 		return msgs, false
 	}
 	return out, true
+}
+
+// summaryLooksEmpty détecte un résumé raté : trop court, ou constitué seulement
+// de références « recall:rN » (un petit modèle, mal aiguillé, répond parfois par
+// un id au lieu d'écrire une vraie prose — vu en test). Dans ce cas on préfère le
+// repli dégraissé. Seuil à 40 caractères de VRAI texte (hors jetons recall).
+func summaryLooksEmpty(s string) bool {
+	s = strings.TrimSpace(s)
+	if len([]rune(s)) < 40 {
+		return true
+	}
+	var real strings.Builder
+	for _, f := range strings.Fields(s) {
+		low := strings.ToLower(strings.Trim(f, ".,;:()[]-•*"))
+		if strings.HasPrefix(low, "recall:r") || strings.HasPrefix(low, "recall(") {
+			continue
+		}
+		real.WriteString(f)
+		real.WriteString(" ")
+	}
+	return len([]rune(strings.TrimSpace(real.String()))) < 40
+}
+
+// recallEntry associe un id d'archive à son libellé court, pour l'index injecté
+// dans le message de compaction.
+type recallEntry struct{ id, label string }
+
+// recallEligible dit si un message du torse mérite d'être archivé sous un id :
+// un bloc assez gros (le résumé ne le porterait pas fidèlement) d'un rôle réel,
+// et qui n'est pas déjà le résumé d'une compaction précédente (on ne ré-archive
+// pas un résumé).
+func recallEligible(m Message) bool {
+	switch m.Role {
+	case "tool", "user", "assistant":
+	default:
+		return false
+	}
+	t := msgText(m)
+	if len([]rune(t)) <= recallArchiveMinLen {
+		return false
+	}
+	return !strings.HasPrefix(t, compactSummaryPrefix)
+}
+
+// torsoToolNames associe chaque ToolCallID du torse au nom de l'outil qui l'a
+// produit (l'assistant porte les tool_calls, le résultat ne porte que l'id),
+// pour donner un libellé lisible aux blocs archivés (« web_read: … »).
+func torsoToolNames(torso []Message) map[string]string {
+	names := map[string]string{}
+	for _, m := range torso {
+		for _, tc := range m.ToolCalls {
+			if tc.ID != "" {
+				names[tc.ID] = tc.Function.Name
+			}
+		}
+	}
+	return names
+}
+
+// recallMarker remplace un bloc archivé dans le torse dégraissé (repli). Il cite
+// l'id récupérable et interdit explicitement de relancer l'outil pour le refaire.
+func recallMarker(id, label string) string {
+	return fmt.Sprintf("[Block archived to save context — full content retrievable with recall(\"%s\") (%s). Do NOT re-run a tool to fetch it back.]", id, label)
+}
+
+// compactSummaryUserMsg construit le message `user` synthétique qui porte le
+// résumé. Il rend le modèle CONSCIENT que la conversation a été compactée (il le
+// sait aussi bien que nous), et lui donne l'index des blocs rappelables. L'index
+// ne liste QUE les ids créés à cette passe : sa taille reste bornée, une
+// conversation infinie ne gonfle jamais cette section (les vieux blocs restent
+// joignables par recall_search).
+func compactSummaryUserMsg(summary string, index []recallEntry) string {
+	var b strings.Builder
+	b.WriteString(compactSummaryPrefix)
+	if len(index) > 0 {
+		b.WriteString(" The earlier turns of this conversation were summarized to save context, but nothing is lost: any block referenced below (or in the summary) as recall:rN can be brought back verbatim with the recall(id) tool, and recall_search(\"keywords\") finds older archived blocks not listed here. Here is the summary:\n\n")
+	} else {
+		b.WriteString(" The earlier turns of this conversation were summarized to save context. Here is the summary:\n\n")
+	}
+	b.WriteString(summary)
+	if len(index) > 0 {
+		b.WriteString("\n\nArchived blocks you can bring back with recall(id):\n")
+		for _, e := range index {
+			fmt.Fprintf(&b, "- %s — %s\n", e.id, e.label)
+		}
+		b.WriteString("Only recall a block when you actually need its full content.")
+	}
+	return b.String()
 }
 
 // renderTranscript sérialise le torse en texte lisible pour le résumeur.
@@ -383,8 +548,12 @@ Summarize densely and faithfully, keeping ONLY the essentials:
 - Sources already consulted (URLs opened, files read, commands run) — so they are not consulted a second time
 - Decisions made and established facts
 - STATE OF PROGRESS: what is already answered, what is still missing, and the next concrete step
-Strict rules: no preamble or conclusion, no verbatim or long quotes, no throwaway detail. Use short bullet points. Aim for 300 words MAX — this is a compression summary, not a report.
+Strict rules: no preamble or conclusion, no verbatim or long quotes, no throwaway detail. Use short bullet points. Be as concise as you can WHILE keeping every fact, decision and still-open task: a detail you drop here is lost for good, so when in doubt keep it. This is a dense compression summary, not a report. Always write ACTUAL prose sentences/bullets — never answer with just an id or a reference.
 Write the summary in the SAME language as the conversation.`
+
+	// Budget adapté à la fenêtre (cf. compactSummaryBudget) : porte le fil sans
+	// jamais laisser le résumé enfler au point d'annuler la réduction.
+	budget := compactSummaryBudget()
 
 	payload := map[string]any{
 		"model": "ajean",
@@ -396,7 +565,7 @@ Write the summary in the SAME language as the conversation.`
 		"temperature": 0.2,
 		// Borne dure : sans ça, un modèle bavard (surtout à reasoning) produit un
 		// résumé énorme et lent, donc peu de réduction → re-compaction à chaque tour.
-		"max_tokens": 700,
+		"max_tokens": budget,
 		// Pas de réflexion pour un résumé : plus rapide, plus dense, et évite qu'un
 		// modèle hybride gaspille tout le budget en <think> (résumé vide). llama.cpp
 		// passe ces kwargs au gabarit Jinja (--jinja).
@@ -434,12 +603,13 @@ Write the summary in the SAME language as the conversation.`
 	}
 	c = strings.TrimSpace(c)
 	// Garde-fou dur : même si le modèle ignore la consigne de longueur, on tronque
-	// pour garantir une vraie compression. 2200 caractères (≈ 550 tokens) et pas
-	// 1500 : le résumé doit désormais porter les FAITS déjà trouvés, pas seulement
-	// l'intention, sinon l'IA repart en recherche après chaque compactage. Coupé
-	// sur une frontière de rune (é, … ne doivent pas devenir des �).
-	if r := []rune(c); len(r) > 2200 {
-		c = strings.TrimSpace(string(r[:2200])) + " […]"
+	// pour garantir une vraie compression. La coupe suit le budget (≈ 4 car./token)
+	// au lieu d'un 2200 fixe : le résumé doit porter les FAITS déjà trouvés, pas
+	// seulement l'intention, sinon l'IA repart en recherche après chaque compactage.
+	// Coupé sur une frontière de rune (é, … ne doivent pas devenir des �).
+	maxChars := budget * 4
+	if r := []rune(c); len(r) > maxChars {
+		c = strings.TrimSpace(string(r[:maxChars])) + " […]"
 	}
 	return c, nil
 }

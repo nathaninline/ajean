@@ -20,10 +20,11 @@ func TestCompactBoundsProtectsHead(t *testing.T) {
 		um("q2"), am("r2"),
 		um("q3"), am("r3"),
 	}
-	// budget minuscule → queue = juste le dernier tour, tête = system + 1er user.
+	// budget minuscule → queue = juste le dernier tour, tête = system SEUL
+	// (le 1er user n'est plus épinglé, cf. compactBounds).
 	head, tail := compactBounds(msgs, 1)
-	if head != 2 { // system + premier user
-		t.Fatalf("head = %d, attendu 2", head)
+	if head != 1 { // system uniquement
+		t.Fatalf("head = %d, attendu 1 (system seul)", head)
 	}
 	// Frontière sûre = user ou assistant (jamais un `tool`, qui serait orphelin).
 	if r := msgs[tail].Role; r != "user" && r != "assistant" {
@@ -160,6 +161,21 @@ func TestSummaryInputKeepsToolFindings(t *testing.T) {
 	}
 	if len([]rune(tr)) > 4000 {
 		t.Fatalf("transcription non bornée (%d runes) : le résumeur va déborder", len([]rune(tr)))
+	}
+}
+
+// Un résumé qui n'est qu'une (ou des) référence recall doit être considéré comme
+// raté (régression du bug « recall:r7 » vu en test réel), un vrai résumé non.
+func TestSummaryLooksEmpty(t *testing.T) {
+	empty := []string{"", "  ", "recall:r7", "recall:r7 recall:r6", "- recall:r3\n- recall:r4", "recall(r7)"}
+	for _, s := range empty {
+		if !summaryLooksEmpty(s) {
+			t.Fatalf("résumé %q aurait dû être jugé vide/raté", s)
+		}
+	}
+	good := "L'utilisateur cherche les meilleurs restaurants de Saint-Jean-de-Védas ; trouvés Bouillon Popote 5.0 et Sushi Corner 4.8."
+	if summaryLooksEmpty(good) {
+		t.Fatalf("un vrai résumé en prose est jugé vide à tort")
 	}
 }
 

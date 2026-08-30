@@ -368,6 +368,11 @@ func EnabledTools(caps Caps) []Tool {
 		// récurrents et les gérer. Réservé au mode agent (une tâche sans outils
 		// pour agir n'aurait rien à livrer).
 		tools = append(tools, taskListTool(), taskCreateTool(), taskUpdateTool(), taskDeleteTool())
+		// Mémoire longue de la conversation : rappeler un bloc archivé au compactage
+		// (recall) ou le retrouver par mots-clés (recall_search). Réservé au mode
+		// agent — le compactage n'injecte les ids rappelables que là (voir
+		// compactSummaryUserMsg). Voir chat_recall.go.
+		tools = append(tools, recallTool(), recallSearchTool())
 		// Voir une image du disque : seulement quand la vision est réellement active
 		// (projecteur MMPROJ). Sinon l'outil ne pourrait que renvoyer une erreur, et
 		// l'annoncer ferait croire au modèle qu'il a des yeux qu'il n'a pas.
@@ -938,8 +943,10 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 						key = "url"
 					case "task_create", "task_update":
 						key = "name"
-					case "task_delete":
+					case "task_delete", "recall":
 						key = "id"
+					case "recall_search":
+						key = "query"
 					case "machines_use":
 						key = "machine"
 					case "task_list", "machines_list":
@@ -1111,10 +1118,12 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				// nothing while a slow shell command runs and looks frozen.
 				label := ""
 				switch tc.Function.Name {
-				case "mem_search", "web_search":
+				case "mem_search", "web_search", "recall_search":
 					label, _ = args["query"].(string)
 				case "mem_read", "mem_add", "mem_edit", "mem_delete", "edit", "write", "see_image":
 					label, _ = args["file"].(string)
+				case "recall":
+					label, _ = args["id"].(string)
 				case "bash":
 					label, _ = args["command"].(string)
 				case "web_open", "web_read":
@@ -1250,6 +1259,10 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					} else {
 						result = fmt.Sprintf("[ok] page '%s' supprimée", label)
 					}
+				case "recall":
+					result = toolRecall(args)
+				case "recall_search":
+					result = toolRecallSearch(args)
 				case "task_list":
 					result = toolTaskList(args)
 				case "see_image":
