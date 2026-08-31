@@ -489,7 +489,14 @@ func shownResult(s string) string {
 // le résultat change parce que le fichier a changé. La dédup la bloquait par un
 // « [déjà fait] » exaspérant. bash a des effets de bord : on le laisse toujours
 // s'exécuter.
-func dedupableTool(name string) bool { return name != "bash" }
+//
+// FAUX aussi pour machines_use / machines_list : changer de machine est un
+// changement d'ÉTAT, pas une lecture idempotente. Rebasculer sur une machine déjà
+// visitée (« local » → poste → « local ») réémet le MÊME appel : la dédup le
+// bloquait, et l'IA se retrouvait coincée sur une cible, incapable d'y revenir.
+func dedupableTool(name string) bool {
+	return name != "bash" && name != "machines_use" && name != "machines_list"
+}
 
 // repeatedCallResult construit ce qu'on renvoie quand le modèle redemande un
 // appel RIGOUREUSEMENT identique (même outil, mêmes arguments) dans le même tour.

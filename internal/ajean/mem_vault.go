@@ -57,7 +57,10 @@ func vaultWrapAAD(kind string) []byte { return []byte("ajean-vault/" + kind) }
 
 // --- Emplacements du keyvault (3 copies indépendantes) -----------------------
 
-func vaultPathPrimary() string { return filepath.Join(memoryDir(), ".keyvault") }
+// Le keyvault est GLOBAL (une seule DEK pour la mémoire de TOUS les projets) : il
+// vit à la racine de AJEAN_HOME, pas dans le dossier d'un projet. L'ancien
+// emplacement (memory/.keyvault) est migré par ensureDefaultProject.
+func vaultPathPrimary() string { return filepath.Join(AjeanHome(), ".keyvault") }
 func vaultPathBackup() string  { return filepath.Join(AjeanHome(), ".keyvault.bak") }
 
 const vaultDBKey = "mem_keyvault"

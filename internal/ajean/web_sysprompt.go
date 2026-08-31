@@ -13,8 +13,53 @@ import (
 	"strings"
 )
 
-// readSysPrompt renvoie le prompt système personnalisé ("" si absent).
-func readSysPrompt() string { return getStr(bkState, "sysprompt") }
+// Le prompt système est désormais rattaché au PRESET actif (un prompt par preset,
+// réglé dans le modal de preset). readSysPrompt renvoie celui du preset actif ; à
+// défaut, l'ancien prompt global (compat) sert de repli.
+func readSysPrompt() string {
+	if id := activePresetID(); id != "" {
+		if sp := presetSysPrompt(id); sp != "" {
+			return sp
+		}
+	}
+	return getStr(bkState, "sysprompt")
+}
+
+// activePresetID renvoie l'id du preset actif ("" si aucun / indéterminé).
+func activePresetID() string {
+	list, err := ListPresets()
+	if err != nil {
+		return ""
+	}
+	for _, p := range list {
+		if p.Active {
+			return p.ID
+		}
+	}
+	return ""
+}
+
+// presetSysPrompt / setPresetSysPrompt : prompt système propre à un preset, stocké
+// en base (clé sysprompt/<id>), hors du fichier .env (qui ne gère pas le multi-ligne).
+func presetSysPrompt(id string) string {
+	if id == "" {
+		return ""
+	}
+	return getStr(bkState, "sysprompt/"+id)
+}
+
+func setPresetSysPrompt(id, text string) error {
+	if id == "" {
+		return nil
+	}
+	return putStr(bkState, "sysprompt/"+id, strings.TrimSpace(text))
+}
+
+func deletePresetSysPrompt(id string) {
+	if id != "" {
+		_ = putStr(bkState, "sysprompt/"+id, "")
+	}
+}
 
 func saveSysPrompt(text string) error {
 	return putStr(bkState, "sysprompt", strings.TrimSpace(text))

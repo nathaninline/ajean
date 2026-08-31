@@ -64,25 +64,25 @@
   </div>
   <!-- GPU et RAM décrivent la même chose (les ressources de la machine) :
        une seule section, deux blocs de statistique dans la même carte. -->
-  <details open><summary><span class="stitle">Machine</span></summary>
+  <details open><summary><span class="stitle">Device</span></summary>
     <div class="slist">
       <div id="vram">…</div>
       <div id="ram-details"><div id="ram"></div></div>
     </div>
   </details>
-  <details open id="cfg-details"><summary><span class="stitle">Config active</span></summary>
+  <details open id="cfg-details"><summary><span class="stitle">Configuration</span></summary>
     <div id="cfg" class="slist">…</div>
   </details>
   <details><summary><span class="stitle">Presets</span><button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter">+</button></summary>
     <div class="slist"><div id="presets" class="rowlist"></div></div>
   </details>
-  <details><summary><span class="stitle">Mode agent</span><span id="agent-badge" class="sbadge"></span></summary>
+  <details><summary><span class="stitle">Agent</span><span id="agent-badge" class="sbadge"></span></summary>
     <div class="slist"><label class="switchrow"><span class="switch"><input type="checkbox" id="agent-toggle" onchange="toggleAgent()"><span class="slider"></span></span> activer le mode agent<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">⚠ active l'<b>accès machine</b> (shell complet via <b>bash</b> sur le serveur) — l'IA peut inspecter, lancer des scripts, écrire/lire/éditer des fichiers (timeout 30s, max 300s). Mémoire et accès internet ci-dessous ne fonctionnent que si le mode agent est activé.</span></span></label></div>
     <!-- Sous-réglages du mode agent. MÊME gabarit que « Machine » / « Apparence » :
          étiquette de groupe nue, puis UNE carte de lignes (.slist). Le groupe
          entier est grisé/inerte quand l'agent est off (voir setAgentGate). -->
     <div id="mem-block" class="gated-group">
-      <div class="subhead">Mémoire<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span id="mem-mode-desc" class="tip"></span></span></div>
+      <div class="subhead">Memory<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span id="mem-mode-desc" class="tip"></span></span></div>
       <!-- Carte unique, trois lignes nettes séparées par un filet :
            1) mode d'utilisation · 2) navigateur de pages · 3) chiffrement. -->
       <div class="slist">
@@ -144,7 +144,7 @@
       </div>
     </div>
     <div id="mcp-block" class="gated-group">
-      <div class="subhead">Serveurs MCP<span id="mcp-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Connecte des <b>serveurs MCP</b> (Model Context Protocol) pour donner de nouveaux outils à l'IA : accès fichiers, bases de données, APIs métier… <b>stdio</b> = programme lancé localement (npx/uvx/binaire) · <b>http</b> = serveur distant. ⚠ un serveur stdio exécute du code sur cette machine, au même titre que le shell.</span></span></div>
+      <div class="subhead">MCP servers<span id="mcp-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Connecte des <b>serveurs MCP</b> (Model Context Protocol) pour donner de nouveaux outils à l'IA : accès fichiers, bases de données, APIs métier… <b>stdio</b> = programme lancé localement (npx/uvx/binaire) · <b>http</b> = serveur distant. ⚠ un serveur stdio exécute du code sur cette machine, au même titre que le shell.</span></span></div>
       <div class="slist">
         <div class="rowbody">
           <!-- Même texte que celui rendu après chargement quand il n'y a aucun
@@ -172,7 +172,7 @@
         <label class="switchrow"><span class="switch"><input type="checkbox" id="mem-enc-toggle" onchange="toggleMemEncrypt()"><span class="slider"></span></span> activer le chiffrement<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Chiffre ta <b>mémoire</b> ET tes <b>conversations</b> au repos (AES-256), protégées par ta <b>clé d'accès</b> : si tu as accès à l'interface, c'est déjà déverrouillé ; sinon on te demande ta clé d'accès. Une <b>clé de récupération</b> t'est donnée à l'activation (garde-la). Rien n'est perdu : snapshots automatiques avant chaque bascule.</span></span></label>
     </div>
   </details>
-  <details id="tasks-details"><summary><span class="stitle">Tâches</span><span id="tasks-badge" class="sbadge"></span></summary>
+  <details id="tasks-details"><summary><span class="stitle">Tasks</span><span id="tasks-badge" class="sbadge"></span></summary>
     <!-- Tâches planifiées : l'IA exécute une consigne toute seule sur une
          fréquence réglable (voir tasks.go). Chaque tâche tourne ISOLÉE de la
          conversation — elle livre son résultat via les outils de l'IA (mail via
@@ -189,7 +189,7 @@
       </div>
     </div>
   </details>
-  <details><summary><span class="stitle">Apparence</span></summary>
+  <details><summary><span class="stitle">Appearance</span></summary>
     <div class="slist">
       <label class="switchrow rev"><span>mode sombre</span>
         <span class="switch"><input type="checkbox" id="theme-dark" onchange="toggleThemeDark()"><span class="slider"></span></span>
@@ -204,12 +204,7 @@
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-enter-newline" onchange="toggleView('enter-newline')"><span class="slider"></span></span> Entrée = retour à la ligne<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Par défaut, <b>Entrée</b> envoie le message et <b>Maj+Entrée</b> fait un retour à la ligne. Activez ceci pour inverser : Entrée va à la ligne, et <b>Maj+Entrée</b> (ou Ctrl+Entrée) envoie.</span></span></label>
     </div>
   </details>
-  <details><summary><span class="stitle">System prompt</span></summary>
-    <div class="slist"><div class="rowbody">
-      <textarea id="sysprompt" placeholder="(optionnel) ex: tu es un assistant concis en français" oninput="saveSys()" class="sctl"></textarea>
-    </div></div>
-  </details>
-  <details><summary><span class="stitle">Accès OpenAI</span></summary>
+  <details><summary><span class="stitle">API</span></summary>
     <div class="subhead">Endpoint compatible OpenAI<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Branchez n'importe quel client compatible OpenAI (OpenCode, Continue, Cursor…) sur ces adresses. Si une clé est définie, le client doit envoyer <code>Authorization: Bearer &lt;clé&gt;</code>.</span></span></div>
     <!-- UNE carte pour tout l'endpoint : adresse locale, bascule « public » et
          adresse publique sont un seul sujet — trois cartes accolées donnaient
@@ -226,7 +221,7 @@
            boucle locale (le défaut sous Windows) : le chat du navigateur marche,
            mais aucun logiciel du réseau ne peut s'y brancher. Cet interrupteur
            règle HOST et pose la règle de pare-feu, voir sys_network.go. -->
-      <label class="switchrow"><span class="switch"><input type="checkbox" id="lan-toggle" onchange="toggleLAN()"><span class="slider"></span></span> joignable depuis le réseau local<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Éteint, le moteur n'écoute que sur <b>cette machine</b> : l'adresse ci-dessus ne répond qu'ici. Allumez-le pour brancher un logiciel depuis un autre ordinateur du réseau (sous Windows, la règle de pare-feu est posée en même temps). <b>Redémarre le moteur.</b></span></span></label>
+      <label class="switchrow septop"><span class="switch"><input type="checkbox" id="lan-toggle" onchange="toggleLAN()"><span class="slider"></span></span> joignable depuis le réseau local<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Éteint, le moteur n'écoute que sur <b>cette machine</b> : l'adresse ci-dessus ne répond qu'ici. Allumez-le pour brancher un logiciel depuis un autre ordinateur du réseau (sous Windows, la règle de pare-feu est posée en même temps). <b>Redémarre le moteur.</b></span></span></label>
       <div id="lan-warn" class="rowbody" style="display:none"></div>
       <label class="switchrow"><span class="switch"><input type="checkbox" id="oai-public-toggle" onchange="toggleOAIPublic()"><span class="slider"></span></span> exposer en public (ajean.link)<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Rend votre IA joignable depuis <b>n'importe où</b> via <code>https://&lt;machine&gt;.oai.ajean.link/v1</code> (pour brancher un SaaS). Le trafic est chiffré <b>de bout en bout</b> jusqu'à ce serveur — le relais ajean.link ne voit rien. Nécessite l'accès distant actif.</span></span></label>
       <div id="oai-public-wrap" class="rowbody" style="display:none">
@@ -251,7 +246,7 @@
       </div>
     </div></div>
   </details>
-  <details id="remote-details"><summary><span class="stitle">ajean link</span><span id="remote-badge" class="sbadge"></span></summary>
+  <details id="remote-details"><summary><span class="stitle">Link</span><span id="remote-badge" class="sbadge"></span></summary>
     <div class="subhead">Accès distant<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Accédez à ce serveur AJEAN depuis <b>n'importe où</b>, sans ouvrir de port, à travers le relais <b>ajean.link</b>. Le trafic est chiffré de <b>bout en bout</b> : le relais ne voit rien. Abonnement 4,80 €/mois.</span></span></div>
     <!-- Non connecté : un seul bouton, tout se passe dans la popup (compte + paiement). -->
     <div id="remote-off" class="slist"><div class="rowbody">
@@ -297,7 +292,7 @@
       </div>
     </div>
   </details>
-  <details id="lc-details"><summary><span class="stitle">Moteur</span></summary>
+  <details id="lc-details"><summary><span class="stitle">Engine</span></summary>
     <!-- Une seule carte : état, choix du mode et journal d'installation sont le
          même sujet. Les trois modes sont des LIGNES de cette carte (elles
          étaient des cartes dans une carte). -->
@@ -344,7 +339,7 @@
       </div>
     </div></div>
   </details>
-  <details id="upd-details"><summary><span class="stitle">Actions</span></summary>
+  <details id="upd-details"><summary><span class="stitle">Settings</span></summary>
     <div class="slist"><div class="rowbody">
       <!-- Ligne 1 : mise à jour + export du fil. Depuis la 0.8 la conversation vit
            dans ajean.db (bbolt, verrouillé tant que le service tourne) : sans le
@@ -354,11 +349,10 @@
         <button onclick="openExportModal()" title="choisir le format et ce qu'on emporte">⤓ exporter…</button>
       </div>
       <div id="upd-msg" class="muted"></div>
-      <!-- Ligne 2 : bench + clear chat (seule action destructive, gardée en dernier). -->
+      <!-- Ligne 2 : bench. (« clear chat » retiré : les conversations se gèrent dans
+           le hub Projets — nouvelle/ouvrir/supprimer.) -->
       <div class="row" style="margin-bottom:0">
-        <button onclick="openHistoryModal()" title="tes sessions de conversation">☰ sessions</button>
         <button id="btn-bench" onclick="runBenchUI()">bench</button>
-        <button onclick="resetChat()">⌫ clear chat</button>
       </div>
     </div></div>
   </details>
@@ -367,7 +361,9 @@
   <div id="chat"></div>
   <!-- Voile de chargement du fil : sans lui, une connexion lente donne un chat
        VIDE indiscernable d'une conversation vide. Masqué au signal {caught_up}. -->
-  <div id="chat-loading"><span class="cl-dots"><span></span><span></span><span></span></span><span id="chat-loading-text">chargement de la conversation…</span></div>
+  <!-- Loader du fil : la marque « J » d'ajean (même glyphe que le favicon et le logo
+       de compactage) en grand, qui pulse. Pas le mot AJEAN complet. -->
+  <div id="chat-loading" class="show" aria-label="chargement de la conversation"><svg id="cl-logo" viewBox="0 0 12 12" aria-hidden="true" fill="currentColor"><rect x="6" y="3" width="2" height="2"/><rect x="6" y="5" width="2" height="2"/><rect x="4" y="7" width="2" height="2"/></svg></div>
   <!-- Accueil : affiché UNIQUEMENT quand le fil est réellement vide (et une fois
        le replay terminé, sinon il clignoterait au chargement de chaque page).
        Le logo est cloné depuis #brand au démarrage — une seule source de vérité
@@ -384,13 +380,12 @@
   <div id="composer">
     <div id="ctxmeta">
       <div id="ctxtrack"><div id="ctx-fill"></div></div>
-      <span id="status-preset" class="muted" style="font-size:10px;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
+      <span id="status-preset" class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
       <!-- Pied de carte, à droite : le décompte de contexte, compacter, puis le
            trombone — tous à la même échelle, c'est une seule ligne d'outils. -->
       <span style="display:flex;align-items:center;gap:8px;margin-left:auto">
         <span id="ctx-text" class="muted">0 / 0</span>
-        <span id="ctx-compactions" class="muted" style="display:none;font-size:10px;white-space:nowrap" title="Compactages du contexte dans cette session"></span>
-        <button id="ctx-compact" onclick="compactContext()">compacter</button>
+        <span id="ctx-compactions" class="muted" style="display:none;font-size:10px;white-space:nowrap" title="Compactages du contexte dans cette conversation"></span>
         <!-- Raccourci « niveau de réflexion » : n'apparaît que si le preset actif a
              défini un effort (REASONING_EFFORT). Un clic ouvre un petit menu pour
              changer le niveau à chaud (pris en compte au prochain message, sans
@@ -398,19 +393,17 @@
         <button id="reason-btn" onclick="toggleReasonMenu(event)" style="display:none" title="Niveau de réflexion" aria-label="Niveau de réflexion" aria-haspopup="true">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path class="rb" data-l="1" d="M4 20v-3"/><path class="rb" data-l="2" d="M10 20v-7"/><path class="rb" data-l="3" d="M16 20v-11"/><path class="rb" data-l="4" d="M21 20V5"/></svg>
         </button>
-        <!-- Postes distants : l'icône dit SUR QUOI l'IA agit. Écran = ce serveur
-             (cible locale) ; ondes wifi = un poste distant est la cible active.
-             Un clic ouvre la modale de gestion (cible, liste, appairage). -->
-        <button id="node-btn" onclick="openNodeHub()" title="Postes distants" aria-label="Postes distants">
-          <svg class="ic-here" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-          <svg class="ic-remote" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.55a11 11 0 0 1 14 0"/><path d="M8.5 16.1a6 6 0 0 1 7 0"/><path d="M12 20h.01"/></svg>
+        <!-- Projets : chaque projet a sa propre mémoire ET ses propres sessions,
+             cloisonnées. Un clic ouvre la modale de sélection/gestion des projets.
+             L'icône (dossier) est doublée du nom du projet actif, tronqué. -->
+        <button id="project-btn" onclick="openProjectHub()" title="Projets (mémoire + conversations cloisonnées)" aria-label="Projets">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          <span id="project-btn-name"></span>
         </button>
+        <!-- Champ fichier caché : déclenché par « Joindre un fichier » du menu + du
+             composeur (le bouton visible « trombone » et « postes distants » ont
+             déménagé dans ce menu, à gauche de la flèche d'envoi). -->
         <input type="file" id="attach-input" multiple style="display:none" onchange="onAttachPick(event)">
-        <button id="attach" onclick="document.getElementById('attach-input').click()" title="joindre un fichier" aria-label="joindre un fichier">
-          <!-- Trombone dessiné en SVG : pas de dépendance à une police d'emoji,
-               dont le rendu varie énormément d'un système à l'autre. -->
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.4 11.05 12.25 20.2a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.67 3.67 0 1 1 5.18 5.18l-9.2 9.2a1.83 1.83 0 1 1-2.59-2.6l8.49-8.48"/></svg>
-        </button>
       </span>
     </div>
     <!-- Pièces jointes en attente : remplie par addFiles(), vidée à l'envoi.
@@ -418,9 +411,15 @@
          qui la sépare du fil — la carte ne bouge donc pas d'un pixel. -->
     <div id="attach-list"></div>
     <div id="inputbar">
-      <textarea id="input" rows="1" placeholder="message…" onkeydown="onKey(event)" oninput="autoGrow(this)" onpaste="onPaste(event)"></textarea>
-      <button id="send" onclick="send()">send</button>
-      <button id="stop" onclick="stopGen()" style="display:none;background:var(--danger-bg);border-color:var(--err);color:var(--err)">stop</button>
+      <textarea id="input" rows="1" placeholder="Discuter avec Jean" onkeydown="onKey(event)" oninput="autoGrow(this)" onpaste="onPaste(event)"></textarea>
+      <!-- Indicateur discret « l'IA agit sur un poste distant » : ondes wifi à gauche
+           du +, teinté accent, affiché seulement quand une cible distante est active. -->
+      <span id="node-indic" title="L'IA agit sur un poste distant" aria-hidden="true" style="display:none"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.55a11 11 0 0 1 14 0"/><path d="M8.5 16.1a6 6 0 0 1 7 0"/><path d="M12 20h.01"/></svg></span>
+      <!-- Bouton « + » gris : JUSTE à gauche de la flèche d'envoi. Ouvre un petit menu
+           (postes/machines + fichiers). -->
+      <button id="plus-btn" onclick="togglePlusMenu(event)" title="Ajouter" aria-label="Ajouter" aria-haspopup="true"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button id="send" onclick="send()" title="envoyer" aria-label="envoyer"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V6"/><path d="M6 12l6-6 6 6"/></svg></button>
+      <button id="stop" onclick="stopGen()" style="display:none" title="stop" aria-label="stop"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2.5"/></svg></button>
     </div>
     <div id="sendhint" class="muted">Entrée pour envoyer · Maj+Entrée = nouvelle ligne</div>
   </div>
@@ -576,6 +575,40 @@
     </div>
   </div>
 </div>
+<!-- Projets : un projet = une mémoire + des sessions cloisonnées. Sélectionner un
+     projet bascule dessus (nouvelle session vierge, l'ancienne est archivée dans son
+     projet). Créer / renommer / supprimer depuis ici. -->
+<div id="project-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeProjectModal()">
+  <div class="modal-card" style="max-width:520px">
+    <div class="modal-head">
+      <span style="display:flex;align-items:center;gap:8px"><strong>Projets</strong><span id="proj-count" class="sess-count"></span></span>
+      <button class="modal-x" onclick="closeProjectModal()" aria-label="Fermer">×</button>
+    </div>
+    <div class="modal-body mform">
+      <!-- Action principale, tout en haut : démarrer une nouvelle conversation dans
+           le projet actif. Bien visible, pleine largeur. -->
+      <button id="proj-newsess" class="proj-cta" onclick="newSessionUI()">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        <span>Nouvelle conversation</span>
+      </button>
+      <div class="sess-head" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <span>Projets</span>
+        <button class="proj-newproj" onclick="createProjectUI()" title="Créer un projet">+ projet</button>
+      </div>
+      <div id="project-list" class="sess-list"></div>
+      <!-- Conversations du projet actif (plus de barre « Conversations · … »). -->
+      <div id="project-sessions" class="sess-list" style="margin-top:6px"></div>
+    </div>
+    <div class="modal-foot">
+      <div class="foot-l">
+        <button id="proj-clear-sessions" class="mbtn danger" onclick="clearProjectSessions()">Vider les conversations</button>
+      </div>
+      <div class="foot-r">
+        <button class="mbtn" onclick="closeProjectModal()">Fermer</button>
+      </div>
+    </div>
+  </div>
+</div>
 <div id="mcp-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeMcp()">
   <div class="modal-card" style="max-width:560px">
     <div class="modal-head">
@@ -641,14 +674,12 @@
       <strong>Postes distants</strong>
       <button class="modal-x" onclick="hideModal('node-hub-modal')" aria-label="Fermer">×</button>
     </div>
-    <div class="modal-body">
-      <div class="muted" style="font-size:12px;line-height:1.5;margin-bottom:10px">
-        Pilote un <b>autre PC</b> depuis l'IA. Choisis sur quelle machine l'IA agit
-        (ses outils shell/fichiers) et appaire de nouveaux postes. Tu décides des
-        capacités et du dossier autorisé pour chaque poste.
-      </div>
-      <div id="node-hub-list" class="mcp-list"></div>
-      <button class="addbtn" style="margin-top:10px" onclick="openNodePair()">+ appairer un poste</button>
+    <div class="modal-body mform">
+      <div id="node-hub-list" class="sess-list"></div>
+      <button class="proj-cta" style="margin-top:14px" onclick="openNodePair()">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        <span>Appairer un poste</span>
+      </button>
     </div>
   </div>
 </div>
@@ -742,6 +773,10 @@
             <span class="pe-row-l">Accès à la mémoire</span>
             <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="task-mem" checked><span class="pe-sl"></span></label></span>
           </div>
+          <div class="pe-row" id="task-project-row">
+            <span class="pe-row-l">Mémoire du projet<span class="pe-sub">la tâche lit/écrit dans la mémoire de ce projet</span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="task-project"></select></span></span>
+          </div>
           <div class="pe-row">
             <span class="pe-row-l">Accès au web</span>
             <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="task-web" checked><span class="pe-sl"></span></label></span>
@@ -802,8 +837,8 @@
     <div class="modal-foot">
       <div class="foot-l"></div>
       <div class="foot-r">
-        <button onclick="hideModal('node-pair-modal')">fermer</button>
-        <button class="btn-save" onclick="genNodeCode()">générer le code</button>
+        <button class="mbtn" onclick="hideModal('node-pair-modal')">Fermer</button>
+        <button class="mbtn primary" onclick="genNodeCode()">Générer le code</button>
       </div>
     </div>
   </div>
@@ -824,6 +859,26 @@
         <div class="pe-gh">Nom</div>
         <div class="pe-list">
           <div class="pe-row stack plain"><input id="m-name" class="pe-inp" placeholder="Nom du preset"></div>
+        </div>
+      </div>
+
+      <!-- Moteur (backend llama-server) : tout en haut du modal, juste après le nom. -->
+      <div id="m-engine-row" class="pe-group" style="display:none">
+        <div class="pe-gh">Moteur</div>
+        <div class="pe-seg">
+          <label><input type="radio" name="m-be" value="fast" onchange="onBackendMode('fast')"><span>Précompilé</span><span class="be-note" id="be-fast-note"></span></label>
+          <label><input type="radio" name="m-be" value="opt" onchange="onBackendMode('opt')"><span>Compilé</span><span class="be-note" id="be-opt-note"></span></label>
+          <label><input type="radio" name="m-be" value="custom" onchange="onBackendMode('custom')"><span>Personnalisé</span></label>
+        </div>
+        <div id="m-backend-custom" class="pe-list" style="display:none;margin-top:8px">
+          <div class="pe-row">
+            <span class="pe-row-l">Backend</span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="m-backend-detected" onchange="onPickDetected()"></select></span></span>
+          </div>
+          <div class="pe-row stack">
+            <input id="m-backend-path" class="pe-inp" oninput="onCustomPath()" placeholder="ou un chemin vers llama-server(.exe)">
+            <div class="pe-note" id="be-drop-hint"></div>
+          </div>
         </div>
       </div>
 
@@ -876,26 +931,7 @@
           </div>
         </div>
 
-        <div class="pe-group">
-          <div class="pe-gh">Moteur</div>
-          <div class="pe-seg">
-            <label><input type="radio" name="m-be" value="fast" onchange="onBackendMode('fast')"><span>Précompilé</span><span class="be-note" id="be-fast-note"></span></label>
-            <label><input type="radio" name="m-be" value="opt" onchange="onBackendMode('opt')"><span>Compilé</span><span class="be-note" id="be-opt-note"></span></label>
-            <label><input type="radio" name="m-be" value="custom" onchange="onBackendMode('custom')"><span>Personnalisé</span></label>
-          </div>
-          <div id="m-backend-custom" class="pe-list" style="display:none;margin-top:8px">
-            <div class="pe-row">
-              <span class="pe-row-l">Backend</span>
-              <span class="pe-row-c"><span class="pe-selc"><select id="m-backend-detected" onchange="onPickDetected()"></select></span></span>
-            </div>
-            <div class="pe-row stack">
-              <input id="m-backend-path" class="pe-inp" oninput="onCustomPath()" placeholder="ou un chemin vers llama-server(.exe)">
-              <div class="pe-note" id="be-drop-hint"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Cartes graphiques : la liste vient du moteur choisi juste au-dessus,
+        <!-- Cartes graphiques : la liste vient du moteur (déplacé tout en haut du modal),
              car les noms ET l'ordre dépendent du backend compilé dedans. Le
              groupe reste masqué tant qu'on n'a pas AU MOINS DEUX cartes : avec
              une seule, il n'y a rien à arbitrer. -->
@@ -1026,6 +1062,11 @@
       <div id="m-sampling-row" class="pe-group" style="display:none">
         <div class="pe-gh">Échantillonnage</div>
         <div class="pe-list">
+          <div id="m-sampling-toggle" class="pe-row" style="cursor:pointer" onclick="toggleSampling()">
+            <span class="pe-row-l">Réglages d'échantillonnage<span class="pe-sub">température, top_p, pénalités… (défaut du modèle si vide)</span></span>
+            <span class="pe-row-c"><span id="m-sampling-caret" class="pe-caret"></span></span>
+          </div>
+          <div id="m-sampling-body">
           <div class="pe-row">
             <span class="pe-row-l">Température<span class="pe-sub">vide = défaut du modèle</span></span>
             <span class="pe-row-c"><input id="s-temp" class="pe-val" type="number" min="0" step="0.05" placeholder="—" oninput="cfgWriteKey('TEMP', this.value)"></span>
@@ -1059,6 +1100,22 @@
               <option value="high">high</option>
               <option value="xhigh">xhigh (max)</option>
             </select></span></span>
+          </div>
+          </div><!-- /m-sampling-body -->
+        </div>
+      </div>
+
+      <!-- Prompt système PROPRE À CE PRESET (optionnel). Replié par défaut. Injecté
+           en tête du contexte quand ce preset est actif. -->
+      <div id="m-sys-row" class="pe-group" style="display:none">
+        <div class="pe-gh">System prompt</div>
+        <div class="pe-list">
+          <div id="m-sys-toggle" class="pe-row" style="cursor:pointer" onclick="toggleSysPrompt()">
+            <span class="pe-row-l">Prompt système du preset<span class="pe-sub">optionnel — injecté quand ce preset est actif</span></span>
+            <span class="pe-row-c"><span id="m-sys-caret" class="pe-caret"></span></span>
+          </div>
+          <div id="m-sys-body" class="pe-row stack" style="display:none">
+            <textarea id="m-sysprompt" class="pe-inp" spellcheck="false" placeholder="(optionnel) ex : tu es un assistant concis en français"></textarea>
           </div>
         </div>
       </div>

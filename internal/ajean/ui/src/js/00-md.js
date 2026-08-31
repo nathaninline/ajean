@@ -50,19 +50,8 @@ function markNotices(root){
 let msgs = [];
 let busy = false;
 function toggleSide(){ document.getElementById('side').classList.toggle('open'); document.getElementById('backdrop').classList.toggle('open'); document.body.classList.toggle('drawer-open'); }
-// Prompt système : persisté CÔTÉ SERVEUR (/api/sysprompt, partagé entre
-// appareils, utilisé par la génération serveur). localStorage = simple cache
-// d'affichage hors-ligne. Debounce : on n'écrit qu'après une pause de frappe.
-let _sysT = null;
-function saveSys(){
-  const v = document.getElementById('sysprompt').value;
-  localStorage.setItem('ajean.sys', v);
-  clearTimeout(_sysT);
-  _sysT = setTimeout(()=>{ jpost('/api/sysprompt', {text:v}).catch(()=>{}); }, 600);
-}
-async function loadSys(){
-  try{
-    const d = await jget('/api/sysprompt');
-    if(d && d.ok){ document.getElementById('sysprompt').value = d.text || ''; localStorage.setItem('ajean.sys', d.text || ''); }
-  }catch(e){}
-}
+// Le prompt système est désormais réglé PAR PRESET (modal de preset), plus dans le
+// menu. Ces fonctions restent en no-op pour ne rien casser si un ancien handler les
+// appelle encore.
+function saveSys(){}
+function loadSys(){}

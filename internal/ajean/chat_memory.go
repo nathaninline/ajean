@@ -89,6 +89,12 @@ func MemList() []MemPage {
 		if !strings.HasSuffix(strings.ToLower(e.Name()), ".md") {
 			continue
 		}
+		// MEMORY.md est l'INDEX du projet (façon Claude), pas une note ordinaire : on
+		// ne l'affiche pas dans la liste des pages mémoire. Il est injecté à part en
+		// tête de contexte (voir chat_tools.go) et maintenu par l'IA.
+		if strings.EqualFold(e.Name(), "MEMORY.md") {
+			continue
+		}
 		txt, ok := memPageText(e.Name())
 		title := titleOf(txt)
 		if !ok {
@@ -281,7 +287,11 @@ func MemAdd(name, content string) error {
 		return fmt.Errorf("la page existe déjà — utilise mem_edit pour la modifier")
 	}
 	body := strings.TrimRight(content, "\n") + "\n"
-	return writeMemFile(name, []byte(body))
+	if err := writeMemFile(name, []byte(body)); err != nil {
+		return err
+	}
+	memIndexAdd(name) // index MEMORY.md tenu à jour par le code
+	return nil
 }
 
 // MemEdit remplace oldText par newText dans une page. oldText doit apparaître
@@ -332,17 +342,29 @@ func MemContent(name string) string {
 // du nouveau nom, l'ancienne page est renommée (supprimée). Utilisé par l'éditeur
 // web.
 func MemSave(name, old, content string) error {
+	renamedFrom := ""
 	if old != "" {
 		if oldFn, e1 := memFileName(old); e1 == nil {
 			if newFn, e2 := memFileName(name); e2 == nil && oldFn != newFn {
 				if od, e3 := safeMemPath(old); e3 == nil {
 					_ = os.Remove(od)
 				}
+				renamedFrom = old
 			}
 		}
 	}
 	body := strings.TrimRight(content, "\n") + "\n"
-	return writeMemFile(name, []byte(body))
+	if err := writeMemFile(name, []byte(body)); err != nil {
+		return err
+	}
+	// Index : renommage → retire l'ancienne + ajoute la nouvelle ; sinon simple ajout
+	// (no-op si la ligne existe déjà).
+	if renamedFrom != "" {
+		memIndexRename(renamedFrom, name)
+	} else {
+		memIndexAdd(name)
+	}
+	return nil
 }
 
 // MemDelete supprime une page mémoire.
@@ -354,7 +376,11 @@ func MemDelete(name string) error {
 	if _, err := os.Stat(p); err != nil {
 		return fmt.Errorf("introuvable")
 	}
-	return os.Remove(p)
+	if err := os.Remove(p); err != nil {
+		return err
+	}
+	memIndexRemove(name) // retire sa ligne de l'index
+	return nil
 }
 
 // MemMode gouverne l'accès de l'IA à sa mémoire persistante, indépendamment du
@@ -391,6 +417,7 @@ func setMemMode(m MemMode) error {
 
 // cmdMemory : ajean memory [off|ondemand|always|status]
 func cmdMemory(args []string) error {
+	ensureDefaultProject() // amorce/migre les projets si ce process ne passe pas par l'UI web
 	sub := ""
 	if len(args) > 0 {
 		sub = strings.ToLower(strings.TrimSpace(args[0]))

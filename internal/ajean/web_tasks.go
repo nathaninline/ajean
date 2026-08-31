@@ -40,6 +40,11 @@ func handleTasks(w http.ResponseWriter, r *http.Request) {
 	if scripts == nil {
 		scripts = []scriptInfo{}
 	}
+	// Projets, pour le sélecteur « mémoire du projet » du formulaire de tâche.
+	projects := []map[string]any{}
+	for _, p := range listProjects() {
+		projects = append(projects, map[string]any{"slug": p.Slug, "name": p.Name})
+	}
 	sendJSON(w, 200, map[string]any{
 		"ok":         true,
 		"tasks":      tasks,
@@ -48,6 +53,7 @@ func handleTasks(w http.ResponseWriter, r *http.Request) {
 		"running_id": runningID,
 		"presets":    presets,
 		"scripts":    scripts,
+		"projects":   projects,
 		// État global mémoire/web, pour proposer des défauts cohérents à la création.
 		"mem_on": memMode() != MemOff,
 		"web_on": internetEnabled() && crawlReachable(),
@@ -64,6 +70,7 @@ func handleTaskSave(w http.ResponseWriter, r *http.Request) {
 		Schedule string `json:"schedule"`
 		TZ       string `json:"tz"`
 		Preset   string `json:"preset"`
+		Project  string `json:"project"`
 		NoMem    bool   `json:"no_mem"`
 		NoWeb    bool   `json:"no_web"`
 		Enabled  bool   `json:"enabled"`
@@ -115,6 +122,7 @@ func handleTaskSave(w http.ResponseWriter, r *http.Request) {
 	}
 	t.Name, t.Prompt, t.Enabled = req.Name, req.Prompt, req.Enabled
 	t.TZ, t.Preset = req.TZ, req.Preset
+	t.Project = req.Project
 	t.NoMem, t.NoWeb = req.NoMem, req.NoWeb
 	t.Kind, t.Script = req.Kind, req.Script
 	// Recalcule NextRun si la fréquence a changé (ou à la création).

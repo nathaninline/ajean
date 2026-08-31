@@ -26,6 +26,7 @@ import (
 // d'affichage pour la liste de l'historique.
 type convArchive struct {
 	ID           string     `json:"id"`
+	Project      string     `json:"project,omitempty"` // slug du projet propriétaire (vide = historique → Générale)
 	Title        string     `json:"title"`
 	Fav          bool       `json:"fav,omitempty"` // épinglée en favori (remonte en tête)
 	SavedAt      int64      `json:"saved_at"`      // ms
@@ -41,6 +42,7 @@ type convArchive struct {
 // le fil entier de chaque conversation.
 type convArchiveMeta struct {
 	ID      string `json:"id"`
+	Project string `json:"project,omitempty"` // slug du projet propriétaire (vide = Générale)
 	Title   string `json:"title"`
 	Fav     bool   `json:"fav"`
 	SavedAt int64  `json:"saved_at"`
@@ -90,7 +92,7 @@ func saveArchive(a *convArchive) error {
 	}
 	// Index léger tenu à jour en parallèle : lister ne relit alors que ces petites
 	// métadonnées, pas le fil complet de chaque session.
-	return putStoreJSON(bkChatMeta, a.ID, convArchiveMeta{ID: a.ID, Title: a.Title, Fav: a.Fav, SavedAt: a.SavedAt, Turns: a.Turns})
+	return putStoreJSON(bkChatMeta, a.ID, convArchiveMeta{ID: a.ID, Project: a.Project, Title: a.Title, Fav: a.Fav, SavedAt: a.SavedAt, Turns: a.Turns})
 }
 
 func loadArchive(id string) (*convArchive, bool) {
@@ -150,9 +152,12 @@ func setArchiveFav(id string, fav bool) error {
 	return saveArchive(a)
 }
 
-// listArchives renvoie les métadonnées de toutes les conversations archivées, la
-// plus récente d'abord.
-func listArchives() []convArchiveMeta {
+// listArchives renvoie les sessions du PROJET ACTIF, la plus récente d'abord.
+func listArchives() []convArchiveMeta { return listArchivesForProject(activeProjectSlug()) }
+
+// listAllArchives renvoie TOUTES les sessions archivées (tous projets confondus),
+// la plus récente d'abord. Sert au filtrage par projet et à la migration.
+func listAllArchives() []convArchiveMeta {
 	// Les valeurs d'index peuvent être chiffrées : on les décode via getStoreJSON.
 	// Mémoire verrouillée = index illisible = liste vide (les sessions réapparaissent
 	// au déverrouillage), jamais une erreur.
@@ -173,7 +178,7 @@ func listArchives() []convArchiveMeta {
 			continue
 		}
 		if a, ok := loadArchive(id); ok && a.ID != "" {
-			m := convArchiveMeta{ID: a.ID, Title: a.Title, Fav: a.Fav, SavedAt: a.SavedAt, Turns: a.Turns}
+			m := convArchiveMeta{ID: a.ID, Project: a.Project, Title: a.Title, Fav: a.Fav, SavedAt: a.SavedAt, Turns: a.Turns}
 			_ = putStoreJSON(bkChatMeta, a.ID, m)
 			out = append(out, m)
 		}
@@ -188,6 +193,41 @@ func listArchives() []convArchiveMeta {
 	return out
 }
 
+// archiveProject renvoie le projet d'une session : son slug, ou Générale par défaut
+// (sessions d'avant les projets, sans champ Project).
+func archiveProject(m convArchiveMeta) string {
+	if p := strings.TrimSpace(m.Project); p != "" {
+		return p
+	}
+	return defaultProjectSlug
+}
+
+// listArchivesForProject renvoie les sessions d'un projet donné.
+func listArchivesForProject(slug string) []convArchiveMeta {
+	all := listAllArchives()
+	out := make([]convArchiveMeta, 0, len(all))
+	for _, m := range all {
+		if archiveProject(m) == slug {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+// tagOrphanArchives affecte un projet aux sessions historiques qui n'en ont pas
+// (migration douce : elles rejoignent le projet par défaut). Idempotent.
+func tagOrphanArchives(slug string) {
+	for _, m := range listAllArchives() {
+		if strings.TrimSpace(m.Project) != "" {
+			continue
+		}
+		if a, ok := loadArchive(m.ID); ok {
+			a.Project = slug
+			_ = saveArchive(a)
+		}
+	}
+}
+
 // --- opérations sur la conversation active ------------------------------------
 
 // snapshotForSession prend une copie de la conversation courante sous SON id de
@@ -198,8 +238,13 @@ func (c *Conversation) snapshotForSession() *convArchive {
 	if len(c.Log) == 0 && len(c.Messages) == 0 {
 		return nil
 	}
+	proj := c.Project
+	if proj == "" {
+		proj = activeProjectSlug()
+	}
 	a := &convArchive{
 		ID:           c.ID, // id STABLE de la session (pas un nouvel id à chaque fois)
+		Project:      proj,
 		SavedAt:      time.Now().UnixMilli(),
 		Messages:     append([]Message(nil), c.Messages...),
 		Log:          append([]LogEvent(nil), c.Log...),
@@ -234,6 +279,28 @@ func (c *Conversation) NewSession() string {
 	return c.ID
 }
 
+// SwitchProject bascule la conversation active vers un autre projet. La session en
+// cours est d'abord archivée DANS SON projet (rien ne se perd), puis on persiste le
+// nouveau projet actif et on démarre une session vierge qui lui appartient. Le fil
+// affiché repart donc à zéro (décision produit : bascule = nouvelle session).
+func (c *Conversation) SwitchProject(slug string) error {
+	if !projectExists(slug) {
+		return fmt.Errorf("projet introuvable")
+	}
+	if c.currentID() != "" {
+		c.upsertSession() // sauve la conversation courante dans son projet d'origine
+	}
+	if err := setActiveProject(slug); err != nil {
+		return err
+	}
+	c.Stop()
+	c.mu.Lock()
+	c.Project = slug
+	c.mu.Unlock()
+	c.Reset() // session vierge (Reset préserve c.Project)
+	return nil
+}
+
 // OpenSession charge la session `id` comme conversation active. La conversation
 // courante est d'abord sauvegardée dans SA propre session (elle RESTE dans la
 // liste, aucun doublon). La session ouverte n'est PAS retirée : elle devient
@@ -249,6 +316,9 @@ func (c *Conversation) OpenSession(id string) error {
 	c.Stop()
 	c.mu.Lock()
 	c.ID = a.ID
+	if a.Project != "" {
+		c.Project = a.Project
+	}
 	c.Messages = append([]Message(nil), a.Messages...)
 	c.Log = append([]LogEvent(nil), a.Log...)
 	c.Seq = a.Seq

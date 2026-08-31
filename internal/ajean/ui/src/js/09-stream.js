@@ -282,17 +282,12 @@ function setBusy(on){ busy=on; if(!REPLAYING) syncSendBtn(); }
 let RUNNING_TASK='';
 function syncSendBtn(){
   const sb=document.getElementById('send');
-  sb.style.display=busy?'none':'inline-block';
+  sb.style.display=busy?'none':'flex';
   const stop=document.getElementById('stop');
-  stop.style.display=busy?'inline-block':'none';
-  // Étiquette explicite quand c'est une TÂCHE qui occupe le moteur.
-  if(busy && RUNNING_TASK){
-    stop.textContent='arrêter la tâche';
-    stop.title='Tâche « '+RUNNING_TASK+' » en cours';
-  } else {
-    stop.textContent='stop';
-    stop.title='';
-  }
+  stop.style.display=busy?'flex':'none';
+  // Le bouton stop est une icône (carré) : on ne touche PAS à son contenu (sinon on
+  // écraserait le SVG), seulement au tooltip pour signaler une tâche de fond.
+  stop.title = (busy && RUNNING_TASK) ? ('Arrêter la tâche « '+RUNNING_TASK+' »') : 'stop';
   // Tant que le moteur n'a pas fini de charger le modèle, envoyer ne mène à rien :
   // on bloque le bouton et l'Entrée, et on le DIT sous le champ. `STATUS_SEEN`
   // évite de verrouiller le chat quand /api/status n'a pas encore répondu (ou ne

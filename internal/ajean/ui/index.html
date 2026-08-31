@@ -116,7 +116,7 @@ option,optgroup{background:var(--panel);color:var(--text)}
   .msg{max-width:92%}
   #chat .msg.assistant,#chat .msg.reasoning{max-width:100%}
   #inputbar{padding:8px;gap:4px}
-  #send,#stop{padding:0 12px}
+  #send,#stop{width:36px;padding:0}
   /* Petit écran (menu replié en tiroir) : on masque l'aide clavier — inutile et
      ça prend de la place. Elle reste visible sur desktop. */
   #sendhint{display:none}
@@ -445,10 +445,15 @@ button:disabled{opacity:.5;cursor:not-allowed}
 /* --- Voile de chargement du fil ------------------------------------------
    Couvre la zone du chat tant que le replay n'est pas fini. Sans lui, une
    connexion lente donne un chat vide indiscernable d'une conversation vide. */
-#chat-loading{position:absolute;inset:0;z-index:6;display:none;flex-direction:column;
+/* Voile toujours présent (display:flex), mais invisible et inerte hors chargement.
+   On anime l'OPACITÉ (et la visibilité) pour un fondu propre à la disparition : le
+   fil apparaît en douceur dessous, plus d'apparition « sèche ». */
+#chat-loading{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:12px;background:var(--bg);
-  color:var(--dim);font-size:12px;letter-spacing:.04em;pointer-events:none}
-#chat-loading.show{display:flex}
+  color:var(--dim);font-size:12px;letter-spacing:.04em;pointer-events:none;
+  opacity:0;visibility:hidden;transition:opacity .38s ease,visibility .38s ease}
+#chat-loading.show{opacity:1;visibility:visible}
+@media (prefers-reduced-motion:reduce){#chat-loading{transition:none}}
 /* Accueil du fil vide. Posé en surimpression du chat (et non DANS le fil) pour ne
    pas perturber le défilement ni le rendu du replay ; pointer-events:none pour
    qu'il ne vole jamais un clic à la zone de saisie. Il vit sous le voile de
@@ -464,6 +469,12 @@ button:disabled{opacity:.5;cursor:not-allowed}
 #ce-logo svg{height:20px;width:auto;display:block;shape-rendering:crispEdges;fill:currentColor}
 #ce-logo .ce-word{display:inline-flex;color:var(--accent)}
 #ce-title{font-size:14px;color:var(--dim);letter-spacing:.03em}
+/* Voile de chargement : la marque « J » (favicon) en GRAND qui pulse (même pulsation
+   que le logo de compactage, @keyframes jpulse). Remplace l'ancien texte + points.
+   #cl-logo EST le SVG (viewBox 0 0 12 12). */
+#cl-logo{width:52px;height:52px;display:block;color:var(--accent);fill:currentColor;
+  shape-rendering:crispEdges;animation:jpulse 1.1s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){#cl-logo{animation:none;opacity:.7}}
 .cl-dots{display:inline-flex;gap:5px;align-items:center}
 .cl-dots span{width:7px;height:7px;border-radius:50%;background:var(--dim);animation:typingdot 1.2s infinite ease-in-out}
 .cl-dots span:nth-child(2){animation-delay:.16s}
@@ -702,7 +713,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 #sendhint.waiting{opacity:1;color:var(--dim)}
 #input{flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;font:inherit;resize:none;min-height:56px;max-height:200px;overflow-y:hidden}
 #input:focus{outline:none;border-color:var(--accent)}
-#send{padding:0 20px}
+#send,#stop{width:36px;padding:0}
 .muted{color:var(--dim);font-size:13px}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:50;background:var(--panel);border:1px solid var(--border);padding:8px 16px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;box-shadow:0 8px 30px rgba(0,0,0,.18)}
 #toast.show{opacity:1}
@@ -734,7 +745,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
   /* PAS de font-size < 16px ici : iOS Safari zoome à la sélection du champ. On
      garde 16px (hérité de la règle anti-zoom) et on compacte via hauteur/padding. */
   #input{min-height:34px;max-height:120px;padding:6px 9px}
-  #send,#stop{padding:0 14px}
+  #send,#stop,#plus-btn{width:34px;height:34px;min-height:34px;padding:0}
   #composer .muted{display:none}
   #ctxmeta{padding:3px 10px 0}
   h1{font-size:15px}
@@ -974,10 +985,14 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
    feuille : le voile ne rogne plus les côtés, la carte occupe toute la largeur et
    colle au bas de l'écran (coins hauts arrondis), et on resserre les paddings. */
 @media (max-width:720px){
-  .modal-ov{padding:0;align-items:flex-end}
-  .modal-card,#modal .modal-card{max-width:none;width:100%;max-height:94vh;
-    border-radius:16px 16px 0 0;border-bottom:none;
-    padding-bottom:env(safe-area-inset-bottom)}
+  /* Carte CENTRÉE et flottante (comme sur desktop), pas un panneau collé en bas :
+     le « bottom sheet » faisait moche. On garde des marges (safe-area comprise) pour
+     que la carte respire, et tous les coins sont arrondis. */
+  .modal-ov{padding:16px;align-items:center;
+    padding-top:max(16px,env(safe-area-inset-top));
+    padding-bottom:max(16px,env(safe-area-inset-bottom))}
+  .modal-card,#modal .modal-card{max-width:none;width:100%;max-height:88vh;
+    border-radius:16px}
   .pe-body{padding:14px 12px 20px;gap:20px}
   .modal-body{padding:14px 12px}
   .pe-row{padding:9px 12px;gap:10px}
@@ -1104,9 +1119,21 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .sess-list{display:flex;flex-direction:column;gap:1px}
 .sess-head{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);padding:10px 8px 5px}
 .sess-head:first-child{padding-top:2px}
-.sess-row{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:9px;border:1px solid transparent;cursor:pointer}
+.sess-row{position:relative;display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:9px;border:none;cursor:pointer}
 .sess-row:hover{background:var(--row-bg)}
-.sess-row.active{background:var(--accent-bg);border-color:#58a6ff;cursor:default}
+/* Minimal : l'actif est un simple voile, sans cadre. */
+.sess-row.active{background:var(--accent-bg);cursor:default}
+/* Point « conversation en cours » dans l'angle haut-gauche de la ligne. */
+.sess-corner-dot{position:absolute;top:6px;left:6px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
+/* Bouton menu ⋮ d'une conversation : discret à droite, net au survol / sur l'active. */
+.sess-menu-btn{flex:none;width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+  padding:0;margin:0;border:none;background:transparent;color:var(--dim);border-radius:7px;cursor:pointer;
+  opacity:0;transition:opacity .12s,background .12s,color .12s}
+.sess-row:focus-within .sess-menu-btn,.sess-row.active .sess-menu-btn{opacity:1}
+@media (hover:hover){.sess-row:hover .sess-menu-btn{opacity:1}}
+@media (hover:none){.sess-menu-btn{opacity:.5}}
+.sess-menu-btn:hover{background:var(--row-bg-on);color:var(--text)}
+.sess-menu-btn svg{display:block}
 .sess-row:focus-visible{outline:none;box-shadow:0 0 0 2px var(--border)}
 /* Étoile favori : éteinte (contour dim), allumée (pleine, accent). */
 .sess-star{flex:none;display:flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;background:none;border:none;border-radius:7px;color:var(--dim);cursor:pointer}
@@ -1119,7 +1146,80 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .sess-row:hover .sess-acts,.sess-row.active .sess-acts,.sess-row:focus-within .sess-acts{opacity:1}
 .sess-act{display:flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;background:none;border:none;border-radius:7px;color:var(--dim);cursor:pointer}
 .sess-act:hover{background:var(--row-bg-on);color:var(--text)}
-.sess-badge{font-size:10px;font-weight:600;color:#58a6ff;letter-spacing:.03em;padding:0 4px;white-space:nowrap}
+.sess-badge{font-size:10px;font-weight:600;color:var(--accent);letter-spacing:.03em;padding:0 4px;white-space:nowrap}
+/* Action principale du hub : « Nouvelle conversation », pleine largeur, remplie en
+   accent (comme le bouton d'envoi) — bien visible tout en haut. */
+/* Action principale « Nouvelle conversation » : bouton plein largeur SOBRE (bordure
+   fine, fond au survol), pas un bloc noir. Minimal Linear/Notion. */
+.proj-cta{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;margin:0 0 4px;
+  padding:12px 14px;border:none;border-radius:11px;
+  background:var(--row-bg);color:var(--text);font-size:13.5px;font-weight:500;cursor:pointer;
+  touch-action:manipulation;transition:background .12s}
+.proj-cta svg{display:block;color:var(--dim)}
+.proj-cta:focus,.proj-cta:focus-visible{outline:none}
+.proj-cta:active{transform:scale(.995)}
+@media (hover:hover){.proj-cta:hover{background:var(--row-bg-on)}.proj-cta:hover svg{color:var(--text)}}
+/* Boutons MINIMAUX (footer, + projet…) : texte discret, fond léger au survol, sans
+   cadre — cohérents dans tous les modals. */
+.mbtn{margin:0;padding:7px 12px;border:none;background:transparent;color:var(--dim);
+  border-radius:8px;font-size:12.5px;font-weight:500;cursor:pointer;transition:background .12s,color .12s;display:inline-flex;align-items:center;gap:6px}
+.mbtn:hover{background:var(--row-bg);color:var(--text)}
+.mbtn.danger:hover{background:var(--danger-bg);color:var(--err)}
+.mbtn.primary{color:var(--accent);font-weight:600}
+.mbtn.primary:hover{background:var(--accent-bg);color:var(--accent)}
+/* « + projet » = un mbtn compact dans l'en-tête. */
+.proj-newproj{margin:0;padding:5px 10px;border:none;background:transparent;color:var(--dim);
+  border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;transition:background .12s,color .12s}
+.proj-newproj:hover{background:var(--row-bg);color:var(--accent)}
+/* Projets en GRILLE de cartes-dossiers, dans le langage MONOCHROME de l'app (accent
+   = --accent, jamais de bleu en dur). Carte : dossier duotone + nom centré, menu
+   « ⋯ » discret en haut à droite. Actif = cadre accent plus marqué (comme un preset
+   actif). Rien ne se chevauche. */
+.proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:2px}
+/* Minimal (Linear/Notion) : pas de cadre, juste un fond au survol ; l'actif porte un
+   voile discret + l'icône en accent. L'espace fait le travail, rien ne « boxe ». */
+.proj-tile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;
+  min-height:94px;padding:16px 10px;border:none;border-radius:12px;cursor:pointer;
+  background:transparent;color:var(--dim);transition:background .12s ease}
+.proj-tile:hover{background:var(--row-bg)}
+.proj-tile:focus-visible{outline:none;background:var(--row-bg);box-shadow:0 0 0 2px var(--accent-bg)}
+.proj-tile.active{background:var(--accent-bg);cursor:default}
+.proj-ticon{display:flex;line-height:0}
+.proj-ticon svg{display:block}
+.proj-tile.active .proj-ticon{color:var(--accent)}
+.proj-tname{font-size:12.5px;font-weight:500;color:var(--text);text-align:center;line-height:1.3;
+  max-width:100%;word-break:break-word;overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.proj-tile.active .proj-tname{font-weight:600}
+/* Pastille « actif » : simple point accent en haut à gauche (le texte est masqué). */
+.proj-badge{position:absolute;top:10px;left:10px;width:5px;height:5px;border-radius:50%;
+  background:var(--accent);font-size:0;text-indent:-999px;overflow:hidden}
+/* Bouton menu ⋯ : discret, en haut à droite ; net au survol / actif. */
+/* Point « conversation en cours » : à DROITE, juste avant le menu ⋮. */
+.sess-dot{flex:none;width:6px;height:6px;border-radius:50%;background:var(--accent);margin:0}
+.proj-menu-btn{position:absolute;top:6px;right:6px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;
+  padding:0;margin:0;border:none;background:transparent;color:var(--dim);border-radius:7px;cursor:pointer;
+  opacity:0;transition:opacity .12s,background .12s,color .12s}
+/* ⋮ visible sur la tuile ACTIVE (où il est bien cadré dans son voile) et au survol
+   souris ; sur mobile, les tuiles inactives ne montrent donc pas de ⋮ flottant. */
+.proj-tile.active .proj-menu-btn,.proj-tile:focus-within .proj-menu-btn{opacity:1}
+@media (hover:hover){.proj-tile:hover .proj-menu-btn{opacity:1}}
+.proj-menu-btn:hover{background:var(--row-bg-on);color:var(--text)}
+.proj-menu-btn svg{display:block}
+/* Popover de menu (projets ⋯, et bouton + du composeur). Posé sous <body>, placé en JS. */
+.pop-menu{position:fixed;z-index:60;min-width:170px;padding:5px;display:flex;flex-direction:column;gap:1px;
+  background:var(--panel);border:1px solid var(--border);border-radius:11px;
+  box-shadow:0 12px 34px rgba(0,0,0,.22);
+  transform-origin:bottom left;animation:popIn .14s cubic-bezier(.2,.8,.2,1)}
+@keyframes popIn{from{opacity:0;transform:translateY(7px) scale(.94)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.pop-menu{animation:none}}
+.pop-menu button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;margin:0;
+  padding:9px 11px;border:none;background:none;border-radius:7px;color:var(--text);font-size:13px;cursor:pointer}
+.pop-menu button:hover{background:var(--row-bg)}
+.pop-menu button svg{flex:none;color:var(--dim)}
+.pop-menu button.danger{color:var(--err)}
+.pop-menu button.danger:hover{background:var(--danger-bg)}
+.pop-menu button.danger svg{color:var(--err)}
 /* La modale des tâches emprunte tout le design de l'éditeur de preset (.pe-*) :
    même largeur, même mise en carte. */
 #task-modal .modal-card{max-width:520px;overflow:hidden}
@@ -1286,9 +1386,39 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
 /* touch-action:manipulation : supprime le délai de double-tap et lève l'ambiguïté
    geste/tap sur iOS — le bouton stop répond au premier appui même pendant que le
    fil défile en streaming (voir scrollMaybe, coalescé). */
-#send,#stop{border-radius:999px;height:36px;min-height:36px;padding:0 18px;margin:0;touch-action:manipulation}
-#send{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
-#send:hover:not(:disabled){opacity:.85;color:var(--bg);border-color:var(--text)}
+/* Envoyer / stop : pastilles RONDES à icône (flèche ↑ / carré). Fond = couleur de
+   texte du thème (noir en clair, blanc en sombre), icône = couleur de fond → le
+   bouton « reste blanc ou noir suivant le thème ». Le stop n'est plus rouge. */
+#send,#stop{border-radius:999px;width:36px;height:36px;min-height:36px;padding:0;margin:0;
+  display:flex;align-items:center;justify-content:center;flex:none;touch-action:manipulation;
+  background:var(--text);color:var(--bg);border:1px solid var(--text)}
+#send svg,#stop svg{display:block}
+/* Centrage OPTIQUE de la flèche : la masse d'une flèche vers le haut tire l'œil
+   vers le bas, on la remonte d'un cheveu. */
+#send svg{transform:translateY(-0.5px)}
+#send:hover:not(:disabled),#stop:hover:not(:disabled){color:var(--bg);border-color:var(--text)}
+/* La baisse d'opacité ne s'applique qu'aux VRAIS survols (souris) : sur écran
+   tactile, :hover reste « collé » après un tap → le bouton restait terne une fois
+   la réponse finie. */
+@media (hover:hover){#send:hover:not(:disabled),#stop:hover:not(:disabled){opacity:.88}}
+/* Bouton « + » du composeur : pastille RONDE grise (à gauche de la flèche). Ouvre le
+   menu machines / fichiers. Gris neutre, distinct du bouton d'envoi (plein). */
+#plus-btn{border-radius:999px;width:36px;height:36px;min-height:36px;padding:0;margin:0;flex:none;
+  display:flex;align-items:center;justify-content:center;touch-action:manipulation;
+  background:var(--bubble);color:var(--text);border:1px solid var(--border)}
+#plus-btn svg{display:block;transition:transform .2s cubic-bezier(.2,.8,.2,1)}
+/* Aucun anneau de focus ni changement de contour au clic : seul le glyphe compte. */
+#plus-btn:focus,#plus-btn:focus-visible,#plus-btn.open{outline:none;border-color:var(--border);background:var(--bubble);color:var(--text)}
+/* Survol uniquement à la SOURIS (sinon :hover reste collé après un tap tactile et
+   laissait un contour accent). */
+@media (hover:hover){#plus-btn:hover{border-color:var(--accent);color:var(--accent)}}
+/* Menu ouvert : le + pivote en × (45°), c'est tout. */
+#plus-btn.open svg{transform:rotate(45deg)}
+@media (prefers-reduced-motion:reduce){#plus-btn svg{transition:none}}
+/* Indicateur « poste distant actif » : ondes wifi teintées accent, à gauche du +. */
+#node-indic{flex:none;display:none;align-items:center;justify-content:center;
+  width:26px;height:36px;color:var(--accent)}
+#node-indic svg{display:block}
 /* Pied de carte : c'est LUI qui porte l'arrondi bas (26 px, comme en haut) et
    qui clippe la jauge. Un bandeau de 7 px ne peut pas dessiner un rayon de 26 px
    (le navigateur l'écrase, d'où les coins bizarres) : on laisse donc la carte
@@ -1300,7 +1430,8 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
    coque à visualViewport.height, ni décaler le composer de la hauteur du
    clavier. Dans les deux cas la carte part en haut de l'écran en PWA iOS.
    iOS gère déjà correctement le clavier tout seul — on le laisse faire. */
-#ctx-text,#status-preset{color:var(--dim);font-size:10px;letter-spacing:.02em;white-space:nowrap}
+#ctx-text,#status-preset{color:var(--dim);font-size:11.5px;letter-spacing:.01em;white-space:nowrap;font-weight:500}
+#ctx-text{font-variant-numeric:tabular-nums}
 #ctx-compact{border-radius:999px;padding:2px 10px;font-size:10px;background:transparent;border-color:var(--border);color:var(--dim)}
 #ctx-compact:hover{border-color:var(--dim);color:var(--text)}
 /* Jauge = bord bas de la carte : épaisse, plaquée au ras du bord, rognée par
@@ -1337,6 +1468,16 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
 #node-btn.remote{color:var(--accent)}
 #node-btn.remote .ic-here{display:none}
 #node-btn.remote .ic-remote{display:block}
+/* Chip « Projet actif » du composeur : dossier + nom, dans une pastille CADRÉE
+   (contour net) plus grande que les autres icônes — c'est l'info « où je suis ». */
+#project-btn{height:26px;min-height:26px;flex:none;margin:0;padding:0 11px 0 9px;
+  display:flex;align-items:center;gap:6px;border-radius:999px;max-width:160px;
+  background:var(--panel);border:1px solid var(--border);color:var(--text)}
+#project-btn:hover{background:var(--accent-bg);border-color:var(--accent);color:var(--accent)}
+#project-btn:active{transform:scale(.96)}
+#project-btn svg{display:block;flex:none;width:14px;height:14px}
+#project-btn-name{font-size:11.5px;font-weight:500;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:118px}
+#project-btn-name:empty{display:none}
 /* Raccourci « niveau de réflexion » : même gabarit/pastille que postes distants et
    le trombone (18px, couleur --dim → --text au survol). L'icône est une jauge à
    barres dont le nombre de barres allumées = le niveau (voir updateReasonBtn). */
@@ -1491,18 +1632,41 @@ button:hover{border-color:var(--dim);color:var(--text)}
 
 /* Postes distants : cases de capacités, code d'appairage, commande. */
 .node-caps{display:flex;flex-wrap:wrap;gap:6px}
-.node-cap{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid var(--border);border-radius:7px;font-size:12px;cursor:pointer;user-select:none}
-.node-cap input{margin:0}
+/* Toggle chips : pilule contour (inactif) → pleine accent (actif). Pas de case à
+   cocher bleue système. */
+.node-cap{display:inline-flex;align-items:center;padding:6px 13px;border:1px solid var(--border);
+  border-radius:999px;font-size:12.5px;font-weight:500;color:var(--dim);cursor:pointer;user-select:none;
+  transition:background .12s,border-color .12s,color .12s}
+.node-cap input{display:none}
+.node-cap:has(input:checked){background:var(--accent);border-color:var(--accent);color:var(--bg)}
+@media (hover:hover){.node-cap:hover{border-color:var(--accent);color:var(--text)}.node-cap:has(input:checked):hover{color:var(--bg)}}
 .node-code{font-family:var(--mono,monospace);font-size:22px;font-weight:700;letter-spacing:3px;color:var(--accent);padding:8px 0}
 .node-cmd{white-space:pre-wrap;word-break:break-all;background:var(--code-bg);border:1px solid var(--border);border-radius:7px;padding:8px;margin:6px 0;font-size:12px}
 
-/* Poste distant : sélecteur de cible d'exécution. */
-.node-target{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:8px}
-.node-target-l{font-size:12px;color:var(--dim);margin-right:2px;width:100%}
-.node-target-opt{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid var(--border);border-radius:7px;font-size:12px;cursor:pointer}
-.node-target-opt.on{border-color:var(--accent);color:var(--accent)}
-.node-target-opt.off{opacity:.6}
-.node-target-opt input{margin:0}
+/* Poste distant : sélecteur de cible d'exécution, en SEGMENTED CONTROL minimal
+   (piste grise, segment actif surélevé). L'IA agit sur le segment sélectionné. */
+.node-seg-l{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);padding:2px 2px 6px}
+.node-seg{display:flex;gap:2px;background:var(--row-bg);border-radius:11px;padding:3px;margin-bottom:16px}
+.node-seg label{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:8px 10px;border-radius:9px;font-size:12.5px;color:var(--dim);cursor:pointer;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;transition:background .12s,color .12s}
+.node-seg label:hover{color:var(--text)}
+.node-seg label.on{background:var(--bg);color:var(--text);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.node-seg label.off{opacity:.5}
+.node-seg label input{display:none}
+/* Lignes de postes : liste minimale (pas de cadre), voile au survol — comme les
+   conversations. Point d'état à gauche, nom + méta discrète, action au survol. */
+.node-row{display:flex;align-items:center;gap:11px;padding:10px;border-radius:10px;border:none;background:transparent;cursor:pointer}
+.node-row:hover{background:var(--row-bg)}
+.node-row.off{opacity:.55}
+.node-dot{flex:none;width:7px;height:7px;border-radius:50%;background:var(--accent)}
+.node-row.off .node-dot{background:var(--dim)}
+.node-info{flex:1;min-width:0}
+.node-nm{font-size:13.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.node-sub{font-size:11.5px;color:var(--dim);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.node-go{flex:none;display:flex;align-items:center;color:var(--dim);opacity:0;transition:opacity .12s}
+.node-row:hover .node-go{opacity:1}
+@media (hover:none){.node-go{opacity:.5}}
 </style></head><body>
 <button id="menubtn" onclick="toggleSide()">☰</button>
 <!-- Installation d'un moteur en cours : le détail vit dans le panneau, qui est
@@ -1538,25 +1702,25 @@ button:hover{border-color:var(--dim);color:var(--text)}
   </div>
   <!-- GPU et RAM décrivent la même chose (les ressources de la machine) :
        une seule section, deux blocs de statistique dans la même carte. -->
-  <details open><summary><span class="stitle">Machine</span></summary>
+  <details open><summary><span class="stitle">Device</span></summary>
     <div class="slist">
       <div id="vram">…</div>
       <div id="ram-details"><div id="ram"></div></div>
     </div>
   </details>
-  <details open id="cfg-details"><summary><span class="stitle">Config active</span></summary>
+  <details open id="cfg-details"><summary><span class="stitle">Configuration</span></summary>
     <div id="cfg" class="slist">…</div>
   </details>
   <details><summary><span class="stitle">Presets</span><button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter">+</button></summary>
     <div class="slist"><div id="presets" class="rowlist"></div></div>
   </details>
-  <details><summary><span class="stitle">Mode agent</span><span id="agent-badge" class="sbadge"></span></summary>
+  <details><summary><span class="stitle">Agent</span><span id="agent-badge" class="sbadge"></span></summary>
     <div class="slist"><label class="switchrow"><span class="switch"><input type="checkbox" id="agent-toggle" onchange="toggleAgent()"><span class="slider"></span></span> activer le mode agent<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">⚠ active l'<b>accès machine</b> (shell complet via <b>bash</b> sur le serveur) — l'IA peut inspecter, lancer des scripts, écrire/lire/éditer des fichiers (timeout 30s, max 300s). Mémoire et accès internet ci-dessous ne fonctionnent que si le mode agent est activé.</span></span></label></div>
     <!-- Sous-réglages du mode agent. MÊME gabarit que « Machine » / « Apparence » :
          étiquette de groupe nue, puis UNE carte de lignes (.slist). Le groupe
          entier est grisé/inerte quand l'agent est off (voir setAgentGate). -->
     <div id="mem-block" class="gated-group">
-      <div class="subhead">Mémoire<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span id="mem-mode-desc" class="tip"></span></span></div>
+      <div class="subhead">Memory<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span id="mem-mode-desc" class="tip"></span></span></div>
       <!-- Carte unique, trois lignes nettes séparées par un filet :
            1) mode d'utilisation · 2) navigateur de pages · 3) chiffrement. -->
       <div class="slist">
@@ -1618,7 +1782,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
       </div>
     </div>
     <div id="mcp-block" class="gated-group">
-      <div class="subhead">Serveurs MCP<span id="mcp-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Connecte des <b>serveurs MCP</b> (Model Context Protocol) pour donner de nouveaux outils à l'IA : accès fichiers, bases de données, APIs métier… <b>stdio</b> = programme lancé localement (npx/uvx/binaire) · <b>http</b> = serveur distant. ⚠ un serveur stdio exécute du code sur cette machine, au même titre que le shell.</span></span></div>
+      <div class="subhead">MCP servers<span id="mcp-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Connecte des <b>serveurs MCP</b> (Model Context Protocol) pour donner de nouveaux outils à l'IA : accès fichiers, bases de données, APIs métier… <b>stdio</b> = programme lancé localement (npx/uvx/binaire) · <b>http</b> = serveur distant. ⚠ un serveur stdio exécute du code sur cette machine, au même titre que le shell.</span></span></div>
       <div class="slist">
         <div class="rowbody">
           <!-- Même texte que celui rendu après chargement quand il n'y a aucun
@@ -1646,7 +1810,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
         <label class="switchrow"><span class="switch"><input type="checkbox" id="mem-enc-toggle" onchange="toggleMemEncrypt()"><span class="slider"></span></span> activer le chiffrement<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Chiffre ta <b>mémoire</b> ET tes <b>conversations</b> au repos (AES-256), protégées par ta <b>clé d'accès</b> : si tu as accès à l'interface, c'est déjà déverrouillé ; sinon on te demande ta clé d'accès. Une <b>clé de récupération</b> t'est donnée à l'activation (garde-la). Rien n'est perdu : snapshots automatiques avant chaque bascule.</span></span></label>
     </div>
   </details>
-  <details id="tasks-details"><summary><span class="stitle">Tâches</span><span id="tasks-badge" class="sbadge"></span></summary>
+  <details id="tasks-details"><summary><span class="stitle">Tasks</span><span id="tasks-badge" class="sbadge"></span></summary>
     <!-- Tâches planifiées : l'IA exécute une consigne toute seule sur une
          fréquence réglable (voir tasks.go). Chaque tâche tourne ISOLÉE de la
          conversation — elle livre son résultat via les outils de l'IA (mail via
@@ -1663,7 +1827,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
       </div>
     </div>
   </details>
-  <details><summary><span class="stitle">Apparence</span></summary>
+  <details><summary><span class="stitle">Appearance</span></summary>
     <div class="slist">
       <label class="switchrow rev"><span>mode sombre</span>
         <span class="switch"><input type="checkbox" id="theme-dark" onchange="toggleThemeDark()"><span class="slider"></span></span>
@@ -1678,12 +1842,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-enter-newline" onchange="toggleView('enter-newline')"><span class="slider"></span></span> Entrée = retour à la ligne<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Par défaut, <b>Entrée</b> envoie le message et <b>Maj+Entrée</b> fait un retour à la ligne. Activez ceci pour inverser : Entrée va à la ligne, et <b>Maj+Entrée</b> (ou Ctrl+Entrée) envoie.</span></span></label>
     </div>
   </details>
-  <details><summary><span class="stitle">System prompt</span></summary>
-    <div class="slist"><div class="rowbody">
-      <textarea id="sysprompt" placeholder="(optionnel) ex: tu es un assistant concis en français" oninput="saveSys()" class="sctl"></textarea>
-    </div></div>
-  </details>
-  <details><summary><span class="stitle">Accès OpenAI</span></summary>
+  <details><summary><span class="stitle">API</span></summary>
     <div class="subhead">Endpoint compatible OpenAI<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Branchez n'importe quel client compatible OpenAI (OpenCode, Continue, Cursor…) sur ces adresses. Si une clé est définie, le client doit envoyer <code>Authorization: Bearer &lt;clé&gt;</code>.</span></span></div>
     <!-- UNE carte pour tout l'endpoint : adresse locale, bascule « public » et
          adresse publique sont un seul sujet — trois cartes accolées donnaient
@@ -1700,7 +1859,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
            boucle locale (le défaut sous Windows) : le chat du navigateur marche,
            mais aucun logiciel du réseau ne peut s'y brancher. Cet interrupteur
            règle HOST et pose la règle de pare-feu, voir sys_network.go. -->
-      <label class="switchrow"><span class="switch"><input type="checkbox" id="lan-toggle" onchange="toggleLAN()"><span class="slider"></span></span> joignable depuis le réseau local<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Éteint, le moteur n'écoute que sur <b>cette machine</b> : l'adresse ci-dessus ne répond qu'ici. Allumez-le pour brancher un logiciel depuis un autre ordinateur du réseau (sous Windows, la règle de pare-feu est posée en même temps). <b>Redémarre le moteur.</b></span></span></label>
+      <label class="switchrow septop"><span class="switch"><input type="checkbox" id="lan-toggle" onchange="toggleLAN()"><span class="slider"></span></span> joignable depuis le réseau local<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Éteint, le moteur n'écoute que sur <b>cette machine</b> : l'adresse ci-dessus ne répond qu'ici. Allumez-le pour brancher un logiciel depuis un autre ordinateur du réseau (sous Windows, la règle de pare-feu est posée en même temps). <b>Redémarre le moteur.</b></span></span></label>
       <div id="lan-warn" class="rowbody" style="display:none"></div>
       <label class="switchrow"><span class="switch"><input type="checkbox" id="oai-public-toggle" onchange="toggleOAIPublic()"><span class="slider"></span></span> exposer en public (ajean.link)<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Rend votre IA joignable depuis <b>n'importe où</b> via <code>https://&lt;machine&gt;.oai.ajean.link/v1</code> (pour brancher un SaaS). Le trafic est chiffré <b>de bout en bout</b> jusqu'à ce serveur — le relais ajean.link ne voit rien. Nécessite l'accès distant actif.</span></span></label>
       <div id="oai-public-wrap" class="rowbody" style="display:none">
@@ -1725,7 +1884,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
       </div>
     </div></div>
   </details>
-  <details id="remote-details"><summary><span class="stitle">ajean link</span><span id="remote-badge" class="sbadge"></span></summary>
+  <details id="remote-details"><summary><span class="stitle">Link</span><span id="remote-badge" class="sbadge"></span></summary>
     <div class="subhead">Accès distant<span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip">Accédez à ce serveur AJEAN depuis <b>n'importe où</b>, sans ouvrir de port, à travers le relais <b>ajean.link</b>. Le trafic est chiffré de <b>bout en bout</b> : le relais ne voit rien. Abonnement 4,80 €/mois.</span></span></div>
     <!-- Non connecté : un seul bouton, tout se passe dans la popup (compte + paiement). -->
     <div id="remote-off" class="slist"><div class="rowbody">
@@ -1771,7 +1930,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
       </div>
     </div>
   </details>
-  <details id="lc-details"><summary><span class="stitle">Moteur</span></summary>
+  <details id="lc-details"><summary><span class="stitle">Engine</span></summary>
     <!-- Une seule carte : état, choix du mode et journal d'installation sont le
          même sujet. Les trois modes sont des LIGNES de cette carte (elles
          étaient des cartes dans une carte). -->
@@ -1818,7 +1977,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
       </div>
     </div></div>
   </details>
-  <details id="upd-details"><summary><span class="stitle">Actions</span></summary>
+  <details id="upd-details"><summary><span class="stitle">Settings</span></summary>
     <div class="slist"><div class="rowbody">
       <!-- Ligne 1 : mise à jour + export du fil. Depuis la 0.8 la conversation vit
            dans ajean.db (bbolt, verrouillé tant que le service tourne) : sans le
@@ -1828,11 +1987,10 @@ button:hover{border-color:var(--dim);color:var(--text)}
         <button onclick="openExportModal()" title="choisir le format et ce qu'on emporte">⤓ exporter…</button>
       </div>
       <div id="upd-msg" class="muted"></div>
-      <!-- Ligne 2 : bench + clear chat (seule action destructive, gardée en dernier). -->
+      <!-- Ligne 2 : bench. (« clear chat » retiré : les conversations se gèrent dans
+           le hub Projets — nouvelle/ouvrir/supprimer.) -->
       <div class="row" style="margin-bottom:0">
-        <button onclick="openHistoryModal()" title="tes sessions de conversation">☰ sessions</button>
         <button id="btn-bench" onclick="runBenchUI()">bench</button>
-        <button onclick="resetChat()">⌫ clear chat</button>
       </div>
     </div></div>
   </details>
@@ -1841,7 +1999,9 @@ button:hover{border-color:var(--dim);color:var(--text)}
   <div id="chat"></div>
   <!-- Voile de chargement du fil : sans lui, une connexion lente donne un chat
        VIDE indiscernable d'une conversation vide. Masqué au signal {caught_up}. -->
-  <div id="chat-loading"><span class="cl-dots"><span></span><span></span><span></span></span><span id="chat-loading-text">chargement de la conversation…</span></div>
+  <!-- Loader du fil : la marque « J » d'ajean (même glyphe que le favicon et le logo
+       de compactage) en grand, qui pulse. Pas le mot AJEAN complet. -->
+  <div id="chat-loading" class="show" aria-label="chargement de la conversation"><svg id="cl-logo" viewBox="0 0 12 12" aria-hidden="true" fill="currentColor"><rect x="6" y="3" width="2" height="2"/><rect x="6" y="5" width="2" height="2"/><rect x="4" y="7" width="2" height="2"/></svg></div>
   <!-- Accueil : affiché UNIQUEMENT quand le fil est réellement vide (et une fois
        le replay terminé, sinon il clignoterait au chargement de chaque page).
        Le logo est cloné depuis #brand au démarrage — une seule source de vérité
@@ -1858,13 +2018,12 @@ button:hover{border-color:var(--dim);color:var(--text)}
   <div id="composer">
     <div id="ctxmeta">
       <div id="ctxtrack"><div id="ctx-fill"></div></div>
-      <span id="status-preset" class="muted" style="font-size:10px;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
+      <span id="status-preset" class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
       <!-- Pied de carte, à droite : le décompte de contexte, compacter, puis le
            trombone — tous à la même échelle, c'est une seule ligne d'outils. -->
       <span style="display:flex;align-items:center;gap:8px;margin-left:auto">
         <span id="ctx-text" class="muted">0 / 0</span>
-        <span id="ctx-compactions" class="muted" style="display:none;font-size:10px;white-space:nowrap" title="Compactages du contexte dans cette session"></span>
-        <button id="ctx-compact" onclick="compactContext()">compacter</button>
+        <span id="ctx-compactions" class="muted" style="display:none;font-size:10px;white-space:nowrap" title="Compactages du contexte dans cette conversation"></span>
         <!-- Raccourci « niveau de réflexion » : n'apparaît que si le preset actif a
              défini un effort (REASONING_EFFORT). Un clic ouvre un petit menu pour
              changer le niveau à chaud (pris en compte au prochain message, sans
@@ -1872,19 +2031,17 @@ button:hover{border-color:var(--dim);color:var(--text)}
         <button id="reason-btn" onclick="toggleReasonMenu(event)" style="display:none" title="Niveau de réflexion" aria-label="Niveau de réflexion" aria-haspopup="true">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path class="rb" data-l="1" d="M4 20v-3"/><path class="rb" data-l="2" d="M10 20v-7"/><path class="rb" data-l="3" d="M16 20v-11"/><path class="rb" data-l="4" d="M21 20V5"/></svg>
         </button>
-        <!-- Postes distants : l'icône dit SUR QUOI l'IA agit. Écran = ce serveur
-             (cible locale) ; ondes wifi = un poste distant est la cible active.
-             Un clic ouvre la modale de gestion (cible, liste, appairage). -->
-        <button id="node-btn" onclick="openNodeHub()" title="Postes distants" aria-label="Postes distants">
-          <svg class="ic-here" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-          <svg class="ic-remote" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.55a11 11 0 0 1 14 0"/><path d="M8.5 16.1a6 6 0 0 1 7 0"/><path d="M12 20h.01"/></svg>
+        <!-- Projets : chaque projet a sa propre mémoire ET ses propres sessions,
+             cloisonnées. Un clic ouvre la modale de sélection/gestion des projets.
+             L'icône (dossier) est doublée du nom du projet actif, tronqué. -->
+        <button id="project-btn" onclick="openProjectHub()" title="Projets (mémoire + conversations cloisonnées)" aria-label="Projets">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          <span id="project-btn-name"></span>
         </button>
+        <!-- Champ fichier caché : déclenché par « Joindre un fichier » du menu + du
+             composeur (le bouton visible « trombone » et « postes distants » ont
+             déménagé dans ce menu, à gauche de la flèche d'envoi). -->
         <input type="file" id="attach-input" multiple style="display:none" onchange="onAttachPick(event)">
-        <button id="attach" onclick="document.getElementById('attach-input').click()" title="joindre un fichier" aria-label="joindre un fichier">
-          <!-- Trombone dessiné en SVG : pas de dépendance à une police d'emoji,
-               dont le rendu varie énormément d'un système à l'autre. -->
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.4 11.05 12.25 20.2a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.67 3.67 0 1 1 5.18 5.18l-9.2 9.2a1.83 1.83 0 1 1-2.59-2.6l8.49-8.48"/></svg>
-        </button>
       </span>
     </div>
     <!-- Pièces jointes en attente : remplie par addFiles(), vidée à l'envoi.
@@ -1892,9 +2049,15 @@ button:hover{border-color:var(--dim);color:var(--text)}
          qui la sépare du fil — la carte ne bouge donc pas d'un pixel. -->
     <div id="attach-list"></div>
     <div id="inputbar">
-      <textarea id="input" rows="1" placeholder="message…" onkeydown="onKey(event)" oninput="autoGrow(this)" onpaste="onPaste(event)"></textarea>
-      <button id="send" onclick="send()">send</button>
-      <button id="stop" onclick="stopGen()" style="display:none;background:var(--danger-bg);border-color:var(--err);color:var(--err)">stop</button>
+      <textarea id="input" rows="1" placeholder="Discuter avec Jean" onkeydown="onKey(event)" oninput="autoGrow(this)" onpaste="onPaste(event)"></textarea>
+      <!-- Indicateur discret « l'IA agit sur un poste distant » : ondes wifi à gauche
+           du +, teinté accent, affiché seulement quand une cible distante est active. -->
+      <span id="node-indic" title="L'IA agit sur un poste distant" aria-hidden="true" style="display:none"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.55a11 11 0 0 1 14 0"/><path d="M8.5 16.1a6 6 0 0 1 7 0"/><path d="M12 20h.01"/></svg></span>
+      <!-- Bouton « + » gris : JUSTE à gauche de la flèche d'envoi. Ouvre un petit menu
+           (postes/machines + fichiers). -->
+      <button id="plus-btn" onclick="togglePlusMenu(event)" title="Ajouter" aria-label="Ajouter" aria-haspopup="true"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button id="send" onclick="send()" title="envoyer" aria-label="envoyer"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V6"/><path d="M6 12l6-6 6 6"/></svg></button>
+      <button id="stop" onclick="stopGen()" style="display:none" title="stop" aria-label="stop"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2.5"/></svg></button>
     </div>
     <div id="sendhint" class="muted">Entrée pour envoyer · Maj+Entrée = nouvelle ligne</div>
   </div>
@@ -2050,6 +2213,40 @@ button:hover{border-color:var(--dim);color:var(--text)}
     </div>
   </div>
 </div>
+<!-- Projets : un projet = une mémoire + des sessions cloisonnées. Sélectionner un
+     projet bascule dessus (nouvelle session vierge, l'ancienne est archivée dans son
+     projet). Créer / renommer / supprimer depuis ici. -->
+<div id="project-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeProjectModal()">
+  <div class="modal-card" style="max-width:520px">
+    <div class="modal-head">
+      <span style="display:flex;align-items:center;gap:8px"><strong>Projets</strong><span id="proj-count" class="sess-count"></span></span>
+      <button class="modal-x" onclick="closeProjectModal()" aria-label="Fermer">×</button>
+    </div>
+    <div class="modal-body mform">
+      <!-- Action principale, tout en haut : démarrer une nouvelle conversation dans
+           le projet actif. Bien visible, pleine largeur. -->
+      <button id="proj-newsess" class="proj-cta" onclick="newSessionUI()">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        <span>Nouvelle conversation</span>
+      </button>
+      <div class="sess-head" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <span>Projets</span>
+        <button class="proj-newproj" onclick="createProjectUI()" title="Créer un projet">+ projet</button>
+      </div>
+      <div id="project-list" class="sess-list"></div>
+      <!-- Conversations du projet actif (plus de barre « Conversations · … »). -->
+      <div id="project-sessions" class="sess-list" style="margin-top:6px"></div>
+    </div>
+    <div class="modal-foot">
+      <div class="foot-l">
+        <button id="proj-clear-sessions" class="mbtn danger" onclick="clearProjectSessions()">Vider les conversations</button>
+      </div>
+      <div class="foot-r">
+        <button class="mbtn" onclick="closeProjectModal()">Fermer</button>
+      </div>
+    </div>
+  </div>
+</div>
 <div id="mcp-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeMcp()">
   <div class="modal-card" style="max-width:560px">
     <div class="modal-head">
@@ -2115,14 +2312,12 @@ button:hover{border-color:var(--dim);color:var(--text)}
       <strong>Postes distants</strong>
       <button class="modal-x" onclick="hideModal('node-hub-modal')" aria-label="Fermer">×</button>
     </div>
-    <div class="modal-body">
-      <div class="muted" style="font-size:12px;line-height:1.5;margin-bottom:10px">
-        Pilote un <b>autre PC</b> depuis l'IA. Choisis sur quelle machine l'IA agit
-        (ses outils shell/fichiers) et appaire de nouveaux postes. Tu décides des
-        capacités et du dossier autorisé pour chaque poste.
-      </div>
-      <div id="node-hub-list" class="mcp-list"></div>
-      <button class="addbtn" style="margin-top:10px" onclick="openNodePair()">+ appairer un poste</button>
+    <div class="modal-body mform">
+      <div id="node-hub-list" class="sess-list"></div>
+      <button class="proj-cta" style="margin-top:14px" onclick="openNodePair()">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        <span>Appairer un poste</span>
+      </button>
     </div>
   </div>
 </div>
@@ -2216,6 +2411,10 @@ button:hover{border-color:var(--dim);color:var(--text)}
             <span class="pe-row-l">Accès à la mémoire</span>
             <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="task-mem" checked><span class="pe-sl"></span></label></span>
           </div>
+          <div class="pe-row" id="task-project-row">
+            <span class="pe-row-l">Mémoire du projet<span class="pe-sub">la tâche lit/écrit dans la mémoire de ce projet</span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="task-project"></select></span></span>
+          </div>
           <div class="pe-row">
             <span class="pe-row-l">Accès au web</span>
             <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="task-web" checked><span class="pe-sl"></span></label></span>
@@ -2276,8 +2475,8 @@ button:hover{border-color:var(--dim);color:var(--text)}
     <div class="modal-foot">
       <div class="foot-l"></div>
       <div class="foot-r">
-        <button onclick="hideModal('node-pair-modal')">fermer</button>
-        <button class="btn-save" onclick="genNodeCode()">générer le code</button>
+        <button class="mbtn" onclick="hideModal('node-pair-modal')">Fermer</button>
+        <button class="mbtn primary" onclick="genNodeCode()">Générer le code</button>
       </div>
     </div>
   </div>
@@ -2298,6 +2497,26 @@ button:hover{border-color:var(--dim);color:var(--text)}
         <div class="pe-gh">Nom</div>
         <div class="pe-list">
           <div class="pe-row stack plain"><input id="m-name" class="pe-inp" placeholder="Nom du preset"></div>
+        </div>
+      </div>
+
+      <!-- Moteur (backend llama-server) : tout en haut du modal, juste après le nom. -->
+      <div id="m-engine-row" class="pe-group" style="display:none">
+        <div class="pe-gh">Moteur</div>
+        <div class="pe-seg">
+          <label><input type="radio" name="m-be" value="fast" onchange="onBackendMode('fast')"><span>Précompilé</span><span class="be-note" id="be-fast-note"></span></label>
+          <label><input type="radio" name="m-be" value="opt" onchange="onBackendMode('opt')"><span>Compilé</span><span class="be-note" id="be-opt-note"></span></label>
+          <label><input type="radio" name="m-be" value="custom" onchange="onBackendMode('custom')"><span>Personnalisé</span></label>
+        </div>
+        <div id="m-backend-custom" class="pe-list" style="display:none;margin-top:8px">
+          <div class="pe-row">
+            <span class="pe-row-l">Backend</span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="m-backend-detected" onchange="onPickDetected()"></select></span></span>
+          </div>
+          <div class="pe-row stack">
+            <input id="m-backend-path" class="pe-inp" oninput="onCustomPath()" placeholder="ou un chemin vers llama-server(.exe)">
+            <div class="pe-note" id="be-drop-hint"></div>
+          </div>
         </div>
       </div>
 
@@ -2350,26 +2569,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
           </div>
         </div>
 
-        <div class="pe-group">
-          <div class="pe-gh">Moteur</div>
-          <div class="pe-seg">
-            <label><input type="radio" name="m-be" value="fast" onchange="onBackendMode('fast')"><span>Précompilé</span><span class="be-note" id="be-fast-note"></span></label>
-            <label><input type="radio" name="m-be" value="opt" onchange="onBackendMode('opt')"><span>Compilé</span><span class="be-note" id="be-opt-note"></span></label>
-            <label><input type="radio" name="m-be" value="custom" onchange="onBackendMode('custom')"><span>Personnalisé</span></label>
-          </div>
-          <div id="m-backend-custom" class="pe-list" style="display:none;margin-top:8px">
-            <div class="pe-row">
-              <span class="pe-row-l">Backend</span>
-              <span class="pe-row-c"><span class="pe-selc"><select id="m-backend-detected" onchange="onPickDetected()"></select></span></span>
-            </div>
-            <div class="pe-row stack">
-              <input id="m-backend-path" class="pe-inp" oninput="onCustomPath()" placeholder="ou un chemin vers llama-server(.exe)">
-              <div class="pe-note" id="be-drop-hint"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Cartes graphiques : la liste vient du moteur choisi juste au-dessus,
+        <!-- Cartes graphiques : la liste vient du moteur (déplacé tout en haut du modal),
              car les noms ET l'ordre dépendent du backend compilé dedans. Le
              groupe reste masqué tant qu'on n'a pas AU MOINS DEUX cartes : avec
              une seule, il n'y a rien à arbitrer. -->
@@ -2500,6 +2700,11 @@ button:hover{border-color:var(--dim);color:var(--text)}
       <div id="m-sampling-row" class="pe-group" style="display:none">
         <div class="pe-gh">Échantillonnage</div>
         <div class="pe-list">
+          <div id="m-sampling-toggle" class="pe-row" style="cursor:pointer" onclick="toggleSampling()">
+            <span class="pe-row-l">Réglages d'échantillonnage<span class="pe-sub">température, top_p, pénalités… (défaut du modèle si vide)</span></span>
+            <span class="pe-row-c"><span id="m-sampling-caret" class="pe-caret"></span></span>
+          </div>
+          <div id="m-sampling-body">
           <div class="pe-row">
             <span class="pe-row-l">Température<span class="pe-sub">vide = défaut du modèle</span></span>
             <span class="pe-row-c"><input id="s-temp" class="pe-val" type="number" min="0" step="0.05" placeholder="—" oninput="cfgWriteKey('TEMP', this.value)"></span>
@@ -2533,6 +2738,22 @@ button:hover{border-color:var(--dim);color:var(--text)}
               <option value="high">high</option>
               <option value="xhigh">xhigh (max)</option>
             </select></span></span>
+          </div>
+          </div><!-- /m-sampling-body -->
+        </div>
+      </div>
+
+      <!-- Prompt système PROPRE À CE PRESET (optionnel). Replié par défaut. Injecté
+           en tête du contexte quand ce preset est actif. -->
+      <div id="m-sys-row" class="pe-group" style="display:none">
+        <div class="pe-gh">System prompt</div>
+        <div class="pe-list">
+          <div id="m-sys-toggle" class="pe-row" style="cursor:pointer" onclick="toggleSysPrompt()">
+            <span class="pe-row-l">Prompt système du preset<span class="pe-sub">optionnel — injecté quand ce preset est actif</span></span>
+            <span class="pe-row-c"><span id="m-sys-caret" class="pe-caret"></span></span>
+          </div>
+          <div id="m-sys-body" class="pe-row stack" style="display:none">
+            <textarea id="m-sysprompt" class="pe-inp" spellcheck="false" placeholder="(optionnel) ex : tu es un assistant concis en français"></textarea>
           </div>
         </div>
       </div>
@@ -2619,22 +2840,11 @@ function markNotices(root){
 let msgs = [];
 let busy = false;
 function toggleSide(){ document.getElementById('side').classList.toggle('open'); document.getElementById('backdrop').classList.toggle('open'); document.body.classList.toggle('drawer-open'); }
-// Prompt système : persisté CÔTÉ SERVEUR (/api/sysprompt, partagé entre
-// appareils, utilisé par la génération serveur). localStorage = simple cache
-// d'affichage hors-ligne. Debounce : on n'écrit qu'après une pause de frappe.
-let _sysT = null;
-function saveSys(){
-  const v = document.getElementById('sysprompt').value;
-  localStorage.setItem('ajean.sys', v);
-  clearTimeout(_sysT);
-  _sysT = setTimeout(()=>{ jpost('/api/sysprompt', {text:v}).catch(()=>{}); }, 600);
-}
-async function loadSys(){
-  try{
-    const d = await jget('/api/sysprompt');
-    if(d && d.ok){ document.getElementById('sysprompt').value = d.text || ''; localStorage.setItem('ajean.sys', d.text || ''); }
-  }catch(e){}
-}
+// Le prompt système est désormais réglé PAR PRESET (modal de preset), plus dans le
+// menu. Ces fonctions restent en no-op pour ne rien casser si un ancien handler les
+// appelle encore.
+function saveSys(){}
+function loadSys(){}
 /*! Sortable 1.15.6 - MIT | git://github.com/SortableJS/Sortable.git */
 !function(t,e){"object"==typeof exports&&"undefined"!=typeof module?module.exports=e():"function"==typeof define&&define.amd?define(e):(t=t||self).Sortable=e()}(this,function(){"use strict";function e(e,t){var n,o=Object.keys(e);return Object.getOwnPropertySymbols&&(n=Object.getOwnPropertySymbols(e),t&&(n=n.filter(function(t){return Object.getOwnPropertyDescriptor(e,t).enumerable})),o.push.apply(o,n)),o}function I(o){for(var t=1;t<arguments.length;t++){var i=null!=arguments[t]?arguments[t]:{};t%2?e(Object(i),!0).forEach(function(t){var e,n;e=o,t=i[n=t],n in e?Object.defineProperty(e,n,{value:t,enumerable:!0,configurable:!0,writable:!0}):e[n]=t}):Object.getOwnPropertyDescriptors?Object.defineProperties(o,Object.getOwnPropertyDescriptors(i)):e(Object(i)).forEach(function(t){Object.defineProperty(o,t,Object.getOwnPropertyDescriptor(i,t))})}return o}function o(t){return(o="function"==typeof Symbol&&"symbol"==typeof Symbol.iterator?function(t){return typeof t}:function(t){return t&&"function"==typeof Symbol&&t.constructor===Symbol&&t!==Symbol.prototype?"symbol":typeof t})(t)}function a(){return(a=Object.assign||function(t){for(var e=1;e<arguments.length;e++){var n,o=arguments[e];for(n in o)Object.prototype.hasOwnProperty.call(o,n)&&(t[n]=o[n])}return t}).apply(this,arguments)}function i(t,e){if(null==t)return{};var n,o=function(t,e){if(null==t)return{};for(var n,o={},i=Object.keys(t),r=0;r<i.length;r++)n=i[r],0<=e.indexOf(n)||(o[n]=t[n]);return o}(t,e);if(Object.getOwnPropertySymbols)for(var i=Object.getOwnPropertySymbols(t),r=0;r<i.length;r++)n=i[r],0<=e.indexOf(n)||Object.prototype.propertyIsEnumerable.call(t,n)&&(o[n]=t[n]);return o}function r(t){return function(t){if(Array.isArray(t))return l(t)}(t)||function(t){if("undefined"!=typeof Symbol&&null!=t[Symbol.iterator]||null!=t["@@iterator"])return Array.from(t)}(t)||function(t,e){if(t){if("string"==typeof t)return l(t,e);var n=Object.prototype.toString.call(t).slice(8,-1);return"Map"===(n="Object"===n&&t.constructor?t.constructor.name:n)||"Set"===n?Array.from(t):"Arguments"===n||/^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)?l(t,e):void 0}}(t)||function(){throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.")}()}function l(t,e){(null==e||e>t.length)&&(e=t.length);for(var n=0,o=new Array(e);n<e;n++)o[n]=t[n];return o}function t(t){if("undefined"!=typeof window&&window.navigator)return!!navigator.userAgent.match(t)}var y=t(/(?:Trident.*rv[ :]?11\.|msie|iemobile|Windows Phone)/i),w=t(/Edge/i),s=t(/firefox/i),u=t(/safari/i)&&!t(/chrome/i)&&!t(/android/i),c=t(/iP(ad|od|hone)/i),n=t(/chrome/i)&&t(/android/i),d={capture:!1,passive:!1};function h(t,e,n){t.addEventListener(e,n,!y&&d)}function p(t,e,n){t.removeEventListener(e,n,!y&&d)}function f(t,e){if(e&&(">"===e[0]&&(e=e.substring(1)),t))try{if(t.matches)return t.matches(e);if(t.msMatchesSelector)return t.msMatchesSelector(e);if(t.webkitMatchesSelector)return t.webkitMatchesSelector(e)}catch(t){return}}function g(t){return t.host&&t!==document&&t.host.nodeType?t.host:t.parentNode}function P(t,e,n,o){if(t){n=n||document;do{if(null!=e&&(">"!==e[0]||t.parentNode===n)&&f(t,e)||o&&t===n)return t}while(t!==n&&(t=g(t)))}return null}var m,v=/\s+/g;function k(t,e,n){var o;t&&e&&(t.classList?t.classList[n?"add":"remove"](e):(o=(" "+t.className+" ").replace(v," ").replace(" "+e+" "," "),t.className=(o+(n?" "+e:"")).replace(v," ")))}function R(t,e,n){var o=t&&t.style;if(o){if(void 0===n)return document.defaultView&&document.defaultView.getComputedStyle?n=document.defaultView.getComputedStyle(t,""):t.currentStyle&&(n=t.currentStyle),void 0===e?n:n[e];o[e=!(e in o||-1!==e.indexOf("webkit"))?"-webkit-"+e:e]=n+("string"==typeof n?"":"px")}}function b(t,e){var n="";if("string"==typeof t)n=t;else do{var o=R(t,"transform")}while(o&&"none"!==o&&(n=o+" "+n),!e&&(t=t.parentNode));var i=window.DOMMatrix||window.WebKitCSSMatrix||window.CSSMatrix||window.MSCSSMatrix;return i&&new i(n)}function D(t,e,n){if(t){var o=t.getElementsByTagName(e),i=0,r=o.length;if(n)for(;i<r;i++)n(o[i],i);return o}return[]}function O(){var t=document.scrollingElement;return t||document.documentElement}function X(t,e,n,o,i){if(t.getBoundingClientRect||t===window){var r,a,l,s,c,u,d=t!==window&&t.parentNode&&t!==O()?(a=(r=t.getBoundingClientRect()).top,l=r.left,s=r.bottom,c=r.right,u=r.height,r.width):(l=a=0,s=window.innerHeight,c=window.innerWidth,u=window.innerHeight,window.innerWidth);if((e||n)&&t!==window&&(i=i||t.parentNode,!y))do{if(i&&i.getBoundingClientRect&&("none"!==R(i,"transform")||n&&"static"!==R(i,"position"))){var h=i.getBoundingClientRect();a-=h.top+parseInt(R(i,"border-top-width")),l-=h.left+parseInt(R(i,"border-left-width")),s=a+r.height,c=l+r.width;break}}while(i=i.parentNode);return o&&t!==window&&(o=(e=b(i||t))&&e.a,t=e&&e.d,e&&(s=(a/=t)+(u/=t),c=(l/=o)+(d/=o))),{top:a,left:l,bottom:s,right:c,width:d,height:u}}}function Y(t,e,n){for(var o=M(t,!0),i=X(t)[e];o;){var r=X(o)[n];if(!("top"===n||"left"===n?r<=i:i<=r))return o;if(o===O())break;o=M(o,!1)}return!1}function B(t,e,n,o){for(var i=0,r=0,a=t.children;r<a.length;){if("none"!==a[r].style.display&&a[r]!==jt.ghost&&(o||a[r]!==jt.dragged)&&P(a[r],n.draggable,t,!1)){if(i===e)return a[r];i++}r++}return null}function F(t,e){for(var n=t.lastElementChild;n&&(n===jt.ghost||"none"===R(n,"display")||e&&!f(n,e));)n=n.previousElementSibling;return n||null}function j(t,e){var n=0;if(!t||!t.parentNode)return-1;for(;t=t.previousElementSibling;)"TEMPLATE"===t.nodeName.toUpperCase()||t===jt.clone||e&&!f(t,e)||n++;return n}function E(t){var e=0,n=0,o=O();if(t)do{var i=b(t),r=i.a,i=i.d}while(e+=t.scrollLeft*r,n+=t.scrollTop*i,t!==o&&(t=t.parentNode));return[e,n]}function M(t,e){if(!t||!t.getBoundingClientRect)return O();var n=t,o=!1;do{if(n.clientWidth<n.scrollWidth||n.clientHeight<n.scrollHeight){var i=R(n);if(n.clientWidth<n.scrollWidth&&("auto"==i.overflowX||"scroll"==i.overflowX)||n.clientHeight<n.scrollHeight&&("auto"==i.overflowY||"scroll"==i.overflowY)){if(!n.getBoundingClientRect||n===document.body)return O();if(o||e)return n;o=!0}}}while(n=n.parentNode);return O()}function S(t,e){return Math.round(t.top)===Math.round(e.top)&&Math.round(t.left)===Math.round(e.left)&&Math.round(t.height)===Math.round(e.height)&&Math.round(t.width)===Math.round(e.width)}function _(e,n){return function(){var t;m||(1===(t=arguments).length?e.call(this,t[0]):e.apply(this,t),m=setTimeout(function(){m=void 0},n))}}function H(t,e,n){t.scrollLeft+=e,t.scrollTop+=n}function C(t){var e=window.Polymer,n=window.jQuery||window.Zepto;return e&&e.dom?e.dom(t).cloneNode(!0):n?n(t).clone(!0)[0]:t.cloneNode(!0)}function T(t,e){R(t,"position","absolute"),R(t,"top",e.top),R(t,"left",e.left),R(t,"width",e.width),R(t,"height",e.height)}function x(t){R(t,"position",""),R(t,"top",""),R(t,"left",""),R(t,"width",""),R(t,"height","")}function L(n,o,i){var r={};return Array.from(n.children).forEach(function(t){var e;P(t,o.draggable,n,!1)&&!t.animated&&t!==i&&(e=X(t),r.left=Math.min(null!==(t=r.left)&&void 0!==t?t:1/0,e.left),r.top=Math.min(null!==(t=r.top)&&void 0!==t?t:1/0,e.top),r.right=Math.max(null!==(t=r.right)&&void 0!==t?t:-1/0,e.right),r.bottom=Math.max(null!==(t=r.bottom)&&void 0!==t?t:-1/0,e.bottom))}),r.width=r.right-r.left,r.height=r.bottom-r.top,r.x=r.left,r.y=r.top,r}var K="Sortable"+(new Date).getTime();function A(){var e,o=[];return{captureAnimationState:function(){o=[],this.options.animation&&[].slice.call(this.el.children).forEach(function(t){var e,n;"none"!==R(t,"display")&&t!==jt.ghost&&(o.push({target:t,rect:X(t)}),e=I({},o[o.length-1].rect),!t.thisAnimationDuration||(n=b(t,!0))&&(e.top-=n.f,e.left-=n.e),t.fromRect=e)})},addAnimationState:function(t){o.push(t)},removeAnimationState:function(t){o.splice(function(t,e){for(var n in t)if(t.hasOwnProperty(n))for(var o in e)if(e.hasOwnProperty(o)&&e[o]===t[n][o])return Number(n);return-1}(o,{target:t}),1)},animateAll:function(t){var c=this;if(!this.options.animation)return clearTimeout(e),void("function"==typeof t&&t());var u=!1,d=0;o.forEach(function(t){var e=0,n=t.target,o=n.fromRect,i=X(n),r=n.prevFromRect,a=n.prevToRect,l=t.rect,s=b(n,!0);s&&(i.top-=s.f,i.left-=s.e),n.toRect=i,n.thisAnimationDuration&&S(r,i)&&!S(o,i)&&(l.top-i.top)/(l.left-i.left)==(o.top-i.top)/(o.left-i.left)&&(t=l,s=r,r=a,a=c.options,e=Math.sqrt(Math.pow(s.top-t.top,2)+Math.pow(s.left-t.left,2))/Math.sqrt(Math.pow(s.top-r.top,2)+Math.pow(s.left-r.left,2))*a.animation),S(i,o)||(n.prevFromRect=o,n.prevToRect=i,e=e||c.options.animation,c.animate(n,l,i,e)),e&&(u=!0,d=Math.max(d,e),clearTimeout(n.animationResetTimer),n.animationResetTimer=setTimeout(function(){n.animationTime=0,n.prevFromRect=null,n.fromRect=null,n.prevToRect=null,n.thisAnimationDuration=null},e),n.thisAnimationDuration=e)}),clearTimeout(e),u?e=setTimeout(function(){"function"==typeof t&&t()},d):"function"==typeof t&&t(),o=[]},animate:function(t,e,n,o){var i,r;o&&(R(t,"transition",""),R(t,"transform",""),i=(r=b(this.el))&&r.a,r=r&&r.d,i=(e.left-n.left)/(i||1),r=(e.top-n.top)/(r||1),t.animatingX=!!i,t.animatingY=!!r,R(t,"transform","translate3d("+i+"px,"+r+"px,0)"),this.forRepaintDummy=t.offsetWidth,R(t,"transition","transform "+o+"ms"+(this.options.easing?" "+this.options.easing:"")),R(t,"transform","translate3d(0,0,0)"),"number"==typeof t.animated&&clearTimeout(t.animated),t.animated=setTimeout(function(){R(t,"transition",""),R(t,"transform",""),t.animated=!1,t.animatingX=!1,t.animatingY=!1},o))}}}var N=[],W={initializeByDefault:!0},z={mount:function(e){for(var t in W)!W.hasOwnProperty(t)||t in e||(e[t]=W[t]);N.forEach(function(t){if(t.pluginName===e.pluginName)throw"Sortable: Cannot mount plugin ".concat(e.pluginName," more than once")}),N.push(e)},pluginEvent:function(e,n,o){var t=this;this.eventCanceled=!1,o.cancel=function(){t.eventCanceled=!0};var i=e+"Global";N.forEach(function(t){n[t.pluginName]&&(n[t.pluginName][i]&&n[t.pluginName][i](I({sortable:n},o)),n.options[t.pluginName]&&n[t.pluginName][e]&&n[t.pluginName][e](I({sortable:n},o)))})},initializePlugins:function(n,o,i,t){for(var e in N.forEach(function(t){var e=t.pluginName;(n.options[e]||t.initializeByDefault)&&((t=new t(n,o,n.options)).sortable=n,t.options=n.options,n[e]=t,a(i,t.defaults))}),n.options){var r;n.options.hasOwnProperty(e)&&(void 0!==(r=this.modifyOption(n,e,n.options[e]))&&(n.options[e]=r))}},getEventProperties:function(e,n){var o={};return N.forEach(function(t){"function"==typeof t.eventProperties&&a(o,t.eventProperties.call(n[t.pluginName],e))}),o},modifyOption:function(e,n,o){var i;return N.forEach(function(t){e[t.pluginName]&&t.optionListeners&&"function"==typeof t.optionListeners[n]&&(i=t.optionListeners[n].call(e[t.pluginName],o))}),i}};function G(t){var e=t.sortable,n=t.rootEl,o=t.name,i=t.targetEl,r=t.cloneEl,a=t.toEl,l=t.fromEl,s=t.oldIndex,c=t.newIndex,u=t.oldDraggableIndex,d=t.newDraggableIndex,h=t.originalEvent,p=t.putSortable,f=t.extraEventProperties;if(e=e||n&&n[K]){var g,m=e.options,t="on"+o.charAt(0).toUpperCase()+o.substr(1);!window.CustomEvent||y||w?(g=document.createEvent("Event")).initEvent(o,!0,!0):g=new CustomEvent(o,{bubbles:!0,cancelable:!0}),g.to=a||n,g.from=l||n,g.item=i||n,g.clone=r,g.oldIndex=s,g.newIndex=c,g.oldDraggableIndex=u,g.newDraggableIndex=d,g.originalEvent=h,g.pullMode=p?p.lastPutMode:void 0;var v,b=I(I({},f),z.getEventProperties(o,e));for(v in b)g[v]=b[v];n&&n.dispatchEvent(g),m[t]&&m[t].call(e,g)}}function U(t,e){var n=(o=2<arguments.length&&void 0!==arguments[2]?arguments[2]:{}).evt,o=i(o,q);z.pluginEvent.bind(jt)(t,e,I({dragEl:Z,parentEl:$,ghostEl:Q,rootEl:J,nextEl:tt,lastDownEl:et,cloneEl:nt,cloneHidden:ot,dragStarted:mt,putSortable:ct,activeSortable:jt.active,originalEvent:n,oldIndex:it,oldDraggableIndex:at,newIndex:rt,newDraggableIndex:lt,hideGhostForTarget:Xt,unhideGhostForTarget:Yt,cloneNowHidden:function(){ot=!0},cloneNowShown:function(){ot=!1},dispatchSortableEvent:function(t){V({sortable:e,name:t,originalEvent:n})}},o))}var q=["evt"];function V(t){G(I({putSortable:ct,cloneEl:nt,targetEl:Z,rootEl:J,oldIndex:it,oldDraggableIndex:at,newIndex:rt,newDraggableIndex:lt},t))}var Z,$,Q,J,tt,et,nt,ot,it,rt,at,lt,st,ct,ut,dt,ht,pt,ft,gt,mt,vt,bt,yt,wt,Dt=!1,Et=!1,St=[],_t=!1,Ct=!1,Tt=[],xt=!1,Ot=[],Mt="undefined"!=typeof document,At=c,Nt=w||y?"cssFloat":"float",It=Mt&&!n&&!c&&"draggable"in document.createElement("div"),Pt=function(){if(Mt){if(y)return!1;var t=document.createElement("x");return t.style.cssText="pointer-events:auto","auto"===t.style.pointerEvents}}(),kt=function(t,e){var n=R(t),o=parseInt(n.width)-parseInt(n.paddingLeft)-parseInt(n.paddingRight)-parseInt(n.borderLeftWidth)-parseInt(n.borderRightWidth),i=B(t,0,e),r=B(t,1,e),a=i&&R(i),l=r&&R(r),s=a&&parseInt(a.marginLeft)+parseInt(a.marginRight)+X(i).width,t=l&&parseInt(l.marginLeft)+parseInt(l.marginRight)+X(r).width;if("flex"===n.display)return"column"===n.flexDirection||"column-reverse"===n.flexDirection?"vertical":"horizontal";if("grid"===n.display)return n.gridTemplateColumns.split(" ").length<=1?"vertical":"horizontal";if(i&&a.float&&"none"!==a.float){e="left"===a.float?"left":"right";return!r||"both"!==l.clear&&l.clear!==e?"horizontal":"vertical"}return i&&("block"===a.display||"flex"===a.display||"table"===a.display||"grid"===a.display||o<=s&&"none"===n[Nt]||r&&"none"===n[Nt]&&o<s+t)?"vertical":"horizontal"},Rt=function(t){function l(r,a){return function(t,e,n,o){var i=t.options.group.name&&e.options.group.name&&t.options.group.name===e.options.group.name;if(null==r&&(a||i))return!0;if(null==r||!1===r)return!1;if(a&&"clone"===r)return r;if("function"==typeof r)return l(r(t,e,n,o),a)(t,e,n,o);e=(a?t:e).options.group.name;return!0===r||"string"==typeof r&&r===e||r.join&&-1<r.indexOf(e)}}var e={},n=t.group;n&&"object"==o(n)||(n={name:n}),e.name=n.name,e.checkPull=l(n.pull,!0),e.checkPut=l(n.put),e.revertClone=n.revertClone,t.group=e},Xt=function(){!Pt&&Q&&R(Q,"display","none")},Yt=function(){!Pt&&Q&&R(Q,"display","")};Mt&&!n&&document.addEventListener("click",function(t){if(Et)return t.preventDefault(),t.stopPropagation&&t.stopPropagation(),t.stopImmediatePropagation&&t.stopImmediatePropagation(),Et=!1},!0);function Bt(t){if(Z){t=t.touches?t.touches[0]:t;var e=(i=t.clientX,r=t.clientY,St.some(function(t){var e=t[K].options.emptyInsertThreshold;if(e&&!F(t)){var n=X(t),o=i>=n.left-e&&i<=n.right+e,e=r>=n.top-e&&r<=n.bottom+e;return o&&e?a=t:void 0}}),a);if(e){var n,o={};for(n in t)t.hasOwnProperty(n)&&(o[n]=t[n]);o.target=o.rootEl=e,o.preventDefault=void 0,o.stopPropagation=void 0,e[K]._onDragOver(o)}}var i,r,a}function Ft(t){Z&&Z.parentNode[K]._isOutsideThisEl(t.target)}function jt(t,e){if(!t||!t.nodeType||1!==t.nodeType)throw"Sortable: `el` must be an HTMLElement, not ".concat({}.toString.call(t));this.el=t,this.options=e=a({},e),t[K]=this;var n,o,i={group:null,sort:!0,disabled:!1,store:null,handle:null,draggable:/^[uo]l$/i.test(t.nodeName)?">li":">*",swapThreshold:1,invertSwap:!1,invertedSwapThreshold:null,removeCloneOnHide:!0,direction:function(){return kt(t,this.options)},ghostClass:"sortable-ghost",chosenClass:"sortable-chosen",dragClass:"sortable-drag",ignore:"a, img",filter:null,preventOnFilter:!0,animation:0,easing:null,setData:function(t,e){t.setData("Text",e.textContent)},dropBubble:!1,dragoverBubble:!1,dataIdAttr:"data-id",delay:0,delayOnTouchOnly:!1,touchStartThreshold:(Number.parseInt?Number:window).parseInt(window.devicePixelRatio,10)||1,forceFallback:!1,fallbackClass:"sortable-fallback",fallbackOnBody:!1,fallbackTolerance:0,fallbackOffset:{x:0,y:0},supportPointer:!1!==jt.supportPointer&&"PointerEvent"in window&&(!u||c),emptyInsertThreshold:5};for(n in z.initializePlugins(this,t,i),i)n in e||(e[n]=i[n]);for(o in Rt(e),this)"_"===o.charAt(0)&&"function"==typeof this[o]&&(this[o]=this[o].bind(this));this.nativeDraggable=!e.forceFallback&&It,this.nativeDraggable&&(this.options.touchStartThreshold=1),e.supportPointer?h(t,"pointerdown",this._onTapStart):(h(t,"mousedown",this._onTapStart),h(t,"touchstart",this._onTapStart)),this.nativeDraggable&&(h(t,"dragover",this),h(t,"dragenter",this)),St.push(this.el),e.store&&e.store.get&&this.sort(e.store.get(this)||[]),a(this,A())}function Ht(t,e,n,o,i,r,a,l){var s,c,u=t[K],d=u.options.onMove;return!window.CustomEvent||y||w?(s=document.createEvent("Event")).initEvent("move",!0,!0):s=new CustomEvent("move",{bubbles:!0,cancelable:!0}),s.to=e,s.from=t,s.dragged=n,s.draggedRect=o,s.related=i||e,s.relatedRect=r||X(e),s.willInsertAfter=l,s.originalEvent=a,t.dispatchEvent(s),c=d?d.call(u,s,a):c}function Lt(t){t.draggable=!1}function Kt(){xt=!1}function Wt(t){return setTimeout(t,0)}function zt(t){return clearTimeout(t)}jt.prototype={constructor:jt,_isOutsideThisEl:function(t){this.el.contains(t)||t===this.el||(vt=null)},_getDirection:function(t,e){return"function"==typeof this.options.direction?this.options.direction.call(this,t,e,Z):this.options.direction},_onTapStart:function(e){if(e.cancelable){var n=this,o=this.el,t=this.options,i=t.preventOnFilter,r=e.type,a=e.touches&&e.touches[0]||e.pointerType&&"touch"===e.pointerType&&e,l=(a||e).target,s=e.target.shadowRoot&&(e.path&&e.path[0]||e.composedPath&&e.composedPath()[0])||l,c=t.filter;if(!function(t){Ot.length=0;var e=t.getElementsByTagName("input"),n=e.length;for(;n--;){var o=e[n];o.checked&&Ot.push(o)}}(o),!Z&&!(/mousedown|pointerdown/.test(r)&&0!==e.button||t.disabled)&&!s.isContentEditable&&(this.nativeDraggable||!u||!l||"SELECT"!==l.tagName.toUpperCase())&&!((l=P(l,t.draggable,o,!1))&&l.animated||et===l)){if(it=j(l),at=j(l,t.draggable),"function"==typeof c){if(c.call(this,e,l,this))return V({sortable:n,rootEl:s,name:"filter",targetEl:l,toEl:o,fromEl:o}),U("filter",n,{evt:e}),void(i&&e.preventDefault())}else if(c=c&&c.split(",").some(function(t){if(t=P(s,t.trim(),o,!1))return V({sortable:n,rootEl:t,name:"filter",targetEl:l,fromEl:o,toEl:o}),U("filter",n,{evt:e}),!0}))return void(i&&e.preventDefault());t.handle&&!P(s,t.handle,o,!1)||this._prepareDragStart(e,a,l)}}},_prepareDragStart:function(t,e,n){var o,i=this,r=i.el,a=i.options,l=r.ownerDocument;n&&!Z&&n.parentNode===r&&(o=X(n),J=r,$=(Z=n).parentNode,tt=Z.nextSibling,et=n,st=a.group,ut={target:jt.dragged=Z,clientX:(e||t).clientX,clientY:(e||t).clientY},ft=ut.clientX-o.left,gt=ut.clientY-o.top,this._lastX=(e||t).clientX,this._lastY=(e||t).clientY,Z.style["will-change"]="all",o=function(){U("delayEnded",i,{evt:t}),jt.eventCanceled?i._onDrop():(i._disableDelayedDragEvents(),!s&&i.nativeDraggable&&(Z.draggable=!0),i._triggerDragStart(t,e),V({sortable:i,name:"choose",originalEvent:t}),k(Z,a.chosenClass,!0))},a.ignore.split(",").forEach(function(t){D(Z,t.trim(),Lt)}),h(l,"dragover",Bt),h(l,"mousemove",Bt),h(l,"touchmove",Bt),a.supportPointer?(h(l,"pointerup",i._onDrop),this.nativeDraggable||h(l,"pointercancel",i._onDrop)):(h(l,"mouseup",i._onDrop),h(l,"touchend",i._onDrop),h(l,"touchcancel",i._onDrop)),s&&this.nativeDraggable&&(this.options.touchStartThreshold=4,Z.draggable=!0),U("delayStart",this,{evt:t}),!a.delay||a.delayOnTouchOnly&&!e||this.nativeDraggable&&(w||y)?o():jt.eventCanceled?this._onDrop():(a.supportPointer?(h(l,"pointerup",i._disableDelayedDrag),h(l,"pointercancel",i._disableDelayedDrag)):(h(l,"mouseup",i._disableDelayedDrag),h(l,"touchend",i._disableDelayedDrag),h(l,"touchcancel",i._disableDelayedDrag)),h(l,"mousemove",i._delayedDragTouchMoveHandler),h(l,"touchmove",i._delayedDragTouchMoveHandler),a.supportPointer&&h(l,"pointermove",i._delayedDragTouchMoveHandler),i._dragStartTimer=setTimeout(o,a.delay)))},_delayedDragTouchMoveHandler:function(t){t=t.touches?t.touches[0]:t;Math.max(Math.abs(t.clientX-this._lastX),Math.abs(t.clientY-this._lastY))>=Math.floor(this.options.touchStartThreshold/(this.nativeDraggable&&window.devicePixelRatio||1))&&this._disableDelayedDrag()},_disableDelayedDrag:function(){Z&&Lt(Z),clearTimeout(this._dragStartTimer),this._disableDelayedDragEvents()},_disableDelayedDragEvents:function(){var t=this.el.ownerDocument;p(t,"mouseup",this._disableDelayedDrag),p(t,"touchend",this._disableDelayedDrag),p(t,"touchcancel",this._disableDelayedDrag),p(t,"pointerup",this._disableDelayedDrag),p(t,"pointercancel",this._disableDelayedDrag),p(t,"mousemove",this._delayedDragTouchMoveHandler),p(t,"touchmove",this._delayedDragTouchMoveHandler),p(t,"pointermove",this._delayedDragTouchMoveHandler)},_triggerDragStart:function(t,e){e=e||"touch"==t.pointerType&&t,!this.nativeDraggable||e?this.options.supportPointer?h(document,"pointermove",this._onTouchMove):h(document,e?"touchmove":"mousemove",this._onTouchMove):(h(Z,"dragend",this),h(J,"dragstart",this._onDragStart));try{document.selection?Wt(function(){document.selection.empty()}):window.getSelection().removeAllRanges()}catch(t){}},_dragStarted:function(t,e){var n;Dt=!1,J&&Z?(U("dragStarted",this,{evt:e}),this.nativeDraggable&&h(document,"dragover",Ft),n=this.options,t||k(Z,n.dragClass,!1),k(Z,n.ghostClass,!0),jt.active=this,t&&this._appendGhost(),V({sortable:this,name:"start",originalEvent:e})):this._nulling()},_emulateDragOver:function(){if(dt){this._lastX=dt.clientX,this._lastY=dt.clientY,Xt();for(var t=document.elementFromPoint(dt.clientX,dt.clientY),e=t;t&&t.shadowRoot&&(t=t.shadowRoot.elementFromPoint(dt.clientX,dt.clientY))!==e;)e=t;if(Z.parentNode[K]._isOutsideThisEl(t),e)do{if(e[K])if(e[K]._onDragOver({clientX:dt.clientX,clientY:dt.clientY,target:t,rootEl:e})&&!this.options.dragoverBubble)break}while(e=g(t=e));Yt()}},_onTouchMove:function(t){if(ut){var e=this.options,n=e.fallbackTolerance,o=e.fallbackOffset,i=t.touches?t.touches[0]:t,r=Q&&b(Q,!0),a=Q&&r&&r.a,l=Q&&r&&r.d,e=At&&wt&&E(wt),a=(i.clientX-ut.clientX+o.x)/(a||1)+(e?e[0]-Tt[0]:0)/(a||1),l=(i.clientY-ut.clientY+o.y)/(l||1)+(e?e[1]-Tt[1]:0)/(l||1);if(!jt.active&&!Dt){if(n&&Math.max(Math.abs(i.clientX-this._lastX),Math.abs(i.clientY-this._lastY))<n)return;this._onDragStart(t,!0)}Q&&(r?(r.e+=a-(ht||0),r.f+=l-(pt||0)):r={a:1,b:0,c:0,d:1,e:a,f:l},r="matrix(".concat(r.a,",").concat(r.b,",").concat(r.c,",").concat(r.d,",").concat(r.e,",").concat(r.f,")"),R(Q,"webkitTransform",r),R(Q,"mozTransform",r),R(Q,"msTransform",r),R(Q,"transform",r),ht=a,pt=l,dt=i),t.cancelable&&t.preventDefault()}},_appendGhost:function(){if(!Q){var t=this.options.fallbackOnBody?document.body:J,e=X(Z,!0,At,!0,t),n=this.options;if(At){for(wt=t;"static"===R(wt,"position")&&"none"===R(wt,"transform")&&wt!==document;)wt=wt.parentNode;wt!==document.body&&wt!==document.documentElement?(wt===document&&(wt=O()),e.top+=wt.scrollTop,e.left+=wt.scrollLeft):wt=O(),Tt=E(wt)}k(Q=Z.cloneNode(!0),n.ghostClass,!1),k(Q,n.fallbackClass,!0),k(Q,n.dragClass,!0),R(Q,"transition",""),R(Q,"transform",""),R(Q,"box-sizing","border-box"),R(Q,"margin",0),R(Q,"top",e.top),R(Q,"left",e.left),R(Q,"width",e.width),R(Q,"height",e.height),R(Q,"opacity","0.8"),R(Q,"position",At?"absolute":"fixed"),R(Q,"zIndex","100000"),R(Q,"pointerEvents","none"),jt.ghost=Q,t.appendChild(Q),R(Q,"transform-origin",ft/parseInt(Q.style.width)*100+"% "+gt/parseInt(Q.style.height)*100+"%")}},_onDragStart:function(t,e){var n=this,o=t.dataTransfer,i=n.options;U("dragStart",this,{evt:t}),jt.eventCanceled?this._onDrop():(U("setupClone",this),jt.eventCanceled||((nt=C(Z)).removeAttribute("id"),nt.draggable=!1,nt.style["will-change"]="",this._hideClone(),k(nt,this.options.chosenClass,!1),jt.clone=nt),n.cloneId=Wt(function(){U("clone",n),jt.eventCanceled||(n.options.removeCloneOnHide||J.insertBefore(nt,Z),n._hideClone(),V({sortable:n,name:"clone"}))}),e||k(Z,i.dragClass,!0),e?(Et=!0,n._loopId=setInterval(n._emulateDragOver,50)):(p(document,"mouseup",n._onDrop),p(document,"touchend",n._onDrop),p(document,"touchcancel",n._onDrop),o&&(o.effectAllowed="move",i.setData&&i.setData.call(n,o,Z)),h(document,"drop",n),R(Z,"transform","translateZ(0)")),Dt=!0,n._dragStartId=Wt(n._dragStarted.bind(n,e,t)),h(document,"selectstart",n),mt=!0,window.getSelection().removeAllRanges(),u&&R(document.body,"user-select","none"))},_onDragOver:function(n){var o,i,r,t,e,a=this.el,l=n.target,s=this.options,c=s.group,u=jt.active,d=st===c,h=s.sort,p=ct||u,f=this,g=!1;if(!xt){if(void 0!==n.preventDefault&&n.cancelable&&n.preventDefault(),l=P(l,s.draggable,a,!0),O("dragOver"),jt.eventCanceled)return g;if(Z.contains(n.target)||l.animated&&l.animatingX&&l.animatingY||f._ignoreWhileAnimating===l)return A(!1);if(Et=!1,u&&!s.disabled&&(d?h||(i=$!==J):ct===this||(this.lastPutMode=st.checkPull(this,u,Z,n))&&c.checkPut(this,u,Z,n))){if(r="vertical"===this._getDirection(n,l),o=X(Z),O("dragOverValid"),jt.eventCanceled)return g;if(i)return $=J,M(),this._hideClone(),O("revert"),jt.eventCanceled||(tt?J.insertBefore(Z,tt):J.appendChild(Z)),A(!0);var m=F(a,s.draggable);if(m&&(S=n,c=r,x=X(F((E=this).el,E.options.draggable)),E=L(E.el,E.options,Q),!(c?S.clientX>E.right+10||S.clientY>x.bottom&&S.clientX>x.left:S.clientY>E.bottom+10||S.clientX>x.right&&S.clientY>x.top)||m.animated)){if(m&&(t=n,e=r,C=X(B((_=this).el,0,_.options,!0)),_=L(_.el,_.options,Q),e?t.clientX<_.left-10||t.clientY<C.top&&t.clientX<C.right:t.clientY<_.top-10||t.clientY<C.bottom&&t.clientX<C.left)){var v=B(a,0,s,!0);if(v===Z)return A(!1);if(D=X(l=v),!1!==Ht(J,a,Z,o,l,D,n,!1))return M(),a.insertBefore(Z,v),$=a,N(),A(!0)}else if(l.parentNode===a){var b,y,w,D=X(l),E=Z.parentNode!==a,S=(S=Z.animated&&Z.toRect||o,x=l.animated&&l.toRect||D,_=(e=r)?S.left:S.top,t=e?S.right:S.bottom,C=e?S.width:S.height,v=e?x.left:x.top,S=e?x.right:x.bottom,x=e?x.width:x.height,!(_===v||t===S||_+C/2===v+x/2)),_=r?"top":"left",C=Y(l,"top","top")||Y(Z,"top","top"),v=C?C.scrollTop:void 0;if(vt!==l&&(y=D[_],_t=!1,Ct=!S&&s.invertSwap||E),0!==(b=function(t,e,n,o,i,r,a,l){var s=o?t.clientY:t.clientX,c=o?n.height:n.width,t=o?n.top:n.left,o=o?n.bottom:n.right,n=!1;if(!a)if(l&&yt<c*i){if(_t=!_t&&(1===bt?t+c*r/2<s:s<o-c*r/2)?!0:_t)n=!0;else if(1===bt?s<t+yt:o-yt<s)return-bt}else if(t+c*(1-i)/2<s&&s<o-c*(1-i)/2)return function(t){return j(Z)<j(t)?1:-1}(e);if((n=n||a)&&(s<t+c*r/2||o-c*r/2<s))return t+c/2<s?1:-1;return 0}(n,l,D,r,S?1:s.swapThreshold,null==s.invertedSwapThreshold?s.swapThreshold:s.invertedSwapThreshold,Ct,vt===l)))for(var T=j(Z);(w=$.children[T-=b])&&("none"===R(w,"display")||w===Q););if(0===b||w===l)return A(!1);bt=b;var x=(vt=l).nextElementSibling,E=!1,S=Ht(J,a,Z,o,l,D,n,E=1===b);if(!1!==S)return 1!==S&&-1!==S||(E=1===S),xt=!0,setTimeout(Kt,30),M(),E&&!x?a.appendChild(Z):l.parentNode.insertBefore(Z,E?x:l),C&&H(C,0,v-C.scrollTop),$=Z.parentNode,void 0===y||Ct||(yt=Math.abs(y-X(l)[_])),N(),A(!0)}}else{if(m===Z)return A(!1);if((l=m&&a===n.target?m:l)&&(D=X(l)),!1!==Ht(J,a,Z,o,l,D,n,!!l))return M(),m&&m.nextSibling?a.insertBefore(Z,m.nextSibling):a.appendChild(Z),$=a,N(),A(!0)}if(a.contains(Z))return A(!1)}return!1}function O(t,e){U(t,f,I({evt:n,isOwner:d,axis:r?"vertical":"horizontal",revert:i,dragRect:o,targetRect:D,canSort:h,fromSortable:p,target:l,completed:A,onMove:function(t,e){return Ht(J,a,Z,o,t,X(t),n,e)},changed:N},e))}function M(){O("dragOverAnimationCapture"),f.captureAnimationState(),f!==p&&p.captureAnimationState()}function A(t){return O("dragOverCompleted",{insertion:t}),t&&(d?u._hideClone():u._showClone(f),f!==p&&(k(Z,(ct||u).options.ghostClass,!1),k(Z,s.ghostClass,!0)),ct!==f&&f!==jt.active?ct=f:f===jt.active&&ct&&(ct=null),p===f&&(f._ignoreWhileAnimating=l),f.animateAll(function(){O("dragOverAnimationComplete"),f._ignoreWhileAnimating=null}),f!==p&&(p.animateAll(),p._ignoreWhileAnimating=null)),(l===Z&&!Z.animated||l===a&&!l.animated)&&(vt=null),s.dragoverBubble||n.rootEl||l===document||(Z.parentNode[K]._isOutsideThisEl(n.target),t||Bt(n)),!s.dragoverBubble&&n.stopPropagation&&n.stopPropagation(),g=!0}function N(){rt=j(Z),lt=j(Z,s.draggable),V({sortable:f,name:"change",toEl:a,newIndex:rt,newDraggableIndex:lt,originalEvent:n})}},_ignoreWhileAnimating:null,_offMoveEvents:function(){p(document,"mousemove",this._onTouchMove),p(document,"touchmove",this._onTouchMove),p(document,"pointermove",this._onTouchMove),p(document,"dragover",Bt),p(document,"mousemove",Bt),p(document,"touchmove",Bt)},_offUpEvents:function(){var t=this.el.ownerDocument;p(t,"mouseup",this._onDrop),p(t,"touchend",this._onDrop),p(t,"pointerup",this._onDrop),p(t,"pointercancel",this._onDrop),p(t,"touchcancel",this._onDrop),p(document,"selectstart",this)},_onDrop:function(t){var e=this.el,n=this.options;rt=j(Z),lt=j(Z,n.draggable),U("drop",this,{evt:t}),$=Z&&Z.parentNode,rt=j(Z),lt=j(Z,n.draggable),jt.eventCanceled||(_t=Ct=Dt=!1,clearInterval(this._loopId),clearTimeout(this._dragStartTimer),zt(this.cloneId),zt(this._dragStartId),this.nativeDraggable&&(p(document,"drop",this),p(e,"dragstart",this._onDragStart)),this._offMoveEvents(),this._offUpEvents(),u&&R(document.body,"user-select",""),R(Z,"transform",""),t&&(mt&&(t.cancelable&&t.preventDefault(),n.dropBubble||t.stopPropagation()),Q&&Q.parentNode&&Q.parentNode.removeChild(Q),(J===$||ct&&"clone"!==ct.lastPutMode)&&nt&&nt.parentNode&&nt.parentNode.removeChild(nt),Z&&(this.nativeDraggable&&p(Z,"dragend",this),Lt(Z),Z.style["will-change"]="",mt&&!Dt&&k(Z,(ct||this).options.ghostClass,!1),k(Z,this.options.chosenClass,!1),V({sortable:this,name:"unchoose",toEl:$,newIndex:null,newDraggableIndex:null,originalEvent:t}),J!==$?(0<=rt&&(V({rootEl:$,name:"add",toEl:$,fromEl:J,originalEvent:t}),V({sortable:this,name:"remove",toEl:$,originalEvent:t}),V({rootEl:$,name:"sort",toEl:$,fromEl:J,originalEvent:t}),V({sortable:this,name:"sort",toEl:$,originalEvent:t})),ct&&ct.save()):rt!==it&&0<=rt&&(V({sortable:this,name:"update",toEl:$,originalEvent:t}),V({sortable:this,name:"sort",toEl:$,originalEvent:t})),jt.active&&(null!=rt&&-1!==rt||(rt=it,lt=at),V({sortable:this,name:"end",toEl:$,originalEvent:t}),this.save())))),this._nulling()},_nulling:function(){U("nulling",this),J=Z=$=Q=tt=nt=et=ot=ut=dt=mt=rt=lt=it=at=vt=bt=ct=st=jt.dragged=jt.ghost=jt.clone=jt.active=null,Ot.forEach(function(t){t.checked=!0}),Ot.length=ht=pt=0},handleEvent:function(t){switch(t.type){case"drop":case"dragend":this._onDrop(t);break;case"dragenter":case"dragover":Z&&(this._onDragOver(t),function(t){t.dataTransfer&&(t.dataTransfer.dropEffect="move");t.cancelable&&t.preventDefault()}(t));break;case"selectstart":t.preventDefault()}},toArray:function(){for(var t,e=[],n=this.el.children,o=0,i=n.length,r=this.options;o<i;o++)P(t=n[o],r.draggable,this.el,!1)&&e.push(t.getAttribute(r.dataIdAttr)||function(t){var e=t.tagName+t.className+t.src+t.href+t.textContent,n=e.length,o=0;for(;n--;)o+=e.charCodeAt(n);return o.toString(36)}(t));return e},sort:function(t,e){var n={},o=this.el;this.toArray().forEach(function(t,e){e=o.children[e];P(e,this.options.draggable,o,!1)&&(n[t]=e)},this),e&&this.captureAnimationState(),t.forEach(function(t){n[t]&&(o.removeChild(n[t]),o.appendChild(n[t]))}),e&&this.animateAll()},save:function(){var t=this.options.store;t&&t.set&&t.set(this)},closest:function(t,e){return P(t,e||this.options.draggable,this.el,!1)},option:function(t,e){var n=this.options;if(void 0===e)return n[t];var o=z.modifyOption(this,t,e);n[t]=void 0!==o?o:e,"group"===t&&Rt(n)},destroy:function(){U("destroy",this);var t=this.el;t[K]=null,p(t,"mousedown",this._onTapStart),p(t,"touchstart",this._onTapStart),p(t,"pointerdown",this._onTapStart),this.nativeDraggable&&(p(t,"dragover",this),p(t,"dragenter",this)),Array.prototype.forEach.call(t.querySelectorAll("[draggable]"),function(t){t.removeAttribute("draggable")}),this._onDrop(),this._disableDelayedDragEvents(),St.splice(St.indexOf(this.el),1),this.el=t=null},_hideClone:function(){ot||(U("hideClone",this),jt.eventCanceled||(R(nt,"display","none"),this.options.removeCloneOnHide&&nt.parentNode&&nt.parentNode.removeChild(nt),ot=!0))},_showClone:function(t){"clone"===t.lastPutMode?ot&&(U("showClone",this),jt.eventCanceled||(Z.parentNode!=J||this.options.group.revertClone?tt?J.insertBefore(nt,tt):J.appendChild(nt):J.insertBefore(nt,Z),this.options.group.revertClone&&this.animate(Z,nt),R(nt,"display",""),ot=!1)):this._hideClone()}},Mt&&h(document,"touchmove",function(t){(jt.active||Dt)&&t.cancelable&&t.preventDefault()}),jt.utils={on:h,off:p,css:R,find:D,is:function(t,e){return!!P(t,e,t,!1)},extend:function(t,e){if(t&&e)for(var n in e)e.hasOwnProperty(n)&&(t[n]=e[n]);return t},throttle:_,closest:P,toggleClass:k,clone:C,index:j,nextTick:Wt,cancelNextTick:zt,detectDirection:kt,getChild:B,expando:K},jt.get=function(t){return t[K]},jt.mount=function(){for(var t=arguments.length,e=new Array(t),n=0;n<t;n++)e[n]=arguments[n];(e=e[0].constructor===Array?e[0]:e).forEach(function(t){if(!t.prototype||!t.prototype.constructor)throw"Sortable: Mounted plugin must be a constructor function, not ".concat({}.toString.call(t));t.utils&&(jt.utils=I(I({},jt.utils),t.utils)),z.mount(t)})},jt.create=function(t,e){return new jt(t,e)};var Gt,Ut,qt,Vt,Zt,$t,Qt=[],Jt=!(jt.version="1.15.6");function te(){Qt.forEach(function(t){clearInterval(t.pid)}),Qt=[]}function ee(){clearInterval($t)}var ne,oe=_(function(n,t,e,o){if(t.scroll){var i,r=(n.touches?n.touches[0]:n).clientX,a=(n.touches?n.touches[0]:n).clientY,l=t.scrollSensitivity,s=t.scrollSpeed,c=O(),u=!1;Ut!==e&&(Ut=e,te(),Gt=t.scroll,i=t.scrollFn,!0===Gt&&(Gt=M(e,!0)));var d=0,h=Gt;do{var p=h,f=X(p),g=f.top,m=f.bottom,v=f.left,b=f.right,y=f.width,w=f.height,D=void 0,E=void 0,S=p.scrollWidth,_=p.scrollHeight,C=R(p),T=p.scrollLeft,f=p.scrollTop,E=p===c?(D=y<S&&("auto"===C.overflowX||"scroll"===C.overflowX||"visible"===C.overflowX),w<_&&("auto"===C.overflowY||"scroll"===C.overflowY||"visible"===C.overflowY)):(D=y<S&&("auto"===C.overflowX||"scroll"===C.overflowX),w<_&&("auto"===C.overflowY||"scroll"===C.overflowY)),T=D&&(Math.abs(b-r)<=l&&T+y<S)-(Math.abs(v-r)<=l&&!!T),f=E&&(Math.abs(m-a)<=l&&f+w<_)-(Math.abs(g-a)<=l&&!!f);if(!Qt[d])for(var x=0;x<=d;x++)Qt[x]||(Qt[x]={});Qt[d].vx==T&&Qt[d].vy==f&&Qt[d].el===p||(Qt[d].el=p,Qt[d].vx=T,Qt[d].vy=f,clearInterval(Qt[d].pid),0==T&&0==f||(u=!0,Qt[d].pid=setInterval(function(){o&&0===this.layer&&jt.active._onTouchMove(Zt);var t=Qt[this.layer].vy?Qt[this.layer].vy*s:0,e=Qt[this.layer].vx?Qt[this.layer].vx*s:0;"function"==typeof i&&"continue"!==i.call(jt.dragged.parentNode[K],e,t,n,Zt,Qt[this.layer].el)||H(Qt[this.layer].el,e,t)}.bind({layer:d}),24))),d++}while(t.bubbleScroll&&h!==c&&(h=M(h,!1)));Jt=u}},30),n=function(t){var e=t.originalEvent,n=t.putSortable,o=t.dragEl,i=t.activeSortable,r=t.dispatchSortableEvent,a=t.hideGhostForTarget,t=t.unhideGhostForTarget;e&&(i=n||i,a(),e=e.changedTouches&&e.changedTouches.length?e.changedTouches[0]:e,e=document.elementFromPoint(e.clientX,e.clientY),t(),i&&!i.el.contains(e)&&(r("spill"),this.onSpill({dragEl:o,putSortable:n})))};function ie(){}function re(){}ie.prototype={startIndex:null,dragStart:function(t){t=t.oldDraggableIndex;this.startIndex=t},onSpill:function(t){var e=t.dragEl,n=t.putSortable;this.sortable.captureAnimationState(),n&&n.captureAnimationState();t=B(this.sortable.el,this.startIndex,this.options);t?this.sortable.el.insertBefore(e,t):this.sortable.el.appendChild(e),this.sortable.animateAll(),n&&n.animateAll()},drop:n},a(ie,{pluginName:"revertOnSpill"}),re.prototype={onSpill:function(t){var e=t.dragEl,t=t.putSortable||this.sortable;t.captureAnimationState(),e.parentNode&&e.parentNode.removeChild(e),t.animateAll()},drop:n},a(re,{pluginName:"removeOnSpill"});var ae,le,se,ce,ue,de=[],he=[],pe=!1,fe=!1,ge=!1;function me(n,o){he.forEach(function(t,e){e=o.children[t.sortableIndex+(n?Number(e):0)];e?o.insertBefore(t,e):o.appendChild(t)})}function ve(){de.forEach(function(t){t!==se&&t.parentNode&&t.parentNode.removeChild(t)})}return jt.mount(new function(){function t(){for(var t in this.defaults={scroll:!0,forceAutoScrollFallback:!1,scrollSensitivity:30,scrollSpeed:10,bubbleScroll:!0},this)"_"===t.charAt(0)&&"function"==typeof this[t]&&(this[t]=this[t].bind(this))}return t.prototype={dragStarted:function(t){t=t.originalEvent;this.sortable.nativeDraggable?h(document,"dragover",this._handleAutoScroll):this.options.supportPointer?h(document,"pointermove",this._handleFallbackAutoScroll):t.touches?h(document,"touchmove",this._handleFallbackAutoScroll):h(document,"mousemove",this._handleFallbackAutoScroll)},dragOverCompleted:function(t){t=t.originalEvent;this.options.dragOverBubble||t.rootEl||this._handleAutoScroll(t)},drop:function(){this.sortable.nativeDraggable?p(document,"dragover",this._handleAutoScroll):(p(document,"pointermove",this._handleFallbackAutoScroll),p(document,"touchmove",this._handleFallbackAutoScroll),p(document,"mousemove",this._handleFallbackAutoScroll)),ee(),te(),clearTimeout(m),m=void 0},nulling:function(){Zt=Ut=Gt=Jt=$t=qt=Vt=null,Qt.length=0},_handleFallbackAutoScroll:function(t){this._handleAutoScroll(t,!0)},_handleAutoScroll:function(e,n){var o,i=this,r=(e.touches?e.touches[0]:e).clientX,a=(e.touches?e.touches[0]:e).clientY,t=document.elementFromPoint(r,a);Zt=e,n||this.options.forceAutoScrollFallback||w||y||u?(oe(e,this.options,t,n),o=M(t,!0),!Jt||$t&&r===qt&&a===Vt||($t&&ee(),$t=setInterval(function(){var t=M(document.elementFromPoint(r,a),!0);t!==o&&(o=t,te()),oe(e,i.options,t,n)},10),qt=r,Vt=a)):this.options.bubbleScroll&&M(t,!0)!==O()?oe(e,this.options,M(t,!1),!1):te()}},a(t,{pluginName:"scroll",initializeByDefault:!0})}),jt.mount(re,ie),jt.mount(new function(){function t(){this.defaults={swapClass:"sortable-swap-highlight"}}return t.prototype={dragStart:function(t){t=t.dragEl;ne=t},dragOverValid:function(t){var e=t.completed,n=t.target,o=t.onMove,i=t.activeSortable,r=t.changed,a=t.cancel;i.options.swap&&(t=this.sortable.el,i=this.options,n&&n!==t&&(t=ne,ne=!1!==o(n)?(k(n,i.swapClass,!0),n):null,t&&t!==ne&&k(t,i.swapClass,!1)),r(),e(!0),a())},drop:function(t){var e,n,o=t.activeSortable,i=t.putSortable,r=t.dragEl,a=i||this.sortable,l=this.options;ne&&k(ne,l.swapClass,!1),ne&&(l.swap||i&&i.options.swap)&&r!==ne&&(a.captureAnimationState(),a!==o&&o.captureAnimationState(),n=ne,t=(e=r).parentNode,l=n.parentNode,t&&l&&!t.isEqualNode(n)&&!l.isEqualNode(e)&&(i=j(e),r=j(n),t.isEqualNode(l)&&i<r&&r++,t.insertBefore(n,t.children[i]),l.insertBefore(e,l.children[r])),a.animateAll(),a!==o&&o.animateAll())},nulling:function(){ne=null}},a(t,{pluginName:"swap",eventProperties:function(){return{swapItem:ne}}})}),jt.mount(new function(){function t(o){for(var t in this)"_"===t.charAt(0)&&"function"==typeof this[t]&&(this[t]=this[t].bind(this));o.options.avoidImplicitDeselect||(o.options.supportPointer?h(document,"pointerup",this._deselectMultiDrag):(h(document,"mouseup",this._deselectMultiDrag),h(document,"touchend",this._deselectMultiDrag))),h(document,"keydown",this._checkKeyDown),h(document,"keyup",this._checkKeyUp),this.defaults={selectedClass:"sortable-selected",multiDragKey:null,avoidImplicitDeselect:!1,setData:function(t,e){var n="";de.length&&le===o?de.forEach(function(t,e){n+=(e?", ":"")+t.textContent}):n=e.textContent,t.setData("Text",n)}}}return t.prototype={multiDragKeyDown:!1,isMultiDrag:!1,delayStartGlobal:function(t){t=t.dragEl;se=t},delayEnded:function(){this.isMultiDrag=~de.indexOf(se)},setupClone:function(t){var e=t.sortable,t=t.cancel;if(this.isMultiDrag){for(var n=0;n<de.length;n++)he.push(C(de[n])),he[n].sortableIndex=de[n].sortableIndex,he[n].draggable=!1,he[n].style["will-change"]="",k(he[n],this.options.selectedClass,!1),de[n]===se&&k(he[n],this.options.chosenClass,!1);e._hideClone(),t()}},clone:function(t){var e=t.sortable,n=t.rootEl,o=t.dispatchSortableEvent,t=t.cancel;this.isMultiDrag&&(this.options.removeCloneOnHide||de.length&&le===e&&(me(!0,n),o("clone"),t()))},showClone:function(t){var e=t.cloneNowShown,n=t.rootEl,t=t.cancel;this.isMultiDrag&&(me(!1,n),he.forEach(function(t){R(t,"display","")}),e(),ue=!1,t())},hideClone:function(t){var e=this,n=(t.sortable,t.cloneNowHidden),t=t.cancel;this.isMultiDrag&&(he.forEach(function(t){R(t,"display","none"),e.options.removeCloneOnHide&&t.parentNode&&t.parentNode.removeChild(t)}),n(),ue=!0,t())},dragStartGlobal:function(t){t.sortable;!this.isMultiDrag&&le&&le.multiDrag._deselectMultiDrag(),de.forEach(function(t){t.sortableIndex=j(t)}),de=de.sort(function(t,e){return t.sortableIndex-e.sortableIndex}),ge=!0},dragStarted:function(t){var e,n=this,t=t.sortable;this.isMultiDrag&&(this.options.sort&&(t.captureAnimationState(),this.options.animation&&(de.forEach(function(t){t!==se&&R(t,"position","absolute")}),e=X(se,!1,!0,!0),de.forEach(function(t){t!==se&&T(t,e)}),pe=fe=!0)),t.animateAll(function(){pe=fe=!1,n.options.animation&&de.forEach(function(t){x(t)}),n.options.sort&&ve()}))},dragOver:function(t){var e=t.target,n=t.completed,t=t.cancel;fe&&~de.indexOf(e)&&(n(!1),t())},revert:function(t){var n,o,e=t.fromSortable,i=t.rootEl,r=t.sortable,a=t.dragRect;1<de.length&&(de.forEach(function(t){r.addAnimationState({target:t,rect:fe?X(t):a}),x(t),t.fromRect=a,e.removeAnimationState(t)}),fe=!1,n=!this.options.removeCloneOnHide,o=i,de.forEach(function(t,e){e=o.children[t.sortableIndex+(n?Number(e):0)];e?o.insertBefore(t,e):o.appendChild(t)}))},dragOverCompleted:function(t){var e,n=t.sortable,o=t.isOwner,i=t.insertion,r=t.activeSortable,a=t.parentEl,l=t.putSortable,t=this.options;i&&(o&&r._hideClone(),pe=!1,t.animation&&1<de.length&&(fe||!o&&!r.options.sort&&!l)&&(e=X(se,!1,!0,!0),de.forEach(function(t){t!==se&&(T(t,e),a.appendChild(t))}),fe=!0),o||(fe||ve(),1<de.length?(o=ue,r._showClone(n),r.options.animation&&!ue&&o&&he.forEach(function(t){r.addAnimationState({target:t,rect:ce}),t.fromRect=ce,t.thisAnimationDuration=null})):r._showClone(n)))},dragOverAnimationCapture:function(t){var e=t.dragRect,n=t.isOwner,t=t.activeSortable;de.forEach(function(t){t.thisAnimationDuration=null}),t.options.animation&&!n&&t.multiDrag.isMultiDrag&&(ce=a({},e),e=b(se,!0),ce.top-=e.f,ce.left-=e.e)},dragOverAnimationComplete:function(){fe&&(fe=!1,ve())},drop:function(t){var o,i,r,a,n,e,l,s=t.originalEvent,c=t.rootEl,u=t.parentEl,d=t.sortable,h=t.dispatchSortableEvent,p=t.oldIndex,t=t.putSortable,f=t||this.sortable;s&&(o=this.options,i=u.children,ge||(o.multiDragKey&&!this.multiDragKeyDown&&this._deselectMultiDrag(),k(se,o.selectedClass,!~de.indexOf(se)),~de.indexOf(se)?(de.splice(de.indexOf(se),1),ae=null,G({sortable:d,rootEl:c,name:"deselect",targetEl:se,originalEvent:s})):(de.push(se),G({sortable:d,rootEl:c,name:"select",targetEl:se,originalEvent:s}),s.shiftKey&&ae&&d.el.contains(ae)?(r=j(ae),a=j(se),~r&&~a&&r!==a&&function(){for(var e,t=r<a?(e=r,a):(e=a,r+1),n=o.filter;e<t;e++)~de.indexOf(i[e])||P(i[e],o.draggable,u,!1)&&(n&&("function"==typeof n?n.call(d,s,i[e],d):n.split(",").some(function(t){return P(i[e],t.trim(),u,!1)}))||(k(i[e],o.selectedClass,!0),de.push(i[e]),G({sortable:d,rootEl:c,name:"select",targetEl:i[e],originalEvent:s})))}()):ae=se,le=f)),ge&&this.isMultiDrag&&(fe=!1,(u[K].options.sort||u!==c)&&1<de.length&&(n=X(se),e=j(se,":not(."+this.options.selectedClass+")"),!pe&&o.animation&&(se.thisAnimationDuration=null),f.captureAnimationState(),pe||(o.animation&&(se.fromRect=n,de.forEach(function(t){var e;t.thisAnimationDuration=null,t!==se&&(e=fe?X(t):n,t.fromRect=e,f.addAnimationState({target:t,rect:e}))})),ve(),de.forEach(function(t){i[e]?u.insertBefore(t,i[e]):u.appendChild(t),e++}),p===j(se)&&(l=!1,de.forEach(function(t){t.sortableIndex!==j(t)&&(l=!0)}),l&&(h("update"),h("sort")))),de.forEach(function(t){x(t)}),f.animateAll()),le=f),(c===u||t&&"clone"!==t.lastPutMode)&&he.forEach(function(t){t.parentNode&&t.parentNode.removeChild(t)}))},nullingGlobal:function(){this.isMultiDrag=ge=!1,he.length=0},destroyGlobal:function(){this._deselectMultiDrag(),p(document,"pointerup",this._deselectMultiDrag),p(document,"mouseup",this._deselectMultiDrag),p(document,"touchend",this._deselectMultiDrag),p(document,"keydown",this._checkKeyDown),p(document,"keyup",this._checkKeyUp)},_deselectMultiDrag:function(t){if(!(void 0!==ge&&ge||le!==this.sortable||t&&P(t.target,this.options.draggable,this.sortable.el,!1)||t&&0!==t.button))for(;de.length;){var e=de[0];k(e,this.options.selectedClass,!1),de.shift(),G({sortable:this.sortable,rootEl:this.sortable.el,name:"deselect",targetEl:e,originalEvent:t})}},_checkKeyDown:function(t){t.key===this.options.multiDragKey&&(this.multiDragKeyDown=!0)},_checkKeyUp:function(t){t.key===this.options.multiDragKey&&(this.multiDragKeyDown=!1)}},a(t,{pluginName:"multiDrag",utils:{select:function(t){var e=t.parentNode[K];e&&e.options.multiDrag&&!~de.indexOf(t)&&(le&&le!==e&&(le.multiDrag._deselectMultiDrag(),le=e),k(t,e.options.selectedClass,!0),de.push(t))},deselect:function(t){var e=t.parentNode[K],n=de.indexOf(t);e&&e.options.multiDrag&&~n&&(k(t,e.options.selectedClass,!1),de.splice(n,1))}},eventProperties:function(){var n=this,o=[],i=[];return de.forEach(function(t){var e;o.push({multiDragElement:t,index:t.sortableIndex}),e=fe&&t!==se?-1:fe?j(t,":not(."+n.options.selectedClass+")"):j(t),i.push({multiDragElement:t,index:e})}),{items:r(de),clones:[].concat(he),oldIndicies:o,newIndicies:i}},optionListeners:{multiDragKey:function(t){return"ctrl"===(t=t.toLowerCase())?t="Control":1<t.length&&(t=t.charAt(0).toUpperCase()+t.substr(1)),t}}})}),jt});// ===== Apparence =============================================================
 // Un seul thème, en deux variantes : claire (par défaut) et sombre. La variante
@@ -2719,7 +2929,7 @@ async function loadPrefs(){
     }
   }catch(e){}
 }
-document.addEventListener('DOMContentLoaded', ()=>{ initTheme(); initView(); document.getElementById('sysprompt').value = localStorage.getItem('ajean.sys') || ''; loadSys(); restoreChat(); });
+document.addEventListener('DOMContentLoaded', ()=>{ initTheme(); initView(); restoreChat(); });
 // Pastille d'état d'une section du menu (mode agent, internet, MCP, distant).
 // `state` : true = actif (pilule pleine), false = inactif (contour), 'warn'/'err'
 // = état signalé, null = pastille masquée. Un seul endroit décide de leur allure.
@@ -3048,10 +3258,12 @@ function updateCtxMeter(){
   const ct=document.getElementById('ctx-text');
   ct.textContent=fmtCtxTokens(CTX_USED)+' / '+fmtCtxTokens(CTX_MAX);
   ct.title='contexte utilisé : '+CTX_USED.toLocaleString('fr')+' / '+CTX_MAX.toLocaleString('fr')+' jetons ('+pct+'%)';
-  // Bouton de compaction MANUELLE : visible dès la moitié du contexte pour qu'on
-  // puisse compacter à la demande avant que l'auto-compaction (75%) ne s'en charge.
-  document.getElementById('ctx-compact').style.display = (pct>=50 && CTX_USED>0) ? 'inline-block' : 'none';
+  // Compaction MANUELLE proposée dès la moitié du contexte : l'entrée « Compacter »
+  // du menu + n'apparaît qu'alors (le bouton n'est plus dans la zone de saisie).
+  COMPACT_AVAILABLE = (pct>=50 && CTX_USED>0);
 }
+// Contexte à ≥50% : le menu + propose « Compacter le contexte » (voir togglePlusMenu).
+let COMPACT_AVAILABLE = false;
 // Abrège un nombre de jetons pour le pied de carte : < 1000 tel quel, sinon en
 // milliers avec une décimale utile (10 240 → « 10.2K », 40 960 → « 41K », le .0
 // tombant). Gagne de la place là où c'est étroit.
@@ -3955,6 +4167,7 @@ async function openItem(kind, key){
   document.getElementById('m-del').style.display = key ? 'inline-flex' : 'none';
   // Model picker is preset-only: it edits the MODEL= line of the preset.
   const modelRow = document.getElementById('m-model-row');
+  const engineRow = document.getElementById('m-engine-row'); // Moteur, en haut du modal
   const settingsRow = document.getElementById('m-settings-row');
   const samplingRow = document.getElementById('m-sampling-row');
   const rawHead = document.getElementById('m-raw-head');
@@ -3964,10 +4177,22 @@ async function openItem(kind, key){
   // Marque le type sur la modale : le CSS s'en sert pour retirer la carte autour
   // du contenu d'une page mémoire (le textarea a déjà sa propre bordure).
   document.getElementById('modal').classList.toggle('kind-mem', kind === 'mem');
+  // Prompt système : propre au preset, replié par défaut, masqué pour la mémoire.
+  const sysRow = document.getElementById('m-sys-row');
+  if(sysRow){
+    sysRow.style.display = kind === 'preset' ? '' : 'none';
+    document.getElementById('m-sysprompt').value = '';
+    document.getElementById('m-sys-body').style.display = 'none';
+    document.getElementById('m-sys-caret').classList.remove('open');
+  }
+  if(engineRow) engineRow.style.display = kind === 'preset' ? '' : 'none';
   if(kind === 'preset'){
     modelRow.style.display = 'flex';
     settingsRow.style.display = 'flex';
     if(samplingRow) samplingRow.style.display = 'flex';
+    // Échantillonnage replié par défaut (réglage avancé).
+    const sb = document.getElementById('m-sampling-body'); if(sb) sb.style.display = 'none';
+    const sc = document.getElementById('m-sampling-caret'); if(sc) sc.classList.remove('open');
     document.getElementById('m-hf-url').value = '';
     resetDlUI();
     // Preset : la config brute est une ligne repliable, fermée par défaut.
@@ -4010,6 +4235,8 @@ async function openItem(kind, key){
   document.getElementById('m-name').value = display;
   document.getElementById('m-content').value = d.content || '';
   if(kind === 'preset'){
+    // Prompt système du preset (peut être vide).
+    const sp = document.getElementById('m-sysprompt'); if(sp) sp.value = d.sysprompt || '';
     // Ces deux-là LISENT le contenu : elles doivent passer après son arrivée.
     document.getElementById('m-quant').value = currentQuantInTextarea();
     populateSettings();
@@ -4792,6 +5019,20 @@ function toggleRaw(){
   b.style.display = show ? '' : 'none';
   if(c) c.classList.toggle('open', show);
 }
+function toggleSysPrompt(){
+  const b = document.getElementById('m-sys-body');
+  const c = document.getElementById('m-sys-caret');
+  const show = b.style.display === 'none';
+  b.style.display = show ? '' : 'none';
+  if(c) c.classList.toggle('open', show);
+}
+function toggleSampling(){
+  const b = document.getElementById('m-sampling-body');
+  const c = document.getElementById('m-sampling-caret');
+  const show = b.style.display === 'none';
+  b.style.display = show ? '' : 'none';
+  if(c) c.classList.toggle('open', show);
+}
 const openPreset = (id)=>openItem('preset', id);
 const openMem    = (n)=>openItem('mem', n);
 // Fermer la modale n'annule PAS un téléchargement en cours (il vit côté
@@ -4820,7 +5061,7 @@ async function saveItem(){
   // Presets: keyed by id (filename); duplicate display names are allowed.
   // Skills: keyed by name, rename via `old`.
   const payload = editingKind==='preset'
-    ? {id: editingKey, name, content}
+    ? {id: editingKey, name, content, sysprompt: (document.getElementById('m-sysprompt')||{}).value || ''}
     : {name, old: editingKey, content};
   const r = await jpost(K.saveUrl, payload);
   if(!r.ok){ toast('erreur : ' + (r.error||'')); return; }
@@ -5523,13 +5764,11 @@ async function deleteHistory(id, title){
 // d'abonnement, comme pour la génération — donc visible sur tous les appareils.
 async function compactContext(){
   if(!await askConfirm('Résumer les anciens tours pour libérer du contexte ? La conversation continue normalement.', {title:'Compacter le contexte', okText:'Compacter'})) return;
-  const btn=document.getElementById('ctx-compact'); btn.disabled=true;
   try{
     const r=await jfetch('/api/chat/compact',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
     const j=await r.json().catch(()=>({}));
     if(!j.ok) toast(j.error||'compaction indisponible');
   }catch(e){ toast('erreur : '+(e.message||e)); }
-  btn.disabled=false;
 }
 // Persistance de la conversation : on garde user+assistant en localStorage pour
 // survivre à un refresh (les bulles tool/reasoning sont éphémères, non stockées).
@@ -5545,27 +5784,49 @@ function saveChat(){ try{ localStorage.setItem('ajean.chat', JSON.stringify(msgs
 // l'affiche avec ce libellé (« chargement… » au départ, « connexion au serveur… »
 // si le flux tombe). Sans lui, une connexion lente affiche un chat vide qu'on ne
 // distingue pas d'une conversation réellement vide.
+// Durée minimale d'affichage du voile : sur un chargement ultra-rapide, le logo
+// n'apparaîtrait qu'une fraction de seconde et « clignoterait », ce qui est moche.
+// On le garde donc visible le temps d'AU MOINS un cycle de pulse (~1,1 s) une fois
+// montré, puis il disparaît en fondu (transition CSS sur #chat-loading).
+const CL_MIN_MS = 1150;
+// Le voile est déjà affiché dans le HTML (classe show) pour éviter tout flash
+// « interface → logo → interface » au premier rendu : on démarre donc le chrono dès
+// le chargement du script.
+let _clShownAt = Date.now(), _clHideTimer = null;
 function setChatLoading(msg){
   const el=document.getElementById('chat-loading');
   if(!el) return;
-  if(!msg){ el.classList.remove('show'); return; }
-  document.getElementById('chat-loading-text').textContent=msg;
+  if(!msg){
+    // Masquage : si le voile n'a pas encore été affiché assez longtemps, on retarde
+    // le masquage du temps restant pour éviter le clignotement.
+    const elapsed = _clShownAt ? (Date.now() - _clShownAt) : CL_MIN_MS;
+    const wait = Math.max(0, CL_MIN_MS - elapsed);
+    clearTimeout(_clHideTimer);
+    _clHideTimer = setTimeout(()=>{ el.classList.remove('show'); _clShownAt = 0; }, wait);
+    return;
+  }
+  // Affichage : la marque « J » (favicon) en grand qui pulse (comme le compactage).
+  // Le SVG est déjà dans le HTML ; on garde le libellé en aria-label.
+  clearTimeout(_clHideTimer); _clHideTimer = null;
+  if(!_clShownAt) _clShownAt = Date.now();
+  el.setAttribute('aria-label', msg);
   el.classList.add('show');
 }
 // --- Accueil du fil vide ---------------------------------------------------
 // Le logo n'est pas dupliqué dans le HTML : on clone celui de la barre latérale
 // (#brand) en retirant ses id (un id ne peut exister qu'une fois) et le numéro
 // de version. Les couleurs sont reprises par les classes .ce-*.
-function fillEmptyLogo(){
-  const box=document.getElementById('ce-logo'), brand=document.getElementById('brand');
+function cloneBrandInto(boxId, wordClass){
+  const box=document.getElementById(boxId), brand=document.getElementById('brand');
   if(!box || !brand || box.childElementCount) return;
   ['brand-a','brand-word'].forEach(id=>{
     const src=brand.querySelector('#'+id); if(!src) return;
     const el=src.cloneNode(true); el.removeAttribute('id');
-    if(id==='brand-word') el.classList.add('ce-word');
+    if(id==='brand-word' && wordClass) el.classList.add(wordClass);
     box.appendChild(el);
   });
 }
+function fillEmptyLogo(){ cloneBrandInto('ce-logo', 'ce-word'); }
 // Affiché seulement quand le fil ne contient AUCUNE bulle et que le replay est
 // terminé — sinon il apparaîtrait une fraction de seconde à chaque chargement,
 // juste avant que les messages rejoués n'arrivent.
@@ -5917,17 +6178,12 @@ function setBusy(on){ busy=on; if(!REPLAYING) syncSendBtn(); }
 let RUNNING_TASK='';
 function syncSendBtn(){
   const sb=document.getElementById('send');
-  sb.style.display=busy?'none':'inline-block';
+  sb.style.display=busy?'none':'flex';
   const stop=document.getElementById('stop');
-  stop.style.display=busy?'inline-block':'none';
-  // Étiquette explicite quand c'est une TÂCHE qui occupe le moteur.
-  if(busy && RUNNING_TASK){
-    stop.textContent='arrêter la tâche';
-    stop.title='Tâche « '+RUNNING_TASK+' » en cours';
-  } else {
-    stop.textContent='stop';
-    stop.title='';
-  }
+  stop.style.display=busy?'flex':'none';
+  // Le bouton stop est une icône (carré) : on ne touche PAS à son contenu (sinon on
+  // écraserait le SVG), seulement au tooltip pour signaler une tâche de fond.
+  stop.title = (busy && RUNNING_TASK) ? ('Arrêter la tâche « '+RUNNING_TASK+' »') : 'stop';
   // Tant que le moteur n'a pas fini de charger le modèle, envoyer ne mène à rien :
   // on bloque le bouton et l'Entrée, et on le DIT sous le champ. `STATUS_SEEN`
   // évite de verrouiller le chat quand /api/status n'a pas encore répondu (ou ne
@@ -7247,12 +7503,20 @@ function openNodeHub(){ loadNode(); showModal('node-hub-modal'); }
 // Le bouton du composeur reflète SUR QUOI l'IA agit : écran = ce serveur, ondes
 // wifi (teinté accent) = un poste distant est la cible active.
 function updateNodeBtn(){
-  const btn = document.getElementById('node-btn');
-  if(!btn) return;
   const remote = !!nodeTarget;
-  btn.classList.toggle('remote', remote);
   const n = remote ? nodeList.find(x=>x.slug===nodeTarget) : null;
-  btn.title = remote ? ('Postes distants — l\'IA agit sur « '+(n?n.name:nodeTarget)+' »') : 'Postes distants — l\'IA agit sur ce serveur';
+  // Ancien bouton du composeur (retiré) : gardé au cas où un thème le réintroduit.
+  const btn = document.getElementById('node-btn');
+  if(btn){
+    btn.classList.toggle('remote', remote);
+    btn.title = remote ? ('Postes distants — l\'IA agit sur « '+(n?n.name:nodeTarget)+' »') : 'Postes distants — l\'IA agit sur ce serveur';
+  }
+  // Indicateur wifi à gauche du + : visible seulement quand une cible distante est active.
+  const indic = document.getElementById('node-indic');
+  if(indic){
+    indic.style.display = remote ? 'inline-flex' : 'none';
+    indic.title = remote ? ('L\'IA agit sur « '+(n?n.name:nodeTarget)+' »') : '';
+  }
 }
 
 function renderNode(r){
@@ -7270,24 +7534,23 @@ function renderNode(r){
   const connected = nodeList.filter(n=>n.connected).length;
   // Sélecteur de CIBLE : sur quelle machine l'IA agit (ses outils bash/write/edit).
   renderNodeTarget(list, connected);
+  // En-tête discret de section « Postes ».
+  const head = document.createElement('div'); head.className='sess-head'; head.textContent='Postes'; list.appendChild(head);
   nodeList.forEach(n=>{
-    const row = document.createElement('div'); row.className = 'mcp-row'+(n.connected?'':' off');
-    const dot = document.createElement('span'); dot.className = 'mcp-dot '+(n.connected?'mcp-dot-ok':'mcp-dot-off');
+    const row = document.createElement('div'); row.className = 'node-row'+(n.connected?'':' off');
+    const dot = document.createElement('span'); dot.className = 'node-dot';
     dot.title = n.connected ? 'connecté' : 'hors ligne';
-
-    const info = document.createElement('div'); info.className = 'mcp-info';
-    const nm = document.createElement('div'); nm.className = 'mcp-name'; nm.textContent = n.name; nm.title = n.os||'';
-    const meta = document.createElement('div'); meta.className = 'mcp-meta';
-    const os = document.createElement('span'); os.className = 'mcp-tag'; os.textContent = n.os||'?'; meta.appendChild(os);
-    const caps = document.createElement('span'); caps.className = 'mcp-tools';
-    caps.textContent = (n.caps&&n.caps.length) ? n.caps.map(c=>nodeCapLabels[c]||c).join(', ') : 'aucune capacité';
-    meta.appendChild(caps);
-    if(n.root){ const rt = document.createElement('span'); rt.className='mcp-tools'; rt.textContent = '📁 '+n.root; rt.title=n.root; meta.appendChild(rt); }
-    info.appendChild(nm); info.appendChild(meta);
-
-    const edit = document.createElement('button'); edit.className='mcp-edit'; edit.title='régler'; edit.textContent='✎';
-    edit.onclick = (e)=>{ e.stopPropagation(); openNodeEdit(n.id); };
-    row.appendChild(dot); row.appendChild(info); row.appendChild(edit);
+    const info = document.createElement('div'); info.className = 'node-info';
+    const nm = document.createElement('div'); nm.className = 'node-nm'; nm.textContent = n.name;
+    const sub = document.createElement('div'); sub.className = 'node-sub';
+    const caps = (n.caps&&n.caps.length) ? n.caps.map(c=>nodeCapLabels[c]||c).join(', ') : 'aucune capacité';
+    sub.textContent = (n.connected?'connecté':'hors ligne') + ' · ' + (n.os||'?') + ' · ' + caps;
+    sub.title = n.root ? ('dossier : '+n.root) : '';
+    info.appendChild(nm); info.appendChild(sub);
+    // Chevron discret (réglages), révélé au survol.
+    const go = document.createElement('span'); go.className='node-go';
+    go.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+    row.appendChild(dot); row.appendChild(info); row.appendChild(go);
     row.onclick = ()=>openNodeEdit(n.id);
     list.appendChild(row);
   });
@@ -7297,24 +7560,24 @@ function renderNode(r){
 // (bash/write/edit) s'exécutent sur la machine choisie ; un poste hors ligne ne
 // peut pas être cible (fail-closed côté serveur).
 function renderNodeTarget(list, connected){
-  const wrap = document.createElement('div'); wrap.className = 'node-target';
-  const lab = document.createElement('div'); lab.className = 'node-target-l';
-  lab.textContent = "L'IA agit sur :"; wrap.appendChild(lab);
+  const lab = document.createElement('div'); lab.className = 'node-seg-l';
+  lab.textContent = "L'IA agit sur"; list.appendChild(lab);
+  const seg = document.createElement('div'); seg.className = 'node-seg';
   const opts = [{slug:'', name:'Ce serveur'}].concat(nodeList.filter(n=>n.connected).map(n=>({slug:n.slug, name:n.name})));
-  // Cible sélectionnée mais hors ligne : on l'ajoute quand même, marquée, pour ne
-  // pas la perdre silencieusement.
+  // Cible sélectionnée mais hors ligne : on la garde, marquée, pour ne pas la perdre.
   if(nodeTarget && !opts.some(o=>o.slug===nodeTarget)){
     const n = nodeList.find(x=>x.slug===nodeTarget);
     opts.push({slug:nodeTarget, name:(n?n.name:nodeTarget)+' (hors ligne)', off:true});
   }
   opts.forEach(o=>{
-    const l = document.createElement('label'); l.className = 'node-target-opt'+(o.slug===nodeTarget?' on':'')+(o.off?' off':'');
+    const l = document.createElement('label'); l.className = (o.slug===nodeTarget?'on':'')+(o.off?' off':'');
+    l.title = o.name;
     const rb = document.createElement('input'); rb.type='radio'; rb.name='node-target'; rb.checked = o.slug===nodeTarget;
     rb.onchange = ()=>setNodeTarget(o.slug);
     const sp = document.createElement('span'); sp.textContent = o.name;
-    l.appendChild(rb); l.appendChild(sp); wrap.appendChild(l);
+    l.appendChild(rb); l.appendChild(sp); seg.appendChild(l);
   });
-  list.appendChild(wrap);
+  list.appendChild(seg);
 }
 
 async function setNodeTarget(slug){
@@ -7385,12 +7648,12 @@ function openNodeEdit(id){
   document.querySelector('#node-pair-modal .modal-head strong').textContent = 'Poste « '+n.name+' »'+(n.connected?' (connecté)':'');
   const footR = document.querySelector('#node-pair-modal .foot-r');
   footR.innerHTML = '';
-  const cancel = document.createElement('button'); cancel.textContent='fermer'; cancel.onclick=()=>{ hideModal('node-pair-modal'); resetNodeFoot(); };
-  const save = document.createElement('button'); save.className='btn-save'; save.textContent='enregistrer'; save.onclick=saveNodeCaps;
+  const cancel = document.createElement('button'); cancel.className='mbtn'; cancel.textContent='Fermer'; cancel.onclick=()=>{ hideModal('node-pair-modal'); resetNodeFoot(); };
+  const save = document.createElement('button'); save.className='mbtn primary'; save.textContent='Enregistrer'; save.onclick=saveNodeCaps;
   footR.appendChild(cancel); footR.appendChild(save);
   const footL = document.querySelector('#node-pair-modal .foot-l');
   footL.innerHTML = '';
-  const del = document.createElement('button'); del.className='btn-danger'; del.textContent='révoquer'; del.onclick=()=>revokeNode(id);
+  const del = document.createElement('button'); del.className='mbtn danger'; del.textContent='Révoquer'; del.onclick=()=>revokeNode(id);
   footL.appendChild(del);
   showModal('node-pair-modal');
 }
@@ -7398,7 +7661,7 @@ function resetNodeFoot(){
   document.querySelector('#node-pair-modal .modal-head strong').textContent = 'Appairer un poste distant';
   document.querySelector('#node-pair-modal .foot-l').innerHTML = '';
   const footR = document.querySelector('#node-pair-modal .foot-r');
-  footR.innerHTML = '<button onclick="hideModal(\'node-pair-modal\')">fermer</button><button class="btn-save" onclick="genNodeCode()">générer le code</button>';
+  footR.innerHTML = '<button class="mbtn" onclick="hideModal(\'node-pair-modal\')">Fermer</button><button class="mbtn primary" onclick="genNodeCode()">Générer le code</button>';
   nodeEditing = null;
 }
 async function saveNodeCaps(){
@@ -7425,6 +7688,7 @@ let tasksList = [];
 let taskEditing = null; // id en cours d'édition ('' = nouvelle, null = fermé)
 let TASK_RUNNING = '';  // id de la tâche en cours d'exécution ('' = aucune)
 let TASK_PRESETS = [];  // presets disponibles (pour le sélecteur de la modale)
+let TASK_PROJECTS = []; // projets disponibles (pour le sélecteur « mémoire du projet »)
 let TASK_MEM_ON = true; // état mémoire global (défaut d'une nouvelle tâche)
 let TASK_WEB_ON = true; // état web global (défaut d'une nouvelle tâche)
 let TASK_SCRIPTS = []; // scripts durables disponibles (pour une tâche « script seul »)
@@ -7451,6 +7715,7 @@ function renderTasks(r){
   TASK_MEM_ON = !r || r.mem_on !== false;
   TASK_WEB_ON = !r || r.web_on !== false;
   TASK_SCRIPTS = (r && r.scripts) || [];
+  TASK_PROJECTS = (r && r.projects) || [];
   TASK_RUNNING = (r && r.running_id) || '';
   ensureTasksPoll();
   const pc = document.getElementById('tasks-pause-toggle');
@@ -7505,11 +7770,8 @@ function renderTasks(r){
         sc.textContent = 'script'; sc.title = 'tâche script (sans IA) : '+(t.script||'');
         meta.appendChild(sc);
       }
-      if(t.preset){
-        const pr = document.createElement('span'); pr.className = 'mcp-tag mcp-tag-preset';
-        const pn = (TASK_PRESETS.find(p=>p.id===t.preset)||{}).name || t.preset;
-        pr.textContent = pn; pr.title = 'preset : '+pn; meta.appendChild(pr);
-      }
+      // (Le nom du modèle/preset n'est PLUS affiché dans la liste : on garde juste la
+      // planification, plus lisible. Le preset reste réglable dans l'édition.)
       if(t.enabled && t.next_run){
         const nx = document.createElement('span'); nx.className = 'mcp-tools';
         nx.textContent = '→ '+fmtWhen(t.next_run);
@@ -7540,10 +7802,8 @@ function renderTasks(r){
       cb.onchange = ()=>toggleTask(t.id, cb.checked);
       const sl = document.createElement('span'); sl.className = 'slider';
       sw.appendChild(cb); sw.appendChild(sl);
-      const edit = document.createElement('button');
-      edit.className = 'mcp-edit'; edit.title = 'éditer'; edit.textContent = '✎';
-      edit.onclick = (e)=>{ e.stopPropagation(); openTask(t.id); };
-      row.appendChild(sw); row.appendChild(edit);
+      // Pas de bouton « éditer » : cliquer la ligne ouvre déjà la tâche en édition.
+      row.appendChild(sw);
     }
     row.onclick = ()=> running ? null : openTask(t.id);
     list.appendChild(row);
@@ -7620,6 +7880,7 @@ function openTask(id){
   document.getElementById('task-mem').checked = t ? !t.no_mem : TASK_MEM_ON;
   document.getElementById('task-web').checked = t ? !t.no_web : TASK_WEB_ON;
   fillPresetSelect(t ? (t.preset||'') : '');
+  fillProjectSelect(t ? (t.project||'') : '');
   // Type de tâche (IA ou script) + sélecteur de script.
   fillScriptSelect(t ? (t.script||'') : '');
   setTaskKind(t && t.kind === 'script' ? 'script' : 'agent');
@@ -7695,6 +7956,25 @@ function fillPresetSelect(selected){
   sel.value = selected || '';
 }
 
+// fillProjectSelect peuple le sélecteur de projet (mémoire de la tâche). La
+// sélection est OBLIGATOIRE : la tâche lit/écrit dans la mémoire de ce projet. Pour
+// une tâche existante on garde son projet ; pour une nouvelle on présélectionne le
+// projet actif (ACTIVE_PROJECT, défini par 18-projects.js), sinon le premier.
+function fillProjectSelect(selected){
+  const sel = document.getElementById('task-project');
+  if(!sel) return;
+  sel.textContent = '';
+  TASK_PROJECTS.forEach(p=>{
+    const o = document.createElement('option'); o.value = p.slug; o.textContent = p.name;
+    sel.appendChild(o);
+  });
+  const fallback = (typeof ACTIVE_PROJECT !== 'undefined' && ACTIVE_PROJECT) ||
+    (TASK_PROJECTS[0] && TASK_PROJECTS[0].slug) || '';
+  sel.value = selected || fallback;
+  // Si le projet enregistré n'existe plus (supprimé), on retombe sur le fallback.
+  if(!sel.value && sel.options.length) sel.selectedIndex = 0;
+}
+
 // setTaskKind bascule le formulaire entre tâche IA (consigne + preset + accès) et
 // tâche script (sélecteur de script). Masque les groupes sans objet.
 function setTaskKind(kind){
@@ -7767,13 +8047,14 @@ async function saveTask(){
   const no_web = !document.getElementById('task-web').checked;
   const kind = (document.querySelector('input[name="task-kind"]:checked')||{}).value || 'agent';
   const script = document.getElementById('task-script').value;
+  const project = (document.getElementById('task-project')||{}).value || '';
   const st = document.getElementById('task-modal-status');
   if(!name){ st.textContent = 'nom obligatoire'; st.style.color = 'var(--err)'; return; }
   if(kind === 'script'){
     if(!script){ st.textContent = 'enregistre d\'abord un script à lancer'; st.style.color = 'var(--err)'; return; }
   } else if(!prompt){ st.textContent = 'consigne obligatoire'; st.style.color = 'var(--err)'; return; }
   if(!schedule){ st.textContent = 'fréquence invalide'; st.style.color = 'var(--err)'; return; }
-  const r = await jpost('/api/tasks/save', {id: taskEditing||'', name, prompt, schedule, enabled, preset, tz, no_mem, no_web, kind, script});
+  const r = await jpost('/api/tasks/save', {id: taskEditing||'', name, prompt, schedule, enabled, preset, project, tz, no_mem, no_web, kind, script});
   if(!r || !r.ok){ st.textContent = (r && r.error) || 'échec'; st.style.color = 'var(--err)'; return; }
   closeTask();
   await loadTasks();
@@ -7921,4 +8202,306 @@ if(pushSupported()){
   navigator.serviceWorker.register('/sw.js', {scope:'/'}).then(r=>{ _swReg=r; }).catch(()=>{});
 }
 document.addEventListener('DOMContentLoaded', ()=>{ pushRefresh(); });
+// 18-projects.js — les PROJETS. Un projet cloisonne une mémoire (pages .md +
+// index MEMORY.md) ET ses sessions de chat. Le bouton dossier du composeur ouvre
+// ce modal : sélectionner un projet bascule dessus (nouvelle session vierge,
+// l'ancienne est archivée dans son projet), créer / renommer / supprimer aussi.
+//
+// Après une bascule, le serveur remet la conversation à zéro (nouvelle session) :
+// le flux SSE reçoit un {reset} et l'UI se nettoie toute seule, comme un « clear
+// chat ». On rafraîchit juste la liste mémoire des réglages et le libellé du bouton.
+
+let PROJECTS = [], ACTIVE_PROJECT = '';
+
+function openProjectHub(){ showModal('project-modal'); loadProjects(); }
+function closeProjectModal(){ hideModal('project-modal'); }
+
+// Met à jour le petit libellé du projet actif à côté de l'icône dossier.
+function setProjectBtnName(name){
+  const el = document.getElementById('project-btn-name');
+  if(el) el.textContent = name || '';
+}
+
+// Récupère la liste + l'actif ; rend le modal s'il est ouvert et rafraîchit le bouton.
+async function loadProjects(){
+  let r; try{ r = await jget('/api/projects'); }catch(_){ r = null; }
+  if(!r || !r.ok){ const box=document.getElementById('project-list'); if(box) box.innerHTML='<span class="muted" style="font-size:12px">erreur de chargement</span>'; return; }
+  PROJECTS = r.projects || [];
+  ACTIVE_PROJECT = r.active || '';
+  const act = PROJECTS.find(p=>p.slug===ACTIVE_PROJECT);
+  setProjectBtnName(act ? act.name : '');
+  renderProjectList();
+  loadProjectSessions();
+}
+
+// Dossier DUOTONE (corps rempli en fondu + tracé net) : rendu plus « produit »
+// qu'un simple contour. Prend la couleur courante (accent sur la tuile active).
+function projFolderSvg(sz){
+  const s = sz || 34;
+  return '<svg viewBox="0 0 24 24" width="'+s+'" height="'+s+'" fill="none" aria-hidden="true">'
+    + '<path d="M3 8.6A2.6 2.6 0 0 1 5.6 6h3.5a1.4 1.4 0 0 1 1 .43L14.4 8.9h4A2.6 2.6 0 0 1 21 11.5V17a2.6 2.6 0 0 1-2.6 2.6H5.6A2.6 2.6 0 0 1 3 17z" fill="currentColor" opacity=".15"/>'
+    + '<path d="M3 9.4A2.4 2.4 0 0 1 5.4 7h3.4a1.2 1.2 0 0 1 .85.35L11.3 9h6.3A2.4 2.4 0 0 1 20 11.4V17a2.4 2.4 0 0 1-2.4 2.4H5.4A2.4 2.4 0 0 1 3 17z" stroke="currentColor" stroke-width="1.5"/>'
+    + '</svg>';
+}
+function projDotsSvg(){
+  // Points VERTICAUX (⋮), plus discrets dans un coin.
+  return '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>';
+}
+// Une carte-dossier de projet, dans une GRILLE. Cliquer bascule dessus ; le bouton
+// « ⋯ » ouvre un petit menu (renommer / supprimer) — pas d'icônes brutes entassées.
+function projectTile(p){
+  const active = p.slug === ACTIVE_PROJECT;
+  const tile = document.createElement('div'); tile.className = 'proj-tile' + (active?' active':'');
+  tile.tabIndex = 0; tile.title = active ? 'Projet actif' : 'Basculer sur ce projet';
+  if(!active){
+    tile.onclick = ()=>switchProjectUI(p.slug);
+    tile.onkeydown = (e)=>{ if((e.key==='Enter'||e.key===' ') && e.target===tile){ e.preventDefault(); switchProjectUI(p.slug); } };
+  }
+  if(active){ const badge = document.createElement('span'); badge.className='proj-badge'; badge.textContent='actif'; tile.appendChild(badge); }
+  // Bouton menu ⋯
+  const menu = document.createElement('button');
+  menu.className='proj-menu-btn'; menu.innerHTML=projDotsSvg(); menu.title='Options du projet'; menu.setAttribute('aria-label','Options du projet');
+  menu.onclick=(e)=>{ e.stopPropagation(); openProjMenu(menu, p); };
+  tile.appendChild(menu);
+
+  const icon = document.createElement('div'); icon.className = 'proj-ticon'; icon.innerHTML = projFolderSvg(36);
+  const name = document.createElement('div'); name.className = 'proj-tname'; name.textContent = p.name || p.slug;
+  tile.appendChild(icon); tile.appendChild(name);
+  return tile;
+}
+
+// Petit menu contextuel d'un projet (renommer / supprimer), ancré au bouton ⋯.
+let _projPop = null;
+function _projOutside(e){
+  // Ignore un clic sur un bouton ⋯ (sinon fermer+rouvrir) ou dans le menu.
+  if(_projPop && (_projPop.contains(e.target) || (e.target.closest && e.target.closest('.proj-menu-btn,.sess-menu-btn')))) return;
+  closeProjMenu();
+}
+function closeProjMenu(){ if(_projPop){ _projPop.remove(); _projPop=null; document.removeEventListener('click', _projOutside, true); document.removeEventListener('scroll', closeProjMenu, true); } }
+function openProjMenu(anchor, p){
+  closeProjMenu();
+  const pop = document.createElement('div'); pop.className='pop-menu';
+  const item = (icon, label, cls, fn)=>{ const b=document.createElement('button'); if(cls) b.className=cls; b.innerHTML=sessIconSvg(icon)+'<span>'+label+'</span>'; b.onclick=(e)=>{ e.stopPropagation(); closeProjMenu(); fn(); }; return b; };
+  pop.appendChild(item('pencil', 'Renommer', '', ()=>renameProjectUI(p.slug, p.name)));
+  if(PROJECTS.length > 1) pop.appendChild(item('trash', 'Supprimer', 'danger', ()=>deleteProjectUI(p.slug, p.name)));
+  document.body.appendChild(pop);
+  // Positionne sous le bouton, calé à droite, en restant dans l'écran.
+  const r = anchor.getBoundingClientRect();
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let left = Math.min(r.right - pw, window.innerWidth - pw - 8);
+  left = Math.max(8, left);
+  let top = r.bottom + 6;
+  if(top + ph > window.innerHeight - 8) top = r.top - ph - 6;
+  pop.style.left = left+'px'; pop.style.top = top+'px';
+  _projPop = pop;
+  // Ferme au prochain clic ailleurs / défilement (capture pour attraper tôt).
+  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', closeProjMenu, true); }, 0);
+}
+
+function renderProjectList(){
+  const box = document.getElementById('project-list'); if(!box) return;
+  const cnt = document.getElementById('proj-count'); if(cnt) cnt.textContent = PROJECTS.length || '';
+  box.className = 'proj-grid';
+  box.innerHTML = '';
+  if(!PROJECTS.length){ box.innerHTML='<span class="muted" style="font-size:12px">aucun projet</span>'; return; }
+  PROJECTS.forEach(p=>box.appendChild(projectTile(p)));
+}
+
+// Basculer sur un projet : nouvelle session vierge côté serveur, la mémoire suit.
+// Le modal RESTE ouvert : on met à jour la liste + les sessions du nouveau projet,
+// pour pouvoir enchaîner (ouvrir une session, en créer une…). Le fil derrière est
+// déjà remis à zéro (le flux SSE reçoit un reset).
+async function switchProjectUI(slug){
+  if(slug === ACTIVE_PROJECT) return;
+  let r; try{ r = await jpost('/api/projects/switch', {slug}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error || 'bascule impossible'); return; }
+  ACTIVE_PROJECT = r.active || slug;
+  // On relit la liste depuis le serveur (source de vérité) : le libellé du bouton et
+  // la sélection active se mettent à jour même si le projet vient d'être créé et
+  // n'était pas encore dans PROJECTS — sans avoir à rafraîchir la page.
+  await loadProjects();
+  const p = PROJECTS.find(x=>x.slug===ACTIVE_PROJECT);
+  toast('projet : ' + (p ? p.name : ACTIVE_PROJECT));
+  // Rafraîchit la liste des pages mémoire des réglages (elle est projet-scopée).
+  if(typeof loadAgent === 'function') loadAgent();
+}
+
+// ===== Sessions du projet actif (dans le hub) ==============================
+// Réutilise les mêmes endpoints /api/chat/history* que l'ancien modal, mais rend
+// dans #project-sessions et rafraîchit ici. Ouvrir une session ferme le hub.
+async function loadProjectSessions(){
+  const box = document.getElementById('project-sessions'); if(!box) return;
+  if(!box.children.length) box.innerHTML = '<span class="muted" style="font-size:12px">chargement…</span>';
+  let list = [], active = '';
+  try{ const r = await jget('/api/chat/history'); list = (r && r.conversations) || []; active = (r && r.active) || ''; }
+  catch(_){ box.innerHTML = '<span class="muted" style="font-size:12px">erreur de chargement</span>'; return; }
+  box.innerHTML = '';
+  if(!list.length){ box.innerHTML = '<span class="muted" style="font-size:12px">aucune conversation dans ce projet. Commence à discuter, elle apparaîtra ici.</span>'; return; }
+  const favs = list.filter(c=>c.fav), others = list.filter(c=>!c.fav);
+  const section = (label)=>{ const h=document.createElement('div'); h.className='sess-head'; h.style.paddingLeft='8px'; h.textContent=label; box.appendChild(h); };
+  if(favs.length){ section('Favoris'); favs.forEach(c=>box.appendChild(projSessionRow(c, c.id===active))); }
+  if(others.length){ if(favs.length) section('Récentes'); others.forEach(c=>box.appendChild(projSessionRow(c, c.id===active))); }
+}
+
+function projSessionRow(c, active){
+  const row = document.createElement('div'); row.className = 'sess-row' + (active?' active':'');
+  if(!active){ row.tabIndex = 0; row.title = 'Ouvrir cette conversation';
+    row.onclick = ()=>openProjSession(c.id);
+    row.onkeydown = (e)=>{ if((e.key==='Enter'||e.key===' ') && e.target===row){ e.preventDefault(); openProjSession(c.id); } };
+  }
+  const info = document.createElement('div'); info.className = 'sess-info';
+  const name = document.createElement('div'); name.className = 'sess-name'; name.textContent = c.title || 'Conversation';
+  const meta = document.createElement('div'); meta.className = 'sess-meta';
+  const n = c.turns || 0;
+  meta.textContent = fmtHistDate(c.saved_at) + ' · ' + n + ' message' + (n>1?'s':'');
+  info.appendChild(name); info.appendChild(meta);
+  row.appendChild(info);
+  // Menu ⋮ (Favori / Renommer / Supprimer) — comme les projets, plus de crayon/poubelle.
+  const menu = document.createElement('button');
+  menu.className='sess-menu-btn'; menu.innerHTML=projDotsSvg(); menu.title='Options'; menu.setAttribute('aria-label','Options');
+  menu.onclick=(e)=>{ e.stopPropagation(); openSessMenu(menu, c); };
+  row.appendChild(menu);
+  return row;
+}
+
+// Menu contextuel d'une conversation (favori / renommer / supprimer).
+function openSessMenu(anchor, c){
+  closeProjMenu();
+  const pop = document.createElement('div'); pop.className='pop-menu';
+  const item = (icon, label, cls, fn)=>{ const b=document.createElement('button'); if(cls) b.className=cls; b.innerHTML=sessIconSvg(icon)+'<span>'+label+'</span>'; b.onclick=(e)=>{ e.stopPropagation(); closeProjMenu(); fn(); }; return b; };
+  pop.appendChild(item('star', c.fav?'Retirer des favoris':'Mettre en favori', '', ()=>favProjSession(c.id, !c.fav)));
+  pop.appendChild(item('pencil', 'Renommer', '', ()=>renameProjSession(c.id, c.title)));
+  // Exporter CETTE conversation (archivée), sans avoir à l'ouvrir : ?id=<session>.
+  const exp = document.createElement('button');
+  exp.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 19h16"/></svg><span>Exporter</span>';
+  exp.onclick = (e)=>{ e.stopPropagation(); closeProjMenu(); if(typeof downloadExport==='function') downloadExport('/api/chat/export?id='+encodeURIComponent(c.id)); };
+  pop.appendChild(exp);
+  pop.appendChild(item('trash', 'Supprimer', 'danger', ()=>deleteProjSession(c.id, c.title)));
+  document.body.appendChild(pop);
+  const r = anchor.getBoundingClientRect();
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let left = Math.max(8, Math.min(r.right - pw, window.innerWidth - pw - 8));
+  let top = r.bottom + 6; if(top + ph > window.innerHeight - 8) top = r.top - ph - 6;
+  pop.style.left = left+'px'; pop.style.top = top+'px';
+  _projPop = pop;
+  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', closeProjMenu, true); }, 0);
+}
+
+async function openProjSession(id){
+  let r; try{ r = await jpost('/api/chat/history/restore', {id}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error || 'impossible d\'ouvrir'); return; }
+  closeProjectModal();
+  toast('conversation ouverte');
+}
+async function favProjSession(id, fav){
+  let r; try{ r = await jpost('/api/chat/history/fav', {id, fav}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error || 'impossible'); return; }
+  loadProjectSessions();
+}
+async function renameProjSession(id, current){
+  const name = await askPrompt('Nom de la conversation (laisser vide pour le nom automatique) :', {title:'Renommer la conversation', okText:'Enregistrer', default: current||'', placeholder:'ex. Config serveur GPU'});
+  if(name===null) return;
+  let r; try{ r = await jpost('/api/chat/history/rename', {id, title:name}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error || 'renommage impossible'); return; }
+  loadProjectSessions();
+}
+async function deleteProjSession(id, title){
+  if(!await askConfirm('Supprimer définitivement « ' + (title || 'cette conversation') + ' » ? Cette action est irréversible.', {title:'Supprimer la conversation', okText:'Supprimer', danger:true})) return;
+  let r; try{ r = await jpost('/api/chat/history/delete', {id}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error || 'suppression impossible'); return; }
+  loadProjectSessions();
+}
+// Nouvelle conversation vierge dans le projet actif (archive la courante).
+async function newSessionUI(){
+  let r; try{ r = await jpost('/api/chat/reset', {}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r || !r.ok){ toast('impossible'); return; }
+  closeProjectModal();
+  toast('nouvelle conversation');
+}
+// Vide les conversations du projet actif sauf les favoris et celle en cours.
+async function clearProjectSessions(){
+  if(!await askConfirm('Supprimer toutes les conversations de ce projet, sauf les favoris et celle en cours ? Cette action est irréversible.', {title:'Vider les conversations', okText:'Vider', danger:true})) return;
+  let r; try{ r = await jpost('/api/chat/history/clear', {}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error || 'suppression impossible'); return; }
+  toast((r.deleted||0) + ' conversation' + ((r.deleted>1)?'s':'') + ' supprimée' + ((r.deleted>1)?'s':''));
+  loadProjectSessions();
+}
+
+async function createProjectUI(){
+  // Création via une petite fenêtre (comme le renommage), pas une barre inline.
+  const name = await askPrompt('Nom du projet :', {title:'Nouveau projet', okText:'Créer', placeholder:'nom du projet'});
+  if(name===null) return;               // annulé
+  if(!name.trim()){ toast('nom vide'); return; }
+  let r; try{ r = await jpost('/api/projects/create', {name}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error || 'création impossible'); return; }
+  // On bascule directement sur le nouveau projet (on le crée pour y travailler).
+  await switchProjectUI(r.slug);
+}
+
+async function renameProjectUI(slug, current){
+  const name = await askPrompt('Nouveau nom du projet :', {title:'Renommer le projet', okText:'Enregistrer', default: current||'', placeholder:'ex. Site vitrine'});
+  if(name===null) return;
+  if(!name.trim()){ toast('nom vide'); return; }
+  let r; try{ r = await jpost('/api/projects/rename', {slug, name}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error || 'renommage impossible'); return; }
+  loadProjects();
+}
+
+async function deleteProjectUI(slug, name){
+  if(!await askConfirm('Supprimer le projet « ' + (name||slug) + ' » ? Sa mémoire ET toutes ses sessions seront définitivement effacées.', {title:'Supprimer le projet', okText:'Supprimer', danger:true})) return;
+  let r; try{ r = await jpost('/api/projects/delete', {slug}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error || 'suppression impossible'); return; }
+  ACTIVE_PROJECT = r.active || ACTIVE_PROJECT;
+  toast('projet supprimé');
+  loadProjects();
+  if(typeof loadAgent === 'function') loadAgent();
+}
+
+// ===== Menu « + » du composeur (machines + fichiers) =======================
+let _plusPop = null;
+// Ferme SAUF si le clic est sur le bouton + lui-même (sinon re-cliquer fermerait
+// puis rouvrirait aussitôt) ou à l'intérieur du menu.
+function _plusOutside(e){
+  const btn = document.getElementById('plus-btn');
+  if(_plusPop && (_plusPop.contains(e.target) || (btn && btn.contains(e.target)))) return;
+  closePlusMenu();
+}
+function closePlusMenu(){
+  if(_plusPop){ _plusPop.remove(); _plusPop=null;
+    document.removeEventListener('click', _plusOutside, true);
+    const b=document.getElementById('plus-btn'); if(b) b.classList.remove('open');
+  }
+}
+function togglePlusMenu(e){
+  if(e){ e.stopPropagation(); e.preventDefault(); }
+  if(_plusPop){ closePlusMenu(); return; }
+  const anchor = document.getElementById('plus-btn'); if(!anchor) return;
+  const pop = document.createElement('div'); pop.className='pop-menu';
+  const item = (svg, label, fn)=>{ const b=document.createElement('button'); b.innerHTML=svg+'<span>'+label+'</span>'; b.onclick=(ev)=>{ ev.stopPropagation(); closePlusMenu(); fn(); }; return b; };
+  const icFile = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.05 12.25 20.2a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.67 3.67 0 1 1 5.18 5.18l-9.2 9.2a1.83 1.83 0 1 1-2.59-2.6l8.49-8.48"/></svg>';
+  const icMachine = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>';
+  const icCompact = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9l4-4 4 4M20 15l-4 4-4-4M8 5v6M16 19v-6"/></svg>';
+  pop.appendChild(item(icFile, 'Joindre un fichier', ()=>{ const inp=document.getElementById('attach-input'); if(inp) inp.click(); }));
+  pop.appendChild(item(icMachine, 'Postes distants', ()=>{ if(typeof openNodeHub==='function') openNodeHub(); }));
+  // « Compacter le contexte » : uniquement quand le contexte dépasse 50%.
+  if(typeof COMPACT_AVAILABLE!=='undefined' && COMPACT_AVAILABLE){
+    pop.appendChild(item(icCompact, 'Compacter le contexte', ()=>{ if(typeof compactContext==='function') compactContext(); }));
+  }
+  document.body.appendChild(pop);
+  // Positionne AU-DESSUS du bouton (le composeur est en bas de l'écran), calé à gauche.
+  // Écart plus généreux pour ne pas coller à la zone de saisie.
+  const r = anchor.getBoundingClientRect();
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let left = Math.max(8, Math.min(r.left, window.innerWidth - pw - 8));
+  let top = r.top - ph - 14;
+  if(top < 8) top = r.bottom + 14;
+  pop.style.left = left+'px'; pop.style.top = top+'px';
+  _plusPop = pop; anchor.classList.add('open');
+  // Pas d'écoute du SCROLL : pendant la génération le chat défile tout seul, ce qui
+  // fermait le menu aussitôt (« ça saute »). Le clic-dehors suffit.
+  setTimeout(()=>{ document.addEventListener('click', _plusOutside, true); }, 0);
+}
+
+// Au chargement, on peuple le libellé du bouton (sans ouvrir le modal).
+document.addEventListener('DOMContentLoaded', ()=>{ loadProjects(); });
 </script></body></html>

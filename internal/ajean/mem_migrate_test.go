@@ -19,6 +19,12 @@ func seedPages(t *testing.T) map[string]string {
 			t.Fatalf("MemAdd %s: %v", name, err)
 		}
 	}
+	// MemAdd maintient désormais l'index MEMORY.md par le code : il existe donc sur
+	// disque comme les autres pages. On l'ajoute à l'ensemble attendu (avec son
+	// contenu réel) pour que les comptes et les lectures le prennent en compte.
+	if idx := MemContent(memIndexFile); idx != "" {
+		pages[memIndexFile] = idx
+	}
 	return pages
 }
 

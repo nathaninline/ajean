@@ -460,7 +460,7 @@ func handlePreset(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 404, map[string]any{"error": "not found"})
 		return
 	}
-	sendJSON(w, 200, map[string]any{"id": id, "name": presetDisplayName(content, id), "content": content})
+	sendJSON(w, 200, map[string]any{"id": id, "name": presetDisplayName(content, id), "content": content, "sysprompt": presetSysPrompt(id)})
 }
 
 // presetSaveReq is the preset editor payload. `id` identifies an existing
@@ -469,6 +469,7 @@ type presetSaveReq struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Content     string `json:"content"`
+	SysPrompt   string `json:"sysprompt"` // prompt système propre au preset (peut être vide)
 	DeleteModel bool   `json:"deleteModel"`
 }
 
@@ -490,6 +491,8 @@ func handlePresetSave(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
+	// Prompt système propre au preset (stocké en base, sous l'id retourné).
+	_ = setPresetSysPrompt(newID, req.SysPrompt)
 	sendJSON(w, 200, map[string]any{"ok": true, "id": newID, "name": req.Name})
 }
 
@@ -511,6 +514,7 @@ func handlePresetDelete(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
+	deletePresetSysPrompt(req.ID) // nettoie le prompt système associé
 	modelDeleted, modelErr := "", ""
 	if req.DeleteModel && model != "" {
 		if err := deleteModelFile(model); err != nil {

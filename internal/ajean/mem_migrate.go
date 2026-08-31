@@ -44,7 +44,9 @@ func readMigrationJournal() (*migrationJournal, bool) {
 	return &j, true
 }
 
-// mdPages liste les noms de fichiers .md du dossier mémoire (les pages).
+// mdPages liste les noms de fichiers .md du dossier mémoire (les pages) du projet
+// ACTIF. Utilisé par les affichages ; le chiffrement, lui, passe par
+// allMemPageFiles pour couvrir TOUS les projets.
 func mdPages() []string {
 	entries, err := os.ReadDir(memoryDir())
 	if err != nil {
@@ -57,6 +59,36 @@ func mdPages() []string {
 		}
 		if strings.HasSuffix(strings.ToLower(e.Name()), ".md") {
 			out = append(out, e.Name())
+		}
+	}
+	return out
+}
+
+// allMemPageFiles renvoie les chemins ABSOLUS de toutes les pages .md de TOUS les
+// projets (memory/<slug>/*.md). Sert au chiffrement/déchiffrement global : la DEK
+// est unique, mais les pages sont réparties par projet.
+func allMemPageFiles() []string {
+	var out []string
+	roots, err := os.ReadDir(projectsRoot())
+	if err != nil {
+		return nil
+	}
+	for _, d := range roots {
+		if !d.IsDir() {
+			continue
+		}
+		dir := filepath.Join(projectsRoot(), d.Name())
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			if strings.HasSuffix(strings.ToLower(e.Name()), ".md") {
+				out = append(out, filepath.Join(dir, e.Name()))
+			}
 		}
 	}
 	return out
@@ -138,14 +170,25 @@ func EnableMemEncryption(password string) (recoveryKey string, err error) {
 // Sûr : les pages chiffrées ont été relues et validées une par une, le keyvault
 // (3 copies + clé de récupération) garantit la récupération.
 func scrubPlaintextResidue() {
-	if entries, err := os.ReadDir(memoryDir()); err == nil {
-		for _, e := range entries {
-			if e.IsDir() || !strings.HasSuffix(e.Name(), ".bak") {
+	// .bak clairs de TOUS les projets (memory/<slug>/*.bak).
+	if roots, err := os.ReadDir(projectsRoot()); err == nil {
+		for _, d := range roots {
+			if !d.IsDir() {
 				continue
 			}
-			p := filepath.Join(memoryDir(), e.Name())
-			if b, err := os.ReadFile(p); err == nil && !looksEncrypted(b) {
-				os.Remove(p) // .bak en clair : à retirer
+			dir := filepath.Join(projectsRoot(), d.Name())
+			entries, err := os.ReadDir(dir)
+			if err != nil {
+				continue
+			}
+			for _, e := range entries {
+				if e.IsDir() || !strings.HasSuffix(e.Name(), ".bak") {
+					continue
+				}
+				p := filepath.Join(dir, e.Name())
+				if b, err := os.ReadFile(p); err == nil && !looksEncrypted(b) {
+					os.Remove(p) // .bak en clair : à retirer
+				}
 			}
 		}
 	}
@@ -156,25 +199,39 @@ func scrubPlaintextResidue() {
 	}
 }
 
-// reencryptPlaintextPages (re)chiffre toutes les pages encore en clair et vérifie
-// chacune par relecture. Sûr à rejouer.
+// reencryptPlaintextPages (re)chiffre toutes les pages encore en clair, DANS TOUS
+// LES PROJETS, et vérifie chacune par relecture. Sûr à rejouer.
 func reencryptPlaintextPages() error {
-	for _, name := range mdPages() {
-		p, _ := safeMemPath(name)
+	dek, err := currentDEK()
+	if err != nil {
+		return fmt.Errorf("DEK indisponible : %w", err)
+	}
+	for _, p := range allMemPageFiles() {
 		raw, err := os.ReadFile(p)
 		if err != nil {
-			return fmt.Errorf("lecture %s : %w", name, err)
+			return fmt.Errorf("lecture %s : %w", p, err)
 		}
 		if looksEncrypted(raw) {
 			continue // déjà fait
 		}
-		if err := writeMemFile(name, raw); err != nil { // chiffre (actif+déverrouillé)
-			return fmt.Errorf("chiffrement %s : %w", name, err)
+		enc, err := encPage(dek, raw)
+		if err != nil {
+			return fmt.Errorf("chiffrement %s : %w", p, err)
 		}
-		// Vérifie que la page se relit à l'identique.
-		back, err := memReadPage(name)
-		if err != nil || string(back) != string(raw) {
-			return fmt.Errorf("vérification post-chiffrement de %s échouée", name)
+		if old, err := os.ReadFile(p); err == nil {
+			_ = memWriteFileAtomic(p+".bak", old, 0o600)
+		}
+		if err := memWriteFileVerified(p, enc, 0o600); err != nil {
+			return fmt.Errorf("écriture chiffrée %s : %w", p, err)
+		}
+		// Vérifie que la page se relit et se déchiffre à l'identique.
+		back, err := os.ReadFile(p)
+		if err != nil {
+			return fmt.Errorf("relecture %s : %w", p, err)
+		}
+		plain, err := decPage(dek, back)
+		if err != nil || string(plain) != string(raw) {
+			return fmt.Errorf("vérification post-chiffrement de %s échouée", p)
 		}
 	}
 	return nil
@@ -219,28 +276,30 @@ func DisableMemEncryption() error {
 	return nil
 }
 
-// decryptAllPages réécrit en clair toutes les pages encore chiffrées, en
-// vérifiant chacune. Exige la DEK en RAM. Sûr à rejouer (idempotent).
+// decryptAllPages réécrit en clair toutes les pages encore chiffrées, DANS TOUS LES
+// PROJETS, en vérifiant chacune. Exige la DEK en RAM. Sûr à rejouer (idempotent).
 func decryptAllPages() error {
-	for _, name := range mdPages() {
-		p, _ := safeMemPath(name)
+	for _, p := range allMemPageFiles() {
 		raw, err := os.ReadFile(p)
 		if err != nil {
-			return fmt.Errorf("lecture %s : %w", name, err)
+			return fmt.Errorf("lecture %s : %w", p, err)
 		}
 		if !looksEncrypted(raw) {
 			continue // déjà en clair
 		}
 		plain, err := decodeMemContent(raw)
 		if err != nil {
-			return fmt.Errorf("déchiffrement %s impossible, on n'écrase rien : %w", name, err)
+			return fmt.Errorf("déchiffrement %s impossible, on n'écrase rien : %w", p, err)
 		}
-		if err := writeMemPlain(name, plain); err != nil {
-			return fmt.Errorf("écriture claire %s : %w", name, err)
+		if old, err := os.ReadFile(p); err == nil {
+			_ = memWriteFileAtomic(p+".bak", old, 0o600)
+		}
+		if err := memWriteFileVerified(p, plain, 0o600); err != nil {
+			return fmt.Errorf("écriture claire %s : %w", p, err)
 		}
 		back, err := os.ReadFile(p)
 		if err != nil || looksEncrypted(back) || string(back) != string(plain) {
-			return fmt.Errorf("vérification post-déchiffrement de %s échouée", name)
+			return fmt.Errorf("vérification post-déchiffrement de %s échouée", p)
 		}
 	}
 	return nil

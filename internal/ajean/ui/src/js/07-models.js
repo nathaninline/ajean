@@ -100,6 +100,7 @@ async function openItem(kind, key){
   document.getElementById('m-del').style.display = key ? 'inline-flex' : 'none';
   // Model picker is preset-only: it edits the MODEL= line of the preset.
   const modelRow = document.getElementById('m-model-row');
+  const engineRow = document.getElementById('m-engine-row'); // Moteur, en haut du modal
   const settingsRow = document.getElementById('m-settings-row');
   const samplingRow = document.getElementById('m-sampling-row');
   const rawHead = document.getElementById('m-raw-head');
@@ -109,10 +110,22 @@ async function openItem(kind, key){
   // Marque le type sur la modale : le CSS s'en sert pour retirer la carte autour
   // du contenu d'une page mémoire (le textarea a déjà sa propre bordure).
   document.getElementById('modal').classList.toggle('kind-mem', kind === 'mem');
+  // Prompt système : propre au preset, replié par défaut, masqué pour la mémoire.
+  const sysRow = document.getElementById('m-sys-row');
+  if(sysRow){
+    sysRow.style.display = kind === 'preset' ? '' : 'none';
+    document.getElementById('m-sysprompt').value = '';
+    document.getElementById('m-sys-body').style.display = 'none';
+    document.getElementById('m-sys-caret').classList.remove('open');
+  }
+  if(engineRow) engineRow.style.display = kind === 'preset' ? '' : 'none';
   if(kind === 'preset'){
     modelRow.style.display = 'flex';
     settingsRow.style.display = 'flex';
     if(samplingRow) samplingRow.style.display = 'flex';
+    // Échantillonnage replié par défaut (réglage avancé).
+    const sb = document.getElementById('m-sampling-body'); if(sb) sb.style.display = 'none';
+    const sc = document.getElementById('m-sampling-caret'); if(sc) sc.classList.remove('open');
     document.getElementById('m-hf-url').value = '';
     resetDlUI();
     // Preset : la config brute est une ligne repliable, fermée par défaut.
@@ -155,6 +168,8 @@ async function openItem(kind, key){
   document.getElementById('m-name').value = display;
   document.getElementById('m-content').value = d.content || '';
   if(kind === 'preset'){
+    // Prompt système du preset (peut être vide).
+    const sp = document.getElementById('m-sysprompt'); if(sp) sp.value = d.sysprompt || '';
     // Ces deux-là LISENT le contenu : elles doivent passer après son arrivée.
     document.getElementById('m-quant').value = currentQuantInTextarea();
     populateSettings();
@@ -937,6 +952,20 @@ function toggleRaw(){
   b.style.display = show ? '' : 'none';
   if(c) c.classList.toggle('open', show);
 }
+function toggleSysPrompt(){
+  const b = document.getElementById('m-sys-body');
+  const c = document.getElementById('m-sys-caret');
+  const show = b.style.display === 'none';
+  b.style.display = show ? '' : 'none';
+  if(c) c.classList.toggle('open', show);
+}
+function toggleSampling(){
+  const b = document.getElementById('m-sampling-body');
+  const c = document.getElementById('m-sampling-caret');
+  const show = b.style.display === 'none';
+  b.style.display = show ? '' : 'none';
+  if(c) c.classList.toggle('open', show);
+}
 const openPreset = (id)=>openItem('preset', id);
 const openMem    = (n)=>openItem('mem', n);
 // Fermer la modale n'annule PAS un téléchargement en cours (il vit côté
@@ -965,7 +994,7 @@ async function saveItem(){
   // Presets: keyed by id (filename); duplicate display names are allowed.
   // Skills: keyed by name, rename via `old`.
   const payload = editingKind==='preset'
-    ? {id: editingKey, name, content}
+    ? {id: editingKey, name, content, sysprompt: (document.getElementById('m-sysprompt')||{}).value || ''}
     : {name, old: editingKey, content};
   const r = await jpost(K.saveUrl, payload);
   if(!r.ok){ toast('erreur : ' + (r.error||'')); return; }

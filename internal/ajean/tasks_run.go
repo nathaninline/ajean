@@ -146,6 +146,18 @@ func runTask(t Task) {
 		return
 	}
 
+	// Projet de la tâche : sa mémoire (memoryDir) le temps de l'exécution. Le gate de
+	// génération garantit qu'aucun tour utilisateur ne tourne en même temps, donc
+	// l'override n'affecte pas le projet actif de l'UI. Une tâche legacy sans projet
+	// retombe sur le projet par défaut (déterministe, plutôt que « le projet actif du
+	// moment »).
+	p := strings.TrimSpace(t.Project)
+	if p == "" || !projectExists(p) {
+		p = defaultProjectSlug
+	}
+	setProjectOverride(p)
+	defer setProjectOverride("")
+
 	report, err := conv.RunAutonomous(context.Background(), t.ID, t.Name, t.Prompt, t.LastReport, taskCaps(t), 0)
 
 	// Occupé ou modèle pas encore prêt : ce n'est pas un échec de la tâche, juste

@@ -25,6 +25,7 @@ type Task struct {
 	Schedule string `json:"schedule"` // "@every 2h" | "@every 1d@23:00" | expr cron 5 champs
 	TZ       string `json:"tz"`       // fuseau IANA du navigateur (ex. "Europe/Paris") pour l'heure
 	Preset   string `json:"preset"`   // id du preset à activer avant l'exécution (vide = preset actif)
+	Project  string `json:"project"`  // slug du projet dont la mémoire est utilisée (vide = projet par défaut)
 	// Kind distingue une tâche IA d'une tâche script. Vide ou "agent" = Prompt est
 	// une consigne exécutée par le modèle (RunAutonomous). "script" = on lance
 	// directement le script Script du dossier protégé, SANS charger le modèle ni

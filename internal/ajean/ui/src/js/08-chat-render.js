@@ -511,13 +511,11 @@ async function deleteHistory(id, title){
 // d'abonnement, comme pour la génération — donc visible sur tous les appareils.
 async function compactContext(){
   if(!await askConfirm('Résumer les anciens tours pour libérer du contexte ? La conversation continue normalement.', {title:'Compacter le contexte', okText:'Compacter'})) return;
-  const btn=document.getElementById('ctx-compact'); btn.disabled=true;
   try{
     const r=await jfetch('/api/chat/compact',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
     const j=await r.json().catch(()=>({}));
     if(!j.ok) toast(j.error||'compaction indisponible');
   }catch(e){ toast('erreur : '+(e.message||e)); }
-  btn.disabled=false;
 }
 // Persistance de la conversation : on garde user+assistant en localStorage pour
 // survivre à un refresh (les bulles tool/reasoning sont éphémères, non stockées).
@@ -533,27 +531,49 @@ function saveChat(){ try{ localStorage.setItem('ajean.chat', JSON.stringify(msgs
 // l'affiche avec ce libellé (« chargement… » au départ, « connexion au serveur… »
 // si le flux tombe). Sans lui, une connexion lente affiche un chat vide qu'on ne
 // distingue pas d'une conversation réellement vide.
+// Durée minimale d'affichage du voile : sur un chargement ultra-rapide, le logo
+// n'apparaîtrait qu'une fraction de seconde et « clignoterait », ce qui est moche.
+// On le garde donc visible le temps d'AU MOINS un cycle de pulse (~1,1 s) une fois
+// montré, puis il disparaît en fondu (transition CSS sur #chat-loading).
+const CL_MIN_MS = 1150;
+// Le voile est déjà affiché dans le HTML (classe show) pour éviter tout flash
+// « interface → logo → interface » au premier rendu : on démarre donc le chrono dès
+// le chargement du script.
+let _clShownAt = Date.now(), _clHideTimer = null;
 function setChatLoading(msg){
   const el=document.getElementById('chat-loading');
   if(!el) return;
-  if(!msg){ el.classList.remove('show'); return; }
-  document.getElementById('chat-loading-text').textContent=msg;
+  if(!msg){
+    // Masquage : si le voile n'a pas encore été affiché assez longtemps, on retarde
+    // le masquage du temps restant pour éviter le clignotement.
+    const elapsed = _clShownAt ? (Date.now() - _clShownAt) : CL_MIN_MS;
+    const wait = Math.max(0, CL_MIN_MS - elapsed);
+    clearTimeout(_clHideTimer);
+    _clHideTimer = setTimeout(()=>{ el.classList.remove('show'); _clShownAt = 0; }, wait);
+    return;
+  }
+  // Affichage : la marque « J » (favicon) en grand qui pulse (comme le compactage).
+  // Le SVG est déjà dans le HTML ; on garde le libellé en aria-label.
+  clearTimeout(_clHideTimer); _clHideTimer = null;
+  if(!_clShownAt) _clShownAt = Date.now();
+  el.setAttribute('aria-label', msg);
   el.classList.add('show');
 }
 // --- Accueil du fil vide ---------------------------------------------------
 // Le logo n'est pas dupliqué dans le HTML : on clone celui de la barre latérale
 // (#brand) en retirant ses id (un id ne peut exister qu'une fois) et le numéro
 // de version. Les couleurs sont reprises par les classes .ce-*.
-function fillEmptyLogo(){
-  const box=document.getElementById('ce-logo'), brand=document.getElementById('brand');
+function cloneBrandInto(boxId, wordClass){
+  const box=document.getElementById(boxId), brand=document.getElementById('brand');
   if(!box || !brand || box.childElementCount) return;
   ['brand-a','brand-word'].forEach(id=>{
     const src=brand.querySelector('#'+id); if(!src) return;
     const el=src.cloneNode(true); el.removeAttribute('id');
-    if(id==='brand-word') el.classList.add('ce-word');
+    if(id==='brand-word' && wordClass) el.classList.add(wordClass);
     box.appendChild(el);
   });
 }
+function fillEmptyLogo(){ cloneBrandInto('ce-logo', 'ce-word'); }
 // Affiché seulement quand le fil ne contient AUCUNE bulle et que le replay est
 // terminé — sinon il apparaîtrait une fraction de seconde à chaque chargement,
 // juste avant que les messages rejoués n'arrivent.

@@ -10,6 +10,12 @@ func testHome(t *testing.T) string {
 	home := t.TempDir()
 	t.Setenv("AJEAN_HOME", home)
 	firewallInert = true
+	// Le projet actif est mis en cache au niveau du process : on le réinitialise pour
+	// que chaque test parte du défaut (le AJEAN_HOME change à chaque test).
+	activeProjMu.Lock()
+	activeProjCache = ""
+	activeProjMu.Unlock()
+	setProjectOverride("")
 	t.Cleanup(func() { firewallInert = false })
 	return home
 }

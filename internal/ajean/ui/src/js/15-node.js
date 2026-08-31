@@ -17,12 +17,20 @@ function openNodeHub(){ loadNode(); showModal('node-hub-modal'); }
 // Le bouton du composeur reflète SUR QUOI l'IA agit : écran = ce serveur, ondes
 // wifi (teinté accent) = un poste distant est la cible active.
 function updateNodeBtn(){
-  const btn = document.getElementById('node-btn');
-  if(!btn) return;
   const remote = !!nodeTarget;
-  btn.classList.toggle('remote', remote);
   const n = remote ? nodeList.find(x=>x.slug===nodeTarget) : null;
-  btn.title = remote ? ('Postes distants — l\'IA agit sur « '+(n?n.name:nodeTarget)+' »') : 'Postes distants — l\'IA agit sur ce serveur';
+  // Ancien bouton du composeur (retiré) : gardé au cas où un thème le réintroduit.
+  const btn = document.getElementById('node-btn');
+  if(btn){
+    btn.classList.toggle('remote', remote);
+    btn.title = remote ? ('Postes distants — l\'IA agit sur « '+(n?n.name:nodeTarget)+' »') : 'Postes distants — l\'IA agit sur ce serveur';
+  }
+  // Indicateur wifi à gauche du + : visible seulement quand une cible distante est active.
+  const indic = document.getElementById('node-indic');
+  if(indic){
+    indic.style.display = remote ? 'inline-flex' : 'none';
+    indic.title = remote ? ('L\'IA agit sur « '+(n?n.name:nodeTarget)+' »') : '';
+  }
 }
 
 function renderNode(r){
@@ -40,24 +48,23 @@ function renderNode(r){
   const connected = nodeList.filter(n=>n.connected).length;
   // Sélecteur de CIBLE : sur quelle machine l'IA agit (ses outils bash/write/edit).
   renderNodeTarget(list, connected);
+  // En-tête discret de section « Postes ».
+  const head = document.createElement('div'); head.className='sess-head'; head.textContent='Postes'; list.appendChild(head);
   nodeList.forEach(n=>{
-    const row = document.createElement('div'); row.className = 'mcp-row'+(n.connected?'':' off');
-    const dot = document.createElement('span'); dot.className = 'mcp-dot '+(n.connected?'mcp-dot-ok':'mcp-dot-off');
+    const row = document.createElement('div'); row.className = 'node-row'+(n.connected?'':' off');
+    const dot = document.createElement('span'); dot.className = 'node-dot';
     dot.title = n.connected ? 'connecté' : 'hors ligne';
-
-    const info = document.createElement('div'); info.className = 'mcp-info';
-    const nm = document.createElement('div'); nm.className = 'mcp-name'; nm.textContent = n.name; nm.title = n.os||'';
-    const meta = document.createElement('div'); meta.className = 'mcp-meta';
-    const os = document.createElement('span'); os.className = 'mcp-tag'; os.textContent = n.os||'?'; meta.appendChild(os);
-    const caps = document.createElement('span'); caps.className = 'mcp-tools';
-    caps.textContent = (n.caps&&n.caps.length) ? n.caps.map(c=>nodeCapLabels[c]||c).join(', ') : 'aucune capacité';
-    meta.appendChild(caps);
-    if(n.root){ const rt = document.createElement('span'); rt.className='mcp-tools'; rt.textContent = '📁 '+n.root; rt.title=n.root; meta.appendChild(rt); }
-    info.appendChild(nm); info.appendChild(meta);
-
-    const edit = document.createElement('button'); edit.className='mcp-edit'; edit.title='régler'; edit.textContent='✎';
-    edit.onclick = (e)=>{ e.stopPropagation(); openNodeEdit(n.id); };
-    row.appendChild(dot); row.appendChild(info); row.appendChild(edit);
+    const info = document.createElement('div'); info.className = 'node-info';
+    const nm = document.createElement('div'); nm.className = 'node-nm'; nm.textContent = n.name;
+    const sub = document.createElement('div'); sub.className = 'node-sub';
+    const caps = (n.caps&&n.caps.length) ? n.caps.map(c=>nodeCapLabels[c]||c).join(', ') : 'aucune capacité';
+    sub.textContent = (n.connected?'connecté':'hors ligne') + ' · ' + (n.os||'?') + ' · ' + caps;
+    sub.title = n.root ? ('dossier : '+n.root) : '';
+    info.appendChild(nm); info.appendChild(sub);
+    // Chevron discret (réglages), révélé au survol.
+    const go = document.createElement('span'); go.className='node-go';
+    go.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+    row.appendChild(dot); row.appendChild(info); row.appendChild(go);
     row.onclick = ()=>openNodeEdit(n.id);
     list.appendChild(row);
   });
@@ -67,24 +74,24 @@ function renderNode(r){
 // (bash/write/edit) s'exécutent sur la machine choisie ; un poste hors ligne ne
 // peut pas être cible (fail-closed côté serveur).
 function renderNodeTarget(list, connected){
-  const wrap = document.createElement('div'); wrap.className = 'node-target';
-  const lab = document.createElement('div'); lab.className = 'node-target-l';
-  lab.textContent = "L'IA agit sur :"; wrap.appendChild(lab);
+  const lab = document.createElement('div'); lab.className = 'node-seg-l';
+  lab.textContent = "L'IA agit sur"; list.appendChild(lab);
+  const seg = document.createElement('div'); seg.className = 'node-seg';
   const opts = [{slug:'', name:'Ce serveur'}].concat(nodeList.filter(n=>n.connected).map(n=>({slug:n.slug, name:n.name})));
-  // Cible sélectionnée mais hors ligne : on l'ajoute quand même, marquée, pour ne
-  // pas la perdre silencieusement.
+  // Cible sélectionnée mais hors ligne : on la garde, marquée, pour ne pas la perdre.
   if(nodeTarget && !opts.some(o=>o.slug===nodeTarget)){
     const n = nodeList.find(x=>x.slug===nodeTarget);
     opts.push({slug:nodeTarget, name:(n?n.name:nodeTarget)+' (hors ligne)', off:true});
   }
   opts.forEach(o=>{
-    const l = document.createElement('label'); l.className = 'node-target-opt'+(o.slug===nodeTarget?' on':'')+(o.off?' off':'');
+    const l = document.createElement('label'); l.className = (o.slug===nodeTarget?'on':'')+(o.off?' off':'');
+    l.title = o.name;
     const rb = document.createElement('input'); rb.type='radio'; rb.name='node-target'; rb.checked = o.slug===nodeTarget;
     rb.onchange = ()=>setNodeTarget(o.slug);
     const sp = document.createElement('span'); sp.textContent = o.name;
-    l.appendChild(rb); l.appendChild(sp); wrap.appendChild(l);
+    l.appendChild(rb); l.appendChild(sp); seg.appendChild(l);
   });
-  list.appendChild(wrap);
+  list.appendChild(seg);
 }
 
 async function setNodeTarget(slug){
@@ -155,12 +162,12 @@ function openNodeEdit(id){
   document.querySelector('#node-pair-modal .modal-head strong').textContent = 'Poste « '+n.name+' »'+(n.connected?' (connecté)':'');
   const footR = document.querySelector('#node-pair-modal .foot-r');
   footR.innerHTML = '';
-  const cancel = document.createElement('button'); cancel.textContent='fermer'; cancel.onclick=()=>{ hideModal('node-pair-modal'); resetNodeFoot(); };
-  const save = document.createElement('button'); save.className='btn-save'; save.textContent='enregistrer'; save.onclick=saveNodeCaps;
+  const cancel = document.createElement('button'); cancel.className='mbtn'; cancel.textContent='Fermer'; cancel.onclick=()=>{ hideModal('node-pair-modal'); resetNodeFoot(); };
+  const save = document.createElement('button'); save.className='mbtn primary'; save.textContent='Enregistrer'; save.onclick=saveNodeCaps;
   footR.appendChild(cancel); footR.appendChild(save);
   const footL = document.querySelector('#node-pair-modal .foot-l');
   footL.innerHTML = '';
-  const del = document.createElement('button'); del.className='btn-danger'; del.textContent='révoquer'; del.onclick=()=>revokeNode(id);
+  const del = document.createElement('button'); del.className='mbtn danger'; del.textContent='Révoquer'; del.onclick=()=>revokeNode(id);
   footL.appendChild(del);
   showModal('node-pair-modal');
 }
@@ -168,7 +175,7 @@ function resetNodeFoot(){
   document.querySelector('#node-pair-modal .modal-head strong').textContent = 'Appairer un poste distant';
   document.querySelector('#node-pair-modal .foot-l').innerHTML = '';
   const footR = document.querySelector('#node-pair-modal .foot-r');
-  footR.innerHTML = '<button onclick="hideModal(\'node-pair-modal\')">fermer</button><button class="btn-save" onclick="genNodeCode()">générer le code</button>';
+  footR.innerHTML = '<button class="mbtn" onclick="hideModal(\'node-pair-modal\')">Fermer</button><button class="mbtn primary" onclick="genNodeCode()">Générer le code</button>';
   nodeEditing = null;
 }
 async function saveNodeCaps(){

@@ -34,6 +34,7 @@ type exportOpts struct {
 	Tools     bool   // inclure les appels d'outils
 	Results   bool   // inclure la sortie des outils (exige Tools)
 	Turns     int    // 0 = tout le fil ; N = les N derniers échanges
+	SessionID string // vide = conversation active ; sinon exporte cette session archivée
 }
 
 func defaultExportOpts() exportOpts {
@@ -68,6 +69,9 @@ func exportOptsFromQuery(q map[string][]string) exportOpts {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			o.Turns = n
 		}
+	}
+	if v, ok := get("id"); ok {
+		o.SessionID = v
 	}
 	// Sans les bulles d'outils, leur sortie n'a nulle part où aller.
 	if !o.Tools {
@@ -375,11 +379,22 @@ func exportFilename(ext string) string {
 // exportBody rend la conversation selon les options. Renvoie le corps, son type
 // MIME et l'extension de fichier.
 func exportBody(o exportOpts) ([]byte, string, string, error) {
+	// Cible : la conversation active, ou une session ARCHIVÉE si un id est fourni
+	// (export depuis le menu ⋮ d'une conversation, sans avoir à l'ouvrir). On monte
+	// une Conversation temporaire à partir de l'archive et on réutilise le même code.
+	target := conv
+	if o.SessionID != "" {
+		a, ok := loadArchive(o.SessionID)
+		if !ok {
+			return nil, "", "", fmt.Errorf("session introuvable")
+		}
+		target = &Conversation{Messages: a.Messages, Log: a.Log, Seq: a.Seq, CtxUsed: a.CtxUsed}
+	}
 	if o.Format == "json" {
-		b, err := conv.ExportJSON(o)
+		b, err := target.ExportJSON(o)
 		return b, "application/json; charset=utf-8", "json", err
 	}
-	return []byte(conv.ExportMarkdown(o)), "text/markdown; charset=utf-8", "md", nil
+	return []byte(target.ExportMarkdown(o)), "text/markdown; charset=utf-8", "md", nil
 }
 
 // cmdExport écrit la conversation dans un fichier (ou sur la sortie standard).

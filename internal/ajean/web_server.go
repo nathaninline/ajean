@@ -85,7 +85,13 @@ var convLoadOnce sync.Once
 func newWebMux() *http.ServeMux {
 	// Charge l'état de conversation persisté (une fois par process : ajean web ET
 	// ajean link serve appellent newWebMux).
-	convLoadOnce.Do(LoadConversation)
+	convLoadOnce.Do(func() {
+		// Amorce le projet « Générale » et migre l'existant (mémoire plate + sessions
+		// + keyvault) AVANT de charger la conversation, pour que memoryDir() et le
+		// projet actif soient corrects dès le premier accès.
+		ensureDefaultProject()
+		LoadConversation()
+	})
 	// Pré-chauffe les serveurs MCP en tâche de fond : sinon le handshake (plusieurs
 	// secondes pour un serveur lancé via npx) est payé par le premier message.
 	MCPPrewarm()
@@ -216,6 +222,11 @@ func newWebMux() *http.ServeMux {
 	api("/api/tools/toggle", handleAgentToggle)
 	api("/api/skills", handleAgent)
 	api("/api/skills/toggle", handleAgentToggle)
+	api("/api/projects", handleProjects)             // liste des projets + projet actif
+	api("/api/projects/create", handleProjectCreate) // crée un projet
+	api("/api/projects/rename", handleProjectRename) // renomme (libellé)
+	api("/api/projects/delete", handleProjectDelete) // supprime (dossier + sessions)
+	api("/api/projects/switch", handleProjectSwitch) // bascule le projet actif (nouvelle session)
 	api("/api/mem", handleMem)
 	api("/api/mem/save", handleMemSave)
 	api("/api/mem/delete", handleMemDelete)

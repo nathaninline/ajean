@@ -8,6 +8,7 @@ let tasksList = [];
 let taskEditing = null; // id en cours d'édition ('' = nouvelle, null = fermé)
 let TASK_RUNNING = '';  // id de la tâche en cours d'exécution ('' = aucune)
 let TASK_PRESETS = [];  // presets disponibles (pour le sélecteur de la modale)
+let TASK_PROJECTS = []; // projets disponibles (pour le sélecteur « mémoire du projet »)
 let TASK_MEM_ON = true; // état mémoire global (défaut d'une nouvelle tâche)
 let TASK_WEB_ON = true; // état web global (défaut d'une nouvelle tâche)
 let TASK_SCRIPTS = []; // scripts durables disponibles (pour une tâche « script seul »)
@@ -34,6 +35,7 @@ function renderTasks(r){
   TASK_MEM_ON = !r || r.mem_on !== false;
   TASK_WEB_ON = !r || r.web_on !== false;
   TASK_SCRIPTS = (r && r.scripts) || [];
+  TASK_PROJECTS = (r && r.projects) || [];
   TASK_RUNNING = (r && r.running_id) || '';
   ensureTasksPoll();
   const pc = document.getElementById('tasks-pause-toggle');
@@ -88,11 +90,8 @@ function renderTasks(r){
         sc.textContent = 'script'; sc.title = 'tâche script (sans IA) : '+(t.script||'');
         meta.appendChild(sc);
       }
-      if(t.preset){
-        const pr = document.createElement('span'); pr.className = 'mcp-tag mcp-tag-preset';
-        const pn = (TASK_PRESETS.find(p=>p.id===t.preset)||{}).name || t.preset;
-        pr.textContent = pn; pr.title = 'preset : '+pn; meta.appendChild(pr);
-      }
+      // (Le nom du modèle/preset n'est PLUS affiché dans la liste : on garde juste la
+      // planification, plus lisible. Le preset reste réglable dans l'édition.)
       if(t.enabled && t.next_run){
         const nx = document.createElement('span'); nx.className = 'mcp-tools';
         nx.textContent = '→ '+fmtWhen(t.next_run);
@@ -123,10 +122,8 @@ function renderTasks(r){
       cb.onchange = ()=>toggleTask(t.id, cb.checked);
       const sl = document.createElement('span'); sl.className = 'slider';
       sw.appendChild(cb); sw.appendChild(sl);
-      const edit = document.createElement('button');
-      edit.className = 'mcp-edit'; edit.title = 'éditer'; edit.textContent = '✎';
-      edit.onclick = (e)=>{ e.stopPropagation(); openTask(t.id); };
-      row.appendChild(sw); row.appendChild(edit);
+      // Pas de bouton « éditer » : cliquer la ligne ouvre déjà la tâche en édition.
+      row.appendChild(sw);
     }
     row.onclick = ()=> running ? null : openTask(t.id);
     list.appendChild(row);
@@ -203,6 +200,7 @@ function openTask(id){
   document.getElementById('task-mem').checked = t ? !t.no_mem : TASK_MEM_ON;
   document.getElementById('task-web').checked = t ? !t.no_web : TASK_WEB_ON;
   fillPresetSelect(t ? (t.preset||'') : '');
+  fillProjectSelect(t ? (t.project||'') : '');
   // Type de tâche (IA ou script) + sélecteur de script.
   fillScriptSelect(t ? (t.script||'') : '');
   setTaskKind(t && t.kind === 'script' ? 'script' : 'agent');
@@ -278,6 +276,25 @@ function fillPresetSelect(selected){
   sel.value = selected || '';
 }
 
+// fillProjectSelect peuple le sélecteur de projet (mémoire de la tâche). La
+// sélection est OBLIGATOIRE : la tâche lit/écrit dans la mémoire de ce projet. Pour
+// une tâche existante on garde son projet ; pour une nouvelle on présélectionne le
+// projet actif (ACTIVE_PROJECT, défini par 18-projects.js), sinon le premier.
+function fillProjectSelect(selected){
+  const sel = document.getElementById('task-project');
+  if(!sel) return;
+  sel.textContent = '';
+  TASK_PROJECTS.forEach(p=>{
+    const o = document.createElement('option'); o.value = p.slug; o.textContent = p.name;
+    sel.appendChild(o);
+  });
+  const fallback = (typeof ACTIVE_PROJECT !== 'undefined' && ACTIVE_PROJECT) ||
+    (TASK_PROJECTS[0] && TASK_PROJECTS[0].slug) || '';
+  sel.value = selected || fallback;
+  // Si le projet enregistré n'existe plus (supprimé), on retombe sur le fallback.
+  if(!sel.value && sel.options.length) sel.selectedIndex = 0;
+}
+
 // setTaskKind bascule le formulaire entre tâche IA (consigne + preset + accès) et
 // tâche script (sélecteur de script). Masque les groupes sans objet.
 function setTaskKind(kind){
@@ -350,13 +367,14 @@ async function saveTask(){
   const no_web = !document.getElementById('task-web').checked;
   const kind = (document.querySelector('input[name="task-kind"]:checked')||{}).value || 'agent';
   const script = document.getElementById('task-script').value;
+  const project = (document.getElementById('task-project')||{}).value || '';
   const st = document.getElementById('task-modal-status');
   if(!name){ st.textContent = 'nom obligatoire'; st.style.color = 'var(--err)'; return; }
   if(kind === 'script'){
     if(!script){ st.textContent = 'enregistre d\'abord un script à lancer'; st.style.color = 'var(--err)'; return; }
   } else if(!prompt){ st.textContent = 'consigne obligatoire'; st.style.color = 'var(--err)'; return; }
   if(!schedule){ st.textContent = 'fréquence invalide'; st.style.color = 'var(--err)'; return; }
-  const r = await jpost('/api/tasks/save', {id: taskEditing||'', name, prompt, schedule, enabled, preset, tz, no_mem, no_web, kind, script});
+  const r = await jpost('/api/tasks/save', {id: taskEditing||'', name, prompt, schedule, enabled, preset, project, tz, no_mem, no_web, kind, script});
   if(!r || !r.ok){ st.textContent = (r && r.error) || 'échec'; st.style.color = 'var(--err)'; return; }
   closeTask();
   await loadTasks();

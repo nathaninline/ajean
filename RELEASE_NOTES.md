@@ -1,17 +1,39 @@
-Compactage du contexte repensé : les conversations tiennent beaucoup plus longtemps sans perdre le fil, et l'assistant peut rappeler mot pour mot les échanges plus anciens sortis du contexte.
+Introduction des projets : chaque projet possède sa propre mémoire et ses propres conversations, cloisonnées les unes des autres. La mémoire n'est plus un espace unique partagé, et un index de mémoire par projet est tenu à jour automatiquement.
 
-## Conversations longues
+## Projets
 
-* Nouveau système de mémoire de conversation. Quand le contexte se remplit, les tours anciens sont résumés, mais plus rien n'est perdu : les gros blocs (un long code, une page web lue, un résultat d'outil volumineux) sont désormais archivés mot pour mot et adressés par un identifiant court. Le résumé y fait référence au lieu de recopier le bloc, ce qui fait retomber le contexte beaucoup plus bas.
+* Nouveau système de projets, sur le modèle des projets d'un assistant de code. Un projet regroupe une mémoire indépendante (des pages Markdown et un index) et son propre jeu de conversations. Plus de mémoire globale partagée : on crée un projet par sujet, chacun avec sa mémoire et ses fils, isolés les uns des autres.
 
-* L'assistant peut aller rechercher lui-même dans l'historique archivé. Deux nouveaux outils lui permettent de rappeler un bloc exact par son identifiant, ou de le retrouver par mots-clés quand il n'est plus listé dans le résumé courant. Un gros fichier fourni plus tôt dans la conversation revient donc à l'identique quand il en a besoin, sans avoir à le refaire.
+* Un bouton dédié dans la zone de saisie ouvre un panneau unique qui gère à la fois les projets (créer, renommer, supprimer, basculer) et les conversations du projet actif (nouvelle, ouvrir, renommer, mettre en favori, supprimer, exporter).
 
-* L'assistant est conscient de la compaction : il sait que les premiers tours ont été résumés et que le détail reste récupérable. La surface occupée en contexte reste stable même sur une conversation très longue, ce qui permet des échanges quasi ininterrompus.
+* Migration automatique au premier démarrage : toute la mémoire et toutes les conversations existantes sont regroupées dans un projet « Générale », qui devient le projet actif par défaut. Rien n'est perdu.
 
-* Résumé de meilleure qualité. La consigne de résumé produit désormais un vrai texte structuré (demande en cours, informations déjà trouvées, état d'avancement et étape suivante), et un garde-fou écarte un résumé qui reviendrait vide ou dégénéré.
+* Les tâches planifiées peuvent viser un projet précis : la tâche lit et écrit alors dans la mémoire de ce projet.
 
-* Le tout premier message de la conversation n'est plus épinglé de force en tête. Après une compaction, l'assistant ne repart plus par erreur sur une ancienne demande à laquelle il avait déjà répondu : il reprend sur la demande réellement en cours.
+## Mémoire et index
+
+* Chaque projet possède un index (MEMORY.md) tenu à jour automatiquement par le programme : créer une page ajoute sa ligne, en supprimer une la retire. L'index n'est pas une note ordinaire et n'apparaît plus dans la liste des pages.
+
+* L'index est fourni à l'assistant une fois au début de la conversation, puis de nouveau après une compaction, au lieu d'être reconstruit à chaque tour. L'assistant dispose ainsi en permanence de la liste des pages disponibles.
+
+* La recherche dans la mémoire n'est plus un passage obligé : l'assistant s'appuie sur l'index pour ouvrir directement la bonne page, et ne recherche par contenu que lorsque l'index ne suffit pas.
+
+* Le prompt système personnalisé se règle désormais par preset, dans l'éditeur de preset, et s'applique lorsque le preset correspondant est actif.
 
 ## Interface
 
-* Bouton d'ajout de preset redessiné : un petit carré arrondi à la croix nette, mieux aligné dans la barre de titre de la section, avec une teinte d'accent au survol.
+* Refonte des fenêtres Projets et Postes distants dans un style épuré : listes aérées, moins de cadres, sélection mise en valeur par une teinte plutôt que par un contour.
+
+* Boutons d'envoi et d'arrêt redessinés en pastilles rondes (flèche et carré), neutres selon le thème.
+
+* Nouveau bouton d'action à côté de l'envoi : il déploie un menu (joindre un fichier, postes distants, et compacter le contexte au-delà de la moitié). Un indicateur signale lorsque l'assistant agit sur un poste distant.
+
+* Voile de chargement remplacé par la marque du logo, avec une durée minimale d'affichage pour éviter tout clignotement.
+
+* Plusieurs sections du menu renommées, et divers ajustements d'espacement et de cohérence.
+
+## Corrections
+
+* Le changement de machine cible ne se bloque plus lorsque l'assistant revient sur une machine déjà utilisée.
+
+* Une conversation archivée peut être exportée directement depuis son menu, sans avoir à l'ouvrir.

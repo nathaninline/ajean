@@ -65,8 +65,16 @@ func buildBundleTar() ([]byte, error) {
 		return nil
 	}
 
-	if err := addDir("memory", memoryDir()); err != nil {
-		return nil, err
+	// Mémoire de TOUS les projets : un sous-dossier par projet (memory/<slug>/...).
+	if roots, err := os.ReadDir(projectsRoot()); err == nil {
+		for _, d := range roots {
+			if !d.IsDir() {
+				continue
+			}
+			if err := addDir("memory/"+d.Name(), filepath.Join(projectsRoot(), d.Name())); err != nil {
+				return nil, err
+			}
+		}
 	}
 	if err := addDir("presets", presetsDir()); err != nil {
 		return nil, err
@@ -179,7 +187,18 @@ func restoreBundleTar(tarData []byte) error {
 		case name == "config.json":
 			cfgJSON = b
 		case strings.HasPrefix(name, "memory/"):
-			if err := memWriteFileVerified(filepath.Join(memoryDir(), base), b, 0o600); err != nil {
+			// Chemin relatif SOUS memory/ (memory/<slug>/page.md). Les sauvegardes
+			// d'avant les projets stockaient les pages à plat (memory/page.md) : on
+			// les rattache au projet par défaut.
+			rel := strings.TrimPrefix(name, "memory/")
+			if !strings.Contains(rel, "/") {
+				rel = defaultProjectSlug + "/" + rel
+			}
+			dst := filepath.Join(projectsRoot(), filepath.FromSlash(rel))
+			if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+				return err
+			}
+			if err := memWriteFileVerified(dst, b, 0o600); err != nil {
 				return err
 			}
 		case strings.HasPrefix(name, "presets/"):

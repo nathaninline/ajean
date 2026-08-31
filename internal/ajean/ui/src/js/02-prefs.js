@@ -27,4 +27,4 @@ async function loadPrefs(){
     }
   }catch(e){}
 }
-document.addEventListener('DOMContentLoaded', ()=>{ initTheme(); initView(); document.getElementById('sysprompt').value = localStorage.getItem('ajean.sys') || ''; loadSys(); restoreChat(); });
+document.addEventListener('DOMContentLoaded', ()=>{ initTheme(); initView(); restoreChat(); });

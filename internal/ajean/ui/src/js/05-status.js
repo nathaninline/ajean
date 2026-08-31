@@ -182,10 +182,12 @@ function updateCtxMeter(){
   const ct=document.getElementById('ctx-text');
   ct.textContent=fmtCtxTokens(CTX_USED)+' / '+fmtCtxTokens(CTX_MAX);
   ct.title='contexte utilisé : '+CTX_USED.toLocaleString('fr')+' / '+CTX_MAX.toLocaleString('fr')+' jetons ('+pct+'%)';
-  // Bouton de compaction MANUELLE : visible dès la moitié du contexte pour qu'on
-  // puisse compacter à la demande avant que l'auto-compaction (75%) ne s'en charge.
-  document.getElementById('ctx-compact').style.display = (pct>=50 && CTX_USED>0) ? 'inline-block' : 'none';
+  // Compaction MANUELLE proposée dès la moitié du contexte : l'entrée « Compacter »
+  // du menu + n'apparaît qu'alors (le bouton n'est plus dans la zone de saisie).
+  COMPACT_AVAILABLE = (pct>=50 && CTX_USED>0);
 }
+// Contexte à ≥50% : le menu + propose « Compacter le contexte » (voir togglePlusMenu).
+let COMPACT_AVAILABLE = false;
 // Abrège un nombre de jetons pour le pied de carte : < 1000 tel quel, sinon en
 // milliers avec une décimale utile (10 240 → « 10.2K », 40 960 → « 41K », le .0
 // tombant). Gagne de la place là où c'est étroit.

@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const Version = "0.12.9"
+const Version = "0.13.0"
 
 // Main est le vrai main() du binaire (cmd/ajean ne fait que l'appeler).
 func Main() {
@@ -227,10 +227,13 @@ func readEtcDefault() string {
 // Arborescence de $AJEAN_HOME. Elle tient en six dossiers, et rien d'autre :
 // tout le reste (config, préférences, conversation, clés, drapeaux) vit dans la
 // base ajean.db — voir store.go.
-func backendsDir() string  { return filepath.Join(AjeanHome(), "backends") }
-func binDir() string       { return filepath.Join(AjeanHome(), "bin") }
-func presetsDir() string   { return filepath.Join(AjeanHome(), "presets") }
-func memoryDir() string    { return filepath.Join(AjeanHome(), "memory") }
+func backendsDir() string { return filepath.Join(AjeanHome(), "backends") }
+func binDir() string      { return filepath.Join(AjeanHome(), "bin") }
+func presetsDir() string  { return filepath.Join(AjeanHome(), "presets") }
+
+// memoryDir est le dossier mémoire du projet ACTIF (memory/<slug>). Tout le code
+// mémoire passe par ici : il hérite du cloisonnement par projet sans le savoir.
+func memoryDir() string    { return projectMemoryDir(activeProjectSlug()) }
 func modelsDir() string    { return filepath.Join(AjeanHome(), "models") }
 func workspaceDir() string { return filepath.Join(AjeanHome(), "workspace") }
 

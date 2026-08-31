@@ -53,6 +53,12 @@ type Conversation struct {
 	// ouvrir/renommer/favoriser passe par cet id, qui survit à open→new.
 	ID string `json:"id"`
 
+	// Project = slug du projet auquel appartient la conversation active. Détermine
+	// dans quel projet la session est archivée (upsertSession) et voyage avec l'état
+	// persisté. Vide = repli sur le projet actif (migration / conversation d'avant
+	// les projets).
+	Project string `json:"project,omitempty"`
+
 	Messages []Message  `json:"messages"` // vue « modèle » (nourrit runChat)
 	Log      []LogEvent `json:"log"`      // vue « UI » rejouable
 	Seq      int        `json:"seq"`
@@ -116,6 +122,11 @@ func LoadConversation() {
 	// devienne une session gérable comme les autres.
 	if conv.ID == "" {
 		conv.ID = newSessionID()
+	}
+	// Conversation d'avant les projets : on la rattache au projet actif (Générale
+	// après migration).
+	if conv.Project == "" {
+		conv.Project = activeProjectSlug()
 	}
 	// Une génération n'a pas pu survivre à l'arrêt du process : on repart propre.
 	conv.Generating = false
@@ -300,6 +311,9 @@ func (c *Conversation) compactAndPublish(ctx context.Context, epoch int, phase s
 		c.appendDelta(epoch, map[string]any{"compact_noop": true})
 		return msgs, false
 	}
+	// Le compactage a pu résumer/retirer le message d'index d'origine : on le
+	// ré-injecte en tête pour que l'IA garde la liste des pages sous les yeux.
+	compacted = ensureMemIndexFront(compacted)
 	overhead := ctxUsed - estimateTokens(msgs)
 	if overhead < 0 {
 		overhead = 0
@@ -383,6 +397,15 @@ func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, tem
 	prompt := text
 	if strings.TrimSpace(prompt) == "" {
 		prompt = "Prends-en connaissance."
+	}
+	// Index mémoire : injecté UNE FOIS, au tout début de la conversation (avant le
+	// premier message). Il vit ensuite dans l'historique (l'IA l'a toujours sous les
+	// yeux) sans être reconstruit à chaque tour ; il est ré-injecté après un
+	// compactage (ensureMemIndexFront) pour ne pas le perdre.
+	if len(c.Messages) == 0 {
+		if m, ok := memIndexMessage(); ok {
+			c.Messages = append(c.Messages, m)
+		}
 	}
 	// Content = simple texte d'ordinaire ; format multimodal (texte + images) quand
 	// la vision est active et qu'une pièce jointe est une image (userMessageContent).
