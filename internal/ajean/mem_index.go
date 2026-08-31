@@ -140,6 +140,40 @@ func memIndexRename(oldName, newName string) {
 	memIndexAdd(newName)
 }
 
+// reconcileMemIndex complète l'index du projet ACTIF : pour chaque page existante
+// non référencée dans MEMORY.md, il ajoute sa ligne. ADDITIF (ne touche pas aux
+// lignes/accroches déjà présentes). Indispensable après une migration : les pages
+// déplacées à la main sur le disque n'ont jamais été indexées (l'index n'est
+// alimenté que par mem_add). Best-effort : ne fait rien si la mémoire est chiffrée
+// et verrouillée (l'index sera complété au prochain accès déverrouillé).
+func reconcileMemIndex() {
+	pages := mdPages() // pages du projet actif
+	if len(pages) == 0 {
+		return
+	}
+	ensureIndexSeed()
+	cur, err := memReadPage(memIndexFile)
+	if err != nil {
+		return // chiffré+verrouillé ou illisible
+	}
+	content := string(cur)
+	var add []string
+	for _, name := range pages {
+		if isIndexFile(name) {
+			continue
+		}
+		if strings.Contains(content, indexRefFor(name)) {
+			continue // déjà indexée
+		}
+		add = append(add, indexLineFor(name))
+	}
+	if len(add) == 0 {
+		return
+	}
+	body := strings.TrimRight(content, "\n") + "\n" + strings.Join(add, "\n") + "\n"
+	_ = writeMemFile(memIndexFile, []byte(body))
+}
+
 // ensureIndexSeed crée MEMORY.md (avec son en-tête) s'il n'existe pas encore, pour
 // que l'ajout d'une première ligne ait un fichier où s'écrire.
 func ensureIndexSeed() {

@@ -191,3 +191,24 @@ func TestMemIndexMessageInjection(t *testing.T) {
 		t.Fatal("pas d'index hors mode always")
 	}
 }
+
+// Après migration, les pages déplacées sur le disque doivent être ré-indexées dans
+// MEMORY.md (reconcileMemIndex), sinon l'index injecté est vide.
+func TestMigratedPagesGetIndexed(t *testing.T) {
+	home := testHome(t)
+	// Ancienne mémoire plate avec 2 pages (déplacées, jamais passées par mem_add).
+	oldMem := filepath.Join(home, "memory")
+	os.MkdirAll(oldMem, 0o755)
+	os.WriteFile(filepath.Join(oldMem, "docker.md"), []byte("# Docker\nx\n"), 0o600)
+	os.WriteFile(filepath.Join(oldMem, "gpu.md"), []byte("# GPU 3070\ny\n"), 0o600)
+
+	ensureDefaultProject()
+
+	idx := MemContent("MEMORY.md")
+	if !strings.Contains(idx, "](docker.md)") || !strings.Contains(idx, "](gpu.md)") {
+		t.Fatalf("index non reconstruit apres migration : %q", idx)
+	}
+	if !strings.Contains(idx, "Docker") || !strings.Contains(idx, "GPU 3070") {
+		t.Fatalf("titres absents de l'index : %q", idx)
+	}
+}

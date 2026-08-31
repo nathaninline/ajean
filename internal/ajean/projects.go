@@ -364,4 +364,13 @@ func ensureDefaultProject() {
 	if strings.TrimSpace(getStr(bkState, stActiveProjectKey)) == "" {
 		_ = setActiveProject(defaultProjectSlug)
 	}
+
+	// 6. Index de Générale : les pages migrées (déplacées sur le disque) n'ont jamais
+	//    été indexées → on complète MEMORY.md depuis les pages réelles. Best-effort et
+	//    sans effet si la mémoire est chiffrée+verrouillée (repris à la 1re conversation
+	//    déverrouillée, voir StartTurn). On force temporairement le projet vu par
+	//    memoryDir sur Générale (sûr au boot, aucune génération en cours).
+	setProjectOverride(defaultProjectSlug)
+	reconcileMemIndex()
+	setProjectOverride("")
 }

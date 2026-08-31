@@ -382,6 +382,15 @@ func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, tem
 	if !healthCheck() {
 		return errModelLoading
 	}
+	// Conversation neuve : on complète l'index mémoire depuis les pages réellement
+	// présentes (hors verrou, la mémoire est déverrouillée quand on discute). Corrige
+	// notamment l'index vide d'un projet migré, avant de l'injecter juste après.
+	c.mu.Lock()
+	fresh := len(c.Messages) == 0
+	c.mu.Unlock()
+	if fresh {
+		reconcileMemIndex()
+	}
 	c.mu.Lock()
 	if c.Generating {
 		c.mu.Unlock()
