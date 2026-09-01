@@ -34,7 +34,13 @@ import (
 // retrouve par mots-clés). C'est ce qui rend les conversations quasi infinies
 // sans perdre le fil — ajout demandé et accepté. Le garde-fou reste là pour
 // bloquer le regonflement LIGNE À LIGNE du prompt lui-même.
-const promptCharBudget = 9600 // ~2400 tokens, tout allumé (agent+web+mémoire)
+//
+// Relèvement (9600 → 10800) pour le 3ᵉ type de mémoire : l'outil `suivi` (données
+// datées qui s'accumulent — compteurs, relevés, journaux). UN seul schéma, et
+// toute sa navigation par niveaux vit dans SES RÉPONSES, pas dans le prompt (une
+// seule ligne de consigne : « ça va dans suivi, pas dans une note »). Ajout demandé
+// et accepté ; il sort au contraire le suivi des notes .md, qui restent petites.
+const promptCharBudget = 10800 // ~2700 tokens, tout allumé (agent+web+mémoire+suivi)
 
 func TestSystemPromptStaysLean(t *testing.T) {
 	caps := Caps{Agent: true, Internet: true, Mem: MemAlways}

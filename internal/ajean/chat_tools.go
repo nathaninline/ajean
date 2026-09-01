@@ -69,6 +69,7 @@ func baseSystemPrompt(caps Caps) string {
 		b.WriteString("- The project's memory index (page list) is already in your context. When a page looks relevant, mem_read it directly for its content — no search needed first.\n")
 		b.WriteString("- Use mem_search only to find something by content the index doesn't cover; it's optional, not a required first step.\n")
 		b.WriteString("- Memory is per-project (currently **" + projectName(activeProjectSlug()) + "**), other projects isolated. Keep it tidy: small focused pages (one topic each), mem_edit rather than duplicate, mem_delete what's obsolete.\n")
+		b.WriteString("- Dated data that piles up (counters, readings, a running follow-up) goes in the `tracker` tool, not a note — a note would bloat.\n")
 		b.WriteString("- MEMORY.md (this project's index) is maintained automatically: creating/deleting a page adds/removes its line. Don't manage lines yourself; mem_edit it only to add a short hook to an entry.\n")
 	case MemOnDemand:
 		b.WriteString("\nMemory is ON-DEMAND: you have the mem_* tools but do NOT read or write memory on your own. Call mem_search/mem_read only when the user explicitly asks you to recall or look something up, and mem_add/mem_edit only when the user explicitly asks you to remember something. Otherwise leave memory untouched and answer directly.\n")

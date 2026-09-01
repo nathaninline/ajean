@@ -230,6 +230,12 @@ func newWebMux() *http.ServeMux {
 	api("/api/projects/describe", handleProjectDescribe)        // description du projet (fournie à l'IA)
 	api("/api/projects/move-session", handleProjectMoveSession) // déplace une conversation vers un autre projet (#55)
 	api("/api/projects/move-mem", handleProjectMoveMem)         // déplace une page mémoire vers un autre projet (#55)
+	api("/api/tracker", handleTracker)                          // liste des trackers (données datées) du projet actif
+	api("/api/tracker/events", handleTrackerEvents)             // événements d'un tracker (pour l'UI)
+	api("/api/tracker/add", handleTrackerAdd)                   // ajoute un point
+	api("/api/tracker/edit", handleTrackerEdit)                 // modifie un point
+	api("/api/tracker/delete", handleTrackerDelete)             // supprime un point (ou le tracker entier)
+	api("/api/tracker/move", handleTrackerMove)                 // déplace un tracker vers un autre projet
 	api("/api/mem", handleMem)
 	api("/api/mem/save", handleMemSave)
 	api("/api/mem/delete", handleMemDelete)

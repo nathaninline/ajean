@@ -1,14 +1,19 @@
-Descriptions de projet fournies à l'assistant, déplacement des conversations et des notes entre projets, et plusieurs corrections (date des conversations, interface figée sur mobile, moteur qui ne démarrait plus avec un template personnalisé).
+Nouveauté principale : les trackers, un troisième type de mémoire pour les données datées qui s'accumulent (compteurs, relevés, journaux d'événements).
 
 ## Nouveautés
 
-* **Description de projet.** Chaque projet peut recevoir une description (menu du projet → « Décrire ») expliquant à quoi il sert : contexte, contraintes, ton attendu. Ce texte est fourni à l'assistant au début de chaque conversation du projet, pour qu'il sache d'emblée sur quoi il travaille sans qu'on ait à le lui réexpliquer.
-* **Déplacer une conversation vers un autre projet.** Depuis le menu d'une conversation archivée (« Déplacer vers… »). La conversation en cours n'est pas déplaçable ; il faut en ouvrir une autre d'abord.
-* **Déplacer une note de mémoire vers un autre projet.** Depuis la liste des pages de mémoire des réglages (bouton « déplacer »). Mémoire et conversations restent deux axes indépendants : déplacer un fil ne déplace pas les notes qu'il cite, et inversement.
-* **Copie du journal du moteur.** Un bouton « copier » dans le panneau d'état (pastille en haut du menu) copie tout le journal, pour le coller dans un rapport ou un message.
+* **Les trackers.** À côté des pages de mémoire (faits et procédures), l'assistant dispose maintenant de trackers : des flux de points datés qui grandissent sans fin, comme un nombre d'abonnés relevé chaque semaine, un poids, un chiffre d'affaires, ou n'importe quelle série suivie dans le temps. Chaque point porte une date (à la précision voulue : une année, un mois, un jour, ou une heure précise) et une valeur.
+* **Consultation par niveaux.** Un tracker n'est jamais lu en entier : il se parcourt du général au détaillé (vue d'ensemble des trackers, puis les années, puis un mois, puis les événements). L'assistant descend niveau par niveau au lieu de tout charger, ce qui garde la consultation légère même sur des séries très longues.
+* **La dernière valeur toujours à portée.** La liste des trackers du projet, chacun avec son dernier point, est fournie à l'assistant au début de la conversation. Il peut donc répondre directement à « où en est le suivi ? » sans aller fouiller, et ne creuse l'historique que quand c'est nécessaire.
+* **Gestion depuis l'interface.** Les trackers d'un projet se consultent et se modifient depuis les réglages : ajout, modification et suppression d'un point, regroupement par année et par mois. Un tracker peut aussi être déplacé vers un autre projet.
+* **Cloisonnés par projet et chiffrés.** Comme la mémoire, les trackers sont propres à chaque projet et chiffrés au repos.
 
 ## Corrections
 
-* Rouvrir une ancienne conversation ne modifie plus sa date : la date affichée reflète désormais la dernière activité réelle, pas le moment de réouverture. La chronologie de l'historique redevient fiable.
-* Sur mobile, revenir sur un onglet laissé en arrière-plan pendant une génération ne fige plus l'interface : le rattrapage du flux est rendu directement au lieu d'être ré-animé caractère par caractère, ce qui saturait le fil d'exécution jusqu'à ce qu'un rafraîchissement le débloque.
-* Régler le niveau de réflexion depuis l'éditeur de preset alors qu'un template de chat personnalisé était configuré pouvait corrompre les arguments de lancement (le drapeau `--jinja` se retrouvait à l'intérieur du chemin du template), empêchant le moteur de démarrer. Le découpage et la citation des arguments respectent désormais les guillemets.
+* Un point saisi sans heure n'affiche plus un faux « minuit » : seule la date est montrée quand aucune heure n'a été donnée.
+
+## Mise à jour
+
+```
+ajean update
+```

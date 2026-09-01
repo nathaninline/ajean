@@ -159,6 +159,30 @@ func memDeleteTool() Tool {
 	}
 }
 
+// trackerTool : UN seul outil pour les données datées qui s'accumulent (compteurs,
+// relevés, journaux). Piloté par `action`. La navigation est hiérarchique et vit
+// dans les RÉPONSES (vue d'ensemble → année → mois → événements), jamais tout d'un
+// coup — voir tracker.go.
+func trackerTool() Tool {
+	return Tool{
+		Type: "function",
+		Function: ToolFunction{
+			Name:        "tracker",
+			Description: "Dated data that piles up (counters, readings, follow-up logs). No args: overview. name: open a tracker. name+when (\"2026\", \"2026-07\"): zoom in. action add appends a dated point (when omitted=now, creates tracker if new); edit/delete act on one point by id. Navigates by level, never dumps all.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"action": map[string]any{"type": "string", "enum": []string{"view", "add", "edit", "delete"}, "description": "Default view."},
+					"name":   map[string]any{"type": "string", "description": "Tracker name; omit for overview."},
+					"when":   map[string]any{"type": "string", "description": "view: slice to zoom (2026, 2026-07). add/edit: point date, omit=now."},
+					"text":   map[string]any{"type": "string", "description": "Point value/note (add/edit)."},
+					"id":     map[string]any{"type": "string", "description": "Point id (edit/delete), shown in brackets."},
+				},
+			},
+		},
+	}
+}
+
 func editTool() Tool {
 	return Tool{
 		Type: "function",
@@ -390,6 +414,9 @@ func EnabledTools(caps Caps) []Tool {
 	// que le mode mémoire n'est pas « off » (que l'agent soit actif ou non).
 	if caps.Mem != MemOff {
 		tools = append(tools, memSearchTool(), memReadTool(), memAddTool(), memEditTool(), memDeleteTool())
+		// Trackers (3ᵉ type de mémoire : données datées qui s'accumulent). Même axe que
+		// la mémoire (persistant, par projet), donc fourni dès que la mémoire est ON.
+		tools = append(tools, trackerTool())
 	}
 	// Outils web : seulement si le mode agent ET l'accès internet sont actifs.
 	// caps.Internet intègre déjà la joignabilité (globalCaps / override web_server.go),
@@ -1145,6 +1172,14 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					label, _ = args["id"].(string)
 				case "machines_use":
 					label, _ = args["machine"].(string)
+				case "tracker":
+					act, _ := args["action"].(string)
+					nm, _ := args["name"].(string)
+					wh, _ := args["when"].(string)
+					label = strings.TrimSpace(strings.TrimSpace(act+" "+nm) + " " + wh)
+					if label == "" {
+						label = "vue d'ensemble"
+					}
 				default:
 					// Outils MCP : libellé = un aperçu compact des arguments.
 					if isMCPTool(tc.Function.Name) {
@@ -1219,6 +1254,40 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					} else {
 						result = fmt.Sprintf("[ok] page '%s' modifiée", label)
 						diff = lineDiff(oldText, newText)
+					}
+				case "tracker":
+					act, _ := args["action"].(string)
+					nm, _ := args["name"].(string)
+					wh, _ := args["when"].(string)
+					txt, _ := args["text"].(string)
+					evID, _ := args["id"].(string)
+					switch strings.ToLower(strings.TrimSpace(act)) {
+					case "add":
+						if id, e := trackerAdd(nm, wh, txt); e != nil {
+							result = "[erreur] " + e.Error()
+						} else {
+							result = fmt.Sprintf("[ok] point ajouté au tracker « %s » (id %s)", nm, id)
+						}
+					case "edit":
+						if e := trackerEditEvent(slugify(nm), evID, wh, txt); e != nil {
+							result = "[erreur] " + e.Error()
+						} else {
+							result = fmt.Sprintf("[ok] point %s modifié", evID)
+						}
+					case "delete":
+						if strings.TrimSpace(evID) == "" {
+							if e := trackerDelete(slugify(nm)); e != nil {
+								result = "[erreur] " + e.Error()
+							} else {
+								result = fmt.Sprintf("[ok] tracker « %s » supprimé", nm)
+							}
+						} else if e := trackerDeleteEvent(slugify(nm), evID); e != nil {
+							result = "[erreur] " + e.Error()
+						} else {
+							result = fmt.Sprintf("[ok] point %s supprimé", evID)
+						}
+					default: // view
+						result = trackerView(nm, wh)
 					}
 				case "write":
 					content, _ := args["content"].(string)

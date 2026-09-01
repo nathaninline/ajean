@@ -317,6 +317,7 @@ func (c *Conversation) compactAndPublish(ctx context.Context, epoch int, phase s
 	// Idem pour le contexte projet (description) : ré-injecté en tête s'il a sauté au
 	// compactage. Ajouté APRÈS l'index → se retrouve DEVANT lui (préfixage en tête).
 	compacted = ensureProjectContextFront(compacted)
+	compacted = ensureTrackerIndexFront(compacted)
 	overhead := ctxUsed - estimateTokens(msgs)
 	if overhead < 0 {
 		overhead = 0
@@ -421,6 +422,11 @@ func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, tem
 			c.Messages = append(c.Messages, m)
 		}
 		if m, ok := memIndexMessage(); ok {
+			c.Messages = append(c.Messages, m)
+		}
+		// Liste des trackers (+ dernier point de chacun) : l'IA sait qu'ils existent et
+		// a souvent la dernière valeur sans appeler l'outil.
+		if m, ok := trackerIndexMessage(); ok {
 			c.Messages = append(c.Messages, m)
 		}
 	}

@@ -333,6 +333,8 @@ function togglePlusMenu(e){
   const icCompact = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9l4-4 4 4M20 15l-4 4-4-4M8 5v6M16 19v-6"/></svg>';
   pop.appendChild(item(icFile, 'Joindre un fichier', ()=>{ const inp=document.getElementById('attach-input'); if(inp) inp.click(); }));
   pop.appendChild(item(icMachine, 'Postes distants', ()=>{ if(typeof openNodeHub==='function') openNodeHub(); }));
+  const icTracker = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h16M8 16l3-4 3 2 4-6"/></svg>';
+  pop.appendChild(item(icTracker, 'Trackers', ()=>{ if(typeof openTrackerHub==='function') openTrackerHub(); }));
   // « Compacter le contexte » : uniquement quand le contexte dépasse 50%.
   if(typeof COMPACT_AVAILABLE!=='undefined' && COMPACT_AVAILABLE){
     pop.appendChild(item(icCompact, 'Compacter le contexte', ()=>{ if(typeof compactContext==='function') compactContext(); }));

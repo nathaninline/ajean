@@ -917,7 +917,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
   margin:0;padding:0;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--err);cursor:pointer}
 .pe-del svg{width:15px;height:15px;display:block}
 .pe-del:hover{background:var(--danger-bg);border-color:color-mix(in srgb,var(--err) 40%,transparent)}
-/* Option d'une confirmation : une PASTILLE à cocher, pas une case système suivie
+/* Option d'une confirmation : une PASTILLE à cocher, pas une case système trackere
    d'un bout de texte. Éteinte : contour discret. Allumée : elle passe au rouge,
    comme l'action destructrice qu'elle étend. Vit dans la boîte de confirmation
    (#ask-check), plus dans le pied de l'éditeur. */
@@ -1104,6 +1104,56 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 @media (hover:none){.sess-menu-btn{opacity:.5}}
 .sess-menu-btn:hover{background:var(--row-bg-on);color:var(--text)}
 .sess-menu-btn svg{display:block}
+/* ===== Trackers (données datées) — design dédié ===== */
+.tracker-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.tracker-intro{font-size:11.5px;color:var(--dim)}
+.tracker-newbtn{flex:none;font-size:12px;padding:6px 11px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--accent);cursor:pointer;font-weight:600}
+.tracker-newbtn:hover{background:color-mix(in srgb,var(--accent) 12%,transparent);border-color:var(--accent)}
+/* Liste : une carte par tracker (empilée : nom, méta, dernier relevé) */
+.tracker-cards{display:flex;flex-direction:column;gap:8px}
+.tracker-card{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:border-color .12s,background .12s}
+.tracker-card:hover,.tracker-card:focus-visible{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,transparent);outline:none}
+.tracker-card-main{flex:1;min-width:0}
+.tracker-card-name{font-size:14.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tracker-card-sub{font-size:11.5px;color:var(--dim);margin-top:2px}
+.tracker-card-val{font-size:12.5px;line-height:1.35;color:var(--text-dim,var(--dim));margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tracker-card .sess-menu-btn{flex:none;margin-top:-2px}
+/* Détail : en-tête + carte du dernier point */
+.tracker-back{background:transparent;border:none;color:var(--dim);cursor:pointer;font-size:12.5px;padding:2px 0;margin-bottom:10px}
+.tracker-back:hover{color:var(--accent)}
+.tracker-hero{padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--border)}
+.tracker-hero-name{font-size:17px;font-weight:700;color:var(--text);overflow-wrap:anywhere}
+.tracker-hero-sub{font-size:12px;color:var(--dim);margin-top:3px}
+/* Formulaire d'ajout : note pleine largeur, puis Date/Heure labellisées, puis bouton */
+.tracker-form{display:flex;flex-direction:column;gap:8px;margin:0 0 18px}
+.tracker-input{width:100%;box-sizing:border-box;padding:10px 12px;font:inherit;font-size:14px;line-height:1.4;border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text);resize:vertical;min-height:46px}
+.tracker-input::placeholder{color:var(--dim)}
+.tracker-input:focus{outline:none;border-color:var(--dim)}
+.tracker-when-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.tracker-fld{min-width:0;display:flex;flex-direction:column;gap:5px}
+.tracker-fld>span{font-size:11px;color:var(--dim);padding-left:2px}
+.tracker-fld input{width:100%;min-width:0;box-sizing:border-box;min-height:44px;padding:10px 12px;font:inherit;font-size:14px;line-height:1.2;border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text);font-variant-numeric:tabular-nums;-webkit-appearance:none;appearance:none}
+.tracker-fld input::-webkit-date-and-time-value{text-align:left}
+.tracker-fld input:focus{outline:none;border-color:var(--dim)}
+.tracker-add-go{width:100%;min-height:46px;font-size:14px;font-weight:700;padding:0 12px;border-radius:10px;border:none;background:var(--accent);color:var(--bg);cursor:pointer}
+.tracker-add-go:active{filter:brightness(.92)}
+/* Frise / timeline */
+.tracker-timeline{display:flex;flex-direction:column}
+.tracker-yhead{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);cursor:pointer;padding:10px 2px 6px;user-select:none}
+.tracker-yhead:hover{color:var(--text)}
+.tracker-yhead .cnt{font-weight:500;letter-spacing:0;text-transform:none;color:var(--dim)}
+.tracker-pt{display:flex;align-items:flex-start;gap:12px;padding:10px 6px;border-radius:8px}
+.tracker-pt+.tracker-pt{border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)}
+.tracker-pt:hover{background:var(--row-bg-on)}
+.tracker-pt-val{flex:1;min-width:0;font-size:13.5px;line-height:1.4;color:var(--text);font-weight:500;overflow-wrap:anywhere}
+.tracker-pt-date{flex:none;display:flex;flex-direction:column;align-items:flex-end;font-size:11.5px;line-height:1.35;color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap;padding-top:1px}
+.tracker-pt-time{color:color-mix(in srgb,var(--dim) 80%,transparent)}
+.tracker-pt-acts{flex:none;display:flex;gap:2px;opacity:0;transition:opacity .12s}
+.tracker-pt:hover .tracker-pt-acts,.tracker-pt:focus-within .tracker-pt-acts{opacity:1}
+@media (hover:none){.tracker-pt-acts{opacity:.55}}
+.tracker-pt-acts button{width:26px;height:26px;display:flex;align-items:center;justify-content:center;padding:0;border:none;background:transparent;color:var(--dim);border-radius:6px;cursor:pointer}
+.tracker-pt-acts button:hover{background:var(--panel);color:var(--text)}
+.tracker-pt-acts button.danger:hover{color:#f76b6b}
 .sess-row:focus-visible{outline:none;box-shadow:0 0 0 2px var(--border)}
 /* Étoile favori : éteinte (contour dim), allumée (pleine, accent). */
 .sess-star{flex:none;display:flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;background:none;border:none;border-radius:7px;color:var(--dim);cursor:pointer}

@@ -947,7 +947,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
   margin:0;padding:0;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--err);cursor:pointer}
 .pe-del svg{width:15px;height:15px;display:block}
 .pe-del:hover{background:var(--danger-bg);border-color:color-mix(in srgb,var(--err) 40%,transparent)}
-/* Option d'une confirmation : une PASTILLE à cocher, pas une case système suivie
+/* Option d'une confirmation : une PASTILLE à cocher, pas une case système trackere
    d'un bout de texte. Éteinte : contour discret. Allumée : elle passe au rouge,
    comme l'action destructrice qu'elle étend. Vit dans la boîte de confirmation
    (#ask-check), plus dans le pied de l'éditeur. */
@@ -1134,6 +1134,56 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 @media (hover:none){.sess-menu-btn{opacity:.5}}
 .sess-menu-btn:hover{background:var(--row-bg-on);color:var(--text)}
 .sess-menu-btn svg{display:block}
+/* ===== Trackers (données datées) — design dédié ===== */
+.tracker-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.tracker-intro{font-size:11.5px;color:var(--dim)}
+.tracker-newbtn{flex:none;font-size:12px;padding:6px 11px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--accent);cursor:pointer;font-weight:600}
+.tracker-newbtn:hover{background:color-mix(in srgb,var(--accent) 12%,transparent);border-color:var(--accent)}
+/* Liste : une carte par tracker (empilée : nom, méta, dernier relevé) */
+.tracker-cards{display:flex;flex-direction:column;gap:8px}
+.tracker-card{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:border-color .12s,background .12s}
+.tracker-card:hover,.tracker-card:focus-visible{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,transparent);outline:none}
+.tracker-card-main{flex:1;min-width:0}
+.tracker-card-name{font-size:14.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tracker-card-sub{font-size:11.5px;color:var(--dim);margin-top:2px}
+.tracker-card-val{font-size:12.5px;line-height:1.35;color:var(--text-dim,var(--dim));margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tracker-card .sess-menu-btn{flex:none;margin-top:-2px}
+/* Détail : en-tête + carte du dernier point */
+.tracker-back{background:transparent;border:none;color:var(--dim);cursor:pointer;font-size:12.5px;padding:2px 0;margin-bottom:10px}
+.tracker-back:hover{color:var(--accent)}
+.tracker-hero{padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--border)}
+.tracker-hero-name{font-size:17px;font-weight:700;color:var(--text);overflow-wrap:anywhere}
+.tracker-hero-sub{font-size:12px;color:var(--dim);margin-top:3px}
+/* Formulaire d'ajout : note pleine largeur, puis Date/Heure labellisées, puis bouton */
+.tracker-form{display:flex;flex-direction:column;gap:8px;margin:0 0 18px}
+.tracker-input{width:100%;box-sizing:border-box;padding:10px 12px;font:inherit;font-size:14px;line-height:1.4;border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text);resize:vertical;min-height:46px}
+.tracker-input::placeholder{color:var(--dim)}
+.tracker-input:focus{outline:none;border-color:var(--dim)}
+.tracker-when-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.tracker-fld{min-width:0;display:flex;flex-direction:column;gap:5px}
+.tracker-fld>span{font-size:11px;color:var(--dim);padding-left:2px}
+.tracker-fld input{width:100%;min-width:0;box-sizing:border-box;min-height:44px;padding:10px 12px;font:inherit;font-size:14px;line-height:1.2;border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text);font-variant-numeric:tabular-nums;-webkit-appearance:none;appearance:none}
+.tracker-fld input::-webkit-date-and-time-value{text-align:left}
+.tracker-fld input:focus{outline:none;border-color:var(--dim)}
+.tracker-add-go{width:100%;min-height:46px;font-size:14px;font-weight:700;padding:0 12px;border-radius:10px;border:none;background:var(--accent);color:var(--bg);cursor:pointer}
+.tracker-add-go:active{filter:brightness(.92)}
+/* Frise / timeline */
+.tracker-timeline{display:flex;flex-direction:column}
+.tracker-yhead{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);cursor:pointer;padding:10px 2px 6px;user-select:none}
+.tracker-yhead:hover{color:var(--text)}
+.tracker-yhead .cnt{font-weight:500;letter-spacing:0;text-transform:none;color:var(--dim)}
+.tracker-pt{display:flex;align-items:flex-start;gap:12px;padding:10px 6px;border-radius:8px}
+.tracker-pt+.tracker-pt{border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)}
+.tracker-pt:hover{background:var(--row-bg-on)}
+.tracker-pt-val{flex:1;min-width:0;font-size:13.5px;line-height:1.4;color:var(--text);font-weight:500;overflow-wrap:anywhere}
+.tracker-pt-date{flex:none;display:flex;flex-direction:column;align-items:flex-end;font-size:11.5px;line-height:1.35;color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap;padding-top:1px}
+.tracker-pt-time{color:color-mix(in srgb,var(--dim) 80%,transparent)}
+.tracker-pt-acts{flex:none;display:flex;gap:2px;opacity:0;transition:opacity .12s}
+.tracker-pt:hover .tracker-pt-acts,.tracker-pt:focus-within .tracker-pt-acts{opacity:1}
+@media (hover:none){.tracker-pt-acts{opacity:.55}}
+.tracker-pt-acts button{width:26px;height:26px;display:flex;align-items:center;justify-content:center;padding:0;border:none;background:transparent;color:var(--dim);border-radius:6px;cursor:pointer}
+.tracker-pt-acts button:hover{background:var(--panel);color:var(--text)}
+.tracker-pt-acts button.danger:hover{color:#f76b6b}
 .sess-row:focus-visible{outline:none;box-shadow:0 0 0 2px var(--border)}
 /* Étoile favori : éteinte (contour dim), allumée (pleine, accent). */
 .sess-star{flex:none;display:flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;background:none;border:none;border-radius:7px;color:var(--dim);cursor:pointer}
@@ -2249,6 +2299,41 @@ button:hover{border-color:var(--dim);color:var(--text)}
       <div class="foot-r">
         <button class="mbtn" onclick="closeProjectModal()">Fermer</button>
       </div>
+    </div>
+  </div>
+</div>
+<div id="tracker-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeTrackerModal()">
+  <div class="modal-card" style="max-width:560px">
+    <div class="modal-head">
+      <span style="display:flex;align-items:center;gap:8px"><strong>Trackers</strong><span id="tracker-count" class="sess-count"></span></span>
+      <button class="modal-x" onclick="closeTrackerModal()" aria-label="Fermer">×</button>
+    </div>
+    <div class="modal-body mform">
+      <!-- Vue liste : une carte par tracker. -->
+      <div id="tracker-list-view">
+        <div class="tracker-top">
+          <span class="tracker-intro">Données datées qui s'accumulent (compteurs, relevés, trackers)</span>
+          <button class="tracker-newbtn" onclick="newTrackerUI()">+ Nouveau tracker</button>
+        </div>
+        <div id="tracker-list" class="tracker-cards"></div>
+      </div>
+      <!-- Vue détail : héros (valeur du jour) + ajout + frise par année. -->
+      <div id="tracker-detail-view" hidden>
+        <button class="tracker-back" onclick="trackerBack()">‹ tous les trackers</button>
+        <div id="tracker-hero" class="tracker-hero"></div>
+        <form class="tracker-form" onsubmit="return false">
+          <textarea id="tracker-text" class="tracker-input" rows="2" placeholder="Nouvelle valeur ou note (ex. abonnés : 4210)"></textarea>
+          <div class="tracker-when-wrap">
+            <label class="tracker-fld"><span>Date</span><input id="tracker-date" type="date"></label>
+            <label class="tracker-fld"><span>Heure</span><input id="tracker-time" type="time"></label>
+          </div>
+          <button id="tracker-add-btn" class="tracker-add-go" onclick="trackerAddPoint()">Ajouter</button>
+        </form>
+        <div id="tracker-events" class="tracker-timeline"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <div class="foot-r"><button class="mbtn" onclick="closeTrackerModal()">Fermer</button></div>
     </div>
   </div>
 </div>
@@ -5449,6 +5534,8 @@ const ICONS = {
   globe:'<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
   db:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>',
   clock:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  calendar:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/>',
+  trend:'<path d="M4 19V5"/><path d="M4 19h16"/><polyline points="7 15 11 11 14 13 19 7"/>',
   image:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>',
   monitor:'<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
   plug:'<path d="M9 2v6"/><path d="M15 2v6"/><path d="M6 8h12v3a6 6 0 0 1-6 6 6 6 0 0 1-6-6z"/><path d="M12 17v5"/>',
@@ -5616,6 +5703,7 @@ function renderToolMsg(el, tu){
     see_image:  {ico:'image',    lbl:'Vision',              head:'vision'},
     machines_list:{ico:'monitor', lbl:'Machines',           head:'postes disponibles'},
     machines_use: {ico:'monitor', lbl:'Changement machine', head:'bascule de machine'},
+    tracker:    {ico:'trend',     lbl:'Tracker',             head:'tracker'},
   };
   // Outils MCP (nom mcp__<serveur>__<outil>) : en-tête = nom du serveur, libellé lisible,
   // pas le fallback générique. On extrait serveur et outil du nom namespacé.
@@ -8635,6 +8723,8 @@ function togglePlusMenu(e){
   const icCompact = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9l4-4 4 4M20 15l-4 4-4-4M8 5v6M16 19v-6"/></svg>';
   pop.appendChild(item(icFile, 'Joindre un fichier', ()=>{ const inp=document.getElementById('attach-input'); if(inp) inp.click(); }));
   pop.appendChild(item(icMachine, 'Postes distants', ()=>{ if(typeof openNodeHub==='function') openNodeHub(); }));
+  const icTracker = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h16M8 16l3-4 3 2 4-6"/></svg>';
+  pop.appendChild(item(icTracker, 'Trackers', ()=>{ if(typeof openTrackerHub==='function') openTrackerHub(); }));
   // « Compacter le contexte » : uniquement quand le contexte dépasse 50%.
   if(typeof COMPACT_AVAILABLE!=='undefined' && COMPACT_AVAILABLE){
     pop.appendChild(item(icCompact, 'Compacter le contexte', ()=>{ if(typeof compactContext==='function') compactContext(); }));
@@ -8656,4 +8746,213 @@ function togglePlusMenu(e){
 
 // Au chargement, on peuple le libellé du bouton (sans ouvrir le modal).
 document.addEventListener('DOMContentLoaded', ()=>{ loadProjects(); });
+// 19-tracker.js — les TRACKERS côté UI (3ᵉ type de mémoire : données datées qui
+// s'accumulent). Le modal liste les trackers du projet actif ; chaque tracker porte un
+// menu ⋮ (déplacer vers un projet / supprimer), comme les conversations. Ouvrir un
+// tracker affiche sa frise par année (année en cours dépliée) avec ajout / édition /
+// suppression de points. Le « quand » est un sélecteur date + heure FACULTATIVE :
+// sans heure, le point n'a pas d'heure (pas de faux « minuit »).
+
+let TRACKER_CUR = null;  // {slug, name} du tracker ouvert, ou null en vue liste
+let TRACKER_EDIT = null; // point en cours d'édition (mode inline), ou null
+let TRACKER_WHEN_AUTO = null; // {date,time} préremplis par le reset (pour détecter « inchangé »)
+
+function openTrackerHub(){ showModal('tracker-modal'); trackerBack(); if(typeof loadProjects==='function' && (typeof PROJECTS==='undefined' || !PROJECTS.length)) loadProjects(); }
+function closeTrackerModal(){ hideModal('tracker-modal'); }
+
+// Vue LISTE (referme le détail).
+function trackerBack(){
+  TRACKER_CUR = null; trackerClearForm();
+  const lv=document.getElementById('tracker-list-view'), dv=document.getElementById('tracker-detail-view');
+  if(lv) lv.hidden=false; if(dv) dv.hidden=true;
+  loadTrackers();
+}
+
+async function loadTrackers(){
+  const box=document.getElementById('tracker-list'); if(!box) return;
+  let r; try{ r=await jget('/api/tracker'); }catch(_){ box.innerHTML='<span class="muted" style="font-size:12px">erreur de chargement</span>'; return; }
+  const list=(r&&r.trackers)||[];
+  const cnt=document.getElementById('tracker-count'); if(cnt) cnt.textContent = list.length ? (list.length+' tracker'+(list.length>1?'s':'')) : '';
+  box.innerHTML='';
+  if(!list.length){ box.innerHTML='<span class="muted" style="font-size:12px">aucun tracker. Crée-en un avec « + tracker » (ex. abonnés, poids, revenus).</span>'; return; }
+  list.forEach(s=>box.appendChild(trackerRow(s)));
+}
+
+function trackerRow(s){
+  const card=document.createElement('div'); card.className='tracker-card'; card.tabIndex=0; card.title='Ouvrir ce tracker';
+  card.onclick=()=>openTrackerDetail(s.slug, s.name);
+  card.onkeydown=(e)=>{ if((e.key==='Enter'||e.key===' ')&&e.target===card){ e.preventDefault(); openTrackerDetail(s.slug, s.name); } };
+  const main=document.createElement('div'); main.className='tracker-card-main';
+  const name=document.createElement('div'); name.className='tracker-card-name'; name.textContent=s.name;
+  const sub=document.createElement('div'); sub.className='tracker-card-sub';
+  sub.textContent = s.count ? (s.count+' point'+(s.count>1?'s':'')+' · maj '+(s.last||'')) : 'vide';
+  main.appendChild(name); main.appendChild(sub);
+  if(s.latest){ const val=document.createElement('div'); val.className='tracker-card-val'; val.textContent=s.latest; main.appendChild(val); }
+  card.appendChild(main);
+  const menu=document.createElement('button'); menu.className='sess-menu-btn'; menu.innerHTML=projDotsSvg(); menu.title='Options';
+  menu.onclick=(e)=>{ e.stopPropagation(); openTrackerMenu(menu, s); };
+  card.appendChild(menu);
+  return card;
+}
+
+// Menu ⋮ d'un tracker : déplacer vers un projet / supprimer. Réutilise l'infra pop du
+// hub projets (closeProjMenu / _projOutside).
+function openTrackerMenu(anchor, s){
+  closeProjMenu();
+  const pop=document.createElement('div'); pop.className='pop-menu';
+  const item=(icon,label,cls,fn)=>{ const b=document.createElement('button'); if(cls) b.className=cls; b.innerHTML=sessIconSvg(icon)+'<span>'+label+'</span>'; b.onclick=(e)=>{ e.stopPropagation(); closeProjMenu(); fn(); }; return b; };
+  if(typeof PROJECTS!=='undefined' && PROJECTS.length>1) pop.appendChild(item('move','Déplacer vers…','',()=>trackerMove(s, anchor)));
+  pop.appendChild(item('trash','Supprimer','danger',()=>trackerDelete(s)));
+  document.body.appendChild(pop);
+  const r=anchor.getBoundingClientRect(); const pw=pop.offsetWidth, ph=pop.offsetHeight;
+  let left=Math.max(8, Math.min(r.right-pw, window.innerWidth-pw-8));
+  let top=r.bottom+6; if(top+ph>window.innerHeight-8) top=r.top-ph-6;
+  pop.style.left=left+'px'; pop.style.top=top+'px';
+  _projPop=pop;
+  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', closeProjMenu, true); }, 0);
+}
+
+function trackerMove(s, anchor){
+  if(typeof pickProjectPop!=='function') return;
+  pickProjectPop(anchor||document.body, (typeof ACTIVE_PROJECT!=='undefined'?ACTIVE_PROJECT:''), async(slug)=>{
+    let r; try{ r=await jpost('/api/tracker/move', {slug:s.slug, toSlug:slug}); }catch(_){ toast('erreur réseau'); return; }
+    if(!r.ok){ toast(r.error||'déplacement impossible'); return; }
+    toast('tracker déplacé'); loadTrackers();
+  });
+}
+
+async function trackerDelete(s){
+  if(!await askConfirm('Supprimer le tracker « '+s.name+' » et tous ses points ? Cette action est irréversible.', {title:'Supprimer le tracker', okText:'Supprimer', danger:true})) return;
+  let r; try{ r=await jpost('/api/tracker/delete', {slug:s.slug}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error||'suppression impossible'); return; }
+  toast('tracker supprimé');
+  if(TRACKER_CUR && TRACKER_CUR.slug===s.slug) trackerBack(); else loadTrackers();
+}
+
+// Créer un tracker = poser son premier point.
+async function newTrackerUI(){
+  const name=await askPrompt('Nom du tracker (ex. abonnés, poids, revenus) :', {title:'Nouveau tracker', okText:'Suivant', placeholder:'nom du tracker'});
+  if(name===null) return; if(!name.trim()){ toast('nom vide'); return; }
+  const text=await askPrompt('Premier point (valeur ou note) :', {title:'Nouveau tracker — '+name.trim(), okText:'Créer', placeholder:'ex. abonnés : 4210'});
+  if(text===null) return; if(!text.trim()){ toast('valeur vide'); return; }
+  let r; try{ r=await jpost('/api/tracker/add', {name:name.trim(), when:'', text:text.trim()}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error||'création impossible'); return; }
+  toast('tracker créé');
+  openTrackerDetail((name.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'tracker'), name.trim());
+}
+
+async function openTrackerDetail(slug, name){
+  TRACKER_CUR={slug, name}; trackerClearForm();
+  const lv=document.getElementById('tracker-list-view'), dv=document.getElementById('tracker-detail-view');
+  if(lv) lv.hidden=true; if(dv) dv.hidden=false;
+  await renderTrackerEvents();
+}
+
+async function renderTrackerEvents(){
+  if(!TRACKER_CUR) return;
+  const hero=document.getElementById('tracker-hero');
+  const box=document.getElementById('tracker-events'); if(!box) return;
+  box.innerHTML='<span class="muted" style="font-size:12px">chargement…</span>';
+  let r; try{ r=await jget('/api/tracker/events?slug='+encodeURIComponent(TRACKER_CUR.slug)); }catch(_){ box.innerHTML='<span class="muted" style="font-size:12px">erreur</span>'; return; }
+  if(!r.ok){ box.innerHTML='<span class="muted" style="font-size:12px">'+(r.error||'erreur')+'</span>'; return; }
+  TRACKER_CUR.name = r.name || TRACKER_CUR.name;
+  const evs=(r.events||[]).slice().sort((a,b)=>b.ts-a.ts); // plus récent d'abord
+  // Héros compact : nom + étendue seulement. Le dernier point n'est PAS répété ici :
+  // la frise ci-dessous l'affiche en tête (plus récent d'abord).
+  if(hero){
+    hero.innerHTML='';
+    const nm=document.createElement('div'); nm.className='tracker-hero-name'; nm.textContent=r.name;
+    const sub=document.createElement('div'); sub.className='tracker-hero-sub';
+    sub.textContent = evs.length ? (evs.length+' point'+(evs.length>1?'s':'')+' · depuis '+evs[evs.length-1].when.slice(0,10)) : 'aucun point';
+    hero.appendChild(nm); hero.appendChild(sub);
+  }
+  box.innerHTML='';
+  if(!evs.length){ box.innerHTML='<span class="muted" style="font-size:12px">aucun point. Ajoute-en un ci-dessus.</span>'; return; }
+  const curYear=new Date().getFullYear().toString();
+  const byYear={}; evs.forEach(e=>{ const y=e.when.slice(0,4); (byYear[y]=byYear[y]||[]).push(e); });
+  Object.keys(byYear).sort((a,b)=>b.localeCompare(a)).forEach(y=>{
+    const yEvs=byYear[y];
+    const yh=document.createElement('div'); yh.className='tracker-yhead';
+    const wrap=document.createElement('div'); wrap.hidden=(y!==curYear);
+    const setLbl=()=>{ yh.innerHTML=''; const tri=document.createElement('span'); tri.textContent=(wrap.hidden?'▸':'▾')+' '+y; const c=document.createElement('span'); c.className='cnt'; c.textContent=yEvs.length+' pt'; yh.appendChild(tri); yh.appendChild(c); };
+    setLbl();
+    yh.onclick=()=>{ wrap.hidden=!wrap.hidden; setLbl(); };
+    box.appendChild(yh);
+    yEvs.forEach(e=>wrap.appendChild(trackerEventRow(e)));
+    box.appendChild(wrap);
+  });
+}
+
+function trackerEventRow(e){
+  const row=document.createElement('div'); row.className='tracker-pt';
+  const val=document.createElement('div'); val.className='tracker-pt-val'; val.textContent=e.text;
+  const date=document.createElement('div'); date.className='tracker-pt-date';
+  const wp=(e.when||'').split(' '); const dd=document.createElement('span'); dd.textContent=wp[0]||'';
+  date.appendChild(dd);
+  if(wp[1]){ const tt=document.createElement('span'); tt.className='tracker-pt-time'; tt.textContent=wp[1]; date.appendChild(tt); }
+  const acts=document.createElement('div'); acts.className='tracker-pt-acts';
+  const ed=document.createElement('button'); ed.title='Modifier'; ed.innerHTML=sessIconSvg('pencil');
+  ed.onclick=(ev)=>{ ev.stopPropagation(); editTrackerPoint(e); };
+  const rm=document.createElement('button'); rm.className='danger'; rm.title='Supprimer'; rm.innerHTML=sessIconSvg('trash');
+  rm.onclick=(ev)=>{ ev.stopPropagation(); deleteTrackerPoint(e); };
+  acts.appendChild(ed); acts.appendChild(rm);
+  row.appendChild(val); row.appendChild(date); row.appendChild(acts);
+  return row;
+}
+
+// Construit la valeur `when` à partir des sélecteurs date + heure : vide = maintenant,
+// date seule = pas d'heure, date + heure = les deux.
+function trackerWhenValue(){
+  const d=(document.getElementById('tracker-date')||{}).value||'';
+  const t=(document.getElementById('tracker-time')||{}).value||'';
+  // Ajout, champs inchangés depuis le préremplissage auto → « maintenant » (le serveur
+  // horodate à l'instant réel de soumission, pas à l'ouverture du formulaire).
+  if(!TRACKER_EDIT && TRACKER_WHEN_AUTO && d===TRACKER_WHEN_AUTO.date && t===TRACKER_WHEN_AUTO.time) return '';
+  if(!d.trim()) return '';
+  return t.trim() ? (d.trim()+' '+t.trim()) : d.trim();
+}
+// Réinitialise le formulaire d'ajout : note vide + Date/Heure préremplies à
+// l'instant présent (jamais de champ vide, qui s'affiche en boîte noire sur iOS).
+function trackerClearForm(){
+  TRACKER_EDIT=null;
+  const tx=document.getElementById('tracker-text'); if(tx) tx.value='';
+  const n=new Date(), p=x=>String(x).padStart(2,'0');
+  const d=document.getElementById('tracker-date'); if(d) d.value=n.getFullYear()+'-'+p(n.getMonth()+1)+'-'+p(n.getDate());
+  const tm=document.getElementById('tracker-time'); if(tm) tm.value=p(n.getHours())+':'+p(n.getMinutes());
+  TRACKER_WHEN_AUTO={date:d?d.value:'', time:tm?tm.value:''};
+  const btn=document.getElementById('tracker-add-btn'); if(btn) btn.textContent='Ajouter';
+}
+
+async function trackerAddPoint(){
+  if(!TRACKER_CUR) return;
+  const tx=document.getElementById('tracker-text');
+  const text=(tx&&tx.value||'').trim(); if(!text){ toast('valeur vide'); if(tx) tx.focus(); return; }
+  const when=trackerWhenValue();
+  let r;
+  try{
+    if(TRACKER_EDIT) r=await jpost('/api/tracker/edit', {slug:TRACKER_CUR.slug, id:TRACKER_EDIT.id, text, when});
+    else r=await jpost('/api/tracker/add', {name:TRACKER_CUR.name, when, text});
+  }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error||'échec'); return; }
+  trackerClearForm();
+  renderTrackerEvents();
+}
+
+// Édition INLINE : préremplit le formulaire d'ajout (le bouton devient « Enregistrer »).
+function editTrackerPoint(e){
+  TRACKER_EDIT=e;
+  const parts=(e.when||'').split(' ');
+  const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.value=v||''; };
+  set('tracker-text', e.text); set('tracker-date', parts[0]||''); set('tracker-time', parts[1]||'');
+  const btn=document.getElementById('tracker-add-btn'); if(btn) btn.textContent='Enregistrer';
+  const tx=document.getElementById('tracker-text'); if(tx) tx.focus();
+}
+
+async function deleteTrackerPoint(e){
+  if(!await askConfirm('Supprimer ce point ?\n\n'+e.when+' — '+e.text, {title:'Supprimer le point', okText:'Supprimer', danger:true})) return;
+  let r; try{ r=await jpost('/api/tracker/delete', {slug:TRACKER_CUR.slug, id:e.id}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error||'suppression impossible'); return; }
+  if(TRACKER_EDIT && TRACKER_EDIT.id===e.id) trackerClearForm();
+  renderTrackerEvents();
+}
 </script></body></html>
