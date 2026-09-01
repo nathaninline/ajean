@@ -222,11 +222,14 @@ func newWebMux() *http.ServeMux {
 	api("/api/tools/toggle", handleAgentToggle)
 	api("/api/skills", handleAgent)
 	api("/api/skills/toggle", handleAgentToggle)
-	api("/api/projects", handleProjects)             // liste des projets + projet actif
-	api("/api/projects/create", handleProjectCreate) // crée un projet
-	api("/api/projects/rename", handleProjectRename) // renomme (libellé)
-	api("/api/projects/delete", handleProjectDelete) // supprime (dossier + sessions)
-	api("/api/projects/switch", handleProjectSwitch) // bascule le projet actif (nouvelle session)
+	api("/api/projects", handleProjects)                        // liste des projets + projet actif
+	api("/api/projects/create", handleProjectCreate)            // crée un projet
+	api("/api/projects/rename", handleProjectRename)            // renomme (libellé)
+	api("/api/projects/delete", handleProjectDelete)            // supprime (dossier + sessions)
+	api("/api/projects/switch", handleProjectSwitch)            // bascule le projet actif (nouvelle session)
+	api("/api/projects/describe", handleProjectDescribe)        // description du projet (fournie à l'IA)
+	api("/api/projects/move-session", handleProjectMoveSession) // déplace une conversation vers un autre projet (#55)
+	api("/api/projects/move-mem", handleProjectMoveMem)         // déplace une page mémoire vers un autre projet (#55)
 	api("/api/mem", handleMem)
 	api("/api/mem/save", handleMemSave)
 	api("/api/mem/delete", handleMemDelete)

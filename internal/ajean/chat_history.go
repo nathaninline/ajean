@@ -214,6 +214,30 @@ func listArchivesForProject(slug string) []convArchiveMeta {
 	return out
 }
 
+// moveArchiveToProject range une conversation archivée dans un autre projet (issue
+// #55). Change juste son champ Project (le fil, les pages mémoire qu'il cite ne
+// bougent pas : mémoire et conversations sont deux axes indépendants — déplacer une
+// note se fait à part via moveMemPage). Refuse de déplacer la conversation ACTIVE :
+// elle est ouverte, son projet doit rester cohérent avec le projet actif ; l'ouvrir
+// ailleurs se fait en basculant de projet, pas en la déplaçant sous les pieds.
+func moveArchiveToProject(id, toSlug string) error {
+	if !projectExists(toSlug) {
+		return fmt.Errorf("projet cible introuvable")
+	}
+	if conv.currentID() == id {
+		return fmt.Errorf("conversation en cours : ouvre-en une autre avant de la déplacer")
+	}
+	a, ok := loadArchive(id)
+	if !ok {
+		return fmt.Errorf("conversation introuvable")
+	}
+	if a.Project == toSlug {
+		return nil // déjà là : rien à faire
+	}
+	a.Project = toSlug
+	return saveArchive(a)
+}
+
 // tagOrphanArchives affecte un projet aux sessions historiques qui n'en ont pas
 // (migration douce : elles rejoignent le projet par défaut). Idempotent.
 func tagOrphanArchives(slug string) {
@@ -242,10 +266,22 @@ func (c *Conversation) snapshotForSession() *convArchive {
 	if proj == "" {
 		proj = activeProjectSlug()
 	}
+	// SavedAt = horodatage de la DERNIÈRE ACTIVITÉ RÉELLE, pas du snapshot. Le
+	// dernier événement du journal porte le TS du dernier delta reçu : s'en servir
+	// évite qu'un simple upsertSession (déclenché par persist() au chargement d'une
+	// session, cf. OpenSession) ne repousse la date de la conversation à maintenant
+	// (issue #54 : rouvrir une vieille conversation en lecture ne doit pas la dater
+	// d'aujourd'hui). Un nouveau tour ajoute des événements datés → la date avance
+	// bien. Repli sur maintenant si le journal est vide (ne devrait pas arriver ici,
+	// snapshotForSession renvoyant nil sur log ET messages vides).
+	savedAt := time.Now().UnixMilli()
+	if n := len(c.Log); n > 0 && c.Log[n-1].TS > 0 {
+		savedAt = c.Log[n-1].TS
+	}
 	a := &convArchive{
 		ID:           c.ID, // id STABLE de la session (pas un nouvel id à chaque fois)
 		Project:      proj,
-		SavedAt:      time.Now().UnixMilli(),
+		SavedAt:      savedAt,
 		Messages:     append([]Message(nil), c.Messages...),
 		Log:          append([]LogEvent(nil), c.Log...),
 		Seq:          c.Seq,

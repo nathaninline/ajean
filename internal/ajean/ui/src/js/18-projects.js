@@ -79,6 +79,7 @@ function openProjMenu(anchor, p){
   const pop = document.createElement('div'); pop.className='pop-menu';
   const item = (icon, label, cls, fn)=>{ const b=document.createElement('button'); if(cls) b.className=cls; b.innerHTML=sessIconSvg(icon)+'<span>'+label+'</span>'; b.onclick=(e)=>{ e.stopPropagation(); closeProjMenu(); fn(); }; return b; };
   pop.appendChild(item('pencil', 'Renommer', '', ()=>renameProjectUI(p.slug, p.name)));
+  pop.appendChild(item('doc', 'Décrire', '', ()=>describeProjectUI(p.slug, p.desc||'')));
   if(PROJECTS.length > 1) pop.appendChild(item('trash', 'Supprimer', 'danger', ()=>deleteProjectUI(p.slug, p.name)));
   document.body.appendChild(pop);
   // Positionne sous le bouton, calé à droite, en restant dans l'écran.
@@ -155,18 +156,20 @@ function projSessionRow(c, active){
   // Menu ⋮ (Favori / Renommer / Supprimer) — comme les projets, plus de crayon/poubelle.
   const menu = document.createElement('button');
   menu.className='sess-menu-btn'; menu.innerHTML=projDotsSvg(); menu.title='Options'; menu.setAttribute('aria-label','Options');
-  menu.onclick=(e)=>{ e.stopPropagation(); openSessMenu(menu, c); };
+  menu.onclick=(e)=>{ e.stopPropagation(); openSessMenu(menu, c, active); };
   row.appendChild(menu);
   return row;
 }
 
-// Menu contextuel d'une conversation (favori / renommer / supprimer).
-function openSessMenu(anchor, c){
+// Menu contextuel d'une conversation (favori / renommer / déplacer / supprimer).
+function openSessMenu(anchor, c, active){
   closeProjMenu();
   const pop = document.createElement('div'); pop.className='pop-menu';
   const item = (icon, label, cls, fn)=>{ const b=document.createElement('button'); if(cls) b.className=cls; b.innerHTML=sessIconSvg(icon)+'<span>'+label+'</span>'; b.onclick=(e)=>{ e.stopPropagation(); closeProjMenu(); fn(); }; return b; };
   pop.appendChild(item('star', c.fav?'Retirer des favoris':'Mettre en favori', '', ()=>favProjSession(c.id, !c.fav)));
   pop.appendChild(item('pencil', 'Renommer', '', ()=>renameProjSession(c.id, c.title)));
+  // Déplacer vers un autre projet (issue #55) — désactivé pour la conversation en cours.
+  if(PROJECTS.length > 1 && !active) pop.appendChild(item('move', 'Déplacer vers…', '', ()=>moveSessionUI(c.id, anchor)));
   // Exporter CETTE conversation (archivée), sans avoir à l'ouvrir : ?id=<session>.
   const exp = document.createElement('button');
   exp.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 19h16"/></svg><span>Exporter</span>';
@@ -242,6 +245,57 @@ async function renameProjectUI(slug, current){
   if(!r.ok){ toast(r.error || 'renommage impossible'); return; }
   loadProjects();
 }
+
+// Décrire un projet : la description est fournie à l'IA en tête de chaque nouvelle
+// conversation du projet (elle sait alors à quoi sert le projet, sans qu'on ait à
+// le lui réexpliquer). Vide = efface la description.
+async function describeProjectUI(slug, current){
+  const desc = await askPrompt(
+    'Décris ce projet : à quoi il sert, le contexte, les contraintes. Ce texte est donné à l\'IA au début de chaque conversation du projet.',
+    {title:'Décrire le projet', okText:'Enregistrer', multiline:true, default: current||'', placeholder:'ex. Site vitrine d\'un client, stack Next.js, ton pro et sobre, deadline fin octobre…'});
+  if(desc===null) return;
+  let r; try{ r = await jpost('/api/projects/describe', {slug, desc}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error || 'enregistrement impossible'); return; }
+  toast(desc.trim() ? 'description enregistrée' : 'description effacée');
+  loadProjects();
+}
+
+// Petit sélecteur de projet (pop-menu ancré au bouton), pour choisir une DESTINATION.
+// Exclut excludeSlug (le projet source). Appelle onPick(slug) au choix.
+function pickProjectPop(anchor, excludeSlug, onPick){
+  closeProjMenu();
+  const pop = document.createElement('div'); pop.className='pop-menu';
+  const dests = PROJECTS.filter(p=>p.slug!==excludeSlug);
+  if(!dests.length){ const b=document.createElement('button'); b.disabled=true; b.innerHTML='<span class="muted">aucun autre projet</span>'; pop.appendChild(b); }
+  dests.forEach(p=>{
+    const b=document.createElement('button');
+    b.innerHTML = projFolderSvg(16) + '<span>' + (p.name||p.slug) + '</span>';
+    b.onclick=(e)=>{ e.stopPropagation(); closeProjMenu(); onPick(p.slug); };
+    pop.appendChild(b);
+  });
+  document.body.appendChild(pop);
+  const r = anchor.getBoundingClientRect();
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let left = Math.max(8, Math.min(r.right - pw, window.innerWidth - pw - 8));
+  let top = r.bottom + 6; if(top + ph > window.innerHeight - 8) top = r.top - ph - 6;
+  pop.style.left = left+'px'; pop.style.top = top+'px';
+  _projPop = pop;
+  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', closeProjMenu, true); }, 0);
+}
+
+// Déplacer une conversation vers un autre projet (issue #55). La liste des sessions
+// affichées appartient au projet ACTIF → destination = tout projet sauf l'actif.
+async function moveSessionUI(id, anchor){
+  pickProjectPop(anchor || document.body, ACTIVE_PROJECT, async(slug)=>{
+    let r; try{ r = await jpost('/api/projects/move-session', {id, slug}); }catch(_){ toast('erreur réseau'); return; }
+    if(!r.ok){ toast(r.error || 'déplacement impossible'); return; }
+    toast('conversation déplacée vers ' + projName(slug));
+    loadProjectSessions();
+  });
+}
+
+// Nom d'affichage d'un projet depuis son slug (repli sur le slug).
+function projName(slug){ const p = PROJECTS.find(x=>x.slug===slug); return p ? (p.name||p.slug) : slug; }
 
 async function deleteProjectUI(slug, name){
   if(!await askConfirm('Supprimer le projet « ' + (name||slug) + ' » ? Sa mémoire ET toutes ses sessions seront définitivement effacées.', {title:'Supprimer le projet', okText:'Supprimer', danger:true})) return;

@@ -37,6 +37,48 @@ func memIndexMessage() (Message, bool) {
 	return Message{Role: "system", Content: content}, true
 }
 
+// projectContextPrefix marque le message de contexte projet injecté (description),
+// pour le détecter et éviter les doublons.
+const projectContextPrefix = "Project context"
+
+// projectContextMessage construit le message système décrivant le projet actif à
+// partir de sa description (Project.Desc), à injecter UNE FOIS au début de la
+// conversation (et après un compactage). Renvoie ok=false si aucune description :
+// l'IA sait alors juste dans quel projet elle est via l'index mémoire, sans laïus.
+// Indépendant du mode mémoire (une description reste utile même mémoire coupée).
+func projectContextMessage() (Message, bool) {
+	slug := activeProjectSlug()
+	desc := strings.TrimSpace(projectDesc(slug))
+	if desc == "" {
+		return Message{}, false
+	}
+	content := projectContextPrefix + " — you are working within the project \"" +
+		projectName(slug) + "\". What this project is about (set by the user):\n\n" + desc
+	return Message{Role: "system", Content: content}, true
+}
+
+// hasProjectContext indique si la séquence porte déjà le message de contexte projet.
+func hasProjectContext(msgs []Message) bool {
+	for _, m := range msgs {
+		if s, ok := m.Content.(string); ok && strings.HasPrefix(s, projectContextPrefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// ensureProjectContextFront préfixe le contexte projet s'il n'est pas déjà présent.
+// Appelé après un compactage (le message d'origine a pu être résumé/retiré).
+func ensureProjectContextFront(msgs []Message) []Message {
+	if hasProjectContext(msgs) {
+		return msgs
+	}
+	if m, ok := projectContextMessage(); ok {
+		return append([]Message{m}, msgs...)
+	}
+	return msgs
+}
+
 // hasMemIndex indique si la séquence porte déjà le message d'index.
 func hasMemIndex(msgs []Message) bool {
 	for _, m := range msgs {

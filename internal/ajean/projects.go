@@ -33,6 +33,10 @@ type Project struct {
 	Slug      string `json:"slug"`
 	Name      string `json:"name"`
 	CreatedAt int64  `json:"created_at"`
+	// Desc = description libre de ce à quoi sert le projet. Fournie À L'IA en tête
+	// de conversation (projectContextMessage) pour qu'elle sache d'emblée sur quoi
+	// elle travaille, sans avoir à le lui réexpliquer à chaque nouvelle session.
+	Desc string `json:"desc,omitempty"`
 }
 
 const (
@@ -155,6 +159,40 @@ func projectName(slug string) string {
 		}
 	}
 	return slug
+}
+
+// projectDesc renvoie la description d'un projet (vide si aucune / introuvable).
+func projectDesc(slug string) string {
+	for _, p := range listProjects() {
+		if p.Slug == slug {
+			return p.Desc
+		}
+	}
+	return ""
+}
+
+// setProjectDesc enregistre la description d'un projet (tronquée à une taille
+// raisonnable : c'est un contexte injecté à chaque conversation, pas un cahier
+// des charges). Une chaîne vide efface la description.
+func setProjectDesc(slug, desc string) error {
+	desc = strings.TrimSpace(desc)
+	const max = 2000
+	if len([]rune(desc)) > max {
+		desc = strings.TrimSpace(string([]rune(desc)[:max]))
+	}
+	list := listProjects()
+	found := false
+	for i := range list {
+		if list[i].Slug == slug {
+			list[i].Desc = desc
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("projet introuvable")
+	}
+	return saveProjects(list)
 }
 
 var slugStripRe = regexp.MustCompile(`[^a-z0-9]+`)
@@ -292,6 +330,55 @@ func deleteProject(slug string) error {
 	if activeProjectSlug() == slug {
 		_ = setActiveProject(kept[0].Slug)
 	}
+	return nil
+}
+
+// withProject exécute fn en forçant temporairement le projet vu par memoryDir()
+// (index mémoire scopé au bon projet). Séquentiel et bref : sûr tant qu'aucune
+// génération ne tourne (le déplacement est une action utilisateur, gardée en amont).
+func withProject(slug string, fn func()) {
+	setProjectOverride(slug)
+	defer setProjectOverride("")
+	fn()
+}
+
+// moveMemPage déplace une page mémoire (.md) d'un projet vers un autre. Le FICHIER
+// est déplacé tel quel : son nom ne change pas et la DEK de chiffrement est GLOBALE,
+// donc un blob chiffré reste déchiffrable dans le projet cible (déplacement possible
+// même mémoire verrouillée). Les deux index MEMORY.md sont ensuite mis à jour
+// (best-effort : reconcileMemIndex répare au pire au prochain démarrage de conv).
+func moveMemPage(name, fromSlug, toSlug string) error {
+	if strings.TrimSpace(fromSlug) == strings.TrimSpace(toSlug) {
+		return fmt.Errorf("déjà dans ce projet")
+	}
+	if !projectExists(toSlug) {
+		return fmt.Errorf("projet cible introuvable")
+	}
+	fn, err := memFileName(name)
+	if err != nil {
+		return err
+	}
+	if strings.EqualFold(fn, memIndexFile) {
+		return fmt.Errorf("l'index du projet n'est pas déplaçable")
+	}
+	src := filepath.Join(projectMemoryDir(fromSlug), fn)
+	dst := filepath.Join(projectMemoryDir(toSlug), fn)
+	raw, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("page introuvable")
+	}
+	if _, err := os.Stat(dst); err == nil {
+		return fmt.Errorf("une page du même nom existe déjà dans le projet cible")
+	}
+	if err := os.MkdirAll(projectMemoryDir(toSlug), 0o755); err != nil {
+		return err
+	}
+	if err := memWriteFileVerified(dst, raw, 0o600); err != nil {
+		return err
+	}
+	_ = os.Remove(src)
+	withProject(fromSlug, func() { memIndexRemove(fn) })
+	withProject(toSlug, func() { memIndexAdd(fn) })
 	return nil
 }
 

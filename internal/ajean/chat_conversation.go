@@ -314,6 +314,9 @@ func (c *Conversation) compactAndPublish(ctx context.Context, epoch int, phase s
 	// Le compactage a pu résumer/retirer le message d'index d'origine : on le
 	// ré-injecte en tête pour que l'IA garde la liste des pages sous les yeux.
 	compacted = ensureMemIndexFront(compacted)
+	// Idem pour le contexte projet (description) : ré-injecté en tête s'il a sauté au
+	// compactage. Ajouté APRÈS l'index → se retrouve DEVANT lui (préfixage en tête).
+	compacted = ensureProjectContextFront(compacted)
 	overhead := ctxUsed - estimateTokens(msgs)
 	if overhead < 0 {
 		overhead = 0
@@ -412,6 +415,11 @@ func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, tem
 	// yeux) sans être reconstruit à chaque tour ; il est ré-injecté après un
 	// compactage (ensureMemIndexFront) pour ne pas le perdre.
 	if len(c.Messages) == 0 {
+		// Contexte projet (description) d'abord : l'IA sait sur quoi elle travaille
+		// avant même de lire l'index de ses pages mémoire.
+		if m, ok := projectContextMessage(); ok {
+			c.Messages = append(c.Messages, m)
+		}
 		if m, ok := memIndexMessage(); ok {
 			c.Messages = append(c.Messages, m)
 		}

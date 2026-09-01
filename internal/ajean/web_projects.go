@@ -15,7 +15,7 @@ func handleProjects(w http.ResponseWriter, r *http.Request) {
 	list := listProjects()
 	out := make([]map[string]any, 0, len(list))
 	for _, p := range list {
-		out = append(out, map[string]any{"slug": p.Slug, "name": p.Name, "created_at": p.CreatedAt})
+		out = append(out, map[string]any{"slug": p.Slug, "name": p.Name, "created_at": p.CreatedAt, "desc": p.Desc})
 	}
 	sendJSON(w, 200, map[string]any{"ok": true, "projects": out, "active": activeProjectSlug()})
 }
@@ -42,6 +42,51 @@ func handleProjectRename(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	if err := renameProject(strings.TrimSpace(body.Slug), body.Name); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
+// handleProjectDescribe (POST {slug, desc}) : enregistre la description du projet,
+// fournie à l'IA en tête de conversation. desc vide = efface.
+func handleProjectDescribe(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Slug string `json:"slug"`
+		Desc string `json:"desc"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if err := setProjectDesc(strings.TrimSpace(body.Slug), body.Desc); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
+// handleProjectMoveSession (POST {id, slug}) : déplace une conversation archivée
+// vers un autre projet (issue #55).
+func handleProjectMoveSession(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ID   string `json:"id"`
+		Slug string `json:"slug"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if err := moveArchiveToProject(strings.TrimSpace(body.ID), strings.TrimSpace(body.Slug)); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
+// handleProjectMoveMem (POST {name, slug}) : déplace une page mémoire du projet
+// ACTIF vers un autre projet (issue #55).
+func handleProjectMoveMem(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Name string `json:"name"`
+		Slug string `json:"slug"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if err := moveMemPage(strings.TrimSpace(body.Name), activeProjectSlug(), strings.TrimSpace(body.Slug)); err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}

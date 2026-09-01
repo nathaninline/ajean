@@ -375,12 +375,21 @@ function smoothFeed(el, target){
   if(!smooth.raf) smooth.raf=requestAnimationFrame(smoothStep);
 }
 // Rend un bloc en streaming : lissé en direct, instantané au replay.
-function feedBlock(el, full){ if(REPLAYING) scheduleRender(el, full); else smoothFeed(el, full); }
+// CATCHUP = on rattrape le backlog d'une RECONNEXION (retour d'onglet en arrière-
+// plan, coupure réseau…). Le serveur rejoue d'un bloc tout ce qui s'est produit
+// pendant l'absence : comme le replay initial, ce paquet doit être rendu DIRECT
+// (pas token par token via le lissage), sinon la boucle d'animation sature le
+// thread principal et l'UI se fige (clics perdus) jusqu'à ce que le lissage ait
+// fini d'« écrire » tout le retard. Le serveur clôt le rattrapage par {caught_up},
+// qui remet CATCHUP à false → le direct qui suit retrouve son lissage normal.
+let CATCHUP=false;
+function feedBlock(el, full){ if(REPLAYING||CATCHUP) scheduleRender(el, full); else smoothFeed(el, full); }
 // Traite UN événement du flux — même sémantique que l'ancien switch inline, mais
 // piloté par le serveur et rejouable à l'identique.
 function handleDelta(d){
   if(typeof d.seq==='number' && d.seq>lastSeq) lastSeq=d.seq;
   if(d.caught_up){
+    CATCHUP=false;               // fin du rattrapage : le direct reprend son lissage
     smoothSnap(); flushRender(); // rendre le dernier bloc rejoué à sa valeur exacte
     // Fin du replay initial : on saute en bas puis on révèle (une seule fois — pas
     // sur les reconnexions, pour ne pas te ramener en bas si tu lisais plus haut).
@@ -523,6 +532,11 @@ async function connectStream(){
   while(true){
     // Onglet en arrière-plan : on n'ouvre aucune connexion, on attend le retour.
     while(document.hidden){ await new Promise(res=>setTimeout(res, 500)); }
+    // Chaque (re)connexion commence par un rejeu coalescé de Log[from:] suivi de
+    // {caught_up} : on le rend DIRECT (CATCHUP), pas via le lissage, pour ne pas
+    // figer l'UI en réanimant tout le retard token par token. On solde aussi un
+    // éventuel lissage en cours resté de la connexion avortée.
+    CATCHUP=true; smoothReset();
     streamAbort=new AbortController();
     try{
       const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:lastSeq}),signal:streamAbort.signal});

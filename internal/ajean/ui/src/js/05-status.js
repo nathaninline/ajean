@@ -99,6 +99,17 @@ async function loadSvcLog(){
     el.scrollTop = el.scrollHeight;
   }catch(e){ el.textContent='journal indisponible : '+e; }
 }
+// Copie le journal du moteur dans le presse-papiers (diagnostic : coller dans une
+// issue / un message). Repli execCommand pour les WebView sans navigator.clipboard
+// (iOS hors HTTPS, vieux navigateurs).
+async function copySvcLog(btn){
+  const el=document.getElementById('svc-log');
+  const txt=(el && el.textContent) || '';
+  if(!txt.trim()){ toast('journal vide'); return; }
+  try{ await navigator.clipboard.writeText(txt); }
+  catch(_){ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(__){} ta.remove(); }
+  if(btn){ const old=btn.textContent; btn.textContent='copié ✓'; setTimeout(()=>{ btn.textContent=old; },1500); }
+}
 async function checkUpdate(){
   const b=document.getElementById('upd-check'), msg=document.getElementById('upd-msg');
   b.disabled=true; msg.textContent='Vérification…';

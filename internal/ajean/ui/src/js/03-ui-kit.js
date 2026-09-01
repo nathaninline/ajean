@@ -31,7 +31,7 @@ function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.
 // alert() par de vraies boîtes stylées. Chacune renvoie une Promise : askConfirm →
 // bool, askPrompt → string|null (null si annulé), askAlert → void. Échap/clic dehors
 // = annuler ; Entrée = valider (sur prompt aussi).
-let _askResolver=null, _askKind='confirm', _askCheck=false;
+let _askResolver=null, _askKind='confirm', _askCheck=false, _askMultiline=false;
 // État de la case optionnelle de la DERNIÈRE confirmation (opts.check). Lu par
 // l'appelant juste après le await — la Promise, elle, ne renvoie que oui/non.
 function askChecked(){ return _askCheck; }
@@ -41,12 +41,17 @@ function askResolve(ok){
   _askCheck = ok && document.getElementById('ask-check-input').checked;
   hideModal('ask-modal');
   document.removeEventListener('keydown', _askKey, true);
-  if(_askKind==='prompt') r(ok ? document.getElementById('ask-input').value : null);
+  if(_askKind==='prompt') r(ok ? document.getElementById(_askMultiline?'ask-textarea':'ask-input').value : null);
   else r(ok);
 }
 function _askKey(e){
   if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); askResolve(false); }
-  else if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); askResolve(true); }
+  // En multiligne, Entrée insère un saut de ligne (Ctrl/⌘+Entrée valide) ; sinon
+  // Entrée valide directement.
+  else if(e.key==='Enter'){
+    if(_askKind==='prompt' && _askMultiline && !(e.ctrlKey||e.metaKey)) return;
+    e.preventDefault(); e.stopPropagation(); askResolve(true);
+  }
 }
 function _openAsk(kind, message, opts){
   // Compat 2 conventions : (message, opts) [UI ajean] ET l'objet unique
@@ -61,9 +66,13 @@ function _openAsk(kind, message, opts){
   _askKind=kind;
   document.getElementById('ask-title').textContent = opts.title || (kind==='alert'?'Info':kind==='prompt'?'Saisie':'Confirmation');
   document.getElementById('ask-msg').textContent = message||'';
-  const inp=document.getElementById('ask-input');
-  if(kind==='prompt'){ inp.style.display=''; inp.value=opts.default||''; inp.placeholder=opts.placeholder||''; }
-  else inp.style.display='none';
+  const inp=document.getElementById('ask-input'), ta=document.getElementById('ask-textarea');
+  _askMultiline = kind==='prompt' && !!opts.multiline;
+  if(kind==='prompt'){
+    const el = _askMultiline ? ta : inp, other = _askMultiline ? inp : ta;
+    el.style.display=''; el.value=opts.default||''; el.placeholder=opts.placeholder||'';
+    other.style.display='none';
+  } else { inp.style.display='none'; ta.style.display='none'; }
   // Case facultative (ex. « supprimer aussi le fichier .gguf »).
   const chk=document.getElementById('ask-check');
   chk.style.display = opts.check ? 'inline-flex' : 'none';
@@ -77,7 +86,7 @@ function _openAsk(kind, message, opts){
   ok.classList.toggle('danger', !!opts.danger);
   showModal('ask-modal');
   document.addEventListener('keydown', _askKey, true);
-  setTimeout(()=>{ const f = kind==='prompt'?inp:ok; f.focus(); if(kind==='prompt') inp.select(); }, 30);
+  setTimeout(()=>{ const el = _askMultiline?ta:inp; const f = kind==='prompt'?el:ok; f.focus(); if(kind==='prompt') el.select(); }, 30);
   return new Promise(res=>{ _askResolver=res; });
 }
 function askConfirm(message,opts){ return _openAsk('confirm',message,opts); }

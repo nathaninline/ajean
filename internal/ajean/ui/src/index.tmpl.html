@@ -52,7 +52,10 @@
   <div id="svc-log-box" style="display:none;margin:0 0 10px">
     <div class="row" style="justify-content:space-between;align-items:center">
       <span class="io-cap">Journal du moteur</span>
-      <button onclick="loadSvcLog()" title="rafraîchir">↻</button>
+      <span class="row" style="gap:6px">
+        <button id="svc-log-copy" onclick="copySvcLog(this)" title="copier le journal">copier</button>
+        <button onclick="loadSvcLog()" title="rafraîchir">↻</button>
+      </span>
     </div>
     <pre id="svc-log" class="muted" style="font-size:10px;line-height:1.45;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:6px 0 0"></pre>
     <!-- Emplacements : au même endroit que le journal, c'est le panneau où l'on
@@ -514,6 +517,8 @@
     <div id="ask-title" class="ask-title"></div>
     <div id="ask-msg" class="ask-msg"></div>
     <input id="ask-input" class="ask-input" style="display:none">
+    <!-- Variante multiligne du prompt (opts.multiline), ex. décrire un projet. -->
+    <textarea id="ask-textarea" class="ask-input" rows="6" style="display:none;resize:vertical;min-height:120px"></textarea>
     <!-- Option facultative de la confirmation (ex. « supprimer aussi le .gguf ») :
          sa place est ICI, dans la boîte qui pose la question, plutôt que dans le
          pied de l'éditeur où elle occupait de la place en permanence. -->

@@ -758,11 +758,49 @@ function cfgWriteKey(key, val){
   if(reLine.test(ta.value)) ta.value = ta.value.replace(reLine, line);
   else ta.value = ta.value.replace(/\s*$/,'') + '\n'+line+'\n';
 }
+// cfgWriteRaw écrit KEY=val VERBATIM : contrairement à cfgWriteKey, il n'enveloppe
+// PAS la valeur entière de guillemets. Réservé à EXTRA_ARGS, dont les sous-arguments
+// sont déjà cités individuellement (--chat-template-file "/chemin") : un enveloppage
+// global créait des guillemets imbriqués que unquoteVal désappariait. La valeur reste
+// relue correctement par readEnvKey (1er caractère '-' → pas de dé-citation) comme
+// par le parseEnv/splitArgs côté Go.
+function cfgWriteRaw(key, val){
+  const ta = document.getElementById('m-content');
+  val = String(val==null?'':val).trim();
+  const reLine = new RegExp('^[ \\t]*'+key+'[ \\t]*=.*$','m');
+  if(val === ''){ ta.value = ta.value.replace(new RegExp('^[ \\t]*'+key+'[ \\t]*=.*\\n?','m'),'').replace(/\n{3,}/g,'\n\n'); return; }
+  const line = key+'='+val;
+  if(reLine.test(ta.value)) ta.value = ta.value.replace(reLine, line);
+  else ta.value = ta.value.replace(/\s*$/,'') + '\n'+line+'\n';
+}
 // EXTRA_ARGS : liste de drapeaux passés tels quels à llama-server. On les édite
 // jeton par jeton pour les interrupteurs (mlock, flash-attn, n-cpu-moe…), sans
 // toucher aux autres drapeaux (--jinja, --device…) qui restent en config brute.
-function eaTokens(){ return cfgReadKey('EXTRA_ARGS').split(/\s+/).filter(Boolean); }
-function eaSetTokens(t){ cfgWriteKey('EXTRA_ARGS', t.join(' ')); }
+// eaSplit découpe EXTRA_ARGS comme un shell (miroir de splitArgs côté Go) : sur les
+// espaces, mais en RESPECTANT les guillemets, et en les RETIRANT des jetons. Un
+// simple split(/\s+/) coupait un --chat-template-file "/chemin avec espace" en deux
+// ET gardait les guillemets collés au jeton : combiné au ré-enveloppage global de
+// cfgWriteKey, ça fabriquait des guillemets imbriqués que la relecture désappariait
+// (le --jinja ajouté pour la réflexion finissait DANS le chemin → moteur qui ne
+// démarre plus). Ici chaque jeton ressort propre et non cité.
+function eaSplit(s){
+  const out=[]; let cur='', q='', had=false;
+  for(const ch of String(s==null?'':s)){
+    if(q){ if(ch===q){ q=''; } else { cur+=ch; } }
+    else if(ch==='"'||ch==="'"){ q=ch; had=true; }
+    else if(ch===' '||ch==='\t'||ch==='\n'||ch==='\r'){ if(cur||had){ out.push(cur); cur=''; had=false; } }
+    else { cur+=ch; had=true; }
+  }
+  if(cur||had) out.push(cur);
+  return out;
+}
+function eaTokens(){ return eaSplit(cfgReadKey('EXTRA_ARGS')); }
+// eaQuoteTok re-cite un jeton qui contient une espace (chemin), sinon le laisse nu.
+function eaQuoteTok(t){ return /\s/.test(t) ? '"'+t+'"' : t; }
+// eaSetTokens réécrit EXTRA_ARGS jeton par jeton, chaque jeton cité INDIVIDUELLEMENT
+// si besoin — et SANS envelopper la valeur entière (cfgWriteRaw), pour ne jamais
+// recréer les guillemets imbriqués qui cassaient le --chat-template-file.
+function eaSetTokens(t){ cfgWriteRaw('EXTRA_ARGS', t.map(eaQuoteTok).join(' ')); }
 function eaHasFlag(flag){ return eaTokens().includes(flag); }
 function eaToggleFlag(flag, on){
   const t = eaTokens().filter(x=>x!==flag);

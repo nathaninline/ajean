@@ -328,7 +328,15 @@ function renderMemList(){
     if(x.desc){ const d=document.createElement('span'); d.className='muted'; d.textContent=' — '+x.desc; span.appendChild(d); }
     const btn=document.createElement('button'); btn.textContent='edit'; btn.style.cssText='margin:0;padding:2px 8px;font-size:11px';
     btn.onclick=e=>{ e.stopPropagation(); openMem(x.name); };
-    row.appendChild(span); row.appendChild(btn); list.appendChild(row);
+    row.appendChild(span); row.appendChild(btn);
+    // Déplacer la note vers un autre projet (issue #55) — visible s'il existe au
+    // moins un autre projet (PROJECTS vient de 18-projects.js).
+    if(typeof PROJECTS!=='undefined' && PROJECTS.length>1){
+      const mv=document.createElement('button'); mv.textContent='déplacer'; mv.style.cssText='margin:0 0 0 4px;padding:2px 8px;font-size:11px';
+      mv.onclick=e=>{ e.stopPropagation(); moveMemUI(x.name, mv); };
+      row.appendChild(mv);
+    }
+    list.appendChild(row);
   });
   if(matches.length > shown.length){
     const more=document.createElement('div'); more.className='mem-more';
@@ -337,6 +345,17 @@ function renderMemList(){
     more.onclick=()=>{ memShown+=MEM_PAGE; renderMemList(); };
     list.appendChild(more);
   }
+}
+// Déplacer une note mémoire du projet actif vers un autre projet (issue #55).
+// Réutilise le sélecteur de projet du hub (pickProjectPop, 18-projects.js).
+async function moveMemUI(name, anchor){
+  if(typeof pickProjectPop!=='function'){ toast('indisponible'); return; }
+  pickProjectPop(anchor, (typeof ACTIVE_PROJECT!=='undefined'?ACTIVE_PROJECT:''), async(slug)=>{
+    let r; try{ r = await jpost('/api/projects/move-mem', {name, slug}); }catch(_){ toast('erreur réseau'); return; }
+    if(!r.ok){ toast(r.error || 'déplacement impossible'); return; }
+    toast('note déplacée');
+    loadAgent();
+  });
 }
 // alias : plusieurs appelants rafraîchissent juste la liste des pages mémoire
 const loadMem = loadAgent;
