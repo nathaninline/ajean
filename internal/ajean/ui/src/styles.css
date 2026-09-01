@@ -1137,6 +1137,10 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .tracker-fld input:focus{outline:none;border-color:var(--dim)}
 .tracker-add-go{width:100%;min-height:46px;font-size:14px;font-weight:700;padding:0 12px;border-radius:10px;border:none;background:var(--accent);color:var(--bg);cursor:pointer}
 .tracker-add-go:active{filter:brightness(.92)}
+/* Bouton « + Ajouter un point » du détail (ouvre le modal du point) : pleine largeur. */
+.tracker-addpt{width:100%;min-height:40px;margin:0 0 14px}
+/* Formulaire du point dans son modal : plus de marge basse (le pied porte les boutons). */
+#tracker-pt-modal .tracker-form{margin:0}
 /* Frise / timeline */
 .tracker-timeline{display:flex;flex-direction:column}
 .tracker-yhead{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);cursor:pointer;padding:10px 2px 6px;user-select:none}

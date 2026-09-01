@@ -169,7 +169,13 @@ async function loadAgent(){
   memPages = (s.pages || s.skills || []).slice().sort((a,b)=>a.name.localeCompare(b.name));
   memShown = MEM_PAGE;
   document.getElementById('mem-count').textContent = memPages.length ? '('+memPages.length+')' : '';
-  document.getElementById('mem-search-row').style.display = memPages.length > MEM_PAGE ? '' : 'none';
+  // Barre de recherche visible seulement si beaucoup de pages. Si elle est masquée, on
+  // VIDE aussi son champ : sinon une requête tapée dans un projet fourni restait active
+  // (invisible) après bascule vers un projet à peu de notes, filtrant tout → « aucun
+  // résultat » sans que rien n'indique qu'un filtre est appliqué.
+  const showMemSearch = memPages.length > MEM_PAGE;
+  document.getElementById('mem-search-row').style.display = showMemSearch ? '' : 'none';
+  if(!showMemSearch){ const ms=document.getElementById('mem-search'); if(ms) ms.value=''; }
   renderMemList();
   loadMemEnc();
 }

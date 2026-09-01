@@ -633,19 +633,35 @@
       <div id="tracker-detail-view" hidden>
         <button class="tracker-back" onclick="trackerBack()">‹ tous les trackers</button>
         <div id="tracker-hero" class="tracker-hero"></div>
-        <form class="tracker-form" onsubmit="return false">
-          <textarea id="tracker-text" class="tracker-input" rows="2" placeholder="Nouvelle valeur ou note (ex. abonnés : 4210)"></textarea>
-          <div class="tracker-when-wrap">
-            <label class="tracker-fld"><span>Date</span><input id="tracker-date" type="date"></label>
-            <label class="tracker-fld"><span>Heure</span><input id="tracker-time" type="time"></label>
-          </div>
-          <button id="tracker-add-btn" class="tracker-add-go" onclick="trackerAddPoint()">Ajouter</button>
-        </form>
+        <button class="tracker-newbtn tracker-addpt" onclick="openTrackerPtModal()">+ Ajouter un point</button>
         <div id="tracker-events" class="tracker-timeline"></div>
       </div>
     </div>
     <div class="modal-foot">
       <div class="foot-r"><button class="mbtn" onclick="closeTrackerModal()">Fermer</button></div>
+    </div>
+  </div>
+</div>
+<div id="tracker-pt-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeTrackerPtModal()">
+  <div class="modal-card" style="max-width:440px">
+    <div class="modal-head">
+      <strong id="tracker-pt-title">Ajouter un point</strong>
+      <button class="modal-x" onclick="closeTrackerPtModal()" aria-label="Fermer">×</button>
+    </div>
+    <div class="modal-body mform">
+      <form class="tracker-form" onsubmit="return false">
+        <textarea id="tracker-text" class="tracker-input" rows="2" placeholder="Valeur ou note (ex. abonnés : 4210)"></textarea>
+        <div class="tracker-when-wrap">
+          <label class="tracker-fld"><span>Date</span><input id="tracker-date" type="date"></label>
+          <label class="tracker-fld"><span>Heure</span><input id="tracker-time" type="time"></label>
+        </div>
+      </form>
+    </div>
+    <div class="modal-foot">
+      <div class="foot-r">
+        <button class="mbtn" onclick="closeTrackerPtModal()">Annuler</button>
+        <button id="tracker-add-btn" class="mbtn primary" onclick="trackerAddPoint()">Ajouter</button>
+      </div>
     </div>
   </div>
 </div>

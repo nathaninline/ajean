@@ -65,6 +65,17 @@ func handleTrackerEdit(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true})
 }
 
+// handleTrackerRename (POST {slug, name}) : renomme un tracker (re-clé si besoin).
+func handleTrackerRename(w http.ResponseWriter, r *http.Request) {
+	var body struct{ Slug, Name string }
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if err := trackerRename(strings.TrimSpace(body.Slug), body.Name); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
 // handleTrackerMove (POST {slug, toSlug}) : déplace un tracker vers un autre projet.
 func handleTrackerMove(w http.ResponseWriter, r *http.Request) {
 	var body struct{ Slug, ToSlug string }

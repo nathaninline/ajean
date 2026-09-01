@@ -235,6 +235,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/tracker/add", handleTrackerAdd)                   // ajoute un point
 	api("/api/tracker/edit", handleTrackerEdit)                 // modifie un point
 	api("/api/tracker/delete", handleTrackerDelete)             // supprime un point (ou le tracker entier)
+	api("/api/tracker/rename", handleTrackerRename)             // renomme un tracker
 	api("/api/tracker/move", handleTrackerMove)                 // déplace un tracker vers un autre projet
 	api("/api/mem", handleMem)
 	api("/api/mem/save", handleMemSave)

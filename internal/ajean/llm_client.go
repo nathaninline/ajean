@@ -975,7 +975,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 						key = "file"
 					case "web_open", "web_read", "web_grep":
 						key = "url"
-					case "task_create", "task_update":
+					case "task_create", "task_update", "tracker":
 						key = "name"
 					case "task_delete", "recall":
 						key = "id"

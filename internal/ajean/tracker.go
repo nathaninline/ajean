@@ -176,6 +176,39 @@ func trackerDelete(slug string) error {
 	return putBytes(bkTracker, trackerKey(activeProjectSlug(), slug), nil)
 }
 
+// trackerRename change le NOM d'un tracker du projet actif. Le slug étant dérivé du
+// nom (slugify) et servant de clé de stockage ET d'identité pour l'ajout de points
+// (trackerAdd re-slugifie le nom), on re-clé le blob quand le slug change, pour
+// garder l'invariant slug == slugify(Name) sur lequel s'appuie le reste du code
+// (sinon un point ajouté depuis le détail créerait un tracker parallèle). Renommer
+// exige la mémoire déverrouillée (on relit puis réécrit le contenu déchiffré).
+func trackerRename(slug, newName string) error {
+	newName = strings.TrimSpace(newName)
+	if newName == "" {
+		return fmt.Errorf("nom vide")
+	}
+	s, ok := trackerLoad(slug)
+	if !ok {
+		return fmt.Errorf("tracker introuvable")
+	}
+	newSlug := slugify(newName)
+	if newSlug == "" {
+		return fmt.Errorf("nom invalide")
+	}
+	if newSlug == slug {
+		s.Name = newName
+		return trackerSave(slug, s)
+	}
+	if _, exists := trackerLoad(newSlug); exists {
+		return fmt.Errorf("un tracker du même nom existe déjà")
+	}
+	s.Name = newName
+	if err := trackerSave(newSlug, s); err != nil {
+		return err
+	}
+	return trackerDelete(slug)
+}
+
 // trackerMoveToProject déplace un tracker du projet actif vers un autre projet. Les
 // octets sont déplacés tels quels (la DEK est globale → un blob chiffré reste
 // lisible dans le projet cible, déplacement possible même mémoire verrouillée).

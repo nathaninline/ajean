@@ -1167,6 +1167,10 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .tracker-fld input:focus{outline:none;border-color:var(--dim)}
 .tracker-add-go{width:100%;min-height:46px;font-size:14px;font-weight:700;padding:0 12px;border-radius:10px;border:none;background:var(--accent);color:var(--bg);cursor:pointer}
 .tracker-add-go:active{filter:brightness(.92)}
+/* Bouton « + Ajouter un point » du détail (ouvre le modal du point) : pleine largeur. */
+.tracker-addpt{width:100%;min-height:40px;margin:0 0 14px}
+/* Formulaire du point dans son modal : plus de marge basse (le pied porte les boutons). */
+#tracker-pt-modal .tracker-form{margin:0}
 /* Frise / timeline */
 .tracker-timeline{display:flex;flex-direction:column}
 .tracker-yhead{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);cursor:pointer;padding:10px 2px 6px;user-select:none}
@@ -2321,19 +2325,35 @@ button:hover{border-color:var(--dim);color:var(--text)}
       <div id="tracker-detail-view" hidden>
         <button class="tracker-back" onclick="trackerBack()">‹ tous les trackers</button>
         <div id="tracker-hero" class="tracker-hero"></div>
-        <form class="tracker-form" onsubmit="return false">
-          <textarea id="tracker-text" class="tracker-input" rows="2" placeholder="Nouvelle valeur ou note (ex. abonnés : 4210)"></textarea>
-          <div class="tracker-when-wrap">
-            <label class="tracker-fld"><span>Date</span><input id="tracker-date" type="date"></label>
-            <label class="tracker-fld"><span>Heure</span><input id="tracker-time" type="time"></label>
-          </div>
-          <button id="tracker-add-btn" class="tracker-add-go" onclick="trackerAddPoint()">Ajouter</button>
-        </form>
+        <button class="tracker-newbtn tracker-addpt" onclick="openTrackerPtModal()">+ Ajouter un point</button>
         <div id="tracker-events" class="tracker-timeline"></div>
       </div>
     </div>
     <div class="modal-foot">
       <div class="foot-r"><button class="mbtn" onclick="closeTrackerModal()">Fermer</button></div>
+    </div>
+  </div>
+</div>
+<div id="tracker-pt-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeTrackerPtModal()">
+  <div class="modal-card" style="max-width:440px">
+    <div class="modal-head">
+      <strong id="tracker-pt-title">Ajouter un point</strong>
+      <button class="modal-x" onclick="closeTrackerPtModal()" aria-label="Fermer">×</button>
+    </div>
+    <div class="modal-body mform">
+      <form class="tracker-form" onsubmit="return false">
+        <textarea id="tracker-text" class="tracker-input" rows="2" placeholder="Valeur ou note (ex. abonnés : 4210)"></textarea>
+        <div class="tracker-when-wrap">
+          <label class="tracker-fld"><span>Date</span><input id="tracker-date" type="date"></label>
+          <label class="tracker-fld"><span>Heure</span><input id="tracker-time" type="time"></label>
+        </div>
+      </form>
+    </div>
+    <div class="modal-foot">
+      <div class="foot-r">
+        <button class="mbtn" onclick="closeTrackerPtModal()">Annuler</button>
+        <button id="tracker-add-btn" class="mbtn primary" onclick="trackerAddPoint()">Ajouter</button>
+      </div>
     </div>
   </div>
 </div>
@@ -3664,7 +3684,13 @@ async function loadAgent(){
   memPages = (s.pages || s.skills || []).slice().sort((a,b)=>a.name.localeCompare(b.name));
   memShown = MEM_PAGE;
   document.getElementById('mem-count').textContent = memPages.length ? '('+memPages.length+')' : '';
-  document.getElementById('mem-search-row').style.display = memPages.length > MEM_PAGE ? '' : 'none';
+  // Barre de recherche visible seulement si beaucoup de pages. Si elle est masquée, on
+  // VIDE aussi son champ : sinon une requête tapée dans un projet fourni restait active
+  // (invisible) après bascule vers un projet à peu de notes, filtrant tout → « aucun
+  // résultat » sans que rien n'indique qu'un filtre est appliqué.
+  const showMemSearch = memPages.length > MEM_PAGE;
+  document.getElementById('mem-search-row').style.display = showMemSearch ? '' : 'none';
+  if(!showMemSearch){ const ms=document.getElementById('mem-search'); if(ms) ms.value=''; }
   renderMemList();
   loadMemEnc();
 }
@@ -8509,7 +8535,10 @@ async function switchProjectUI(slug){
   await loadProjects();
   const p = PROJECTS.find(x=>x.slug===ACTIVE_PROJECT);
   toast('projet : ' + (p ? p.name : ACTIVE_PROJECT));
-  // Rafraîchit la liste des pages mémoire des réglages (elle est projet-scopée).
+  // Rafraîchit la liste des pages mémoire des réglages (elle est projet-scopée). On
+  // vide d'abord le filtre de recherche : une requête laissée d'un projet fourni
+  // filtrerait les notes du nouveau projet (jusqu'à tout masquer) sans qu'on le voie.
+  const ms=document.getElementById('mem-search'); if(ms) ms.value='';
   if(typeof loadAgent === 'function') loadAgent();
 }
 
@@ -8801,6 +8830,7 @@ function openTrackerMenu(anchor, s){
   closeProjMenu();
   const pop=document.createElement('div'); pop.className='pop-menu';
   const item=(icon,label,cls,fn)=>{ const b=document.createElement('button'); if(cls) b.className=cls; b.innerHTML=sessIconSvg(icon)+'<span>'+label+'</span>'; b.onclick=(e)=>{ e.stopPropagation(); closeProjMenu(); fn(); }; return b; };
+  pop.appendChild(item('pencil','Renommer','',()=>trackerRename(s)));
   if(typeof PROJECTS!=='undefined' && PROJECTS.length>1) pop.appendChild(item('move','Déplacer vers…','',()=>trackerMove(s, anchor)));
   pop.appendChild(item('trash','Supprimer','danger',()=>trackerDelete(s)));
   document.body.appendChild(pop);
@@ -8810,6 +8840,19 @@ function openTrackerMenu(anchor, s){
   pop.style.left=left+'px'; pop.style.top=top+'px';
   _projPop=pop;
   setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', closeProjMenu, true); }, 0);
+}
+
+async function trackerRename(s){
+  const name=await askPrompt('Nouveau nom du tracker :', {title:'Renommer le tracker', okText:'Renommer', placeholder:'nom du tracker', default:s.name});
+  if(name===null) return; const nn=name.trim(); if(!nn){ toast('nom vide'); return; }
+  if(nn===s.name) return;
+  let r; try{ r=await jpost('/api/tracker/rename', {slug:s.slug, name:nn}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error||'renommage impossible'); return; }
+  toast('tracker renommé');
+  // Le slug a pu changer (dérivé du nom) : on repart de la liste plutôt que de garder
+  // l'ancien slug ouvert. Si le détail du tracker renommé était ouvert, on le rouvre.
+  const newSlug=(nn.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'tracker');
+  if(TRACKER_CUR && TRACKER_CUR.slug===s.slug) openTrackerDetail(newSlug, nn); else loadTrackers();
 }
 
 function trackerMove(s, anchor){
@@ -8892,7 +8935,7 @@ function trackerEventRow(e){
   if(wp[1]){ const tt=document.createElement('span'); tt.className='tracker-pt-time'; tt.textContent=wp[1]; date.appendChild(tt); }
   const acts=document.createElement('div'); acts.className='tracker-pt-acts';
   const ed=document.createElement('button'); ed.title='Modifier'; ed.innerHTML=sessIconSvg('pencil');
-  ed.onclick=(ev)=>{ ev.stopPropagation(); editTrackerPoint(e); };
+  ed.onclick=(ev)=>{ ev.stopPropagation(); openTrackerPtModal(e); };
   const rm=document.createElement('button'); rm.className='danger'; rm.title='Supprimer'; rm.innerHTML=sessIconSvg('trash');
   rm.onclick=(ev)=>{ ev.stopPropagation(); deleteTrackerPoint(e); };
   acts.appendChild(ed); acts.appendChild(rm);
@@ -8923,6 +8966,17 @@ function trackerClearForm(){
   const btn=document.getElementById('tracker-add-btn'); if(btn) btn.textContent='Ajouter';
 }
 
+// Ouvre le modal d'ajout (e absent) ou d'édition (e = point). Le formulaire vit
+// désormais dans sa propre modale, empilée par-dessus le hub des trackers.
+function openTrackerPtModal(e){
+  if(!TRACKER_CUR) return;
+  if(e) editTrackerPoint(e); else trackerClearForm();
+  const t=document.getElementById('tracker-pt-title'); if(t) t.textContent = e ? 'Modifier le point' : 'Ajouter un point';
+  showModal('tracker-pt-modal');
+  const tx=document.getElementById('tracker-text'); if(tx){ tx.focus(); }
+}
+function closeTrackerPtModal(){ hideModal('tracker-pt-modal'); trackerClearForm(); }
+
 async function trackerAddPoint(){
   if(!TRACKER_CUR) return;
   const tx=document.getElementById('tracker-text');
@@ -8934,7 +8988,7 @@ async function trackerAddPoint(){
     else r=await jpost('/api/tracker/add', {name:TRACKER_CUR.name, when, text});
   }catch(_){ toast('erreur réseau'); return; }
   if(!r.ok){ toast(r.error||'échec'); return; }
-  trackerClearForm();
+  closeTrackerPtModal();
   renderTrackerEvents();
 }
 

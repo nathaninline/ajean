@@ -119,7 +119,10 @@ async function switchProjectUI(slug){
   await loadProjects();
   const p = PROJECTS.find(x=>x.slug===ACTIVE_PROJECT);
   toast('projet : ' + (p ? p.name : ACTIVE_PROJECT));
-  // Rafraîchit la liste des pages mémoire des réglages (elle est projet-scopée).
+  // Rafraîchit la liste des pages mémoire des réglages (elle est projet-scopée). On
+  // vide d'abord le filtre de recherche : une requête laissée d'un projet fourni
+  // filtrerait les notes du nouveau projet (jusqu'à tout masquer) sans qu'on le voie.
+  const ms=document.getElementById('mem-search'); if(ms) ms.value='';
   if(typeof loadAgent === 'function') loadAgent();
 }
 

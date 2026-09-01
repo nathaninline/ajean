@@ -53,6 +53,7 @@ function openTrackerMenu(anchor, s){
   closeProjMenu();
   const pop=document.createElement('div'); pop.className='pop-menu';
   const item=(icon,label,cls,fn)=>{ const b=document.createElement('button'); if(cls) b.className=cls; b.innerHTML=sessIconSvg(icon)+'<span>'+label+'</span>'; b.onclick=(e)=>{ e.stopPropagation(); closeProjMenu(); fn(); }; return b; };
+  pop.appendChild(item('pencil','Renommer','',()=>trackerRename(s)));
   if(typeof PROJECTS!=='undefined' && PROJECTS.length>1) pop.appendChild(item('move','Déplacer vers…','',()=>trackerMove(s, anchor)));
   pop.appendChild(item('trash','Supprimer','danger',()=>trackerDelete(s)));
   document.body.appendChild(pop);
@@ -62,6 +63,19 @@ function openTrackerMenu(anchor, s){
   pop.style.left=left+'px'; pop.style.top=top+'px';
   _projPop=pop;
   setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', closeProjMenu, true); }, 0);
+}
+
+async function trackerRename(s){
+  const name=await askPrompt('Nouveau nom du tracker :', {title:'Renommer le tracker', okText:'Renommer', placeholder:'nom du tracker', default:s.name});
+  if(name===null) return; const nn=name.trim(); if(!nn){ toast('nom vide'); return; }
+  if(nn===s.name) return;
+  let r; try{ r=await jpost('/api/tracker/rename', {slug:s.slug, name:nn}); }catch(_){ toast('erreur réseau'); return; }
+  if(!r.ok){ toast(r.error||'renommage impossible'); return; }
+  toast('tracker renommé');
+  // Le slug a pu changer (dérivé du nom) : on repart de la liste plutôt que de garder
+  // l'ancien slug ouvert. Si le détail du tracker renommé était ouvert, on le rouvre.
+  const newSlug=(nn.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'tracker');
+  if(TRACKER_CUR && TRACKER_CUR.slug===s.slug) openTrackerDetail(newSlug, nn); else loadTrackers();
 }
 
 function trackerMove(s, anchor){
@@ -144,7 +158,7 @@ function trackerEventRow(e){
   if(wp[1]){ const tt=document.createElement('span'); tt.className='tracker-pt-time'; tt.textContent=wp[1]; date.appendChild(tt); }
   const acts=document.createElement('div'); acts.className='tracker-pt-acts';
   const ed=document.createElement('button'); ed.title='Modifier'; ed.innerHTML=sessIconSvg('pencil');
-  ed.onclick=(ev)=>{ ev.stopPropagation(); editTrackerPoint(e); };
+  ed.onclick=(ev)=>{ ev.stopPropagation(); openTrackerPtModal(e); };
   const rm=document.createElement('button'); rm.className='danger'; rm.title='Supprimer'; rm.innerHTML=sessIconSvg('trash');
   rm.onclick=(ev)=>{ ev.stopPropagation(); deleteTrackerPoint(e); };
   acts.appendChild(ed); acts.appendChild(rm);
@@ -175,6 +189,17 @@ function trackerClearForm(){
   const btn=document.getElementById('tracker-add-btn'); if(btn) btn.textContent='Ajouter';
 }
 
+// Ouvre le modal d'ajout (e absent) ou d'édition (e = point). Le formulaire vit
+// désormais dans sa propre modale, empilée par-dessus le hub des trackers.
+function openTrackerPtModal(e){
+  if(!TRACKER_CUR) return;
+  if(e) editTrackerPoint(e); else trackerClearForm();
+  const t=document.getElementById('tracker-pt-title'); if(t) t.textContent = e ? 'Modifier le point' : 'Ajouter un point';
+  showModal('tracker-pt-modal');
+  const tx=document.getElementById('tracker-text'); if(tx){ tx.focus(); }
+}
+function closeTrackerPtModal(){ hideModal('tracker-pt-modal'); trackerClearForm(); }
+
 async function trackerAddPoint(){
   if(!TRACKER_CUR) return;
   const tx=document.getElementById('tracker-text');
@@ -186,7 +211,7 @@ async function trackerAddPoint(){
     else r=await jpost('/api/tracker/add', {name:TRACKER_CUR.name, when, text});
   }catch(_){ toast('erreur réseau'); return; }
   if(!r.ok){ toast(r.error||'échec'); return; }
-  trackerClearForm();
+  closeTrackerPtModal();
   renderTrackerEvents();
 }
 
