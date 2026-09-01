@@ -118,16 +118,19 @@ func defaultTaskTZ() string {
 // cette tâche, compte-rendu COMPLET (le cas « donne-moi le compte-rendu de la
 // tâche X ») ; sans id, la liste complète avec un aperçu court par tâche.
 func toolTaskList(args map[string]any) string {
-	tasks := listTasks()
-	if len(tasks) == 0 {
-		return "[aucune tâche planifiée]"
-	}
+	proj := activeProjectSlug()
+	tasks := listTasksForProject(proj)
 	if id := strings.TrimSpace(str(args["id"])); id != "" {
+		// On ne révèle que les tâches du projet actif : une tâche d'un autre projet
+		// est traitée comme inexistante (même message que si l'id était faux).
 		t, ok := getTask(id)
-		if !ok {
+		if !ok || taskProject(t) != proj {
 			return "[erreur] tâche introuvable : " + id
 		}
 		return formatTask(t, true)
+	}
+	if len(tasks) == 0 {
+		return "[aucune tâche planifiée dans ce projet]"
 	}
 	var b strings.Builder
 	for _, t := range tasks {
@@ -210,6 +213,9 @@ func toolTaskCreate(args map[string]any) string {
 	t := Task{
 		ID: newTaskID(), Name: name, Prompt: prompt, Schedule: schedule,
 		TZ: tz, Enabled: enabled, Kind: kind, Script: script,
+		// Rattache la tâche au projet actif : l'IA ne crée que DANS son projet,
+		// comme elle n'y voit et n'y pilote que ses propres tâches.
+		Project: activeProjectSlug(),
 	}
 	t.NextRun = computeNextRun(schedule, tz, time.Now())
 	if err := saveTask(t); err != nil {
@@ -229,7 +235,7 @@ func toolTaskUpdate(args map[string]any) string {
 		return "[erreur] id manquant"
 	}
 	t, ok := getTask(id)
-	if !ok {
+	if !ok || taskProject(t) != activeProjectSlug() {
 		return "[erreur] tâche introuvable : " + id
 	}
 	if v, ok := args["name"].(string); ok && strings.TrimSpace(v) != "" {
@@ -265,7 +271,7 @@ func toolTaskDelete(args map[string]any) string {
 		return "[erreur] id manquant"
 	}
 	t, ok := getTask(id)
-	if !ok {
+	if !ok || taskProject(t) != activeProjectSlug() {
 		return "[erreur] tâche introuvable : " + id
 	}
 	if err := deleteTask(id); err != nil {

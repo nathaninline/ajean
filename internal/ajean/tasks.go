@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"sort"
+	"strings"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
@@ -72,6 +73,31 @@ func listTasks() []Task {
 		}
 		return out[i].ID < out[j].ID
 	})
+	return out
+}
+
+// taskProject renvoie le projet d'appartenance d'une tâche, en résolvant le zéro
+// JSON (Project vide) et les slugs inconnus vers le projet par défaut — exactement
+// la règle appliquée à l'exécution (runTask, tasks_run.go), pour que le
+// cloisonnement vu par l'IA colle à celui de la mémoire réellement utilisée.
+func taskProject(t Task) string {
+	p := strings.TrimSpace(t.Project)
+	if p == "" || !projectExists(p) {
+		return defaultProjectSlug
+	}
+	return p
+}
+
+// listTasksForProject ne renvoie que les tâches rattachées au projet `slug`
+// (mêmes tri et résolution que listTasks). Sert à cloisonner les outils task_*
+// exposés à l'IA : dans un projet, elle ne voit et ne pilote QUE ses tâches.
+func listTasksForProject(slug string) []Task {
+	var out []Task
+	for _, t := range listTasks() {
+		if taskProject(t) == slug {
+			out = append(out, t)
+		}
+	}
 	return out
 }
 
