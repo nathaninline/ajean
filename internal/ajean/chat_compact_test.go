@@ -107,6 +107,17 @@ func TestCompactBoundsSplitsLongToolLoop(t *testing.T) {
 // `user` restant était le tout premier de la conversation (épinglé en tête) et
 // le modèle répondait à celui-là au lieu de continuer la recherche.
 func TestCompactKeepsPendingRequest(t *testing.T) {
+	// Isolation + stub réseau : sans ça ce test tape le VRAI llama-server local
+	// (LLMPort en dur dans summarizeTranscript) et devient lent/instable dès
+	// qu'un modèle tourne en parallèle sur cette machine — même défaut déjà
+	// corrigé sur TestCompactArchivesBigBlock (chat_recall_test.go), repéré ici
+	// en creusant un blocage de plusieurs dizaines de secondes sur `go test`. La
+	// demande en cours survit à la compaction que le résumé aboutisse ou pas
+	// (voir compactMessages : `pending` est réinjecté après `mid` dans les deux
+	// cas), donc un résumé stubbé qui réussit ne change rien à ce que ce test
+	// vérifie.
+	testHome(t)
+	summarizerStub(t, "Résumé de test : recherche des horaires de train pour Lyon, plusieurs pages web lues.")
 	page := func(n int) Message {
 		return tm("contenu de page web très long " + string(rune('a'+n)) + strings.Repeat("x", 400))
 	}
@@ -117,8 +128,6 @@ func TestCompactKeepsPendingRequest(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		msgs = append(msgs, atc("web_read"), page(i))
 	}
-	// summarizeTranscript échoue (pas de llama-server en test) → torse dégraissé,
-	// ce qui n'enlève rien à ce qu'on vérifie ici : la demande doit survivre.
 	out, _ := compactMessages(t.Context(), msgs, Caps{})
 	found := false
 	for _, m := range out {

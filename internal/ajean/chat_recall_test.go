@@ -147,7 +147,12 @@ func TestCompactArchivesBigBlock(t *testing.T) {
 // Sans mode agent, on n'archive pas (le modèle n'a pas l'outil recall) : aucun
 // bloc ne doit être créé, le résumé reste propre.
 func TestCompactNoArchiveWithoutAgent(t *testing.T) {
-	t.Setenv("AJEAN_HOME", t.TempDir())
+	testHome(t)
+	// Même défaut que TestCompactArchivesBigBlock plus haut dans ce fichier
+	// (déjà stubbé) : sans ça ce test tape aussi le vrai llama-server local.
+	// Repéré en creusant un blocage réseau sur `go test` alors que ce fichier
+	// avait déjà le correctif juste au-dessus.
+	summarizerStub(t, "Résumé de test : rien de particulier à retenir.")
 	big := strings.Repeat("contenu volumineux ", 100)
 	msgs := []Message{um("q"), atc("web_read"), tm(big)}
 	for i := 0; i < 8; i++ {
