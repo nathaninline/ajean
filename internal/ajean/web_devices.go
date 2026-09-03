@@ -19,6 +19,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -252,4 +254,154 @@ func handleBackendDevices(w http.ResponseWriter, r *http.Request) {
 		devPersistPut(cacheKey, devs)
 	}
 	sendJSON(w, 200, map[string]any{"ok": true, "devices": devs})
+}
+
+// vulkanVramGPUs renvoie les GPU au même format que handleVram ({name, used,
+// total, util, temp}), en repli quand nvidia-smi/amd-smi/rocm-smi n'ont rien
+// donné. Sous Windows, AUCUN de ces trois outils n'est fourni par les pilotes
+// AMD ou Intel — la carte « GPU / VRAM » de l'UI affichait donc systématiquement
+// « pas de GPU » sur toute machine Windows non-NVIDIA, même quand l'inférence
+// tournait très bien dessus via Vulkan.
+//
+// On réutilise --list-devices du moteur configuré (déjà interrogé par
+// handleBackendDevices ci-dessus, via parseListDevices) : il donne l'identité,
+// la mémoire totale et libre de CHAQUE GPU que llama.cpp voit réellement — AMD,
+// Intel intégré, tout ce qui expose Vulkan — sans dépendance à un outil externe.
+// util/temp ne sont pas connus par cette voie (Vulkan n'expose ni l'un ni
+// l'autre) : rendus à 0 plutôt qu'omis, pour garder la forme attendue par l'UI.
+func vulkanVramGPUs() []map[string]any {
+	bin := prebuiltResolveBin(ReadConfig()["BIN"])
+	if bin == "" || !isFile(bin) {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	cmd := hideCmd(exec.CommandContext(ctx, bin, "--list-devices"))
+	cmd.Env = libraryPathEnv(filepath.Dir(bin))
+	out, _ := cmd.CombinedOutput()
+	devs := parseListDevices(string(out))
+	if len(devs) == 0 {
+		return nil
+	}
+	gpus := make([]map[string]any, 0, len(devs))
+	for _, d := range devs {
+		total, _ := d["total_mib"].(int)
+		free, _ := d["free_mib"].(int)
+		used := total - free
+		if used < 0 {
+			used = 0
+		}
+		gpus = append(gpus, map[string]any{
+			"name": d["name"], "used": used, "total": total, "util": 0, "temp": 0,
+		})
+	}
+	applyWindowsDedicatedUsage(gpus)
+	return gpus
+}
+
+// applyWindowsDedicatedUsage corrige "used" et "util" sur Windows avec les
+// valeurs RÉELLES de chaque carte, tout process confondu (compteurs système
+// « GPU Adapter Memory » + « GPU Engine »). --list-devices, lui, sonde la
+// mémoire depuis un process llama.cpp FRAÎCHEMENT lancé rien que pour
+// l'énumération : sur AMD, ce process ne voit pas la VRAM déjà retenue par
+// l'instance en cours d'exécution (le vrai serveur), donc "used" ressort
+// proche de 0 pendant qu'un modèle de 14 Go tourne — et il n'a de toute façon
+// aucune notion d'utilisation GPU. "temp" reste à 0 : Windows n'expose la
+// température d'aucun GPU par WMI/perfmon (contrairement à nvidia-smi), seule
+// une API DirectX bas niveau le permettrait (celle qu'utilise Task Manager
+// depuis Windows 11 22H2) — hors de portée d'un simple appel PowerShell.
+//
+// Reste à savoir QUELLE carte (LUID) correspond à quel device Vulkan : Windows
+// n'expose cette correspondance nulle part simplement en PowerShell/WMI. On
+// s'appuie donc sur un fait d'architecture, pas une coïncidence du moment : un
+// GPU INTÉGRÉ (Intel UHD, iGPU AMD) n'a pas de VRAM propre — Windows compte son
+// usage dans "Shared Usage" (RAM système), "Dedicated Usage" y reste ~0 en
+// permanence. Un GPU DISCRET (carte dédiée) a de la vraie VRAM : c'est lui qui
+// concentre le "Dedicated Usage". On assigne donc les cartes dont le nom Vulkan
+// ne contient pas "intel" aux LUID triés par Dedicated Usage décroissant ; les
+// cartes intégrées gardent la valeur (proche de 0, donc déjà correcte) issue de
+// --list-devices. Best-effort : une erreur PowerShell laisse "used"/"util" tels quels.
+func applyWindowsDedicatedUsage(gpus []map[string]any) {
+	if runtime.GOOS != "windows" || len(gpus) == 0 {
+		return
+	}
+	adapters := windowsAdapterStats()
+	if len(adapters) == 0 {
+		return
+	}
+	sort.Slice(adapters, func(i, j int) bool { return adapters[i].DedicatedMiB > adapters[j].DedicatedMiB })
+	// Température : via l'ADL d'AMD (voir web_devices_adl_windows.go). Deux
+	// bugs y ont été trouvés et corrigés avant de rebrancher cet appel : une
+	// fuite de callback Windows (table épuisée après ~2000 appels cumulés) et
+	// un accès concurrent non sérialisé dans atiadlxx.dll (crash sous charge
+	// réelle — plusieurs requêtes web en parallèle entrant dans la DLL en même
+	// temps). adlAMDHotspotTempC tient maintenant un mutex sur tout son appel ;
+	// voir web_devices_adl_windows.go pour le détail des deux incidents.
+	amdTemp, amdTempOK := adlAMDHotspotTempC()
+	amdTempUsed := false
+	ai := 0
+	for _, g := range gpus {
+		name, _ := g["name"].(string)
+		if strings.Contains(strings.ToLower(name), "intel") {
+			continue
+		}
+		if amdTempOK && !amdTempUsed {
+			g["temp"] = amdTemp
+			amdTempUsed = true
+		}
+		if ai >= len(adapters) {
+			continue
+		}
+		g["used"] = adapters[ai].DedicatedMiB
+		g["util"] = adapters[ai].UtilPct
+		ai++
+	}
+}
+
+// windowsAdapterStat regroupe VRAM dédiée commise (MiB) et % d'utilisation
+// max (tous types de moteur confondus : 3D, Compute, Copy…) pour un même LUID
+// — les deux mesures viennent du même appel PowerShell pour rester appariées.
+type windowsAdapterStat struct {
+	DedicatedMiB int
+	UtilPct      int
+}
+
+// windowsAdapterStats interroge les compteurs de performance Windows « GPU
+// Adapter Memory » (VRAM dédiée, par LUID) et « GPU Engine » (utilisation,
+// par process+LUID+moteur — on prend le MAX tous moteurs et process confondus
+// pour un LUID donné, comme le fait le Gestionnaire des tâches). On filtre
+// les adaptateurs dont le total commis est négligeable (<5 Mio) : un
+// adaptateur d'affichage virtuel (Parsec, etc.) n'est pas un GPU de calcul et
+// fausserait l'appariement.
+func windowsAdapterStats() []windowsAdapterStat {
+	const script = `$mem = Get-CimInstance Win32_PerfFormattedData_GPUPerformanceCounters_GPUAdapterMemory -ErrorAction Stop | ` +
+		`Where-Object { $_.TotalCommitted -gt 5MB } | Select-Object Name, DedicatedUsage; ` +
+		`$eng = Get-CimInstance Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine -ErrorAction SilentlyContinue; ` +
+		`$r = @(foreach ($m in $mem) { ` +
+		`  $u = 0; ` +
+		`  if ($eng) { $hit = $eng | Where-Object { $_.Name -like "*$($m.Name)*" }; if ($hit) { $mx = ($hit | Measure-Object -Property UtilizationPercentage -Maximum).Maximum; if ($mx -gt $u) { $u = $mx } } }; ` +
+		`  if ($u -gt 100) { $u = 100 }; ` +
+		`  [PSCustomObject]@{dedicated=$m.DedicatedUsage; util=[int]$u} ` +
+		`}); ` +
+		`[PSCustomObject]@{items=$r} | ConvertTo-Json -Compress -Depth 3`
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	out, err := hideCmd(exec.CommandContext(ctx, "powershell", "-NoProfile", "-NonInteractive", "-Command", script)).Output()
+	if err != nil || len(out) == 0 {
+		return nil
+	}
+	var parsed struct {
+		Items []struct {
+			Dedicated int64 `json:"dedicated"`
+			Util      int   `json:"util"`
+		} `json:"items"`
+	}
+	if json.Unmarshal(out, &parsed) != nil {
+		return nil
+	}
+	stats := make([]windowsAdapterStat, 0, len(parsed.Items))
+	for _, it := range parsed.Items {
+		stats = append(stats, windowsAdapterStat{DedicatedMiB: int(it.Dedicated / (1024 * 1024)), UtilPct: it.Util})
+	}
+	return stats
 }

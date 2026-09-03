@@ -181,6 +181,14 @@ func handleVram(w http.ResponseWriter, r *http.Request) {
 			gpus = amd
 		}
 	}
+	// Toujours rien ? Sous Windows, nvidia-smi/amd-smi/rocm-smi ne sont fournis
+	// par AUCUN pilote AMD ou Intel : dernier repli via --list-devices du moteur
+	// (Vulkan), qui voit ces cartes sans outil externe. Voir vulkanVramGPUs.
+	if len(gpus) == 0 {
+		if vk := vulkanVramGPUs(); len(vk) > 0 {
+			gpus = vk
+		}
+	}
 	sendJSON(w, 200, gpus)
 }
 
