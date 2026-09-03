@@ -3194,8 +3194,19 @@ function askKeyOnce(){
 async function jget(u){ const r=await jfetch(u); return r.json(); }
 async function jpost(u,b){ const r=await jfetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})}); return r.json(); }
 let LAST_BOOT=null; // empreinte de démarrage du serveur vue au dernier poll
+let LAST_PRESET=null; // id du preset actif vu au dernier poll (détecte une bascule faite ailleurs)
 async function loadStatus(){
   const s=await jget('/api/status');
+  // Preset actif changé alors qu'on n'a rien touché ici : un AUTRE appareil a
+  // basculé de preset/modèle. On rafraîchit la liste (et le libellé #status-preset)
+  // pour rester en phase sans avoir à recharger l'app. Premier poll (LAST_PRESET
+  // null) : on note seulement la valeur, loadPresets a déjà tourné au démarrage.
+  if(typeof s.preset!=='undefined'){
+    if(LAST_PRESET!==null && s.preset!==LAST_PRESET && typeof loadPresets==='function'){
+      loadPresets();
+    }
+    LAST_PRESET=s.preset;
+  }
   // Redémarrage du serveur détecté (l'empreinte 'boot' a changé) : le coffre
   // mémoire s'est reverrouillé en RAM. On relance le déverrouillage automatique
   // avec la clé stockée, sinon la mémoire reste muette jusqu'à un refresh manuel.

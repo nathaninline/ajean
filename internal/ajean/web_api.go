@@ -62,6 +62,7 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 		"warn":       appWarning(), // ex. App Translocation macOS — vide si tout va bien
 		"load_error": loadErr,      // modèle qui ne charge pas (incompat moteur…) — vide sinon
 		"boot":       procBoot,     // empreinte de démarrage du process (détecte un redémarrage côté UI)
+		"preset":     activePresetID(), // id du preset actif : un autre appareil a pu basculer, l'UI se resynchronise sans reload (voir loadStatus)
 	})
 }
 
