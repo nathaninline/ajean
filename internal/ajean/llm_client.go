@@ -732,6 +732,73 @@ func isNetTimeout(err error) bool {
 	return errors.As(err, &ne) && ne.Timeout()
 }
 
+// repetitionGuard détecte un modèle qui rabâche la même phrase dans son
+// raisonnement au lieu d'avancer — signe empirique de blocage, pas une simple
+// longue réflexion. Constaté sur ce projet en analysant deux blocages réels
+// (déchiffrage d'un atlas de police à partir d'un dump de pixels, tâche que le
+// modèle ne pouvait pas vraiment résoudre en texte seul) : dans les deux cas,
+// UNE phrase quasi identique revenait 82 puis 132 fois d'affilée, jamais
+// reformulée différemment — un match texte exact après normalisation suffit,
+// pas besoin de similarité floue. Portée : une seule complétion HTTP (voir son
+// utilisation dans runChat, réinitialisé à chaque itération) — les deux cas
+// réels tenaient chacun dans un seul appel de génération, jamais étalés sur
+// plusieurs tours d'outil.
+type repetitionGuard struct {
+	buf  strings.Builder
+	seen map[string]int
+}
+
+// repetitionGuardThreshold : nombre de répétitions EXACTES avant de couper.
+// Sur les deux cas réels le motif était déjà installé dès la 2e/3e occurrence
+// — attendre plus ne fait que gâcher des tokens (ces cas sont allés jusqu'à 82
+// et 132 répétitions avant de s'arrêter tout seuls).
+const repetitionGuardThreshold = 3
+
+// repetitionGuardMinLen : ignore les phrases courtes (« Let me check. », « OK,
+// next. ») qui reviennent légitimement sans être un signe de blocage — seules
+// les phrases assez longues pour porter une vraie idée comptent.
+const repetitionGuardMinLen = 40
+
+// feed avale un morceau de texte (delta de streaming) et détecte, phrase par
+// phrase (coupée sur . ! ? ou saut de ligne), une répétition. looping=true dès
+// que la MÊME phrase normalisée atteint repetitionGuardThreshold occurrences ;
+// sentence porte alors cette phrase (pour l'expliquer au modèle ensuite).
+func (g *repetitionGuard) feed(chunk string) (looping bool, sentence string) {
+	if g.seen == nil {
+		g.seen = map[string]int{}
+	}
+	g.buf.WriteString(chunk)
+	for {
+		s := g.buf.String()
+		idx := strings.IndexAny(s, ".!?\n")
+		if idx < 0 {
+			break
+		}
+		raw := s[:idx+1]
+		g.buf.Reset()
+		g.buf.WriteString(s[idx+1:])
+		norm := strings.Join(strings.Fields(strings.ToLower(raw)), " ")
+		if len(norm) < repetitionGuardMinLen {
+			continue
+		}
+		g.seen[norm]++
+		if g.seen[norm] >= repetitionGuardThreshold {
+			return true, strings.TrimSpace(raw)
+		}
+	}
+	return false, ""
+}
+
+// truncateRunes coupe s à n runes (jamais en plein milieu d'un caractère
+// multi-octets), avec une ellipse si tronqué.
+func truncateRunes(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n]) + "…"
+}
+
 func runChat(ctx context.Context, messages []Message, temperature float64, caps Caps, cb ChatCallback) ([]Message, error) {
 	var extra []Message
 	tools := EnabledTools(caps)
@@ -757,14 +824,22 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 	// la réponse progressivement (voir repeatedCallResult) : rendre le contenu une
 	// fois, puis refuser en le renvoyant vers ce qu'il a déjà.
 	repeatCount := map[string]int{}
-	// Garde-fou « pensé sans agir » : certains modèles à reasoning planifient un
-	// appel d'outil dans leur <think> puis émettent le token de fin SANS l'émettre
-	// (ni réponse, ni tool_call). On relance alors le tour avec un nudge explicite
-	// au lieu d'afficher « pas de réponse ». Le premier nudge suffit la plupart du
-	// temps ; un second, plus direct, rattrape le cas observé où le modèle
-	// re-décrit le même plan en boucle sans jamais l'exécuter (une simple
-	// reformulation de « agis » ne suffit alors plus). Borné à maxNudges : un
-	// modèle vraiment bloqué doit finir par rendre la main, pas faire attendre.
+	// Garde-fou « le modèle est coincé » : deux signes distincts partagent le
+	// même compteur/plafond, ce sont deux symptômes du même problème. (1) pensé
+	// sans agir : certains modèles à reasoning planifient un appel d'outil dans
+	// leur <think> puis émettent le token de fin SANS l'émettre (ni réponse, ni
+	// tool_call) — parfois après avoir reformulé le même plan plusieurs fois sans
+	// jamais l'exécuter (observé : ~15 000 tokens de raisonnement en boucle sur
+	// une tâche complexe, zéro contenu visible). (2) répétition mécanique
+	// détectée EN COURS de flux par repetitionGuard (voir son commentaire et son
+	// utilisation plus bas) : deux blocages réels analysés montraient une phrase
+	// quasi identique revenant 82 puis 132 fois — (1) seul ne les aurait jamais
+	// interrompus puisque le modèle finit par émettre un finish_reason normal
+	// après avoir tout dit, juste beaucoup trop tard. Dans les deux cas on
+	// relance le tour avec un nudge explicite au lieu d'afficher tout de suite
+	// « pas de réponse » — maxNudges fois, pas plus : un modèle vraiment bloqué
+	// doit finir par rendre la main plutôt que de faire attendre indéfiniment
+	// (voir le message affiché après le dernier essai).
 	const maxNudges = 2
 	nudgeCount := 0
 	// Pas de plafond d'itérations ni d'anti-boucle : ils coupaient des tours
@@ -888,6 +963,11 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		sawReasoningField := false
 		thinkOpen := reasoningOn
 		var thinkTail strings.Builder
+		// Anti-boucle : réinitialisé à CHAQUE complétion (voir repetitionGuard) —
+		// une répétition détectée ici coupe la lecture du flux plus bas.
+		var loopGuard repetitionGuard
+		loopDetected := false
+		loopSentence := ""
 		// Scanner à gros tampon : un chunk peut porter un gros JSON d'arguments
 		// (écriture de fichier). 8 Mio et non 1 : au-delà du tampon, le scanner
 		// s'arrête sur « token too long » AU MILIEU du flux, et jusqu'à la 0.8.4
@@ -1025,6 +1105,11 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					aborted = true
 					break
 				}
+				if looping, sentence := loopGuard.feed(ch.Delta.ReasoningContent); looping {
+					loopDetected = true
+					loopSentence = sentence
+					break
+				}
 			}
 			if ch.Delta.Content != "" {
 				assistantContent.WriteString(ch.Delta.Content)
@@ -1105,6 +1190,25 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			err := streamCutError(scanErr)
 			cb(StreamEvent{Err: err})
 			return extra, err
+		}
+
+		// Le modèle rabâchait la même phrase (voir repetitionGuard) : on a coupé la
+		// lecture du flux tôt (dès la 3e répétition, pas après des dizaines) plutôt
+		// que d'attendre une fin de tour normale qui n'allait pas venir. Les appels
+		// d'outils accumulés jusque-là (s'il y en a) sont abandonnés avec le reste :
+		// une répétition en cours de <think> n'a rien produit d'exploitable.
+		if loopDetected {
+			if nudgeCount < maxNudges {
+				nudgeCount++
+				cb(StreamEvent{DropReasoning: true})
+				messages = append(messages, Message{
+					Role: "user",
+					Content: "You've repeated the same point several times in a row without making progress (\"" + truncateRunes(loopSentence, 180) + "\") — that's a sign this approach is stuck. Drop it: try something concretely different (a different method, tool, or angle), or if you already know enough, give your answer now. Don't repeat that reasoning again.",
+				})
+				continue
+			}
+			cb(StreamEvent{Content: "_(le modèle tournait en boucle sur la même idée — arrêté après " + strconv.Itoa(repetitionGuardThreshold) + " répétitions)_"})
+			return extra, nil
 		}
 
 		// Treat any accumulated tool calls as a tool turn even if the backend set
