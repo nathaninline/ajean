@@ -53,8 +53,8 @@ function fileChip(name, size, opts){
   chip.appendChild(n); chip.appendChild(s);
   if(opts.onRemove){
     const x=document.createElement('button');
-    x.type='button'; x.textContent='×'; x.title='retirer';
-    x.setAttribute('aria-label','retirer '+name);
+    x.type='button'; x.textContent='×'; x.title=t('attach.remove_title');
+    x.setAttribute('aria-label',t('attach.remove_title')+' '+name);
     x.onclick=opts.onRemove;
     chip.appendChild(x);
   }
@@ -116,7 +116,7 @@ async function fetchFileB64(path, size, chip){
     // s'arrête plutôt que de tourner indéfiniment sur le même octet.
     if(!bytes.length && !j.eof) throw new Error('transfert interrompu');
     off=(j.offset||0)+bytes.length;
-    if(chip && size) chip.title='téléchargement '+Math.round(off*100/size)+' %';
+    if(chip && size) chip.title=t('attach.download_progress_prefix')+Math.round(off*100/size)+t('attach.percent_suffix');
     if(j.eof) break;
   } while(off<size);
   return new Blob(parts);
@@ -153,7 +153,7 @@ async function downloadWorkspaceFile(path, name, a){
     const m=await jfetch('/api/chat/file?meta=1&path='+encodeURIComponent(path));
     const meta=await m.json().catch(()=>({}));
     if(!m.ok || !meta.ok){
-      toast('téléchargement impossible : '+(meta.error||('HTTP '+m.status))); return;
+      toast(t('attach.download_failed_prefix')+(meta.error||('HTTP '+m.status))); return;
     }
     let blob;
     if(meta.e2e || meta.remote){
@@ -162,7 +162,7 @@ async function downloadWorkspaceFile(path, name, a){
       const r=await jfetch('/api/chat/file?path='+encodeURIComponent(path));
       if(!r.ok){
         let msg='HTTP '+r.status; try{ msg=(await r.json()).error||msg; }catch(_){}
-        toast('téléchargement impossible : '+msg); return;
+        toast(t('attach.download_failed_prefix')+msg); return;
       }
       blob=await r.blob();
     }
@@ -173,7 +173,7 @@ async function downloadWorkspaceFile(path, name, a){
     // Révocation différée : Safari annule le téléchargement si l'URL disparaît
     // dans la foulée du clic.
     setTimeout(()=>URL.revokeObjectURL(blobURL), 10000);
-  }catch(e){ toast('téléchargement impossible : '+((e&&e.message)||'erreur')); }
+  }catch(e){ toast(t('attach.download_failed_prefix')+((e&&e.message)||t('attach.generic_error'))); }
   finally{ if(a){ a.classList.remove('busy'); a.title=wasTitle; } }
 }
 // Markdown refuse les espaces NON échappés dans la cible d'un lien : le modèle
@@ -220,7 +220,7 @@ function markFileLinks(root){
     a.removeAttribute('target');
     a.setAttribute('href','#');
     const name=p.split('/').pop();
-    a.title='télécharger '+name;
+    a.title=t('attach.download_title_prefix')+name;
     a.onclick=(e)=>{ e.preventDefault(); downloadWorkspaceFile(p, name, a); };
   }
 }
@@ -236,8 +236,8 @@ function renderAttach(){
       imgSrc: a.thumb,
       // Un gros fichier prend du temps : on montre l'avancement plutôt qu'un
       // anneau qui tourne sans rien dire. Sous un morceau, il n'y a rien à suivre.
-      sizeText: a.state==='err' ? 'échec'
-        : (a.state==='up' && a.size>ATTACH_CHUNK) ? Math.round((a.sent||0)*100/a.size)+' %'
+      sizeText: a.state==='err' ? t('attach.failed')
+        : (a.state==='up' && a.size>ATTACH_CHUNK) ? Math.round((a.sent||0)*100/a.size)+t('attach.percent_suffix')
         : fmtSize(a.size),
       onRemove: ()=>{ releaseThumb(a); ATTACH=ATTACH.filter(o=>o.id!==a.id); renderAttach(); }
     }));
@@ -308,16 +308,16 @@ async function uploadAttach(a){
     } while(off<a.size);
     a.state='ok'; a.file=null;   // le contenu ne sert plus à rien côté page
   }catch(e){
-    a.state='err'; a.error=(e&&e.message)||'échec';
-    toast('« '+a.name+' » : '+a.error);
+    a.state='err'; a.error=(e&&e.message)||t('attach.failed');
+    toast(t('attach.quote_open')+a.name+t('attach.quote_close')+' : '+a.error);
   }
   renderAttach();
 }
 function addFiles(files){
   for(const f of files||[]){
-    if(f.size>ATTACH_MAX){ toast('« '+f.name+' » fait '+fmtSize(f.size)+' — maximum '+fmtSize(ATTACH_MAX)); continue; }
-    if(!f.size){ toast('« '+f.name+' » est vide'); continue; }
-    const rec={id:++ATTACH_SEQ, name:f.name||'fichier', size:f.size, file:f, path:null, state:'queued'};
+    if(f.size>ATTACH_MAX){ toast(t('attach.quote_open')+f.name+t('attach.quote_close')+t('attach.too_big_middle')+fmtSize(f.size)+t('attach.too_big_max')+fmtSize(ATTACH_MAX)); continue; }
+    if(!f.size){ toast(t('attach.quote_open')+f.name+t('attach.quote_close')+t('attach.empty_middle')); continue; }
+    const rec={id:++ATTACH_SEQ, name:f.name||t('attach.unnamed_file'), size:f.size, file:f, path:null, state:'queued'};
     // Vignette immédiate depuis le fichier local, sans le renvoyer : la même image
     // qu'on verra dans la bulle une fois envoyée.
     if(isImageName(rec.name)){ try{ rec.thumb=URL.createObjectURL(f); }catch(_){} }

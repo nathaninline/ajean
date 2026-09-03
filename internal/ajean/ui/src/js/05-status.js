@@ -28,10 +28,10 @@ async function loadStatus(){
   // Pastille COURTE et honnête. Le détail (cause exacte) va dans #model-err
   // dessous : la pastille ne doit pas affirmer « incompatible » quand l'échec
   // peut être tout autre chose.
-  let cls='err', txt='arrêté';
-  if(s.active && s.health){ cls='ok'; txt='prêt'; }
-  else if(s.load_error){ cls='err'; txt='erreur'; }
-  else if(s.active){ cls='loading'; txt='chargement…'; }
+  let cls='err', txt=t('status.stopped');
+  if(s.active && s.health){ cls='ok'; txt=t('status.ready'); }
+  else if(s.load_error){ cls='err'; txt=t('status.error'); }
+  else if(s.active){ cls='loading'; txt=t('status.loading'); }
   el.className='statuspill '+cls;
   el.innerHTML='<span class="dot"></span>'+txt;
   MODEL_READY = !!(s.active && s.health);
@@ -74,19 +74,18 @@ async function checkServerFreshness(){
   if(!r || r.error || !r.available || !r.latest){ box.style.display='none'; return; }
   // Ne pas reharceler si l'utilisateur a déjà écarté ce bandeau POUR CETTE version.
   if(localStorage.getItem('ajean.staleDismissed')===r.latest){ box.style.display='none'; return; }
-  const cur=r.current ? ' (actuellement v'+escHtml(r.current)+')' : '';
-  box.innerHTML='⚠ Le serveur AJEAN de cette machine n\'est pas à jour'+cur+'. '+
-    'La version <b>v'+escHtml(r.latest)+'</b> est disponible. Il est recommandé de le mettre à jour '+
-    'pour profiter de toutes les fonctionnalités et éviter d\'éventuels bugs de compatibilité. '+
-    '<span style="white-space:nowrap"><span id="stale-go" style="cursor:pointer;text-decoration:underline">Mettre à jour</span> '+
-    '· <span id="stale-x" style="cursor:pointer;text-decoration:underline">ignorer</span></span>';
+  const cur=r.current ? ' ('+t('status.stale_currently')+' v'+escHtml(r.current)+')' : '';
+  box.innerHTML='⚠ '+t('status.stale_intro')+cur+'. '+
+    t('status.stale_new_version')+' <b>v'+escHtml(r.latest)+'</b> '+t('status.stale_recommend')+' '+
+    '<span style="white-space:nowrap"><span id="stale-go" style="cursor:pointer;text-decoration:underline">'+t('status.update_btn')+'</span> '+
+    '· <span id="stale-x" style="cursor:pointer;text-decoration:underline">'+t('status.stale_dismiss_btn')+'</span></span>';
   box.style.display='';
   // « Mettre à jour » : on lance directement la MAJ existante (même chemin que le
   // bouton des réglages — /api/update/apply tourne côté serveur via le tunnel).
   const go=document.getElementById('stale-go');
   if(go) go.onclick=function(){
-    box.innerHTML='⏳ Mise à jour en cours… le serveur va redémarrer et l\'interface se reconnectera seule.';
-    if(typeof toast==='function') toast('mise à jour du serveur lancée…');
+    box.innerHTML='⏳ '+t('status.update_in_progress');
+    if(typeof toast==='function') toast(t('status.update_launched_toast'));
     if(typeof applyUpdate==='function') applyUpdate();
   };
   const x=document.getElementById('stale-x');
@@ -103,12 +102,12 @@ function toggleSvcLog(){
 async function loadSvcLog(){
   const el=document.getElementById('svc-log');
   if(!el) return;
-  el.textContent='chargement du journal…';
+  el.textContent=t('status.log_loading');
   try{
     const r=await jget('/api/service/log?n=120');
-    el.textContent = (r && r.log && r.log.trim()) ? r.log : 'journal vide — le moteur n\'a encore rien écrit.';
+    el.textContent = (r && r.log && r.log.trim()) ? r.log : t('status.log_empty_full');
     el.scrollTop = el.scrollHeight;
-  }catch(e){ el.textContent='journal indisponible : '+e; }
+  }catch(e){ el.textContent=t('status.log_unavailable_prefix')+' '+e; }
 }
 // Copie le journal du moteur dans le presse-papiers (diagnostic : coller dans une
 // issue / un message). Repli execCommand pour les WebView sans navigator.clipboard
@@ -116,23 +115,23 @@ async function loadSvcLog(){
 async function copySvcLog(btn){
   const el=document.getElementById('svc-log');
   const txt=(el && el.textContent) || '';
-  if(!txt.trim()){ toast('journal vide'); return; }
+  if(!txt.trim()){ toast(t('status.log_empty_short')); return; }
   try{ await navigator.clipboard.writeText(txt); }
   catch(_){ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(__){} ta.remove(); }
-  if(btn){ const old=btn.textContent; btn.textContent='copié ✓'; setTimeout(()=>{ btn.textContent=old; },1500); }
+  if(btn){ const old=btn.textContent; btn.textContent=t('status.copied'); setTimeout(()=>{ btn.textContent=old; },1500); }
 }
 async function checkUpdate(){
   const b=document.getElementById('upd-check'), msg=document.getElementById('upd-msg');
-  b.disabled=true; msg.textContent='Vérification…';
+  b.disabled=true; msg.textContent=t('status.checking');
   try{
     const r=await jget('/api/update');
-    if(r.error){ msg.textContent='Erreur : '+r.error; }
+    if(r.error){ msg.textContent=t('status.error_prefix')+' '+r.error; }
     else if(r.available){
-      msg.innerHTML='Nouvelle version <b>v'+r.latest+'</b> disponible. ';
-      const btn=document.createElement('button'); btn.textContent='Mettre à jour'; btn.onclick=applyUpdate;
+      msg.innerHTML=t('status.new_version_prefix')+' <b>v'+r.latest+'</b> '+t('status.new_version_suffix')+' ';
+      const btn=document.createElement('button'); btn.textContent=t('status.update_btn'); btn.onclick=applyUpdate;
       msg.appendChild(btn);
-    } else { msg.textContent='AJEAN est à jour ✓'; }
-  }catch(e){ msg.textContent='Erreur réseau'; }
+    } else { msg.textContent=t('status.up_to_date'); }
+  }catch(e){ msg.textContent=t('status.network_error'); }
   b.disabled=false;
 }
 // Emplacements — affichés avec le journal du moteur : c'est le panneau qu'on
@@ -140,32 +139,32 @@ async function checkUpdate(){
 async function showPaths(){
   const el=document.getElementById('paths-msg');
   if(!el) return;
-  el.textContent='…';
+  el.textContent=t('status.loading_dots');
   try{
     const p=await jget('/api/paths');
-    const rows=[['Données',p.home],['Base (config, préférences, conversation)',p.database],['Modèles',p.models],['Presets',p.presets],['Mémoire',p.memory],['Fichiers créés par l\'IA',p.workspace],['Moteur llama.cpp',p.backends],['Programme',p.exe]];
+    const rows=[[t('status.path_data'),p.home],[t('status.path_database'),p.database],[t('status.path_models'),p.models],[t('status.path_presets'),p.presets],[t('status.path_memory'),p.memory],[t('status.path_workspace'),p.workspace],[t('status.path_backends'),p.backends],[t('status.path_exe'),p.exe]];
     el.innerHTML=rows.map(r=>'<div style="margin-bottom:4px">'+r[0]+'<br><code style="word-break:break-all">'+escHtml(r[1]||'')+'</code></div>').join('');
-  }catch(e){ el.textContent='Erreur'; }
+  }catch(e){ el.textContent=t('status.generic_error'); }
 }
 async function applyUpdate(){
   const msg=document.getElementById('upd-msg');
-  msg.textContent='Téléchargement et installation…';
+  msg.textContent=t('status.downloading_installing');
   try{
     // Signal dédié : le timeout par défaut (30 s) coupe le téléchargement du
     // binaire sur une connexion lente et fait croire à un échec alors que la
     // mise à jour aboutit côté serveur.
-    const ac=new AbortController(); const t=setTimeout(()=>ac.abort(), 10*60*1000);
+    const ac=new AbortController(); const tmr=setTimeout(()=>ac.abort(), 10*60*1000);
     let r;
     try{ r=await (await jfetch('/api/update/apply',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',signal:ac.signal})).json(); }
-    finally{ clearTimeout(t); }
+    finally{ clearTimeout(tmr); }
     if(r.ok){
-      msg.innerHTML='✓ Installé en <b>v'+r.version+'</b>.<br>'+(r.restart||'');
+      msg.innerHTML='✓ '+t('status.installed_prefix')+' <b>v'+r.version+'</b>.<br>'+(r.restart||'');
       // Redémarrage auto du service côté serveur : le flux va se couper puis
       // reconnecter tout seul (connectStream boucle). On rafraîchit l'état après.
-      if(r.restarting){ toast('mise à jour appliquée — reconnexion…'); setTimeout(loadAll, 6000); }
+      if(r.restarting){ toast(t('status.update_applied_toast')); setTimeout(loadAll, 6000); }
     }
-    else { msg.textContent='Échec : '+(r.error||'inconnu'); }
-  }catch(e){ msg.textContent='Erreur pendant la mise à jour (réessaie).'; }
+    else { msg.textContent=t('status.failed_prefix')+' '+(r.error||t('status.unknown')); }
+  }catch(e){ msg.textContent=t('status.update_error'); }
 }
 // Compteur de contexte : CTX_USED estimé via les stats serveur (prefill+decode
 // du dernier tour ≈ taille du prochain prompt). À 90% on propose de compacter.
@@ -185,8 +184,8 @@ function setCompactCount(n){
   const el=document.getElementById('ctx-compactions');
   if(!el) return;
   if(COMPACTIONS>0){
-    el.textContent='· '+COMPACTIONS+'× compacté';
-    el.title='Le contexte de cette session a été résumé '+COMPACTIONS+' fois. Après plusieurs compactages, les tout premiers détails se diluent : pense à repartir sur une nouvelle session si le fil dérive.';
+    el.textContent='· '+COMPACTIONS+t('status.compacted_suffix');
+    el.title=t('status.compact_tooltip_prefix')+' '+COMPACTIONS+' '+t('status.compact_tooltip_suffix');
     el.style.display='inline';
   } else {
     el.style.display='none';
@@ -203,7 +202,7 @@ function updateCtxMeter(){
   // 40K) pour gagner la place — les valeurs exactes + le % restent en infobulle.
   const ct=document.getElementById('ctx-text');
   ct.textContent=fmtCtxTokens(CTX_USED)+' / '+fmtCtxTokens(CTX_MAX);
-  ct.title='contexte utilisé : '+CTX_USED.toLocaleString('fr')+' / '+CTX_MAX.toLocaleString('fr')+' jetons ('+pct+'%)';
+  ct.title=t('status.ctx_used_prefix')+' '+CTX_USED.toLocaleString('fr')+' / '+CTX_MAX.toLocaleString('fr')+' '+t('status.ctx_tokens_suffix')+' ('+pct+'%)';
   // Compaction MANUELLE proposée dès la moitié du contexte : l'entrée « Compacter »
   // du menu + n'apparaît qu'alors (le bouton n'est plus dans la zone de saisie).
   COMPACT_AVAILABLE = (pct>=50 && CTX_USED>0);
@@ -237,7 +236,7 @@ function updateReasonBtn(eff){
   // les autres restent estompées. On lit le mode d'un coup d'œil, sans cliquer.
   const n={low:1, medium:2, high:3, xhigh:4}[e] || 0;
   btn.querySelectorAll('.rb').forEach(p=>{ p.style.opacity = (Number(p.dataset.l)<=n) ? '1' : '.28'; });
-  btn.title = 'Niveau de réflexion : '+e+' — clic pour changer';
+  btn.title = t('status.reason_level_prefix')+' '+e+' '+t('status.reason_level_suffix');
 }
 function toggleReasonMenu(ev){
   ev.stopPropagation();
@@ -269,11 +268,11 @@ async function pickReason(eff){
   updateReasonBtn(eff);                 // retour visuel immédiat
   try{
     const r=await jpost('/api/reasoning', {effort:eff});
-    if(!r || !r.ok){ throw new Error((r&&r.error)||'échec'); }
-    toast('réflexion : '+(eff||'défaut du modèle'));
+    if(!r || !r.ok){ throw new Error((r&&r.error)||t('status.unknown')); }
+    toast(t('status.reason_toast_prefix')+' '+(eff||t('status.reason_default')));
   }catch(err){
     updateReasonBtn(prev);              // on remet l'ancien niveau si l'écriture échoue
-    toast('réglage du niveau impossible');
+    toast(t('status.reason_set_failed'));
   }
 }
 async function loadVram(){
@@ -287,7 +286,7 @@ async function loadVram(){
       '<span class="stat-v">'+(g.used/1024).toFixed(1)+' / '+(g.total/1024).toFixed(1)+' GiB</span></div>'+
       '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
       '<div class="stat-s">GPU '+g.util+' % · '+g.temp+' °C</div></div>';
-  }).join('') || '<div class="stat"><span class="stat-s">(pas de GPU)</span></div>';
+  }).join('') || '<div class="stat"><span class="stat-s">'+t('status.no_gpu')+'</span></div>';
 }
 async function loadRam(){
   const m=await jget('/api/ram');
@@ -296,10 +295,10 @@ async function loadRam(){
   if(box) box.style.display='';
   const pct=Math.round(m.used*100/m.total);
   document.getElementById('ram').innerHTML =
-    '<div class="stat"><div class="stat-h"><span class="stat-n">Mémoire vive</span>'+
+    '<div class="stat"><div class="stat-h"><span class="stat-n">'+t('status.ram_label')+'</span>'+
     '<span class="stat-v">'+(m.used/1024).toFixed(1)+' / '+(m.total/1024).toFixed(1)+' GiB</span></div>'+
     '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
-    '<div class="stat-s">'+pct+' % utilisée</div></div>';
+    '<div class="stat-s">'+pct+' % '+t('status.used_pct_suffix')+'</div></div>';
 }
 async function loadCfg(){
   // /api/llamacpp en parallèle : il indique si le BIN de la config correspond au
@@ -311,10 +310,10 @@ async function loadCfg(){
     // Moteur : précompilé / compilé / personnalisé (avec le chemin). Le title garde
     // toujours le chemin complet, quel que soit le libellé.
     let v;
-    if(lc && lc.prebuilt && lc.prebuilt.in_use) v='llama.cpp précompilé';
-    else if(lc && lc.in_use) v='llama.cpp compilé';
-    else v='llama.cpp personnalisé : '+c.BIN;
-    rows.push(row('MOTEUR', v, c.BIN));
+    if(lc && lc.prebuilt && lc.prebuilt.in_use) v=t('status.engine_prebuilt');
+    else if(lc && lc.in_use) v=t('status.engine_compiled');
+    else v=t('status.engine_custom_prefix')+' '+c.BIN;
+    rows.push(row(t('status.cfg_engine'), v, c.BIN));
   }
   ['MODEL','CTX','BATCH','UBATCH','NGL'].filter(k=>c[k]).forEach(k=>{
     let v=c[k]; if(k==='MODEL') v=v.split('/').pop();

@@ -6,7 +6,9 @@
 let nodeList = [];
 let nodeTarget = '';
 let nodeAllCaps = ['shell','read','write','list'];
-const nodeCapLabels = {shell:'shell', read:'lire', write:'écrire', list:'lister'};
+function nodeCapLabel(c){
+  return {shell:'shell', read:t('node.cap_read'), write:t('node.cap_write'), list:t('node.cap_list')}[c] || c;
+}
 
 async function loadNode(){ renderNode(await jget('/api/node')); }
 
@@ -23,13 +25,13 @@ function updateNodeBtn(){
   const btn = document.getElementById('node-btn');
   if(btn){
     btn.classList.toggle('remote', remote);
-    btn.title = remote ? ('Postes distants — l\'IA agit sur « '+(n?n.name:nodeTarget)+' »') : 'Postes distants — l\'IA agit sur ce serveur';
+    btn.title = remote ? (t('node.remote_nodes_ai_acts_on')+' « '+(n?n.name:nodeTarget)+' »') : t('node.remote_nodes_ai_acts_on')+' '+t('node.this_server');
   }
   // Indicateur wifi à gauche du + : visible seulement quand une cible distante est active.
   const indic = document.getElementById('node-indic');
   if(indic){
     indic.style.display = remote ? 'inline-flex' : 'none';
-    indic.title = remote ? ('L\'IA agit sur « '+(n?n.name:nodeTarget)+' »') : '';
+    indic.title = remote ? (t('node.ai_acts_on')+' « '+(n?n.name:nodeTarget)+' »') : '';
   }
 }
 
@@ -42,24 +44,24 @@ function renderNode(r){
   if(!list) return;
   list.textContent = '';
   if(!nodeList.length){
-    list.innerHTML = '<div class="muted" style="font-size:12px">(aucun poste appairé — appaire un PC pour que l\'IA puisse agir dessus)</div>';
+    list.innerHTML = '<div class="muted" style="font-size:12px">'+t('node.no_paired_nodes')+'</div>';
     return;
   }
   const connected = nodeList.filter(n=>n.connected).length;
   // Sélecteur de CIBLE : sur quelle machine l'IA agit (ses outils bash/write/edit).
   renderNodeTarget(list, connected);
   // En-tête discret de section « Postes ».
-  const head = document.createElement('div'); head.className='sess-head'; head.textContent='Postes'; list.appendChild(head);
+  const head = document.createElement('div'); head.className='sess-head'; head.textContent=t('node.section_title'); list.appendChild(head);
   nodeList.forEach(n=>{
     const row = document.createElement('div'); row.className = 'node-row'+(n.connected?'':' off');
     const dot = document.createElement('span'); dot.className = 'node-dot';
-    dot.title = n.connected ? 'connecté' : 'hors ligne';
+    dot.title = n.connected ? t('node.connected') : t('node.offline');
     const info = document.createElement('div'); info.className = 'node-info';
     const nm = document.createElement('div'); nm.className = 'node-nm'; nm.textContent = n.name;
     const sub = document.createElement('div'); sub.className = 'node-sub';
-    const caps = (n.caps&&n.caps.length) ? n.caps.map(c=>nodeCapLabels[c]||c).join(', ') : 'aucune capacité';
-    sub.textContent = (n.connected?'connecté':'hors ligne') + ' · ' + (n.os||'?') + ' · ' + caps;
-    sub.title = n.root ? ('dossier : '+n.root) : '';
+    const caps = (n.caps&&n.caps.length) ? n.caps.map(c=>nodeCapLabel(c)).join(', ') : t('node.no_capability');
+    sub.textContent = (n.connected?t('node.connected'):t('node.offline')) + ' · ' + (n.os||'?') + ' · ' + caps;
+    sub.title = n.root ? (t('node.folder_label')+' : '+n.root) : '';
     info.appendChild(nm); info.appendChild(sub);
     // Chevron discret (réglages), révélé au survol.
     const go = document.createElement('span'); go.className='node-go';
@@ -75,13 +77,13 @@ function renderNode(r){
 // peut pas être cible (fail-closed côté serveur).
 function renderNodeTarget(list, connected){
   const lab = document.createElement('div'); lab.className = 'node-seg-l';
-  lab.textContent = "L'IA agit sur"; list.appendChild(lab);
+  lab.textContent = t('node.ai_acts_on'); list.appendChild(lab);
   const seg = document.createElement('div'); seg.className = 'node-seg';
-  const opts = [{slug:'', name:'Ce serveur'}].concat(nodeList.filter(n=>n.connected).map(n=>({slug:n.slug, name:n.name})));
+  const opts = [{slug:'', name:t('node.this_server_capitalized')}].concat(nodeList.filter(n=>n.connected).map(n=>({slug:n.slug, name:n.name})));
   // Cible sélectionnée mais hors ligne : on la garde, marquée, pour ne pas la perdre.
   if(nodeTarget && !opts.some(o=>o.slug===nodeTarget)){
     const n = nodeList.find(x=>x.slug===nodeTarget);
-    opts.push({slug:nodeTarget, name:(n?n.name:nodeTarget)+' (hors ligne)', off:true});
+    opts.push({slug:nodeTarget, name:(n?n.name:nodeTarget)+' ('+t('node.offline')+')', off:true});
   }
   opts.forEach(o=>{
     const l = document.createElement('label'); l.className = (o.slug===nodeTarget?'on':'')+(o.off?' off':'');
@@ -97,7 +99,7 @@ function renderNodeTarget(list, connected){
 async function setNodeTarget(slug){
   const r = await jpost('/api/node/target', {slug});
   nodeTarget = (r && r.target) || '';
-  toast(slug ? ('l\'IA agit sur « '+slug+' »') : 'l\'IA agit sur ce serveur');
+  toast(slug ? (t('node.ai_acts_on_lower')+' « '+slug+' »') : t('node.ai_acts_on_lower')+' '+t('node.this_server'));
   loadNode();
 }
 
@@ -109,7 +111,7 @@ function nodeCapCheckboxes(containerId, selected){
   nodeAllCaps.forEach(c=>{
     const lab = document.createElement('label'); lab.className='node-cap';
     const cb = document.createElement('input'); cb.type='checkbox'; cb.value=c; cb.checked = sel.has(c);
-    const sp = document.createElement('span'); sp.textContent = nodeCapLabels[c]||c;
+    const sp = document.createElement('span'); sp.textContent = nodeCapLabel(c);
     lab.appendChild(cb); lab.appendChild(sp);
     box.appendChild(lab);
   });
@@ -127,10 +129,10 @@ function openNodePair(){
 
 async function genNodeCode(){
   const caps = nodeCapValues('node-pair-caps');
-  if(!caps.length){ toast('choisis au moins une capacité'); return; }
+  if(!caps.length){ toast(t('node.choose_capability')); return; }
   const root = document.getElementById('node-pair-root').value.trim();
   const r = await jpost('/api/node/pair', {caps, root});
-  if(!r.ok){ toast(r.error||'échec'); return; }
+  if(!r.ok){ toast(r.error||t('node.failed')); return; }
   document.getElementById('node-pair-code').textContent = r.code;
   document.getElementById('node-pair-ttl').textContent = r.ttl_min || 10;
   const allow = caps.join(',');
@@ -159,23 +161,23 @@ function openNodeEdit(id){
   document.getElementById('node-pair-root').value = n.root||'';
   document.getElementById('node-pair-out').style.display = 'none';
   // Réutilise la modale d'appairage en mode édition : on remplace le pied.
-  document.querySelector('#node-pair-modal .modal-head strong').textContent = 'Poste « '+n.name+' »'+(n.connected?' (connecté)':'');
+  document.querySelector('#node-pair-modal .modal-head strong').textContent = t('node.node_prefix')+' « '+n.name+' »'+(n.connected?' ('+t('node.connected')+')':'');
   const footR = document.querySelector('#node-pair-modal .foot-r');
   footR.innerHTML = '';
-  const cancel = document.createElement('button'); cancel.className='mbtn'; cancel.textContent='Fermer'; cancel.onclick=()=>{ hideModal('node-pair-modal'); resetNodeFoot(); };
-  const save = document.createElement('button'); save.className='mbtn primary'; save.textContent='Enregistrer'; save.onclick=saveNodeCaps;
+  const cancel = document.createElement('button'); cancel.className='mbtn'; cancel.textContent=t('node.close_btn'); cancel.onclick=()=>{ hideModal('node-pair-modal'); resetNodeFoot(); };
+  const save = document.createElement('button'); save.className='mbtn primary'; save.textContent=t('node.save_btn'); save.onclick=saveNodeCaps;
   footR.appendChild(cancel); footR.appendChild(save);
   const footL = document.querySelector('#node-pair-modal .foot-l');
   footL.innerHTML = '';
-  const del = document.createElement('button'); del.className='mbtn danger'; del.textContent='Révoquer'; del.onclick=()=>revokeNode(id);
+  const del = document.createElement('button'); del.className='mbtn danger'; del.textContent=t('node.revoke_btn'); del.onclick=()=>revokeNode(id);
   footL.appendChild(del);
   showModal('node-pair-modal');
 }
 function resetNodeFoot(){
-  document.querySelector('#node-pair-modal .modal-head strong').textContent = 'Appairer un poste distant';
+  document.querySelector('#node-pair-modal .modal-head strong').textContent = t('node.pair_remote_node_title');
   document.querySelector('#node-pair-modal .foot-l').innerHTML = '';
   const footR = document.querySelector('#node-pair-modal .foot-r');
-  footR.innerHTML = '<button class="mbtn" onclick="hideModal(\'node-pair-modal\')">Fermer</button><button class="mbtn primary" onclick="genNodeCode()">Générer le code</button>';
+  footR.innerHTML = '<button class="mbtn" onclick="hideModal(\'node-pair-modal\')">'+t('node.close_btn')+'</button><button class="mbtn primary" onclick="genNodeCode()">'+t('node.generate_code_btn')+'</button>';
   nodeEditing = null;
 }
 async function saveNodeCaps(){
@@ -183,12 +185,12 @@ async function saveNodeCaps(){
   const caps = nodeCapValues('node-pair-caps');
   const root = document.getElementById('node-pair-root').value.trim();
   const r = await jpost('/api/node/caps', {id:nodeEditing, caps, root});
-  if(!r.ok){ toast(r.error||'échec'); return; }
-  toast('poste mis à jour'); hideModal('node-pair-modal'); resetNodeFoot(); loadNode();
+  if(!r.ok){ toast(r.error||t('node.failed')); return; }
+  toast(t('node.node_updated')); hideModal('node-pair-modal'); resetNodeFoot(); loadNode();
 }
 async function revokeNode(id){
   const n = nodeList.find(x=>x.id===id);
-  if(!await askConfirm('Révoquer le poste « '+(n?n.name:'')+' » ? Sa clé sera oubliée et il sera déconnecté.', {title:'Révoquer le poste ?', okText:'Révoquer', danger:true})) return;
+  if(!await askConfirm(t('node.confirm_revoke_prefix')+' « '+(n?n.name:'')+' » ? '+t('node.confirm_revoke_suffix'), {title:t('node.revoke_title'), okText:t('node.revoke_btn'), danger:true})) return;
   await jpost('/api/node/revoke', {id});
-  hideModal('node-pair-modal'); resetNodeFoot(); loadNode(); toast('poste révoqué');
+  hideModal('node-pair-modal'); resetNodeFoot(); loadNode(); toast(t('node.node_revoked'));
 }
