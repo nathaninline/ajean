@@ -1,14 +1,15 @@
-Renommage des trackers, ajout et modification des points dans une fenêtre dédiée, retour visuel en direct quand l'assistant consulte un tracker, et correction d'un filtre de mémoire qui restait actif après changement de projet.
+Détection des GPU AMD et Intel sous Windows dans le panneau Appareil, synchronisation du preset actif entre appareils sans rechargement, et plusieurs corrections de fiabilité au démarrage et pendant la génération.
 
 ## Nouveautés
 
-* **Renommer un tracker.** Le menu d'un tracker propose désormais « Renommer », à côté de « Déplacer » et « Supprimer ». Le nom se met à jour partout, ses points sont conservés.
-* **Ajout et modification des points dans une fenêtre dédiée.** Ajouter ou modifier un point d'un tracker se fait maintenant dans une petite fenêtre, au lieu d'un formulaire glissé en haut de la liste. La saisie est plus lisible et ne pousse plus la frise vers le bas.
+* **GPU AMD et Intel visibles sous Windows.** Sur une machine Windows sans NVIDIA, le panneau Appareil affichait « pas de GPU » alors que l'inférence tournait bien via Vulkan, faute d'outil de mesure disponible (nvidia-smi, amd-smi et rocm-smi sont tous absents dans ce cas). La carte affiche désormais chaque GPU vu par le moteur : nom, VRAM totale et utilisée, pourcentage d'utilisation, et température pour les cartes AMD. Sans effet sur les configurations NVIDIA, déjà couvertes.
 
 ## Corrections
 
-* Quand l'assistant consultait un tracker, rien ne s'affichait pendant l'appel : l'interface semblait figée et seul le résultat final apparaissait. La consultation d'un tracker montre à présent son activité en direct, comme les autres outils.
-* Une recherche laissée dans le filtre des pages de mémoire d'un projet restait active après passage à un autre projet. Sur un projet à peu de notes, la barre de recherche étant masquée, le filtre s'appliquait sans être visible et pouvait masquer toutes les notes. Le filtre est désormais vidé au changement de projet, et une barre de recherche masquée ne conserve plus de filtre caché.
+* La conversation active pouvait revenir vide après un redémarrage du service, alors qu'elle existait toujours (elle restait récupérable dans l'historique). Une lecture de la base momentanément indisponible au démarrage était confondue avec une absence de données. La lecture est maintenant distinguée d'une absence réelle, réessayée, et l'erreur éventuelle est journalisée au lieu de disparaître en silence.
+* Changer de preset ou de modèle sur un appareil ne se reflétait pas sur les autres tant que l'application n'était pas rechargée. Le preset actif se resynchronise à présent automatiquement sur tous les appareils connectés.
+* Lorsque le modèle raisonnait sans jamais appeler d'outil ni répondre, une seule relance automatique ne suffisait pas toujours et l'utilisateur voyait un tour vide. Une seconde relance, plus directe, intervient désormais avant d'abandonner.
+* Sur un tour au raisonnement très long, le début de la conversation pouvait être tronqué du flux de relecture (sans perte dans la conversation enregistrée). La marge de ce journal d'affichage a été relevée en conséquence.
 
 ## Mise à jour
 
