@@ -100,11 +100,28 @@ func compactSummaryBudget() int {
 	return n
 }
 
+// imageLostMarker remplace la partie `image_url` d'un message multimodal dans
+// msgText : ni recallEligible ni le résumeur ne voient jamais l'image elle-même
+// (msgText n'en extrait que le texte), donc SANS ce marqueur un message
+// see_image ne pèse que sa légende (« Image demandée (fichier) : »), largement
+// sous recallArchiveMinLen — il n'est jamais archivé, et le résumeur ne sait
+// même pas qu'une image a été montrée. Au compactage suivant, l'image
+// disparaît donc du contexte SANS AUCUNE trace : ni bloc recall, ni mention
+// dans le résumé — observé en usage réel comme cause probable de boucles de
+// raisonnement (le modèle a bien regardé une image de police/pixels, mais ne
+// peut plus s'y référer après compaction et redérive à l'aveugle en texte).
+// Ce marqueur ne rend pas l'image rappelable (recall reste du texte pur), mais
+// il rend sa PERTE visible : le résumeur peut la mentionner dans sa prose, et
+// le modèle sait qu'il doit rappeler see_image plutôt que de deviner.
+const imageLostMarker = " [image — not kept past this point in the conversation once summarized; call see_image on the same file again if you still need to see it]"
+
 // msgText extrait le texte d'un message (Content est `any`, en pratique string
 // ou nil quand l'assistant n'a que des tool_calls). Un message multimodal
 // (userMessageContent : parties texte + image quand la vision est active) porte
 // un tableau de parties ; on en recolle les segments `text` pour que l'estimation
-// de contexte et le transcript de compaction ne partent pas d'un texte vide.
+// de contexte et le transcript de compaction ne partent pas d'un texte vide, et
+// on marque la présence d'une partie `image_url` (voir imageLostMarker) — sans
+// quoi elle est invisible à toute la chaîne de compaction.
 func msgText(m Message) string {
 	switch v := m.Content.(type) {
 	case string:
@@ -112,20 +129,30 @@ func msgText(m Message) string {
 	case []map[string]any:
 		var b strings.Builder
 		for _, part := range v {
-			if part["type"] == "text" {
+			switch part["type"] {
+			case "text":
 				if s, ok := part["text"].(string); ok {
 					b.WriteString(s)
 				}
+			case "image_url":
+				b.WriteString(imageLostMarker)
 			}
 		}
 		return b.String()
 	case []any: // même contenu relu depuis le JSON persisté (map générique)
 		var b strings.Builder
 		for _, p := range v {
-			if part, ok := p.(map[string]any); ok && part["type"] == "text" {
+			part, ok := p.(map[string]any)
+			if !ok {
+				continue
+			}
+			switch part["type"] {
+			case "text":
 				if s, ok := part["text"].(string); ok {
 					b.WriteString(s)
 				}
+			case "image_url":
+				b.WriteString(imageLostMarker)
 			}
 		}
 		return b.String()
