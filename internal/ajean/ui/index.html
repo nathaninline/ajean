@@ -6149,7 +6149,7 @@ function confirmPending(text){
 let REPLAYING=true;
 // État de rendu du tour courant, délimité par les événements user / turn_done.
 let T=null;
-function newTurn(){ T={ reasonEl:null, contentEl:null, pendingToolEl:null, activeEl:null, typingEl:null, fullContent:'', fullReason:'', turnCollapsibles:[], serverStats:null, reasonTok:0, contentTok:0, toolTok:0, reasonFirstTs:0, reasonLastTs:0, contentFirstTs:0, contentLastTs:0 }; }
+function newTurn(){ T={ reasonEl:null, contentEl:null, pendingToolEl:null, activeEl:null, typingEl:null, fullContent:'', fullReason:'', turnCollapsibles:[], serverStats:null, reasonTok:0, contentTok:0, toolTok:0, reasonFirstTs:0, reasonLastTs:0, contentFirstTs:0, contentLastTs:0, model:null }; }
 // « Élément actif » = la bulle qui porte le shimmer. Le voile reste dessus tant
 // qu'une nouvelle étape (raisonnement / outil / réponse) n'a pas pris le relais —
 // y compris pendant que l'IA LIT la réponse d'un outil terminé. On ne coupe donc
@@ -6292,6 +6292,9 @@ function finalizeTurn(elapsedMs){
   if(ELAPSED){ clearInterval(ELAPSED.timer); ELAPSED=null; }
   genStatusOn(false);
   const parts=[];
+  // En premier, façon "qui a répondu" — utile surtout si tu as changé de preset
+  // depuis le tour précédent ; sinon c'est juste un rappel discret et cohérent.
+  if(T.model) parts.push(T.model);
   if(elapsedMs>0) parts.push(fmtElapsed(elapsedMs/1000));
   if(tok>0){ parts.push(fmtTok(tok)+' tok'); if(rate!=null) parts.push(rate.toFixed(1)+' tok/s'); }
   if(!parts.length){ removeGenEl(); scrollMaybe(true); return; }
@@ -6526,6 +6529,11 @@ function handleDelta(d){
     TURN_ENDED=true; elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); setCompactCount(0); lastSeq=0; setBusy(false); return; }
   if(d.user!==undefined){
     newTurn();
+    // Preset actif AU MOMENT de l'envoi (issue #45 upstream : savoir quel modèle a
+    // répondu à quoi après un changement en cours de conversation). Posé une fois
+    // par tour sur le MÊME delta que `user`, donc rejoué à l'identique — pas de
+    // traitement replay séparé à écrire.
+    if(d.model) T.model=d.model;
     let el=PENDING;
     if(!confirmPending(d.user)) el=addMsg('user', d.user);
     // Pièces jointes du tour : rendues DANS la bulle. La bulle en attente en

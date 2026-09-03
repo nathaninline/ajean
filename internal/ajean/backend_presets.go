@@ -86,6 +86,23 @@ func isPreservedKey(key string) bool {
 
 // ListPresets renvoie tous les presets/*.env, en marquant celui qui correspond
 // à la configuration active (clés « appareil » ignorées), triés par nom.
+// activePresetName renvoie le nom d'affichage du preset actif, ou "" si
+// indéterminable (aucun preset, erreur de lecture...) — jamais une erreur qui
+// remonterait à l'appelant, juste une info de confort journalisée par tour
+// (voir StartTurn dans chat_conversation.go).
+func activePresetName() string {
+	list, err := ListPresets()
+	if err != nil {
+		return ""
+	}
+	for _, p := range list {
+		if p.Active {
+			return p.Name
+		}
+	}
+	return ""
+}
+
 func ListPresets() ([]Preset, error) {
 	dir := presetsDir()
 	_ = os.MkdirAll(dir, 0o755)

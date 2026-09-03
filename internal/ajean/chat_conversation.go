@@ -479,7 +479,16 @@ func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, tem
 	// Borne de tour + bulle utilisateur (rejouables). Persistée tout de suite :
 	// si le process meurt en pleine génération (crash, restart après MAJ), le
 	// message de l'utilisateur survit au lieu de disparaître avec le tour.
+	// `model` journalise le preset actif AU MOMENT de l'envoi (issue #45 upstream) :
+	// changer de preset en cours de conversation ne dit auparavant nulle part QUI
+	// a répondu à quoi — le libellé sous le composeur se contentait d'écraser le
+	// précédent, et l'historique perdait l'info à la relecture. Posé une fois par
+	// tour, comme `user` : pas un champ par delta de réponse (le modèle ne change
+	// pas EN COURS d'un même tour).
 	delta := map[string]any{"user": text}
+	if name := activePresetName(); name != "" {
+		delta["model"] = name
+	}
 	if len(files) > 0 {
 		delta["files"] = files
 	}
