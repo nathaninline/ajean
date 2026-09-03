@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -25,11 +26,19 @@ import (
 
 // maxLogEvents plafonne le journal d'AFFICHAGE (pas la vue modèle). Depuis la
 // coalescence en fin de tour (compactLogLocked), un tour terminé ne pèse plus
-// qu'une poignée d'événements au lieu d'un par token → 20000 couvre des
-// centaines de tours. La marge sert surtout à absorber UN tour en cours (streamé
-// token par token) avant sa coalescence : un très gros tour (long raisonnement +
-// réponse) ne doit pas se faire tronquer le début avant d'être compacté.
-const maxLogEvents = 20000
+// qu'une poignée d'événements au lieu d'un par token → cette limite couvre des
+// centaines de tours normaux. La marge sert surtout à absorber UN tour en cours
+// (streamé token par token) avant sa coalescence : un très gros tour (long
+// raisonnement + réponse) ne doit pas se faire tronquer le début avant d'être
+// compacté.
+//
+// Observé en usage réel (2026-09-02) : un tour à raisonnement prolongé (~15 670
+// tokens de réponse visible + ~15-16 min de raisonnement pur avant) a dépassé
+// l'ancienne limite de 20000 AVANT sa propre coalescence — le début de la
+// conversation s'est fait tronquer du journal de REJEU (toujours présent dans la
+// conversation persistée et /api/chat/export, seul le rejeu SSE en perdait la
+// trace). Relevé à 200000 : ~20 Mo de LogEvent en pire cas, négligeable.
+const maxLogEvents = 200000
 
 // LogEvent = un événement d'affichage rejouable (un delta SSE + son numéro de
 // séquence monotone + un horodatage serveur en ms). Le TS permet au client de
@@ -108,9 +117,40 @@ var conv = func() *Conversation {
 
 // LoadConversation recharge l'état persisté au démarrage du process. Sans état
 // enregistré (première fois) on part d'une conversation vide.
+//
+// Observé en usage réel, à deux reprises sur ce fork : après un redémarrage du
+// process, la conversation active revenait vide alors qu'elle existait bel et
+// bien — récupérable via l'historique, donc rien de perdu, mais gênant. Cause
+// probable, PAS formellement prouvée : getStoreBytes (comme getBytes, qu'il
+// enveloppe) AVALE l'erreur d'ouverture de la base bbolt sans la distinguer
+// d'une absence légitime — exactement le piège déjà identifié pour les secrets
+// (voir getBytesErr). Au redémarrage, l'ancien et le nouveau process peuvent se
+// chevaucher une fraction de seconde, le temps que le verrou exclusif bbolt se
+// libère ; si la lecture échoue là, l'ancien code repartait sur une conversation
+// vide, en silence. Désormais on distingue « lecture ratée » de « rien à
+// charger », on réessaie quelques fois, et on JOURNALISE la vraie erreur au lieu
+// de la faire disparaître. Quelques tentatives espacées coûtent au pire une
+// fraction de seconde à un démarrage qui réussit du premier coup dans l'immense
+// majorité des cas.
 func LoadConversation() {
-	b, ok := getStoreBytes(bkChat, "conversation")
-	if !ok || len(b) == 0 {
+	var b []byte
+	var err error
+	for attempt := 0; attempt < 4; attempt++ {
+		b, err = getStoreBytesErr(bkChat, "conversation")
+		if err == nil {
+			break
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	if err != nil {
+		// Toujours en échec après les tentatives : on le DIT (au lieu de le
+		// confondre en silence avec « rien à charger ») et on repart à vide quand
+		// même — un serveur qui refuse de démarrer serait pire, et l'ancienne
+		// conversation reste intacte dans l'historique, restaurable à la main.
+		fmt.Fprintf(os.Stderr, "[conv] conversation active illisible au démarrage (%v) — repli sur une conversation vide ; l'historique, lui, est intact\n", err)
+		return
+	}
+	if len(b) == 0 {
 		// Absente, ou chiffrée et mémoire encore verrouillée : on repart d'une
 		// conversation vide. Elle sera rechargée au déverrouillage (reloadEncryptedStores).
 		return

@@ -759,9 +759,14 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 	repeatCount := map[string]int{}
 	// Garde-fou « pensé sans agir » : certains modèles à reasoning planifient un
 	// appel d'outil dans leur <think> puis émettent le token de fin SANS l'émettre
-	// (ni réponse, ni tool_call). On relance alors UNE fois le tour avec un nudge
-	// explicite au lieu d'afficher « pas de réponse ».
-	nudged := false
+	// (ni réponse, ni tool_call). On relance alors le tour avec un nudge explicite
+	// au lieu d'afficher « pas de réponse ». Le premier nudge suffit la plupart du
+	// temps ; un second, plus direct, rattrape le cas observé où le modèle
+	// re-décrit le même plan en boucle sans jamais l'exécuter (une simple
+	// reformulation de « agis » ne suffit alors plus). Borné à maxNudges : un
+	// modèle vraiment bloqué doit finir par rendre la main, pas faire attendre.
+	const maxNudges = 2
+	nudgeCount := 0
 	// Pas de plafond d'itérations ni d'anti-boucle : ils coupaient des tours
 	// parfaitement légitimes (une recherche enchaîne facilement des dizaines
 	// d'appels, parfois identiques). Le seul frein est le bouton stop, qui annule
@@ -1417,16 +1422,20 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			// Filet de sécurité (le vrai fix est le prompt court, voir baseSystemPrompt) :
 			// si un modèle « pense sans agir » malgré tout, on le relance UNE fois avec
 			// une consigne impérative au lieu d'afficher « pas de réponse ».
-			if len(tools) > 0 && !disableTools && !nudged {
-				nudged = true
+			if len(tools) > 0 && !disableTools && nudgeCount < maxNudges {
+				nudgeCount++
 				// Le raisonnement de ce tour avorté ne mène à rien : on demande à
 				// l'UI de l'effacer avant de relancer, pour ne pas afficher deux
 				// blocs de réflexion successifs.
 				cb(StreamEvent{DropReasoning: true})
-				messages = append(messages, Message{
-					Role:    "user",
-					Content: "You reasoned but did not call a tool or answer. Act NOW: call the appropriate tool directly (e.g. mem_search/mem_read/bash), or give your final answer if you already have the info. Don't explain, act.",
-				})
+				nudge := "You reasoned but did not call a tool or answer. Act NOW: call the appropriate tool directly (e.g. mem_search/mem_read/bash), or give your final answer if you already have the info. Don't explain, act."
+				if nudgeCount > 1 {
+					// Le premier nudge n'a pas suffi : le modèle re-décrit le même plan
+					// sans l'exécuter. Second nudge plus impératif, on lui interdit
+					// explicitement de re-raisonner.
+					nudge = "You are stuck re-describing the same plan without executing it. Stop reasoning. In your NEXT message, either call ONE tool right now, or write your final answer in plain text using only what you already know — no more planning, no more thinking, act or answer this instant."
+				}
+				messages = append(messages, Message{Role: "user", Content: nudge})
 				continue
 			}
 			cb(StreamEvent{Content: "_(le modèle n'a pas produit de réponse — finish: " + finishReason + ")_"})

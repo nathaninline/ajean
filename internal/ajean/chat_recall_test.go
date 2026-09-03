@@ -1,9 +1,47 @@
 package ajean
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 )
+
+// summarizerStub sert une réponse de résumé non-streamée canée (voir
+// summarizeTranscript) et pointe PORT vers lui — sans ça, TestCompactArchivesBigBlock
+// dépend d'un VRAI llama-server sur cette machine (LLMPort() en dur), ce qui le
+// rend instable dès que ce serveur est lent/occupé (par ex. un autre modèle
+// chargé en parallèle pour un usage réel) : la compaction retombe alors sur le
+// repli dégraissé au lieu du résumé, qui peut ne pas atteindre les ~20% de
+// réduction exigés, et le test échoue par « rien n'a changé » — sans rapport
+// avec le comportement testé. Même pattern que sseCuttingServer
+// (llm_stream_cut_test.go) pour un autre point d'entrée LLM.
+func summarizerStub(t *testing.T, summary string) {
+	t.Helper()
+	// Encode juste le texte pour un échappement JSON correct (guillemets, retours
+	// à la ligne…), puis l'insère dans la forme attendue par summarizeTranscript
+	// (voir summarizeResp) — plus simple que de reconstruire son struct anonyme
+	// imbriqué pour un littéral composite.
+	quoted, err := json.Marshal(summary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := []byte(`{"choices":[{"message":{"content":` + string(quoted) + `}}]}`)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(body)
+	}))
+	t.Cleanup(srv.Close)
+	u, err := url.Parse(srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := SetConfigKey("PORT", u.Port()); err != nil {
+		t.Fatal(err)
+	}
+}
 
 // Archive puis rappel : le bloc doit revenir VERBATIM, à l'octet près.
 func TestRecallRoundtrip(t *testing.T) {
@@ -57,10 +95,19 @@ func TestRecallSearchFindsByKeyword(t *testing.T) {
 
 // Intégration : pendant une compaction en mode agent, un gros bloc du torse est
 // archivé et récupérable, et l'historique compacté le référence par recall(id)
-// au lieu de l'effacer. (summarizeTranscript échoue faute de llama-server → on
-// tombe sur le repli dégraissé, qui porte justement les marqueurs recall.)
+// au lieu de l'effacer.
+//
+// summarizerStub pointe PORT vers un faux serveur plutôt que de compter sur
+// l'absence de llama-server dans l'environnement de test : sur une machine où
+// un VRAI moteur tourne par ailleurs (développement courant de ce projet — un
+// modèle chargé pour un usage réel pendant que `go test` tourne), summarizeTranscript
+// pouvait aboutir ou traîner selon la charge de ce serveur, au lieu d'échouer
+// proprement — rendant ce test instable pour une raison sans rapport avec ce
+// qu'il vérifie. Voir aussi sseCuttingServer (llm_stream_cut_test.go), même
+// pattern pour un autre point d'entrée LLM.
 func TestCompactArchivesBigBlock(t *testing.T) {
-	t.Setenv("AJEAN_HOME", t.TempDir())
+	testHome(t)
+	summarizerStub(t, "Résumé de test : le fil demandait un jeu en Go ; du code a été écrit puis ajusté plusieurs fois, rien d'autre à retenir.")
 	bigCode := "func jeu(){\n" + strings.Repeat("  ligne_de_code_unique_wibble\n", 60) + "}"
 	msgs := []Message{
 		um("fais-moi un jeu en go"),

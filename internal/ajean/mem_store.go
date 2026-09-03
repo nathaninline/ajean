@@ -42,6 +42,29 @@ func getStoreBytes(bucket, key string) ([]byte, bool) {
 	return dec, true
 }
 
+// getStoreBytesErr fait la même lecture que getStoreBytes mais SANS avaler
+// l'erreur d'accès (getBytes, lui, la jette — c'est le piège documenté sur
+// getBytesErr : « je n'ai pas pu lire » et « il n'y a rien » ne veulent pas dire
+// la même chose). Une valeur absente reste (nil, nil) — err n'est non-nil QUE
+// si la base elle-même n'a pas pu être ouverte/lue (verrou bbolt disputé, disque
+// indisponible…), pas pour une clé qui n'existe simplement pas encore.
+func getStoreBytesErr(bucket, key string) ([]byte, error) {
+	raw, err := getBytesErr(bucket, key)
+	if err != nil {
+		return nil, err
+	}
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	dec, err := decodeMemContent(raw)
+	if err != nil {
+		// Chiffré mais verrouillé (ou payload corrompu) : légitime, pas un échec
+		// d'ACCÈS — même repli que getStoreBytes.
+		return nil, nil
+	}
+	return dec, nil
+}
+
 // putStoreJSON sérialise puis écrit (chiffré si actif+déverrouillé).
 func putStoreJSON(bucket, key string, v any) error {
 	b, err := json.Marshal(v)
