@@ -6,7 +6,7 @@
 function savePrefs(){
   let theme='light';
   try{ theme=localStorage.getItem('ajean-theme')||'light'; }catch(e){}
-  const p={theme};
+  const p={theme, lang: currentLang()};
   VIEW_OPTS.forEach(o=>{ p[o.id.replace('-','_')] = viewOn(o.id)?'1':'0'; });
   jpost('/api/prefs', p).catch(()=>{});
 }
@@ -19,6 +19,12 @@ async function loadPrefs(){
       if(p.prefs.theme){
         applyTheme(p.prefs.theme);
         if(p.prefs.theme!=='light' && p.prefs.theme!=='dark') savePrefs();
+      }
+      if(p.prefs.lang && I18N[p.prefs.lang]){
+        try{ localStorage.setItem('ajean-lang', p.prefs.lang); }catch(e){}
+        applyI18n();
+        const sel=document.getElementById('lang-select');
+        if(sel) sel.value=p.prefs.lang;
       }
       VIEW_OPTS.forEach(o=>{
         const v=p.prefs[o.id.replace('-','_')];

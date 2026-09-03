@@ -1,0 +1,19 @@
+{
+  "chat.sending": "envoi…",
+  "chat.compacting": "compactage…",
+  "chat.context_compacted_mark": "contexte compacté : anciens tours résumés",
+  "chat.prefill": "prefill",
+  "chat.decode": "decode",
+  "chat.reflection_label": "Réflexion",
+  "chat.stop_task_prefix": "Arrêter la tâche « ",
+  "chat.stop_task_suffix": " »",
+  "chat.stop": "stop",
+  "chat.model_not_loaded": "le modèle n'est pas encore chargé",
+  "chat.model_loading_hint": "Le modèle charge, envoi possible dès qu'il est prêt.",
+  "chat.compact_noop": "rien à compacter (contexte déjà minimal)",
+  "chat.connecting_to_server": "connexion au serveur…",
+  "chat.model_not_ready": "le modèle n'est pas encore prêt",
+  "chat.no_file_uploaded": "aucun fichier n'a pu être déposé",
+  "chat.error": "erreur",
+  "chat.send_failed_retry": "échec de l'envoi — réessaie"
+}

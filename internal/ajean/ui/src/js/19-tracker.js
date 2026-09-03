@@ -22,26 +22,26 @@ function trackerBack(){
 
 async function loadTrackers(){
   const box=document.getElementById('tracker-list'); if(!box) return;
-  let r; try{ r=await jget('/api/tracker'); }catch(_){ box.innerHTML='<span class="muted" style="font-size:12px">erreur de chargement</span>'; return; }
+  let r; try{ r=await jget('/api/tracker'); }catch(_){ box.innerHTML='<span class="muted" style="font-size:12px">'+t('tracker.load_error')+'</span>'; return; }
   const list=(r&&r.trackers)||[];
-  const cnt=document.getElementById('tracker-count'); if(cnt) cnt.textContent = list.length ? (list.length+' tracker'+(list.length>1?'s':'')) : '';
+  const cnt=document.getElementById('tracker-count'); if(cnt) cnt.textContent = list.length ? (list.length+' '+(list.length>1?t('tracker.count_plural'):t('tracker.count_singular'))) : '';
   box.innerHTML='';
-  if(!list.length){ box.innerHTML='<span class="muted" style="font-size:12px">aucun tracker. Crée-en un avec « + tracker » (ex. abonnés, poids, revenus).</span>'; return; }
+  if(!list.length){ box.innerHTML='<span class="muted" style="font-size:12px">'+t('tracker.empty_list')+'</span>'; return; }
   list.forEach(s=>box.appendChild(trackerRow(s)));
 }
 
 function trackerRow(s){
-  const card=document.createElement('div'); card.className='tracker-card'; card.tabIndex=0; card.title='Ouvrir ce tracker';
+  const card=document.createElement('div'); card.className='tracker-card'; card.tabIndex=0; card.title=t('tracker.open_this');
   card.onclick=()=>openTrackerDetail(s.slug, s.name);
   card.onkeydown=(e)=>{ if((e.key==='Enter'||e.key===' ')&&e.target===card){ e.preventDefault(); openTrackerDetail(s.slug, s.name); } };
   const main=document.createElement('div'); main.className='tracker-card-main';
   const name=document.createElement('div'); name.className='tracker-card-name'; name.textContent=s.name;
   const sub=document.createElement('div'); sub.className='tracker-card-sub';
-  sub.textContent = s.count ? (s.count+' point'+(s.count>1?'s':'')+' · maj '+(s.last||'')) : 'vide';
+  sub.textContent = s.count ? (s.count+' '+(s.count>1?t('tracker.point_plural'):t('tracker.point_singular'))+' · '+t('tracker.updated')+' '+(s.last||'')) : t('tracker.empty_single');
   main.appendChild(name); main.appendChild(sub);
   if(s.latest){ const val=document.createElement('div'); val.className='tracker-card-val'; val.textContent=s.latest; main.appendChild(val); }
   card.appendChild(main);
-  const menu=document.createElement('button'); menu.className='sess-menu-btn'; menu.innerHTML=projDotsSvg(); menu.title='Options';
+  const menu=document.createElement('button'); menu.className='sess-menu-btn'; menu.innerHTML=projDotsSvg(); menu.title=t('tracker.options');
   menu.onclick=(e)=>{ e.stopPropagation(); openTrackerMenu(menu, s); };
   card.appendChild(menu);
   return card;
@@ -53,9 +53,9 @@ function openTrackerMenu(anchor, s){
   closeProjMenu();
   const pop=document.createElement('div'); pop.className='pop-menu';
   const item=(icon,label,cls,fn)=>{ const b=document.createElement('button'); if(cls) b.className=cls; b.innerHTML=sessIconSvg(icon)+'<span>'+label+'</span>'; b.onclick=(e)=>{ e.stopPropagation(); closeProjMenu(); fn(); }; return b; };
-  pop.appendChild(item('pencil','Renommer','',()=>trackerRename(s)));
-  if(typeof PROJECTS!=='undefined' && PROJECTS.length>1) pop.appendChild(item('move','Déplacer vers…','',()=>trackerMove(s, anchor)));
-  pop.appendChild(item('trash','Supprimer','danger',()=>trackerDelete(s)));
+  pop.appendChild(item('pencil',t('tracker.rename'),'',()=>trackerRename(s)));
+  if(typeof PROJECTS!=='undefined' && PROJECTS.length>1) pop.appendChild(item('move',t('tracker.move_to'),'',()=>trackerMove(s, anchor)));
+  pop.appendChild(item('trash',t('tracker.delete'),'danger',()=>trackerDelete(s)));
   document.body.appendChild(pop);
   const r=anchor.getBoundingClientRect(); const pw=pop.offsetWidth, ph=pop.offsetHeight;
   let left=Math.max(8, Math.min(r.right-pw, window.innerWidth-pw-8));
@@ -66,12 +66,12 @@ function openTrackerMenu(anchor, s){
 }
 
 async function trackerRename(s){
-  const name=await askPrompt('Nouveau nom du tracker :', {title:'Renommer le tracker', okText:'Renommer', placeholder:'nom du tracker', default:s.name});
-  if(name===null) return; const nn=name.trim(); if(!nn){ toast('nom vide'); return; }
+  const name=await askPrompt(t('tracker.rename_prompt'), {title:t('tracker.rename_title'), okText:t('tracker.rename'), placeholder:t('tracker.new_name_placeholder'), default:s.name});
+  if(name===null) return; const nn=name.trim(); if(!nn){ toast(t('tracker.empty_name')); return; }
   if(nn===s.name) return;
-  let r; try{ r=await jpost('/api/tracker/rename', {slug:s.slug, name:nn}); }catch(_){ toast('erreur réseau'); return; }
-  if(!r.ok){ toast(r.error||'renommage impossible'); return; }
-  toast('tracker renommé');
+  let r; try{ r=await jpost('/api/tracker/rename', {slug:s.slug, name:nn}); }catch(_){ toast(t('tracker.network_error')); return; }
+  if(!r.ok){ toast(r.error||t('tracker.rename_failed')); return; }
+  toast(t('tracker.renamed'));
   // Le slug a pu changer (dérivé du nom) : on repart de la liste plutôt que de garder
   // l'ancien slug ouvert. Si le détail du tracker renommé était ouvert, on le rouvre.
   const newSlug=(nn.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'tracker');
@@ -81,29 +81,29 @@ async function trackerRename(s){
 function trackerMove(s, anchor){
   if(typeof pickProjectPop!=='function') return;
   pickProjectPop(anchor||document.body, (typeof ACTIVE_PROJECT!=='undefined'?ACTIVE_PROJECT:''), async(slug)=>{
-    let r; try{ r=await jpost('/api/tracker/move', {slug:s.slug, toSlug:slug}); }catch(_){ toast('erreur réseau'); return; }
-    if(!r.ok){ toast(r.error||'déplacement impossible'); return; }
-    toast('tracker déplacé'); loadTrackers();
+    let r; try{ r=await jpost('/api/tracker/move', {slug:s.slug, toSlug:slug}); }catch(_){ toast(t('tracker.network_error')); return; }
+    if(!r.ok){ toast(r.error||t('tracker.move_failed')); return; }
+    toast(t('tracker.moved')); loadTrackers();
   });
 }
 
 async function trackerDelete(s){
-  if(!await askConfirm('Supprimer le tracker « '+s.name+' » et tous ses points ? Cette action est irréversible.', {title:'Supprimer le tracker', okText:'Supprimer', danger:true})) return;
-  let r; try{ r=await jpost('/api/tracker/delete', {slug:s.slug}); }catch(_){ toast('erreur réseau'); return; }
-  if(!r.ok){ toast(r.error||'suppression impossible'); return; }
-  toast('tracker supprimé');
+  if(!await askConfirm(t('tracker.delete_confirm_prefix')+s.name+t('tracker.delete_confirm_suffix'), {title:t('tracker.delete_title'), okText:t('tracker.delete'), danger:true})) return;
+  let r; try{ r=await jpost('/api/tracker/delete', {slug:s.slug}); }catch(_){ toast(t('tracker.network_error')); return; }
+  if(!r.ok){ toast(r.error||t('tracker.delete_failed')); return; }
+  toast(t('tracker.deleted'));
   if(TRACKER_CUR && TRACKER_CUR.slug===s.slug) trackerBack(); else loadTrackers();
 }
 
 // Créer un tracker = poser son premier point.
 async function newTrackerUI(){
-  const name=await askPrompt('Nom du tracker (ex. abonnés, poids, revenus) :', {title:'Nouveau tracker', okText:'Suivant', placeholder:'nom du tracker'});
-  if(name===null) return; if(!name.trim()){ toast('nom vide'); return; }
-  const text=await askPrompt('Premier point (valeur ou note) :', {title:'Nouveau tracker — '+name.trim(), okText:'Créer', placeholder:'ex. abonnés : 4210'});
-  if(text===null) return; if(!text.trim()){ toast('valeur vide'); return; }
-  let r; try{ r=await jpost('/api/tracker/add', {name:name.trim(), when:'', text:text.trim()}); }catch(_){ toast('erreur réseau'); return; }
-  if(!r.ok){ toast(r.error||'création impossible'); return; }
-  toast('tracker créé');
+  const name=await askPrompt(t('tracker.new_name_prompt'), {title:t('tracker.new_title'), okText:t('tracker.new_next'), placeholder:t('tracker.new_name_placeholder')});
+  if(name===null) return; if(!name.trim()){ toast(t('tracker.empty_name')); return; }
+  const text=await askPrompt(t('tracker.new_point_prompt'), {title:t('tracker.new_title_named_prefix')+name.trim(), okText:t('tracker.new_create'), placeholder:t('tracker.new_point_placeholder')});
+  if(text===null) return; if(!text.trim()){ toast(t('tracker.empty_value')); return; }
+  let r; try{ r=await jpost('/api/tracker/add', {name:name.trim(), when:'', text:text.trim()}); }catch(_){ toast(t('tracker.network_error')); return; }
+  if(!r.ok){ toast(r.error||t('tracker.create_failed')); return; }
+  toast(t('tracker.created'));
   openTrackerDetail((name.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'tracker'), name.trim());
 }
 
@@ -118,9 +118,9 @@ async function renderTrackerEvents(){
   if(!TRACKER_CUR) return;
   const hero=document.getElementById('tracker-hero');
   const box=document.getElementById('tracker-events'); if(!box) return;
-  box.innerHTML='<span class="muted" style="font-size:12px">chargement…</span>';
-  let r; try{ r=await jget('/api/tracker/events?slug='+encodeURIComponent(TRACKER_CUR.slug)); }catch(_){ box.innerHTML='<span class="muted" style="font-size:12px">erreur</span>'; return; }
-  if(!r.ok){ box.innerHTML='<span class="muted" style="font-size:12px">'+(r.error||'erreur')+'</span>'; return; }
+  box.innerHTML='<span class="muted" style="font-size:12px">'+t('tracker.loading')+'</span>';
+  let r; try{ r=await jget('/api/tracker/events?slug='+encodeURIComponent(TRACKER_CUR.slug)); }catch(_){ box.innerHTML='<span class="muted" style="font-size:12px">'+t('tracker.error')+'</span>'; return; }
+  if(!r.ok){ box.innerHTML='<span class="muted" style="font-size:12px">'+(r.error||t('tracker.error'))+'</span>'; return; }
   TRACKER_CUR.name = r.name || TRACKER_CUR.name;
   const evs=(r.events||[]).slice().sort((a,b)=>b.ts-a.ts); // plus récent d'abord
   // Héros compact : nom + étendue seulement. Le dernier point n'est PAS répété ici :
@@ -129,18 +129,18 @@ async function renderTrackerEvents(){
     hero.innerHTML='';
     const nm=document.createElement('div'); nm.className='tracker-hero-name'; nm.textContent=r.name;
     const sub=document.createElement('div'); sub.className='tracker-hero-sub';
-    sub.textContent = evs.length ? (evs.length+' point'+(evs.length>1?'s':'')+' · depuis '+evs[evs.length-1].when.slice(0,10)) : 'aucun point';
+    sub.textContent = evs.length ? (evs.length+' '+(evs.length>1?t('tracker.point_plural'):t('tracker.point_singular'))+' · '+t('tracker.since')+' '+evs[evs.length-1].when.slice(0,10)) : t('tracker.no_points');
     hero.appendChild(nm); hero.appendChild(sub);
   }
   box.innerHTML='';
-  if(!evs.length){ box.innerHTML='<span class="muted" style="font-size:12px">aucun point. Ajoute-en un ci-dessus.</span>'; return; }
+  if(!evs.length){ box.innerHTML='<span class="muted" style="font-size:12px">'+t('tracker.no_points_hint')+'</span>'; return; }
   const curYear=new Date().getFullYear().toString();
   const byYear={}; evs.forEach(e=>{ const y=e.when.slice(0,4); (byYear[y]=byYear[y]||[]).push(e); });
   Object.keys(byYear).sort((a,b)=>b.localeCompare(a)).forEach(y=>{
     const yEvs=byYear[y];
     const yh=document.createElement('div'); yh.className='tracker-yhead';
     const wrap=document.createElement('div'); wrap.hidden=(y!==curYear);
-    const setLbl=()=>{ yh.innerHTML=''; const tri=document.createElement('span'); tri.textContent=(wrap.hidden?'▸':'▾')+' '+y; const c=document.createElement('span'); c.className='cnt'; c.textContent=yEvs.length+' pt'; yh.appendChild(tri); yh.appendChild(c); };
+    const setLbl=()=>{ yh.innerHTML=''; const tri=document.createElement('span'); tri.textContent=(wrap.hidden?'▸':'▾')+' '+y; const c=document.createElement('span'); c.className='cnt'; c.textContent=yEvs.length+' '+t('tracker.pt_abbrev'); yh.appendChild(tri); yh.appendChild(c); };
     setLbl();
     yh.onclick=()=>{ wrap.hidden=!wrap.hidden; setLbl(); };
     box.appendChild(yh);
@@ -157,9 +157,9 @@ function trackerEventRow(e){
   date.appendChild(dd);
   if(wp[1]){ const tt=document.createElement('span'); tt.className='tracker-pt-time'; tt.textContent=wp[1]; date.appendChild(tt); }
   const acts=document.createElement('div'); acts.className='tracker-pt-acts';
-  const ed=document.createElement('button'); ed.title='Modifier'; ed.innerHTML=sessIconSvg('pencil');
+  const ed=document.createElement('button'); ed.title=t('tracker.edit'); ed.innerHTML=sessIconSvg('pencil');
   ed.onclick=(ev)=>{ ev.stopPropagation(); openTrackerPtModal(e); };
-  const rm=document.createElement('button'); rm.className='danger'; rm.title='Supprimer'; rm.innerHTML=sessIconSvg('trash');
+  const rm=document.createElement('button'); rm.className='danger'; rm.title=t('tracker.delete'); rm.innerHTML=sessIconSvg('trash');
   rm.onclick=(ev)=>{ ev.stopPropagation(); deleteTrackerPoint(e); };
   acts.appendChild(ed); acts.appendChild(rm);
   row.appendChild(val); row.appendChild(date); row.appendChild(acts);
@@ -170,12 +170,12 @@ function trackerEventRow(e){
 // date seule = pas d'heure, date + heure = les deux.
 function trackerWhenValue(){
   const d=(document.getElementById('tracker-date')||{}).value||'';
-  const t=(document.getElementById('tracker-time')||{}).value||'';
+  const tv=(document.getElementById('tracker-time')||{}).value||'';
   // Ajout, champs inchangés depuis le préremplissage auto → « maintenant » (le serveur
   // horodate à l'instant réel de soumission, pas à l'ouverture du formulaire).
-  if(!TRACKER_EDIT && TRACKER_WHEN_AUTO && d===TRACKER_WHEN_AUTO.date && t===TRACKER_WHEN_AUTO.time) return '';
+  if(!TRACKER_EDIT && TRACKER_WHEN_AUTO && d===TRACKER_WHEN_AUTO.date && tv===TRACKER_WHEN_AUTO.time) return '';
   if(!d.trim()) return '';
-  return t.trim() ? (d.trim()+' '+t.trim()) : d.trim();
+  return tv.trim() ? (d.trim()+' '+tv.trim()) : d.trim();
 }
 // Réinitialise le formulaire d'ajout : note vide + Date/Heure préremplies à
 // l'instant présent (jamais de champ vide, qui s'affiche en boîte noire sur iOS).
@@ -186,7 +186,7 @@ function trackerClearForm(){
   const d=document.getElementById('tracker-date'); if(d) d.value=n.getFullYear()+'-'+p(n.getMonth()+1)+'-'+p(n.getDate());
   const tm=document.getElementById('tracker-time'); if(tm) tm.value=p(n.getHours())+':'+p(n.getMinutes());
   TRACKER_WHEN_AUTO={date:d?d.value:'', time:tm?tm.value:''};
-  const btn=document.getElementById('tracker-add-btn'); if(btn) btn.textContent='Ajouter';
+  const btn=document.getElementById('tracker-add-btn'); if(btn) btn.textContent=t('tracker.add');
 }
 
 // Ouvre le modal d'ajout (e absent) ou d'édition (e = point). Le formulaire vit
@@ -194,7 +194,7 @@ function trackerClearForm(){
 function openTrackerPtModal(e){
   if(!TRACKER_CUR) return;
   if(e) editTrackerPoint(e); else trackerClearForm();
-  const t=document.getElementById('tracker-pt-title'); if(t) t.textContent = e ? 'Modifier le point' : 'Ajouter un point';
+  const ttl=document.getElementById('tracker-pt-title'); if(ttl) ttl.textContent = e ? t('tracker.edit_point_title') : t('tracker.add_point_title');
   showModal('tracker-pt-modal');
   const tx=document.getElementById('tracker-text'); if(tx){ tx.focus(); }
 }
@@ -203,32 +203,33 @@ function closeTrackerPtModal(){ hideModal('tracker-pt-modal'); trackerClearForm(
 async function trackerAddPoint(){
   if(!TRACKER_CUR) return;
   const tx=document.getElementById('tracker-text');
-  const text=(tx&&tx.value||'').trim(); if(!text){ toast('valeur vide'); if(tx) tx.focus(); return; }
+  const text=(tx&&tx.value||'').trim(); if(!text){ toast(t('tracker.empty_value')); if(tx) tx.focus(); return; }
   const when=trackerWhenValue();
   let r;
   try{
     if(TRACKER_EDIT) r=await jpost('/api/tracker/edit', {slug:TRACKER_CUR.slug, id:TRACKER_EDIT.id, text, when});
     else r=await jpost('/api/tracker/add', {name:TRACKER_CUR.name, when, text});
-  }catch(_){ toast('erreur réseau'); return; }
-  if(!r.ok){ toast(r.error||'échec'); return; }
+  }catch(_){ toast(t('tracker.network_error')); return; }
+  if(!r.ok){ toast(r.error||t('tracker.add_failed')); return; }
   closeTrackerPtModal();
   renderTrackerEvents();
 }
 
-// Édition INLINE : préremplit le formulaire d'ajout (le bouton devient « Enregistrer »).
+// Préremplit le formulaire (partagé ajout/édition, vit dans tracker-pt-modal) avec le
+// point visé et bascule le bouton sur « Enregistrer ».
 function editTrackerPoint(e){
   TRACKER_EDIT=e;
   const parts=(e.when||'').split(' ');
   const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.value=v||''; };
   set('tracker-text', e.text); set('tracker-date', parts[0]||''); set('tracker-time', parts[1]||'');
-  const btn=document.getElementById('tracker-add-btn'); if(btn) btn.textContent='Enregistrer';
+  const btn=document.getElementById('tracker-add-btn'); if(btn) btn.textContent=t('tracker.save');
   const tx=document.getElementById('tracker-text'); if(tx) tx.focus();
 }
 
 async function deleteTrackerPoint(e){
-  if(!await askConfirm('Supprimer ce point ?\n\n'+e.when+' — '+e.text, {title:'Supprimer le point', okText:'Supprimer', danger:true})) return;
-  let r; try{ r=await jpost('/api/tracker/delete', {slug:TRACKER_CUR.slug, id:e.id}); }catch(_){ toast('erreur réseau'); return; }
-  if(!r.ok){ toast(r.error||'suppression impossible'); return; }
+  if(!await askConfirm(t('tracker.delete_point_confirm_prefix')+e.when+' — '+e.text, {title:t('tracker.delete_point_title'), okText:t('tracker.delete'), danger:true})) return;
+  let r; try{ r=await jpost('/api/tracker/delete', {slug:TRACKER_CUR.slug, id:e.id}); }catch(_){ toast(t('tracker.network_error')); return; }
+  if(!r.ok){ toast(r.error||t('tracker.delete_point_failed')); return; }
   if(TRACKER_EDIT && TRACKER_EDIT.id===e.id) trackerClearForm();
   renderTrackerEvents();
 }

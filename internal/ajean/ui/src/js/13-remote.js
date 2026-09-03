@@ -12,17 +12,17 @@ function renderRemote(d){
     // Serveur jamais lié : on l'affiche explicitement plutôt que de laisser la
     // pastille vide, qui se lisait comme « je ne sais pas ».
     off.style.display=''; on.style.display='none';
-    setBadge(badge, false, 'non connecté');
+    setBadge(badge, false, t('remote.not_connected'));
     return;
   }
   off.style.display='none'; on.style.display='';
   document.getElementById('remote-url').value = d.machineURL || '';
   const st = document.getElementById('remote-status');
-  if(d.active){ st.textContent='● en ligne — accessible à distance'; st.style.color='var(--accent)'; }
-  else { st.textContent='○ tunnel arrêté (l\'accès distant ne répondra pas)'; st.style.color='var(--warn)'; }
+  if(d.active){ st.textContent='● '+t('remote.online_status'); st.style.color='var(--accent)'; }
+  else { st.textContent='○ '+t('remote.tunnel_stopped'); st.style.color='var(--warn)'; }
   const sb = document.getElementById('remote-start');
   if(sb){ sb.style.display = d.active ? 'none' : ''; }
-  setBadge(badge, d.active ? true : 'warn', d.active ? 'connecté' : 'arrêté');
+  setBadge(badge, d.active ? true : 'warn', d.active ? t('remote.connected') : t('remote.stopped'));
 }
 
 async function loadRemote(){
@@ -37,10 +37,10 @@ async function loadRemote(){
 
 // Ouvre la popup de connexion et attend la clé renvoyée par postMessage.
 function remoteConnect(){
-  const params = new URLSearchParams({ origin: window.location.origin, host: window.location.hostname || 'ce serveur' });
+  const params = new URLSearchParams({ origin: window.location.origin, host: window.location.hostname || t('remote.this_server') });
   const url = AJEAN_APP_ORIGIN + '/connect.html?' + params.toString();
   const pop = window.open(url, 'ajean-connect', 'width=440,height=640');
-  if(!pop){ toast('autorisez les popups pour connecter ajean.link'); return; }
+  if(!pop){ toast(t('remote.allow_popups')); return; }
 
   async function onMsg(ev){
     // Anti-usurpation : n'accepte QUE des messages du portail ajean.link.
@@ -51,13 +51,13 @@ function remoteConnect(){
     try{
       const r = await jpost('/api/link/connect', { token: d.token });
       if(r && r.linked){
-        toast('✓ accès distant connecté');
-        if(r.serviceErr){ toast('token enregistré (service : '+r.serviceErr+')'); }
+        toast('✓ '+t('remote.remote_access_connected'));
+        if(r.serviceErr){ toast(t('remote.token_saved_service_prefix')+r.serviceErr+')'); }
         loadRemote();
       } else {
-        toast((r && r.error) || 'échec de la connexion');
+        toast((r && r.error) || t('remote.connection_failed'));
       }
-    }catch(e){ toast('erreur : '+e); }
+    }catch(e){ toast(t('remote.error_prefix')+e); }
   }
   window.addEventListener('message', onMsg);
 }
@@ -65,32 +65,32 @@ function remoteConnect(){
 // Relance le tunnel avec la clé déjà enregistrée (sans repasser par la popup).
 async function remoteStart(){
   const b = document.getElementById('remote-start');
-  if(b){ b.disabled = true; b.textContent = 'démarrage…'; }
+  if(b){ b.disabled = true; b.textContent = t('remote.starting'); }
   try{
     const r = await jpost('/api/link/start', {});
-    if(r && r.active){ toast('✓ tunnel démarré'); }
-    else { toast((r && r.error) || 'le tunnel n\'a pas démarré'); }
-  }catch(e){ toast('erreur : '+e); }
-  if(b){ b.disabled = false; b.textContent = 'démarrer le tunnel'; }
+    if(r && r.active){ toast('✓ '+t('remote.tunnel_started')); }
+    else { toast((r && r.error) || t('remote.tunnel_did_not_start')); }
+  }catch(e){ toast(t('remote.error_prefix')+e); }
+  if(b){ b.disabled = false; b.textContent = t('remote.start_tunnel_btn'); }
   loadRemote();
 }
 
 async function remoteDisconnect(){
-  const ok = await askConfirm('Couper l\'accès distant et oublier la clé de liaison de ce serveur ?', {title:'Accès distant', okLabel:'Déconnecter'});
+  const ok = await askConfirm(t('remote.confirm_disconnect'), {title:t('remote.remote_access_title'), okLabel:t('remote.disconnect_btn')});
   if(!ok) return;
-  try{ await jpost('/api/link/disconnect', {}); toast('accès distant coupé'); loadRemote(); }
-  catch(e){ toast('erreur : '+e); }
+  try{ await jpost('/api/link/disconnect', {}); toast(t('remote.remote_access_cut')); loadRemote(); }
+  catch(e){ toast(t('remote.error_prefix')+e); }
 }
 
 async function remotePairCode(){
   const box = document.getElementById('remote-pair');
-  box.style.display=''; box.textContent='génération du code…';
+  box.style.display=''; box.textContent=t('remote.generating_code');
   try{
     const r = await jpost('/api/link/paircode', {});
     if(r && r.code){
-      box.innerHTML = 'Empreinte : <b>'+(r.fingerprint||'—')+'</b><br>Code d\'appairage (valable 10 min, usage unique) : <b>'+r.code+'</b>';
+      box.innerHTML = t('remote.fingerprint_label')+' <b>'+(r.fingerprint||'—')+'</b><br>'+t('remote.pairing_code_label')+' : <b>'+r.code+'</b>';
     } else {
-      box.textContent = (r && r.error) || 'code indisponible';
+      box.textContent = (r && r.error) || t('remote.code_unavailable');
     }
-  }catch(e){ box.textContent='erreur : '+e; }
+  }catch(e){ box.textContent=t('remote.error_prefix')+e; }
 }

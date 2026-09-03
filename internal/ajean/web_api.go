@@ -198,7 +198,19 @@ func handleVram(w http.ResponseWriter, r *http.Request) {
 // GlobalMemoryStatusEx sous Windows). total=0 → l'UI masque le bloc.
 func handleRam(w http.ResponseWriter, r *http.Request) {
 	used, total := ramUsageMB()
-	sendJSON(w, 200, map[string]any{"used": used, "total": total})
+	out := map[string]any{"used": used, "total": total}
+	// Part du total qui revient à ajean lui-même et à son moteur (Windows
+	// seulement pour l'instant, voir web_procmem_windows.go) : le total système
+	// seul ne dit jamais si une machine qui sature est due au modèle chargé ou à
+	// autre chose qui tourne à côté.
+	pr := currentProcessRAM()
+	if pr.HasAjean {
+		out["ajean_used"] = pr.AjeanMiB
+	}
+	if pr.HasLlama {
+		out["llama_used"] = pr.LlamaMiB
+	}
+	sendJSON(w, 200, out)
 }
 
 func handleConfigEnv(w http.ResponseWriter, r *http.Request) {
