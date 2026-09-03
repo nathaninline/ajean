@@ -25,7 +25,7 @@ async function jfetch(u, opts){
   let r;
   try{ r = await fetch(u, opts); }
   catch(e){
-    if(e && e.name==='AbortError'){ throw new Error('requête sans réponse après 30 s (trop d\'onglets AJEAN ouverts ?)'); }
+    if(e && e.name==='AbortError'){ throw new Error(t('api.timeout_error')); }
     throw e;
   }
   finally{ if(timer) clearTimeout(timer); }
@@ -46,7 +46,7 @@ async function jfetch(u, opts){
 let _keyAsk = null;
 function askKeyOnce(){
   if(!_keyAsk){
-    _keyAsk = askPrompt('Clé de pilotage AJEAN requise :', {title:'Authentification', placeholder:'clé…'})
+    _keyAsk = askPrompt(t('api.key_required_msg'), {title:t('api.auth_title'), placeholder:t('api.key_placeholder')})
       .then(k => {
         _keyAsk = null;
         if(k){ TOKEN = k.trim(); localStorage.setItem('ajean.key', TOKEN); }

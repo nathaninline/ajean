@@ -64,7 +64,7 @@ function _openAsk(kind, message, opts){
   // TOUJOURS (requête suspendue, bouton figé). On l'annule proprement d'abord.
   if(_askResolver){ const prev=_askResolver; _askResolver=null; prev(_askKind==='prompt' ? null : false); }
   _askKind=kind;
-  document.getElementById('ask-title').textContent = opts.title || (kind==='alert'?'Info':kind==='prompt'?'Saisie':'Confirmation');
+  document.getElementById('ask-title').textContent = opts.title || (kind==='alert'?t('uikit.info_title'):kind==='prompt'?t('uikit.prompt_title'):t('uikit.confirm_title'));
   document.getElementById('ask-msg').textContent = message||'';
   const inp=document.getElementById('ask-input'), ta=document.getElementById('ask-textarea');
   _askMultiline = kind==='prompt' && !!opts.multiline;
@@ -81,8 +81,8 @@ function _openAsk(kind, message, opts){
   _askCheck=!!opts.checkOn;
   const cancel=document.getElementById('ask-cancel'), ok=document.getElementById('ask-ok');
   cancel.style.display = kind==='alert' ? 'none' : '';
-  cancel.textContent = opts.cancelText || 'Annuler';
-  ok.textContent = opts.okText || (kind==='alert'?'OK':kind==='prompt'?'Valider':'Confirmer');
+  cancel.textContent = opts.cancelText || t('uikit.cancel');
+  ok.textContent = opts.okText || (kind==='alert'?t('uikit.ok'):kind==='prompt'?t('uikit.validate'):t('uikit.confirm'));
   ok.classList.toggle('danger', !!opts.danger);
   showModal('ask-modal');
   document.addEventListener('keydown', _askKey, true);

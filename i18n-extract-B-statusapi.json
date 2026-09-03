@@ -1,0 +1,81 @@
+{
+  "uikit.info_title": "Info",
+  "uikit.prompt_title": "Saisie",
+  "uikit.confirm_title": "Confirmation",
+  "uikit.cancel": "Annuler",
+  "uikit.ok": "OK",
+  "uikit.validate": "Valider",
+  "uikit.confirm": "Confirmer",
+
+  "api.timeout_error": "requête sans réponse après 30 s (trop d'onglets AJEAN ouverts ?)",
+  "api.key_required_msg": "Clé de pilotage AJEAN requise :",
+  "api.auth_title": "Authentification",
+  "api.key_placeholder": "clé…",
+
+  "status.stopped": "arrêté",
+  "status.ready": "prêt",
+  "status.error": "erreur",
+  "status.loading": "chargement…",
+
+  "status.stale_currently": "actuellement",
+  "status.stale_intro": "Le serveur AJEAN de cette machine n'est pas à jour",
+  "status.stale_new_version": "La version",
+  "status.stale_recommend": "est disponible. Il est recommandé de le mettre à jour pour profiter de toutes les fonctionnalités et éviter d'éventuels bugs de compatibilité.",
+  "status.update_btn": "Mettre à jour",
+  "status.stale_dismiss_btn": "ignorer",
+  "status.update_in_progress": "Mise à jour en cours… le serveur va redémarrer et l'interface se reconnectera seule.",
+  "status.update_launched_toast": "mise à jour du serveur lancée…",
+
+  "status.log_loading": "chargement du journal…",
+  "status.log_empty_full": "journal vide — le moteur n'a encore rien écrit.",
+  "status.log_unavailable_prefix": "journal indisponible :",
+  "status.log_empty_short": "journal vide",
+  "status.copied": "copié ✓",
+
+  "status.checking": "Vérification…",
+  "status.error_prefix": "Erreur :",
+  "status.new_version_prefix": "Nouvelle version",
+  "status.new_version_suffix": "disponible.",
+  "status.up_to_date": "AJEAN est à jour ✓",
+  "status.network_error": "Erreur réseau",
+
+  "status.loading_dots": "…",
+  "status.path_data": "Données",
+  "status.path_database": "Base (config, préférences, conversation)",
+  "status.path_models": "Modèles",
+  "status.path_presets": "Presets",
+  "status.path_memory": "Mémoire",
+  "status.path_workspace": "Fichiers créés par l'IA",
+  "status.path_backends": "Moteur llama.cpp",
+  "status.path_exe": "Programme",
+  "status.generic_error": "Erreur",
+
+  "status.downloading_installing": "Téléchargement et installation…",
+  "status.installed_prefix": "Installé en",
+  "status.update_applied_toast": "mise à jour appliquée — reconnexion…",
+  "status.failed_prefix": "Échec :",
+  "status.unknown": "inconnu",
+  "status.update_error": "Erreur pendant la mise à jour (réessaie).",
+
+  "status.compacted_suffix": "× compacté",
+  "status.compact_tooltip_prefix": "Le contexte de cette session a été résumé",
+  "status.compact_tooltip_suffix": "fois. Après plusieurs compactages, les tout premiers détails se diluent : pense à repartir sur une nouvelle session si le fil dérive.",
+
+  "status.ctx_used_prefix": "contexte utilisé :",
+  "status.ctx_tokens_suffix": "jetons",
+
+  "status.reason_level_prefix": "Niveau de réflexion :",
+  "status.reason_level_suffix": "— clic pour changer",
+  "status.reason_toast_prefix": "réflexion :",
+  "status.reason_default": "défaut du modèle",
+  "status.reason_set_failed": "réglage du niveau impossible",
+
+  "status.no_gpu": "(pas de GPU)",
+  "status.ram_label": "Mémoire vive",
+  "status.used_pct_suffix": "utilisée",
+
+  "status.cfg_engine": "MOTEUR",
+  "status.engine_prebuilt": "llama.cpp précompilé",
+  "status.engine_compiled": "llama.cpp compilé",
+  "status.engine_custom_prefix": "llama.cpp personnalisé :"
+}

@@ -22,7 +22,7 @@ function addPending(text){
   clearPending();
   PENDING=addMsg('user', text);
   PENDING.classList.add('pending');
-  const l=PENDING.querySelector('.label'); if(l) l.textContent='envoi…';
+  const l=PENDING.querySelector('.label'); if(l) l.textContent=t('chat.sending');
   jumpBottom();
   return PENDING;
 }
@@ -207,7 +207,7 @@ function setCompacting(on){
     const g=ensureGenEl();
     genStatusOn(true);
     g.classList.add('compacting');
-    g.querySelector('.gtxt').textContent='compactage…';
+    g.querySelector('.gtxt').textContent=t('chat.compacting');
     scrollMaybe();
     return;
   }
@@ -220,7 +220,7 @@ function setCompacting(on){
 function addCompactMark(){
   const el=document.createElement('div');
   el.className='compact-mark';
-  el.textContent='contexte compacté : anciens tours résumés';
+  el.textContent=t('chat.context_compacted_mark');
   // Devant la barre d'état encore à l'écran (compactage en cours de tour) : la
   // suite de la réponse doit rester APRÈS la marque de coupure. La barre de
   // génération (GENEL) est le repère ; à défaut l'ancien indicateur de frappe.
@@ -247,13 +247,13 @@ function renderStats(el, s){
   if(!el||!s) return;
   const parts=[];
   const pt=s.prompt_tokens||s.prompt_tokens_total;
-  if(pt) parts.push('prefill '+pt+' tok · '+(s.prompt_per_second||0).toFixed(0)+' tok/s');
-  if(s.gen_tokens) parts.push('decode '+s.gen_tokens+' tok · '+(s.gen_per_second||0).toFixed(1)+' tok/s');
+  if(pt) parts.push(t('chat.prefill')+' '+pt+' '+t('chat.tok_unit')+' · '+(s.prompt_per_second||0).toFixed(0)+' tok/s');
+  if(s.gen_tokens) parts.push(t('chat.decode')+' '+s.gen_tokens+' '+t('chat.tok_unit')+' · '+(s.gen_per_second||0).toFixed(1)+' tok/s');
   if(!parts.length) return;
   // Réponse de l'assistant : ligne de mesures dédiée sous le texte (son étiquette
   // est masquée dans cette mise en page). Bulle repliable : l'étiquette EST le
   // bouton de repli, on y écrit comme avant.
-  if(el.classList.contains('collapsible')){ setIcon(el,'brain'); setLabel(el, ['Réflexion'].concat(parts).join('  ·  ')); }
+  if(el.classList.contains('collapsible')){ setIcon(el,'brain'); setLabel(el, [t('chat.reflection_label')].concat(parts).join('  ·  ')); }
   else setStats(el, parts.join('  ·  '));
 }
 // Label d'une bulle de raisonnement : rôle + nombre de tokens. PAS de vitesse
@@ -267,10 +267,10 @@ function labelTokens(el, role, n, firstTs, lastTs){
   // décompte de tokens final. Les autres rôles gardent leur libellé brut + tokens.
   if(role==='reasoning'){
     const active = el.classList.contains('working');
-    setLabel(el, active ? 'Réflexion en cours…' : 'Réflexion  ·  '+n+' tok');
+    setLabel(el, active ? t('chat.reasoning_in_progress') : t('chat.reflection_label')+'  ·  '+n+' '+t('chat.tok_unit'));
     return;
   }
-  setLabel(el, role+'  ·  '+n+' tok');
+  setLabel(el, role+'  ·  '+n+' '+t('chat.tok_unit'));
 }
 // Pendant le replay on met à jour l'état `busy` mais on NE touche PAS aux boutons
 // (sinon user→stop puis turn_done→send à chaque tour rejoué = flottement visible).
@@ -287,18 +287,18 @@ function syncSendBtn(){
   stop.style.display=busy?'flex':'none';
   // Le bouton stop est une icône (carré) : on ne touche PAS à son contenu (sinon on
   // écraserait le SVG), seulement au tooltip pour signaler une tâche de fond.
-  stop.title = (busy && RUNNING_TASK) ? ('Arrêter la tâche « '+RUNNING_TASK+' »') : 'stop';
+  stop.title = (busy && RUNNING_TASK) ? (t('chat.stop_task_prefix')+RUNNING_TASK+t('chat.stop_task_suffix')) : t('chat.stop');
   // Tant que le moteur n'a pas fini de charger le modèle, envoyer ne mène à rien :
   // on bloque le bouton et l'Entrée, et on le DIT sous le champ. `STATUS_SEEN`
   // évite de verrouiller le chat quand /api/status n'a pas encore répondu (ou ne
   // répond pas du tout) — dans le doute on laisse la main.
   const ready = !STATUS_SEEN || MODEL_READY;
   sb.disabled = !ready;
-  sb.title = ready ? '' : 'le modèle n\'est pas encore chargé';
+  sb.title = ready ? '' : t('chat.model_not_loaded');
   const hint=document.getElementById('sendhint');
   if(hint){
     hint.textContent = ready ? sendHintText()
-                             : 'Le modèle charge, envoi possible dès qu\'il est prêt.';
+                             : t('chat.model_loading_hint');
     hint.classList.toggle('waiting', !ready);
   }
 }
@@ -443,7 +443,7 @@ function handleDelta(d){
   // (« rien à compacter » qui revient sans raison). C'est un événement ponctuel,
   // il n'a de sens qu'en direct — contrairement à la marque `compacted`, qui est
   // une trace du fil et DOIT être rejouée.
-  if(d.compact_noop){ setCompacting(false); if(!REPLAYING) toast('rien à compacter (contexte déjà minimal)'); return; }
+  if(d.compact_noop){ setCompacting(false); if(!REPLAYING) toast(t('chat.compact_noop')); return; }
   if(d.ctx_used!==undefined){ setCtxUsed(d.ctx_used); return; }
   if(d.compact_count!==undefined){ setCompactCount(d.compact_count); return; }
   if(d.stats){ T.serverStats=d.stats;
@@ -540,7 +540,7 @@ async function connectStream(){
     streamAbort=new AbortController();
     try{
       const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:lastSeq}),signal:streamAbort.signal});
-      if(REPLAYING) setChatLoading('chargement de la conversation…');
+      if(REPLAYING) setChatLoading(t('chat.loading_conversation'));
       const reader=r.body.getReader(); const dec=new TextDecoder(); let buf='';
       while(true){
         const {done,value}=await reader.read(); if(done) break;
@@ -558,13 +558,13 @@ async function connectStream(){
     // Le flux s'est arrêté (coupure ou fin prématurée). Si le fil n'a JAMAIS fini
     // de charger, le silence est trompeur — un chat vide sans explication. On le
     // dit dans le voile ; il disparaîtra au {caught_up} de la reconnexion.
-    if(REPLAYING) setChatLoading('connexion au serveur…');
+    if(REPLAYING) setChatLoading(t('chat.connecting_to_server'));
     await new Promise(res=>setTimeout(res, 600));
   }
 }
 // Interrompt la génération en cours côté serveur (la goroutine détachée est
 // annulée). Le serveur émet alors turn_done → le bouton repasse en « send ».
-function stopGen(){ jfetch('/api/chat/stop',{method:'POST'}).catch(()=>{}); toast('stop'); }
+function stopGen(){ jfetch('/api/chat/stop',{method:'POST'}).catch(()=>{}); toast(t('chat.stop')); }
 // Recale l'état du bouton sur la vérité serveur. Ne touche à rien pendant le replay
 // initial (l'état final y est posé au caught_up) ni si l'appel échoue : dans le
 // doute on garde ce que les événements ont déjà établi.
@@ -608,7 +608,7 @@ setInterval(reconcileBusy, 3000);
 async function send(){
   if(busy) return;
   // Garde-fou : le bouton est déjà désactivé, mais l'Entrée passe aussi par ici.
-  if(STATUS_SEEN && !MODEL_READY){ toast('le modèle n\'est pas encore prêt'); return; }
+  if(STATUS_SEEN && !MODEL_READY){ toast(t('chat.model_not_ready')); return; }
   const ta=document.getElementById('input'); const text=ta.value.trim();
   // Un envoi sans texte est légitime s'il porte une pièce jointe (« tiens, regarde »).
   if(!text && !ATTACH.length) return;
@@ -621,7 +621,7 @@ async function send(){
   // ne sont retirées qu'une fois le message accepté : tant qu'il n'est pas parti,
   // on doit pouvoir en enlever une, et un échec doit rester visible.
   const files=await attachPaths();
-  if(!text && !files.length){ fail('aucun fichier n\'a pu être déposé'); return; }
+  if(!text && !files.length){ fail(t('chat.no_file_uploaded')); return; }
   // Les pastilles passent dans la bulle en attente : le message porte ses
   // fichiers dès l'envoi, sans attendre l'aller-retour.
   if(PENDING) addMsgFiles(PENDING, attachSent());
@@ -631,13 +631,13 @@ async function send(){
       if(r.status===409 || r.ok) clearAttach();
       if(r.status===409) return;               // déjà en cours (notre envoi a abouti) → OK
       if(r.ok) return;                          // la bulle + les tokens arrivent par le flux
-      if(r.status<500){ let m='erreur'; try{ m=(await r.json()).error||m; }catch(_){} fail(m); return; }
+      if(r.status<500){ let m=t('chat.error'); try{ m=(await r.json()).error||m; }catch(_){} fail(m); return; }
     }catch(e){ /* réseau : on retente */ }
     await new Promise(res=>setTimeout(res, 600));
   }
   // Après plusieurs échecs : le serveur a peut-être quand même reçu le message.
   try{ const s=await (await jfetch('/api/chat/state')).json(); if(s.generating) return; }catch(_){}
-  fail('échec de l\'envoi — réessaie');
+  fail(t('chat.send_failed_retry'));
 }
 loadAll();
 // Une seule fois au démarrage (interroge GitHub côté serveur) : prévient en accès

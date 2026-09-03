@@ -386,6 +386,13 @@ func handleModels(w http.ResponseWriter, r *http.Request) {
 				"name": e.Name(), "size": size, "value": value,
 				"path": full, "dir": dir, "home": isHome,
 			}
+			// Couches totales du modèle (issue #43 upstream) : calibrer NGL à la
+			// baisse suppose de savoir de quoi "999 = tout sur le GPU" part. Lecture
+			// best-effort de l'en-tête GGUF seul (quelques Ko), jamais les poids —
+			// absent si le fichier n'est pas lisible/pas un GGUF valide.
+			if layers, ok := ggufBlockCount(full); ok {
+				m["layers"] = layers
+			}
 			// Taille annoncée = la famille entière, et on signale les tranches
 			// manquantes : un modèle incomplet démarre puis meurt sur un tenseur
 			// introuvable, autant le voir avant de le sélectionner.

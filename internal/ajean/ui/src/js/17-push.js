@@ -48,21 +48,21 @@ async function pushRefresh(){
     cb.checked = false; cb.disabled = true;
     // iOS ne sait faire du Web Push QUE depuis une PWA ajoutée à l'écran d'accueil.
     if(document.documentElement.getAttribute('data-pwa')!=='1' && /iphone|ipad|ipod/i.test(navigator.userAgent))
-      pushSetStatus('Sur iPhone : ajoute d\'abord AJEAN à l\'écran d\'accueil, puis rouvre-le depuis l\'icône pour activer les notifications.');
+      pushSetStatus(t('push.ios_add_to_home'));
     else
-      pushSetStatus('Ce navigateur ne prend pas en charge les notifications.');
+      pushSetStatus(t('push.not_supported'));
     return;
   }
   if(Notification.permission === 'denied'){
     cb.checked = false; cb.disabled = false;
-    pushSetStatus('Notifications bloquées dans les réglages du navigateur — réautorise-les pour ce site.');
+    pushSetStatus(t('push.blocked_in_browser'));
     return;
   }
   try{
     const reg = await pushRegisterSW();
     const sub = await reg.pushManager.getSubscription();
     cb.checked = !!sub; cb.disabled = false;
-    pushSetStatus(sub ? 'Activées : une notif à chaque réponse terminée.' : '');
+    pushSetStatus(sub ? t('push.enabled_status') : '');
   }catch(e){ cb.checked=false; pushSetStatus(''); }
 }
 
@@ -75,21 +75,21 @@ async function togglePush(){
     if(want){
       // Permission (geste utilisateur = ce clic). Refus → on éteint et on explique.
       const perm = await Notification.requestPermission();
-      if(perm !== 'granted'){ cb.checked=false; pushSetStatus('Permission refusée — rien ne sera envoyé.'); return; }
+      if(perm !== 'granted'){ cb.checked=false; pushSetStatus(t('push.permission_denied')); return; }
       const reg = await pushRegisterSW();
       let sub = await reg.pushManager.getSubscription();
       if(!sub){
         const r = await jget('/api/push/key');
-        if(!r || !r.key){ cb.checked=false; pushSetStatus('Clé serveur indisponible — réessaie.'); return; }
+        if(!r || !r.key){ cb.checked=false; pushSetStatus(t('push.server_key_unavailable')); return; }
         sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,               // exigé par Chrome : pas de push silencieux
           applicationServerKey: urlB64ToUint8Array(r.key)
         });
       }
       const res = await jpost('/api/push/subscribe', sub.toJSON());
-      if(!res || !res.ok){ pushSetStatus('Échec de l\'enregistrement côté serveur.'); }
-      else pushSetStatus('Activées : une notif à chaque réponse terminée.');
-      toast('notifications activées');
+      if(!res || !res.ok){ pushSetStatus(t('push.server_registration_failed')); }
+      else pushSetStatus(t('push.enabled_status'));
+      toast(t('push.notifications_enabled'));
     } else {
       const reg = await pushRegisterSW();
       const sub = await reg.pushManager.getSubscription();
@@ -99,11 +99,11 @@ async function togglePush(){
         await jpost('/api/push/unsubscribe', {endpoint:ep}).catch(()=>{});
       }
       pushSetStatus('');
-      toast('notifications coupées');
+      toast(t('push.notifications_disabled'));
     }
   }catch(e){
     cb.checked = !want;
-    pushSetStatus('Erreur : ' + (e && e.message ? e.message : e));
+    pushSetStatus(t('push.error_prefix') + (e && e.message ? e.message : e));
   }
 }
 
