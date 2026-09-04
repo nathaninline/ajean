@@ -270,6 +270,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/chat/history/fav", handleChatHistoryFav)         // épingle/dépingle en favori
 	api("/api/chat/history/clear", handleChatHistoryClear)     // supprime tout sauf les favoris
 	api("/api/chat/compact", handleChatCompact)                // compaction manuelle du contexte
+	api("/api/chat/passation", handleChatPassation)            // passation : résumé structuré → page mémoire datée (jamais écrasée)
 	api("/api/chat/state", handleChatState)                    // instantané léger {seq, generating, ctx_used}
 	api("/api/chat/export", handleChatExport)                  // téléchargement du fil (?format=md|json)
 	// /api/e2e/chat s'authentifie LUI-MÊME (e2eAuthOpenReq) : pas de requireWebAuth

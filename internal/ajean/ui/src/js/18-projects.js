@@ -342,6 +342,12 @@ function togglePlusMenu(e){
   if(typeof COMPACT_AVAILABLE!=='undefined' && COMPACT_AVAILABLE){
     pop.appendChild(item(icCompact, 'Compacter le contexte', ()=>{ if(typeof compactContext==='function') compactContext(); }));
   }
+  // « Passation » : l'IA résume la conversation (Objectif / Problématique /
+  // Fichiers importants / Ce qui a raté / Prochaine étape) et pose le document
+  // comme page mémoire datée. Ne vide rien, n'injecte rien — la reprise est une
+  // demande explicite de l'utilisateur dans la session d'après.
+  const icPassation = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>';
+  pop.appendChild(item(icPassation, 'Passation (reprendre plus tard)', ()=>{ if(typeof makePassation==='function') makePassation(); }));
   document.body.appendChild(pop);
   // Positionne AU-DESSUS du bouton (le composeur est en bas de l'écran), calé à gauche.
   // Écart plus généreux pour ne pas coller à la zone de saisie.

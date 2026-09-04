@@ -5979,6 +5979,20 @@ async function compactContext(){
     if(!j.ok) toast(j.error||'compaction indisponible');
   }catch(e){ toast('erreur : '+(e.message||e)); }
 }
+// Passation : l'IA résume la conversation dans la trame imposée (Objectif /
+// Problématique / Fichiers importants / Ce qui a raté / Prochaine étape) et
+// pose le document comme PAGE MÉMOIRE datée (passation-<date>.md, jamais
+// écrasée). Ne vide rien, n'injecte rien — la conversation continue. La
+// reprise se fera plus tard par une demande explicite (« lis la passation la
+// plus récente et reprends »). La progression arrive par le flux (passation).
+async function makePassation(){
+  if(!await askConfirm('Résumer la conversation en passation (Objectif / Problématique / Fichiers importants / Ce qui a raté / Prochaine étape) et la poser comme page mémoire datée ? Rien n\u2019est vidé : tu pourras repartir dessus quand tu veux.', {title:'Passation', okText:'Écrire la passation'})) return;
+  try{
+    const r=await jfetch('/api/chat/passation',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    const j=await r.json().catch(()=>({}));
+    if(!j.ok) toast(j.error||'passation indisponible');
+  }catch(e){ toast('erreur : '+(e.message||e)); }
+}
 // Persistance de la conversation : on garde user+assistant en localStorage pour
 // survivre à un refresh (les bulles tool/reasoning sont éphémères, non stockées).
 function saveChat(){ try{ localStorage.setItem('ajean.chat', JSON.stringify(msgs)); }catch(e){} }
@@ -6543,6 +6557,15 @@ function handleDelta(d){
   if(d.error){ smoothSnap(); flushRender(); elapsedStop(); removeTyping(); setActive(null); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
   if(d.compacting!==undefined){ setCompacting(d.compacting); return; }
   if(d.compacted){ setCompacting(false); addCompactMark(); return; }
+  // Passation : point de sauvegarde volontaire → page mémoire datée. La
+  // progression est un événement ponctuel (toast en direct, silencieux au
+  // replay, comme compact_noop) — la trace durable, c'est la page mémoire elle-même.
+  if(d.passation){
+    if(d.passation==='done'){ if(!REPLAYING) toast('passation écrite : '+d.file); }
+    else if(d.passation==='erreur'){ if(!REPLAYING) toast('passation : '+(d.detail||'erreur')); }
+    // 'en_cours' : silencieux (l'appel au modèle peut durer).
+    return;
+  }
   // Pas de toast au REPLAY : le journal est rejoué à chaque chargement de page,
   // donc une notification persistée se re-déclenchait à chaque rafraîchissement
   // (« rien à compacter » qui revient sans raison). C'est un événement ponctuel,
@@ -8769,6 +8792,12 @@ function togglePlusMenu(e){
   if(typeof COMPACT_AVAILABLE!=='undefined' && COMPACT_AVAILABLE){
     pop.appendChild(item(icCompact, 'Compacter le contexte', ()=>{ if(typeof compactContext==='function') compactContext(); }));
   }
+  // « Passation » : l'IA résume la conversation (Objectif / Problématique /
+  // Fichiers importants / Ce qui a raté / Prochaine étape) et pose le document
+  // comme page mémoire datée. Ne vide rien, n'injecte rien — la reprise est une
+  // demande explicite de l'utilisateur dans la session d'après.
+  const icPassation = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>';
+  pop.appendChild(item(icPassation, 'Passation (reprendre plus tard)', ()=>{ if(typeof makePassation==='function') makePassation(); }));
   document.body.appendChild(pop);
   // Positionne AU-DESSUS du bouton (le composeur est en bas de l'écran), calé à gauche.
   // Écart plus généreux pour ne pas coller à la zone de saisie.

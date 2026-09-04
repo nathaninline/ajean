@@ -438,6 +438,15 @@ function handleDelta(d){
   if(d.error){ smoothSnap(); flushRender(); elapsedStop(); removeTyping(); setActive(null); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
   if(d.compacting!==undefined){ setCompacting(d.compacting); return; }
   if(d.compacted){ setCompacting(false); addCompactMark(); return; }
+  // Passation : point de sauvegarde volontaire → page mémoire datée. La
+  // progression est un événement ponctuel (toast en direct, silencieux au
+  // replay, comme compact_noop) — la trace durable, c'est la page mémoire elle-même.
+  if(d.passation){
+    if(d.passation==='done'){ if(!REPLAYING) toast('passation écrite : '+d.file); }
+    else if(d.passation==='erreur'){ if(!REPLAYING) toast('passation : '+(d.detail||'erreur')); }
+    // 'en_cours' : silencieux (l'appel au modèle peut durer).
+    return;
+  }
   // Pas de toast au REPLAY : le journal est rejoué à chaque chargement de page,
   // donc une notification persistée se re-déclenchait à chaque rafraîchissement
   // (« rien à compacter » qui revient sans raison). C'est un événement ponctuel,
