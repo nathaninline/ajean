@@ -522,6 +522,20 @@ async function compactContext(){
     if(!j.ok) toast(j.error||'compaction indisponible');
   }catch(e){ toast('erreur : '+(e.message||e)); }
 }
+// Passation : l'IA résume la conversation dans la trame imposée (Objectif /
+// Problématique / Fichiers importants / Ce qui a raté / Prochaine étape) et
+// pose le document comme PAGE MÉMOIRE datée (passation-<date>.md, jamais
+// écrasée). Ne vide rien, n'injecte rien — la conversation continue. La
+// reprise se fera plus tard par une demande explicite (« lis la passation la
+// plus récente et reprends »). La progression arrive par le flux (passation).
+async function makePassation(){
+  if(!await askConfirm('Résumer la conversation en passation (Objectif / Problématique / Fichiers importants / Ce qui a raté / Prochaine étape) et la poser comme page mémoire datée ? Rien n\u2019est vidé : tu pourras repartir dessus quand tu veux.', {title:'Passation', okText:'Écrire la passation'})) return;
+  try{
+    const r=await jfetch('/api/chat/passation',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    const j=await r.json().catch(()=>({}));
+    if(!j.ok) toast(j.error||'passation indisponible');
+  }catch(e){ toast('erreur : '+(e.message||e)); }
+}
 // Persistance de la conversation : on garde user+assistant en localStorage pour
 // survivre à un refresh (les bulles tool/reasoning sont éphémères, non stockées).
 function saveChat(){ try{ localStorage.setItem('ajean.chat', JSON.stringify(msgs)); }catch(e){} }

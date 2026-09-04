@@ -228,6 +228,25 @@ func handleChatCompact(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true})
 }
 
+// handleChatPassation écrit une passation : le modèle résume la conversation
+// dans la trame imposée (Objectif / Problématique / Fichiers importants /
+// Ce qui a raté / Prochaine étape) et le résultat est posé comme page mémoire
+// datée (passation-YYYY-MM-DD-HHMM.md, jamais écrasée). Rien n'est vidé ni
+// injecté : la conversation continue, la reprise est une décision explicite
+// de l'utilisateur. La progression arrive par le flux (passation: en_cours /
+// done / erreur).
+func handleChatPassation(w http.ResponseWriter, r *http.Request) {
+	if err := conv.PassationNow(); err != nil {
+		code := 503
+		if err == ErrBusy {
+			code = 409
+		}
+		sendJSON(w, code, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
 func handleChatState(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, conv.state())
 }
