@@ -3,13 +3,13 @@
     "FileVersion": {
       "Major": 0,
       "Minor": 13,
-      "Patch": 6,
+      "Patch": 7,
       "Build": 0
     },
     "ProductVersion": {
       "Major": 0,
       "Minor": 13,
-      "Patch": 6,
+      "Patch": 7,
       "Build": 0
     },
     "FileFlagsMask": "3f",
@@ -25,7 +25,7 @@
     "LegalCopyright": "Copyright (c) 2026 AJEAN contributors. MIT License.",
     "OriginalFilename": "ajean.exe",
     "ProductName": "AJEAN",
-    "ProductVersion": "0.13.6",
+    "ProductVersion": "0.13.7",
     "Comments": "https://github.com/nathaninline/ajean — projet open source (MIT)"
   },
   "VarFileInfo": {
