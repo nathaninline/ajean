@@ -128,8 +128,8 @@ function iconSvg(key){
 // Icône du rôle d'une bulle à sa création, avant que le flux ne pose le vrai libellé.
 function roleIcon(role){ return role==='reasoning' ? 'brain' : role==='tool' ? 'wrench' : ''; }
 function roleLabel(role){
-  if(role==='reasoning') return 'Réflexion en cours…';
-  if(role==='tool') return 'Outil…';
+  if(role==='reasoning') return t('chat.reasoning_in_progress');
+  if(role==='tool') return t('chat.tool_ellipsis');
   return role;
 }
 // Pose (ou retire) l'icône d'une étiquette sans toucher au texte.
@@ -262,28 +262,28 @@ function renderToolMsg(el, tu){
   // `ico` = clé d'icône SVG (voir ICONS) affichée devant l'étiquette pour repérer
   // d'un coup d'œil le type d'action.
   const META = {
-    bash:       {ico:'terminal', lbl:'Terminal',            head:'commande'},
-    write:      {ico:'file',     lbl:'Écriture fichier',    head:'écriture'},
-    edit:       {ico:'edit',     lbl:'Édition fichier',     head:'édition'},
-    web_search: {ico:'search',   lbl:'Recherche web',       head:'recherche web'},
-    web_open:   {ico:'globe',    lbl:'Ouverture de page',   head:'ouverture'},
-    web_read:   {ico:'globe',    lbl:'Lecture de page',     head:'lecture'},
-    web_grep:   {ico:'globe',    lbl:'Recherche dans page', head:'recherche'},
-    mem_search: {ico:'db',       lbl:'Recherche mémoire',   head:'recherche mémoire'},
-    mem_read:   {ico:'db',       lbl:'Lecture mémoire',     head:'lecture mémoire'},
-    mem_add:    {ico:'db',       lbl:'Nouvelle note',       head:'nouvelle page'},
-    mem_edit:   {ico:'db',       lbl:'Édition mémoire',     head:'édition mémoire'},
-    mem_delete: {ico:'db',       lbl:'Suppression mémoire', head:'suppression mémoire'},
-    recall:       {ico:'db',     lbl:'Rappel historique',   head:'bloc rappelé'},
-    recall_search:{ico:'db',     lbl:'Recherche historique',head:'recherche historique'},
-    task_list:  {ico:'clock',    lbl:'Tâches planifiées',   head:'tâches planifiées'},
-    task_create:{ico:'clock',    lbl:'Nouvelle tâche',      head:'nouvelle tâche'},
-    task_update:{ico:'clock',    lbl:'Mise à jour tâche',   head:'modification tâche'},
-    task_delete:{ico:'clock',    lbl:'Suppression tâche',   head:'suppression tâche'},
-    see_image:  {ico:'image',    lbl:'Vision',              head:'vision'},
-    machines_list:{ico:'monitor', lbl:'Machines',           head:'postes disponibles'},
-    machines_use: {ico:'monitor', lbl:'Changement machine', head:'bascule de machine'},
-    tracker:    {ico:'trend',     lbl:'Tracker',             head:'tracker'},
+    bash:       {ico:'terminal', lbl:t('chat.tool.bash_lbl'),            head:t('chat.tool.bash_head')},
+    write:      {ico:'file',     lbl:t('chat.tool.write_lbl'),           head:t('chat.tool.write_head')},
+    edit:       {ico:'edit',     lbl:t('chat.tool.edit_lbl'),            head:t('chat.tool.edit_head')},
+    web_search: {ico:'search',   lbl:t('chat.tool.web_search_lbl'),      head:t('chat.tool.web_search_head')},
+    web_open:   {ico:'globe',    lbl:t('chat.tool.web_open_lbl'),        head:t('chat.tool.web_open_head')},
+    web_read:   {ico:'globe',    lbl:t('chat.tool.web_read_lbl'),        head:t('chat.tool.web_read_head')},
+    web_grep:   {ico:'globe',    lbl:t('chat.tool.web_grep_lbl'),        head:t('chat.tool.web_grep_head')},
+    mem_search: {ico:'db',       lbl:t('chat.tool.mem_search_lbl'),      head:t('chat.tool.mem_search_head')},
+    mem_read:   {ico:'db',       lbl:t('chat.tool.mem_read_lbl'),        head:t('chat.tool.mem_read_head')},
+    mem_add:    {ico:'db',       lbl:t('chat.tool.mem_add_lbl'),         head:t('chat.tool.mem_add_head')},
+    mem_edit:   {ico:'db',       lbl:t('chat.tool.mem_edit_lbl'),        head:t('chat.tool.mem_edit_head')},
+    mem_delete: {ico:'db',       lbl:t('chat.tool.mem_delete_lbl'),      head:t('chat.tool.mem_delete_head')},
+    recall:       {ico:'db',     lbl:t('chat.tool.recall_lbl'),          head:t('chat.tool.recall_head')},
+    recall_search:{ico:'db',     lbl:t('chat.tool.recall_search_lbl'),   head:t('chat.tool.recall_search_head')},
+    task_list:  {ico:'clock',    lbl:t('chat.tool.task_list_lbl'),       head:t('chat.tool.task_list_head')},
+    task_create:{ico:'clock',    lbl:t('chat.tool.task_create_lbl'),     head:t('chat.tool.task_create_head')},
+    task_update:{ico:'clock',    lbl:t('chat.tool.task_update_lbl'),     head:t('chat.tool.task_update_head')},
+    task_delete:{ico:'clock',    lbl:t('chat.tool.task_delete_lbl'),     head:t('chat.tool.task_delete_head')},
+    see_image:  {ico:'image',    lbl:t('chat.tool.see_image_lbl'),       head:t('chat.tool.see_image_head')},
+    machines_list:{ico:'monitor', lbl:t('chat.tool.machines_list_lbl'),  head:t('chat.tool.machines_list_head')},
+    machines_use: {ico:'monitor', lbl:t('chat.tool.machines_use_lbl'),   head:t('chat.tool.machines_use_head')},
+    tracker:    {ico:'trend',     lbl:t('chat.tool.tracker_lbl'),        head:t('chat.tool.tracker_head')},
   };
   // Outils MCP (nom mcp__<serveur>__<outil>) : en-tête = nom du serveur, libellé lisible,
   // pas le fallback générique. On extrait serveur et outil du nom namespacé.
@@ -294,11 +294,11 @@ function renderToolMsg(el, tu){
     const tool = parts.join('__') || tu.name;
     meta = {ico:'plug', lbl: tool, head: server};
   }
-  meta = meta || {ico:'wrench', lbl:'Outil', head:'outil'};
+  meta = meta || {ico:'wrench', lbl:t('chat.tool.fallback_lbl'), head:t('chat.tool.fallback_head')};
   setIcon(el, meta.ico);
   let lbl = meta.lbl;
   // Indication du volume de la réponse de l'outil (~tokens, estimation 1 tok ≈ 4 car).
-  if(tu.result){ lbl += '  ·  ' + Math.max(1, Math.round(tu.result.length/4)) + ' tok'; }
+  if(tu.result){ lbl += '  ·  ' + Math.max(1, Math.round(tu.result.length/4)) + ' ' + t('chat.tok_unit'); }
   setLabel(el, lbl);
   // Volume de l'écriture (final si le diff est là, provisoire pendant la frappe)
   // reporté sur l'étiquette, pour rester lisible bulle repliée.
@@ -323,7 +323,7 @@ function renderToolMsg(el, tu){
   if(tu.body && !(tu.diff && tu.diff.length)){
     const lines=tu.body.split('\n');
     const sub=document.createElement('div'); sub.className='tool-sub';
-    sub.textContent='écriture en cours'; // le +N vit sur l'étiquette (visible repliée)
+    sub.textContent=t('chat.writing_in_progress'); // le +N vit sur l'étiquette (visible repliée)
     body.appendChild(sub);
     const pre=document.createElement('pre'); pre.className='diff live';
     lines.forEach((t,i)=>{
@@ -349,7 +349,7 @@ function renderToolMsg(el, tu){
   // retirées en rouge, contexte en gris — comme un diff de terminal.
   if(tu.diff && tu.diff.length){
     const sub=document.createElement('div'); sub.className='tool-sub';
-    sub.textContent='modifications'; // le +N -N vit sur l'étiquette (visible repliée)
+    sub.textContent=t('chat.modifications'); // le +N -N vit sur l'étiquette (visible repliée)
     body.appendChild(sub);
     const pre=document.createElement('pre'); pre.className='diff';
     tu.diff.forEach(l=>{
@@ -365,13 +365,13 @@ function renderToolMsg(el, tu){
   }
   const hasResult = tu.result!==undefined && tu.result!=='';
   if(hasResult){
-    const sub=document.createElement('div'); sub.className='tool-sub'; sub.textContent='réponse';
+    const sub=document.createElement('div'); sub.className='tool-sub'; sub.textContent=t('chat.response');
     body.appendChild(sub);
     const pre=document.createElement('pre');
     const code=document.createElement('code'); code.textContent=tu.result;
     pre.appendChild(code); body.appendChild(pre);
   } else if(!tu.done && !tu.typing){
-    const wait=document.createElement('div'); wait.className='tool-wait'; wait.textContent='exécution en cours…';
+    const wait=document.createElement('div'); wait.className='tool-wait'; wait.textContent=t('chat.execution_in_progress');
     body.appendChild(wait);
   }
   addCopyButtons(body); scrollMaybe();
@@ -383,21 +383,21 @@ function addCopyButtons(root){
     // Pas de bouton copier sur un diff : on copierait les préfixes + / - .
     if(pre.classList.contains('diff')) return;
     const btn=document.createElement('button');
-    btn.className='copybtn'; btn.type='button'; btn.textContent='copier';
+    btn.className='copybtn'; btn.type='button'; btn.textContent=t('chat.copy');
     btn.onclick=async(e)=>{
       e.stopPropagation();
       const code=pre.querySelector('code'), txt=(code||pre).innerText;
       try{ await navigator.clipboard.writeText(txt); }
       catch(_){ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
-      btn.textContent='copié ✓'; btn.classList.add('done');
-      setTimeout(()=>{ btn.textContent='copier'; btn.classList.remove('done'); },1500);
+      btn.textContent=t('chat.copied'); btn.classList.add('done');
+      setTimeout(()=>{ btn.textContent=t('chat.copy'); btn.classList.remove('done'); },1500);
     };
     pre.appendChild(btn);
   });
 }
 // Nouvelle conversation POUR TOUS LES APPAREILS : le serveur vide le fil et
 // diffuse un {reset} ; le flux d'abonnement nettoie alors l'affichage.
-function resetChat(){ jfetch('/api/chat/reset',{method:'POST'}).catch(()=>{}); toast('nouvelle conversation'); }
+function resetChat(){ jfetch('/api/chat/reset',{method:'POST'}).catch(()=>{}); toast(t('chat.new_conversation')); }
 // ===== Sessions ============================================================
 // Chaque conversation est une session persistante à id stable. Le modal les
 // gère : ouvrir (garde tout dans la liste), renommer, favori, supprimer, et
@@ -425,32 +425,32 @@ function sessIconSvg(name, filled){
 // bascule le favori, le crayon renomme, la corbeille supprime.
 function sessionRow(c, active){
   const row = document.createElement('div'); row.className = 'sess-row' + (active?' active':'');
-  if(!active){ row.tabIndex = 0; row.title = 'Ouvrir cette session';
+  if(!active){ row.tabIndex = 0; row.title = t('chat.session.open_this');
     row.onclick = ()=>restoreHistory(c.id);
     row.onkeydown = (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); restoreHistory(c.id); } };
   }
   // Étoile favori (clic = bascule), indépendante du clic d'ouverture.
   const star = document.createElement('button');
   star.className = 'sess-star' + (c.fav?' on':''); star.innerHTML = sessIconSvg('star', c.fav);
-  star.title = c.fav?'Retirer des favoris':'Mettre en favori';
+  star.title = c.fav?t('chat.session.unfav'):t('chat.session.fav');
   star.onclick = (e)=>{ e.stopPropagation(); favHistory(c.id, !c.fav); };
 
   const info = document.createElement('div'); info.className = 'sess-info';
-  const name = document.createElement('div'); name.className = 'sess-name'; name.textContent = c.title || 'Session';
+  const name = document.createElement('div'); name.className = 'sess-name'; name.textContent = c.title || t('chat.session.default_name');
   const meta = document.createElement('div'); meta.className = 'sess-meta';
   const n = c.turns || 0;
-  meta.textContent = fmtHistDate(c.saved_at) + ' · ' + n + ' message' + (n>1?'s':'') + (active?' · en cours':'');
+  meta.textContent = fmtHistDate(c.saved_at) + ' · ' + n + ' ' + (n>1?t('chat.session.messages'):t('chat.session.message')) + (active?' · '+t('chat.session.ongoing'):'');
   info.appendChild(name); info.appendChild(meta);
 
   const acts = document.createElement('div'); acts.className = 'sess-acts';
-  if(active){ const badge = document.createElement('span'); badge.className = 'sess-badge'; badge.textContent = 'en cours'; acts.appendChild(badge); }
+  if(active){ const badge = document.createElement('span'); badge.className = 'sess-badge'; badge.textContent = t('chat.session.ongoing'); acts.appendChild(badge); }
   const actBtn = (name, title, fn)=>{
     const b = document.createElement('button'); b.className = 'sess-act'; b.innerHTML = sessIconSvg(name);
     b.title = title; b.onclick = (e)=>{ e.stopPropagation(); fn(); };
     return b;
   };
-  acts.appendChild(actBtn('pencil', 'Renommer', ()=>renameHistory(c.id, c.title)));
-  acts.appendChild(actBtn('trash', 'Supprimer définitivement', ()=>deleteHistory(c.id, c.title)));
+  acts.appendChild(actBtn('pencil', t('chat.session.rename'), ()=>renameHistory(c.id, c.title)));
+  acts.appendChild(actBtn('trash', t('chat.session.delete_permanently'), ()=>deleteHistory(c.id, c.title)));
 
   row.appendChild(star); row.appendChild(info); row.appendChild(acts);
   return row;
@@ -460,50 +460,50 @@ async function loadHistory(){
   // Ne pas vider tout de suite : on garde l'affichage précédent (ou un discret
   // « chargement » à la toute première ouverture) le temps de la requête, pour
   // éviter le clignotement vide→plein.
-  if(!box.children.length) box.innerHTML = '<span class="muted" style="font-size:12px">chargement…</span>';
+  if(!box.children.length) box.innerHTML = '<span class="muted" style="font-size:12px">'+t('chat.session.loading')+'</span>';
   let list = [], active = '';
   try{ const r = await jget('/api/chat/history'); list = (r && r.conversations) || []; active = (r && r.active) || ''; }
-  catch(_){ box.innerHTML = '<span class="muted" style="font-size:12px">erreur de chargement</span>'; return; }
+  catch(_){ box.innerHTML = '<span class="muted" style="font-size:12px">'+t('chat.session.load_error')+'</span>'; return; }
   const cnt = document.getElementById('sess-count'); if(cnt) cnt.textContent = list.length || '';
-  if(!list.length){ box.innerHTML = '<span class="muted" style="font-size:12px">aucune session pour l\'instant. Commence à discuter, ta conversation apparaîtra ici.</span>'; return; }
+  if(!list.length){ box.innerHTML = '<span class="muted" style="font-size:12px">'+t('chat.session.empty')+'</span>'; return; }
   box.innerHTML = '';
   const favs = list.filter(c=>c.fav), others = list.filter(c=>!c.fav);
   const section = (label)=>{ const h=document.createElement('div'); h.className='sess-head'; h.textContent=label; box.appendChild(h); };
-  if(favs.length){ section('Favoris'); favs.forEach(c=>box.appendChild(sessionRow(c, c.id===active))); }
-  if(others.length){ if(favs.length) section('Récentes'); others.forEach(c=>box.appendChild(sessionRow(c, c.id===active))); }
+  if(favs.length){ section(t('chat.session.favorites')); favs.forEach(c=>box.appendChild(sessionRow(c, c.id===active))); }
+  if(others.length){ if(favs.length) section(t('chat.session.recent')); others.forEach(c=>box.appendChild(sessionRow(c, c.id===active))); }
 }
 // Bascule le favori d'une session (étoile).
 async function favHistory(id, fav){
-  let r; try{ r = await jpost('/api/chat/history/fav', {id, fav}); }catch(_){ toast('erreur réseau'); return; }
-  if(!r.ok){ toast(r.error || 'impossible'); return; }
+  let r; try{ r = await jpost('/api/chat/history/fav', {id, fav}); }catch(_){ toast(t('chat.session.network_error')); return; }
+  if(!r.ok){ toast(r.error || t('chat.session.impossible')); return; }
   loadHistory();
 }
 // Renommer une session (le favori se gère à l'étoile).
 async function renameHistory(id, current){
-  const name = await askPrompt('Nom de la session (laisser vide pour le nom automatique) :', {title:'Renommer la session', okText:'Enregistrer', default: current||'', placeholder:'ex. Config serveur GPU'});
+  const name = await askPrompt(t('chat.session.rename_prompt'), {title:t('chat.session.rename_title'), okText:t('chat.session.save'), default: current||'', placeholder:t('chat.session.rename_placeholder')});
   if(name===null) return; // annulé
-  let r; try{ r = await jpost('/api/chat/history/rename', {id, title:name}); }catch(_){ toast('erreur réseau'); return; }
-  if(!r.ok){ toast(r.error || 'renommage impossible'); return; }
+  let r; try{ r = await jpost('/api/chat/history/rename', {id, title:name}); }catch(_){ toast(t('chat.session.network_error')); return; }
+  if(!r.ok){ toast(r.error || t('chat.session.rename_error')); return; }
   loadHistory();
 }
 // Supprime toutes les sessions SAUF les favoris (et la session en cours).
 async function clearAllHistory(){
-  if(!await askConfirm('Supprimer toutes les sessions, sauf les favoris et celle en cours ? Cette action est irréversible.', {title:'Tout supprimer', okText:'Tout supprimer', danger:true})) return;
-  let r; try{ r = await jpost('/api/chat/history/clear', {}); }catch(_){ toast('erreur réseau'); return; }
-  if(!r.ok){ toast(r.error || 'suppression impossible'); return; }
-  toast((r.deleted||0) + ' session' + ((r.deleted>1)?'s':'') + ' supprimée' + ((r.deleted>1)?'s':''));
+  if(!await askConfirm(t('chat.session.clear_all_confirm'), {title:t('chat.session.clear_all_title'), okText:t('chat.session.clear_all_ok'), danger:true})) return;
+  let r; try{ r = await jpost('/api/chat/history/clear', {}); }catch(_){ toast(t('chat.session.network_error')); return; }
+  if(!r.ok){ toast(r.error || t('chat.session.delete_error')); return; }
+  toast((r.deleted||0) + ' ' + ((r.deleted>1)?t('chat.session.deleted_plural'):t('chat.session.deleted_singular')));
   loadHistory();
 }
 async function restoreHistory(id){
-  let r; try{ r = await jpost('/api/chat/history/restore', {id}); }catch(_){ toast('erreur réseau'); return; }
-  if(!r.ok){ toast(r.error || 'impossible d\'ouvrir'); return; }
+  let r; try{ r = await jpost('/api/chat/history/restore', {id}); }catch(_){ toast(t('chat.session.network_error')); return; }
+  if(!r.ok){ toast(r.error || t('chat.session.open_error')); return; }
   closeHistoryModal();
-  toast('session ouverte');
+  toast(t('chat.session.opened'));
 }
 async function deleteHistory(id, title){
-  if(!await askConfirm('Supprimer définitivement « ' + (title || 'cette session') + ' » ? Cette action est irréversible.', {title:'Supprimer la session', okText:'Supprimer', danger:true})) return;
-  let r; try{ r = await jpost('/api/chat/history/delete', {id}); }catch(_){ toast('erreur réseau'); return; }
-  if(!r.ok){ toast(r.error || 'suppression impossible'); return; }
+  if(!await askConfirm(t('chat.session.delete_confirm_prefix') + (title || t('chat.session.this_session')) + t('chat.session.delete_confirm_suffix'), {title:t('chat.session.delete_title'), okText:t('chat.session.delete_ok'), danger:true})) return;
+  let r; try{ r = await jpost('/api/chat/history/delete', {id}); }catch(_){ toast(t('chat.session.network_error')); return; }
+  if(!r.ok){ toast(r.error || t('chat.session.delete_error')); return; }
   loadHistory();
 }
 // Compaction : on demande à l'IA un résumé de la conversation destiné à la
@@ -515,12 +515,12 @@ async function deleteHistory(id, title){
 // progression (bannière « compactage en cours », résultat) arrive par le flux
 // d'abonnement, comme pour la génération — donc visible sur tous les appareils.
 async function compactContext(){
-  if(!await askConfirm('Résumer les anciens tours pour libérer du contexte ? La conversation continue normalement.', {title:'Compacter le contexte', okText:'Compacter'})) return;
+  if(!await askConfirm(t('chat.compact_confirm'), {title:t('chat.compact_title'), okText:t('chat.compact_ok')})) return;
   try{
     const r=await jfetch('/api/chat/compact',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
     const j=await r.json().catch(()=>({}));
-    if(!j.ok) toast(j.error||'compaction indisponible');
-  }catch(e){ toast('erreur : '+(e.message||e)); }
+    if(!j.ok) toast(j.error||t('chat.compact_unavailable'));
+  }catch(e){ toast(t('common.error_prefix')+(e.message||e)); }
 }
 // Persistance de la conversation : on garde user+assistant en localStorage pour
 // survivre à un refresh (les bulles tool/reasoning sont éphémères, non stockées).
@@ -602,7 +602,7 @@ function restoreChat(){
   // sauter en bas (effet de clignotement). Il est révélé, positionné en bas, au
   // signal {caught_up}. Filet de sécurité : révélé quoi qu'il arrive après 2s.
   const c=chatEl(); c.style.opacity='0';
-  setChatLoading('chargement de la conversation…');
+  setChatLoading(t('chat.loading_conversation'));
   // Si {caught_up} tarde au-delà de 2s (replay anormalement long), on révèle quand
   // même — et on saute en bas DIRECTEMENT (scrollMaybe est neutralisé tant que
   // REPLAYING, donc on force ici le positionnement). Le voile, lui, RESTE : tant
@@ -628,8 +628,8 @@ function onKey(e){
 // message d'attente posé par le flux d'état.
 function sendHintText(){
   return viewOn('enter-newline')
-    ? 'Entrée = nouvelle ligne · Maj+Entrée pour envoyer'
-    : 'Entrée pour envoyer · Maj+Entrée = nouvelle ligne';
+    ? t('chat.send_hint_newline_mode')
+    : t('chat.send_hint_default');
 }
 function refreshSendHint(){
   const h=document.getElementById('sendhint');

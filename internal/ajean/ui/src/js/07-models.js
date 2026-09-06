@@ -5,52 +5,52 @@ async function runBenchUI(){
   const rerun = document.getElementById('bench-rerun');
   const body = document.getElementById('bench-body');
   openBenchModal();
-  btn.disabled = true; btn.textContent = '⏳ bench…';
+  btn.disabled = true; btn.textContent = '⏳ '+t('models.bench.running');
   rerun.disabled = true;
   body.innerHTML =
     '<div style="text-align:center;padding:20px 0">' +
     '<div style="font-size:24px;animation:spin 1s linear infinite;display:inline-block">⏳</div>' +
-    '<div class="muted" style="margin-top:8px">prompt 2000 tok + 300 decode<br>~10 secondes…</div>' +
+    '<div class="muted" style="margin-top:8px">'+t('models.bench.desc')+'</div>' +
     '</div>';
   try{
     const r = await jget('/api/bench');
     if(!r.ok){
-      body.innerHTML = '<div style="color:var(--err);text-align:center">erreur: '+r.error+'</div>';
+      body.innerHTML = '<div style="color:var(--err);text-align:center">'+t('models.bench.error')+r.error+'</div>';
       return;
     }
     const x = r.result;
     body.innerHTML =
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;text-align:center">' +
         '<div style="padding:14px;background:var(--panel);border:1px solid var(--border);border-radius:8px">' +
-          '<div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Prefill</div>' +
+          '<div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">'+t('chat.prefill_cap')+'</div>' +
           '<div style="font-size:26px;color:var(--accent);font-weight:600;margin:6px 0">'+x.prompt_per_second.toFixed(0)+'</div>' +
           '<div class="muted">tok/s</div>' +
           '<div class="muted" style="font-size:11px;margin-top:8px">'+x.prompt_n+' tok · '+(x.prompt_ms/1000).toFixed(2)+'s</div>' +
         '</div>' +
         '<div style="padding:14px;background:var(--panel);border:1px solid var(--border);border-radius:8px">' +
-          '<div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Decode</div>' +
+          '<div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">'+t('chat.decode_cap')+'</div>' +
           '<div style="font-size:26px;color:var(--ok);font-weight:600;margin:6px 0">'+x.predicted_per_second.toFixed(1)+'</div>' +
           '<div class="muted">tok/s</div>' +
           '<div class="muted" style="font-size:11px;margin-top:8px">'+x.predicted_n+' tok · '+(x.predicted_ms/1000).toFixed(2)+'s</div>' +
         '</div>' +
       '</div>' +
-      '<div class="muted" style="text-align:center;font-size:11px">total '+x.elapsed_sec.toFixed(2)+'s</div>';
+      '<div class="muted" style="text-align:center;font-size:11px">'+t('models.bench.total')+' '+x.elapsed_sec.toFixed(2)+'s</div>';
   } finally {
-    btn.disabled = false; btn.textContent = 'bench';
+    btn.disabled = false; btn.textContent = t('models.bench.button');
     rerun.disabled = false;
     loadPresets();
   }
 }
 async function switchTo(n,name){
-  if(!await askConfirm('Basculer vers « '+name+' » et redémarrer le service ?', {title:'Changer de preset', okText:'Basculer'})) return;
-  toast('switching…');
+  if(!await askConfirm(t('models.switch_confirm_prefix')+name+t('models.switch_confirm_suffix'), {title:t('models.switch_title'), okText:t('models.switch_ok')})) return;
+  toast(t('models.switching'));
   // Retour visuel IMMÉDIAT : la ligne visée s'allume et clignote. Le serveur met
   // plusieurs secondes à redémarrer le service ; sans ça la liste ne bougeait pas
   // d'un pouce pendant tout ce temps et le clic semblait sans effet.
   pendingPreset = n; loadPresets();
   const r=await jpost('/api/switch',{n:n});
-  if(!r.ok){ pendingPreset = 0; toast('erreur'); loadPresets(); return; }
-  toast('switched');
+  if(!r.ok){ pendingPreset = 0; toast(t('chat.error')); loadPresets(); return; }
+  toast(t('models.switched'));
   // Le preset ACTIF, c'est celui dont l'empreinte est celle de la configuration : le serveur
   // l'écrit AVANT de répondre (et relance le service en arrière-plan, voir
   // handleSwitch), donc un rafraîchissement immédiat suffit — la barre passe au
@@ -69,16 +69,23 @@ async function switchTo(n,name){
 // editingKey = the identifier of the item being edited: a preset id (filename)
 // or a skill name. Empty string = creating a new item.
 let editingKey = '', editingKind = 'preset';
-const KINDS = {
-  // presets are keyed by `id` (filename) so several can share a display name;
-  // skills keep name-as-identity (param 'name').
-  // newLabel / nameHint : « Nouveau Page » et « Nom du preset » dans l'éditeur de
-  // mémoire venaient d'un libellé unique décliné mécaniquement.
-  preset: {label:'', newLabel:'Nouveau preset', nameHint:'Nom du preset',
-           param:'id',   getUrl:'/api/preset', saveUrl:'/api/preset/save', delUrl:'/api/preset/delete', reload:()=>loadPresets()},
-  mem:    {label:'Page',   newLabel:'Nouvelle page',  nameHint:'Nom de la page',
-           param:'name', getUrl:'/api/mem',    saveUrl:'/api/mem/save',    delUrl:'/api/mem/delete',    reload:()=>loadMem()},
-};
+// Fonction (pas une const figée) : label/newLabel/nameHint passent par t(), qui
+// doit se relire à CHAQUE ouverture de modale, pas une seule fois au chargement
+// du script — sinon un changement de langue en direct laisserait ces libellés
+// coincés dans la langue active au premier chargement de la page.
+function KIND(kind){
+  const K = {
+    // presets are keyed by `id` (filename) so several can share a display name;
+    // skills keep name-as-identity (param 'name').
+    // newLabel / nameHint : « Nouveau Page » et « Nom du preset » dans l'éditeur de
+    // mémoire venaient d'un libellé unique décliné mécaniquement.
+    preset: {label:'', newLabel:t('models.preset.new_label'), nameHint:t('models.preset.name_hint'),
+             param:'id',   getUrl:'/api/preset', saveUrl:'/api/preset/save', delUrl:'/api/preset/delete', reload:()=>loadPresets()},
+    mem:    {label:t('models.mem.label'),   newLabel:t('models.mem.new_label'),  nameHint:t('models.mem.name_hint'),
+             param:'name', getUrl:'/api/mem',    saveUrl:'/api/mem/save',    delUrl:'/api/mem/delete',    reload:()=>loadMem()},
+  };
+  return K[kind];
+}
 // ⚠️ La modale s'ouvre AVANT d'aller chercher quoi que ce soit. Elle attendait
 // auparavant la fin de 3 requêtes (contenu + backends + modèles disponibles) :
 // en accès distant, ça faisait un clic sans réaction pendant une seconde, comme
@@ -90,7 +97,7 @@ const KINDS = {
 // backends, GPU) — sinon on voyait les champs se peupler un par un.
 let openSeq = 0;
 async function openItem(kind, key){
-  const K = KINDS[kind];
+  const K = KIND(kind);
   const seq = ++openSeq;
   editingKind = kind; editingKey = key || '';
   document.getElementById('modal-title').textContent = key ? (K.label ? K.label + ' · ' + key : key) : K.newLabel;
@@ -129,7 +136,7 @@ async function openItem(kind, key){
     document.getElementById('m-hf-url').value = '';
     resetDlUI();
     // Preset : la config brute est une ligne repliable, fermée par défaut.
-    rawHead.textContent = 'Configuration';
+    rawHead.textContent = t('models.raw_config');
     rawToggle.style.display = '';
     rawBody.style.display = 'none';
     rawCaret.classList.remove('open');
@@ -141,7 +148,7 @@ async function openItem(kind, key){
     settingsRow.style.display = 'none';
     if(samplingRow) samplingRow.style.display = 'none';
     // Page mémoire : le contenu EST le champ principal — affiché en clair.
-    rawHead.textContent = 'Contenu';
+    rawHead.textContent = t('models.raw_content');
     rawToggle.style.display = 'none';
     rawBody.style.display = '';
   }
@@ -235,7 +242,7 @@ async function populateModelPicker(){
     if(!g){ g = {dir: m.dir, home: m.home, items: []}; groups.push(g); }
     g.items.push(m);
   }
-  let html = '<option value="">— choisir un modèle —</option>';
+  let html = '<option value="">'+t('models.picker.choose')+'</option>';
   let matched = false;
   for(const g of groups){
     let opts = '';
@@ -249,18 +256,18 @@ async function populateModelPicker(){
       // On le dit, et surtout on signale les tranches manquantes — sinon le
       // modèle se sélectionne sans broncher puis le moteur meurt au démarrage.
       let tag = '';
-      if(m.shards > 1) tag = ' · ' + m.shards + ' fichiers';
-      if(m.missing && m.missing.length) tag += ' · ⚠ ' + m.missing.length + ' manquant' + (m.missing.length>1?'s':'');
+      if(m.shards > 1) tag = ' · ' + m.shards + ' ' + t('models.picker.files');
+      if(m.missing && m.missing.length) tag += ' · ⚠ ' + m.missing.length + ' ' + (m.missing.length>1?t('models.picker.missing_plural'):t('models.picker.missing_singular'));
       opts += '<option value="'+escHtml(m.value)+'"'+on+'>'+escHtml(m.name)+'  ('+fmtSize(m.size)+tag+')</option>';
     }
     html += groups.length > 1
-      ? '<optgroup label="'+escHtml(g.home ? 'dossier ajean' : g.dir)+'">'+opts+'</optgroup>'
+      ? '<optgroup label="'+escHtml(g.home ? t('models.picker.ajean_folder') : g.dir)+'">'+opts+'</optgroup>'
       : opts;
   }
   // MODEL pointe vers un fichier qu'on ne trouve dans aucun dossier déclaré :
   // on déplie alors la section des dossiers, c'est là que ça se répare.
   if(cur && !matched){
-    html += '<option value="" disabled selected>('+escHtml(cur)+' — introuvable ; ajoute son dossier ci-dessous)</option>';
+    html += '<option value="" disabled selected>('+escHtml(cur)+' '+t('models.picker.not_found_suffix')+')</option>';
   }
   sel.innerHTML = html;
   if(cur && !matched) setModelDirsOpen(true);
@@ -292,14 +299,14 @@ async function populateModelDirs(){
     p.textContent = x.path + ' ';
     const info = document.createElement('span');
     info.className = 'muted';
-    const n = x.count >= 0 ? (x.count + ' modèle' + (x.count>1?'s':'')) : 'illisible';
-    const free = x.free >= 0 ? ', ' + fmtSize(x.free) + ' libres' : '';
-    info.textContent = '(' + n + free + (x.home ? ', dossier ajean' : '') + ')';
+    const n = x.count >= 0 ? (x.count + ' ' + (x.count>1?t('models.dirs.models_plural'):t('models.dirs.models_singular'))) : t('models.dirs.unreadable');
+    const free = x.free >= 0 ? ', ' + fmtSize(x.free) + ' ' + t('models.dirs.free') : '';
+    info.textContent = '(' + n + free + (x.home ? ', '+t('models.dirs.ajean_folder') : '') + ')';
     row.append(p, info);
     if(!x.home){
       const del = document.createElement('button');
       del.className = 'pe-link';
-      del.textContent = 'retirer';
+      del.textContent = t('models.dirs.remove');
       del.style.marginLeft = '8px';
       del.onclick = () => removeModelDir(x.path);
       row.append(del);
@@ -310,17 +317,17 @@ async function populateModelDirs(){
 async function addModelDir(){
   const inp = document.getElementById('m-dir-path');
   const p = inp.value.trim();
-  if(!p){ toast('indique un chemin de dossier'); return; }
+  if(!p){ toast(t('models.dirs.enter_path')); return; }
   const r = await jpost('/api/models/dirs', {path: p, action: 'add'});
-  if(!r.ok){ toast('erreur : ' + (r.error||'')); return; }
+  if(!r.ok){ toast(t('common.error_prefix') + (r.error||'')); return; }
   inp.value = '';
-  toast('dossier ajouté');
+  toast(t('models.dirs.added'));
   await Promise.all([populateModelDirs(), populateModelPicker(), populateDlDirs()]);
 }
 async function removeModelDir(p){
   const r = await jpost('/api/models/dirs', {path: p, action: 'remove'});
-  if(!r.ok){ toast('erreur : ' + (r.error||'')); return; }
-  toast('dossier retiré');
+  if(!r.ok){ toast(t('common.error_prefix') + (r.error||'')); return; }
+  toast(t('models.dirs.removed'));
   await Promise.all([populateModelDirs(), populateModelPicker(), populateDlDirs()]);
 }
 function onPickModel(){
@@ -376,7 +383,7 @@ async function populateMmproj(){
   const list = await jget('/api/models');
   const cur = currentMmprojInTextarea();
   const items = (list||[]).filter(m => isMmprojName(m.name));
-  let html = '<option value="">— aucune —</option>';
+  let html = '<option value="">'+t('models.mmproj.none')+'</option>';
   let matched = false;
   for(const m of items){
     const on = samePath(cur, m.value) || samePath(cur, m.path) ||
@@ -387,7 +394,7 @@ async function populateMmproj(){
   // MMPROJ pointe sur un fichier absent des dossiers déclarés (ou nommé hors
   // convention) : on le garde affiché plutôt que de l'effacer silencieusement.
   if(cur && !matched){
-    html += '<option value="'+escHtml(cur)+'" selected>'+escHtml(baseName(cur)||cur)+' (introuvable)</option>';
+    html += '<option value="'+escHtml(cur)+'" selected>'+escHtml(baseName(cur)||cur)+' '+t('models.picker.not_found_paren')+'</option>';
   }
   sel.innerHTML = html;
 }
@@ -428,11 +435,11 @@ async function populateBackend(){
   // le dossier backends de ajean (l'utilisateur peut y déposer son propre build).
   const detected = await jget('/api/backends');
   const sel = document.getElementById('m-backend-detected');
-  let html = '<option value="">— ou choisir un backend détecté —</option>';
+  let html = '<option value="">'+t('models.backend.or_choose_detected')+'</option>';
   for(const b of (detected||[])) html += '<option value="'+b.path+'">'+b.name+'</option>';
   sel.innerHTML = html;
   document.getElementById('be-drop-hint').textContent = lc.backends_dir
-    ? ('Astuce : déposez votre binaire dans un sous-dossier de '+lc.backends_dir+' pour le voir apparaître ci-dessus.') : '';
+    ? (t('models.backend.drop_hint_prefix')+lc.backends_dir+t('models.backend.drop_hint_suffix')) : '';
   // Sélectionne l'option correspondant au BIN actuel du preset.
   const cur = currentBinInTextarea();
   let mode = 'custom';
@@ -453,12 +460,12 @@ function toggleBackendCustom(mode){
 function onBackendMode(mode){
   toggleBackendCustom(mode);
   if(mode === 'fast'){
-    if(!beFastPath){ toast('installez d\'abord llama.cpp précompilé (section MOTEUR)'); return; }
-    setBinInTextarea(beFastPath); toast('moteur : llama.cpp précompilé');
+    if(!beFastPath){ toast(t('models.backend.install_precompiled_first')); return; }
+    setBinInTextarea(beFastPath); toast(t('models.backend.engine_precompiled'));
     loadGpuDevices();
   } else if(mode === 'opt'){
-    if(!beOptPath){ toast('installez d\'abord llama.cpp compilé (section MOTEUR)'); return; }
-    setBinInTextarea(beOptPath); toast('moteur : llama.cpp compilé');
+    if(!beOptPath){ toast(t('models.backend.install_compiled_first')); return; }
+    setBinInTextarea(beOptPath); toast(t('models.backend.engine_compiled'));
     loadGpuDevices();
   }
   // custom : on attend que l'utilisateur saisisse un chemin / choisisse un backend
@@ -471,7 +478,7 @@ function onPickDetected(){
   const v = document.getElementById('m-backend-detected').value;
   if(!v) return;
   document.getElementById('m-backend-path').value = v;
-  setBinInTextarea(v); toast('moteur personnalisé');
+  setBinInTextarea(v); toast(t('models.backend.engine_custom'));
   loadGpuDevices();
 }
 
@@ -550,8 +557,8 @@ function renderGpu(){
   if(sel.length > 1) html += splitModeHtml();
   document.getElementById('m-gpu-list').innerHTML = html;
   document.getElementById('m-gpu-note').textContent = sel.length === gpuDevices.length
-    ? 'Toutes les cartes sont utilisées.'
-    : 'Ce modèle n\'utilisera que : ' + sel.map(id => gpuLabel(gpuById(id))).join(', ') + '.';
+    ? t('models.gpu.all_used')
+    : t('models.gpu.only_prefix') + sel.map(id => gpuLabel(gpuById(id))).join(', ') + t('models.gpu.only_suffix');
   group.hidden = false;
   if(sel.length > 1) paintSplit();
 }
@@ -590,7 +597,7 @@ function splitHtml(sel){
         + ' oninput="onSplitNumbers()"><span class="pe-unit">%</span></label>').join('') + '</div>';
   }
   return '<div class="pe-row">'
-    + '<span class="pe-row-l">Répartition<span class="pe-sub">part des couches par carte</span></span>'
+    + '<span class="pe-row-l">'+t('models.gpu.split_title')+'<span class="pe-sub">'+t('models.gpu.split_sub')+'</span></span>'
     + '<span class="pe-row-c" id="m-split-state"></span></div>'
     + '<div class="pe-row stack">' + inner
     + '<div class="gpu-legend" id="m-split-legend"></div></div>';
@@ -608,13 +615,13 @@ function splitModeHtml(){
   const cur = eaGetValued('--split-mode');
   const opt = (v, l) => '<option value="' + v + '"' + (cur === v ? ' selected' : '') + '>' + l + '</option>';
   return '<div class="pe-row">'
-    + '<span class="pe-row-l">Mode de répartition<span class="pe-sub">comment le modèle est découpé sur les cartes (--split-mode)</span></span>'
+    + '<span class="pe-row-l">'+t('models.gpu.split_mode_title')+'<span class="pe-sub">'+t('models.gpu.split_mode_sub')+'</span></span>'
     + '<span class="pe-row-c"><span class="pe-selc"><select onchange="onSplitMode(this.value)">'
-    + opt('', 'Automatique')
-    + opt('layer', 'Par couches (layer)')
-    + opt('row', 'Par rangées (row)')
-    + opt('tensor', 'Par tenseurs (tensor)')
-    + opt('none', 'Une seule carte (none)')
+    + opt('', t('models.gpu.split_mode_auto'))
+    + opt('layer', t('models.gpu.split_mode_layer'))
+    + opt('row', t('models.gpu.split_mode_row'))
+    + opt('tensor', t('models.gpu.split_mode_tensor'))
+    + opt('none', t('models.gpu.split_mode_none'))
     + '</select></span></span></div>';
 }
 function onSplitMode(v){ eaSetValued('--split-mode', v); }
@@ -663,8 +670,8 @@ function paintSplit(){
     + ' ' + (shares[i]*100).toFixed(1).replace('.', ',') + ' %</span>').join('');
   const st = document.getElementById('m-split-state');
   if(st) st.innerHTML = eaGetValued('--tensor-split')
-    ? '<button class="pe-link" onclick="resetSplit()">réinitialiser</button>'
-    : '<span class="pe-unit">automatique</span>';
+    ? '<button class="pe-link" onclick="resetSplit()">'+t('models.gpu.reset')+'</button>'
+    : '<span class="pe-unit">'+t('models.gpu.split_mode_auto')+'</span>';
 }
 function writeSplit(shares){
   const sum = shares.reduce((a, b) => a + b, 0) || 1;
@@ -695,7 +702,7 @@ function resetSplit(){
 
 function onGpuPick(){
   const ids = [...document.querySelectorAll('#m-gpu-list input[type=checkbox]:checked')].map(c => c.value);
-  if(!ids.length){ toast('gardez au moins une carte'); renderGpu(); return; }
+  if(!ids.length){ toast(t('models.gpu.keep_one')); renderGpu(); return; }
   // Toutes cochées = pas de contrainte : on retire le flag plutôt que de figer
   // des noms de device qui changeraient avec le moteur.
   eaSetValued('--device', ids.length === gpuDevices.length ? '' : ids.join(','));
@@ -851,8 +858,8 @@ function populateSettings(){
   chk('s-reasoning', /^(on|1|true|auto|deepseek)$/i.test(rz));
   const rzSub = document.getElementById('s-reasoning-sub');
   if(rzSub){
-    rzSub.textContent = rz ? 'réflexion étape par étape'
-                           : 'réflexion étape par étape — non précisé : le modèle décide';
+    rzSub.textContent = rz ? t('models.settings.reasoning_sub')
+                           : t('models.settings.reasoning_sub_unset');
   }
   chk('s-kvunified', eaHasFlag('--kv-unified'));
   chk('s-flash', eaHasFlag('--flash-attn') && !/^off$/i.test(eaGetValued('--flash-attn')));
@@ -873,7 +880,7 @@ function setSpecType(v){
   v = String(v || '').trim();
   if(v && ![...sel.options].some(o => o.value === v)){
     const opt = document.createElement('option');
-    opt.value = v; opt.textContent = v + ' (dans la configuration)';
+    opt.value = v; opt.textContent = v + ' ' + t('models.settings.spec_type_in_config');
     sel.appendChild(opt);
   }
   sel.value = v;
@@ -901,7 +908,7 @@ function syncSpecDraftRow(){
 // alors que pour EAGLE-3/dFlash/dSpark/modèle séparé, ne rien choisir = pas de draft.
 function specDraftEmptyLabel(){
   const sel = document.getElementById('s-spec');
-  return (sel && sel.value === 'draft-mtp') ? '— intégré au modèle —' : '— aucun —';
+  return (sel && sel.value === 'draft-mtp') ? t('models.settings.spec_draft_builtin') : t('models.settings.spec_draft_none');
 }
 function syncSpecDraftEmptyLabel(){
   const ds = document.getElementById('m-spec-draft');
@@ -940,7 +947,7 @@ async function populateSpecDraft(){
     html += '<option value="'+escHtml(m.value)+'"'+on+'>'+escHtml(m.name)+' ('+fmtSize(m.size)+')</option>';
   }
   if(cur && !matched){
-    html += '<option value="'+escHtml(cur)+'" selected>'+escHtml(baseName(cur)||cur)+' (introuvable)</option>';
+    html += '<option value="'+escHtml(cur)+'" selected>'+escHtml(baseName(cur)||cur)+' '+t('models.picker.not_found_paren')+'</option>';
   }
   sel.innerHTML = html;
 }
@@ -1010,7 +1017,7 @@ const openMem    = (n)=>openItem('mem', n);
 // serveur) : on arrête juste de l'interroger.
 function closeModal(){ hideModal('modal'); document.getElementById('modal').classList.remove('loading'); stopDlPoll(); }
 async function saveItem(){
-  const K = KINDS[editingKind];
+  const K = KIND(editingKind);
   const name = document.getElementById('m-name').value.trim();
   // Interrupteur « Raisonnement » : on matérialise son état dans le preset AVANT
   // de lire le contenu. onchange ne part que sur une interaction : un switch
@@ -1028,40 +1035,40 @@ async function saveItem(){
     }
   }
   const content = document.getElementById('m-content').value;
-  if(!name){ toast('nom requis'); return; }
+  if(!name){ toast(t('models.name_required')); return; }
   // Presets: keyed by id (filename); duplicate display names are allowed.
   // Skills: keyed by name, rename via `old`.
   const payload = editingKind==='preset'
     ? {id: editingKey, name, content, sysprompt: (document.getElementById('m-sysprompt')||{}).value || ''}
     : {name, old: editingKey, content};
   const r = await jpost(K.saveUrl, payload);
-  if(!r.ok){ toast('erreur : ' + (r.error||'')); return; }
-  toast('enregistré'); closeModal(); K.reload();
+  if(!r.ok){ toast(t('common.error_prefix') + (r.error||'')); return; }
+  toast(t('models.saved')); closeModal(); K.reload();
 }
 async function delItem(){
   if(!editingKey) return;
-  const K = KINDS[editingKind];
+  const K = KIND(editingKind);
   const name = document.getElementById('m-name').value.trim() || editingKey;
   // Le choix « supprimer aussi le .gguf » est posé DANS la confirmation : il n'a
   // de sens qu'au moment de supprimer, et il occupait le pied de l'éditeur en
   // permanence. Décoché à chaque ouverture — jamais de modèle effacé parce que
   // la case serait restée cochée d'une fois sur l'autre.
-  const msg = 'Supprimer le ' + K.label.toLowerCase() + ' « ' + name + ' » ?'
-    + (editingKind==='preset' ? '\n\nLe fichier .gguf du modèle est conservé, sauf si vous cochez ci-dessous (irréversible).' : '');
-  const opts = {title:'Suppression', okText:'Supprimer', danger:true};
-  if(editingKind==='preset') opts.check = 'supprimer aussi le fichier .gguf';
+  const msg = t('models.delete_confirm_prefix') + K.label.toLowerCase() + t('models.delete_confirm_mid') + name + t('models.delete_confirm_suffix')
+    + (editingKind==='preset' ? '\n\n'+t('models.delete_confirm_gguf_note') : '');
+  const opts = {title:t('models.delete_title'), okText:t('models.delete_ok'), danger:true};
+  if(editingKind==='preset') opts.check = t('models.delete_check_gguf');
   if(!await askConfirm(msg, opts)) return;
   const delModel = editingKind==='preset' && askChecked();
   const payload = editingKind==='preset'
     ? {id: editingKey, deleteModel: delModel}
     : {name: editingKey};
   const r = await jpost(K.delUrl, payload);
-  if(!r.ok){ toast('erreur : ' + (r.error||'')); return; }
+  if(!r.ok){ toast(t('common.error_prefix') + (r.error||'')); return; }
   if(delModel){
-    if(r.modelError) toast('preset supprimé, modèle : ' + r.modelError);
-    else if(r.modelDeleted) toast('preset + modèle supprimés');
-    else toast('supprimé (aucun modèle référencé)');
-  } else { toast('supprimé'); }
+    if(r.modelError) toast(t('models.delete_preset_ok_model_err') + r.modelError);
+    else if(r.modelDeleted) toast(t('models.delete_preset_and_model_ok'));
+    else toast(t('models.delete_ok_no_model_ref'));
+  } else { toast(t('models.deleted')); }
   closeModal(); K.reload();
 }
 // Download a .gguf from Hugging Face. Le téléchargement vit côté serveur : fermer
@@ -1102,19 +1109,19 @@ async function populateDlDirs(){
   for(const x of dlDirList){
     const o = document.createElement('option');
     o.value = x.path;
-    o.textContent = x.path + (x.free >= 0 ? ' — ' + fmtSize(x.free) + ' libres' : '');
+    o.textContent = x.path + (x.free >= 0 ? ' — ' + fmtSize(x.free) + ' ' + t('models.dirs.free') : '');
     sel.append(o);
   }
   if(prev && dlDirList.some(x => samePath(x.path, prev))) sel.value = prev;
 }
 async function startDownload(){
   const url = document.getElementById('m-hf-url').value.trim();
-  if(!url){ toast('colle un lien .gguf'); return; }
+  if(!url){ toast(t('models.dl.paste_link')); return; }
   const dir = (document.getElementById('m-hf-dir')||{}).value || '';
   const e = dlEls();
   e.btn.disabled = true;
   e.prog.style.display = 'block';
-  e.prog.textContent = 'vérification de la taille et de l’espace disque…';
+  e.prog.textContent = t('models.dl.checking_space');
   e.bar.style.display = 'block';
   e.bar.className = 'pe-bar indet';
   e.bar.firstElementChild.style.width = '';
@@ -1122,18 +1129,18 @@ async function startDownload(){
   // AVANT d'écrire quoi que ce soit, plutôt que d'échouer à 90 % du transfert.
   const p = await jpost('/api/models/download/probe', {url, dir});
   if(!p.ok || !p.enough){
-    e.prog.innerHTML = '<span style="color:var(--err)">erreur : '+escHtml(p.error||'espace insuffisant')+'</span>';
+    e.prog.innerHTML = '<span style="color:var(--err)">'+t('common.error_prefix')+escHtml(p.error||t('models.dl.not_enough_space'))+'</span>';
     e.bar.style.display = 'none'; e.btn.disabled=false;
     await populateDlDirs();
     return;
   }
   // p.size couvre TOUTES les tranches : un modèle découpé annonce ses 45 Go, pas
   // les 15 Go du fichier dont le lien a été collé.
-  const nparts = p.parts > 1 ? ' en '+p.parts+' fichiers' : '';
-  e.prog.textContent = fmtSize(p.size)+nparts+' à télécharger — '+fmtSize(p.free)+' libres';
+  const nparts = p.parts > 1 ? ' '+t('models.dl.in_n_files_prefix')+p.parts+t('models.dl.in_n_files_suffix') : '';
+  e.prog.textContent = fmtSize(p.size)+nparts+' '+t('models.dl.to_download')+' — '+fmtSize(p.free)+' '+t('models.dl.free');
   const r = await jpost('/api/models/download', {url, dir});
   if(!r.ok){
-    e.prog.innerHTML = '<span style="color:var(--err)">erreur : '+(r.error||'')+'</span>';
+    e.prog.innerHTML = '<span style="color:var(--err)">'+t('common.error_prefix')+(r.error||'')+'</span>';
     e.bar.style.display = 'none'; e.btn.disabled=false; return;
   }
   watchDownload(r.filename);
@@ -1163,15 +1170,15 @@ function watchDownload(fname){
     const st = (list||[]).find(d=>d.filename===fname);
     if(!st) return;
     if(st.canceled){
-      e.prog.textContent = 'téléchargement annulé — '+fname;
+      e.prog.textContent = t('models.dl.canceled')+' — '+fname;
       e.bar.style.display = 'none'; stop(); return;
     }
     if(st.error){
-      e.prog.innerHTML = '<span style="color:var(--err)">erreur : '+st.error+'</span>';
+      e.prog.innerHTML = '<span style="color:var(--err)">'+t('common.error_prefix')+st.error+'</span>';
       e.bar.style.display = 'none'; stop(); return;
     }
     if(st.finished){
-      e.prog.innerHTML = '<span style="color:var(--ok)">✓ '+fname+' téléchargé ('+fmtSize(st.done)+')</span>';
+      e.prog.innerHTML = '<span style="color:var(--ok)">✓ '+fname+' '+t('models.dl.downloaded')+' ('+fmtSize(st.done)+')</span>';
       e.bar.className = 'pe-bar done'; e.bar.firstElementChild.style.width = '100%';
       stop();
       await Promise.all([populateModelPicker(), populateMmproj(), populateSpecDraft(), populateDlDirs()]);
@@ -1202,12 +1209,12 @@ function watchDownload(fname){
       if(st.total>0){
         const eta = Math.max(0, Math.round((st.total-st.done)/st.speed));
         const m = Math.floor(eta/60), s = eta%60;
-        extra += ' — reste '+(m>0 ? m+' min '+s+' s' : s+' s');
+        extra += ' — '+t('models.dl.remaining')+' '+(m>0 ? m+' min '+s+' s' : s+' s');
       }
     }
     // Une seule barre pour tout le modèle ; le compteur de tranches dit où on en
     // est, sans quoi un téléchargement en 3 fichiers semble se figer par paliers.
-    const part = st.parts > 1 ? ' — fichier '+(st.part||1)+'/'+st.parts : '';
+    const part = st.parts > 1 ? ' — '+t('models.dl.file_n_prefix')+(st.part||1)+'/'+st.parts : '';
     e.prog.textContent = '↓ '+fmtSize(st.done)+tot+extra+part+' — '+fname;
   };
   dlPoll = setInterval(tick, 800);

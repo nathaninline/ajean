@@ -1089,10 +1089,18 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .sess-list{display:flex;flex-direction:column;gap:1px}
 .sess-head{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);padding:10px 8px 5px}
 .sess-head:first-child{padding-top:2px}
-.sess-row{position:relative;display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:9px;border:none;cursor:pointer}
+.sess-row{position:relative;display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:9px;border:none;cursor:pointer;
+  transition:background .15s ease, transform .15s ease}
 .sess-row:hover{background:var(--row-bg)}
 /* Minimal : l'actif est un simple voile, sans cadre. */
 .sess-row.active{background:var(--accent-bg);cursor:default}
+/* Conversations du hub Projets : spinner rond pendant la lecture (même rond que
+   le chargement du modal presets, .spinner), puis révélation en un simple fondu
+   du conteneur — pas de cascade par ligne (ça clignotait à chaque bascule). */
+.proj-sess-load{display:flex;align-items:center;justify-content:center;padding:26px 0}
+@keyframes sess-list-in{from{opacity:0}to{opacity:1}}
+#project-sessions.ready{animation:sess-list-in .2s ease}
+@media (prefers-reduced-motion:reduce){#project-sessions.ready{animation:none}}
 /* Point « conversation en cours » dans l'angle haut-gauche de la ligne. */
 .sess-corner-dot{position:absolute;top:6px;left:6px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
 /* Bouton menu ⋮ d'une conversation : discret à droite, net au survol / sur l'active. */
@@ -1202,12 +1210,36 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:2px}
 /* Minimal (Linear/Notion) : pas de cadre, juste un fond au survol ; l'actif porte un
    voile discret + l'icône en accent. L'espace fait le travail, rien ne « boxe ». */
+/* Bascule de projet INSTANTANÉE : aucune animation d'arrivée sur les tuiles (les
+   tuiles sont reconstruites à chaque rendu, elles apparaissent d'un coup). On
+   garde seulement des transitions douces au survol / focus, sans « pop » d'entrée. */
 .proj-tile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;
   min-height:94px;padding:16px 10px;border:none;border-radius:12px;cursor:pointer;
-  background:transparent;color:var(--dim);transition:background .12s ease}
-.proj-tile:hover{background:var(--row-bg)}
+  background:transparent;color:var(--dim);
+  transition:background .14s ease, transform .14s ease, box-shadow .14s ease}
+.proj-tile:hover{background:var(--row-bg);transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.08)}
+.proj-tile:active{transform:translateY(0) scale(.985);box-shadow:none;transition-duration:.08s}
 .proj-tile:focus-visible{outline:none;background:var(--row-bg);box-shadow:0 0 0 2px var(--accent-bg)}
 .proj-tile.active{background:var(--accent-bg);cursor:default}
+/* La tuile courante ne se soulève pas (on est déjà dessus). */
+.proj-tile.active:hover{transform:none;box-shadow:none;background:var(--accent-bg)}
+@media (prefers-reduced-motion:reduce){.proj-tile:hover{transform:none;box-shadow:none}}
+/* ===== Hub Projets : lecture seule pendant une génération ===== */
+/* Pastille de notification (réponse générée non lue) sur le bouton projet du
+   composeur. Petit point accent en coin, cerclé du fond pour se détacher. */
+#project-btn{position:relative}
+.notif-dot{position:absolute;top:-2px;right:-2px;width:9px;height:9px;border-radius:50%;
+  background:var(--accent);border:2px solid var(--bg);pointer-events:none}
+/* Même point, sur une conversation du hub (réponse non lue). */
+.sess-unseen{flex:none;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-left:8px;display:inline-block}
+/* Petit spinner « génération en cours ici » en haut à GAUCHE de la tuile (le coin
+   haut-droit porte le menu ⋯). display:flex pour que le span .spinner (inline par
+   défaut) prenne bien ses dimensions — sinon le rond se réduit à un trait. */
+.proj-gen{position:absolute;top:8px;left:8px;display:flex;line-height:0}
+.proj-gen .spinner{display:block;width:13px;height:13px;border-width:2px}
+/* Marqueur « en cours » sous une conversation (dans la méta). */
+.sess-gen{display:inline-flex;align-items:center;gap:5px;margin-left:8px;color:var(--accent);font-weight:600}
+.sess-gen .spinner{width:11px;height:11px;border-width:2px}
 .proj-ticon{display:flex;line-height:0}
 .proj-ticon svg{display:block}
 .proj-tile.active .proj-ticon{color:var(--accent)}

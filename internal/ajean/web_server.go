@@ -263,7 +263,8 @@ func newWebMux() *http.ServeMux {
 	api("/api/chat/file", handleChatFile)                      // télécharge un fichier produit par l'agent (dossier de travail only)
 	api("/api/chat/stop", handleChatStop)                      // interrompt la génération en cours
 	api("/api/chat/reset", handleChatReset)                    // nouvelle conversation (archive la courante dans l'historique)
-	api("/api/chat/history", handleChatHistory)                // liste des conversations archivées
+	api("/api/chat/history", handleChatHistory)                // liste des conversations archivées (?project= pour un autre projet, lecture seule)
+	api("/api/chat/peek", handleChatPeek)                      // contenu d'une conversation archivée, LECTURE SEULE (ne restaure pas)
 	api("/api/chat/history/restore", handleChatHistoryRestore) // recharge une conversation archivée
 	api("/api/chat/history/delete", handleChatHistoryDelete)   // supprime définitivement une archive
 	api("/api/chat/history/rename", handleChatHistoryRename)   // renomme une conversation archivée

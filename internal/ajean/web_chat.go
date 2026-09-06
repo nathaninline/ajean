@@ -123,10 +123,37 @@ func handleChatReset(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true, "active": id})
 }
 
-// handleChatHistory (GET) : liste des sessions + id de la session active (pour
-// que l'UI marque « en cours »).
+// handleChatHistory (GET) : liste des sessions + id de la session active (pour que
+// l'UI marque « en cours ») + drapeau `generating`. Avec ?project=<slug>, liste EN
+// LECTURE SEULE les sessions d'un AUTRE projet sans basculer le projet actif : c'est
+// ce qui permet de parcourir un autre projet pendant qu'une génération tourne.
 func handleChatHistory(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, 200, map[string]any{"ok": true, "conversations": listArchives(), "active": conv.currentID()})
+	if p := strings.TrimSpace(r.URL.Query().Get("project")); p != "" {
+		sendJSON(w, 200, map[string]any{"ok": true, "conversations": listArchivesForProject(p),
+			"active": conv.currentID(), "generating": conv.isGenerating()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "conversations": listArchives(),
+		"active": conv.currentID(), "generating": conv.isGenerating()})
+}
+
+// handleChatPeek (GET ?id=) : renvoie le contenu d'une conversation archivée EN
+// LECTURE SEULE (titre + projet + journal rejouable), sans la restaurer ni toucher
+// la conversation vive — pour la lire pendant qu'une génération tourne ailleurs.
+// Le client rejoue ce `log` avec le même pipeline que le fil normal (rendu natif).
+func handleChatPeek(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSpace(r.URL.Query().Get("id"))
+	if id == "" {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "id manquant"})
+		return
+	}
+	a, ok := loadArchive(id)
+	if !ok {
+		sendJSON(w, 404, map[string]any{"ok": false, "error": "conversation introuvable"})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "id": a.ID, "title": a.Title,
+		"project": a.Project, "log": a.Log})
 }
 
 // handleChatHistoryRestore (POST {id}) : ouvre une session comme conversation

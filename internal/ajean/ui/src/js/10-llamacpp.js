@@ -48,8 +48,8 @@ async function loadLlamacpp(){
 // compilation tournait encore. La pastille le dit, et y ramène en un clic.
 let lcSeenEnd = false, lcEndShown = false;
 function lcChipLabel(action){
-  return {install:'Compilation du moteur', update:'Mise à jour du moteur',
-          prebuilt:'Téléchargement du moteur', custom:'Installation du backend'}[action] || 'Installation du moteur';
+  return {install:t('llamacpp.chip_install'), update:t('llamacpp.chip_update'),
+          prebuilt:t('llamacpp.chip_prebuilt'), custom:t('llamacpp.chip_custom')}[action] || t('llamacpp.chip_default');
 }
 function lcChipSync(j){
   const chip = document.getElementById('lc-chip');
@@ -59,7 +59,7 @@ function lcChipSync(j){
   chip.classList.toggle('failed', !j.running && !!j.error);
   chip.textContent = j.running
     ? '⏳ ' + lcChipLabel(j.action) + ' — ' + (j.phase || '…')
-    : '✗ ' + lcChipLabel(j.action) + ' interrompue';
+    : '✗ ' + lcChipLabel(j.action) + ' ' + t('llamacpp.interrupted');
 }
 // Clic sur la pastille : ouvrir le tiroir sur la section Moteur.
 function lcChipOpen(){
@@ -96,33 +96,33 @@ function lcRenderMode(mode, installed){
   card.classList.toggle('installed', installed);
   // Lien de vérification : interroge la dernière version SANS rien installer.
   // event.stopPropagation empêche le clic de la carte (qui lance l'install).
-  const check = '<span class="lc-update-link" onclick="event.stopPropagation();lcCheck(\''+mode+'\')">vérifier la version</span>';
+  const check = '<span class="lc-update-link" onclick="event.stopPropagation();lcCheck(\''+mode+'\')">'+t('llamacpp.check_version')+'</span>';
   if(installed){
-    state.innerHTML = '<span class="lc-mode-active-tag">✓ installée</span>'
-      + '<span class="lc-update-link" onclick="event.stopPropagation();lcUpdate(\''+mode+'\')">↻ mettre à jour</span>'
+    state.innerHTML = '<span class="lc-mode-active-tag">'+t('llamacpp.installed_tag')+'</span>'
+      + '<span class="lc-update-link" onclick="event.stopPropagation();lcUpdate(\''+mode+'\')">'+t('llamacpp.update_link')+'</span>'
       + check;
   } else {
-    state.innerHTML = '<span class="lc-mode-go">→ cliquer pour installer</span>' + check;
+    state.innerHTML = '<span class="lc-mode-go">'+t('llamacpp.click_to_install')+'</span>' + check;
   }
 }
 
 // lcCheck vérifie s'il existe une version plus récente AVANT toute installation
 // (endpoints de check dédiés, sans effet de bord). Résultat affiché en toast.
 async function lcCheck(mode){
-  toast('vérification…');
+  toast(t('llamacpp.checking'));
   try{
     if(mode === 'fast'){
       const r = await jpost('/api/llamacpp/prebuilt/check', {});
-      if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
-      if(r.update) toast('nouvelle version disponible : '+r.latest+(r.current ? ' (installée : '+r.current+')' : ''));
-      else toast('llama.cpp précompilé à jour ✓'+(r.latest ? ' ('+r.latest+')' : ''));
+      if(!r.ok){ toast(t('llamacpp.error_prefix')+(r.error||'')); return; }
+      if(r.update) toast(t('llamacpp.new_version_available')+r.latest+(r.current ? ' ('+t('llamacpp.currently_installed')+' : '+r.current+')' : ''));
+      else toast(t('llamacpp.prebuilt_up_to_date')+(r.latest ? ' ('+r.latest+')' : ''));
     } else {
       const r = await jpost('/api/llamacpp/check', {});
-      if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
-      if(r.behind > 0) toast(r.behind+' nouveau(x) commit(s) disponible(s) — utilisez « mettre à jour »');
-      else toast('llama.cpp compilé à jour ✓');
+      if(!r.ok){ toast(t('llamacpp.error_prefix')+(r.error||'')); return; }
+      if(r.behind > 0) toast(r.behind+' '+t('llamacpp.commits_available'));
+      else toast(t('llamacpp.compiled_up_to_date'));
     }
-  }catch(_){ toast('erreur réseau'); }
+  }catch(_){ toast(t('llamacpp.network_error')); }
 }
 
 // Clic sur une carte : installer le moteur (s'il ne l'est pas déjà).
@@ -130,17 +130,17 @@ async function lcPick(mode){
   const s = lcState || {}, pb = s.prebuilt || {};
   const installed = mode==='fast' ? !!pb.bin : !!s.bin;
   if(installed){
-    toast('déjà installée — choisissez-la dans l\'édition d\'un modèle (⚙)');
+    toast(t('llamacpp.already_installed'));
     return;
   }
   if(mode === 'fast'){
-    if(!await askConfirm('Télécharger le binaire officiel de llama.cpp, prêt à l\'emploi (~2 min, aucune compilation).', {title:'llama.cpp précompilé', okText:'Installer'})) return;
+    if(!await askConfirm(t('llamacpp.confirm_prebuilt_body'), {title:t('llamacpp.prebuilt_title'), okText:t('llamacpp.install_btn')})) return;
     const r = await jpost('/api/llamacpp/prebuilt', {});
-    if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
+    if(!r.ok){ toast(t('llamacpp.error_prefix')+(r.error||'')); return; }
   } else {
-    if(!await askConfirm('Compiler llama.cpp pour votre machine. Ça peut prendre de longues minutes (surtout avec une carte NVIDIA).', {title:'llama.cpp compilé', okText:'Compiler'})) return;
+    if(!await askConfirm(t('llamacpp.confirm_compile_body'), {title:t('llamacpp.compiled_title'), okText:t('llamacpp.compile_btn')})) return;
     const r = await jpost('/api/llamacpp/install', {});
-    if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
+    if(!r.ok){ toast(t('llamacpp.error_prefix')+(r.error||'')); return; }
   }
   lcStartPolling();
 }
@@ -148,13 +148,13 @@ async function lcPick(mode){
 // « Mettre à jour » sur une carte installée.
 async function lcUpdate(mode){
   if(mode === 'fast'){
-    if(!await askConfirm('Vérifier et installer le dernier binaire précompilé.', {title:'Mettre à jour', okText:'Mettre à jour'})) return;
+    if(!await askConfirm(t('llamacpp.confirm_update_prebuilt_body'), {title:t('llamacpp.update_title'), okText:t('llamacpp.update_title')})) return;
     const r = await jpost('/api/llamacpp/prebuilt', {});
-    if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
+    if(!r.ok){ toast(t('llamacpp.error_prefix')+(r.error||'')); return; }
   } else {
-    if(!await askConfirm('Vérifier et installer la dernière version compilée (recompilation si besoin).', {title:'Mettre à jour', okText:'Mettre à jour'})) return;
+    if(!await askConfirm(t('llamacpp.confirm_update_compiled_body'), {title:t('llamacpp.update_title'), okText:t('llamacpp.update_title')})) return;
     const r = await jpost('/api/llamacpp/update', {clean:false});
-    if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
+    if(!r.ok){ toast(t('llamacpp.error_prefix')+(r.error||'')); return; }
   }
   lcStartPolling();
 }
@@ -170,8 +170,8 @@ async function lcRenderCustomCard(){
   const n = lcCustomBackends.length;
   document.getElementById('lc-mode-custom').classList.toggle('installed', n>0);
   state.innerHTML = n>0
-    ? '<span class="lc-mode-active-tag">✓ '+n+' installé'+(n>1?'s':'')+'</span><span class="lc-mode-go">→ gérer</span>'
-    : '<span class="lc-mode-go">→ voir / installer</span>';
+    ? '<span class="lc-mode-active-tag">✓ '+n+' '+(n>1?t('llamacpp.installed_plural'):t('llamacpp.installed_singular'))+'</span><span class="lc-mode-go">'+t('llamacpp.manage_link')+'</span>'
+    : '<span class="lc-mode-go">'+t('llamacpp.view_install_link')+'</span>';
 }
 
 function openCustomBackends(){
@@ -185,19 +185,19 @@ function closeCustomBackends(){ hideModal('lc-custom-modal'); }
 // Liste les backends custom dans le modal, avec un bouton supprimer par ligne.
 async function loadCustomBackends(){
   const box = document.getElementById('lc-custom-list');
-  box.innerHTML = '<span class="muted" style="font-size:12px">chargement…</span>';
+  box.innerHTML = '<span class="muted" style="font-size:12px">'+t('llamacpp.loading')+'</span>';
   let list = [];
   try{ list = await jget('/api/backends/custom') || []; }catch(_){}
   lcCustomBackends = list;
-  if(!list.length){ box.innerHTML = '<span class="muted" style="font-size:12px">aucun backend personnalisé pour l\'instant.</span>'; return; }
+  if(!list.length){ box.innerHTML = '<span class="muted" style="font-size:12px">'+t('llamacpp.no_custom_backends')+'</span>'; return; }
   box.innerHTML = list.map(b=>{
     const nm = String(b.name).replace(/[<>&]/g,'');
-    const used = b.in_use ? '<span class="mcp-tag" style="border-color:var(--accent);color:var(--accent)">utilisé</span>' : '';
+    const used = b.in_use ? '<span class="mcp-tag" style="border-color:var(--accent);color:var(--accent)">'+t('llamacpp.in_use_tag')+'</span>' : '';
     return '<div class="mcp-row" style="cursor:default">'
       + '<span class="mcp-dot '+(b.in_use?'mcp-dot-ok':'mcp-dot-off')+'"></span>'
       + '<div class="mcp-info"><div class="mcp-name">'+nm+'</div>'
       + '<div class="mcp-meta">'+used+'<span class="mcp-tag" title="'+String(b.path).replace(/"/g,'&quot;')+'">'+String(b.path).split('/').slice(-3).join('/').replace(/[<>&]/g,'')+'</span></div></div>'
-      + '<button class="btn-danger" style="padding:3px 8px;font-size:11px" onclick="lcUninstallCustom(\''+nm.replace(/'/g,"\\'")+'\')">supprimer</button>'
+      + '<button class="btn-danger" style="padding:3px 8px;font-size:11px" onclick="lcUninstallCustom(\''+nm.replace(/'/g,"\\'")+'\')">'+t('llamacpp.delete_btn')+'</button>'
       + '</div>';
   }).join('');
 }
@@ -207,11 +207,11 @@ async function loadCustomBackends(){
 // apparaît ensuite dans le menu « backend détecté » de l'éditeur de modèle.
 async function lcInstallCustom(){
   const url = (document.getElementById('lc-custom-url').value||'').trim();
-  if(!url){ toast('collez l\'URL d\'un dépôt Git'); return; }
+  if(!url){ toast(t('llamacpp.paste_git_url')); return; }
   const name = (document.getElementById('lc-custom-name').value||'').trim();
-  if(!await askConfirm('Cloner et compiler ce backend depuis :\n'+url+'\n\nCela peut prendre de longues minutes (surtout avec une carte NVIDIA). Il ne remplace pas le moteur global — vous le choisirez par modèle.', {title:'Backend personnalisé', okText:'Installer'})) return;
+  if(!await askConfirm(t('llamacpp.confirm_custom_prefix')+'\n'+url+'\n\n'+t('llamacpp.confirm_custom_suffix'), {title:t('llamacpp.custom_backend_title'), okText:t('llamacpp.install_btn')})) return;
   const r = await jpost('/api/llamacpp/install-custom', {repo:url, name});
-  if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
+  if(!r.ok){ toast(t('llamacpp.error_prefix')+(r.error||'')); return; }
   closeCustomBackends();
   document.getElementById('lc-details').open = true;
   lcStartPolling();
@@ -220,10 +220,10 @@ async function lcInstallCustom(){
 // Désinstaller (supprime le dossier backends/<name>). Le serveur refuse si le
 // backend sert de moteur au modèle actif.
 async function lcUninstallCustom(name){
-  if(!await askConfirm('Supprimer le backend « '+name+' » ? Son dossier compilé sera effacé. Les modèles qui l\'utilisent devront être repointés sur un autre moteur.', {title:'Supprimer le backend', okText:'Supprimer', danger:true})) return;
+  if(!await askConfirm(t('llamacpp.confirm_uninstall_prefix')+' '+name+' '+t('llamacpp.confirm_uninstall_suffix'), {title:t('llamacpp.uninstall_title'), okText:t('llamacpp.uninstall_btn'), danger:true})) return;
   const r = await jpost('/api/llamacpp/uninstall-custom', {name});
-  if(!r.ok){ toast('erreur : '+(r.error||'')); return; }
-  toast('backend supprimé');
+  if(!r.ok){ toast(t('llamacpp.error_prefix')+(r.error||'')); return; }
+  toast(t('llamacpp.backend_deleted'));
   loadCustomBackends();
   lcRenderCustomCard();
 }
@@ -271,10 +271,10 @@ async function lcPollJob(quiet){
     const pre = document.getElementById('lc-log');
     if(pre.hasAttribute('hidden')) lcToggleLog();
     pre.scrollTop = pre.scrollHeight;
-    if(!quiet) toast('échec — voir les détails');
+    if(!quiet) toast(t('llamacpp.failed_toast'));
   } else {
-    phaseEl.innerHTML = '<span style="color:var(--ok)">✓ '+String(j.phase||'terminé').replace(/[<>&]/g,'')+'</span>';
-    if(!quiet) toast('c\'est prêt ✓');
+    phaseEl.innerHTML = '<span style="color:var(--ok)">✓ '+String(j.phase||t('llamacpp.done')).replace(/[<>&]/g,'')+'</span>';
+    if(!quiet) toast(t('llamacpp.ready_toast'));
   }
   if(!quiet) loadAll();
 }
@@ -284,8 +284,8 @@ async function lcPollJob(quiet){
 async function lcDismissJob(){
   try{
     const r = await jpost('/api/llamacpp/job/dismiss', {});
-    if(!r.ok){ toast(r.error||'impossible de masquer'); return; }
-  }catch(_){ toast('erreur réseau'); return; }
+    if(!r.ok){ toast(r.error||t('llamacpp.cannot_dismiss')); return; }
+  }catch(_){ toast(t('llamacpp.network_error')); return; }
   if(lcPoll){ clearInterval(lcPoll); lcPoll = null; }
   document.getElementById('lc-job').style.display = 'none';
   const dis = document.getElementById('lc-job-dismiss'); if(dis) dis.hidden = true;

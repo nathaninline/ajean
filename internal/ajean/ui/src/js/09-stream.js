@@ -4,6 +4,15 @@
 // suit le direct. Fermer l'onglet n'arrête plus la génération (détachée côté
 // serveur) ; se reconnecter rejoue tout le fil, détails compris.
 let lastSeq=0, streamAbort=null;
+// READING = on regarde une AUTRE conversation en LECTURE SEULE pendant qu'une
+// génération tourne. La génération est autonome côté serveur : on coupe juste le
+// flux d'affichage et on rejoue le journal de la conversation lue. « Revenir »
+// reconnecte le flux → le serveur rejoue la conversation VIVE en direct.
+let READING=false, READING_ID='';
+// PENDING_LIVE : une réponse a été générée dans la conversation vive pendant qu'on
+// lisait ailleurs et on ne l'a pas encore vue → pastille de notif (icône projet +
+// conversation dans le hub). Retombe à false dès qu'on revient au direct.
+let PENDING_LIVE=false;
 // Bulle « en attente » : affichée EN GRIS dès l'appui sur envoyer, avant tout
 // aller-retour réseau. Le message ne disparaît donc plus de l'écran entre la
 // frappe et la réponse du serveur. Elle s'éclaircit (classe retirée) quand
@@ -22,7 +31,7 @@ function addPending(text){
   clearPending();
   PENDING=addMsg('user', text);
   PENDING.classList.add('pending');
-  const l=PENDING.querySelector('.label'); if(l) l.textContent='envoi…';
+  const l=PENDING.querySelector('.label'); if(l) l.textContent=t('chat.sending');
   jumpBottom();
   return PENDING;
 }
@@ -207,7 +216,7 @@ function setCompacting(on){
     const g=ensureGenEl();
     genStatusOn(true);
     g.classList.add('compacting');
-    g.querySelector('.gtxt').textContent='compactage…';
+    g.querySelector('.gtxt').textContent=t('chat.compacting');
     scrollMaybe();
     return;
   }
@@ -220,7 +229,7 @@ function setCompacting(on){
 function addCompactMark(){
   const el=document.createElement('div');
   el.className='compact-mark';
-  el.textContent='contexte compacté : anciens tours résumés';
+  el.textContent=t('chat.context_compacted_mark');
   // Devant la barre d'état encore à l'écran (compactage en cours de tour) : la
   // suite de la réponse doit rester APRÈS la marque de coupure. La barre de
   // génération (GENEL) est le repère ; à défaut l'ancien indicateur de frappe.
@@ -247,13 +256,13 @@ function renderStats(el, s){
   if(!el||!s) return;
   const parts=[];
   const pt=s.prompt_tokens||s.prompt_tokens_total;
-  if(pt) parts.push('prefill '+pt+' tok · '+(s.prompt_per_second||0).toFixed(0)+' tok/s');
-  if(s.gen_tokens) parts.push('decode '+s.gen_tokens+' tok · '+(s.gen_per_second||0).toFixed(1)+' tok/s');
+  if(pt) parts.push(t('chat.prefill')+' '+pt+' '+t('chat.tok_unit')+' · '+(s.prompt_per_second||0).toFixed(0)+' tok/s');
+  if(s.gen_tokens) parts.push(t('chat.decode')+' '+s.gen_tokens+' '+t('chat.tok_unit')+' · '+(s.gen_per_second||0).toFixed(1)+' tok/s');
   if(!parts.length) return;
   // Réponse de l'assistant : ligne de mesures dédiée sous le texte (son étiquette
   // est masquée dans cette mise en page). Bulle repliable : l'étiquette EST le
   // bouton de repli, on y écrit comme avant.
-  if(el.classList.contains('collapsible')){ setIcon(el,'brain'); setLabel(el, ['Réflexion'].concat(parts).join('  ·  ')); }
+  if(el.classList.contains('collapsible')){ setIcon(el,'brain'); setLabel(el, [t('chat.reflection_label')].concat(parts).join('  ·  ')); }
   else setStats(el, parts.join('  ·  '));
 }
 // Label d'une bulle de raisonnement : rôle + nombre de tokens. PAS de vitesse
@@ -267,10 +276,10 @@ function labelTokens(el, role, n, firstTs, lastTs){
   // décompte de tokens final. Les autres rôles gardent leur libellé brut + tokens.
   if(role==='reasoning'){
     const active = el.classList.contains('working');
-    setLabel(el, active ? 'Réflexion en cours…' : 'Réflexion  ·  '+n+' tok');
+    setLabel(el, active ? t('chat.reasoning_in_progress') : t('chat.reflection_label')+'  ·  '+n+' '+t('chat.tok_unit'));
     return;
   }
-  setLabel(el, role+'  ·  '+n+' tok');
+  setLabel(el, role+'  ·  '+n+' '+t('chat.tok_unit'));
 }
 // Pendant le replay on met à jour l'état `busy` mais on NE touche PAS aux boutons
 // (sinon user→stop puis turn_done→send à chaque tour rejoué = flottement visible).
@@ -287,18 +296,18 @@ function syncSendBtn(){
   stop.style.display=busy?'flex':'none';
   // Le bouton stop est une icône (carré) : on ne touche PAS à son contenu (sinon on
   // écraserait le SVG), seulement au tooltip pour signaler une tâche de fond.
-  stop.title = (busy && RUNNING_TASK) ? ('Arrêter la tâche « '+RUNNING_TASK+' »') : 'stop';
+  stop.title = (busy && RUNNING_TASK) ? (t('chat.stop_task_prefix')+RUNNING_TASK+t('chat.stop_task_suffix')) : t('chat.stop');
   // Tant que le moteur n'a pas fini de charger le modèle, envoyer ne mène à rien :
   // on bloque le bouton et l'Entrée, et on le DIT sous le champ. `STATUS_SEEN`
   // évite de verrouiller le chat quand /api/status n'a pas encore répondu (ou ne
   // répond pas du tout) — dans le doute on laisse la main.
   const ready = !STATUS_SEEN || MODEL_READY;
   sb.disabled = !ready;
-  sb.title = ready ? '' : 'le modèle n\'est pas encore chargé';
+  sb.title = ready ? '' : t('chat.model_not_loaded');
   const hint=document.getElementById('sendhint');
   if(hint){
     hint.textContent = ready ? sendHintText()
-                             : 'Le modèle charge, envoi possible dès qu\'il est prêt.';
+                             : t('chat.model_loading_hint');
     hint.classList.toggle('waiting', !ready);
   }
 }
@@ -443,7 +452,7 @@ function handleDelta(d){
   // (« rien à compacter » qui revient sans raison). C'est un événement ponctuel,
   // il n'a de sens qu'en direct — contrairement à la marque `compacted`, qui est
   // une trace du fil et DOIT être rejouée.
-  if(d.compact_noop){ setCompacting(false); if(!REPLAYING) toast('rien à compacter (contexte déjà minimal)'); return; }
+  if(d.compact_noop){ setCompacting(false); if(!REPLAYING) toast(t('chat.compact_noop')); return; }
   if(d.ctx_used!==undefined){ setCtxUsed(d.ctx_used); return; }
   if(d.compact_count!==undefined){ setCompactCount(d.compact_count); return; }
   if(d.stats){ T.serverStats=d.stats;
@@ -532,6 +541,9 @@ async function connectStream(){
   while(true){
     // Onglet en arrière-plan : on n'ouvre aucune connexion, on attend le retour.
     while(document.hidden){ await new Promise(res=>setTimeout(res, 500)); }
+    // Lecture d'une autre conversation : on ne suit pas le direct (la génération
+    // continue côté serveur). On attend « revenir » avant de reconnecter.
+    while(READING){ await new Promise(res=>setTimeout(res, 200)); }
     // Chaque (re)connexion commence par un rejeu coalescé de Log[from:] suivi de
     // {caught_up} : on le rend DIRECT (CATCHUP), pas via le lissage, pour ne pas
     // figer l'UI en réanimant tout le retard token par token. On solde aussi un
@@ -540,7 +552,7 @@ async function connectStream(){
     streamAbort=new AbortController();
     try{
       const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:lastSeq}),signal:streamAbort.signal});
-      if(REPLAYING) setChatLoading('chargement de la conversation…');
+      if(REPLAYING) setChatLoading(t('chat.loading_conversation'));
       const reader=r.body.getReader(); const dec=new TextDecoder(); let buf='';
       while(true){
         const {done,value}=await reader.read(); if(done) break;
@@ -558,17 +570,78 @@ async function connectStream(){
     // Le flux s'est arrêté (coupure ou fin prématurée). Si le fil n'a JAMAIS fini
     // de charger, le silence est trompeur — un chat vide sans explication. On le
     // dit dans le voile ; il disparaîtra au {caught_up} de la reconnexion.
-    if(REPLAYING) setChatLoading('connexion au serveur…');
+    if(REPLAYING) setChatLoading(t('chat.connecting_to_server'));
     await new Promise(res=>setTimeout(res, 600));
   }
 }
+// readConversation : affiche une AUTRE conversation en LECTURE SEULE dans la vue
+// plein chat, SANS rien dire au serveur (la conversation vive et sa génération
+// autonome ne bougent pas). On coupe le flux d'affichage, puis on rejoue le
+// journal de la conversation lue via le même pipeline que le rejeu normal — rendu
+// 100% natif. « Revenir » (exitReading) reconnecte le flux : le serveur rejoue la
+// conversation vive EN DIRECT, exactement comme un rechargement de page.
+async function readConversation(id, title){
+  let r; try{ r = await jfetch('/api/chat/peek?id='+encodeURIComponent(id)); r = await r.json(); }
+  catch(_){ toast(t('projects.network_error')); return; }
+  if(!r || !r.ok){ toast(t('projects.load_error')); return; }
+  // Une génération tourne-t-elle (ou vient de finir) dans la conversation vive qu'on
+  // quitte ? Si oui, on posera une pastille « réponse non lue » sur l'icône projet.
+  const liveActive = busy || (typeof LIVE_GENERATING!=='undefined' && LIVE_GENERATING);
+  READING=true; READING_ID=id;
+  if(streamAbort){ try{ streamAbort.abort(); }catch(e){} } // fige le direct (génération autonome côté serveur, intacte)
+  const chat=document.getElementById('chat'); if(chat) chat.innerHTML=''; newTurn();
+  smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null;
+  const wasReplaying=REPLAYING; REPLAYING=true;
+  for(const ev of (r.log||[])){ try{ handleDelta((ev&&ev.delta)||{}); }catch(e){} }
+  REPLAYING=wasReplaying;
+  elapsedStop(); setBusy(false);
+  PENDING_LIVE = !!liveActive;
+  enterReadingUI();
+  jumpBottom();
+}
+// exitReading : revient à la conversation VIVE. On vide, on redemande un rejeu
+// complet depuis le début (lastSeq=0) : la boucle connectStream sort de sa pause
+// et le serveur rejoue la conversation vive + suit le direct (génération comprise).
+function exitReading(){
+  if(!READING) return;
+  READING=false; READING_ID='';
+  PENDING_LIVE=false; leaveReadingUI();
+  const chat=document.getElementById('chat'); if(chat) chat.innerHTML=''; newTurn();
+  smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null;
+  lastSeq=0; REPLAYING=true; setChatLoading(t('chat.loading_conversation'));
+}
+// Pas de gros bandeau : juste un indice discret dans le composeur (le placeholder)
+// et une pastille de notif sur l'icône projet. Le composeur RESTE actif — cliquer
+// dedans ramène à la conversation vive (listener plus bas), donc on n'est jamais
+// « bloqué ».
+let _savedPlaceholder=null;
+function enterReadingUI(){
+  const ta=document.getElementById('input');
+  if(ta && _savedPlaceholder===null){ _savedPlaceholder = ta.getAttribute('placeholder')||''; ta.setAttribute('placeholder', t('projects.back_hint')); }
+  updateLiveBadge();
+}
+function leaveReadingUI(){
+  const ta=document.getElementById('input');
+  if(ta && _savedPlaceholder!==null){ ta.setAttribute('placeholder', _savedPlaceholder); _savedPlaceholder=null; }
+  updateLiveBadge();
+}
+// Pastille de notification (petit point accent) sur le bouton projet du composeur :
+// une réponse a été générée dans la conversation vive et pas encore vue.
+function updateLiveBadge(){
+  const btn=document.getElementById('project-btn'); if(!btn) return;
+  let dot=btn.querySelector('.notif-dot');
+  if(PENDING_LIVE){ if(!dot){ dot=document.createElement('span'); dot.className='notif-dot'; btn.appendChild(dot); } }
+  else if(dot){ dot.remove(); }
+}
+
 // Interrompt la génération en cours côté serveur (la goroutine détachée est
 // annulée). Le serveur émet alors turn_done → le bouton repasse en « send ».
-function stopGen(){ jfetch('/api/chat/stop',{method:'POST'}).catch(()=>{}); toast('stop'); }
+function stopGen(){ jfetch('/api/chat/stop',{method:'POST'}).catch(()=>{}); toast(t('chat.stop')); }
 // Recale l'état du bouton sur la vérité serveur. Ne touche à rien pendant le replay
 // initial (l'état final y est posé au caught_up) ni si l'appel échoue : dans le
 // doute on garde ce que les événements ont déjà établi.
 async function reconcileBusy(){
+  if(READING) return; // en lecture seule : ne pas resynchroniser l'état sur la vue lue
   try{
     const s=await (await jfetch('/api/chat/state')).json();
     const rt = s.running_task || '';
@@ -606,9 +679,10 @@ setInterval(reconcileBusy, 3000);
 // erreur qu'après plusieurs échecs ET vérification que rien ne tourne — plus de
 // « network error » alarmiste alors que l'IA répond quand même.
 async function send(){
+  if(READING){ exitReading(); return; } // en lecture seule : le geste ramène au direct
   if(busy) return;
   // Garde-fou : le bouton est déjà désactivé, mais l'Entrée passe aussi par ici.
-  if(STATUS_SEEN && !MODEL_READY){ toast('le modèle n\'est pas encore prêt'); return; }
+  if(STATUS_SEEN && !MODEL_READY){ toast(t('chat.model_not_ready')); return; }
   const ta=document.getElementById('input'); const text=ta.value.trim();
   // Un envoi sans texte est légitime s'il porte une pièce jointe (« tiens, regarde »).
   if(!text && !ATTACH.length) return;
@@ -621,7 +695,7 @@ async function send(){
   // ne sont retirées qu'une fois le message accepté : tant qu'il n'est pas parti,
   // on doit pouvoir en enlever une, et un échec doit rester visible.
   const files=await attachPaths();
-  if(!text && !files.length){ fail('aucun fichier n\'a pu être déposé'); return; }
+  if(!text && !files.length){ fail(t('chat.no_file_uploaded')); return; }
   // Les pastilles passent dans la bulle en attente : le message porte ses
   // fichiers dès l'envoi, sans attendre l'aller-retour.
   if(PENDING) addMsgFiles(PENDING, attachSent());
@@ -631,15 +705,19 @@ async function send(){
       if(r.status===409 || r.ok) clearAttach();
       if(r.status===409) return;               // déjà en cours (notre envoi a abouti) → OK
       if(r.ok) return;                          // la bulle + les tokens arrivent par le flux
-      if(r.status<500){ let m='erreur'; try{ m=(await r.json()).error||m; }catch(_){} fail(m); return; }
+      if(r.status<500){ let m=t('chat.error'); try{ m=(await r.json()).error||m; }catch(_){} fail(m); return; }
     }catch(e){ /* réseau : on retente */ }
     await new Promise(res=>setTimeout(res, 600));
   }
   // Après plusieurs échecs : le serveur a peut-être quand même reçu le message.
   try{ const s=await (await jfetch('/api/chat/state')).json(); if(s.generating) return; }catch(_){}
-  fail('échec de l\'envoi — réessaie');
+  fail(t('chat.send_failed_retry'));
 }
 loadAll();
+// Retour naturel au direct : si on est en train de lire une autre conversation et
+// qu'on clique/focus le composeur (« je veux écrire dans MON chat »), on revient à
+// la conversation vive. Plus besoin d'un bouton dédié.
+(function(){ const ta=document.getElementById('input'); if(ta) ta.addEventListener('focus', ()=>{ if(READING) exitReading(); }); })();
 // Une seule fois au démarrage (interroge GitHub côté serveur) : prévient en accès
 // distant si le serveur AJEAN de la machine est plus ancien que le front hébergé.
 checkServerFreshness();

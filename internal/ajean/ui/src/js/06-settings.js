@@ -43,10 +43,10 @@ async function loadPresets(){
   // spaces, accents, quotes, < > & — without breaking markup or handlers.
   const sp = document.getElementById('status-preset');
   sp.textContent = act ? act.name : '';
-  sp.title = act ? 'preset actif' : '';
+  sp.title = act ? t('settings.presets.active_title') : '';
   const cont=document.getElementById('presets');
   cont.innerHTML='';
-  if(!p.length){ cont.innerHTML='<span class="muted">(aucun)</span>'; return; }
+  if(!p.length){ cont.innerHTML='<span class="muted">'+t('settings.presets.none')+'</span>'; return; }
   // Signature de la sélection : quel preset est actif, et vers lequel on bascule.
   const sel = (act?act.id:'')+'|'+pendingPreset;
   const moved = sel !== paintedSel; paintedSel = sel;
@@ -73,18 +73,18 @@ async function loadPresets(){
     const meta=document.createElement('div'); meta.className='preset-meta';
     if(x.quant){
       const q=document.createElement('span'); q.className='qtag';
-      q.textContent=x.quant; q.title='quantization';
+      q.textContent=x.quant; q.title=t('settings.presets.quant_title');
       meta.appendChild(q);
     }
     if(x.ctx){
       const c=document.createElement('span'); c.className='ctag';
-      c.title='taille du contexte';
+      c.title=t('settings.presets.context_size_title');
       c.textContent=x.ctx;
       meta.appendChild(c);
     }
     if(x.bench){
       const bt=document.createElement('span'); bt.className='btag';
-      bt.title='prefill / decode — dernier bench de ce preset';
+      bt.title=t('settings.presets.bench_title');
       bt.textContent=x.bench.prefill.toFixed(0)+'-'+x.bench.decode.toFixed(0)+' t/s';
       meta.appendChild(bt);
     }
@@ -93,11 +93,11 @@ async function loadPresets(){
     const caps=[], capTitle=[];
     if(x.vision){
       caps.push('<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>');
-      capTitle.push('vision (analyse d\'images)');
+      capTitle.push(t('settings.presets.vision_title'));
     }
     if(x.reasoning){
       caps.push('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>');
-      capTitle.push('raisonnement'+(typeof x.reasoning==='string'?' ('+x.reasoning+')':''));
+      capTitle.push(t('settings.presets.reasoning_title')+(typeof x.reasoning==='string'?' ('+x.reasoning+')':''));
     }
     if(caps.length){
       const cap=document.createElement('span'); cap.className='captag';
@@ -110,7 +110,7 @@ async function loadPresets(){
     const edit=document.createElement('button');
     // Engrenage (et non plus un crayon) : la silhouette est ronde, donc elle se
     // lit comme centrée dans son coin, là où le crayon penché tirait de travers.
-    edit.className='preset-edit'; edit.title='réglages du preset';
+    edit.className='preset-edit'; edit.title=t('settings.presets.edit_title');
     edit.innerHTML='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>';
     edit.onclick=(e)=>{ e.stopPropagation(); openPreset(x.id); };
     // Pas de poignée : la ligne entière est déplaçable, on attrape où on veut.
@@ -162,7 +162,7 @@ async function loadAgent(){
   document.getElementById('agent-toggle').checked = on;
   document.getElementById('compact-toggle').checked = (s.compact !== false);
   document.getElementById('machines-toggle').checked = !!s.machines;
-  setBadge('agent-badge', on, on?'actif':'inactif');
+  setBadge('agent-badge', on, on?t('settings.agent.badge_on'):t('settings.agent.badge_off'));
   document.getElementById('brand').classList.toggle('agent', on);
   setAgentGate(on);
   if(s.mem_mode){ document.getElementById('mem-mode').value = s.mem_mode; renderMemModeDesc(s.mem_mode); }
@@ -212,11 +212,11 @@ async function loadMemEnc(){
     }
     // Boucle : une clé fausse redemande tout de suite (plus besoin de rafraîchir).
     while(true){
-      const s=await askPrompt('Entre ta clé d\'API (ou ton ancien mot de passe de chiffrement) pour ouvrir ta mémoire et tes conversations. Ta clé d\'API sera ensuite mémorisée : tu ne retaperas plus rien.',{title:'Déverrouiller',placeholder:'clé d\'API ou ancien mot de passe'});
+      const s=await askPrompt(t('settings.memory.unlock_prompt'),{title:t('settings.memory.unlock_title'),placeholder:t('settings.memory.unlock_placeholder')});
       if(!s){ memUnlockDone=false; break; } // annulé : nouvelle tentative au prochain chargement
       const r=await jpost('/api/mem/unlock',{secret:s});
       if(r.ok){ if(apiKey && s!==apiKey) await jpost('/api/mem/addkey',{secret:apiKey}); loadMem(); return; }
-      await askAlert('Clé incorrecte, réessaie.',{title:'Refusé'});
+      await askAlert(t('settings.wrong_key'),{title:t('settings.refused_title')});
     }
   }
   loadBackup();
@@ -232,21 +232,21 @@ async function toggleMemEncrypt(){
     // sur cet appareil ; le serveur n'en a que l'empreinte → il ne peut pas ouvrir
     // le coffre seul. Une seule clé pour l'accès ET le chiffrement.
     const apiKey=localStorage.getItem('ajean.key')||'';
-    if(!apiKey){ await askAlert('Définis d\'abord une clé d\'API (elle protège l\'accès à l\'interface) : c\'est elle qui chiffrera aussi ta mémoire.',{title:'Clé d\'API requise'}); tog.checked=false; return; }
-    const ok=await askConfirm('Ta mémoire ET tes conversations seront chiffrées au repos (AES-256), avec ta clé d\'API. Elle reste UNIQUEMENT sur cet appareil : le serveur ne pourra pas les lire seul. Tu recevras une CLÉ DE RÉCUPÉRATION à noter absolument. Un snapshot de sécurité est pris avant.',{title:'Activer le chiffrement ?',okText:'Continuer'});
+    if(!apiKey){ await askAlert(t('settings.memory.api_key_required_msg'),{title:t('settings.memory.api_key_required_title')}); tog.checked=false; return; }
+    const ok=await askConfirm(t('settings.memory.encrypt_confirm_msg'),{title:t('settings.memory.encrypt_confirm_title'),okText:t('settings.continue_ok')});
     if(!ok){ tog.checked=false; return; }
-    let r; try{ r=await jpost('/api/mem/encrypt',{password:apiKey}); }catch(e){ await askAlert('Échec : '+e); tog.checked=false; return; }
-    if(!r.ok){ await askAlert('Échec : '+(r.error||'inconnu')); tog.checked=false; loadMemEnc(); return; }
+    let r; try{ r=await jpost('/api/mem/encrypt',{password:apiKey}); }catch(e){ await askAlert(t('common.failed_prefix')+e); tog.checked=false; return; }
+    if(!r.ok){ await askAlert(t('common.failed_prefix')+(r.error||t('common.unknown'))); tog.checked=false; loadMemEnc(); return; }
     memUnlockDone=true;
-    await askAlert('Note-la MAINTENANT, elle ne sera plus jamais affichée :\n\n'+r.recovery+'\n\nRange-la hors ligne. Elle rouvre tout même si tu perds ta clé d\'API.',{title:'⚠️ Clé de récupération'});
-    toast('Chiffrement activé'); loadMem();
+    await askAlert(t('settings.memory.recovery_key_msg_before')+r.recovery+t('settings.memory.recovery_key_msg_after'),{title:t('settings.memory.recovery_key_title')});
+    toast(t('settings.encryption_on')); loadMem();
   } else {
-    const ok=await askConfirm('Ta mémoire et tes conversations seront réécrites EN CLAIR sur le disque. Un snapshot de sécurité est pris avant. Continuer ?',{title:'Désactiver le chiffrement ?',okText:'Déchiffrer',danger:true});
+    const ok=await askConfirm(t('settings.memory.decrypt_confirm_msg'),{title:t('settings.memory.decrypt_confirm_title'),okText:t('settings.memory.decrypt_ok_text'),danger:true});
     if(!ok){ tog.checked=true; return; }
-    let r; try{ r=await jpost('/api/mem/decrypt',{}); }catch(e){ await askAlert('Échec : '+e); tog.checked=true; return; }
-    if(!r.ok){ await askAlert('Échec : '+(r.error||'inconnu')); tog.checked=true; loadMemEnc(); return; }
+    let r; try{ r=await jpost('/api/mem/decrypt',{}); }catch(e){ await askAlert(t('common.failed_prefix')+e); tog.checked=true; return; }
+    if(!r.ok){ await askAlert(t('common.failed_prefix')+(r.error||t('common.unknown'))); tog.checked=true; loadMemEnc(); return; }
     localStorage.removeItem('ajean.enckey');
-    toast('Chiffrement désactivé'); loadMem();
+    toast(t('settings.encryption_off')); loadMem();
   }
 }
 // --- Sauvegarde ajean.link ---------------------------------------------------
@@ -256,44 +256,44 @@ async function loadBackup(){
   if(!s.linked){ block.style.display='none'; return; } // réservé aux serveurs liés à ajean.link
   block.style.display='';
   document.getElementById('backup-auto-toggle').checked=!!s.auto;
-  setBadge('backup-badge', !!s.auto, s.auto?'auto':'manuel');
+  setBadge('backup-badge', !!s.auto, s.auto?t('settings.backup.auto_badge'):t('settings.backup.manual_badge'));
   const st=document.getElementById('backup-status');
   let msg='';
-  if(s.last){ const d=new Date(s.last); msg='Dernière sauvegarde : '+(isNaN(d)?s.last:d.toLocaleString()); }
-  else msg='Aucune sauvegarde encore.';
-  if(Array.isArray(s.versions)) msg+=' · '+s.versions.length+' version(s) sur le relais';
+  if(s.last){ const d=new Date(s.last); msg=t('settings.backup.last_backup_prefix')+(isNaN(d)?s.last:d.toLocaleString()); }
+  else msg=t('settings.backup.none_yet');
+  if(Array.isArray(s.versions)) msg+=' · '+s.versions.length+' '+t('settings.backup.versions_on_relay');
   if(s.error) msg+='\n⚠️ '+s.error;
   st.textContent=msg; st.style.whiteSpace='pre-line';
 }
 async function toggleBackupAuto(){
   const on=document.getElementById('backup-auto-toggle').checked;
   await jpost('/api/backup/auto',{on});
-  if(on) await askAlert('La sauvegarde automatique tournera une fois par jour, tant que ta mémoire est déverrouillée (le paquet est chiffré avec ta clé, jamais stockée sur le serveur).',{title:'Sauvegarde auto activée'});
+  if(on) await askAlert(t('settings.backup.auto_enabled_msg'),{title:t('settings.backup.auto_enabled_title')});
   loadBackup();
 }
 async function backupNow(){
   // Aucun mot de passe : le paquet est chiffré avec la clé de ta mémoire (déjà
   // ouverte). La restauration se fera avec ta clé d'API.
-  toast('Sauvegarde en cours…');
-  let r; try{ r=await jpost('/api/backup/now',{}); }catch(e){ await askAlert('Échec : '+e); return; }
-  if(!r.ok){ await askAlert('Échec : '+(r.error||'inconnu')); return; }
-  toast('Sauvegarde envoyée'); loadBackup();
+  toast(t('settings.backup_in_progress'));
+  let r; try{ r=await jpost('/api/backup/now',{}); }catch(e){ await askAlert(t('common.failed_prefix')+e); return; }
+  if(!r.ok){ await askAlert(t('common.failed_prefix')+(r.error||t('common.unknown'))); return; }
+  toast(t('settings.backup.sent')); loadBackup();
 }
 async function backupRestore(){
-  let s; try{ s=await jget('/api/backup/status'); }catch(e){ await askAlert('Relais injoignable.'); return; }
+  let s; try{ s=await jget('/api/backup/status'); }catch(e){ await askAlert(t('settings.backup.relay_unreachable')); return; }
   const vers=(s.versions||[]);
-  if(!vers.length){ await askAlert('Aucune sauvegarde disponible sur le relais.'); return; }
+  if(!vers.length){ await askAlert(t('settings.backup.none_available')); return; }
   const latest=vers[0];
   const when=latest.when? new Date(latest.when).toLocaleString():latest.id;
-  if(!await askConfirm('Restaurer la sauvegarde la plus récente ('+when+') ? Cela remplacera ta mémoire, tes presets et tes réglages actuels. Un snapshot de sécurité est pris avant.',{title:'Restaurer',okText:'Restaurer',danger:true})) return;
+  if(!await askConfirm(t('settings.backup.restore_confirm_before')+when+t('settings.backup.restore_confirm_after'),{title:t('settings.backup.restore_title'),okText:t('settings.backup.restore_title'),danger:true})) return;
   // Boucle : une clé fausse redemande tout de suite.
   while(true){
-    const secret=await askPrompt('Ta clé d\'API (ou ta clé de récupération) pour ouvrir la sauvegarde :',{title:'Restaurer',placeholder:'clé d\'API ou clé de récupération'});
+    const secret=await askPrompt(t('settings.backup.restore_secret_prompt'),{title:t('settings.backup.restore_title'),placeholder:t('settings.backup.restore_secret_placeholder')});
     if(!secret) return; // annulé
-    toast('Restauration…');
-    let r; try{ r=await jpost('/api/backup/restore',{id:latest.id,secret}); }catch(e){ await askAlert('Échec : '+e); return; }
-    if(r.ok){ await askAlert('Restauration terminée.',{title:'OK'}); loadMem(); return; }
-    await askAlert((r.error&&r.error.indexOf('incorrecte')>=0)?'Clé incorrecte, réessaie.':('Échec : '+(r.error||'inconnu')),{title:'Refusé'});
+    toast(t('settings.backup.restoring'));
+    let r; try{ r=await jpost('/api/backup/restore',{id:latest.id,secret}); }catch(e){ await askAlert(t('common.failed_prefix')+e); return; }
+    if(r.ok){ await askAlert(t('settings.backup.restore_done_msg'),{title:t('settings.backup.restore_done_title')}); loadMem(); return; }
+    await askAlert((r.error&&r.error.indexOf('incorrecte')>=0)?t('settings.wrong_key'):(t('common.failed_prefix')+(r.error||t('common.unknown'))),{title:t('settings.refused_title')});
   }
 }
 // Mémoire + accès internet sont des sous-réglages du mode agent : sans agent, ni
@@ -322,9 +322,9 @@ function renderMemList(){
   const q=(document.getElementById('mem-search').value||'').trim().toLowerCase();
   const list=document.getElementById('mem-list');
   list.textContent='';
-  if(!memPages.length){ list.innerHTML='<div class="muted">(aucune page mémoire)</div>'; return; }
+  if(!memPages.length){ list.innerHTML='<div class="muted">'+t('settings.memory.no_pages')+'</div>'; return; }
   const matches = q ? memPages.filter(x=>(x.name+' '+(x.desc||'')).toLowerCase().includes(q)) : memPages;
-  if(!matches.length){ list.innerHTML='<div class="muted">(aucun résultat pour « '+q.replace(/[<>&]/g,'')+' »)</div>'; return; }
+  if(!matches.length){ list.innerHTML='<div class="muted">'+t('settings.memory.no_results_before')+q.replace(/[<>&]/g,'')+t('settings.memory.no_results_after')+'</div>'; return; }
   const shown = matches.slice(0, memShown);
   shown.forEach(x=>{
     const row=document.createElement('div'); row.className='preset'; row.style.fontSize='12px';
@@ -332,13 +332,13 @@ function renderMemList(){
     const span=document.createElement('span');
     const b=document.createElement('b'); b.style.color='var(--text)'; b.textContent=x.name; span.appendChild(b);
     if(x.desc){ const d=document.createElement('span'); d.className='muted'; d.textContent=' — '+x.desc; span.appendChild(d); }
-    const btn=document.createElement('button'); btn.textContent='edit'; btn.style.cssText='margin:0;padding:2px 8px;font-size:11px';
+    const btn=document.createElement('button'); btn.textContent=t('settings.memory.edit_btn'); btn.style.cssText='margin:0;padding:2px 8px;font-size:11px';
     btn.onclick=e=>{ e.stopPropagation(); openMem(x.name); };
     row.appendChild(span); row.appendChild(btn);
     // Déplacer la note vers un autre projet (issue #55) — visible s'il existe au
     // moins un autre projet (PROJECTS vient de 18-projects.js).
     if(typeof PROJECTS!=='undefined' && PROJECTS.length>1){
-      const mv=document.createElement('button'); mv.textContent='déplacer'; mv.style.cssText='margin:0 0 0 4px;padding:2px 8px;font-size:11px';
+      const mv=document.createElement('button'); mv.textContent=t('settings.memory.move_btn'); mv.style.cssText='margin:0 0 0 4px;padding:2px 8px;font-size:11px';
       mv.onclick=e=>{ e.stopPropagation(); moveMemUI(x.name, mv); };
       row.appendChild(mv);
     }
@@ -346,7 +346,7 @@ function renderMemList(){
   });
   if(matches.length > shown.length){
     const more=document.createElement('div'); more.className='mem-more';
-    more.textContent='+ voir plus ('+(matches.length-shown.length)+' de plus)';
+    more.textContent=t('settings.memory.show_more_before')+(matches.length-shown.length)+t('settings.memory.show_more_after');
     more.style.cursor='pointer';
     more.onclick=()=>{ memShown+=MEM_PAGE; renderMemList(); };
     list.appendChild(more);
@@ -355,11 +355,11 @@ function renderMemList(){
 // Déplacer une note mémoire du projet actif vers un autre projet (issue #55).
 // Réutilise le sélecteur de projet du hub (pickProjectPop, 18-projects.js).
 async function moveMemUI(name, anchor){
-  if(typeof pickProjectPop!=='function'){ toast('indisponible'); return; }
+  if(typeof pickProjectPop!=='function'){ toast(t('settings.memory.move_unavailable')); return; }
   pickProjectPop(anchor, (typeof ACTIVE_PROJECT!=='undefined'?ACTIVE_PROJECT:''), async(slug)=>{
-    let r; try{ r = await jpost('/api/projects/move-mem', {name, slug}); }catch(_){ toast('erreur réseau'); return; }
-    if(!r.ok){ toast(r.error || 'déplacement impossible'); return; }
-    toast('note déplacée');
+    let r; try{ r = await jpost('/api/projects/move-mem', {name, slug}); }catch(_){ toast(t('settings.memory.network_error')); return; }
+    if(!r.ok){ toast(r.error || t('settings.memory.move_failed')); return; }
+    toast(t('settings.memory.note_moved'));
     loadAgent();
   });
 }
@@ -367,7 +367,7 @@ async function moveMemUI(name, anchor){
 const loadMem = loadAgent;
 async function toggleAgent(){
   const on=document.getElementById('agent-toggle').checked;
-  if(on && !await askConfirm("L'IA aura un accès shell complet au serveur (bash) et pourra lire/écrire sa mémoire.", {title:'Activer le mode agent ?', okText:'Activer', danger:true})){ document.getElementById('agent-toggle').checked=false; return; }
+  if(on && !await askConfirm(t('settings.agent.enable_confirm_msg'), {title:t('settings.agent.enable_confirm_title'), okText:t('settings.agent.enable_ok'), danger:true})){ document.getElementById('agent-toggle').checked=false; return; }
   await jpost('/api/agent/toggle',{on});
   loadAgent();
 }
@@ -383,9 +383,9 @@ async function toggleMachines(){
 }
 // Mode mémoire (3 états) — indépendant du mode agent.
 const MEM_DESC={
-  always:'L\'IA cherche dans sa mémoire avant de répondre et sauve d\'elle-même ce qui mérite d\'être retenu.',
-  ondemand:'Les outils mémoire existent mais l\'IA ne les utilise QUE si tu le demandes (« souviens-toi de… », « qu\'avais-tu retenu sur… »).',
-  off:'Mémoire coupée : aucun accès en lecture ni écriture, l\'IA répond sans mémoire.'
+  always:t('settings.memory.mode_always_desc'),
+  ondemand:t('settings.memory.mode_ondemand_desc'),
+  off:t('settings.memory.mode_off_desc')
 };
 function renderMemModeDesc(m){ const d=document.getElementById('mem-mode-desc'); if(d) d.textContent=MEM_DESC[m]||''; }
 async function setMemMode(){
@@ -409,34 +409,34 @@ function renderInternet(s){
   // La pastille ne redit PAS ce que l'interrupteur montre déjà (actif/inactif) :
   // elle ne sert qu'à signaler l'anomalie — actif mais serveur injoignable, cas
   // où les outils web ne sont pas proposés au modèle.
-  if(internetOn && !s.reachable) setBadge('internet-badge','warn','injoignable');
+  if(internetOn && !s.reachable) setBadge('internet-badge','warn',t('settings.internet.unreachable_badge'));
   else setBadge('internet-badge', null);
   // Clé du serveur Crawl4AI : le champ reste vide (la clé n'est jamais renvoyée),
   // on indique seulement si une clé est enregistrée.
   const ks=document.getElementById('crawl-key-state'), kc=document.getElementById('crawl-key-clear');
   if(ks){
-    ks.textContent = s.key_set ? ('clé enregistrée '+(s.key_hint||'')) : 'aucune clé — serveur ouvert';
+    ks.textContent = s.key_set ? (t('settings.internet.key_registered_prefix')+(s.key_hint||'')) : t('settings.internet.no_key_open_server');
     if(kc) kc.style.display = s.key_set ? '' : 'none';
     const ki=document.getElementById('crawl-key');
     if(ki && document.activeElement!==ki) ki.value='';
-    if(ki) ki.placeholder = s.key_set ? 'clé enregistrée — saisir pour remplacer' : 'clé API (si le serveur en exige une)';
+    if(ki) ki.placeholder = s.key_set ? t('settings.internet.key_placeholder_replace') : t('settings.internet.key_placeholder_new');
   }
   const st=document.getElementById('internet-status');
-  if(webEngine!=='crawl4ai'){ st.innerHTML='<span style="color:var(--accent)">✓</span> moteur intégré — aucune installation requise (pas de rendu JavaScript)'; }
-  else if(!s.url){ st.textContent='serveur non configuré'; st.style.color=''; }
-  else if(s.reachable){ st.innerHTML='<span style="color:var(--accent)">✓</span> serveur joignable — outils web actifs'; }
-  else { st.innerHTML='⚠ serveur injoignable — les outils web ne seront pas proposés'; }
+  if(webEngine!=='crawl4ai'){ st.innerHTML='<span style="color:var(--accent)">✓</span> '+t('settings.internet.builtin_engine_status'); }
+  else if(!s.url){ st.textContent=t('settings.internet.server_not_configured'); st.style.color=''; }
+  else if(s.reachable){ st.innerHTML='<span style="color:var(--accent)">✓</span> '+t('settings.internet.server_reachable'); }
+  else { st.innerHTML='⚠ '+t('settings.internet.server_unreachable'); }
 }
 async function loadInternet(){ renderInternet(await jget('/api/internet')); }
 // --- Accès OpenAI (endpoint /v1 + clé API des complétions) -----------------
 let OAI_KEY='', OAI_REVEAL=false;
 async function copyText(txt, msg){
-  if(!txt){ toast('rien à copier'); return; }
+  if(!txt){ toast(t('settings.copy.nothing')); return; }
   try{ await navigator.clipboard.writeText(txt); }
   catch(_){ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
-  toast(msg||'copié');
+  toast(msg||t('settings.copy.copied'));
 }
-function copyApiKey(){ copyText(OAI_KEY, OAI_KEY?'clé copiée':'aucune clé'); }
+function copyApiKey(){ copyText(OAI_KEY, OAI_KEY?t('settings.apikey.copied'):t('settings.apikey.none')); }
 function renderApiKey(d){
   OAI_KEY = d.key || '';
   // URL de l'endpoint : llama-server tourne sur d.port (≠ port de l'UI web).
@@ -456,7 +456,7 @@ function renderApiKey(d){
     pubWrap.style.display = 'none';
   }
   const inp=document.getElementById('oai-key');
-  if(!d.set){ inp.value='(aucune clé — serveur ouvert)'; inp.style.opacity=.6; }
+  if(!d.set){ inp.value=t('settings.apikey.none_open_server'); inp.style.opacity=.6; }
   else { inp.style.opacity=1; inp.value = OAI_REVEAL ? OAI_KEY : d.masked; }
   document.getElementById('oai-key-eye').style.display = d.set ? '' : 'none';
 }
@@ -524,11 +524,11 @@ function onExportPreview(){
   if(!tools.checked) results.checked = false;
   paintExportRange();
   const off = [];
-  if(!document.getElementById('x-reasoning').checked) off.push('raisonnements');
-  if(!tools.checked) off.push('outils');
-  else if(!results.checked) off.push('sorties d\'outils');
+  if(!document.getElementById('x-reasoning').checked) off.push(t('settings.export.reasonings'));
+  if(!tools.checked) off.push(t('settings.export.tools'));
+  else if(!results.checked) off.push(t('settings.export.tool_outputs'));
   document.getElementById('x-note').textContent = off.length
-    ? 'Export sans ' + off.join(' ni ') + '.'
+    ? t('settings.export.without_prefix') + off.join(' '+t('settings.export.nor')+' ') + '.'
     : '';
 }
 // Remplit la piste du curseur et son libellé. Purement local : appelé à chaque
@@ -546,8 +546,8 @@ function paintExportRange(){
   const scope = document.getElementById('x-scope');
   if(!scope) return;
   scope.textContent = n >= xTurnsTotal
-    ? 'toute la conversation (' + xTurnsTotal + ' échange' + (xTurnsTotal>1?'s':'') + ')'
-    : n + ' dernier' + (n>1?'s':'') + ' échange' + (n>1?'s':'') + ' sur ' + xTurnsTotal;
+    ? t('settings.export.whole_conversation') + xTurnsTotal + t('settings.export.exchange_unit') + (xTurnsTotal>1?'s':'') + ')'
+    : n + t('settings.export.last_word') + (n>1?'s':'') + t('settings.export.exchange_unit') + (n>1?'s':'') + t('settings.export.out_of') + xTurnsTotal;
 }
 async function runExport(){
   const btn = document.getElementById('x-go');
@@ -559,10 +559,10 @@ async function runExport(){
 // de pilotage voyage dans un en-tête Authorization, qu'un lien ne porterait pas,
 // et le chemin de base change derrière le tunnel (/u/<id>).
 async function downloadExport(url){
-  toast('préparation de l\'export…');
+  toast(t('settings.export.preparing'));
   try{
     const r = await jfetch(url);
-    if(!r.ok){ toast('erreur : HTTP ' + r.status); return; }
+    if(!r.ok){ toast(t('settings.error_prefix') + 'HTTP ' + r.status); return; }
     // Derrière app.ajean.link, le proxy chiffré réemballe TOUTE réponse en JSON :
     // un export Markdown revenait donc comme une chaîne JSON entre guillemets,
     // échappements compris. On la déballe. En local, rien à faire — le type de
@@ -588,8 +588,8 @@ async function downloadExport(url){
     // Révocation différée : Safari annule le téléchargement si l'URL disparaît
     // dans la foulée du clic.
     setTimeout(()=>URL.revokeObjectURL(blobURL), 10000);
-    toast('exporté : ' + name);
-  }catch(e){ toast('erreur : ' + e.message); }
+    toast(t('settings.export.exported_prefix') + name);
+  }catch(e){ toast(t('settings.error_prefix') + e.message); }
 }
 // --- Écoute réseau du moteur (HOST + pare-feu) ------------------------------
 // Le retour d'utilisateur qui a motivé ce réglage : « à part le chat dans le
@@ -603,7 +603,7 @@ function renderNetwork(st){
   if(!warn) return;
   if(!st.exposed){
     warn.style.display = '';
-    warn.innerHTML = '<div class="muted" style="margin:0">Le moteur n\'écoute que sur cette machine : l\'adresse ci-dessus ne répond pas depuis un autre ordinateur.</div>';
+    warn.innerHTML = '<div class="muted" style="margin:0">'+t('settings.network.local_only_warning')+'</div>';
     return;
   }
   // Exposé mais bloqué par le pare-feu : le cas le plus déroutant (« ça écoute
@@ -625,22 +625,22 @@ async function toggleLAN(){
   const cb = document.getElementById('lan-toggle');
   const on = cb.checked;
   const r = await jpost('/api/network', {exposed:on});
-  if(!r || !r.ok){ cb.checked = !on; toast('erreur : ' + ((r&&r.error)||'')); return; }
+  if(!r || !r.ok){ cb.checked = !on; toast(t('settings.error_prefix') + ((r&&r.error)||'')); return; }
   renderNetwork(r.status);
   // llama-server ne lit --host qu'au lancement : sans redémarrage, l'interrupteur
   // affiche un état que le moteur en cours ne respecte pas encore.
-  if(await askConfirm('Le moteur doit redémarrer pour appliquer ce changement (le modèle sera rechargé).',
-                      {title: on ? 'Ouvrir sur le réseau' : 'Fermer sur le réseau', okText:'Redémarrer'})){
+  if(await askConfirm(t('settings.network.restart_confirm_msg'),
+                      {title: on ? t('settings.network.open_title') : t('settings.network.close_title'), okText:t('settings.network.restart_ok')})){
     await act('restart'); // même chemin que les boutons du panneau Moteur
   }
   loadApiKey();
 }
-function toggleKeyReveal(){ OAI_REVEAL=!OAI_REVEAL; const inp=document.getElementById('oai-key'); if(OAI_KEY) inp.value = OAI_REVEAL ? OAI_KEY : (OAI_KEY.slice(0,8)+'…'+OAI_KEY.slice(-4)); const eye=document.getElementById('oai-key-eye'); if(eye) eye.textContent = OAI_REVEAL ? 'masquer' : 'afficher'; }
+function toggleKeyReveal(){ OAI_REVEAL=!OAI_REVEAL; const inp=document.getElementById('oai-key'); if(OAI_KEY) inp.value = OAI_REVEAL ? OAI_KEY : (OAI_KEY.slice(0,8)+'…'+OAI_KEY.slice(-4)); const eye=document.getElementById('oai-key-eye'); if(eye) eye.textContent = OAI_REVEAL ? t('settings.apikey.hide') : t('settings.apikey.show'); }
 async function apiKeyAction(action){
-  if(action==='clear' && !await askConfirm('Retirer la clé rend l\'endpoint OpenAI accessible SANS authentification. Le service va redémarrer.', {title:'Retirer la clé API ?', okText:'Retirer'})) return;
-  if(action==='generate' && OAI_KEY && !await askConfirm('Générer une nouvelle clé invalide l\'ancienne (les clients devront être mis à jour). Le service va redémarrer.', {title:'Régénérer la clé ?', okText:'Générer'})) return;
+  if(action==='clear' && !await askConfirm(t('settings.apikey.remove_confirm_msg'), {title:t('settings.apikey.remove_confirm_title'), okText:t('settings.apikey.remove_ok')})) return;
+  if(action==='generate' && OAI_KEY && !await askConfirm(t('settings.apikey.regenerate_confirm_msg'), {title:t('settings.apikey.regenerate_confirm_title'), okText:t('settings.apikey.regenerate_ok')})) return;
   OAI_REVEAL=(action==='generate'); // révèle la clé fraîche pour qu'on puisse la copier
-  toast('application…');
+  toast(t('settings.applying'));
   renderApiKey(await jpost('/api/apikey', {action}));
 }
 async function toggleOAIPublic(){
@@ -653,18 +653,18 @@ async function toggleOAIPublic(){
     try{ const s = await jget('/api/link/status'); linked = !!(s && s.linked); }catch(e){}
     if(!linked){
       cb.checked = false;
-      await askAlert('Vous devez activer l\'accès distant (ajean.link) pour bénéficier de cette fonctionnalité. Ouvrez le panneau « Accès distant » pour connecter ce serveur.', {title:'Accès distant requis'});
+      await askAlert(t('settings.oai.public_needs_remote_msg'), {title:t('settings.oai.public_needs_remote_title')});
       return;
     }
   }
   await jpost('/api/oai/public', {enabled:on});
-  toast(on ? 'accès public activé' : 'accès public coupé');
+  toast(on ? t('settings.oai.public_on') : t('settings.oai.public_off'));
   loadApiKey();
 }
 async function apiKeySet(){
-  const k = await askPrompt('Colle ta clé API (ou laisse vide pour annuler) :', {title:'Définir la clé API', placeholder:'sk-…'});
+  const k = await askPrompt(t('settings.apikey.set_prompt_msg'), {title:t('settings.apikey.set_prompt_title'), placeholder:'sk-…'});
   if(!k || !k.trim()) return;
-  OAI_REVEAL=true; toast('application…');
+  OAI_REVEAL=true; toast(t('settings.applying'));
   renderApiKey(await jpost('/api/apikey', {action:'set', key:k.trim()}));
 }
 async function toggleInternet(){
@@ -672,30 +672,30 @@ async function toggleInternet(){
   const url=document.getElementById('crawl-url').value.trim();
   // Crawl4AI sans URL de serveur = rien à joindre. Le moteur intégré, lui, n'a
   // besoin d'aucun réglage : on active directement.
-  if(on && webEngine==='crawl4ai' && !url){ toast('renseigne d\'abord l\'URL du serveur Crawl4AI'); document.getElementById('internet-toggle').checked=false; return; }
+  if(on && webEngine==='crawl4ai' && !url){ toast(t('settings.internet.need_url')); document.getElementById('internet-toggle').checked=false; return; }
   renderInternet(await jpost('/api/internet',{enabled:on, url}));
 }
 async function saveWebEngine(){
   const engine=document.getElementById('web-engine').value;
   renderInternet(await jpost('/api/internet',{engine}));
-  toast(engine==='crawl4ai' ? 'moteur Crawl4AI sélectionné' : 'moteur intégré sélectionné');
+  toast(engine==='crawl4ai' ? t('settings.internet.engine_crawl4ai_selected') : t('settings.internet.engine_builtin_selected'));
 }
 async function saveCrawlUrl(){
   const url=document.getElementById('crawl-url').value.trim();
   renderInternet(await jpost('/api/internet',{url}));
-  toast(url ? 'serveur Crawl4AI enregistré' : 'serveur Crawl4AI retiré');
+  toast(url ? t('settings.internet.server_saved') : t('settings.internet.server_removed'));
 }
 async function saveCrawlKey(){
   const el=document.getElementById('crawl-key'), key=el.value.trim();
-  if(!key){ toast('saisis une clé (ou « retirer » pour l\'enlever)'); return; }
+  if(!key){ toast(t('settings.internet.key_missing')); return; }
   renderInternet(await jpost('/api/internet',{key}));
-  toast('clé enregistrée');
+  toast(t('settings.internet.key_saved'));
 }
 async function clearCrawlKey(){
-  if(!await askConfirm('Retirer la clé du serveur Crawl4AI ?')) return;
+  if(!await askConfirm(t('settings.internet.remove_key_confirm'))) return;
   document.getElementById('crawl-key').value='';
   renderInternet(await jpost('/api/internet',{key:''}));
-  toast('clé retirée');
+  toast(t('settings.internet.key_removed'));
 }
 async function loadAll(){
   // allSettled et pas all : un seul chargement en échec (accès distant coupé,

@@ -722,6 +722,13 @@ func (c *Conversation) Stop() {
 	}
 }
 
+// isGenerating renvoie vrai si un tour est en cours sur la conversation vive.
+func (c *Conversation) isGenerating() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.Generating
+}
+
 // Reset démarre une nouvelle conversation (vide) pour TOUS les appareils. On
 // interrompt une éventuelle génération, on vide tout et on bump epoch pour que
 // les abonnés reçoivent l'ordre de nettoyer leur affichage.
