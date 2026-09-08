@@ -76,7 +76,7 @@
   <details open id="cfg-details"><summary><span class="stitle" data-i18n="config.title">Configuration</span></summary>
     <div id="cfg" class="slist">…</div>
   </details>
-  <details><summary><span class="stitle" data-i18n="presets.title">Presets</span><button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter" data-i18n="presets.add_button" data-i18n-attr="title">+</button></summary>
+  <details><summary><span class="stitle" data-i18n="presets.title">Presets</span><button class="preset-ext" onclick="event.preventDefault();event.stopPropagation();openExternal('')" title="ajouter une API externe" data-i18n="presets.add_external_button" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></button><button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter" data-i18n="presets.add_button" data-i18n-attr="title">+</button></summary>
     <div class="slist"><div id="presets" class="rowlist"></div></div>
   </details>
   <details><summary><span class="stitle" data-i18n="agent.title">Agent</span><span id="agent-badge" class="sbadge"></span></summary>
@@ -84,32 +84,6 @@
     <!-- Sous-réglages du mode agent. MÊME gabarit que « Machine » / « Apparence » :
          étiquette de groupe nue, puis UNE carte de lignes (.slist). Le groupe
          entier est grisé/inerte quand l'agent est off (voir setAgentGate). -->
-    <div id="mem-block" class="gated-group">
-      <div class="subhead"><span data-i18n="memory.title">Memory</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span id="mem-mode-desc" class="tip"></span></span></div>
-      <!-- Carte unique, trois lignes nettes séparées par un filet :
-           1) mode d'utilisation · 2) navigateur de pages · 3) chiffrement. -->
-      <div class="slist">
-        <!-- 1. Mode : quand l'IA se sert de sa mémoire. -->
-        <label class="switchrow"><span data-i18n="memory.mode_label">mode</span>
-          <select id="mem-mode" onchange="setMemMode()" class="sctl">
-            <option value="always" data-i18n="memory.mode_auto">auto</option>
-            <option value="ondemand" data-i18n="memory.mode_ondemand">sur demande</option>
-            <option value="off" data-i18n="memory.mode_off">désactivée</option>
-          </select>
-        </label>
-        <!-- 2. Pages : liste dépliable + recherche + ajout. -->
-        <div id="mem-pages-bar" class="pages-bar" onclick="toggleMemPages()">
-          <span class="pages-title"><span data-i18n="memory.view_title">Voir la mémoire</span> <span id="mem-count" class="mem-count"></span></span>
-          <button class="addbtn" onclick="event.stopPropagation();openMem('')" title="ajouter une page mémoire" data-i18n="memory.add_page_title" data-i18n-attr="title"><span data-i18n="memory.add_page_button">+ ajouter</span></button>
-        </div>
-        <div id="mem-pages-body" hidden>
-          <div id="mem-search-row" class="rowbody" style="display:none">
-            <input id="mem-search" class="mem-search" type="search" placeholder="filtrer la mémoire…" oninput="renderMemList()" style="margin:0" data-i18n="memory.search_placeholder" data-i18n-attr="placeholder">
-          </div>
-          <div id="mem-list" class="mem-list rowlist muted" style="font-size:12px"></div>
-        </div>
-      </div>
-    </div>
     <div id="net-block" class="gated-group">
       <div class="subhead"><span data-i18n="internet.title">Accès internet</span><span id="internet-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="internet.help" data-i18n-html>Ajoute les outils <b>web_search / web_open / web_read / web_grep</b>. Le moteur <b>intégré</b> ne demande aucune installation. Le moteur <b>Crawl4AI</b> exige un serveur que tu héberges toi-même (ex. <code>docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest</code>) mais exécute le JavaScript des pages. Actifs seulement si le <b>mode agent</b> est actif.</span></span></div>
       <div class="slist">
@@ -728,6 +702,73 @@
       <div class="foot-r">
         <button onclick="closeMcp()" data-i18n="mcpmodal.cancel">annuler</button>
         <button class="btn-save" onclick="saveMcp()" data-i18n="mcpmodal.save">enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="mem-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeMemHub()">
+  <div class="modal-card mem-card" style="max-width:540px">
+    <div class="modal-head">
+      <span class="mem-head-title"><svg class="mem-head-ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><strong data-i18n="memory.title">Mémoire</strong><span id="mem-count" class="sess-count"></span></span>
+      <button class="modal-x" onclick="closeMemHub()" aria-label="Fermer" data-i18n="memory.close_aria" data-i18n-attr="aria-label">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="mem-block" class="gated-group">
+        <div class="mem-seg">
+          <label><input type="radio" name="mem-mode-seg" value="always" onchange="setMemMode('always')"><span data-i18n="memory.mode_auto">auto</span></label>
+          <label><input type="radio" name="mem-mode-seg" value="ondemand" onchange="setMemMode('ondemand')"><span data-i18n="memory.mode_ondemand">sur demande</span></label>
+          <label><input type="radio" name="mem-mode-seg" value="off" onchange="setMemMode('off')"><span data-i18n="memory.mode_off">désactivée</span></label>
+        </div>
+        <div id="mem-mode-desc" class="mem-modedesc muted"></div>
+        <div class="mem-pages-head">
+          <span class="mem-pages-title"><span data-i18n="memory.pages_heading">Pages mémoire</span></span>
+          <button class="mem-add-btn" onclick="openMem('')" title="ajouter une page mémoire" data-i18n="memory.add_page_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="memory.add_page_button_short">ajouter</span></button>
+        </div>
+        <div id="mem-search-row" style="display:none">
+          <input id="mem-search" class="mem-search sctl" type="search" placeholder="filtrer la mémoire…" oninput="renderMemList()" data-i18n="memory.search_placeholder" data-i18n-attr="placeholder">
+        </div>
+        <div id="mem-list" class="mem-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="ext-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeExternal()">
+  <div class="modal-card" style="max-width:520px">
+    <div class="modal-head">
+      <strong id="ext-modal-title" data-i18n="external.title">API externe</strong>
+      <button class="modal-x" onclick="closeExternal()" aria-label="Fermer" data-i18n="external.close_aria" data-i18n-attr="aria-label">×</button>
+    </div>
+    <div class="modal-body mform">
+      <p class="muted" style="font-size:12px;margin:0 0 4px" data-i18n="external.intro">Connecte une IA externe compatible OpenAI Chat Completions (OpenAI, Claude, Groq, OpenRouter…) pour l'utiliser à la place du moteur local.</p>
+      <div class="fld">
+        <label class="fld-l" for="ext-name"><span data-i18n="external.name_label">Nom</span> <span class="opt" data-i18n="external.name_hint">(affiché dans la liste des presets)</span></label>
+        <input id="ext-name" class="ctl" placeholder="OpenRouter · GPT-4o">
+      </div>
+      <div class="fld">
+        <label class="fld-l" for="ext-url"><span data-i18n="external.url_label">URL de l'API</span> <span class="opt" data-i18n="external.url_hint">(base OpenAI, ex: https://api.openai.com/v1)</span></label>
+        <input id="ext-url" class="ctl" spellcheck="false" placeholder="https://api.openai.com/v1">
+      </div>
+      <div class="fld">
+        <label class="fld-l" for="ext-model"><span data-i18n="external.model_label">Modèle</span> <span class="opt" data-i18n="external.model_hint">(identifiant exact, ex: gpt-4o-mini)</span></label>
+        <input id="ext-model" class="ctl" spellcheck="false" placeholder="gpt-4o-mini">
+      </div>
+      <div class="fld">
+        <label class="fld-l" for="ext-key"><span data-i18n="external.key_label">Clé API</span> <span class="opt" data-i18n="external.key_hint">(optionnelle pour un serveur local)</span></label>
+        <input id="ext-key" class="ctl" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" oninput="extKeyTouched=true">
+      </div>
+      <div class="fld">
+        <label class="fld-l" for="ext-ctx"><span data-i18n="external.ctx_label">Contexte</span> <span class="opt" data-i18n="external.ctx_hint">(taille en tokens, ex: 32768 — laisser vide pour 32768)</span></label>
+        <input id="ext-ctx" class="ctl" type="number" min="0" step="1024" spellcheck="false" placeholder="32768">
+      </div>
+      <div id="ext-modal-status" class="muted" style="font-size:12px;min-height:0"></div>
+    </div>
+    <div class="modal-foot">
+      <div class="foot-l">
+        <button id="ext-del" class="btn-danger" onclick="deleteExternal()" style="display:none" data-i18n="external.delete">supprimer</button>
+      </div>
+      <div class="foot-r">
+        <button class="pe-btn" onclick="testExternal()" data-i18n="external.test">tester la connexion</button>
+        <button class="pe-btn primary" onclick="saveExternal()" data-i18n="external.save">enregistrer</button>
       </div>
     </div>
   </div>

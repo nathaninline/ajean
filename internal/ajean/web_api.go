@@ -38,6 +38,15 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 	if active {
 		health = healthCheck()
 	}
+	// Preset externe : pas de service llama-server local, mais le chat est prêt
+	// (il tape vers l'API distante). On l'annonce « actif/prêt » pour que l'UI
+	// débloque la saisie au lieu d'afficher un moteur éteint indéfiniment.
+	external := externalActive()
+	if external {
+		active = true
+		state = "active"
+		health = true
+	}
 	ctx := 32768
 	if v := ReadConfig()["CTX"]; v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
@@ -63,6 +72,7 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 		"load_error": loadErr,          // modèle qui ne charge pas (incompat moteur…) — vide sinon
 		"boot":       procBoot,         // empreinte de démarrage du process (détecte un redémarrage côté UI)
 		"preset":     activePresetID(), // id du preset actif : un autre appareil a pu basculer, l'UI se resynchronise sans reload (voir loadStatus)
+		"external":   external,         // preset actif = API OpenAI-compatible distante (pas de moteur local)
 	})
 }
 
@@ -413,6 +423,16 @@ func handlePresets(w http.ResponseWriter, r *http.Request) {
 	for _, p := range list {
 		item := map[string]any{"id": p.ID, "name": p.Name, "active": p.Active}
 		if content, err := ReadPreset(p.ID); err == nil {
+			// Preset externe : on l'étiquette pour que l'UI l'affiche avec l'icône
+			// wifi et le nom du modèle distant, au lieu des tags quant/ctx/moteur.
+			if cfg := parseEnv(content); isExternalConfig(cfg) {
+				item["external"] = true
+				if m := strings.TrimSpace(cfg[extKeyModel]); m != "" {
+					item["model"] = m
+				}
+				out = append(out, item)
+				continue
+			}
 			if q := detectQuant(content); q != "" {
 				item["quant"] = q
 			}
@@ -1181,6 +1201,20 @@ func handleSwitch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Printf("%s config.env <- %s\n", green("[ok]"), filepath.Base(target.Path))
+	// Preset externe : aucun moteur local à (re)démarrer — il n'a pas de MODEL et
+	// crash-looperait. On ARRÊTE plutôt le llama-server encore en vie pour libérer
+	// la VRAM, puisque le chat part désormais vers l'API distante.
+	if isExternalConfig(ReadConfig()) {
+		go func() {
+			if serviceIsActive() {
+				if err := serviceAction("stop"); err != nil {
+					fmt.Printf("%s arrêt du moteur après bascule externe: %v\n", red("[ERREUR]"), err)
+				}
+			}
+		}()
+		sendJSON(w, 200, map[string]any{"ok": true, "preset": target.Name})
+		return
+	}
 	fmt.Println(dim("[info] redémarrage du service..."))
 	go func() {
 		if err := serviceAction("restart"); err != nil {

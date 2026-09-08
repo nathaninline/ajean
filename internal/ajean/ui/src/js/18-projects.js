@@ -438,6 +438,9 @@ function togglePlusMenu(e){
   pop.appendChild(item(icMachine, t('projects.remote_hosts'), ()=>{ if(typeof openNodeHub==='function') openNodeHub(); }));
   const icTracker = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h16M8 16l3-4 3 2 4-6"/></svg>';
   pop.appendChild(item(icTracker, t('projects.trackers'), ()=>{ if(typeof openTrackerHub==='function') openTrackerHub(); }));
+  // Mémoire du projet : mode + pages, dans un modal (déplacée hors du menu de gauche).
+  const icMem = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>';
+  pop.appendChild(item(icMem, t('projects.memory'), ()=>{ if(typeof openMemHub==='function') openMemHub(); }));
   // « Compacter le contexte » : uniquement quand le contexte dépasse 50%.
   if(typeof COMPACT_AVAILABLE!=='undefined' && COMPACT_AVAILABLE){
     pop.appendChild(item(icCompact, t('projects.compact_context'), ()=>{ if(typeof compactContext==='function') compactContext(); }));
@@ -456,6 +459,15 @@ function togglePlusMenu(e){
   // fermait le menu aussitôt (« ça saute »). Le clic-dehors suffit.
   setTimeout(()=>{ document.addEventListener('click', _plusOutside, true); }, 0);
 }
+
+// Mémoire du projet : modal ouvert depuis le menu +. Le contenu (mode + pages)
+// vit toujours sous les mêmes IDs que l'ancien bloc du menu de gauche, donc
+// loadAgent()/renderMemList() le remplissent sans changement.
+function openMemHub(){
+  if(typeof showModal==='function') showModal('mem-modal');
+  if(typeof loadAgent==='function') loadAgent(); // resynchronise mode + liste des pages
+}
+function closeMemHub(){ if(typeof hideModal==='function') hideModal('mem-modal'); }
 
 // Au chargement, on peuple le libellé du bouton (sans ouvrir le modal).
 document.addEventListener('DOMContentLoaded', ()=>{ loadProjects(); });

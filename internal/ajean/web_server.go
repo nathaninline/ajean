@@ -187,6 +187,9 @@ func newWebMux() *http.ServeMux {
 	api("/api/preset", handlePreset)
 	api("/api/preset/save", handlePresetSave)
 	api("/api/preset/delete", handlePresetDelete)
+	api("/api/preset/external", handlePresetExternal)          // lire un preset externe (préremplissage modale)
+	api("/api/preset/external/save", handlePresetExternalSave) // créer/éditer un preset externe
+	api("/api/preset/external/test", handlePresetExternalTest) // tester la connexion à l'API distante
 	api("/api/agent", handleAgent)
 	api("/api/agent/toggle", handleAgentToggle)
 	api("/api/agent/compact", handleCompactToggle)

@@ -213,9 +213,58 @@ details>summary::-webkit-details-marker{display:none}
    raison que .iconbtn. Petit carré arrondi, centrage parfait par fl<->box, discret
    au repos (couleur atténuée, fond du panneau) et accent au survol. */
 .preset-add{display:none;position:relative;flex:none;box-sizing:border-box;
-  width:22px;height:22px;padding:0;margin:0 6px 0 auto;font-size:0;
+  width:24px;height:24px;padding:0;margin:0 6px 0 0;font-size:0;
   background:var(--panel);color:var(--dim);border:1px solid var(--border);border-radius:7px;
   cursor:pointer;transition:border-color .15s ease,color .15s ease,background .15s ease}
+/* Bouton wifi « API externe » : même gabarit que le +, placé juste à sa gauche.
+   La marge auto pousse le duo (wifi + le +) contre le bord droit du résumé. */
+.preset-ext{display:none;align-items:center;justify-content:center;flex:none;box-sizing:border-box;
+  width:24px;height:24px;padding:0;margin:0 -3px 0 auto;
+  background:var(--panel);color:var(--dim);border:1px solid var(--border);border-radius:7px;
+  cursor:pointer;transition:border-color .15s ease,color .15s ease,background .15s ease}
+.preset-ext:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
+.preset-ext:active{transform:scale(.92)}
+details[open]>summary>.preset-ext{display:inline-flex}
+/* Icône wifi devant le nom d'un preset externe dans la liste. */
+.preset-wifi{display:inline-flex;align-items:center;margin-right:5px;color:var(--accent);vertical-align:-2px}
+/* ── Modal Mémoire ─────────────────────────────────────────────────────────── */
+.mem-head-title{display:flex;align-items:center;gap:8px}
+.mem-head-ic{flex:none;color:var(--accent)}
+/* Espacement piloté par des marges EXPLICITES (gap:0) : le rythme vertical est
+   ainsi maîtrisé bloc par bloc, généreux, sans dépendre d'un gap uniforme. */
+#mem-modal .modal-body{display:flex;flex-direction:column;gap:0;padding:20px}
+.mem-intro{font-size:12.5px;line-height:1.55;margin:0 0 18px;color:var(--dim)}
+/* Sélecteur de mode : un rail segmenté (PAS le .seg générique, dont l'état coché
+   est forcé en noir plein ailleurs). Option active = pilule surélevée. */
+.mem-seg{display:flex;gap:4px;background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:4px;margin:0 0 12px}
+.mem-seg>label{flex:1;text-align:center;font-size:12.5px;font-weight:500;padding:10px 6px;border-radius:8px;cursor:pointer;
+  color:var(--dim);transition:background .12s ease,color .12s ease,box-shadow .12s ease}
+.mem-seg>label:hover{color:var(--text)}
+.mem-seg>label:has(input:checked){background:var(--bg);color:var(--accent);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.16)}
+.mem-seg input{display:none}
+.mem-modedesc{font-size:11.5px;line-height:1.5;color:var(--dim);margin:0 2px 22px}
+.mem-modedesc:empty{margin:0 2px 22px}
+.mem-pages-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 14px;
+  padding-top:18px;border-top:1px solid var(--border)}
+.mem-pages-title{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--dim);font-weight:600}
+.mem-add-btn{display:inline-flex;align-items:center;gap:6px;flex:none;margin:0;padding:8px 13px;font-size:12.5px;font-weight:600;
+  border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--accent);cursor:pointer;
+  transition:border-color .12s ease,background .12s ease}
+.mem-add-btn svg{flex:none}
+.mem-add-btn:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.mem-add-btn:active{transform:scale(.96)}
+#mem-modal .mem-search{width:100%;box-sizing:border-box;margin:0 0 14px;padding:10px 12px}
+#mem-modal .mem-list{display:flex;flex-direction:column;gap:10px;max-height:44vh;overflow:auto;margin:0;padding:2px 0}
+#mem-modal .mem-list>.muted{font-size:12px;padding:18px 2px;text-align:center}
+.mem-item{display:flex;align-items:center;gap:13px;padding:14px 16px;border:1px solid var(--border);border-radius:13px;
+  background:transparent;cursor:pointer;transition:border-color .12s ease,background .12s ease}
+.mem-item:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.mem-item-ic{flex:none;display:flex;align-items:center;color:var(--dim)}
+.mem-item:hover .mem-item-ic{color:var(--accent)}
+.mem-item-main{flex:1;min-width:0}
+.mem-item-name{font-size:13.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35}
+.mem-item-desc{font-size:11.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px;line-height:1.4}
+.mem-item .sess-menu-btn{flex:none;margin-left:2px}
 .preset-add::before,.preset-add::after{content:"";position:absolute;top:50%;left:50%;
   background:currentColor;border-radius:1px}
 .preset-add::before{width:10px;height:1.5px;transform:translate(-50%,-50%)}
@@ -646,7 +695,7 @@ details>summary+.subhead{margin-top:4px}
   border-radius:7px;padding:7px 9px;font:inherit;font-size:12.5px}
 .sctl:focus,.io-input:focus{outline:none;border-color:var(--dim)}
 textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
-.side button:not(.preset-edit):not(.addbtn):not(.preset-add):not(.copybtn):not(.iconbtn){font-size:12px;padding:6px 10px;border-radius:7px}
+.side button:not(.preset-edit):not(.addbtn):not(.preset-add):not(.preset-ext):not(.copybtn):not(.iconbtn){font-size:12px;padding:6px 10px;border-radius:7px}
 .side .row{display:flex;gap:6px;align-items:center;margin:6px 0}
 .side .row .sctl,.side .row .io-input{flex:1;min-width:0}
 /* Bouton d'action à côté d'un champ (copier, ouvrir) : un CARRÉ à la hauteur du
@@ -1009,7 +1058,14 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 /* Croix de fermeture : un CARRÉ, pas un rectangle. Avec un padding asymétrique
    (3px vertical / 10px horizontal) le glyphe paraissait écrasé et la cible de
    clic était basse. 32px, glyphe centré, taille de cible correcte au doigt. */
-.modal-x{margin:0;padding:0;width:32px;height:32px;flex:none;display:inline-flex;align-items:center;justify-content:center;font-size:19px;line-height:1;color:var(--dim)}
+/* Croix dessinée en CSS (deux traits) plutôt que le glyphe « × » : ce dernier est
+   optiquement décentré dans son carré selon la police. Le texte × reste dans le
+   HTML pour l'accessibilité mais est masqué (font-size:0). */
+.modal-x{margin:0;padding:0;width:32px;height:32px;flex:none;position:relative;font-size:0;color:var(--dim);cursor:pointer}
+.modal-x::before,.modal-x::after{content:"";position:absolute;top:50%;left:50%;width:13px;height:1.7px;background:currentColor;border-radius:2px}
+.modal-x::before{transform:translate(-50%,-50%) rotate(45deg)}
+.modal-x::after{transform:translate(-50%,-50%) rotate(-45deg)}
+.modal-x:hover{color:var(--text)}
 .modal-body{padding:16px;overflow:auto;flex:1}
 /* Modale ouverte mais pas encore remplie : on affiche le voile de chargement À LA
    PLACE du formulaire et du pied. Estomper le formulaire ne suffisait pas — on
@@ -1497,7 +1553,7 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
 #plus-btn:focus,#plus-btn:focus-visible,#plus-btn.open{outline:none;border-color:var(--border);background:var(--bubble);color:var(--text)}
 /* Survol uniquement à la SOURIS (sinon :hover reste collé après un tap tactile et
    laissait un contour accent). */
-@media (hover:hover){#plus-btn:hover{border-color:var(--accent);color:var(--accent)}}
+@media (hover:hover){#plus-btn{opacity:.85}#plus-btn:hover{opacity:1}}
 /* Menu ouvert : le + pivote en × (45°), c'est tout. */
 #plus-btn.open svg{transform:rotate(45deg)}
 @media (prefers-reduced-motion:reduce){#plus-btn svg{transition:none}}
@@ -1559,7 +1615,8 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
 #project-btn{height:26px;min-height:26px;flex:none;margin:0;padding:0 11px 0 9px;
   display:flex;align-items:center;gap:6px;border-radius:999px;max-width:160px;
   background:var(--panel);border:1px solid var(--border);color:var(--text)}
-#project-btn:hover{background:var(--accent-bg);border-color:var(--accent);color:var(--accent)}
+#project-btn{opacity:.85}
+#project-btn:hover{opacity:1}
 #project-btn:active{transform:scale(.96)}
 #project-btn svg{display:block;flex:none;width:14px;height:14px}
 #project-btn-name{font-size:11.5px;font-weight:500;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:118px}
@@ -1800,7 +1857,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
   <details open id="cfg-details"><summary><span class="stitle" data-i18n="config.title">Configuration</span></summary>
     <div id="cfg" class="slist">…</div>
   </details>
-  <details><summary><span class="stitle" data-i18n="presets.title">Presets</span><button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter" data-i18n="presets.add_button" data-i18n-attr="title">+</button></summary>
+  <details><summary><span class="stitle" data-i18n="presets.title">Presets</span><button class="preset-ext" onclick="event.preventDefault();event.stopPropagation();openExternal('')" title="ajouter une API externe" data-i18n="presets.add_external_button" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></button><button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter" data-i18n="presets.add_button" data-i18n-attr="title">+</button></summary>
     <div class="slist"><div id="presets" class="rowlist"></div></div>
   </details>
   <details><summary><span class="stitle" data-i18n="agent.title">Agent</span><span id="agent-badge" class="sbadge"></span></summary>
@@ -1808,32 +1865,6 @@ button:hover{border-color:var(--dim);color:var(--text)}
     <!-- Sous-réglages du mode agent. MÊME gabarit que « Machine » / « Apparence » :
          étiquette de groupe nue, puis UNE carte de lignes (.slist). Le groupe
          entier est grisé/inerte quand l'agent est off (voir setAgentGate). -->
-    <div id="mem-block" class="gated-group">
-      <div class="subhead"><span data-i18n="memory.title">Memory</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span id="mem-mode-desc" class="tip"></span></span></div>
-      <!-- Carte unique, trois lignes nettes séparées par un filet :
-           1) mode d'utilisation · 2) navigateur de pages · 3) chiffrement. -->
-      <div class="slist">
-        <!-- 1. Mode : quand l'IA se sert de sa mémoire. -->
-        <label class="switchrow"><span data-i18n="memory.mode_label">mode</span>
-          <select id="mem-mode" onchange="setMemMode()" class="sctl">
-            <option value="always" data-i18n="memory.mode_auto">auto</option>
-            <option value="ondemand" data-i18n="memory.mode_ondemand">sur demande</option>
-            <option value="off" data-i18n="memory.mode_off">désactivée</option>
-          </select>
-        </label>
-        <!-- 2. Pages : liste dépliable + recherche + ajout. -->
-        <div id="mem-pages-bar" class="pages-bar" onclick="toggleMemPages()">
-          <span class="pages-title"><span data-i18n="memory.view_title">Voir la mémoire</span> <span id="mem-count" class="mem-count"></span></span>
-          <button class="addbtn" onclick="event.stopPropagation();openMem('')" title="ajouter une page mémoire" data-i18n="memory.add_page_title" data-i18n-attr="title"><span data-i18n="memory.add_page_button">+ ajouter</span></button>
-        </div>
-        <div id="mem-pages-body" hidden>
-          <div id="mem-search-row" class="rowbody" style="display:none">
-            <input id="mem-search" class="mem-search" type="search" placeholder="filtrer la mémoire…" oninput="renderMemList()" style="margin:0" data-i18n="memory.search_placeholder" data-i18n-attr="placeholder">
-          </div>
-          <div id="mem-list" class="mem-list rowlist muted" style="font-size:12px"></div>
-        </div>
-      </div>
-    </div>
     <div id="net-block" class="gated-group">
       <div class="subhead"><span data-i18n="internet.title">Accès internet</span><span id="internet-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="internet.help" data-i18n-html>Ajoute les outils <b>web_search / web_open / web_read / web_grep</b>. Le moteur <b>intégré</b> ne demande aucune installation. Le moteur <b>Crawl4AI</b> exige un serveur que tu héberges toi-même (ex. <code>docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest</code>) mais exécute le JavaScript des pages. Actifs seulement si le <b>mode agent</b> est actif.</span></span></div>
       <div class="slist">
@@ -2456,6 +2487,73 @@ button:hover{border-color:var(--dim);color:var(--text)}
     </div>
   </div>
 </div>
+<div id="mem-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeMemHub()">
+  <div class="modal-card mem-card" style="max-width:540px">
+    <div class="modal-head">
+      <span class="mem-head-title"><svg class="mem-head-ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><strong data-i18n="memory.title">Mémoire</strong><span id="mem-count" class="sess-count"></span></span>
+      <button class="modal-x" onclick="closeMemHub()" aria-label="Fermer" data-i18n="memory.close_aria" data-i18n-attr="aria-label">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="mem-block" class="gated-group">
+        <div class="mem-seg">
+          <label><input type="radio" name="mem-mode-seg" value="always" onchange="setMemMode('always')"><span data-i18n="memory.mode_auto">auto</span></label>
+          <label><input type="radio" name="mem-mode-seg" value="ondemand" onchange="setMemMode('ondemand')"><span data-i18n="memory.mode_ondemand">sur demande</span></label>
+          <label><input type="radio" name="mem-mode-seg" value="off" onchange="setMemMode('off')"><span data-i18n="memory.mode_off">désactivée</span></label>
+        </div>
+        <div id="mem-mode-desc" class="mem-modedesc muted"></div>
+        <div class="mem-pages-head">
+          <span class="mem-pages-title"><span data-i18n="memory.pages_heading">Pages mémoire</span></span>
+          <button class="mem-add-btn" onclick="openMem('')" title="ajouter une page mémoire" data-i18n="memory.add_page_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="memory.add_page_button_short">ajouter</span></button>
+        </div>
+        <div id="mem-search-row" style="display:none">
+          <input id="mem-search" class="mem-search sctl" type="search" placeholder="filtrer la mémoire…" oninput="renderMemList()" data-i18n="memory.search_placeholder" data-i18n-attr="placeholder">
+        </div>
+        <div id="mem-list" class="mem-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="ext-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeExternal()">
+  <div class="modal-card" style="max-width:520px">
+    <div class="modal-head">
+      <strong id="ext-modal-title" data-i18n="external.title">API externe</strong>
+      <button class="modal-x" onclick="closeExternal()" aria-label="Fermer" data-i18n="external.close_aria" data-i18n-attr="aria-label">×</button>
+    </div>
+    <div class="modal-body mform">
+      <p class="muted" style="font-size:12px;margin:0 0 4px" data-i18n="external.intro">Connecte une IA externe compatible OpenAI Chat Completions (OpenAI, Claude, Groq, OpenRouter…) pour l'utiliser à la place du moteur local.</p>
+      <div class="fld">
+        <label class="fld-l" for="ext-name"><span data-i18n="external.name_label">Nom</span> <span class="opt" data-i18n="external.name_hint">(affiché dans la liste des presets)</span></label>
+        <input id="ext-name" class="ctl" placeholder="OpenRouter · GPT-4o">
+      </div>
+      <div class="fld">
+        <label class="fld-l" for="ext-url"><span data-i18n="external.url_label">URL de l'API</span> <span class="opt" data-i18n="external.url_hint">(base OpenAI, ex: https://api.openai.com/v1)</span></label>
+        <input id="ext-url" class="ctl" spellcheck="false" placeholder="https://api.openai.com/v1">
+      </div>
+      <div class="fld">
+        <label class="fld-l" for="ext-model"><span data-i18n="external.model_label">Modèle</span> <span class="opt" data-i18n="external.model_hint">(identifiant exact, ex: gpt-4o-mini)</span></label>
+        <input id="ext-model" class="ctl" spellcheck="false" placeholder="gpt-4o-mini">
+      </div>
+      <div class="fld">
+        <label class="fld-l" for="ext-key"><span data-i18n="external.key_label">Clé API</span> <span class="opt" data-i18n="external.key_hint">(optionnelle pour un serveur local)</span></label>
+        <input id="ext-key" class="ctl" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" oninput="extKeyTouched=true">
+      </div>
+      <div class="fld">
+        <label class="fld-l" for="ext-ctx"><span data-i18n="external.ctx_label">Contexte</span> <span class="opt" data-i18n="external.ctx_hint">(taille en tokens, ex: 32768 — laisser vide pour 32768)</span></label>
+        <input id="ext-ctx" class="ctl" type="number" min="0" step="1024" spellcheck="false" placeholder="32768">
+      </div>
+      <div id="ext-modal-status" class="muted" style="font-size:12px;min-height:0"></div>
+    </div>
+    <div class="modal-foot">
+      <div class="foot-l">
+        <button id="ext-del" class="btn-danger" onclick="deleteExternal()" style="display:none" data-i18n="external.delete">supprimer</button>
+      </div>
+      <div class="foot-r">
+        <button class="pe-btn" onclick="testExternal()" data-i18n="external.test">tester la connexion</button>
+        <button class="pe-btn primary" onclick="saveExternal()" data-i18n="external.save">enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
 <div id="node-hub-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)hideModal('node-hub-modal')">
   <div class="modal-card">
     <div class="modal-head">
@@ -3013,6 +3111,7 @@ fr: {
   "chat.tool.tracker_lbl": "Tracker",
   "chat.tool.tracker_head": "tracker",
   "projects.trackers": "Trackers",
+  "projects.memory": "Mémoire",
   "tracker.load_error": "erreur",
   "tracker.count_plural": "trackers",
   "tracker.count_singular": "tracker",
@@ -3117,6 +3216,10 @@ fr: {
   "memory.mode_ondemand": "sur demande",
   "memory.mode_off": "désactivée",
   "memory.view_title": "Voir la mémoire",
+  "memory.pages_heading": "Pages mémoire",
+  "memory.close_aria": "Fermer",
+  "memory.intro": "La mémoire persistante du projet actif : des pages Markdown que l'IA relit et enrichit d'une conversation à l'autre.",
+  "memory.add_page_button_short": "ajouter",
   "memory.add_page_title": "ajouter une page mémoire",
   "memory.add_page_button": "+ ajouter",
   "memory.search_placeholder": "filtrer la mémoire…",
@@ -3523,6 +3626,44 @@ fr: {
   "settings.presets.vision_title": "vision (analyse d'images)",
   "settings.presets.reasoning_title": "raisonnement",
   "settings.presets.edit_title": "réglages du preset",
+  "settings.presets.external_title": "API externe (distante)",
+  "settings.presets.external_model_title": "modèle distant",
+  "presets.add_external_button": "ajouter une API externe",
+  "external.title": "API externe",
+  "external.new_title": "Nouvelle API externe",
+  "external.cfg_type_label": "Type",
+  "external.edit_prefix": "Modifier",
+  "external.close_aria": "Fermer",
+  "external.intro": "Connecte une IA externe compatible OpenAI Chat Completions (OpenAI, Claude, Groq, OpenRouter…) pour l'utiliser à la place du moteur local.",
+  "external.name_label": "Nom",
+  "external.name_hint": "(affiché dans la liste des presets)",
+  "external.url_label": "URL de l'API",
+  "external.url_hint": "(base OpenAI, ex: https://api.openai.com/v1)",
+  "external.model_label": "Modèle",
+  "external.model_hint": "(identifiant exact, ex: gpt-4o-mini)",
+  "external.ctx_label": "Contexte",
+  "external.ctx_hint": "(taille en tokens, ex: 32768 — laisser vide pour 32768)",
+  "external.key_label": "Clé API",
+  "external.key_hint": "(optionnelle pour un serveur local)",
+  "external.key_saved": "clé enregistrée — laisser vide pour la conserver",
+  "external.test": "tester la connexion",
+  "external.save": "enregistrer",
+  "external.delete": "supprimer",
+  "external.testing": "test en cours…",
+  "external.test_ok": "connexion réussie",
+  "external.test_failed": "échec de la connexion",
+  "external.saving": "enregistrement…",
+  "external.saved": "API externe enregistrée",
+  "external.save_failed": "échec de l'enregistrement",
+  "external.deleted": "API externe supprimée",
+  "external.delete_failed": "suppression impossible",
+  "external.name_required": "nom requis",
+  "external.url_required": "URL requise",
+  "external.model_required": "modèle requis",
+  "external.url_model_required": "URL et modèle requis",
+  "external.confirm_delete_prefix": "Supprimer",
+  "external.delete_title": "Supprimer l'API externe",
+  "external.delete_btn": "supprimer",
   "settings.agent.badge_on": "actif",
   "settings.agent.badge_off": "inactif",
   "settings.agent.enable_confirm_msg": "L'IA aura un accès shell complet au serveur (bash) et pourra lire/écrire sa mémoire.",
@@ -4107,6 +4248,7 @@ en: {
   "chat.tool.tracker_lbl": "Tracker",
   "chat.tool.tracker_head": "tracker",
   "projects.trackers": "Trackers",
+  "projects.memory": "Memory",
   "tracker.load_error": "error",
   "tracker.count_plural": "trackers",
   "tracker.count_singular": "tracker",
@@ -4211,6 +4353,10 @@ en: {
   "memory.mode_ondemand": "on demand",
   "memory.mode_off": "off",
   "memory.view_title": "View memory",
+  "memory.pages_heading": "Memory pages",
+  "memory.close_aria": "Close",
+  "memory.intro": "The active project's persistent memory: Markdown pages the AI re-reads and enriches from one conversation to the next.",
+  "memory.add_page_button_short": "add",
   "memory.add_page_title": "add a memory page",
   "memory.add_page_button": "+ add",
   "memory.search_placeholder": "filter memory…",
@@ -4617,6 +4763,44 @@ en: {
   "settings.presets.vision_title": "vision (image analysis)",
   "settings.presets.reasoning_title": "reasoning",
   "settings.presets.edit_title": "preset settings",
+  "settings.presets.external_title": "external API (remote)",
+  "settings.presets.external_model_title": "remote model",
+  "presets.add_external_button": "add an external API",
+  "external.title": "External API",
+  "external.new_title": "New external API",
+  "external.cfg_type_label": "Type",
+  "external.edit_prefix": "Edit",
+  "external.close_aria": "Close",
+  "external.intro": "Connect an external OpenAI Chat Completions-compatible AI (OpenAI, Claude, Groq, OpenRouter…) to use instead of the local engine.",
+  "external.name_label": "Name",
+  "external.name_hint": "(shown in the preset list)",
+  "external.url_label": "API URL",
+  "external.url_hint": "(OpenAI base, e.g. https://api.openai.com/v1)",
+  "external.model_label": "Model",
+  "external.model_hint": "(exact id, e.g. gpt-4o-mini)",
+  "external.ctx_label": "Context",
+  "external.ctx_hint": "(size in tokens, e.g. 32768 — leave empty for 32768)",
+  "external.key_label": "API key",
+  "external.key_hint": "(optional for a local server)",
+  "external.key_saved": "key saved — leave empty to keep it",
+  "external.test": "test connection",
+  "external.save": "save",
+  "external.delete": "delete",
+  "external.testing": "testing…",
+  "external.test_ok": "connection successful",
+  "external.test_failed": "connection failed",
+  "external.saving": "saving…",
+  "external.saved": "external API saved",
+  "external.save_failed": "save failed",
+  "external.deleted": "external API deleted",
+  "external.delete_failed": "cannot delete",
+  "external.name_required": "name required",
+  "external.url_required": "URL required",
+  "external.model_required": "model required",
+  "external.url_model_required": "URL and model required",
+  "external.confirm_delete_prefix": "Delete",
+  "external.delete_title": "Delete external API",
+  "external.delete_btn": "delete",
   "settings.agent.badge_on": "on",
   "settings.agent.badge_off": "off",
   "settings.agent.enable_confirm_msg": "The AI will have full shell access to the server (bash) and will be able to read/write its memory.",
@@ -5849,6 +6033,26 @@ async function loadCfg(){
   const [c, lc] = await Promise.all([jget('/api/config'), jget('/api/llamacpp').catch(()=>null)]);
   const row=(k,v,title)=>'<div class="kv"><span>'+k+'</span><span title="'+String(title!=null?title:v).replace(/"/g,'&quot;')+'">'+String(v)+'</span></div>';
   const rows=[];
+  // Preset externe (API distante) : pas de moteur/modèle local à montrer. On
+  // affiche à la place les infos du preset — type, modèle, URL, clé masquée.
+  if(c.EXTERNAL==='1'){
+    rows.push(row(t('external.cfg_type_label'), t('external.title')));
+    if(c.EXTERNAL_MODEL) rows.push(row(t('external.model_label'), c.EXTERNAL_MODEL));
+    if(c.CTX) rows.push(row('CTX', c.CTX));
+    if(c.EXTERNAL_URL){
+      let host=c.EXTERNAL_URL;
+      try{ host=new URL(c.EXTERNAL_URL).host; }catch(e){}
+      rows.push(row(t('external.url_label'), host, c.EXTERNAL_URL));
+    }
+    if(c.EXTERNAL_KEY){
+      const k=c.EXTERNAL_KEY;
+      const mask=k.length>8 ? k.slice(0,4)+'…'+k.slice(-4) : '••••';
+      rows.push(row(t('external.key_label'), mask, ''));
+    }
+    document.getElementById('cfg').innerHTML = rows.join('');
+    updateReasonBtn('');
+    return;
+  }
   if(c.BIN){
     // Moteur : précompilé / compilé / personnalisé (avec le chemin). Le title garde
     // toujours le chemin complet, quel que soit le libellé.
@@ -5941,9 +6145,25 @@ async function loadPresets(){
     // Puce réservée à l'actif POUR DE BON : pendant la bascule, seule la barre
     // orange parle ; la puce apparaît quand la barre passe au blanc.
     if(x.active){ const d=document.createElement('i'); d.className='preset-dot'; nm.appendChild(d); }
+    // Preset externe : petite icône wifi devant le nom pour le distinguer d'un
+    // moteur local d'un coup d'œil.
+    if(x.external){
+      const w=document.createElement('span'); w.className='preset-wifi';
+      w.title=t('settings.presets.external_title');
+      w.innerHTML='<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+      nm.appendChild(w);
+    }
     nm.appendChild(document.createTextNode(x.name)); nm.title=x.name;
     // Second row: quant tag + bench perf, so the title row stays full-width.
     const meta=document.createElement('div'); meta.className='preset-meta';
+    // Preset externe : on affiche le modèle distant à la place des tags quant/ctx.
+    if(x.external){
+      if(x.model){
+        const mt=document.createElement('span'); mt.className='ctag';
+        mt.title=t('settings.presets.external_model_title'); mt.textContent=x.model;
+        meta.appendChild(mt);
+      }
+    } else {
     if(x.quant){
       const q=document.createElement('span'); q.className='qtag';
       q.textContent=x.quant; q.title=t('settings.presets.quant_title');
@@ -5978,6 +6198,7 @@ async function loadPresets(){
       cap.title=capTitle.join(' · ');
       meta.appendChild(cap);
     }
+    }
     info.appendChild(nm);
     if(meta.children.length) info.appendChild(meta);
     const edit=document.createElement('button');
@@ -5985,7 +6206,7 @@ async function loadPresets(){
     // lit comme centrée dans son coin, là où le crayon penché tirait de travers.
     edit.className='preset-edit'; edit.title=t('settings.presets.edit_title');
     edit.innerHTML='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>';
-    edit.onclick=(e)=>{ e.stopPropagation(); openPreset(x.id); };
+    edit.onclick=(e)=>{ e.stopPropagation(); x.external ? openExternal(x.id) : openPreset(x.id); };
     // Pas de poignée : la ligne entière est déplaçable, on attrape où on veut.
     row.appendChild(info); row.appendChild(edit);
     cont.appendChild(row);
@@ -6038,10 +6259,10 @@ async function loadAgent(){
   setBadge('agent-badge', on, on?t('settings.agent.badge_on'):t('settings.agent.badge_off'));
   document.getElementById('brand').classList.toggle('agent', on);
   setAgentGate(on);
-  if(s.mem_mode){ document.getElementById('mem-mode').value = s.mem_mode; renderMemModeDesc(s.mem_mode); }
+  if(s.mem_mode){ setMemModeUI(s.mem_mode); }
   memPages = (s.pages || s.skills || []).slice().sort((a,b)=>a.name.localeCompare(b.name));
   memShown = MEM_PAGE;
-  document.getElementById('mem-count').textContent = memPages.length ? '('+memPages.length+')' : '';
+  document.getElementById('mem-count').textContent = memPages.length ? String(memPages.length) : '';
   // Barre de recherche visible seulement si beaucoup de pages. Si elle est masquée, on
   // VIDE aussi son champ : sinon une requête tapée dans un projet fourni restait active
   // (invisible) après bascule vers un projet à peu de notes, filtrant tout → « aucun
@@ -6180,14 +6401,6 @@ function setAgentGate(on){
   // toujours active) : on grise les lignes agent UNE PAR UNE via .agent-gated.
   document.querySelectorAll('.agent-gated').forEach(el=>el.classList.toggle('gated', !on));
 }
-// Repli/dépli de la liste des pages mémoire (fermée par défaut → gagne de la place).
-function toggleMemPages(){
-  const body=document.getElementById('mem-pages-body');
-  const bar=document.getElementById('mem-pages-bar');
-  const open=body.hasAttribute('hidden');
-  if(open){ body.removeAttribute('hidden'); bar.classList.add('open'); }
-  else { body.setAttribute('hidden',''); bar.classList.remove('open'); }
-}
 // Liste mémoire scalable : recherche + rendu plafonné (les milliers de pages ne
 // déroulent plus une barre géante). memShown grimpe par paliers via « voir plus ».
 let memPages=[], memShown=0; const MEM_PAGE=50;
@@ -6199,22 +6412,21 @@ function renderMemList(){
   const matches = q ? memPages.filter(x=>(x.name+' '+(x.desc||'')).toLowerCase().includes(q)) : memPages;
   if(!matches.length){ list.innerHTML='<div class="muted">'+t('settings.memory.no_results_before')+q.replace(/[<>&]/g,'')+t('settings.memory.no_results_after')+'</div>'; return; }
   const shown = matches.slice(0, memShown);
+  const dbIco='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>';
   shown.forEach(x=>{
-    const row=document.createElement('div'); row.className='preset'; row.style.fontSize='12px';
+    const row=document.createElement('div'); row.className='mem-item';
     row.onclick=()=>openMem(x.name);
-    const span=document.createElement('span');
-    const b=document.createElement('b'); b.style.color='var(--text)'; b.textContent=x.name; span.appendChild(b);
-    if(x.desc){ const d=document.createElement('span'); d.className='muted'; d.textContent=' — '+x.desc; span.appendChild(d); }
-    const btn=document.createElement('button'); btn.textContent=t('settings.memory.edit_btn'); btn.style.cssText='margin:0;padding:2px 8px;font-size:11px';
-    btn.onclick=e=>{ e.stopPropagation(); openMem(x.name); };
-    row.appendChild(span); row.appendChild(btn);
-    // Déplacer la note vers un autre projet (issue #55) — visible s'il existe au
-    // moins un autre projet (PROJECTS vient de 18-projects.js).
-    if(typeof PROJECTS!=='undefined' && PROJECTS.length>1){
-      const mv=document.createElement('button'); mv.textContent=t('settings.memory.move_btn'); mv.style.cssText='margin:0 0 0 4px;padding:2px 8px;font-size:11px';
-      mv.onclick=e=>{ e.stopPropagation(); moveMemUI(x.name, mv); };
-      row.appendChild(mv);
-    }
+    const ic=document.createElement('span'); ic.className='mem-item-ic'; ic.innerHTML=dbIco;
+    const main=document.createElement('div'); main.className='mem-item-main';
+    const nm=document.createElement('div'); nm.className='mem-item-name'; nm.textContent=x.name;
+    main.appendChild(nm);
+    if(x.desc){ const d=document.createElement('div'); d.className='mem-item-desc'; d.textContent=x.desc; main.appendChild(d); }
+    // Menu ⋮ (éditer / déplacer), même gabarit que les conversations et trackers.
+    const menu=document.createElement('button'); menu.className='sess-menu-btn';
+    menu.innerHTML=(typeof projDotsSvg==='function'?projDotsSvg():'⋮'); menu.title=t('projects.options');
+    menu.setAttribute('aria-label',t('projects.options'));
+    menu.onclick=e=>{ e.stopPropagation(); openMemMenu(menu, x); };
+    row.appendChild(ic); row.appendChild(main); row.appendChild(menu);
     list.appendChild(row);
   });
   if(matches.length > shown.length){
@@ -6225,6 +6437,26 @@ function renderMemList(){
     list.appendChild(more);
   }
 }
+// Menu ⋮ d'une page mémoire : éditer / déplacer. Réutilise l'infra pop du hub
+// projets (pop-menu, closeProjMenu, _projOutside, sessIconSvg).
+function openMemMenu(anchor, x){
+  if(typeof closeProjMenu==='function') closeProjMenu();
+  const pop=document.createElement('div'); pop.className='pop-menu';
+  const ico=(n)=> (typeof sessIconSvg==='function'?sessIconSvg(n):'');
+  const item=(icon,label,cls,fn)=>{ const b=document.createElement('button'); if(cls) b.className=cls; b.innerHTML=ico(icon)+'<span>'+label+'</span>'; b.onclick=(e)=>{ e.stopPropagation(); if(typeof closeProjMenu==='function') closeProjMenu(); fn(); }; return b; };
+  pop.appendChild(item('pencil', t('settings.memory.edit_btn'), '', ()=>openMem(x.name)));
+  if(typeof PROJECTS!=='undefined' && PROJECTS.length>1){
+    pop.appendChild(item('move', t('settings.memory.move_btn'), '', ()=>moveMemUI(x.name, anchor)));
+  }
+  document.body.appendChild(pop);
+  const r=anchor.getBoundingClientRect(); const pw=pop.offsetWidth, ph=pop.offsetHeight;
+  let left=Math.max(8, Math.min(r.right-pw, window.innerWidth-pw-8));
+  let top=r.bottom+6; if(top+ph>window.innerHeight-8) top=r.top-ph-6;
+  pop.style.left=left+'px'; pop.style.top=top+'px';
+  if(typeof _projPop!=='undefined') _projPop=pop;
+  setTimeout(()=>{ if(typeof _projOutside==='function') document.addEventListener('click', _projOutside, true); if(typeof closeProjMenu==='function') document.addEventListener('scroll', closeProjMenu, true); }, 0);
+}
+
 // Déplacer une note mémoire du projet actif vers un autre projet (issue #55).
 // Réutilise le sélecteur de projet du hub (pickProjectPop, 18-projects.js).
 async function moveMemUI(name, anchor){
@@ -6261,10 +6493,17 @@ const MEM_DESC={
   off:t('settings.memory.mode_off_desc')
 };
 function renderMemModeDesc(m){ const d=document.getElementById('mem-mode-desc'); if(d) d.textContent=MEM_DESC[m]||''; }
-async function setMemMode(){
-  const mode=document.getElementById('mem-mode').value;
+// Coche le bon segment du sélecteur de mode (contrôle segmenté du modal mémoire).
+function setMemModeUI(m){
+  const r=document.querySelector('input[name="mem-mode-seg"][value="'+m+'"]');
+  if(r) r.checked=true;
+  renderMemModeDesc(m);
+}
+// mode passé par le segment cliqué ; à défaut on lit le segment coché.
+async function setMemMode(mode){
+  if(!mode){ const r=document.querySelector('input[name="mem-mode-seg"]:checked'); mode=r?r.value:'always'; }
   const r=await jpost('/api/memory',{mode});
-  renderMemModeDesc(r.mode||mode);
+  setMemModeUI(r.mode||mode);
 }
 // Accès internet : serveur Crawl4AI + drapeau. Actif ET fonctionnel = pastille verte.
 let internetOn=false, webEngine='go';
@@ -6578,6 +6817,93 @@ async function loadAll(){
   releaseHeights(); // tout est en place : on rend la main et on mesure pour la prochaine fois
 }
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }
+// ─── Presets externes (API OpenAI-compatible distante) ───────────────────────
+// Modale ouverte par le bouton wifi à gauche du « + » des presets. Crée/édite un
+// preset qui, au lieu de lancer le moteur local, route le chat vers une API
+// distante (OpenAI, Claude, Groq, OpenRouter, serveur local…). Backend :
+// /api/preset/external{,/save,/test}. La bascule passe par le /api/switch normal.
+let extEditing = null;   // id du preset en édition ('' = nouveau)
+let extHasKey = false;   // une clé est déjà enregistrée (édition)
+let extKeyTouched = false; // l'utilisateur a modifié le champ clé (posé par oninput)
+
+async function openExternal(id){
+  extEditing = id || '';
+  extKeyTouched = false;
+  extHasKey = false;
+  let d = {name:'', url:'', model:'', hasKey:false};
+  if(id){
+    try{ d = await jget('/api/preset/external?id='+encodeURIComponent(id)); }catch(e){}
+  }
+  document.getElementById('ext-modal-title').textContent =
+    id ? t('external.edit_prefix')+' « '+(d.name||id)+' »' : t('external.title');
+  document.getElementById('ext-name').value = d.name || '';
+  document.getElementById('ext-url').value = d.url || '';
+  document.getElementById('ext-model').value = d.model || '';
+  document.getElementById('ext-ctx').value = d.ctx || '';
+  const key = document.getElementById('ext-key');
+  extHasKey = !!d.hasKey;
+  key.value = '';
+  key.placeholder = extHasKey ? t('external.key_saved') : 'sk-…';
+  document.getElementById('ext-del').style.display = id ? '' : 'none';
+  const st = document.getElementById('ext-modal-status');
+  st.textContent = ''; st.style.color = '';
+  showModal('ext-modal');
+}
+
+function closeExternal(){ hideModal('ext-modal'); extEditing = null; }
+
+// Corps commun envoyé au backend (save et test). keyTouched dit au serveur s'il
+// doit conserver la clé existante (édition, champ non touché) ou prendre la
+// nouvelle valeur.
+function extBody(){
+  return {
+    id: extEditing || '',
+    name: document.getElementById('ext-name').value.trim(),
+    url: document.getElementById('ext-url').value.trim(),
+    model: document.getElementById('ext-model').value.trim(),
+    ctx: document.getElementById('ext-ctx').value.trim(),
+    key: document.getElementById('ext-key').value,
+    keyTouched: extKeyTouched,
+  };
+}
+
+async function testExternal(){
+  const b = extBody();
+  if(!b.url || !b.model){ toast(t('external.url_model_required')); return; }
+  const st = document.getElementById('ext-modal-status');
+  st.textContent = t('external.testing'); st.style.color = '';
+  try{
+    const r = await jpost('/api/preset/external/test', b);
+    if(r.ok){ st.innerHTML = '<span style="color:var(--accent)">✓</span> '+t('external.test_ok'); }
+    else { st.textContent = '⚠ '+(r.error||t('external.test_failed')); st.style.color = 'var(--err)'; }
+  }catch(e){ st.textContent = '⚠ '+t('external.test_failed'); st.style.color = 'var(--err)'; }
+}
+
+async function saveExternal(){
+  const b = extBody();
+  if(!b.name){ toast(t('external.name_required')); return; }
+  if(!b.url){ toast(t('external.url_required')); return; }
+  if(!b.model){ toast(t('external.model_required')); return; }
+  const st = document.getElementById('ext-modal-status');
+  st.textContent = t('external.saving'); st.style.color = '';
+  const r = await jpost('/api/preset/external/save', b);
+  if(!r.ok){ st.textContent = '⚠ '+(r.error||t('external.save_failed')); st.style.color = 'var(--err)'; return; }
+  closeExternal();
+  toast(t('external.saved'));
+  loadPresets();
+}
+
+async function deleteExternal(){
+  if(!extEditing) return;
+  const nm = document.getElementById('ext-name').value.trim() || extEditing;
+  if(!await askConfirm(t('external.confirm_delete_prefix')+' « '+nm+' » ?',
+      {title:t('external.delete_title'), okText:t('external.delete_btn'), danger:true})) return;
+  const r = await jpost('/api/preset/delete', {id: extEditing});
+  if(r && r.ok === false){ toast(r.error||t('external.delete_failed')); return; }
+  closeExternal();
+  loadPresets();
+  toast(t('external.deleted'));
+}
 function openBenchModal(){ showModal('bench-modal'); }
 function closeBenchModal(){ hideModal('bench-modal'); }
 async function runBenchUI(){
@@ -8227,7 +8553,7 @@ const SESS_ICONS = {
   pencil: '<path d="M4 20h4l10.5 -10.5a2.83 2.83 0 1 0 -4 -4l-10.5 10.5v4"/><path d="M13.5 6.5l4 4"/>',
   trash: '<path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"/><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/>',
   doc: '<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"/><path d="M9 9h1"/><path d="M9 13h6"/><path d="M9 17h6"/>',
-  move: '<path d="M9 6l6 0"/><path d="M9 6l-3 3l3 3"/><path d="M15 12l3 3l-3 3"/><path d="M6 9v10a1 1 0 0 0 1 1h11"/>'
+  move: '<path d="M2 9V5a2 2 0 0 1 2-2h3.6a1 1 0 0 1 .8.4l1.2 1.6a1 1 0 0 0 .8.4H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2"/><path d="M2 13h10"/><path d="M9 16l3-3-3-3"/>'
 };
 function sessIconSvg(name, filled){
   return '<svg viewBox="0 0 24 24" width="17" height="17" fill="'+(filled?'currentColor':'none')+'" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+SESS_ICONS[name]+'</svg>';
@@ -11299,6 +11625,9 @@ function togglePlusMenu(e){
   pop.appendChild(item(icMachine, t('projects.remote_hosts'), ()=>{ if(typeof openNodeHub==='function') openNodeHub(); }));
   const icTracker = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h16M8 16l3-4 3 2 4-6"/></svg>';
   pop.appendChild(item(icTracker, t('projects.trackers'), ()=>{ if(typeof openTrackerHub==='function') openTrackerHub(); }));
+  // Mémoire du projet : mode + pages, dans un modal (déplacée hors du menu de gauche).
+  const icMem = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>';
+  pop.appendChild(item(icMem, t('projects.memory'), ()=>{ if(typeof openMemHub==='function') openMemHub(); }));
   // « Compacter le contexte » : uniquement quand le contexte dépasse 50%.
   if(typeof COMPACT_AVAILABLE!=='undefined' && COMPACT_AVAILABLE){
     pop.appendChild(item(icCompact, t('projects.compact_context'), ()=>{ if(typeof compactContext==='function') compactContext(); }));
@@ -11317,6 +11646,15 @@ function togglePlusMenu(e){
   // fermait le menu aussitôt (« ça saute »). Le clic-dehors suffit.
   setTimeout(()=>{ document.addEventListener('click', _plusOutside, true); }, 0);
 }
+
+// Mémoire du projet : modal ouvert depuis le menu +. Le contenu (mode + pages)
+// vit toujours sous les mêmes IDs que l'ancien bloc du menu de gauche, donc
+// loadAgent()/renderMemList() le remplissent sans changement.
+function openMemHub(){
+  if(typeof showModal==='function') showModal('mem-modal');
+  if(typeof loadAgent==='function') loadAgent(); // resynchronise mode + liste des pages
+}
+function closeMemHub(){ if(typeof hideModal==='function') hideModal('mem-modal'); }
 
 // Au chargement, on peuple le libellé du bouton (sans ouvrir le modal).
 document.addEventListener('DOMContentLoaded', ()=>{ loadProjects(); });

@@ -68,9 +68,25 @@ async function loadPresets(){
     // Puce réservée à l'actif POUR DE BON : pendant la bascule, seule la barre
     // orange parle ; la puce apparaît quand la barre passe au blanc.
     if(x.active){ const d=document.createElement('i'); d.className='preset-dot'; nm.appendChild(d); }
+    // Preset externe : petite icône wifi devant le nom pour le distinguer d'un
+    // moteur local d'un coup d'œil.
+    if(x.external){
+      const w=document.createElement('span'); w.className='preset-wifi';
+      w.title=t('settings.presets.external_title');
+      w.innerHTML='<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+      nm.appendChild(w);
+    }
     nm.appendChild(document.createTextNode(x.name)); nm.title=x.name;
     // Second row: quant tag + bench perf, so the title row stays full-width.
     const meta=document.createElement('div'); meta.className='preset-meta';
+    // Preset externe : on affiche le modèle distant à la place des tags quant/ctx.
+    if(x.external){
+      if(x.model){
+        const mt=document.createElement('span'); mt.className='ctag';
+        mt.title=t('settings.presets.external_model_title'); mt.textContent=x.model;
+        meta.appendChild(mt);
+      }
+    } else {
     if(x.quant){
       const q=document.createElement('span'); q.className='qtag';
       q.textContent=x.quant; q.title=t('settings.presets.quant_title');
@@ -105,6 +121,7 @@ async function loadPresets(){
       cap.title=capTitle.join(' · ');
       meta.appendChild(cap);
     }
+    }
     info.appendChild(nm);
     if(meta.children.length) info.appendChild(meta);
     const edit=document.createElement('button');
@@ -112,7 +129,7 @@ async function loadPresets(){
     // lit comme centrée dans son coin, là où le crayon penché tirait de travers.
     edit.className='preset-edit'; edit.title=t('settings.presets.edit_title');
     edit.innerHTML='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>';
-    edit.onclick=(e)=>{ e.stopPropagation(); openPreset(x.id); };
+    edit.onclick=(e)=>{ e.stopPropagation(); x.external ? openExternal(x.id) : openPreset(x.id); };
     // Pas de poignée : la ligne entière est déplaçable, on attrape où on veut.
     row.appendChild(info); row.appendChild(edit);
     cont.appendChild(row);
@@ -165,10 +182,10 @@ async function loadAgent(){
   setBadge('agent-badge', on, on?t('settings.agent.badge_on'):t('settings.agent.badge_off'));
   document.getElementById('brand').classList.toggle('agent', on);
   setAgentGate(on);
-  if(s.mem_mode){ document.getElementById('mem-mode').value = s.mem_mode; renderMemModeDesc(s.mem_mode); }
+  if(s.mem_mode){ setMemModeUI(s.mem_mode); }
   memPages = (s.pages || s.skills || []).slice().sort((a,b)=>a.name.localeCompare(b.name));
   memShown = MEM_PAGE;
-  document.getElementById('mem-count').textContent = memPages.length ? '('+memPages.length+')' : '';
+  document.getElementById('mem-count').textContent = memPages.length ? String(memPages.length) : '';
   // Barre de recherche visible seulement si beaucoup de pages. Si elle est masquée, on
   // VIDE aussi son champ : sinon une requête tapée dans un projet fourni restait active
   // (invisible) après bascule vers un projet à peu de notes, filtrant tout → « aucun
@@ -307,14 +324,6 @@ function setAgentGate(on){
   // toujours active) : on grise les lignes agent UNE PAR UNE via .agent-gated.
   document.querySelectorAll('.agent-gated').forEach(el=>el.classList.toggle('gated', !on));
 }
-// Repli/dépli de la liste des pages mémoire (fermée par défaut → gagne de la place).
-function toggleMemPages(){
-  const body=document.getElementById('mem-pages-body');
-  const bar=document.getElementById('mem-pages-bar');
-  const open=body.hasAttribute('hidden');
-  if(open){ body.removeAttribute('hidden'); bar.classList.add('open'); }
-  else { body.setAttribute('hidden',''); bar.classList.remove('open'); }
-}
 // Liste mémoire scalable : recherche + rendu plafonné (les milliers de pages ne
 // déroulent plus une barre géante). memShown grimpe par paliers via « voir plus ».
 let memPages=[], memShown=0; const MEM_PAGE=50;
@@ -326,22 +335,21 @@ function renderMemList(){
   const matches = q ? memPages.filter(x=>(x.name+' '+(x.desc||'')).toLowerCase().includes(q)) : memPages;
   if(!matches.length){ list.innerHTML='<div class="muted">'+t('settings.memory.no_results_before')+q.replace(/[<>&]/g,'')+t('settings.memory.no_results_after')+'</div>'; return; }
   const shown = matches.slice(0, memShown);
+  const dbIco='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>';
   shown.forEach(x=>{
-    const row=document.createElement('div'); row.className='preset'; row.style.fontSize='12px';
+    const row=document.createElement('div'); row.className='mem-item';
     row.onclick=()=>openMem(x.name);
-    const span=document.createElement('span');
-    const b=document.createElement('b'); b.style.color='var(--text)'; b.textContent=x.name; span.appendChild(b);
-    if(x.desc){ const d=document.createElement('span'); d.className='muted'; d.textContent=' — '+x.desc; span.appendChild(d); }
-    const btn=document.createElement('button'); btn.textContent=t('settings.memory.edit_btn'); btn.style.cssText='margin:0;padding:2px 8px;font-size:11px';
-    btn.onclick=e=>{ e.stopPropagation(); openMem(x.name); };
-    row.appendChild(span); row.appendChild(btn);
-    // Déplacer la note vers un autre projet (issue #55) — visible s'il existe au
-    // moins un autre projet (PROJECTS vient de 18-projects.js).
-    if(typeof PROJECTS!=='undefined' && PROJECTS.length>1){
-      const mv=document.createElement('button'); mv.textContent=t('settings.memory.move_btn'); mv.style.cssText='margin:0 0 0 4px;padding:2px 8px;font-size:11px';
-      mv.onclick=e=>{ e.stopPropagation(); moveMemUI(x.name, mv); };
-      row.appendChild(mv);
-    }
+    const ic=document.createElement('span'); ic.className='mem-item-ic'; ic.innerHTML=dbIco;
+    const main=document.createElement('div'); main.className='mem-item-main';
+    const nm=document.createElement('div'); nm.className='mem-item-name'; nm.textContent=x.name;
+    main.appendChild(nm);
+    if(x.desc){ const d=document.createElement('div'); d.className='mem-item-desc'; d.textContent=x.desc; main.appendChild(d); }
+    // Menu ⋮ (éditer / déplacer), même gabarit que les conversations et trackers.
+    const menu=document.createElement('button'); menu.className='sess-menu-btn';
+    menu.innerHTML=(typeof projDotsSvg==='function'?projDotsSvg():'⋮'); menu.title=t('projects.options');
+    menu.setAttribute('aria-label',t('projects.options'));
+    menu.onclick=e=>{ e.stopPropagation(); openMemMenu(menu, x); };
+    row.appendChild(ic); row.appendChild(main); row.appendChild(menu);
     list.appendChild(row);
   });
   if(matches.length > shown.length){
@@ -352,6 +360,26 @@ function renderMemList(){
     list.appendChild(more);
   }
 }
+// Menu ⋮ d'une page mémoire : éditer / déplacer. Réutilise l'infra pop du hub
+// projets (pop-menu, closeProjMenu, _projOutside, sessIconSvg).
+function openMemMenu(anchor, x){
+  if(typeof closeProjMenu==='function') closeProjMenu();
+  const pop=document.createElement('div'); pop.className='pop-menu';
+  const ico=(n)=> (typeof sessIconSvg==='function'?sessIconSvg(n):'');
+  const item=(icon,label,cls,fn)=>{ const b=document.createElement('button'); if(cls) b.className=cls; b.innerHTML=ico(icon)+'<span>'+label+'</span>'; b.onclick=(e)=>{ e.stopPropagation(); if(typeof closeProjMenu==='function') closeProjMenu(); fn(); }; return b; };
+  pop.appendChild(item('pencil', t('settings.memory.edit_btn'), '', ()=>openMem(x.name)));
+  if(typeof PROJECTS!=='undefined' && PROJECTS.length>1){
+    pop.appendChild(item('move', t('settings.memory.move_btn'), '', ()=>moveMemUI(x.name, anchor)));
+  }
+  document.body.appendChild(pop);
+  const r=anchor.getBoundingClientRect(); const pw=pop.offsetWidth, ph=pop.offsetHeight;
+  let left=Math.max(8, Math.min(r.right-pw, window.innerWidth-pw-8));
+  let top=r.bottom+6; if(top+ph>window.innerHeight-8) top=r.top-ph-6;
+  pop.style.left=left+'px'; pop.style.top=top+'px';
+  if(typeof _projPop!=='undefined') _projPop=pop;
+  setTimeout(()=>{ if(typeof _projOutside==='function') document.addEventListener('click', _projOutside, true); if(typeof closeProjMenu==='function') document.addEventListener('scroll', closeProjMenu, true); }, 0);
+}
+
 // Déplacer une note mémoire du projet actif vers un autre projet (issue #55).
 // Réutilise le sélecteur de projet du hub (pickProjectPop, 18-projects.js).
 async function moveMemUI(name, anchor){
@@ -388,10 +416,17 @@ const MEM_DESC={
   off:t('settings.memory.mode_off_desc')
 };
 function renderMemModeDesc(m){ const d=document.getElementById('mem-mode-desc'); if(d) d.textContent=MEM_DESC[m]||''; }
-async function setMemMode(){
-  const mode=document.getElementById('mem-mode').value;
+// Coche le bon segment du sélecteur de mode (contrôle segmenté du modal mémoire).
+function setMemModeUI(m){
+  const r=document.querySelector('input[name="mem-mode-seg"][value="'+m+'"]');
+  if(r) r.checked=true;
+  renderMemModeDesc(m);
+}
+// mode passé par le segment cliqué ; à défaut on lit le segment coché.
+async function setMemMode(mode){
+  if(!mode){ const r=document.querySelector('input[name="mem-mode-seg"]:checked'); mode=r?r.value:'always'; }
   const r=await jpost('/api/memory',{mode});
-  renderMemModeDesc(r.mode||mode);
+  setMemModeUI(r.mode||mode);
 }
 // Accès internet : serveur Crawl4AI + drapeau. Actif ET fonctionnel = pastille verte.
 let internetOn=false, webEngine='go';

@@ -306,6 +306,26 @@ async function loadCfg(){
   const [c, lc] = await Promise.all([jget('/api/config'), jget('/api/llamacpp').catch(()=>null)]);
   const row=(k,v,title)=>'<div class="kv"><span>'+k+'</span><span title="'+String(title!=null?title:v).replace(/"/g,'&quot;')+'">'+String(v)+'</span></div>';
   const rows=[];
+  // Preset externe (API distante) : pas de moteur/modèle local à montrer. On
+  // affiche à la place les infos du preset — type, modèle, URL, clé masquée.
+  if(c.EXTERNAL==='1'){
+    rows.push(row(t('external.cfg_type_label'), t('external.title')));
+    if(c.EXTERNAL_MODEL) rows.push(row(t('external.model_label'), c.EXTERNAL_MODEL));
+    if(c.CTX) rows.push(row('CTX', c.CTX));
+    if(c.EXTERNAL_URL){
+      let host=c.EXTERNAL_URL;
+      try{ host=new URL(c.EXTERNAL_URL).host; }catch(e){}
+      rows.push(row(t('external.url_label'), host, c.EXTERNAL_URL));
+    }
+    if(c.EXTERNAL_KEY){
+      const k=c.EXTERNAL_KEY;
+      const mask=k.length>8 ? k.slice(0,4)+'…'+k.slice(-4) : '••••';
+      rows.push(row(t('external.key_label'), mask, ''));
+    }
+    document.getElementById('cfg').innerHTML = rows.join('');
+    updateReasonBtn('');
+    return;
+  }
   if(c.BIN){
     // Moteur : précompilé / compilé / personnalisé (avec le chemin). Le title garde
     // toujours le chemin complet, quel que soit le libellé.

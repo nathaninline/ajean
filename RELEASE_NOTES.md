@@ -1,15 +1,18 @@
-Interface multilingue (anglais par défaut, français disponible), possibilité de consulter d'autres conversations et projets pendant qu'une génération est en cours sans l'interrompre, et correction d'une perte silencieuse des images consultées lors d'un compactage.
+Connexion d'une API externe compatible OpenAI (OpenAI, Claude, Groq, OpenRouter, ou tout serveur compatible Chat Completions) comme source de génération à la place du moteur local, accès à la mémoire du projet depuis une fenêtre dédiée ouverte par le menu d'ajout, et plusieurs améliorations d'interface.
 
 ## Nouveautés
 
-* **Interface multilingue.** L'interface est désormais traduite intégralement en anglais (langue par défaut) et en français. La langue se change en direct, sans rechargement, via un sélecteur dans la section Apparence. Le choix est conservé et synchronisé entre les appareils.
-* **Consulter d'autres conversations pendant une génération.** Il est maintenant possible d'ouvrir une autre conversation ou un autre projet en lecture seule alors qu'une réponse est en cours de génération, sans la couper. La génération se poursuit côté serveur, de façon autonome, et redevient visible en direct au retour. Une pastille de notification signale, sur l'icône du projet et sur la conversation concernée, qu'une réponse a été générée et pas encore consultée. Le retour à la conversation en cours se fait naturellement en cliquant dessus ou dans la zone de saisie.
-* **Section « Actions ».** L'ancienne section « Réglages » de la barre latérale est renommée « Actions » et accueille un nouveau bouton « Nouvelle conversation », qui démarre une session vierge dans le projet actif.
-* **Hub des projets plus fluide.** Le changement de projet est désormais instantané, et le chargement de la liste des conversations est signalé par un indicateur visuel, sans à-coups.
+* **Connexion d'une API externe.** Un nouveau bouton (icône globe), à gauche du « + » de la section Presets, ouvre une fenêtre pour configurer une IA distante compatible OpenAI Chat Completions : URL de l'API, modèle, clé, et taille de contexte, avec un bouton pour tester la connexion. Une fois le preset externe sélectionné, la génération est routée vers l'API distante au lieu du moteur local ; le moteur local est alors arrêté pour libérer la mémoire. Les presets externes apparaissent dans la liste avec leur propre icône et le nom du modèle distant. Le mode agent (outils, mémoire, accès web) reste disponible avec un modèle distant compatible.
+* **Mémoire du projet dans une fenêtre dédiée.** La mémoire du projet (mode d'utilisation et pages) quitte la barre latérale pour une fenêtre à part, ouverte depuis le menu d'ajout de la zone de saisie. Le mode se règle par un sélecteur à trois options (auto, sur demande, désactivée) et chaque page se gère depuis un menu par carte.
 
-## Corrections
+## Interface
 
-* Les images consultées par l'outil de vision pouvaient disparaître silencieusement du contexte lors d'un compactage, laissant le modèle poursuivre son raisonnement sans elles et sans en avoir conscience. Leur présence est désormais préservée dans le résumé, et une éventuelle perte est rendue visible au lieu de passer inaperçue, afin que le modèle sache qu'il peut de nouveau consulter l'image plutôt que de continuer à raisonner à l'aveugle.
+* La croix de fermeture des fenêtres, jusqu'ici légèrement décentrée dans son carré selon la police, est désormais dessinée et centrée avec précision.
+* Espacements, icônes et libellés revus dans les fenêtres concernées pour une lecture plus aérée, en particulier sur mobile.
+
+## Note
+
+La connexion externe a été validée contre un serveur compatible OpenAI ; le comportement exact peut varier selon le fournisseur distant (champs acceptés, gestion des outils).
 
 ## Mise à jour
 

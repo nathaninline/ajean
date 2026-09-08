@@ -582,8 +582,9 @@ Write the summary in the SAME language as the conversation.`
 	// jamais laisser le résumé enfler au point d'annuler la réduction.
 	budget := compactSummaryBudget()
 
+	ep := resolveChatEndpoint()
 	payload := map[string]any{
-		"model": "ajean",
+		"model": ep.Model,
 		"messages": []Message{
 			{Role: "system", Content: sys},
 			{Role: "user", Content: transcript},
@@ -593,19 +594,27 @@ Write the summary in the SAME language as the conversation.`
 		// Borne dure : sans ça, un modèle bavard (surtout à reasoning) produit un
 		// résumé énorme et lent, donc peu de réduction → re-compaction à chaque tour.
 		"max_tokens": budget,
-		// Pas de réflexion pour un résumé : plus rapide, plus dense, et évite qu'un
-		// modèle hybride gaspille tout le budget en <think> (résumé vide). llama.cpp
-		// passe ces kwargs au gabarit Jinja (--jinja).
-		"chat_template_kwargs": map[string]any{"enable_thinking": false},
+	}
+	// Pas de réflexion pour un résumé : plus rapide, plus dense, et évite qu'un
+	// modèle hybride gaspille tout le budget en <think> (résumé vide). llama.cpp
+	// passe ces kwargs au gabarit Jinja (--jinja). Champ propre à llama.cpp : on ne
+	// l'envoie PAS à une API externe (OpenAI le rejetterait en 400).
+	if !ep.External {
+		payload["chat_template_kwargs"] = map[string]any{"enable_thinking": false}
 	}
 	body, _ := json.Marshal(payload)
-	url := fmt.Sprintf("http://localhost:%d/v1/chat/completions", LLMPort())
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", ep.URL, bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	authHeader(req)
+	if ep.External {
+		if ep.Key != "" {
+			req.Header.Set("Authorization", "Bearer "+ep.Key)
+		}
+	} else {
+		authHeader(req)
+	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", friendlyLLMError(err)

@@ -183,9 +183,58 @@ details>summary::-webkit-details-marker{display:none}
    raison que .iconbtn. Petit carré arrondi, centrage parfait par fl<->box, discret
    au repos (couleur atténuée, fond du panneau) et accent au survol. */
 .preset-add{display:none;position:relative;flex:none;box-sizing:border-box;
-  width:22px;height:22px;padding:0;margin:0 6px 0 auto;font-size:0;
+  width:24px;height:24px;padding:0;margin:0 6px 0 0;font-size:0;
   background:var(--panel);color:var(--dim);border:1px solid var(--border);border-radius:7px;
   cursor:pointer;transition:border-color .15s ease,color .15s ease,background .15s ease}
+/* Bouton wifi « API externe » : même gabarit que le +, placé juste à sa gauche.
+   La marge auto pousse le duo (wifi + le +) contre le bord droit du résumé. */
+.preset-ext{display:none;align-items:center;justify-content:center;flex:none;box-sizing:border-box;
+  width:24px;height:24px;padding:0;margin:0 -3px 0 auto;
+  background:var(--panel);color:var(--dim);border:1px solid var(--border);border-radius:7px;
+  cursor:pointer;transition:border-color .15s ease,color .15s ease,background .15s ease}
+.preset-ext:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
+.preset-ext:active{transform:scale(.92)}
+details[open]>summary>.preset-ext{display:inline-flex}
+/* Icône wifi devant le nom d'un preset externe dans la liste. */
+.preset-wifi{display:inline-flex;align-items:center;margin-right:5px;color:var(--accent);vertical-align:-2px}
+/* ── Modal Mémoire ─────────────────────────────────────────────────────────── */
+.mem-head-title{display:flex;align-items:center;gap:8px}
+.mem-head-ic{flex:none;color:var(--accent)}
+/* Espacement piloté par des marges EXPLICITES (gap:0) : le rythme vertical est
+   ainsi maîtrisé bloc par bloc, généreux, sans dépendre d'un gap uniforme. */
+#mem-modal .modal-body{display:flex;flex-direction:column;gap:0;padding:20px}
+.mem-intro{font-size:12.5px;line-height:1.55;margin:0 0 18px;color:var(--dim)}
+/* Sélecteur de mode : un rail segmenté (PAS le .seg générique, dont l'état coché
+   est forcé en noir plein ailleurs). Option active = pilule surélevée. */
+.mem-seg{display:flex;gap:4px;background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:4px;margin:0 0 12px}
+.mem-seg>label{flex:1;text-align:center;font-size:12.5px;font-weight:500;padding:10px 6px;border-radius:8px;cursor:pointer;
+  color:var(--dim);transition:background .12s ease,color .12s ease,box-shadow .12s ease}
+.mem-seg>label:hover{color:var(--text)}
+.mem-seg>label:has(input:checked){background:var(--bg);color:var(--accent);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.16)}
+.mem-seg input{display:none}
+.mem-modedesc{font-size:11.5px;line-height:1.5;color:var(--dim);margin:0 2px 22px}
+.mem-modedesc:empty{margin:0 2px 22px}
+.mem-pages-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 14px;
+  padding-top:18px;border-top:1px solid var(--border)}
+.mem-pages-title{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--dim);font-weight:600}
+.mem-add-btn{display:inline-flex;align-items:center;gap:6px;flex:none;margin:0;padding:8px 13px;font-size:12.5px;font-weight:600;
+  border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--accent);cursor:pointer;
+  transition:border-color .12s ease,background .12s ease}
+.mem-add-btn svg{flex:none}
+.mem-add-btn:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.mem-add-btn:active{transform:scale(.96)}
+#mem-modal .mem-search{width:100%;box-sizing:border-box;margin:0 0 14px;padding:10px 12px}
+#mem-modal .mem-list{display:flex;flex-direction:column;gap:10px;max-height:44vh;overflow:auto;margin:0;padding:2px 0}
+#mem-modal .mem-list>.muted{font-size:12px;padding:18px 2px;text-align:center}
+.mem-item{display:flex;align-items:center;gap:13px;padding:14px 16px;border:1px solid var(--border);border-radius:13px;
+  background:transparent;cursor:pointer;transition:border-color .12s ease,background .12s ease}
+.mem-item:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.mem-item-ic{flex:none;display:flex;align-items:center;color:var(--dim)}
+.mem-item:hover .mem-item-ic{color:var(--accent)}
+.mem-item-main{flex:1;min-width:0}
+.mem-item-name{font-size:13.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35}
+.mem-item-desc{font-size:11.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px;line-height:1.4}
+.mem-item .sess-menu-btn{flex:none;margin-left:2px}
 .preset-add::before,.preset-add::after{content:"";position:absolute;top:50%;left:50%;
   background:currentColor;border-radius:1px}
 .preset-add::before{width:10px;height:1.5px;transform:translate(-50%,-50%)}
@@ -616,7 +665,7 @@ details>summary+.subhead{margin-top:4px}
   border-radius:7px;padding:7px 9px;font:inherit;font-size:12.5px}
 .sctl:focus,.io-input:focus{outline:none;border-color:var(--dim)}
 textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
-.side button:not(.preset-edit):not(.addbtn):not(.preset-add):not(.copybtn):not(.iconbtn){font-size:12px;padding:6px 10px;border-radius:7px}
+.side button:not(.preset-edit):not(.addbtn):not(.preset-add):not(.preset-ext):not(.copybtn):not(.iconbtn){font-size:12px;padding:6px 10px;border-radius:7px}
 .side .row{display:flex;gap:6px;align-items:center;margin:6px 0}
 .side .row .sctl,.side .row .io-input{flex:1;min-width:0}
 /* Bouton d'action à côté d'un champ (copier, ouvrir) : un CARRÉ à la hauteur du
@@ -979,7 +1028,14 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 /* Croix de fermeture : un CARRÉ, pas un rectangle. Avec un padding asymétrique
    (3px vertical / 10px horizontal) le glyphe paraissait écrasé et la cible de
    clic était basse. 32px, glyphe centré, taille de cible correcte au doigt. */
-.modal-x{margin:0;padding:0;width:32px;height:32px;flex:none;display:inline-flex;align-items:center;justify-content:center;font-size:19px;line-height:1;color:var(--dim)}
+/* Croix dessinée en CSS (deux traits) plutôt que le glyphe « × » : ce dernier est
+   optiquement décentré dans son carré selon la police. Le texte × reste dans le
+   HTML pour l'accessibilité mais est masqué (font-size:0). */
+.modal-x{margin:0;padding:0;width:32px;height:32px;flex:none;position:relative;font-size:0;color:var(--dim);cursor:pointer}
+.modal-x::before,.modal-x::after{content:"";position:absolute;top:50%;left:50%;width:13px;height:1.7px;background:currentColor;border-radius:2px}
+.modal-x::before{transform:translate(-50%,-50%) rotate(45deg)}
+.modal-x::after{transform:translate(-50%,-50%) rotate(-45deg)}
+.modal-x:hover{color:var(--text)}
 .modal-body{padding:16px;overflow:auto;flex:1}
 /* Modale ouverte mais pas encore remplie : on affiche le voile de chargement À LA
    PLACE du formulaire et du pied. Estomper le formulaire ne suffisait pas — on
@@ -1467,7 +1523,7 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
 #plus-btn:focus,#plus-btn:focus-visible,#plus-btn.open{outline:none;border-color:var(--border);background:var(--bubble);color:var(--text)}
 /* Survol uniquement à la SOURIS (sinon :hover reste collé après un tap tactile et
    laissait un contour accent). */
-@media (hover:hover){#plus-btn:hover{border-color:var(--accent);color:var(--accent)}}
+@media (hover:hover){#plus-btn{opacity:.85}#plus-btn:hover{opacity:1}}
 /* Menu ouvert : le + pivote en × (45°), c'est tout. */
 #plus-btn.open svg{transform:rotate(45deg)}
 @media (prefers-reduced-motion:reduce){#plus-btn svg{transition:none}}
@@ -1529,7 +1585,8 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
 #project-btn{height:26px;min-height:26px;flex:none;margin:0;padding:0 11px 0 9px;
   display:flex;align-items:center;gap:6px;border-radius:999px;max-width:160px;
   background:var(--panel);border:1px solid var(--border);color:var(--text)}
-#project-btn:hover{background:var(--accent-bg);border-color:var(--accent);color:var(--accent)}
+#project-btn{opacity:.85}
+#project-btn:hover{opacity:1}
 #project-btn:active{transform:scale(.96)}
 #project-btn svg{display:block;flex:none;width:14px;height:14px}
 #project-btn-name{font-size:11.5px;font-weight:500;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:118px}

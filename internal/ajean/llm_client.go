@@ -735,6 +735,11 @@ func isNetTimeout(err error) bool {
 func runChat(ctx context.Context, messages []Message, temperature float64, caps Caps, cb ChatCallback) ([]Message, error) {
 	var extra []Message
 	tools := EnabledTools(caps)
+	// Destination des complétions : llama-server local, ou une API OpenAI-compatible
+	// externe si le preset actif en est un (voir backend_external.go). Résolu une
+	// fois par tour ; une bascule de preset en plein tour est rare et se rejoue au
+	// message suivant.
+	ep := resolveChatEndpoint()
 	// Some backends (vanilla llama.cpp builds) don't populate `reasoning_content`
 	// in streaming mode: the model's <think> block (opened by the chat template)
 	// arrives inline in `content`, terminated by a literal </think>. When
@@ -773,7 +778,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 	// le contexte — c'est un choix assumé.
 	for iter := 0; ; iter++ {
 		payload := map[string]any{
-			"model": "ajean",
+			"model": ep.Model,
 			// Normalisé juste avant l'envoi : un seul system, en tête. Les gabarits
 			// stricts (Qwen3.x) refusent un system ailleurs qu'en position 0 (issue #26).
 			"messages":    normalizeSystemMessages(messages),
@@ -799,13 +804,20 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			payload["parallel_tool_calls"] = false
 		}
 		body, _ := json.Marshal(payload)
-		url := fmt.Sprintf("http://localhost:%d/v1/chat/completions", LLMPort())
-		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+		req, err := http.NewRequestWithContext(ctx, "POST", ep.URL, bytes.NewReader(body))
 		if err != nil {
 			return extra, err
 		}
 		req.Header.Set("Content-Type", "application/json")
-		authHeader(req)
+		// Local : clé Bearer de llama-server (authHeader). Externe : clé de l'API
+		// distante portée par le preset.
+		if ep.External {
+			if ep.Key != "" {
+				req.Header.Set("Authorization", "Bearer "+ep.Key)
+			}
+		} else {
+			authHeader(req)
+		}
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			err = friendlyLLMError(err)
@@ -1454,6 +1466,13 @@ var healthClient = &http.Client{Timeout: 3 * time.Second}
 
 // healthCheck pings llama.cpp's /health endpoint.
 func healthCheck() bool {
+	// Preset externe : pas de llama-server local à sonder. On considère « prêt »
+	// sans latence — la vraie joignabilité de l'API distante se révèle à l'appel
+	// de complétion, avec un message d'erreur clair si elle échoue. Sans ce
+	// court-circuit, StartTurn refuserait tout tour (aucun /health local).
+	if externalActive() {
+		return true
+	}
 	resp, err := healthClient.Get(fmt.Sprintf("http://localhost:%d/health", LLMPort()))
 	if err != nil {
 		return false
