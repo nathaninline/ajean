@@ -814,6 +814,35 @@ function eaToggleFlag(flag, on){
   if(on) t.push(flag);
   eaSetTokens(t);
 }
+// --- Mémoire : mlock / no-mmap, avec le nouveau --load-mode --------------------
+// llama.cpp récent a REMPLACÉ --mlock / --no-mmap par --load-mode. Les presets
+// continuent de stocker l'ANCIENNE représentation (portable sur tous les
+// backends, y compris les forks qui gardent --mlock) ; AJEAN la traduit en
+// --load-mode au lancement pour les moteurs récents. Ces deux fonctions font le
+// pont côté éditeur pour que les interrupteurs restent justes même si un preset
+// porte déjà un --load-mode (édité à la main ou migré).
+function eaMemFlags(){
+  const lm = (eaGetValued('--load-mode') || eaGetValued('-lm')).toLowerCase();
+  let mlock = eaHasFlag('--mlock'), nommap = eaHasFlag('--no-mmap');
+  if(lm==='mlock'){ mlock=true; nommap=true; }       // pas de mmap + résident
+  else if(lm==='mmap+mlock'){ mlock=true; }           // mmap + résident
+  else if(lm==='none'){ nommap=true; }                // pas de mmap
+  return {mlock, nommap};
+}
+// eaToggleMem : appelé par les deux interrupteurs. On réécrit TOUJOURS en
+// --mlock / --no-mmap (portable) et on retire tout --load-mode explicite :
+// l'utilisateur reprend la main, et le lancement re-traduit selon le backend.
+function eaToggleMem(){
+  const ml = document.getElementById('s-mlock'), nm = document.getElementById('s-nommap');
+  let t = eaTokens().filter(x=>x!=='--mlock' && x!=='--no-mmap');
+  for(const f of ['--load-mode','-lm']){
+    const i = t.indexOf(f);
+    if(i>=0){ const hadVal = i+1<t.length && !t[i+1].startsWith('-'); t.splice(i, hadVal?2:1); }
+  }
+  if(ml && ml.checked) t.push('--mlock');
+  if(nm && nm.checked) t.push('--no-mmap');
+  eaSetTokens(t);
+}
 function eaGetValued(flag){
   const t = eaTokens(), i = t.indexOf(flag);
   return (i>=0 && i+1<t.length && !t[i+1].startsWith('-')) ? t[i+1] : '';
@@ -863,8 +892,9 @@ function populateSettings(){
   }
   chk('s-kvunified', eaHasFlag('--kv-unified'));
   chk('s-flash', eaHasFlag('--flash-attn') && !/^off$/i.test(eaGetValued('--flash-attn')));
-  chk('s-mlock', eaHasFlag('--mlock'));
-  chk('s-nommap', eaHasFlag('--no-mmap'));
+  const mem = eaMemFlags();
+  chk('s-mlock', mem.mlock);
+  chk('s-nommap', mem.nommap);
   chk('s-mmproj-cpu', eaHasFlag('--no-mmproj-offload'));
   syncMmprojCpuRow();
 }

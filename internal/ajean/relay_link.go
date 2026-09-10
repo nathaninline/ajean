@@ -48,6 +48,16 @@ func machineID() string {
 	if id := getStr(bkState, "link_machine"); id != "" {
 		return id
 	}
+	return rotateMachineID()
+}
+
+// rotateMachineID tire un nouvel identifiant de machine et le persiste, en
+// écrasant l'ancien. Sert au premier appel (aucun id encore) comme à la
+// rotation volontaire (« ajean link newid ») quand l'ancien a fuité, par
+// exemple montré dans une vidéo. Le nouvel id ne prend effet qu'à la
+// prochaine reconnexion du tunnel (« ajean ui restart ») ; l'ancien
+// sous-domaine oai cesse alors de router vers un agent vivant.
+func rotateMachineID() string {
 	buf := make([]byte, 8)
 	_, _ = rand.Read(buf)
 	id := hex.EncodeToString(buf)
@@ -111,6 +121,22 @@ func cmdLink(args []string) error {
 		}
 		fmt.Println(green("[ok]") + " jeton supprimé — « ajean ui restart » pour fermer le tunnel")
 		return nil
+	case "newid":
+		old := getStr(bkState, "link_machine")
+		id := rotateMachineID()
+		fmt.Printf("%s nouvel identifiant de machine : %s\n", green("[ok]"), bold(id))
+		if old != "" {
+			fmt.Printf("       ancien (ne routera plus) : %s\n", old)
+		}
+		fmt.Printf("       endpoint OpenAI : https://%s.oai.ajean.link/v1\n", id)
+		// Reconnecter le tunnel pour que le relais enregistre le nouvel id.
+		if err := uiServiceCtl("restart"); err != nil {
+			fmt.Printf("%s redémarre le service à la main pour appliquer : ajean ui restart (%v)\n", yellow("[info]"), err)
+		} else {
+			fmt.Printf("%s tunnel reconnecté sous le nouvel identifiant\n", green("[ok]"))
+		}
+		fmt.Printf("       Pense à retirer l'ancien serveur (hors ligne) dans le portail, et à reconfirmer l'empreinte/appairage.\n")
+		return nil
 	case "code":
 		code, err := newPairCode()
 		if err != nil {
@@ -172,6 +198,7 @@ Usage :
   ajean link <token>     enregistre le jeton (1re fois / pour le changer) et ouvre le tunnel
   ajean link status      état du jeton et du tunnel
   ajean link code        génère un code d'appairage (valable 10 min, à usage unique)
+  ajean link newid       change l'identifiant de la machine (si l'ancien a fuité)
   ajean link logout      oublie le jeton enregistré
 
 Le jeton est fourni sur ajean.link. Le tunnel est ouvert par le service

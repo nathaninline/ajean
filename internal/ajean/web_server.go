@@ -255,6 +255,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/backup/restore", handleBackupRestore) // restauration depuis le relais
 	api("/api/backup/auto", handleBackupAuto)       // active/désactive l'auto
 	api("/api/switch", handleSwitch)
+	api("/api/loadflags/migrate", handleLoadFlagsMigrate) // nettoie --mlock/--no-mmap → --load-mode (llama.cpp récent)
 	api("/api/start", svcHandler("start"))
 	api("/api/stop", svcHandler("stop"))
 	api("/api/restart", svcHandler("restart"))

@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // remoteServerURL est l'URL du portail distant pointant droit sur cette machine.
@@ -81,9 +82,26 @@ func handleLinkStart(w http.ResponseWriter, r *http.Request) {
 // handleLinkDisconnect (POST /api/link/disconnect) : arrête le service et oublie
 // la clé (équivalent `ajean link stop` + `ajean link logout`).
 func handleLinkDisconnect(w http.ResponseWriter, r *http.Request) {
-	_ = uiServiceCtl("stop")
-	_ = removeLinkToken()
-	sendJSON(w, http.StatusOK, map[string]any{"ok": true, "linked": false, "active": false})
+	// On OUBLIE le jeton d'abord : c'est l'action qui compte, et elle doit réussir
+	// même si le (re)démarrage qui suit tue ce process en route.
+	if err := removeLinkToken(); err != nil {
+		sendJSON(w, http.StatusInternalServerError, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	// On RÉPOND avant de toucher au service. L'ancien code arrêtait le service
+	// AVANT de répondre : le process mourait en plein milieu, la réponse n'arrivait
+	// jamais, et l'UI tombait sur un « JSON.parse » de réponse vide (« SyntaxError »).
+	sendJSON(w, http.StatusOK, map[string]any{"ok": true, "linked": false, "active": true})
+	// Puis on REDÉMARRE (pas « stop ») en arrière-plan, après un court délai laissant
+	// la réponse partir : le process relit un jeton vide → plus de tunnel vers le
+	// relais, mais l'UI locale (:8090) reste servie. « stop » coupait aussi l'UI
+	// locale, puisque le même process sert les deux.
+	go func() {
+		time.Sleep(400 * time.Millisecond)
+		if err := uiServiceCtl("restart"); err != nil {
+			fmt.Printf("%s redémarrage après déconnexion du lien: %v\n", red("[ERREUR]"), err)
+		}
+	}()
 }
 
 // handleLinkPairCode (POST /api/link/paircode) : génère un code d'appairage frais

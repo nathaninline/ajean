@@ -1247,6 +1247,17 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .proj-cta:focus,.proj-cta:focus-visible{outline:none}
 .proj-cta:active{transform:scale(.995)}
 @media (hover:hover){.proj-cta:hover{background:var(--row-bg-on)}.proj-cta:hover svg{color:var(--text)}}
+/* Variante ACCENT : l'action principale (nouvelle conversation), posée au-dessus des
+   conversations du projet actif. Fond accent plein + texte sur le fond → bien visible,
+   sans sortir de la charte monochrome. Un peu d'air au-dessus pour la détacher de la
+   grille de projets. */
+.proj-cta.accent{background:var(--accent);color:var(--bg);font-weight:600;margin:0 0 8px}
+.proj-cta.accent svg{color:var(--bg)}
+@media (hover:hover){.proj-cta.accent:hover{background:var(--accent);opacity:.85}.proj-cta.accent:hover svg{color:var(--bg)}}
+/* Variante COMPACTE : chip à droite de l'en-tête « Conversations » (comme « + projet »
+   à droite de « Projets »), pas pleine largeur. On annule le texte en capitales hérité
+   de .sess-head pour garder un libellé de bouton normal. */
+.proj-cta.compact{width:auto;flex:none;margin:0;padding:5px 11px;font-size:12px;border-radius:8px;gap:6px;text-transform:none;letter-spacing:0}
 /* Boutons MINIMAUX (footer, + projet…) : texte discret, fond léger au survol, sans
    cadre — cohérents dans tous les modals. */
 .mbtn{margin:0;padding:7px 12px;border:none;background:transparent;color:var(--dim);
@@ -1263,17 +1274,20 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
    = --accent, jamais de bleu en dur). Carte : dossier duotone + nom centré, menu
    « ⋯ » discret en haut à droite. Actif = cadre accent plus marqué (comme un preset
    actif). Rien ne se chevauche. */
-.proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:2px}
+.proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:2px}
+/* En-tête « Conversations » : filet en haut + un peu d'air → sépare nettement la
+   section Projets de l'historique du projet actif (sinon le bouton semble flotter). */
+.proj-convhead{border-top:1px solid var(--border);margin-top:12px;padding-top:11px}
 /* Minimal (Linear/Notion) : pas de cadre, juste un fond au survol ; l'actif porte un
    voile discret + l'icône en accent. L'espace fait le travail, rien ne « boxe ». */
 /* Bascule de projet INSTANTANÉE : aucune animation d'arrivée sur les tuiles (les
    tuiles sont reconstruites à chaque rendu, elles apparaissent d'un coup). On
    garde seulement des transitions douces au survol / focus, sans « pop » d'entrée. */
-.proj-tile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;
-  min-height:94px;padding:16px 10px;border:none;border-radius:12px;cursor:pointer;
+.proj-tile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  min-height:58px;padding:10px 6px;border:none;border-radius:10px;cursor:pointer;
   background:transparent;color:var(--dim);
   transition:background .14s ease, transform .14s ease, box-shadow .14s ease}
-.proj-tile:hover{background:var(--row-bg);transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.08)}
+.proj-tile:hover{background:var(--row-bg)}
 .proj-tile:active{transform:translateY(0) scale(.985);box-shadow:none;transition-duration:.08s}
 .proj-tile:focus-visible{outline:none;background:var(--row-bg);box-shadow:0 0 0 2px var(--accent-bg)}
 .proj-tile.active{background:var(--accent-bg);cursor:default}
@@ -1299,7 +1313,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .proj-ticon{display:flex;line-height:0}
 .proj-ticon svg{display:block}
 .proj-tile.active .proj-ticon{color:var(--accent)}
-.proj-tname{font-size:12.5px;font-weight:500;color:var(--text);text-align:center;line-height:1.3;
+.proj-tname{font-size:11.5px;font-weight:500;color:var(--text);text-align:center;line-height:1.25;
   max-width:100%;word-break:break-word;overflow:hidden;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .proj-tile.active .proj-tname{font-weight:600}

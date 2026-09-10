@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -23,18 +24,144 @@ import (
 // échoue à s'exécuter (« libllama-common.so introuvable ») et on conclurait à
 // tort qu'il ne gère pas le drapeau.
 func binSupportsReasoningFlag(bin string) bool {
+	h, ok := binHelp(bin)
+	if !ok {
+		return false // aide illisible : on ne prend pas le risque
+	}
+	return strings.Contains(h, "--reasoning ")
+}
+
+// binHelp lit une fois l'aide du binaire, avec le même chemin de bibliothèques
+// que le vrai lancement (setLibraryPath a déjà été appelé) : sans ça un moteur
+// parfaitement valide échoue à s'exécuter (« libllama-common.so introuvable »)
+// et on conclurait à tort qu'il ne gère pas tel drapeau. Renvoie le texte et un
+// booléen « lisible » (false = aide illisible, ne rien en déduire).
+func binHelp(bin string) (string, bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	// hideCmd : sans lui, ce « llama-server --help » ouvre une fenêtre de console
 	// noire sous Windows (llama-server est une app console), qui clignote à chaque
 	// (re)démarrage du moteur et à chaque changement de preset. No-op sous Unix.
 	cmd := hideCmd(exec.CommandContext(ctx, bin, "--help"))
+	// Env complet + chemin des bibliothèques voisines du binaire : utilisable
+	// depuis le process web (qui n'a pas appelé setLibraryPath) sans polluer son
+	// environnement. Sans ça, un moteur valide échoue sur « libllama introuvable »
+	// et on conclurait à tort qu'il ne gère pas tel drapeau.
+	cmd.Env = libraryPathEnv(filepath.Dir(bin))
 	var out bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &out
 	if err := cmd.Run(); err != nil && out.Len() == 0 {
-		return false // aide illisible : on ne prend pas le risque
+		return "", false
 	}
-	return strings.Contains(out.String(), "--reasoning ")
+	return out.String(), true
+}
+
+// backendUsesLoadMode dit si le BIN donné attend la NOUVELLE syntaxe
+// « --load-mode » (et a donc potentiellement retiré --mlock / --no-mmap).
+// Résultat mémoïsé par chemin+mtime du binaire : handleStatus est sondé souvent,
+// on ne relance pas « --help » à chaque fois (un seul spawn par binaire).
+var loadModeCapCache sync.Map // clé "chemin\x00mtime" -> bool
+
+func backendUsesLoadMode(bin string) bool {
+	if bin == "" {
+		return false
+	}
+	if !filepath.IsAbs(bin) {
+		bin = filepath.Join(AjeanHome(), bin)
+	}
+	bin = prebuiltResolveBin(bin)
+	key := bin
+	if fi, err := os.Stat(bin); err == nil {
+		key = fmt.Sprintf("%s\x00%d", bin, fi.ModTime().UnixNano())
+	}
+	if v, ok := loadModeCapCache.Load(key); ok {
+		return v.(bool)
+	}
+	ok := binSupportsLoadMode(bin)
+	loadModeCapCache.Store(key, ok)
+	return ok
+}
+
+// binSupportsLoadMode dit si ce llama-server attend la nouvelle syntaxe
+// « --load-mode MODE » (refactor amont qui a REMPLACÉ --mlock / --no-mmap).
+// Sur un tel moteur, passer les anciens drapeaux le fait sortir en erreur au
+// démarrage → boucle systemd. Voir reconcileLoadMode.
+func binSupportsLoadMode(bin string) bool {
+	h, ok := binHelp(bin)
+	return ok && strings.Contains(h, "--load-mode")
+}
+
+// reconcileLoadMode traduit les anciens drapeaux --mlock / --no-mmap vers le
+// nouveau --load-mode QUAND le moteur ne connaît plus les anciens (llama.cpp
+// récent). Les presets continuent de stocker --mlock / --no-mmap (portables
+// d'un backend à l'autre, y compris les forks qui gardent l'ancienne syntaxe) ;
+// on choisit ici la bonne forme pour CE binaire, au lancement.
+//
+// Correspondance (deux interrupteurs indépendants → une seule valeur) :
+//
+//	--mlock seul          → mmap+mlock  (mmap + résident : l'ancien sens de --mlock)
+//	--no-mmap seul        → none        (pas de mmap)
+//	--mlock + --no-mmap   → mlock       (pas de mmap + résident)
+//	aucun des deux        → inchangé
+func reconcileLoadMode(args []string, bin string) []string {
+	// Court-circuit : sans ancien drapeau, rien à faire — et surtout on évite de
+	// lancer « --help » pour rien à chaque démarrage du moteur.
+	if !containsAny(args, "--mlock", "--no-mmap") {
+		return args
+	}
+	return translateLoadMode(args, binSupportsLoadMode(bin))
+}
+
+// translateLoadMode contient la logique pure (testable sans binaire) : réécrit
+// --mlock / --no-mmap en --load-mode quand supported vaut vrai ; sinon rend les
+// arguments inchangés (moteur ancien ou fork qui garde l'ancienne syntaxe).
+func translateLoadMode(args []string, supported bool) []string {
+	if !supported {
+		return args
+	}
+	hasMlock, hasNoMmap, hasLoadMode := false, false, false
+	kept := make([]string, 0, len(args))
+	for _, a := range args {
+		switch a {
+		case "--mlock":
+			hasMlock = true
+		case "--no-mmap":
+			hasNoMmap = true
+		default:
+			if a == "--load-mode" || a == "-lm" {
+				hasLoadMode = true
+			}
+			kept = append(kept, a)
+		}
+	}
+	if !hasMlock && !hasNoMmap {
+		return args
+	}
+	// L'utilisateur a déjà posé un --load-mode explicite (EXTRA_ARGS) : il gagne ;
+	// on s'est contenté de retirer les anciens drapeaux pour éviter le conflit
+	// (« only the last one takes effect »).
+	if hasLoadMode {
+		return kept
+	}
+	mode := "mmap+mlock"
+	switch {
+	case hasMlock && hasNoMmap:
+		mode = "mlock"
+	case hasNoMmap:
+		mode = "none"
+	}
+	return append(kept, "--load-mode", mode)
+}
+
+func containsAny(args []string, needles ...string) bool {
+	for _, a := range args {
+		for _, n := range needles {
+			if a == n {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // cmdServe replaces the historic start.sh: read config.env, build the
@@ -200,6 +327,12 @@ func cmdServe(args []string) error {
 	// EXTRA_ARGS is appended verbatim, split like the shell would — quotes kept
 	// together so a path with spaces stays one argument.
 	llmArgs = append(llmArgs, splitArgs(cfg["EXTRA_ARGS"])...)
+
+	// Compat llama.cpp récent : --mlock / --no-mmap ont été REMPLACÉS par
+	// --load-mode. Sur un tel moteur, les anciens drapeaux le font mourir au
+	// démarrage (boucle systemd). On traduit ici, une fois tous les arguments
+	// réunis, sans que les presets aient à connaître la version du backend.
+	llmArgs = reconcileLoadMode(llmArgs, bin)
 
 	// Working dir = AJEAN_HOME so relative paths in EXTRA_ARGS (e.g. --mmproj
 	// mmproj-F16.gguf) still resolve.

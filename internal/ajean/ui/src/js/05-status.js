@@ -57,6 +57,27 @@ async function loadStatus(){
     if(s.load_error){ me.textContent='⚠ '+s.load_error; me.style.display=''; }
     else { me.style.display='none'; }
   }
+  // Anciens flags mémoire sur un moteur qui attend --load-mode : on propose le
+  // nettoyage. Le serveur démarre quand même (traduits au lancement) — ce n'est
+  // pas une erreur bloquante, d'où un bandeau distinct (warn) avec un bouton.
+  const lf=document.getElementById('loadflags-fix');
+  if(lf){ lf.style.display = s.migrate_load_flags ? '' : 'none'; }
+}
+// migrateLoadFlags : réécrit --mlock/--no-mmap → --load-mode côté serveur (config
+// active + preset) et redémarre le moteur. Déclenché par le bouton du bandeau.
+async function migrateLoadFlags(){
+  const btn=document.getElementById('loadflags-btn');
+  if(btn){ btn.dataset.busy='1'; btn.style.pointerEvents='none'; btn.textContent=t('loadflags.updating'); }
+  try{
+    const r=await jpost('/api/loadflags/migrate', {});
+    if(!r || r.ok===false) throw new Error(r && r.error ? r.error : 'échec');
+  }catch(e){
+    if(btn){ btn.style.pointerEvents=''; btn.textContent=t('loadflags.btn'); }
+    alert(t('loadflags.error')+(e && e.message ? ' ('+e.message+')' : ''));
+    return;
+  }
+  const lf=document.getElementById('loadflags-fix');
+  if(lf) lf.style.display='none'; // le moteur redémarre, le statut se resynchronise
 }
 // checkServerFreshness : en accès distant (app.ajean.link / <machine>.ajean.link),
 // le front est toujours la dernière version publiée, mais le serveur AJEAN de la

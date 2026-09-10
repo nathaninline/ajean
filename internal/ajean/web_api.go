@@ -73,6 +73,10 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 		"boot":       procBoot,         // empreinte de démarrage du process (détecte un redémarrage côté UI)
 		"preset":     activePresetID(), // id du preset actif : un autre appareil a pu basculer, l'UI se resynchronise sans reload (voir loadStatus)
 		"external":   external,         // preset actif = API OpenAI-compatible distante (pas de moteur local)
+		// Anciens drapeaux --mlock/--no-mmap présents alors que le moteur attend
+		// --load-mode (llama.cpp récent) : l'UI propose un bouton de mise à jour.
+		// Le serveur démarre quand même (traduits au lancement) — c'est un nettoyage.
+		"migrate_load_flags": loadFlagsNeedMigration(),
 	})
 }
 
@@ -102,6 +106,10 @@ func modelLoadError() string {
 		switch {
 		case strings.Contains(low, "model loaded"), strings.Contains(low, "server is listening"):
 			loaded = true
+		case strings.Contains(l, "invalid argument: --mlock"),
+			strings.Contains(l, "invalid argument: --no-mmap"),
+			strings.Contains(l, "invalid argument: --mmap"):
+			reason = "loadmode-flags"
 		case strings.Contains(l, "has offset") && strings.Contains(l, "expected"):
 			reason = "format de quantification non reconnu par ce moteur"
 		case strings.Contains(low, "unknown model architecture"),
@@ -127,6 +135,10 @@ func modelLoadError() string {
 	// chargement peut avoir bien d'autres causes (mémoire, fichier, tenseur) — on
 	// renvoie alors vers le journal plutôt que d'accuser à tort le moteur.
 	switch reason {
+	case "loadmode-flags":
+		return "La nouvelle version de llama.cpp a remplacé --mlock / --no-mmap par --load-mode. " +
+			"D'anciens flags ont été détectés dans ta configuration — c'est pourquoi le moteur ne démarre pas. " +
+			"Clique sur « Mettre à jour les flags » pour corriger."
 	case "format de quantification non reconnu par ce moteur",
 		"type/architecture de modèle inconnu de ce moteur":
 		return "Modèle incompatible avec le moteur : " + reason +
@@ -1171,6 +1183,26 @@ func handleMemSnapshots(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJSON(w, 200, map[string]any{"ok": true, "snapshots": listSnapshots()})
+}
+
+// handleLoadFlagsMigrate (POST /api/loadflags/migrate) : réécrit les anciens
+// drapeaux de chargement mémoire (--mlock / --no-mmap) en --load-mode dans la
+// config active ET le preset d'origine, puis redémarre le moteur. Déclenché par
+// le bouton « Mettre à jour les flags » de l'UI quand la nouvelle version de
+// llama.cpp a changé ces options.
+func handleLoadFlagsMigrate(w http.ResponseWriter, r *http.Request) {
+	extra, err := migrateLoadFlags()
+	if err != nil {
+		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	fmt.Printf("%s flags de chargement migrés vers --load-mode : %s\n", green("[ok]"), extra)
+	go func() {
+		if err := serviceAction("restart"); err != nil {
+			fmt.Printf("%s redémarrage après migration des flags: %v\n", red("[ERREUR]"), err)
+		}
+	}()
+	sendJSON(w, 200, map[string]any{"ok": true, "extra_args": extra})
 }
 
 func handleSwitch(w http.ResponseWriter, r *http.Request) {

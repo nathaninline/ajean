@@ -1,18 +1,20 @@
-Connexion d'une API externe compatible OpenAI (OpenAI, Claude, Groq, OpenRouter, ou tout serveur compatible Chat Completions) comme source de génération à la place du moteur local, accès à la mémoire du projet depuis une fenêtre dédiée ouverte par le menu d'ajout, et plusieurs améliorations d'interface.
+Compatibilité avec les versions récentes de llama.cpp, dont les options de chargement mémoire ont changé, une commande de rotation de l'identifiant de machine pour l'accès distant, et plusieurs améliorations et corrections d'interface.
 
 ## Nouveautés
 
-* **Connexion d'une API externe.** Un nouveau bouton (icône globe), à gauche du « + » de la section Presets, ouvre une fenêtre pour configurer une IA distante compatible OpenAI Chat Completions : URL de l'API, modèle, clé, et taille de contexte, avec un bouton pour tester la connexion. Une fois le preset externe sélectionné, la génération est routée vers l'API distante au lieu du moteur local ; le moteur local est alors arrêté pour libérer la mémoire. Les presets externes apparaissent dans la liste avec leur propre icône et le nom du modèle distant. Le mode agent (outils, mémoire, accès web) reste disponible avec un modèle distant compatible.
-* **Mémoire du projet dans une fenêtre dédiée.** La mémoire du projet (mode d'utilisation et pages) quitte la barre latérale pour une fenêtre à part, ouverte depuis le menu d'ajout de la zone de saisie. Le mode se règle par un sélecteur à trois options (auto, sur demande, désactivée) et chaque page se gère depuis un menu par carte.
+* **Compatibilité llama.cpp récent (`--load-mode`).** Les versions récentes de llama.cpp ont remplacé les options `--mlock` et `--no-mmap` par une option unique `--load-mode`, et rejettent désormais les anciennes. AJEAN détecte au lancement la syntaxe acceptée par le moteur et traduit automatiquement les anciens drapeaux : un même preset reste lançable aussi bien sur un moteur récent que sur un moteur ancien ou un fork, sans modification. Lorsque d'anciens drapeaux sont détectés sur un moteur récent, l'interface propose un bouton pour mettre la configuration à jour, et un message explicite est affiché si un moteur refuse de démarrer pour cette raison.
+* **Rotation de l'identifiant de machine.** Nouvelle commande `ajean link newid` : elle attribue un nouvel identifiant à la machine et rouvre le tunnel d'accès distant, utile lorsque l'ancien identifiant a été exposé publiquement.
 
 ## Interface
 
-* La croix de fermeture des fenêtres, jusqu'ici légèrement décentrée dans son carré selon la police, est désormais dessinée et centrée avec précision.
-* Espacements, icônes et libellés revus dans les fenêtres concernées pour une lecture plus aérée, en particulier sur mobile.
+* Le panneau Projets a été retravaillé : dossiers plus compacts, section « Historique » nettement séparée de la liste des projets, et bouton « Nouvelle conversation » placé à droite de l'en-tête, en bouton d'accent bien visible.
+* Le menu d'accès distant s'intitule désormais « AJEAN LINK ».
+* Les interrupteurs « Garder en RAM » et « Charger tout en mémoire » reflètent correctement leur état même lorsque la configuration utilise la nouvelle syntaxe `--load-mode`.
 
-## Note
+## Corrections
 
-La connexion externe a été validée contre un serveur compatible OpenAI ; le comportement exact peut varier selon le fournisseur distant (champs acceptés, gestion des outils).
+* La déconnexion de l'accès distant depuis l'interface répond désormais correctement, sans erreur, et laisse l'interface locale active au lieu de couper tout le service.
+* L'indicateur d'activité ne reste plus affiché indéfiniment lorsqu'une génération est interrompue côté serveur.
 
 ## Mise à jour
 

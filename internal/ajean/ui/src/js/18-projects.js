@@ -107,7 +107,7 @@ function projectTile(p){
   menu.onclick=(e)=>{ e.stopPropagation(); openProjMenu(menu, p); };
   tile.appendChild(menu);
 
-  const icon = document.createElement('div'); icon.className = 'proj-ticon'; icon.innerHTML = projFolderSvg(36);
+  const icon = document.createElement('div'); icon.className = 'proj-ticon'; icon.innerHTML = projFolderSvg(26);
   const name = document.createElement('div'); name.className = 'proj-tname'; name.textContent = p.name || p.slug;
   tile.appendChild(icon); tile.appendChild(name);
   return tile;

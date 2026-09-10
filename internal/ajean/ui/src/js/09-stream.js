@@ -416,7 +416,9 @@ function handleDelta(d){
     // « envoyer » alors que l'IA répondait encore, car l'événement `user` qui met
     // busy=true n'est pas toujours redéroulé sur une reconnexion depuis lastSeq. On
     // se recale donc sur /api/chat/state, source de vérité de « generating ».
-    reconcileBusy();
+    // settle=true : si le serveur est idle alors qu'un tour semble encore en cours
+    // (génération coupée → pas de turn_done), on décolle le voile resté bloqué.
+    reconcileBusy(true);
     // Fil vide : aucune bulle n'a été rejouée, donc aucune mutation ne viendra
     // déclencher la synchro — c'est ici qu'on décide d'afficher l'accueil.
     syncChatEmpty();
@@ -640,7 +642,27 @@ function stopGen(){ jfetch('/api/chat/stop',{method:'POST'}).catch(()=>{}); toas
 // Recale l'état du bouton sur la vérité serveur. Ne touche à rien pendant le replay
 // initial (l'état final y est posé au caught_up) ni si l'appel échoue : dans le
 // doute on garde ce que les événements ont déjà établi.
-async function reconcileBusy(){
+// finalizeStuckTurn : clôt un tour resté « vivant » côté UI alors que le serveur
+// ne génère plus. Cas vécu : le service ajean-ui est arrêté en plein stream (ou le
+// réseau coupe) — la génération est tuée et le serveur n'émet jamais turn_done, si
+// bien que le voile d'activité et les points de frappe (« le point blanc qui pulse »)
+// restaient collés pour toujours. On refait le ménage de turn_done, avec la durée
+// déjà écoulée (ou 0). Appelé UNIQUEMENT au caught_up : le replay est alors terminé,
+// donc un serveur idle + un tour non clos = un vrai tour orphelin, pas une pause
+// entre deux étapes d'un tour encore en cours (outil lent…).
+function finalizeStuckTurn(){
+  const ms = ELAPSED ? Math.max(0, Date.now()-ELAPSED.start) : 0;
+  TURN_ENDED=true;
+  smoothSnap(); flushRender();
+  removeTyping();
+  finalizeTurn(ms);
+  for(const el of T.turnCollapsibles){ if(el){ el.classList.remove('working'); finalizeReasonLabel(el); } }
+  collapseAll(T.turnCollapsibles);
+  setActive(null);
+  if(COMPACTING) setCompacting(false);
+  setBusy(false);
+}
+async function reconcileBusy(settle){
   if(READING) return; // en lecture seule : ne pas resynchroniser l'état sur la vue lue
   try{
     const s=await (await jfetch('/api/chat/state')).json();
@@ -666,6 +688,11 @@ async function reconcileBusy(){
         // tokens à decode mesuré (raisonnement+réponse), comme genRate.
         ELAPSED.tokBase=decodeTokCount();
       }
+    }
+    // Tour orphelin après une génération coupée net : au caught_up (settle), si le
+    // serveur est idle mais qu'on se croit encore en plein tour, on décolle le voile.
+    if(settle && s.generating===false && !RUNNING_TASK && !REPLAYING && !TURN_ENDED){
+      finalizeStuckTurn();
     }
   }catch(_){}
 }

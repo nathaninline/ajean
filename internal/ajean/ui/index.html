@@ -1277,6 +1277,17 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .proj-cta:focus,.proj-cta:focus-visible{outline:none}
 .proj-cta:active{transform:scale(.995)}
 @media (hover:hover){.proj-cta:hover{background:var(--row-bg-on)}.proj-cta:hover svg{color:var(--text)}}
+/* Variante ACCENT : l'action principale (nouvelle conversation), posée au-dessus des
+   conversations du projet actif. Fond accent plein + texte sur le fond → bien visible,
+   sans sortir de la charte monochrome. Un peu d'air au-dessus pour la détacher de la
+   grille de projets. */
+.proj-cta.accent{background:var(--accent);color:var(--bg);font-weight:600;margin:0 0 8px}
+.proj-cta.accent svg{color:var(--bg)}
+@media (hover:hover){.proj-cta.accent:hover{background:var(--accent);opacity:.85}.proj-cta.accent:hover svg{color:var(--bg)}}
+/* Variante COMPACTE : chip à droite de l'en-tête « Conversations » (comme « + projet »
+   à droite de « Projets »), pas pleine largeur. On annule le texte en capitales hérité
+   de .sess-head pour garder un libellé de bouton normal. */
+.proj-cta.compact{width:auto;flex:none;margin:0;padding:5px 11px;font-size:12px;border-radius:8px;gap:6px;text-transform:none;letter-spacing:0}
 /* Boutons MINIMAUX (footer, + projet…) : texte discret, fond léger au survol, sans
    cadre — cohérents dans tous les modals. */
 .mbtn{margin:0;padding:7px 12px;border:none;background:transparent;color:var(--dim);
@@ -1293,17 +1304,20 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
    = --accent, jamais de bleu en dur). Carte : dossier duotone + nom centré, menu
    « ⋯ » discret en haut à droite. Actif = cadre accent plus marqué (comme un preset
    actif). Rien ne se chevauche. */
-.proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:2px}
+.proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:2px}
+/* En-tête « Conversations » : filet en haut + un peu d'air → sépare nettement la
+   section Projets de l'historique du projet actif (sinon le bouton semble flotter). */
+.proj-convhead{border-top:1px solid var(--border);margin-top:12px;padding-top:11px}
 /* Minimal (Linear/Notion) : pas de cadre, juste un fond au survol ; l'actif porte un
    voile discret + l'icône en accent. L'espace fait le travail, rien ne « boxe ». */
 /* Bascule de projet INSTANTANÉE : aucune animation d'arrivée sur les tuiles (les
    tuiles sont reconstruites à chaque rendu, elles apparaissent d'un coup). On
    garde seulement des transitions douces au survol / focus, sans « pop » d'entrée. */
-.proj-tile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;
-  min-height:94px;padding:16px 10px;border:none;border-radius:12px;cursor:pointer;
+.proj-tile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  min-height:58px;padding:10px 6px;border:none;border-radius:10px;cursor:pointer;
   background:transparent;color:var(--dim);
   transition:background .14s ease, transform .14s ease, box-shadow .14s ease}
-.proj-tile:hover{background:var(--row-bg);transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.08)}
+.proj-tile:hover{background:var(--row-bg)}
 .proj-tile:active{transform:translateY(0) scale(.985);box-shadow:none;transition-duration:.08s}
 .proj-tile:focus-visible{outline:none;background:var(--row-bg);box-shadow:0 0 0 2px var(--accent-bg)}
 .proj-tile.active{background:var(--accent-bg);cursor:default}
@@ -1329,7 +1343,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .proj-ticon{display:flex;line-height:0}
 .proj-ticon svg{display:block}
 .proj-tile.active .proj-ticon{color:var(--accent)}
-.proj-tname{font-size:12.5px;font-weight:500;color:var(--text);text-align:center;line-height:1.3;
+.proj-tname{font-size:11.5px;font-weight:500;color:var(--text);text-align:center;line-height:1.25;
   max-width:100%;word-break:break-word;overflow:hidden;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .proj-tile.active .proj-tname{font-weight:600}
@@ -1828,6 +1842,11 @@ button:hover{border-color:var(--dim);color:var(--text)}
        mais le serveur local peut être ancien. Bandeau passif si une mise à jour existe. -->
   <div id="server-stale" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:8px;color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)"></div>
   <div id="model-err" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:8px;color:var(--err);border:1px solid color-mix(in srgb,var(--err) 45%,transparent);background:color-mix(in srgb,var(--err) 12%,transparent)"></div>
+  <!-- Anciens flags mémoire (--mlock/--no-mmap) sur un moteur llama.cpp récent qui attend --load-mode : le serveur démarre quand même (traduits au lancement), ce bandeau propose de nettoyer la config. -->
+  <div id="loadflags-fix" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:8px;color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)">
+    <span data-i18n="loadflags.notice">La nouvelle version de llama.cpp a changé les options mémoire : <code>--mlock</code> / <code>--no-mmap</code> sont remplacés par <code>--load-mode</code>. D'anciens flags ont été détectés dans ta configuration.</span>
+    <span style="white-space:nowrap">&nbsp;<span id="loadflags-btn" onclick="migrateLoadFlags()" style="cursor:pointer;text-decoration:underline;font-weight:600" data-i18n="loadflags.btn">Mettre à jour les flags</span></span>
+  </div>
   <!-- Journal du moteur : replié par défaut, ouvert au clic sur la pastille d'état.
        C'est le seul endroit où l'on voit pourquoi un modèle refuse de charger. -->
   <div id="svc-log-box" style="display:none;margin:0 0 10px">
@@ -2007,7 +2026,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
       </div>
     </div></div>
   </details>
-  <details id="remote-details"><summary><span class="stitle" data-i18n="link.title">Link</span><span id="remote-badge" class="sbadge"></span></summary>
+  <details id="remote-details"><summary><span class="stitle" data-i18n="link.title">AJEAN LINK</span><span id="remote-badge" class="sbadge"></span></summary>
     <div class="subhead"><span data-i18n="link.remote_subhead">Accès distant</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="link.remote_help" data-i18n-html>Accédez à ce serveur AJEAN depuis <b>n'importe où</b>, sans ouvrir de port, à travers le relais <b>ajean.link</b>. Le trafic est chiffré de <b>bout en bout</b> : le relais ne voit rien. Abonnement 4,80 €/mois.</span></span></div>
     <!-- Non connecté : un seul bouton, tout se passe dans la popup (compte + paiement). -->
     <div id="remote-off" class="slist"><div class="rowbody">
@@ -2353,17 +2372,21 @@ button:hover{border-color:var(--dim);color:var(--text)}
       <button class="modal-x" onclick="closeProjectModal()" aria-label="Fermer" data-i18n="projects.close_aria" data-i18n-attr="aria-label">×</button>
     </div>
     <div class="modal-body mform">
-      <!-- Action principale, tout en haut : démarrer une nouvelle conversation dans
-           le projet actif. Bien visible, pleine largeur. -->
-      <button id="proj-newsess" class="proj-cta" onclick="newSessionUI()">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-        <span data-i18n="projects.new_session">Nouvelle conversation</span>
-      </button>
       <div class="sess-head" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
         <span data-i18n="projects.list_heading">Projets</span>
         <button class="proj-newproj" onclick="createProjectUI()" title="Créer un projet" data-i18n="projects.new_project_title" data-i18n-attr="title"><span data-i18n="projects.new_project_button">+</span></button>
       </div>
       <div id="project-list" class="sess-list"></div>
+      <!-- Section Conversations du projet actif, séparée de la grille Projets par un
+           filet en haut. Le bouton « Nouvelle conversation » est à DROITE du titre
+           (même logique que « + projet » à droite de « Projets »), en chip d'accent. -->
+      <div class="sess-head proj-convhead" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <span data-i18n="projects.sessions_heading">Historique</span>
+        <button id="proj-newsess" class="proj-cta accent compact" onclick="newSessionUI()">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          <span data-i18n="projects.new_session">Nouvelle conversation</span>
+        </button>
+      </div>
       <!-- Conversations du projet actif (plus de barre « Conversations · … »). -->
       <div id="project-sessions" class="sess-list" style="margin-top:6px"></div>
     </div>
@@ -2927,11 +2950,11 @@ button:hover{border-color:var(--dim);color:var(--text)}
           </div>
           <div class="pe-row">
             <span class="pe-row-l"><span data-i18n="preset.mlock_label">Garder en RAM</span><span class="pe-sub" data-i18n="preset.mlock_sub">évite le swap (mlock)</span></span>
-            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-mlock" onchange="eaToggleFlag('--mlock', this.checked)"><span class="pe-sl"></span></label></span>
+            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-mlock" onchange="eaToggleMem()"><span class="pe-sl"></span></label></span>
           </div>
           <div class="pe-row">
             <span class="pe-row-l"><span data-i18n="preset.nommap_label">Charger tout en mémoire</span><span class="pe-sub" data-i18n="preset.nommap_sub">désactive le mmap</span></span>
-            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-nommap" onchange="eaToggleFlag('--no-mmap', this.checked)"><span class="pe-sl"></span></label></span>
+            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-nommap" onchange="eaToggleMem()"><span class="pe-sl"></span></label></span>
           </div>
           <div class="pe-row">
             <span class="pe-row-l"><span data-i18n="preset.kvunified_label">Cache KV unifié</span><span class="pe-sub" data-i18n="preset.kvunified_sub">un seul cache partagé (--kv-unified)</span></span>
@@ -3259,7 +3282,7 @@ fr: {
   "api.key_generate": "générer",
   "api.key_set": "définir…",
   "api.key_clear": "retirer",
-  "link.title": "Lien",
+  "link.title": "AJEAN LINK",
   "link.remote_subhead": "Accès distant",
   "link.remote_help": "Accédez à ce serveur AJEAN depuis <b>n'importe où</b>, sans ouvrir de port, à travers le relais <b>ajean.link</b>. Le trafic est chiffré de <b>bout en bout</b> : le relais ne voit rien. Abonnement 4,80 €/mois.",
   "link.remote_off_desc": "Ouvrez l'accès distant à ce serveur en quelques clics, sans terminal.",
@@ -3359,6 +3382,7 @@ fr: {
   "projects.generating_here": "en cours",
   "projects.back_to_live": "Revenir à la génération",
   "projects.list_heading": "Projets",
+  "projects.sessions_heading": "Historique",
   "projects.new_project_title": "Créer un projet",
   "projects.new_project_button": "+",
   "projects.clear_sessions": "Vider les conversations",
@@ -3572,6 +3596,10 @@ fr: {
   "status.stale_recommend": "est disponible. Il est recommandé de le mettre à jour pour profiter de toutes les fonctionnalités et éviter d'éventuels bugs de compatibilité.",
   "status.update_btn": "Mettre à jour",
   "status.stale_dismiss_btn": "ignorer",
+  "loadflags.notice": "La nouvelle version de llama.cpp a changé les options mémoire : --mlock / --no-mmap sont remplacés par --load-mode. D'anciens flags ont été détectés dans ta configuration.",
+  "loadflags.btn": "Mettre à jour les flags",
+  "loadflags.updating": "Mise à jour…",
+  "loadflags.error": "Échec de la mise à jour des flags.",
   "status.update_in_progress": "Mise à jour en cours… le serveur va redémarrer et l'interface se reconnectera seule.",
   "status.update_launched_toast": "mise à jour du serveur lancée…",
   "status.log_loading": "chargement du journal…",
@@ -4396,7 +4424,7 @@ en: {
   "api.key_generate": "generate",
   "api.key_set": "set…",
   "api.key_clear": "remove",
-  "link.title": "Link",
+  "link.title": "AJEAN LINK",
   "link.remote_subhead": "Remote access",
   "link.remote_help": "Access this AJEAN server from <b>anywhere</b>, with no port forwarding, through the <b>ajean.link</b> relay. Traffic is encrypted <b>end-to-end</b>: the relay sees nothing. Subscription €4.80/month.",
   "link.remote_off_desc": "Open remote access to this server in a few clicks, no terminal needed.",
@@ -4496,6 +4524,7 @@ en: {
   "projects.generating_here": "running",
   "projects.back_to_live": "Back to the generation",
   "projects.list_heading": "Projects",
+  "projects.sessions_heading": "History",
   "projects.new_project_title": "Create a project",
   "projects.new_project_button": "+",
   "projects.clear_sessions": "Clear conversations",
@@ -4709,6 +4738,10 @@ en: {
   "status.stale_recommend": "is available. It's recommended to update to get all the features and avoid possible compatibility issues.",
   "status.update_btn": "Update",
   "status.stale_dismiss_btn": "dismiss",
+  "loadflags.notice": "The new llama.cpp version changed the memory options: --mlock / --no-mmap are replaced by --load-mode. Old flags were detected in your configuration.",
+  "loadflags.btn": "Update the flags",
+  "loadflags.updating": "Updating…",
+  "loadflags.error": "Failed to update the flags.",
   "status.update_in_progress": "Update in progress… the server will restart and the interface will reconnect automatically.",
   "status.update_launched_toast": "server update started…",
   "status.log_loading": "loading the log…",
@@ -5784,6 +5817,27 @@ async function loadStatus(){
     if(s.load_error){ me.textContent='⚠ '+s.load_error; me.style.display=''; }
     else { me.style.display='none'; }
   }
+  // Anciens flags mémoire sur un moteur qui attend --load-mode : on propose le
+  // nettoyage. Le serveur démarre quand même (traduits au lancement) — ce n'est
+  // pas une erreur bloquante, d'où un bandeau distinct (warn) avec un bouton.
+  const lf=document.getElementById('loadflags-fix');
+  if(lf){ lf.style.display = s.migrate_load_flags ? '' : 'none'; }
+}
+// migrateLoadFlags : réécrit --mlock/--no-mmap → --load-mode côté serveur (config
+// active + preset) et redémarre le moteur. Déclenché par le bouton du bandeau.
+async function migrateLoadFlags(){
+  const btn=document.getElementById('loadflags-btn');
+  if(btn){ btn.dataset.busy='1'; btn.style.pointerEvents='none'; btn.textContent=t('loadflags.updating'); }
+  try{
+    const r=await jpost('/api/loadflags/migrate', {});
+    if(!r || r.ok===false) throw new Error(r && r.error ? r.error : 'échec');
+  }catch(e){
+    if(btn){ btn.style.pointerEvents=''; btn.textContent=t('loadflags.btn'); }
+    alert(t('loadflags.error')+(e && e.message ? ' ('+e.message+')' : ''));
+    return;
+  }
+  const lf=document.getElementById('loadflags-fix');
+  if(lf) lf.style.display='none'; // le moteur redémarre, le statut se resynchronise
 }
 // checkServerFreshness : en accès distant (app.ajean.link / <machine>.ajean.link),
 // le front est toujours la dernière version publiée, mais le serveur AJEAN de la
@@ -7720,6 +7774,35 @@ function eaToggleFlag(flag, on){
   if(on) t.push(flag);
   eaSetTokens(t);
 }
+// --- Mémoire : mlock / no-mmap, avec le nouveau --load-mode --------------------
+// llama.cpp récent a REMPLACÉ --mlock / --no-mmap par --load-mode. Les presets
+// continuent de stocker l'ANCIENNE représentation (portable sur tous les
+// backends, y compris les forks qui gardent --mlock) ; AJEAN la traduit en
+// --load-mode au lancement pour les moteurs récents. Ces deux fonctions font le
+// pont côté éditeur pour que les interrupteurs restent justes même si un preset
+// porte déjà un --load-mode (édité à la main ou migré).
+function eaMemFlags(){
+  const lm = (eaGetValued('--load-mode') || eaGetValued('-lm')).toLowerCase();
+  let mlock = eaHasFlag('--mlock'), nommap = eaHasFlag('--no-mmap');
+  if(lm==='mlock'){ mlock=true; nommap=true; }       // pas de mmap + résident
+  else if(lm==='mmap+mlock'){ mlock=true; }           // mmap + résident
+  else if(lm==='none'){ nommap=true; }                // pas de mmap
+  return {mlock, nommap};
+}
+// eaToggleMem : appelé par les deux interrupteurs. On réécrit TOUJOURS en
+// --mlock / --no-mmap (portable) et on retire tout --load-mode explicite :
+// l'utilisateur reprend la main, et le lancement re-traduit selon le backend.
+function eaToggleMem(){
+  const ml = document.getElementById('s-mlock'), nm = document.getElementById('s-nommap');
+  let t = eaTokens().filter(x=>x!=='--mlock' && x!=='--no-mmap');
+  for(const f of ['--load-mode','-lm']){
+    const i = t.indexOf(f);
+    if(i>=0){ const hadVal = i+1<t.length && !t[i+1].startsWith('-'); t.splice(i, hadVal?2:1); }
+  }
+  if(ml && ml.checked) t.push('--mlock');
+  if(nm && nm.checked) t.push('--no-mmap');
+  eaSetTokens(t);
+}
 function eaGetValued(flag){
   const t = eaTokens(), i = t.indexOf(flag);
   return (i>=0 && i+1<t.length && !t[i+1].startsWith('-')) ? t[i+1] : '';
@@ -7769,8 +7852,9 @@ function populateSettings(){
   }
   chk('s-kvunified', eaHasFlag('--kv-unified'));
   chk('s-flash', eaHasFlag('--flash-attn') && !/^off$/i.test(eaGetValued('--flash-attn')));
-  chk('s-mlock', eaHasFlag('--mlock'));
-  chk('s-nommap', eaHasFlag('--no-mmap'));
+  const mem = eaMemFlags();
+  chk('s-mlock', mem.mlock);
+  chk('s-nommap', mem.nommap);
   chk('s-mmproj-cpu', eaHasFlag('--no-mmproj-offload'));
   syncMmprojCpuRow();
 }
@@ -9201,7 +9285,9 @@ function handleDelta(d){
     // « envoyer » alors que l'IA répondait encore, car l'événement `user` qui met
     // busy=true n'est pas toujours redéroulé sur une reconnexion depuis lastSeq. On
     // se recale donc sur /api/chat/state, source de vérité de « generating ».
-    reconcileBusy();
+    // settle=true : si le serveur est idle alors qu'un tour semble encore en cours
+    // (génération coupée → pas de turn_done), on décolle le voile resté bloqué.
+    reconcileBusy(true);
     // Fil vide : aucune bulle n'a été rejouée, donc aucune mutation ne viendra
     // déclencher la synchro — c'est ici qu'on décide d'afficher l'accueil.
     syncChatEmpty();
@@ -9425,7 +9511,27 @@ function stopGen(){ jfetch('/api/chat/stop',{method:'POST'}).catch(()=>{}); toas
 // Recale l'état du bouton sur la vérité serveur. Ne touche à rien pendant le replay
 // initial (l'état final y est posé au caught_up) ni si l'appel échoue : dans le
 // doute on garde ce que les événements ont déjà établi.
-async function reconcileBusy(){
+// finalizeStuckTurn : clôt un tour resté « vivant » côté UI alors que le serveur
+// ne génère plus. Cas vécu : le service ajean-ui est arrêté en plein stream (ou le
+// réseau coupe) — la génération est tuée et le serveur n'émet jamais turn_done, si
+// bien que le voile d'activité et les points de frappe (« le point blanc qui pulse »)
+// restaient collés pour toujours. On refait le ménage de turn_done, avec la durée
+// déjà écoulée (ou 0). Appelé UNIQUEMENT au caught_up : le replay est alors terminé,
+// donc un serveur idle + un tour non clos = un vrai tour orphelin, pas une pause
+// entre deux étapes d'un tour encore en cours (outil lent…).
+function finalizeStuckTurn(){
+  const ms = ELAPSED ? Math.max(0, Date.now()-ELAPSED.start) : 0;
+  TURN_ENDED=true;
+  smoothSnap(); flushRender();
+  removeTyping();
+  finalizeTurn(ms);
+  for(const el of T.turnCollapsibles){ if(el){ el.classList.remove('working'); finalizeReasonLabel(el); } }
+  collapseAll(T.turnCollapsibles);
+  setActive(null);
+  if(COMPACTING) setCompacting(false);
+  setBusy(false);
+}
+async function reconcileBusy(settle){
   if(READING) return; // en lecture seule : ne pas resynchroniser l'état sur la vue lue
   try{
     const s=await (await jfetch('/api/chat/state')).json();
@@ -9451,6 +9557,11 @@ async function reconcileBusy(){
         // tokens à decode mesuré (raisonnement+réponse), comme genRate.
         ELAPSED.tokBase=decodeTokCount();
       }
+    }
+    // Tour orphelin après une génération coupée net : au caught_up (settle), si le
+    // serveur est idle mais qu'on se croit encore en plein tour, on décolle le voile.
+    if(settle && s.generating===false && !RUNNING_TASK && !REPLAYING && !TURN_ENDED){
+      finalizeStuckTurn();
     }
   }catch(_){}
 }
@@ -11294,7 +11405,7 @@ function projectTile(p){
   menu.onclick=(e)=>{ e.stopPropagation(); openProjMenu(menu, p); };
   tile.appendChild(menu);
 
-  const icon = document.createElement('div'); icon.className = 'proj-ticon'; icon.innerHTML = projFolderSvg(36);
+  const icon = document.createElement('div'); icon.className = 'proj-ticon'; icon.innerHTML = projFolderSvg(26);
   const name = document.createElement('div'); name.className = 'proj-tname'; name.textContent = p.name || p.slug;
   tile.appendChild(icon); tile.appendChild(name);
   return tile;

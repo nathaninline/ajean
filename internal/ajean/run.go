@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const Version = "0.13.8"
+const Version = "0.13.9"
 
 // Main est le vrai main() du binaire (cmd/ajean ne fait que l'appeler).
 func Main() {
@@ -160,6 +160,7 @@ Interaction:
 Accès distant (ajean.link) :
   link <token>                  enregistre le jeton et ouvre le tunnel
   link code                     code d'appairage (10 min, usage unique) pour le portail
+  link newid                    change l'identifiant de la machine (si l'ancien a fuité)
   link status | logout          état du jeton / l'oublier
 
 Poste distant (piloter CE PC depuis l'IA d'un serveur AJEAN) :
