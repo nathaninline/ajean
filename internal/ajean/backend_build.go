@@ -114,6 +114,18 @@ func buildPlanFor(force string) buildPlan {
 		if runtime.GOARCH == "arm64" {
 			p.genArch = "ARM64"
 		}
+		// Désactive les en-têtes précompilés (PCH) du build. En amont, llama.cpp a
+		// activé le PCH sur tools/server (commit 3bcfeb70, 2026-09-11) : sous MSVC,
+		// le symbole de comptabilité du PCH est ré-exporté par WINDOWS_EXPORT_ALL_SYMBOLS
+		// de la lib partagée llama-server-impl sous la forme d'un « __ » ambigu, ce qui
+		// casse l'édition de liens (LNK2001 « symbole externe non résolu __ » → LNK1120).
+		// Le lien casse llama-server.exe alors que tout le reste compile (issue #72 :
+		// build KO sur RTX 5060 Ti/A5000 et RTX 5090 le jour où master était cassé,
+		// corrigé 8 h plus tard en amont par la PR #28763). Comme ajean suit master en
+		// continu, on se protège de cette classe de casse transitoire : le PCH n'est
+		// qu'une optimisation de temps de compilation, le couper ne change ni les
+		// artefacts ni le lien, mais supprime le symbole que MSVC mal-exporte.
+		p.flags = append(p.flags, "-DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON")
 	}
 
 	if runtime.GOOS == "darwin" && (force == "" || force == "metal") {
