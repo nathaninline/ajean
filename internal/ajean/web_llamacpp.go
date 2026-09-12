@@ -140,7 +140,13 @@ func lcDone(msg string) {
 // commit courant, retard connu (sans fetch réseau), binaire compilé et son
 // usage dans config.env, plan de build détecté, et le job éventuel.
 func handleLlamacpp(w http.ResponseWriter, r *http.Request) {
-	repo := llamacppRepoDir()
+	// La carte « compilé » (🔧) représente TOUJOURS le build canonique géré par
+	// ajean (backends/llama.cpp), celui que lcRunInstall compile. On ne passe PAS
+	// par llamacppRepoDir() ici : cette dernière déduit le dépôt du BIN du preset
+	// actif, donc dès qu'un preset tourne sur un fork (moecache, prism…), la carte
+	// et l'option « compilé » de l'éditeur pointaient sur le fork — impossible de
+	// revenir au moteur par défaut. Les forks se gèrent par /api/backends.
+	repo := defaultRepoDir()
 	out := map[string]any{
 		"repo":      repo,
 		"installed": isDir(filepath.Join(repo, ".git")),
@@ -205,7 +211,7 @@ func samePath(a, b string) bool {
 // handleLlamacppCheck fait un vrai git fetch puis renvoie le retard sur origin
 // et le dernier commit distant. Synchrone (quelques secondes réseau).
 func handleLlamacppCheck(w http.ResponseWriter, r *http.Request) {
-	repo := llamacppRepoDir()
+	repo := defaultRepoDir() // carte « compilé » = build canonique, jamais le fork du preset actif
 	if !isDir(filepath.Join(repo, ".git")) {
 		sendJSON(w, 200, map[string]any{"ok": false, "error": "llama.cpp n'est pas installé"})
 		return
@@ -378,7 +384,7 @@ func handleLlamacppUse(w http.ResponseWriter, r *http.Request) {
 	case "fast":
 		bin = prebuiltServerBin()
 	case "opt":
-		bin = llamaServerBin(llamacppRepoDir())
+		bin = llamaServerBin(defaultRepoDir()) // build canonique, pas le fork du preset actif
 	default:
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "mode inconnu"})
 		return
@@ -511,7 +517,7 @@ func lcRunUpdate(clean bool) {
 	}
 	ensureAccelerator()
 
-	repo := llamacppRepoDir()
+	repo := defaultRepoDir() // met à jour le build canonique géré, pas le fork du preset actif
 	if !isDir(filepath.Join(repo, ".git")) {
 		lcFail(fmt.Errorf("aucun dépôt llama.cpp (%s) — lance d'abord l'installation", repo))
 		return

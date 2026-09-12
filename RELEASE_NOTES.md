@@ -1,9 +1,9 @@
-Correctif de compilation de llama.cpp sous Windows : la mise à jour ou l'installation du moteur échouait à l'édition de liens sur certaines machines.
+Correctif du sélecteur de moteur : un modèle configuré sur un moteur personnalisé (un fork de llama.cpp) faisait passer ce fork pour le moteur « compilé » par défaut, sans moyen d'y revenir.
 
 ## Corrections
 
-* **Compilation de llama.cpp sous Windows.** Une modification récente de llama.cpp a activé les en-têtes précompilés sur le serveur, ce qui, sous MSVC, faisait échouer l'édition de liens de `llama-server.exe` (erreur `LNK2001 : symbole externe non résolu __`, puis `LNK1120`). Tous les autres binaires se compilaient normalement, mais le serveur restait absent. Le build lancé par AJEAN désactive désormais les en-têtes précompilés sous Windows : `ajean llamacpp install` et `ajean llamacpp update` recompilent sans erreur, y compris pendant une phase transitoire où la branche amont serait de nouveau affectée. Cette protection ne change ni les binaires produits ni le comportement à l'exécution.
+* **Sélection du moteur « compilé ».** Quand un modèle tournait sur un moteur personnalisé installé à côté (un fork de llama.cpp, par exemple une variante à cache d'experts), la carte « compilé » du panneau latéral et l'option « compilé » de l'éditeur de modèle affichaient ce fork au lieu du build par défaut. Choisir « compilé » réécrivait alors le moteur du modèle vers le fork, sans jamais permettre de repasser sur le moteur canonique. En cause : le statut du moteur « compilé » était déduit du moteur du modèle actif, donc il suivait le fork. Le moteur « compilé » désigne désormais toujours le build géré par AJEAN (`backends/llama.cpp`), indépendamment du modèle en cours. La vérification des mises à jour et la recompilation visent elles aussi ce build canonique. Les moteurs personnalisés continuent de se choisir et de se gérer séparément ; un modèle volontairement réglé sur un fork n'est pas modifié.
 
 ## Mise à jour
 
-`ajean update` récupère la nouvelle version. Après mise à jour, `ajean llamacpp install --force` (ou `ajean llamacpp update`) recompile un moteur llama.cpp fonctionnel.
+`ajean update` récupère la nouvelle version. Pour un modèle qui était resté accroché à un fork par erreur, rouvrir l'éditeur du modèle, section Moteur, et cocher « compilé » : le moteur repasse sur le build par défaut.
