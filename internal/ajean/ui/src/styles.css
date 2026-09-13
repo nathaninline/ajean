@@ -232,6 +232,9 @@ details[open]>summary>.preset-ext{display:inline-flex}
   transform:scale(0);transition:transform .15s ease}
 .mem-opt:has(input:checked) .mem-radio::after{transform:scale(1)}
 .mem-note{font-size:11px;color:var(--dim);margin:0 2px 20px}
+/* Nom du projet consulté quand on ouvre la mémoire d'un AUTRE projet (pastille). */
+.mem-proj:not(:empty){margin-left:8px;padding:2px 8px;border:1px solid var(--border);border-radius:999px;
+  font-size:11px;font-weight:600;color:var(--dim)}
 .mem-pages-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 14px;
   padding-top:18px;border-top:1px solid var(--border)}
 .mem-pages-title{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--dim);font-weight:600}
@@ -252,7 +255,11 @@ details[open]>summary>.preset-ext{display:inline-flex}
 .mem-item-main{flex:1;min-width:0}
 .mem-item-name{font-size:13.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35}
 .mem-item-desc{font-size:11.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px;line-height:1.4}
-.mem-item .sess-menu-btn{flex:none;margin-left:2px}
+/* Le ⋮ des pages mémoire : les règles de révélation de .sess-menu-btn ciblent
+   .sess-row, pas .mem-item → il restait à opacity:0 (invisible sur desktop). On le
+   montre en permanence (discret), plein au survol / focus. */
+.mem-item .sess-menu-btn{flex:none;margin-left:2px;opacity:.55}
+.mem-item:hover .sess-menu-btn,.mem-item:focus-within .sess-menu-btn{opacity:1}
 .preset-add::before,.preset-add::after{content:"";position:absolute;top:50%;left:50%;
   background:currentColor;border-radius:1px}
 .preset-add::before{width:10px;height:1.5px;transform:translate(-50%,-50%)}
@@ -1354,6 +1361,9 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pop-menu{position:fixed;z-index:60;min-width:170px;padding:5px;display:flex;flex-direction:column;gap:1px;
   background:var(--panel);border:1px solid var(--border);border-radius:11px;
   box-shadow:0 12px 34px rgba(0,0,0,.22);
+  /* Beaucoup de projets → le menu peut dépasser l'écran : on le plafonne et il
+     défile, plutôt que de sortir par le haut (haut invisible). */
+  max-height:min(70vh,420px);overflow-y:auto;
   transform-origin:bottom left;animation:popIn .14s cubic-bezier(.2,.8,.2,1)}
 @keyframes popIn{from{opacity:0;transform:translateY(7px) scale(.94)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.pop-menu{animation:none}}

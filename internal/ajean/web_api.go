@@ -519,6 +519,9 @@ type saveReq struct {
 	Name    string `json:"name"`
 	Old     string `json:"old"`
 	Content string `json:"content"`
+	// Project : projet ciblé (vide = actif). Permet d'éditer/supprimer une page
+	// mémoire d'un autre projet depuis la vue « Voir la mémoire ».
+	Project string `json:"project"`
 }
 
 func handlePresetSave(w http.ResponseWriter, r *http.Request) {
@@ -571,12 +574,34 @@ func handlePresetDelete(w http.ResponseWriter, r *http.Request) {
 // l'IA gère via les outils mem_*) — un seul aller-retour pour l'UI. La clé
 // "skills" est conservée en miroir de "pages" pour l'ancien portail ajean.link.
 func handleAgent(w http.ResponseWriter, r *http.Request) {
-	pages := MemList()
-	out := []map[string]any{}
-	for _, p := range pages {
-		out = append(out, map[string]any{"name": p.Name, "desc": p.Title})
+	// ?project=<slug> : consulter la mémoire d'un AUTRE projet que l'actif, sans y
+	// basculer (bouton « Voir la mémoire » du menu ⋯ d'un projet). Vide/inconnu =
+	// projet actif. Seuls les champs mémoire (pages + mode) sont scopés ; le reste
+	// (agent/compact/machines) est machine-global.
+	var out []map[string]any
+	var mode string
+	memScope(r.URL.Query().Get("project"), func() {
+		for _, p := range MemList() {
+			out = append(out, map[string]any{"name": p.Name, "desc": p.Title})
+		}
+		mode = string(memMode())
+	})
+	if out == nil {
+		out = []map[string]any{}
 	}
-	sendJSON(w, 200, map[string]any{"enabled": agentEnabled(), "compact": compactEnabled(), "machines": machinesEnabled(), "mem_mode": string(memMode()), "pages": out, "skills": out})
+	sendJSON(w, 200, map[string]any{"enabled": agentEnabled(), "compact": compactEnabled(), "machines": machinesEnabled(), "mem_mode": mode, "pages": out, "skills": out})
+}
+
+// memScope exécute fn dans le contexte mémoire d'un projet donné (pour voir/éditer
+// la mémoire d'un AUTRE projet que l'actif sans basculer dessus). slug vide ou
+// inconnu = projet actif (aucun override).
+func memScope(slug string, fn func()) {
+	slug = strings.TrimSpace(slug)
+	if slug == "" || !projectExists(slug) {
+		fn()
+		return
+	}
+	withProject(slug, fn)
 }
 
 // handleMemoryMode lit/écrit le mode mémoire (off / ondemand / always / search).
@@ -584,20 +609,30 @@ func handleAgent(w http.ResponseWriter, r *http.Request) {
 //	GET  → {mode} du projet actif
 //	POST {mode} → persiste le mode mémoire DU PROJET ACTIF (off/ondemand/always/search)
 func handleMemoryMode(w http.ResponseWriter, r *http.Request) {
+	// project (query en GET, corps en POST) : cibler un AUTRE projet que l'actif
+	// (vue « Voir la mémoire »). Vide/inconnu = projet actif.
+	proj := strings.TrimSpace(r.URL.Query().Get("project"))
 	if r.Method == http.MethodPost {
 		var req struct {
-			Mode string `json:"mode"`
+			Mode    string `json:"mode"`
+			Project string `json:"project"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.Project != "" {
+			proj = strings.TrimSpace(req.Project)
+		}
 		// normalizeMemMode valide et ramène toute entrée inconnue à "always".
-		// setMemMode écrit sur le PROJET ACTIF (mode mémoire par projet).
 		m := normalizeMemMode(req.Mode)
-		if err := setMemMode(m); err != nil {
+		var err error
+		memScope(proj, func() { err = setMemMode(m) })
+		if err != nil {
 			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 			return
 		}
 	}
-	sendJSON(w, 200, map[string]any{"ok": true, "mode": string(memMode())})
+	mode := ""
+	memScope(proj, func() { mode = string(memMode()) })
+	sendJSON(w, 200, map[string]any{"ok": true, "mode": mode})
 }
 
 // handleCompactToggle active/désactive le compactage automatique du contexte
@@ -947,7 +982,8 @@ func handleMem(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 200, map[string]any{"name": "", "content": "# nouvelle page\n\nNote ici ce que ajean doit retenir entre les sessions.\n"})
 		return
 	}
-	c := MemContent(name)
+	var c string
+	memScope(r.URL.Query().Get("project"), func() { c = MemContent(name) })
 	if c == "" {
 		sendJSON(w, 404, map[string]any{"error": "not found"})
 		return
@@ -961,7 +997,9 @@ func handleMemSave(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	if err := MemSave(req.Name, req.Old, req.Content); err != nil {
+	var err error
+	memScope(req.Project, func() { err = MemSave(req.Name, req.Old, req.Content) })
+	if err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
@@ -974,7 +1012,9 @@ func handleMemDelete(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	if err := MemDelete(req.Name); err != nil {
+	var err error
+	memScope(req.Project, func() { err = MemDelete(req.Name) })
+	if err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}

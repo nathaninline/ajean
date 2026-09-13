@@ -167,7 +167,10 @@ async function openItem(kind, key){
   const topPeBody=()=>{ const b=document.querySelector('#modal .pe-body'); if(b) b.scrollTop=0; };
   topPeBody();
   // --- Remplissage, une fois la modale à l'écran -----------------------------
-  const r = await jfetch(K.getUrl + '?' + K.param + '=' + encodeURIComponent(key||''));
+  // Page mémoire d'un AUTRE projet en consultation (MEM_VIEW_PROJECT) : on scope la
+  // lecture sur ce projet, sinon on lirait la page du projet actif.
+  const memProj = (kind==='mem' && typeof MEM_VIEW_PROJECT!=='undefined' && MEM_VIEW_PROJECT) ? ('&project='+encodeURIComponent(MEM_VIEW_PROJECT)) : '';
+  const r = await jfetch(K.getUrl + '?' + K.param + '=' + encodeURIComponent(key||'') + memProj);
   const d = await r.json();
   if(seq !== openSeq) return;              // une autre ouverture a pris la main
   const display = d.name || key || '';
@@ -1071,6 +1074,8 @@ async function saveItem(){
   const payload = editingKind==='preset'
     ? {id: editingKey, name, content, sysprompt: (document.getElementById('m-sysprompt')||{}).value || ''}
     : {name, old: editingKey, content};
+  // Page mémoire consultée dans un autre projet : enregistrer LÀ, pas dans l'actif.
+  if(editingKind==='mem' && typeof MEM_VIEW_PROJECT!=='undefined' && MEM_VIEW_PROJECT) payload.project = MEM_VIEW_PROJECT;
   const r = await jpost(K.saveUrl, payload);
   if(!r.ok){ toast(t('common.error_prefix') + (r.error||'')); return; }
   toast(t('models.saved')); closeModal(); K.reload();
@@ -1092,6 +1097,7 @@ async function delItem(){
   const payload = editingKind==='preset'
     ? {id: editingKey, deleteModel: delModel}
     : {name: editingKey};
+  if(editingKind==='mem' && typeof MEM_VIEW_PROJECT!=='undefined' && MEM_VIEW_PROJECT) payload.project = MEM_VIEW_PROJECT;
   const r = await jpost(K.delUrl, payload);
   if(!r.ok){ toast(t('common.error_prefix') + (r.error||'')); return; }
   if(delModel){

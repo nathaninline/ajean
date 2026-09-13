@@ -62,7 +62,7 @@ function openTrackerMenu(anchor, s){
   let top=r.bottom+6; if(top+ph>window.innerHeight-8) top=r.top-ph-6;
   pop.style.left=left+'px'; pop.style.top=top+'px';
   _projPop=pop;
-  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', closeProjMenu, true); }, 0);
+  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', _projScroll, true); }, 0);
 }
 
 async function trackerRename(s){

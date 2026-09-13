@@ -84,9 +84,16 @@ func handleProjectMoveMem(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Name string `json:"name"`
 		Slug string `json:"slug"`
+		// From : projet SOURCE (vide = actif). Renseigné par la vue « Voir la mémoire »
+		// d'un autre projet, pour déplacer depuis ce projet-là et non l'actif.
+		From string `json:"from"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
-	if err := moveMemPage(strings.TrimSpace(body.Name), activeProjectSlug(), strings.TrimSpace(body.Slug)); err != nil {
+	from := strings.TrimSpace(body.From)
+	if from == "" {
+		from = activeProjectSlug()
+	}
+	if err := moveMemPage(strings.TrimSpace(body.Name), from, strings.TrimSpace(body.Slug)); err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}

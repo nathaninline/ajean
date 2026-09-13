@@ -262,6 +262,9 @@ details[open]>summary>.preset-ext{display:inline-flex}
   transform:scale(0);transition:transform .15s ease}
 .mem-opt:has(input:checked) .mem-radio::after{transform:scale(1)}
 .mem-note{font-size:11px;color:var(--dim);margin:0 2px 20px}
+/* Nom du projet consulté quand on ouvre la mémoire d'un AUTRE projet (pastille). */
+.mem-proj:not(:empty){margin-left:8px;padding:2px 8px;border:1px solid var(--border);border-radius:999px;
+  font-size:11px;font-weight:600;color:var(--dim)}
 .mem-pages-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 14px;
   padding-top:18px;border-top:1px solid var(--border)}
 .mem-pages-title{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--dim);font-weight:600}
@@ -282,7 +285,11 @@ details[open]>summary>.preset-ext{display:inline-flex}
 .mem-item-main{flex:1;min-width:0}
 .mem-item-name{font-size:13.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35}
 .mem-item-desc{font-size:11.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px;line-height:1.4}
-.mem-item .sess-menu-btn{flex:none;margin-left:2px}
+/* Le ⋮ des pages mémoire : les règles de révélation de .sess-menu-btn ciblent
+   .sess-row, pas .mem-item → il restait à opacity:0 (invisible sur desktop). On le
+   montre en permanence (discret), plein au survol / focus. */
+.mem-item .sess-menu-btn{flex:none;margin-left:2px;opacity:.55}
+.mem-item:hover .sess-menu-btn,.mem-item:focus-within .sess-menu-btn{opacity:1}
 .preset-add::before,.preset-add::after{content:"";position:absolute;top:50%;left:50%;
   background:currentColor;border-radius:1px}
 .preset-add::before{width:10px;height:1.5px;transform:translate(-50%,-50%)}
@@ -1384,6 +1391,9 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pop-menu{position:fixed;z-index:60;min-width:170px;padding:5px;display:flex;flex-direction:column;gap:1px;
   background:var(--panel);border:1px solid var(--border);border-radius:11px;
   box-shadow:0 12px 34px rgba(0,0,0,.22);
+  /* Beaucoup de projets → le menu peut dépasser l'écran : on le plafonne et il
+     défile, plutôt que de sortir par le haut (haut invisible). */
+  max-height:min(70vh,420px);overflow-y:auto;
   transform-origin:bottom left;animation:popIn .14s cubic-bezier(.2,.8,.2,1)}
 @keyframes popIn{from{opacity:0;transform:translateY(7px) scale(.94)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.pop-menu{animation:none}}
@@ -2531,7 +2541,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
 <div id="mem-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeMemHub()">
   <div class="modal-card mem-card" style="max-width:540px">
     <div class="modal-head">
-      <span class="mem-head-title"><svg class="mem-head-ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><strong data-i18n="memory.title">Mémoire</strong><span id="mem-count" class="sess-count"></span></span>
+      <span class="mem-head-title"><svg class="mem-head-ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><strong data-i18n="memory.title">Mémoire</strong><span id="mem-count" class="sess-count"></span><span id="mem-proj" class="mem-proj"></span></span>
       <button class="modal-x" onclick="closeMemHub()" aria-label="Fermer" data-i18n="memory.close_aria" data-i18n-attr="aria-label">×</button>
     </div>
     <div class="modal-body">
@@ -4040,6 +4050,7 @@ fr: {
   "projects.options_project_title": "Options du projet",
   "projects.rename": "Renommer",
   "projects.describe": "Décrire",
+  "projects.view_memory": "Voir la mémoire",
   "projects.delete": "Supprimer",
   "projects.none": "aucun projet",
   "projects.switched_toast_prefix": "projet : ",
@@ -5188,6 +5199,7 @@ en: {
   "projects.options_project_title": "Project options",
   "projects.rename": "Rename",
   "projects.describe": "Describe",
+  "projects.view_memory": "View memory",
   "projects.delete": "Delete",
   "projects.none": "no projects",
   "projects.switched_toast_prefix": "project: ",
@@ -6370,7 +6382,8 @@ function initPresetSortable(cont){
 // « Mode agent » = accès machine + skills réunis en un seul interrupteur.
 // Quand il est actif, un « a » blanc apparaît en fondu devant « ajean » → « ajean ».
 async function loadAgent(){
-  const s=await jget('/api/agent');
+  // MEM_VIEW_PROJECT (si posé) scope les pages + le mode mémoire sur un autre projet.
+  const s=await jget('/api/agent' + (MEM_VIEW_PROJECT ? ('?project='+encodeURIComponent(MEM_VIEW_PROJECT)) : ''));
   const on = s.enabled;
   document.getElementById('agent-toggle').checked = on;
   document.getElementById('compact-toggle').checked = (s.compact !== false);
@@ -6523,6 +6536,13 @@ function setAgentGate(on){
 // Liste mémoire scalable : recherche + rendu plafonné (les milliers de pages ne
 // déroulent plus une barre géante). memShown grimpe par paliers via « voir plus ».
 let memPages=[], memShown=0; const MEM_PAGE=50;
+// MEM_VIEW_PROJECT : slug d'un AUTRE projet dont on consulte la mémoire dans le hub
+// sans avoir basculé dessus (bouton « Voir la mémoire » du menu ⋯ d'un projet).
+// Vide = projet actif. Les appels mémoire (liste, lecture, mode, déplacement) y
+// ajoutent ?project=/from= pour cibler ce projet côté serveur.
+let MEM_VIEW_PROJECT='';
+// Suffixe de requête ?…&project=slug pour un GET (l'appelant a déjà un « ? »).
+function memProjQ(){ return MEM_VIEW_PROJECT ? ('&project='+encodeURIComponent(MEM_VIEW_PROJECT)) : ''; }
 function renderMemList(){
   const q=(document.getElementById('mem-search').value||'').trim().toLowerCase();
   const list=document.getElementById('mem-list');
@@ -6573,15 +6593,18 @@ function openMemMenu(anchor, x){
   let top=r.bottom+6; if(top+ph>window.innerHeight-8) top=r.top-ph-6;
   pop.style.left=left+'px'; pop.style.top=top+'px';
   if(typeof _projPop!=='undefined') _projPop=pop;
-  setTimeout(()=>{ if(typeof _projOutside==='function') document.addEventListener('click', _projOutside, true); if(typeof closeProjMenu==='function') document.addEventListener('scroll', closeProjMenu, true); }, 0);
+  setTimeout(()=>{ if(typeof _projOutside==='function') document.addEventListener('click', _projOutside, true); if(typeof closeProjMenu==='function') document.addEventListener('scroll', _projScroll, true); }, 0);
 }
 
 // Déplacer une note mémoire du projet actif vers un autre projet (issue #55).
 // Réutilise le sélecteur de projet du hub (pickProjectPop, 18-projects.js).
 async function moveMemUI(name, anchor){
   if(typeof pickProjectPop!=='function'){ toast(t('settings.memory.move_unavailable')); return; }
-  pickProjectPop(anchor, (typeof ACTIVE_PROJECT!=='undefined'?ACTIVE_PROJECT:''), async(slug)=>{
-    let r; try{ r = await jpost('/api/projects/move-mem', {name, slug}); }catch(_){ toast(t('settings.memory.network_error')); return; }
+  // Source = le projet actuellement consulté (vu ou actif). Le sélecteur exclut cette
+  // source ; le déplacement part de `from` côté serveur.
+  const from = MEM_VIEW_PROJECT || (typeof ACTIVE_PROJECT!=='undefined'?ACTIVE_PROJECT:'');
+  pickProjectPop(anchor, from, async(slug)=>{
+    let r; try{ r = await jpost('/api/projects/move-mem', {name, slug, from}); }catch(_){ toast(t('settings.memory.network_error')); return; }
     if(!r.ok){ toast(r.error || t('settings.memory.move_failed')); return; }
     toast(t('settings.memory.note_moved'));
     loadAgent();
@@ -6616,7 +6639,7 @@ function setMemModeUI(m){
 // mode passé par le segment cliqué ; à défaut on lit le segment coché.
 async function setMemMode(mode){
   if(!mode){ const r=document.querySelector('input[name="mem-mode-seg"]:checked'); mode=r?r.value:'always'; }
-  const r=await jpost('/api/memory',{mode});
+  const r=await jpost('/api/memory',{mode, project: MEM_VIEW_PROJECT||''});
   setMemModeUI(r.mode||mode);
 }
 // Accès internet : serveur Crawl4AI + drapeau. Actif ET fonctionnel = pastille verte.
@@ -7187,7 +7210,10 @@ async function openItem(kind, key){
   const topPeBody=()=>{ const b=document.querySelector('#modal .pe-body'); if(b) b.scrollTop=0; };
   topPeBody();
   // --- Remplissage, une fois la modale à l'écran -----------------------------
-  const r = await jfetch(K.getUrl + '?' + K.param + '=' + encodeURIComponent(key||''));
+  // Page mémoire d'un AUTRE projet en consultation (MEM_VIEW_PROJECT) : on scope la
+  // lecture sur ce projet, sinon on lirait la page du projet actif.
+  const memProj = (kind==='mem' && typeof MEM_VIEW_PROJECT!=='undefined' && MEM_VIEW_PROJECT) ? ('&project='+encodeURIComponent(MEM_VIEW_PROJECT)) : '';
+  const r = await jfetch(K.getUrl + '?' + K.param + '=' + encodeURIComponent(key||'') + memProj);
   const d = await r.json();
   if(seq !== openSeq) return;              // une autre ouverture a pris la main
   const display = d.name || key || '';
@@ -8091,6 +8117,8 @@ async function saveItem(){
   const payload = editingKind==='preset'
     ? {id: editingKey, name, content, sysprompt: (document.getElementById('m-sysprompt')||{}).value || ''}
     : {name, old: editingKey, content};
+  // Page mémoire consultée dans un autre projet : enregistrer LÀ, pas dans l'actif.
+  if(editingKind==='mem' && typeof MEM_VIEW_PROJECT!=='undefined' && MEM_VIEW_PROJECT) payload.project = MEM_VIEW_PROJECT;
   const r = await jpost(K.saveUrl, payload);
   if(!r.ok){ toast(t('common.error_prefix') + (r.error||'')); return; }
   toast(t('models.saved')); closeModal(); K.reload();
@@ -8112,6 +8140,7 @@ async function delItem(){
   const payload = editingKind==='preset'
     ? {id: editingKey, deleteModel: delModel}
     : {name: editingKey};
+  if(editingKind==='mem' && typeof MEM_VIEW_PROJECT!=='undefined' && MEM_VIEW_PROJECT) payload.project = MEM_VIEW_PROJECT;
   const r = await jpost(K.delUrl, payload);
   if(!r.ok){ toast(t('common.error_prefix') + (r.error||'')); return; }
   if(delModel){
@@ -8697,7 +8726,8 @@ const SESS_ICONS = {
   pencil: '<path d="M4 20h4l10.5 -10.5a2.83 2.83 0 1 0 -4 -4l-10.5 10.5v4"/><path d="M13.5 6.5l4 4"/>',
   trash: '<path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"/><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/>',
   doc: '<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"/><path d="M9 9h1"/><path d="M9 13h6"/><path d="M9 17h6"/>',
-  move: '<path d="M2 9V5a2 2 0 0 1 2-2h3.6a1 1 0 0 1 .8.4l1.2 1.6a1 1 0 0 0 .8.4H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2"/><path d="M2 13h10"/><path d="M9 16l3-3-3-3"/>'
+  move: '<path d="M2 9V5a2 2 0 0 1 2-2h3.6a1 1 0 0 1 .8.4l1.2 1.6a1 1 0 0 0 .8.4H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2"/><path d="M2 13h10"/><path d="M9 16l3-3-3-3"/>',
+  mem: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>'
 };
 function sessIconSvg(name, filled){
   return '<svg viewBox="0 0 24 24" width="17" height="17" fill="'+(filled?'currentColor':'none')+'" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+SESS_ICONS[name]+'</svg>';
@@ -11482,13 +11512,19 @@ function _projOutside(e){
   if(_projPop && (_projPop.contains(e.target) || (e.target.closest && e.target.closest('.proj-menu-btn,.sess-menu-btn')))) return;
   closeProjMenu();
 }
-function closeProjMenu(){ if(_projPop){ _projPop.remove(); _projPop=null; document.removeEventListener('click', _projOutside, true); document.removeEventListener('scroll', closeProjMenu, true); } }
+// Ferme au défilement de l'ARRIÈRE-PLAN (le menu est position:fixed, il ne suit
+// pas), MAIS pas quand on défile DANS le menu lui-même (liste longue scrollable) :
+// sans ce garde, scroller la liste des projets la faisait disparaître.
+function _projScroll(e){ if(_projPop && _projPop.contains(e.target)) return; closeProjMenu(); }
+function closeProjMenu(){ if(_projPop){ _projPop.remove(); _projPop=null; document.removeEventListener('click', _projOutside, true); document.removeEventListener('scroll', _projScroll, true); } }
 function openProjMenu(anchor, p){
   closeProjMenu();
   const pop = document.createElement('div'); pop.className='pop-menu';
   const item = (icon, label, cls, fn)=>{ const b=document.createElement('button'); if(cls) b.className=cls; b.innerHTML=sessIconSvg(icon)+'<span>'+label+'</span>'; b.onclick=(e)=>{ e.stopPropagation(); closeProjMenu(); fn(); }; return b; };
   pop.appendChild(item('pencil', t('projects.rename'), '', ()=>renameProjectUI(p.slug, p.name)));
   pop.appendChild(item('doc', t('projects.describe'), '', ()=>describeProjectUI(p.slug, p.desc||'')));
+  // Voir la mémoire du projet SANS basculer dessus (consultation d'un autre projet).
+  pop.appendChild(item('mem', t('projects.view_memory'), '', ()=>{ if(typeof openMemHub==='function') openMemHub(p.slug, p.name); }));
   if(PROJECTS.length > 1) pop.appendChild(item('trash', t('projects.delete'), 'danger', ()=>deleteProjectUI(p.slug, p.name)));
   document.body.appendChild(pop);
   // Positionne sous le bouton, calé à droite, en restant dans l'écran.
@@ -11501,7 +11537,7 @@ function openProjMenu(anchor, p){
   pop.style.left = left+'px'; pop.style.top = top+'px';
   _projPop = pop;
   // Ferme au prochain clic ailleurs / défilement (capture pour attraper tôt).
-  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', closeProjMenu, true); }, 0);
+  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', _projScroll, true); }, 0);
 }
 
 function renderProjectList(){
@@ -11647,7 +11683,7 @@ function openSessMenu(anchor, c, active){
   let top = r.bottom + 6; if(top + ph > window.innerHeight - 8) top = r.top - ph - 6;
   pop.style.left = left+'px'; pop.style.top = top+'px';
   _projPop = pop;
-  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', closeProjMenu, true); }, 0);
+  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', _projScroll, true); }, 0);
 }
 
 async function openProjSession(id){
@@ -11740,12 +11776,14 @@ function pickProjectPop(anchor, excludeSlug, onPick){
   });
   document.body.appendChild(pop);
   const r = anchor.getBoundingClientRect();
-  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  const pw = pop.offsetWidth, ph = pop.offsetHeight; // ph plafonné par max-height CSS
   let left = Math.max(8, Math.min(r.right - pw, window.innerWidth - pw - 8));
   let top = r.bottom + 6; if(top + ph > window.innerHeight - 8) top = r.top - ph - 6;
+  // Jamais hors écran par le haut (sinon on ne voit pas le début de la liste).
+  top = Math.max(8, Math.min(top, window.innerHeight - ph - 8));
   pop.style.left = left+'px'; pop.style.top = top+'px';
   _projPop = pop;
-  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', closeProjMenu, true); }, 0);
+  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', _projScroll, true); }, 0);
 }
 
 // Déplacer une conversation vers un autre projet (issue #55). La liste des sessions
@@ -11825,11 +11863,23 @@ function togglePlusMenu(e){
 // Mémoire du projet : modal ouvert depuis le menu +. Le contenu (mode + pages)
 // vit toujours sous les mêmes IDs que l'ancien bloc du menu de gauche, donc
 // loadAgent()/renderMemList() le remplissent sans changement.
-function openMemHub(){
+// openMemHub() = mémoire du projet ACTIF. openMemHub(slug, name) = consulter la
+// mémoire d'un AUTRE projet sans basculer dessus (menu ⋯ d'un projet) : on pose le
+// contexte MEM_VIEW_PROJECT (lu par loadAgent / openMem / setMemMode / moveMemUI) et
+// on affiche le nom du projet consulté dans l'en-tête du modal.
+function openMemHub(slug, name){
+  const other = slug && (typeof ACTIVE_PROJECT==='undefined' || slug!==ACTIVE_PROJECT);
+  if(typeof MEM_VIEW_PROJECT!=='undefined') MEM_VIEW_PROJECT = other ? slug : '';
+  const tag=document.getElementById('mem-proj');
+  if(tag) tag.textContent = other ? (name || slug) : '';
   if(typeof showModal==='function') showModal('mem-modal');
-  if(typeof loadAgent==='function') loadAgent(); // resynchronise mode + liste des pages
+  if(typeof loadAgent==='function') loadAgent(); // resynchronise mode + liste des pages (scopé projet)
 }
-function closeMemHub(){ if(typeof hideModal==='function') hideModal('mem-modal'); }
+function closeMemHub(){
+  if(typeof MEM_VIEW_PROJECT!=='undefined') MEM_VIEW_PROJECT='';
+  const tag=document.getElementById('mem-proj'); if(tag) tag.textContent='';
+  if(typeof hideModal==='function') hideModal('mem-modal');
+}
 
 // Au chargement, on peuple le libellé du bouton (sans ouvrir le modal).
 document.addEventListener('DOMContentLoaded', ()=>{ loadProjects(); });
@@ -11897,7 +11947,7 @@ function openTrackerMenu(anchor, s){
   let top=r.bottom+6; if(top+ph>window.innerHeight-8) top=r.top-ph-6;
   pop.style.left=left+'px'; pop.style.top=top+'px';
   _projPop=pop;
-  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', closeProjMenu, true); }, 0);
+  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', _projScroll, true); }, 0);
 }
 
 async function trackerRename(s){

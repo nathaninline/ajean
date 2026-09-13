@@ -180,7 +180,8 @@ function initPresetSortable(cont){
 // « Mode agent » = accès machine + skills réunis en un seul interrupteur.
 // Quand il est actif, un « a » blanc apparaît en fondu devant « ajean » → « ajean ».
 async function loadAgent(){
-  const s=await jget('/api/agent');
+  // MEM_VIEW_PROJECT (si posé) scope les pages + le mode mémoire sur un autre projet.
+  const s=await jget('/api/agent' + (MEM_VIEW_PROJECT ? ('?project='+encodeURIComponent(MEM_VIEW_PROJECT)) : ''));
   const on = s.enabled;
   document.getElementById('agent-toggle').checked = on;
   document.getElementById('compact-toggle').checked = (s.compact !== false);
@@ -333,6 +334,13 @@ function setAgentGate(on){
 // Liste mémoire scalable : recherche + rendu plafonné (les milliers de pages ne
 // déroulent plus une barre géante). memShown grimpe par paliers via « voir plus ».
 let memPages=[], memShown=0; const MEM_PAGE=50;
+// MEM_VIEW_PROJECT : slug d'un AUTRE projet dont on consulte la mémoire dans le hub
+// sans avoir basculé dessus (bouton « Voir la mémoire » du menu ⋯ d'un projet).
+// Vide = projet actif. Les appels mémoire (liste, lecture, mode, déplacement) y
+// ajoutent ?project=/from= pour cibler ce projet côté serveur.
+let MEM_VIEW_PROJECT='';
+// Suffixe de requête ?…&project=slug pour un GET (l'appelant a déjà un « ? »).
+function memProjQ(){ return MEM_VIEW_PROJECT ? ('&project='+encodeURIComponent(MEM_VIEW_PROJECT)) : ''; }
 function renderMemList(){
   const q=(document.getElementById('mem-search').value||'').trim().toLowerCase();
   const list=document.getElementById('mem-list');
@@ -383,15 +391,18 @@ function openMemMenu(anchor, x){
   let top=r.bottom+6; if(top+ph>window.innerHeight-8) top=r.top-ph-6;
   pop.style.left=left+'px'; pop.style.top=top+'px';
   if(typeof _projPop!=='undefined') _projPop=pop;
-  setTimeout(()=>{ if(typeof _projOutside==='function') document.addEventListener('click', _projOutside, true); if(typeof closeProjMenu==='function') document.addEventListener('scroll', closeProjMenu, true); }, 0);
+  setTimeout(()=>{ if(typeof _projOutside==='function') document.addEventListener('click', _projOutside, true); if(typeof closeProjMenu==='function') document.addEventListener('scroll', _projScroll, true); }, 0);
 }
 
 // Déplacer une note mémoire du projet actif vers un autre projet (issue #55).
 // Réutilise le sélecteur de projet du hub (pickProjectPop, 18-projects.js).
 async function moveMemUI(name, anchor){
   if(typeof pickProjectPop!=='function'){ toast(t('settings.memory.move_unavailable')); return; }
-  pickProjectPop(anchor, (typeof ACTIVE_PROJECT!=='undefined'?ACTIVE_PROJECT:''), async(slug)=>{
-    let r; try{ r = await jpost('/api/projects/move-mem', {name, slug}); }catch(_){ toast(t('settings.memory.network_error')); return; }
+  // Source = le projet actuellement consulté (vu ou actif). Le sélecteur exclut cette
+  // source ; le déplacement part de `from` côté serveur.
+  const from = MEM_VIEW_PROJECT || (typeof ACTIVE_PROJECT!=='undefined'?ACTIVE_PROJECT:'');
+  pickProjectPop(anchor, from, async(slug)=>{
+    let r; try{ r = await jpost('/api/projects/move-mem', {name, slug, from}); }catch(_){ toast(t('settings.memory.network_error')); return; }
     if(!r.ok){ toast(r.error || t('settings.memory.move_failed')); return; }
     toast(t('settings.memory.note_moved'));
     loadAgent();
@@ -426,7 +437,7 @@ function setMemModeUI(m){
 // mode passé par le segment cliqué ; à défaut on lit le segment coché.
 async function setMemMode(mode){
   if(!mode){ const r=document.querySelector('input[name="mem-mode-seg"]:checked'); mode=r?r.value:'always'; }
-  const r=await jpost('/api/memory',{mode});
+  const r=await jpost('/api/memory',{mode, project: MEM_VIEW_PROJECT||''});
   setMemModeUI(r.mode||mode);
 }
 // Accès internet : serveur Crawl4AI + drapeau. Actif ET fonctionnel = pastille verte.

@@ -120,13 +120,19 @@ function _projOutside(e){
   if(_projPop && (_projPop.contains(e.target) || (e.target.closest && e.target.closest('.proj-menu-btn,.sess-menu-btn')))) return;
   closeProjMenu();
 }
-function closeProjMenu(){ if(_projPop){ _projPop.remove(); _projPop=null; document.removeEventListener('click', _projOutside, true); document.removeEventListener('scroll', closeProjMenu, true); } }
+// Ferme au défilement de l'ARRIÈRE-PLAN (le menu est position:fixed, il ne suit
+// pas), MAIS pas quand on défile DANS le menu lui-même (liste longue scrollable) :
+// sans ce garde, scroller la liste des projets la faisait disparaître.
+function _projScroll(e){ if(_projPop && _projPop.contains(e.target)) return; closeProjMenu(); }
+function closeProjMenu(){ if(_projPop){ _projPop.remove(); _projPop=null; document.removeEventListener('click', _projOutside, true); document.removeEventListener('scroll', _projScroll, true); } }
 function openProjMenu(anchor, p){
   closeProjMenu();
   const pop = document.createElement('div'); pop.className='pop-menu';
   const item = (icon, label, cls, fn)=>{ const b=document.createElement('button'); if(cls) b.className=cls; b.innerHTML=sessIconSvg(icon)+'<span>'+label+'</span>'; b.onclick=(e)=>{ e.stopPropagation(); closeProjMenu(); fn(); }; return b; };
   pop.appendChild(item('pencil', t('projects.rename'), '', ()=>renameProjectUI(p.slug, p.name)));
   pop.appendChild(item('doc', t('projects.describe'), '', ()=>describeProjectUI(p.slug, p.desc||'')));
+  // Voir la mémoire du projet SANS basculer dessus (consultation d'un autre projet).
+  pop.appendChild(item('mem', t('projects.view_memory'), '', ()=>{ if(typeof openMemHub==='function') openMemHub(p.slug, p.name); }));
   if(PROJECTS.length > 1) pop.appendChild(item('trash', t('projects.delete'), 'danger', ()=>deleteProjectUI(p.slug, p.name)));
   document.body.appendChild(pop);
   // Positionne sous le bouton, calé à droite, en restant dans l'écran.
@@ -139,7 +145,7 @@ function openProjMenu(anchor, p){
   pop.style.left = left+'px'; pop.style.top = top+'px';
   _projPop = pop;
   // Ferme au prochain clic ailleurs / défilement (capture pour attraper tôt).
-  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', closeProjMenu, true); }, 0);
+  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', _projScroll, true); }, 0);
 }
 
 function renderProjectList(){
@@ -285,7 +291,7 @@ function openSessMenu(anchor, c, active){
   let top = r.bottom + 6; if(top + ph > window.innerHeight - 8) top = r.top - ph - 6;
   pop.style.left = left+'px'; pop.style.top = top+'px';
   _projPop = pop;
-  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', closeProjMenu, true); }, 0);
+  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', _projScroll, true); }, 0);
 }
 
 async function openProjSession(id){
@@ -378,12 +384,14 @@ function pickProjectPop(anchor, excludeSlug, onPick){
   });
   document.body.appendChild(pop);
   const r = anchor.getBoundingClientRect();
-  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  const pw = pop.offsetWidth, ph = pop.offsetHeight; // ph plafonné par max-height CSS
   let left = Math.max(8, Math.min(r.right - pw, window.innerWidth - pw - 8));
   let top = r.bottom + 6; if(top + ph > window.innerHeight - 8) top = r.top - ph - 6;
+  // Jamais hors écran par le haut (sinon on ne voit pas le début de la liste).
+  top = Math.max(8, Math.min(top, window.innerHeight - ph - 8));
   pop.style.left = left+'px'; pop.style.top = top+'px';
   _projPop = pop;
-  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', closeProjMenu, true); }, 0);
+  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', _projScroll, true); }, 0);
 }
 
 // Déplacer une conversation vers un autre projet (issue #55). La liste des sessions
@@ -463,11 +471,23 @@ function togglePlusMenu(e){
 // Mémoire du projet : modal ouvert depuis le menu +. Le contenu (mode + pages)
 // vit toujours sous les mêmes IDs que l'ancien bloc du menu de gauche, donc
 // loadAgent()/renderMemList() le remplissent sans changement.
-function openMemHub(){
+// openMemHub() = mémoire du projet ACTIF. openMemHub(slug, name) = consulter la
+// mémoire d'un AUTRE projet sans basculer dessus (menu ⋯ d'un projet) : on pose le
+// contexte MEM_VIEW_PROJECT (lu par loadAgent / openMem / setMemMode / moveMemUI) et
+// on affiche le nom du projet consulté dans l'en-tête du modal.
+function openMemHub(slug, name){
+  const other = slug && (typeof ACTIVE_PROJECT==='undefined' || slug!==ACTIVE_PROJECT);
+  if(typeof MEM_VIEW_PROJECT!=='undefined') MEM_VIEW_PROJECT = other ? slug : '';
+  const tag=document.getElementById('mem-proj');
+  if(tag) tag.textContent = other ? (name || slug) : '';
   if(typeof showModal==='function') showModal('mem-modal');
-  if(typeof loadAgent==='function') loadAgent(); // resynchronise mode + liste des pages
+  if(typeof loadAgent==='function') loadAgent(); // resynchronise mode + liste des pages (scopé projet)
 }
-function closeMemHub(){ if(typeof hideModal==='function') hideModal('mem-modal'); }
+function closeMemHub(){
+  if(typeof MEM_VIEW_PROJECT!=='undefined') MEM_VIEW_PROJECT='';
+  const tag=document.getElementById('mem-proj'); if(tag) tag.textContent='';
+  if(typeof hideModal==='function') hideModal('mem-modal');
+}
 
 // Au chargement, on peuple le libellé du bouton (sans ouvrir le modal).
 document.addEventListener('DOMContentLoaded', ()=>{ loadProjects(); });
