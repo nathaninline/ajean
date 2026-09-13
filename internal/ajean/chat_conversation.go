@@ -353,11 +353,17 @@ func (c *Conversation) compactAndPublish(ctx context.Context, epoch int, phase s
 	}
 	// Le compactage a pu résumer/retirer le message d'index d'origine : on le
 	// ré-injecte en tête pour que l'IA garde la liste des pages sous les yeux.
-	compacted = ensureMemIndexFront(compacted)
-	// Idem pour le contexte projet (description) : ré-injecté en tête s'il a sauté au
-	// compactage. Ajouté APRÈS l'index → se retrouve DEVANT lui (préfixage en tête).
-	compacted = ensureProjectContextFront(compacted)
-	compacted = ensureTrackerIndexFront(compacted)
+	// Mode agent OFF = modèle BRUT : rien à ré-injecter (comme à StartTurn). Sans ce
+	// garde, une conversation en chat pur assez longue pour compacter se verrait
+	// (ré)ajouter index/contexte/trackers, alors que memIndexMessage se fie à
+	// memMode() (mode du projet) et pas à caps.
+	if caps.Agent {
+		compacted = ensureMemIndexFront(compacted)
+		// Idem pour le contexte projet (description) : ré-injecté en tête s'il a sauté au
+		// compactage. Ajouté APRÈS l'index → se retrouve DEVANT lui (préfixage en tête).
+		compacted = ensureProjectContextFront(compacted)
+		compacted = ensureTrackerIndexFront(compacted)
+	}
 	overhead := ctxUsed - estimateTokens(msgs)
 	if overhead < 0 {
 		overhead = 0
@@ -455,7 +461,12 @@ func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, tem
 	// premier message). Il vit ensuite dans l'historique (l'IA l'a toujours sous les
 	// yeux) sans être reconstruit à chaque tour ; il est ré-injecté après un
 	// compactage (ensureMemIndexFront) pour ne pas le perdre.
-	if len(c.Messages) == 0 {
+	// Mode agent OFF = modèle BRUT : on ne veut RIEN injecter (comme si on parlait
+	// direct à llama-server). Ni description projet, ni index mémoire, ni trackers —
+	// et le prompt système (AJEAN + preset) est aussi sauté plus bas (voir generate).
+	// L'index/trackers sont déjà bornés au mode auto (donc agent on), mais on garde
+	// le garde-fou explicite ici : agent off, aucun contexte.
+	if len(c.Messages) == 0 && caps.Agent {
 		// Contexte projet (description) d'abord : l'IA sait sur quoi elle travaille
 		// avant même de lire l'index de ses pages mémoire.
 		if m, ok := projectContextMessage(); ok {
@@ -556,8 +567,13 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 	// Prompt système personnalisé (UI → /api/sysprompt, fichier côté serveur).
 	// Injecté seulement dans la vue envoyée au modèle, jamais persisté dans
 	// c.Messages : modifiable à chaud, effet dès le tour suivant.
+	//
+	// Mode agent OFF = modèle BRUT : on ne l'injecte PAS. Sans agent, l'utilisateur
+	// veut parler au modèle nu (comme un llama-server direct), sans persona ni
+	// consignes. Le prompt de preset décrivait des outils/une mémoire que ce mode
+	// n'a pas, poussant le modèle à cracher des <tool_call> en clair.
 	final := msgs
-	if sp := readSysPrompt(); sp != "" {
+	if sp := readSysPrompt(); sp != "" && caps.Agent {
 		final = append([]Message{{Role: "system", Content: sp}}, msgs...)
 	}
 

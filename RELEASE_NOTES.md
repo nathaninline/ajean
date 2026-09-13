@@ -1,25 +1,16 @@
-Version de corrections, plus un nouveau réglage de mémoire par projet.
+Suite de la 0.13.12 : le mode agent désactivé devient un vrai chat brut, et le sélecteur de mémoire est repensé.
 
-## Mémoire
+## Mode agent désactivé = modèle brut
 
-Le mode mémoire se règle désormais **par projet**, avec quatre choix dans la fenêtre Mémoire :
+Quand le mode agent est coupé, AJEAN n'ajoute plus rien à la conversation : ni préambule, ni prompt système de preset, ni contexte injecté (description du projet, index mémoire, trackers), ni outils. Le modèle reçoit uniquement les messages, comme si on parlait directement à un serveur llama.cpp nu.
 
-- **auto, injecté** : l'index des pages est placé en tête de conversation, l'IA voit d'emblée ce qu'elle sait. C'est le comportement actuel, resté le réglage par défaut.
-- **auto, recherche** : rien n'est injecté, l'IA cherche dans sa mémoire avant chaque tâche. Le contexte reste léger et le modèle démarre plus vite. C'est le retour du fonctionnement d'avant la version 0.13.0.
-- **sur demande** : les outils mémoire existent mais ne servent que si on le demande.
-- **désactivée** : aucun accès mémoire.
+Avant, le prompt système du preset restait injecté même en mode agent désactivé. Il décrivait des outils et une mémoire que ce mode ne fournit pas, ce qui poussait le modèle à écrire des appels d'outils en clair (blocs de type tool_call) dans ses réponses, sans effet. C'est réglé.
 
-Chaque projet garde son propre réglage. Les projets existants conservent leur comportement (index injecté).
+Note : cela vaut pour une conversation neuve. Une conversation déjà entamée en mode agent conserve le contexte déjà présent dans son historique.
 
-## Corrections
+## Sélecteur de mémoire
 
-- **Images tournées** : les photos venant d'un téléphone (orientation stockée en métadonnées EXIF) arrivaient au modèle tournées de 90 degrés, qui annonçait devoir les redresser mentalement. L'orientation est maintenant appliquée aux pixels avant l'envoi, uniquement pour les JPEG concernés, avec repli sur l'image d'origine en cas de souci.
-- **Mode agent désactivé** : en chat pur, le modèle pouvait quand même tenter d'appeler des outils qui n'existent pas dans ce mode, ce qui partait parfois en boucle. Ces appels sont désormais ignorés quand aucun outil n'est proposé.
-- **Réordonnancement des presets** : après avoir déplacé un preset par glissement, cliquer dessus tout de suite sélectionnait le preset qui occupait l'ancienne position. La liste est maintenant réactualisée une fois le nouvel ordre enregistré.
-
-## Interface
-
-- Le message sous la zone de chat n'affiche plus « le modèle charge » quand aucun modèle n'est chargé : il distingue le chargement en cours de l'absence de modèle.
+Le choix du mode mémoire (dans la fenêtre Mémoire) passe d'un rail horizontal, qui tassait les libellés, à une liste d'options lisibles : une icône, un titre et une courte explication par mode (Injectée, Recherche, Sur demande, Désactivée), avec l'option active mise en avant dans la couleur du thème.
 
 ## Mise à jour
 
@@ -27,4 +18,4 @@ Chaque projet garde son propre réglage. Les projets existants conservent leur c
 ajean update
 ```
 
-Non vérifié sur cette version : le rendu de l'orientation EXIF n'a pas été testé sur un vrai flux multimodal (mmproj) avec une photo de téléphone, seulement en tests unitaires.
+Non vérifié sur cette version : le comportement en mode agent désactivé a été validé sur conversation neuve, pas sur le basculement en cours de conversation longue.

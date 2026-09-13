@@ -415,19 +415,13 @@ async function toggleMachines(){
   const on=document.getElementById('machines-toggle').checked;
   await jpost('/api/agent/machines',{on});
 }
-// Mode mémoire (4 états, par projet) — indépendant du mode agent.
-const MEM_DESC={
-  always:t('settings.memory.mode_always_desc'),
-  search:t('settings.memory.mode_search_desc'),
-  ondemand:t('settings.memory.mode_ondemand_desc'),
-  off:t('settings.memory.mode_off_desc')
-};
-function renderMemModeDesc(m){ const d=document.getElementById('mem-mode-desc'); if(d) d.textContent=MEM_DESC[m]||''; }
-// Coche le bon segment du sélecteur de mode (contrôle segmenté du modal mémoire).
+// Mode mémoire (4 états, par projet) — indépendant du mode agent. La description
+// de chaque mode vit désormais sous chaque option (voir .mem-opt-d dans le
+// template), plus dans une boîte séparée.
+// Coche la bonne option de la liste de modes (modal mémoire).
 function setMemModeUI(m){
   const r=document.querySelector('input[name="mem-mode-seg"][value="'+m+'"]');
   if(r) r.checked=true;
-  renderMemModeDesc(m);
 }
 // mode passé par le segment cliqué ; à défaut on lit le segment coché.
 async function setMemMode(mode){

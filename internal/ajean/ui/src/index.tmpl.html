@@ -723,13 +723,33 @@
     </div>
     <div class="modal-body">
       <div id="mem-block" class="gated-group">
-        <div class="mem-seg">
-          <label><input type="radio" name="mem-mode-seg" value="always" onchange="setMemMode('always')"><span data-i18n="memory.mode_inject">auto · injecté</span></label>
-          <label><input type="radio" name="mem-mode-seg" value="search" onchange="setMemMode('search')"><span data-i18n="memory.mode_search">auto · recherche</span></label>
-          <label><input type="radio" name="mem-mode-seg" value="ondemand" onchange="setMemMode('ondemand')"><span data-i18n="memory.mode_ondemand">sur demande</span></label>
-          <label><input type="radio" name="mem-mode-seg" value="off" onchange="setMemMode('off')"><span data-i18n="memory.mode_off">désactivée</span></label>
+        <div class="mem-seg" role="radiogroup">
+          <label class="mem-opt">
+            <input type="radio" name="mem-mode-seg" value="always" onchange="setMemMode('always')">
+            <span class="mem-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg></span>
+            <span class="mem-body"><span class="mem-opt-t" data-i18n="memory.mode_inject">Injectée</span><span class="mem-opt-d" data-i18n="memory.mode_inject_hint">l'index est chargé d'avance, l'IA voit ses pages d'emblée</span></span>
+            <span class="mem-radio" aria-hidden="true"></span>
+          </label>
+          <label class="mem-opt">
+            <input type="radio" name="mem-mode-seg" value="search" onchange="setMemMode('search')">
+            <span class="mem-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+            <span class="mem-body"><span class="mem-opt-t" data-i18n="memory.mode_search">Recherche</span><span class="mem-opt-d" data-i18n="memory.mode_search_hint">rien d'injecté, l'IA fouille au besoin (prompt léger)</span></span>
+            <span class="mem-radio" aria-hidden="true"></span>
+          </label>
+          <label class="mem-opt">
+            <input type="radio" name="mem-mode-seg" value="ondemand" onchange="setMemMode('ondemand')">
+            <span class="mem-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+            <span class="mem-body"><span class="mem-opt-t" data-i18n="memory.mode_ondemand">Sur demande</span><span class="mem-opt-d" data-i18n="memory.mode_ondemand_hint">la mémoire ne sert que si tu le demandes</span></span>
+            <span class="mem-radio" aria-hidden="true"></span>
+          </label>
+          <label class="mem-opt">
+            <input type="radio" name="mem-mode-seg" value="off" onchange="setMemMode('off')">
+            <span class="mem-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M6 6l12 12"/></svg></span>
+            <span class="mem-body"><span class="mem-opt-t" data-i18n="memory.mode_off">Désactivée</span><span class="mem-opt-d" data-i18n="memory.mode_off_hint">aucun accès mémoire</span></span>
+            <span class="mem-radio" aria-hidden="true"></span>
+          </label>
         </div>
-        <div id="mem-mode-desc" class="mem-modedesc muted"></div>
+        <div class="mem-note muted" data-i18n="memory.mode_perproject">Réglage propre à ce projet.</div>
         <div class="mem-pages-head">
           <span class="mem-pages-title"><span data-i18n="memory.pages_heading">Pages mémoire</span></span>
           <button class="mem-add-btn" onclick="openMem('')" title="ajouter une page mémoire" data-i18n="memory.add_page_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="memory.add_page_button_short">ajouter</span></button>

@@ -234,16 +234,34 @@ details[open]>summary>.preset-ext{display:inline-flex}
    ainsi maîtrisé bloc par bloc, généreux, sans dépendre d'un gap uniforme. */
 #mem-modal .modal-body{display:flex;flex-direction:column;gap:0;padding:20px}
 .mem-intro{font-size:12.5px;line-height:1.55;margin:0 0 18px;color:var(--dim)}
-/* Sélecteur de mode : un rail segmenté (PAS le .seg générique, dont l'état coché
-   est forcé en noir plein ailleurs). Option active = pilule surélevée. */
-.mem-seg{display:flex;gap:4px;background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:4px;margin:0 0 12px}
-.mem-seg>label{flex:1;text-align:center;font-size:12.5px;font-weight:500;padding:10px 6px;border-radius:8px;cursor:pointer;
-  color:var(--dim);transition:background .12s ease,color .12s ease,box-shadow .12s ease}
-.mem-seg>label:hover{color:var(--text)}
-.mem-seg>label:has(input:checked){background:var(--bg);color:var(--accent);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.16)}
-.mem-seg input{display:none}
-.mem-modedesc{font-size:11.5px;line-height:1.5;color:var(--dim);margin:0 2px 22px}
-.mem-modedesc:empty{margin:0 2px 22px}
+/* Sélecteur de mode mémoire : cartes-lignes (icône ronde + titre + sous-titre +
+   pastille radio). Un rail horizontal écrasait les libellés ; une simple liste
+   faisait « stagiaire ». Ligne active : liseré accent, fond légèrement teinté,
+   icône pleine accent, pastille radio remplie. */
+.mem-seg{display:flex;flex-direction:column;gap:8px;margin:0 0 12px}
+.mem-opt{position:relative;display:flex;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--border);
+  border-radius:12px;cursor:pointer;background:var(--panel);
+  transition:border-color .15s ease,background .15s ease,transform .06s ease}
+.mem-opt:hover{border-color:var(--dim)}
+.mem-opt:active{transform:scale(.994)}
+.mem-opt:has(input:checked){border-color:var(--accent);background:var(--accent-bg)}
+.mem-opt input{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+/* Icône sans cadre (un fond de pastille faisait un carré grisâtre plus sombre que
+   la carte). Juste le trait, en --dim, qui passe à --accent quand sélectionné. */
+.mem-ic{flex:0 0 auto;width:22px;display:grid;place-items:center;color:var(--dim);transition:color .15s ease}
+.mem-opt:has(input:checked) .mem-ic{color:var(--accent)}
+.mem-ic svg{width:20px;height:20px}
+.mem-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.mem-opt-t{font-size:13.5px;font-weight:600;color:var(--text);line-height:1.2}
+.mem-opt:has(input:checked) .mem-opt-t{color:var(--accent)}
+.mem-opt-d{font-size:11.5px;line-height:1.35;color:var(--dim)}
+.mem-radio{flex:0 0 auto;width:18px;height:18px;border-radius:50%;border:2px solid var(--border);
+  display:grid;place-items:center;transition:border-color .15s ease}
+.mem-opt:has(input:checked) .mem-radio{border-color:var(--accent)}
+.mem-radio::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent);
+  transform:scale(0);transition:transform .15s ease}
+.mem-opt:has(input:checked) .mem-radio::after{transform:scale(1)}
+.mem-note{font-size:11px;color:var(--dim);margin:0 2px 20px}
 .mem-pages-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 14px;
   padding-top:18px;border-top:1px solid var(--border)}
 .mem-pages-title{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--dim);font-weight:600}
@@ -2518,13 +2536,33 @@ button:hover{border-color:var(--dim);color:var(--text)}
     </div>
     <div class="modal-body">
       <div id="mem-block" class="gated-group">
-        <div class="mem-seg">
-          <label><input type="radio" name="mem-mode-seg" value="always" onchange="setMemMode('always')"><span data-i18n="memory.mode_inject">auto · injecté</span></label>
-          <label><input type="radio" name="mem-mode-seg" value="search" onchange="setMemMode('search')"><span data-i18n="memory.mode_search">auto · recherche</span></label>
-          <label><input type="radio" name="mem-mode-seg" value="ondemand" onchange="setMemMode('ondemand')"><span data-i18n="memory.mode_ondemand">sur demande</span></label>
-          <label><input type="radio" name="mem-mode-seg" value="off" onchange="setMemMode('off')"><span data-i18n="memory.mode_off">désactivée</span></label>
+        <div class="mem-seg" role="radiogroup">
+          <label class="mem-opt">
+            <input type="radio" name="mem-mode-seg" value="always" onchange="setMemMode('always')">
+            <span class="mem-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg></span>
+            <span class="mem-body"><span class="mem-opt-t" data-i18n="memory.mode_inject">Injectée</span><span class="mem-opt-d" data-i18n="memory.mode_inject_hint">l'index est chargé d'avance, l'IA voit ses pages d'emblée</span></span>
+            <span class="mem-radio" aria-hidden="true"></span>
+          </label>
+          <label class="mem-opt">
+            <input type="radio" name="mem-mode-seg" value="search" onchange="setMemMode('search')">
+            <span class="mem-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+            <span class="mem-body"><span class="mem-opt-t" data-i18n="memory.mode_search">Recherche</span><span class="mem-opt-d" data-i18n="memory.mode_search_hint">rien d'injecté, l'IA fouille au besoin (prompt léger)</span></span>
+            <span class="mem-radio" aria-hidden="true"></span>
+          </label>
+          <label class="mem-opt">
+            <input type="radio" name="mem-mode-seg" value="ondemand" onchange="setMemMode('ondemand')">
+            <span class="mem-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+            <span class="mem-body"><span class="mem-opt-t" data-i18n="memory.mode_ondemand">Sur demande</span><span class="mem-opt-d" data-i18n="memory.mode_ondemand_hint">la mémoire ne sert que si tu le demandes</span></span>
+            <span class="mem-radio" aria-hidden="true"></span>
+          </label>
+          <label class="mem-opt">
+            <input type="radio" name="mem-mode-seg" value="off" onchange="setMemMode('off')">
+            <span class="mem-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M6 6l12 12"/></svg></span>
+            <span class="mem-body"><span class="mem-opt-t" data-i18n="memory.mode_off">Désactivée</span><span class="mem-opt-d" data-i18n="memory.mode_off_hint">aucun accès mémoire</span></span>
+            <span class="mem-radio" aria-hidden="true"></span>
+          </label>
         </div>
-        <div id="mem-mode-desc" class="mem-modedesc muted"></div>
+        <div class="mem-note muted" data-i18n="memory.mode_perproject">Réglage propre à ce projet.</div>
         <div class="mem-pages-head">
           <span class="mem-pages-title"><span data-i18n="memory.pages_heading">Pages mémoire</span></span>
           <button class="mem-add-btn" onclick="openMem('')" title="ajouter une page mémoire" data-i18n="memory.add_page_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="memory.add_page_button_short">ajouter</span></button>
@@ -3237,10 +3275,15 @@ fr: {
   "memory.title": "Mémoire",
   "memory.mode_label": "mode",
   "memory.mode_auto": "auto",
-  "memory.mode_inject": "auto · injecté",
-  "memory.mode_search": "auto · recherche",
-  "memory.mode_ondemand": "sur demande",
-  "memory.mode_off": "désactivée",
+  "memory.mode_inject": "Injectée",
+  "memory.mode_inject_hint": "l'index est chargé d'avance, l'IA voit ses pages d'emblée",
+  "memory.mode_search": "Recherche",
+  "memory.mode_search_hint": "rien d'injecté, l'IA fouille au besoin (prompt léger)",
+  "memory.mode_ondemand": "Sur demande",
+  "memory.mode_ondemand_hint": "la mémoire ne sert que si tu le demandes",
+  "memory.mode_off": "Désactivée",
+  "memory.mode_off_hint": "aucun accès mémoire",
+  "memory.mode_perproject": "Réglage propre à ce projet.",
   "memory.view_title": "Voir la mémoire",
   "memory.pages_heading": "Pages mémoire",
   "memory.close_aria": "Fermer",
@@ -3750,10 +3793,6 @@ fr: {
   "settings.memory.network_error": "erreur réseau",
   "settings.memory.move_failed": "déplacement impossible",
   "settings.memory.note_moved": "note déplacée",
-  "settings.memory.mode_always_desc": "Injecté : l'index de la mémoire (liste des pages) est mis en tête de conversation, l'IA voit d'emblée ce qu'elle sait et sauve d'elle-même. Prompt un peu plus lourd. Réglage propre à ce projet.",
-  "settings.memory.mode_search_desc": "Recherche : rien n'est injecté, l'IA cherche dans sa mémoire avant chaque tâche et sauve d'elle-même. Prompt léger, démarrage plus rapide. Réglage propre à ce projet.",
-  "settings.memory.mode_ondemand_desc": "Les outils mémoire existent mais l'IA ne les utilise QUE si tu le demandes (« souviens-toi de… », « qu'avais-tu retenu sur… »). Réglage propre à ce projet.",
-  "settings.memory.mode_off_desc": "Mémoire coupée : aucun accès en lecture ni écriture, l'IA répond sans mémoire.",
   "settings.internet.unreachable_badge": "injoignable",
   "settings.internet.key_registered_prefix": "clé enregistrée ",
   "settings.internet.no_key_open_server": "aucune clé — serveur ouvert",
@@ -4384,10 +4423,15 @@ en: {
   "memory.title": "Memory",
   "memory.mode_label": "mode",
   "memory.mode_auto": "auto",
-  "memory.mode_inject": "auto · injected",
-  "memory.mode_search": "auto · search",
-  "memory.mode_ondemand": "on demand",
-  "memory.mode_off": "off",
+  "memory.mode_inject": "Injected",
+  "memory.mode_inject_hint": "the index is loaded up front, the AI sees its pages right away",
+  "memory.mode_search": "Search",
+  "memory.mode_search_hint": "nothing injected, the AI digs in when needed (light prompt)",
+  "memory.mode_ondemand": "On demand",
+  "memory.mode_ondemand_hint": "memory is used only when you ask",
+  "memory.mode_off": "Disabled",
+  "memory.mode_off_hint": "no memory access",
+  "memory.mode_perproject": "Setting specific to this project.",
   "memory.view_title": "View memory",
   "memory.pages_heading": "Memory pages",
   "memory.close_aria": "Close",
@@ -4897,10 +4941,6 @@ en: {
   "settings.memory.network_error": "network error",
   "settings.memory.move_failed": "move failed",
   "settings.memory.note_moved": "note moved",
-  "settings.memory.mode_always_desc": "Injected: the memory index (page list) is placed at the top of the conversation, so the AI sees what it knows right away and saves on its own. Slightly heavier prompt. Per-project setting.",
-  "settings.memory.mode_search_desc": "Search: nothing is injected; the AI searches its memory before each task and saves on its own. Light prompt, faster start. Per-project setting.",
-  "settings.memory.mode_ondemand_desc": "The memory tools exist but the AI uses them ONLY if you ask (\"remember that…\", \"what did you save about…\"). Per-project setting.",
-  "settings.memory.mode_off_desc": "Memory off: no read or write access, the AI answers without memory.",
   "settings.internet.unreachable_badge": "unreachable",
   "settings.internet.key_registered_prefix": "key registered ",
   "settings.internet.no_key_open_server": "no key — open server",
@@ -6565,19 +6605,13 @@ async function toggleMachines(){
   const on=document.getElementById('machines-toggle').checked;
   await jpost('/api/agent/machines',{on});
 }
-// Mode mémoire (4 états, par projet) — indépendant du mode agent.
-const MEM_DESC={
-  always:t('settings.memory.mode_always_desc'),
-  search:t('settings.memory.mode_search_desc'),
-  ondemand:t('settings.memory.mode_ondemand_desc'),
-  off:t('settings.memory.mode_off_desc')
-};
-function renderMemModeDesc(m){ const d=document.getElementById('mem-mode-desc'); if(d) d.textContent=MEM_DESC[m]||''; }
-// Coche le bon segment du sélecteur de mode (contrôle segmenté du modal mémoire).
+// Mode mémoire (4 états, par projet) — indépendant du mode agent. La description
+// de chaque mode vit désormais sous chaque option (voir .mem-opt-d dans le
+// template), plus dans une boîte séparée.
+// Coche la bonne option de la liste de modes (modal mémoire).
 function setMemModeUI(m){
   const r=document.querySelector('input[name="mem-mode-seg"][value="'+m+'"]');
   if(r) r.checked=true;
-  renderMemModeDesc(m);
 }
 // mode passé par le segment cliqué ; à défaut on lit le segment coché.
 async function setMemMode(mode){
