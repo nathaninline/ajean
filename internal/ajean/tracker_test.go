@@ -75,8 +75,10 @@ func TestTrackerAddListView(t *testing.T) {
 	if !strings.Contains(m, "4210") || !strings.Contains(m, id) {
 		t.Fatalf("vue mois devrait lister l'événement et son id : %s", m)
 	}
-	// Un autre mois n'apparaît pas.
-	if strings.Contains(m, "1000") {
+	// Un autre mois n'apparaît pas. On teste la DATE 2025-03, pas la valeur « 1000 » :
+	// les points portent un id = horodatage nanoseconde (ex. …561000) qui contient
+	// « 1000 » par hasard, ce qui rendait ce test flaky (échecs aléatoires en CI).
+	if strings.Contains(m, "2025") {
 		t.Fatalf("la vue de 2026-07 ne devrait pas contenir un point de 2025 : %s", m)
 	}
 
