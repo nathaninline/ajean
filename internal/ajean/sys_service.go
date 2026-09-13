@@ -76,7 +76,7 @@ var configTemplate = []struct{ key, help string }{
 	{"REASONING", "passthrough du mode raisonnement (on/auto/deepseek)"},
 	{"REASONING_BUDGET", "plafond de tokens de réflexion ; -1 = illimité"},
 	{"COMPACT", "compactage automatique du contexte (off pour couper)"},
-	{"MEM_MODE", "mémoire de l'IA : off / ondemand / always"},
+	{"MEM_MODE", "mémoire de l'IA (repli global ; réglable par projet) : off / ondemand / always / search"},
 	{"EXTRA_ARGS", "ajouté tel quel à la ligne de commande de llama-server"},
 }
 

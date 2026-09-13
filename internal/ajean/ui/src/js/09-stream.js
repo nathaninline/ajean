@@ -302,12 +302,16 @@ function syncSendBtn(){
   // évite de verrouiller le chat quand /api/status n'a pas encore répondu (ou ne
   // répond pas du tout) — dans le doute on laisse la main.
   const ready = !STATUS_SEEN || MODEL_READY;
+  // Pas prêt = deux cas distincts : un modèle CHARGE (MODEL_LOADING), ou AUCUN
+  // modèle n'est chargé (moteur coupé). Le message ne doit pas dire « le modèle
+  // charge » quand rien ne charge.
+  const loading = (typeof MODEL_LOADING!=='undefined') && MODEL_LOADING;
   sb.disabled = !ready;
-  sb.title = ready ? '' : t('chat.model_not_loaded');
+  sb.title = ready ? '' : (loading ? t('chat.model_not_loaded') : t('chat.no_model_loaded'));
   const hint=document.getElementById('sendhint');
   if(hint){
     hint.textContent = ready ? sendHintText()
-                             : t('chat.model_loading_hint');
+                             : (loading ? t('chat.model_loading_hint') : t('chat.no_model_loaded_hint'));
     hint.classList.toggle('waiting', !ready);
   }
 }

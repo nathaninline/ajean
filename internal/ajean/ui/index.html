@@ -2519,7 +2519,8 @@ button:hover{border-color:var(--dim);color:var(--text)}
     <div class="modal-body">
       <div id="mem-block" class="gated-group">
         <div class="mem-seg">
-          <label><input type="radio" name="mem-mode-seg" value="always" onchange="setMemMode('always')"><span data-i18n="memory.mode_auto">auto</span></label>
+          <label><input type="radio" name="mem-mode-seg" value="always" onchange="setMemMode('always')"><span data-i18n="memory.mode_inject">auto · injecté</span></label>
+          <label><input type="radio" name="mem-mode-seg" value="search" onchange="setMemMode('search')"><span data-i18n="memory.mode_search">auto · recherche</span></label>
           <label><input type="radio" name="mem-mode-seg" value="ondemand" onchange="setMemMode('ondemand')"><span data-i18n="memory.mode_ondemand">sur demande</span></label>
           <label><input type="radio" name="mem-mode-seg" value="off" onchange="setMemMode('off')"><span data-i18n="memory.mode_off">désactivée</span></label>
         </div>
@@ -3236,6 +3237,8 @@ fr: {
   "memory.title": "Mémoire",
   "memory.mode_label": "mode",
   "memory.mode_auto": "auto",
+  "memory.mode_inject": "auto · injecté",
+  "memory.mode_search": "auto · recherche",
   "memory.mode_ondemand": "sur demande",
   "memory.mode_off": "désactivée",
   "memory.view_title": "Voir la mémoire",
@@ -3747,8 +3750,9 @@ fr: {
   "settings.memory.network_error": "erreur réseau",
   "settings.memory.move_failed": "déplacement impossible",
   "settings.memory.note_moved": "note déplacée",
-  "settings.memory.mode_always_desc": "L'IA cherche dans sa mémoire avant de répondre et sauve d'elle-même ce qui mérite d'être retenu.",
-  "settings.memory.mode_ondemand_desc": "Les outils mémoire existent mais l'IA ne les utilise QUE si tu le demandes (« souviens-toi de… », « qu'avais-tu retenu sur… »).",
+  "settings.memory.mode_always_desc": "Injecté : l'index de la mémoire (liste des pages) est mis en tête de conversation, l'IA voit d'emblée ce qu'elle sait et sauve d'elle-même. Prompt un peu plus lourd. Réglage propre à ce projet.",
+  "settings.memory.mode_search_desc": "Recherche : rien n'est injecté, l'IA cherche dans sa mémoire avant chaque tâche et sauve d'elle-même. Prompt léger, démarrage plus rapide. Réglage propre à ce projet.",
+  "settings.memory.mode_ondemand_desc": "Les outils mémoire existent mais l'IA ne les utilise QUE si tu le demandes (« souviens-toi de… », « qu'avais-tu retenu sur… »). Réglage propre à ce projet.",
   "settings.memory.mode_off_desc": "Mémoire coupée : aucun accès en lecture ni écriture, l'IA répond sans mémoire.",
   "settings.internet.unreachable_badge": "injoignable",
   "settings.internet.key_registered_prefix": "clé enregistrée ",
@@ -4177,6 +4181,8 @@ fr: {
   "chat.stop": "Arrêté",
   "chat.model_not_loaded": "le modèle n'est pas encore chargé",
   "chat.model_loading_hint": "Le modèle charge, envoi possible dès qu'il est prêt.",
+  "chat.no_model_loaded": "aucun modèle n'est chargé",
+  "chat.no_model_loaded_hint": "Aucun modèle chargé : choisis un preset et démarre le moteur.",
   "chat.compact_noop": "rien à compacter (contexte déjà minimal)",
   "chat.connecting_to_server": "connexion au serveur…",
   "chat.model_not_ready": "le modèle n'est pas encore prêt",
@@ -4378,6 +4384,8 @@ en: {
   "memory.title": "Memory",
   "memory.mode_label": "mode",
   "memory.mode_auto": "auto",
+  "memory.mode_inject": "auto · injected",
+  "memory.mode_search": "auto · search",
   "memory.mode_ondemand": "on demand",
   "memory.mode_off": "off",
   "memory.view_title": "View memory",
@@ -4889,8 +4897,9 @@ en: {
   "settings.memory.network_error": "network error",
   "settings.memory.move_failed": "move failed",
   "settings.memory.note_moved": "note moved",
-  "settings.memory.mode_always_desc": "The AI searches its memory before answering and saves on its own what's worth remembering.",
-  "settings.memory.mode_ondemand_desc": "The memory tools exist but the AI uses them ONLY if you ask (\"remember that…\", \"what did you save about…\").",
+  "settings.memory.mode_always_desc": "Injected: the memory index (page list) is placed at the top of the conversation, so the AI sees what it knows right away and saves on its own. Slightly heavier prompt. Per-project setting.",
+  "settings.memory.mode_search_desc": "Search: nothing is injected; the AI searches its memory before each task and saves on its own. Light prompt, faster start. Per-project setting.",
+  "settings.memory.mode_ondemand_desc": "The memory tools exist but the AI uses them ONLY if you ask (\"remember that…\", \"what did you save about…\"). Per-project setting.",
   "settings.memory.mode_off_desc": "Memory off: no read or write access, the AI answers without memory.",
   "settings.internet.unreachable_badge": "unreachable",
   "settings.internet.key_registered_prefix": "key registered ",
@@ -5319,6 +5328,8 @@ en: {
   "chat.stop": "stop",
   "chat.model_not_loaded": "the model isn't loaded yet",
   "chat.model_loading_hint": "The model is loading, sending will be possible once it's ready.",
+  "chat.no_model_loaded": "no model is loaded",
+  "chat.no_model_loaded_hint": "No model loaded: pick a preset and start the engine.",
   "chat.compact_noop": "nothing to compact (context already minimal)",
   "chat.connecting_to_server": "connecting to the server…",
   "chat.model_not_ready": "the model isn't ready yet",
@@ -5795,6 +5806,9 @@ async function loadStatus(){
   el.className='statuspill '+cls;
   el.innerHTML='<span class="dot"></span>'+txt;
   MODEL_READY = !!(s.active && s.health);
+  // Chargement en cours = moteur actif, pas encore sain, sans erreur de charge.
+  // Sinon (moteur coupé), c'est « aucun modèle chargé », pas un chargement.
+  MODEL_LOADING = !!(s.active && !s.health && !s.load_error);
   // Le bouton d'envoi suit l'état du moteur : inutile de pouvoir envoyer un
   // message à un modèle qui n'est pas encore chargé (voir syncSendBtn).
   STATUS_SEEN = true;
@@ -5950,6 +5964,11 @@ async function applyUpdate(){
 // Compteur de contexte : CTX_USED estimé via les stats serveur (prefill+decode
 // du dernier tour ≈ taille du prochain prompt). À 90% on propose de compacter.
 let CTX_MAX=0, CTX_USED=0, MODEL_READY=false;
+// MODEL_LOADING : un modèle est réellement EN TRAIN de charger (moteur actif mais
+// pas encore sain). À distinguer de « aucun modèle chargé » (moteur coupé) : les
+// deux bloquent l'envoi, mais le message sous le champ ne doit pas prétendre que
+// « le modèle charge » quand rien ne charge (voir syncSendBtn).
+let MODEL_LOADING=false;
 // STATUS_SEEN : /api/status a répondu au moins une fois. Avant ça (ou s'il ne
 // répond pas), on ne verrouille RIEN — mieux vaut un envoi qui échoue qu'un chat
 // bloqué par un état inconnu.
@@ -6298,7 +6317,13 @@ function initPresetSortable(cont){
       // Un léger délai pour que le clic de fin de drag ne bascule pas le preset.
       setTimeout(()=>{ presetJustDragged = false; }, 60);
       const ids=[...cont.children].map(r=>r.dataset.id).filter(Boolean);
-      jpost('/api/presets/order', {ids}).catch(()=>{});
+      // switchTo() bascule par POSITION (1-based) : après un glissement, les
+      // handlers onclick des lignes gardent leur ancienne position, alors que
+      // l'ordre serveur a changé — cliquer une ligne déplacée basculait donc vers
+      // le preset qui occupe désormais cette ancienne position. On re-rend la liste
+      // une fois le nouvel ordre persisté, pour que les onclick reprennent les bonnes
+      // positions.
+      jpost('/api/presets/order', {ids}).then(()=>loadPresets()).catch(()=>{});
     },
   });
 }
@@ -6540,9 +6565,10 @@ async function toggleMachines(){
   const on=document.getElementById('machines-toggle').checked;
   await jpost('/api/agent/machines',{on});
 }
-// Mode mémoire (3 états) — indépendant du mode agent.
+// Mode mémoire (4 états, par projet) — indépendant du mode agent.
 const MEM_DESC={
   always:t('settings.memory.mode_always_desc'),
+  search:t('settings.memory.mode_search_desc'),
   ondemand:t('settings.memory.mode_ondemand_desc'),
   off:t('settings.memory.mode_off_desc')
 };
@@ -9171,12 +9197,16 @@ function syncSendBtn(){
   // évite de verrouiller le chat quand /api/status n'a pas encore répondu (ou ne
   // répond pas du tout) — dans le doute on laisse la main.
   const ready = !STATUS_SEEN || MODEL_READY;
+  // Pas prêt = deux cas distincts : un modèle CHARGE (MODEL_LOADING), ou AUCUN
+  // modèle n'est chargé (moteur coupé). Le message ne doit pas dire « le modèle
+  // charge » quand rien ne charge.
+  const loading = (typeof MODEL_LOADING!=='undefined') && MODEL_LOADING;
   sb.disabled = !ready;
-  sb.title = ready ? '' : t('chat.model_not_loaded');
+  sb.title = ready ? '' : (loading ? t('chat.model_not_loaded') : t('chat.no_model_loaded'));
   const hint=document.getElementById('sendhint');
   if(hint){
     hint.textContent = ready ? sendHintText()
-                             : t('chat.model_loading_hint');
+                             : (loading ? t('chat.model_loading_hint') : t('chat.no_model_loaded_hint'));
     hint.classList.toggle('waiting', !ready);
   }
 }

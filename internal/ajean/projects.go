@@ -37,6 +37,11 @@ type Project struct {
 	// de conversation (projectContextMessage) pour qu'elle sache d'emblée sur quoi
 	// elle travaille, sans avoir à le lui réexpliquer à chaque nouvelle session.
 	Desc string `json:"desc,omitempty"`
+	// MemMode = mode mémoire PROPRE à ce projet (off/ondemand/always/search). Vide
+	// = pas encore réglé → repli sur l'ancien global MEM_MODE (voir memMode). Permet
+	// à chaque projet de choisir entre index injecté (always) et recherche d'abord
+	// (search), ou de couper la mémoire, indépendamment des autres.
+	MemMode string `json:"mem_mode,omitempty"`
 }
 
 const (
@@ -185,6 +190,42 @@ func setProjectDesc(slug, desc string) error {
 	for i := range list {
 		if list[i].Slug == slug {
 			list[i].Desc = desc
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("projet introuvable")
+	}
+	return saveProjects(list)
+}
+
+// projectMemMode renvoie le mode mémoire propre à un projet ("" si non réglé, ce
+// qui déclenche le repli global dans memMode).
+func projectMemMode(slug string) string {
+	for _, p := range listProjects() {
+		if p.Slug == slug {
+			return p.MemMode
+		}
+	}
+	return ""
+}
+
+// setProjectMemMode enregistre le mode mémoire d'un projet. Une valeur vide efface
+// le réglage propre (retour au repli global).
+func setProjectMemMode(slug, mode string) error {
+	mode = strings.ToLower(strings.TrimSpace(mode))
+	switch mode {
+	case "", "off", "ondemand", "always", "search":
+		// ok
+	default:
+		return fmt.Errorf("mode mémoire invalide: %s", mode)
+	}
+	list := listProjects()
+	found := false
+	for i := range list {
+		if list[i].Slug == slug {
+			list[i].MemMode = mode
 			found = true
 			break
 		}

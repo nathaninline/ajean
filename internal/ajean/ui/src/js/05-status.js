@@ -35,6 +35,9 @@ async function loadStatus(){
   el.className='statuspill '+cls;
   el.innerHTML='<span class="dot"></span>'+txt;
   MODEL_READY = !!(s.active && s.health);
+  // Chargement en cours = moteur actif, pas encore sain, sans erreur de charge.
+  // Sinon (moteur coupé), c'est « aucun modèle chargé », pas un chargement.
+  MODEL_LOADING = !!(s.active && !s.health && !s.load_error);
   // Le bouton d'envoi suit l'état du moteur : inutile de pouvoir envoyer un
   // message à un modèle qui n'est pas encore chargé (voir syncSendBtn).
   STATUS_SEEN = true;
@@ -190,6 +193,11 @@ async function applyUpdate(){
 // Compteur de contexte : CTX_USED estimé via les stats serveur (prefill+decode
 // du dernier tour ≈ taille du prochain prompt). À 90% on propose de compacter.
 let CTX_MAX=0, CTX_USED=0, MODEL_READY=false;
+// MODEL_LOADING : un modèle est réellement EN TRAIN de charger (moteur actif mais
+// pas encore sain). À distinguer de « aucun modèle chargé » (moteur coupé) : les
+// deux bloquent l'envoi, mais le message sous le champ ne doit pas prétendre que
+// « le modèle charge » quand rien ne charge (voir syncSendBtn).
+let MODEL_LOADING=false;
 // STATUS_SEEN : /api/status a répondu au moins une fois. Avant ça (ou s'il ne
 // répond pas), on ne verrouille RIEN — mieux vaut un envoi qui échoue qu'un chat
 // bloqué par un état inconnu.

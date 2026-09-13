@@ -1,9 +1,30 @@
-Correctif du sélecteur de moteur : un modèle configuré sur un moteur personnalisé (un fork de llama.cpp) faisait passer ce fork pour le moteur « compilé » par défaut, sans moyen d'y revenir.
+Version de corrections, plus un nouveau réglage de mémoire par projet.
+
+## Mémoire
+
+Le mode mémoire se règle désormais **par projet**, avec quatre choix dans la fenêtre Mémoire :
+
+- **auto, injecté** : l'index des pages est placé en tête de conversation, l'IA voit d'emblée ce qu'elle sait. C'est le comportement actuel, resté le réglage par défaut.
+- **auto, recherche** : rien n'est injecté, l'IA cherche dans sa mémoire avant chaque tâche. Le contexte reste léger et le modèle démarre plus vite. C'est le retour du fonctionnement d'avant la version 0.13.0.
+- **sur demande** : les outils mémoire existent mais ne servent que si on le demande.
+- **désactivée** : aucun accès mémoire.
+
+Chaque projet garde son propre réglage. Les projets existants conservent leur comportement (index injecté).
 
 ## Corrections
 
-* **Sélection du moteur « compilé ».** Quand un modèle tournait sur un moteur personnalisé installé à côté (un fork de llama.cpp, par exemple une variante à cache d'experts), la carte « compilé » du panneau latéral et l'option « compilé » de l'éditeur de modèle affichaient ce fork au lieu du build par défaut. Choisir « compilé » réécrivait alors le moteur du modèle vers le fork, sans jamais permettre de repasser sur le moteur canonique. En cause : le statut du moteur « compilé » était déduit du moteur du modèle actif, donc il suivait le fork. Le moteur « compilé » désigne désormais toujours le build géré par AJEAN (`backends/llama.cpp`), indépendamment du modèle en cours. La vérification des mises à jour et la recompilation visent elles aussi ce build canonique. Les moteurs personnalisés continuent de se choisir et de se gérer séparément ; un modèle volontairement réglé sur un fork n'est pas modifié.
+- **Images tournées** : les photos venant d'un téléphone (orientation stockée en métadonnées EXIF) arrivaient au modèle tournées de 90 degrés, qui annonçait devoir les redresser mentalement. L'orientation est maintenant appliquée aux pixels avant l'envoi, uniquement pour les JPEG concernés, avec repli sur l'image d'origine en cas de souci.
+- **Mode agent désactivé** : en chat pur, le modèle pouvait quand même tenter d'appeler des outils qui n'existent pas dans ce mode, ce qui partait parfois en boucle. Ces appels sont désormais ignorés quand aucun outil n'est proposé.
+- **Réordonnancement des presets** : après avoir déplacé un preset par glissement, cliquer dessus tout de suite sélectionnait le preset qui occupait l'ancienne position. La liste est maintenant réactualisée une fois le nouvel ordre enregistré.
+
+## Interface
+
+- Le message sous la zone de chat n'affiche plus « le modèle charge » quand aucun modèle n'est chargé : il distingue le chargement en cours de l'absence de modèle.
 
 ## Mise à jour
 
-`ajean update` récupère la nouvelle version. Pour un modèle qui était resté accroché à un fork par erreur, rouvrir l'éditeur du modèle, section Moteur, et cocher « compilé » : le moteur repasse sur le build par défaut.
+```
+ajean update
+```
+
+Non vérifié sur cette version : le rendu de l'orientation EXIF n'a pas été testé sur un vrai flux multimodal (mmproj) avec une photo de téléphone, seulement en tests unitaires.

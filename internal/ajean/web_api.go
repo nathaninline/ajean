@@ -579,27 +579,19 @@ func handleAgent(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"enabled": agentEnabled(), "compact": compactEnabled(), "machines": machinesEnabled(), "mem_mode": string(memMode()), "pages": out, "skills": out})
 }
 
-// handleMemoryMode lit/écrit le mode mémoire (off / ondemand / always).
+// handleMemoryMode lit/écrit le mode mémoire (off / ondemand / always / search).
 //
-//	GET  → {mode}
-//	POST {mode} → persiste MEM_MODE
+//	GET  → {mode} du projet actif
+//	POST {mode} → persiste le mode mémoire DU PROJET ACTIF (off/ondemand/always/search)
 func handleMemoryMode(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		var req struct {
 			Mode string `json:"mode"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&req)
-		// On normalise via memMode() en réinjectant la valeur : toute entrée
-		// inconnue retombe sur "always", donc on valide en passant par le parseur.
-		m := MemAlways
-		switch MemMode(strings.ToLower(strings.TrimSpace(req.Mode))) {
-		case MemOff:
-			m = MemOff
-		case MemOnDemand:
-			m = MemOnDemand
-		case MemAlways:
-			m = MemAlways
-		}
+		// normalizeMemMode valide et ramène toute entrée inconnue à "always".
+		// setMemMode écrit sur le PROJET ACTIF (mode mémoire par projet).
+		m := normalizeMemMode(req.Mode)
 		if err := setMemMode(m); err != nil {
 			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 			return

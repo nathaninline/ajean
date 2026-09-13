@@ -946,7 +946,13 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			if ch.FinishReason != "" {
 				finishReason = ch.FinishReason
 			}
-			if len(ch.Delta.ToolCalls) > 0 {
+			// Un tool_call n'est retenu que si des outils ont VRAIMENT été annoncés ce
+			// tour-ci (même condition que le payload, cf. plus haut). Sinon — mode agent
+			// coupé, ou relance sans outils après un 500 — le moteur peut quand même
+			// parser un appel que le modèle a émis de lui-même ; l'exécuter donnait
+			// « outil inconnu », réinjecté puis mis en boucle. En chat pur, on ignore
+			// donc l'appel : le modèle répond en texte, sans outil fantôme.
+			if len(tools) > 0 && !disableTools && len(ch.Delta.ToolCalls) > 0 {
 				// Un appel d'outil clôt le texte : on vide MAINTENANT le reliquat
 				// retenu par la garde « </think> » (voir plus bas). Sinon il n'était
 				// émis qu'en fin de flux, donc APRÈS l'événement d'outil, et l'UI

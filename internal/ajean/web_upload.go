@@ -207,6 +207,10 @@ func userMessageContent(files []attachInfo, prompt string) any {
 			textFiles = append(textFiles, f) // illisible ici : au moins l'annoncer comme fichier
 			continue
 		}
+		// Redresse l'orientation EXIF (photos de téléphone) : mmproj ignore l'EXIF
+		// et verrait sinon l'image tournée de 90°. Repli sur les octets bruts si
+		// besoin — voir orientImageForModel.
+		b, mime = orientImageForModel(b, mime)
 		imgParts = append(imgParts, map[string]any{
 			"type": "image_url",
 			"image_url": map[string]any{

@@ -46,7 +46,7 @@ func baseSystemPrompt(caps Caps) string {
 	// présente, d'où « Jean » et « AJEAN » écrits tels quels. Éviter « real tools »,
 	// qui sonnait bizarre à l'oral (« je fonctionne avec de vrais outils »).
 	b.WriteString("You are Jean, the assistant inside AJEAN, an AI app that runs on this machine. You can act on it directly through your tools.")
-	if caps.Mem == MemAlways {
+	if memProactive(caps.Mem) {
 		b.WriteString(" You evolve with every conversation: you actively maintain a persistent memory so nothing useful is lost between sessions.")
 	}
 	// PAS de catalogue d'outils ici : leurs schémas, envoyés dans la même requête,
@@ -64,6 +64,8 @@ func baseSystemPrompt(caps Caps) string {
 	// Politique d'usage de la mémoire selon le mode.
 	switch caps.Mem {
 	case MemAlways:
+		// Mode INJECTÉ : l'index MEMORY.md est déjà en tête de contexte (mem_index.go),
+		// donc mem_search est optionnel — l'IA lit directement la bonne page.
 		b.WriteString("\nManaging your memory is part of the job, not optional:\n")
 		b.WriteString("- Save anything worth keeping (a preference, fact, decision, how-to) with mem_add, or mem_edit to update a page — on your own, without being asked.\n")
 		b.WriteString("- The project's memory index (page list) is already in your context. When a page looks relevant, mem_read it directly for its content — no search needed first.\n")
@@ -71,6 +73,15 @@ func baseSystemPrompt(caps Caps) string {
 		b.WriteString("- Memory is per-project (currently **" + projectName(activeProjectSlug()) + "**), other projects isolated. Keep it tidy: small focused pages (one topic each), mem_edit rather than duplicate, mem_delete what's obsolete.\n")
 		b.WriteString("- Dated data that piles up (counters, readings, a running follow-up) goes in the `tracker` tool, not a note — a note would bloat.\n")
 		b.WriteString("- MEMORY.md (this project's index) is maintained automatically: creating/deleting a page adds/removes its line. Don't manage lines yourself; mem_edit it only to add a short hook to an entry.\n")
+	case MemSearchFirst:
+		// Mode RECHERCHE : rien n'est injecté (ni index ni trackers), le prompt reste
+		// léger et le modèle démarre plus vite. En contrepartie il DOIT chercher lui-même
+		// avant d'agir — sinon il ne saura pas ce que la mémoire contient.
+		b.WriteString("\nManaging your memory is part of the job, not optional:\n")
+		b.WriteString("- Before any task or answer, call mem_search first, then mem_read the best page — even for trivial-seeming questions or ones with new specifics (a name, a value): your saved method still applies, only the parameter changes. Nothing about your memory is preloaded here, so a search is the only way to know what you already know.\n")
+		b.WriteString("- Save anything worth keeping (a preference, fact, decision, how-to) with mem_add, or mem_edit to update a page — on your own, without being asked.\n")
+		b.WriteString("- Memory is per-project (currently **" + projectName(activeProjectSlug()) + "**), other projects isolated. Keep it tidy: small focused pages (one topic each), mem_edit rather than duplicate, mem_delete what's obsolete.\n")
+		b.WriteString("- Dated data that piles up (counters, readings, a running follow-up) goes in the `tracker` tool, not a note — a note would bloat.\n")
 	case MemOnDemand:
 		b.WriteString("\nMemory is ON-DEMAND: you have the mem_* tools but do NOT read or write memory on your own. Call mem_search/mem_read only when the user explicitly asks you to recall or look something up, and mem_add/mem_edit only when the user explicitly asks you to remember something. Otherwise leave memory untouched and answer directly.\n")
 	}

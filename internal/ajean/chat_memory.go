@@ -384,38 +384,61 @@ func MemDelete(name string) error {
 }
 
 // MemMode gouverne l'accès de l'IA à sa mémoire persistante, indépendamment du
-// mode agent (shell). Trois modes :
+// mode agent (shell). Réglé PAR PROJET (voir projectMemMode). Quatre modes :
 //   - MemOff      : mémoire coupée (aucun outil mem_*, aucune consigne).
 //   - MemOnDemand : outils mem_* disponibles, mais l'IA ne les utilise QUE si
 //     l'utilisateur le demande explicitement (pas de recherche/écriture spontanée).
-//   - MemAlways   : comportement proactif historique (cherche avant de répondre, sauve d'elle-même).
+//   - MemAlways   : proactif, INDEX INJECTÉ — l'index MEMORY.md (titres+accroches)
+//     est mis en tête de conversation, mem_search devient optionnel. Prompt plus
+//     lourd, mais l'IA voit d'emblée ce qu'elle sait.
+//   - MemSearch   : proactif, RECHERCHE D'ABORD — rien n'est injecté, l'IA reçoit
+//     la consigne d'appeler mem_search avant toute tâche. Prompt léger, démarrage
+//     plus rapide (comportement d'avant v0.13.0).
 type MemMode string
 
 const (
-	MemOff      MemMode = "off"
-	MemOnDemand MemMode = "ondemand"
-	MemAlways   MemMode = "always"
+	MemOff         MemMode = "off"
+	MemOnDemand    MemMode = "ondemand"
+	MemAlways      MemMode = "always"
+	MemSearchFirst MemMode = "search"
 )
 
-// memMode lit MEM_MODE dans config.env. Défaut = always (préserve le comportement
-// actuel). Toute valeur inconnue retombe sur always.
-func memMode() MemMode {
-	switch strings.ToLower(strings.TrimSpace(ReadConfig()["MEM_MODE"])) {
+// memProactive : l'IA gère sa mémoire d'elle-même (cherche/sauve sans qu'on le
+// demande). Vrai pour les deux modes auto (injecté ou recherche).
+func memProactive(m MemMode) bool { return m == MemAlways || m == MemSearchFirst }
+
+// normalizeMemMode ramène une valeur de config à un mode connu. Défaut = always
+// (préserve le comportement historique). "auto" est un alias d'always.
+func normalizeMemMode(v string) MemMode {
+	switch strings.ToLower(strings.TrimSpace(v)) {
 	case "off":
 		return MemOff
 	case "ondemand":
 		return MemOnDemand
+	case "search":
+		return MemSearchFirst
 	default: // "always", "auto", "" et inconnus
 		return MemAlways
 	}
 }
 
-// setMemMode persiste le mode mémoire dans config.env.
-func setMemMode(m MemMode) error {
-	return SetConfigKey("MEM_MODE", string(m))
+// memMode renvoie le mode mémoire du PROJET ACTIF. Repli : si le projet n'a pas de
+// réglage propre (projets d'avant cette fonctionnalité), on retombe sur l'ancien
+// réglage global MEM_MODE de config.env — qui vaut always par défaut. Le
+// comportement des projets existants est donc préservé à l'identique.
+func memMode() MemMode {
+	if pm := projectMemMode(activeProjectSlug()); pm != "" {
+		return normalizeMemMode(pm)
+	}
+	return normalizeMemMode(ReadConfig()["MEM_MODE"])
 }
 
-// cmdMemory : ajean memory [off|ondemand|always|status]
+// setMemMode persiste le mode mémoire du PROJET ACTIF.
+func setMemMode(m MemMode) error {
+	return setProjectMemMode(activeProjectSlug(), string(m))
+}
+
+// cmdMemory : ajean memory [off|ondemand|always|search|status]
 func cmdMemory(args []string) error {
 	ensureDefaultProject() // amorce/migre les projets si ce process ne passe pas par l'UI web
 	sub := ""
@@ -423,9 +446,10 @@ func cmdMemory(args []string) error {
 		sub = strings.ToLower(strings.TrimSpace(args[0]))
 	}
 	label := map[MemMode]string{
-		MemOff:      "désactivée (l'IA n'a aucun accès mémoire)",
-		MemOnDemand: "sur demande (outils dispo, utilisés seulement si tu le demandes)",
-		MemAlways:   "auto (l'IA cherche et sauve d'elle-même)",
+		MemOff:         "désactivée (l'IA n'a aucun accès mémoire)",
+		MemOnDemand:    "sur demande (outils dispo, utilisés seulement si tu le demandes)",
+		MemAlways:      "auto/injecté (index en tête de conversation, recherche optionnelle)",
+		MemSearchFirst: "auto/recherche (rien d'injecté, l'IA cherche avant toute tâche — prompt léger)",
 	}
 	switch sub {
 	case "off":
@@ -436,8 +460,12 @@ func cmdMemory(args []string) error {
 		if err := setMemMode(MemOnDemand); err != nil {
 			return err
 		}
-	case "always":
+	case "always", "auto", "inject", "injected":
 		if err := setMemMode(MemAlways); err != nil {
+			return err
+		}
+	case "search", "recherche", "lazy":
+		if err := setMemMode(MemSearchFirst); err != nil {
 			return err
 		}
 	case "", "status":
@@ -447,7 +475,7 @@ func cmdMemory(args []string) error {
 		fmt.Printf("  %d page(s) sous %s\n", len(pages), memoryDir())
 		return nil
 	default:
-		return fmt.Errorf("usage: ajean memory [off|ondemand|always|status]")
+		return fmt.Errorf("usage: ajean memory [off|ondemand|always|search|status]")
 	}
 	m := memMode()
 	fmt.Printf("%s mémoire : %s — %s\n", green("[ok]"), bold(string(m)), label[m])

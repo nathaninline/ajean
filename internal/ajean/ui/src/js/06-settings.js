@@ -167,7 +167,13 @@ function initPresetSortable(cont){
       // Un léger délai pour que le clic de fin de drag ne bascule pas le preset.
       setTimeout(()=>{ presetJustDragged = false; }, 60);
       const ids=[...cont.children].map(r=>r.dataset.id).filter(Boolean);
-      jpost('/api/presets/order', {ids}).catch(()=>{});
+      // switchTo() bascule par POSITION (1-based) : après un glissement, les
+      // handlers onclick des lignes gardent leur ancienne position, alors que
+      // l'ordre serveur a changé — cliquer une ligne déplacée basculait donc vers
+      // le preset qui occupe désormais cette ancienne position. On re-rend la liste
+      // une fois le nouvel ordre persisté, pour que les onclick reprennent les bonnes
+      // positions.
+      jpost('/api/presets/order', {ids}).then(()=>loadPresets()).catch(()=>{});
     },
   });
 }
@@ -409,9 +415,10 @@ async function toggleMachines(){
   const on=document.getElementById('machines-toggle').checked;
   await jpost('/api/agent/machines',{on});
 }
-// Mode mémoire (3 états) — indépendant du mode agent.
+// Mode mémoire (4 états, par projet) — indépendant du mode agent.
 const MEM_DESC={
   always:t('settings.memory.mode_always_desc'),
+  search:t('settings.memory.mode_search_desc'),
   ondemand:t('settings.memory.mode_ondemand_desc'),
   off:t('settings.memory.mode_off_desc')
 };

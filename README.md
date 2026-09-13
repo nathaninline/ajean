@@ -147,7 +147,7 @@ La configuration du moteur s'édite avec `ajean edit`, qui la déroule au format
 | `REASONING_BUDGET` | plafond de tokens de réflexion ; `-1` = illimité | `-1` |
 | `REASONING_EFFORT` | effort de réflexion (`low` / `medium` / `high`…) selon le modèle | aucun |
 | `COMPACT` | compactage automatique du contexte (`off` pour couper) | activé |
-| `MEM_MODE` | mémoire : `off` / `ondemand` / `always` | `always` |
+| `MEM_MODE` | mémoire (repli global ; réglable par projet) : `off` / `ondemand` / `always` (index injecté) / `search` (recherche d'abord) | `always` |
 | `CRAWL4AI_URL` / `CRAWL4AI_KEY` | serveur d'accès internet | aucun |
 | `EXTRA_ARGS` | ajouté tel quel à la ligne de commande du moteur | aucun |
 
