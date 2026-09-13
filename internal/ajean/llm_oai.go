@@ -90,6 +90,18 @@ func oaiTLSConfig() *tls.Config {
 	certmagic.DefaultACME.Agreed = true
 	certmagic.DefaultACME.Email = os.Getenv("AJEAN_ACME_EMAIL")
 	certmagic.DefaultACME.DisableHTTPChallenge = true // pas de :80 accessible (CGNAT) → TLS-ALPN uniquement
+	// La VRAIE validation TLS-ALPN-01 est servie EN LIGNE par le tunnel : le cert de
+	// challenge est déposé dans une map globale que le GetCertificate de ce même
+	// tlsCfg ressort quand Let's Encrypt se connecte via le relais (acme-tls/1).
+	// Mais certmagic exige AUSSI d'ouvrir son propre listener de secours ; par défaut
+	// sur :443, que le service (User=<utilisateur>, non privilégié) ne peut PAS binder →
+	// « permission denied » → émission avortée, aucun cert, endpoint injoignable.
+	// On le renvoie sur un port HAUT bindable sans privilège : ce listener local
+	// n'est jamais contacté par Let's Encrypt (la validation passe par le tunnel),
+	// il ne sert qu'à satisfaire certmagic. (Avant le 2026-08-07 ajean-ui tournait en
+	// root et bindait :443, d'où les anciens certs ; le passage en nathan a cassé
+	// l'émission des nouveaux hostnames oai.)
+	certmagic.DefaultACME.AltTLSALPNPort = 44300
 	magic := certmagic.NewDefault()
 	magic.OnDemand = &certmagic.OnDemandConfig{
 		DecisionFunc: func(_ context.Context, name string) error {
