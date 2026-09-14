@@ -103,6 +103,22 @@ type Conversation struct {
 	// le bouton stop s'étiquette en conséquence. Vides = c'est un tour normal.
 	runningTaskID   string
 	runningTaskName string
+
+	// File d'attente des messages envoyés PENDANT une génération (issue #74 : ajout
+	// en cours de réponse). Ils sont soit injectés dans le tour en cours à la
+	// prochaine frontière d'étape (après un appel d'outil), soit — si le tour se
+	// termine avant — traités comme des tours suivants, dans l'ordre. Protégée par mu.
+	queued []queuedMsg
+}
+
+// queuedMsg = un message mis en file pendant la génération. On mémorise ses caps et
+// sa température au moment de l'envoi : un tour démarré depuis la file (après la fin
+// du tour courant) doit s'exécuter avec les mêmes réglages que ceux choisis à l'envoi.
+type queuedMsg struct {
+	text  string
+	files []attachInfo
+	caps  Caps
+	temp  float64
 }
 
 var conv = func() *Conversation {
@@ -358,6 +374,12 @@ func (c *Conversation) compactAndPublish(ctx context.Context, epoch int, phase s
 	// (ré)ajouter index/contexte/trackers, alors que memIndexMessage se fie à
 	// memMode() (mode du projet) et pas à caps.
 	if caps.Agent {
+		// Rappel des pages mémoire LUES : après compactage, leur contenu n'est plus
+		// inline (résumé). Une page de règles à suivre était donc oubliée. On n'en
+		// garde RIEN verbatim (contexte léger) : juste un rappel listant leurs noms,
+		// invitant à les relire si pertinent. Reconstruit depuis l'historique AVANT
+		// compactage (msgs), borné en nombre de noms.
+		compacted = remindReadMemPages(compacted, msgs)
 		compacted = ensureMemIndexFront(compacted)
 		// Idem pour le contexte projet (description) : ré-injecté en tête s'il a sauté au
 		// compactage. Ajouté APRÈS l'index → se retrouve DEVANT lui (préfixage en tête).
@@ -503,6 +525,74 @@ func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, tem
 	return nil
 }
 
+// EnqueueOrStart démarre un tour tout de suite si le moteur est libre, sinon MET EN
+// FILE le message (issue #74). Renvoie queued=true quand il a été mis en attente. Un
+// message en file est soit injecté dans le tour en cours à la prochaine frontière
+// d'étape (drainQueued, via runChat), soit traité comme tour suivant à la fin du tour
+// courant (startQueuedIfAny). files/caps/temp sont mémorisés pour le second cas.
+func (c *Conversation) EnqueueOrStart(text string, files []attachInfo, caps Caps, temperature float64) (bool, error) {
+	c.mu.Lock()
+	if c.Generating {
+		c.queued = append(c.queued, queuedMsg{text: text, files: files, caps: caps, temp: temperature})
+		c.mu.Unlock()
+		return true, nil
+	}
+	c.mu.Unlock()
+	return false, c.StartTurn(text, files, caps, temperature)
+}
+
+// drainQueued vide la file et renvoie les messages utilisateur à injecter dans le
+// tour EN COURS (vue modèle), tout en les journalisant pour qu'ils apparaissent dans
+// le fil sur tous les appareils. Appelé par runChat entre deux étapes. epoch garde
+// contre un reset survenu entre-temps.
+func (c *Conversation) drainQueued(epoch int) []Message {
+	c.mu.Lock()
+	if c.epoch != epoch || len(c.queued) == 0 {
+		c.mu.Unlock()
+		return nil
+	}
+	items := c.queued
+	c.queued = nil
+	c.mu.Unlock()
+
+	var out []Message
+	for _, q := range items {
+		delta := map[string]any{"user": q.text}
+		if len(q.files) > 0 {
+			delta["files"] = q.files
+		}
+		c.appendDelta(epoch, delta) // s'affiche dans le fil (live, multi-appareils)
+		prompt := q.text
+		if strings.TrimSpace(prompt) == "" {
+			prompt = "Prends-en connaissance."
+		}
+		out = append(out, Message{Role: "user", Content: userMessageContent(q.files, prompt)})
+	}
+	return out
+}
+
+// startQueuedIfAny démarre le prochain tour depuis la file, s'il en reste et que le
+// moteur est libre. Appelé à la toute fin d'un tour : les messages non consommés en
+// cours de route (ou envoyés après la dernière frontière d'étape) sont ainsi traités
+// automatiquement, sans que l'utilisateur ait à renvoyer quoi que ce soit. Chaque tour
+// ainsi lancé rappellera startQueuedIfAny à sa fin → la file se vide dans l'ordre.
+func (c *Conversation) startQueuedIfAny() {
+	c.mu.Lock()
+	if c.Generating || len(c.queued) == 0 {
+		c.mu.Unlock()
+		return
+	}
+	q := c.queued[0]
+	c.queued = c.queued[1:]
+	c.mu.Unlock()
+	if err := c.StartTurn(q.text, q.files, q.caps, q.temp); err != nil {
+		// Modèle indisponible au moment de dépiler (rare) : on le signale dans le fil
+		// plutôt que de perdre le message en silence, et on tente le suivant.
+		c.appendDelta(c.epoch, map[string]any{"error": err.Error()})
+		c.startQueuedIfAny()
+	}
+}
+
 // generate exécute un tour complet et journalise chaque événement. Détaché : la
 // fermeture du navigateur n'a aucun effet ici, seul /stop (cancel) l'interrompt.
 // epoch est capturé au StartTurn : si un Reset survient pendant la génération,
@@ -546,6 +636,17 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 		if hasPushSubs() && ctx.Err() == nil {
 			go sendPushToAll("AJEAN", "Réponse prête · "+fmtDurFR(time.Since(turnStart)))
 		}
+		// File d'attente (issue #74). Interrompu par un stop : l'utilisateur reprend la
+		// main, on abandonne les messages en file. Sinon on démarre le prochain tour
+		// depuis la file — les messages envoyés pendant ce tour et non déjà injectés en
+		// cours de route sont ainsi traités automatiquement, dans l'ordre.
+		if ctx.Err() != nil {
+			c.mu.Lock()
+			c.queued = nil
+			c.mu.Unlock()
+			return
+		}
+		c.startQueuedIfAny()
 	}()
 
 	// Snapshot de la vue modèle.
@@ -649,7 +750,7 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 			c.appendDelta(epoch, map[string]any{"content": ev.Content})
 		}
 		return true // génération détachée : on ne s'interrompt jamais sur un abonné
-	})
+	}, func() []Message { return c.drainQueued(epoch) })
 
 	// Persiste la vue modèle : messages d'outils (assistant tool_calls + résultats)
 	// PUIS la réponse finale — même ordre que l'ancien client, pour que le modèle
@@ -921,7 +1022,10 @@ func coalesceReplay(events []LogEvent, from int) []map[string]any {
 // de Log[from:] (léger), puis un caught_up, puis le DIRECT événement par événement.
 // Bloque jusqu'à ce que ctx (la connexion HTTP) soit annulé — la génération, elle,
 // continue indépendamment. emit renvoie false si l'écriture échoue (client parti).
-func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[string]any) bool) {
+// convID = id de la conversation actuellement AFFICHÉE par le client (celui reçu au
+// dernier caught_up/reset). Il permet de détecter qu'un AUTRE appareil a changé de
+// conversation/projet entre-temps : voir la garde `staleConv` plus bas.
+func (c *Conversation) Subscribe(ctx context.Context, from int, convID string, emit func(map[string]any) bool) {
 	// Réveille les attentes de cond quand la connexion se ferme.
 	go func() {
 		<-ctx.Done()
@@ -944,7 +1048,21 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[st
 	c.mu.Lock()
 	snapshot := append([]LogEvent(nil), c.Log...)
 	epoch := c.epoch
+	curID := c.ID
 	c.mu.Unlock()
+	// ⚠️ Détection d'une conversation PÉRIMÉE côté client (fusion de deux fils).
+	// Le client renvoie l'id de la conversation qu'il a À L'ÉCRAN (convID) avec son
+	// curseur `from`. Entre-temps, un AUTRE appareil a pu démarrer une nouvelle
+	// conversation ou changer de projet : l'id courant du serveur (curID) ne
+	// correspond alors plus à ce que ce client affiche. Comme les Seq ne sont PAS
+	// globaux (ils repartent de zéro à chaque conversation), un `from` hérité de
+	// l'ancienne conversation greffait la FIN de la nouvelle sur le DÉBUT de
+	// l'ancienne resté à l'écran — les deux fils fusionnés (début de l'un, fin de
+	// l'autre) jusqu'au prochain refresh. On force alors un rejeu complet précédé
+	// d'un reset, pour que le client vide son affichage avant de recevoir le fil
+	// courant. (convID vide = vieux client sans cette info : on retombe sur la
+	// garde de curseur ci-dessous.)
+	staleConv := from > 0 && convID != "" && convID != curID
 	// ⚠️ Garde-fou anti-« premiers messages manquants au changement de session ».
 	// Le client se réabonne avec from=lastSeq (le dernier Seq qu'il a vu). Les Seq
 	// ne sont PAS globaux : ouvrir une session PLUS ANCIENNE charge un journal dont
@@ -955,6 +1073,17 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[st
 	// l'est, son curseur vient d'une autre session → on repart du début.
 	if n := len(snapshot); n > 0 && from > snapshot[n-1].Seq {
 		from = 0
+		staleConv = true
+	}
+	// Conversation périmée : on ORDONNE d'abord au client de nettoyer (reset en mode
+	// replay = bulles repliées, comme au chargement de page), PUIS on rejoue tout
+	// depuis le début. Sans ce reset préalable, les événements rejoués s'ajoutaient
+	// à l'affichage de l'ancienne conversation.
+	if staleConv {
+		from = 0
+		if !emit(map[string]any{"reset": true, "replay": true, "id": curID}) {
+			return
+		}
 	}
 	last := from
 	for _, ev := range coalesceReplay(snapshot, from) {
@@ -968,7 +1097,9 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[st
 			last = s
 		}
 	}
-	if !emit(map[string]any{"caught_up": true}) {
+	// id : le client mémorise ainsi la conversation qu'il affiche, pour détecter au
+	// prochain (re)abonnement qu'un autre appareil en a changé (voir staleConv).
+	if !emit(map[string]any{"caught_up": true, "id": curID}) {
 		return
 	}
 	// Le padding doit venir APRÈS caught_up, pas dessus. Un proxy (Cloudflare) garde
@@ -997,8 +1128,9 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[st
 			epoch = c.epoch
 			last = 0
 			replay := c.pendingReplay
+			rid := c.ID
 			c.mu.Unlock()
-			if !emit(map[string]any{"reset": true, "replay": replay}) {
+			if !emit(map[string]any{"reset": true, "replay": replay, "id": rid}) {
 				return
 			}
 			awaitingCaughtUp = replay
@@ -1024,8 +1156,9 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, emit func(map[st
 			// quitte alors le mode replay). Une seule fois par restauration.
 			if awaitingCaughtUp {
 				awaitingCaughtUp = false
+				cid := c.ID
 				c.mu.Unlock()
-				if !emit(map[string]any{"caught_up": true}) {
+				if !emit(map[string]any{"caught_up": true, "id": cid}) {
 					return
 				}
 				c.mu.Lock()

@@ -33,7 +33,7 @@ func cmdTest(args []string) error {
 			reply.WriteString(ev.Content)
 		}
 		return true
-	})
+	}, nil)
 	if err != nil {
 		fmt.Println(red("ko"))
 		return err

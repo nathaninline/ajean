@@ -80,7 +80,7 @@ func sseHeartbeat(w http.ResponseWriter, flusher http.Flusher) (*sync.Mutex, fun
 // goroutine détachée — fermer le navigateur n'arrête donc plus rien. Partagé par
 // handleChat (clair) et handleE2EChat (chiffré).
 func runChatStream(ctx context.Context, body chatReq, emit func(map[string]any) bool) {
-	conv.Subscribe(ctx, body.From, emit)
+	conv.Subscribe(ctx, body.From, body.ConvID, emit)
 }
 
 // handleChatSend ajoute un message et lance la génération en arrière-plan. Réponse
@@ -98,16 +98,17 @@ func handleChatSend(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "message vide"})
 		return
 	}
-	if err := conv.StartTurn(body.Message, files, capsFromBody(body), body.Temperature); err != nil {
-		// 409 = occupé (génération en cours) ; 503 = modèle pas prêt.
-		code := 503
-		if err == ErrBusy {
-			code = 409
-		}
-		sendJSON(w, code, map[string]any{"ok": false, "error": err.Error()})
+	// Génération en cours : au lieu de refuser (409), on MET EN FILE (issue #74). Le
+	// message sera injecté dans la réponse en cours à la prochaine frontière d'étape,
+	// ou traité comme tour suivant si le tour se termine avant. queued=true le signale
+	// au client (qui affiche une bulle « en attente »).
+	queued, err := conv.EnqueueOrStart(body.Message, files, capsFromBody(body), body.Temperature)
+	if err != nil {
+		// 503 = modèle pas prêt (ErrBusy ne remonte plus : on met en file à la place).
+		sendJSON(w, 503, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	sendJSON(w, 200, map[string]any{"ok": true})
+	sendJSON(w, 200, map[string]any{"ok": true, "queued": queued})
 }
 
 func handleChatStop(w http.ResponseWriter, r *http.Request) {

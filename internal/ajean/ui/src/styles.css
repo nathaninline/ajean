@@ -628,6 +628,17 @@ details[open]>summary::after{transform:rotate(45deg)}
    besoin de reprendre de l'air : le titre en a déjà donné. */
 details>summary+.subhead{margin-top:4px}
 .io-group{margin-top:8px}
+/* AJEAN LINK — mise en avant des avantages (état non connecté) + rappel discret
+   (état connecté). Monochrome : accent noir/blanc, aucune couleur en dur. */
+.link-perks-head{font-size:13px;font-weight:600;color:var(--text);margin:2px 0 10px}
+.link-perks{display:flex;flex-direction:column;gap:11px;margin:0 0 12px}
+.link-perk{display:flex;gap:10px;align-items:flex-start}
+.link-perk-i{flex:none;width:27px;height:27px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:var(--accent-bg);color:var(--accent)}
+.link-perk-i svg{width:15px;height:15px}
+.link-perk-t{font-size:12.5px;font-weight:600;color:var(--text)}
+.link-perk-d{font-size:11.5px;line-height:1.45;color:var(--dim);margin-top:1px}
+.link-price{font-size:11px;color:var(--dim);margin-top:8px}
+.link-perks-mini{font-size:11px;color:var(--dim);line-height:1.5;margin-top:10px;padding-top:9px;border-top:1px solid var(--border)}
 
 /* --- Carte de liste --- */
 /* overflow VISIBLE : les infobulles (« ? ») sont positionnées en absolu par
@@ -926,6 +937,16 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-seg>label:has(input:checked){background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.22)}
 .pe-seg input{display:none}
 .pe-seg .be-note{display:none}
+/* Badge « non installé » sur une option de moteur indisponible : rendu visible et
+   coloré en warn pour qu'on voie d'un coup d'œil qu'on ne peut pas encore l'utiliser
+   (au lieu d'un texte gris masqué). Sous le libellé, il tient dans la pastille. */
+.pe-seg .be-note.show{display:block;font-size:9px;font-weight:600;line-height:1.2;margin-top:2px;color:var(--warn);text-transform:uppercase;letter-spacing:.3px}
+/* Avertissement moteur non installé : encart franc (pas une notif fugace) avec le
+   texte d'explication et le bouton d'installation. */
+.be-warn{margin-top:8px;padding:9px 11px;border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);background:var(--warn-bg);border-radius:8px;display:flex;flex-direction:column;gap:8px}
+.be-warn-t{font-size:12px;line-height:1.45;color:var(--text)}
+.be-warn-btn{align-self:flex-start;font-size:12px;padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:var(--accent-bg);color:var(--text);cursor:pointer}
+.be-warn-btn:hover{background:color-mix(in srgb,var(--accent) 12%,transparent)}
 .pe-seg-note{font-size:11px;color:var(--dim);padding:0 2px;min-height:14px}
 .pe-note{font-size:11px;color:var(--dim);line-height:1.45}
 /* Barre de progression (téléchargement de modèle). Sans total connu, elle

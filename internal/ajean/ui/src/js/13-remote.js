@@ -7,15 +7,18 @@ const AJEAN_APP_ORIGIN = 'https://app.ajean.link';
 
 function renderRemote(d){
   const off = document.getElementById('remote-off'), on = document.getElementById('remote-on');
+  const perks = document.getElementById('remote-perks-mini');
   const badge = document.getElementById('remote-badge');
   if(!d || !d.linked){
     // Serveur jamais lié : on l'affiche explicitement plutôt que de laisser la
     // pastille vide, qui se lisait comme « je ne sais pas ».
     off.style.display=''; on.style.display='none';
+    if(perks) perks.style.display='none'; // le bloc d'avantages complet est déjà dans remote-off
     setBadge(badge, false, t('remote.not_connected'));
     return;
   }
   off.style.display='none'; on.style.display='';
+  if(perks) perks.style.display=''; // rappel discret en footer, une fois connecté
   document.getElementById('remote-url').value = d.machineURL || '';
   const st = document.getElementById('remote-status');
   if(d.active){ st.textContent='● '+t('remote.online_status'); st.style.color='var(--accent)'; }

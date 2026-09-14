@@ -17,6 +17,68 @@ func newTestConv() *Conversation {
 	return c
 }
 
+// Issue #74 : un message envoyé pendant une génération est MIS EN FILE (pas refusé),
+// puis drainé — journalisé dans le fil ET renvoyé comme message modèle à injecter.
+func TestEnqueueAndDrainQueued(t *testing.T) {
+	c := newTestConv()
+	// On simule une génération en cours sans lancer de modèle.
+	c.mu.Lock()
+	c.Generating = true
+	c.mu.Unlock()
+
+	queued, err := c.EnqueueOrStart("ajoute aussi la TVA", nil, Caps{}, 0.7)
+	if err != nil {
+		t.Fatalf("EnqueueOrStart a échoué : %v", err)
+	}
+	if !queued {
+		t.Fatalf("le message aurait dû être mis en file (génération en cours)")
+	}
+	if len(c.queued) != 1 {
+		t.Fatalf("file attendue de 1, obtenu %d", len(c.queued))
+	}
+
+	// startQueuedIfAny ne doit RIEN faire tant qu'une génération tourne.
+	c.startQueuedIfAny()
+	if len(c.queued) != 1 {
+		t.Fatalf("startQueuedIfAny ne doit pas dépiler pendant la génération")
+	}
+
+	// Drain (frontière d'étape) : renvoie le message modèle et le journalise pour le fil.
+	msgs := c.drainQueued(c.epoch)
+	if len(msgs) != 1 || msgs[0].Role != "user" {
+		t.Fatalf("drainQueued devrait renvoyer 1 message user, obtenu %+v", msgs)
+	}
+	if len(c.queued) != 0 {
+		t.Fatalf("la file devrait être vide après drain, reste %d", len(c.queued))
+	}
+	var sawUser bool
+	for _, ev := range c.Log {
+		if u, _ := ev.Delta["user"].(string); u == "ajoute aussi la TVA" {
+			sawUser = true
+		}
+	}
+	if !sawUser {
+		t.Fatalf("le message en file n'a pas été journalisé dans le fil")
+	}
+	// Deuxième drain : plus rien.
+	if m := c.drainQueued(c.epoch); m != nil {
+		t.Fatalf("un second drain devrait être vide, obtenu %+v", m)
+	}
+}
+
+// Un epoch périmé (reset survenu entre-temps) ne draine rien : les messages en file
+// n'appartiennent plus à la conversation courante.
+func TestDrainQueuedStaleEpoch(t *testing.T) {
+	c := newTestConv()
+	c.mu.Lock()
+	c.Generating = true
+	c.mu.Unlock()
+	c.EnqueueOrStart("x", nil, Caps{}, 0.7)
+	if m := c.drainQueued(c.epoch + 1); m != nil {
+		t.Fatalf("un epoch périmé ne doit rien draîner, obtenu %+v", m)
+	}
+}
+
 // Subscribe doit rejouer les événements déjà journalisés PUIS suivre le direct,
 // et se terminer quand le contexte (la connexion) est annulé.
 func TestSubscribeReplayAndLive(t *testing.T) {
@@ -27,7 +89,7 @@ func TestSubscribeReplayAndLive(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	got := make(chan int, 32)
-	go c.Subscribe(ctx, 0, func(m map[string]any) bool {
+	go c.Subscribe(ctx, 0, "", func(m map[string]any) bool {
 		if s, ok := m["seq"].(int); ok {
 			got <- s
 		}
@@ -51,7 +113,7 @@ func TestSubscribeFromOffset(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	got := make(chan int, 8)
-	go c.Subscribe(ctx, 1, func(m map[string]any) bool {
+	go c.Subscribe(ctx, 1, "", func(m map[string]any) bool {
 		if s, ok := m["seq"].(int); ok {
 			got <- s
 		}
@@ -68,7 +130,7 @@ func TestResetNotifiesSubscribers(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	resetSeen := make(chan bool, 4)
-	go c.Subscribe(ctx, 0, func(m map[string]any) bool {
+	go c.Subscribe(ctx, 0, "", func(m map[string]any) bool {
 		if _, ok := m["reset"]; ok {
 			resetSeen <- true
 		}
@@ -202,7 +264,7 @@ func TestLiveSelectionSurJournalTronque(t *testing.T) {
 	} {
 		ctx, cancel := context.WithCancel(context.Background())
 		got := make(chan int, 8)
-		go c.Subscribe(ctx, tc.from, func(m map[string]any) bool {
+		go c.Subscribe(ctx, tc.from, "", func(m map[string]any) bool {
 			if s, ok := m["seq"].(int); ok {
 				got <- s
 			}
@@ -216,7 +278,7 @@ func TestLiveSelectionSurJournalTronque(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	got := make(chan int, 8)
-	go c.Subscribe(ctx, 502, func(m map[string]any) bool {
+	go c.Subscribe(ctx, 502, "", func(m map[string]any) bool {
 		if s, ok := m["seq"].(int); ok {
 			got <- s
 		}
@@ -289,7 +351,7 @@ func TestSubscribeStaleFromCrossSession(t *testing.T) {
 	var got []map[string]any
 	done := make(chan struct{})
 	go func() {
-		c.Subscribe(ctx, 9999, func(ev map[string]any) bool {
+		c.Subscribe(ctx, 9999, "", func(ev map[string]any) bool {
 			got = append(got, ev)
 			if ev["caught_up"] != nil {
 				cancel()
@@ -307,5 +369,74 @@ func TestSubscribeStaleFromCrossSession(t *testing.T) {
 	}
 	if !strings.Contains(seen, "premier message") {
 		t.Fatalf("le premier message n'a pas été rejoué avec un from périmé (reçu: %q)", seen)
+	}
+}
+
+// Un client resté sur une conversation A (par ex. téléphone en arrière-plan) qui se
+// reconnecte alors qu'un AUTRE appareil a démarré la conversation B doit recevoir un
+// RESET (pour vider son affichage) AVANT le rejeu de B — sinon le début de A et la
+// fin de B fusionnaient à l'écran. On simule : journal de B (id "conv-B"), abonnement
+// avec un curseur valide-en-apparence (from=1) mais un convID d'une autre conv.
+func TestSubscribeStaleConversationForcesReset(t *testing.T) {
+	c := newTestConv()
+	c.ID = "conv-B"
+	c.appendDelta(c.epoch, map[string]any{"user": "message de B"})
+	c.appendDelta(c.epoch, map[string]any{"content": "réponse de B"})
+	ctx, cancel := context.WithCancel(context.Background())
+	var got []map[string]any
+	done := make(chan struct{})
+	go func() {
+		// from=1 tombe DANS le journal de B (pas périmé au sens du curseur), mais
+		// convID pointe une AUTRE conversation → doit déclencher le reset.
+		c.Subscribe(ctx, 1, "conv-A", func(ev map[string]any) bool {
+			got = append(got, ev)
+			if ev["caught_up"] != nil {
+				cancel()
+			}
+			return true
+		})
+		close(done)
+	}()
+	<-done
+
+	// 1) Un reset (replay) doit précéder tout événement de contenu.
+	resetIdx, userIdx := -1, -1
+	for i, ev := range got {
+		if resetIdx < 0 && ev["reset"] != nil {
+			resetIdx = i
+		}
+		if userIdx < 0 {
+			if _, ok := ev["user"].(string); ok {
+				userIdx = i
+			}
+		}
+	}
+	if resetIdx < 0 {
+		t.Fatalf("aucun reset émis pour une conversation périmée (fusion des fils possible)")
+	}
+	if userIdx < 0 || resetIdx > userIdx {
+		t.Fatalf("le reset doit précéder le rejeu (reset@%d, user@%d)", resetIdx, userIdx)
+	}
+	// 2) Le rejeu doit repartir du DÉBUT malgré from=1 (le premier message de B doit être là).
+	seen := ""
+	for _, ev := range got {
+		if u, ok := ev["user"].(string); ok {
+			seen += u
+		}
+	}
+	if !strings.Contains(seen, "message de B") {
+		t.Fatalf("le début de la conversation courante n'a pas été rejoué (reçu: %q)", seen)
+	}
+	// 3) Le caught_up doit porter l'id de la conversation servie.
+	gotID := ""
+	for _, ev := range got {
+		if ev["caught_up"] != nil {
+			if id, ok := ev["id"].(string); ok {
+				gotID = id
+			}
+		}
+	}
+	if gotID != "conv-B" {
+		t.Fatalf("caught_up doit porter l'id courant conv-B, reçu %q", gotID)
 	}
 }

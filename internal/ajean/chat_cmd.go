@@ -136,7 +136,7 @@ func cmdChat(args []string) error {
 				fmt.Print(ev.Content)
 			}
 			return true
-		})
+		}, nil)
 		if inReason {
 			fmt.Println()
 		}

@@ -229,6 +229,9 @@ function renderAttach(){
   const el = attachListEl(); if(!el) return;
   el.innerHTML='';
   el.classList.toggle('show', ATTACH.length>0);
+  // Les pièces jointes comptent comme « contenu à envoyer » : le bouton envoyer/stop
+  // doit se réévaluer (issue #74 : envoyer pendant une génération).
+  if(typeof syncSendBtn==='function') syncSendBtn();
   for(const a of ATTACH){
     el.appendChild(fileChip(a.name, a.size, {
       cls: a.state==='up' ? 'up' : (a.state==='err' ? 'err' : ''),

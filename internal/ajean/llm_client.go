@@ -732,7 +732,13 @@ func isNetTimeout(err error) bool {
 	return errors.As(err, &ne) && ne.Timeout()
 }
 
-func runChat(ctx context.Context, messages []Message, temperature float64, caps Caps, cb ChatCallback) ([]Message, error) {
+// injectQueued (optionnel, nil pour les appels hors chat) est consulté à CHAQUE
+// frontière d'étape de la boucle d'outils (après un appel d'outil / une relance) : il
+// renvoie les messages utilisateur mis en file PENDANT la génération, pour que le
+// modèle les prenne en compte dans la SUITE de sa réponse (issue #74 — ajout en cours
+// de réponse) au lieu d'obliger à arrêter puis relancer. Ces messages sont ajoutés à
+// `messages` (vue modèle) ET à `extra` (persistance), dans l'ordre.
+func runChat(ctx context.Context, messages []Message, temperature float64, caps Caps, cb ChatCallback, injectQueued func() []Message) ([]Message, error) {
 	var extra []Message
 	tools := EnabledTools(caps)
 	// Destination des complétions : llama-server local, ou une API OpenAI-compatible
@@ -777,6 +783,16 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 	// d'appels, parfois identiques). Le seul frein est le bouton stop, qui annule
 	// le contexte — c'est un choix assumé.
 	for iter := 0; ; iter++ {
+		// Ajout en cours de réponse (issue #74) : entre deux étapes (après un appel
+		// d'outil ou une relance), on injecte les messages mis en file par
+		// l'utilisateur pendant la génération. Pas à iter==0 : le message initial du
+		// tour est déjà dans `messages`, on n'en veut pas deux d'affilée au démarrage.
+		if iter > 0 && injectQueued != nil {
+			if q := injectQueued(); len(q) > 0 {
+				messages = append(messages, q...)
+				extra = append(extra, q...)
+			}
+		}
 		payload := map[string]any{
 			"model": ep.Model,
 			// Normalisé juste avant l'envoi : un seul system, en tête. Les gabarits

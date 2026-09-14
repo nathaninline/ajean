@@ -1362,6 +1362,11 @@ type chatReq struct {
 	// vu par le client (le flux d'abonnement rejoue Log[From:] puis suit le direct).
 	Message string `json:"message"`
 	From    int    `json:"from"`
+	// ConvID = id de la conversation actuellement AFFICHÉE par le client (reçu au
+	// dernier caught_up/reset du flux). Renvoyé à chaque (re)abonnement pour que le
+	// serveur détecte qu'un AUTRE appareil a changé de conversation/projet entre-temps
+	// et ordonne un reset avant de rejouer — sinon deux fils fusionnaient à l'écran.
+	ConvID string `json:"conv_id"`
 	// Files = chemins relatifs des fichiers déposés juste avant par
 	// /api/chat/upload ("uploads/rapport.pdf"). Ils sont annoncés au modèle en
 	// tête du message (voir attachNote) ; le contenu, lui, reste sur le disque et

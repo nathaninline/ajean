@@ -93,7 +93,7 @@ func (c *Conversation) RunAutonomous(ctx context.Context, taskID, taskName, prom
 			content.WriteString(ev.Content)
 		}
 		return true
-	})
+	}, nil)
 	_ = extra // les messages d'outils ne sont pas conservés : la tâche est éphémère
 	return strings.TrimSpace(content.String()), err
 }

@@ -71,7 +71,7 @@ func TestFluxCoupeRemonteUneErreur(t *testing.T) {
 			content.WriteString(ev.Content)
 		}
 		return true
-	})
+	}, nil)
 	if err == nil {
 		t.Fatal("flux coupé : runChat a rendu la main SANS erreur (le tour s'arrêtait en silence)")
 	}
@@ -105,7 +105,7 @@ func TestFluxCompletNeRemonteRien(t *testing.T) {
 			content.WriteString(ev.Content)
 		}
 		return true
-	})
+	}, nil)
 	if err != nil || gotErr != nil {
 		t.Fatalf("flux normal signalé en erreur : %v / %v", err, gotErr)
 	}
@@ -132,7 +132,7 @@ func TestFluxAnnuleResteSilencieux(t *testing.T) {
 			gotErr = ev.Err
 		}
 		return true
-	})
+	}, nil)
 	if gotErr != nil && strings.Contains(gotErr.Error(), "coupé") {
 		t.Fatalf("un stop volontaire a été présenté comme une panne : %v", gotErr)
 	}

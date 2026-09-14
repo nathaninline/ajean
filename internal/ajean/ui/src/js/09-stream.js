@@ -4,6 +4,13 @@
 // suit le direct. Fermer l'onglet n'arrête plus la génération (détachée côté
 // serveur) ; se reconnecter rejoue tout le fil, détails compris.
 let lastSeq=0, streamAbort=null;
+// CONV_ID : id de la conversation que ce client affiche actuellement (reçu du
+// serveur au caught_up/reset). Renvoyé à chaque (re)connexion : le serveur compare
+// avec la conversation vive et, si un AUTRE appareil en a changé pendant qu'on était
+// en arrière-plan, il nous ordonne un reset AVANT de rejouer — sinon le début de
+// l'ancienne conversation et la fin de la nouvelle se retrouvaient fusionnés à
+// l'écran jusqu'au refresh.
+let CONV_ID='';
 // READING = on regarde une AUTRE conversation en LECTURE SEULE pendant qu'une
 // génération tourne. La génération est autonome côté serveur : on coupe juste le
 // flux d'affichage et on rejoue le journal de la conversation lue. « Revenir »
@@ -18,33 +25,42 @@ let PENDING_LIVE=false;
 // frappe et la réponse du serveur. Elle s'éclaircit (classe retirée) quand
 // l'événement `user` revient par le flux — preuve que le serveur l'a bien
 // enregistré. En cas d'échec d'envoi, elle est retirée et le texte est rendu.
-let PENDING=null;
-// Retire aussi la rangée de pièces jointes, qui vit JUSTE AVANT la bulle : sans
-// ça, un envoi échoué laissait les fichiers seuls dans le fil, sans message.
-function clearPending(){
-  if(!PENDING) return;
-  const f=PENDING.previousElementSibling;
+// FILE de bulles en attente (issue #74). Plusieurs peuvent coexister : un message
+// envoyé PENDANT une génération est mis en file côté serveur et affiché en gris tout
+// de suite ; il s'éclaircit quand le flux le confirme (événement `user`, à l'injection
+// en cours de réponse ou au tour suivant). Chaque entrée = {el, text}.
+let PENDS=[];
+// Retire une bulle en attente ET sa rangée de pièces jointes (qui vit JUSTE AVANT) :
+// sans ça, un envoi échoué laissait les fichiers seuls dans le fil, sans message.
+function removePend(entry){
+  if(!entry||!entry.el) return;
+  const f=entry.el.previousElementSibling;
   if(f&&f.classList.contains('msg-files')) f.remove();
-  PENDING.remove(); PENDING=null;
+  entry.el.remove();
+  PENDS=PENDS.filter(p=>p!==entry);
 }
-function addPending(text){
-  clearPending();
-  PENDING=addMsg('user', text);
-  PENDING.classList.add('pending');
-  const l=PENDING.querySelector('.label'); if(l) l.textContent=t('chat.sending');
+// queued=true : le serveur l'a mis en file (génération en cours) → libellé « en
+// attente » plutôt que « envoi… ».
+function addPending(text, queued){
+  const el=addMsg('user', text);
+  el.classList.add('pending');
+  const l=el.querySelector('.label'); if(l) l.textContent=queued?t('chat.queued'):t('chat.sending');
+  const entry={el, text};
+  PENDS.push(entry);
   jumpBottom();
-  return PENDING;
+  return entry;
 }
-// Le serveur confirme le message : on réutilise la bulle grise au lieu d'en
-// ajouter une seconde (sinon le message clignoterait en double).
+// Le serveur confirme un message : on réutilise la bulle grise la plus ANCIENNE dont
+// le texte correspond (au lieu d'en ajouter une seconde). Renvoie l'élément confirmé,
+// ou null si aucune bulle en attente ne correspond.
 function confirmPending(text){
-  if(!PENDING) return false;
-  const b=PENDING.querySelector('.body');
-  if(!b || b.textContent!==text) return false;
-  PENDING.classList.remove('pending');
-  const l=PENDING.querySelector('.label'); if(l) l.textContent='user';
-  PENDING=null;
-  return true;
+  const i=PENDS.findIndex(p=>{ const b=p.el.querySelector('.body'); return b && b.textContent===text; });
+  if(i<0) return null;
+  const entry=PENDS[i];
+  entry.el.classList.remove('pending');
+  const l=entry.el.querySelector('.label'); if(l) l.textContent='user';
+  PENDS.splice(i,1);
+  return entry.el;
 }
 // REPLAYING = on est dans le replay initial (rejeu du journal au chargement).
 // Pendant ce temps, les bulles raisonnement/outil sont créées DÉJÀ repliées →
@@ -155,6 +171,13 @@ function genRate(){
   if(tok<=0) return null;
   return tok/(ELAPSED.decodeMs/1000);
 }
+// Nom du preset actif, lu depuis la pastille d'état (tenue à jour par la liste des
+// presets). Ajouté en queue de la ligne d'état pour qu'on sache d'un coup d'œil QUEL
+// modèle a produit ce tour. Vide si aucun preset actif (rien n'est ajouté).
+function activePresetName(){
+  const el=document.getElementById('status-preset');
+  return el ? (el.textContent||'').trim() : '';
+}
 // EN DIRECT : chrono (temps total du tour) + tokens qui montent + vitesse decode
 // stable. La vitesse EXACTE (timings serveur) est figée à la fin par finalizeTurn.
 function paintGenStatus(){
@@ -165,10 +188,11 @@ function paintGenStatus(){
   const tok=genTokCount();
   const parts=[fmtElapsed(secs)];
   if(tok>0){
-    parts.push(fmtTok(tok)+' tok');
+    parts.push(fmtTok(tok));
     const rate=genRate();
-    if(rate!=null) parts.push(rate.toFixed(1)+' tok/s');
+    if(rate!=null) parts.push(rate.toFixed(1)+' t/s');
   }
+  const pr=activePresetName(); if(pr) parts.push(pr);
   txt.textContent=parts.join('  ·  ');
   scrollMaybe();
 }
@@ -197,7 +221,8 @@ function finalizeTurn(elapsedMs){
   genStatusOn(false);
   const parts=[];
   if(elapsedMs>0) parts.push(fmtElapsed(elapsedMs/1000));
-  if(tok>0){ parts.push(fmtTok(tok)+' tok'); if(rate!=null) parts.push(rate.toFixed(1)+' tok/s'); }
+  if(tok>0){ parts.push(fmtTok(tok)); if(rate!=null) parts.push(rate.toFixed(1)+' t/s'); }
+  const pr=activePresetName(); if(pr) parts.push(pr);
   if(!parts.length){ removeGenEl(); scrollMaybe(true); return; }
   const g=ensureGenEl(); g.querySelector('.gtxt').textContent=parts.join('  ·  ');
   GENEL=null;
@@ -289,11 +314,23 @@ function setBusy(on){ busy=on; if(!REPLAYING) syncSendBtn(); }
 // utilisateur normal). Sert à distinguer les deux dans le bouton stop : sinon une
 // tâche qui tourne fait croire à l'utilisateur qu'il génère lui-même.
 let RUNNING_TASK='';
+// Le composeur porte-t-il de quoi envoyer (texte ou pièce jointe) ?
+function composerHasContent(){
+  const ta=document.getElementById('input');
+  return !!(ta && ta.value.trim()) || (typeof ATTACH!=='undefined' && ATTACH.length>0);
+}
 function syncSendBtn(){
   const sb=document.getElementById('send');
-  sb.style.display=busy?'none':'flex';
   const stop=document.getElementById('stop');
-  stop.style.display=busy?'flex':'none';
+  // Issue #74 : pendant une génération, on peut TOUJOURS envoyer (le message se met
+  // en file). On montre donc « envoyer » dès qu'il y a quelque chose à envoyer, même
+  // occupé ; le bouton stop ne s'affiche que quand le composeur est vide (sinon on
+  // n'aurait aucun moyen d'ajouter en cours de route). Composeur vide + libre = ni
+  // l'un ni l'autre n'est utile → on garde « envoyer » (désactivé) comme avant.
+  const hasContent=composerHasContent();
+  const showSend = !busy || hasContent;
+  sb.style.display=showSend?'flex':'none';
+  stop.style.display=(busy && !hasContent)?'flex':'none';
   // Le bouton stop est une icône (carré) : on ne touche PAS à son contenu (sinon on
   // écraserait le SVG), seulement au tooltip pour signaler une tâche de fond.
   stop.title = (busy && RUNNING_TASK) ? (t('chat.stop_task_prefix')+RUNNING_TASK+t('chat.stop_task_suffix')) : t('chat.stop');
@@ -402,6 +439,7 @@ function feedBlock(el, full){ if(REPLAYING||CATCHUP) scheduleRender(el, full); e
 function handleDelta(d){
   if(typeof d.seq==='number' && d.seq>lastSeq) lastSeq=d.seq;
   if(d.caught_up){
+    if(d.id) CONV_ID=d.id;       // conversation affichée = celle que le serveur vient de servir
     CATCHUP=false;               // fin du rattrapage : le direct reprend son lissage
     smoothSnap(); flushRender(); // rendre le dernier bloc rejoué à sa valeur exacte
     // Fin du replay initial : on saute en bas puis on révèle (une seule fois — pas
@@ -433,11 +471,12 @@ function handleDelta(d){
     // (comme au chargement de page), sans l'animation « ouvre puis se ferme ». Le
     // caught_up qui clôt le rejeu remettra REPLAYING à false.
     if(d.replay) REPLAYING=true;
-    TURN_ENDED=true; elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDING=null; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); setCompactCount(0); lastSeq=0; setBusy(false); return; }
+    if(d.id!==undefined) CONV_ID=d.id||''; // nouvelle conversation active : on suit son id
+    TURN_ENDED=true; elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDS=[]; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); setCompactCount(0); lastSeq=0; setBusy(false); return; }
   if(d.user!==undefined){
     newTurn();
-    let el=PENDING;
-    if(!confirmPending(d.user)) el=addMsg('user', d.user);
+    let el=confirmPending(d.user);
+    if(!el) el=addMsg('user', d.user);
     // Pièces jointes du tour : rendues DANS la bulle. La bulle en attente en
     // porte déjà (posées à l'envoi), on ne les ajoute donc qu'au replay/à une
     // bulle neuve — sinon elles apparaîtraient en double.
@@ -557,7 +596,7 @@ async function connectStream(){
     CATCHUP=true; smoothReset();
     streamAbort=new AbortController();
     try{
-      const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:lastSeq}),signal:streamAbort.signal});
+      const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:lastSeq,conv_id:CONV_ID}),signal:streamAbort.signal});
       if(REPLAYING) setChatLoading(t('chat.loading_conversation'));
       const reader=r.body.getReader(); const dec=new TextDecoder(); let buf='';
       while(true){
@@ -711,17 +750,20 @@ setInterval(reconcileBusy, 3000);
 // « network error » alarmiste alors que l'IA répond quand même.
 async function send(){
   if(READING){ exitReading(); return; } // en lecture seule : le geste ramène au direct
-  if(busy) return;
+  // busy n'est PLUS un blocage (issue #74) : un message envoyé pendant une génération
+  // est mis en FILE côté serveur (injecté dans la réponse en cours, ou traité au tour
+  // suivant). On mémorise l'état au moment de l'envoi pour le libellé de la bulle.
+  const wasBusy = busy;
   // Garde-fou : le bouton est déjà désactivé, mais l'Entrée passe aussi par ici.
   if(STATUS_SEEN && !MODEL_READY){ toast(t('chat.model_not_ready')); return; }
   const ta=document.getElementById('input'); const text=ta.value.trim();
   // Un envoi sans texte est légitime s'il porte une pièce jointe (« tiens, regarde »).
   if(!text && !ATTACH.length) return;
-  ta.value=''; autoGrow(ta);
+  ta.value=''; autoGrow(ta); syncSendBtn();
   // Le message s'affiche TOUT DE SUITE, en gris : il ne disparaît plus le temps
   // de l'aller-retour. Il s'éclaircit quand le flux le confirme (confirmPending).
-  addPending(text);
-  const fail=(m)=>{ clearPending(); toast(m); ta.value=text; autoGrow(ta); };
+  const entry=addPending(text, wasBusy);
+  const fail=(m)=>{ removePend(entry); toast(m); ta.value=text; autoGrow(ta); syncSendBtn(); };
   // C'est ici que les fichiers partent vers le serveur — pas avant. Les pastilles
   // ne sont retirées qu'une fois le message accepté : tant qu'il n'est pas parti,
   // on doit pouvoir en enlever une, et un échec doit rester visible.
@@ -729,7 +771,7 @@ async function send(){
   if(!text && !files.length){ fail(t('chat.no_file_uploaded')); return; }
   // Les pastilles passent dans la bulle en attente : le message porte ses
   // fichiers dès l'envoi, sans attendre l'aller-retour.
-  if(PENDING) addMsgFiles(PENDING, attachSent());
+  if(entry) addMsgFiles(entry.el, attachSent());
   for(let attempt=0; attempt<3; attempt++){
     try{
       const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,files:files,ctx_used:CTX_USED})});

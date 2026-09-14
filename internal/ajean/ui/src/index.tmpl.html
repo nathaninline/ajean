@@ -233,10 +233,27 @@
   </details>
   <details id="remote-details"><summary><span class="stitle" data-i18n="link.title">AJEAN LINK</span><span id="remote-badge" class="sbadge"></span></summary>
     <div class="subhead"><span data-i18n="link.remote_subhead">Accès distant</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="link.remote_help" data-i18n-html>Accédez à ce serveur AJEAN depuis <b>n'importe où</b>, sans ouvrir de port, à travers le relais <b>ajean.link</b>. Le trafic est chiffré de <b>bout en bout</b> : le relais ne voit rien. Abonnement 4,80 €/mois.</span></span></div>
-    <!-- Non connecté : un seul bouton, tout se passe dans la popup (compte + paiement). -->
+    <!-- Non connecté : on met en avant les avantages de l'abonnement AJEAN LINK pour
+         donner envie de s'abonner, puis le bouton (tout se passe dans la popup). -->
     <div id="remote-off" class="slist"><div class="rowbody">
+      <div class="link-perks-head" data-i18n="link.perks_heading">Passez à AJEAN LINK</div>
+      <div class="link-perks">
+        <div class="link-perk">
+          <span class="link-perk-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+          <div><div class="link-perk-t" data-i18n="link.perk_remote_t">Accès distant sécurisé</div><div class="link-perk-d" data-i18n="link.perk_remote_d">Accédez à votre serveur AJEAN depuis n'importe où et depuis n'importe quelle application, chiffré de bout en bout — le relais ne voit rien.</div></div>
+        </div>
+        <div class="link-perk">
+          <span class="link-perk-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+          <div><div class="link-perk-t" data-i18n="link.perk_support_t">Support dédié par chat</div><div class="link-perk-d" data-i18n="link.perk_support_d">Une messagerie dédiée pour répondre à toutes vos questions, directement depuis l'application.</div></div>
+        </div>
+        <div class="link-perk">
+          <span class="link-perk-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+          <div><div class="link-perk-t" data-i18n="link.perk_backup_t">Sauvegarde intégrée</div><div class="link-perk-d" data-i18n="link.perk_backup_d">Vos réglages, presets, historique et mémoire sauvegardés automatiquement, chiffrés avant l'envoi.</div></div>
+        </div>
+      </div>
       <p class="muted" style="margin:0 0 8px" data-i18n="link.remote_off_desc">Ouvrez l'accès distant à ce serveur en quelques clics, sans terminal.</p>
       <button onclick="remoteConnect()" style="border-color:var(--accent);color:var(--accent)" data-i18n="link.connect_button">Connecter à ajean.link</button>
+      <div class="link-price" data-i18n="link.price_note">4,80 €/mois · sans engagement, résiliable à tout moment</div>
     </div></div>
     <!-- Connecté : URL publique + appairage + déconnexion. Le bouton « démarrer
          le tunnel » vit DANS la carte de l'adresse : c'est l'action de cette
@@ -276,6 +293,9 @@
         </div>
       </div>
     </div>
+    <!-- Rappel discret des avantages inclus (compte connecté). En footer de TOUTE la
+         section AJEAN LINK, pas coincé entre deux cartes : piloté par renderRemote. -->
+    <div id="remote-perks-mini" class="link-perks-mini" style="display:none" data-i18n="link.perks_mini" data-i18n-html>Inclus dans <b>AJEAN LINK</b> : accès distant chiffré de bout en bout · support dédié par chat · sauvegarde de vos réglages, presets, historique et mémoire.</div>
   </details>
   <details id="lc-details"><summary><span class="stitle" data-i18n="engine.title">Engine</span></summary>
     <!-- Une seule carte : état, choix du mode et journal d'installation sont le
@@ -401,7 +421,7 @@
          qui la sépare du fil — la carte ne bouge donc pas d'un pixel. -->
     <div id="attach-list"></div>
     <div id="inputbar">
-      <textarea id="input" rows="1" placeholder="Discuter avec Jean" onkeydown="onKey(event)" oninput="autoGrow(this)" onpaste="onPaste(event)" data-i18n="chat.input_placeholder" data-i18n-attr="placeholder"></textarea>
+      <textarea id="input" rows="1" placeholder="Discuter avec Jean" onkeydown="onKey(event)" oninput="autoGrow(this);syncSendBtn()" onpaste="onPaste(event)" data-i18n="chat.input_placeholder" data-i18n-attr="placeholder"></textarea>
       <!-- Indicateur discret « l'IA agit sur un poste distant » : ondes wifi à gauche
            du +, teinté accent, affiché seulement quand une cible distante est active. -->
       <span id="node-indic" title="L'IA agit sur un poste distant" aria-hidden="true" style="display:none" data-i18n="chat.node_indicator_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.55a11 11 0 0 1 14 0"/><path d="M8.5 16.1a6 6 0 0 1 7 0"/><path d="M12 20h.01"/></svg></span>
@@ -1004,6 +1024,13 @@
           <label><input type="radio" name="m-be" value="fast" onchange="onBackendMode('fast')"><span data-i18n="preset.engine_fast">Précompilé</span><span class="be-note" id="be-fast-note"></span></label>
           <label><input type="radio" name="m-be" value="opt" onchange="onBackendMode('opt')"><span data-i18n="preset.engine_opt">Compilé</span><span class="be-note" id="be-opt-note"></span></label>
           <label><input type="radio" name="m-be" value="custom" onchange="onBackendMode('custom')"><span data-i18n="preset.engine_custom">Personnalisé</span></label>
+        </div>
+        <!-- Avertissement moteur non installé : visible et explicite (au lieu d'une
+             simple notif fugace), avec un bouton qui ouvre la section Moteur et lance
+             l'installation guidée. -->
+        <div id="be-warn" class="be-warn" style="display:none">
+          <div id="be-warn-text" class="be-warn-t"></div>
+          <button type="button" class="be-warn-btn" onclick="beWarnInstall()" data-i18n="preset.engine_warn_install_btn">Installer le moteur</button>
         </div>
         <div id="m-backend-custom" class="pe-list" style="display:none;margin-top:8px">
           <div class="pe-row">

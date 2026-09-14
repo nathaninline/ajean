@@ -428,6 +428,47 @@ function underDir(p, dir){
   return !!p && !!dir && n(p).startsWith(n(dir)+'/');
 }
 let beFastPath = '', beOptPath = '', beFastDir = '';
+// Mode moteur RÉELLEMENT sélectionné (celui écrit dans BIN). Sert à revenir dessus
+// quand l'utilisateur clique un moteur non installé : on n'écrit pas un BIN vers un
+// binaire absent, on montre l'avertissement et on remet le curseur où il était.
+let beCurrentMode = 'custom';
+// renderBackendAvailability affiche un badge « non installé » sous les options de
+// moteur absentes de la machine, pour qu'on voie tout de suite ce qui n'est pas
+// utilisable (au lieu de le découvrir par une notif fugace au clic).
+function renderBackendAvailability(){
+  const mark = (id, installed)=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    if(installed){ el.textContent = ''; el.classList.remove('show'); }
+    else { el.textContent = t('preset.engine_not_installed_badge'); el.classList.add('show'); }
+  };
+  mark('be-fast-note', !!beFastPath);
+  mark('be-opt-note', !!beOptPath);
+}
+// Affiche l'encart d'avertissement (moteur non installé) avec la marche à suivre.
+function showBackendWarn(mode){
+  const warn = document.getElementById('be-warn'); if(!warn) return;
+  document.getElementById('be-warn-text').textContent =
+    t(mode === 'fast' ? 'preset.engine_warn_fast' : 'preset.engine_warn_opt');
+  warn.dataset.mode = mode;
+  warn.style.display = '';
+}
+function hideBackendWarn(){
+  const warn = document.getElementById('be-warn'); if(warn) warn.style.display = 'none';
+}
+// Bouton « Installer le moteur » de l'encart : ferme l'éditeur, ouvre la section
+// Moteur du panneau et lance l'installation guidée (lcPick demande confirmation puis
+// suit la progression). L'utilisateur reviendra choisir le moteur une fois installé.
+function beWarnInstall(){
+  const warn = document.getElementById('be-warn');
+  const mode = (warn && warn.dataset.mode) || 'fast';
+  if(typeof closeModal === 'function') closeModal();
+  const side = document.getElementById('side');
+  if(side && !side.classList.contains('open') && typeof toggleSide === 'function') toggleSide();
+  const det = document.getElementById('lc-details');
+  if(det){ det.open = true; det.scrollIntoView({block:'center'}); }
+  if(typeof lcPick === 'function') lcPick(mode);
+}
 async function populateBackend(){
   // Chemins des deux moteurs gérés + liste des backends détectés (dossier ajean).
   let lc = {}; try{ lc = await jget('/api/llamacpp'); }catch(_){}
@@ -450,6 +491,9 @@ async function populateBackend(){
   else if(sameBinPath(cur, beOptPath)) mode = 'opt';
   const radio = document.querySelector('input[name=m-be][value='+mode+']');
   if(radio) radio.checked = true;
+  beCurrentMode = mode;
+  renderBackendAvailability();
+  hideBackendWarn();
   toggleBackendCustom(mode);
   if(mode === 'custom') document.getElementById('m-backend-path').value = cur;
   // Attendu (et non lancé dans le vide) : la liste des GPU change la hauteur du
@@ -461,15 +505,27 @@ function toggleBackendCustom(mode){
   document.getElementById('m-backend-custom').style.display = (mode==='custom') ? 'block' : 'none';
 }
 function onBackendMode(mode){
+  // Moteur non installé : au lieu d'écrire un BIN vers un binaire absent (le modèle
+  // ne démarrerait pas) et de le signaler par une notif fugace, on montre un
+  // avertissement franc avec la marche à suivre, et on remet le curseur sur le
+  // moteur réellement en place.
+  if((mode === 'fast' && !beFastPath) || (mode === 'opt' && !beOptPath)){
+    showBackendWarn(mode);
+    const back = document.querySelector('input[name=m-be][value='+beCurrentMode+']');
+    if(back) back.checked = true;
+    toggleBackendCustom(beCurrentMode);
+    return;
+  }
+  hideBackendWarn();
   toggleBackendCustom(mode);
   if(mode === 'fast'){
-    if(!beFastPath){ toast(t('models.backend.install_precompiled_first')); return; }
-    setBinInTextarea(beFastPath); toast(t('models.backend.engine_precompiled'));
+    setBinInTextarea(beFastPath); beCurrentMode = 'fast'; toast(t('models.backend.engine_precompiled'));
     loadGpuDevices();
   } else if(mode === 'opt'){
-    if(!beOptPath){ toast(t('models.backend.install_compiled_first')); return; }
-    setBinInTextarea(beOptPath); toast(t('models.backend.engine_compiled'));
+    setBinInTextarea(beOptPath); beCurrentMode = 'opt'; toast(t('models.backend.engine_compiled'));
     loadGpuDevices();
+  } else {
+    beCurrentMode = 'custom';
   }
   // custom : on attend que l'utilisateur saisisse un chemin / choisisse un backend
 }
