@@ -8,6 +8,10 @@ La ligne d'état sous une réponse affichait le preset courant, lu au moment du 
 
 Un réglage a été ajouté dans Apparence pour retirer le nom du preset de la ligne d'état, pour qui préfère ne garder que la durée, le nombre de tokens et la vitesse. Les autres informations restent affichées.
 
+## Affichage du sélecteur de moteur
+
+Dans l'éditeur de modèle, l'indication d'un moteur non installé se posait sous chaque bouton, ce qui cassait le sélecteur sur deux lignes. Elle tient maintenant sur une seule ligne discrète sous le sélecteur, qui nomme le ou les moteurs à installer.
+
 ## Mise à jour
 
 ```

@@ -432,18 +432,22 @@ let beFastPath = '', beOptPath = '', beFastDir = '';
 // quand l'utilisateur clique un moteur non installé : on n'écrit pas un BIN vers un
 // binaire absent, on montre l'avertissement et on remet le curseur où il était.
 let beCurrentMode = 'custom';
-// renderBackendAvailability affiche un badge « non installé » sous les options de
-// moteur absentes de la machine, pour qu'on voie tout de suite ce qui n'est pas
-// utilisable (au lieu de le découvrir par une notif fugace au clic).
+// renderBackendAvailability affiche, en UNE ligne discrète sous le sélecteur, les
+// moteurs non installés sur la machine (au lieu d'un badge qui cassait chaque pastille
+// sur deux lignes). On voit d'un coup ce qui n'est pas encore utilisable.
 function renderBackendAvailability(){
-  const mark = (id, installed)=>{
-    const el = document.getElementById(id);
-    if(!el) return;
-    if(installed){ el.textContent = ''; el.classList.remove('show'); }
-    else { el.textContent = t('preset.engine_not_installed_badge'); el.classList.add('show'); }
-  };
-  mark('be-fast-note', !!beFastPath);
-  mark('be-opt-note', !!beOptPath);
+  const note = document.getElementById('be-avail-note');
+  if(!note) return;
+  const miss = [];
+  if(!beFastPath) miss.push(t('preset.engine_fast'));
+  if(!beOptPath)  miss.push(t('preset.engine_opt'));
+  if(miss.length){
+    note.textContent = miss.join(', ') + ' : ' + t('preset.engine_not_installed_badge');
+    note.style.display = '';
+  } else {
+    note.textContent = '';
+    note.style.display = 'none';
+  }
 }
 // Affiche l'encart d'avertissement (moteur non installé) avec la marche à suivre.
 function showBackendWarn(mode){

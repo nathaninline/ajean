@@ -937,10 +937,9 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-seg>label:has(input:checked){background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.22)}
 .pe-seg input{display:none}
 .pe-seg .be-note{display:none}
-/* Badge « non installé » sur une option de moteur indisponible : rendu visible et
-   coloré en warn pour qu'on voie d'un coup d'œil qu'on ne peut pas encore l'utiliser
-   (au lieu d'un texte gris masqué). Sous le libellé, il tient dans la pastille. */
-.pe-seg .be-note.show{display:block;font-size:9px;font-weight:600;line-height:1.2;margin-top:2px;color:var(--warn);text-transform:uppercase;letter-spacing:.3px}
+/* Disponibilité des moteurs : une SEULE ligne discrète sous le sélecteur (au lieu
+   d'un badge qui cassait chaque pastille sur deux lignes). Colorée en warn. */
+.be-avail-note{font-size:11px;color:var(--warn);margin-top:6px;line-height:1.4}
 /* Avertissement moteur non installé : encart franc (pas une notif fugace) avec le
    texte d'explication et le bouton d'installation. */
 .be-warn{margin-top:8px;padding:9px 11px;border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);background:var(--warn-bg);border-radius:8px;display:flex;flex-direction:column;gap:8px}
