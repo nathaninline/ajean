@@ -603,6 +603,11 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 	// journalisée dans turn_done pour que l'UI affiche la MÊME durée en direct et
 	// après un rechargement (le chrono client, lui, n'existe qu'en direct).
 	turnStart := time.Now()
+	// Preset qui répond à CE tour, capturé au départ : journalisé dans turn_done pour
+	// que la ligne d'état sous la réponse garde le bon nom même si on change de preset
+	// ensuite ou qu'on recharge la page (avant, l'UI lisait le preset COURANT au rendu,
+	// donc les vieux tours affichaient le preset du moment, pas celui qui a répondu).
+	turnPreset := activePresetName()
 	defer func() {
 		c.mu.Lock()
 		stale := c.epoch != epoch
@@ -619,7 +624,7 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 		if stale {
 			return // Reset pendant le tour : Reset a déjà persisté l'état vide
 		}
-		c.appendDelta(epoch, map[string]any{"turn_done": true, "elapsed_ms": time.Since(turnStart).Milliseconds()})
+		c.appendDelta(epoch, map[string]any{"turn_done": true, "elapsed_ms": time.Since(turnStart).Milliseconds(), "preset": turnPreset})
 		c.mu.Lock()
 		c.compactLogLocked() // le tour est fini : coalesce ses tokens pour garder le journal petit
 		c.mu.Unlock()

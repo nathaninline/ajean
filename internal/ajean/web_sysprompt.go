@@ -39,6 +39,22 @@ func activePresetID() string {
 	return ""
 }
 
+// activePresetName renvoie le NOM affiché du preset actif ("" si aucun). Journalisé
+// par tour (turn_done) pour que la ligne d'état sous chaque réponse indique le preset
+// qui a RÉELLEMENT répondu, même après un changement de preset ou au rechargement.
+func activePresetName() string {
+	list, err := ListPresets()
+	if err != nil {
+		return ""
+	}
+	for _, p := range list {
+		if p.Active {
+			return p.Name
+		}
+	}
+	return ""
+}
+
 // presetSysPrompt / setPresetSysPrompt : prompt système propre à un preset, stocké
 // en base (clé sysprompt/<id>), hors du fichier .env (qui ne gère pas le multi-ligne).
 func presetSysPrompt(id string) string {

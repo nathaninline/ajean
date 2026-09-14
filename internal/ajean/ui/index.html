@@ -2031,6 +2031,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-fold-tools" onchange="toggleView('fold-tools')"><span class="slider"></span></span> <span data-i18n="appearance.fold_tools">garder les bulles repliées</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="appearance.fold_tools_help" data-i18n-html>Les bulles de raisonnement et d'outil arrivent <b>déjà fermées</b> au lieu de s'ouvrir puis se refermer. Un clic sur leur étiquette les déplie.</span></span></label>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-side" onchange="toggleView('hide-side')"><span class="slider"></span></span> <span data-i18n="appearance.hide_side">barre latérale escamotable</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="appearance.hide_side_help" data-i18n-html>La barre latérale devient un tiroir <b>même sur ordinateur</b> : elle reste fermée et s'ouvre avec le bouton ☰. Toute la largeur pour la conversation.</span></span></label>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-enter-newline" onchange="toggleView('enter-newline')"><span class="slider"></span></span> <span data-i18n="appearance.enter_newline">Entrée = retour à la ligne</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="appearance.enter_newline_help" data-i18n-html>Par défaut, <b>Entrée</b> envoie le message et <b>Maj+Entrée</b> fait un retour à la ligne. Activez ceci pour inverser : Entrée va à la ligne, et <b>Maj+Entrée</b> (ou Ctrl+Entrée) envoie.</span></span></label>
+    <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-preset" onchange="toggleView('hide-preset')"><span class="slider"></span></span> <span data-i18n="appearance.hide_preset">masquer le nom du preset</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="appearance.hide_preset_help" data-i18n-html>Retire le nom du preset de la ligne d'état sous chaque réponse (durée, tokens, vitesse). Les autres informations restent affichées.</span></span></label>
     </div>
   </details>
   <details><summary><span class="stitle" data-i18n="api.title">API</span></summary>
@@ -3308,6 +3309,8 @@ fr: {
   "appearance.hide_side_help": "La barre latérale devient un tiroir <b>même sur ordinateur</b> : elle reste fermée et s'ouvre avec le bouton ☰. Toute la largeur pour la conversation.",
   "appearance.enter_newline": "Entrée = retour à la ligne",
   "appearance.enter_newline_help": "Par défaut, <b>Entrée</b> envoie le message et <b>Maj+Entrée</b> fait un retour à la ligne. Activez ceci pour inverser : Entrée va à la ligne, et <b>Maj+Entrée</b> (ou Ctrl+Entrée) envoie.",
+  "appearance.hide_preset": "masquer le nom du preset",
+  "appearance.hide_preset_help": "Retire le nom du preset de la ligne d'état sous chaque réponse (durée, tokens, vitesse). Les autres informations restent affichées.",
   "sidebar.status_svc_title": "voir le journal du moteur",
   "sidebar.svc_log_title": "Journal du moteur",
   "sidebar.svc_log_copy_title": "copier le journal",
@@ -4471,6 +4474,8 @@ en: {
   "appearance.hide_side_help": "The sidebar becomes a drawer <b>even on desktop</b>: it stays closed and opens with the ☰ button. Full width for the conversation.",
   "appearance.enter_newline": "Enter = new line",
   "appearance.enter_newline_help": "By default, <b>Enter</b> sends the message and <b>Shift+Enter</b> makes a new line. Turn this on to swap them: Enter makes a new line, and <b>Shift+Enter</b> (or Ctrl+Enter) sends.",
+  "appearance.hide_preset": "hide the preset name",
+  "appearance.hide_preset_help": "Removes the preset name from the status line under each reply (duration, tokens, speed). The other details stay visible.",
   "sidebar.status_svc_title": "view engine log",
   "sidebar.svc_log_title": "Engine log",
   "sidebar.svc_log_copy_title": "copy log",
@@ -5686,6 +5691,7 @@ const VIEW_OPTS=[
   {id:'fold-tools',     label:'garder les bulles repliées'},
   {id:'hide-side',      label:'barre latérale escamotable'},
   {id:'enter-newline',  label:'Entrée = retour à la ligne'},
+  {id:'hide-preset',    label:'masquer le nom du preset'},
 ];
 function viewOn(id){ return document.documentElement.getAttribute('data-'+id)==='1'; }
 function applyView(id, on){
@@ -9283,7 +9289,7 @@ function paintGenStatus(){
     const rate=genRate();
     if(rate!=null) parts.push(rate.toFixed(1)+' t/s');
   }
-  const pr=activePresetName(); if(pr) parts.push(pr);
+  const pr=activePresetName(); if(pr && !viewOn('hide-preset')) parts.push(pr);
   txt.textContent=parts.join('  ·  ');
   scrollMaybe();
 }
@@ -9300,7 +9306,7 @@ function elapsedStop(){ if(ELAPSED){ clearInterval(ELAPSED.timer); ELAPSED=null;
 // partir de la durée SERVEUR (elapsed_ms, rejouée donc identique après reload) et
 // des mesures serveur (tokens + vitesse decode réelle). On détache GENEL pour que
 // le tour suivant en crée une neuve, laissant celle-ci comme trace du tour fini.
-function finalizeTurn(elapsedMs){
+function finalizeTurn(elapsedMs, preset){
   const st=T.serverStats||{};
   // Tokens = TOTAL du tour (cumul client sur tous les appels d'outils) — pas
   // st.gen_tokens, qui ne compte que la DERNIÈRE complétion (d'où le chiffre qui
@@ -9313,7 +9319,10 @@ function finalizeTurn(elapsedMs){
   const parts=[];
   if(elapsedMs>0) parts.push(fmtElapsed(elapsedMs/1000));
   if(tok>0){ parts.push(fmtTok(tok)); if(rate!=null) parts.push(rate.toFixed(1)+' t/s'); }
-  const pr=activePresetName(); if(pr) parts.push(pr);
+  // preset qui a répondu : celui journalisé par le serveur (rejoué à l'identique après
+  // rechargement), avec repli sur le preset courant pour les vieux journaux sans l'info.
+  const pr=(preset!==undefined && preset!==null) ? preset : activePresetName();
+  if(pr && !viewOn('hide-preset')) parts.push(pr);
   if(!parts.length){ removeGenEl(); scrollMaybe(true); return; }
   const g=ensureGenEl(); g.querySelector('.gtxt').textContent=parts.join('  ·  ');
   GENEL=null;
@@ -9577,7 +9586,7 @@ function handleDelta(d){
     // MÊME ligne en direct et au replay : durée serveur (elapsed_ms, rejouée) +
     // mesures serveur. removeTyping AVANT finalize pour que la ligne soit bien le
     // dernier enfant du fil (donc sous le message).
-    removeTyping(); finalizeTurn(d.elapsed_ms||0);
+    removeTyping(); finalizeTurn(d.elapsed_ms||0, d.preset);
     for(const el of T.turnCollapsibles){ if(el){ el.classList.remove('working'); finalizeReasonLabel(el); } } // fin de tour : plus rien n'est actif (avant collapseAll qui vide la liste)
     collapseAll(T.turnCollapsibles); setBusy(false); return; }
   if(d.error){ smoothSnap(); flushRender(); elapsedStop(); removeTyping(); setActive(null); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }

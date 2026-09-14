@@ -30,6 +30,7 @@ const VIEW_OPTS=[
   {id:'fold-tools',     label:'garder les bulles repliées'},
   {id:'hide-side',      label:'barre latérale escamotable'},
   {id:'enter-newline',  label:'Entrée = retour à la ligne'},
+  {id:'hide-preset',    label:'masquer le nom du preset'},
 ];
 function viewOn(id){ return document.documentElement.getAttribute('data-'+id)==='1'; }
 function applyView(id, on){

@@ -192,7 +192,7 @@ function paintGenStatus(){
     const rate=genRate();
     if(rate!=null) parts.push(rate.toFixed(1)+' t/s');
   }
-  const pr=activePresetName(); if(pr) parts.push(pr);
+  const pr=activePresetName(); if(pr && !viewOn('hide-preset')) parts.push(pr);
   txt.textContent=parts.join('  ·  ');
   scrollMaybe();
 }
@@ -209,7 +209,7 @@ function elapsedStop(){ if(ELAPSED){ clearInterval(ELAPSED.timer); ELAPSED=null;
 // partir de la durée SERVEUR (elapsed_ms, rejouée donc identique après reload) et
 // des mesures serveur (tokens + vitesse decode réelle). On détache GENEL pour que
 // le tour suivant en crée une neuve, laissant celle-ci comme trace du tour fini.
-function finalizeTurn(elapsedMs){
+function finalizeTurn(elapsedMs, preset){
   const st=T.serverStats||{};
   // Tokens = TOTAL du tour (cumul client sur tous les appels d'outils) — pas
   // st.gen_tokens, qui ne compte que la DERNIÈRE complétion (d'où le chiffre qui
@@ -222,7 +222,10 @@ function finalizeTurn(elapsedMs){
   const parts=[];
   if(elapsedMs>0) parts.push(fmtElapsed(elapsedMs/1000));
   if(tok>0){ parts.push(fmtTok(tok)); if(rate!=null) parts.push(rate.toFixed(1)+' t/s'); }
-  const pr=activePresetName(); if(pr) parts.push(pr);
+  // preset qui a répondu : celui journalisé par le serveur (rejoué à l'identique après
+  // rechargement), avec repli sur le preset courant pour les vieux journaux sans l'info.
+  const pr=(preset!==undefined && preset!==null) ? preset : activePresetName();
+  if(pr && !viewOn('hide-preset')) parts.push(pr);
   if(!parts.length){ removeGenEl(); scrollMaybe(true); return; }
   const g=ensureGenEl(); g.querySelector('.gtxt').textContent=parts.join('  ·  ');
   GENEL=null;
@@ -486,7 +489,7 @@ function handleDelta(d){
     // MÊME ligne en direct et au replay : durée serveur (elapsed_ms, rejouée) +
     // mesures serveur. removeTyping AVANT finalize pour que la ligne soit bien le
     // dernier enfant du fil (donc sous le message).
-    removeTyping(); finalizeTurn(d.elapsed_ms||0);
+    removeTyping(); finalizeTurn(d.elapsed_ms||0, d.preset);
     for(const el of T.turnCollapsibles){ if(el){ el.classList.remove('working'); finalizeReasonLabel(el); } } // fin de tour : plus rien n'est actif (avant collapseAll qui vide la liste)
     collapseAll(T.turnCollapsibles); setBusy(false); return; }
   if(d.error){ smoothSnap(); flushRender(); elapsedStop(); removeTyping(); setActive(null); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
