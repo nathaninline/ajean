@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -239,15 +240,29 @@ var (
 
 // dlClient is shared by all download workers so connections to the HF CDN are
 // pooled and reused across chunks instead of re-handshaking TLS each time.
+//
+// Pas de Timeout global (les gros fichiers durent des minutes), mais deux
+// garde-temps ciblés : un timeout de dial et un ResponseHeaderTimeout. Sans eux,
+// une connexion du pool devenue un trou noir (route disparue après coupure d'un
+// VPN, socket half-open sans RST) fige le transfert — on écrit la requête puis on
+// attend une réponse qui ne vient jamais, jusqu'au timeout TCP de l'OS (minutes).
+// L'UI reste alors coincée sur « vérification » sans erreur. Ces timeouts font
+// remonter une vraie erreur en quelques secondes, et KeepAlive purge les sockets
+// mortes du pool au lieu de les réemployer.
 var dlClient = &http.Client{
 	Timeout: 0, // large files: no overall timeout
 	Transport: &http.Transport{
-		Proxy:                 http.ProxyFromEnvironment,
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   10 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
 		MaxIdleConns:          64,
 		MaxIdleConnsPerHost:   64,
 		MaxConnsPerHost:       0,
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   20 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 		// HTTP/1.1: truly parallel sockets, no shared h2 flow-control window.
 		ForceAttemptHTTP2: false,
