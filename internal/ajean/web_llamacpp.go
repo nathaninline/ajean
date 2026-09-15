@@ -465,7 +465,7 @@ func lcRunInstall(force bool) {
 	repo := defaultRepoDir()
 
 	lcPhase("vérification des outils (git, cmake, compilateur)…")
-	if err := requireTools("git", "cmake"); err != nil {
+	if err := requireTools(buildTools()...); err != nil {
 		lcFail(err)
 		return
 	}
@@ -507,7 +507,7 @@ func lcRunInstall(force bool) {
 
 func lcRunUpdate(clean bool) {
 	lcPhase("vérification des outils (git, cmake, compilateur)…")
-	if err := requireTools("git", "cmake"); err != nil {
+	if err := requireTools(buildTools()...); err != nil {
 		lcFail(err)
 		return
 	}

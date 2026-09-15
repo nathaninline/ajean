@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -161,11 +160,12 @@ func cudaLibDirs() []string {
 	// Default symlink first (usually points at the active toolkit).
 	add("/usr/local/cuda/lib64")
 	add("/usr/local/cuda/targets/x86_64-linux/lib")
-	// Versioned installs, newest last so it takes precedence in PATH order.
+	// Installs versionnés, du plus récent au plus ancien (tri sémantique : le plus
+	// récent doit primer, et cuda-12.10 > cuda-12.4, ce qu'un tri de chaînes rate).
 	versioned, _ := filepath.Glob("/usr/local/cuda-*/lib64")
-	sort.Strings(versioned)
-	for i := len(versioned) - 1; i >= 0; i-- {
-		add(versioned[i])
+	sortByVersionDesc(versioned)
+	for _, d := range versioned {
+		add(d)
 	}
 	return dirs
 }
@@ -240,6 +240,11 @@ func cudaPathEnv(toolkitDir string) []string { return nil }
 // ensureCudaVSIntegration is Windows-specific (MSBuild CUDA integration check);
 // no-op on Unix.
 func ensureCudaVSIntegration(toolkitDir string) error { return nil }
+
+// msvcDevEnv is Windows-specific (the Ninja generator needs the MSVC environment
+// from vcvars). On Unix the toolchain is already on PATH, so there's nothing to
+// inject. Present only so the shared build code compiles.
+func msvcDevEnv() ([]string, error) { return nil, nil }
 
 // ensureAccelerator is a no-op on Unix: CUDA/ROCm toolkits are installed through
 // the distro (their layout is already probed by findNvcc / detectBuildPlan), and

@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -79,6 +80,161 @@ func isKnownBuildBackend(b string) bool {
 
 func detectBuildPlan() buildPlan { return buildPlanFor("") }
 
+// buildTools liste les outils requis pour compiler llama.cpp sur la plateforme
+// courante. Windows compile avec le générateur Ninja (voir buildPlanFor) → ninja
+// est indispensable (auto-installé via winget par requireTools). Unix utilise le
+// générateur Makefiles → make, fourni par ensureCompiler.
+func buildTools() []string {
+	if runtime.GOOS == "windows" {
+		return []string{"git", "cmake", "ninja"}
+	}
+	return []string{"git", "cmake"}
+}
+
+// buildEnv accumule des variables d'environnement de build en préservant l'ordre
+// d'insertion, avec une gestion de PATH insensible à la casse (« Path » sous
+// Windows, « PATH » ailleurs). Sans ça, mélanger l'environnement MSVC de vcvars
+// (« Path=… ») et un ajout « PATH=… » produirait DEUX entrées de chemin que le
+// process enfant départagerait de façon indéfinie — cl.exe/nvcc parfois
+// introuvables. La clé canonique fusionne les deux ; le nom d'affichage conservé
+// est celui vu en premier (donc « Path » de vcvars sous Windows).
+type buildEnv struct {
+	order []string          // noms d'affichage, dans l'ordre d'insertion
+	val   map[string]string // clé canonique -> valeur
+	seen  map[string]bool   // clé canonique déjà vue
+}
+
+func newBuildEnv() *buildEnv {
+	return &buildEnv{val: map[string]string{}, seen: map[string]bool{}}
+}
+
+func envKeyCanon(k string) string {
+	if runtime.GOOS == "windows" {
+		return strings.ToLower(k)
+	}
+	return k
+}
+
+func (b *buildEnv) set(name, v string) {
+	c := envKeyCanon(name)
+	if !b.seen[c] {
+		b.seen[c] = true
+		b.order = append(b.order, name)
+	}
+	b.val[c] = v
+}
+
+// prependPath met dir en tête de PATH, en repartant du PATH courant du process
+// s'il n'a pas encore été posé.
+func (b *buildEnv) prependPath(dir string) {
+	name := "PATH"
+	if runtime.GOOS == "windows" {
+		name = "Path"
+	}
+	cur, ok := b.val[envKeyCanon(name)]
+	if !ok {
+		cur = os.Getenv("PATH")
+	}
+	if cur != "" {
+		b.set(name, dir+string(os.PathListSeparator)+cur)
+	} else {
+		b.set(name, dir)
+	}
+}
+
+// serialize rend l'environnement au format attendu par runBuildStep : des
+// paires « NOM=VALEUR » séparées par des NUL. "" si rien n'a été posé.
+func (b *buildEnv) serialize() string {
+	if len(b.order) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(b.order))
+	for _, name := range b.order {
+		parts = append(parts, name+"="+b.val[envKeyCanon(name)])
+	}
+	return strings.Join(parts, "\x00")
+}
+
+// reVerNum capture le premier numéro de version pointé d'un chemin
+// (« …/v13.4/bin » → « 13.4 », « /usr/local/cuda-12.8/lib64 » → « 12.8 »).
+var reVerNum = regexp.MustCompile(`\d+(?:\.\d+)+`)
+
+func pathVersion(s string) string { return reVerNum.FindString(filepath.ToSlash(s)) }
+
+// cmpVersion compare deux versions pointées NUMÉRIQUEMENT (« 12.10 » > « 12.4 »,
+// « 13.4 » > « 9.0 ») là où un tri de chaînes se tromperait. Renvoie -1, 0 ou 1.
+// Une chaîne vide est considérée plus petite que toute version.
+func cmpVersion(a, b string) int {
+	if a == b {
+		return 0
+	}
+	as, bs := strings.Split(a, "."), strings.Split(b, ".")
+	n := len(as)
+	if len(bs) > n {
+		n = len(bs)
+	}
+	for i := 0; i < n; i++ {
+		var x, y int
+		if i < len(as) {
+			x, _ = strconv.Atoi(as[i])
+		}
+		if i < len(bs) {
+			y, _ = strconv.Atoi(bs[i])
+		}
+		if x != y {
+			if x < y {
+				return -1
+			}
+			return 1
+		}
+	}
+	return 0
+}
+
+// highestVersionedPath renvoie, parmi des chemins porteurs d'un numéro de version,
+// celui dont la version est la plus élevée (tri sémantique). Les chemins sans
+// version détectable ne l'emportent jamais sur un chemin versionné. "" si la
+// liste est vide.
+func highestVersionedPath(paths []string) string {
+	best, bestVer := "", ""
+	for _, p := range paths {
+		v := pathVersion(p)
+		if best == "" || (v != "" && cmpVersion(v, bestVer) > 0) {
+			best, bestVer = p, v
+		}
+	}
+	return best
+}
+
+// sortByVersionDesc trie des chemins par version décroissante (sémantique).
+func sortByVersionDesc(paths []string) {
+	sort.SliceStable(paths, func(i, j int) bool {
+		return cmpVersion(pathVersion(paths[i]), pathVersion(paths[j])) > 0
+	})
+}
+
+// cudaJobsCap plafonne le parallélisme d'un build CUDA selon la RAM disponible.
+// nvcc est très gourmand : chaque unité de compilation lourde (surtout avec
+// GGML_CUDA_FA_ALL_QUANTS, qui génère beaucoup de gros .cu) peut culminer autour
+// de 2 Go. Sur une machine à beaucoup de cœurs mais peu de RAM, « -j = tous les
+// cœurs » fait tomber le build en OOM avec une erreur illisible (le genre
+// d'échec qui fait abandonner l'utilisateur). On vise ~2 Go par job, borné par
+// le nombre de cœurs, minimum 1. RAM inconnue (0) => aucune restriction.
+func cudaJobsCap(cpuJobs int) int {
+	ram := totalRAMGB()
+	if ram <= 0 {
+		return cpuJobs
+	}
+	byRAM := int(ram / 2.0)
+	if byRAM < 1 {
+		byRAM = 1
+	}
+	if byRAM < cpuJobs {
+		return byRAM
+	}
+	return cpuJobs
+}
+
 // buildPlanFor construit le plan CMake. `force` vide = détection automatique de
 // l'accélérateur ; sinon on impose ce backend ("cuda"|"hip"|"vulkan"|"cpu"|
 // "metal") sans passer par la détection — utile quand la détection choisit un
@@ -104,16 +260,23 @@ func buildPlanFor(force string) buildPlan {
 		"-DLLAMA_USE_PREBUILT_UI=OFF",
 	}
 
-	// Sur Windows, le générateur CMake par défaut est « NMake Makefiles », qui
-	// suppose un Developer Command Prompt MSVC. On force le générateur Visual
-	// Studio : il localise le toolchain MSVC tout seul via le registre, sans
-	// vcvars, depuis un shell ordinaire.
+	// Sur Windows, on compile avec le générateur NINJA (et non Visual Studio).
+	//
+	// Le générateur Visual Studio passe par MSBuild, qui exige : (1) que CMake
+	// trouve « une instance de Visual Studio » correspondant EXACTEMENT au nom du
+	// générateur (« Visual Studio 17 2022 »…) — cassé dès qu'un utilisateur a une
+	// autre édition, ex. VS 2026 (issue #73) ; (2) pour CUDA, l'intégration MSBuild
+	// « CUDA x.y.props » installée au bon endroit — absente/mauvaise version →
+	// « No CUDA toolset found » (issues #10, #75). Ces deux erreurs cryptiques
+	// (« exit status 1 ») sont STRUCTURELLES au générateur VS.
+	//
+	// Ninja invoque cl.exe et nvcc directement : aucune de ces deux dépendances.
+	// Il lui faut juste l'environnement MSVC (INCLUDE/LIB/PATH), que le générateur
+	// VS mettait en place tout seul — on le fournit via vcvars au moment du build
+	// (voir buildLlamacpp → msvcDevEnv). Ninja est mono-configuration : pas de « -A »,
+	// et CMAKE_BUILD_TYPE=Release (déjà posé) suffit.
 	if runtime.GOOS == "windows" {
-		p.gen = msvcGenerator()
-		p.genArch = "x64"
-		if runtime.GOARCH == "arm64" {
-			p.genArch = "ARM64"
-		}
+		p.gen = "Ninja"
 		// Désactive les en-têtes précompilés (PCH) du build. En amont, llama.cpp a
 		// activé le PCH sur tools/server (commit 3bcfeb70, 2026-09-11) : sous MSVC,
 		// le symbole de comptabilité du PCH est ré-exporté par WINDOWS_EXPORT_ALL_SYMBOLS
@@ -152,6 +315,7 @@ func buildPlanFor(force string) buildPlan {
 	}
 	if force == "cuda" {
 		p.backend = "cuda"
+		p.jobs = cudaJobsCap(p.jobs)
 		if nvcc := findNvcc(); nvcc != "" {
 			p.cudaCXX = nvcc
 			if root := cudaToolkitRoot(nvcc); root != "" && runtime.GOOS != "windows" {
@@ -169,6 +333,7 @@ func buildPlanFor(force string) buildPlan {
 	// CUDA : nvcc présent ET un GPU NVIDIA visible.
 	if nvcc := findNvcc(); nvcc != "" && hasNvidiaGPU() {
 		p.backend = "cuda"
+		p.jobs = cudaJobsCap(p.jobs)
 		p.cudaCXX = nvcc
 		// GGML_CUDA_FA_ALL_QUANTS=ON : compile un noyau Flash-Attention pour CHAQUE
 		// combinaison de type de cache KV (K et V). Sans lui, llama.cpp ne compile
@@ -230,30 +395,47 @@ func buildLlamacpp(repo string, p buildPlan, clean bool) error {
 		}
 	}
 
-	// nvcc doit être dans le PATH et exposé via CUDACXX pour la config CMake.
-	env := ""
+	// Environnement de build. On accumule les variables dans une petite map
+	// ordonnée (clé PATH insensible à la casse sous Windows) puis on la sérialise
+	// en KEY\x00VAL pour runBuildStep.
+	be := newBuildEnv()
+
+	// Windows + Ninja : fournir l'environnement MSVC (cl.exe, INCLUDE, LIB,
+	// LIBPATH, PATH…) que le générateur Visual Studio mettait en place seul. Sans
+	// lui, Ninja ne trouve pas le compilateur (« cl : not found » / configure KO).
+	if runtime.GOOS == "windows" && p.gen == "Ninja" {
+		devEnv, err := msvcDevEnv()
+		if err != nil {
+			return err
+		}
+		for _, kv := range devEnv {
+			if i := strings.IndexByte(kv, '='); i > 0 {
+				be.set(kv[:i], kv[i+1:])
+			}
+		}
+	}
+
+	// CUDA : nvcc exposé via CUDACXX et son dossier bin en tête de PATH.
 	if p.backend == "cuda" && p.cudaCXX != "" {
 		cudaBin := filepath.Dir(p.cudaCXX)
-		parts := []string{
-			"CUDACXX=" + p.cudaCXX,
-			"PATH=" + cudaBin + string(os.PathListSeparator) + os.Getenv("PATH"),
+		be.set("CUDACXX", p.cudaCXX)
+		be.prependPath(cudaBin)
+		// CUDA_PATH / CUDA_PATH_Vx_y : sans effet pour Ninja, mais inoffensif et
+		// utile si un jour on repasse par MSBuild (no-op sur Unix).
+		for _, kv := range cudaPathEnv(filepath.Dir(cudaBin)) {
+			if i := strings.IndexByte(kv, '='); i > 0 {
+				be.set(kv[:i], kv[i+1:])
+			}
 		}
-		// L'intégration MSBuild CUDA (générateur Visual Studio) résout
-		// CudaToolkitDir depuis CUDA_PATH / CUDA_PATH_Vx_y. L'installeur les pose
-		// dans l'environnement persistant, mais pas dans ce process déjà lancé —
-		// on les réinjecte sinon le configure échoue sur « CUDA Toolkit directory '' ».
-		parts = append(parts, cudaPathEnv(filepath.Dir(cudaBin))...)
-		env = strings.Join(parts, "\x00")
-		// Générateur Visual Studio : vérifie (et répare si possible) l'intégration
-		// MSBuild de CUDA AVANT de configurer — sinon CMake échoue sur le cryptique
-		// « No CUDA toolset found » (cf. issue #10 : CUDA dans un chemin custom sans
-		// l'option « Visual Studio Integration », ou VS installé après CUDA).
+		// Générateur Visual Studio (repli si jamais Ninja n'est pas choisi) :
+		// vérifier/réparer l'intégration MSBuild de CUDA avant de configurer.
 		if strings.HasPrefix(p.gen, "Visual Studio") {
 			if err := ensureCudaVSIntegration(filepath.Dir(cudaBin)); err != nil {
 				return err
 			}
 		}
 	}
+	env := be.serialize()
 
 	cfgArgs := []string{"-B", "build", "-S", "."}
 	if p.gen != "" {
@@ -394,8 +576,7 @@ func findNvcc() string {
 			}
 			matches, _ := filepath.Glob(filepath.Join(base, "NVIDIA GPU Computing Toolkit", "CUDA", "v*", "bin", "nvcc.exe"))
 			if len(matches) > 0 {
-				sort.Strings(matches) // v12.2 < v12.8 → on prend le plus récent
-				return matches[len(matches)-1]
+				return highestVersionedPath(matches) // tri sémantique : v12.10 > v12.4, v13.4 > v9.0
 			}
 		}
 		return ""
@@ -416,8 +597,7 @@ func findNvccUnix(lookPath func(string) (string, error)) string {
 	}
 	matches, _ := filepath.Glob("/usr/local/cuda-*/bin/nvcc")
 	if len(matches) > 0 {
-		sort.Strings(matches) // cuda-12.2 < cuda-12.8 lexicographiquement → on prend le dernier
-		return matches[len(matches)-1]
+		return highestVersionedPath(matches) // tri sémantique : cuda-12.10 > cuda-12.4
 	}
 	if p, err := lookPath("nvcc"); err == nil {
 		return p

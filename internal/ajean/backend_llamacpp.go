@@ -155,7 +155,7 @@ func llamacppInstall(args []string) error {
 		return nil
 	}
 
-	if err := requireTools("git", "cmake"); err != nil {
+	if err := requireTools(buildTools()...); err != nil {
 		return err
 	}
 	if err := ensureCompiler(); err != nil {
@@ -245,7 +245,7 @@ func llamacppUpdate(args []string) error {
 		}
 	}
 
-	if err := requireTools("git", "cmake"); err != nil {
+	if err := requireTools(buildTools()...); err != nil {
 		return err
 	}
 	if err := ensureCompiler(); err != nil {
@@ -412,7 +412,7 @@ func installCustomBackend(url, name, ref string, phase func(string)) (string, er
 	}
 
 	phase("vérification des outils (git, cmake, compilateur)…")
-	if err := requireTools("git", "cmake"); err != nil {
+	if err := requireTools(buildTools()...); err != nil {
 		return "", err
 	}
 	if err := ensureCompiler(); err != nil {

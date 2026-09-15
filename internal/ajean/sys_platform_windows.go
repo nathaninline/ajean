@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -208,20 +209,26 @@ func vswherePath() string {
 	return filepath.Join(base, "Microsoft Visual Studio", "Installer", "vswhere.exe")
 }
 
-// msvcInstallVersion returns the major version of the newest MSVC install that
-// has the C++ toolchain (e.g. "17"), or "" if none is found.
-func msvcInstallVersion() string {
+// vswhereProp interroge vswhere pour une propriété de l'install VS la plus
+// récente disposant du toolchain C++. "" si vswhere ou la propriété est absente.
+func vswhereProp(prop string) string {
 	vs := vswherePath()
 	if _, err := os.Stat(vs); err != nil {
 		return ""
 	}
 	out, err := hideCmd(exec.Command(vs, "-latest", "-products", "*",
 		"-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
-		"-property", "installationVersion")).Output()
+		"-property", prop)).Output()
 	if err != nil {
 		return ""
 	}
-	ver := strings.TrimSpace(string(out))
+	return strings.TrimSpace(string(out))
+}
+
+// msvcInstallVersion returns the major version of the newest MSVC install that
+// has the C++ toolchain (e.g. "17"), or "" if none is found.
+func msvcInstallVersion() string {
+	ver := vswhereProp("installationVersion")
 	if ver == "" {
 		return ""
 	}
@@ -231,10 +238,24 @@ func msvcInstallVersion() string {
 	return ver
 }
 
-// msvcGenerator returns the CMake generator name for the installed MSVC, falling
-// back to VS 2022 (the version `ensureCompiler` installs).
+// msvcGenerator returns the CMake generator name for the installed MSVC.
+//
+// Le nom du générateur Visual Studio est « Visual Studio <major> <année> » (ex.
+// « Visual Studio 18 2026 »), et l'année ne se déduit PAS du numéro majeur (17→2022,
+// 18→2026…). On lit donc l'année directement via vswhere (catalog_productLineVersion)
+// et on la combine au majeur : ainsi une future version de Visual Studio est prise
+// en charge sans nouvelle table. Sans cette lecture (vswhere absent, propriété vide)
+// on retombe sur les correspondances connues, puis sur VS 2022 (ce qu'installe
+// ensureCompiler). Corrige l'issue #73 : VS 2026 (major 18) était mappé à tort sur
+// « Visual Studio 17 2022 » → CMake « could not find any instance of Visual Studio ».
 func msvcGenerator() string {
-	switch msvcInstallVersion() {
+	major := msvcInstallVersion()
+	if year := vswhereProp("catalog_productLineVersion"); major != "" && year != "" {
+		return "Visual Studio " + major + " " + year
+	}
+	switch major {
+	case "18":
+		return "Visual Studio 18 2026"
 	case "16":
 		return "Visual Studio 16 2019"
 	case "15":
@@ -306,16 +327,83 @@ func ensureAccelerator() {
 	}
 }
 
+// vcvarsPath renvoie le script vcvars qui initialise l'environnement MSVC pour
+// l'architecture cible, ou "" s'il est introuvable. C'est le point d'entrée
+// officiel pour obtenir cl.exe + INCLUDE/LIB hors d'un « Developer Command
+// Prompt ».
+func vcvarsPath() string {
+	ip := vswhereProp("installationPath")
+	if ip == "" {
+		return ""
+	}
+	name := "vcvars64.bat"
+	if runtime.GOARCH == "arm64" {
+		name = "vcvarsarm64.bat"
+	}
+	if p := filepath.Join(ip, "VC", "Auxiliary", "Build", name); isFile(p) {
+		return p
+	}
+	return ""
+}
+
+// msvcDevEnv exécute vcvars et renvoie l'environnement MSVC complet (INCLUDE,
+// LIB, LIBPATH, PATH avec cl.exe…) sous forme de paires « NOM=VALEUR ». C'est ce
+// que le générateur Visual Studio mettait en place implicitement ; le générateur
+// Ninja a besoin qu'on le lui fournisse. Erreur explicite si vcvars est absent
+// (VS / Build Tools sans le workload C++) ou échoue.
+func msvcDevEnv() ([]string, error) {
+	vc := vcvarsPath()
+	if vc == "" {
+		return nil, fmt.Errorf("environnement MSVC introuvable : installe « Visual Studio Build Tools » avec le workload C++ (vcvars absent)")
+	}
+	// « call vcvars >nul && set » : on récupère l'environnement RÉSULTANT, ligne
+	// par ligne. La redirection masque la bannière de vcvars pour ne garder que
+	// les affectations de `set`.
+	//
+	// On fixe la ligne de commande brute via SysProcAttr.CmdLine : l'échappement
+	// par défaut de Go (`\"`) n'est PAS compris par cmd.exe (qui attend le doublage
+	// de guillemets), donc un `exec.Command("cmd","/c", "call \""+vc+"\" …")` casse
+	// dès que le chemin contient des espaces (« C:\Program Files … »), avec un
+	// « exit status 1 » opaque. La forme `cmd /S /c "…"` retire uniquement le
+	// premier et le dernier guillemet et laisse le reste littéral.
+	cmd := hideCmd(exec.Command("cmd"))
+	cmd.SysProcAttr.CmdLine = `cmd /S /c "call "` + vc + `" >nul 2>&1 && set"`
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("initialisation de l'environnement MSVC (vcvars) échouée : %w", err)
+	}
+	var env []string
+	for _, line := range strings.Split(string(out), "\r\n") {
+		line = strings.TrimRight(line, "\r\n")
+		if i := strings.IndexByte(line, '='); i > 0 {
+			env = append(env, line)
+		}
+	}
+	if len(env) == 0 {
+		return nil, fmt.Errorf("environnement MSVC vide après vcvars (%s)", vc)
+	}
+	return env, nil
+}
+
 // ensureCudaVSIntegration vérifie que l'intégration MSBuild de CUDA (fichiers
 // « CUDA x.y.props/targets » dans BuildCustomizations de Visual Studio) est en
 // place — sans elle, le générateur Visual Studio échoue sur le cryptique
 // « No CUDA toolset found » (CMakeDetermineCompilerId). Cas typiques : CUDA
 // installé dans un chemin custom (ex. F:\Cuda) sans cocher « Visual Studio
 // Integration », ou VS (ré)installé APRÈS CUDA — l'installeur NVIDIA n'intègre
-// que les VS présents au moment où il tourne. On tente d'abord de copier les
-// fichiers depuis le toolkit (extras\visual_studio_integration\MSBuildExtensions) ;
-// si ça échoue (droits), on explique quoi faire au lieu de laisser l'erreur
-// CMake brute. Best-effort : sans vswhere/VS détectable on laisse cmake juger.
+// que les VS présents au moment où il tourne.
+//
+// Le contrôle est fait pour la VERSION PRÉCISE du toolkit qu'on va compiler
+// (déduite de toolkitDir, ex. « v13.4 » → « CUDA 13.4.props ») et non pour
+// « n'importe quel CUDA *.props » : sinon une intégration laissée par une
+// ancienne version de CUDA (ex. 13.3, non désinstallée) fait croire à tort que
+// tout est en place, alors que CMake résout le toolkit 13.4 et ne trouve pas SON
+// toolset → « No CUDA toolset found » (issue #75, après une mise à jour de CUDA).
+// On copie alors les fichiers de cette version depuis le toolkit
+// (extras\visual_studio_integration\MSBuildExtensions) ; ils coexistent avec ceux
+// des autres versions. Si la copie échoue (droits), on explique quoi faire au
+// lieu de laisser l'erreur CMake brute. Best-effort : sans vswhere/VS détectable
+// on laisse cmake juger.
 func ensureCudaVSIntegration(toolkitDir string) error {
 	vs := vswherePath()
 	if _, err := os.Stat(vs); err != nil {
@@ -332,12 +420,18 @@ func ensureCudaVSIntegration(toolkitDir string) error {
 		return nil
 	}
 	dsts, _ := filepath.Glob(filepath.Join(installPath, "MSBuild", "Microsoft", "VC", "*", "BuildCustomizations"))
+	if len(dsts) == 0 {
+		return nil // pas de dossier d'intégration MSBuild détectable → on laisse cmake juger
+	}
+	// Fichier de props attendu pour CETTE version du toolkit (ex. « CUDA 13.4.props »).
+	ver := strings.TrimPrefix(filepath.Base(toolkitDir), "v")
+	wantProps := "CUDA " + ver + ".props"
 	for _, d := range dsts {
-		if m, _ := filepath.Glob(filepath.Join(d, "CUDA *.props")); len(m) > 0 {
-			return nil // intégration déjà en place
+		if isFile(filepath.Join(d, wantProps)) {
+			return nil // intégration de cette version déjà en place
 		}
 	}
-	// Absente : tentative de réparation depuis le toolkit lui-même.
+	// Absente pour cette version : tentative de réparation depuis le toolkit lui-même.
 	src := filepath.Join(toolkitDir, "extras", "visual_studio_integration", "MSBuildExtensions")
 	files, _ := filepath.Glob(filepath.Join(src, "*"))
 	copied := 0
@@ -359,16 +453,16 @@ func ensureCudaVSIntegration(toolkitDir string) error {
 		}
 	}
 	if copied > 0 {
-		fmt.Printf("%s intégration Visual Studio de CUDA absente — réparée (fichiers copiés depuis %s)\n", yellow("[fix]"), src)
+		fmt.Printf("%s intégration Visual Studio de CUDA %s absente — réparée (fichiers copiés depuis %s)\n", yellow("[fix]"), ver, src)
 		return nil
 	}
-	return fmt.Errorf(`l'intégration Visual Studio de CUDA est absente : aucun fichier « CUDA x.y.props » sous
+	return fmt.Errorf(`l'intégration Visual Studio de CUDA %s est absente : aucun fichier « %s » sous
   %s\MSBuild\Microsoft\VC\<version>\BuildCustomizations
 Sans elle, CMake échoue sur « No CUDA toolset found ». Pour corriger, au choix :
   1. relance l'installeur du CUDA Toolkit (installation personnalisée) et coche « CUDA → Visual Studio Integration » — Visual Studio doit déjà être installé à ce moment-là ;
   2. ou copie (en admin) les fichiers de
        %s
-     vers le dossier BuildCustomizations ci-dessus, puis relance ajean llamacpp install`, installPath, src)
+     vers le dossier BuildCustomizations ci-dessus, puis relance ajean llamacpp install`, ver, wantProps, installPath, src)
 }
 
 // cudaPathEnv returns the CUDA toolkit env vars the MSBuild CUDA integration
