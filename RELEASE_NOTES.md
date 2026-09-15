@@ -1,21 +1,18 @@
-Chargement du menu modernisé, moins de requêtes réseau pour les jauges, et réorganisation des actions.
+Correction de l'installation du moteur sur les cartes NVIDIA anciennes.
 
-## Indicateurs matériels regroupés
+## Compilation du moteur sur GPU NVIDIA anciens
 
-Les jauges VRAM et RAM sont désormais récupérées en un seul appel réseau au lieu de deux, et le sondage périodique s'interrompt quand l'onglet passe en arrière-plan. Le nombre de requêtes diminue, en particulier à travers l'accès distant. Les serveurs plus anciens restent pris en charge : l'interface revient automatiquement aux anciens points d'accès si le nouveau n'est pas disponible.
+Sur une machine équipée d'un GPU Pascal (GTX 10xx), Maxwell (GTX 900) ou Volta, l'installation du moteur pouvait échouer avec un message CMake incompréhensible du type « nvcc is not able to compile a simple test program ». La cause : CUDA 13 a supprimé la prise en charge de ces générations de cartes (Turing sm_75 est désormais le minimum), et l'installateur retenait systématiquement la version de CUDA la plus récente présente sur la machine, même quand elle ne savait plus compiler pour la carte.
 
-## Chargement en skeleton
+Deux changements corrigent ce comportement :
 
-Pendant le chargement, les jauges (VRAM, RAM), la configuration et l'indicateur d'état affichent un skeleton animé plutôt que trois points. L'apparition des données se fait par un fondu, dans le même esprit que le chargement d'une conversation.
+- lorsque plusieurs versions du CUDA Toolkit sont installées, l'installateur retient maintenant la plus récente qui prend encore en charge la carte la plus ancienne de la machine, au lieu de la plus récente sans distinction. Une configuration multi-GPU mélangeant une carte ancienne et une carte récente est prise en compte : le toolkit choisi doit convenir aux deux ;
+- lorsque aucune version de CUDA installée ne convient à la carte, l'installation s'arrête immédiatement avec un message clair indiquant la marche à suivre (installer un CUDA Toolkit 12.x, qui prend encore ces cartes en charge), au lieu de lancer une compilation vouée à l'échec.
 
-## Menu réorganisé
+Les machines dont la configuration fonctionnait déjà ne sont pas affectées : quand la version de CUDA la plus récente convient à la carte, c'est la même qui est retenue qu'auparavant, avec les mêmes réglages de compilation. Les performances du moteur sont inchangées.
 
-La section « Actions » a été retirée et son contenu redistribué :
+## Mise à jour
 
-- les mises à jour s'affichent automatiquement dans un bandeau en bas du menu ; une vérification manuelle reste possible en cliquant le numéro de version ;
-- l'export d'une conversation se fait depuis le hub Projets ;
-- le benchmark a rejoint la fenêtre d'édition du preset actif, sous la forme d'une icône.
+    ajean update
 
-## Corrections d'interface
-
-Le libellé « API Externe » est corrigé. La fenêtre de benchmark reprend l'animation d'ouverture et le bouton de fermeture communs aux autres fenêtres.
+Non testé sur une véritable machine à GPU Pascal ou Volta au moment de la publication : le correctif repose sur la table de compatibilité CUDA (versions 11, 12 et 13) et sur des tests unitaires de la logique de sélection.
