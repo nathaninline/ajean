@@ -1,28 +1,20 @@
-Lisibilité de la compilation Windows et désinstallation d'un moteur.
+Binaires précompilés réparés, et améliorations autour de la compilation.
 
-## Journal de compilation lisible
+## Binaires précompilés à nouveau détectés
 
-Depuis le passage à Ninja, la sortie du compilateur (cl.exe) faisait remonter dans l'interface des milliers d'avertissements et de notes de gabarit, parfois avec des accents mal encodés. Le journal affiché ne conserve désormais que la progression et les vraies erreurs ; la sortie complète reste enregistrée dans le fichier de log pour le diagnostic.
+llama.cpp a changé la façon dont ses releases sont publiées : la release marquée « latest » ne contient plus de binaires, et les vrais builds sont désormais publiés séparément. Résultat, le mode précompilé affichait « aucun binaire précompilé adapté à cette machine ». La détection suit maintenant les bonnes releases et retrouve le binaire correspondant à la machine.
 
-## Retour pendant l'installation des outils
+## Arrêter une compilation
 
-Lorsqu'un outil manquant (par exemple Ninja) est installé automatiquement, l'interface l'indique maintenant explicitement au lieu de sembler figée sur « vérification des outils ». L'étape en cours est affichée en clair.
+Un bouton permet d'interrompre une installation ou une compilation en cours ; les processus lancés sont arrêtés proprement et l'opération peut être relancée plus tard.
 
-## Indicateur d'activité
+## Indicateur d'activité stable
 
-L'émoji sablier utilisé pendant une compilation est remplacé par un indicateur circulaire discret, cohérent avec le reste de l'interface.
+Pendant une installation, l'indicateur d'activité ne clignote plus : il tourne de façon continue et seule la ligne d'état se met à jour. Le même indicateur circulaire est utilisé pour le banc d'essai.
 
-## Désinstaller un moteur
+## Nouvelle version signalée
 
-Une commande de terminal permet de supprimer un moteur installé :
-
-```
-ajean llamacpp uninstall compiled
-ajean llamacpp uninstall prebuilt
-ajean llamacpp uninstall custom <nom>
-```
-
-La suppression du moteur actif est refusée par défaut ; l'option `--force` arrête le service et libère la sélection.
+Un bandeau discret apparaît en bas du menu lorsqu'une nouvelle version d'AJEAN est disponible.
 
 ## Mise à jour
 
