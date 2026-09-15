@@ -1,29 +1,21 @@
-Binaires précompilés réparés, compilation interruptible, tâches préservées, et corrections d'interface.
+Chargement du menu modernisé, moins de requêtes réseau pour les jauges, et réorganisation des actions.
 
-## Binaires précompilés à nouveau détectés
+## Indicateurs matériels regroupés
 
-llama.cpp a changé la publication de ses releases : celle marquée « latest » ne contient plus de binaires. Le mode précompilé affichait « aucun binaire précompilé adapté à cette machine ». La détection suit désormais les bonnes releases et retrouve le binaire de la machine.
+Les jauges VRAM et RAM sont désormais récupérées en un seul appel réseau au lieu de deux, et le sondage périodique s'interrompt quand l'onglet passe en arrière-plan. Le nombre de requêtes diminue, en particulier à travers l'accès distant. Les serveurs plus anciens restent pris en charge : l'interface revient automatiquement aux anciens points d'accès si le nouveau n'est pas disponible.
 
-## Arrêter une compilation
+## Chargement en skeleton
 
-Un bouton permet d'interrompre une installation ou une compilation en cours ; les processus sont arrêtés proprement et l'opération peut être relancée.
+Pendant le chargement, les jauges (VRAM, RAM), la configuration et l'indicateur d'état affichent un skeleton animé plutôt que trois points. L'apparition des données se fait par un fondu, dans le même esprit que le chargement d'une conversation.
 
-## Une nouvelle conversation n'interrompt plus une tâche
+## Menu réorganisé
 
-Ouvrir une nouvelle conversation pendant qu'une tâche planifiée s'exécutait pouvait l'interrompre et perdre son compte-rendu. La tâche continue maintenant jusqu'à son terme.
+La section « Actions » a été retirée et son contenu redistribué :
 
-## Menu AJEAN LINK sur le portail distant
+- les mises à jour s'affichent automatiquement dans un bandeau en bas du menu ; une vérification manuelle reste possible en cliquant le numéro de version ;
+- l'export d'une conversation se fait depuis le hub Projets ;
+- le benchmark a rejoint la fenêtre d'édition du preset actif, sous la forme d'une icône.
 
-La section AJEAN LINK réapparaît sur le portail d'accès distant, en mode informatif (adresse et état de connexion).
+## Corrections d'interface
 
-## Interface
-
-- L'indicateur d'activité pendant une compilation ne clignote plus et reste stable ; le même indicateur circulaire est utilisé pour le banc d'essai.
-- Un bandeau discret signale, en bas du menu, la disponibilité d'une nouvelle version.
-- La vérification de mise à jour est mise en cache pour éviter des erreurs de quota côté GitHub.
-
-## Mise à jour
-
-```
-ajean update
-```
+Le libellé « API Externe » est corrigé. La fenêtre de benchmark reprend l'animation d'ouverture et le bouton de fermeture communs aux autres fenêtres.

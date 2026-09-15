@@ -1,6 +1,7 @@
 let LAST_BOOT=null; // empreinte de démarrage du serveur vue au dernier poll
 let LAST_PRESET=null; // id du preset actif vu au dernier poll (détecte une bascule faite ailleurs)
 async function loadStatus(){
+  if(document.hidden) return; // onglet en arrière-plan : on met le sondage en pause (palier 1)
   const s=await jget('/api/status');
   // Preset actif changé alors qu'on n'a rien touché ici : un AUTRE appareil a
   // basculé de preset/modèle. On rafraîchit la liste (et le libellé #status-preset)
@@ -32,8 +33,13 @@ async function loadStatus(){
   if(s.active && s.health){ cls='ok'; txt=t('status.ready'); }
   else if(s.load_error){ cls='err'; txt=t('status.error'); }
   else if(s.active){ cls='loading'; txt=t('status.loading'); }
+  // Fondu au premier vrai statut (le skeleton du chargement est encore là), comme
+  // les jauges — voir swapContent. className est réécrit juste après, on repose donc
+  // 'fadein' une fois le contenu remplacé.
+  const svcWasSkel = !!el.querySelector('.skel');
   el.className='statuspill '+cls;
   el.innerHTML='<span class="dot"></span>'+txt;
+  if(svcWasSkel){ el.classList.remove('fadein'); void el.offsetWidth; el.classList.add('fadein'); }
   MODEL_READY = !!(s.active && s.health);
   // Chargement en cours = moteur actif, pas encore sain, sans erreur de charge.
   // Sinon (moteur coupé), c'est « aucun modèle chargé », pas un chargement.
@@ -110,7 +116,7 @@ async function checkServerFreshness(){
   if(go) go.onclick=function(){
     box.innerHTML='⏳ '+t('status.update_in_progress');
     if(typeof toast==='function') toast(t('status.update_launched_toast'));
-    if(typeof applyUpdate==='function') applyUpdate();
+    if(typeof applyUpdate==='function') applyUpdate('server-stale');
   };
   const x=document.getElementById('stale-x');
   if(x) x.onclick=function(){ localStorage.setItem('ajean.staleDismissed', r.latest); box.style.display='none'; };
@@ -133,12 +139,29 @@ async function checkAppUpdate(){
   box.hidden=false;
 }
 
-// Clic sur le bandeau : ouvrir la section Actions et déclencher la vérification,
-// qui affiche le bouton « Mettre à jour » (on ne lance jamais la MAJ au clic).
-function openAppUpdate(){
-  const det=document.getElementById('upd-details');
-  if(det){ det.open=true; det.scrollIntoView({block:'center', behavior:'smooth'}); }
-  if(typeof checkUpdate==='function') checkUpdate();
+// Clic sur le bandeau de MAJ (bas du menu) : on lance l'installation, après
+// confirmation (elle redémarre le service). La progression s'affiche dans le
+// bandeau lui-même. Remplace l'ancien passage par la section Actions.
+async function onAppUpdateClick(){
+  if(!await askConfirm(t('status.update_confirm'), {title:t('status.update_btn'), okText:t('status.update_btn')})) return;
+  applyUpdate('app-update');
+}
+// Vérification MANUELLE (clic sur le n° de version) : si une MAJ existe on affiche
+// le bandeau du bas, sinon on le dit par un toast. Remplace le bouton « Vérifier
+// les mises à jour » de l'ancienne section Actions.
+async function manualUpdateCheck(){
+  toast(t('status.checking'));
+  let r;
+  try{ r=await jget('/api/update'); }catch(e){ toast(t('status.network_error')); return; }
+  if(r && r.error){ toast(t('status.error_prefix')+' '+r.error); return; }
+  const box=document.getElementById('app-update');
+  if(r && r.available && r.latest){
+    if(box){ box.innerHTML='<span class="au-dot"></span><span>'+t('update.banner_prefix')+' <b>v'+escHtml(r.latest)+'</b> '+t('update.banner_suffix')+'</span>'; box.hidden=false; }
+    toast(t('status.new_version_prefix')+' v'+r.latest);
+  } else {
+    if(box) box.hidden=true;
+    toast(t('status.up_to_date'));
+  }
 }
 // Journal du moteur — replié par défaut, on l'ouvre en cliquant la pastille.
 function toggleSvcLog(){
@@ -169,20 +192,6 @@ async function copySvcLog(btn){
   catch(_){ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(__){} ta.remove(); }
   if(btn){ const old=btn.textContent; btn.textContent=t('status.copied'); setTimeout(()=>{ btn.textContent=old; },1500); }
 }
-async function checkUpdate(){
-  const b=document.getElementById('upd-check'), msg=document.getElementById('upd-msg');
-  b.disabled=true; msg.textContent=t('status.checking');
-  try{
-    const r=await jget('/api/update');
-    if(r.error){ msg.textContent=t('status.error_prefix')+' '+r.error; }
-    else if(r.available){
-      msg.innerHTML=t('status.new_version_prefix')+' <b>v'+r.latest+'</b> '+t('status.new_version_suffix')+' ';
-      const btn=document.createElement('button'); btn.textContent=t('status.update_btn'); btn.onclick=applyUpdate;
-      msg.appendChild(btn);
-    } else { msg.textContent=t('status.up_to_date'); }
-  }catch(e){ msg.textContent=t('status.network_error'); }
-  b.disabled=false;
-}
 // Emplacements — affichés avec le journal du moteur : c'est le panneau qu'on
 // ouvre quand on cherche à comprendre l'état de son installation.
 async function showPaths(){
@@ -195,9 +204,12 @@ async function showPaths(){
     el.innerHTML=rows.map(r=>'<div style="margin-bottom:4px">'+r[0]+'<br><code style="word-break:break-all">'+escHtml(r[1]||'')+'</code></div>').join('');
   }catch(e){ el.textContent=t('status.generic_error'); }
 }
-async function applyUpdate(){
-  const msg=document.getElementById('upd-msg');
-  msg.textContent=t('status.downloading_installing');
+// applyUpdate écrit sa progression dans un BANDEAU existant : #app-update (bas du
+// menu, accès local) ou #server-stale (haut, accès distant). L'ancien #upd-msg de
+// la section Actions a disparu, d'où le paramètre.
+async function applyUpdate(boxId){
+  const msg=document.getElementById(boxId||'app-update');
+  if(msg){ msg.hidden=false; msg.textContent=t('status.downloading_installing'); }
   try{
     // Signal dédié : le timeout par défaut (30 s) coupe le téléchargement du
     // binaire sur une connexion lente et fait croire à un échec alors que la
@@ -207,13 +219,13 @@ async function applyUpdate(){
     try{ r=await (await jfetch('/api/update/apply',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',signal:ac.signal})).json(); }
     finally{ clearTimeout(tmr); }
     if(r.ok){
-      msg.innerHTML='✓ '+t('status.installed_prefix')+' <b>v'+r.version+'</b>.<br>'+(r.restart||'');
+      if(msg) msg.innerHTML='✓ '+t('status.installed_prefix')+' <b>v'+escHtml(r.version)+'</b>.<br>'+(r.restart||'');
       // Redémarrage auto du service côté serveur : le flux va se couper puis
       // reconnecter tout seul (connectStream boucle). On rafraîchit l'état après.
       if(r.restarting){ toast(t('status.update_applied_toast')); setTimeout(loadAll, 6000); }
     }
-    else { msg.textContent=t('status.failed_prefix')+' '+(r.error||t('status.unknown')); }
-  }catch(e){ msg.textContent=t('status.update_error'); }
+    else if(msg){ msg.textContent=t('status.failed_prefix')+' '+(r.error||t('status.unknown')); }
+  }catch(e){ if(msg) msg.textContent=t('status.update_error'); }
 }
 // Compteur de contexte : CTX_USED estimé via les stats serveur (prefill+decode
 // du dernier tour ≈ taille du prochain prompt). À 90% on propose de compacter.
@@ -329,30 +341,69 @@ async function pickReason(eff){
     toast(t('status.reason_set_failed'));
   }
 }
-async function loadVram(){
-  const gpus=await jget('/api/vram');
+// Remplace le contenu d'une zone. Au PREMIER rendu réel (le skeleton de chargement
+// est encore présent), on enchaîne par un fondu doux — même ressenti que l'arrivée
+// du fil de conversation. Les rafraîchissements suivants (plus de skeleton)
+// remplacent sans animation, pour ne pas faire clignoter la zone à chaque sondage.
+function swapContent(el, html){
+  if(!el) return;
+  const fade = !!el.querySelector('.skel');
+  el.innerHTML = html;
+  if(fade){ el.classList.remove('fadein'); void el.offsetWidth; el.classList.add('fadein'); }
+}
+// Rend le bloc VRAM depuis une liste de GPU. Séparé du fetch pour être partagé par
+// loadVram (endpoint séparé, repli) ET loadTelemetry (appel groupé).
+function renderVram(gpus){
   // Bloc de statistique : intitulé + valeur sur une ligne, jauge, détail dessous.
   // Même gabarit que la RAM (voir .stat dans le CSS) — le HTML libre d'avant
   // collait aux bords de la carte.
-  document.getElementById('vram').innerHTML = (gpus||[]).map(g=>{
+  swapContent(document.getElementById('vram'), (gpus||[]).map(g=>{
     const pct=Math.round(g.used*100/g.total);
     return '<div class="stat"><div class="stat-h"><span class="stat-n">'+g.name+'</span>'+
       '<span class="stat-v">'+(g.used/1024).toFixed(1)+' / '+(g.total/1024).toFixed(1)+' GiB</span></div>'+
       '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
       '<div class="stat-s">GPU '+g.util+' % · '+g.temp+' °C</div></div>';
-  }).join('') || '<div class="stat"><span class="stat-s">'+t('status.no_gpu')+'</span></div>';
+  }).join('') || '<div class="stat"><span class="stat-s">'+t('status.no_gpu')+'</span></div>');
 }
-async function loadRam(){
-  const m=await jget('/api/ram');
+// Rend le bloc RAM depuis {used,total}. Séparé du fetch (voir renderVram).
+function renderRam(m){
   const box=document.getElementById('ram-details');
   if(!m || !m.total){ if(box) box.style.display='none'; return; }
   if(box) box.style.display='';
   const pct=Math.round(m.used*100/m.total);
-  document.getElementById('ram').innerHTML =
+  swapContent(document.getElementById('ram'),
     '<div class="stat"><div class="stat-h"><span class="stat-n">'+t('status.ram_label')+'</span>'+
     '<span class="stat-v">'+(m.used/1024).toFixed(1)+' / '+(m.total/1024).toFixed(1)+' GiB</span></div>'+
     '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
-    '<div class="stat-s">'+pct+' % '+t('status.used_pct_suffix')+'</div></div>';
+    '<div class="stat-s">'+pct+' % '+t('status.used_pct_suffix')+'</div></div>');
+}
+// Endpoints séparés (repli). Sondés directement seulement si le serveur est trop
+// ancien pour /api/telemetry ; sinon c'est loadTelemetry qui les remplace.
+async function loadVram(){
+  if(document.hidden) return; // onglet en arrière-plan : inutile de sonder
+  renderVram(await jget('/api/vram'));
+}
+async function loadRam(){
+  if(document.hidden) return;
+  renderRam(await jget('/api/ram'));
+}
+// TELEMETRY_LEGACY : une fois qu'on a constaté que /api/telemetry n'existe pas (403/404
+// d'un serveur ancien vu à travers le front hébergé), on ne le retente plus et on
+// reste sur les deux endpoints séparés. Évite un aller-retour perdu à chaque tick.
+let TELEMETRY_LEGACY=false;
+// VRAM + RAM en UN seul appel. Repli automatique et définitif sur /api/vram +
+// /api/ram si le serveur ne connaît pas la route (accès distant : le front est à
+// jour mais le serveur AJEAN de la machine peut être plus ancien).
+async function loadTelemetry(){
+  if(document.hidden) return; // onglet caché : on ne sonde rien (palier 1)
+  if(TELEMETRY_LEGACY){ await Promise.allSettled([loadVram(), loadRam()]); return; }
+  let d;
+  try{ d=await jget('/api/telemetry'); }
+  catch(e){ TELEMETRY_LEGACY=true; await Promise.allSettled([loadVram(), loadRam()]); return; }
+  // Serveur qui répond mais sans les champs attendus : on bascule aussi en repli.
+  if(!d || (d.vram===undefined && d.ram===undefined)){ TELEMETRY_LEGACY=true; await Promise.allSettled([loadVram(), loadRam()]); return; }
+  renderVram(d.vram||[]);
+  renderRam(d.ram||null);
 }
 async function loadCfg(){
   // /api/llamacpp en parallèle : il indique si le BIN de la config correspond au
@@ -376,7 +427,7 @@ async function loadCfg(){
       const mask=k.length>8 ? k.slice(0,4)+'…'+k.slice(-4) : '••••';
       rows.push(row(t('external.key_label'), mask, ''));
     }
-    document.getElementById('cfg').innerHTML = rows.join('');
+    swapContent(document.getElementById('cfg'), rows.join(''));
     updateReasonBtn('');
     return;
   }
@@ -396,7 +447,7 @@ async function loadCfg(){
   // n-cpu-moe : affiché seulement s'il est réellement présent dans EXTRA_ARGS.
   const m=(c.EXTRA_ARGS||'').match(/--n-cpu-moe\s+(\d+)/);
   if(m) rows.push(row('N-CPU-MOE', m[1]));
-  document.getElementById('cfg').innerHTML = rows.join('');
+  swapContent(document.getElementById('cfg'), rows.join(''));
   // Raccourci « niveau de réflexion » du composeur : présent seulement si le preset
   // actif définit un effort. Rafraîchi à chaque loadCfg (donc après une bascule de
   // preset ou une édition).

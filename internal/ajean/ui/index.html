@@ -721,6 +721,23 @@ details>summary+.subhead{margin-top:4px}
 .stat-n{font-size:12.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .stat-v{flex:none;font-size:12.5px;color:var(--text);font-variant-numeric:tabular-nums}
 .stat-s{font-size:11px;color:var(--dim)}
+/* Skeleton de chargement (jauges VRAM/RAM, configuration…) : bloc gris arrondi
+   avec un reflet qui BALAYE via transform. On n'anime pas un background-position
+   (iOS ne le rend pas de façon fiable — même piège que la ligne d'activité). La
+   teinte est dérivée de --text, donc correcte en clair comme en sombre. Les
+   fonctions de rendu remplacent ensuite ce contenu, le skeleton disparaît seul. */
+.skel{position:relative;overflow:hidden;border-radius:5px;background:color-mix(in srgb,var(--text) 7%,transparent)}
+.skel::after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--text) 11%,transparent),transparent);animation:skel-sweep 1.2s ease-in-out infinite}
+@keyframes skel-sweep{100%{transform:translateX(100%)}}
+.skel-line{display:inline-block;height:11px;vertical-align:middle}
+.skel-bar{height:5px;border-radius:3px}
+@media (prefers-reduced-motion:reduce){.skel::after{animation:none}}
+/* Fondu du PREMIER rendu réel (remplacement du skeleton) : l'arrivée des données
+   ne « claque » plus. Appliqué une seule fois (voir swapContent), pas à chaque
+   sondage — sinon la zone clignoterait toutes les 3 s. */
+.fadein{animation:skel-fadein .7s cubic-bezier(.22,.61,.36,1) both}
+@keyframes skel-fadein{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.fadein{animation:none}}
 
 /* --- Lignes clé / valeur (config active) --- */
 .kv{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:34px;
@@ -1043,6 +1060,12 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
   margin:0;padding:0;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--err);cursor:pointer}
 .pe-del svg{width:15px;height:15px;display:block}
 .pe-del:hover{background:var(--danger-bg);border-color:color-mix(in srgb,var(--err) 40%,transparent)}
+/* Bouton-icône NEUTRE du pied de modal (bench…) : même gabarit que la corbeille,
+   teinte neutre, survol discret. */
+.pe-icon{flex:none;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;margin:0;padding:0;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--dim);cursor:pointer}
+.pe-icon svg{width:16px;height:16px;display:block}
+.pe-icon:hover{background:var(--accent-bg);border-color:var(--border);color:var(--text)}
+.pe-icon:disabled{opacity:.5;cursor:default}
 /* Option d'une confirmation : une PASTILLE à cocher, pas une case système trackere
    d'un bout de texte. Éteinte : contour discret. Allumée : elle passe au rouge,
    comme l'action destructrice qu'elle étend. Vit dans la boîte de confirmation
@@ -1906,8 +1929,8 @@ button:hover{border-color:var(--dim);color:var(--text)}
 <div id="backdrop" onclick="toggleSide()"></div>
 <div class="side" id="side">
   <div class="sidehead">
-    <h1 id="brand" aria-label="ajean"><span id="brand-a"><svg viewBox="0 0 4 5" shape-rendering="crispEdges" fill="currentColor"><rect x="1" y="0" width="2" height="1"/><rect x="0" y="1" width="1" height="1"/><rect x="3" y="1" width="1" height="1"/><rect x="0" y="2" width="4" height="1"/><rect x="0" y="3" width="1" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="3" y="4" width="1" height="1"/></svg></span><span id="brand-word"><svg viewBox="0 0 17 5" shape-rendering="crispEdges" fill="currentColor"><rect x="1" y="0" width="1" height="1"/><rect x="1" y="1" width="1" height="1"/><rect x="1" y="2" width="1" height="1"/><rect x="1" y="3" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="3" y="0" width="4" height="1"/><rect x="3" y="1" width="1" height="1"/><rect x="3" y="2" width="3" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="3" y="4" width="4" height="1"/><rect x="9" y="0" width="2" height="1"/><rect x="8" y="1" width="1" height="1"/><rect x="11" y="1" width="1" height="1"/><rect x="8" y="2" width="4" height="1"/><rect x="8" y="3" width="1" height="1"/><rect x="11" y="3" width="1" height="1"/><rect x="8" y="4" width="1" height="1"/><rect x="11" y="4" width="1" height="1"/><rect x="13" y="0" width="1" height="1"/><rect x="16" y="0" width="1" height="1"/><rect x="13" y="1" width="2" height="1"/><rect x="16" y="1" width="1" height="1"/><rect x="13" y="2" width="1" height="1"/><rect x="15" y="2" width="2" height="1"/><rect x="13" y="3" width="1" height="1"/><rect x="16" y="3" width="1" height="1"/><rect x="13" y="4" width="1" height="1"/><rect x="16" y="4" width="1" height="1"/></svg></span><span id="ver"></span></h1>
-    <span id="status-svc" class="statuspill" onclick="toggleSvcLog()" title="voir le journal du moteur" data-i18n="sidebar.status_svc_title" data-i18n-attr="title">…</span>
+    <h1 id="brand" aria-label="ajean"><span id="brand-a"><svg viewBox="0 0 4 5" shape-rendering="crispEdges" fill="currentColor"><rect x="1" y="0" width="2" height="1"/><rect x="0" y="1" width="1" height="1"/><rect x="3" y="1" width="1" height="1"/><rect x="0" y="2" width="4" height="1"/><rect x="0" y="3" width="1" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="3" y="4" width="1" height="1"/></svg></span><span id="brand-word"><svg viewBox="0 0 17 5" shape-rendering="crispEdges" fill="currentColor"><rect x="1" y="0" width="1" height="1"/><rect x="1" y="1" width="1" height="1"/><rect x="1" y="2" width="1" height="1"/><rect x="1" y="3" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="3" y="0" width="4" height="1"/><rect x="3" y="1" width="1" height="1"/><rect x="3" y="2" width="3" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="3" y="4" width="4" height="1"/><rect x="9" y="0" width="2" height="1"/><rect x="8" y="1" width="1" height="1"/><rect x="11" y="1" width="1" height="1"/><rect x="8" y="2" width="4" height="1"/><rect x="8" y="3" width="1" height="1"/><rect x="11" y="3" width="1" height="1"/><rect x="8" y="4" width="1" height="1"/><rect x="11" y="4" width="1" height="1"/><rect x="13" y="0" width="1" height="1"/><rect x="16" y="0" width="1" height="1"/><rect x="13" y="1" width="2" height="1"/><rect x="16" y="1" width="1" height="1"/><rect x="13" y="2" width="1" height="1"/><rect x="15" y="2" width="2" height="1"/><rect x="13" y="3" width="1" height="1"/><rect x="16" y="3" width="1" height="1"/><rect x="13" y="4" width="1" height="1"/><rect x="16" y="4" width="1" height="1"/></svg></span><span id="ver" onclick="manualUpdateCheck()" style="cursor:pointer" title="vérifier les mises à jour" data-i18n="settings.check_update_title" data-i18n-attr="title"></span></h1>
+    <span id="status-svc" class="statuspill" onclick="toggleSvcLog()" title="voir le journal du moteur" data-i18n="sidebar.status_svc_title" data-i18n-attr="title"><span class="skel skel-line" style="width:52px;height:8px;border-radius:999px"></span></span>
   </div>
   <!-- Avertissement de lancement (App Translocation macOS) — masqué par défaut. -->
   <div id="app-warn" class="muted" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:8px;color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)"></div>
@@ -1942,12 +1965,12 @@ button:hover{border-color:var(--dim);color:var(--text)}
        une seule section, deux blocs de statistique dans la même carte. -->
   <details open><summary><span class="stitle" data-i18n="device.title">Device</span></summary>
     <div class="slist">
-      <div id="vram">…</div>
-      <div id="ram-details"><div id="ram"></div></div>
+      <div id="vram"><div class="stat"><div class="stat-h"><span class="skel skel-line" style="width:46%"></span><span class="skel skel-line" style="width:30%"></span></div><div class="skel skel-bar"></div><span class="skel skel-line" style="width:54%;height:9px"></span></div></div>
+      <div id="ram-details"><div id="ram"><div class="stat"><div class="stat-h"><span class="skel skel-line" style="width:30%"></span><span class="skel skel-line" style="width:34%"></span></div><div class="skel skel-bar"></div><span class="skel skel-line" style="width:38%;height:9px"></span></div></div></div>
     </div>
   </details>
   <details open id="cfg-details"><summary><span class="stitle" data-i18n="config.title">Configuration</span></summary>
-    <div id="cfg" class="slist">…</div>
+    <div id="cfg" class="slist"><div class="kv"><span class="skel skel-line" style="width:30%"></span><span class="skel skel-line" style="width:44%"></span></div><div class="kv"><span class="skel skel-line" style="width:24%"></span><span class="skel skel-line" style="width:52%"></span></div><div class="kv"><span class="skel skel-line" style="width:34%"></span><span class="skel skel-line" style="width:38%"></span></div><div class="kv"><span class="skel skel-line" style="width:28%"></span><span class="skel skel-line" style="width:30%"></span></div></div>
   </details>
   <details><summary><span class="stitle" data-i18n="presets.title">Presets</span><button class="preset-ext" onclick="event.preventDefault();event.stopPropagation();openExternal('')" title="ajouter une API externe" data-i18n="presets.add_external_button" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></button><button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter" data-i18n="presets.add_button" data-i18n-attr="title">+</button></summary>
     <div class="slist"><div id="presets" class="rowlist"></div></div>
@@ -2216,32 +2239,14 @@ button:hover{border-color:var(--dim);color:var(--text)}
       </div>
     </div></div>
   </details>
-  <details id="upd-details"><summary><span class="stitle" data-i18n="settings.title">Actions</span></summary>
-    <div class="slist"><div class="rowbody">
-      <!-- Nouvelle conversation dans le projet actif (même action que le bouton du
-           hub Projets). Pratique de l'avoir aussi sous la main ici. -->
-      <div class="row" style="margin:0 0 8px">
-        <button onclick="newSessionUI()" style="display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="projects.new_session">Nouvelle conversation</span></button>
-      </div>
-      <!-- Ligne 1 : mise à jour + export du fil. Depuis la 0.8 la conversation vit
-           dans ajean.db (bbolt, verrouillé tant que le service tourne) : sans le
-           bouton exporter, plus personne ne peut relire/archiver ses échanges. -->
-      <div class="row" style="margin:0">
-        <button id="upd-check" onclick="checkUpdate()" data-i18n="settings.check_update">↥ Vérifier les mises à jour</button>
-        <button onclick="openExportModal()" title="choisir le format et ce qu'on emporte" data-i18n="settings.export_tooltip" data-i18n-attr="title"><span data-i18n="settings.export_button">⤓ exporter…</span></button>
-      </div>
-      <div id="upd-msg" class="muted"></div>
-      <!-- Ligne 2 : bench. (« clear chat » retiré : les conversations se gèrent dans
-           le hub Projets — nouvelle/ouvrir/supprimer.) -->
-      <div class="row" style="margin-bottom:0">
-        <button id="btn-bench" onclick="runBenchUI()" data-i18n="settings.bench_button">bench</button>
-      </div>
-    </div></div>
-  </details>
+  <!-- Section « Actions » retirée : la MAJ s'affiche automatiquement dans le bandeau
+       du bas (vérif manuelle possible en cliquant le n° de version), « nouvelle
+       conversation » et « exporter » vivent dans le hub Projets, et le bench a
+       rejoint le modal du preset (visible seulement pour le preset actif). -->
   <!-- Bandeau discret « nouvelle version AJEAN disponible », collé en bas du menu.
        Rempli et affiché par checkAppUpdate (05-status.js) en accès LOCAL ; en accès
        distant c'est #server-stale (en haut) qui joue ce rôle. -->
-  <div id="app-update" class="app-update" hidden onclick="openAppUpdate()"></div>
+  <div id="app-update" class="app-update" hidden onclick="onAppUpdateClick()"></div>
 </div>
 <div class="main" style="position:relative">
   <div id="chat"></div>
@@ -2320,78 +2325,19 @@ button:hover{border-color:var(--dim);color:var(--text)}
   <button data-eff="xhigh" onclick="pickReason('xhigh')">xhigh <span class="rm-h" data-i18n="reason.hint_max">max</span></button>
 </div>
 <div id="toast"></div>
-<div id="bench-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:30;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeBenchModal()">
-  <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;width:100%;max-width:480px;display:flex;flex-direction:column">
-    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-      <strong data-i18n="bench.title">Benchmark</strong>
-      <button onclick="closeBenchModal()" style="margin:0">×</button>
-    </div>
-    <div id="bench-body" style="padding:18px 20px;display:flex;flex-direction:column;gap:12px"></div>
-    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:6px">
-      <button onclick="closeBenchModal()" data-i18n="bench.close">fermer</button>
-      <button id="bench-rerun" onclick="runBenchUI()" style="border-color:var(--accent);color:var(--accent)" data-i18n="bench.rerun">relancer</button>
-    </div>
-  </div>
-</div>
-<!-- Fenêtre d'export. Un fil relu pour retrouver une réponse n'a que faire des
-     mille lignes de raisonnement qui l'ont produite : on choisit ce qu'on
-     emporte plutôt que de tout prendre ou rien. Les options de CONTENU sont les
-     mêmes pour les deux formats : le format ne décide que du contenant. -->
-<div id="export-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeExportModal()">
-  <div class="modal-card" style="max-width:460px">
+<!-- Modal de bench : structure standard (.modal-ov) pour l'animation d'ouverture/
+     fermeture et la croix commune. z-index:55 en INLINE (au-dessus du modal preset
+     d'où il est lancé, qui est en 30 comme les autres). -->
+<div id="bench-modal" class="modal-ov" style="display:none;z-index:55" onclick="if(event.target===this)closeBenchModal()">
+  <div class="modal-card" style="max-width:480px">
     <div class="modal-head">
-      <strong data-i18n="export.title">Exporter la conversation</strong>
-      <button class="modal-x" onclick="closeExportModal()" title="fermer" data-i18n="export.close_title" data-i18n-attr="title">×</button>
+      <strong data-i18n="bench.title">Benchmark</strong>
+      <button class="modal-x" onclick="closeBenchModal()" aria-label="Fermer" data-i18n="bench.close_aria" data-i18n-attr="aria-label">×</button>
     </div>
-    <!-- Conversation vide : pas d'options à régler, un seul message. Proposer
-         des réglages pour un fichier qui ne contiendrait rien n'a aucun sens. -->
-    <div id="x-empty" class="xempty" style="display:none">
-      <div class="xempty-i">⤓</div>
-      <div data-i18n="export.empty_title">Rien à exporter</div>
-      <div class="pe-note" data-i18n="export.empty_desc">La conversation est vide.</div>
-    </div>
-    <div id="x-body" class="pe-body" style="gap:20px">
-      <div class="pe-group">
-        <div class="pe-gh" data-i18n="export.format_heading">Format</div>
-        <div class="pe-seg">
-          <label><input type="radio" name="x-fmt" value="md" checked onchange="onExportFormat()"><span data-i18n="export.format_md">Markdown</span><span class="be-note" data-i18n="export.format_md_note">à lire</span></label>
-          <label><input type="radio" name="x-fmt" value="json" onchange="onExportFormat()"><span data-i18n="export.format_json">JSON</span><span class="be-note" data-i18n="export.format_json_note">à retraiter</span></label>
-        </div>
-      </div>
-      <div class="pe-group">
-        <div class="pe-gh" data-i18n="export.scope_heading">Portée</div>
-        <div class="pe-list">
-          <div class="pe-row stack">
-            <div class="xr">
-              <div class="xr-track"><div class="xr-fill" id="x-fill"></div></div>
-              <input type="range" class="xr-range" id="x-turns" min="1" max="1" value="1" oninput="onExportPreview()" aria-label="nombre d'échanges à exporter" data-i18n="export.scope_aria" data-i18n-attr="aria-label">
-            </div>
-            <div class="pe-note" id="x-scope"></div>
-          </div>
-        </div>
-      </div>
-      <div class="pe-group">
-        <div class="pe-gh" data-i18n="export.content_heading">Contenu</div>
-        <div class="pe-list">
-          <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="export.reasoning_label">Raisonnements</span><span class="pe-sub" data-i18n="export.reasoning_sub">la réflexion du modèle, souvent plus longue que la réponse</span></span>
-            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="x-reasoning" checked onchange="onExportPreview()"><span class="pe-sl"></span></label></span>
-          </div>
-          <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="export.tools_label">Appels d'outils</span><span class="pe-sub" data-i18n="export.tools_sub">commandes, lectures et écritures de fichiers</span></span>
-            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="x-tools" checked onchange="onExportPreview()"><span class="pe-sl"></span></label></span>
-          </div>
-          <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="export.results_label">Sorties des outils</span><span class="pe-sub" data-i18n="export.results_sub">ce que chaque outil a répondu</span></span>
-            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="x-results" checked onchange="onExportPreview()"><span class="pe-sl"></span></label></span>
-          </div>
-        </div>
-      </div>
-      <div class="pe-note" id="x-note"></div>
-    </div>
+    <div id="bench-body" class="modal-body" style="display:flex;flex-direction:column;gap:12px"></div>
     <div class="modal-foot" style="justify-content:flex-end">
-      <button class="pe-btn" onclick="closeExportModal()" data-i18n="export.cancel">annuler</button>
-      <button class="pe-btn primary" id="x-go" onclick="runExport()" data-i18n="export.download">⤓ télécharger</button>
+      <button class="pe-btn" onclick="closeBenchModal()" data-i18n="bench.close">fermer</button>
+      <button id="bench-rerun" class="pe-btn primary" onclick="runBenchUI()" data-i18n="bench.rerun">relancer</button>
     </div>
   </div>
 </div>
@@ -2661,7 +2607,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
 <div id="ext-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeExternal()">
   <div class="modal-card" style="max-width:520px">
     <div class="modal-head">
-      <strong id="ext-modal-title" data-i18n="external.title">API externe</strong>
+      <strong id="ext-modal-title" data-i18n="external.title">API Externe</strong>
       <button class="modal-x" onclick="closeExternal()" aria-label="Fermer" data-i18n="external.close_aria" data-i18n-attr="aria-label">×</button>
     </div>
     <div class="modal-body mform">
@@ -3179,6 +3125,9 @@ button:hover{border-color:var(--dim);color:var(--text)}
     <div class="pe-foot">
       <div class="foot-l">
         <button id="m-del" class="pe-del" onclick="delItem()" title="supprimer" aria-label="supprimer" data-i18n="preset.delete_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
+        <!-- Bench : mesure le modèle CHARGÉ, n'a donc de sens que pour le preset
+             actif. openItem l'affiche seulement dans ce cas (voir 07-models.js). -->
+        <button id="btn-bench" class="pe-icon" onclick="runBenchUI()" style="display:none" title="Benchmark" aria-label="Benchmark" data-i18n="bench.title" data-i18n-attr="title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 13.5l3.6-3.6"/><path d="M4.6 19a9 9 0 1 1 14.8 0"/><circle cx="12" cy="13.5" r="1.3" fill="currentColor" stroke="none"/></svg></button>
       </div>
       <div class="foot-r">
         <button class="pe-btn" onclick="closeModal()" data-i18n="preset.cancel">annuler</button>
@@ -3467,11 +3416,7 @@ fr: {
   "engine.service_start": "démarrer",
   "engine.service_restart": "redémarrer",
   "engine.service_stop": "arrêter",
-  "settings.title": "Actions",
-  "settings.check_update": "↥ Vérifier les mises à jour",
-  "settings.export_tooltip": "choisir le format et ce qu'on emporte",
-  "settings.export_button": "⤓ exporter…",
-  "settings.bench_button": "bench",
+  "settings.check_update_title": "Vérifier les mises à jour",
   "chat.loading_aria": "chargement de la conversation",
   "chat.empty_title": "On commence par quoi ?",
   "chat.scroll_bottom_title": "aller en bas",
@@ -3488,28 +3433,9 @@ fr: {
   "reason.hint_fast": "rapide",
   "reason.hint_max": "max",
   "bench.title": "Benchmark",
+  "bench.close_aria": "Fermer",
   "bench.close": "fermer",
   "bench.rerun": "relancer",
-  "export.title": "Exporter la conversation",
-  "export.close_title": "fermer",
-  "export.empty_title": "Rien à exporter",
-  "export.empty_desc": "La conversation est vide.",
-  "export.format_heading": "Format",
-  "export.format_md": "Markdown",
-  "export.format_md_note": "à lire",
-  "export.format_json": "JSON",
-  "export.format_json_note": "à retraiter",
-  "export.scope_heading": "Portée",
-  "export.scope_aria": "nombre d'échanges à exporter",
-  "export.content_heading": "Contenu",
-  "export.reasoning_label": "Raisonnements",
-  "export.reasoning_sub": "la réflexion du modèle, souvent plus longue que la réponse",
-  "export.tools_label": "Appels d'outils",
-  "export.tools_sub": "commandes, lectures et écritures de fichiers",
-  "export.results_label": "Sorties des outils",
-  "export.results_sub": "ce que chaque outil a répondu",
-  "export.cancel": "annuler",
-  "export.download": "⤓ télécharger",
   "modal.cancel": "Annuler",
   "modal.confirm": "Confirmer",
   "backends.title": "Backends personnalisés",
@@ -3770,6 +3696,7 @@ fr: {
   "status.new_version_prefix": "Nouvelle version",
   "status.new_version_suffix": "disponible.",
   "status.up_to_date": "AJEAN est à jour ✓",
+  "status.update_confirm": "Installer la mise à jour maintenant ? Le service va redémarrer.",
   "status.network_error": "Erreur réseau",
   "status.loading_dots": "…",
   "status.path_data": "Données",
@@ -3815,7 +3742,7 @@ fr: {
   "settings.presets.external_title": "API externe (distante)",
   "settings.presets.external_model_title": "modèle distant",
   "presets.add_external_button": "ajouter une API externe",
-  "external.title": "API externe",
+  "external.title": "API Externe",
   "external.new_title": "Nouvelle API externe",
   "external.cfg_type_label": "Type",
   "external.edit_prefix": "Modifier",
@@ -3943,15 +3870,6 @@ fr: {
   "settings.oai.public_needs_remote_title": "Accès distant requis",
   "settings.oai.public_on": "accès public activé",
   "settings.oai.public_off": "accès public coupé",
-  "settings.export.reasonings": "raisonnements",
-  "settings.export.tools": "outils",
-  "settings.export.tool_outputs": "sorties d'outils",
-  "settings.export.without_prefix": "Export sans ",
-  "settings.export.nor": "ni",
-  "settings.export.whole_conversation": "toute la conversation (",
-  "settings.export.exchange_unit": " échange",
-  "settings.export.last_word": " dernier",
-  "settings.export.out_of": " sur ",
   "settings.export.preparing": "préparation de l'export…",
   "settings.export.exported_prefix": "exporté : ",
   "settings.error_prefix": "erreur : ",
@@ -4342,11 +4260,9 @@ fr: {
   "chat.no_file_uploaded": "aucun fichier n'a pu être déposé",
   "chat.error": "erreur",
   "chat.send_failed_retry": "échec de l'envoi — réessaie",
-  "models.bench.running": "bench…",
   "models.bench.desc": "prompt 2000 tok + 300 decode<br>~10 secondes…",
   "models.bench.error": "erreur: ",
   "models.bench.total": "total",
-  "models.bench.button": "bench",
   "chat.prefill_cap": "Prefill",
   "chat.decode_cap": "Decode",
   "models.switch_confirm_prefix": "Basculer vers « ",
@@ -4638,11 +4554,7 @@ en: {
   "engine.service_start": "start",
   "engine.service_restart": "restart",
   "engine.service_stop": "stop",
-  "settings.title": "Actions",
-  "settings.check_update": "↥ Check for updates",
-  "settings.export_tooltip": "choose the format and what to include",
-  "settings.export_button": "⤓ export…",
-  "settings.bench_button": "bench",
+  "settings.check_update_title": "Check for updates",
   "chat.loading_aria": "loading the conversation",
   "chat.empty_title": "Where should we start?",
   "chat.scroll_bottom_title": "scroll to bottom",
@@ -4659,28 +4571,9 @@ en: {
   "reason.hint_fast": "fast",
   "reason.hint_max": "max",
   "bench.title": "Benchmark",
+  "bench.close_aria": "Close",
   "bench.close": "close",
   "bench.rerun": "rerun",
-  "export.title": "Export the conversation",
-  "export.close_title": "close",
-  "export.empty_title": "Nothing to export",
-  "export.empty_desc": "The conversation is empty.",
-  "export.format_heading": "Format",
-  "export.format_md": "Markdown",
-  "export.format_md_note": "for reading",
-  "export.format_json": "JSON",
-  "export.format_json_note": "for reprocessing",
-  "export.scope_heading": "Scope",
-  "export.scope_aria": "number of exchanges to export",
-  "export.content_heading": "Content",
-  "export.reasoning_label": "Reasoning",
-  "export.reasoning_sub": "the model's thinking, often longer than the answer",
-  "export.tools_label": "Tool calls",
-  "export.tools_sub": "commands, file reads and writes",
-  "export.results_label": "Tool outputs",
-  "export.results_sub": "what each tool returned",
-  "export.cancel": "cancel",
-  "export.download": "⤓ download",
   "modal.cancel": "Cancel",
   "modal.confirm": "Confirm",
   "backends.title": "Custom backends",
@@ -4941,6 +4834,7 @@ en: {
   "status.new_version_prefix": "New version",
   "status.new_version_suffix": "available.",
   "status.up_to_date": "AJEAN is up to date ✓",
+  "status.update_confirm": "Install the update now? The service will restart.",
   "status.network_error": "Network error",
   "status.loading_dots": "…",
   "status.path_data": "Data",
@@ -5114,15 +5008,6 @@ en: {
   "settings.oai.public_needs_remote_title": "Remote access required",
   "settings.oai.public_on": "public access enabled",
   "settings.oai.public_off": "public access disabled",
-  "settings.export.reasonings": "reasoning",
-  "settings.export.tools": "tools",
-  "settings.export.tool_outputs": "tool outputs",
-  "settings.export.without_prefix": "Export without ",
-  "settings.export.nor": "or",
-  "settings.export.whole_conversation": "the whole conversation (",
-  "settings.export.exchange_unit": " exchange",
-  "settings.export.last_word": " last",
-  "settings.export.out_of": " of ",
   "settings.export.preparing": "preparing the export…",
   "settings.export.exported_prefix": "exported: ",
   "settings.error_prefix": "error: ",
@@ -5513,11 +5398,9 @@ en: {
   "chat.no_file_uploaded": "no file could be uploaded",
   "chat.error": "error",
   "chat.send_failed_retry": "send failed — try again",
-  "models.bench.running": "benchmarking…",
   "models.bench.desc": "2000 tok prompt + 300 decode<br>~10 seconds…",
   "models.bench.error": "error: ",
   "models.bench.total": "total",
-  "models.bench.button": "bench",
   "chat.prefill_cap": "Prefill",
   "chat.decode_cap": "Decode",
   "models.switch_confirm_prefix": "Switch to \"",
@@ -5950,6 +5833,7 @@ async function jpost(u,b){ const r=await jfetch(u,{method:'POST',headers:{'Conte
 let LAST_BOOT=null; // empreinte de démarrage du serveur vue au dernier poll
 let LAST_PRESET=null; // id du preset actif vu au dernier poll (détecte une bascule faite ailleurs)
 async function loadStatus(){
+  if(document.hidden) return; // onglet en arrière-plan : on met le sondage en pause (palier 1)
   const s=await jget('/api/status');
   // Preset actif changé alors qu'on n'a rien touché ici : un AUTRE appareil a
   // basculé de preset/modèle. On rafraîchit la liste (et le libellé #status-preset)
@@ -5981,8 +5865,13 @@ async function loadStatus(){
   if(s.active && s.health){ cls='ok'; txt=t('status.ready'); }
   else if(s.load_error){ cls='err'; txt=t('status.error'); }
   else if(s.active){ cls='loading'; txt=t('status.loading'); }
+  // Fondu au premier vrai statut (le skeleton du chargement est encore là), comme
+  // les jauges — voir swapContent. className est réécrit juste après, on repose donc
+  // 'fadein' une fois le contenu remplacé.
+  const svcWasSkel = !!el.querySelector('.skel');
   el.className='statuspill '+cls;
   el.innerHTML='<span class="dot"></span>'+txt;
+  if(svcWasSkel){ el.classList.remove('fadein'); void el.offsetWidth; el.classList.add('fadein'); }
   MODEL_READY = !!(s.active && s.health);
   // Chargement en cours = moteur actif, pas encore sain, sans erreur de charge.
   // Sinon (moteur coupé), c'est « aucun modèle chargé », pas un chargement.
@@ -6059,7 +5948,7 @@ async function checkServerFreshness(){
   if(go) go.onclick=function(){
     box.innerHTML='⏳ '+t('status.update_in_progress');
     if(typeof toast==='function') toast(t('status.update_launched_toast'));
-    if(typeof applyUpdate==='function') applyUpdate();
+    if(typeof applyUpdate==='function') applyUpdate('server-stale');
   };
   const x=document.getElementById('stale-x');
   if(x) x.onclick=function(){ localStorage.setItem('ajean.staleDismissed', r.latest); box.style.display='none'; };
@@ -6082,12 +5971,29 @@ async function checkAppUpdate(){
   box.hidden=false;
 }
 
-// Clic sur le bandeau : ouvrir la section Actions et déclencher la vérification,
-// qui affiche le bouton « Mettre à jour » (on ne lance jamais la MAJ au clic).
-function openAppUpdate(){
-  const det=document.getElementById('upd-details');
-  if(det){ det.open=true; det.scrollIntoView({block:'center', behavior:'smooth'}); }
-  if(typeof checkUpdate==='function') checkUpdate();
+// Clic sur le bandeau de MAJ (bas du menu) : on lance l'installation, après
+// confirmation (elle redémarre le service). La progression s'affiche dans le
+// bandeau lui-même. Remplace l'ancien passage par la section Actions.
+async function onAppUpdateClick(){
+  if(!await askConfirm(t('status.update_confirm'), {title:t('status.update_btn'), okText:t('status.update_btn')})) return;
+  applyUpdate('app-update');
+}
+// Vérification MANUELLE (clic sur le n° de version) : si une MAJ existe on affiche
+// le bandeau du bas, sinon on le dit par un toast. Remplace le bouton « Vérifier
+// les mises à jour » de l'ancienne section Actions.
+async function manualUpdateCheck(){
+  toast(t('status.checking'));
+  let r;
+  try{ r=await jget('/api/update'); }catch(e){ toast(t('status.network_error')); return; }
+  if(r && r.error){ toast(t('status.error_prefix')+' '+r.error); return; }
+  const box=document.getElementById('app-update');
+  if(r && r.available && r.latest){
+    if(box){ box.innerHTML='<span class="au-dot"></span><span>'+t('update.banner_prefix')+' <b>v'+escHtml(r.latest)+'</b> '+t('update.banner_suffix')+'</span>'; box.hidden=false; }
+    toast(t('status.new_version_prefix')+' v'+r.latest);
+  } else {
+    if(box) box.hidden=true;
+    toast(t('status.up_to_date'));
+  }
 }
 // Journal du moteur — replié par défaut, on l'ouvre en cliquant la pastille.
 function toggleSvcLog(){
@@ -6118,20 +6024,6 @@ async function copySvcLog(btn){
   catch(_){ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(__){} ta.remove(); }
   if(btn){ const old=btn.textContent; btn.textContent=t('status.copied'); setTimeout(()=>{ btn.textContent=old; },1500); }
 }
-async function checkUpdate(){
-  const b=document.getElementById('upd-check'), msg=document.getElementById('upd-msg');
-  b.disabled=true; msg.textContent=t('status.checking');
-  try{
-    const r=await jget('/api/update');
-    if(r.error){ msg.textContent=t('status.error_prefix')+' '+r.error; }
-    else if(r.available){
-      msg.innerHTML=t('status.new_version_prefix')+' <b>v'+r.latest+'</b> '+t('status.new_version_suffix')+' ';
-      const btn=document.createElement('button'); btn.textContent=t('status.update_btn'); btn.onclick=applyUpdate;
-      msg.appendChild(btn);
-    } else { msg.textContent=t('status.up_to_date'); }
-  }catch(e){ msg.textContent=t('status.network_error'); }
-  b.disabled=false;
-}
 // Emplacements — affichés avec le journal du moteur : c'est le panneau qu'on
 // ouvre quand on cherche à comprendre l'état de son installation.
 async function showPaths(){
@@ -6144,9 +6036,12 @@ async function showPaths(){
     el.innerHTML=rows.map(r=>'<div style="margin-bottom:4px">'+r[0]+'<br><code style="word-break:break-all">'+escHtml(r[1]||'')+'</code></div>').join('');
   }catch(e){ el.textContent=t('status.generic_error'); }
 }
-async function applyUpdate(){
-  const msg=document.getElementById('upd-msg');
-  msg.textContent=t('status.downloading_installing');
+// applyUpdate écrit sa progression dans un BANDEAU existant : #app-update (bas du
+// menu, accès local) ou #server-stale (haut, accès distant). L'ancien #upd-msg de
+// la section Actions a disparu, d'où le paramètre.
+async function applyUpdate(boxId){
+  const msg=document.getElementById(boxId||'app-update');
+  if(msg){ msg.hidden=false; msg.textContent=t('status.downloading_installing'); }
   try{
     // Signal dédié : le timeout par défaut (30 s) coupe le téléchargement du
     // binaire sur une connexion lente et fait croire à un échec alors que la
@@ -6156,13 +6051,13 @@ async function applyUpdate(){
     try{ r=await (await jfetch('/api/update/apply',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',signal:ac.signal})).json(); }
     finally{ clearTimeout(tmr); }
     if(r.ok){
-      msg.innerHTML='✓ '+t('status.installed_prefix')+' <b>v'+r.version+'</b>.<br>'+(r.restart||'');
+      if(msg) msg.innerHTML='✓ '+t('status.installed_prefix')+' <b>v'+escHtml(r.version)+'</b>.<br>'+(r.restart||'');
       // Redémarrage auto du service côté serveur : le flux va se couper puis
       // reconnecter tout seul (connectStream boucle). On rafraîchit l'état après.
       if(r.restarting){ toast(t('status.update_applied_toast')); setTimeout(loadAll, 6000); }
     }
-    else { msg.textContent=t('status.failed_prefix')+' '+(r.error||t('status.unknown')); }
-  }catch(e){ msg.textContent=t('status.update_error'); }
+    else if(msg){ msg.textContent=t('status.failed_prefix')+' '+(r.error||t('status.unknown')); }
+  }catch(e){ if(msg) msg.textContent=t('status.update_error'); }
 }
 // Compteur de contexte : CTX_USED estimé via les stats serveur (prefill+decode
 // du dernier tour ≈ taille du prochain prompt). À 90% on propose de compacter.
@@ -6278,30 +6173,69 @@ async function pickReason(eff){
     toast(t('status.reason_set_failed'));
   }
 }
-async function loadVram(){
-  const gpus=await jget('/api/vram');
+// Remplace le contenu d'une zone. Au PREMIER rendu réel (le skeleton de chargement
+// est encore présent), on enchaîne par un fondu doux — même ressenti que l'arrivée
+// du fil de conversation. Les rafraîchissements suivants (plus de skeleton)
+// remplacent sans animation, pour ne pas faire clignoter la zone à chaque sondage.
+function swapContent(el, html){
+  if(!el) return;
+  const fade = !!el.querySelector('.skel');
+  el.innerHTML = html;
+  if(fade){ el.classList.remove('fadein'); void el.offsetWidth; el.classList.add('fadein'); }
+}
+// Rend le bloc VRAM depuis une liste de GPU. Séparé du fetch pour être partagé par
+// loadVram (endpoint séparé, repli) ET loadTelemetry (appel groupé).
+function renderVram(gpus){
   // Bloc de statistique : intitulé + valeur sur une ligne, jauge, détail dessous.
   // Même gabarit que la RAM (voir .stat dans le CSS) — le HTML libre d'avant
   // collait aux bords de la carte.
-  document.getElementById('vram').innerHTML = (gpus||[]).map(g=>{
+  swapContent(document.getElementById('vram'), (gpus||[]).map(g=>{
     const pct=Math.round(g.used*100/g.total);
     return '<div class="stat"><div class="stat-h"><span class="stat-n">'+g.name+'</span>'+
       '<span class="stat-v">'+(g.used/1024).toFixed(1)+' / '+(g.total/1024).toFixed(1)+' GiB</span></div>'+
       '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
       '<div class="stat-s">GPU '+g.util+' % · '+g.temp+' °C</div></div>';
-  }).join('') || '<div class="stat"><span class="stat-s">'+t('status.no_gpu')+'</span></div>';
+  }).join('') || '<div class="stat"><span class="stat-s">'+t('status.no_gpu')+'</span></div>');
 }
-async function loadRam(){
-  const m=await jget('/api/ram');
+// Rend le bloc RAM depuis {used,total}. Séparé du fetch (voir renderVram).
+function renderRam(m){
   const box=document.getElementById('ram-details');
   if(!m || !m.total){ if(box) box.style.display='none'; return; }
   if(box) box.style.display='';
   const pct=Math.round(m.used*100/m.total);
-  document.getElementById('ram').innerHTML =
+  swapContent(document.getElementById('ram'),
     '<div class="stat"><div class="stat-h"><span class="stat-n">'+t('status.ram_label')+'</span>'+
     '<span class="stat-v">'+(m.used/1024).toFixed(1)+' / '+(m.total/1024).toFixed(1)+' GiB</span></div>'+
     '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
-    '<div class="stat-s">'+pct+' % '+t('status.used_pct_suffix')+'</div></div>';
+    '<div class="stat-s">'+pct+' % '+t('status.used_pct_suffix')+'</div></div>');
+}
+// Endpoints séparés (repli). Sondés directement seulement si le serveur est trop
+// ancien pour /api/telemetry ; sinon c'est loadTelemetry qui les remplace.
+async function loadVram(){
+  if(document.hidden) return; // onglet en arrière-plan : inutile de sonder
+  renderVram(await jget('/api/vram'));
+}
+async function loadRam(){
+  if(document.hidden) return;
+  renderRam(await jget('/api/ram'));
+}
+// TELEMETRY_LEGACY : une fois qu'on a constaté que /api/telemetry n'existe pas (403/404
+// d'un serveur ancien vu à travers le front hébergé), on ne le retente plus et on
+// reste sur les deux endpoints séparés. Évite un aller-retour perdu à chaque tick.
+let TELEMETRY_LEGACY=false;
+// VRAM + RAM en UN seul appel. Repli automatique et définitif sur /api/vram +
+// /api/ram si le serveur ne connaît pas la route (accès distant : le front est à
+// jour mais le serveur AJEAN de la machine peut être plus ancien).
+async function loadTelemetry(){
+  if(document.hidden) return; // onglet caché : on ne sonde rien (palier 1)
+  if(TELEMETRY_LEGACY){ await Promise.allSettled([loadVram(), loadRam()]); return; }
+  let d;
+  try{ d=await jget('/api/telemetry'); }
+  catch(e){ TELEMETRY_LEGACY=true; await Promise.allSettled([loadVram(), loadRam()]); return; }
+  // Serveur qui répond mais sans les champs attendus : on bascule aussi en repli.
+  if(!d || (d.vram===undefined && d.ram===undefined)){ TELEMETRY_LEGACY=true; await Promise.allSettled([loadVram(), loadRam()]); return; }
+  renderVram(d.vram||[]);
+  renderRam(d.ram||null);
 }
 async function loadCfg(){
   // /api/llamacpp en parallèle : il indique si le BIN de la config correspond au
@@ -6325,7 +6259,7 @@ async function loadCfg(){
       const mask=k.length>8 ? k.slice(0,4)+'…'+k.slice(-4) : '••••';
       rows.push(row(t('external.key_label'), mask, ''));
     }
-    document.getElementById('cfg').innerHTML = rows.join('');
+    swapContent(document.getElementById('cfg'), rows.join(''));
     updateReasonBtn('');
     return;
   }
@@ -6345,7 +6279,7 @@ async function loadCfg(){
   // n-cpu-moe : affiché seulement s'il est réellement présent dans EXTRA_ARGS.
   const m=(c.EXTRA_ARGS||'').match(/--n-cpu-moe\s+(\d+)/);
   if(m) rows.push(row('N-CPU-MOE', m[1]));
-  document.getElementById('cfg').innerHTML = rows.join('');
+  swapContent(document.getElementById('cfg'), rows.join(''));
   // Raccourci « niveau de réflexion » du composeur : présent seulement si le preset
   // actif définit un effort. Rafraîchi à chaque loadCfg (donc après une bascule de
   // preset ou une édition).
@@ -6381,6 +6315,10 @@ document.addEventListener('DOMContentLoaded', reserveHeights);
 // liste restait FIGÉE sur l'ancien actif et on ne savait pas si le clic avait pris.
 // Voir switchTo() dans 07-models.js.
 let pendingPreset = 0;
+// Id du preset actuellement chargé dans le moteur (rempli par loadPresets). Sert au
+// modal d'édition : le bouton « bench » n'apparaît que pour ce preset (le bench
+// mesure le modèle chargé, pas un preset quelconque).
+let ACTIVE_PRESET_ID = '';
 // Dernière sélection PEINTE. La liste est redessinée à chaque rafraîchissement
 // (et il y en a beaucoup : sondage de bascule, loadAll…) ; sans ce repère, les
 // animations d'entrée (barre qui glisse, puce qui apparaît) repartaient à chaque
@@ -6392,6 +6330,9 @@ async function loadPresets(){
   // Bascule terminée : le preset visé est devenu l'actif, on éteint l'attente.
   if(pendingPreset && p[pendingPreset-1] && p[pendingPreset-1].active) pendingPreset = 0;
   const act = p.find(x=>x.active);
+  // Id du preset ACTIF (celui chargé dans le moteur) : le modal d'édition s'en sert
+  // pour n'afficher le bouton « bench » que là (le bench mesure le modèle chargé).
+  ACTIVE_PRESET_ID = act ? act.id : '';
   // Build via DOM (not string concat) so preset names can contain anything —
   // spaces, accents, quotes, < > & — without breaking markup or handlers.
   const sp = document.getElementById('status-preset');
@@ -6862,99 +6803,9 @@ function renderApiKey(d){
 }
 async function loadApiKey(){ renderApiKey(await jget('/api/apikey')); }
 // --- Export de la conversation ---------------------------------------------
-// xTurnsTotal : nombre d'échanges du fil, borne haute du curseur. Vient de
-// /api/chat/state ; 0 = conversation vide, et la fenêtre n'a alors rien à régler.
-let xTurnsTotal = 0;
-async function openExportModal(){
-  showModal('export-modal');
-  try{
-    const st = await jget('/api/chat/state');
-    xTurnsTotal = (st && st.turns) || 0;
-  }catch(e){ xTurnsTotal = 0; }
-  // Rien à exporter : on remplace les réglages par un message, plutôt que de
-  // proposer de tailler un fichier qui serait vide de toute façon.
-  const vide = xTurnsTotal === 0;
-  document.getElementById('x-empty').style.display = vide ? '' : 'none';
-  document.getElementById('x-body').style.display = vide ? 'none' : '';
-  document.getElementById('x-go').style.display = vide ? 'none' : '';
-  if(vide) return;
-  const el = document.getElementById('x-turns');
-  el.max = String(xTurnsTotal);
-  el.value = el.max;               // par défaut : tout le fil
-  el.disabled = xTurnsTotal < 2;   // un seul échange : rien à trancher
-  onExportFormat();
-}
-function closeExportModal(){ hideModal('export-modal'); }
-// Le format ne change QUE le contenant : les options de contenu sont les mêmes
-// des deux côtés. Il n'y a donc plus rien à montrer ou cacher ici, seulement le
-// résumé à rafraîchir.
-function onExportFormat(){ onExportPreview(); }
-function exportFormat(){
-  const r = document.querySelector('input[name=x-fmt]:checked');
-  return r ? r.value : 'md';
-}
-// Construit la requête d'export à partir des cases. On n'envoie QUE ce qui
-// s'écarte du défaut : l'URL reste lisible, et un export complet redevient le
-// simple /api/chat/export.
-function exportQuery(){
-  const p = new URLSearchParams();
-  if(exportFormat() === 'json') p.set('format','json');
-  const on = id => document.getElementById(id).checked;
-  if(!on('x-reasoning')) p.set('reasoning','0');
-  if(!on('x-tools')) p.set('tools','0');
-  if(!on('x-results')) p.set('results','0');
-  const t = exportTurns();
-  if(t > 0) p.set('turns', String(t));
-  const q = p.toString();
-  return '/api/chat/export' + (q ? '?'+q : '');
-}
-// Valeur de portée à envoyer : 0 = tout le fil. La butée DROITE du curseur vaut
-// « toute la conversation », donc on n'envoie rien plutôt qu'un nombre qui se
-// périmerait à l'échange suivant.
-function exportTurns(){
-  const v = parseInt(document.getElementById('x-turns').value, 10) || 0;
-  if(!xTurnsTotal || v >= xTurnsTotal) return 0;
-  return v;
-}
-function onExportPreview(){
-  // Sortie d'outil sans bulle d'outil n'a aucun sens : la case suit.
-  const tools = document.getElementById('x-tools');
-  const results = document.getElementById('x-results');
-  results.disabled = !tools.checked;
-  if(!tools.checked) results.checked = false;
-  paintExportRange();
-  const off = [];
-  if(!document.getElementById('x-reasoning').checked) off.push(t('settings.export.reasonings'));
-  if(!tools.checked) off.push(t('settings.export.tools'));
-  else if(!results.checked) off.push(t('settings.export.tool_outputs'));
-  document.getElementById('x-note').textContent = off.length
-    ? t('settings.export.without_prefix') + off.join(' '+t('settings.export.nor')+' ') + '.'
-    : '';
-}
-// Remplit la piste du curseur et son libellé. Purement local : appelé à chaque
-// pixel de glissement, il ne doit RIEN demander au serveur.
-function paintExportRange(){
-  const el = document.getElementById('x-turns');
-  const n = parseInt(el.value, 10) || 0;
-  const max = Math.max(1, xTurnsTotal);
-  // La pastille ne parcourt pas toute la largeur : elle va de THUMB/2 à
-  // largeur - THUMB/2. On coupe le remplissage dans SON repère, sinon la piste
-  // colorée déborde à côté d'elle aux extrémités (même calcul que la barre GPU).
-  const frac = max > 1 ? (n - 1) / (max - 1) : 1;
-  const fill = document.getElementById('x-fill');
-  if(fill) fill.style.width = 'calc(' + (frac*100).toFixed(2) + '% - ' + ((frac - .5) * GPU_THUMB).toFixed(2) + 'px)';
-  const scope = document.getElementById('x-scope');
-  if(!scope) return;
-  scope.textContent = n >= xTurnsTotal
-    ? t('settings.export.whole_conversation') + xTurnsTotal + t('settings.export.exchange_unit') + (xTurnsTotal>1?'s':'') + ')'
-    : n + t('settings.export.last_word') + (n>1?'s':'') + t('settings.export.exchange_unit') + (n>1?'s':'') + t('settings.export.out_of') + xTurnsTotal;
-}
-async function runExport(){
-  const btn = document.getElementById('x-go');
-  btn.disabled = true;
-  try{ await downloadExport(exportQuery()); closeExportModal(); }
-  finally{ btn.disabled = false; }
-}
+// Le modal d'export riche (format/portée/contenu) a été retiré : l'export se
+// fait par conversation depuis le hub Projets (téléchargement direct via
+// downloadExport, juste en dessous).
 // On passe par jfetch (et pas par un simple <a href>) pour deux raisons : la clé
 // de pilotage voyage dans un en-tête Authorization, qu'un lien ne porterait pas,
 // et le chemin de base change derrière le tunnel (/u/<id>).
@@ -7101,7 +6952,7 @@ async function loadAll(){
   // allSettled et pas all : un seul chargement en échec (accès distant coupé,
   // clé API absente…) ne doit pas empêcher la suite — et surtout pas laisser les
   // hauteurs réservées en place pour toujours.
-  await Promise.allSettled([loadStatus(),loadVram(),loadRam(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadNode(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadRemote(),loadTasks()]);
+  await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadNode(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadRemote(),loadTasks()]);
   releaseHeights(); // tout est en place : on rend la main et on mesure pour la prochaine fois
 }
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }
@@ -7199,8 +7050,10 @@ async function runBenchUI(){
   const rerun = document.getElementById('bench-rerun');
   const body = document.getElementById('bench-body');
   openBenchModal();
-  btn.disabled = true; btn.textContent = t('models.bench.running');
-  rerun.disabled = true;
+  // btn est désormais une ICÔNE : on ne touche PAS à son contenu (ça effacerait le
+  // SVG). On le désactive seulement ; l'état « en cours » est montré par le modal.
+  if(btn) btn.disabled = true;
+  if(rerun) rerun.disabled = true;
   body.innerHTML =
     '<div style="text-align:center;padding:20px 0">' +
     '<div class="spinner" style="margin:0 auto"></div>' +
@@ -7230,8 +7083,8 @@ async function runBenchUI(){
       '</div>' +
       '<div class="muted" style="text-align:center;font-size:11px">'+t('models.bench.total')+' '+x.elapsed_sec.toFixed(2)+'s</div>';
   } finally {
-    btn.disabled = false; btn.textContent = t('models.bench.button');
-    rerun.disabled = false;
+    if(btn) btn.disabled = false;   // icône : pas de textContent (voir plus haut)
+    if(rerun) rerun.disabled = false;
     loadPresets();
   }
 }
@@ -7299,6 +7152,9 @@ async function openItem(kind, key){
   document.getElementById('m-name').placeholder = K.nameHint;
   document.getElementById('m-content').value = '';
   document.getElementById('m-del').style.display = key ? 'inline-flex' : 'none';
+  // Bench : visible seulement pour le preset ACTIF (il mesure le modèle chargé).
+  const benchBtn = document.getElementById('btn-bench');
+  if(benchBtn) benchBtn.style.display = (kind === 'preset' && key && key === ACTIVE_PRESET_ID) ? 'inline-flex' : 'none';
   // Model picker is preset-only: it edits the MODEL= line of the preset.
   const modelRow = document.getElementById('m-model-row');
   const engineRow = document.getElementById('m-engine-row'); // Moteur, en haut du modal
@@ -9753,6 +9609,13 @@ document.addEventListener('visibilitychange', ()=>{
     if(streamAbort) try{ streamAbort.abort(); }catch(e){}
   } else if(streamPaused){
     streamPaused=false;
+    // Retour au premier plan : les sondes périodiques (statut, jauges, état moteur)
+    // étaient en pause pendant l'absence — on rafraîchit tout de suite, sans
+    // attendre le prochain tick, pour ne pas laisser des valeurs périmées à l'écran.
+    // Le flux SSE, lui, se reconnecte tout seul (boucle connectStream).
+    loadStatus().catch(()=>{});
+    loadTelemetry().catch(()=>{});
+    reconcileBusy().catch(()=>{});
   }
 });
 async function connectStream(){
@@ -9879,6 +9742,7 @@ function finalizeStuckTurn(){
   setBusy(false);
 }
 async function reconcileBusy(settle){
+  if(document.hidden) return; // onglet en arrière-plan : sondage en pause (palier 1) ; on recale au retour (visibilitychange)
   if(READING) return; // en lecture seule : ne pas resynchroniser l'état sur la vue lue
   try{
     const s=await (await jfetch('/api/chat/state')).json();
@@ -9969,8 +9833,8 @@ loadAll();
 checkServerFreshness();
 checkAppUpdate();
 setInterval(loadStatus, 5000);
-setInterval(loadVram, 3000);
-setInterval(loadRam, 3000);
+// VRAM + RAM en un seul appel groupé (au lieu de deux endpoints sondés séparément).
+setInterval(loadTelemetry, 3000);
 // Backend llama.cpp — la barre latérale sert UNIQUEMENT à installer les moteurs.
 //   « llama.cpp précompilé »   = binaires officiels, aucune compilation
 //   « llama.cpp compilé »      = compilé ici, pour cette machine

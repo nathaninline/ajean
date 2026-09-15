@@ -163,7 +163,10 @@ func handleServiceLog(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"log": serviceLogTail(n)})
 }
 
-func handleVram(w http.ResponseWriter, r *http.Request) {
+// vramGPUs échantillonne les GPU (VRAM utilisée/totale, util, température). Extrait
+// de handleVram pour être réutilisé tel quel par /api/telemetry : nvidia-smi
+// d'abord, repli amd-smi, puis rocm-smi, puis --list-devices Vulkan.
+func vramGPUs() []map[string]any {
 	out, err := hideCmd(exec.Command("nvidia-smi",
 		"--query-gpu=name,memory.used,memory.total,utilization.gpu,temperature.gpu",
 		"--format=csv,noheader,nounits")).Output()
@@ -211,7 +214,23 @@ func handleVram(w http.ResponseWriter, r *http.Request) {
 			gpus = vk
 		}
 	}
-	sendJSON(w, 200, gpus)
+	return gpus
+}
+
+func handleVram(w http.ResponseWriter, r *http.Request) {
+	sendJSON(w, 200, vramGPUs())
+}
+
+// handleTelemetry regroupe les jauges matérielles (VRAM + RAM) en UN seul appel,
+// pour que l'UI ne sonde plus deux endpoints séparés à intervalle rapproché.
+// Forme et unités identiques à /api/vram et /api/ram (conservés pour les serveurs
+// anciens et le repli côté UI) : {vram: [...], ram: {used, total}}.
+func handleTelemetry(w http.ResponseWriter, r *http.Request) {
+	used, total := ramUsageMB()
+	sendJSON(w, 200, map[string]any{
+		"vram": vramGPUs(),
+		"ram":  map[string]any{"used": used, "total": total},
+	})
 }
 
 // handleRam renvoie la RAM système {used, total} en Mo (mêmes unités que

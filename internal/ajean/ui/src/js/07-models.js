@@ -5,8 +5,10 @@ async function runBenchUI(){
   const rerun = document.getElementById('bench-rerun');
   const body = document.getElementById('bench-body');
   openBenchModal();
-  btn.disabled = true; btn.textContent = t('models.bench.running');
-  rerun.disabled = true;
+  // btn est désormais une ICÔNE : on ne touche PAS à son contenu (ça effacerait le
+  // SVG). On le désactive seulement ; l'état « en cours » est montré par le modal.
+  if(btn) btn.disabled = true;
+  if(rerun) rerun.disabled = true;
   body.innerHTML =
     '<div style="text-align:center;padding:20px 0">' +
     '<div class="spinner" style="margin:0 auto"></div>' +
@@ -36,8 +38,8 @@ async function runBenchUI(){
       '</div>' +
       '<div class="muted" style="text-align:center;font-size:11px">'+t('models.bench.total')+' '+x.elapsed_sec.toFixed(2)+'s</div>';
   } finally {
-    btn.disabled = false; btn.textContent = t('models.bench.button');
-    rerun.disabled = false;
+    if(btn) btn.disabled = false;   // icône : pas de textContent (voir plus haut)
+    if(rerun) rerun.disabled = false;
     loadPresets();
   }
 }
@@ -105,6 +107,9 @@ async function openItem(kind, key){
   document.getElementById('m-name').placeholder = K.nameHint;
   document.getElementById('m-content').value = '';
   document.getElementById('m-del').style.display = key ? 'inline-flex' : 'none';
+  // Bench : visible seulement pour le preset ACTIF (il mesure le modèle chargé).
+  const benchBtn = document.getElementById('btn-bench');
+  if(benchBtn) benchBtn.style.display = (kind === 'preset' && key && key === ACTIVE_PRESET_ID) ? 'inline-flex' : 'none';
   // Model picker is preset-only: it edits the MODEL= line of the preset.
   const modelRow = document.getElementById('m-model-row');
   const engineRow = document.getElementById('m-engine-row'); // Moteur, en haut du modal

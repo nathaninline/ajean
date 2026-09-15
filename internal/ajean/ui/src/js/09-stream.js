@@ -583,6 +583,13 @@ document.addEventListener('visibilitychange', ()=>{
     if(streamAbort) try{ streamAbort.abort(); }catch(e){}
   } else if(streamPaused){
     streamPaused=false;
+    // Retour au premier plan : les sondes périodiques (statut, jauges, état moteur)
+    // étaient en pause pendant l'absence — on rafraîchit tout de suite, sans
+    // attendre le prochain tick, pour ne pas laisser des valeurs périmées à l'écran.
+    // Le flux SSE, lui, se reconnecte tout seul (boucle connectStream).
+    loadStatus().catch(()=>{});
+    loadTelemetry().catch(()=>{});
+    reconcileBusy().catch(()=>{});
   }
 });
 async function connectStream(){
@@ -709,6 +716,7 @@ function finalizeStuckTurn(){
   setBusy(false);
 }
 async function reconcileBusy(settle){
+  if(document.hidden) return; // onglet en arrière-plan : sondage en pause (palier 1) ; on recale au retour (visibilitychange)
   if(READING) return; // en lecture seule : ne pas resynchroniser l'état sur la vue lue
   try{
     const s=await (await jfetch('/api/chat/state')).json();
@@ -799,5 +807,5 @@ loadAll();
 checkServerFreshness();
 checkAppUpdate();
 setInterval(loadStatus, 5000);
-setInterval(loadVram, 3000);
-setInterval(loadRam, 3000);
+// VRAM + RAM en un seul appel groupé (au lieu de deux endpoints sondés séparément).
+setInterval(loadTelemetry, 3000);

@@ -28,6 +28,10 @@ document.addEventListener('DOMContentLoaded', reserveHeights);
 // liste restait FIGÉE sur l'ancien actif et on ne savait pas si le clic avait pris.
 // Voir switchTo() dans 07-models.js.
 let pendingPreset = 0;
+// Id du preset actuellement chargé dans le moteur (rempli par loadPresets). Sert au
+// modal d'édition : le bouton « bench » n'apparaît que pour ce preset (le bench
+// mesure le modèle chargé, pas un preset quelconque).
+let ACTIVE_PRESET_ID = '';
 // Dernière sélection PEINTE. La liste est redessinée à chaque rafraîchissement
 // (et il y en a beaucoup : sondage de bascule, loadAll…) ; sans ce repère, les
 // animations d'entrée (barre qui glisse, puce qui apparaît) repartaient à chaque
@@ -39,6 +43,9 @@ async function loadPresets(){
   // Bascule terminée : le preset visé est devenu l'actif, on éteint l'attente.
   if(pendingPreset && p[pendingPreset-1] && p[pendingPreset-1].active) pendingPreset = 0;
   const act = p.find(x=>x.active);
+  // Id du preset ACTIF (celui chargé dans le moteur) : le modal d'édition s'en sert
+  // pour n'afficher le bouton « bench » que là (le bench mesure le modèle chargé).
+  ACTIVE_PRESET_ID = act ? act.id : '';
   // Build via DOM (not string concat) so preset names can contain anything —
   // spaces, accents, quotes, < > & — without breaking markup or handlers.
   const sp = document.getElementById('status-preset');
@@ -509,99 +516,9 @@ function renderApiKey(d){
 }
 async function loadApiKey(){ renderApiKey(await jget('/api/apikey')); }
 // --- Export de la conversation ---------------------------------------------
-// xTurnsTotal : nombre d'échanges du fil, borne haute du curseur. Vient de
-// /api/chat/state ; 0 = conversation vide, et la fenêtre n'a alors rien à régler.
-let xTurnsTotal = 0;
-async function openExportModal(){
-  showModal('export-modal');
-  try{
-    const st = await jget('/api/chat/state');
-    xTurnsTotal = (st && st.turns) || 0;
-  }catch(e){ xTurnsTotal = 0; }
-  // Rien à exporter : on remplace les réglages par un message, plutôt que de
-  // proposer de tailler un fichier qui serait vide de toute façon.
-  const vide = xTurnsTotal === 0;
-  document.getElementById('x-empty').style.display = vide ? '' : 'none';
-  document.getElementById('x-body').style.display = vide ? 'none' : '';
-  document.getElementById('x-go').style.display = vide ? 'none' : '';
-  if(vide) return;
-  const el = document.getElementById('x-turns');
-  el.max = String(xTurnsTotal);
-  el.value = el.max;               // par défaut : tout le fil
-  el.disabled = xTurnsTotal < 2;   // un seul échange : rien à trancher
-  onExportFormat();
-}
-function closeExportModal(){ hideModal('export-modal'); }
-// Le format ne change QUE le contenant : les options de contenu sont les mêmes
-// des deux côtés. Il n'y a donc plus rien à montrer ou cacher ici, seulement le
-// résumé à rafraîchir.
-function onExportFormat(){ onExportPreview(); }
-function exportFormat(){
-  const r = document.querySelector('input[name=x-fmt]:checked');
-  return r ? r.value : 'md';
-}
-// Construit la requête d'export à partir des cases. On n'envoie QUE ce qui
-// s'écarte du défaut : l'URL reste lisible, et un export complet redevient le
-// simple /api/chat/export.
-function exportQuery(){
-  const p = new URLSearchParams();
-  if(exportFormat() === 'json') p.set('format','json');
-  const on = id => document.getElementById(id).checked;
-  if(!on('x-reasoning')) p.set('reasoning','0');
-  if(!on('x-tools')) p.set('tools','0');
-  if(!on('x-results')) p.set('results','0');
-  const t = exportTurns();
-  if(t > 0) p.set('turns', String(t));
-  const q = p.toString();
-  return '/api/chat/export' + (q ? '?'+q : '');
-}
-// Valeur de portée à envoyer : 0 = tout le fil. La butée DROITE du curseur vaut
-// « toute la conversation », donc on n'envoie rien plutôt qu'un nombre qui se
-// périmerait à l'échange suivant.
-function exportTurns(){
-  const v = parseInt(document.getElementById('x-turns').value, 10) || 0;
-  if(!xTurnsTotal || v >= xTurnsTotal) return 0;
-  return v;
-}
-function onExportPreview(){
-  // Sortie d'outil sans bulle d'outil n'a aucun sens : la case suit.
-  const tools = document.getElementById('x-tools');
-  const results = document.getElementById('x-results');
-  results.disabled = !tools.checked;
-  if(!tools.checked) results.checked = false;
-  paintExportRange();
-  const off = [];
-  if(!document.getElementById('x-reasoning').checked) off.push(t('settings.export.reasonings'));
-  if(!tools.checked) off.push(t('settings.export.tools'));
-  else if(!results.checked) off.push(t('settings.export.tool_outputs'));
-  document.getElementById('x-note').textContent = off.length
-    ? t('settings.export.without_prefix') + off.join(' '+t('settings.export.nor')+' ') + '.'
-    : '';
-}
-// Remplit la piste du curseur et son libellé. Purement local : appelé à chaque
-// pixel de glissement, il ne doit RIEN demander au serveur.
-function paintExportRange(){
-  const el = document.getElementById('x-turns');
-  const n = parseInt(el.value, 10) || 0;
-  const max = Math.max(1, xTurnsTotal);
-  // La pastille ne parcourt pas toute la largeur : elle va de THUMB/2 à
-  // largeur - THUMB/2. On coupe le remplissage dans SON repère, sinon la piste
-  // colorée déborde à côté d'elle aux extrémités (même calcul que la barre GPU).
-  const frac = max > 1 ? (n - 1) / (max - 1) : 1;
-  const fill = document.getElementById('x-fill');
-  if(fill) fill.style.width = 'calc(' + (frac*100).toFixed(2) + '% - ' + ((frac - .5) * GPU_THUMB).toFixed(2) + 'px)';
-  const scope = document.getElementById('x-scope');
-  if(!scope) return;
-  scope.textContent = n >= xTurnsTotal
-    ? t('settings.export.whole_conversation') + xTurnsTotal + t('settings.export.exchange_unit') + (xTurnsTotal>1?'s':'') + ')'
-    : n + t('settings.export.last_word') + (n>1?'s':'') + t('settings.export.exchange_unit') + (n>1?'s':'') + t('settings.export.out_of') + xTurnsTotal;
-}
-async function runExport(){
-  const btn = document.getElementById('x-go');
-  btn.disabled = true;
-  try{ await downloadExport(exportQuery()); closeExportModal(); }
-  finally{ btn.disabled = false; }
-}
+// Le modal d'export riche (format/portée/contenu) a été retiré : l'export se
+// fait par conversation depuis le hub Projets (téléchargement direct via
+// downloadExport, juste en dessous).
 // On passe par jfetch (et pas par un simple <a href>) pour deux raisons : la clé
 // de pilotage voyage dans un en-tête Authorization, qu'un lien ne porterait pas,
 // et le chemin de base change derrière le tunnel (/u/<id>).
@@ -748,7 +665,7 @@ async function loadAll(){
   // allSettled et pas all : un seul chargement en échec (accès distant coupé,
   // clé API absente…) ne doit pas empêcher la suite — et surtout pas laisser les
   // hauteurs réservées en place pour toujours.
-  await Promise.allSettled([loadStatus(),loadVram(),loadRam(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadNode(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadRemote(),loadTasks()]);
+  await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadNode(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadRemote(),loadTasks()]);
   releaseHeights(); // tout est en place : on rend la main et on mesure pour la prochaine fois
 }
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }

@@ -155,6 +155,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/service/log", handleServiceLog) // journal du service pour diagnostiquer un modèle qui ne charge pas
 	api("/api/vram", handleVram)
 	api("/api/ram", handleRam)
+	api("/api/telemetry", handleTelemetry) // VRAM+RAM en un seul appel (réduit le polling de l'UI)
 	api("/api/config", handleConfigEnv)
 	api("/api/reasoning", handleReasoning) // change l'effort de réflexion à chaud (raccourci composeur)
 	api("/api/catalog", handleCatalog)

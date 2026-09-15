@@ -691,6 +691,23 @@ details>summary+.subhead{margin-top:4px}
 .stat-n{font-size:12.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .stat-v{flex:none;font-size:12.5px;color:var(--text);font-variant-numeric:tabular-nums}
 .stat-s{font-size:11px;color:var(--dim)}
+/* Skeleton de chargement (jauges VRAM/RAM, configuration…) : bloc gris arrondi
+   avec un reflet qui BALAYE via transform. On n'anime pas un background-position
+   (iOS ne le rend pas de façon fiable — même piège que la ligne d'activité). La
+   teinte est dérivée de --text, donc correcte en clair comme en sombre. Les
+   fonctions de rendu remplacent ensuite ce contenu, le skeleton disparaît seul. */
+.skel{position:relative;overflow:hidden;border-radius:5px;background:color-mix(in srgb,var(--text) 7%,transparent)}
+.skel::after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--text) 11%,transparent),transparent);animation:skel-sweep 1.2s ease-in-out infinite}
+@keyframes skel-sweep{100%{transform:translateX(100%)}}
+.skel-line{display:inline-block;height:11px;vertical-align:middle}
+.skel-bar{height:5px;border-radius:3px}
+@media (prefers-reduced-motion:reduce){.skel::after{animation:none}}
+/* Fondu du PREMIER rendu réel (remplacement du skeleton) : l'arrivée des données
+   ne « claque » plus. Appliqué une seule fois (voir swapContent), pas à chaque
+   sondage — sinon la zone clignoterait toutes les 3 s. */
+.fadein{animation:skel-fadein .7s cubic-bezier(.22,.61,.36,1) both}
+@keyframes skel-fadein{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.fadein{animation:none}}
 
 /* --- Lignes clé / valeur (config active) --- */
 .kv{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:34px;
@@ -1013,6 +1030,12 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
   margin:0;padding:0;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--err);cursor:pointer}
 .pe-del svg{width:15px;height:15px;display:block}
 .pe-del:hover{background:var(--danger-bg);border-color:color-mix(in srgb,var(--err) 40%,transparent)}
+/* Bouton-icône NEUTRE du pied de modal (bench…) : même gabarit que la corbeille,
+   teinte neutre, survol discret. */
+.pe-icon{flex:none;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;margin:0;padding:0;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--dim);cursor:pointer}
+.pe-icon svg{width:16px;height:16px;display:block}
+.pe-icon:hover{background:var(--accent-bg);border-color:var(--border);color:var(--text)}
+.pe-icon:disabled{opacity:.5;cursor:default}
 /* Option d'une confirmation : une PASTILLE à cocher, pas une case système trackere
    d'un bout de texte. Éteinte : contour discret. Allumée : elle passe au rouge,
    comme l'action destructrice qu'elle étend. Vit dans la boîte de confirmation
