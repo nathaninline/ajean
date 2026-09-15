@@ -270,12 +270,14 @@
         <div id="remote-status" class="muted" style="margin-top:6px"></div>
         <div class="row" style="margin-bottom:0"><button id="remote-start" onclick="remoteStart()" style="display:none;border-color:var(--accent);color:var(--accent)" data-i18n="link.start_tunnel">démarrer le tunnel</button></div>
       </div></div>
+      <div id="remote-firstconn">
       <div class="subhead"><span data-i18n="link.first_connection_subhead">Première connexion</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="link.first_connection_help" data-i18n-html>À votre première ouverture du portail distant, confirmez l'<b>empreinte</b> et saisissez le <b>code d'appairage</b> : cela verrouille la boîte noire sur CE serveur (anti-interception). Une seule fois par appareil.</span></span></div>
       <div class="slist"><div class="rowbody">
         <div class="row" style="margin:0"><button onclick="remotePairCode()" data-i18n="link.show_pairing">Afficher l'empreinte et le code d'appairage</button></div>
         <div id="remote-pair" class="muted" style="display:none;margin-top:6px"></div>
         <div class="row" style="margin-bottom:0"><button onclick="remoteDisconnect()" class="btn-danger-o" data-i18n="link.disconnect">déconnecter l'accès distant</button></div>
       </div></div>
+      </div>
     </div>
     <!-- Sauvegarde ajean.link (abonnés) : mémoire + presets + réglages, chiffrés
          côté serveur avant l'envoi, relais aveugle. Bloc entier masqué si le

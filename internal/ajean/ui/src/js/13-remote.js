@@ -29,12 +29,30 @@ function renderRemote(d){
 }
 
 async function loadRemote(){
-  // Le panneau ne vaut qu'en LOCAL : il pilote /api/link/* que le tunnel bloque
-  // (boîte noire). Sur le portail distant (app.ajean.link/server.html), on le cache.
   const det = document.getElementById('remote-details');
-  if(location.hostname === 'app.ajean.link'){ if(det) det.style.display='none'; return; }
-  // Statut injoignable : on retombe sur « non connecté » plutôt que de garder
-  // l'affichage précédent, qui pourrait annoncer « connecté » à tort.
+  // Sur le portail distant (app.ajean.link), /api/link/* est bloqué par le tunnel
+  // (boîte noire), donc pas d'appel API. On n'efface plus la section pour autant :
+  // on l'AFFICHE en état informatif « connecté » (on est forcément relié pour être
+  // ici), avec l'adresse et « en ligne », mais SANS les contrôles purement locaux
+  // (appairage, déconnexion, démarrage du tunnel, sauvegarde) qui ne
+  // fonctionneraient pas à distance. Ainsi le menu AJEAN LINK reste visible comme
+  // dans l'UI de base.
+  if(location.hostname === 'app.ajean.link'){
+    if(det) det.style.display='';
+    const off=document.getElementById('remote-off'); if(off) off.style.display='none';
+    const on=document.getElementById('remote-on'); if(on) on.style.display='';
+    const url=document.getElementById('remote-url'); if(url) url.value=location.origin;
+    const st=document.getElementById('remote-status');
+    if(st){ st.textContent='● '+t('remote.online_status'); st.style.color='var(--accent)'; }
+    const sb=document.getElementById('remote-start'); if(sb) sb.style.display='none';
+    const fc=document.getElementById('remote-firstconn'); if(fc) fc.style.display='none';
+    const bk=document.getElementById('backup-block'); if(bk) bk.style.display='none';
+    const perks=document.getElementById('remote-perks-mini'); if(perks) perks.style.display='';
+    setBadge(document.getElementById('remote-badge'), true, t('remote.connected'));
+    return;
+  }
+  // Local : statut injoignable → on retombe sur « non connecté » plutôt que de
+  // garder l'affichage précédent, qui pourrait annoncer « connecté » à tort.
   try{ renderRemote(await jget('/api/link/status')); }catch(e){ renderRemote(null); }
 }
 

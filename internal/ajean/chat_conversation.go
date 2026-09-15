@@ -864,7 +864,18 @@ func (c *Conversation) isGenerating() bool {
 // ce cas ; il doit donc rendre la main, quoi qu'il arrive au tour abandonné, que
 // le bump d'epoch réduit de toute façon au silence.
 func (c *Conversation) Reset() {
-	c.Stop()
+	// Une TÂCHE de fond (RunAutonomous) partage le gate de génération et le cancel
+	// de la conversation, mais ne touche ni Messages ni Log ni epoch : elle est
+	// isolée. Ouvrir une nouvelle conversation ne doit donc PAS l'annuler (issue
+	// #76) — le Stop()/déblocage de Reset ne vise que le TOUR UTILISATEUR resté
+	// coincé. On regarde d'abord ce qui occupe le gate.
+	c.mu.Lock()
+	taskRunning := c.runningTaskID != ""
+	cancel := c.cancel
+	c.mu.Unlock()
+	if !taskRunning && cancel != nil {
+		cancel() // débloque / interrompt un tour utilisateur ; jamais une tâche
+	}
 	c.mu.Lock()
 	c.Messages = nil
 	c.Log = nil
@@ -876,8 +887,15 @@ func (c *Conversation) Reset() {
 	c.ActiveFav = false
 	c.epoch++
 	c.pendingReplay = false // conversation vide : rien à rejouer
-	c.Generating = false
-	c.cancel = nil
+	if !taskRunning {
+		// Déblocage d'un tour utilisateur : on rend la main.
+		c.Generating = false
+		c.cancel = nil
+	}
+	// Si une tâche tourne, on laisse Generating / cancel / runningTask* INTACTS :
+	// elle continue jusqu'à son terme (compte-rendu préservé) et reste
+	// interruptible par le bouton stop. Le nouveau fil vide est prêt ; l'envoi d'un
+	// message y attendra la fin de la tâche (une seule inférence à la fois).
 	c.cond.Broadcast()
 	c.mu.Unlock()
 	c.persist()
