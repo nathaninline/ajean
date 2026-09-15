@@ -1,20 +1,12 @@
-Binaires précompilés réparés, et améliorations autour de la compilation.
+Correctifs autour des tâches et de l'accès distant.
 
-## Binaires précompilés à nouveau détectés
+## Une nouvelle conversation n'interrompt plus une tâche
 
-llama.cpp a changé la façon dont ses releases sont publiées : la release marquée « latest » ne contient plus de binaires, et les vrais builds sont désormais publiés séparément. Résultat, le mode précompilé affichait « aucun binaire précompilé adapté à cette machine ». La détection suit maintenant les bonnes releases et retrouve le binaire correspondant à la machine.
+Ouvrir une nouvelle conversation pendant qu'une tâche planifiée s'exécutait pouvait interrompre cette tâche et perdre son compte-rendu. La tâche continue désormais jusqu'à son terme ; seule une demande explicite d'arrêt l'interrompt.
 
-## Arrêter une compilation
+## Menu AJEAN LINK visible sur le portail distant
 
-Un bouton permet d'interrompre une installation ou une compilation en cours ; les processus lancés sont arrêtés proprement et l'opération peut être relancée plus tard.
-
-## Indicateur d'activité stable
-
-Pendant une installation, l'indicateur d'activité ne clignote plus : il tourne de façon continue et seule la ligne d'état se met à jour. Le même indicateur circulaire est utilisé pour le banc d'essai.
-
-## Nouvelle version signalée
-
-Un bandeau discret apparaît en bas du menu lorsqu'une nouvelle version d'AJEAN est disponible.
+Sur le portail d'accès distant, la section AJEAN LINK n'apparaissait plus. Elle est de nouveau affichée, en mode informatif (adresse et état de connexion), les réglages qui ne concernent que le serveur local restant sur l'interface locale.
 
 ## Mise à jour
 
