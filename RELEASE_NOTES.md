@@ -1,20 +1,28 @@
-Compilation de llama.cpp sur Windows nettement plus fiable.
+Lisibilité de la compilation Windows et désinstallation d'un moteur.
 
-## Compilation Windows via Ninja
+## Journal de compilation lisible
 
-Sur Windows, la compilation de llama.cpp passait par le générateur Visual Studio de CMake. Ce choix rendait le build dépendant de deux éléments fragiles : la présence d'une édition de Visual Studio dont le nom correspond exactement (« Visual Studio 17 2022 »), et, pour CUDA, l'intégration MSBuild « CUDA x.y.props » installée au bon endroit et à la bonne version. Selon la machine, l'une ou l'autre manquait et la configuration échouait sur un message opaque (« could not find any instance of Visual Studio », « No CUDA toolset found », suivi de « exit status 1 »).
+Depuis le passage à Ninja, la sortie du compilateur (cl.exe) faisait remonter dans l'interface des milliers d'avertissements et de notes de gabarit, parfois avec des accents mal encodés. Le journal affiché ne conserve désormais que la progression et les vraies erreurs ; la sortie complète reste enregistrée dans le fichier de log pour le diagnostic.
 
-La compilation utilise désormais le générateur Ninja, qui invoque le compilateur et nvcc directement, sans passer par MSBuild. L'environnement du compilateur est mis en place automatiquement, et Ninja est installé au besoin. Cela supprime cette catégorie d'erreurs de configuration.
+## Retour pendant l'installation des outils
 
-## Détection de Visual Studio et de CUDA
+Lorsqu'un outil manquant (par exemple Ninja) est installé automatiquement, l'interface l'indique maintenant explicitement au lieu de sembler figée sur « vérification des outils ». L'étape en cours est affichée en clair.
 
-La détection de l'édition de Visual Studio ne se limite plus à une table figée : l'année de la gamme de produit est lue directement, ce qui prend en charge les versions récentes (dont Visual Studio 2026) sans mise à jour.
+## Indicateur d'activité
 
-Le choix de la version du toolkit CUDA lorsque plusieurs sont installées se fait maintenant par comparaison numérique des versions, et non plus alphabétique : la version réellement la plus récente est retenue.
+L'émoji sablier utilisé pendant une compilation est remplacé par un indicateur circulaire discret, cohérent avec le reste de l'interface.
 
-## Parallélisme adapté à la mémoire
+## Désinstaller un moteur
 
-Le parallélisme des compilations CUDA est plafonné en fonction de la mémoire disponible. Sur une machine à nombreux cœurs mais mémoire limitée, la compilation ne sature plus la RAM au risque d'un échec en cours de route.
+Une commande de terminal permet de supprimer un moteur installé :
+
+```
+ajean llamacpp uninstall compiled
+ajean llamacpp uninstall prebuilt
+ajean llamacpp uninstall custom <nom>
+```
+
+La suppression du moteur actif est refusée par défaut ; l'option `--force` arrête le service et libère la sélection.
 
 ## Mise à jour
 

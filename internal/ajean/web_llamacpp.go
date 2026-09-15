@@ -95,9 +95,11 @@ func startLcJob(action string, run func()) error {
 	lcResetLog()
 	lcSave(true)
 	setBuildSink(lcAppend)
+	setBuildPhase(lcPhase)
 	go func() {
 		defer func() {
 			setBuildSink(nil)
+			setBuildPhase(nil)
 			lcMu.Lock()
 			lcCur.Running = false
 			lcCur.EndedAt = time.Now().Unix()
@@ -464,6 +466,15 @@ func lcJobSnapshot(from int, withLines bool) map[string]any {
 func lcRunInstall(force bool) {
 	repo := defaultRepoDir()
 
+	// Dépôt déjà là (et pas de --force) : bascule sur une mise à jour, qui fait
+	// SES propres vérifications d'outils. On teste ça AVANT les checks pour ne pas
+	// afficher deux fois « vérification des outils… » à la suite.
+	if isDir(filepath.Join(repo, ".git")) && !force {
+		lcPhase("dépôt déjà présent — bascule en mise à jour")
+		lcRunUpdate(false)
+		return
+	}
+
 	lcPhase("vérification des outils (git, cmake, compilateur)…")
 	if err := requireTools(buildTools()...); err != nil {
 		lcFail(err)
@@ -475,13 +486,7 @@ func lcRunInstall(force bool) {
 	}
 	ensureAccelerator()
 
-	if isDir(filepath.Join(repo, ".git")) {
-		if !force {
-			// Dépôt déjà là : on bascule sur une mise à jour (même intention).
-			lcPhase("dépôt déjà présent — bascule en mise à jour")
-			lcRunUpdate(false)
-			return
-		}
+	if isDir(filepath.Join(repo, ".git")) { // forcément --force ici
 		lcPhase("suppression du dépôt existant (--force)…")
 		if err := os.RemoveAll(repo); err != nil {
 			lcFail(err)

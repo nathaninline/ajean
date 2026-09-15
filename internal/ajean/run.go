@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const Version = "0.14.2"
+const Version = "0.14.3"
 
 // Main est le vrai main() du binaire (cmd/ajean ne fait que l'appeler).
 func Main() {
@@ -173,6 +173,7 @@ Poste distant (piloter CE PC depuis l'IA d'un serveur AJEAN) :
 Backend llama.cpp :
   llamacpp install              clone + compile llama.cpp (CUDA/ROCm/Metal/CPU), pointe BIN dessus
   llamacpp update               git pull + recompile le backend existant
+  llamacpp uninstall <cible>    supprime un moteur (compiled | prebuilt | custom <nom>) ; --force si actif
   llamacpp status               commit courant, backend détecté, retard sur origin
 
 Installation:

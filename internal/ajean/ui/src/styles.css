@@ -73,13 +73,15 @@ option,optgroup{background:var(--panel);color:var(--text)}
 #backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10}
 /* Pastille « installation en cours » : suit exactement les règles d'affichage
    du bouton ☰ (elle ne sert que quand le panneau est en tiroir, donc caché). */
-#lc-chip{display:none;position:fixed;top:calc(10px + env(safe-area-inset-top));left:calc(58px + env(safe-area-inset-left));z-index:20;max-width:60vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--panel);border:1px solid var(--accent);color:var(--accent);height:40px;padding:0 12px;border-radius:6px;font-size:12px;cursor:pointer}
+#lc-chip{display:none;align-items:center;gap:6px;position:fixed;top:calc(10px + env(safe-area-inset-top));left:calc(58px + env(safe-area-inset-left));z-index:20;max-width:60vw;background:var(--panel);border:1px solid var(--accent);color:var(--accent);height:40px;padding:0 12px;border-radius:6px;font-size:12px;cursor:pointer}
+#lc-chip .lc-chip-lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#lc-chip .lc-chip-x{flex:none;font-weight:700}
 #lc-chip.failed{border-color:var(--err);color:var(--err)}
 @media (max-width:720px){
   .side{position:fixed;inset:0 auto 0 0;width:80%;max-width:320px;z-index:15;transform:translateX(-100%);transition:transform .2s;background:var(--bg);padding-top:calc(16px + env(safe-area-inset-top));padding-left:calc(16px + env(safe-area-inset-left))}
   .side.open{transform:translateX(0)}
   #menubtn,#backdrop.open{display:block}
-  #lc-chip:not([hidden]){display:block}
+  #lc-chip:not([hidden]){display:flex}
   body.drawer-open #menubtn,body.drawer-open #lc-chip{display:none}
   .main{width:100%}
   #chat{padding:60px 8px 12px}
@@ -736,7 +738,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 @media (min-width:721px){html[data-hide-side="1"] #chat{padding-top:28px}}
 [data-hide-side="1"] .side.open{transform:translateX(0)}
 [data-hide-side="1"] #menubtn{display:block}
-[data-hide-side="1"] #lc-chip:not([hidden]){display:block}
+[data-hide-side="1"] #lc-chip:not([hidden]){display:flex}
 [data-hide-side="1"] #backdrop.open{display:block}
 [data-hide-side="1"] body.drawer-open #menubtn,[data-hide-side="1"] body.drawer-open #lc-chip{display:none}
 [data-hide-side="1"] .main{width:100%}
@@ -1142,7 +1144,12 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .lc-logbar #lc-log-caret{font-size:9px;transition:transform .12s;display:inline-block}
 .lc-logbar.open #lc-log-caret{transform:rotate(90deg)}
 #lc-log{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:10px;line-height:1.45;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:0}
-.lc-spin{display:inline-block;animation:spin 1s linear infinite}
+/* Petit anneau qui tourne (cohérent avec .spinner), à la place d'un emoji sablier
+   qui jurait avec le reste de l'app. Aligné sur la ligne de texte de la phase. */
+.lc-spin{display:inline-block;width:12px;height:12px;border-radius:50%;
+  border:2px solid var(--border);border-top-color:var(--text);
+  animation:spin .7s linear infinite;vertical-align:-2px;flex:none}
+@media (prefers-reduced-motion:reduce){.lc-spin{animation-duration:2s}}
 /* Serveurs MCP */
 .mcp-list{display:flex;flex-direction:column;gap:4px}
 

@@ -21,14 +21,25 @@ import (
 // buildSink est un collecteur de lignes optionnel : quand il est posé (jobs
 // web, voir web_llamacpp.go), runStep/runBuildStep y dupliquent leur sortie en
 // plus du terminal / des fichiers de log. nil en usage CLI normal.
+// buildPhase, lui, pose la PHASE de haut niveau affichée dans l'UI (le grand
+// texte à côté du spinner), pour les étapes hors flux de log (ex. installation
+// d'un outil via winget) qui, sinon, laissaient l'UI figée sur la phase
+// précédente pendant de longues secondes sans rien indiquer.
 var (
 	buildSinkMu sync.Mutex
 	buildSink   func(string)
+	buildPhase  func(string)
 )
 
 func setBuildSink(f func(string)) {
 	buildSinkMu.Lock()
 	buildSink = f
+	buildSinkMu.Unlock()
+}
+
+func setBuildPhase(f func(string)) {
+	buildSinkMu.Lock()
+	buildPhase = f
 	buildSinkMu.Unlock()
 }
 
@@ -38,6 +49,17 @@ func emitBuildLine(line string) {
 	buildSinkMu.Unlock()
 	if f != nil {
 		f(line)
+	}
+}
+
+// emitBuildPhase met à jour la phase de haut niveau de l'UI (no-op en CLI, où
+// buildPhase est nil et où fmt.Printf sert déjà d'indicateur).
+func emitBuildPhase(phase string) {
+	buildSinkMu.Lock()
+	f := buildPhase
+	buildSinkMu.Unlock()
+	if f != nil {
+		f(phase)
 	}
 }
 
@@ -742,9 +764,17 @@ func requireTools(tools ...string) error {
 	// Unix). On rafraîchit ensuite le PATH du process car un installeur système
 	// écrit le PATH machine sans toucher l'environnement déjà chargé.
 	fmt.Printf("%s outils manquants: %s — installation automatique…\n", yellow("[info]"), strings.Join(missing, ", "))
+	emitBuildLine("outils manquants : " + strings.Join(missing, ", ") + " — installation automatique…")
 	for _, t := range missing {
+		// Phase de haut niveau : sans ça, l'UI web restait figée sur la phase
+		// précédente pendant toute l'installation winget (plusieurs dizaines de
+		// secondes), donnant l'impression d'un blocage.
+		emitBuildPhase("installation de " + t + "…")
 		if err := autoInstallTool(t); err != nil {
 			fmt.Printf("  %s %s: %v\n", dim("•"), t, err)
+			emitBuildLine("échec de l'installation de " + t + " : " + err.Error())
+		} else {
+			emitBuildLine(t + " installé")
 		}
 	}
 	refreshToolPath()
@@ -880,24 +910,34 @@ func runBuildStep(name, dir, extraEnv, bin, logPath string, args ...string) erro
 		for sc.Scan() {
 			line := sc.Text()
 			if logf != nil {
-				fmt.Fprintln(logf, line)
+				fmt.Fprintln(logf, line) // fichier de log : TOUT (debug complet)
 			}
-			emitBuildLine(line)
+			cf := compiledFile(line)
+			pl := phaseLabel(line)
+			isErr := reBuildError.MatchString(line) || strings.HasPrefix(strings.TrimSpace(line), "CMake Error")
+			// Sink (log affiché dans l'UI web) : uniquement la progression, les
+			// phases et les VRAIES erreurs. Les milliers de warnings/notes du
+			// compilateur (et leurs accents mal encodés depuis la sortie ANSI de
+			// cl.exe) restent dans le fichier de log, pas sous les yeux de
+			// l'utilisateur — ça donnait un journal illisible et « bas de gamme ».
+			if cf != "" || pl != "" || isErr {
+				emitBuildLine(line)
+			}
 			mu.Lock()
-			if f := compiledFile(line); f != "" {
+			if cf != "" {
 				count++
-				label = fmt.Sprintf("compilation… %d fichiers  %s", count, dim("("+f+")"))
+				label = fmt.Sprintf("compilation… %d fichiers  %s", count, dim("("+cf+")"))
 				mu.Unlock()
 				continue
 			}
-			if p := phaseLabel(line); p != "" {
-				label = p
+			if pl != "" {
+				label = pl
 			}
 			mu.Unlock()
-			// On ne fait remonter que les vraies ERREURS (les warnings MSVC/linker
-			// d'un projet tiers sont du bruit ; ils restent dans le log). Les CMake
-			// Error de la phase configure sont aussi affichés.
-			if reBuildError.MatchString(line) || strings.HasPrefix(strings.TrimSpace(line), "CMake Error") {
+			// On ne fait remonter au TERMINAL que les vraies ERREURS (les warnings
+			// MSVC/linker d'un projet tiers sont du bruit ; ils restent dans le log).
+			// Les CMake Error de la phase configure sont aussi affichés.
+			if isErr {
 				mu.Lock()
 				clearLine()
 				fmt.Println("  " + strings.TrimSpace(line))

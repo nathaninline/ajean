@@ -57,9 +57,10 @@ function lcChipSync(j){
   if(!j || !j.exists || (!j.running && (!j.error || lcSeenEnd))){ chip.hidden = true; return; }
   chip.hidden = false;
   chip.classList.toggle('failed', !j.running && !!j.error);
-  chip.textContent = j.running
-    ? '⏳ ' + lcChipLabel(j.action) + ' — ' + (j.phase || '…')
-    : '✗ ' + lcChipLabel(j.action) + ' ' + t('llamacpp.interrupted');
+  const esc = s => String(s).replace(/[<>&]/g,'');
+  chip.innerHTML = j.running
+    ? '<span class="lc-spin"></span><span class="lc-chip-lbl">' + esc(lcChipLabel(j.action) + ' — ' + (j.phase || '…')) + '</span>'
+    : '<span class="lc-chip-x">✗</span><span class="lc-chip-lbl">' + esc(lcChipLabel(j.action) + ' ' + t('llamacpp.interrupted')) + '</span>';
 }
 // Clic sur la pastille : ouvrir le tiroir sur la section Moteur.
 function lcChipOpen(){
@@ -257,7 +258,7 @@ async function lcPollJob(quiet){
   if(typeof j.next === 'number') lcLogNext = j.next;
   lcChipSync(j);
   if(j.running){
-    phaseEl.innerHTML = '<span class="lc-spin">⏳</span> <span>'+String(j.phase||'…').replace(/[<>&]/g,'')+'</span>';
+    phaseEl.innerHTML = '<span class="lc-spin"></span> <span>'+String(j.phase||'…').replace(/[<>&]/g,'')+'</span>';
     return;
   }
   if(lcPoll){ clearInterval(lcPoll); lcPoll = null; }

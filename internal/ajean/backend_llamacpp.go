@@ -43,6 +43,8 @@ func cmdLlamacpp(args []string) error {
 		return llamacppUpdate(args)
 	case "status", "":
 		return llamacppStatus(args)
+	case "uninstall", "remove", "rm":
+		return llamacppUninstall(args)
 	case "prebuilt":
 		// Binaires officiels précompilés (aucune compilation) — voir backend_prebuilt.go.
 		bin, err := prebuiltInstall(
@@ -58,7 +60,7 @@ func cmdLlamacpp(args []string) error {
 		fmt.Printf("%s BIN mis à jour — %s pour appliquer\n", green("✓"), bold("ajean restart"))
 		return nil
 	default:
-		return fmt.Errorf("sous-commande inconnue: %s (install | update | prebuilt | status)", sub)
+		return fmt.Errorf("sous-commande inconnue: %s (install | update | uninstall | prebuilt | status)", sub)
 	}
 }
 
@@ -369,6 +371,125 @@ func llamacppStatus(args []string) error {
 
 	plan := detectBuildPlan()
 	fmt.Printf("  backend  : %s\n", planLabel(plan))
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// uninstall (terminal uniquement)
+// ---------------------------------------------------------------------------
+
+// customBackendNames liste les backends personnalisés (tout backends/<nom> sauf
+// le build canonique « llama.cpp » et le dossier des précompilés).
+func customBackendNames() []string {
+	entries, err := os.ReadDir(backendsDir())
+	if err != nil {
+		return nil
+	}
+	skip := map[string]bool{
+		filepath.Base(defaultRepoDir()): true,
+		filepath.Base(prebuiltDir()):    true,
+	}
+	var out []string
+	for _, e := range entries {
+		n := e.Name()
+		if strings.HasPrefix(n, ".") || skip[n] {
+			continue
+		}
+		out = append(out, n)
+	}
+	return out
+}
+
+// llamacppUninstall supprime un moteur installé, depuis le terminal uniquement :
+//
+//	ajean llamacpp uninstall compiled      → le build compilé (backends/llama.cpp)
+//	ajean llamacpp uninstall prebuilt      → les binaires précompilés
+//	ajean llamacpp uninstall custom <nom>  → un backend personnalisé
+//
+// Refuse de supprimer le moteur utilisé par la config active, sauf --force — qui
+// arrête alors le service et vide BIN pour ne pas laisser un service pointer sur
+// un binaire disparu.
+func llamacppUninstall(args []string) error {
+	force := false
+	var pos []string
+	for _, a := range args {
+		switch {
+		case a == "--force" || a == "-f":
+			force = true
+		case strings.HasPrefix(a, "-"):
+			return fmt.Errorf("option inconnue: %s", a)
+		default:
+			pos = append(pos, a)
+		}
+	}
+	target := ""
+	if len(pos) > 0 {
+		target = strings.ToLower(pos[0])
+	}
+
+	var dir, label string
+	cfgBin := ReadConfig()["BIN"]
+	inUse := false
+
+	switch target {
+	case "compiled", "opt", "build":
+		dir = defaultRepoDir()
+		label = "build compilé"
+		if bin := llamaServerBin(dir); bin != "" {
+			inUse = samePath(bin, cfgBin)
+		}
+	case "prebuilt", "fast":
+		dir = prebuiltDir()
+		label = "binaires précompilés"
+		inUse = prebuiltOwns(cfgBin)
+	case "custom":
+		name := ""
+		if len(pos) > 1 {
+			name = pos[1]
+		}
+		// Nom brut vide → on liste (sanitizeBackendName retomberait sur « backend »).
+		if strings.TrimSpace(name) == "" {
+			customs := customBackendNames()
+			if len(customs) == 0 {
+				return fmt.Errorf("aucun backend personnalisé installé")
+			}
+			fmt.Printf("Backends personnalisés : %s\n", strings.Join(customs, ", "))
+			return fmt.Errorf("précise le nom : %s", bold("ajean llamacpp uninstall custom <nom>"))
+		}
+		name = sanitizeBackendName(name)
+		d, err := backendDir(name)
+		if err != nil {
+			return err
+		}
+		dir = d
+		label = "backend personnalisé « " + name + " »"
+		if bin := llamaServerBin(dir); bin != "" {
+			inUse = samePath(bin, cfgBin)
+		}
+	default:
+		return fmt.Errorf("cible requise : %s (compiled | prebuilt | custom <nom>)", bold("ajean llamacpp uninstall <cible>"))
+	}
+
+	if !isDir(dir) {
+		return fmt.Errorf("%s : rien à supprimer (%s introuvable)", label, dir)
+	}
+	if inUse && !force {
+		return fmt.Errorf("%s est le moteur ACTIF (config BIN).\n       → bascule d'abord un modèle sur un autre moteur, ou relance avec %s (arrête le service et vide BIN)", label, bold("--force"))
+	}
+	if inUse && force {
+		if serviceIsActive() {
+			fmt.Printf("%s arrêt du service %s…\n", yellow("[info]"), serviceName())
+			_ = serviceAction("stop")
+		}
+		if err := SetConfigKey("BIN", ""); err != nil {
+			return fmt.Errorf("échec du vidage de BIN : %w", err)
+		}
+		fmt.Printf("%s BIN vidé — sélectionne un autre moteur puis %s\n", yellow("[info]"), bold("ajean restart"))
+	}
+	if err := os.RemoveAll(dir); err != nil {
+		return fmt.Errorf("suppression échouée : %w", err)
+	}
+	fmt.Printf("%s %s supprimé (%s)\n", green("✓"), label, dir)
 	return nil
 }
 
