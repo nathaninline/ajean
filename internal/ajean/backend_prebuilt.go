@@ -29,7 +29,12 @@ import (
 	"time"
 )
 
-const llamaReleasesAPI = "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest"
+// On liste les releases (et non /releases/latest) : depuis 2026 llama.cpp
+// marque comme « latest » une release de pointeur (v0.4.x, un seul
+// nightly-tag.txt, AUCUN binaire), tandis que les vrais builds binaires sont les
+// releases bNNNNN, publiées en prerelease. fetchLlamaLatest parcourt donc la
+// liste et retient la plus récente contenant réellement des binaires.
+const llamaReleasesAPI = "https://api.github.com/repos/ggml-org/llama.cpp/releases?per_page=15"
 
 type ghAsset struct {
 	Name string `json:"name"`
@@ -194,17 +199,27 @@ func fetchLlamaLatest() (string, []ghAsset, error) {
 	if resp.StatusCode != 200 {
 		return "", nil, fmt.Errorf("GitHub API : HTTP %d", resp.StatusCode)
 	}
-	var rel struct {
+	var rels []struct {
 		TagName string    `json:"tag_name"`
 		Assets  []ghAsset `json:"assets"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&rel); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&rels); err != nil {
 		return "", nil, err
 	}
-	if rel.TagName == "" {
-		return "", nil, fmt.Errorf("release invalide (tag vide)")
+	// Les releases sont renvoyées de la plus récente à la plus ancienne. On prend
+	// la première qui contient de vrais binaires de plateforme (« …-bin-… »), en
+	// sautant la release-pointeur « latest » (nightly-tag.txt seul).
+	for _, r := range rels {
+		if r.TagName == "" {
+			continue
+		}
+		for _, a := range r.Assets {
+			if strings.Contains(a.Name, "-bin-") {
+				return r.TagName, r.Assets, nil
+			}
+		}
 	}
-	return rel.TagName, rel.Assets, nil
+	return "", nil, fmt.Errorf("aucune release llama.cpp avec des binaires trouvée")
 }
 
 // driverCudaVersion renvoie la version CUDA max supportée par le pilote NVIDIA
