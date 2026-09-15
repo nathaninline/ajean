@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -113,12 +114,44 @@ type updateInfo struct {
 	URL       string `json:"url"`
 }
 
-// checkForUpdate interroge GitHub et compare à la version courante. Réutilisé
-// par `ajean update` (CLI) et par l'endpoint web /api/update.
+// Cache du check de MAJ : l'UI appelle /api/update à CHAQUE chargement de page
+// (bandeau + vérification serveur), et l'API GitHub anonyme est limitée à ~60
+// requêtes/h → sans cache, quelques rechargements suffisaient à déclencher
+// « GitHub a répondu 403 Forbidden » et à casser la vérification de MAJ.
+var (
+	updCacheMu   sync.Mutex
+	updCacheAt   time.Time
+	updCacheInfo updateInfo
+	updCacheOK   bool
+)
+
+const updCacheTTL = 30 * time.Minute
+
+// checkForUpdate interroge GitHub (au plus une fois par updCacheTTL) et compare à
+// la version courante. Réutilisé par `ajean update` (CLI) et par l'endpoint web
+// /api/update. Un résultat frais en cache est renvoyé sans appel réseau ; en cas
+// d'erreur (réseau/quota), on sert le dernier résultat connu plutôt qu'une erreur
+// visible à l'écran.
 func checkForUpdate() (updateInfo, error) {
+	updCacheMu.Lock()
+	if updCacheOK && time.Since(updCacheAt) < updCacheTTL {
+		info := updCacheInfo
+		info.Current = Version
+		updCacheMu.Unlock()
+		return info, nil
+	}
+	updCacheMu.Unlock()
+
 	info := updateInfo{Current: Version}
 	rel, err := fetchLatestRelease()
 	if err != nil {
+		updCacheMu.Lock()
+		defer updCacheMu.Unlock()
+		if updCacheOK { // quota/réseau KO → dernier résultat connu, sans erreur
+			cached := updCacheInfo
+			cached.Current = Version
+			return cached, nil
+		}
 		return info, err
 	}
 	latest := ensureV(rel.TagName)
@@ -128,6 +161,11 @@ func checkForUpdate() (updateInfo, error) {
 	info.Latest = strings.TrimPrefix(latest, "v")
 	info.URL = rel.HTMLURL
 	info.Available = semver.Compare(latest, ensureV(Version)) > 0
+	updCacheMu.Lock()
+	updCacheInfo = info
+	updCacheAt = time.Now()
+	updCacheOK = true
+	updCacheMu.Unlock()
 	return info, nil
 }
 

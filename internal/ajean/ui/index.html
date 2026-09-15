@@ -1181,6 +1181,9 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
   display:flex;align-items:center;gap:8px;cursor:pointer;
   font-size:11px;line-height:1.4;color:var(--dim);
   border:1px solid var(--border);background:var(--panel)}
+/* Sans ça, le display:flex ci-dessus l'emporte sur le display:none de l'attribut
+   [hidden] → un rectangle vide restait affiché tant qu'aucune MAJ n'était dispo. */
+.app-update[hidden]{display:none}
 .app-update:hover{border-color:var(--accent);color:var(--text)}
 .app-update .au-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
 .app-update b{color:var(--text);font-weight:600}
