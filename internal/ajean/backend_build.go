@@ -384,48 +384,14 @@ func buildPlanFor(force string) buildPlan {
 	}
 	if force == "cuda" {
 		p.backend = "cuda"
-		p.jobs = cudaJobsCap(p.jobs)
-		if nvcc := findNvcc(); nvcc != "" {
-			p.cudaCXX = nvcc
-			if root := cudaToolkitRoot(nvcc); root != "" && runtime.GOOS != "windows" {
-				p.flags = append(p.flags, "-DCUDAToolkit_ROOT="+root, "-DCMAKE_CUDA_COMPILER="+nvcc)
-			}
-		}
-		p.flags = append(p.flags, "-DGGML_CUDA=ON", "-DGGML_CUDA_F16=ON", "-DGGML_CUDA_FA_ALL_QUANTS=ON")
-		if arch := detectCudaArch(); arch != "" {
-			p.cudaArch = arch
-			p.flags = append(p.flags, "-DCMAKE_CUDA_ARCHITECTURES="+arch)
-		}
+		applyCudaPlan(&p)
 		return p
 	}
 
 	// CUDA : nvcc présent ET un GPU NVIDIA visible.
 	if nvcc := findNvcc(); nvcc != "" && hasNvidiaGPU() {
 		p.backend = "cuda"
-		p.jobs = cudaJobsCap(p.jobs)
-		p.cudaCXX = nvcc
-		// GGML_CUDA_FA_ALL_QUANTS=ON : compile un noyau Flash-Attention pour CHAQUE
-		// combinaison de type de cache KV (K et V). Sans lui, llama.cpp ne compile
-		// qu'un sous-ensemble (f16, q8_0, q4_0) ; tout autre type — q5_0, q5_1, q4_1,
-		// et donc les combos asymétriques K/V recommandés (q5_0/q4_1…) — n'a pas de
-		// noyau et retombe sur l'attention générique avec déquantification par
-		// position : le PREFILL s'effondre (~10× plus lent), pas un gain marginal.
-		// Ça allonge le build (beaucoup de .cu en plus) mais rend tous les réglages
-		// KV du sélecteur de preset réellement utilisables.
-		p.flags = append(p.flags, "-DGGML_CUDA=ON", "-DGGML_CUDA_F16=ON", "-DGGML_CUDA_FA_ALL_QUANTS=ON")
-		// Racine du toolkit explicite : sans elle, CMake la déduit du chemin de
-		// nvcc. Avec un nvcc hors toolkit (/usr/bin/nvcc, paquet Ubuntu) il cherche
-		// cuda_runtime.h et cudart dans /usr, ne les trouve pas, et sort « CUDA
-		// Toolkit not found » APRÈS avoir pourtant affiché la version de nvcc.
-		if root := cudaToolkitRoot(nvcc); root != "" && runtime.GOOS != "windows" {
-			p.flags = append(p.flags,
-				"-DCUDAToolkit_ROOT="+root,
-				"-DCMAKE_CUDA_COMPILER="+nvcc)
-		}
-		if arch := detectCudaArch(); arch != "" {
-			p.cudaArch = arch
-			p.flags = append(p.flags, "-DCMAKE_CUDA_ARCHITECTURES="+arch)
-		}
+		applyCudaPlan(&p)
 		return p
 	}
 
@@ -446,11 +412,61 @@ func buildPlanFor(force string) buildPlan {
 	return p // CPU
 }
 
+// applyCudaPlan renseigne un plan déjà marqué backend=cuda : choix d'un toolkit
+// COMPATIBLE avec le GPU (et non le plus récent aveuglément), flags GGML, arch.
+// Pose cudaArchUnsupported quand aucun toolkit installé ne sait compiler pour le
+// GPU détecté (ex. GPU Pascal sm_61 alors que seul CUDA 13 — qui a supprimé
+// Pascal — est présent), afin que buildLlamacpp avertisse au lieu de lancer un
+// build qui casse sur le test de compilation de CMake.
+func applyCudaPlan(p *buildPlan) {
+	p.jobs = cudaJobsCap(p.jobs)
+	arch := detectCudaArch()
+	nvcc, ver, ok := selectNvcc(arch)
+	if nvcc == "" { // repli défensif : garder le comportement historique
+		nvcc = findNvcc()
+		ver = cudaVersionOf(nvcc)
+		ok = true
+	}
+	p.cudaCXX = nvcc
+	p.cudaVer = ver
+	if arch != "" && !ok {
+		p.cudaArchUnsupported = true
+	}
+	// GGML_CUDA_FA_ALL_QUANTS=ON : compile un noyau Flash-Attention pour CHAQUE
+	// combinaison de type de cache KV (K et V). Sans lui, llama.cpp ne compile
+	// qu'un sous-ensemble (f16, q8_0, q4_0) ; tout autre type — q5_0, q5_1, q4_1,
+	// et donc les combos asymétriques K/V recommandés (q5_0/q4_1…) — n'a pas de
+	// noyau et retombe sur l'attention générique avec déquantification par
+	// position : le PREFILL s'effondre (~10× plus lent), pas un gain marginal.
+	p.flags = append(p.flags, "-DGGML_CUDA=ON", "-DGGML_CUDA_F16=ON", "-DGGML_CUDA_FA_ALL_QUANTS=ON")
+	// Racine du toolkit explicite : sans elle, CMake la déduit du chemin de nvcc.
+	// Avec un nvcc hors toolkit (/usr/bin/nvcc, paquet Ubuntu) il cherche
+	// cuda_runtime.h et cudart dans /usr, ne les trouve pas, et sort « CUDA Toolkit
+	// not found » APRÈS avoir pourtant affiché la version de nvcc.
+	if root := cudaToolkitRoot(nvcc); root != "" && runtime.GOOS != "windows" {
+		p.flags = append(p.flags, "-DCUDAToolkit_ROOT="+root, "-DCMAKE_CUDA_COMPILER="+nvcc)
+	}
+	if arch != "" {
+		p.cudaArch = arch
+		p.flags = append(p.flags, "-DCMAKE_CUDA_ARCHITECTURES="+arch)
+	}
+}
+
 // buildLlamacpp configures and builds the llama-server target. It handles the
 // "relocated checkout" gotcha: a build/ whose CMake cache was generated under a
 // different source path can't reconfigure in place, so we wipe it. `clean`
 // forces a from-scratch build regardless.
 func buildLlamacpp(repo string, p buildPlan, clean bool) error {
+	// Garde-fou avant de lancer un build CUDA voué à l'échec : le GPU de la machine
+	// est plus ancien que ce que le seul toolkit CUDA installé sait compiler (ex.
+	// GPU Pascal + CUDA 13, qui a supprimé Pascal). Sans ce filet, l'utilisateur
+	// attendait la config CMake pour ne récolter qu'un « nvcc is not able to
+	// compile a simple test program » incompréhensible. On explique et on renvoie
+	// une erreur actionnable au lieu de brûler du temps sur un build impossible.
+	if p.backend == "cuda" && p.cudaArchUnsupported {
+		return cudaArchUnsupportedError(p)
+	}
+
 	build := filepath.Join(repo, "build")
 
 	if clean || cacheStale(build, repo) {
@@ -534,6 +550,62 @@ func buildLlamacpp(repo string, p buildPlan, clean bool) error {
 	return nil
 }
 
+// cudaArchFamily nomme la génération d'un code d'arch CMake (61 → Pascal), pour
+// un message lisible. "" si non reconnu.
+func cudaArchFamily(code int) string {
+	switch {
+	case code >= 50 && code < 60:
+		return "Maxwell (GTX 900)"
+	case code >= 60 && code < 70:
+		return "Pascal (GTX 10xx)"
+	case code >= 70 && code < 75:
+		return "Volta"
+	}
+	return ""
+}
+
+// archDisplay met un code CMake au format compute capability lisible
+// (61 → « 6.1 », 120 → « 12.0 »).
+func archDisplay(code int) string {
+	s := strconv.Itoa(code)
+	if len(s) < 2 {
+		return s
+	}
+	return s[:len(s)-1] + "." + s[len(s)-1:]
+}
+
+// cudaArchUnsupportedError explique, quand le GPU est trop ancien pour le seul
+// toolkit CUDA installé, pourquoi le build est impossible et comment le régler
+// (installer un CUDA 12.x, qui supporte encore Maxwell/Pascal/Volta). Le message
+// part aussi vers l'UI web (emitBuildLine).
+func cudaArchUnsupportedError(p buildPlan) error {
+	minArch := minArchCode(p.cudaArch)
+	fam := cudaArchFamily(minArch)
+	if fam != "" {
+		fam = " — famille " + fam
+	}
+	ver := p.cudaVer
+	if ver == "" {
+		ver = "installé"
+	} else {
+		ver = "CUDA " + ver
+	}
+	lines := []string{
+		"Le moteur ne peut pas être compilé pour ce GPU avec le CUDA présent sur la machine.",
+		fmt.Sprintf("GPU détecté : compute capability %s%s.", archDisplay(minArch), fam),
+		fmt.Sprintf("Toolkit trouvé : %s, qui ne compile plus que pour Turing (sm_75) et au-delà.", ver),
+		"CUDA 13 a supprimé le support de Maxwell, Pascal et Volta.",
+		"",
+		"Solution : installe le CUDA Toolkit 12.x (par ex. 12.8), qui supporte encore ce GPU,",
+		"puis relance l'installation du moteur. Les deux versions de CUDA peuvent cohabiter.",
+	}
+	for _, l := range lines {
+		fmt.Println("  " + l)
+		emitBuildLine(l)
+	}
+	return fmt.Errorf("GPU %s incompatible avec %s (CUDA 13 ne supporte plus cette génération) : installe un CUDA Toolkit 12.x", archDisplay(minArch), ver)
+}
+
 // hintMissingBuildDep scanne le log de configuration CMake à la recherche de
 // dépendances manquantes CONNUES et affiche un indice d'installation adapté à la
 // distribution, plutôt que de laisser l'utilisateur face à l'erreur CMake brute.
@@ -566,6 +638,22 @@ func hintMissingBuildDep(p buildPlan, cfgLog string) {
 	if p.backend == "cuda" && strings.Contains(log, "CUDA Toolkit not found") {
 		fmt.Printf("\n%s nvcc est présent mais le CUDA Toolkit complet (en-têtes + cudart) est introuvable.\n", yellow("[dépendance]"))
 		fmt.Printf("            Installe le toolkit NVIDIA officiel (il se pose dans /usr/local/cuda), puis relance %s.\n", bold("ajean llamacpp install"))
+	}
+	// nvcc casse sur le programme de test de CMake : cause fréquente = GPU trop
+	// ancien pour le toolkit (CUDA 13 a supprimé Maxwell/Pascal/Volta). Normalement
+	// intercepté AVANT le build par cudaArchUnsupportedError ; ce filet couvre les
+	// cas où l'arch n'a pas pu être détectée (driver muet) et où CMake a tenté sa
+	// détection native.
+	if p.backend == "cuda" && (strings.Contains(log, "is not able to compile a simple test program") ||
+		strings.Contains(log, "CMakeTestCUDACompiler")) {
+		ver := p.cudaVer
+		if ver != "" {
+			ver = "CUDA " + ver + " "
+		}
+		fmt.Printf("\n%s nvcc %séchoue à compiler le programme de test de CMake.\n", yellow("[CUDA]"), ver)
+		fmt.Printf("            Cause la plus fréquente : ton GPU est plus ancien que ce que ce CUDA supporte.\n")
+		fmt.Printf("            CUDA 13 a supprimé Maxwell (GTX 900), Pascal (GTX 10xx) et Volta ; ils exigent un CUDA 12.x.\n")
+		fmt.Printf("            Installe le CUDA Toolkit 12.x (par ex. 12.8) puis relance %s.\n", bold("ajean llamacpp install"))
 	}
 	if p.backend == "vulkan" && strings.Contains(log, "SPIRV-Headers") {
 		fmt.Printf("\n%s dépendance manquante pour le backend %s : les en-têtes SPIR-V (paquet « SPIRV-Headers ») sont introuvables.\n",
@@ -672,6 +760,141 @@ func findNvccUnix(lookPath func(string) (string, error)) string {
 		return p
 	}
 	return ""
+}
+
+// nvccCandidates liste TOUS les nvcc installés (pas seulement le plus récent),
+// pour pouvoir choisir un toolkit compatible avec le GPU. Windows : PATH +
+// CUDA_PATH + tous les toolkits …\CUDA\v*. Unix : /usr/local/cuda*, puis PATH.
+func nvccCandidates() []string {
+	var out []string
+	seen := map[string]bool{}
+	add := func(p string) {
+		if p == "" || !isFile(p) {
+			return
+		}
+		ap, _ := filepath.Abs(p)
+		key := strings.ToLower(ap)
+		if !seen[key] {
+			seen[key] = true
+			out = append(out, p)
+		}
+	}
+	if runtime.GOOS == "windows" {
+		if p, err := exec.LookPath("nvcc"); err == nil {
+			add(p)
+		}
+		if cp := os.Getenv("CUDA_PATH"); cp != "" {
+			add(filepath.Join(cp, "bin", "nvcc.exe"))
+		}
+		for _, base := range []string{os.Getenv("ProgramFiles"), `C:\Program Files`} {
+			if base == "" {
+				continue
+			}
+			m, _ := filepath.Glob(filepath.Join(base, "NVIDIA GPU Computing Toolkit", "CUDA", "v*", "bin", "nvcc.exe"))
+			for _, p := range m {
+				add(p)
+			}
+		}
+		return out
+	}
+	add("/usr/local/cuda/bin/nvcc")
+	m, _ := filepath.Glob("/usr/local/cuda-*/bin/nvcc")
+	for _, p := range m {
+		add(p)
+	}
+	if p, err := exec.LookPath("nvcc"); err == nil {
+		add(p)
+	}
+	return out
+}
+
+// reNvccRelease capture la version dans la sortie de `nvcc --version`
+// (« Cuda compilation tools, release 12.8, V12.8.61 »).
+var reNvccRelease = regexp.MustCompile(`release (\d+\.\d+)`)
+
+// cudaVersionOf déduit la version d'un toolkit à partir du chemin de son nvcc
+// (« …/v13.4/bin/nvcc.exe » → « 13.4 », « /usr/local/cuda-12.8/… » → « 12.8 »).
+// Le layout /usr/local/cuda (lien symbolique sans version) n'a pas de numéro
+// dans son chemin : on retombe alors sur `nvcc --version`. "" si indéterminable.
+func cudaVersionOf(nvcc string) string {
+	if nvcc == "" {
+		return ""
+	}
+	if v := pathVersion(nvcc); v != "" {
+		return v
+	}
+	out, err := hideCmd(exec.Command(nvcc, "--version")).Output()
+	if err != nil {
+		return ""
+	}
+	if m := reNvccRelease.FindStringSubmatch(string(out)); m != nil {
+		return m[1]
+	}
+	return ""
+}
+
+// cudaMinArchForVersion renvoie la compute capability MINIMALE (code CMake, ex.
+// 75) qu'un toolkit CUDA de version `ver` sait encore compiler. CUDA 13 a
+// supprimé Maxwell/Pascal/Volta → minimum Turing (sm_75). CUDA 12 descend
+// jusqu'à Maxwell (sm_50), CUDA 11 jusqu'à Kepler (sm_35). 0 = version inconnue
+// (on ne bloque alors pas).
+func cudaMinArchForVersion(ver string) int {
+	maj := 0
+	if i := strings.IndexByte(ver, '.'); i > 0 {
+		maj, _ = strconv.Atoi(ver[:i])
+	} else {
+		maj, _ = strconv.Atoi(ver)
+	}
+	switch {
+	case maj >= 13:
+		return 75
+	case maj == 12:
+		return 50
+	case maj == 11:
+		return 35
+	}
+	return 0
+}
+
+// minArchCode renvoie le plus PETIT code d'arch d'une liste « 61;86 » (le GPU le
+// plus ancien de la machine, celui qui contraint le choix du toolkit). 0 si vide.
+func minArchCode(archs string) int {
+	min := 0
+	for _, a := range strings.Split(archs, ";") {
+		n, err := strconv.Atoi(strings.TrimSpace(a))
+		if err != nil {
+			continue
+		}
+		if min == 0 || n < min {
+			min = n
+		}
+	}
+	return min
+}
+
+// selectNvcc choisit le toolkit pour compiler pour `archs` (codes détectés par
+// nvidia-smi). Il retient le nvcc de version la plus ÉLEVÉE qui sait ENCORE
+// compiler pour le GPU le plus ancien de la machine — au lieu du plus récent
+// aveuglément. Ça évite qu'un CUDA 13 tout juste installé casse le build d'un GPU
+// Pascal (sm_61) que CUDA 13 ne supporte plus. Renvoie le nvcc retenu, sa
+// version, et compatible=false si AUCUN toolkit installé ne supporte le GPU (on
+// renvoie alors le plus récent, à l'appelant d'avertir).
+func selectNvcc(archs string) (nvcc, ver string, compatible bool) {
+	cands := nvccCandidates()
+	if len(cands) == 0 {
+		return "", "", false
+	}
+	sortByVersionDesc(cands) // plus récent d'abord
+	minGPU := minArchCode(archs)
+	for _, c := range cands {
+		v := cudaVersionOf(c)
+		mn := cudaMinArchForVersion(v)
+		if minGPU == 0 || mn == 0 || minGPU >= mn {
+			return c, v, true
+		}
+	}
+	best := cands[0]
+	return best, cudaVersionOf(best), false
 }
 
 // cudaToolkitRoot remonte de <root>/bin/nvcc à <root>. Renvoie "" quand le

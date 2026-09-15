@@ -21,13 +21,20 @@ const llamacppRepoURL = "https://github.com/ggml-org/llama.cpp.git"
 
 // buildPlan capture les flags CMake adaptés à la machine courante.
 type buildPlan struct {
-	backend  string   // "cuda" | "hip" | "metal" | "vulkan" | "cpu"
-	cudaArch string   // ex. "120" ou "86;89" (vide => détection native par CMake)
-	cudaCXX  string   // chemin de nvcc quand backend == cuda
-	flags    []string // flags -D… passés à `cmake -B build`
-	jobs     int      // parallélisme du build
-	gen      string   // générateur CMake (-G), vide => défaut de la plateforme
-	genArch  string   // architecture du générateur (-A), ex. "x64" (VS uniquement)
+	backend  string // "cuda" | "hip" | "metal" | "vulkan" | "cpu"
+	cudaArch string // ex. "120" ou "86;89" (vide => détection native par CMake)
+	cudaCXX  string // chemin de nvcc quand backend == cuda
+	cudaVer  string // version du toolkit retenu, ex. "12.8" (vide si inconnue)
+	// cudaArchUnsupported : le GPU détecté est plus vieux que ce que le SEUL
+	// toolkit CUDA installé sait compiler (typiquement un GPU Pascal/Volta avec
+	// CUDA 13, qui a supprimé ces archs). Le build CUDA est voué à casser sur le
+	// « simple test program » de CMake → buildLlamacpp avertit clairement au lieu
+	// de laisser nvcc échouer sans explication.
+	cudaArchUnsupported bool
+	flags               []string // flags -D… passés à `cmake -B build`
+	jobs                int      // parallélisme du build
+	gen                 string   // générateur CMake (-G), vide => défaut de la plateforme
+	genArch             string   // architecture du générateur (-A), ex. "x64" (VS uniquement)
 }
 
 func cmdLlamacpp(args []string) error {
