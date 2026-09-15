@@ -52,6 +52,53 @@ func emitBuildLine(line string) {
 	}
 }
 
+// Annulation d'un build en cours (bouton « arrêter » de l'UI). Un seul job tourne
+// à la fois (garde lcCur), donc un unique pointeur de commande courante suffit :
+// runStepEnv/runBuildStep l'enregistrent le temps de leur exécution, et
+// cancelCurrentBuild tue l'arbre de process (cmake → ninja → cl/nvcc).
+var (
+	curCmdMu      sync.Mutex
+	curCmd        *exec.Cmd
+	buildCanceled bool
+)
+
+func setCurCmd(c *exec.Cmd) {
+	curCmdMu.Lock()
+	curCmd = c
+	curCmdMu.Unlock()
+}
+
+// resetBuildCancel remet le drapeau à zéro au démarrage d'un nouveau job.
+func resetBuildCancel() {
+	curCmdMu.Lock()
+	buildCanceled = false
+	curCmdMu.Unlock()
+}
+
+// buildWasCanceled indique si l'échec de l'étape courante vient d'une annulation
+// (pour afficher « compilation annulée » plutôt qu'une erreur brute).
+func buildWasCanceled() bool {
+	curCmdMu.Lock()
+	defer curCmdMu.Unlock()
+	return buildCanceled
+}
+
+// cancelCurrentBuild tue l'arbre de process de l'étape en cours. Renvoie true si
+// une étape tournait réellement.
+func cancelCurrentBuild() bool {
+	curCmdMu.Lock()
+	c := curCmd
+	if c != nil && c.Process != nil {
+		buildCanceled = true
+	}
+	curCmdMu.Unlock()
+	if c == nil || c.Process == nil {
+		return false
+	}
+	killTree(c.Process.Pid)
+	return true
+}
+
 // emitBuildPhase met à jour la phase de haut niveau de l'UI (no-op en CLI, où
 // buildPhase est nil et où fmt.Printf sert déjà d'indicateur).
 func emitBuildPhase(phase string) {
@@ -842,7 +889,15 @@ func runStepEnv(name, dir, extraEnv, bin string, args ...string) error {
 		}
 		cmd.Env = env
 	}
-	return cmd.Run()
+	// Start + register + Wait (au lieu de Run) pour que le bouton « arrêter » puisse
+	// tuer l'arbre de process de cette étape (git clone, fetch…).
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	setCurCmd(cmd)
+	err := cmd.Wait()
+	setCurCmd(nil)
+	return err
 }
 
 // runBuildStep runs a compile step while keeping the terminal clean: the full
@@ -878,6 +933,8 @@ func runBuildStep(name, dir, extraEnv, bin, logPath string, args ...string) erro
 	if err := cmd.Start(); err != nil {
 		return err
 	}
+	setCurCmd(cmd) // permet au bouton « arrêter » de tuer l'arbre de process
+	defer setCurCmd(nil)
 
 	frames := []rune{'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
 	var (

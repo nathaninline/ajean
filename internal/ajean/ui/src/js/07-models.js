@@ -5,11 +5,11 @@ async function runBenchUI(){
   const rerun = document.getElementById('bench-rerun');
   const body = document.getElementById('bench-body');
   openBenchModal();
-  btn.disabled = true; btn.textContent = '⏳ '+t('models.bench.running');
+  btn.disabled = true; btn.textContent = t('models.bench.running');
   rerun.disabled = true;
   body.innerHTML =
     '<div style="text-align:center;padding:20px 0">' +
-    '<div style="font-size:24px;animation:spin 1s linear infinite;display:inline-block">⏳</div>' +
+    '<div class="spinner" style="margin:0 auto"></div>' +
     '<div class="muted" style="margin-top:8px">'+t('models.bench.desc')+'</div>' +
     '</div>';
   try{

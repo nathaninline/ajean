@@ -1144,12 +1144,27 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .lc-logbar #lc-log-caret{font-size:9px;transition:transform .12s;display:inline-block}
 .lc-logbar.open #lc-log-caret{transform:rotate(90deg)}
 #lc-log{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:10px;line-height:1.45;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:0}
+/* Bandeau discret « nouvelle version disponible », collé en bas du menu latéral.
+   Opaque (le contenu défile derrière sans transparence), bordure fine, accent
+   sobre. Cliquable → ouvre la section Actions et lance la vérification. */
+.app-update{position:sticky;bottom:0;margin-top:14px;padding:9px 11px;border-radius:8px;
+  display:flex;align-items:center;gap:8px;cursor:pointer;
+  font-size:11px;line-height:1.4;color:var(--dim);
+  border:1px solid var(--border);background:var(--panel)}
+.app-update:hover{border-color:var(--accent);color:var(--text)}
+.app-update .au-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
+.app-update b{color:var(--text);font-weight:600}
+
 /* Petit anneau qui tourne (cohérent avec .spinner), à la place d'un emoji sablier
    qui jurait avec le reste de l'app. Aligné sur la ligne de texte de la phase. */
 .lc-spin{display:inline-block;width:12px;height:12px;border-radius:50%;
   border:2px solid var(--border);border-top-color:var(--text);
   animation:spin .7s linear infinite;vertical-align:-2px;flex:none}
 @media (prefers-reduced-motion:reduce){.lc-spin{animation-duration:2s}}
+/* Ligne de phase : spinner fixe à gauche, texte qui se tronque au lieu de passer
+   à la ligne — évite tout saut vertical quand la phase change de longueur. */
+#lc-job-phase{display:flex;align-items:center;gap:6px;min-width:0}
+#lc-job-phase .lc-phase-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 /* Serveurs MCP */
 .mcp-list{display:flex;flex-direction:column;gap:4px}
 

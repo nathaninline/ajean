@@ -57,10 +57,19 @@ function lcChipSync(j){
   if(!j || !j.exists || (!j.running && (!j.error || lcSeenEnd))){ chip.hidden = true; return; }
   chip.hidden = false;
   chip.classList.toggle('failed', !j.running && !!j.error);
-  const esc = s => String(s).replace(/[<>&]/g,'');
-  chip.innerHTML = j.running
-    ? '<span class="lc-spin"></span><span class="lc-chip-lbl">' + esc(lcChipLabel(j.action) + ' — ' + (j.phase || '…')) + '</span>'
-    : '<span class="lc-chip-x">✗</span><span class="lc-chip-lbl">' + esc(lcChipLabel(j.action) + ' ' + t('llamacpp.interrupted')) + '</span>';
+  if(j.running){
+    // Spinner posé une seule fois : réécrire innerHTML à chaque tick
+    // redémarrerait son animation (« saute »). On ne met à jour que le label.
+    let lbl = chip.querySelector('.lc-chip-lbl');
+    if(!lbl || !chip.querySelector('.lc-spin')){
+      chip.innerHTML = '<span class="lc-spin"></span><span class="lc-chip-lbl"></span>';
+      lbl = chip.querySelector('.lc-chip-lbl');
+    }
+    lbl.textContent = lcChipLabel(j.action) + ' — ' + (j.phase || '…');
+  } else {
+    chip.innerHTML = '<span class="lc-chip-x">✗</span><span class="lc-chip-lbl">'
+      + String(lcChipLabel(j.action) + ' ' + t('llamacpp.interrupted')).replace(/[<>&]/g,'') + '</span>';
+  }
 }
 // Clic sur la pastille : ouvrir le tiroir sur la section Moteur.
 function lcChipOpen(){
@@ -236,6 +245,7 @@ function lcStartPolling(){
   document.getElementById('lc-job').style.display = '';
   document.getElementById('lc-log').textContent = '';
   const dis = document.getElementById('lc-job-dismiss'); if(dis) dis.hidden = true;
+  const can = document.getElementById('lc-job-cancel'); if(can) can.hidden = true; // s'affiche au 1er poll « running »
   lcLogNext = 0;
   lcSeenEnd = false; lcEndShown = false;
   lcBusy(true);
@@ -258,11 +268,23 @@ async function lcPollJob(quiet){
   if(typeof j.next === 'number') lcLogNext = j.next;
   lcChipSync(j);
   if(j.running){
-    phaseEl.innerHTML = '<span class="lc-spin"></span> <span>'+String(j.phase||'…').replace(/[<>&]/g,'')+'</span>';
+    // Ne PAS recréer le spinner à chaque tick (1 s) : réécrire innerHTML
+    // redémarrerait l'animation CSS → le loading « saute ». On pose la structure
+    // une seule fois, puis on ne met à jour que le TEXTE de la phase.
+    let txt = phaseEl.querySelector('.lc-phase-txt');
+    if(!txt){
+      phaseEl.innerHTML = '<span class="lc-spin"></span><span class="lc-phase-txt"></span>';
+      txt = phaseEl.querySelector('.lc-phase-txt');
+    }
+    txt.textContent = j.phase || '…';
+    const cancel = document.getElementById('lc-job-cancel');
+    if(cancel) cancel.hidden = false; // arrêt possible tant que ça tourne
     return;
   }
   if(lcPoll){ clearInterval(lcPoll); lcPoll = null; }
   lcBusy(false);
+  const cancelBtn = document.getElementById('lc-job-cancel');
+  if(cancelBtn) cancelBtn.hidden = true; // job terminé → plus rien à arrêter
   // Job terminé : le bouton « masquer » devient utile — il efface définitivement
   // ce résultat pour qu'une erreur ne réapparaisse pas à chaque démarrage (#37).
   const dis = document.getElementById('lc-job-dismiss');
@@ -278,6 +300,20 @@ async function lcPollJob(quiet){
     if(!quiet) toast(t('llamacpp.ready_toast'));
   }
   if(!quiet) loadAll();
+}
+
+// Arrête un job en cours (compilation/téléchargement) : le serveur tue l'arbre de
+// process (cmake/ninja/compilateur). Le polling continue et affichera « annulée ».
+async function lcCancelJob(){
+  if(!await askConfirm(t('engine.cancel_confirm'), {title:t('engine.cancel_title'), okText:t('engine.job_cancel'), danger:true})) return;
+  const btn = document.getElementById('lc-job-cancel');
+  if(btn){ btn.disabled = true; }
+  try{
+    const r = await jpost('/api/llamacpp/job/cancel', {});
+    if(!r.ok){ toast(r.error || t('llamacpp.network_error')); }
+    else { toast(t('engine.cancel_requested')); }
+  }catch(_){ toast(t('llamacpp.network_error')); }
+  if(btn){ btn.disabled = false; }
 }
 
 // Masque (efface) un job terminé : côté serveur l'entête persistée et le journal

@@ -115,6 +115,31 @@ async function checkServerFreshness(){
   const x=document.getElementById('stale-x');
   if(x) x.onclick=function(){ localStorage.setItem('ajean.staleDismissed', r.latest); box.style.display='none'; };
 }
+
+// checkAppUpdate : bandeau discret en BAS du menu quand une nouvelle version
+// d'AJEAN est disponible (le serveur compare SA version à la dernière release
+// GitHub via /api/update). Pendant LOCAL de checkServerFreshness : en accès
+// distant (ajean.link) c'est déjà #server-stale en haut qui prévient, donc on ne
+// double pas ici. Passif : cliquer ouvre la section Actions et lance la
+// vérification (pas de MAJ automatique).
+async function checkAppUpdate(){
+  if(/(^|\.)ajean\.link$/.test(location.hostname)) return; // distant → #server-stale s'en charge
+  const box=document.getElementById('app-update');
+  if(!box) return;
+  let r;
+  try{ r=await jget('/api/update'); }catch(e){ return; } // hors-ligne / GitHub injoignable
+  if(!r || r.error || !r.available || !r.latest){ box.hidden=true; return; }
+  box.innerHTML='<span class="au-dot"></span><span>'+t('update.banner_prefix')+' <b>v'+escHtml(r.latest)+'</b> '+t('update.banner_suffix')+'</span>';
+  box.hidden=false;
+}
+
+// Clic sur le bandeau : ouvrir la section Actions et déclencher la vérification,
+// qui affiche le bouton « Mettre à jour » (on ne lance jamais la MAJ au clic).
+function openAppUpdate(){
+  const det=document.getElementById('upd-details');
+  if(det){ det.open=true; det.scrollIntoView({block:'center', behavior:'smooth'}); }
+  if(typeof checkUpdate==='function') checkUpdate();
+}
 // Journal du moteur — replié par défaut, on l'ouvre en cliquant la pastille.
 function toggleSvcLog(){
   const box=document.getElementById('svc-log-box');

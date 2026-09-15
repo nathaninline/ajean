@@ -797,6 +797,7 @@ loadAll();
 // Une seule fois au démarrage (interroge GitHub côté serveur) : prévient en accès
 // distant si le serveur AJEAN de la machine est plus ancien que le front hébergé.
 checkServerFreshness();
+checkAppUpdate();
 setInterval(loadStatus, 5000);
 setInterval(loadVram, 3000);
 setInterval(loadRam, 3000);

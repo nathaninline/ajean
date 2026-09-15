@@ -94,6 +94,7 @@ func startLcJob(action string, run func()) error {
 	lcCur = &lcJob{Action: action, Running: true, Phase: "démarrage…", StartedAt: time.Now().Unix()}
 	lcResetLog()
 	lcSave(true)
+	resetBuildCancel()
 	setBuildSink(lcAppend)
 	setBuildPhase(lcPhase)
 	go func() {
@@ -423,6 +424,25 @@ func handleLlamacppJobDismiss(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": false, "error": "opération en cours — impossible de masquer"})
 }
 
+// handleLlamacppJobCancel (POST) arrête un job en cours : tue l'arbre de process
+// de l'étape courante (git/cmake/ninja/compilateur). Le job se terminera alors en
+// « compilation annulée » via son propre flux d'erreur.
+func handleLlamacppJobCancel(w http.ResponseWriter, r *http.Request) {
+	lcMu.Lock()
+	running := lcCur != nil && lcCur.Running
+	lcMu.Unlock()
+	if !running {
+		sendJSON(w, 200, map[string]any{"ok": false, "error": "aucun job en cours"})
+		return
+	}
+	if cancelCurrentBuild() {
+		lcPhase("arrêt demandé…")
+		sendJSON(w, 200, map[string]any{"ok": true})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": false, "error": "étape non interruptible pour l'instant — réessaie dans un instant"})
+}
+
 // lcJobSnapshot construit la vue JSON du job courant. withLines=false renvoie
 // juste l'entête (imbriquée dans /api/llamacpp).
 func lcJobSnapshot(from int, withLines bool) map[string]any {
@@ -595,6 +615,10 @@ func lcBuildAndSwitch(repo string, clean bool) bool {
 	lcAppend(fmt.Sprintf("plan de build : backend=%s arch=%s jobs=%d", plan.backend, plan.cudaArch, plan.jobs))
 	lcPhase("configuration CMake…")
 	if err := buildLlamacpp(repo, plan, clean); err != nil {
+		if buildWasCanceled() {
+			lcFail(fmt.Errorf("compilation annulée"))
+			return false
+		}
 		lcAppendLogTail(filepath.Join(repo, "configure.log"), filepath.Join(repo, "build.log"))
 		lcFail(err)
 		return false

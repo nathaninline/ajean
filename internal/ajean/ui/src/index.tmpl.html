@@ -327,6 +327,7 @@
     <div id="lc-job" class="rowbody" style="display:none">
       <div style="display:flex;align-items:center;gap:8px">
         <div id="lc-job-phase" style="font-size:12px;display:flex;align-items:center;gap:6px;flex:1;min-width:0"></div>
+        <button id="lc-job-cancel" type="button" class="lc-update-link" hidden onclick="lcCancelJob()" data-i18n="engine.job_cancel">arrêter</button>
         <button id="lc-job-dismiss" type="button" class="lc-update-link" hidden onclick="lcDismissJob()" data-i18n="engine.job_dismiss">masquer</button>
       </div>
       <div class="lc-logbar" onclick="lcToggleLog()"><span id="lc-log-caret">▸</span> <span data-i18n="engine.job_details">détails</span></div>
@@ -367,6 +368,10 @@
       </div>
     </div></div>
   </details>
+  <!-- Bandeau discret « nouvelle version AJEAN disponible », collé en bas du menu.
+       Rempli et affiché par checkAppUpdate (05-status.js) en accès LOCAL ; en accès
+       distant c'est #server-stale (en haut) qui joue ce rôle. -->
+  <div id="app-update" class="app-update" hidden onclick="openAppUpdate()"></div>
 </div>
 <div class="main" style="position:relative">
   <div id="chat"></div>
