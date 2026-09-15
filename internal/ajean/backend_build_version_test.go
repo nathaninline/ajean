@@ -35,9 +35,9 @@ func TestCmpVersion(t *testing.T) {
 func TestPathVersion(t *testing.T) {
 	cases := map[string]string{
 		filepath.FromSlash(`C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.4/bin`): "13.4",
-		"/usr/local/cuda-12.8/lib64":  "12.8",
-		"/usr/local/cuda/bin/nvcc":    "", // pas de version dans le chemin
-		"/opt/cuda-11.10.2/bin":       "11.10.2",
+		"/usr/local/cuda-12.8/lib64": "12.8",
+		"/usr/local/cuda/bin/nvcc":   "", // pas de version dans le chemin
+		"/opt/cuda-11.10.2/bin":      "11.10.2",
 	}
 	for in, want := range cases {
 		if got := pathVersion(in); got != want {
