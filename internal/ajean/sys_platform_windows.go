@@ -238,32 +238,11 @@ func msvcInstallVersion() string {
 	return ver
 }
 
-// msvcGenerator returns the CMake generator name for the installed MSVC.
-//
-// Le nom du générateur Visual Studio est « Visual Studio <major> <année> » (ex.
-// « Visual Studio 18 2026 »), et l'année ne se déduit PAS du numéro majeur (17→2022,
-// 18→2026…). On lit donc l'année directement via vswhere (catalog_productLineVersion)
-// et on la combine au majeur : ainsi une future version de Visual Studio est prise
-// en charge sans nouvelle table. Sans cette lecture (vswhere absent, propriété vide)
-// on retombe sur les correspondances connues, puis sur VS 2022 (ce qu'installe
-// ensureCompiler). Corrige l'issue #73 : VS 2026 (major 18) était mappé à tort sur
-// « Visual Studio 17 2022 » → CMake « could not find any instance of Visual Studio ».
-func msvcGenerator() string {
-	major := msvcInstallVersion()
-	if year := vswhereProp("catalog_productLineVersion"); major != "" && year != "" {
-		return "Visual Studio " + major + " " + year
-	}
-	switch major {
-	case "18":
-		return "Visual Studio 18 2026"
-	case "16":
-		return "Visual Studio 16 2019"
-	case "15":
-		return "Visual Studio 15 2017"
-	default:
-		return "Visual Studio 17 2022"
-	}
-}
+// Depuis v0.14.2, la compilation Windows utilise le générateur Ninja (voir
+// buildPlanFor) : on n'a plus besoin de composer le nom du générateur Visual
+// Studio (« Visual Studio 17 2022 »…), justement source des erreurs #73/#75. Le
+// nom d'édition de VS n'est donc plus calculé ; seul l'environnement MSVC compte,
+// fourni par msvcDevEnv via vcvars.
 
 // ensureCompiler makes sure an MSVC C++ toolchain is available, installing the
 // Visual Studio 2022 Build Tools (VCTools workload) via winget if not. This is a

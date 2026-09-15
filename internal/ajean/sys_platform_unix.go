@@ -202,11 +202,6 @@ func autoInstallTool(name string) error {
 	return fmt.Errorf("aucun gestionnaire de paquets connu — installe %s manuellement", name)
 }
 
-// msvcGenerator is Windows-only; on Unix the default CMake generator (Unix
-// Makefiles) is correct, so detectBuildPlan never calls this for real. Present
-// only so the shared code compiles.
-func msvcGenerator() string { return "" }
-
 // ensureCompiler makes sure a C/C++ toolchain (cc + c++ + make) is present,
 // installing it via the system package manager when missing. build-essential on
 // Debian/Ubuntu pulls the lot; elsewhere we fall back to individual packages.
