@@ -102,10 +102,6 @@ Accès distant (ajean.link) :
   link code                     code d'appairage (10 min, usage unique)
   link status | logout
 
-Poste distant (piloter CE PC depuis l'IA d'un serveur AJEAN) :
-  remote install <url> --machine ID --key CLÉ --code CODE [--allow shell,read,write,list]
-  remote connect | status | uninstall | logout
-
 Installation :
   install | uninstall
   update [--check]              mise à jour depuis les releases GitHub
@@ -237,16 +233,6 @@ La configuration se fait depuis l'interface web (section *Serveurs MCP*). Le for
 ```
 
 Les transports **stdio** et **HTTP** sont pris en charge. Comme le terminal, un serveur MCP exécute du code sur la machine hôte : ses outils ne sont donnés au modèle que si le mode agent est actif.
-
-### Postes distants
-
-L'IA d'un serveur AJEAN peut agir sur **un autre PC**. On installe AJEAN sur la machine à piloter, puis on l'appaire au serveur avec la commande fournie par l'interface (section *Postes distants*) :
-
-```bash
-ajean remote install <url> --machine ID --key CLÉ --code CODE --allow shell,read,write,list
-```
-
-Une fois appairé, le poste devient une cible d'exécution : dans le chat, l'IA choisit sur quelle machine elle lance ses outils. La *gestion autonome des machines* (interrupteur des paramètres, désactivée par défaut) laisse même l'IA voir les postes et basculer de cible toute seule.
 
 ## Windows
 

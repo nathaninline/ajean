@@ -23,11 +23,7 @@ const maxVisionBytes = 12 << 20 // 12 Mio
 // La partie image vaut nil en cas d'erreur : l'appelant n'injecte alors rien.
 func toolSeeImage(path string) (string, map[string]any) {
 	if !visionEnabled() {
-		return "[erreur] la vision n'est pas active sur ce modèle (aucun projecteur MMPROJ configuré) — impossible de voir une image", nil
-	}
-	// Cible = un poste distant : le fichier est LÀ-BAS, pas lisible localement.
-	if agentTargetSlug() != "" {
-		return "[erreur] voir une image n'est pas encore possible sur un poste distant (le fichier est sur l'autre machine)", nil
+		return "[erreur] la vision n'est pas active sur ce modèle — impossible de voir une image", nil
 	}
 	if path == "" {
 		return "[erreur] chemin de fichier manquant", nil
@@ -51,6 +47,9 @@ func toolSeeImage(path string) (string, map[string]any) {
 	if err != nil {
 		return "[erreur] lecture impossible : " + err.Error(), nil
 	}
+	// Même préparation que les pièces jointes : orientation EXIF redressée et image
+	// redimensionnée sous maxImageDim (base64 + tokens visuels).
+	b, mime = prepareImageForModel(b, mime)
 	imgPart := map[string]any{
 		"type": "image_url",
 		"image_url": map[string]any{

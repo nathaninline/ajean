@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const Version = "0.14.8"
+const Version = "0.14.9"
 
 // Main est le vrai main() du binaire (cmd/ajean ne fait que l'appeler).
 func Main() {
@@ -74,10 +74,6 @@ func Main() {
 		mustExit(cmdWeb(args))
 	case "link":
 		mustExit(cmdLink(args))
-	case "remote":
-		mustExit(cmdRemote(args))
-	case "postes":
-		mustExit(cmdPostes(args))
 	case "ui":
 		mustExit(cmdUI(args))
 	case "oai":
@@ -162,13 +158,6 @@ Accès distant (ajean.link) :
   link code                     code d'appairage (10 min, usage unique) pour le portail
   link newid                    change l'identifiant de la machine (si l'ancien a fuité)
   link status | logout          état du jeton / l'oublier
-
-Poste distant (piloter CE PC depuis l'IA d'un serveur AJEAN) :
-  remote install <url> --machine ID --key CLÉ --code CODE [--allow shell,read,write,list]
-                                appaire ce PC + installe le service (démarrage auto)
-  remote connect <url> …        idem en avant-plan (pour tester)
-  remote status | uninstall | logout
-                                (commande d'appairage prête à copier : UI web → Postes distants)
 
 Backend llama.cpp :
   llamacpp install              clone + compile llama.cpp (CUDA/ROCm/Metal/CPU), pointe BIN dessus

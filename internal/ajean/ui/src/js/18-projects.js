@@ -440,10 +440,8 @@ function togglePlusMenu(e){
   const pop = document.createElement('div'); pop.className='pop-menu';
   const item = (svg, label, fn)=>{ const b=document.createElement('button'); b.innerHTML=svg+'<span>'+label+'</span>'; b.onclick=(ev)=>{ ev.stopPropagation(); closePlusMenu(); fn(); }; return b; };
   const icFile = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.05 12.25 20.2a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.67 3.67 0 1 1 5.18 5.18l-9.2 9.2a1.83 1.83 0 1 1-2.59-2.6l8.49-8.48"/></svg>';
-  const icMachine = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>';
   const icCompact = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9l4-4 4 4M20 15l-4 4-4-4M8 5v6M16 19v-6"/></svg>';
   pop.appendChild(item(icFile, t('projects.attach_file'), ()=>{ const inp=document.getElementById('attach-input'); if(inp) inp.click(); }));
-  pop.appendChild(item(icMachine, t('projects.remote_hosts'), ()=>{ if(typeof openNodeHub==='function') openNodeHub(); }));
   const icTracker = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h16M8 16l3-4 3 2 4-6"/></svg>';
   pop.appendChild(item(icTracker, t('projects.trackers'), ()=>{ if(typeof openTrackerHub==='function') openTrackerHub(); }));
   // Mémoire du projet : mode + pages, dans un modal (déplacée hors du menu de gauche).

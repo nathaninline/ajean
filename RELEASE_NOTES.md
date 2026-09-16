@@ -1,18 +1,25 @@
-Correction de l'installation du moteur sur les cartes NVIDIA anciennes.
+Prise en charge des images avec les modèles distants, retrait de la gestion des postes distants, et corrections autour des pièces jointes.
 
-## Compilation du moteur sur GPU NVIDIA anciens
+## Images et modèles multimodaux via une API externe
 
-Sur une machine équipée d'un GPU Pascal (GTX 10xx), Maxwell (GTX 900) ou Volta, l'installation du moteur pouvait échouer avec un message CMake incompréhensible du type « nvcc is not able to compile a simple test program ». La cause : CUDA 13 a supprimé la prise en charge de ces générations de cartes (Turing sm_75 est désormais le minimum), et l'installateur retenait systématiquement la version de CUDA la plus récente présente sur la machine, même quand elle ne savait plus compiler pour la carte.
+Un preset « API externe » (modèle servi par une API compatible OpenAI, y compris un autre serveur AJEAN) peut désormais être déclaré multimodal, via une case « le modèle accepte les images » dans sa fenêtre de configuration. Quand elle est cochée, les images jointes à un message sont envoyées au modèle distant pour qu'il les voie, et l'outil de vision (chargement d'une image du disque) lui est proposé. Auparavant, seul un projecteur multimodal local pouvait activer la vision : un modèle distant pourtant capable de voir se voyait refuser les images.
 
-Deux changements corrigent ce comportement :
+## Images jointes utilisables, pas seulement visibles
 
-- lorsque plusieurs versions du CUDA Toolkit sont installées, l'installateur retient maintenant la plus récente qui prend encore en charge la carte la plus ancienne de la machine, au lieu de la plus récente sans distinction. Une configuration multi-GPU mélangeant une carte ancienne et une carte récente est prise en compte : le toolkit choisi doit convenir aux deux ;
-- lorsque aucune version de CUDA installée ne convient à la carte, l'installation s'arrête immédiatement avec un message clair indiquant la marche à suivre (installer un CUDA Toolkit 12.x, qui prend encore ces cartes en charge), au lieu de lancer une compilation vouée à l'échec.
+Lorsque la vision est active, une image jointe est à la fois montrée au modèle et signalée comme fichier de son dossier de travail, avec son chemin. Le modèle peut donc l'analyser directement et, s'il le faut, agir sur le fichier (le convertir, le recadrer avec ses outils). La distinction est explicite pour éviter que le modèle rouvre inutilement une image qu'il a déjà sous les yeux.
 
-Les machines dont la configuration fonctionnait déjà ne sont pas affectées : quand la version de CUDA la plus récente convient à la carte, c'est la même qui est retenue qu'auparavant, avec les mêmes réglages de compilation. Les performances du moteur sont inchangées.
+## Redimensionnement des images avant l'envoi au modèle
+
+Une image dont le plus grand côté dépasse 1568 pixels est réduite avant d'être transmise au modèle, à la manière des API de vision courantes. Le projecteur multimodal retaille de toute façon l'image à sa propre résolution : envoyer une définition supérieure ne fait qu'alourdir le transfert et le contexte, sans bénéfice. La réduction se fait par moyennage, et l'orientation issue des métadonnées EXIF (photos de téléphone) reste corrigée.
+
+## Retrait de la gestion des postes distants
+
+La fonctionnalité permettant à l'IA d'un serveur de piloter un autre PC (postes distants) a été entièrement retirée : commandes, réglages, outils, interface et documentation associés. L'accès à distance à une machine passe désormais uniquement par sa connexion à ajean.link.
+
+## Téléchargement des fichiers au nom contenant une apostrophe
+
+Un fichier renvoyé par l'IA dont le nom comportait à la fois des espaces et une apostrophe (par exemple « Capture d'écran … ») produisait un lien de téléchargement invalide. La détection d'un éventuel titre de lien a été resserrée pour ne plus confondre une apostrophe interne au nom avec la syntaxe d'un titre.
 
 ## Mise à jour
 
     ajean update
-
-Non testé sur une véritable machine à GPU Pascal ou Volta au moment de la publication : le correctif repose sur la table de compatibilité CUDA (versions 11, 12 et 13) et sur des tests unitaires de la logique de sélection.

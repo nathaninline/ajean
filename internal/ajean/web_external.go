@@ -41,6 +41,7 @@ func handlePresetExternal(w http.ResponseWriter, r *http.Request) {
 		"url":    strings.TrimSpace(cfg[extKeyURL]),
 		"model":  strings.TrimSpace(cfg[extKeyModel]),
 		"ctx":    strings.TrimSpace(cfg["CTX"]),
+		"vision": strings.TrimSpace(cfg[extKeyVision]) == "1",
 		"hasKey": strings.TrimSpace(cfg[extKeyToken]) != "",
 	})
 }
@@ -55,6 +56,7 @@ type externalSaveReq struct {
 	Model      string `json:"model"`
 	Key        string `json:"key"`
 	Ctx        string `json:"ctx"`        // taille de contexte (clé CTX), optionnelle
+	Vision     bool   `json:"vision"`     // le modèle distant accepte les images
 	KeyTouched bool   `json:"keyTouched"` // l'utilisateur a modifié le champ clé
 }
 
@@ -87,7 +89,7 @@ func handlePresetExternalSave(w http.ResponseWriter, r *http.Request) {
 			key = strings.TrimSpace(parseEnv(content)[extKeyToken])
 		}
 	}
-	content := externalPresetContent(req.URL, req.Model, key, req.Ctx)
+	content := externalPresetContent(req.URL, req.Model, key, req.Ctx, req.Vision)
 	newID, err := SavePreset(req.ID, req.Name, content)
 	if err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})

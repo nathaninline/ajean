@@ -192,7 +192,6 @@ async function loadAgent(){
   const on = s.enabled;
   document.getElementById('agent-toggle').checked = on;
   document.getElementById('compact-toggle').checked = (s.compact !== false);
-  document.getElementById('machines-toggle').checked = !!s.machines;
   setBadge('agent-badge', on, on?t('settings.agent.badge_on'):t('settings.agent.badge_off'));
   document.getElementById('brand').classList.toggle('agent', on);
   setAgentGate(on);
@@ -427,12 +426,6 @@ async function toggleCompact(){
   const on=document.getElementById('compact-toggle').checked;
   await jpost('/api/agent/compact',{on});
 }
-// Gestion autonome des machines (postes) : donne à l'IA les outils machines_*
-// et le briefing. Off par défaut, aucun effet quand décoché.
-async function toggleMachines(){
-  const on=document.getElementById('machines-toggle').checked;
-  await jpost('/api/agent/machines',{on});
-}
 // Mode mémoire (4 états, par projet) — indépendant du mode agent. La description
 // de chaque mode vit désormais sous chaque option (voir .mem-opt-d dans le
 // template), plus dans une boîte séparée.
@@ -665,7 +658,7 @@ async function loadAll(){
   // allSettled et pas all : un seul chargement en échec (accès distant coupé,
   // clé API absente…) ne doit pas empêcher la suite — et surtout pas laisser les
   // hauteurs réservées en place pour toujours.
-  await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadNode(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadRemote(),loadTasks()]);
+  await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadRemote(),loadTasks()]);
   releaseHeights(); // tout est en place : on rend la main et on mesure pour la prochaine fois
 }
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }

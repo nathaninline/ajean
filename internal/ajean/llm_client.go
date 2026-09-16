@@ -225,7 +225,7 @@ func bashTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "bash",
-			Description: "Run a " + agentTargetShellName() + " command and return its stdout, stderr, and exit code.",
+			Description: "Run a " + shellName() + " command and return its stdout, stderr, and exit code.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -233,42 +233,6 @@ func bashTool() Tool {
 					"timeout": map[string]any{"type": "integer", "description": fmt.Sprintf("Timeout s (default %d, max %d)", toolDefaultTimeout, toolMaxTimeout)},
 				},
 				"required": []string{"command"},
-			},
-		},
-	}
-}
-
-// machinesListTool advertises the read-only view of the paired postes (other
-// machines) and the current execution target. No arguments.
-func machinesListTool() Tool {
-	return Tool{
-		Type: "function",
-		Function: ToolFunction{
-			Name:        "machines_list",
-			Description: "List the paired postes (other machines you can operate on) with their connection state, and show which one is your current execution target.",
-			Parameters: map[string]any{
-				"type":       "object",
-				"properties": map[string]any{},
-			},
-		},
-	}
-}
-
-// machinesUseTool switches which machine the agent operates on: a poste slug, or
-// "local" to come back to this server. Same target the user picks by hand in the
-// Postes distants panel.
-func machinesUseTool() Tool {
-	return Tool{
-		Type: "function",
-		Function: ToolFunction{
-			Name:        "machines_use",
-			Description: "Switch the machine you operate on: your bash/write/edit tools then run on it. Pass a poste slug (from machines_list), or \"local\" to operate on this server.",
-			Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"machine": map[string]any{"type": "string", "description": "Poste slug to switch to, or \"local\" for this server."},
-				},
-				"required": []string{"machine"},
 			},
 		},
 	}
@@ -322,9 +286,6 @@ func InjectSkills(msgs []Message, caps Caps) []Message {
 	}
 	if mp := machineSystemPrompt(caps); mp != "" {
 		parts = append(parts, mp)
-	}
-	if mm := machineMgmtSystemPrompt(caps); mm != "" {
-		parts = append(parts, mm)
 	}
 	if len(parts) == 0 {
 		return msgs
@@ -403,12 +364,6 @@ func EnabledTools(caps Caps) []Tool {
 		if visionEnabled() {
 			tools = append(tools, seeImageTool())
 		}
-		// Gestion des machines (postes) : donnée seulement quand la capacité est
-		// activée. machines_list voit les postes, machines_use bascule la cible.
-		// L'ajout d'un poste, Jean le fait avec bash (ssh + ajean remote install).
-		if machinesEnabled() {
-			tools = append(tools, machinesListTool(), machinesUseTool())
-		}
 	}
 	// Mémoire = axe indépendant du mode agent : les outils mem_* sont fournis dès
 	// que le mode mémoire n'est pas « off » (que l'agent soit actif ou non).
@@ -430,10 +385,6 @@ func EnabledTools(caps Caps) []Tool {
 	if caps.Agent {
 		tools = append(tools, mcpTools()...)
 	}
-	// Postes distants : PAS de nouveaux outils. L'IA garde bash/write/edit ; c'est
-	// leur CIBLE D'EXÉCUTION qui change quand un poste est sélectionné (voir le
-	// routage dans la boucle d'outils et agentTargetSlug). Redonner des outils que
-	// le modèle a déjà (node__…__shell alors qu'il a bash) doublonnait le catalogue.
 	return tools
 }
 
@@ -516,13 +467,8 @@ func shownResult(s string) string {
 // le résultat change parce que le fichier a changé. La dédup la bloquait par un
 // « [déjà fait] » exaspérant. bash a des effets de bord : on le laisse toujours
 // s'exécuter.
-//
-// FAUX aussi pour machines_use / machines_list : changer de machine est un
-// changement d'ÉTAT, pas une lecture idempotente. Rebasculer sur une machine déjà
-// visitée (« local » → poste → « local ») réémet le MÊME appel : la dédup le
-// bloquait, et l'IA se retrouvait coincée sur une cible, incapable d'y revenir.
 func dedupableTool(name string) bool {
-	return name != "bash" && name != "machines_use" && name != "machines_list"
+	return name != "bash"
 }
 
 // repeatedCallResult construit ce qu'on renvoie quand le modèle redemande un
@@ -1020,9 +966,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 						key = "id"
 					case "recall_search":
 						key = "query"
-					case "machines_use":
-						key = "machine"
-					case "task_list", "machines_list":
+					case "task_list":
 						key = ""
 					}
 					p := previewArg(cur.Function.Arguments, key)
@@ -1209,8 +1153,6 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					label, _ = args["name"].(string)
 				case "task_delete":
 					label, _ = args["id"].(string)
-				case "machines_use":
-					label, _ = args["machine"].(string)
 				case "tracker":
 					act, _ := args["action"].(string)
 					nm, _ := args["name"].(string)
@@ -1330,27 +1272,17 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					}
 				case "write":
 					content, _ := args["content"].(string)
-					if tgt := agentTargetSlug(); tgt != "" {
-						// Cible = un poste distant : on écrit LÀ-BAS. Pas de diff (on
-						// n'a pas l'ancien contenu du fichier distant).
-						result = nodeCall(tgt, nodeCapWrite, map[string]any{"path": label, "content": content})
-					} else {
-						result = fileWrite(label, content)
-						if !strings.HasPrefix(result, "[erreur]") {
-							diff = addedDiff(content)
-						}
+					result = fileWrite(label, content)
+					if !strings.HasPrefix(result, "[erreur]") {
+						diff = addedDiff(content)
 					}
 				case "edit":
 					oldText, _ := args["old"].(string)
 					newText, _ := args["new"].(string)
-					if tgt := agentTargetSlug(); tgt != "" {
-						result = nodeEditRemote(tgt, label, oldText, newText)
-					} else {
-						result = fileEdit(label, oldText, newText)
-						// Diff seulement si l'édition a réussi (sinon le fichier n'a pas bougé).
-						if !strings.HasPrefix(result, "[erreur]") {
-							diff = lineDiff(oldText, newText)
-						}
+					result = fileEdit(label, oldText, newText)
+					// Diff seulement si l'édition a réussi (sinon le fichier n'a pas bougé).
+					if !strings.HasPrefix(result, "[erreur]") {
+						diff = lineDiff(oldText, newText)
 					}
 				case "bash":
 					to := 0
@@ -1360,14 +1292,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					case int:
 						to = v
 					}
-					if tgt := agentTargetSlug(); tgt != "" {
-						// Cible = un poste distant : la commande s'exécute LÀ-BAS via le
-						// canal du poste (fail-closed : nodeCall renvoie une erreur si le
-						// poste est déconnecté, on n'exécute JAMAIS sur le serveur à sa place).
-						result = nodeCall(tgt, nodeCapShell, map[string]any{"command": label, "timeout": to})
-					} else {
-						result = runShell(ctx, label, to)
-					}
+					result = runShell(ctx, label, to)
 				case "mem_delete":
 					if werr := MemDelete(label); werr != nil {
 						result = "[erreur] " + werr.Error()
@@ -1388,10 +1313,6 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					result = toolTaskUpdate(args)
 				case "task_delete":
 					result = toolTaskDelete(args)
-				case "machines_list":
-					result = toolMachinesList()
-				case "machines_use":
-					result = toolMachinesUse(args)
 				case "web_search":
 					result = capWebOutput(toolWebSearch(args))
 				case "web_open":

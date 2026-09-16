@@ -144,7 +144,6 @@
     <div class="subhead" data-i18n="agent.settings_subhead">Paramètres</div>
     <div class="slist">
         <label class="switchrow agent-gated"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> <span data-i18n="agent.compact_toggle">compactage automatique du contexte</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="agent.compact_help" data-i18n-html>activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
-        <label class="switchrow agent-gated"><span class="switch"><input type="checkbox" id="machines-toggle" onchange="toggleMachines()"><span class="slider"></span></span> <span data-i18n="agent.machines_toggle">gestion autonome des machines</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="agent.machines_help" data-i18n-html>désactivé par défaut : donne à l'IA les outils pour <b>voir les postes</b> et <b>basculer</b> la machine sur laquelle elle agit, et la rend consciente de la procédure d'<b>ajout</b> d'un poste (qu'elle peut faire seule via ssh + <code>ajean remote install</code>). Sans effet quand décoché.</span></span></label>
         <label class="switchrow"><span class="switch"><input type="checkbox" id="push-toggle" onchange="togglePush()"><span class="slider"></span></span> <span data-i18n="agent.push_toggle">me prévenir quand la réponse est prête</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="agent.push_help" data-i18n-html>Le serveur t'envoie une <b>notification</b> à la fin de chaque réponse, même l'app fermée ou le téléphone verrouillé. Sur iPhone : <b>ajoute d'abord AJEAN à l'écran d'accueil</b> puis active depuis l'app installée. À régler sur chaque appareil.</span></span></label>
         <!-- Chiffrement (off par défaut) : UN seul interrupteur. Chiffre la mémoire
              ET les conversations. Ton mot de passe ouvre le coffre, ton navigateur
@@ -412,11 +411,8 @@
     <div id="attach-list"></div>
     <div id="inputbar">
       <textarea id="input" rows="1" placeholder="Discuter avec Jean" onkeydown="onKey(event)" oninput="autoGrow(this);syncSendBtn()" onpaste="onPaste(event)" data-i18n="chat.input_placeholder" data-i18n-attr="placeholder"></textarea>
-      <!-- Indicateur discret « l'IA agit sur un poste distant » : ondes wifi à gauche
-           du +, teinté accent, affiché seulement quand une cible distante est active. -->
-      <span id="node-indic" title="L'IA agit sur un poste distant" aria-hidden="true" style="display:none" data-i18n="chat.node_indicator_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.55a11 11 0 0 1 14 0"/><path d="M8.5 16.1a6 6 0 0 1 7 0"/><path d="M12 20h.01"/></svg></span>
       <!-- Bouton « + » gris : JUSTE à gauche de la flèche d'envoi. Ouvre un petit menu
-           (postes/machines + fichiers). -->
+           (fichiers + trackers + mémoire). -->
       <button id="plus-btn" onclick="togglePlusMenu(event)" title="Ajouter" aria-label="Ajouter" aria-haspopup="true" data-i18n="chat.plus_button_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
       <button id="send" onclick="send()" title="envoyer" aria-label="envoyer" data-i18n="chat.send_button_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V6"/><path d="M6 12l6-6 6 6"/></svg></button>
       <button id="stop" onclick="stopGen()" style="display:none" title="stop" aria-label="stop" data-i18n="chat.stop_button_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2.5"/></svg></button>
@@ -741,6 +737,7 @@
         <label class="fld-l" for="ext-ctx"><span data-i18n="external.ctx_label">Contexte</span> <span class="opt" data-i18n="external.ctx_hint">(taille en tokens, ex: 32768 — laisser vide pour 32768)</span></label>
         <input id="ext-ctx" class="ctl" type="number" min="0" step="1024" spellcheck="false" placeholder="32768">
       </div>
+      <label class="switchrow" style="margin:2px 0 0"><span class="switch"><input type="checkbox" id="ext-vision"><span class="slider"></span></span> <span data-i18n="external.vision_label">le modèle accepte les images</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="external.vision_help" data-i18n-html>coche si le modèle distant est <b>multimodal</b> (vision). Les images jointes lui sont alors envoyées pour qu'il les voie, et il peut charger une image du disque avec son outil dédié. À laisser décoché pour un modèle texte seul.</span></span></label>
       <div id="ext-modal-status" class="muted" style="font-size:12px;min-height:0"></div>
     </div>
     <div class="modal-foot">
@@ -751,21 +748,6 @@
         <button class="pe-btn" onclick="testExternal()" data-i18n="external.test">tester la connexion</button>
         <button class="pe-btn primary" onclick="saveExternal()" data-i18n="external.save">enregistrer</button>
       </div>
-    </div>
-  </div>
-</div>
-<div id="node-hub-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)hideModal('node-hub-modal')">
-  <div class="modal-card">
-    <div class="modal-head">
-      <strong data-i18n="nodes.hub_title">Postes distants</strong>
-      <button class="modal-x" onclick="hideModal('node-hub-modal')" aria-label="Fermer" data-i18n="nodes.close_aria" data-i18n-attr="aria-label">×</button>
-    </div>
-    <div class="modal-body mform">
-      <div id="node-hub-list" class="sess-list"></div>
-      <button class="proj-cta" style="margin-top:14px" onclick="openNodePair()">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-        <span data-i18n="nodes.pair_button">Appairer un poste</span>
-      </button>
     </div>
   </div>
 </div>
@@ -889,42 +871,6 @@
         <button id="task-run" class="pe-btn" onclick="runTaskNow()" style="display:none" data-i18n="task.run_now">tester maintenant</button>
         <button class="pe-btn" onclick="closeTask()" data-i18n="task.cancel">annuler</button>
         <button class="pe-btn primary" onclick="saveTask()" data-i18n="task.save">enregistrer</button>
-      </div>
-    </div>
-  </div>
-</div>
-<div id="node-pair-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)hideModal('node-pair-modal')">
-  <div class="modal-card">
-    <div class="modal-head">
-      <strong data-i18n="nodes.pair_title">Appairer un poste distant</strong>
-      <button class="modal-x" onclick="hideModal('node-pair-modal')" aria-label="Fermer" data-i18n="nodes.pair_close_aria" data-i18n-attr="aria-label">×</button>
-    </div>
-    <div class="modal-body">
-      <div class="fld">
-        <label class="fld-l"><span data-i18n="nodes.caps_label">Capacités autorisées</span> <span class="opt" data-i18n="nodes.caps_hint">(ce que l'IA pourra faire sur ce poste)</span></label>
-        <div id="node-pair-caps" class="node-caps"></div>
-      </div>
-      <div class="fld">
-        <label class="fld-l" for="node-pair-root"><span data-i18n="nodes.root_label">Dossier autorisé</span> <span class="opt" data-i18n="nodes.root_hint">(confine lecture/écriture ; laisser vide = dossier de travail par défaut du poste)</span></label>
-        <input id="node-pair-root" class="ctl" placeholder="C:\\Users\\moi\\ajean ou /home/moi/ajean" spellcheck="false">
-      </div>
-      <div id="node-pair-out" style="display:none">
-        <div class="subhead" style="margin-top:6px" data-i18n="nodes.code_heading">Code d'appairage</div>
-        <div class="node-code" id="node-pair-code">——</div>
-        <div class="muted" style="font-size:12px;line-height:1.5">
-          <span data-i18n="nodes.install_remote_help" data-i18n-html>Sur le PC à piloter, installe <b>ajean</b> (ajean.link/download) puis lance — <b>accès à distance</b>, chiffré de bout en bout :</span>
-          <pre class="node-cmd" id="node-pair-cmd"></pre>
-          <span style="opacity:.8" data-i18n="nodes.install_lan_help" data-i18n-html>Ou en <b>réseau local</b> (connexion directe) :</span>
-          <pre class="node-cmd" id="node-pair-cmd-lan"></pre>
-          <span data-i18n="nodes.code_expiry_pre">Le code expire dans</span> <span id="node-pair-ttl">10</span> <span data-i18n="nodes.code_expiry_post">min et ne sert qu'une fois.</span>
-        </div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <div class="foot-l"></div>
-      <div class="foot-r">
-        <button class="mbtn" onclick="hideModal('node-pair-modal')" data-i18n="nodes.pair_close">Fermer</button>
-        <button class="mbtn primary" onclick="genNodeCode()" data-i18n="nodes.generate_code">Générer le code</button>
       </div>
     </div>
   </div>

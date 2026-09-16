@@ -72,6 +72,44 @@ func TestApplyOrientationDimensions(t *testing.T) {
 	}
 }
 
+func TestScaleDownToMax(t *testing.T) {
+	// Grande image paysage : le plus grand côté doit tomber à maxImageDim, ratio
+	// conservé, et une image déjà petite ne bouge pas.
+	big := image.NewNRGBA(image.Rect(0, 0, 4000, 2000))
+	d := scaleDownToMax(big, maxImageDim).Bounds()
+	if d.Dx() != maxImageDim {
+		t.Errorf("grand côté : %d, attendu %d", d.Dx(), maxImageDim)
+	}
+	if d.Dy() != maxImageDim/2 {
+		t.Errorf("petit côté : %d, attendu %d (ratio 2:1)", d.Dy(), maxImageDim/2)
+	}
+	small := image.NewNRGBA(image.Rect(0, 0, 100, 80))
+	if sd := scaleDownToMax(small, maxImageDim).Bounds(); sd.Dx() != 100 || sd.Dy() != 80 {
+		t.Errorf("image petite modifiée : %dx%d", sd.Dx(), sd.Dy())
+	}
+}
+
+func TestPrepareImageForModelResizesJPEG(t *testing.T) {
+	// Un JPEG plus grand que maxImageDim doit être réencodé plus petit ; ses octets
+	// changent donc forcément.
+	big := image.NewNRGBA(image.Rect(0, 0, 3000, 1500))
+	var raw bytes.Buffer
+	if err := jpeg.Encode(&raw, big, nil); err != nil {
+		t.Fatal(err)
+	}
+	out, mime := prepareImageForModel(raw.Bytes(), "image/jpeg")
+	if mime != "image/jpeg" {
+		t.Fatalf("mime = %s", mime)
+	}
+	img, _, err := image.Decode(bytes.NewReader(out))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if img.Bounds().Dx() != maxImageDim {
+		t.Errorf("largeur après préparation : %d, attendu %d", img.Bounds().Dx(), maxImageDim)
+	}
+}
+
 func TestApplyOrientationRotate90(t *testing.T) {
 	// Pixel repère en haut-gauche du capteur ; en orientation 6 (90° horaire) il
 	// doit se retrouver en haut-droite de l'image redressée.

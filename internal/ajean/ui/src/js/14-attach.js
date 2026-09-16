@@ -181,12 +181,19 @@ async function downloadWorkspaceFile(path, name, a){
 // lien mort. Or les noms de fichiers à espaces sont la règle, pas l'exception. On
 // les encode donc avant le rendu (fileLinkPath les redécode).
 //
-// Les cibles avec un titre — [x](chemin "Titre") — sont laissées tranquilles :
-// leurs espaces sont syntaxiques.
+// ⚠️ Un VRAI titre Markdown — [x](chemin "Titre") — a ses espaces syntaxiques et
+// doit être laissé tranquille. Mais on ne peut PAS détecter le titre par la simple
+// présence d'un guillemet/apostrophe : les noms de fichiers français en contiennent
+// (« Capture d'écran … »), et cette apostrophe désactivait alors l'encodage des
+// espaces → lien coupé au premier espace → téléchargement impossible. Le titre se
+// reconnaît à une chaîne guillemetée EN FIN de cible, précédée d'un espace
+// (` "…"` / ` '…'`) ; une apostrophe au milieu du nom n'en est pas un.
+const MD_LINK_TITLE_RE = /\s+(["'])(?:(?!\1)[\s\S])*\1\s*$/;
 function encodeMdLinkSpaces(text){
   return String(text).replace(/\]\(([^)\n]*)\)/g, (whole, target)=>{
-    if(target.indexOf(' ')<0 || /["']/.test(target)) return whole;
+    if(target.indexOf(' ')<0) return whole;                   // pas d'espace : rien à faire
     if(/^[a-z][a-z0-9+.-]*:\/\//i.test(target)) return whole; // URL : pas notre affaire
+    if(MD_LINK_TITLE_RE.test(target)) return whole;           // vrai titre : espaces syntaxiques
     return '](' + target.replace(/ /g, '%20') + ')';
   });
 }

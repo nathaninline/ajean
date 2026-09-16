@@ -169,12 +169,40 @@ func imageMime(name string) string {
 	return imageMimes[strings.ToLower(filepath.Ext(name))]
 }
 
-// visionEnabled dit si un projecteur multimodal est configuré (clé MMPROJ) —
-// c'est la condition pour que backend_serve.go passe --mmproj au moteur, donc la
-// seule où envoyer une image AU MODÈLE a un sens. Sans projecteur, llama-server
-// rejetterait un contenu image ; on s'en tient alors au dépôt-fichier.
+// visionEnabled dit si le modèle actif sait recevoir des images. Deux cas :
+//   - preset LOCAL : un projecteur multimodal est configuré (clé MMPROJ), ce qui
+//     fait passer --mmproj au moteur (backend_serve.go) ;
+//   - preset EXTERNE : l'API distante est déclarée multimodale (EXTERNAL_VISION=1),
+//     puisqu'il n'y a pas de MMPROJ local à sonder.
+//
+// Sans l'un ou l'autre, envoyer une image n'a pas de sens (llama-server la
+// rejetterait) : on s'en tient alors au dépôt-fichier.
 func visionEnabled() bool {
-	return strings.TrimSpace(ReadConfig()["MMPROJ"]) != ""
+	if strings.TrimSpace(ReadConfig()["MMPROJ"]) != "" {
+		return true
+	}
+	return externalVisionActive()
+}
+
+// visionImageNote annonce au modèle les images qu'il VOIT déjà en ligne (parties
+// image_url ajoutées juste après le texte). Elle est distincte de attachNote : on
+// dit explicitement que l'image est sous ses yeux et qu'il n'a PAS à la rouvrir
+// avec see_image (sinon, en mode agent, il rappelle l'outil pour « re-regarder »
+// une image déjà affichée). Le chemin reste donné, mais seulement pour la
+// manipuler comme fichier (la convertir, la recadrer avec un outil).
+func visionImageNote(files []attachInfo) string {
+	if len(files) == 0 {
+		return ""
+	}
+	head := "Image jointe à ce message, que tu vois directement ci-dessous — ne la rouvre PAS avec see_image, tu l'as déjà sous les yeux. Son chemin ne sert que si tu dois la manipuler comme fichier :"
+	if len(files) > 1 {
+		head = "Images jointes à ce message, que tu vois directement ci-dessous — ne les rouvre PAS avec see_image, tu les as déjà sous les yeux. Leur chemin ne sert que si tu dois les manipuler comme fichiers :"
+	}
+	var lines []string
+	for _, f := range files {
+		lines = append(lines, fmt.Sprintf("- %s (%s)", f.Path, humanBytes(f.Size)))
+	}
+	return head + "\n" + strings.Join(lines, "\n") + "\n\n"
 }
 
 // userMessageContent construit le champ Content du message utilisateur. Cas
@@ -182,10 +210,13 @@ func visionEnabled() bool {
 // est active ET qu'au moins une pièce jointe est une image, on renvoie le format
 // multimodal d'OpenAI — une partie `text` suivie d'une partie `image_url` par
 // image (data URI base64) — que llama-server comprend une fois --mmproj chargé :
-// le modèle VOIT alors l'image au lieu de devoir l'ouvrir comme un fichier binaire.
-// Les images ainsi intégrées sortent de la note textuelle (inutile de dire au
-// modèle d'aller ouvrir un fichier qu'il a déjà sous les yeux) ; les autres
-// fichiers, eux, restent annoncés comme avant.
+// le modèle VOIT alors l'image.
+//
+// Deux besoins distincts : voir l'image (elle part en ligne) et pouvoir agir sur
+// le FICHIER (la convertir, l'analyser avec un outil). D'où deux notes séparées —
+// les images via visionImageNote (déjà visibles, chemin pour manipulation), les
+// autres fichiers via attachNote — pour que le modèle ne confonde pas « voir » et
+// « ouvrir », et ne rappelle pas see_image sur une image qu'il a déjà.
 func userMessageContent(files []attachInfo, prompt string) any {
 	if !visionEnabled() {
 		return attachNote(files) + prompt
@@ -195,33 +226,34 @@ func userMessageContent(files []attachInfo, prompt string) any {
 		return attachNote(files) + prompt
 	}
 	var imgParts []map[string]any
-	var textFiles []attachInfo
+	var imgFiles, otherFiles []attachInfo
 	for _, f := range files {
 		mime := imageMime(f.Name)
 		if mime == "" {
-			textFiles = append(textFiles, f)
+			otherFiles = append(otherFiles, f)
 			continue
 		}
 		b, err := os.ReadFile(filepath.Join(dir, f.Name))
 		if err != nil {
-			textFiles = append(textFiles, f) // illisible ici : au moins l'annoncer comme fichier
+			otherFiles = append(otherFiles, f) // illisible ici : au moins l'annoncer comme fichier
 			continue
 		}
-		// Redresse l'orientation EXIF (photos de téléphone) : mmproj ignore l'EXIF
-		// et verrait sinon l'image tournée de 90°. Repli sur les octets bruts si
-		// besoin — voir orientImageForModel.
-		b, mime = orientImageForModel(b, mime)
+		// Redresse l'orientation EXIF et redimensionne les images trop grandes
+		// avant l'envoi (base64 + tokens visuels) — voir prepareImageForModel.
+		b, mime = prepareImageForModel(b, mime)
 		imgParts = append(imgParts, map[string]any{
 			"type": "image_url",
 			"image_url": map[string]any{
 				"url": "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(b),
 			},
 		})
+		imgFiles = append(imgFiles, f)
 	}
 	if len(imgParts) == 0 {
 		return attachNote(files) + prompt
 	}
-	parts := []map[string]any{{"type": "text", "text": attachNote(textFiles) + prompt}}
+	note := attachNote(otherFiles) + visionImageNote(imgFiles)
+	parts := []map[string]any{{"type": "text", "text": note + prompt}}
 	return append(parts, imgParts...)
 }
 
@@ -281,17 +313,6 @@ func handleChatFile(w http.ResponseWriter, r *http.Request) {
 	if _, ok := workspaceRel(abs); ok {
 		if st, err := os.Stat(abs); err == nil && !st.IsDir() {
 			localOK = true
-		}
-	}
-	// Le fichier n'est pas dans le workspace LOCAL mais l'IA pilote un POSTE
-	// DISTANT : les fichiers qu'elle y produit vivent là-bas, on les rapatrie depuis
-	// le poste (issue #33 remote). Les fichiers locaux (pièces jointes de
-	// l'utilisateur, par ex.) restent servis en local — priorité au local, le poste
-	// n'est qu'un repli.
-	if !localOK {
-		if slug := agentTargetSlug(); slug != "" {
-			handleChatFileNode(w, r, slug, rel)
-			return
 		}
 	}
 	if !localOK {
@@ -359,51 +380,6 @@ func handleChatFile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+url.PathEscape(name))
 	http.ServeFile(w, r, abs)
-}
-
-// handleChatFileNode sert un fichier d'un POSTE DISTANT (l'IA y opère). Même
-// contrat que handleChatFile mais la source est le poste : meta renvoie la taille
-// + `remote:true` (le client sait qu'il doit passer par les tranches base64, le
-// binaire brut ne peut pas être servi depuis ici), b64 relaie une tranche
-// rapatriée du poste. Le confinement au dossier autorisé est fait CÔTÉ POSTE
-// (ResolvePath), on ne suit donc pas de chemin local ici.
-func handleChatFileNode(w http.ResponseWriter, r *http.Request, slug, rel string) {
-	q := r.URL.Query()
-	if q.Get("meta") != "" {
-		f, err := nodeFetchFile(slug, rel, 0, 0)
-		if err != nil {
-			sendJSON(w, 404, map[string]any{"ok": false, "error": err.Error()})
-			return
-		}
-		sendJSON(w, 200, map[string]any{
-			"ok": true, "name": f.Name, "size": f.Size,
-			// remote → le navigateur récupère par tranches base64 (comme e2e) ; e2e
-			// signale en plus le tunnel chiffré, les deux peuvent coexister.
-			"remote": true,
-			"e2e":    r.Header.Get(e2eInnerHeader) != "",
-		})
-		return
-	}
-	if q.Get("b64") != "" {
-		off, _ := strconv.ParseInt(q.Get("offset"), 10, 64)
-		length, _ := strconv.ParseInt(q.Get("len"), 10, 64)
-		if length <= 0 || length > downloadChunkMax {
-			length = downloadChunkMax
-		}
-		f, err := nodeFetchFile(slug, rel, off, length)
-		if err != nil {
-			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
-			return
-		}
-		sendJSON(w, 200, map[string]any{
-			"ok": true, "name": f.Name, "size": f.Size, "offset": f.Offset,
-			"data": f.Data, "eof": f.EOF,
-		})
-		return
-	}
-	// Téléchargement binaire direct impossible depuis un poste (pas de fichier local
-	// à streamer) : le client passe toujours par meta puis b64 quand remote=true.
-	sendJSON(w, 400, map[string]any{"ok": false, "error": "fichier distant : utiliser le mode base64"})
 }
 
 type uploadReq struct {

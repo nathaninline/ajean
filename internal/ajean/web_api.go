@@ -596,7 +596,7 @@ func handleAgent(w http.ResponseWriter, r *http.Request) {
 	// ?project=<slug> : consulter la mémoire d'un AUTRE projet que l'actif, sans y
 	// basculer (bouton « Voir la mémoire » du menu ⋯ d'un projet). Vide/inconnu =
 	// projet actif. Seuls les champs mémoire (pages + mode) sont scopés ; le reste
-	// (agent/compact/machines) est machine-global.
+	// (agent/compact) est machine-global.
 	var out []map[string]any
 	var mode string
 	memScope(r.URL.Query().Get("project"), func() {
@@ -608,7 +608,7 @@ func handleAgent(w http.ResponseWriter, r *http.Request) {
 	if out == nil {
 		out = []map[string]any{}
 	}
-	sendJSON(w, 200, map[string]any{"enabled": agentEnabled(), "compact": compactEnabled(), "machines": machinesEnabled(), "mem_mode": mode, "pages": out, "skills": out})
+	sendJSON(w, 200, map[string]any{"enabled": agentEnabled(), "compact": compactEnabled(), "mem_mode": mode, "pages": out, "skills": out})
 }
 
 // memScope exécute fn dans le contexte mémoire d'un projet donné (pour voir/éditer
@@ -670,25 +670,6 @@ func handleCompactToggle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJSON(w, 200, map[string]any{"ok": true, "compact": compactEnabled()})
-}
-
-// handleMachinesToggle active/désactive la gestion autonome des machines
-// (config.env MACHINES). Off par défaut : sans ça, ni outils machines_* ni bloc
-// de prompt. Miroir de handleCompactToggle mais défaut inverse.
-func handleMachinesToggle(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		On bool `json:"on"`
-	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
-	val := ""
-	if req.On {
-		val = "on"
-	}
-	if err := SetConfigKey("MACHINES", val); err != nil {
-		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
-		return
-	}
-	sendJSON(w, 200, map[string]any{"ok": true, "machines": machinesEnabled()})
 }
 
 func handleAgentToggle(w http.ResponseWriter, r *http.Request) {

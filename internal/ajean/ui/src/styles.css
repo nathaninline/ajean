@@ -1637,10 +1637,6 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
 /* Menu ouvert : le + pivote en × (45°), c'est tout. */
 #plus-btn.open svg{transform:rotate(45deg)}
 @media (prefers-reduced-motion:reduce){#plus-btn svg{transition:none}}
-/* Indicateur « poste distant actif » : ondes wifi teintées accent, à gauche du +. */
-#node-indic{flex:none;display:none;align-items:center;justify-content:center;
-  width:26px;height:36px;color:var(--accent)}
-#node-indic svg{display:block}
 /* Pied de carte : c'est LUI qui porte l'arrondi bas (26 px, comme en haut) et
    qui clippe la jauge. Un bandeau de 7 px ne peut pas dessiner un rayon de 26 px
    (le navigateur l'écrase, d'où les coins bizarres) : on laisse donc la carte
@@ -1676,20 +1672,6 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
 #attach:hover{background:var(--row-bg-on);border-color:transparent;color:var(--text)}
 #attach:active{transform:scale(.9)}
 #attach svg{display:block}
-/* Bouton « Postes distants » du composeur : même gabarit que le trombone. L'icône
-   dépend de la cible active — écran (local) par défaut, ondes wifi quand un poste
-   distant est sélectionné, alors teinté en accent pour signaler « l'IA agit
-   ailleurs ». Les deux SVG coexistent ; on n'en montre qu'un via la classe. */
-#node-btn{width:18px;height:18px;min-height:18px;flex:none;margin:0;padding:0;
-  display:flex;align-items:center;justify-content:center;border-radius:999px;
-  background:transparent;border:1px solid transparent;color:var(--dim)}
-#node-btn:hover{background:var(--row-bg-on);border-color:transparent;color:var(--text)}
-#node-btn:active{transform:scale(.9)}
-#node-btn svg{display:block}
-#node-btn .ic-remote{display:none}
-#node-btn.remote{color:var(--accent)}
-#node-btn.remote .ic-here{display:none}
-#node-btn.remote .ic-remote{display:block}
 /* Chip « Projet actif » du composeur : dossier + nom, dans une pastille CADRÉE
    (contour net) plus grande que les autres icônes — c'est l'info « où je suis ». */
 #project-btn{height:26px;min-height:26px;flex:none;margin:0;padding:0 11px 0 9px;
@@ -1852,41 +1834,3 @@ button:hover{border-color:var(--dim);color:var(--text)}
 /* Conversation vide : un seul message centré à la place des réglages. */
 .xempty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:44px 20px;text-align:center;color:var(--text);font-size:14px}
 .xempty-i{font-size:30px;line-height:1;color:var(--dim);opacity:.7}
-
-/* Postes distants : cases de capacités, code d'appairage, commande. */
-.node-caps{display:flex;flex-wrap:wrap;gap:6px}
-/* Toggle chips : pilule contour (inactif) → pleine accent (actif). Pas de case à
-   cocher bleue système. */
-.node-cap{display:inline-flex;align-items:center;padding:6px 13px;border:1px solid var(--border);
-  border-radius:999px;font-size:12.5px;font-weight:500;color:var(--dim);cursor:pointer;user-select:none;
-  transition:background .12s,border-color .12s,color .12s}
-.node-cap input{display:none}
-.node-cap:has(input:checked){background:var(--accent);border-color:var(--accent);color:var(--bg)}
-@media (hover:hover){.node-cap:hover{border-color:var(--accent);color:var(--text)}.node-cap:has(input:checked):hover{color:var(--bg)}}
-.node-code{font-family:var(--mono,monospace);font-size:22px;font-weight:700;letter-spacing:3px;color:var(--accent);padding:8px 0}
-.node-cmd{white-space:pre-wrap;word-break:break-all;background:var(--code-bg);border:1px solid var(--border);border-radius:7px;padding:8px;margin:6px 0;font-size:12px}
-
-/* Poste distant : sélecteur de cible d'exécution, en SEGMENTED CONTROL minimal
-   (piste grise, segment actif surélevé). L'IA agit sur le segment sélectionné. */
-.node-seg-l{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);padding:2px 2px 6px}
-.node-seg{display:flex;gap:2px;background:var(--row-bg);border-radius:11px;padding:3px;margin-bottom:16px}
-.node-seg label{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:6px;
-  padding:8px 10px;border-radius:9px;font-size:12.5px;color:var(--dim);cursor:pointer;white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis;transition:background .12s,color .12s}
-.node-seg label:hover{color:var(--text)}
-.node-seg label.on{background:var(--bg);color:var(--text);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.06)}
-.node-seg label.off{opacity:.5}
-.node-seg label input{display:none}
-/* Lignes de postes : liste minimale (pas de cadre), voile au survol — comme les
-   conversations. Point d'état à gauche, nom + méta discrète, action au survol. */
-.node-row{display:flex;align-items:center;gap:11px;padding:10px;border-radius:10px;border:none;background:transparent;cursor:pointer}
-.node-row:hover{background:var(--row-bg)}
-.node-row.off{opacity:.55}
-.node-dot{flex:none;width:7px;height:7px;border-radius:50%;background:var(--accent)}
-.node-row.off .node-dot{background:var(--dim)}
-.node-info{flex:1;min-width:0}
-.node-nm{font-size:13.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.node-sub{font-size:11.5px;color:var(--dim);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.node-go{flex:none;display:flex;align-items:center;color:var(--dim);opacity:0;transition:opacity .12s}
-.node-row:hover .node-go{opacity:1}
-@media (hover:none){.node-go{opacity:.5}}

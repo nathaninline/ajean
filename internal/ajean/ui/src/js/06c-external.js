@@ -11,7 +11,7 @@ async function openExternal(id){
   extEditing = id || '';
   extKeyTouched = false;
   extHasKey = false;
-  let d = {name:'', url:'', model:'', hasKey:false};
+  let d = {name:'', url:'', model:'', hasKey:false, vision:false};
   if(id){
     try{ d = await jget('/api/preset/external?id='+encodeURIComponent(id)); }catch(e){}
   }
@@ -21,6 +21,7 @@ async function openExternal(id){
   document.getElementById('ext-url').value = d.url || '';
   document.getElementById('ext-model').value = d.model || '';
   document.getElementById('ext-ctx').value = d.ctx || '';
+  document.getElementById('ext-vision').checked = !!d.vision;
   const key = document.getElementById('ext-key');
   extHasKey = !!d.hasKey;
   key.value = '';
@@ -43,6 +44,7 @@ function extBody(){
     url: document.getElementById('ext-url').value.trim(),
     model: document.getElementById('ext-model').value.trim(),
     ctx: document.getElementById('ext-ctx').value.trim(),
+    vision: document.getElementById('ext-vision').checked,
     key: document.getElementById('ext-key').value,
     keyTouched: extKeyTouched,
   };
