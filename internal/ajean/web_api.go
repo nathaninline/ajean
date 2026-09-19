@@ -608,7 +608,7 @@ func handleAgent(w http.ResponseWriter, r *http.Request) {
 	if out == nil {
 		out = []map[string]any{}
 	}
-	sendJSON(w, 200, map[string]any{"enabled": agentEnabled(), "compact": compactEnabled(), "mem_mode": mode, "pages": out, "skills": out})
+	sendJSON(w, 200, map[string]any{"enabled": agentEnabled(), "compact": compactEnabled(), "mem_mode": mode, "computer": computerUseEnabled(), "pages": out, "skills": out})
 }
 
 // memScope exécute fn dans le contexte mémoire d'un projet donné (pour voir/éditer
@@ -682,6 +682,34 @@ func handleAgentToggle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJSON(w, 200, map[string]any{"ok": true, "enabled": agentEnabled()})
+}
+
+// handleComputer pilote le computer use (pilotage d'un navigateur de l'hôte).
+//
+//	GET  → {enabled, browser, browser_ok, vision}
+//	POST {on} → active/désactive (et ferme le navigateur quand on coupe).
+func handleComputer(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		var req struct {
+			On bool `json:"on"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if err := setComputerUseEnabled(req.On); err != nil {
+			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		if !req.On {
+			cdpShutdown()
+		}
+	}
+	bin := chromePath()
+	sendJSON(w, 200, map[string]any{
+		"ok":         true,
+		"enabled":    computerUseEnabled(),
+		"browser":    bin,
+		"browser_ok": bin != "",
+		"vision":     visionEnabled(),
+	})
 }
 
 // handleInternet pilote l'accès web de l'IA (serveur Crawl4AI).
@@ -1358,6 +1386,8 @@ type chatReq struct {
 	Skills *bool `json:"skills"`
 	// Surcharge par requête de l'accès internet (outils web).
 	Internet *bool `json:"internet"`
+	// Surcharge par requête du computer use (outils cu_*).
+	Computer *bool `json:"computer"`
 	// Message = texte du tour à lancer (/api/chat/send) ; From = dernier Seq déjà
 	// vu par le client (le flux d'abonnement rejoue Log[From:] puis suit le direct).
 	Message string `json:"message"`

@@ -1834,3 +1834,6 @@ button:hover{border-color:var(--dim);color:var(--text)}
 /* Conversation vide : un seul message centré à la place des réglages. */
 .xempty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:44px 20px;text-align:center;color:var(--text);font-size:14px}
 .xempty-i{font-size:30px;line-height:1;color:var(--dim);opacity:.7}
+
+/* Capture (browser_screenshot) insérée en ![](fichier.png) : résolue vers le dossier de travail par markWorkspaceImages. */
+.chat-img{max-width:100%;height:auto;border-radius:8px;display:block;margin:8px 0;border:1px solid var(--border)}

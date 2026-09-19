@@ -1864,6 +1864,9 @@ button:hover{border-color:var(--dim);color:var(--text)}
 /* Conversation vide : un seul message centré à la place des réglages. */
 .xempty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:44px 20px;text-align:center;color:var(--text);font-size:14px}
 .xempty-i{font-size:30px;line-height:1;color:var(--dim);opacity:.7}
+
+/* Capture (browser_screenshot) insérée en ![](fichier.png) : résolue vers le dossier de travail par markWorkspaceImages. */
+.chat-img{max-width:100%;height:auto;border-radius:8px;display:block;margin:8px 0;border:1px solid var(--border)}
 </style></head><body>
 <button id="menubtn" onclick="toggleSide()">☰</button>
 <!-- Installation d'un moteur en cours : le détail vit dans le panneau, qui est
@@ -1957,6 +1960,15 @@ button:hover{border-color:var(--dim);color:var(--text)}
             <div id="crawl-key-state" class="muted" style="font-size:11px;margin-top:3px"></div>
           </div>
           <div id="internet-status" class="muted" style="font-size:11px;margin-top:4px"></div>
+        </div>
+      </div>
+    </div>
+    <div id="cu-block" class="gated-group">
+      <div class="subhead"><span data-i18n="computer.title">Contrôle du navigateur</span><span id="cu-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="computer.help" data-i18n-html>Donne à l'IA le contrôle d'un <b>navigateur</b> sur cette machine (outils <b>browser_open / browser_click / browser_type / browser_key / browser_scroll</b>). L'IA lit les éléments <b>numérotés</b> de la page et agit par numéro — aucune vision requise, ça marche avec de petits modèles. <code>browser_screenshot</code> s'ajoute si la vision est active. Nécessite Chrome/Chromium/Edge installé. Actif seulement si le <b>mode agent</b> est actif.</span></span></div>
+      <div class="slist">
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="cu-toggle" onchange="toggleComputer()"><span class="slider"></span></span> <span data-i18n="computer.toggle_label">laisser l'IA piloter un navigateur</span></label>
+        <div class="rowbody">
+          <div id="cu-status" class="muted" style="font-size:11px"></div>
         </div>
       </div>
     </div>
@@ -3225,6 +3237,14 @@ fr: {
   "internet.title": "Accès internet",
   "internet.help": "Ajoute les outils <b>web_search / web_open / web_read / web_grep</b>. Le moteur <b>intégré</b> ne demande aucune installation. Le moteur <b>Crawl4AI</b> exige un serveur que tu héberges toi-même (ex. <code>docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest</code>) mais exécute le JavaScript des pages. Actifs seulement si le <b>mode agent</b> est actif.",
   "internet.toggle_label": "donner internet à l'IA",
+  "computer.title": "Contrôle du navigateur",
+  "computer.help": "Donne à l'IA le contrôle d'un <b>navigateur</b> sur cette machine (outils <b>browser_open / browser_find / browser_click / browser_type / browser_key / browser_scroll</b>). L'IA lit les éléments <b>numérotés</b> de la page et agit par numéro — aucune vision requise, ça marche avec de petits modèles. <code>browser_screenshot</code> s'ajoute si la vision est active. Nécessite Chrome/Chromium/Edge installé. Actif seulement si le <b>mode agent</b> est actif.",
+  "computer.toggle_label": "laisser l'IA piloter un navigateur",
+  "settings.computer.disabled": "inactif : l'IA n'a aucun outil de navigateur (rien ne change tant que c'est décoché).",
+  "settings.computer.no_browser_hint": "Aucun navigateur détecté sur la machine.",
+  "settings.computer.no_browser": "aucun Chrome/Chromium/Edge détecté ; installe-le ou définis AJEAN_CHROME.",
+  "settings.computer.browser_ready": "navigateur prêt, outils de contrôle actifs.",
+  "settings.computer.no_vision": "vision inactive : browser_screenshot indisponible",
   "internet.engine_builtin": "Moteur Intégré",
   "internet.engine_crawl4ai": "Crawl4AI",
   "internet.crawl_key_placeholder": "clé API (si le serveur en exige une)",
@@ -4005,6 +4025,16 @@ fr: {
   "chat.tool.web_read_head": "lecture",
   "chat.tool.web_grep_lbl": "Recherche dans page",
   "chat.tool.web_grep_head": "recherche",
+  "chat.tool.cu_head": "navigateur",
+  "chat.tool.browser_open_lbl": "Ouvre une page",
+  "chat.tool.browser_snapshot_lbl": "Lit la page",
+  "chat.tool.browser_find_lbl": "Cherche un élément",
+  "chat.tool.browser_click_lbl": "Clic",
+  "chat.tool.browser_click_xy_lbl": "Clic (position)",
+  "chat.tool.browser_type_lbl": "Saisie",
+  "chat.tool.browser_key_lbl": "Touche",
+  "chat.tool.browser_scroll_lbl": "Défilement",
+  "chat.tool.browser_screenshot_lbl": "Capture d'écran",
   "chat.tool.mem_search_lbl": "Recherche mémoire",
   "chat.tool.mem_search_head": "recherche mémoire",
   "chat.tool.mem_read_lbl": "Lecture mémoire",
@@ -4318,6 +4348,14 @@ en: {
   "internet.title": "Internet access",
   "internet.help": "Adds the <b>web_search / web_open / web_read / web_grep</b> tools. The <b>built-in</b> engine requires no installation. The <b>Crawl4AI</b> engine needs a server you host yourself (e.g. <code>docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest</code>) but it runs pages' JavaScript. Only active if <b>agent mode</b> is on.",
   "internet.toggle_label": "give the AI internet access",
+  "computer.title": "Browser control",
+  "computer.help": "Lets the AI drive a <b>browser</b> on this machine (<b>browser_open / browser_find / browser_click / browser_type / browser_key / browser_scroll</b> tools). The AI reads the page's <b>numbered</b> elements and acts by number — no vision required, works with small models. <code>browser_screenshot</code> is added when vision is active. Requires Chrome/Chromium/Edge installed. Only active if <b>agent mode</b> is on.",
+  "computer.toggle_label": "let the AI drive a browser",
+  "settings.computer.disabled": "off: the AI has no browser tools (nothing changes while unchecked).",
+  "settings.computer.no_browser_hint": "No browser detected on the machine.",
+  "settings.computer.no_browser": "no Chrome/Chromium/Edge found; install one or set AJEAN_CHROME.",
+  "settings.computer.browser_ready": "browser ready, control tools active.",
+  "settings.computer.no_vision": "vision off: browser_screenshot unavailable",
   "internet.engine_builtin": "Built-in Engine",
   "internet.engine_crawl4ai": "Crawl4AI",
   "internet.crawl_key_placeholder": "API key (if the server requires one)",
@@ -5098,6 +5136,16 @@ en: {
   "chat.tool.web_read_head": "read",
   "chat.tool.web_grep_lbl": "Search in page",
   "chat.tool.web_grep_head": "search",
+  "chat.tool.cu_head": "browser",
+  "chat.tool.browser_open_lbl": "Open a page",
+  "chat.tool.browser_snapshot_lbl": "Read the page",
+  "chat.tool.browser_find_lbl": "Find an element",
+  "chat.tool.browser_click_lbl": "Click",
+  "chat.tool.browser_click_xy_lbl": "Click (position)",
+  "chat.tool.browser_type_lbl": "Type",
+  "chat.tool.browser_key_lbl": "Key",
+  "chat.tool.browser_scroll_lbl": "Scroll",
+  "chat.tool.browser_screenshot_lbl": "Screenshot",
   "chat.tool.mem_search_lbl": "Memory search",
   "chat.tool.mem_search_head": "memory search",
   "chat.tool.mem_read_lbl": "Memory read",
@@ -6417,7 +6465,7 @@ async function backupRestore(){
 // les outils mem_* ni les outils web ne sont fournis (voir globalCaps côté Go). On
 // grise donc ces blocs quand l'agent est off pour que l'UI ne mente pas.
 function setAgentGate(on){
-  ['mem-block','net-block','mcp-block'].forEach(id=>{
+  ['mem-block','net-block','cu-block','mcp-block'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.classList.toggle('gated', !on);
   });
   // « Paramètres » n'a plus de wrapper gaté (la notification y cohabite mais reste
@@ -6562,6 +6610,24 @@ function renderInternet(s){
   else { st.innerHTML='⚠ '+t('settings.internet.server_unreachable'); }
 }
 async function loadInternet(){ renderInternet(await jget('/api/internet')); }
+// Computer use : pilotage d'un navigateur de l'hôte (outils cu_*). La pastille ne
+// signale que l'anomalie — activé mais aucun navigateur détecté sur la machine.
+function renderComputer(s){
+  const tg=document.getElementById('cu-toggle'); if(tg) tg.checked=!!s.enabled;
+  if(s.enabled && !s.browser_ok) setBadge('cu-badge','warn','navigateur introuvable');
+  else setBadge('cu-badge', null);
+  const st=document.getElementById('cu-status'); if(!st) return;
+  // Le statut DÉPEND de l'interrupteur : décoché, on ne prétend surtout pas que
+  // c'est actif (sinon confusion). On indique juste si un navigateur est présent.
+  if(!s.enabled){ st.textContent=t('settings.computer.disabled')+(s.browser_ok?'':(' '+t('settings.computer.no_browser_hint'))); return; }
+  if(!s.browser_ok){ st.innerHTML='⚠ '+t('settings.computer.no_browser'); return; }
+  st.innerHTML='<span style="color:var(--accent)">✓</span> '+t('settings.computer.browser_ready')+(s.vision?'':(' · '+t('settings.computer.no_vision')));
+}
+async function loadComputer(){ renderComputer(await jget('/api/computer')); }
+async function toggleComputer(){
+  const on=document.getElementById('cu-toggle').checked;
+  renderComputer(await jpost('/api/computer',{on}));
+}
 // --- Accès OpenAI (endpoint /v1 + clé API des complétions) -----------------
 let OAI_KEY='', OAI_REVEAL=false;
 async function copyText(txt, msg){
@@ -6745,7 +6811,7 @@ async function loadAll(){
   // allSettled et pas all : un seul chargement en échec (accès distant coupé,
   // clé API absente…) ne doit pas empêcher la suite — et surtout pas laisser les
   // hauteurs réservées en place pour toujours.
-  await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadRemote(),loadTasks()]);
+  await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadComputer(),loadMCP(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadRemote(),loadTasks()]);
   releaseHeights(); // tout est en place : on rend la main et on mesure pour la prochaine fois
 }
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }
@@ -8425,7 +8491,7 @@ function setStats(el, text){
 }
 function bodyOf(el){ return el.querySelector('.body'); }
 // Render markdown into a message body in place; safe because md() escapes HTML.
-function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(encodeMdLinkSpaces(text)); markNotices(b); addCopyButtons(b); markFileLinks(b); scrollMaybe(); }
+function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(encodeMdLinkSpaces(text)); markNotices(b); addCopyButtons(b); markFileLinks(b); markWorkspaceImages(b); scrollMaybe(); }
 // Render a tool call as its own conversation message: the command the model
 // wrote, then the response it got back. textContent keeps it injection-safe.
 function renderToolMsg(el, tu){
@@ -8453,6 +8519,15 @@ function renderToolMsg(el, tu){
     task_update:{ico:'clock',    lbl:t('chat.tool.task_update_lbl'),     head:t('chat.tool.task_update_head')},
     task_delete:{ico:'clock',    lbl:t('chat.tool.task_delete_lbl'),     head:t('chat.tool.task_delete_head')},
     see_image:  {ico:'image',    lbl:t('chat.tool.see_image_lbl'),       head:t('chat.tool.see_image_head')},
+    browser_open:      {ico:'globe',  lbl:t('chat.tool.browser_open_lbl'),         head:t('chat.tool.cu_head')},
+    browser_snapshot:  {ico:'globe',  lbl:t('chat.tool.browser_snapshot_lbl'),     head:t('chat.tool.cu_head')},
+    browser_find:      {ico:'search', lbl:t('chat.tool.browser_find_lbl'),         head:t('chat.tool.cu_head')},
+    browser_click:     {ico:'globe',  lbl:t('chat.tool.browser_click_lbl'),        head:t('chat.tool.cu_head')},
+    browser_click_xy:  {ico:'globe',  lbl:t('chat.tool.browser_click_xy_lbl'),     head:t('chat.tool.cu_head')},
+    browser_type:      {ico:'edit',   lbl:t('chat.tool.browser_type_lbl'),         head:t('chat.tool.cu_head')},
+    browser_key:       {ico:'globe',  lbl:t('chat.tool.browser_key_lbl'),          head:t('chat.tool.cu_head')},
+    browser_scroll:    {ico:'globe',  lbl:t('chat.tool.browser_scroll_lbl'),       head:t('chat.tool.cu_head')},
+    browser_screenshot:{ico:'image',  lbl:t('chat.tool.browser_screenshot_lbl'),   head:t('chat.tool.cu_head')},
     machines_list:{ico:'monitor', lbl:t('chat.tool.machines_list_lbl'),  head:t('chat.tool.machines_list_head')},
     machines_use: {ico:'monitor', lbl:t('chat.tool.machines_use_lbl'),   head:t('chat.tool.machines_use_head')},
     tracker:    {ico:'trend',     lbl:t('chat.tool.tracker_lbl'),        head:t('chat.tool.tracker_head')},
@@ -10503,6 +10578,29 @@ function markFileLinks(root){
     const name=p.split('/').pop();
     a.title=t('attach.download_title_prefix')+name;
     a.onclick=(e)=>{ e.preventDefault(); downloadWorkspaceFile(p, name, a); };
+  }
+}
+// Le modèle écrit parfois une capture en syntaxe IMAGE Markdown ![](fichier.png)
+// (ex. browser_screenshot). Le src relatif ne pointe vers aucune URL servable →
+// image cassée (petit carré « ? », vu par Alice). On résout donc ces <img> vers
+// le dossier de travail, comme markFileLinks le fait pour les liens : on récupère
+// le blob (E2E-safe via getWorkspaceBlob) et on l'affiche inline.
+const WS_IMG_CACHE = {}; // path -> objectURL, pour ne PAS re-télécharger à chaque re-render du streaming
+function cssEsc(s){ try{ return CSS.escape(s); }catch(_){ return s.replace(/["\\]/g,'\\$&'); } }
+function markWorkspaceImages(root){
+  for(const img of root.querySelectorAll('img[src]')){
+    const p=fileLinkPath(img.getAttribute('src'));
+    if(!p) continue;
+    img.classList.add('chat-img');
+    if(!img.getAttribute('alt')) img.alt=p.split('/').pop();
+    if(WS_IMG_CACHE[p]){ img.src=WS_IMG_CACHE[p]; continue; }
+    img.removeAttribute('src');            // évite le flash « image cassée »
+    img.setAttribute('data-wsimg', p);
+    getWorkspaceBlob(p).then(blob=>{
+      const url=URL.createObjectURL(blob); WS_IMG_CACHE[p]=url;
+      // l'<img> a pu être recréé par un re-render du markdown : on recible par data-wsimg.
+      document.querySelectorAll('img[data-wsimg="'+cssEsc(p)+'"]').forEach(i=>{ i.src=url; });
+    }).catch(()=>{});
   }
 }
 function attachListEl(){ return document.getElementById('attach-list'); }

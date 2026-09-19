@@ -253,7 +253,7 @@ function setStats(el, text){
 }
 function bodyOf(el){ return el.querySelector('.body'); }
 // Render markdown into a message body in place; safe because md() escapes HTML.
-function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(encodeMdLinkSpaces(text)); markNotices(b); addCopyButtons(b); markFileLinks(b); scrollMaybe(); }
+function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(encodeMdLinkSpaces(text)); markNotices(b); addCopyButtons(b); markFileLinks(b); markWorkspaceImages(b); scrollMaybe(); }
 // Render a tool call as its own conversation message: the command the model
 // wrote, then the response it got back. textContent keeps it injection-safe.
 function renderToolMsg(el, tu){
@@ -281,6 +281,15 @@ function renderToolMsg(el, tu){
     task_update:{ico:'clock',    lbl:t('chat.tool.task_update_lbl'),     head:t('chat.tool.task_update_head')},
     task_delete:{ico:'clock',    lbl:t('chat.tool.task_delete_lbl'),     head:t('chat.tool.task_delete_head')},
     see_image:  {ico:'image',    lbl:t('chat.tool.see_image_lbl'),       head:t('chat.tool.see_image_head')},
+    browser_open:      {ico:'globe',  lbl:t('chat.tool.browser_open_lbl'),         head:t('chat.tool.cu_head')},
+    browser_snapshot:  {ico:'globe',  lbl:t('chat.tool.browser_snapshot_lbl'),     head:t('chat.tool.cu_head')},
+    browser_find:      {ico:'search', lbl:t('chat.tool.browser_find_lbl'),         head:t('chat.tool.cu_head')},
+    browser_click:     {ico:'globe',  lbl:t('chat.tool.browser_click_lbl'),        head:t('chat.tool.cu_head')},
+    browser_click_xy:  {ico:'globe',  lbl:t('chat.tool.browser_click_xy_lbl'),     head:t('chat.tool.cu_head')},
+    browser_type:      {ico:'edit',   lbl:t('chat.tool.browser_type_lbl'),         head:t('chat.tool.cu_head')},
+    browser_key:       {ico:'globe',  lbl:t('chat.tool.browser_key_lbl'),          head:t('chat.tool.cu_head')},
+    browser_scroll:    {ico:'globe',  lbl:t('chat.tool.browser_scroll_lbl'),       head:t('chat.tool.cu_head')},
+    browser_screenshot:{ico:'image',  lbl:t('chat.tool.browser_screenshot_lbl'),   head:t('chat.tool.cu_head')},
     machines_list:{ico:'monitor', lbl:t('chat.tool.machines_list_lbl'),  head:t('chat.tool.machines_list_head')},
     machines_use: {ico:'monitor', lbl:t('chat.tool.machines_use_lbl'),   head:t('chat.tool.machines_use_head')},
     tracker:    {ico:'trend',     lbl:t('chat.tool.tracker_lbl'),        head:t('chat.tool.tracker_head')},

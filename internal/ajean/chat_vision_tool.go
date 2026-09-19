@@ -50,11 +50,17 @@ func toolSeeImage(path string) (string, map[string]any) {
 	// Même préparation que les pièces jointes : orientation EXIF redressée et image
 	// redimensionnée sous maxImageDim (base64 + tokens visuels).
 	b, mime = prepareImageForModel(b, mime)
-	imgPart := map[string]any{
+	return "[ok] image chargée : " + filepath.Base(abs), imageURLPart(b, mime)
+}
+
+// imageURLPart construit la partie multimodale {type:image_url, image_url:{url}}
+// à partir d'octets image déjà préparés — le SEUL format qu'un llama-server
+// --mmproj comprend. Partagé par see_image et browser_screenshot.
+func imageURLPart(b []byte, mime string) map[string]any {
+	return map[string]any{
 		"type": "image_url",
 		"image_url": map[string]any{
 			"url": "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(b),
 		},
 	}
-	return "[ok] image chargée : " + filepath.Base(abs), imgPart
 }

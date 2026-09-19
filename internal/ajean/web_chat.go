@@ -32,9 +32,13 @@ func capsFromBody(body chatReq) Caps {
 	if body.Internet != nil {
 		caps.Internet = caps.Internet && *body.Internet
 	}
+	if body.Computer != nil {
+		caps.ComputerUse = caps.ComputerUse && *body.Computer
+	}
 	// Les outils dépendent du mode agent : agent coupé, tout est coupé.
 	if !caps.Agent {
 		caps.Internet = false
+		caps.ComputerUse = false
 	}
 	return caps
 }

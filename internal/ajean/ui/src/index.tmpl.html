@@ -125,6 +125,15 @@
         </div>
       </div>
     </div>
+    <div id="cu-block" class="gated-group">
+      <div class="subhead"><span data-i18n="computer.title">Contrôle du navigateur</span><span id="cu-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="computer.help" data-i18n-html>Donne à l'IA le contrôle d'un <b>navigateur</b> sur cette machine (outils <b>browser_open / browser_click / browser_type / browser_key / browser_scroll</b>). L'IA lit les éléments <b>numérotés</b> de la page et agit par numéro — aucune vision requise, ça marche avec de petits modèles. <code>browser_screenshot</code> s'ajoute si la vision est active. Nécessite Chrome/Chromium/Edge installé. Actif seulement si le <b>mode agent</b> est actif.</span></span></div>
+      <div class="slist">
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="cu-toggle" onchange="toggleComputer()"><span class="slider"></span></span> <span data-i18n="computer.toggle_label">laisser l'IA piloter un navigateur</span></label>
+        <div class="rowbody">
+          <div id="cu-status" class="muted" style="font-size:11px"></div>
+        </div>
+      </div>
+    </div>
     <div id="mcp-block" class="gated-group">
       <div class="subhead"><span data-i18n="mcp.title">MCP servers</span><span id="mcp-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="mcp.help" data-i18n-html>Connecte des <b>serveurs MCP</b> (Model Context Protocol) pour donner de nouveaux outils à l'IA : accès fichiers, bases de données, APIs métier… <b>stdio</b> = programme lancé localement (npx/uvx/binaire) · <b>http</b> = serveur distant. ⚠ un serveur stdio exécute du code sur cette machine, au même titre que le shell.</span></span></div>
       <div class="slist">

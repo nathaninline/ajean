@@ -231,6 +231,29 @@ function markFileLinks(root){
     a.onclick=(e)=>{ e.preventDefault(); downloadWorkspaceFile(p, name, a); };
   }
 }
+// Le modèle écrit parfois une capture en syntaxe IMAGE Markdown ![](fichier.png)
+// (ex. browser_screenshot). Le src relatif ne pointe vers aucune URL servable →
+// image cassée (petit carré « ? », vu par Alice). On résout donc ces <img> vers
+// le dossier de travail, comme markFileLinks le fait pour les liens : on récupère
+// le blob (E2E-safe via getWorkspaceBlob) et on l'affiche inline.
+const WS_IMG_CACHE = {}; // path -> objectURL, pour ne PAS re-télécharger à chaque re-render du streaming
+function cssEsc(s){ try{ return CSS.escape(s); }catch(_){ return s.replace(/["\\]/g,'\\$&'); } }
+function markWorkspaceImages(root){
+  for(const img of root.querySelectorAll('img[src]')){
+    const p=fileLinkPath(img.getAttribute('src'));
+    if(!p) continue;
+    img.classList.add('chat-img');
+    if(!img.getAttribute('alt')) img.alt=p.split('/').pop();
+    if(WS_IMG_CACHE[p]){ img.src=WS_IMG_CACHE[p]; continue; }
+    img.removeAttribute('src');            // évite le flash « image cassée »
+    img.setAttribute('data-wsimg', p);
+    getWorkspaceBlob(p).then(blob=>{
+      const url=URL.createObjectURL(blob); WS_IMG_CACHE[p]=url;
+      // l'<img> a pu être recréé par un re-render du markdown : on recible par data-wsimg.
+      document.querySelectorAll('img[data-wsimg="'+cssEsc(p)+'"]').forEach(i=>{ i.src=url; });
+    }).catch(()=>{});
+  }
+}
 function attachListEl(){ return document.getElementById('attach-list'); }
 function renderAttach(){
   const el = attachListEl(); if(!el) return;

@@ -330,7 +330,7 @@ async function backupRestore(){
 // les outils mem_* ni les outils web ne sont fournis (voir globalCaps côté Go). On
 // grise donc ces blocs quand l'agent est off pour que l'UI ne mente pas.
 function setAgentGate(on){
-  ['mem-block','net-block','mcp-block'].forEach(id=>{
+  ['mem-block','net-block','cu-block','mcp-block'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.classList.toggle('gated', !on);
   });
   // « Paramètres » n'a plus de wrapper gaté (la notification y cohabite mais reste
@@ -475,6 +475,24 @@ function renderInternet(s){
   else { st.innerHTML='⚠ '+t('settings.internet.server_unreachable'); }
 }
 async function loadInternet(){ renderInternet(await jget('/api/internet')); }
+// Computer use : pilotage d'un navigateur de l'hôte (outils cu_*). La pastille ne
+// signale que l'anomalie — activé mais aucun navigateur détecté sur la machine.
+function renderComputer(s){
+  const tg=document.getElementById('cu-toggle'); if(tg) tg.checked=!!s.enabled;
+  if(s.enabled && !s.browser_ok) setBadge('cu-badge','warn','navigateur introuvable');
+  else setBadge('cu-badge', null);
+  const st=document.getElementById('cu-status'); if(!st) return;
+  // Le statut DÉPEND de l'interrupteur : décoché, on ne prétend surtout pas que
+  // c'est actif (sinon confusion). On indique juste si un navigateur est présent.
+  if(!s.enabled){ st.textContent=t('settings.computer.disabled')+(s.browser_ok?'':(' '+t('settings.computer.no_browser_hint'))); return; }
+  if(!s.browser_ok){ st.innerHTML='⚠ '+t('settings.computer.no_browser'); return; }
+  st.innerHTML='<span style="color:var(--accent)">✓</span> '+t('settings.computer.browser_ready')+(s.vision?'':(' · '+t('settings.computer.no_vision')));
+}
+async function loadComputer(){ renderComputer(await jget('/api/computer')); }
+async function toggleComputer(){
+  const on=document.getElementById('cu-toggle').checked;
+  renderComputer(await jpost('/api/computer',{on}));
+}
 // --- Accès OpenAI (endpoint /v1 + clé API des complétions) -----------------
 let OAI_KEY='', OAI_REVEAL=false;
 async function copyText(txt, msg){
@@ -658,7 +676,7 @@ async function loadAll(){
   // allSettled et pas all : un seul chargement en échec (accès distant coupé,
   // clé API absente…) ne doit pas empêcher la suite — et surtout pas laisser les
   // hauteurs réservées en place pour toujours.
-  await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadMCP(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadRemote(),loadTasks()]);
+  await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadComputer(),loadMCP(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadRemote(),loadTasks()]);
   releaseHeights(); // tout est en place : on rend la main et on mesure pour la prochaine fois
 }
 async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }

@@ -109,6 +109,9 @@ func baseSystemPrompt(caps Caps) string {
 		b.WriteString("Your training data is stale. For ANY question about recent/latest/current things (releases, versions, news, prices, scores, 'since when') call web_search BEFORE writing any date or version, and match what you actually read.\n")
 		b.WriteString("Today is in " + year + ". If a query needs a year use ONLY " + year + ", never a remembered past year like " + prevYear(year) + " — it biases results toward stale pages; better still, omit the year. Don't hedge ('probably') about a fact a tool can verify — search instead.\n")
 	}
+	if caps.Agent && caps.ComputerUse {
+		b.WriteString(cuPromptLine())
+	}
 	if caps.Agent {
 		if line := mcpPromptLine(); line != "" {
 			b.WriteString(line)

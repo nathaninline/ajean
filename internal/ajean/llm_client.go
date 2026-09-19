@@ -252,6 +252,9 @@ type Caps struct {
 	// Mem = mode d'accès à la mémoire persistante (off / ondemand / always),
 	// indépendant du mode agent. Voir MemMode.
 	Mem MemMode
+	// ComputerUse = pilotage d'un navigateur de la machine hôte (outils cu_*).
+	// Requiert aussi Agent (mêmes actions réelles que bash). Voir computer_use.go.
+	ComputerUse bool
 }
 
 // globalCaps reads the machine-wide config — the default when a request doesn't
@@ -269,7 +272,7 @@ func globalCaps() Caps {
 	if !agent {
 		return Caps{Agent: false, Internet: false, Mem: MemOff}
 	}
-	return Caps{Agent: true, Internet: internetEnabled() && crawlReachable(), Mem: memMode()}
+	return Caps{Agent: true, Internet: internetEnabled() && crawlReachable(), Mem: memMode(), ComputerUse: computerUseEnabled()}
 }
 
 // InjectSkills prepends context system messages to msgs: the decisive-agent
@@ -379,6 +382,11 @@ func EnabledTools(caps Caps) []Tool {
 	if caps.Agent && caps.Internet {
 		tools = append(tools, webSearchTool(), webOpenTool(), webReadTool(), webGrepTool())
 	}
+	// Outils computer use : pilotage d'un navigateur de la machine hôte. Comme
+	// bash, actions réelles → réservé au mode agent (voir computer_use.go).
+	if caps.Agent && caps.ComputerUse {
+		tools = append(tools, computerUseTools()...)
+	}
 	// Outils MCP : serveurs tiers configurés par le propriétaire de la machine.
 	// Comme bash, ils exécutent du code arbitraire côté hôte → réservés au mode
 	// agent. La découverte est paresseuse et cachée (voir mcp_client.go).
@@ -467,8 +475,20 @@ func shownResult(s string) string {
 // le résultat change parce que le fichier a changé. La dédup la bloquait par un
 // « [déjà fait] » exaspérant. bash a des effets de bord : on le laisse toujours
 // s'exécuter.
+//
+// FAUX aussi pour tout le computer use (cu_*) et see_image :
+//   - leur résultat dépend de l'ÉTAT VIVANT de la page (un browser_snapshot/browser_screenshot
+//     sans argument renvoie forcément la même clé de dédup à chaque fois, alors que
+//     la page a changé) — les dédupliquer figeait l'IA sur un vieux cliché ;
+//   - surtout, browser_screenshot et see_image portent leur IMAGE dans un message à part
+//     (visionImg), que le chemin de dédup ne rejoue PAS : l'IA recevait « [déjà fait] »
+//     SANS l'image et tournait en boucle (vécu sur le test de navigation). Ces outils ont des
+//     effets de bord (naviguer, cliquer, taper) : on les exécute toujours.
 func dedupableTool(name string) bool {
-	return name != "bash"
+	if name == "bash" || name == "see_image" {
+		return false
+	}
+	return !strings.HasPrefix(name, "browser_")
 }
 
 // repeatedCallResult construit ce qu'on renvoie quand le modèle redemande un
@@ -1321,6 +1341,24 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					result = capWebOutput(toolWebRead(args))
 				case "web_grep":
 					result = capWebOutput(toolWebGrep(args))
+				case "browser_open":
+					result = capCUOutput(toolCUOpen(args))
+				case "browser_snapshot":
+					result = capCUOutput(toolCUSnapshot())
+				case "browser_find":
+					result = capCUOutput(toolCUFind(args))
+				case "browser_click":
+					result = capCUOutput(toolCUClick(args))
+				case "browser_click_xy":
+					result = capCUOutput(toolCUClickXY(args))
+				case "browser_type":
+					result = capCUOutput(toolCUType(args))
+				case "browser_key":
+					result = capCUOutput(toolCUKey(args))
+				case "browser_scroll":
+					result = capCUOutput(toolCUScroll(args))
+				case "browser_screenshot":
+					result, visionImg = toolCUScreenshot()
 				default:
 					if isMCPTool(tc.Function.Name) {
 						result = mcpCall(tc.Function.Name, args)
@@ -1340,8 +1378,14 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				// utilisateur multimodal juste après (même format que les pièces
 				// jointes, compris par --mmproj), et le tour reprend en la voyant.
 				if visionImg != nil {
+					// Libellé sans parenthèses vides : browser_screenshot n'a pas d'argument
+					// (label=""), see_image porte le chemin du fichier.
+					imgText := "Image :"
+					if label != "" {
+						imgText = "Image demandée (" + label + ") :"
+					}
 					imgMsg := Message{Role: "user", Content: []map[string]any{
-						{"type": "text", "text": "Image demandée (" + label + ") :"},
+						{"type": "text", "text": imgText},
 						visionImg,
 					}}
 					messages = append(messages, imgMsg)

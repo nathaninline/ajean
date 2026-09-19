@@ -197,6 +197,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/link/disconnect", handleLinkDisconnect) // arrête le lien + oublie la clé
 	api("/api/link/paircode", handleLinkPairCode)     // code d'appairage + empreinte pour la 1re connexion
 	api("/api/internet", handleInternet)
+	api("/api/computer", handleComputer)
 	api("/api/mcp", handleMCP)
 	api("/api/mcp/save", handleMCPSave)
 	api("/api/mcp/delete", handleMCPDelete)

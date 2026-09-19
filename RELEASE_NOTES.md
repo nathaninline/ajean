@@ -1,24 +1,14 @@
-Prise en charge des images avec les modèles distants, retrait de la gestion des postes distants, et corrections autour des pièces jointes.
+Nouvelle fonctionnalité de contrôle du navigateur, qui permet à l'IA de piloter un navigateur web sur la machine hôte, et affichage des images directement dans le chat.
 
-## Images et modèles multimodaux via une API externe
+## Contrôle du navigateur
 
-Un preset « API externe » (modèle servi par une API compatible OpenAI, y compris un autre serveur AJEAN) peut désormais être déclaré multimodal, via une case « le modèle accepte les images » dans sa fenêtre de configuration. Quand elle est cochée, les images jointes à un message sont envoyées au modèle distant pour qu'il les voie, et l'outil de vision (chargement d'une image du disque) lui est proposé. Auparavant, seul un projecteur multimodal local pouvait activer la vision : un modèle distant pourtant capable de voir se voyait refuser les images.
+Un nouvel axe de capacité, activable sous le mode agent depuis les réglages, donne à l'IA la possibilité de piloter un navigateur Chrome, Chromium ou Edge installé sur la machine hôte. L'IA ouvre une adresse, lit les éléments interactifs de la page sous forme de liste numérotée (aucune vision requise), puis agit par numéro : cliquer, saisir du texte, choisir dans une liste déroulante, appuyer sur une touche, faire défiler. Elle peut aussi capturer la page, rechercher un élément situé hors de la vue, et cliquer par coordonnées un élément qu'aucun numéro ne couvre (bandeau de consentement dans une iframe, canvas). L'approche par éléments numérotés fonctionne avec de petits modèles et une faible consommation de contexte.
 
-## Images jointes utilisables, pas seulement visibles
+La fonctionnalité s'ajoute aux réglages sous le mode agent et nécessite un navigateur installé sur la machine. Tant qu'elle est désactivée, aucun outil n'est proposé au modèle et aucun navigateur n'est lancé : le comportement reste identique aux versions précédentes.
 
-Lorsque la vision est active, une image jointe est à la fois montrée au modèle et signalée comme fichier de son dossier de travail, avec son chemin. Le modèle peut donc l'analyser directement et, s'il le faut, agir sur le fichier (le convertir, le recadrer avec ses outils). La distinction est explicite pour éviter que le modèle rouvre inutilement une image qu'il a déjà sous les yeux.
+## Affichage des images dans le chat
 
-## Redimensionnement des images avant l'envoi au modèle
-
-Une image dont le plus grand côté dépasse 1568 pixels est réduite avant d'être transmise au modèle, à la manière des API de vision courantes. Le projecteur multimodal retaille de toute façon l'image à sa propre résolution : envoyer une définition supérieure ne fait qu'alourdir le transfert et le contexte, sans bénéfice. La réduction se fait par moyennage, et l'orientation issue des métadonnées EXIF (photos de téléphone) reste corrigée.
-
-## Retrait de la gestion des postes distants
-
-La fonctionnalité permettant à l'IA d'un serveur de piloter un autre PC (postes distants) a été entièrement retirée : commandes, réglages, outils, interface et documentation associés. L'accès à distance à une machine passe désormais uniquement par sa connexion à ajean.link.
-
-## Téléchargement des fichiers au nom contenant une apostrophe
-
-Un fichier renvoyé par l'IA dont le nom comportait à la fois des espaces et une apostrophe (par exemple « Capture d'écran … ») produisait un lien de téléchargement invalide. La détection d'un éventuel titre de lien a été resserrée pour ne plus confondre une apostrophe interne au nom avec la syntaxe d'un titre.
+Une image du dossier de travail de l'IA, insérée dans sa réponse en syntaxe image Markdown, s'affiche désormais en aperçu directement dans la conversation (capture d'écran, graphique, image générée), au lieu de n'apparaître que sous forme de lien de téléchargement.
 
 ## Mise à jour
 
