@@ -441,8 +441,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .diff-count .a{color:var(--add)}
 .diff-count .d{color:var(--del)}
 .msg.tool .tool-sub{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin:8px 0 4px}
-.msg.tool .tool-more{display:inline-block;margin:6px 0 0;font-size:12px;padding:4px 10px;background:var(--panel);border:1px solid var(--border);color:var(--dim);border-radius:6px;cursor:pointer;transition:color .15s,border-color .15s}
-.msg.tool .tool-more:hover{color:var(--accent);border-color:var(--accent)}
+.msg.tool .tool-more{display:inline-block;margin:4px 0 0;font-size:11px;padding:2px 0;background:none;border:0;color:var(--dim);cursor:pointer;opacity:.65;text-decoration:underline;text-underline-offset:2px;transition:color .15s,opacity .15s}
+.msg.tool .tool-more:hover{color:var(--accent);opacity:1}
 .msg.tool pre{position:relative;background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;overflow:auto;margin:0;max-height:280px}
 .msg.tool pre code{background:transparent;padding:0;font-size:.82em;line-height:1.4;white-space:pre}
 .msg.tool .tool-caret{color:var(--accent);animation:toolblink 1s step-end infinite}
