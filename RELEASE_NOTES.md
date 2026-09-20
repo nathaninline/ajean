@@ -1,14 +1,10 @@
-Nouvelle fonctionnalité de contrôle du navigateur, qui permet à l'IA de piloter un navigateur web sur la machine hôte, et affichage des images directement dans le chat.
+Affichage des résultats d'outils revu : la bulle indique désormais la taille réelle de la réponse et un bouton « voir plus » charge le contenu complet à la demande.
 
-## Contrôle du navigateur
+## Résultats d'outils : « voir plus » et volume réel
 
-Un nouvel axe de capacité, activable sous le mode agent depuis les réglages, donne à l'IA la possibilité de piloter un navigateur Chrome, Chromium ou Edge installé sur la machine hôte. L'IA ouvre une adresse, lit les éléments interactifs de la page sous forme de liste numérotée (aucune vision requise), puis agit par numéro : cliquer, saisir du texte, choisir dans une liste déroulante, appuyer sur une touche, faire défiler. Elle peut aussi capturer la page, rechercher un élément situé hors de la vue, et cliquer par coordonnées un élément qu'aucun numéro ne couvre (bandeau de consentement dans une iframe, canvas). L'approche par éléments numérotés fonctionne avec de petits modèles et une faible consommation de contexte.
+Les réponses des outils (serveurs MCP, lecture de la mémoire, accès web…) n'étaient affichées que jusqu'à une longueur fixe, si bien que la bulle indiquait toujours le même volume, quelle que soit la taille réelle de la réponse, et que le reste n'était pas consultable dans l'interface.
 
-La fonctionnalité s'ajoute aux réglages sous le mode agent et nécessite un navigateur installé sur la machine. Tant qu'elle est désactivée, aucun outil n'est proposé au modèle et aucun navigateur n'est lancé : le comportement reste identique aux versions précédentes.
-
-## Affichage des images dans le chat
-
-Une image du dossier de travail de l'IA, insérée dans sa réponse en syntaxe image Markdown, s'affiche désormais en aperçu directement dans la conversation (capture d'écran, graphique, image générée), au lieu de n'apparaître que sous forme de lien de téléchargement.
+Désormais, la bulle d'un résultat d'outil affiche le volume réel de la réponse, et un bouton « voir plus » charge le contenu complet à la demande, puis « réduire » le replie. Le contenu intégral n'est transféré que lorsqu'il est demandé, ce qui garde l'affichage léger. Le comportement côté modèle est inchangé : ce correctif ne concerne que l'affichage dans l'interface.
 
 ## Mise à jour
 
