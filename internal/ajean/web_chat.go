@@ -264,6 +264,36 @@ func handleChatState(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, conv.state())
 }
 
+// handleToolResult renvoie le résultat COMPLET d'un appel d'outil, chargé à la
+// demande par le bouton « voir plus » de la bulle (le flux ne transporte qu'un
+// aperçu). Le résultat complet vit dans la vue « modèle » (conv.Messages), repéré
+// par son tool_call_id. Absent (compacté / archivé) → 404, l'UI garde l'aperçu.
+func handleToolResult(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSpace(r.URL.Query().Get("id"))
+	if id == "" {
+		sendJSON(w, 400, map[string]any{"error": "id manquant"})
+		return
+	}
+	conv.mu.Lock()
+	var found string
+	ok := false
+	for _, m := range conv.Messages {
+		if m.Role == "tool" && m.ToolCallID == id {
+			if s, isStr := m.Content.(string); isStr {
+				found = s
+				ok = true
+			}
+			break
+		}
+	}
+	conv.mu.Unlock()
+	if !ok {
+		sendJSON(w, 404, map[string]any{"error": "résultat non disponible"})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"result": found})
+}
+
 func handleChat(w http.ResponseWriter, r *http.Request) {
 	var body chatReq
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {

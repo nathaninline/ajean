@@ -704,6 +704,15 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 				"name": ev.ToolUsed.Name, "label": ev.ToolUsed.Label,
 				"result": ev.ToolUsed.Result, "done": ev.ToolUsed.Done, "typing": ev.ToolUsed.Typing,
 			}
+			// Taille réelle du résultat (l'aperçu n'en montre qu'un début) : le
+			// compteur ~N tok de la bulle affiche la vraie valeur, plus l'aperçu.
+			if ev.ToolUsed.ResultChars > 0 {
+				tu["result_chars"] = ev.ToolUsed.ResultChars
+			}
+			// Référence pour charger le reste à la demande (bouton « voir plus »).
+			if ev.ToolUsed.ResultID != "" {
+				tu["result_id"] = ev.ToolUsed.ResultID
+			}
 			// Corps en cours de frappe : transitoire (l'état final est le diff), on
 			// ne l'ajoute que quand il est là pour ne pas gonfler chaque événement.
 			if ev.ToolUsed.Body != "" {

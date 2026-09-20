@@ -266,6 +266,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/chat/history/clear", handleChatHistoryClear)     // supprime tout sauf les favoris
 	api("/api/chat/compact", handleChatCompact)                // compaction manuelle du contexte
 	api("/api/chat/state", handleChatState)                    // instantané léger {seq, generating, ctx_used}
+	api("/api/chat/tool-result", handleToolResult)             // résultat complet d'un outil, chargé à la demande (bouton « voir plus »)
 	api("/api/chat/export", handleChatExport)                  // téléchargement du fil (?format=md|json)
 	// /api/e2e/chat s'authentifie LUI-MÊME (e2eAuthOpenReq) : pas de requireWebAuth
 	// (sinon 401, l'injection de clé ayant disparu). Le canal E2E EST l'auth.
