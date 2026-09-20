@@ -445,6 +445,44 @@ type ToolUsedEvent struct {
 	// final de chaque outil — retrouve le total exact. Le client fait la différence
 	// par bulle (voir handleDelta). 0 = rien à compter.
 	ArgToks int
+	// ResultChars : taille RÉELLE du résultat (en runes), même quand Result n'en
+	// porte qu'un APERÇU. Sert au compteur « ~N tok » de la bulle, qui affichait
+	// sinon toujours la taille de l'aperçu (issue #83 : « 3003 »).
+	ResultChars int
+	// ResultID : identifiant (tool_call_id) permettant à l'UI de CHARGER le résultat
+	// complet à la demande via /api/chat/tool-result — le flux ne transporte que
+	// l'aperçu (léger), le reste n'est chargé qu'au clic sur « voir plus ». Vide =
+	// Result est déjà complet (rien à charger).
+	ResultID string
+}
+
+// toolPreviewChars borne l'aperçu de résultat d'outil envoyé à l'UI. Le résultat
+// complet reste côté serveur (conv.Messages) et se charge à la demande.
+const toolPreviewChars = 1600
+
+// toolResultPreview renvoie (aperçu, taille réelle en runes, coupé?).
+func toolResultPreview(s string) (string, int, bool) {
+	r := []rune(s)
+	if len(r) <= toolPreviewChars {
+		return s, len(r), false
+	}
+	return string(r[:toolPreviewChars]), len(r), true
+}
+
+// fillToolResult pose sur l'événement l'aperçu envoyé à l'UI, la taille réelle
+// (pour le compteur ~N tok) et, si le résultat est coupé et qu'on a un id, la
+// référence pour charger le reste à la demande. Sans id utilisable, on envoie le
+// résultat entier (il reste borné par les plafonds propres à chaque outil).
+func fillToolResult(ev *ToolUsedEvent, result, tcID string) *ToolUsedEvent {
+	prev, n, cut := toolResultPreview(result)
+	ev.ResultChars = n
+	if cut && tcID != "" {
+		ev.Result = prev
+		ev.ResultID = tcID
+	} else {
+		ev.Result = result
+	}
+	return ev
 }
 
 // Le résultat d'outil est désormais envoyé INTÉGRALEMENT à l'UI (parité avec ce
@@ -1190,7 +1228,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				if prev, seen := doneCalls[callKey]; seen && dedupableTool(tc.Function.Name) {
 					repeatCount[callKey]++
 					result = repeatedCallResult(prev, repeatCount[callKey])
-					cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label, Result: result, Done: true, ArgToks: flushArgToks()}})
+					cb(StreamEvent{ToolUsed: fillToolResult(&ToolUsedEvent{Name: tc.Function.Name, Label: label, Done: true, ArgToks: flushArgToks()}, result, tc.ID)})
 					toolMsg := Message{Role: "tool", ToolCallID: tc.ID, Content: result}
 					messages = append(messages, toolMsg)
 					extra = append(extra, toolMsg)
@@ -1357,7 +1395,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				if !strings.HasPrefix(result, "[erreur]") {
 					doneCalls[callKey] = result
 				}
-				cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label, Result: result, Done: true, Diff: diff, ArgToks: flushArgToks()}})
+				cb(StreamEvent{ToolUsed: fillToolResult(&ToolUsedEvent{Name: tc.Function.Name, Label: label, Done: true, Diff: diff, ArgToks: flushArgToks()}, result, tc.ID)})
 				toolMsg := Message{Role: "tool", ToolCallID: tc.ID, Content: result}
 				messages = append(messages, toolMsg)
 				extra = append(extra, toolMsg)

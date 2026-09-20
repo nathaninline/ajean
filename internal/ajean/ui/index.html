@@ -8551,7 +8551,10 @@ function renderToolMsg(el, tu){
   setIcon(el, meta.ico);
   let lbl = meta.lbl;
   // Indication du volume de la réponse de l'outil (~tokens, estimation 1 tok ≈ 4 car).
-  if(tu.result){ lbl += '  ·  ' + Math.max(1, Math.round(tu.result.length/4)) + ' ' + t('chat.tok_unit'); }
+  // On utilise la taille RÉELLE (result_chars) quand le flux n'a envoyé qu'un aperçu,
+  // sinon on retombe sur la longueur du résultat présent.
+  const realChars = tu.result_chars || (tu.result ? tu.result.length : 0);
+  if(realChars){ lbl += '  ·  ' + Math.max(1, Math.round(realChars/4)) + ' ' + t('chat.tok_unit'); }
   setLabel(el, lbl);
   // Volume de l'écriture (final si le diff est là, provisoire pendant la frappe)
   // reporté sur l'étiquette, pour rester lisible bulle repliée.
@@ -8622,23 +8625,43 @@ function renderToolMsg(el, tu){
     body.appendChild(sub);
     const pre=document.createElement('pre');
     const code=document.createElement('code');
-    // Résultat long : on n'affiche que le début et on propose « voir plus » qui
-    // révèle tout (le contenu complet est déjà là, envoyé par le serveur). Le
-    // compteur « ~N tok » de l'étiquette reflète, lui, la VRAIE taille.
-    const full=tu.result, PREVIEW=1600;
-    if(full.length>PREVIEW){
-      code.textContent=full.slice(0,PREVIEW)+'…';
+    const preview=tu.result, rid=tu.result_id, PREVIEW=1600;
+    // Deux cas :
+    //  - result_id présent : le flux n'a envoyé qu'un aperçu (résultat coupé),
+    //    « voir plus » CHARGE le reste à la demande via l'API.
+    //  - sinon : le résultat est déjà complet ; s'il est long, « voir plus » le
+    //    déplie localement (contenu déjà là).
+    if(rid){
+      code.textContent=preview+'…';
+      pre.appendChild(code); body.appendChild(pre);
+      const more=document.createElement('button');
+      more.className='tool-more'; more.type='button'; more.textContent=t('chat.show_more');
+      let full=null, open=false;
+      more.onclick=async(e)=>{ e.stopPropagation();
+        if(full===null){
+          more.disabled=true; const prevTxt=more.textContent; more.textContent='…';
+          try{ const r=await jfetch('/api/chat/tool-result?id='+encodeURIComponent(rid)); const j=await r.json(); full=(j&&j.result)||preview; }
+          catch(_){ full=preview; }
+          more.disabled=false; more.textContent=prevTxt;
+        }
+        open=!open;
+        code.textContent = open ? full : preview+'…';
+        more.textContent = t(open?'chat.show_less':'chat.show_more');
+      };
+      body.appendChild(more);
+    } else if(preview.length>PREVIEW){
+      code.textContent=preview.slice(0,PREVIEW)+'…';
       pre.appendChild(code); body.appendChild(pre);
       const more=document.createElement('button');
       more.className='tool-more'; more.type='button'; more.textContent=t('chat.show_more');
       let open=false;
       more.onclick=(e)=>{ e.stopPropagation(); open=!open;
-        code.textContent = open ? full : full.slice(0,PREVIEW)+'…';
+        code.textContent = open ? preview : preview.slice(0,PREVIEW)+'…';
         more.textContent = t(open?'chat.show_less':'chat.show_more');
       };
       body.appendChild(more);
     } else {
-      code.textContent=full; pre.appendChild(code); body.appendChild(pre);
+      code.textContent=preview; pre.appendChild(code); body.appendChild(pre);
     }
   } else if(!tu.done && !tu.typing){
     const wait=document.createElement('div'); wait.className='tool-wait'; wait.textContent=t('chat.execution_in_progress');
