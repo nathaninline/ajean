@@ -77,6 +77,7 @@ var configTemplate = []struct{ key, help string }{
 	{"REASONING_BUDGET", "plafond de tokens de réflexion ; -1 = illimité"},
 	{"COMPACT", "compactage automatique du contexte (off pour couper)"},
 	{"MEM_MODE", "mémoire de l'IA (repli global ; réglable par projet) : off / ondemand / always / search"},
+	{"TOOL_MAX_OUTPUT", "plafond (caractères) d'un résultat d'outil MCP/mémoire renvoyé au modèle et affiché (défaut 12000, min 1000)"},
 	{"EXTRA_ARGS", "ajouté tel quel à la ligne de commande de llama-server"},
 }
 

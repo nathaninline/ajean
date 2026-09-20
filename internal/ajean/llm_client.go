@@ -447,20 +447,15 @@ type ToolUsedEvent struct {
 	ArgToks int
 }
 
-// shownDisplayMax borne ce qu'un résultat d'outil occupe dans le FLUX vers l'UI.
-// Aligné sur le plus haut plafond côté modèle (mcpMaxOutput = 12000 ; shell et
-// web = 8000) : le modèle et l'UI voient donc la même chose, et l'étiquette
-// « ~N tok » de la bulle dit la VRAIE taille du résultat.
-//
-// Avant, cette borne était à 4000 : toute page web un peu longue s'affichait
-// « ~1004 tok » — la valeur du plafond, pas celle de la page. Le compteur
-// mentait, et il mentait toujours avec le même chiffre.
-const shownDisplayMax = 12000
-
-// shownResult prépare un résultat d'outil pour l'affichage.
+// shownResult prépare un résultat d'outil pour l'affichage. La borne suit le
+// réglage TOOL_MAX_OUTPUT (défaut 12000, cf. ToolMaxOutput) : le modèle et l'UI
+// voient la même chose, et l'étiquette « ~N tok » de la bulle dit la VRAIE taille
+// du résultat. Concerne aussi l'affichage de mem_read (issue #83 : « 3003 »).
 func shownResult(s string) string {
-	if r := []rune(s); len(r) > shownDisplayMax {
-		return string(r[:shownDisplayMax]) + "\n…[tronqué]"
+	if max := ToolMaxOutput(); max > 0 {
+		if r := []rune(s); len(r) > max {
+			return string(r[:max]) + "\n…[tronqué]"
+		}
 	}
 	return s
 }

@@ -275,7 +275,7 @@ func safePresetPath(name string) (string, error) {
 // déjà rangées dans le bucket état (bkState), hors config, donc à l'abri.
 var preservedKeys = []string{
 	"MEM_MODE", "CRAWL4AI_URL", "WEB_ENGINE", "CUDA_VISIBLE_DEVICES", "HOST",
-	"MEM_ENCRYPTED", "BACKUP_AUTO", "COMPACT", "MACHINES",
+	"MEM_ENCRYPTED", "BACKUP_AUTO", "COMPACT", "MACHINES", "TOOL_MAX_OUTPUT",
 }
 
 // softPreservedKeys : préservées SEULEMENT si le preset d'arrivée ne les définit

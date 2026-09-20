@@ -94,6 +94,23 @@ func cmdSetAPIKey(args []string) error {
 // d'inférence et après chaque appel d'outil.
 func ReadConfig() map[string]string { return cachedKV(bkConfig) }
 
+// toolMaxOutputDefault : plafond par défaut (caractères) d'un résultat d'outil.
+const toolMaxOutputDefault = 12000
+
+// ToolMaxOutput renvoie le plafond, en caractères, de ce qu'un appel d'outil
+// renvoie au modèle ET affiche dans l'UI. Réglable via la clé TOOL_MAX_OUTPUT
+// (ajean edit / éditeur de preset). Concerne les réponses MCP (contenu envoyé au
+// modèle) et l'affichage des résultats d'outils, dont mem_read. Un plancher de
+// 1000 évite qu'une valeur absurde ne casse tout ; 0 ou vide = défaut 12000.
+func ToolMaxOutput() int {
+	if v := strings.TrimSpace(ReadConfig()["TOOL_MAX_OUTPUT"]); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 1000 {
+			return n
+		}
+	}
+	return toolMaxOutputDefault
+}
+
 // SetConfigKey définit une clé de configuration. Une valeur vide la supprime.
 func SetConfigKey(key, value string) error { return putStr(bkConfig, key, value) }
 
