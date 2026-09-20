@@ -1,46 +1,52 @@
 # AJEAN
 
-![Interface web d'AJEAN](docs/ui.png)
+**English** · [Français](README.fr.md)
 
-**Vos modèles d'IA tournent chez vous, dans un seul binaire : chat, mémoire persistante, accès web, outils, chiffrement au repos et accès à distance chiffré de bout en bout.**
+![AJEAN web interface](docs/ui.png)
 
-AJEAN fournit tout ce qui entoure le modèle : l'interface de chat, les outils de l'assistant, la gestion du service et celle du matériel. Le moteur d'inférence est [llama.cpp](https://github.com/ggml-org/llama.cpp), qu'AJEAN compile lui-même pour la machine sur laquelle il tourne.
+**Your AI models run at home, in a single binary: chat, persistent memory, web access, tools, encryption at rest, and remote access encrypted end to end.**
+
+AJEAN provides everything around the model: the chat interface, the assistant's tools, service management, and hardware management. The inference engine is [llama.cpp](https://github.com/ggml-org/llama.cpp), which AJEAN compiles itself for the machine it runs on.
 
 ```
-télécharger le binaire  →  ajean llamacpp install  →  ajean edit  →  ajean start  →  c'est parti
+download the binary  →  ajean llamacpp install  →  ajean edit  →  ajean start  →  you're live
 ```
 
-Aucune dépendance à l'exécution, aucun flag CMake à retenir, aucun conteneur. Vous obtenez une interface de chat complète et un endpoint compatible OpenAI pour vos outils tiers.
+No runtime dependency, no CMake flag to remember, no container. You get a full chat interface and an OpenAI-compatible endpoint for your third-party tools.
 
 ---
 
-## Ce que fait AJEAN
+## What AJEAN does
 
-**Un assistant, pas seulement un modèle.** L'interface web offre un chat avec raisonnement affiché, mémoire persistante, compactage automatique du contexte quand la conversation s'allonge, plusieurs sessions conservées, prompt système éditable, et des réglages d'apparence synchronisés entre appareils.
+**An assistant, not just a model.** The web interface offers chat with visible reasoning, persistent memory, automatic context compaction as the conversation grows, multiple saved sessions, an editable system prompt, and appearance settings synced across devices.
 
-**Des outils réels.** `ajean agent on` active d'un seul coup toutes les capacités du modèle sur la machine :
+**Real tools.** `ajean agent on` turns on, in one move, all of the model's capabilities on the machine:
 
-| Outil | Rôle |
+| Tool | Role |
 |---|---|
-| terminal | exécute une commande (bash sous Unix, `cmd.exe` sous Windows) |
-| write / edit | écrit un fichier, ou le modifie par remplacement exact |
-| mem_* | mémoire Markdown persistante entre les sessions |
-| web_* | recherche et lecture de pages |
-| mcp__* | les outils des serveurs MCP configurés |
+| terminal | runs a command (bash on Unix, `cmd.exe` on Windows) |
+| write / edit | writes a file, or edits it by exact replacement |
+| see_image | analyzes an image attached to the conversation |
+| mem_* | persistent Markdown memory across sessions |
+| web_* | search and read pages |
+| browser_* | drives a browser (with `ajean computer on`) |
+| mcp__* | the tools of the configured MCP servers |
 
-**Le matériel et le moteur, gérés pour vous.** `ajean llamacpp install` clone et compile llama.cpp avec les bons flags pour *cette* machine : CUDA (capacité de calcul détectée par GPU, donc le multi-GPU fonctionne), ROCm, Metal, Vulkan, ou repli CPU. `ajean llamacpp update` récupère le dernier commit, arrête le service le temps de recompiler, puis le redémarre.
+**It sees and it drives.** The AI can receive images in chat (attachments, screenshots) and analyze them when the model is multimodal. With `ajean computer on`, it drives a real browser on the machine (open a page, click, type, scroll) to carry out tasks on the web.
 
-**Des services, pas des scripts.** `ajean install` écrit les deux unités systemd, les règles sudoers et les dossiers. Ensuite `start`, `stop`, `status`, `logs`. Windows et macOS ont leurs équivalents natifs (voir plus bas).
+**Hardware and engine, handled for you.** `ajean llamacpp install` clones and compiles llama.cpp with the right flags for *this* machine: CUDA (compute capability detected per GPU, so multi-GPU works), ROCm, Metal, Vulkan, or a CPU fallback. `ajean llamacpp update` fetches the latest commit, stops the service while it recompiles, then restarts it.
 
-**Plusieurs modèles, un clic.** Les presets gardent chacun leur configuration complète : basculer de l'un à l'autre recharge le modèle sans toucher à un fichier. L'éditeur de preset couvre aussi l'échantillonnage, le cache KV, flash attention, le décodage spéculatif et le mode raisonnement. Les `.gguf` peuvent vivre sur n'importe quel disque.
+**Services, not scripts.** `ajean install` writes the two systemd units, the sudoers rules, and the folders. Then `start`, `stop`, `status`, `logs`. Windows and macOS have their native equivalents (see below).
 
-**Vos données restent à vous.** Le chiffrement au repos (optionnel) protège la mémoire et les conversations avec une clé qui ne vit que sur vos appareils. Les notifications préviennent quand une réponse est prête, même l'app fermée. Le planificateur fait tourner des tâches récurrentes toutes seules.
+**Several models, one click.** Presets each keep their full configuration: switching from one to another reloads the model without touching a file. The preset editor also covers sampling, the KV cache, flash attention, speculative decoding, and reasoning mode. `.gguf` files can live on any disk.
 
-**Accessible de partout.** `ajean link` ouvre une connexion sortante vers [ajean.link](https://ajean.link), donc aucun port à ouvrir, et cela fonctionne même en CGNAT. Le chat est chiffré de bout en bout : le relais ne voit jamais les conversations.
+**Your data stays yours.** Optional encryption at rest protects memory and conversations with a key that only lives on your devices. Notifications tell you when a reply is ready, even with the app closed. The scheduler runs recurring tasks on its own.
 
-## Démarrage
+**Reachable from anywhere.** `ajean link` opens an outbound connection to [ajean.link](https://ajean.link), so no port to open, and it works even behind CGNAT. Chat is encrypted end to end: the relay never sees the conversations.
 
-### 1. Le binaire
+## Getting started
+
+### 1. The binary
 
 ```bash
 curl -L -o ajean https://github.com/nathaninline/ajean/releases/latest/download/ajean-linux
@@ -48,300 +54,295 @@ chmod +x ajean
 sudo mv ajean /usr/local/bin/ajean
 ```
 
-Les binaires publiés : `ajean-linux`, `ajean-linux-arm`, `ajean-macos`, `ajean-macos-arm`, `ajean-windows.exe`, `ajean-windows-arm.exe`. Le suffixe `-arm` désigne l'arm64, l'absence de suffixe l'x86-64.
+Published binaries: `ajean-linux`, `ajean-linux-arm`, `ajean-macos`, `ajean-macos-arm`, `ajean-windows.exe`, `ajean-windows-arm.exe`. The `-arm` suffix means arm64, no suffix means x86-64.
 
-### 2. Installation et compilation du moteur
-
-```bash
-sudo ajean install        # deux unités systemd, sudoers, dossiers
-ajean llamacpp install    # compile llama.cpp pour le GPU présent
-```
-
-Nécessite `git` et `cmake`, plus le toolkit de l'accélérateur (CUDA, ROCm…) pour l'accélération GPU.
-
-### 3. Démarrage
+### 2. Install and compile the engine
 
 ```bash
-ajean edit      # régler MODEL=/chemin/vers/le-modele.gguf
-ajean start     # démarre le moteur (ajean-engine)
-ajean test      # vérifier que le modèle répond
-ajean ui start  # démarre l'interface (ajean-ui) sur http://<hôte>:8090
+sudo ajean install        # two systemd units, sudoers, folders
+ajean llamacpp install    # compiles llama.cpp for the GPU present
 ```
 
-AJEAN tourne en **deux services** : `ajean-engine`, qui exécute le modèle, et `ajean-ui`, qui sert l'interface web, le tunnel d'accès distant et l'endpoint OpenAI. Les séparer permet de redémarrer l'interface, ce qui est instantané, sans recharger des dizaines de gigaoctets de modèle.
+Requires `git` and `cmake`, plus the accelerator toolkit (CUDA, ROCm...) for GPU acceleration.
 
-## Commandes
+### 3. Start
+
+```bash
+ajean edit      # set MODEL=/path/to/the-model.gguf
+ajean start     # starts the engine (ajean-engine)
+ajean test      # check the model responds
+ajean ui start  # starts the interface (ajean-ui) at http://<host>:8090
+```
+
+AJEAN runs as **two services**: `ajean-engine`, which runs the model, and `ajean-ui`, which serves the web interface, the remote-access tunnel, and the OpenAI endpoint. Splitting them lets you restart the interface, which is instant, without reloading tens of gigabytes of model.
+
+## Commands
 
 ```
-Moteur (ajean-engine) :
-  start | stop | restart        gérer le service
-  status | logs                 état / logs en direct
-  enable | disable              démarrage au boot
-  edit                          éditer la configuration dans $EDITOR
-  switch [N]                    changer de preset (presets/)
-  test | bench [N]              vérifier que le modèle répond / mesurer les tok/s
-  vram | gpu [index…]           VRAM / choix des GPU (gpu all = tous)
-  set-api-key [clé]             protéger le moteur d'inférence (Bearer)
-  network [on|off|status]       rendre l'endpoint OpenAI joignable sur le réseau local
+Engine (ajean-engine):
+  start | stop | restart        manage the service
+  status | logs                 state / live logs
+  enable | disable              start on boot
+  edit                          edit the configuration in $EDITOR
+  switch [N]                    change preset (presets/)
+  test | bench [N]              check the model responds / measure tok/s
+  vram | gpu [index...]         VRAM / GPU selection (gpu all = all)
+  set-api-key [key]             protect the inference engine (Bearer)
+  network [on|off|status]       make the OpenAI endpoint reachable on the LAN
   llamacpp install|update|status
 
-Interface (ajean-ui) :
-  ui [start|stop|restart|status]  piloter le service d'interface
-  web [PORT]                    servir l'interface au premier plan (défaut :8090)
-  set-web-key [clé]             protéger l'API de pilotage
+Interface (ajean-ui):
+  ui [start|stop|restart|status]  drive the interface service
+  web [PORT]                    serve the interface in the foreground (default :8090)
+  set-web-key [key]             protect the control API
 
-Interaction :
-  chat [prompt-système]         chat dans le terminal
-  export [options] [fichier]    exporte la conversation (Markdown, --json, --last N…)
-  agent [on|off|status]         active TOUS les outils (terminal, fichiers, mémoire)
-  memory [off|ondemand|always]  mode mémoire
-  internet [on|off|engine <go|crawl4ai>|url <url>|key <clé>]   accès web
+Interaction:
+  chat [system-prompt]          chat in the terminal
+  export [options] [file]       export the conversation (Markdown, --json, --last N...)
+  agent [on|off|status]         turn on ALL tools (terminal, files, memory)
+  computer [on|off|status]      browser control (the AI drives a local Chrome)
+  memory [off|ondemand|always]  memory mode
+  internet [on|off|engine <go|crawl4ai>|url <url>|key <key>]   web access
 
-Accès distant (ajean.link) :
-  link <token>                  enregistre le jeton et ouvre le tunnel
-  link code                     code d'appairage (10 min, usage unique)
+Remote access (ajean.link):
+  link <token>                  registers the token and opens the tunnel
+  link code                     pairing code (10 min, single use)
   link status | logout
 
-Installation :
+Installation:
   install | uninstall
-  update [--check]              mise à jour depuis les releases GitHub
+  update [--check]              update from GitHub releases
   where | version
 ```
 
 ## Configuration
 
-Tout vit sous **`$AJEAN_HOME`** (`/etc/ajean` sous Linux/macOS, `%ProgramData%\ajean` sous Windows) :
+Everything lives under **`$AJEAN_HOME`** (`/etc/ajean` on Linux/macOS, `%ProgramData%\ajean` on Windows):
 
 | | |
 |---|---|
-| `backends/` | llama.cpp, compilé ou téléchargé |
-| `bin/` | le binaire installé |
-| `models/` | les `.gguf` |
-| `presets/` | un `.env` par preset |
-| `memory/` | les pages de mémoire de l'IA (`.md`) |
-| `workspace/` | ce que l'IA écrit en mode agent |
-| `ajean.db` | tout l'état : configuration, préférences, sessions, clés, interrupteurs |
+| `backends/` | llama.cpp, compiled or downloaded |
+| `bin/` | the installed binary |
+| `models/` | the `.gguf` files |
+| `presets/` | one `.env` per preset |
+| `memory/` | the AI's memory pages (`.md`) |
+| `workspace/` | what the AI writes in agent mode |
+| `ajean.db` | all state: configuration, preferences, sessions, keys, switches |
 
-S'y ajoutent à la racine les quelques fichiers qui ne peuvent pas aller ailleurs : `.e2e_key` (clé privée du chiffrement de bout en bout), `certs/` (certificats TLS gérés par certmagic), et les journaux et fichiers PID des services.
+Added to these at the root are the few files that cannot go elsewhere: `.e2e_key` (private key for end-to-end encryption), `certs/` (TLS certificates managed by certmagic), and the services' logs and PID files.
 
-La base, un unique fichier [bbolt](https://github.com/etcd-io/bbolt), remplace la dizaine de fichiers d'état d'autrefois. Restent des fichiers ce qui se lit et s'édite à la main : les presets, les pages de mémoire et, bien sûr, les modèles.
+The database, a single [bbolt](https://github.com/etcd-io/bbolt) file, replaces the dozen state files of old. What you read and edit by hand stays as files: the presets, the memory pages, and, of course, the models.
 
-La configuration du moteur s'édite avec `ajean edit`, qui la déroule au format `clé=valeur` dans `$EDITOR` :
+The engine configuration is edited with `ajean edit`, which lays it out as `key=value` in `$EDITOR`:
 
-| Clé | Signification | Défaut |
-|-----|---------------|--------|
-| `BIN` | chemin vers `llama-server` (réglé par `llamacpp install`) | aucun |
-| `MODEL` | nom de fichier ou chemin complet du `.gguf` | aucun |
-| `HOST` / `PORT` | adresse / port d'écoute | `0.0.0.0` / `8080` |
-| `CTX` | taille du contexte | `32768` |
-| `NGL` | couches déportées sur le GPU | `999` |
+| Key | Meaning | Default |
+|-----|---------|---------|
+| `BIN` | path to `llama-server` (set by `llamacpp install`) | none |
+| `MODEL` | filename or full path of the `.gguf` | none |
+| `HOST` / `PORT` | listen address / port | `0.0.0.0` / `8080` |
+| `CTX` | context size | `32768` |
+| `NGL` | layers offloaded to the GPU | `999` |
 | `BATCH` / `UBATCH` | batch / micro-batch | `2048` / `512` |
-| `THREADS` / `THREADS_BATCH` | threads CPU | `0` (auto) |
-| `KV_TYPE` (`_K` / `_V`) | quantization du cache KV | aucun |
-| `CUDA_VISIBLE_DEVICES` | GPU utilisés (réglé par `ajean gpu`) | tous |
-| `REASONING` | mode raisonnement : `on` / `off` / `auto` / `deepseek` | aucun |
-| `REASONING_BUDGET` | plafond de tokens de réflexion ; `-1` = illimité | `-1` |
-| `REASONING_EFFORT` | effort de réflexion (`low` / `medium` / `high`…) selon le modèle | aucun |
-| `COMPACT` | compactage automatique du contexte (`off` pour couper) | activé |
-| `MEM_MODE` | mémoire (repli global ; réglable par projet) : `off` / `ondemand` / `always` (index injecté) / `search` (recherche d'abord) | `always` |
-| `CRAWL4AI_URL` / `CRAWL4AI_KEY` | serveur d'accès internet | aucun |
-| `EXTRA_ARGS` | ajouté tel quel à la ligne de commande du moteur | aucun |
+| `THREADS` / `THREADS_BATCH` | CPU threads | `0` (auto) |
+| `KV_TYPE` (`_K` / `_V`) | KV cache quantization | none |
+| `CUDA_VISIBLE_DEVICES` | GPUs used (set by `ajean gpu`) | all |
+| `REASONING` | reasoning mode: `on` / `off` / `auto` / `deepseek` | none |
+| `REASONING_BUDGET` | cap on thinking tokens; `-1` = unlimited | `-1` |
+| `REASONING_EFFORT` | thinking effort (`low` / `medium` / `high`...) depending on the model | none |
+| `COMPACT` | automatic context compaction (`off` to disable) | on |
+| `MEM_MODE` | memory (global fallback; adjustable per project): `off` / `ondemand` / `always` (index injected) / `search` (search first) | `always` |
+| `CRAWL4AI_URL` / `CRAWL4AI_KEY` | web-access server | none |
+| `EXTRA_ARGS` | appended as-is to the engine's command line | none |
 
-La clé API (`ajean set-api-key`) est rangée hors de la configuration, afin de survivre aux changements de preset.
+The API key (`ajean set-api-key`) is stored outside the configuration, so it survives preset switches.
 
-**Modèles sur un autre disque.** Les `.gguf` n'ont pas à résider dans `$AJEAN_HOME/models` : dans l'éditeur de preset de l'interface, section *Modèle, Dossiers de modèles*, ajoutez le dossier voulu. Ses modèles apparaissent dans la liste, groupés par dossier. La liste est enregistrée dans la base, donc conservée d'un preset à l'autre.
+**Models on another disk.** `.gguf` files do not have to live in `$AJEAN_HOME/models`: in the interface's preset editor, under *Model, Model folders*, add the folder you want. Its models appear in the list, grouped by folder. The list is saved in the database, so it is kept across presets.
 
-### Variables d'environnement
+### Environment variables
 
-| Variable | Rôle | Défaut |
-|----------|------|--------|
-| `AJEAN_HOME` | racine des données | `/etc/ajean`, `%ProgramData%\ajean` |
-| `AJEAN_MODEL_DIRS` | dossiers de modèles (séparés par `:`, `;` sous Windows) | aucun |
-| `AJEAN_SERVICE` | nom de l'unité du moteur | `ajean-engine` |
-| `HF_TOKEN` | token Hugging Face pour les modèles privés | aucun |
-| `AJEAN_DL_CONNS` | connexions parallèles au téléchargement | aucun |
-| `EDITOR` | éditeur pour `ajean edit` | `nano` / `notepad` |
+| Variable | Role | Default |
+|----------|------|---------|
+| `AJEAN_HOME` | data root | `/etc/ajean`, `%ProgramData%\ajean` |
+| `AJEAN_MODEL_DIRS` | model folders (separated by `:`, `;` on Windows) | none |
+| `AJEAN_SERVICE` | name of the engine unit | `ajean-engine` |
+| `HF_TOKEN` | Hugging Face token for private models | none |
+| `AJEAN_DL_CONNS` | parallel download connections | none |
+| `AJEAN_CHROME` | browser path for browser control | auto-detected |
+| `EDITOR` | editor for `ajean edit` | `nano` / `notepad` |
 
-## Les capacités de l'IA
+## The AI's capabilities
 
-### Sessions et mémoire
+### Sessions and memory
 
-Chaque conversation est une **session** persistante à identifiant stable. Le bouton *Sessions* liste toutes les conversations gardées, on en rouvre une d'un clic (la courante est d'abord sauvegardée dans la sienne), et *nouvelle session* démarre un fil vierge. Les sessions peuvent être mises en favori et sont conservées dans la base, donc partagées entre tous les appareils reliés au même serveur.
+Each conversation is a persistent **session** with a stable identifier. The *Sessions* button lists all kept conversations, you reopen one with a click (the current one is first saved into its own), and *new session* starts a blank thread. Sessions can be favorited and are kept in the database, so they are shared across every device connected to the same server.
 
-Au-delà des sessions, l'IA tient des pages Markdown sous `$AJEAN_HOME/memory/`, relues et mises à jour entre les conversations. Trois modes, indépendants du mode agent :
+Beyond sessions, the AI keeps Markdown pages under `$AJEAN_HOME/memory/`, re-read and updated across conversations. Three modes, independent of agent mode:
 
 ```bash
-ajean memory always     # (défaut) elle cherche avant de répondre et enregistre d'elle-même
-ajean memory ondemand   # outils disponibles, mais utilisés seulement sur demande
-ajean memory off        # mémoire coupée
+ajean memory always     # (default) it searches before answering and saves on its own
+ajean memory ondemand   # tools available, but used only on request
+ajean memory off        # memory off
 ```
 
-### Chiffrement au repos
+### Encryption at rest
 
-Optionnel, désactivé par défaut. Un seul interrupteur dans les paramètres (*activer le chiffrement*) chiffre la **mémoire** et les **conversations** au repos sur le disque, en AES-256.
+Optional, off by default. A single switch in the settings (*enable encryption*) encrypts **memory** and **conversations** at rest on disk, with AES-256.
 
-- La clé est votre **clé d'accès** à l'interface : elle ne vit que dans le navigateur, sur chaque appareil. Le serveur n'en garde que l'empreinte, jamais la clé. Une copie complète du serveur (fichiers chiffrés, base, sauvegarde) reste donc illisible sans elle.
-- Rien à ressaisir au quotidien : avoir accès à l'interface suffit à ouvrir la mémoire. Sur un nouvel appareil, la clé est demandée une fois, puis mémorisée.
-- Une **clé de récupération** est fournie à l'activation, à conserver : elle rouvre tout en cas de perte de la clé d'accès.
-- Aucune perte possible : un instantané de sécurité est pris avant chaque bascule, et une migration interrompue se reprend proprement.
+- The key is your **access key** to the interface: it only lives in the browser, on each device. The server keeps only its fingerprint, never the key. A full copy of the server (encrypted files, database, backup) therefore stays unreadable without it.
+- Nothing to re-enter day to day: having access to the interface is enough to open the memory. On a new device, the key is asked once, then remembered.
+- A **recovery key** is provided at activation, to keep: it reopens everything if the access key is lost.
+- No loss possible: a safety snapshot is taken before each toggle, and an interrupted migration resumes cleanly.
 
 ### Notifications
 
-L'option *me prévenir quand la réponse est prête* fait envoyer par le serveur une notification à la fin de chaque réponse, même l'application fermée ou le téléphone verrouillé. À activer sur chaque appareil. Sur iPhone, il faut d'abord ajouter AJEAN à l'écran d'accueil, puis activer l'option depuis l'app installée.
+The *notify me when the reply is ready* option makes the server send a notification at the end of each reply, even with the app closed or the phone locked. Enable it on each device. On iPhone, you must first add AJEAN to the home screen, then enable the option from the installed app.
 
-### Tâches planifiées
+### Scheduled tasks
 
-Le planificateur fait tourner des tâches récurrentes à la fréquence choisie. Chaque tâche s'exécute isolée de la conversation, et un interrupteur maître permet de tout suspendre d'un coup. Pour qu'une tâche puisse agir (envoyer un mail, lire des fichiers…), le **mode agent** doit être actif : sinon la tâche tourne mais l'IA n'a aucun outil.
+The scheduler runs recurring tasks at the chosen frequency. Each task runs isolated from the conversation, and a master switch lets you pause everything at once. For a task to act (send an email, read files...), **agent mode** must be on: otherwise the task runs but the AI has no tools.
 
-### Accès internet
+### Browser control
 
-Par défaut, l'IA n'a pas accès au web. Une fois activé, elle gagne `web_search` (DuckDuckGo), `web_open`, `web_read` et `web_grep`. Deux moteurs sont disponibles.
-
-**Moteur intégré (défaut)**, inclus dans le binaire, rien à installer :
+With `ajean computer on` (and agent mode on), the AI drives a real browser on the host machine: open a page, read the interactive elements, click, type, scroll, find an off-screen link.
 
 ```bash
-ajean internet on
-ajean internet status
+ajean computer on
+ajean computer status
 ```
 
-Il récupère les pages en HTTP, en extrait le contenu (Readability) et le convertit en markdown. Il n'exécute pas le JavaScript : une page entièrement rendue côté client ressort vide. Docs, articles, blogs, Wikipédia, GitHub et forums passent sans problème.
+It goes through Chrome, Chromium, or Edge (auto-detected, or `AJEAN_CHROME=<path>`), driven over CDP. Element targeting is done on the accessibility tree (numbered elements), so **no vision is required**: it works even with small text models. If vision is on, two tools are added (`browser_screenshot`, click by coordinates) for the cases the numbered elements cannot cover (a consent banner inside an iframe, a canvas, a map).
 
-**Moteur Crawl4AI**, un serveur [Crawl4AI](https://github.com/unclecode/crawl4ai) que vous hébergez, avec Chromium headless, donc rendu JavaScript complet. **AJEAN ne fournit pas ce serveur, il s'y branche :**
+Like the terminal, these tools perform real actions: they are given to the model only if agent mode **and** browser control are on.
 
-```bash
-docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest
-ajean internet engine crawl4ai
-ajean internet url http://localhost:11235
-ajean internet on
-```
+### Images in chat
 
-Les outils web ne sont proposés au modèle que si le mode agent est actif, l'accès internet activé **et**, avec Crawl4AI, le serveur joignable. Sinon ils n'existent pas, et le modèle ne peut donc pas les inventer.
+Attach an image to a message: if the model is multimodal, it sees it and can respond to it. The `see_image` tool also lets it open an image present on the machine. Images are resized before being sent to the model.
 
-### Serveurs MCP
+### MCP servers
 
-AJEAN parle le [Model Context Protocol](https://modelcontextprotocol.io) : on y branche des serveurs tiers (fichiers, bases de données, API…) et leurs outils s'ajoutent à ceux de l'IA, nommés `mcp__<serveur>__<outil>`.
+AJEAN speaks the [Model Context Protocol](https://modelcontextprotocol.io): you plug in third-party servers (files, databases, APIs...) and their tools are added to the AI's, named `mcp__<server>__<tool>`.
 
-La configuration se fait depuis l'interface web (section *Serveurs MCP*). Le format des serveurs est celui de Claude Desktop, si bien qu'une configuration existante se recopie telle quelle :
+Configuration is done from the web interface (*MCP servers* section). The server format is that of Claude Desktop, so an existing configuration copies over as-is:
 
 ```json
 {
   "mcpServers": {
     "fs": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data"] },
-    "api": { "url": "https://exemple.com/mcp" }
+    "api": { "url": "https://example.com/mcp" }
   }
 }
 ```
 
-Les transports **stdio** et **HTTP** sont pris en charge. Comme le terminal, un serveur MCP exécute du code sur la machine hôte : ses outils ne sont donnés au modèle que si le mode agent est actif.
+Both **stdio** and **HTTP** transports are supported. Like the terminal, an MCP server runs code on the host machine: its tools are given to the model only if agent mode is on.
 
 ## Windows
 
-- **Pas de systemd** : `ajean start` lance le service en arrière-plan (suivi par fichier PID) ; `stop`, `restart`, `status` et `logs` agissent dessus, sans droits administrateur. `enable` / `disable` ne sont pas gérés, il faut passer par une tâche planifiée.
-- `AJEAN_HOME` vaut `%ProgramData%\ajean` (repli `%LOCALAPPDATA%\ajean`).
-- `ajean install` crée seulement l'arborescence de données et une configuration de départ.
-- Le terminal de l'IA passe par `cmd.exe`. Elle le sait, et écrit ses fichiers par l'outil dédié plutôt que par le shell, ce qui lui permet de produire des scripts contenant des guillemets.
+- **No systemd**: `ajean start` launches the service in the background (tracked by a PID file); `stop`, `restart`, `status`, and `logs` act on it, without administrator rights. `enable` / `disable` are not handled, you have to go through a scheduled task.
+- `AJEAN_HOME` is `%ProgramData%\ajean` (fallback `%LOCALAPPDATA%\ajean`).
+- `ajean install` only creates the data tree and a starter configuration.
+- The AI's terminal goes through `cmd.exe`. It knows this, and writes its files through the dedicated tool rather than the shell, which lets it produce scripts containing quotes.
 
 ```powershell
 ajean install
-ajean edit          # BIN=...\llama-server.exe et MODEL=...\modele.gguf
+ajean edit          # BIN=...\llama-server.exe and MODEL=...\model.gguf
 ajean start
 ajean status
 ```
 
-`ajean llamacpp install` compile également sous Windows si `git` et `cmake` sont présents ; sinon, récupérer un `llama-server.exe` pré-compilé et pointer `BIN` dessus.
+`ajean llamacpp install` also compiles on Windows if `git` and `cmake` are present; otherwise, grab a pre-compiled `llama-server.exe` and point `BIN` at it.
 
 ## macOS
 
-La page [Releases](../../releases) publie `ajean-macos-arm.zip` (Apple Silicon) et `ajean-macos.zip` (Intel), un bundle **`AJEAN.app`**. Dézipper, glisser dans *Applications*, ouvrir : l'interface démarre sur `http://localhost:8090`, s'ouvre dans le navigateur, et l'icône se pose dans la **barre de menus**. Pas de fenêtre de Terminal, pas d'icône dans le Dock.
+The [Releases](../../releases) page publishes `ajean-macos-arm.zip` (Apple Silicon) and `ajean-macos.zip` (Intel), an **`AJEAN.app`** bundle. Unzip, drag into *Applications*, open: the interface starts at `http://localhost:8090`, opens in the browser, and the icon lands in the **menu bar**. No Terminal window, no Dock icon.
 
-L'application n'est signée qu'en ad-hoc : au premier lancement, faire **clic droit puis Ouvrir**.
+The app is only ad-hoc signed: on first launch, **right-click then Open**.
 
-Pour un usage en ligne de commande, prendre le binaire nu `ajean-macos-arm` : hors bundle, il conserve son comportement CLI. Les services passent par **launchd**.
+For command-line use, take the bare binary `ajean-macos-arm`: outside the bundle, it keeps its CLI behavior. Services go through **launchd**.
 
-## Accès distant via ajean.link
+## Remote access via ajean.link
 
-`ajean link` ouvre une connexion **sortante** vers le relais : le serveur reste injoignable depuis l'extérieur, tout en restant accessible de partout.
-
-```bash
-ajean link <token>        # token fourni sur ajean.link
-ajean link code           # code d'appairage à saisir dans le portail
-```
-
-Le tunnel n'est pas un service à part : il est ouvert par `ajean-ui`, le service qui sert déjà l'interface, dès qu'un jeton est enregistré. Un seul process sert donc l'interface locale et l'accès distant, avec le même état de sessions des deux côtés. Le portail donne accès à l'interface du serveur avec un chat chiffré, à la gestion de plusieurs machines, et en option à un endpoint compatible OpenAI.
-
-Il s'agit d'un service optionnel et payant (abonnement 4,80 €/mois) ; tout le reste d'AJEAN est et restera open source et gratuit.
-
-### Sécurité : la boîte noire
-
-Le relais est conçu comme un **tube aveugle** : il transporte les données sans pouvoir les lire.
-
-- **Chat chiffré de bout en bout** (X25519 + AES-GCM). La clé est dérivée du mot de passe via **OPAQUE** et ne quitte jamais le navigateur.
-- **Empreinte vérifiée.** `ajean link` affiche l'empreinte de la clé de la machine, à confirmer une fois dans le portail, ce qui défait toute tentative d'interception par le relais.
-- **Appairage authentifié.** Un code à usage unique (`ajean link code`) garantit qu'un seul navigateur autorisé pilote le serveur ; même compromis, le relais ne peut pas forger de commande.
-- **Code servi hors du relais.** Le portail provient d'une origine indépendante (GitHub Pages) : le relais ne peut pas injecter de code pour dérober la clé.
-
-Reste visible du relais : des métadonnées techniques (machine en ligne, modèle chargé, VRAM), jamais le contenu des conversations.
-
-### Sauvegarde sur ajean.link (abonnés)
-
-Pour les serveurs liés à un compte, un bloc *Sauvegarde ajean.link* sauvegarde la **mémoire**, les **presets** et les **réglages** sur le relais, manuellement ou automatiquement une fois par jour. Tout est chiffré sur le serveur avant l'envoi : le relais ne stocke qu'un blob opaque, illisible même en cas de piratage. La restauration se fait avec la clé d'accès, sur n'importe quel serveur, même vierge. Les dernières versions sont conservées et tournent automatiquement.
-
-### Endpoint OpenAI (opt-in)
-
-Pour brancher des outils tiers, AJEAN peut exposer `https://<machine>.oai.ajean.link/v1`, authentifié par la clé API du serveur. **Désactivé par défaut**, activable par machine depuis l'interface (panneau *Accès OpenAI*), sans redémarrage.
-
-Le VPS effectue un simple **passthrough SNI** : le TLS est terminé sur la machine hôte (Let's Encrypt via TLS-ALPN-01, à travers le tunnel), le relais ne voit que du chiffré.
-
-Sur le réseau local, `ajean network on` rend le même endpoint joignable depuis les autres machines du LAN (ajuste `HOST` et, sous Windows, la règle de pare-feu).
-
-## API de pilotage
-
-Le service d'interface expose une API HTTP pour piloter AJEAN à distance. À protéger avant toute exposition :
+`ajean link` opens an **outbound** connection to the relay: the server stays unreachable from the outside, while remaining reachable from anywhere.
 
 ```bash
-ajean set-web-key      # génère une clé
+ajean link <token>        # token provided on ajean.link
+ajean link code           # pairing code to enter in the portal
 ```
 
-Chaque appel `/api/*` présente alors `Authorization: Bearer <clé>` :
+The tunnel is not a separate service: it is opened by `ajean-ui`, the service that already serves the interface, as soon as a token is registered. A single process therefore serves the local interface and remote access, with the same session state on both sides. The portal gives access to the server's interface with encrypted chat, to managing several machines, and optionally to an OpenAI-compatible endpoint.
 
-| Méthode | Endpoint | Rôle |
-|---------|----------|------|
-| GET  | `/api/ping` | connectivité + validité de la clé |
-| GET  | `/api/status` · `/api/vram` | état du service · GPU |
-| GET  | `/api/presets` | liste des presets (avec l'actif) |
-| POST | `/api/switch` `{"n":<index>}` | changer de modèle |
-| POST | `/api/start` · `/api/stop` · `/api/restart` | piloter le service |
-| POST | `/api/chat` `{"messages":[…]}` | chat (flux SSE) |
+It is an optional, paid service (subscription 4.80 EUR/month); everything else in AJEAN is and will stay open source and free.
 
-> ⚠️ La clé voyage en clair en HTTP. Pour une exposition publique, placer un reverse-proxy HTTPS devant, ou utiliser `ajean link`.
+### Security: the black box
 
-## Compiler depuis les sources
+The relay is designed as a **blind pipe**: it carries the data without being able to read it.
 
-Go 1.25+. AJEAN est écrit à 100 % en Go, l'interface est embarquée via `go:embed` :
+- **Chat encrypted end to end** (X25519 + AES-GCM). The key is derived from the password via **OPAQUE** and never leaves the browser.
+- **Verified fingerprint.** `ajean link` shows the fingerprint of the machine's key, to confirm once in the portal, which defeats any interception attempt by the relay.
+- **Authenticated pairing.** A single-use code (`ajean link code`) guarantees that only one authorized browser drives the server; even compromised, the relay cannot forge a command.
+- **Code served outside the relay.** The portal comes from an independent origin (GitHub Pages): the relay cannot inject code to steal the key.
+
+What stays visible to the relay: technical metadata (machine online, loaded model, VRAM), never the content of the conversations.
+
+### Backup on ajean.link (subscribers)
+
+For servers linked to an account, an *ajean.link backup* block backs up **memory**, **presets**, and **settings** to the relay, manually or automatically once a day. Everything is encrypted on the server before being sent: the relay stores only an opaque blob, unreadable even if hacked. Restoration is done with the access key, on any server, even a blank one. The latest versions are kept and rotate automatically.
+
+### OpenAI endpoint (opt-in)
+
+To plug in third-party tools, AJEAN can expose `https://<machine>.oai.ajean.link/v1`, authenticated by the server's API key. **Off by default**, enabled per machine from the interface (*OpenAI access* panel), without a restart.
+
+The VPS performs a simple **SNI passthrough**: TLS is terminated on the host machine (Let's Encrypt via TLS-ALPN-01, through the tunnel), the relay only sees encrypted data.
+
+On the local network, `ajean network on` makes the same endpoint reachable from other machines on the LAN (adjusts `HOST` and, on Windows, the firewall rule).
+
+## Control API
+
+The interface service exposes an HTTP API to drive AJEAN remotely. Protect it before any exposure:
+
+```bash
+ajean set-web-key      # generates a key
+```
+
+Every `/api/*` call then presents `Authorization: Bearer <key>`:
+
+| Method | Endpoint | Role |
+|--------|----------|------|
+| GET  | `/api/ping` | connectivity + key validity |
+| GET  | `/api/status` · `/api/vram` | service state · GPU |
+| GET  | `/api/presets` | list of presets (with the active one) |
+| POST | `/api/switch` `{"n":<index>}` | change model |
+| POST | `/api/start` · `/api/stop` · `/api/restart` | drive the service |
+| POST | `/api/chat` `{"messages":[...]}` | chat (SSE stream) |
+
+> ⚠️ The key travels in the clear over HTTP. For public exposure, put an HTTPS reverse proxy in front, or use `ajean link`.
+
+## Build from source
+
+Go 1.25+. AJEAN is written 100% in Go, the interface is embedded via `go:embed`:
 
 ```bash
 git clone https://github.com/nathaninline/ajean.git
 cd ajean
 
-# Linux / Windows :
+# Linux / Windows:
 CGO_ENABLED=0 go build -o ajean ./cmd/ajean
 
-# macOS : le systray passe par Cocoa (CGO obligatoire), donc PAS de CGO_ENABLED=0.
-#         Xcode Command Line Tools requis (xcode-select --install).
+# macOS: the systray goes through Cocoa (CGO required), so NO CGO_ENABLED=0.
+#        Xcode Command Line Tools required (xcode-select --install).
 go build -o ajean ./cmd/ajean
 ```
 
-> Sur macOS, `CGO_ENABLED=0` exclut les fichiers natifs du systray et échoue sur `undefined: nativeLoop` (issue #30). Compiler sans ce drapeau : CGO est actif par défaut.
+> On macOS, `CGO_ENABLED=0` excludes the native systray files and fails on `undefined: nativeLoop` (issue #30). Build without that flag: CGO is on by default.
 
-> Compiler **AJEAN** ne demande que Go. Compiler le **moteur llama.cpp** demande `git`, `cmake` et le toolkit de l'accélérateur.
+> Building **AJEAN** only needs Go. Building the **llama.cpp engine** needs `git`, `cmake`, and the accelerator toolkit.
 
-## Arborescence
+## Layout
 
-- `cmd/ajean/` : point d'entrée + ressources Windows (icône, versioninfo).
-- `internal/ajean/` : tout le code, fichiers préfixés par domaine (`web_*`, `chat_*`, `llm_*`, `backend_*`, `relay_*`, `sys_*`, `mcp_*`) ; carte dans `doc.go`.
-- `internal/ajean/ui/` : interface web embarquée. **`index.html` est généré** : les sources vivent dans `ui/src/`. Pour modifier l'interface, éditer `ui/src/` puis lancer `go generate ./internal/ajean`.
-- `tools/` : outils hors binaire, `assemble-ui` (génère `index.html`) et `gen-icon` (icônes Windows).
+- `cmd/ajean/`: entry point + Windows resources (icon, versioninfo).
+- `internal/ajean/`: all the code, files prefixed by domain (`web_*`, `chat_*`, `llm_*`, `backend_*`, `relay_*`, `sys_*`, `mcp_*`); map in `doc.go`.
+- `internal/ajean/ui/`: embedded web interface. **`index.html` is generated**: the sources live in `ui/src/`. To change the interface, edit `ui/src/` then run `go generate ./internal/ajean`.
+- `tools/`: out-of-binary tools, `assemble-ui` (generates `index.html`) and `gen-icon` (Windows icons).
 
-## Licence
+## License
 
-[MIT](LICENSE). Le `marked.min.js` embarqué est [Marked](https://github.com/markedjs/marked), également MIT.
+[MIT](LICENSE). The embedded `marked.min.js` is [Marked](https://github.com/markedjs/marked), also MIT.
