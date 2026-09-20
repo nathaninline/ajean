@@ -471,6 +471,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .diff-count .a{color:var(--add)}
 .diff-count .d{color:var(--del)}
 .msg.tool .tool-sub{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin:8px 0 4px}
+.msg.tool .tool-more{display:inline-block;margin:6px 0 0;font-size:12px;padding:4px 10px;background:var(--panel);border:1px solid var(--border);color:var(--dim);border-radius:6px;cursor:pointer;transition:color .15s,border-color .15s}
+.msg.tool .tool-more:hover{color:var(--accent);border-color:var(--accent)}
 .msg.tool pre{position:relative;background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;overflow:auto;margin:0;max-height:280px}
 .msg.tool pre code{background:transparent;padding:0;font-size:.82em;line-height:1.4;white-space:pre}
 .msg.tool .tool-caret{color:var(--accent);animation:toolblink 1s step-end infinite}
@@ -4070,6 +4072,8 @@ fr: {
   "chat.modifications": "modifications",
   "chat.response": "réponse",
   "chat.execution_in_progress": "exécution en cours…",
+  "chat.show_more": "voir plus",
+  "chat.show_less": "réduire",
   "chat.copy": "copier",
   "chat.copied": "copié ✓",
   "chat.new_conversation": "nouvelle conversation",
@@ -5181,6 +5185,8 @@ en: {
   "chat.modifications": "changes",
   "chat.response": "response",
   "chat.execution_in_progress": "running…",
+  "chat.show_more": "show more",
+  "chat.show_less": "show less",
   "chat.copy": "copy",
   "chat.copied": "copied ✓",
   "chat.new_conversation": "new conversation",
@@ -8615,8 +8621,25 @@ function renderToolMsg(el, tu){
     const sub=document.createElement('div'); sub.className='tool-sub'; sub.textContent=t('chat.response');
     body.appendChild(sub);
     const pre=document.createElement('pre');
-    const code=document.createElement('code'); code.textContent=tu.result;
-    pre.appendChild(code); body.appendChild(pre);
+    const code=document.createElement('code');
+    // Résultat long : on n'affiche que le début et on propose « voir plus » qui
+    // révèle tout (le contenu complet est déjà là, envoyé par le serveur). Le
+    // compteur « ~N tok » de l'étiquette reflète, lui, la VRAIE taille.
+    const full=tu.result, PREVIEW=1600;
+    if(full.length>PREVIEW){
+      code.textContent=full.slice(0,PREVIEW)+'…';
+      pre.appendChild(code); body.appendChild(pre);
+      const more=document.createElement('button');
+      more.className='tool-more'; more.type='button'; more.textContent=t('chat.show_more');
+      let open=false;
+      more.onclick=(e)=>{ e.stopPropagation(); open=!open;
+        code.textContent = open ? full : full.slice(0,PREVIEW)+'…';
+        more.textContent = t(open?'chat.show_less':'chat.show_more');
+      };
+      body.appendChild(more);
+    } else {
+      code.textContent=full; pre.appendChild(code); body.appendChild(pre);
+    }
   } else if(!tu.done && !tu.typing){
     const wait=document.createElement('div'); wait.className='tool-wait'; wait.textContent=t('chat.execution_in_progress');
     body.appendChild(wait);

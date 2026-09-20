@@ -377,8 +377,25 @@ function renderToolMsg(el, tu){
     const sub=document.createElement('div'); sub.className='tool-sub'; sub.textContent=t('chat.response');
     body.appendChild(sub);
     const pre=document.createElement('pre');
-    const code=document.createElement('code'); code.textContent=tu.result;
-    pre.appendChild(code); body.appendChild(pre);
+    const code=document.createElement('code');
+    // Résultat long : on n'affiche que le début et on propose « voir plus » qui
+    // révèle tout (le contenu complet est déjà là, envoyé par le serveur). Le
+    // compteur « ~N tok » de l'étiquette reflète, lui, la VRAIE taille.
+    const full=tu.result, PREVIEW=1600;
+    if(full.length>PREVIEW){
+      code.textContent=full.slice(0,PREVIEW)+'…';
+      pre.appendChild(code); body.appendChild(pre);
+      const more=document.createElement('button');
+      more.className='tool-more'; more.type='button'; more.textContent=t('chat.show_more');
+      let open=false;
+      more.onclick=(e)=>{ e.stopPropagation(); open=!open;
+        code.textContent = open ? full : full.slice(0,PREVIEW)+'…';
+        more.textContent = t(open?'chat.show_less':'chat.show_more');
+      };
+      body.appendChild(more);
+    } else {
+      code.textContent=full; pre.appendChild(code); body.appendChild(pre);
+    }
   } else if(!tu.done && !tu.typing){
     const wait=document.createElement('div'); wait.className='tool-wait'; wait.textContent=t('chat.execution_in_progress');
     body.appendChild(wait);

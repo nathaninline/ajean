@@ -447,23 +447,11 @@ type ToolUsedEvent struct {
 	ArgToks int
 }
 
-// shownDisplayMax borne ce qu'un résultat d'outil occupe dans le FLUX vers l'UI.
-// Aligné sur le plus haut plafond côté modèle (mcpMaxOutput = 12000 ; shell et
-// web = 8000) : le modèle et l'UI voient donc la même chose, et l'étiquette
-// « ~N tok » de la bulle dit la VRAIE taille du résultat.
-//
-// Avant, cette borne était à 4000 : toute page web un peu longue s'affichait
-// « ~1004 tok » — la valeur du plafond, pas celle de la page. Le compteur
-// mentait, et il mentait toujours avec le même chiffre.
-const shownDisplayMax = 12000
-
-// shownResult prépare un résultat d'outil pour l'affichage.
-func shownResult(s string) string {
-	if r := []rune(s); len(r) > shownDisplayMax {
-		return string(r[:shownDisplayMax]) + "\n…[tronqué]"
-	}
-	return s
-}
+// Le résultat d'outil est désormais envoyé INTÉGRALEMENT à l'UI (parité avec ce
+// que le modèle reçoit, déjà borné par les plafonds propres à chaque outil : MCP,
+// shell, web…). La bulle affiche donc le VRAI volume (~N tok) et l'UI replie les
+// longs résultats derrière un bouton « voir plus » (cf. 08-chat-render.js), au
+// lieu de tronquer à 12000 caractères et d'afficher toujours ~3003 tok (issue #83).
 
 // dedupableTool indique si un appel RIGOUREUSEMENT identique (même outil, mêmes
 // arguments) doit être court-circuité au lieu d'être rejoué. Vrai pour les outils
@@ -1202,7 +1190,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				if prev, seen := doneCalls[callKey]; seen && dedupableTool(tc.Function.Name) {
 					repeatCount[callKey]++
 					result = repeatedCallResult(prev, repeatCount[callKey])
-					cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label, Result: shownResult(result), Done: true, ArgToks: flushArgToks()}})
+					cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label, Result: result, Done: true, ArgToks: flushArgToks()}})
 					toolMsg := Message{Role: "tool", ToolCallID: tc.ID, Content: result}
 					messages = append(messages, toolMsg)
 					extra = append(extra, toolMsg)
@@ -1369,7 +1357,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				if !strings.HasPrefix(result, "[erreur]") {
 					doneCalls[callKey] = result
 				}
-				cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label, Result: shownResult(result), Done: true, Diff: diff, ArgToks: flushArgToks()}})
+				cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: tc.Function.Name, Label: label, Result: result, Done: true, Diff: diff, ArgToks: flushArgToks()}})
 				toolMsg := Message{Role: "tool", ToolCallID: tc.ID, Content: result}
 				messages = append(messages, toolMsg)
 				extra = append(extra, toolMsg)
