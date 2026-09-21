@@ -31,7 +31,10 @@ function openProjectHub(){
   showSessionsLoading(); // spinner tout de suite : pas de flash de l'ancienne liste avant le chargement
   loadProjects();
 }
-function closeProjectModal(){ hideModal('project-modal'); }
+// À la fermeture du menu projets, on REJOUE l'animation du badge CODER : elle jouait
+// jusque-là pendant que le menu (plein écran) masquait le composeur, donc invisible.
+// On attend la fin de la transition de fermeture pour que le composeur soit dégagé.
+function closeProjectModal(){ hideModal('project-modal'); setTimeout(()=>updateCoderBadge(true), 220); }
 
 // Met à jour le petit libellé du projet actif à côté de l'icône dossier.
 function setProjectBtnName(name){
@@ -54,9 +57,14 @@ async function loadProjects(){
   if(!LIVE_GENERATING || !PROJECTS.some(p=>p.slug===BROWSE_PROJECT)) BROWSE_PROJECT = '';
   const act = PROJECTS.find(p=>p.slug===ACTIVE_PROJECT);
   setProjectBtnName(act ? act.name : '');
+  // Au tout premier chargement, on pose l'état du badge SANS animation (le menu peut
+  // être fermé, composeur visible). Ensuite l'animation ne se joue qu'à la fermeture
+  // du menu (updateCoderBadge(true) dans closeProjectModal), quand elle est visible.
+  if(!_coderBadgeInit){ _coderBadgeInit = true; updateCoderBadge(false); }
   renderProjectList();
   loadProjectSessions();
 }
+let _coderBadgeInit = false;
 
 // browseProject : regarde un AUTRE projet en lecture seule pendant une génération
 // (ne bascule pas, ne coupe rien). Cliquer le projet actif revient à ses sessions.
@@ -130,7 +138,9 @@ function openProjMenu(anchor, p){
   const pop = document.createElement('div'); pop.className='pop-menu';
   const item = (icon, label, cls, fn)=>{ const b=document.createElement('button'); if(cls) b.className=cls; b.innerHTML=sessIconSvg(icon)+'<span>'+label+'</span>'; b.onclick=(e)=>{ e.stopPropagation(); closeProjMenu(); fn(); }; return b; };
   pop.appendChild(item('pencil', t('projects.rename'), '', ()=>renameProjectUI(p.slug, p.name)));
-  pop.appendChild(item('doc', t('projects.describe'), '', ()=>describeProjectUI(p.slug, p.desc||'')));
+  // Options du projet : description fournie à l'IA + bascule du mode CODER, dans une
+  // seule fenêtre (la coche « mode CODER » de la boîte de saisie).
+  pop.appendChild(item('doc', t('projects.options'), '', ()=>optionsProjectUI(p)));
   // Voir la mémoire du projet SANS basculer dessus (consultation d'un autre projet).
   pop.appendChild(item('mem', t('projects.view_memory'), '', ()=>{ if(typeof openMemHub==='function') openMemHub(p.slug, p.name); }));
   if(PROJECTS.length > 1) pop.appendChild(item('trash', t('projects.delete'), 'danger', ()=>deleteProjectUI(p.slug, p.name)));
@@ -185,6 +195,8 @@ async function switchProjectUI(slug){
   catch(_){ if(known) revert(); toast(t('projects.network_error')); return; }
   if(!r.ok){ if(known) revert(); toast(r.error || t('projects.switch_failed')); return; }
   ACTIVE_PROJECT = r.active || slug;
+  // Le badge suit le projet actif, mais l'animation ne se joue qu'à la fermeture du
+  // menu (composeur visible) : ici on ne fait rien, closeProjectModal s'en charge.
   // Rafraîchit la liste des pages mémoire des réglages (elle est projet-scopée). On
   // vide d'abord le filtre de recherche : une requête laissée d'un projet fourni
   // filtrerait les notes du nouveau projet (jusqu'à tout masquer) sans qu'on le voie.
@@ -355,18 +367,65 @@ async function renameProjectUI(slug, current){
   loadProjects();
 }
 
-// Décrire un projet : la description est fournie à l'IA en tête de chaque nouvelle
-// conversation du projet (elle sait alors à quoi sert le projet, sans qu'on ait à
-// le lui réexpliquer). Vide = efface la description.
-async function describeProjectUI(slug, current){
+// Options d'un projet : la description (fournie à l'IA en tête de chaque nouvelle
+// conversation) ET le mode CODER, réunis dans une seule fenêtre. La description est
+// le champ multiligne ; le mode CODER est la case à cocher de la boîte. Vide = efface
+// la description. Un seul enregistrement met à jour les deux réglages.
+async function optionsProjectUI(p){
+  const slug = p.slug;
   const desc = await askPrompt(
     t('projects.describe_prompt'),
-    {title:t('projects.describe_title'), okText:t('projects.save_btn'), multiline:true, default: current||'', placeholder:t('projects.describe_placeholder')});
-  if(desc===null) return;
+    {title:t('projects.options_title'), okText:t('projects.save_btn'), multiline:true,
+     default: p.desc||'', placeholder:t('projects.describe_placeholder'),
+     check:t('projects.coder'), checkOn:!!p.coder});
+  if(desc===null) return;                 // annulé : on ne touche à rien
+  const coder = (typeof askChecked==='function') ? askChecked() : !!p.coder;
   let r; try{ r = await jpost('/api/projects/describe', {slug, desc}); }catch(_){ toast(t('projects.network_error')); return; }
   if(!r.ok){ toast(r.error || t('projects.save_failed')); return; }
+  // Mode CODER : n'appelle l'API que si l'état a changé (évite un aller-retour inutile).
+  if(coder !== !!p.coder){
+    try{ await jpost('/api/projects/coder', {slug, on:coder}); }catch(_){ toast(t('projects.network_error')); }
+  }
   toast(desc.trim() ? t('projects.desc_saved') : t('projects.desc_cleared'));
   loadProjects();
+  // Le badge s'animera à la fermeture du menu (composeur visible).
+}
+
+// coderBadgeDesired : le mode CODER est-il actif pour le projet ACTIF ?
+function coderBadgeDesired(){ const p = PROJECTS.find(x=>x.slug===ACTIVE_PROJECT); return !!(p && p.coder); }
+
+// updateCoderBadge synchronise le badge « CODER » du composeur avec l'état du projet.
+//   animate=false → pose l'état FINAL sans animation (chargement initial).
+//   animate=true  → (re)joue l'animation, à appeler à la FERMETURE du menu (composeur
+//                   visible). L'affichage passe par .shown (display:flex) et l'animation
+//                   par .rev/.hide + .full : l'état de repos du SVG est clippé (pas
+//                   display:none), donc relancer l'animation ne fait ni trou ni flash.
+let _coderOutTimer = null;
+function updateCoderBadge(animate){
+  const el = document.getElementById('coder-badge'); if(!el) return;
+  const on = coderBadgeDesired();
+  if(_coderOutTimer){ clearTimeout(_coderOutTimer); _coderOutTimer = null; }
+  if(!animate){
+    // État FINAL sans animation (chargement initial) : statique visible (.shown.full) ou
+    // caché selon le mode.
+    el.classList.remove('rev'); el.classList.remove('hide');
+    el.classList.toggle('shown', on); el.classList.toggle('full', on);
+    return;
+  }
+  if(on){
+    // Arrivée, REJOUÉE à chaque fermeture du menu. On repart de l'état de REPOS caché
+    // (retrait de .full → clip-path masqué), reflow, puis .rev anime la révélation. Le
+    // repos étant clippé (pas display:none), aucun trou ni flash. À la fin, .full fige.
+    el.classList.add('shown'); el.classList.remove('hide'); el.classList.remove('full');
+    el.classList.remove('rev'); void el.offsetWidth; el.classList.add('rev');
+    _coderOutTimer = setTimeout(()=>{ el.classList.add('full'); el.classList.remove('rev'); _coderOutTimer = null; }, 820);
+  } else if(el.classList.contains('shown')){
+    // Sortie : on part du plein (.full) et .hide efface colonne par colonne, puis on
+    // masque vraiment à la fin.
+    el.classList.add('full'); el.classList.remove('hide');
+    el.classList.remove('rev'); void el.offsetWidth; el.classList.add('hide');
+    _coderOutTimer = setTimeout(()=>{ el.classList.remove('hide'); el.classList.remove('full'); el.classList.remove('shown'); _coderOutTimer = null; }, 720);
+  }
 }
 
 // Petit sélecteur de projet (pop-menu ancré au bouton), pour choisir une DESTINATION.

@@ -27,7 +27,42 @@ const (
 )
 
 func pidFilePath() string { return filepath.Join(AjeanHome(), serviceName()+".pid") }
-func logFilePath() string { return filepath.Join(AjeanHome(), serviceName()+".log") }
+
+// engineLogInUse = chemin RÉELLEMENT écrit pour le journal du moteur. Vide tant
+// qu'aucun démarrage n'a résolu le chemin ; renseigné par openEngineLog, qui bascule
+// sur un repli si le journal principal n'est pas accessible en écriture (issue #88 :
+// un `.log` créé par un `ajean start` élevé appartient à l'admin, et l'ajean-ui non
+// élevé ne peut plus y écrire → l'ouverture échouait et bloquait tout le démarrage).
+var engineLogInUse string
+
+func logFilePath() string {
+	if engineLogInUse != "" {
+		return engineLogInUse
+	}
+	return filepath.Join(AjeanHome(), serviceName()+".log")
+}
+
+// openEngineLog ouvre le journal du moteur en écriture, avec repli : d'abord dans
+// AJEAN_HOME, sinon dans le dossier temporaire de l'utilisateur (toujours accessible).
+// Renvoie nil si AUCUN chemin n'est ouvrable — dans ce cas le moteur démarre quand
+// même, simplement sans journal redirigé : ne jamais faire échouer le démarrage juste
+// parce qu'on n'a pas pu ouvrir un fichier de log.
+func openEngineLog() *os.File {
+	primary := filepath.Join(AjeanHome(), serviceName()+".log")
+	if err := os.MkdirAll(AjeanHome(), 0o755); err == nil {
+		if f, err := os.OpenFile(primary, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644); err == nil {
+			engineLogInUse = primary
+			return f
+		}
+	}
+	fb := filepath.Join(os.TempDir(), serviceName()+".log")
+	if f, err := os.OpenFile(fb, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644); err == nil {
+		engineLogInUse = fb
+		return f
+	}
+	engineLogInUse = ""
+	return nil
+}
 
 func serviceAction(action string) error {
 	switch action {
@@ -62,15 +97,19 @@ func svcStart() error {
 	if err := os.MkdirAll(AjeanHome(), 0o755); err != nil {
 		return err
 	}
-	logf, err := os.OpenFile(logFilePath(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	if err != nil {
-		return fmt.Errorf("ouverture du log %s: %w", logFilePath(), err)
+	// Journal résilient : un échec d'ouverture ne DOIT PAS empêcher le moteur de
+	// démarrer (issue #88). openEngineLog bascule sur un repli, ou renvoie nil (aucun
+	// journal) — dans ce cas la sortie de l'enfant est simplement ignorée.
+	logf := openEngineLog()
+	if logf != nil {
+		defer logf.Close()
 	}
-	defer logf.Close()
 
 	cmd := exec.Command(self, "serve")
-	cmd.Stdout = logf
-	cmd.Stderr = logf
+	if logf != nil {
+		cmd.Stdout = logf
+		cmd.Stderr = logf
+	}
 	cmd.Dir = AjeanHome() // les chemins relatifs de config.env se résolvent depuis AJEAN_HOME
 	// createNoWindow + HideWindow : le service enfant (`ajean serve`) ne doit JAMAIS
 	// faire clignoter de console noire quand AJEAN est lancé en mode app (double-clic).
@@ -82,8 +121,11 @@ func svcStart() error {
 		return fmt.Errorf("démarrage de 'ajean serve': %w", err)
 	}
 	pid := cmd.Process.Pid
+	// Écriture du PID en best-effort : si le dossier n'est pas accessible en écriture,
+	// on n'abandonne PAS un moteur déjà lancé (issue #88) — on avertit seulement, quitte
+	// à ce que le suivi (stop/status) soit dégradé jusqu'au prochain démarrage propre.
 	if err := os.WriteFile(pidFilePath(), []byte(strconv.Itoa(pid)), 0o644); err != nil {
-		return fmt.Errorf("écriture du PID: %w", err)
+		fmt.Printf("%s PID non enregistré (%v) — le moteur tourne (PID %d) mais stop/status peuvent être imprécis\n", yellow("[avert]"), err, pid)
 	}
 	// Don't wait — let it run detached.
 	_ = cmd.Process.Release()

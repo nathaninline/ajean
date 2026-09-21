@@ -15,7 +15,7 @@ func handleProjects(w http.ResponseWriter, r *http.Request) {
 	list := listProjects()
 	out := make([]map[string]any, 0, len(list))
 	for _, p := range list {
-		out = append(out, map[string]any{"slug": p.Slug, "name": p.Name, "created_at": p.CreatedAt, "desc": p.Desc})
+		out = append(out, map[string]any{"slug": p.Slug, "name": p.Name, "created_at": p.CreatedAt, "desc": p.Desc, "coder": p.Coder})
 	}
 	sendJSON(w, 200, map[string]any{"ok": true, "projects": out, "active": activeProjectSlug()})
 }
@@ -61,6 +61,21 @@ func handleProjectDescribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
+// handleProjectCoder (POST {slug, on}) : active/désactive le mode CODER du projet,
+// qui ajoute au prompt système un cadre d'ingénierie strict (voir coder_mode.go).
+func handleProjectCoder(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Slug string `json:"slug"`
+		On   bool   `json:"on"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if err := setProjectCoder(strings.TrimSpace(body.Slug), body.On); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "coder": body.On})
 }
 
 // handleProjectMoveSession (POST {id, slug}) : déplace une conversation archivée

@@ -679,4 +679,18 @@ async function loadAll(){
   await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadComputer(),loadMCP(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadRemote(),loadTasks()]);
   releaseHeights(); // tout est en place : on rend la main et on mesure pour la prochaine fois
 }
-async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }
+// Démarrer / arrêter / redémarrer le moteur. On REMONTE l'erreur si le serveur répond
+// {ok:false} (issue #88 : avant, l'échec — ex. « Accès refusé » sur le log — était avalé
+// et l'UI affichait juste « start… » sans jamais dire pourquoi le moteur ne chargeait pas).
+async function act(a){
+  toast(a+'…');
+  let r;
+  try{ r = await jpost('/api/'+a); }
+  catch(_){ toast(t('settings.engine_action_error') + ' ' + a); return; }
+  if(r && r.ok === false){
+    const detail = (r.out && r.out !== 'ok') ? r.out : (r.error || '');
+    askAlert(detail || (t('settings.engine_action_error') + ' ' + a),
+      {title: t('settings.engine_action_failed_title')});
+  }
+  setTimeout(loadAll,1500);
+}
