@@ -1,15 +1,18 @@
-Cette version ajoute un mode CODER activable par projet et corrige, sous Windows, l'échec silencieux des boutons de démarrage et d'arrêt du moteur.
+Cette version affine le mode CODER et améliore l'affichage des résultats d'outils dans le chat.
 
-## Mode CODER par projet
+## Mode CODER plus fiable
 
-Chaque projet peut désormais passer en mode CODER, indépendamment des autres, depuis le menu d'options du projet (menu à trois points, entrée « Options »). Activé, il ajoute au prompt système un cadre d'ingénierie strict, orienté fiabilité sur une base de code : cartographier le projet avant d'agir, réutiliser l'existant, faire la plus petite modification possible, puis vérifier qu'on n'a rien cassé et rapporter honnêtement ce qui a été vérifié. Un badge « CODER » s'affiche au-dessus de la zone de saisie quand le mode est actif. Le cadre ne s'applique qu'en mode agent, là où le modèle dispose réellement d'outils.
+Le mode CODER pouvait rester plusieurs minutes sans rien produire, ou entreprendre des actions qui n'avaient pas été demandées (par exemple pousser du code sur un dépôt). La cause venait de son cadre système, à la fois trop verbeux (ce qui fait sur-raisonner le modèle au lieu d'agir) et trop permissif sur les opérations sensibles. Le cadre a été resserré :
 
-## Windows : erreur du moteur enfin visible
+- Des règles d'action courtes et concrètes, sans consignes sur la façon de réfléchir, pour que le modèle agisse au lieu de délibérer sans fin.
+- Une modification reste petite en portée mais complète : ce que le changement impacte ailleurs (appelants, cas liés) est traité aussi, pas laissé à moitié fait.
+- Aucune opération de publication ou de déploiement sans demande explicite : pas de commit, push, reset ou rebase, pas de release, de déploiement, de redémarrage de service ni de remplacement de binaire. L'inspection en lecture seule (statut, diff, journal git) reste autorisée.
 
-Sous Windows, les boutons Démarrer, Arrêter et Redémarrer du moteur pouvaient échouer sans que l'interface n'affiche la moindre raison : elle montrait seulement un bref message d'action, alors que le modèle ne se chargeait pas. La cause côté serveur était souvent un journal du moteur devenu la propriété d'une session administrateur, que le processus courant ne pouvait plus ouvrir en écriture, ce qui interrompait tout le démarrage. Deux corrections sont apportées :
+## Résultats d'outils : « voir plus » à côté de « copier »
 
-- L'interface remonte maintenant l'erreur renvoyée par le serveur dans une boîte de dialogue, au lieu de l'ignorer.
-- Le démarrage du moteur ne dépend plus de l'ouverture du journal : si le fichier principal n'est pas accessible en écriture, l'écriture bascule sur un emplacement temporaire, et à défaut le moteur démarre sans journal redirigé plutôt que d'échouer. L'enregistrement du fichier de PID devient également non bloquant.
+Dans un résultat d'outil tronqué, le bouton « voir plus » occupait une ligne séparée sous le bloc, alors que « copier » flottait dans le coin. Les deux boutons sont désormais réunis dans une barre en bas à droite du résultat, avec le même style, ce qui évite la ligne supplémentaire.
+
+Le bouton « voir plus » dépliait le contenu sans que rien ne semble changer : le texte complet était bien chargé, mais le bloc restait plafonné en hauteur, obligeant à faire défiler à l'intérieur. Au dépliage, le bloc lève maintenant ce plafond et affiche réellement l'ensemble du résultat.
 
 ## Mise à jour
 
