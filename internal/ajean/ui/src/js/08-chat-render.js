@@ -389,7 +389,7 @@ function renderToolMsg(el, tu){
     //    déplie localement (contenu déjà là).
     if(rid){
       code.textContent=preview+'…';
-      pre.appendChild(code); body.appendChild(pre);
+      pre.appendChild(code);
       const more=document.createElement('button');
       more.className='tool-more'; more.type='button'; more.textContent=t('chat.show_more');
       let full=null, open=false;
@@ -402,20 +402,22 @@ function renderToolMsg(el, tu){
         }
         open=!open;
         code.textContent = open ? full : preview+'…';
+        pre.classList.toggle('expanded', open);
         more.textContent = t(open?'chat.show_less':'chat.show_more');
       };
-      body.appendChild(more);
+      body.appendChild(toolBlock(pre, more));
     } else if(preview.length>PREVIEW){
       code.textContent=preview.slice(0,PREVIEW)+'…';
-      pre.appendChild(code); body.appendChild(pre);
+      pre.appendChild(code);
       const more=document.createElement('button');
       more.className='tool-more'; more.type='button'; more.textContent=t('chat.show_more');
       let open=false;
       more.onclick=(e)=>{ e.stopPropagation(); open=!open;
         code.textContent = open ? preview : preview.slice(0,PREVIEW)+'…';
+        pre.classList.toggle('expanded', open);
         more.textContent = t(open?'chat.show_less':'chat.show_more');
       };
-      body.appendChild(more);
+      body.appendChild(toolBlock(pre, more));
     } else {
       code.textContent=preview; pre.appendChild(code); body.appendChild(pre);
     }
@@ -425,10 +427,25 @@ function renderToolMsg(el, tu){
   }
   addCopyButtons(body); scrollMaybe();
 }
+// Bloc d'un résultat d'outil : le pre scrolle (max-height), donc la barre d'actions
+// vit sur un bloc-parent NON scrollant, ancrée en bas à droite — elle reste au coin
+// même quand on scrolle dans le résultat. La barre réunit « voir plus » (passé ici)
+// et, ajouté ensuite par addCopyButtons, « copier ».
+function toolBlock(pre, more){
+  const block=document.createElement('div'); block.className='tool-block';
+  block.appendChild(pre);
+  const bar=document.createElement('div'); bar.className='tool-actions';
+  bar.appendChild(more);
+  block.appendChild(bar);
+  return block;
+}
 // Inject a "copier" button into every <pre> code block (idempotent).
 function addCopyButtons(root){
   root.querySelectorAll('pre').forEach(pre=>{
-    if(pre.querySelector('.copybtn')) return;
+    // Résultat d'outil : le pre est enrobé dans .tool-block et la barre d'actions
+    // est SŒUR du pre (pas dedans) ; on cherche donc le copier dans ce périmètre.
+    const scope = pre.closest('.tool-block') || pre;
+    if(scope.querySelector('.copybtn')) return;
     // Pas de bouton copier sur un diff : on copierait les préfixes + / - .
     if(pre.classList.contains('diff')) return;
     const btn=document.createElement('button');
@@ -441,7 +458,9 @@ function addCopyButtons(root){
       btn.textContent=t('chat.copied'); btn.classList.add('done');
       setTimeout(()=>{ btn.textContent=t('chat.copy'); btn.classList.remove('done'); },1500);
     };
-    pre.appendChild(btn);
+    // S'il y a une barre d'actions (résultat d'outil avec « voir plus »), le
+    // bouton copier s'y range à côté ; sinon il se colle en bas à droite du bloc.
+    (scope.querySelector('.tool-actions')||pre).appendChild(btn);
   });
 }
 // Nouvelle conversation POUR TOUS LES APPAREILS : le serveur vide le fil et
