@@ -221,6 +221,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/projects/delete", handleProjectDelete)            // supprime (dossier + sessions)
 	api("/api/projects/switch", handleProjectSwitch)            // bascule le projet actif (nouvelle session)
 	api("/api/projects/describe", handleProjectDescribe)        // description du projet (fournie à l'IA)
+	api("/api/projects/coder", handleProjectCoder)              // mode CODER (cadre d'ingénierie strict)
 	api("/api/projects/move-session", handleProjectMoveSession) // déplace une conversation vers un autre projet (#55)
 	api("/api/projects/move-mem", handleProjectMoveMem)         // déplace une page mémoire vers un autre projet (#55)
 	api("/api/tracker", handleTracker)                          // liste des trackers (données datées) du projet actif

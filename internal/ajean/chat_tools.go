@@ -117,6 +117,11 @@ func baseSystemPrompt(caps Caps) string {
 			b.WriteString(line)
 		}
 	}
+	// Mode CODER (par projet) : cadre d'ingénierie strict, ajouté en dernier pour
+	// former un bloc bien détaché. N'agit qu'en mode agent (coderPromptFor le vérifie).
+	if cp := coderPromptFor(caps); cp != "" {
+		b.WriteString("\n\n" + cp + "\n")
+	}
 	b.WriteString("\nDate: " + time.Now().Format("2006-01-02"))
 	return b.String()
 }

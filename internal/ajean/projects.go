@@ -42,6 +42,11 @@ type Project struct {
 	// à chaque projet de choisir entre index injecté (always) et recherche d'abord
 	// (search), ou de couper la mémoire, indépendamment des autres.
 	MemMode string `json:"mem_mode,omitempty"`
+	// Coder = mode CODER de ce projet. Activé, il ajoute au prompt système un cadre
+	// d'ingénierie strict (cartographier avant d'agir, ne rien casser, vérifier après
+	// chaque modification) : voir coder_mode.go. Réglé PAR PROJET pour n'imposer ce
+	// régime qu'aux projets de code, sans alourdir les conversations ordinaires.
+	Coder bool `json:"coder,omitempty"`
 }
 
 const (
@@ -226,6 +231,33 @@ func setProjectMemMode(slug, mode string) error {
 	for i := range list {
 		if list[i].Slug == slug {
 			list[i].MemMode = mode
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("projet introuvable")
+	}
+	return saveProjects(list)
+}
+
+// projectCoder indique si le mode CODER est actif pour un projet donné.
+func projectCoder(slug string) bool {
+	for _, p := range listProjects() {
+		if p.Slug == slug {
+			return p.Coder
+		}
+	}
+	return false
+}
+
+// setProjectCoder active/désactive le mode CODER d'un projet.
+func setProjectCoder(slug string, on bool) error {
+	list := listProjects()
+	found := false
+	for i := range list {
+		if list[i].Slug == slug {
+			list[i].Coder = on
 			found = true
 			break
 		}

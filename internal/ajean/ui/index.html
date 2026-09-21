@@ -810,6 +810,22 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 #ctxtrack{position:absolute;top:0;left:0;right:0;height:3px;background:var(--panel);overflow:hidden}
 #ctx-fill{height:100%;width:0%;background:var(--ok,#3a7);transition:width .3s,background .3s}
 #ctxmeta{position:relative;display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:8px 12px 0}
+/* Badge « CODE » en pixels (même dessin que la marque AJEAN) : posé AU-DESSUS de la
+   carte de saisie, calé à gauche, quand le mode CODER est actif. order:0 le place
+   au-dessus de #inputbar (order:1) ; caché tant que le mode n'est pas actif. */
+/* Modèle : l'AFFICHAGE (.shown = display:flex) est séparé de l'ANIMATION. L'état de
+   REPOS du SVG est CACHÉ par clip-path (pas display:none) → relancer l'animation ne
+   fait jamais de trou ni de flash « plein ». .full = statique visible ; .rev = arrivée
+   (révélation colonne par colonne) ; .hide = sortie (effacement). steps(24) = pixel. */
+#coder-badge{order:0;display:none;justify-content:flex-start;margin:0 var(--col) 10px;padding:0 6px 0 22px;color:var(--accent);opacity:.9}
+#coder-badge.shown{display:flex}
+#coder-badge svg{height:10px;width:auto;display:block;shape-rendering:crispEdges;fill:currentColor;clip-path:inset(0 100% 0 0)}
+#coder-badge.full svg{clip-path:inset(0 0 0 0)}
+#coder-badge.rev svg{animation:codereveal .8s steps(24,end) forwards}
+#coder-badge.hide svg{animation:codehide .7s steps(24,end) forwards}
+@keyframes codereveal{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes codehide{from{clip-path:inset(0 0 0 0)}to{clip-path:inset(0 100% 0 0)}}
+@media (prefers-reduced-motion:reduce){#coder-badge.rev svg,#coder-badge.hide svg{animation:none}#coder-badge.full svg{clip-path:inset(0 0 0 0)}}
 #ctx-compact{display:none;margin:0;padding:2px 10px;font-size:10px;background:var(--warn-bg);border-color:var(--warn,#c93)}
 #inputbar{padding:8px 12px;display:flex;gap:8px}
 /* Astuce clavier sous la saisie (style repris du HTML : un thème doit pouvoir
@@ -2226,6 +2242,10 @@ button:hover{border-color:var(--dim);color:var(--text)}
   <!-- Voile de dépôt : révélé pendant qu'on survole la fenêtre avec un fichier. -->
   <div id="dropveil" aria-hidden="true"><div data-i18n="chat.drop_hint">Déposer pour joindre au message</div></div>
   <div id="composer">
+    <!-- Badge « CODE » (pixels, même dessin que la marque AJEAN) : posé AU-DESSUS de
+         la carte de saisie, calé à gauche, quand le mode CODER du projet actif est
+         actif. order:0 → au-dessus de #inputbar (order:1). -->
+    <div id="coder-badge" title="Mode CODER" aria-label="Mode CODER" data-i18n="projects.coder" data-i18n-attr="title"><svg viewBox="0 0 24 5" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><rect style="--i:0" x="1" y="0" width="3" height="1"/><rect style="--i:1" x="0" y="1" width="1" height="1"/><rect style="--i:2" x="0" y="2" width="1" height="1"/><rect style="--i:3" x="0" y="3" width="1" height="1"/><rect style="--i:4" x="1" y="4" width="3" height="1"/><rect style="--i:5" x="6" y="0" width="2" height="1"/><rect style="--i:6" x="5" y="1" width="1" height="1"/><rect style="--i:7" x="8" y="1" width="1" height="1"/><rect style="--i:8" x="5" y="2" width="1" height="1"/><rect style="--i:9" x="8" y="2" width="1" height="1"/><rect style="--i:10" x="5" y="3" width="1" height="1"/><rect style="--i:11" x="8" y="3" width="1" height="1"/><rect style="--i:12" x="6" y="4" width="2" height="1"/><rect style="--i:13" x="10" y="0" width="3" height="1"/><rect style="--i:14" x="10" y="1" width="1" height="1"/><rect style="--i:15" x="13" y="1" width="1" height="1"/><rect style="--i:16" x="10" y="2" width="1" height="1"/><rect style="--i:17" x="13" y="2" width="1" height="1"/><rect style="--i:18" x="10" y="3" width="1" height="1"/><rect style="--i:19" x="13" y="3" width="1" height="1"/><rect style="--i:20" x="10" y="4" width="3" height="1"/><rect style="--i:21" x="15" y="0" width="4" height="1"/><rect style="--i:22" x="15" y="1" width="1" height="1"/><rect style="--i:23" x="15" y="2" width="3" height="1"/><rect style="--i:24" x="15" y="3" width="1" height="1"/><rect style="--i:25" x="15" y="4" width="4" height="1"/><rect style="--i:26" x="20" y="0" width="3" height="1"/><rect style="--i:27" x="20" y="1" width="1" height="1"/><rect style="--i:28" x="23" y="1" width="1" height="1"/><rect style="--i:29" x="20" y="2" width="3" height="1"/><rect style="--i:30" x="20" y="3" width="1" height="1"/><rect style="--i:31" x="22" y="3" width="1" height="1"/><rect style="--i:32" x="20" y="4" width="1" height="1"/><rect style="--i:33" x="23" y="4" width="1" height="1"/></svg></div>
     <div id="ctxmeta">
       <div id="ctxtrack"><div id="ctx-fill"></div></div>
       <span id="status-preset" class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
@@ -3326,6 +3346,8 @@ fr: {
   "engine.service_start": "démarrer",
   "engine.service_restart": "redémarrer",
   "engine.service_stop": "arrêter",
+  "settings.engine_action_failed_title": "Action sur le moteur échouée",
+  "settings.engine_action_error": "Échec de l'action sur le moteur :",
   "settings.check_update_title": "Vérifier les mises à jour",
   "chat.loading_aria": "chargement de la conversation",
   "chat.empty_title": "On commence par quoi ?",
@@ -3937,7 +3959,9 @@ fr: {
   "projects.active_badge": "actif",
   "projects.options_project_title": "Options du projet",
   "projects.rename": "Renommer",
-  "projects.describe": "Décrire",
+  "projects.options": "Options",
+  "projects.options_title": "Options du projet",
+  "projects.coder": "Mode CODER",
   "projects.view_memory": "Voir la mémoire",
   "projects.delete": "Supprimer",
   "projects.none": "aucun projet",
@@ -3983,7 +4007,6 @@ fr: {
   "projects.rename_title": "Renommer le projet",
   "projects.rename_placeholder": "ex. Site vitrine",
   "projects.describe_prompt": "Décris ce projet : à quoi il sert, le contexte, les contraintes. Ce texte est donné à l'IA au début de chaque conversation du projet.",
-  "projects.describe_title": "Décrire le projet",
   "projects.describe_placeholder": "ex. Site vitrine d'un client, stack Next.js, ton pro et sobre, deadline fin octobre…",
   "projects.save_failed": "enregistrement impossible",
   "projects.desc_saved": "description enregistrée",
@@ -4439,6 +4462,8 @@ en: {
   "engine.service_start": "start",
   "engine.service_restart": "restart",
   "engine.service_stop": "stop",
+  "settings.engine_action_failed_title": "Engine action failed",
+  "settings.engine_action_error": "Engine action failed:",
   "settings.check_update_title": "Check for updates",
   "chat.loading_aria": "loading the conversation",
   "chat.empty_title": "Where should we start?",
@@ -5050,7 +5075,9 @@ en: {
   "projects.active_badge": "active",
   "projects.options_project_title": "Project options",
   "projects.rename": "Rename",
-  "projects.describe": "Describe",
+  "projects.options": "Options",
+  "projects.options_title": "Project options",
+  "projects.coder": "CODER mode",
   "projects.view_memory": "View memory",
   "projects.delete": "Delete",
   "projects.none": "no projects",
@@ -5096,7 +5123,6 @@ en: {
   "projects.rename_title": "Rename the project",
   "projects.rename_placeholder": "e.g. Showcase site",
   "projects.describe_prompt": "Describe this project: what it's for, the context, the constraints. This text is given to the AI at the start of every conversation in the project.",
-  "projects.describe_title": "Describe the project",
   "projects.describe_placeholder": "e.g. Client showcase site, Next.js stack, professional and understated tone, deadline end of October…",
   "projects.save_failed": "save failed",
   "projects.desc_saved": "description saved",
@@ -6820,7 +6846,21 @@ async function loadAll(){
   await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadComputer(),loadMCP(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadRemote(),loadTasks()]);
   releaseHeights(); // tout est en place : on rend la main et on mesure pour la prochaine fois
 }
-async function act(a){ toast(a+'…'); await jpost('/api/'+a); setTimeout(loadAll,1500); }
+// Démarrer / arrêter / redémarrer le moteur. On REMONTE l'erreur si le serveur répond
+// {ok:false} (issue #88 : avant, l'échec — ex. « Accès refusé » sur le log — était avalé
+// et l'UI affichait juste « start… » sans jamais dire pourquoi le moteur ne chargeait pas).
+async function act(a){
+  toast(a+'…');
+  let r;
+  try{ r = await jpost('/api/'+a); }
+  catch(_){ toast(t('settings.engine_action_error') + ' ' + a); return; }
+  if(r && r.ok === false){
+    const detail = (r.out && r.out !== 'ok') ? r.out : (r.error || '');
+    askAlert(detail || (t('settings.engine_action_error') + ' ' + a),
+      {title: t('settings.engine_action_failed_title')});
+  }
+  setTimeout(loadAll,1500);
+}
 // ─── Presets externes (API OpenAI-compatible distante) ───────────────────────
 // Modale ouverte par le bouton wifi à gauche du « + » des presets. Crée/édite un
 // preset qui, au lieu de lancer le moteur local, route le chat vers une API
@@ -11351,7 +11391,10 @@ function openProjectHub(){
   showSessionsLoading(); // spinner tout de suite : pas de flash de l'ancienne liste avant le chargement
   loadProjects();
 }
-function closeProjectModal(){ hideModal('project-modal'); }
+// À la fermeture du menu projets, on REJOUE l'animation du badge CODER : elle jouait
+// jusque-là pendant que le menu (plein écran) masquait le composeur, donc invisible.
+// On attend la fin de la transition de fermeture pour que le composeur soit dégagé.
+function closeProjectModal(){ hideModal('project-modal'); setTimeout(()=>updateCoderBadge(true), 220); }
 
 // Met à jour le petit libellé du projet actif à côté de l'icône dossier.
 function setProjectBtnName(name){
@@ -11374,9 +11417,14 @@ async function loadProjects(){
   if(!LIVE_GENERATING || !PROJECTS.some(p=>p.slug===BROWSE_PROJECT)) BROWSE_PROJECT = '';
   const act = PROJECTS.find(p=>p.slug===ACTIVE_PROJECT);
   setProjectBtnName(act ? act.name : '');
+  // Au tout premier chargement, on pose l'état du badge SANS animation (le menu peut
+  // être fermé, composeur visible). Ensuite l'animation ne se joue qu'à la fermeture
+  // du menu (updateCoderBadge(true) dans closeProjectModal), quand elle est visible.
+  if(!_coderBadgeInit){ _coderBadgeInit = true; updateCoderBadge(false); }
   renderProjectList();
   loadProjectSessions();
 }
+let _coderBadgeInit = false;
 
 // browseProject : regarde un AUTRE projet en lecture seule pendant une génération
 // (ne bascule pas, ne coupe rien). Cliquer le projet actif revient à ses sessions.
@@ -11450,7 +11498,9 @@ function openProjMenu(anchor, p){
   const pop = document.createElement('div'); pop.className='pop-menu';
   const item = (icon, label, cls, fn)=>{ const b=document.createElement('button'); if(cls) b.className=cls; b.innerHTML=sessIconSvg(icon)+'<span>'+label+'</span>'; b.onclick=(e)=>{ e.stopPropagation(); closeProjMenu(); fn(); }; return b; };
   pop.appendChild(item('pencil', t('projects.rename'), '', ()=>renameProjectUI(p.slug, p.name)));
-  pop.appendChild(item('doc', t('projects.describe'), '', ()=>describeProjectUI(p.slug, p.desc||'')));
+  // Options du projet : description fournie à l'IA + bascule du mode CODER, dans une
+  // seule fenêtre (la coche « mode CODER » de la boîte de saisie).
+  pop.appendChild(item('doc', t('projects.options'), '', ()=>optionsProjectUI(p)));
   // Voir la mémoire du projet SANS basculer dessus (consultation d'un autre projet).
   pop.appendChild(item('mem', t('projects.view_memory'), '', ()=>{ if(typeof openMemHub==='function') openMemHub(p.slug, p.name); }));
   if(PROJECTS.length > 1) pop.appendChild(item('trash', t('projects.delete'), 'danger', ()=>deleteProjectUI(p.slug, p.name)));
@@ -11505,6 +11555,8 @@ async function switchProjectUI(slug){
   catch(_){ if(known) revert(); toast(t('projects.network_error')); return; }
   if(!r.ok){ if(known) revert(); toast(r.error || t('projects.switch_failed')); return; }
   ACTIVE_PROJECT = r.active || slug;
+  // Le badge suit le projet actif, mais l'animation ne se joue qu'à la fermeture du
+  // menu (composeur visible) : ici on ne fait rien, closeProjectModal s'en charge.
   // Rafraîchit la liste des pages mémoire des réglages (elle est projet-scopée). On
   // vide d'abord le filtre de recherche : une requête laissée d'un projet fourni
   // filtrerait les notes du nouveau projet (jusqu'à tout masquer) sans qu'on le voie.
@@ -11675,18 +11727,65 @@ async function renameProjectUI(slug, current){
   loadProjects();
 }
 
-// Décrire un projet : la description est fournie à l'IA en tête de chaque nouvelle
-// conversation du projet (elle sait alors à quoi sert le projet, sans qu'on ait à
-// le lui réexpliquer). Vide = efface la description.
-async function describeProjectUI(slug, current){
+// Options d'un projet : la description (fournie à l'IA en tête de chaque nouvelle
+// conversation) ET le mode CODER, réunis dans une seule fenêtre. La description est
+// le champ multiligne ; le mode CODER est la case à cocher de la boîte. Vide = efface
+// la description. Un seul enregistrement met à jour les deux réglages.
+async function optionsProjectUI(p){
+  const slug = p.slug;
   const desc = await askPrompt(
     t('projects.describe_prompt'),
-    {title:t('projects.describe_title'), okText:t('projects.save_btn'), multiline:true, default: current||'', placeholder:t('projects.describe_placeholder')});
-  if(desc===null) return;
+    {title:t('projects.options_title'), okText:t('projects.save_btn'), multiline:true,
+     default: p.desc||'', placeholder:t('projects.describe_placeholder'),
+     check:t('projects.coder'), checkOn:!!p.coder});
+  if(desc===null) return;                 // annulé : on ne touche à rien
+  const coder = (typeof askChecked==='function') ? askChecked() : !!p.coder;
   let r; try{ r = await jpost('/api/projects/describe', {slug, desc}); }catch(_){ toast(t('projects.network_error')); return; }
   if(!r.ok){ toast(r.error || t('projects.save_failed')); return; }
+  // Mode CODER : n'appelle l'API que si l'état a changé (évite un aller-retour inutile).
+  if(coder !== !!p.coder){
+    try{ await jpost('/api/projects/coder', {slug, on:coder}); }catch(_){ toast(t('projects.network_error')); }
+  }
   toast(desc.trim() ? t('projects.desc_saved') : t('projects.desc_cleared'));
   loadProjects();
+  // Le badge s'animera à la fermeture du menu (composeur visible).
+}
+
+// coderBadgeDesired : le mode CODER est-il actif pour le projet ACTIF ?
+function coderBadgeDesired(){ const p = PROJECTS.find(x=>x.slug===ACTIVE_PROJECT); return !!(p && p.coder); }
+
+// updateCoderBadge synchronise le badge « CODER » du composeur avec l'état du projet.
+//   animate=false → pose l'état FINAL sans animation (chargement initial).
+//   animate=true  → (re)joue l'animation, à appeler à la FERMETURE du menu (composeur
+//                   visible). L'affichage passe par .shown (display:flex) et l'animation
+//                   par .rev/.hide + .full : l'état de repos du SVG est clippé (pas
+//                   display:none), donc relancer l'animation ne fait ni trou ni flash.
+let _coderOutTimer = null;
+function updateCoderBadge(animate){
+  const el = document.getElementById('coder-badge'); if(!el) return;
+  const on = coderBadgeDesired();
+  if(_coderOutTimer){ clearTimeout(_coderOutTimer); _coderOutTimer = null; }
+  if(!animate){
+    // État FINAL sans animation (chargement initial) : statique visible (.shown.full) ou
+    // caché selon le mode.
+    el.classList.remove('rev'); el.classList.remove('hide');
+    el.classList.toggle('shown', on); el.classList.toggle('full', on);
+    return;
+  }
+  if(on){
+    // Arrivée, REJOUÉE à chaque fermeture du menu. On repart de l'état de REPOS caché
+    // (retrait de .full → clip-path masqué), reflow, puis .rev anime la révélation. Le
+    // repos étant clippé (pas display:none), aucun trou ni flash. À la fin, .full fige.
+    el.classList.add('shown'); el.classList.remove('hide'); el.classList.remove('full');
+    el.classList.remove('rev'); void el.offsetWidth; el.classList.add('rev');
+    _coderOutTimer = setTimeout(()=>{ el.classList.add('full'); el.classList.remove('rev'); _coderOutTimer = null; }, 820);
+  } else if(el.classList.contains('shown')){
+    // Sortie : on part du plein (.full) et .hide efface colonne par colonne, puis on
+    // masque vraiment à la fin.
+    el.classList.add('full'); el.classList.remove('hide');
+    el.classList.remove('rev'); void el.offsetWidth; el.classList.add('hide');
+    _coderOutTimer = setTimeout(()=>{ el.classList.remove('hide'); el.classList.remove('full'); el.classList.remove('shown'); _coderOutTimer = null; }, 720);
+  }
 }
 
 // Petit sélecteur de projet (pop-menu ancré au bouton), pour choisir une DESTINATION.

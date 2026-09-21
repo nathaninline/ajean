@@ -780,6 +780,22 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 #ctxtrack{position:absolute;top:0;left:0;right:0;height:3px;background:var(--panel);overflow:hidden}
 #ctx-fill{height:100%;width:0%;background:var(--ok,#3a7);transition:width .3s,background .3s}
 #ctxmeta{position:relative;display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:8px 12px 0}
+/* Badge « CODE » en pixels (même dessin que la marque AJEAN) : posé AU-DESSUS de la
+   carte de saisie, calé à gauche, quand le mode CODER est actif. order:0 le place
+   au-dessus de #inputbar (order:1) ; caché tant que le mode n'est pas actif. */
+/* Modèle : l'AFFICHAGE (.shown = display:flex) est séparé de l'ANIMATION. L'état de
+   REPOS du SVG est CACHÉ par clip-path (pas display:none) → relancer l'animation ne
+   fait jamais de trou ni de flash « plein ». .full = statique visible ; .rev = arrivée
+   (révélation colonne par colonne) ; .hide = sortie (effacement). steps(24) = pixel. */
+#coder-badge{order:0;display:none;justify-content:flex-start;margin:0 var(--col) 10px;padding:0 6px 0 22px;color:var(--accent);opacity:.9}
+#coder-badge.shown{display:flex}
+#coder-badge svg{height:10px;width:auto;display:block;shape-rendering:crispEdges;fill:currentColor;clip-path:inset(0 100% 0 0)}
+#coder-badge.full svg{clip-path:inset(0 0 0 0)}
+#coder-badge.rev svg{animation:codereveal .8s steps(24,end) forwards}
+#coder-badge.hide svg{animation:codehide .7s steps(24,end) forwards}
+@keyframes codereveal{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes codehide{from{clip-path:inset(0 0 0 0)}to{clip-path:inset(0 100% 0 0)}}
+@media (prefers-reduced-motion:reduce){#coder-badge.rev svg,#coder-badge.hide svg{animation:none}#coder-badge.full svg{clip-path:inset(0 0 0 0)}}
 #ctx-compact{display:none;margin:0;padding:2px 10px;font-size:10px;background:var(--warn-bg);border-color:var(--warn,#c93)}
 #inputbar{padding:8px 12px;display:flex;gap:8px}
 /* Astuce clavier sous la saisie (style repris du HTML : un thème doit pouvoir
