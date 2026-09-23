@@ -791,7 +791,9 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			"model": ep.Model,
 			// Normalisé juste avant l'envoi : un seul system, en tête. Les gabarits
 			// stricts (Qwen3.x) refusent un system ailleurs qu'en position 0 (issue #26).
-			"messages":    normalizeSystemMessages(messages),
+			// Les images de l'historique y sont rangées par référence (chat_images.go) :
+			// on remet leurs octets juste avant l'envoi.
+			"messages":    expandImageRefs(normalizeSystemMessages(messages)),
 			"stream":      true,
 			"temperature": temperature,
 			// include_usage → chunk final avec `usage.prompt_tokens` = taille TOTALE

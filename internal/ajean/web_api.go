@@ -1112,6 +1112,7 @@ func handleMemUnlock(w http.ResponseWriter, r *http.Request) {
 	setMemDEK(dek)
 	resumeMemMigration()    // si une migration attendait le déverrouillage
 	reloadEncryptedStores() // recharge la conversation chiffrée en RAM
+	startSlimArchives()     // allègement des anciennes conversations (attendait la clé)
 	// Migration douce : chiffre les conversations restées en clair (ex. mémoire
 	// activée avant que le chiffrement des conversations existe). Idempotent :
 	// n'encode que ce qui ne l'est pas encore.
@@ -1391,7 +1392,11 @@ type chatReq struct {
 	// Message = texte du tour à lancer (/api/chat/send) ; From = dernier Seq déjà
 	// vu par le client (le flux d'abonnement rejoue Log[From:] puis suit le direct).
 	Message string `json:"message"`
-	From    int    `json:"from"`
+	// Tail (flux d'abonnement) : nombre de derniers ÉCHANGES à rejouer au
+	// chargement ; 0 = tout. nil = ancien client, qui ne sait pas afficher le
+	// bouton « messages précédents » : il reçoit toujours tout (voir historyCut).
+	Tail *int `json:"tail"`
+	From int  `json:"from"`
 	// ConvID = id de la conversation actuellement AFFICHÉE par le client (reçu au
 	// dernier caught_up/reset du flux). Renvoyé à chaque (re)abonnement pour que le
 	// serveur détecte qu'un AUTRE appareil a changé de conversation/projet entre-temps

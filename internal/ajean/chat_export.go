@@ -383,7 +383,7 @@ func exportBody(o exportOpts) ([]byte, string, string, error) {
 	// (export depuis le menu ⋮ d'une conversation, sans avoir à l'ouvrir). On monte
 	// une Conversation temporaire à partir de l'archive et on réutilise le même code.
 	target := conv
-	if o.SessionID != "" {
+	if o.SessionID != "" && o.SessionID != conv.currentID() {
 		a, ok := loadArchive(o.SessionID)
 		if !ok {
 			return nil, "", "", fmt.Errorf("session introuvable")

@@ -4,6 +4,12 @@
 // suit le direct. Fermer l'onglet n'arrête plus la génération (détachée côté
 // serveur) ; se reconnecter rejoue tout le fil, détails compris.
 let lastSeq=0, streamAbort=null;
+// Historique paginé : au chargement, le serveur ne rejoue que les HIST_TAIL derniers
+// échanges et annonce le reste ({history_more: N}). Le bouton en haut du fil
+// redemande alors un rejeu complet (HIST_FULL) en gardant la position de lecture
+// (HIST_RESTORE = distance au bas du fil, réappliquée au caught_up).
+const HIST_TAIL=20;
+let HIST_FULL=false, HIST_RESTORE=null;
 // CONV_ID : id de la conversation que ce client affiche actuellement (reçu du
 // serveur au caught_up/reset). Renvoyé à chaque (re)connexion : le serveur compare
 // avec la conversation vive et, si un AUTRE appareil en a changé pendant qu'on était
@@ -448,7 +454,15 @@ function handleDelta(d){
     // Fin du replay initial : on saute en bas puis on révèle (une seule fois — pas
     // sur les reconnexions, pour ne pas te ramener en bas si tu lisais plus haut).
     setChatLoading(null);
-    if(REPLAYING){ REPLAYING=false; jumpBottom(); syncSendBtn(); const c=chatEl(); c.style.transition='opacity .15s'; c.style.opacity='1';
+    if(REPLAYING && HIST_RESTORE!==null){
+      // Historique complet demandé : on garde la position de lecture (distance au
+      // bas du fil) au lieu de sauter en bas, et on la recale une fois la mise en
+      // page stabilisée (le rejeu pose ses blocs de façon différée).
+      REPLAYING=false; syncSendBtn(); const c=chatEl(); c.style.transition='opacity .15s'; c.style.opacity='1';
+      const keep=HIST_RESTORE; HIST_RESTORE=null; stickyBottom=false;
+      const put=()=>{ c.scrollTop=Math.max(0, c.scrollHeight-keep); };
+      put(); requestAnimationFrame(()=>requestAnimationFrame(put)); setTimeout(put, 80); setTimeout(put, 250);
+    } else if(REPLAYING){ REPLAYING=false; jumpBottom(); syncSendBtn(); const c=chatEl(); c.style.transition='opacity .15s'; c.style.opacity='1';
       // Le rejeu pose ses blocs de façon différée (scheduleRender) : la hauteur
       // finale n'est pas encore établie au caught_up, donc jumpBottom() atterrit
       // trop court (près du haut sur une session ouverte). On re-cale en bas une
@@ -474,8 +488,10 @@ function handleDelta(d){
     // (comme au chargement de page), sans l'animation « ouvre puis se ferme ». Le
     // caught_up qui clôt le rejeu remettra REPLAYING à false.
     if(d.replay) REPLAYING=true;
+    if(d.id!==undefined && (d.id||'')!==CONV_ID) HIST_FULL=false; // autre conversation : de nouveau paginée
     if(d.id!==undefined) CONV_ID=d.id||''; // nouvelle conversation active : on suit son id
     TURN_ENDED=true; elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDS=[]; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); setCompactCount(0); lastSeq=0; setBusy(false); return; }
+  if(d.history_more!==undefined){ showHistoryMore(d.history_more); return; }
   if(d.user!==undefined){
     newTurn();
     let el=confirmPending(d.user);
@@ -602,9 +618,14 @@ async function connectStream(){
     CATCHUP=true; smoothReset();
     streamAbort=new AbortController();
     try{
-      const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:lastSeq,conv_id:CONV_ID}),signal:streamAbort.signal});
+      const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:lastSeq,conv_id:CONV_ID,tail:HIST_FULL?0:HIST_TAIL}),signal:streamAbort.signal});
       if(REPLAYING) setChatLoading(t('chat.loading_conversation'));
       const reader=r.body.getReader(); const dec=new TextDecoder(); let buf='';
+      // Tranches de travail : un rejeu arrive d'un bloc (des centaines d'événements,
+      // chacun rendu en Markdown). Tout traiter d'une traite bloquait le navigateur
+      // par à-coups de 50 à 110 ms au changement de conversation. On rend la main
+      // toutes les ~12 ms : même durée totale, mais animations et clics restent fluides.
+      let slice=performance.now();
       while(true){
         const {done,value}=await reader.read(); if(done) break;
         buf+=dec.decode(value,{stream:true}); let i;
@@ -614,6 +635,7 @@ async function connectStream(){
             if(!line.startsWith('data:')) continue;
             const data=line.slice(5).trim(); if(data===''||data==='[DONE]') continue;
             try{ const o=JSON.parse(data); const d=(o.choices&&o.choices[0]&&o.choices[0].delta)||{}; handleDelta(d); }catch(e){}
+            if(performance.now()-slice>12){ await new Promise(res=>setTimeout(res,0)); slice=performance.now(); }
           }
         }
       }
@@ -624,6 +646,31 @@ async function connectStream(){
     if(REPLAYING) setChatLoading(t('chat.connecting_to_server'));
     await new Promise(res=>setTimeout(res, 600));
   }
+}
+// Bouton « échanges précédents » posé en tête du fil quand le serveur n'a rejoué
+// que la fin de la conversation.
+function showHistoryMore(n){
+  const chat=chatEl(); if(!chat || !n) return;
+  let box=chat.querySelector('.history-more');
+  if(!box){ box=document.createElement('div'); box.className='history-more'; chat.insertBefore(box, chat.firstChild); }
+  box.innerHTML='';
+  const b=document.createElement('button'); b.type='button';
+  b.textContent = n===1 ? t('chat.history_more_one') : t('chat.history_more_prefix')+n+t('chat.history_more_suffix');
+  b.onclick=loadFullHistory;
+  box.appendChild(b);
+}
+// Rejeu COMPLET de la conversation vive, en gardant ce qu'on lisait à l'écran : on
+// vide le fil, on coupe le flux, et la boucle connectStream se reconnecte depuis le
+// début sans pagination (tail=0).
+function loadFullHistory(){
+  const chat=chatEl(); if(!chat) return;
+  const box=chat.querySelector('.history-more'); if(box){ const b=box.querySelector('button'); if(b){ b.disabled=true; b.textContent=t('chat.loading_conversation'); } }
+  HIST_RESTORE=chat.scrollHeight-chat.scrollTop;
+  HIST_FULL=true;
+  chat.innerHTML=''; newTurn();
+  smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null;
+  lastSeq=0; REPLAYING=true;
+  if(streamAbort){ try{ streamAbort.abort(); }catch(e){} }
 }
 // readConversation : affiche une AUTRE conversation en LECTURE SEULE dans la vue
 // plein chat, SANS rien dire au serveur (la conversation vive et sa génération
@@ -687,7 +734,20 @@ function updateLiveBadge(){
 
 // Interrompt la génération en cours côté serveur (la goroutine détachée est
 // annulée). Le serveur émet alors turn_done → le bouton repasse en « send ».
-function stopGen(){ jfetch('/api/chat/stop',{method:'POST'}).catch(()=>{}); toast(t('chat.stop')); }
+// _stopAt : anti-doublon, le bouton réagit à l'APPUI sur écran tactile (voir plus
+// bas) puis le clic qui suit éventuellement ne doit pas relancer.
+let _stopAt = 0;
+function stopGen(){
+  const now = Date.now(); if(now - _stopAt < 800) return; _stopAt = now;
+  jfetch('/api/chat/stop',{method:'POST'}).catch(()=>{}); toast(t('chat.stop'));
+}
+// Sur écran tactile, stop agit dès l'appui (pointerdown) : le « clic » complet peut
+// être annulé par iOS si le fil défile au même moment, or c'est justement quand
+// l'IA écrit qu'on veut l'arrêter vite.
+document.addEventListener('DOMContentLoaded', ()=>{
+  const st=document.getElementById('stop'); if(!st) return;
+  st.addEventListener('pointerdown', (e)=>{ if(e.pointerType!=='mouse'){ e.preventDefault(); stopGen(); } });
+});
 // Recale l'état du bouton sur la vérité serveur. Ne touche à rien pendant le replay
 // initial (l'état final y est posé au caught_up) ni si l'appel échoue : dans le
 // doute on garde ce que les événements ont déjà établi.

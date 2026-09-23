@@ -85,7 +85,11 @@ func sseHeartbeat(w http.ResponseWriter, flusher http.Flusher) (*sync.Mutex, fun
 // goroutine détachée — fermer le navigateur n'arrête donc plus rien. Partagé par
 // handleChat (clair) et handleE2EChat (chiffré).
 func runChatStream(ctx context.Context, body chatReq, emit func(map[string]any) bool) {
-	conv.Subscribe(ctx, body.From, body.ConvID, emit)
+	tail := -1
+	if body.Tail != nil {
+		tail = *body.Tail
+	}
+	conv.SubscribeTail(ctx, body.From, body.ConvID, tail, emit)
 }
 
 // handleChatSend ajoute un message et lance la génération en arrière-plan. Réponse
@@ -165,6 +169,7 @@ func handleChatPeek(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "id manquant"})
 		return
 	}
+	syncActiveArchive(id)
 	a, ok := loadArchive(id)
 	if !ok {
 		sendJSON(w, 404, map[string]any{"ok": false, "error": "conversation introuvable"})
@@ -222,6 +227,7 @@ func handleChatHistoryRename(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "id manquant"})
 		return
 	}
+	syncActiveArchive(body.ID)
 	if err := renameArchive(body.ID, body.Title); err != nil {
 		sendJSON(w, 404, map[string]any{"ok": false, "error": err.Error()})
 		return
@@ -244,6 +250,7 @@ func handleChatHistoryFav(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "id manquant"})
 		return
 	}
+	syncActiveArchive(body.ID)
 	if err := setArchiveFav(body.ID, body.Fav); err != nil {
 		sendJSON(w, 404, map[string]any{"ok": false, "error": err.Error()})
 		return
@@ -292,6 +299,18 @@ func handleToolResult(w http.ResponseWriter, r *http.Request) {
 	if s, ok := loadToolResult(id); ok {
 		sendJSON(w, 200, map[string]any{"result": s})
 		return
+	}
+	// Référence vers un message tool d'une conversation ARCHIVÉE (lecture seule,
+	// ou journal allégé par slimArchives) : le client passe l'id de la session.
+	if sid := strings.TrimSpace(r.URL.Query().Get("sid")); sid != "" && sid != conv.currentID() {
+		if a, ok := loadArchive(sid); ok {
+			for _, m := range a.Messages {
+				if s, isStr := m.Content.(string); isStr && m.Role == "tool" && m.ToolCallID == id {
+					sendJSON(w, 200, map[string]any{"result": s})
+					return
+				}
+			}
+		}
 	}
 	conv.mu.Lock()
 	var found string

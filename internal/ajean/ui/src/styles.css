@@ -1847,7 +1847,7 @@ html.lb-lock,html.lb-lock body{overflow:hidden}
 #lightbox{position:fixed;inset:0;z-index:1000;display:none;touch-action:none}
 #lightbox.show{display:block}
 #lightbox .lb-backdrop{position:absolute;inset:0;background:rgba(8,8,10,.86);
-  -webkit-backdrop-filter:blur(14px) saturate(1.1);backdrop-filter:blur(14px) saturate(1.1);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
   opacity:0;transition:opacity .28s ease}
 #lightbox.in .lb-backdrop{opacity:1}
 #lightbox.dragging .lb-backdrop{transition:none}
@@ -1952,3 +1952,17 @@ button:hover{border-color:var(--dim);color:var(--text)}
 
 /* Capture (browser_screenshot) insérée en ![](fichier.png) : résolue vers le dossier de travail par markWorkspaceImages. */
 .chat-img{max-width:100%;height:auto;border-radius:8px;display:block;margin:8px 0;border:1px solid var(--border)}
+
+/* Bouton « échanges précédents » en tête d'un fil rejoué partiellement. */
+#chat .history-more{display:flex;justify-content:center;padding:6px 0 14px}
+#chat .history-more button{font:inherit;font-size:12px;color:var(--dim);background:var(--row-bg);
+  border:1px solid var(--border);border-radius:999px;padding:6px 14px;cursor:pointer;
+  transition:background .15s,color .15s,border-color .15s}
+#chat .history-more button:hover{color:var(--text);border-color:var(--dim);background:var(--row-bg-on)}
+#chat .history-more button:disabled{opacity:.6;cursor:default}
+/* Fil : le navigateur ne met en page et ne peint QUE les messages visibles. Sans ça,
+   ouvrir une conversation calculait tout le fil d'un coup (≈ 110 ms de blocage) et
+   le défilement redessinait tout ce qui était hors écran. `auto` dans la taille
+   intrinsèque : une fois affiché, un message garde sa vraie hauteur mémorisée, la
+   barre de défilement ne saute donc pas en remontant. */
+#chat > .msg, #chat > .msg-files{content-visibility:auto;contain-intrinsic-size:auto 120px}

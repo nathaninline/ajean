@@ -354,11 +354,15 @@ function openSessMenu(anchor, c, active){
   setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', _projScroll, true); }, 0);
 }
 
+// Ouverture OPTIMISTE : le menu se ferme et le voile de chargement apparaît tout
+// de suite, la requête part ensuite. Attendre la réponse avant de fermer laissait
+// le menu figé sans retour visuel (sauvegarde de la conversation quittée +
+// chargement de la nouvelle côté serveur). Le voile tombe au caught_up du rejeu.
 async function openProjSession(id){
-  let r; try{ r = await jpost('/api/chat/history/restore', {id}); }catch(_){ toast(t('projects.network_error')); return; }
-  if(!r.ok){ toast(r.error || t('projects.open_failed')); return; }
   closeProjectModal();
-  toast(t('projects.session_opened'));
+  setChatLoading(t('chat.loading_conversation'));
+  let r; try{ r = await jpost('/api/chat/history/restore', {id}); }catch(_){ setChatLoading(null); toast(t('projects.network_error')); return; }
+  if(!r.ok){ setChatLoading(null); toast(r.error || t('projects.open_failed')); return; }
 }
 
 async function favProjSession(id, fav){

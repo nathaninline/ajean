@@ -1,21 +1,38 @@
-Cette version rend la liste des conversations beaucoup plus légère et retravaille entièrement l'affichage des pièces jointes, avec une visionneuse d'images plein écran.
+Cette version rend AJEAN nettement plus léger et plus fluide sur les longues conversations, en particulier celles qui contiennent des images, et corrige l'interface qui ne répondait plus au toucher pendant les réponses sur mobile.
 
-## Liste des conversations
+## Interface qui ne répondait plus pendant une réponse (mobile)
 
-Avec plusieurs centaines de conversations, l'ouverture du menu des projets devenait lente : la liste était affichée en entier d'un coup, et le serveur lisait au passage le contenu complet de toutes les conversations archivées (plus de 250 Mo sur une installation réelle) alors qu'il n'avait besoin que de leurs titres.
+Sur iPhone, pendant que l'IA répondait, les appuis étaient souvent ignorés partout, bouton stop compris, jusqu'à la fin de la réponse. Le fil se recalait en bas toutes les 150 ms, et iOS annule un appui si la position de défilement change pendant qu'il a lieu. Le fil ne se recale plus pendant un contact avec l'écran (il rattrape juste après), et le bouton stop agit dès l'appui sur écran tactile, pour pouvoir interrompre une génération immédiatement.
 
-La liste affiche désormais les 40 conversations les plus récentes, puis charge les suivantes au fil du défilement. Les favorites restent en tête. Le serveur ne lit plus le contenu des conversations pour construire la liste.
+## Conversations avec images : jusqu'à 100 fois plus légères
 
-## Pièces jointes
+Chaque image jointe était stockée en entier, encodée en base64, dans l'historique de la conversation : une conversation de quatorze messages pouvait peser 36 Mo, réécrits à chaque réponse et relus à chaque ouverture. Les images sont désormais rangées une seule fois sur le disque (dossier `chatimg`, hors du dossier de travail de l'IA), et l'historique n'en garde qu'une référence. Le modèle reçoit exactement les mêmes images qu'avant. Les conversations existantes sont converties automatiquement au démarrage, sans perte.
 
-- Les images jointes s'affichent en vraies vignettes : grandes et aux proportions d'origine quand l'image est seule, en rangée de carrés quand un message en contient plusieurs, carrées dans la zone de saisie. Un reflet animé indique le chargement, puis l'image apparaît en fondu.
-- Un clic sur une image l'ouvre dans une visionneuse plein écran : l'image s'agrandit depuis sa vignette sur un fond flouté. Navigation entre les images d'un même message (flèches à l'écran ou touches ← →), zoom au double-clic ou à la molette puis déplacement en glissant, téléchargement, fermeture par Échap, clic à côté ou, sur mobile, glissement vers le bas. Les images insérées par l'IA dans ses réponses s'ouvrent de la même façon.
-- Les autres fichiers affichent une icône selon leur type (PDF, document, tableur, code, archive, audio, vidéo, texte).
-- La zone de saisie ne se reconstruit plus entièrement à chaque étape d'un envoi : les vignettes ne clignotent plus, un anneau de progression s'affiche sur l'image en cours d'envoi, et l'ajout ou le retrait d'un fichier est animé.
-- Une image dont le chargement échoue affiche son nom et une icône au lieu de disparaître.
+Dans le fil, les vignettes affichaient la photo d'origine en pleine résolution (une photo de 12 mégapixels pour un carré de quelques centaines de pixels), ce qui faisait saccader le défilement. Elles sont maintenant réduites une fois à leur taille d'affichage ; la visionneuse et le téléchargement utilisent toujours l'original. L'ouverture d'une image dans la visionneuse ne saccade plus.
+
+## Ouverture et chargement des conversations
+
+- Au chargement de la page ou à l'ouverture d'une conversation, seuls les 20 derniers échanges sont affichés ; un bouton en haut du fil affiche les précédents sans perdre la position de lecture.
+- Le menu des projets se ferme dès le clic sur une conversation, avec un indicateur de chargement, au lieu de rester figé le temps que le serveur réponde.
+- Le rendu d'une conversation ne bloque plus le navigateur par à-coups, et seuls les messages visibles à l'écran sont mis en page et dessinés.
+- Chaque fin de réponse réécrivait la conversation entière deux fois ; elle n'est plus écrite qu'une fois.
+
+## Stockage
+
+- Les longs résultats d'outils des anciennes conversations sont remplacés dans l'affichage par un aperçu, le texte complet restant accessible par « voir plus ».
+- Les résultats complets de « voir plus » sont désormais chiffrés comme les conversations (ils étaient stockés en clair depuis la 0.15.5), rangés avec leur conversation et supprimés avec elle, sans plafond global qui les faisait disparaître sur les anciennes conversations.
+- Sur une installation réelle, les conversations archivées sont passées de 252 Mo à 109 Mo.
+
+La base de données ne rend pas d'elle-même l'espace libéré au disque. Pour le récupérer, arrêter AJEAN, puis compacter le fichier `ajean.db` (par exemple avec l'outil `bbolt compact`).
+
+## Divers
+
+- Les réponses du serveur local (interface et données) sont compressées : la page passe de 850 Ko à moins de 200 Ko transférés.
+- Les commentaires de développement ne sont plus inclus dans l'interface servie aux utilisateurs.
+- Un test dépendant du réseau ne peut plus faire échouer la construction d'une version.
 
 ## Mise à jour
 
     ajean update
 
-Non testé : la version macOS (compilée par la CI, pas vérifiée sur un Mac).
+Non testé : la version macOS (compilée par la CI, pas vérifiée sur un Mac). La conversion des anciennes conversations s'exécute en arrière-plan une vingtaine de secondes après le démarrage, et seulement une fois la mémoire chiffrée déverrouillée si le chiffrement est actif.
