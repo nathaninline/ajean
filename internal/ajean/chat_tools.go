@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 const (
@@ -116,11 +117,6 @@ func baseSystemPrompt(caps Caps) string {
 		if line := mcpPromptLine(); line != "" {
 			b.WriteString(line)
 		}
-	}
-	// Mode CODER (par projet) : cadre d'ingénierie strict, ajouté en dernier pour
-	// former un bloc bien détaché. N'agit qu'en mode agent (coderPromptFor le vérifie).
-	if cp := coderPromptFor(caps); cp != "" {
-		b.WriteString("\n\n" + cp + "\n")
 	}
 	b.WriteString("\nDate: " + time.Now().Format("2006-01-02"))
 	return b.String()
@@ -238,8 +234,8 @@ func runShell(parent context.Context, command string, timeoutSec int) string {
 			return fmt.Sprintf("[erreur: %v]", err)
 		}
 	}
-	out := tailRunes(stdout.String(), toolMaxOutput)
-	errOut := tailRunes(stderr.String(), toolMaxOutput)
+	out := tailOutput(stdout.String())
+	errOut := tailOutput(stderr.String())
 	parts := []string{fmt.Sprintf("exit: %d", exit)}
 	if out != "" {
 		parts = append(parts, "stdout:\n"+out)
@@ -339,6 +335,18 @@ func fileEdit(path, oldText, newText string) string {
 		return "[erreur] " + err.Error()
 	}
 	return fmt.Sprintf("[ok] %s modifié (1 remplacement)", path)
+}
+
+// tailOutput garde la FIN d'une sortie de commande (toolMaxOutput runes) et dit
+// explicitement ce qui a été coupé. La coupe était silencieuse : le modèle
+// croyait voir toute la sortie, et la bulle affichait toujours ~2004 tok sans
+// qu'on sache pourquoi.
+func tailOutput(s string) string {
+	n := utf8.RuneCountInString(s)
+	if n <= toolMaxOutput {
+		return s
+	}
+	return fmt.Sprintf("[sortie tronquée : %d caractères au total, seuls les %d derniers sont gardés]\n", n, toolMaxOutput) + tailRunes(s, toolMaxOutput)
 }
 
 // tailRunes returns the last n runes of s (used to cap tool output).

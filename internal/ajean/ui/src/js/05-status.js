@@ -207,7 +207,13 @@ async function showPaths(){
 // applyUpdate écrit sa progression dans un BANDEAU existant : #app-update (bas du
 // menu, accès local) ou #server-stale (haut, accès distant). L'ancien #upd-msg de
 // la section Actions a disparu, d'où le paramètre.
+// _updBusy : une seule mise à jour à la fois depuis cet onglet (un second clic
+// pendant un téléchargement lent relançait un téléchargement concurrent ; le
+// serveur refuse désormais aussi, voir updateMu).
+let _updBusy=false;
 async function applyUpdate(boxId){
+  if(_updBusy) return;
+  _updBusy=true;
   const msg=document.getElementById(boxId||'app-update');
   if(msg){ msg.hidden=false; msg.textContent=t('status.downloading_installing'); }
   try{
@@ -226,6 +232,7 @@ async function applyUpdate(boxId){
     }
     else if(msg){ msg.textContent=t('status.failed_prefix')+' '+(r.error||t('status.unknown')); }
   }catch(e){ if(msg) msg.textContent=t('status.update_error'); }
+  finally{ _updBusy=false; }
 }
 // Compteur de contexte : CTX_USED estimé via les stats serveur (prefill+decode
 // du dernier tour ≈ taille du prochain prompt). À 90% on propose de compacter.

@@ -172,7 +172,17 @@ func checkForUpdate() (updateInfo, error) {
 // applyUpdate télécharge et installe le binaire de la dernière release pour
 // l'OS/arch courant. Renvoie la nouvelle version. Ne redémarre AUCUN service
 // (voir printRestartHint / le message renvoyé à l'UI).
+// updateMu empêche deux mises à jour simultanées (double clic, UI locale ET
+// app.ajean.link, bouton pendant un `ajean update`…). Elles écrivaient dans le
+// MÊME fichier temporaire : le binaire obtenu mélangeait les deux téléchargements
+// et la vérification échouait sur « somme SHA-256 invalide ».
+var updateMu sync.Mutex
+
 func applyUpdate() (string, error) {
+	if !updateMu.TryLock() {
+		return "", fmt.Errorf("une mise à jour est déjà en cours, patiente quelques instants")
+	}
+	defer updateMu.Unlock()
 	rel, err := fetchLatestRelease()
 	if err != nil {
 		return "", fmt.Errorf("impossible de contacter GitHub : %w", err)
@@ -205,18 +215,38 @@ func applyUpdate() (string, error) {
 	if err := checkUpdateWritable(exe); err != nil {
 		return "", err
 	}
-	tmp := filepath.Join(filepath.Dir(exe), ".ajean-update.tmp")
-
-	if err := downloadTo(url, tmp); err != nil {
-		os.Remove(tmp)
+	// Nom de fichier temporaire UNIQUE (même dossier que le binaire, pour que le
+	// remplacement final reste un simple rename) : un autre process ajean (CLI
+	// pendant que le service tourne) ne peut plus écrire dans le même fichier.
+	tf, err := os.CreateTemp(filepath.Dir(exe), ".ajean-update-*.tmp")
+	if err != nil {
 		if os.IsPermission(err) {
 			return "", updatePermissionError(exe)
 		}
-		return "", fmt.Errorf("téléchargement : %w", err)
-	}
-	if err := verifyChecksum(rel, want, tmp); err != nil {
-		os.Remove(tmp)
 		return "", err
+	}
+	tmp := tf.Name()
+	tf.Close()
+
+	// Deux essais : un téléchargement abîmé en route (proxy, coupure, antivirus
+	// qui intercepte) se rattrape souvent en recommençant, plutôt que de laisser
+	// l'utilisateur face à une erreur de somme de contrôle.
+	for attempt := 1; ; attempt++ {
+		if err := downloadTo(url, tmp); err != nil {
+			os.Remove(tmp)
+			if os.IsPermission(err) {
+				return "", updatePermissionError(exe)
+			}
+			return "", fmt.Errorf("téléchargement : %w", err)
+		}
+		err := verifyChecksum(rel, want, tmp)
+		if err == nil {
+			break
+		}
+		if attempt >= 2 {
+			os.Remove(tmp)
+			return "", err
+		}
 	}
 	mode := os.FileMode(0o755)
 	if fi, err := os.Stat(exe); err == nil {
@@ -447,11 +477,20 @@ func removeOldBinaries(path string) {
 // cleanupOldBinary supprime silencieusement le .old laissé par une MAJ Windows
 // précédente (le fichier n'était pas supprimable tant que l'exe tournait).
 func cleanupOldBinary() {
-	if runtime.GOOS != "windows" {
-		return
-	}
 	exe, err := os.Executable()
 	if err != nil {
+		return
+	}
+	// Téléchargements de MAJ abandonnés (process tué en route) : ~16 Mo chacun.
+	// Plus d'une heure = forcément orphelin, jamais une MAJ en cours ailleurs.
+	if left, _ := filepath.Glob(filepath.Join(filepath.Dir(exe), ".ajean-update*.tmp")); len(left) > 0 {
+		for _, f := range left {
+			if fi, err := os.Stat(f); err == nil && time.Since(fi.ModTime()) > time.Hour {
+				_ = os.Remove(f)
+			}
+		}
+	}
+	if runtime.GOOS != "windows" {
 		return
 	}
 	removeOldBinaries(exe)

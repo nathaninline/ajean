@@ -7,7 +7,10 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 )
 
@@ -121,6 +124,10 @@ func requireWebAuth(next http.HandlerFunc) http.HandlerFunc {
 				map[string]any{"error": "configuration illisible — réessaie dans un instant"})
 			return
 		}
+		if msg := crossSiteReject(r, hash != ""); msg != "" {
+			sendJSON(w, http.StatusForbidden, map[string]any{"error": msg})
+			return
+		}
 		if hash == "" {
 			next(w, r)
 			return
@@ -182,4 +189,63 @@ func cmdSetWebKey(args []string) error {
 	fmt.Printf("       les clients doivent envoyer : %s\n", dim("Authorization: Bearer "+key))
 	fmt.Printf("       (relance 'ajean web' si le serveur web tourne déjà — non requis, lu à chaud)\n")
 	return nil
+}
+
+// crossSiteReject refuse les requêtes qu'un SITE TIERS ouvert dans le navigateur
+// de la machine (ou du réseau local) ferait en douce vers l'API. Sans clé (le
+// défaut), l'API est ouverte : une page malveillante pouvait envoyer un POST
+// « simple » (text/plain, sans pré-vérification CORS) à localhost:8090 et piloter
+// ajean, jusqu'à faire exécuter des commandes à l'agent. Renvoie "" si la requête
+// est acceptable, sinon la raison du refus.
+//
+//   - Sec-Fetch-Site: cross-site → refus (navigateurs récents, couvre aussi les GET
+//     déclenchés par une balise <img>/<form>).
+//   - Origin présent et différent de l'hôte appelé → refus (tous les navigateurs
+//     envoient Origin sur un POST cross-origin). Les clients hors navigateur
+//     (scripts, curl, apps) n'envoient pas d'Origin : non concernés.
+//   - Sans clé seulement : l'hôte appelé doit être local (IP, localhost, nom de la
+//     machine, nom sans point, .local/.lan…). Bloque le « DNS rebinding », où un
+//     domaine malveillant se fait résoudre en 127.0.0.1 pour paraître même-origine.
+//     Avec une clé, inutile : le navigateur n'envoie jamais le Bearer tout seul.
+func crossSiteReject(r *http.Request, keyed bool) string {
+	if strings.EqualFold(r.Header.Get("Sec-Fetch-Site"), "cross-site") {
+		return "requête d'un site tiers refusée"
+	}
+	if o := r.Header.Get("Origin"); o != "" && o != "null" {
+		u, err := url.Parse(o)
+		if err != nil || !strings.EqualFold(u.Host, r.Host) {
+			return "origine non autorisée : " + o
+		}
+	} else if o == "null" {
+		return "origine non autorisée"
+	}
+	if !keyed && !localHostName(r.Host) {
+		return "hôte « " + r.Host + " » non autorisé sans clé de pilotage — définis-en une (ajean set-web-key) pour accéder à l'interface par ce nom"
+	}
+	return ""
+}
+
+// localHostName : l'hôte désigne-t-il la machine ou le réseau local (et non un
+// domaine public, seul utilisable pour un DNS rebinding) ?
+func localHostName(hostport string) bool {
+	h := hostport
+	if hh, _, err := net.SplitHostPort(hostport); err == nil {
+		h = hh
+	}
+	h = strings.ToLower(strings.Trim(h, "[]."))
+	if h == "" || net.ParseIP(h) != nil || !strings.Contains(h, ".") {
+		return true
+	}
+	for _, suf := range []string{".localhost", ".local", ".lan", ".home", ".internal", ".home.arpa", ".localdomain"} {
+		if strings.HasSuffix(h, suf) {
+			return true
+		}
+	}
+	if me, err := os.Hostname(); err == nil && me != "" {
+		me = strings.ToLower(me)
+		if h == me || strings.HasPrefix(h, me+".") {
+			return true
+		}
+	}
+	return false
 }
