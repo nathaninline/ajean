@@ -1265,6 +1265,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .proj-sess-load{display:flex;align-items:center;justify-content:center;padding:26px 0}
 @keyframes sess-list-in{from{opacity:0}to{opacity:1}}
 #project-sessions.ready{animation:sess-list-in .2s ease}
+#project-sessions .sess-more{display:flex;justify-content:center;padding:10px 0;opacity:.6}
 @media (prefers-reduced-motion:reduce){#project-sessions.ready{animation:none}}
 /* Point « conversation en cours » dans l'angle haut-gauche de la ligne. */
 .sess-corner-dot{position:absolute;top:6px;left:6px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
@@ -1751,19 +1752,18 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
    revient à l'épaisseur du rond, sinon le bouton flotte loin du bord et la
    pastille paraît de travers. */
 .chip-file:has(button){padding-right:4px}
-/* Vignette d'image : un petit carré à gauche du nom. La pastille se resserre à
-   gauche pour se fermer dessus, comme elle le fait à droite autour du ×. */
-.chip-file.has-thumb{padding-left:5px}
-.chip-file .cf-thumb{flex:none;width:34px;height:34px;object-fit:cover;border-radius:7px;
-  background:var(--code-bg);display:block}
+/* Icône du type de fichier (PDF, code, archive…) à gauche du nom. */
+.chip-file{padding-left:9px}
+.chip-file .cf-icon{flex:none;display:flex;color:var(--dim)}
 .chip-file .cf-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chip-file .cf-size{flex:none;color:var(--dim);font-size:11px}
 /* Le × est TOUJOURS visible : le révéler au survol le rendait inatteignable sur
    mobile, où il n'y a pas de survol — donc impossible de retirer un fichier. */
-.chip-file button{flex:none;margin:0;padding:0;width:20px;height:20px;font-size:14px;
+.chip-file .cf-x{flex:none;margin:0;padding:0;width:20px;height:20px;
   display:flex;align-items:center;justify-content:center;line-height:1;
-  border-radius:50%;border:none;background:transparent;color:var(--dim)}
-.chip-file button:hover{background:var(--bubble);color:var(--text)}
+  border-radius:50%;border:none;background:transparent;color:var(--dim);cursor:pointer;
+  transition:background .15s,color .15s}
+.chip-file .cf-x:hover{background:var(--bubble);color:var(--text)}
 /* Transfert en cours : un liseré qui tourne, plutôt qu'une pastille grisée dont
    on ne sait pas si elle travaille ou si elle a échoué. */
 .chip-file.up .cf-size::after{content:"";display:inline-block;vertical-align:-2px;
@@ -1778,7 +1778,106 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
    une seule bulle difforme qui déborde vers le haut. */
 #chat .msg-files{align-self:flex-end;display:flex;flex-wrap:wrap;justify-content:flex-end;
   gap:6px;max-width:75%}
-#chat .msg-files .chip-file{background:var(--bubble);max-width:100%}
+#chat .msg-files .chip-file{background:var(--bubble);max-width:100%;align-self:center}
+
+/* ===== Tuiles d'image (pièces jointes) =====================================
+   L'image elle-même, cliquable pour l'ouvrir en grand. Reflet animé pendant le
+   chargement, fondu + léger zoom à l'arrivée. Uniquement transform/opacity : les
+   animations ne provoquent aucun recalcul de mise en page. */
+.img-tile{position:relative;flex:0 0 auto;overflow:hidden;border-radius:12px;
+  background:var(--row-bg-on);border:1px solid var(--border);cursor:zoom-in;
+  outline:none;-webkit-tap-highlight-color:transparent;
+  transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s,border-color .18s}
+.img-tile:hover{border-color:var(--dim);box-shadow:0 6px 20px rgba(0,0,0,.14)}
+.img-tile:active{transform:scale(.97)}
+.img-tile:focus-visible{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--accent)}
+.img-tile .it-img{display:block;width:100%;height:100%;object-fit:cover;
+  opacity:0;transform:scale(1.04);transition:opacity .35s ease,transform .45s cubic-bezier(.2,.8,.2,1)}
+.img-tile.loaded .it-img{opacity:1;transform:none}
+.img-tile:not(.loaded):not(.broken)::before{content:"";position:absolute;inset:0;
+  background:linear-gradient(100deg,transparent 30%,color-mix(in srgb,var(--text) 7%,transparent) 50%,transparent 70%);
+  background-size:220% 100%;animation:it-shimmer 1.2s linear infinite}
+@keyframes it-shimmer{from{background-position:120% 0}to{background-position:-100% 0}}
+/* Repli si l'image ne charge pas : icône + nom, comme une pastille. */
+.img-tile.broken{cursor:default}
+.img-tile .it-fallback{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:6px;padding:8px;color:var(--dim);font-size:11px;text-align:center}
+.img-tile .it-fallback span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Bouton retirer (composeur) : pastille ronde sur verre dépoli, coin haut droit. */
+.img-tile .cf-x{position:absolute;top:5px;right:5px;width:22px;height:22px;margin:0;padding:0;
+  display:flex;align-items:center;justify-content:center;border:none;border-radius:50%;cursor:pointer;
+  color:#fff;background:rgba(0,0,0,.5);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  transition:background .15s,transform .15s}
+.img-tile .cf-x:hover{background:rgba(0,0,0,.72);transform:scale(1.08)}
+/* Envoi en cours : voile + anneau de progression (conic-gradient piloté par --p ;
+   indéterminé = un arc qui tourne). */
+.img-tile .it-prog{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.35)}
+.img-tile.up .it-prog{display:flex}
+.img-tile .it-prog::before{content:"";width:26px;height:26px;border-radius:50%;
+  background:conic-gradient(#fff calc(var(--p,0)*1%),rgba(255,255,255,.28) 0);
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2.5px));
+  mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2.5px));
+  transition:background .2s}
+.img-tile.up.indet .it-prog::before{background:conic-gradient(#fff 0 28%,rgba(255,255,255,.28) 0);animation:spin .8s linear infinite}
+.img-tile.err{border-color:var(--err)}
+.img-tile.err::after{content:"!";position:absolute;left:6px;bottom:6px;width:18px;height:18px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font:700 12px/1 var(--font);color:#fff;background:var(--err)}
+/* Composeur : tuiles carrées compactes. */
+#attach-list{align-items:center}
+#attach-list .img-tile{width:64px;height:64px;box-shadow:0 2px 10px rgba(0,0,0,.10)}
+/* Fil : une image seule s'affiche grande, proportions respectées ; plusieurs
+   images forment une grille de carrés. */
+#chat .msg-files .img-tile{width:auto;height:auto;max-width:min(260px,100%)}
+#chat .msg-files .img-tile .it-img{width:auto;height:auto;max-width:min(260px,100%);max-height:260px;min-width:64px;min-height:64px}
+#chat .msg-files.multi .img-tile,#chat .msg-files.multi .img-tile .it-img{width:112px;height:112px;max-height:none;min-width:0;min-height:0}
+#chat .msg-files .img-tile:not(.loaded):not(.broken){width:180px;height:140px}
+#chat .msg-files.multi .img-tile:not(.loaded):not(.broken){width:112px;height:112px}
+/* Entrée / sortie des pièces jointes du composeur. */
+#attach-list .entering{animation:att-in .24s cubic-bezier(.2,.8,.2,1)}
+#attach-list .leaving{animation:att-out .18s ease forwards;pointer-events:none}
+@keyframes att-in{from{opacity:0;transform:scale(.85) translateY(6px)}to{opacity:1;transform:none}}
+@keyframes att-out{to{opacity:0;transform:scale(.8)}}
+/* Images insérées par l'IA : même comportement cliquable. */
+.chat-img{cursor:zoom-in;transition:opacity .2s}
+.chat-img:hover{opacity:.92}
+
+/* ===== Visionneuse (lightbox) =============================================== */
+html.lb-lock,html.lb-lock body{overflow:hidden}
+#lightbox{position:fixed;inset:0;z-index:1000;display:none;touch-action:none}
+#lightbox.show{display:block}
+#lightbox .lb-backdrop{position:absolute;inset:0;background:rgba(8,8,10,.86);
+  -webkit-backdrop-filter:blur(14px) saturate(1.1);backdrop-filter:blur(14px) saturate(1.1);
+  opacity:0;transition:opacity .28s ease}
+#lightbox.in .lb-backdrop{opacity:1}
+#lightbox.dragging .lb-backdrop{transition:none}
+#lightbox .lb-img{position:absolute;border-radius:6px;box-shadow:0 20px 60px rgba(0,0,0,.45);
+  user-select:none;-webkit-user-select:none;cursor:zoom-in;will-change:transform;transform-origin:center}
+#lightbox.zoomed .lb-img{cursor:grab}
+#lightbox.zoomed.dragging .lb-img{cursor:grabbing}
+#lightbox .lb-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:10px;
+  padding:calc(12px + env(safe-area-inset-top)) 14px 12px 18px;color:#fff;font-size:13px;
+  background:linear-gradient(rgba(0,0,0,.45),transparent);opacity:0;transform:translateY(-6px);
+  transition:opacity .25s ease,transform .25s ease}
+#lightbox.in .lb-top{opacity:1;transform:none}
+#lightbox .lb-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.92}
+#lightbox .lb-count{opacity:.6;font-variant-numeric:tabular-nums}
+#lightbox .lb-btn{width:40px;height:40px;display:flex;align-items:center;justify-content:center;padding:0;margin:0;
+  border:none;border-radius:50%;cursor:pointer;color:#fff;background:rgba(255,255,255,.12);
+  transition:background .15s,transform .15s}
+#lightbox .lb-btn:hover{background:rgba(255,255,255,.22)}
+#lightbox .lb-btn:active{transform:scale(.92)}
+#lightbox .lb-btn:focus-visible{outline:2px solid #fff;outline-offset:2px}
+#lightbox .lb-nav{position:absolute;top:50%;margin-top:-22px;width:44px;height:44px;opacity:0;transition:opacity .25s ease,background .15s}
+#lightbox.in .lb-nav{opacity:1}
+#lightbox .lb-nav[hidden]{display:none}
+#lightbox .lb-prev{left:max(12px,env(safe-area-inset-left))}
+#lightbox .lb-next{right:max(12px,env(safe-area-inset-right))}
+@media (max-width:600px){#lightbox .lb-nav{top:auto;bottom:calc(18px + env(safe-area-inset-bottom));margin-top:0}}
+@media (prefers-reduced-motion:reduce){
+  .img-tile .it-img,.img-tile,#lightbox .lb-backdrop,#lightbox .lb-top{transition:none}
+  .img-tile:not(.loaded):not(.broken)::before,#attach-list .entering,#attach-list .leaving{animation:none}
+}
 /* Message envoyé SANS un mot : la bulle serait un rectangle vide sous les
    pastilles (markEmptyMsg lui pose .empty). On la retire du fil — seules les
    pièces jointes parlent. */
