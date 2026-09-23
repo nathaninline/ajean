@@ -395,10 +395,16 @@ function renderToolMsg(el, tu){
       let full=null, open=false;
       more.onclick=async(e)=>{ e.stopPropagation();
         if(full===null){
+          // Un échec n'est PAS mémorisé : il laissait « voir plus » inerte pour
+          // toujours (le repli sur l'aperçu ne dépliait rien). On prévient et on
+          // laisse réessayer.
           more.disabled=true; const prevTxt=more.textContent; more.textContent='…';
-          try{ const r=await jfetch('/api/chat/tool-result?id='+encodeURIComponent(rid)); const j=await r.json(); full=(j&&j.result)||preview; }
-          catch(_){ full=preview; }
+          let got=null;
+          try{ const r=await jfetch('/api/chat/tool-result?id='+encodeURIComponent(rid)); const j=await r.json(); if(r.ok && j && typeof j.result==='string') got=j.result; }
+          catch(_){}
           more.disabled=false; more.textContent=prevTxt;
+          if(got===null){ toast(t('chat.result_unavailable')); return; }
+          full=got;
         }
         open=!open;
         code.textContent = open ? full : preview+'…';

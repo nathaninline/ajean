@@ -274,6 +274,12 @@ func handleToolResult(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"error": "id manquant"})
 		return
 	}
+	// Stockage dédié d'abord (tool_results.go) ; conv.Messages ne sert plus
+	// qu'aux anciens résultats, dont l'id était le tool_call_id.
+	if s, ok := loadToolResult(id); ok {
+		sendJSON(w, 200, map[string]any{"result": s})
+		return
+	}
 	conv.mu.Lock()
 	var found string
 	ok := false
