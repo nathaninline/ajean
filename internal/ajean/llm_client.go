@@ -294,7 +294,12 @@ func InjectSkills(msgs []Message, caps Caps) []Message {
 		return msgs
 	}
 	prefix := strings.Join(parts, "\n\n")
-	if len(msgs) > 0 && msgs[0].Role == "system" {
+	// Le nom du projet part dans un system à part, marqué : normalizeSystemMessages le
+	// sort du bloc système (voir isProjectSystem), avec le contexte projet et l'index.
+	if caps.Mem != MemOff {
+		msgs = append([]Message{{Role: "system", Content: activeProjectPrefix + ": **" + projectName(activeProjectSlug()) + "**."}}, msgs...)
+	}
+	if len(msgs) > 0 && msgs[0].Role == "system" && !isProjectSystem(msgs[0]) {
 		existing, _ := msgs[0].Content.(string)
 		merged := append([]Message{{Role: "system", Content: prefix + "\n\n" + existing}}, msgs[1:]...)
 		return merged
@@ -315,15 +320,28 @@ func InjectSkills(msgs []Message, caps Caps) []Message {
 // l'affichage, la persistance et la compaction. Un modèle qui accepte le system
 // n'importe où n'est pas gêné par un system en tête, donc la normalisation est
 // sûre pour tous.
+//
+// Ce qui dépend du PROJET (nom, description, index mémoire) ne va PAS dans ce bloc
+// mais en tête du premier message utilisateur. Sur un modèle hybride (Qwen3.5+,
+// couches récurrentes), llama.cpp ne sait reprendre un prompt qu'à un point de
+// sauvegarde, et il n'en pose qu'au DÉBUT des messages utilisateur. Laissé dans le
+// system, le contexte projet faisait diverger le prompt au milieu du bloc : changer
+// de projet recalculait tout (≈8 s pour 5k tokens). Au début du 1er message user, la
+// divergence tombe pile sur un point de sauvegarde, après le système commun.
 func normalizeSystemMessages(msgs []Message) []Message {
-	var sys []string
+	var sys, proj []string
 	sawSystem := false
 	rest := make([]Message, 0, len(msgs))
 	for _, m := range msgs {
 		if m.Role == "system" {
 			if s, ok := m.Content.(string); ok {
 				sawSystem = true
-				if strings.TrimSpace(s) != "" {
+				if strings.TrimSpace(s) == "" {
+					continue
+				}
+				if isProjectSystem(m) {
+					proj = append(proj, s)
+				} else {
 					sys = append(sys, s)
 				}
 				continue
@@ -337,6 +355,12 @@ func normalizeSystemMessages(msgs []Message) []Message {
 	if !sawSystem {
 		return msgs
 	}
+	if len(proj) > 0 {
+		if !prependToFirstUser(rest, strings.Join(proj, "\n\n")) {
+			// Pas encore de message user (cas théorique) : on les garde en system.
+			sys = append(sys, proj...)
+		}
+	}
 	// Des system existaient mais tous vides : on les a retirés (un system vide en
 	// position non-nulle casserait tout autant), sans en réinsérer.
 	if len(sys) == 0 {
@@ -345,6 +369,46 @@ func normalizeSystemMessages(msgs []Message) []Message {
 	out := make([]Message, 0, len(rest)+1)
 	out = append(out, Message{Role: "system", Content: strings.Join(sys, "\n\n")})
 	return append(out, rest...)
+}
+
+// activeProjectPrefix marque le message système qui nomme le projet actif.
+const activeProjectPrefix = "Active project"
+
+// isProjectSystem : message système propre au projet actif (nom, description,
+// index mémoire, trackers), à sortir du bloc système commun (voir normalizeSystemMessages).
+func isProjectSystem(m Message) bool {
+	s, ok := m.Content.(string)
+	if !ok || m.Role != "system" {
+		return false
+	}
+	return strings.HasPrefix(s, activeProjectPrefix) ||
+		strings.HasPrefix(s, projectContextPrefix) ||
+		strings.HasPrefix(s, memIndexPrefix) ||
+		strings.HasPrefix(s, trackerIndexPrefix)
+}
+
+// prependToFirstUser place ctx en tête du premier message user de msgs (modifié en
+// place : msgs est déjà une copie). Renvoie false s'il n'y a aucun message user.
+func prependToFirstUser(msgs []Message, ctx string) bool {
+	block := "<project_context>\n" + ctx + "\n</project_context>\n\n"
+	for i, m := range msgs {
+		if m.Role != "user" {
+			continue
+		}
+		switch c := m.Content.(type) {
+		case string:
+			msgs[i].Content = block + c
+		case []any:
+			parts := append([]any{map[string]any{"type": "text", "text": block}}, c...)
+			msgs[i].Content = parts
+		case []map[string]any:
+			msgs[i].Content = append([]map[string]any{{"type": "text", "text": block}}, c...)
+		default:
+			return false
+		}
+		return true
+	}
+	return false
 }
 
 // EnabledTools returns the tools to advertise on the next inference call.
