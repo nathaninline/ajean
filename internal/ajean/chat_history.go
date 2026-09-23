@@ -84,6 +84,7 @@ func countUserTurns(log []LogEvent) int {
 // --- persistance --------------------------------------------------------------
 
 func saveArchive(a *convArchive) error {
+	refImagesInMessages(a.Messages) // images par référence (chat_images.go)
 	// Chiffré si le chiffrement est actif ET déverrouillé (le fil ET son titre
 	// d'index contiennent des infos). Verrouillé : putStoreJSON refuse d'écrire du
 	// clair (errStoreLocked) — on ne dégrade jamais un blob chiffré.
@@ -104,6 +105,7 @@ func loadArchive(id string) (*convArchive, bool) {
 }
 
 func deleteArchive(id string) error {
+	deleteToolResultsFor(id) // ses résultats « voir plus » partent avec elle
 	_ = putBytes(bkChatMeta, id, nil)
 	return putBytes(bkChatHist, id, nil)
 }
@@ -311,6 +313,43 @@ func (c *Conversation) upsertSession() {
 	}
 }
 
+// upsertSessionMeta ne met à jour que la FICHE de la session active dans l'index
+// (ce que la liste affiche), sans réécrire son contenu. Le contenu à jour vit dans
+// bkChat ; son archive complète est écrite en quittant la session. Tout ce qui lit
+// l'archive de la session ACTIVE doit donc passer par la conversation vivante ou
+// appeler upsertSession d'abord (voir syncActiveArchive).
+func (c *Conversation) upsertSessionMeta() {
+	c.mu.Lock()
+	if len(c.Log) == 0 && len(c.Messages) == 0 {
+		c.mu.Unlock()
+		return
+	}
+	m := convArchiveMeta{ID: c.ID, Project: c.Project, Fav: c.ActiveFav, Turns: countUserTurns(c.Log)}
+	if m.Project == "" {
+		m.Project = activeProjectSlug()
+	}
+	m.SavedAt = time.Now().UnixMilli()
+	if n := len(c.Log); n > 0 && c.Log[n-1].TS > 0 {
+		m.SavedAt = c.Log[n-1].TS
+	}
+	if strings.TrimSpace(c.ActiveTitle) != "" {
+		m.Title = c.ActiveTitle
+	} else {
+		m.Title = archiveTitle(c.Log)
+	}
+	c.mu.Unlock()
+	_ = putStoreJSON(bkChatMeta, m.ID, m)
+}
+
+// syncActiveArchive écrit l'archive complète de la session active si `id` la
+// désigne : à appeler avant toute opération qui LIT puis réécrit une archive
+// (renommer, favori), pour qu'elle ne parte pas d'une copie périmée.
+func syncActiveArchive(id string) {
+	if id != "" && conv.currentID() == id {
+		conv.upsertSession()
+	}
+}
+
 // NewSession sauvegarde la conversation courante dans SA session puis démarre une
 // session vierge (nouvel id) — c'est le « clear chat » / « nouvelle session ».
 func (c *Conversation) NewSession() string {
@@ -346,6 +385,9 @@ func (c *Conversation) SwitchProject(slug string) error {
 // liste, aucun doublon). La session ouverte n'est PAS retirée : elle devient
 // l'active, toujours listée et marquée « en cours ».
 func (c *Conversation) OpenSession(id string) error {
+	if id != "" && c.currentID() == id {
+		return nil // déjà la conversation active : son contenu vivant fait foi
+	}
 	a, ok := loadArchive(id)
 	if !ok {
 		return fmt.Errorf("session introuvable")

@@ -73,7 +73,7 @@ func cmdWeb(args []string) error {
 	// immobilise une goroutine pour toujours — et ce port écoute sur 0.0.0.0.
 	// Surtout PAS de WriteTimeout ici : il couperait les flux SSE du chat, qui
 	// restent ouverts aussi longtemps que l'utilisateur regarde la page.
-	srv := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+	srv := &http.Server{Handler: gzipHandler(mux), ReadHeaderTimeout: 10 * time.Second}
 	return srv.Serve(ln)
 }
 
@@ -115,6 +115,9 @@ func newWebMux() *http.ServeMux {
 	// Boucle de sauvegarde automatique vers ajean.link (no-op tant que non activée
 	// / non liée / non armée depuis le démarrage).
 	StartBackupScheduler()
+	// Allègement sans perte des anciennes conversations (tâche de fond, une fois).
+	startSlimArchives()
+	go pruneToolResults()
 	mux := http.NewServeMux()
 	// Pages publiques : le HTML et le JS ne contiennent aucun secret. Toute la
 	// donnée et toutes les actions passent par /api/* qui, lui, exige la clé.

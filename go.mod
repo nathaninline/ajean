@@ -11,11 +11,11 @@ require (
 	github.com/getlantern/systray v1.2.2
 	github.com/hashicorp/yamux v0.1.2
 	github.com/modelcontextprotocol/go-sdk v1.6.1
+	github.com/tdewolff/parse/v2 v2.8.16
 	go.etcd.io/bbolt v1.5.0
 	golang.org/x/crypto v0.51.0
 	golang.org/x/mod v0.35.0
 	golang.org/x/net v0.55.0
-	golang.org/x/sys v0.45.0
 )
 
 require (
@@ -48,6 +48,7 @@ require (
 	go.uber.org/zap/exp v0.3.0 // indirect
 	golang.org/x/oauth2 v0.35.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/tools v0.44.0 // indirect
 )

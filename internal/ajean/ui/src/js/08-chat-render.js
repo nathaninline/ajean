@@ -68,6 +68,21 @@ let _scrollRAF = 0, _lastScrollWrite = 0;
 // tout en suivant le bas d'assez près pour que ça reste fluide. `force` (jumpBottom,
 // fin de tour, caught_up) court-circuite le frein pour un recalage immédiat.
 const SCROLL_MIN_GAP = 150;
+// Doigt posé (ou tout juste levé) : AUCUNE écriture d'auto-scroll. Sur iOS, un tap
+// dure 100-200 ms ; si la position de défilement change pendant ce temps, Safari
+// l'annule. Avec une écriture toutes les 150 ms pendant la génération, presque
+// chaque tap tombait dessus : plus rien ne répondait (pas même stop) jusqu'à la
+// fin de la réponse. On suspend donc le suivi le temps du contact, et on rattrape
+// juste après (TOUCH_GRACE).
+let TOUCHING = false, _touchEnd = 0;
+const TOUCH_GRACE = 350;
+(function(){
+  const on = ()=>{ TOUCHING = true; };
+  const off = ()=>{ TOUCHING = false; _touchEnd = performance.now(); if(stickyBottom) setTimeout(()=>scrollMaybe(), TOUCH_GRACE + 20); };
+  document.addEventListener('touchstart', on, {passive:true, capture:true});
+  document.addEventListener('touchend', off, {passive:true, capture:true});
+  document.addEventListener('touchcancel', off, {passive:true, capture:true});
+})();
 function scrollMaybe(force){
   // Pendant le replay initial on NE force AUCUN reflow : lire scrollHeight à chaque
   // événement rejoué = un layout synchrone forcé sur un DOM qui grossit → coût
@@ -82,7 +97,9 @@ function scrollMaybe(force){
       const now = (window.performance&&performance.now)?performance.now():Date.now();
       // Frein temporel : hors recalage forcé, au plus une écriture toutes ~150 ms.
       // C'est ce qui rend les taps de nouveau captés pendant la génération (voir plus haut).
-      if(force || now - _lastScrollWrite >= SCROLL_MIN_GAP){
+      // Contact en cours : on n'écrit pas (voir TOUCHING) ; le touchend relance.
+      const touchBusy = TOUCHING || now - _touchEnd < TOUCH_GRACE;
+      if(!touchBusy && (force || now - _lastScrollWrite >= SCROLL_MIN_GAP)){
         const target = c.scrollHeight - c.clientHeight;
         // Seuil : n'écris que si on n'y est pas déjà (à 1px près). Sinon on relance
         // la machinerie de scroll d'iOS pour rien, et les taps continuent d'être volés.
@@ -400,7 +417,8 @@ function renderToolMsg(el, tu){
           // laisse réessayer.
           more.disabled=true; const prevTxt=more.textContent; more.textContent='…';
           let got=null;
-          try{ const r=await jfetch('/api/chat/tool-result?id='+encodeURIComponent(rid)); const j=await r.json(); if(r.ok && j && typeof j.result==='string') got=j.result; }
+          try{ const sid=(typeof READING!=='undefined' && READING) ? READING_ID : (typeof CONV_ID!=='undefined' ? CONV_ID : '');
+          const r=await jfetch('/api/chat/tool-result?id='+encodeURIComponent(rid)+(sid?'&sid='+encodeURIComponent(sid):'')); const j=await r.json(); if(r.ok && j && typeof j.result==='string') got=j.result; }
           catch(_){}
           more.disabled=false; more.textContent=prevTxt;
           if(got===null){ toast(t('chat.result_unavailable')); return; }

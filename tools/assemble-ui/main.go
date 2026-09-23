@@ -62,8 +62,21 @@ func run(uiDir string) error {
 		js = append(js, b...)
 	}
 
-	html := string(tmpl)
-	for marker, content := range map[string]string{"@@CSS@@": string(css), "@@JS@@": string(js)} {
+	// Commentaires de développement retirés de la page publiée (voir strip.go). Le
+	// JS nettoyé est vérifié équivalent à l'original avant d'être écrit.
+	jsOut, err := stripJSComments(string(js))
+	if err != nil {
+		return fmt.Errorf("retrait des commentaires JS : %w", err)
+	}
+	if err := verifySameJS(string(js), jsOut); err != nil {
+		return err
+	}
+	cssOut, err := stripCSSComments(string(css))
+	if err != nil {
+		return err
+	}
+	html := stripHTMLComments(string(tmpl))
+	for marker, content := range map[string]string{"@@CSS@@": cssOut, "@@JS@@": jsOut} {
 		re := regexp.MustCompile(regexp.QuoteMeta(marker) + "\r?\n")
 		if !re.MatchString(html) {
 			return fmt.Errorf("marqueur %s introuvable dans index.tmpl.html", marker)

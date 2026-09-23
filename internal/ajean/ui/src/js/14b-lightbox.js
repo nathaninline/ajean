@@ -64,7 +64,11 @@ function lbFit(w, h){
   return {w:Math.round(w*s), h:Math.round(h*s)};
 }
 function lbLayout(){
-  const im=LB.img, f=lbFit(im.naturalWidth||im.width||1, im.naturalHeight||im.height||1);
+  // Dimensions de l'original : connues d'avance (data-w/h de la vignette) même si
+  // l'image pleine résolution n'est pas encore décodée.
+  const im=LB.img, src=LB.list[LB.idx]||{dataset:{}};
+  const W=+src.dataset.w||im.naturalWidth||src.naturalWidth||1, H=+src.dataset.h||im.naturalHeight||src.naturalHeight||1;
+  const f=lbFit(W, H);
   im.style.width=f.w+'px'; im.style.height=f.h+'px';
   im.style.left=Math.round((innerWidth-f.w)/2)+'px'; im.style.top=Math.round((innerHeight-f.h)/2)+'px';
 }
@@ -104,7 +108,16 @@ function openLightbox(img){
 function lbShow(fromThumb, dir){
   const src=LB.list[LB.idx], im=LB.img;
   lbResetZoom();
+  // On démarre avec la VIGNETTE (déjà décodée, mêmes proportions) : poser d'emblée
+  // l'original, pas encore décodé, faisait démarrer l'animation sur une image vide
+  // puis la faisait apparaître en plein vol (saccade). L'original est décodé à part
+  // et prend la place, sans transition visible, dès qu'il est prêt.
   im.src=src.src; im.alt=src.alt||'';
+  const full=src.dataset.full;
+  if(full && full!==src.src){
+    const pre=new Image(); pre.src=full;
+    (pre.decode ? pre.decode() : Promise.resolve()).then(()=>{ if(LB.open && LB.list[LB.idx]===src) im.src=full; }).catch(()=>{});
+  }
   LB.name.textContent=src.dataset.name||src.alt||'';
   const many=LB.list.length>1;
   LB.count.textContent=many ? (LB.idx+1)+' / '+LB.list.length : '';
@@ -114,7 +127,7 @@ function lbShow(fromThumb, dir){
   const r=fromThumb ? lbVisibleRect(src) : null;
   if(r){
     // Ouverture : la vignette « grandit » jusqu'au centre, le fond se floute.
-    im.animate([{transform:lbFromRect(r), opacity:.9, borderRadius:'10px'}, {transform:'none', opacity:1, borderRadius:'6px'}],
+    im.animate([{transform:lbFromRect(r), opacity:.9}, {transform:'none', opacity:1}],
       {duration:320, easing:LB_EASE});
     requestAnimationFrame(()=>LB.root.classList.add('in'));
   } else {
@@ -146,7 +159,7 @@ function closeLightbox(){
   const r=lbVisibleRect(src);
   const cur=getComputedStyle(im).transform;
   const start={transform: cur==='none' ? 'none' : cur, opacity: im.style.opacity||1};
-  const end = r ? {transform:lbFromRect(r), opacity:.9, borderRadius:'10px'} : {transform:(cur==='none'?'':cur+' ')+'scale(.92)', opacity:0};
+  const end = r ? {transform:lbFromRect(r), opacity:.9} : {transform:(cur==='none'?'':cur+' ')+'scale(.92)', opacity:0};
   const a=im.animate([start, end], {duration:r?260:200, easing:LB_EASE, fill:'forwards'});
   a.onfinish=()=>{ a.cancel(); finish(); };
 }
@@ -155,7 +168,7 @@ function lbDownload(){
   const src=LB.list[LB.idx]; if(!src) return;
   const name=src.dataset.name||src.alt||'image';
   if(src.dataset.path && typeof downloadWorkspaceFile==='function'){ downloadWorkspaceFile(src.dataset.path, name, null); return; }
-  const a=document.createElement('a'); a.href=src.src; a.download=name;
+  const a=document.createElement('a'); a.href=src.dataset.full||src.src; a.download=name;
   document.body.appendChild(a); a.click(); a.remove();
 }
 

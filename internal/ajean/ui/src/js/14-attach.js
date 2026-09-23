@@ -103,7 +103,8 @@ function imageTile(name, size, opts){
   const open=()=>{ if(tile.classList.contains('loaded') && typeof openLightbox==='function') openLightbox(img); };
   tile.onclick=open;
   tile.onkeydown=(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } };
-  if(opts.imgSrc) img.src=opts.imgSrc;
+  if(opts.imgFile){ img.dataset.full=opts.imgSrc||''; makeThumbURL(opts.imgFile).then(th=>{ if(th){ img.dataset.w=th.w; img.dataset.h=th.h; } img.src=(th&&th.url)?th.url:opts.imgSrc; }); }
+  else if(opts.imgSrc) img.src=opts.imgSrc;
   else loadThumb(img, opts.imgPath, tile, name);
   return tile;
 }
@@ -196,8 +197,39 @@ async function getWorkspaceBlob(path){
 // la vignette vit aussi longtemps que la bulle, et le fil n'en accumule pas des
 // milliers.
 async function loadThumb(img, path, tile, name){
-  try{ img.src=URL.createObjectURL(await getWorkspaceBlob(path)); }
+  try{ setThumb(img, await getWorkspaceBlob(path)); }
   catch(_){ if(tile) tileBroken(tile, name||path); else img.remove(); }
+}
+// VRAIE vignette : l'image d'origine (une photo de 12 Mpx) était affichée telle
+// quelle dans une tuile de 260 px — décodée et redessinée à chaque défilement, d'où
+// les saccades. On la réduit UNE fois (createImageBitmap décode hors du fil
+// principal) ; l'original reste disponible pour la visionneuse (data-full).
+const THUMB_MAX = 560;
+async function makeThumbURL(blob){
+  if(typeof createImageBitmap!=='function' || !blob) return null;
+  try{
+    const bmp=await createImageBitmap(blob);
+    const w=bmp.width, h=bmp.height;
+    const s=Math.min(1, THUMB_MAX/Math.max(w,h));
+    // Petite image déjà légère : inutile de la réencoder.
+    if(s>=1 && blob.size<400*1024){ if(bmp.close) bmp.close(); return {url:null, w, h}; }
+    const cw=Math.max(1,Math.round(w*s)), ch=Math.max(1,Math.round(h*s));
+    const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
+    cv.getContext('2d').drawImage(bmp, 0, 0, cw, ch);
+    if(bmp.close) bmp.close();
+    // PNG/GIF/WebP peuvent être transparents : on garde un format qui le supporte.
+    const type=/png|gif|webp/.test(blob.type||'') ? 'image/png' : 'image/jpeg';
+    const out=await new Promise(res=>cv.toBlob(res, type, 0.85));
+    return {url: out ? URL.createObjectURL(out) : null, w, h};
+  }catch(_){ return null; }   // format non décodable ici (HEIC…) : on garde l'original
+}
+// Pose l'original (data-full) puis, dès qu'elle est prête, la vignette réduite.
+async function setThumb(img, blob){
+  const full=URL.createObjectURL(blob);
+  img.dataset.full=full;
+  const th=await makeThumbURL(blob);
+  if(th){ img.dataset.w=th.w; img.dataset.h=th.h; }
+  img.src=(th && th.url) ? th.url : full;
 }
 async function downloadWorkspaceFile(path, name, a){
   if(a) a.classList.add('busy');
@@ -302,13 +334,15 @@ function markWorkspaceImages(root){
     if(!img.getAttribute('alt')) img.alt=p.split('/').pop();
     img.dataset.path=p; img.dataset.name=p.split('/').pop();
     if(!img._lb){ img._lb=true; img.addEventListener('click', ()=>{ if(img.naturalWidth && typeof openLightbox==='function') openLightbox(img); }); }
-    if(WS_IMG_CACHE[p]){ img.src=WS_IMG_CACHE[p]; continue; }
+    if(WS_IMG_CACHE[p]){ img.dataset.full=WS_IMG_CACHE[p+'\u0000full']||WS_IMG_CACHE[p]; img.src=WS_IMG_CACHE[p]; continue; }
     img.removeAttribute('src');            // évite le flash « image cassée »
     img.setAttribute('data-wsimg', p);
-    getWorkspaceBlob(p).then(blob=>{
-      const url=URL.createObjectURL(blob); WS_IMG_CACHE[p]=url;
+    getWorkspaceBlob(p).then(async blob=>{
+      const full=URL.createObjectURL(blob);
+      const th=await makeThumbURL(blob);
+      const url=(th&&th.url)?th.url:full; WS_IMG_CACHE[p]=url; WS_IMG_CACHE[p+'\u0000full']=full;
       // l'<img> a pu être recréé par un re-render du markdown : on recible par data-wsimg.
-      document.querySelectorAll('img[data-wsimg="'+cssEsc(p)+'"]').forEach(i=>{ i.src=url; });
+      document.querySelectorAll('img[data-wsimg="'+cssEsc(p)+'"]').forEach(i=>{ i.dataset.full=full; i.src=url; });
     }).catch(()=>{});
   }
 }
@@ -339,7 +373,7 @@ function renderAttach(){
     let node=ATTACH_EL.get(a.id);
     if(!node){
       node=fileChip(a.name, a.size, {
-        imgSrc: a.thumb,
+        imgSrc: a.thumb, imgFile: a.file,
         onRemove: ()=>{ releaseThumbLater(a); ATTACH=ATTACH.filter(o=>o.id!==a.id); renderAttach(); }
       });
       node.classList.add('entering');

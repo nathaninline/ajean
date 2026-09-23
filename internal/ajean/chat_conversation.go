@@ -210,6 +210,9 @@ func reloadEncryptedStores() {
 // delta). L'appelant NE doit PAS détenir mu.
 func (c *Conversation) persist() {
 	c.mu.Lock()
+	// Images en base64 → références (chat_images.go) avant d'écrire : c'est ce qui
+	// faisait peser une conversation des dizaines de Mo.
+	refImagesInMessages(c.Messages)
 	b, err := json.Marshal(c)
 	c.mu.Unlock()
 	if err != nil {
@@ -221,7 +224,11 @@ func (c *Conversation) persist() {
 	_ = putStoreBytes(bkChat, "conversation", b)
 	// La conversation active EST une session : on la reflète dans la liste des
 	// sessions pour qu'elle y apparaisse (marquée « en cours ») et reste à jour.
-	c.upsertSession()
+	// Seulement sa FICHE (titre, date, nombre de messages) : la copie complète dans
+	// les archives n'est écrite qu'en quittant la session (upsertSession). Avant,
+	// chaque fin de tour réécrivait la conversation ENTIÈRE une seconde fois (jusqu'à
+	// des dizaines de Mo chiffrés), alors que bkChat la porte déjà.
+	c.upsertSessionMeta()
 }
 
 // appendDelta journalise un événement d'affichage et réveille les abonnés.
@@ -1057,7 +1064,61 @@ func coalesceReplay(events []LogEvent, from int) []map[string]any {
 // convID = id de la conversation actuellement AFFICHÉE par le client (celui reçu au
 // dernier caught_up/reset). Il permet de détecter qu'un AUTRE appareil a changé de
 // conversation/projet entre-temps : voir la garde `staleConv` plus bas.
+// historyTailDefault : échanges rejoués à l'ouverture d'une session (reset) pour
+// un client qui gère la pagination de l'historique.
+const historyTailDefault = 20
+
+// historyCut calcule où couper le rejeu pour ne garder que les `tail` derniers
+// échanges (un échange commence à un événement `user`). Renvoie le Seq à partir
+// duquel rejouer (exclu) et le nombre d'échanges masqués ; (0, 0) = tout rejouer.
+func historyCut(log []LogEvent, tail int) (int, int) {
+	if tail <= 0 {
+		return 0, 0
+	}
+	seen := 0
+	for i := len(log) - 1; i >= 0; i-- {
+		if _, ok := log[i].Delta["user"]; !ok {
+			continue
+		}
+		seen++
+		if seen == tail {
+			hidden := 0
+			for _, ev := range log[:i] {
+				if _, ok := ev.Delta["user"]; ok {
+					hidden++
+				}
+			}
+			if hidden == 0 {
+				return 0, 0
+			}
+			return log[i].Seq - 1, hidden
+		}
+	}
+	return 0, 0
+}
+
+// historyHead : événements qui annoncent un historique tronqué. L'état global que
+// les échanges masqués auraient posé (contexte utilisé, nombre de compactages) est
+// renvoyé tel qu'il est MAINTENANT, pour que les compteurs restent justes.
+func (c *Conversation) historyHead(hidden int) []map[string]any {
+	c.mu.Lock()
+	ctxUsed, cc := c.CtxUsed, c.CompactCount
+	c.mu.Unlock()
+	return []map[string]any{{"history_more": hidden}, {"ctx_used": ctxUsed}, {"compact_count": cc}}
+}
+
+// Subscribe : abonnement sans pagination (rejeu complet), pour les anciens clients.
 func (c *Conversation) Subscribe(ctx context.Context, from int, convID string, emit func(map[string]any) bool) {
+	c.SubscribeTail(ctx, from, convID, -1, emit)
+}
+
+// SubscribeTail : comme Subscribe, mais au chargement (from=0) et à l'ouverture
+// d'une session, seuls les `tail` derniers échanges sont rejoués, précédés d'un
+// événement {history_more: N} ; le client propose alors d'afficher le reste.
+// tail < 0 = ancien client : jamais de troncature ; tail = 0 : tout au chargement.
+// Sur une longue conversation d'agent, rejouer tout le journal envoyait plusieurs
+// Mo (incompressibles derrière le tunnel E2E) et bâtissait des milliers de bulles.
+func (c *Conversation) SubscribeTail(ctx context.Context, from int, convID string, tail int, emit func(map[string]any) bool) {
 	// Réveille les attentes de cond quand la connexion se ferme.
 	go func() {
 		<-ctx.Done()
@@ -1117,6 +1178,17 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, convID string, e
 			return
 		}
 	}
+	// Chargement initial d'un client paginé : on ne rejoue que la fin du fil.
+	if from == 0 && tail > 0 {
+		if cut, hidden := historyCut(snapshot, tail); hidden > 0 {
+			from = cut
+			for _, ev := range c.historyHead(hidden) {
+				if !emit(ev) {
+					return
+				}
+			}
+		}
+	}
 	last := from
 	for _, ev := range coalesceReplay(snapshot, from) {
 		if ctx.Err() != nil {
@@ -1161,9 +1233,23 @@ func (c *Conversation) Subscribe(ctx context.Context, from int, convID string, e
 			last = 0
 			replay := c.pendingReplay
 			rid := c.ID
+			// Session ouverte (fil complet qui suit) chez un client paginé : on saute
+			// directement aux derniers échanges.
+			cut, hidden := 0, 0
+			if replay && tail >= 0 {
+				cut, hidden = historyCut(c.Log, historyTailDefault)
+			}
 			c.mu.Unlock()
 			if !emit(map[string]any{"reset": true, "replay": replay, "id": rid}) {
 				return
+			}
+			if hidden > 0 {
+				last = cut
+				for _, ev := range c.historyHead(hidden) {
+					if !emit(ev) {
+						return
+					}
+				}
 			}
 			awaitingCaughtUp = replay
 			c.mu.Lock()

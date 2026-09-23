@@ -1,6 +1,7 @@
 package ajean
 
 import (
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -48,8 +49,13 @@ func TestMCPEnsureDeduplicatesConcurrentConnects(t *testing.T) {
 
 // TestMCPEndToEnd connecte le serveur MCP de référence (@modelcontextprotocol/
 // server-everything via npx), vérifie la découverte d'outils namespacés puis un
-// appel réel (echo). Skippé si npx est absent (CI sans Node).
+// appel réel (echo). Skippé si npx est absent (CI sans Node), et en CI tout court
+// sauf AJEAN_TEST_MCP=1 : le paquet est téléchargé depuis npm PENDANT le test, et un
+// registre lent y faisait échouer la release (croix rouge de la v0.15.5).
 func TestMCPEndToEnd(t *testing.T) {
+	if os.Getenv("CI") != "" && os.Getenv("AJEAN_TEST_MCP") != "1" {
+		t.Skip("CI : test MCP e2e (réseau npm) ignoré ; AJEAN_TEST_MCP=1 pour le lancer")
+	}
 	if _, err := exec.LookPath("npx"); err != nil {
 		t.Skip("npx indisponible — test MCP e2e ignoré")
 	}
