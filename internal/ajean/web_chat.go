@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -133,12 +134,24 @@ func handleChatReset(w http.ResponseWriter, r *http.Request) {
 // LECTURE SEULE les sessions d'un AUTRE projet sans basculer le projet actif : c'est
 // ce qui permet de parcourir un autre projet pendant qu'une génération tourne.
 func handleChatHistory(w http.ResponseWriter, r *http.Request) {
-	if p := strings.TrimSpace(r.URL.Query().Get("project")); p != "" {
-		sendJSON(w, 200, map[string]any{"ok": true, "conversations": listArchivesForProject(p),
-			"active": conv.currentID(), "generating": conv.isGenerating()})
-		return
+	q := r.URL.Query()
+	var list []convArchiveMeta
+	if p := strings.TrimSpace(q.Get("project")); p != "" {
+		list = listArchivesForProject(p)
+	} else {
+		list = listArchives()
 	}
-	sendJSON(w, 200, map[string]any{"ok": true, "conversations": listArchives(),
+	// Pagination optionnelle (?offset=&limit=) : la liste des sessions grandit au
+	// défilement au lieu de tout rendre d'un coup (537 sessions chez Nathan). Sans
+	// limit, tout est renvoyé comme avant (compat des autres appelants). Les favoris
+	// étant triés en tête, ils sont toujours dans la première page.
+	total := len(list)
+	if limit, _ := strconv.Atoi(q.Get("limit")); limit > 0 {
+		off, _ := strconv.Atoi(q.Get("offset"))
+		off = max(0, min(off, total))
+		list = list[off:min(off+limit, total)]
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "conversations": list, "total": total,
 		"active": conv.currentID(), "generating": conv.isGenerating()})
 }
 

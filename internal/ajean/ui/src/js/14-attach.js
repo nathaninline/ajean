@@ -29,36 +29,90 @@ function fmtSize(n){
 // Est-ce une image ? (pour montrer une vignette plutôt que le seul nom.)
 const IMG_RE=/\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif)$/i;
 function isImageName(n){ return IMG_RE.test(String(n||'')); }
+// Famille d'un fichier d'après son extension, pour choisir son icône.
+function fileKind(name){
+  const e=(String(name||'').split('.').pop()||'').toLowerCase();
+  if(e==='pdf') return 'pdf';
+  if(/^(zip|rar|7z|tar|gz|tgz|bz2|xz|zst)$/.test(e)) return 'archive';
+  if(/^(mp3|wav|ogg|flac|m4a|aac|opus)$/.test(e)) return 'audio';
+  if(/^(mp4|mov|mkv|webm|avi|m4v)$/.test(e)) return 'video';
+  if(/^(xlsx?|csv|tsv|ods|numbers)$/.test(e)) return 'sheet';
+  if(/^(docx?|odt|rtf|pages|pptx?|odp|key)$/.test(e)) return 'doc';
+  if(/^(js|ts|jsx|tsx|py|go|rs|c|h|cpp|hpp|cs|java|kt|swift|rb|php|sh|ps1|bat|json|ya?ml|toml|xml|html?|css|sql|lua|ini|env)$/.test(e)) return 'code';
+  if(/^(txt|md|log|rst)$/.test(e)) return 'text';
+  return 'file';
+}
+// Icônes au trait (currentColor : elles suivent le thème).
+const FILE_ICON_BODY = {
+  file:'', text:'<path d="M9 13h6M9 17h6"/>', pdf:'<path d="M9 15h1.5a1.5 1.5 0 0 0 0-3H9v5"/><path d="M14 12v5"/>',
+  doc:'<path d="M8.5 12.5l1 4.5 1.5-3.5 1.5 3.5 1-4.5"/>', sheet:'<path d="M8 12h8v6H8zM8 15h8M12 12v6"/>',
+  code:'<path d="M10 12.5l-2 2 2 2M14 12.5l2 2-2 2"/>', archive:'<path d="M12 9v1M12 11.5v1M12 14v1"/><rect x="11" y="16" width="2" height="2.2" rx=".5"/>',
+  audio:'<path d="M10 17.5v-5l5-1.5v5"/><circle cx="9" cy="17.5" r="1.2"/><circle cx="14" cy="16" r="1.2"/>',
+  video:'<path d="M10.5 12.5v5l4-2.5z"/>'
+};
+function fileIconSvg(name){
+  const k=fileKind(name);
+  return '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>'+(FILE_ICON_BODY[k]||'')+'</svg>';
+}
 // Pastille de fichier, partagée par le composeur et les bulles du fil : même
-// objet visuel des deux côtés, seul le contexte (CSS) change.
-// Pour une image, on affiche une VIGNETTE : `imgSrc` (URL déjà prête, ex. un
-// objectURL du fichier local dans le composeur) ou `imgPath` (chemin dans le
-// dossier de travail, chargé à la demande pour une bulle du fil).
+// objet visuel des deux côtés, seul le contexte (CSS) change. Une IMAGE devient
+// une tuile (imageTile) : la voir compte plus que lire son nom.
+// `imgSrc` (URL déjà prête, ex. un objectURL du fichier local dans le composeur)
+// ou `imgPath` (chemin dans le dossier de travail, chargé à la demande).
 function fileChip(name, size, opts){
   opts=opts||{};
+  if(isImageName(name) && (opts.imgSrc || opts.imgPath)) return imageTile(name, size, opts);
   const chip=document.createElement('div');
   chip.className='chip-file'+(opts.cls?' '+opts.cls:'');
-  if(isImageName(name) && (opts.imgSrc || opts.imgPath)){
-    chip.classList.add('has-thumb');
-    const img=document.createElement('img');
-    img.className='cf-thumb'; img.alt=name; img.loading='lazy';
-    chip.appendChild(img);
-    if(opts.imgSrc) img.src=opts.imgSrc;
-    else loadThumb(img, opts.imgPath);
-  }
+  const ic=document.createElement('span');
+  ic.className='cf-icon'; ic.innerHTML=fileIconSvg(name);
   const n=document.createElement('span');
   n.className='cf-name'; n.textContent=name; n.title=opts.title||name;
   const s=document.createElement('span');
   s.className='cf-size'; s.textContent=opts.sizeText||fmtSize(size);
-  chip.appendChild(n); chip.appendChild(s);
-  if(opts.onRemove){
-    const x=document.createElement('button');
-    x.type='button'; x.textContent='×'; x.title=t('attach.remove_title');
-    x.setAttribute('aria-label',t('attach.remove_title')+' '+name);
-    x.onclick=opts.onRemove;
-    chip.appendChild(x);
-  }
+  chip.appendChild(ic); chip.appendChild(n); chip.appendChild(s);
+  if(opts.onRemove) chip.appendChild(removeBtn(name, opts.onRemove));
   return chip;
+}
+function removeBtn(name, fn){
+  const x=document.createElement('button');
+  x.type='button'; x.className='cf-x'; x.innerHTML='<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  x.title=t('attach.remove_title');
+  x.setAttribute('aria-label',t('attach.remove_title')+' '+name);
+  x.onclick=(e)=>{ e.stopPropagation(); fn(e); };
+  return x;
+}
+// Tuile d'image : la vignette elle-même, cliquable pour l'ouvrir en grand
+// (openLightbox). Reflet animé tant qu'elle charge, fondu à l'arrivée ; si le
+// chargement échoue, la tuile retombe sur une icône et le nom du fichier.
+function imageTile(name, size, opts){
+  const tile=document.createElement('div');
+  tile.className='img-tile'+(opts.cls?' '+opts.cls:'');
+  tile.title=opts.title||name;
+  tile.tabIndex=0; tile.setAttribute('role','button');
+  tile.setAttribute('aria-label',t('lightbox.open_prefix')+name);
+  const img=document.createElement('img');
+  img.className='it-img'; img.alt=name; img.decoding='async'; img.draggable=false;
+  img.dataset.name=name;
+  if(opts.imgPath) img.dataset.path=opts.imgPath;
+  img.onload=()=>tile.classList.add('loaded');
+  img.onerror=()=>tileBroken(tile, name);
+  tile.appendChild(img);
+  const prog=document.createElement('div'); prog.className='it-prog'; tile.appendChild(prog);
+  if(opts.onRemove) tile.appendChild(removeBtn(name, opts.onRemove));
+  const open=()=>{ if(tile.classList.contains('loaded') && typeof openLightbox==='function') openLightbox(img); };
+  tile.onclick=open;
+  tile.onkeydown=(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } };
+  if(opts.imgSrc) img.src=opts.imgSrc;
+  else loadThumb(img, opts.imgPath, tile, name);
+  return tile;
+}
+function tileBroken(tile, name){
+  if(tile.classList.contains('broken')) return;
+  tile.classList.add('broken');
+  const f=document.createElement('div'); f.className='it-fallback';
+  f.innerHTML=fileIconSvg(name)+'<span></span>'; f.lastChild.textContent=name;
+  tile.appendChild(f);
 }
 // Fichiers joints à un message DÉJÀ envoyé : posés AU-DESSUS de la bulle, dans
 // leur propre rangée. Les mettre dedans étirait la bulle vers le haut et donnait
@@ -67,7 +121,9 @@ function addMsgFiles(el, files){
   if(!el || !files || !files.length) return;
   const box=document.createElement('div');
   box.className='msg-files';
-  for(const f of files) box.appendChild(fileChip(f.name, f.size, {title:f.path||f.name, imgPath:f.path||f.name}));
+  // Plusieurs images : tuiles plus petites, en grille, pour ne pas faire un mur.
+  if(files.filter(f=>isImageName(f.name)).length>1) box.classList.add('multi');
+  for(const f of files) box.appendChild(fileChip(f.name, f.size, {title:f.name, imgPath:f.path||f.name}));
   el.parentNode.insertBefore(box, el);
   // Envoi sans un mot : la bulle serait un rectangle vide sous les pastilles.
   markEmptyMsg(el);
@@ -139,9 +195,9 @@ async function getWorkspaceBlob(path){
 // pastille reste avec son nom, comme avant. L'objectURL n'est pas révoqué —
 // la vignette vit aussi longtemps que la bulle, et le fil n'en accumule pas des
 // milliers.
-async function loadThumb(img, path){
+async function loadThumb(img, path, tile, name){
   try{ img.src=URL.createObjectURL(await getWorkspaceBlob(path)); }
-  catch(_){ img.remove(); }
+  catch(_){ if(tile) tileBroken(tile, name||path); else img.remove(); }
 }
 async function downloadWorkspaceFile(path, name, a){
   if(a) a.classList.add('busy');
@@ -244,6 +300,8 @@ function markWorkspaceImages(root){
     if(!p) continue;
     img.classList.add('chat-img');
     if(!img.getAttribute('alt')) img.alt=p.split('/').pop();
+    img.dataset.path=p; img.dataset.name=p.split('/').pop();
+    if(!img._lb){ img._lb=true; img.addEventListener('click', ()=>{ if(img.naturalWidth && typeof openLightbox==='function') openLightbox(img); }); }
     if(WS_IMG_CACHE[p]){ img.src=WS_IMG_CACHE[p]; continue; }
     img.removeAttribute('src');            // évite le flash « image cassée »
     img.setAttribute('data-wsimg', p);
@@ -255,31 +313,57 @@ function markWorkspaceImages(root){
   }
 }
 function attachListEl(){ return document.getElementById('attach-list'); }
+// renderAttach met la liste du composeur en phase avec ATTACH SANS la reconstruire :
+// chaque fichier garde son élément (ATTACH_EL), seul son état change. Avant, tout
+// était recréé à chaque avancée d'un envoi : les vignettes rechargeaient, les
+// animations se rejouaient, la liste clignotait.
+const ATTACH_EL = new Map();
 function renderAttach(){
   const el = attachListEl(); if(!el) return;
-  el.innerHTML='';
-  el.classList.toggle('show', ATTACH.length>0);
   // Les pièces jointes comptent comme « contenu à envoyer » : le bouton envoyer/stop
   // doit se réévaluer (issue #74 : envoyer pendant une génération).
   if(typeof syncSendBtn==='function') syncSendBtn();
+  const live=new Set(ATTACH.map(a=>a.id));
+  // Sortants : ils s'effacent en douceur puis quittent le DOM.
+  for(const [id, node] of ATTACH_EL){
+    if(live.has(id)) continue;
+    ATTACH_EL.delete(id);
+    node.classList.add('leaving');
+    let done=false;
+    const gone=()=>{ if(done) return; done=true; node.remove(); if(!ATTACH.length && !el.querySelector('.leaving')) el.classList.remove('show'); };
+    node.addEventListener('animationend', gone, {once:true});
+    setTimeout(gone, 400);   // filet si l'animation est coupée (reduced motion…)
+  }
+  if(ATTACH.length) el.classList.add('show');
   for(const a of ATTACH){
-    el.appendChild(fileChip(a.name, a.size, {
-      cls: a.state==='up' ? 'up' : (a.state==='err' ? 'err' : ''),
-      title: a.error || a.name,
-      imgSrc: a.thumb,
-      // Un gros fichier prend du temps : on montre l'avancement plutôt qu'un
-      // anneau qui tourne sans rien dire. Sous un morceau, il n'y a rien à suivre.
-      sizeText: a.state==='err' ? t('attach.failed')
-        : (a.state==='up' && a.size>ATTACH_CHUNK) ? Math.round((a.sent||0)*100/a.size)+t('attach.percent_suffix')
-        : fmtSize(a.size),
-      onRemove: ()=>{ releaseThumb(a); ATTACH=ATTACH.filter(o=>o.id!==a.id); renderAttach(); }
-    }));
+    let node=ATTACH_EL.get(a.id);
+    if(!node){
+      node=fileChip(a.name, a.size, {
+        imgSrc: a.thumb,
+        onRemove: ()=>{ releaseThumbLater(a); ATTACH=ATTACH.filter(o=>o.id!==a.id); renderAttach(); }
+      });
+      node.classList.add('entering');
+      node.addEventListener('animationend', ()=>node.classList.remove('entering'), {once:true});
+      ATTACH_EL.set(a.id, node);
+      el.appendChild(node);
+    }
+    node.classList.toggle('up', a.state==='up');
+    node.classList.toggle('err', a.state==='err');
+    node.title = a.error || a.name;
+    // Un gros fichier prend du temps : on montre l'avancement plutôt qu'un
+    // anneau qui tourne sans rien dire. Sous un morceau, il n'y a rien à suivre.
+    const pct = a.state==='up' ? (a.size>ATTACH_CHUNK ? Math.round((a.sent||0)*100/a.size) : -1) : 100;
+    node.style.setProperty('--p', Math.max(0,pct));
+    node.classList.toggle('indet', pct<0);
+    const sz=node.querySelector('.cf-size');
+    if(sz) sz.textContent = a.state==='err' ? t('attach.failed') : (pct>=0 && a.state==='up') ? pct+t('attach.percent_suffix') : fmtSize(a.size);
   }
 }
 // L'objectURL d'une vignette du composeur tient un blob en mémoire : on le libère
 // dès que le fichier quitte la liste (retrait ou envoi terminé).
 function releaseThumb(a){ if(a&&a.thumb){ try{ URL.revokeObjectURL(a.thumb); }catch(_){} a.thumb=null; } }
-function clearAttach(){ for(const a of ATTACH) releaseThumb(a); ATTACH=[]; renderAttach(); }
+function releaseThumbLater(a){ const u=a&&a.thumb; if(!u) return; a.thumb=null; setTimeout(()=>{ try{ URL.revokeObjectURL(u); }catch(_){} }, 600); }
+function clearAttach(){ for(const a of ATTACH) releaseThumbLater(a); ATTACH=[]; renderAttach(); }
 // Ce qui part avec le message, pour l'afficher dans sa bulle.
 function attachSent(){ return ATTACH.filter(a=>a.state==='ok').map(a=>({name:a.name,size:a.size,path:a.path})); }
 

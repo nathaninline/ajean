@@ -217,25 +217,82 @@ function showSessionsLoading(){
   if(!box.querySelector('.proj-sess-load')) box.innerHTML = '<div class="proj-sess-load"><span class="spinner"></span></div>';
 }
 
+// Liste PAGINÉE : SESS_PAGE sessions au départ, les suivantes chargées quand le
+// bas de la liste approche (sentinelle observée). Tout rendre d'un coup créait des
+// centaines de lignes (537 chez Nathan) et faisait lire au serveur le contenu de
+// toutes les conversations. _sessLoad : état du chargement en cours ; son `gen`
+// invalide les pages d'un chargement précédent (bascule de projet entre-temps).
+const SESS_PAGE = 40;
+let _sessLoad = null, _sessObs = null;
 async function loadProjectSessions(){
   const box = document.getElementById('project-sessions'); if(!box) return;
   showSessionsLoading();
+  if(_sessObs){ _sessObs.disconnect(); _sessObs = null; }
   // Projet parcouru : le projet actif, ou un AUTRE en lecture seule (?project=)
   // pendant une génération — sans jamais basculer.
   const foreign = !!BROWSE_PROJECT && BROWSE_PROJECT !== ACTIVE_PROJECT;
-  const url = foreign ? '/api/chat/history?project='+encodeURIComponent(BROWSE_PROJECT) : '/api/chat/history';
-  let list = [], active = '';
-  try{ const r = await jget(url); list = (r && r.conversations) || []; active = (r && r.active) || ''; }
-  catch(_){ box.style.minHeight = ''; box.innerHTML = '<span class="muted" style="font-size:12px">'+t('projects.load_error')+'</span>'; return; }
+  const base = foreign ? '/api/chat/history?project='+encodeURIComponent(BROWSE_PROJECT)+'&' : '/api/chat/history?';
+  const st = _sessLoad = {gen:(_sessLoad?_sessLoad.gen:0)+1, base, foreign, offset:0, total:0, active:'', busy:false, lastFav:null, sentinel:null};
+  let r;
+  try{ r = await jget(base+'offset=0&limit='+SESS_PAGE); }
+  catch(_){ if(st!==_sessLoad) return; box.style.minHeight = ''; box.innerHTML = '<span class="muted" style="font-size:12px">'+t('projects.load_error')+'</span>'; return; }
+  if(st!==_sessLoad) return;
+  const list = (r && r.conversations) || [];
+  st.active = (r && r.active) || ''; st.total = (r && r.total) || list.length;
   box.style.minHeight = '';
   box.innerHTML = '';
   if(!list.length){ box.innerHTML = '<span class="muted" style="font-size:12px">'+t('projects.no_sessions')+'</span>'; box.classList.add('ready'); return; }
-  const favs = list.filter(c=>c.fav), others = list.filter(c=>!c.fav);
-  const section = (label)=>{ const h=document.createElement('div'); h.className='sess-head'; h.style.paddingLeft='8px'; h.textContent=label; box.appendChild(h); };
-  const row = (c)=>projSessionRow(c, c.id===active && !foreign, foreign);
-  if(favs.length){ section(t('projects.favorites')); favs.forEach(c=>box.appendChild(row(c))); }
-  if(others.length){ if(favs.length) section(t('projects.recent')); others.forEach(c=>box.appendChild(row(c))); }
+  appendSessRows(box, st, list);
   box.classList.add('ready');
+  setupSessSentinel(box, st);
+}
+
+// appendSessRows ajoute une page de lignes. Les favoris arrivent en tête (tri
+// serveur) : l'en-tête « Favoris » précède la première, « Récentes » la première
+// non-favorite qui suit des favoris, même si elle tombe dans une page suivante.
+function appendSessRows(box, st, list){
+  const section = (label)=>{ const h=document.createElement('div'); h.className='sess-head'; h.style.paddingLeft='8px'; h.textContent=label; return h; };
+  const frag = document.createDocumentFragment();
+  for(const c of list){
+    const fav = !!c.fav;
+    if(st.lastFav === null && fav) frag.appendChild(section(t('projects.favorites')));
+    else if(st.lastFav === true && !fav) frag.appendChild(section(t('projects.recent')));
+    st.lastFav = fav;
+    frag.appendChild(projSessionRow(c, c.id===st.active && !st.foreign, st.foreign));
+  }
+  if(st.sentinel) box.insertBefore(frag, st.sentinel); else box.appendChild(frag);
+  st.offset += list.length;
+}
+
+// setupSessSentinel pose une sentinelle en bas de liste ; quand elle approche de
+// la zone visible (marge de 300 px), la page suivante est chargée.
+function setupSessSentinel(box, st){
+  if(st.offset >= st.total || typeof IntersectionObserver==='undefined'){ if(st.offset < st.total) loadMoreSessions(box, st, true); return; }
+  const sen = document.createElement('div'); sen.className = 'sess-more'; sen.innerHTML = '<span class="spinner"></span>';
+  box.appendChild(sen); st.sentinel = sen;
+  _sessObs = new IntersectionObserver((ents)=>{ if(ents.some(e=>e.isIntersecting)) loadMoreSessions(box, st); }, {rootMargin:'300px'});
+  _sessObs.observe(sen);
+}
+
+async function loadMoreSessions(box, st, all){
+  if(st.busy || st !== _sessLoad || st.offset >= st.total) return;
+  st.busy = true;
+  let r = null;
+  try{ r = await jget(st.base+'offset='+st.offset+'&limit='+(all ? st.total : SESS_PAGE)); }catch(_){}
+  st.busy = false;
+  if(st !== _sessLoad) return;
+  const list = (r && r.conversations) || [];
+  if(list.length) appendSessRows(box, st, list);
+  if(r && r.total) st.total = r.total;
+  // Fin de liste (ou réponse vide, pour ne pas boucler) : on retire la sentinelle.
+  if(!list.length || st.offset >= st.total){
+    if(_sessObs){ _sessObs.disconnect(); _sessObs = null; }
+    if(st.sentinel){ st.sentinel.remove(); st.sentinel = null; }
+  } else if(st.sentinel && _sessObs){
+    // Page chargée mais sentinelle encore visible (grand écran) : on relance
+    // l'observation pour redéclencher si besoin.
+    _sessObs.unobserve(st.sentinel); _sessObs.observe(st.sentinel);
+  }
 }
 
 function projSessionRow(c, active, foreign){

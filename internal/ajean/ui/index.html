@@ -1295,6 +1295,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .proj-sess-load{display:flex;align-items:center;justify-content:center;padding:26px 0}
 @keyframes sess-list-in{from{opacity:0}to{opacity:1}}
 #project-sessions.ready{animation:sess-list-in .2s ease}
+#project-sessions .sess-more{display:flex;justify-content:center;padding:10px 0;opacity:.6}
 @media (prefers-reduced-motion:reduce){#project-sessions.ready{animation:none}}
 /* Point « conversation en cours » dans l'angle haut-gauche de la ligne. */
 .sess-corner-dot{position:absolute;top:6px;left:6px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
@@ -1781,19 +1782,18 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
    revient à l'épaisseur du rond, sinon le bouton flotte loin du bord et la
    pastille paraît de travers. */
 .chip-file:has(button){padding-right:4px}
-/* Vignette d'image : un petit carré à gauche du nom. La pastille se resserre à
-   gauche pour se fermer dessus, comme elle le fait à droite autour du ×. */
-.chip-file.has-thumb{padding-left:5px}
-.chip-file .cf-thumb{flex:none;width:34px;height:34px;object-fit:cover;border-radius:7px;
-  background:var(--code-bg);display:block}
+/* Icône du type de fichier (PDF, code, archive…) à gauche du nom. */
+.chip-file{padding-left:9px}
+.chip-file .cf-icon{flex:none;display:flex;color:var(--dim)}
 .chip-file .cf-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chip-file .cf-size{flex:none;color:var(--dim);font-size:11px}
 /* Le × est TOUJOURS visible : le révéler au survol le rendait inatteignable sur
    mobile, où il n'y a pas de survol — donc impossible de retirer un fichier. */
-.chip-file button{flex:none;margin:0;padding:0;width:20px;height:20px;font-size:14px;
+.chip-file .cf-x{flex:none;margin:0;padding:0;width:20px;height:20px;
   display:flex;align-items:center;justify-content:center;line-height:1;
-  border-radius:50%;border:none;background:transparent;color:var(--dim)}
-.chip-file button:hover{background:var(--bubble);color:var(--text)}
+  border-radius:50%;border:none;background:transparent;color:var(--dim);cursor:pointer;
+  transition:background .15s,color .15s}
+.chip-file .cf-x:hover{background:var(--bubble);color:var(--text)}
 /* Transfert en cours : un liseré qui tourne, plutôt qu'une pastille grisée dont
    on ne sait pas si elle travaille ou si elle a échoué. */
 .chip-file.up .cf-size::after{content:"";display:inline-block;vertical-align:-2px;
@@ -1808,7 +1808,106 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
    une seule bulle difforme qui déborde vers le haut. */
 #chat .msg-files{align-self:flex-end;display:flex;flex-wrap:wrap;justify-content:flex-end;
   gap:6px;max-width:75%}
-#chat .msg-files .chip-file{background:var(--bubble);max-width:100%}
+#chat .msg-files .chip-file{background:var(--bubble);max-width:100%;align-self:center}
+
+/* ===== Tuiles d'image (pièces jointes) =====================================
+   L'image elle-même, cliquable pour l'ouvrir en grand. Reflet animé pendant le
+   chargement, fondu + léger zoom à l'arrivée. Uniquement transform/opacity : les
+   animations ne provoquent aucun recalcul de mise en page. */
+.img-tile{position:relative;flex:0 0 auto;overflow:hidden;border-radius:12px;
+  background:var(--row-bg-on);border:1px solid var(--border);cursor:zoom-in;
+  outline:none;-webkit-tap-highlight-color:transparent;
+  transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s,border-color .18s}
+.img-tile:hover{border-color:var(--dim);box-shadow:0 6px 20px rgba(0,0,0,.14)}
+.img-tile:active{transform:scale(.97)}
+.img-tile:focus-visible{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--accent)}
+.img-tile .it-img{display:block;width:100%;height:100%;object-fit:cover;
+  opacity:0;transform:scale(1.04);transition:opacity .35s ease,transform .45s cubic-bezier(.2,.8,.2,1)}
+.img-tile.loaded .it-img{opacity:1;transform:none}
+.img-tile:not(.loaded):not(.broken)::before{content:"";position:absolute;inset:0;
+  background:linear-gradient(100deg,transparent 30%,color-mix(in srgb,var(--text) 7%,transparent) 50%,transparent 70%);
+  background-size:220% 100%;animation:it-shimmer 1.2s linear infinite}
+@keyframes it-shimmer{from{background-position:120% 0}to{background-position:-100% 0}}
+/* Repli si l'image ne charge pas : icône + nom, comme une pastille. */
+.img-tile.broken{cursor:default}
+.img-tile .it-fallback{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:6px;padding:8px;color:var(--dim);font-size:11px;text-align:center}
+.img-tile .it-fallback span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Bouton retirer (composeur) : pastille ronde sur verre dépoli, coin haut droit. */
+.img-tile .cf-x{position:absolute;top:5px;right:5px;width:22px;height:22px;margin:0;padding:0;
+  display:flex;align-items:center;justify-content:center;border:none;border-radius:50%;cursor:pointer;
+  color:#fff;background:rgba(0,0,0,.5);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  transition:background .15s,transform .15s}
+.img-tile .cf-x:hover{background:rgba(0,0,0,.72);transform:scale(1.08)}
+/* Envoi en cours : voile + anneau de progression (conic-gradient piloté par --p ;
+   indéterminé = un arc qui tourne). */
+.img-tile .it-prog{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.35)}
+.img-tile.up .it-prog{display:flex}
+.img-tile .it-prog::before{content:"";width:26px;height:26px;border-radius:50%;
+  background:conic-gradient(#fff calc(var(--p,0)*1%),rgba(255,255,255,.28) 0);
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2.5px));
+  mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2.5px));
+  transition:background .2s}
+.img-tile.up.indet .it-prog::before{background:conic-gradient(#fff 0 28%,rgba(255,255,255,.28) 0);animation:spin .8s linear infinite}
+.img-tile.err{border-color:var(--err)}
+.img-tile.err::after{content:"!";position:absolute;left:6px;bottom:6px;width:18px;height:18px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font:700 12px/1 var(--font);color:#fff;background:var(--err)}
+/* Composeur : tuiles carrées compactes. */
+#attach-list{align-items:center}
+#attach-list .img-tile{width:64px;height:64px;box-shadow:0 2px 10px rgba(0,0,0,.10)}
+/* Fil : une image seule s'affiche grande, proportions respectées ; plusieurs
+   images forment une grille de carrés. */
+#chat .msg-files .img-tile{width:auto;height:auto;max-width:min(260px,100%)}
+#chat .msg-files .img-tile .it-img{width:auto;height:auto;max-width:min(260px,100%);max-height:260px;min-width:64px;min-height:64px}
+#chat .msg-files.multi .img-tile,#chat .msg-files.multi .img-tile .it-img{width:112px;height:112px;max-height:none;min-width:0;min-height:0}
+#chat .msg-files .img-tile:not(.loaded):not(.broken){width:180px;height:140px}
+#chat .msg-files.multi .img-tile:not(.loaded):not(.broken){width:112px;height:112px}
+/* Entrée / sortie des pièces jointes du composeur. */
+#attach-list .entering{animation:att-in .24s cubic-bezier(.2,.8,.2,1)}
+#attach-list .leaving{animation:att-out .18s ease forwards;pointer-events:none}
+@keyframes att-in{from{opacity:0;transform:scale(.85) translateY(6px)}to{opacity:1;transform:none}}
+@keyframes att-out{to{opacity:0;transform:scale(.8)}}
+/* Images insérées par l'IA : même comportement cliquable. */
+.chat-img{cursor:zoom-in;transition:opacity .2s}
+.chat-img:hover{opacity:.92}
+
+/* ===== Visionneuse (lightbox) =============================================== */
+html.lb-lock,html.lb-lock body{overflow:hidden}
+#lightbox{position:fixed;inset:0;z-index:1000;display:none;touch-action:none}
+#lightbox.show{display:block}
+#lightbox .lb-backdrop{position:absolute;inset:0;background:rgba(8,8,10,.86);
+  -webkit-backdrop-filter:blur(14px) saturate(1.1);backdrop-filter:blur(14px) saturate(1.1);
+  opacity:0;transition:opacity .28s ease}
+#lightbox.in .lb-backdrop{opacity:1}
+#lightbox.dragging .lb-backdrop{transition:none}
+#lightbox .lb-img{position:absolute;border-radius:6px;box-shadow:0 20px 60px rgba(0,0,0,.45);
+  user-select:none;-webkit-user-select:none;cursor:zoom-in;will-change:transform;transform-origin:center}
+#lightbox.zoomed .lb-img{cursor:grab}
+#lightbox.zoomed.dragging .lb-img{cursor:grabbing}
+#lightbox .lb-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:10px;
+  padding:calc(12px + env(safe-area-inset-top)) 14px 12px 18px;color:#fff;font-size:13px;
+  background:linear-gradient(rgba(0,0,0,.45),transparent);opacity:0;transform:translateY(-6px);
+  transition:opacity .25s ease,transform .25s ease}
+#lightbox.in .lb-top{opacity:1;transform:none}
+#lightbox .lb-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.92}
+#lightbox .lb-count{opacity:.6;font-variant-numeric:tabular-nums}
+#lightbox .lb-btn{width:40px;height:40px;display:flex;align-items:center;justify-content:center;padding:0;margin:0;
+  border:none;border-radius:50%;cursor:pointer;color:#fff;background:rgba(255,255,255,.12);
+  transition:background .15s,transform .15s}
+#lightbox .lb-btn:hover{background:rgba(255,255,255,.22)}
+#lightbox .lb-btn:active{transform:scale(.92)}
+#lightbox .lb-btn:focus-visible{outline:2px solid #fff;outline-offset:2px}
+#lightbox .lb-nav{position:absolute;top:50%;margin-top:-22px;width:44px;height:44px;opacity:0;transition:opacity .25s ease,background .15s}
+#lightbox.in .lb-nav{opacity:1}
+#lightbox .lb-nav[hidden]{display:none}
+#lightbox .lb-prev{left:max(12px,env(safe-area-inset-left))}
+#lightbox .lb-next{right:max(12px,env(safe-area-inset-right))}
+@media (max-width:600px){#lightbox .lb-nav{top:auto;bottom:calc(18px + env(safe-area-inset-bottom));margin-top:0}}
+@media (prefers-reduced-motion:reduce){
+  .img-tile .it-img,.img-tile,#lightbox .lb-backdrop,#lightbox .lb-top{transition:none}
+  .img-tile:not(.loaded):not(.broken)::before,#attach-list .entering,#attach-list .leaving{animation:none}
+}
 /* Message envoyé SANS un mot : la bulle serait un rectangle vide sous les
    pastilles (markEmptyMsg lui pose .empty). On la retire du fil — seules les
    pièces jointes parlent. */
@@ -4014,6 +4113,11 @@ fr: {
   "projects.attach_file": "Joindre un fichier",
   "projects.compact_context": "Compacter le contexte",
   "attach.remove_title": "retirer",
+  "lightbox.open_prefix": "Agrandir l'image ",
+  "lightbox.close": "Fermer (Échap)",
+  "lightbox.download": "Télécharger",
+  "lightbox.prev": "Image précédente",
+  "lightbox.next": "Image suivante",
   "attach.download_progress_prefix": "téléchargement ",
   "attach.percent_suffix": " %",
   "attach.download_failed_prefix": "téléchargement impossible : ",
@@ -5130,6 +5234,11 @@ en: {
   "projects.attach_file": "Attach a file",
   "projects.compact_context": "Compact the context",
   "attach.remove_title": "remove",
+  "lightbox.open_prefix": "Enlarge image ",
+  "lightbox.close": "Close (Esc)",
+  "lightbox.download": "Download",
+  "lightbox.prev": "Previous image",
+  "lightbox.next": "Next image",
   "attach.download_progress_prefix": "downloading ",
   "attach.percent_suffix": " %",
   "attach.download_failed_prefix": "download failed: ",
@@ -10490,36 +10599,90 @@ function fmtSize(n){
 // Est-ce une image ? (pour montrer une vignette plutôt que le seul nom.)
 const IMG_RE=/\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif)$/i;
 function isImageName(n){ return IMG_RE.test(String(n||'')); }
+// Famille d'un fichier d'après son extension, pour choisir son icône.
+function fileKind(name){
+  const e=(String(name||'').split('.').pop()||'').toLowerCase();
+  if(e==='pdf') return 'pdf';
+  if(/^(zip|rar|7z|tar|gz|tgz|bz2|xz|zst)$/.test(e)) return 'archive';
+  if(/^(mp3|wav|ogg|flac|m4a|aac|opus)$/.test(e)) return 'audio';
+  if(/^(mp4|mov|mkv|webm|avi|m4v)$/.test(e)) return 'video';
+  if(/^(xlsx?|csv|tsv|ods|numbers)$/.test(e)) return 'sheet';
+  if(/^(docx?|odt|rtf|pages|pptx?|odp|key)$/.test(e)) return 'doc';
+  if(/^(js|ts|jsx|tsx|py|go|rs|c|h|cpp|hpp|cs|java|kt|swift|rb|php|sh|ps1|bat|json|ya?ml|toml|xml|html?|css|sql|lua|ini|env)$/.test(e)) return 'code';
+  if(/^(txt|md|log|rst)$/.test(e)) return 'text';
+  return 'file';
+}
+// Icônes au trait (currentColor : elles suivent le thème).
+const FILE_ICON_BODY = {
+  file:'', text:'<path d="M9 13h6M9 17h6"/>', pdf:'<path d="M9 15h1.5a1.5 1.5 0 0 0 0-3H9v5"/><path d="M14 12v5"/>',
+  doc:'<path d="M8.5 12.5l1 4.5 1.5-3.5 1.5 3.5 1-4.5"/>', sheet:'<path d="M8 12h8v6H8zM8 15h8M12 12v6"/>',
+  code:'<path d="M10 12.5l-2 2 2 2M14 12.5l2 2-2 2"/>', archive:'<path d="M12 9v1M12 11.5v1M12 14v1"/><rect x="11" y="16" width="2" height="2.2" rx=".5"/>',
+  audio:'<path d="M10 17.5v-5l5-1.5v5"/><circle cx="9" cy="17.5" r="1.2"/><circle cx="14" cy="16" r="1.2"/>',
+  video:'<path d="M10.5 12.5v5l4-2.5z"/>'
+};
+function fileIconSvg(name){
+  const k=fileKind(name);
+  return '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>'+(FILE_ICON_BODY[k]||'')+'</svg>';
+}
 // Pastille de fichier, partagée par le composeur et les bulles du fil : même
-// objet visuel des deux côtés, seul le contexte (CSS) change.
-// Pour une image, on affiche une VIGNETTE : `imgSrc` (URL déjà prête, ex. un
-// objectURL du fichier local dans le composeur) ou `imgPath` (chemin dans le
-// dossier de travail, chargé à la demande pour une bulle du fil).
+// objet visuel des deux côtés, seul le contexte (CSS) change. Une IMAGE devient
+// une tuile (imageTile) : la voir compte plus que lire son nom.
+// `imgSrc` (URL déjà prête, ex. un objectURL du fichier local dans le composeur)
+// ou `imgPath` (chemin dans le dossier de travail, chargé à la demande).
 function fileChip(name, size, opts){
   opts=opts||{};
+  if(isImageName(name) && (opts.imgSrc || opts.imgPath)) return imageTile(name, size, opts);
   const chip=document.createElement('div');
   chip.className='chip-file'+(opts.cls?' '+opts.cls:'');
-  if(isImageName(name) && (opts.imgSrc || opts.imgPath)){
-    chip.classList.add('has-thumb');
-    const img=document.createElement('img');
-    img.className='cf-thumb'; img.alt=name; img.loading='lazy';
-    chip.appendChild(img);
-    if(opts.imgSrc) img.src=opts.imgSrc;
-    else loadThumb(img, opts.imgPath);
-  }
+  const ic=document.createElement('span');
+  ic.className='cf-icon'; ic.innerHTML=fileIconSvg(name);
   const n=document.createElement('span');
   n.className='cf-name'; n.textContent=name; n.title=opts.title||name;
   const s=document.createElement('span');
   s.className='cf-size'; s.textContent=opts.sizeText||fmtSize(size);
-  chip.appendChild(n); chip.appendChild(s);
-  if(opts.onRemove){
-    const x=document.createElement('button');
-    x.type='button'; x.textContent='×'; x.title=t('attach.remove_title');
-    x.setAttribute('aria-label',t('attach.remove_title')+' '+name);
-    x.onclick=opts.onRemove;
-    chip.appendChild(x);
-  }
+  chip.appendChild(ic); chip.appendChild(n); chip.appendChild(s);
+  if(opts.onRemove) chip.appendChild(removeBtn(name, opts.onRemove));
   return chip;
+}
+function removeBtn(name, fn){
+  const x=document.createElement('button');
+  x.type='button'; x.className='cf-x'; x.innerHTML='<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  x.title=t('attach.remove_title');
+  x.setAttribute('aria-label',t('attach.remove_title')+' '+name);
+  x.onclick=(e)=>{ e.stopPropagation(); fn(e); };
+  return x;
+}
+// Tuile d'image : la vignette elle-même, cliquable pour l'ouvrir en grand
+// (openLightbox). Reflet animé tant qu'elle charge, fondu à l'arrivée ; si le
+// chargement échoue, la tuile retombe sur une icône et le nom du fichier.
+function imageTile(name, size, opts){
+  const tile=document.createElement('div');
+  tile.className='img-tile'+(opts.cls?' '+opts.cls:'');
+  tile.title=opts.title||name;
+  tile.tabIndex=0; tile.setAttribute('role','button');
+  tile.setAttribute('aria-label',t('lightbox.open_prefix')+name);
+  const img=document.createElement('img');
+  img.className='it-img'; img.alt=name; img.decoding='async'; img.draggable=false;
+  img.dataset.name=name;
+  if(opts.imgPath) img.dataset.path=opts.imgPath;
+  img.onload=()=>tile.classList.add('loaded');
+  img.onerror=()=>tileBroken(tile, name);
+  tile.appendChild(img);
+  const prog=document.createElement('div'); prog.className='it-prog'; tile.appendChild(prog);
+  if(opts.onRemove) tile.appendChild(removeBtn(name, opts.onRemove));
+  const open=()=>{ if(tile.classList.contains('loaded') && typeof openLightbox==='function') openLightbox(img); };
+  tile.onclick=open;
+  tile.onkeydown=(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } };
+  if(opts.imgSrc) img.src=opts.imgSrc;
+  else loadThumb(img, opts.imgPath, tile, name);
+  return tile;
+}
+function tileBroken(tile, name){
+  if(tile.classList.contains('broken')) return;
+  tile.classList.add('broken');
+  const f=document.createElement('div'); f.className='it-fallback';
+  f.innerHTML=fileIconSvg(name)+'<span></span>'; f.lastChild.textContent=name;
+  tile.appendChild(f);
 }
 // Fichiers joints à un message DÉJÀ envoyé : posés AU-DESSUS de la bulle, dans
 // leur propre rangée. Les mettre dedans étirait la bulle vers le haut et donnait
@@ -10528,7 +10691,9 @@ function addMsgFiles(el, files){
   if(!el || !files || !files.length) return;
   const box=document.createElement('div');
   box.className='msg-files';
-  for(const f of files) box.appendChild(fileChip(f.name, f.size, {title:f.path||f.name, imgPath:f.path||f.name}));
+  // Plusieurs images : tuiles plus petites, en grille, pour ne pas faire un mur.
+  if(files.filter(f=>isImageName(f.name)).length>1) box.classList.add('multi');
+  for(const f of files) box.appendChild(fileChip(f.name, f.size, {title:f.name, imgPath:f.path||f.name}));
   el.parentNode.insertBefore(box, el);
   // Envoi sans un mot : la bulle serait un rectangle vide sous les pastilles.
   markEmptyMsg(el);
@@ -10600,9 +10765,9 @@ async function getWorkspaceBlob(path){
 // pastille reste avec son nom, comme avant. L'objectURL n'est pas révoqué —
 // la vignette vit aussi longtemps que la bulle, et le fil n'en accumule pas des
 // milliers.
-async function loadThumb(img, path){
+async function loadThumb(img, path, tile, name){
   try{ img.src=URL.createObjectURL(await getWorkspaceBlob(path)); }
-  catch(_){ img.remove(); }
+  catch(_){ if(tile) tileBroken(tile, name||path); else img.remove(); }
 }
 async function downloadWorkspaceFile(path, name, a){
   if(a) a.classList.add('busy');
@@ -10705,6 +10870,8 @@ function markWorkspaceImages(root){
     if(!p) continue;
     img.classList.add('chat-img');
     if(!img.getAttribute('alt')) img.alt=p.split('/').pop();
+    img.dataset.path=p; img.dataset.name=p.split('/').pop();
+    if(!img._lb){ img._lb=true; img.addEventListener('click', ()=>{ if(img.naturalWidth && typeof openLightbox==='function') openLightbox(img); }); }
     if(WS_IMG_CACHE[p]){ img.src=WS_IMG_CACHE[p]; continue; }
     img.removeAttribute('src');            // évite le flash « image cassée »
     img.setAttribute('data-wsimg', p);
@@ -10716,31 +10883,57 @@ function markWorkspaceImages(root){
   }
 }
 function attachListEl(){ return document.getElementById('attach-list'); }
+// renderAttach met la liste du composeur en phase avec ATTACH SANS la reconstruire :
+// chaque fichier garde son élément (ATTACH_EL), seul son état change. Avant, tout
+// était recréé à chaque avancée d'un envoi : les vignettes rechargeaient, les
+// animations se rejouaient, la liste clignotait.
+const ATTACH_EL = new Map();
 function renderAttach(){
   const el = attachListEl(); if(!el) return;
-  el.innerHTML='';
-  el.classList.toggle('show', ATTACH.length>0);
   // Les pièces jointes comptent comme « contenu à envoyer » : le bouton envoyer/stop
   // doit se réévaluer (issue #74 : envoyer pendant une génération).
   if(typeof syncSendBtn==='function') syncSendBtn();
+  const live=new Set(ATTACH.map(a=>a.id));
+  // Sortants : ils s'effacent en douceur puis quittent le DOM.
+  for(const [id, node] of ATTACH_EL){
+    if(live.has(id)) continue;
+    ATTACH_EL.delete(id);
+    node.classList.add('leaving');
+    let done=false;
+    const gone=()=>{ if(done) return; done=true; node.remove(); if(!ATTACH.length && !el.querySelector('.leaving')) el.classList.remove('show'); };
+    node.addEventListener('animationend', gone, {once:true});
+    setTimeout(gone, 400);   // filet si l'animation est coupée (reduced motion…)
+  }
+  if(ATTACH.length) el.classList.add('show');
   for(const a of ATTACH){
-    el.appendChild(fileChip(a.name, a.size, {
-      cls: a.state==='up' ? 'up' : (a.state==='err' ? 'err' : ''),
-      title: a.error || a.name,
-      imgSrc: a.thumb,
-      // Un gros fichier prend du temps : on montre l'avancement plutôt qu'un
-      // anneau qui tourne sans rien dire. Sous un morceau, il n'y a rien à suivre.
-      sizeText: a.state==='err' ? t('attach.failed')
-        : (a.state==='up' && a.size>ATTACH_CHUNK) ? Math.round((a.sent||0)*100/a.size)+t('attach.percent_suffix')
-        : fmtSize(a.size),
-      onRemove: ()=>{ releaseThumb(a); ATTACH=ATTACH.filter(o=>o.id!==a.id); renderAttach(); }
-    }));
+    let node=ATTACH_EL.get(a.id);
+    if(!node){
+      node=fileChip(a.name, a.size, {
+        imgSrc: a.thumb,
+        onRemove: ()=>{ releaseThumbLater(a); ATTACH=ATTACH.filter(o=>o.id!==a.id); renderAttach(); }
+      });
+      node.classList.add('entering');
+      node.addEventListener('animationend', ()=>node.classList.remove('entering'), {once:true});
+      ATTACH_EL.set(a.id, node);
+      el.appendChild(node);
+    }
+    node.classList.toggle('up', a.state==='up');
+    node.classList.toggle('err', a.state==='err');
+    node.title = a.error || a.name;
+    // Un gros fichier prend du temps : on montre l'avancement plutôt qu'un
+    // anneau qui tourne sans rien dire. Sous un morceau, il n'y a rien à suivre.
+    const pct = a.state==='up' ? (a.size>ATTACH_CHUNK ? Math.round((a.sent||0)*100/a.size) : -1) : 100;
+    node.style.setProperty('--p', Math.max(0,pct));
+    node.classList.toggle('indet', pct<0);
+    const sz=node.querySelector('.cf-size');
+    if(sz) sz.textContent = a.state==='err' ? t('attach.failed') : (pct>=0 && a.state==='up') ? pct+t('attach.percent_suffix') : fmtSize(a.size);
   }
 }
 // L'objectURL d'une vignette du composeur tient un blob en mémoire : on le libère
 // dès que le fichier quitte la liste (retrait ou envoi terminé).
 function releaseThumb(a){ if(a&&a.thumb){ try{ URL.revokeObjectURL(a.thumb); }catch(_){} a.thumb=null; } }
-function clearAttach(){ for(const a of ATTACH) releaseThumb(a); ATTACH=[]; renderAttach(); }
+function releaseThumbLater(a){ const u=a&&a.thumb; if(!u) return; a.thumb=null; setTimeout(()=>{ try{ URL.revokeObjectURL(u); }catch(_){} }, 600); }
+function clearAttach(){ for(const a of ATTACH) releaseThumbLater(a); ATTACH=[]; renderAttach(); }
 // Ce qui part avec le message, pour l'afficher dans sa bulle.
 function attachSent(){ return ATTACH.filter(a=>a.state==='ok').map(a=>({name:a.name,size:a.size,path:a.path})); }
 
@@ -10860,6 +11053,227 @@ async function attachPaths(){
   return ATTACH.filter(a=>a.state==='ok'&&a.path).map(a=>a.path);
 }
 renderAttach();
+// ===== Visionneuse d'images (lightbox) ======================================
+// Un clic sur une image (pièce jointe du fil ou du composeur, image insérée par
+// l'IA) l'ouvre en grand. L'image part de sa vignette et s'agrandit jusqu'au
+// centre (technique FLIP : on la pose à sa place finale, puis on anime depuis la
+// position de la vignette), sur un fond flouté. Les images voisines (même message,
+// même composeur, même réponse) se parcourent avec ← → ou les flèches à l'écran.
+// Double-clic / double-tap : zoom ×2.5 à l'endroit visé, puis on glisse pour se
+// déplacer. Sur mobile, glisser vers le bas ferme. Tout passe par transform et
+// opacity (pas de layout pendant les animations) pour rester fluide.
+let LB = null;
+const LB_EASE = 'cubic-bezier(.2,.8,.2,1)';
+function lbReduced(){ return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
+
+function lbBuild(){
+  if(LB) return LB;
+  const root=document.createElement('div');
+  root.id='lightbox'; root.setAttribute('role','dialog'); root.setAttribute('aria-modal','true');
+  root.innerHTML=
+    '<div class="lb-backdrop"></div>'+
+    '<img class="lb-img" alt="" draggable="false">'+
+    '<div class="lb-top">'+
+      '<span class="lb-name"></span><span class="lb-count"></span>'+
+      '<button type="button" class="lb-btn lb-dl"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 19h16"/></svg></button>'+
+      '<button type="button" class="lb-btn lb-close"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>'+
+    '</div>'+
+    '<button type="button" class="lb-btn lb-nav lb-prev"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>'+
+    '<button type="button" class="lb-btn lb-nav lb-next"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>';
+  document.body.appendChild(root);
+  const q=(c)=>root.querySelector(c);
+  LB={root, img:q('.lb-img'), back:q('.lb-backdrop'), name:q('.lb-name'), count:q('.lb-count'),
+      prev:q('.lb-prev'), next:q('.lb-next'), list:[], idx:0, open:false, z:1, tx:0, ty:0, returnFocus:null};
+  q('.lb-close').title=q('.lb-close').ariaLabel=t('lightbox.close');
+  q('.lb-dl').title=q('.lb-dl').ariaLabel=t('lightbox.download');
+  LB.prev.title=LB.prev.ariaLabel=t('lightbox.prev');
+  LB.next.title=LB.next.ariaLabel=t('lightbox.next');
+  q('.lb-close').onclick=()=>closeLightbox();
+  q('.lb-dl').onclick=()=>lbDownload();
+  LB.prev.onclick=(e)=>{ e.stopPropagation(); lbStep(-1); };
+  LB.next.onclick=(e)=>{ e.stopPropagation(); lbStep(1); };
+  LB.back.onclick=()=>closeLightbox();
+  lbGestures();
+  document.addEventListener('keydown', (e)=>{
+    if(!LB||!LB.open) return;
+    if(e.key==='Escape'){ e.preventDefault(); closeLightbox(); }
+    else if(e.key==='ArrowLeft'){ e.preventDefault(); lbStep(-1); }
+    else if(e.key==='ArrowRight'){ e.preventDefault(); lbStep(1); }
+  });
+  window.addEventListener('resize', ()=>{ if(LB&&LB.open){ lbLayout(); lbApply(); } });
+  return LB;
+}
+
+// Les images « voisines » : celles du même message / composeur / réponse, déjà
+// chargées (une vignette encore vide n'a rien à montrer en grand).
+function lbGroup(img){
+  const scope=img.closest('.msg-files, #attach-list, .body, .msg') || img.parentNode || document.body;
+  return [...scope.querySelectorAll('img.it-img, img.chat-img')].filter(i=>i.src && i.naturalWidth);
+}
+
+// Taille d'affichage « ajustée » : l'image tient dans l'écran (marges comprises)
+// sans jamais être agrandie au-delà de sa taille réelle.
+function lbFit(w, h){
+  const mw=Math.max(80, innerWidth - (innerWidth<600 ? 16 : 120)), mh=Math.max(80, innerHeight - (innerWidth<600 ? 120 : 140));
+  const s=Math.min(1, mw/w, mh/h);
+  return {w:Math.round(w*s), h:Math.round(h*s)};
+}
+function lbLayout(){
+  const im=LB.img, f=lbFit(im.naturalWidth||im.width||1, im.naturalHeight||im.height||1);
+  im.style.width=f.w+'px'; im.style.height=f.h+'px';
+  im.style.left=Math.round((innerWidth-f.w)/2)+'px'; im.style.top=Math.round((innerHeight-f.h)/2)+'px';
+}
+function lbApply(){ LB.img.style.transform = (LB.z!==1||LB.tx||LB.ty) ? `translate(${LB.tx}px,${LB.ty}px) scale(${LB.z})` : ''; }
+function lbResetZoom(){ LB.z=1; LB.tx=0; LB.ty=0; LB.root.classList.remove('zoomed'); lbApply(); }
+
+// Transformation qui ramène l'image affichée (position finale) sur un rectangle
+// source (la vignette) : base de l'animation d'ouverture et de fermeture.
+function lbFromRect(r){
+  const im=LB.img, W=parseFloat(im.style.width), H=parseFloat(im.style.height);
+  const L=parseFloat(im.style.left), T=parseFloat(im.style.top);
+  const s=Math.max(r.width/W, r.height/H);
+  const dx=(r.left+r.width/2)-(L+W/2), dy=(r.top+r.height/2)-(T+H/2);
+  return `translate(${dx}px,${dy}px) scale(${s})`;
+}
+// La vignette d'origine est-elle encore à l'écran ? (fermeture vers elle, sinon fondu)
+function lbVisibleRect(el){
+  if(!el || !el.isConnected) return null;
+  const r=el.getBoundingClientRect();
+  if(!r.width || r.bottom<0 || r.top>innerHeight) return null;
+  return r;
+}
+
+function openLightbox(img){
+  if(!img || !img.src || !img.naturalWidth) return;
+  lbBuild();
+  let list=lbGroup(img), idx=list.indexOf(img);
+  if(idx<0){ list=[img]; idx=0; }
+  LB.list=list; LB.idx=idx; LB.open=true;
+  LB.returnFocus=document.activeElement;
+  document.documentElement.classList.add('lb-lock');
+  LB.root.classList.add('show');
+  lbShow(true);
+  LB.root.querySelector('.lb-close').focus({preventScroll:true});
+}
+
+function lbShow(fromThumb, dir){
+  const src=LB.list[LB.idx], im=LB.img;
+  lbResetZoom();
+  im.src=src.src; im.alt=src.alt||'';
+  LB.name.textContent=src.dataset.name||src.alt||'';
+  const many=LB.list.length>1;
+  LB.count.textContent=many ? (LB.idx+1)+' / '+LB.list.length : '';
+  LB.prev.hidden=LB.next.hidden=!many;
+  lbLayout();
+  if(lbReduced()){ LB.root.classList.add('in'); return; }
+  const r=fromThumb ? lbVisibleRect(src) : null;
+  if(r){
+    // Ouverture : la vignette « grandit » jusqu'au centre, le fond se floute.
+    im.animate([{transform:lbFromRect(r), opacity:.9, borderRadius:'10px'}, {transform:'none', opacity:1, borderRadius:'6px'}],
+      {duration:320, easing:LB_EASE});
+    requestAnimationFrame(()=>LB.root.classList.add('in'));
+  } else {
+    LB.root.classList.add('in');
+    const from = dir ? `translateX(${dir*40}px)` : 'scale(.96)';
+    im.animate([{transform:from, opacity:0}, {transform:'none', opacity:1}], {duration:220, easing:LB_EASE});
+  }
+}
+
+function lbStep(d){
+  if(!LB||!LB.open||LB.list.length<2) return;
+  LB.idx=(LB.idx+d+LB.list.length)%LB.list.length;
+  lbShow(false, d);
+}
+
+function closeLightbox(){
+  if(!LB||!LB.open) return;
+  LB.open=false;
+  const im=LB.img, src=LB.list[LB.idx];
+  const finish=()=>{
+    LB.root.classList.remove('show','in','dragging','zoomed');
+    im.style.transform=''; im.style.opacity=''; LB.back.style.opacity='';
+    document.documentElement.classList.remove('lb-lock');
+    const f=LB.returnFocus; LB.returnFocus=null;
+    if(f && f.focus) try{ f.focus({preventScroll:true}); }catch(_){}
+  };
+  LB.root.classList.remove('in');
+  if(lbReduced()){ finish(); return; }
+  const r=lbVisibleRect(src);
+  const cur=getComputedStyle(im).transform;
+  const start={transform: cur==='none' ? 'none' : cur, opacity: im.style.opacity||1};
+  const end = r ? {transform:lbFromRect(r), opacity:.9, borderRadius:'10px'} : {transform:(cur==='none'?'':cur+' ')+'scale(.92)', opacity:0};
+  const a=im.animate([start, end], {duration:r?260:200, easing:LB_EASE, fill:'forwards'});
+  a.onfinish=()=>{ a.cancel(); finish(); };
+}
+
+function lbDownload(){
+  const src=LB.list[LB.idx]; if(!src) return;
+  const name=src.dataset.name||src.alt||'image';
+  if(src.dataset.path && typeof downloadWorkspaceFile==='function'){ downloadWorkspaceFile(src.dataset.path, name, null); return; }
+  const a=document.createElement('a'); a.href=src.src; a.download=name;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+// Gestes : double-clic/tap = zoom ; glisser = déplacer (zoomé) ou fermer vers le
+// bas (non zoomé) ; molette = zoom progressif sur ordinateur.
+function lbGestures(){
+  const im=LB.img;
+  let down=null, lastTap=0;
+  const zoomAt=(cx, cy, z)=>{
+    // Zoom centré sur le point visé : on garde ce point immobile sous le doigt.
+    const r=im.getBoundingClientRect();
+    const ox=cx-(r.left+r.width/2), oy=cy-(r.top+r.height/2);
+    const k=z/LB.z;
+    LB.tx=LB.tx - ox*(k-1); LB.ty=LB.ty - oy*(k-1); LB.z=z;
+    if(z<=1.01){ LB.z=1; LB.tx=0; LB.ty=0; }
+    LB.root.classList.toggle('zoomed', LB.z>1);
+    im.style.transition='transform .25s '+LB_EASE; lbApply();
+    setTimeout(()=>{ im.style.transition=''; }, 260);
+  };
+  im.addEventListener('dblclick', (e)=>{ e.preventDefault(); zoomAt(e.clientX, e.clientY, LB.z>1 ? 1 : 2.5); });
+  im.addEventListener('wheel', (e)=>{
+    if(!LB.open) return; e.preventDefault();
+    const z=Math.min(6, Math.max(1, LB.z*(e.deltaY<0 ? 1.15 : 1/1.15)));
+    const r=im.getBoundingClientRect(), ox=e.clientX-(r.left+r.width/2), oy=e.clientY-(r.top+r.height/2), k=z/LB.z;
+    LB.tx-=ox*(k-1); LB.ty-=oy*(k-1); LB.z=z;
+    if(z<=1.01){ LB.z=1; LB.tx=0; LB.ty=0; }
+    LB.root.classList.toggle('zoomed', LB.z>1); lbApply();
+  }, {passive:false});
+  im.addEventListener('pointerdown', (e)=>{
+    if(e.button>0) return;
+    // Double-tap tactile (le dblclick n'arrive pas toujours sur mobile).
+    const now=Date.now();
+    if(e.pointerType==='touch' && now-lastTap<300){ lastTap=0; zoomAt(e.clientX, e.clientY, LB.z>1 ? 1 : 2.5); return; }
+    lastTap=now;
+    down={x:e.clientX, y:e.clientY, tx:LB.tx, ty:LB.ty, moved:false};
+    im.setPointerCapture(e.pointerId);
+  });
+  im.addEventListener('pointermove', (e)=>{
+    if(!down) return;
+    const dx=e.clientX-down.x, dy=e.clientY-down.y;
+    if(!down.moved && Math.hypot(dx,dy)<4) return;
+    down.moved=true; LB.root.classList.add('dragging');
+    if(LB.z>1){ LB.tx=down.tx+dx; LB.ty=down.ty+dy; lbApply(); return; }
+    // Non zoomé : l'image suit le doigt verticalement, le fond s'estompe.
+    const k=Math.min(1, Math.abs(dy)/300);
+    im.style.transform=`translate(${dx*0.3}px,${dy}px) scale(${1-k*0.15})`;
+    LB.back.style.opacity=String(1-k*0.8);
+  });
+  const up=(e)=>{
+    if(!down) return;
+    const dy=e.clientY-down.y, moved=down.moved; down=null;
+    LB.root.classList.remove('dragging');
+    if(!moved || LB.z>1) return;
+    if(Math.abs(dy)>110){ closeLightbox(); return; }
+    // Pas assez loin : retour en place.
+    im.animate([{transform:im.style.transform}, {transform:'none'}], {duration:200, easing:LB_EASE});
+    im.style.transform=''; LB.back.style.opacity='';
+  };
+  im.addEventListener('pointerup', up);
+  im.addEventListener('pointercancel', up);
+  // Clic simple sur l'image non zoomée : rien (seul le fond ferme), pour ne pas
+  // fermer par erreur en visant un détail.
+}
 // ─── Tâches planifiées ───────────────────────────────────────────────────────
 // L'IA exécute une consigne toute seule sur une fréquence réglable (intervalle
 // simple ou cron). Chaque tâche tourne ISOLÉE de la conversation : elle livre son
@@ -11603,25 +12017,82 @@ function showSessionsLoading(){
   if(!box.querySelector('.proj-sess-load')) box.innerHTML = '<div class="proj-sess-load"><span class="spinner"></span></div>';
 }
 
+// Liste PAGINÉE : SESS_PAGE sessions au départ, les suivantes chargées quand le
+// bas de la liste approche (sentinelle observée). Tout rendre d'un coup créait des
+// centaines de lignes (537 chez Nathan) et faisait lire au serveur le contenu de
+// toutes les conversations. _sessLoad : état du chargement en cours ; son `gen`
+// invalide les pages d'un chargement précédent (bascule de projet entre-temps).
+const SESS_PAGE = 40;
+let _sessLoad = null, _sessObs = null;
 async function loadProjectSessions(){
   const box = document.getElementById('project-sessions'); if(!box) return;
   showSessionsLoading();
+  if(_sessObs){ _sessObs.disconnect(); _sessObs = null; }
   // Projet parcouru : le projet actif, ou un AUTRE en lecture seule (?project=)
   // pendant une génération — sans jamais basculer.
   const foreign = !!BROWSE_PROJECT && BROWSE_PROJECT !== ACTIVE_PROJECT;
-  const url = foreign ? '/api/chat/history?project='+encodeURIComponent(BROWSE_PROJECT) : '/api/chat/history';
-  let list = [], active = '';
-  try{ const r = await jget(url); list = (r && r.conversations) || []; active = (r && r.active) || ''; }
-  catch(_){ box.style.minHeight = ''; box.innerHTML = '<span class="muted" style="font-size:12px">'+t('projects.load_error')+'</span>'; return; }
+  const base = foreign ? '/api/chat/history?project='+encodeURIComponent(BROWSE_PROJECT)+'&' : '/api/chat/history?';
+  const st = _sessLoad = {gen:(_sessLoad?_sessLoad.gen:0)+1, base, foreign, offset:0, total:0, active:'', busy:false, lastFav:null, sentinel:null};
+  let r;
+  try{ r = await jget(base+'offset=0&limit='+SESS_PAGE); }
+  catch(_){ if(st!==_sessLoad) return; box.style.minHeight = ''; box.innerHTML = '<span class="muted" style="font-size:12px">'+t('projects.load_error')+'</span>'; return; }
+  if(st!==_sessLoad) return;
+  const list = (r && r.conversations) || [];
+  st.active = (r && r.active) || ''; st.total = (r && r.total) || list.length;
   box.style.minHeight = '';
   box.innerHTML = '';
   if(!list.length){ box.innerHTML = '<span class="muted" style="font-size:12px">'+t('projects.no_sessions')+'</span>'; box.classList.add('ready'); return; }
-  const favs = list.filter(c=>c.fav), others = list.filter(c=>!c.fav);
-  const section = (label)=>{ const h=document.createElement('div'); h.className='sess-head'; h.style.paddingLeft='8px'; h.textContent=label; box.appendChild(h); };
-  const row = (c)=>projSessionRow(c, c.id===active && !foreign, foreign);
-  if(favs.length){ section(t('projects.favorites')); favs.forEach(c=>box.appendChild(row(c))); }
-  if(others.length){ if(favs.length) section(t('projects.recent')); others.forEach(c=>box.appendChild(row(c))); }
+  appendSessRows(box, st, list);
   box.classList.add('ready');
+  setupSessSentinel(box, st);
+}
+
+// appendSessRows ajoute une page de lignes. Les favoris arrivent en tête (tri
+// serveur) : l'en-tête « Favoris » précède la première, « Récentes » la première
+// non-favorite qui suit des favoris, même si elle tombe dans une page suivante.
+function appendSessRows(box, st, list){
+  const section = (label)=>{ const h=document.createElement('div'); h.className='sess-head'; h.style.paddingLeft='8px'; h.textContent=label; return h; };
+  const frag = document.createDocumentFragment();
+  for(const c of list){
+    const fav = !!c.fav;
+    if(st.lastFav === null && fav) frag.appendChild(section(t('projects.favorites')));
+    else if(st.lastFav === true && !fav) frag.appendChild(section(t('projects.recent')));
+    st.lastFav = fav;
+    frag.appendChild(projSessionRow(c, c.id===st.active && !st.foreign, st.foreign));
+  }
+  if(st.sentinel) box.insertBefore(frag, st.sentinel); else box.appendChild(frag);
+  st.offset += list.length;
+}
+
+// setupSessSentinel pose une sentinelle en bas de liste ; quand elle approche de
+// la zone visible (marge de 300 px), la page suivante est chargée.
+function setupSessSentinel(box, st){
+  if(st.offset >= st.total || typeof IntersectionObserver==='undefined'){ if(st.offset < st.total) loadMoreSessions(box, st, true); return; }
+  const sen = document.createElement('div'); sen.className = 'sess-more'; sen.innerHTML = '<span class="spinner"></span>';
+  box.appendChild(sen); st.sentinel = sen;
+  _sessObs = new IntersectionObserver((ents)=>{ if(ents.some(e=>e.isIntersecting)) loadMoreSessions(box, st); }, {rootMargin:'300px'});
+  _sessObs.observe(sen);
+}
+
+async function loadMoreSessions(box, st, all){
+  if(st.busy || st !== _sessLoad || st.offset >= st.total) return;
+  st.busy = true;
+  let r = null;
+  try{ r = await jget(st.base+'offset='+st.offset+'&limit='+(all ? st.total : SESS_PAGE)); }catch(_){}
+  st.busy = false;
+  if(st !== _sessLoad) return;
+  const list = (r && r.conversations) || [];
+  if(list.length) appendSessRows(box, st, list);
+  if(r && r.total) st.total = r.total;
+  // Fin de liste (ou réponse vide, pour ne pas boucler) : on retire la sentinelle.
+  if(!list.length || st.offset >= st.total){
+    if(_sessObs){ _sessObs.disconnect(); _sessObs = null; }
+    if(st.sentinel){ st.sentinel.remove(); st.sentinel = null; }
+  } else if(st.sentinel && _sessObs){
+    // Page chargée mais sentinelle encore visible (grand écran) : on relance
+    // l'observation pour redéclencher si besoin.
+    _sessObs.unobserve(st.sentinel); _sessObs.observe(st.sentinel);
+  }
 }
 
 function projSessionRow(c, active, foreign){

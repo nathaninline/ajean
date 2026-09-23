@@ -259,6 +259,20 @@ func allKV(bucket string) map[string]string {
 	return m
 }
 
+// allKeys renvoie les seules CLÉS d'un bucket, sans copier les valeurs. À préférer
+// à allKV quand les valeurs sont grosses (conversations archivées : des centaines
+// de Mo au total) et qu'on ne veut que savoir ce qui existe.
+func allKeys(bucket string) []string {
+	var out []string
+	_ = view(bucket, func(b *bolt.Bucket) error {
+		return b.ForEach(func(k, _ []byte) error {
+			out = append(out, string(k))
+			return nil
+		})
+	})
+	return out
+}
+
 // replaceKV remplace tout le contenu d'un bucket en une seule transaction.
 // C'est ce qu'exige l'application d'un preset : à aucun instant la config ne
 // doit être un mélange de l'ancienne et de la nouvelle.

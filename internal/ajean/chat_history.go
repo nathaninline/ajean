@@ -173,7 +173,11 @@ func listAllArchives() []convArchiveMeta {
 	}
 	// Sessions d'avant l'index (migration) : blob complet présent sans entrée
 	// d'index. On le reconstruit une fois (respecte le chiffrement via load/save).
-	for id := range allKV(bkChatHist) {
+	// allKeys et non allKV : ce bucket porte le CONTENU de toutes les conversations
+	// (252 Mo pour 537 sessions sur la machine de Nathan). Le copier en entier à
+	// chaque ouverture de la liste coûtait ~130 ms et 250 Mo d'allocations, pour
+	// n'en garder que les clés.
+	for _, id := range allKeys(bkChatHist) {
 		if seen[id] {
 			continue
 		}
