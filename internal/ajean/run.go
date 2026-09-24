@@ -255,10 +255,9 @@ func col(code, s string) string {
 	}
 	return "\033[" + code + "m" + s + "\033[0m"
 }
-func bold(s string) string    { return col("1", s) }
-func cyan(s string) string    { return col("1;36", s) }
-func green(s string) string   { return col("32", s) }
-func red(s string) string     { return col("31", s) }
-func dim(s string) string     { return col("2", s) }
-func yellow(s string) string  { return col("33", s) }
-func magenta(s string) string { return col("35", s) }
+func bold(s string) string   { return col("1", s) }
+func cyan(s string) string   { return col("1;36", s) }
+func green(s string) string  { return col("32", s) }
+func red(s string) string    { return col("31", s) }
+func dim(s string) string    { return col("2", s) }
+func yellow(s string) string { return col("33", s) }
