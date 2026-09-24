@@ -11,7 +11,6 @@ import (
 	"io"
 	"os"
 	"strings"
-	"sync"
 	"unicode"
 	"unicode/utf8"
 
@@ -242,8 +241,7 @@ func parseEscape(b []byte) (key, int, bool) {
 // Il tourne pendant toute la session : pendant une réponse, Ctrl-C / Échap
 // l'interrompent, et le reste de la frappe est gardé pour la saisie suivante.
 type keyReader struct {
-	ch   chan key
-	once sync.Once
+	ch chan key
 }
 
 func newKeyReader(in io.Reader) *keyReader {
