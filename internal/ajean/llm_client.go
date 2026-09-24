@@ -255,6 +255,10 @@ type Caps struct {
 	// ComputerUse = pilotage d'un navigateur de la machine hôte (outils cu_*).
 	// Requiert aussi Agent (mêmes actions réelles que bash). Voir computer_use.go.
 	ComputerUse bool
+	// Terminal = chat en ligne de commande (ajean chat) : outils réduits à
+	// bash/write/edit dans le dossier courant, prompt court façon pi, sans
+	// mémoire, projets, tâches ni web. Voir cli_chat.go.
+	Terminal bool
 }
 
 // globalCaps reads the machine-wide config — the default when a request doesn't
@@ -414,6 +418,16 @@ func prependToFirstUser(msgs []Message, ctx string) bool {
 // EnabledTools returns the tools to advertise on the next inference call.
 func EnabledTools(caps Caps) []Tool {
 	tools := []Tool{}
+	if caps.Terminal {
+		if !caps.Agent {
+			return tools
+		}
+		tools = append(tools, bashTool(), writeTool(), editTool())
+		if visionEnabled() {
+			tools = append(tools, seeImageTool())
+		}
+		return tools
+	}
 	if caps.Agent {
 		tools = append(tools, bashTool(), writeTool(), editTool())
 		// Tâches planifiées : l'IA peut se donner elle-même des rappels/veilles

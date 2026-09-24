@@ -1,39 +1,48 @@
-Cette version corrige un blocage complet de Windows sur les machines équipées d'un GPU AMD, et plusieurs problèmes d'installation et de démarrage du moteur.
+Cette version refait entièrement `ajean chat`, le chat en terminal : plus agréable à utiliser, plus lisible, et pensé pour travailler directement dans un dossier.
 
-## Windows + GPU AMD : fin des demandes UAC en rafale
+## Un chat terminal simple et rapide
 
-Sur un PC Windows avec un GPU AMD et les pilotes Adrenalin, des demandes d'élévation UAC apparaissaient en boucle quelques secondes après le lancement d'AJEAN, sur le bureau sécurisé : la machine devenait inutilisable jusqu'à un arrêt forcé.
+`ajean chat` reste volontairement léger : une conversation locale au terminal (indépendante de l'interface web), sans mémoire ni projets. Le modèle dispose de trois outils, `bash`, `write` et `edit`, qui agissent **dans le dossier où la commande est lancée**. Le prompt système est court et adapté au terminal. `/tools off` coupe les outils pour des réponses texte uniquement.
 
-La cause : pour afficher la VRAM, AJEAN interrogeait `amd-smi` toutes les 3 secondes. Sous Windows, l'`amd-smi.exe` livré par AMD lance lui-même `diskpart`, qui exige les droits administrateur, d'où une demande UAC à chaque relevé.
+## Affichage
 
-AJEAN n'appelle plus jamais `amd-smi` ni `rocm-smi` sous Windows. La carte AMD reste affichée via Vulkan, comme sur les autres cartes non NVIDIA. Sous Linux, `amd-smi` est toujours utilisé, avec moins d'appels : le nom des cartes n'est lu qu'une fois, et un outil en échec n'est retenté qu'au bout d'une minute.
+- En-tête de session : modèle, taille du contexte, dossier de travail et outils disponibles.
+- Indicateur d'activité avec chronomètre pendant la réflexion et l'exécution des outils.
+- Le raisonnement du modèle est replié en une ligne (« Réfléchi pendant 2,1 s ») ; `/think` l'affiche en direct.
+- Chaque appel d'outil tient en deux lignes : la commande, puis le résultat (code de sortie, nombre de lignes, durée, premières lignes de sortie). Les modifications de fichiers montrent les lignes ajoutées et retirées.
+- La réponse est mise en forme pendant qu'elle s'écrit : titres, gras, listes, blocs de code encadrés, citations, liens.
+- Sous chaque réponse : durée, tokens générés, vitesse et remplissage du contexte (signalé au-delà de 80 %).
 
-Nouvelle variable d'environnement : `AJEAN_GPU_TELEMETRY=off` coupe toute la télémétrie GPU (aucun outil externe lancé), en cas de souci avec un pilote.
+## Saisie
 
-## Télémétrie GPU plus légère sous Windows (AMD, Intel)
+- Édition complète : flèches, mot par mot, début et fin de ligne, raccourcis Ctrl-A, Ctrl-E, Ctrl-U, Ctrl-K, Ctrl-W.
+- Historique conservé d'une session à l'autre (flèches haut et bas).
+- Messages sur plusieurs lignes : Alt+Entrée, Ctrl+J, ou « \ » en fin de ligne. Un texte collé sur plusieurs lignes n'est pas envoyé avant Entrée.
+- Complétion des commandes avec Tab et suggestion grisée.
+- Les caractères accentués fonctionnent sous Windows.
 
-Sans carte NVIDIA, chaque relevé de la jauge VRAM lançait le moteur llama.cpp pour lister les GPU, plus un PowerShell, toutes les 3 secondes et pour chaque appareil connecté. Un relevé lent pouvait aussi s'empiler sur le suivant.
+## Contrôle
 
-Le relevé est désormais partagé entre tous les appareils ouverts, et la liste des GPU n'est relue qu'une fois par minute. La VRAM utilisée et la charge restent à jour à chaque relevé.
+- Échap ou Ctrl-C interrompt une réponse sans quitter la session. Le texte tapé pendant la génération est conservé pour le message suivant.
+- Ctrl-D, ou Ctrl-C deux fois, quitte.
+- Si le moteur est arrêté, `ajean chat` propose de le démarrer puis attend le chargement du modèle.
 
-## Installation du llama.cpp précompilé : fin de « aucun binaire précompilé adapté »
+## Commandes
 
-llama.cpp publie une nouvelle version environ toutes les 30 minutes, et ses fichiers arrivent un par un pendant plusieurs minutes (Windows en dernier). Une installation lancée pendant cette fenêtre échouait avec « aucun binaire précompilé adapté à cette machine », ou installait la version CPU sur un PC équipé d'une carte NVIDIA.
+`/new`, `/retry`, `/undo`, `/copy` (presse-papiers), `/save` (conversation en Markdown), `/system`, `/tools`, `/think`, `/model` (liste les presets et bascule, preset externe compris), `/help`, `/quit`.
 
-AJEAN ignore maintenant les fichiers encore en cours d'envoi et les versions publiées depuis moins de 20 minutes.
+## Scripts
 
-## Plusieurs moteurs sur le même port
+`ajean chat -p "question"` donne une seule réponse puis rend la main, de même que `echo texte | ajean chat` ou une sortie redirigée vers un fichier.
 
-Sous Windows, quand l'arrêt du moteur échouait (moteur lancé en administrateur, arrêt demandé sans élévation), un nouveau llama-server démarrait quand même à côté de l'ancien, sur le même port. Les requêtes étaient alors réparties au hasard entre les deux, avec la VRAM saturée et parfois des réponses du mauvais modèle.
+**Changement de comportement** : le texte passé en argument (`ajean chat "texte"`) est désormais le premier message envoyé, et non plus le prompt système. Le prompt système se définit avec `--system "texte"`.
 
-Le moteur refuse désormais de démarrer si son port est déjà occupé, avec un message qui explique quoi faire. Un redémarrage dont l'arrêt a échoué le signale au lieu de continuer.
+## Divers
 
-## Cache KV : combinaisons lentes signalées
-
-Le llama.cpp précompilé officiel (CUDA) n'accélère que les caches KV f16, q8_0 et q4_0. Les options q5_1 et les combinaisons K/V mixtes fonctionnent mais sont reconverties en f16 à chaque étape, ce qui ralentit nettement la génération. Ces options portent maintenant la mention « lent en précompilé », et le journal du moteur affiche un avertissement. Un llama.cpp compilé localement par AJEAN n'est pas concerné.
+La variable d'environnement standard `NO_COLOR` désactive les couleurs dans toutes les commandes.
 
 ## Mise à jour
 
     ajean update
 
-Non testé sur du matériel réel : Windows avec GPU AMD (la correction a été vérifiée avec un faux `amd-smi` qui enregistre ses appels) et la version macOS (compilée par la CI, pas vérifiée sur un Mac). Le reste a été vérifié sous Windows et sur un serveur Linux.
+Non testé : la version macOS (compilée par la CI, pas vérifiée sur un Mac) et l'ancienne console Windows hors Windows Terminal. Vérifié sous Windows (terminal ConPTY) et sur un serveur Linux.

@@ -28,6 +28,9 @@ const (
 // The per-tool "Outil disponible" sections live in machine/skills prompts so
 // they only appear when the matching feature is on.
 func baseSystemPrompt(caps Caps) string {
+	if caps.Terminal {
+		return terminalSystemPrompt(caps)
+	}
 	hasMem := caps.Mem != MemOff
 	// No tool access at all → no agentic preamble. A plain chat model told to
 	// "call tools immediately" hallucinates textual tool calls (e.g.
@@ -137,7 +140,7 @@ func prevYear(year string) string {
 // run_shell acts upon (and doesn't claim it has no access to "your PC").
 // Returns "" when machine access is off.
 func machineSystemPrompt(caps Caps) string {
-	if !caps.Agent {
+	if !caps.Agent || caps.Terminal {
 		return ""
 	}
 	host, _ := os.Hostname()

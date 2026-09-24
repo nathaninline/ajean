@@ -208,13 +208,17 @@ func compactWouldTrigger(msgs []Message, knownTokens int) bool {
 	return used >= int(float64(ctxWindow())*compactTriggerFrac)
 }
 
+// compactLogOut : destination de logCompact. Le chat terminal la coupe, sa
+// ligne s'imprimerait au milieu de l'affichage.
+var compactLogOut io.Writer = os.Stderr
+
 // logCompact trace UNE ligne par décision de compaction sur la sortie d'erreur
 // (donc dans `journalctl -u ajean-ui`). Sans ça, une compaction qui ne se
 // déclenche pas — ou qui se déclenche et n'enlève rien — est invisible : côté
 // UI on ne voit qu'une jauge qui reste haute, sans savoir si le seuil n'a pas
 // été atteint ou si la réduction a été refusée.
 func logCompact(phase string, used int, before, after []Message, changed bool) {
-	fmt.Fprintf(os.Stderr, "[compact] %s ctx=%d seuil=%d/%d est_avant=%d est_apres=%d msgs=%d→%d changé=%v\n",
+	fmt.Fprintf(compactLogOut, "[compact] %s ctx=%d seuil=%d/%d est_avant=%d est_apres=%d msgs=%d→%d changé=%v\n",
 		phase, used, int(float64(ctxWindow())*compactTriggerFrac), ctxWindow(),
 		estimateTokens(before), estimateTokens(after), len(before), len(after), changed)
 }
@@ -320,7 +324,8 @@ func compactMessages(ctx context.Context, msgs []Message, caps Caps) ([]Message,
 	//    transparent sur le comportement classique (troncature/marqueur sans id).
 	archived := make([]*recallEntry, len(torso))
 	var index []recallEntry
-	if caps.Agent && compactEnabled() {
+	// Pas en mode terminal : il n'a pas l'outil recall, des ids seraient inutilisables.
+	if caps.Agent && !caps.Terminal && compactEnabled() {
 		names := torsoToolNames(torso)
 		for i, m := range torso {
 			if !recallEligible(m) {
