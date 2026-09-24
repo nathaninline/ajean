@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const Version = "0.15.9"
+const Version = "0.15.10"
 
 // Main est le vrai main() du binaire (cmd/ajean ne fait que l'appeler).
 func Main() {
@@ -246,7 +246,8 @@ func serviceName() string {
 }
 
 // Color helpers (ANSI). Disabled when stdout is not a TTY.
-var colorOn = isTerminal()
+// NO_COLOR (convention no-color.org) coupe les couleurs même dans un terminal.
+var colorOn = isTerminal() && os.Getenv("NO_COLOR") == ""
 
 func col(code, s string) string {
 	if !colorOn {
