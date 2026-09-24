@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -167,6 +168,31 @@ func handleServiceLog(w http.ResponseWriter, r *http.Request) {
 // de handleVram pour être réutilisé tel quel par /api/telemetry : nvidia-smi
 // d'abord, repli amd-smi, puis rocm-smi, puis --list-devices Vulkan.
 func vramGPUs() []map[string]any {
+	vramMu.Lock()
+	defer vramMu.Unlock()
+	if vramCache != nil && time.Since(vramAt) < 2500*time.Millisecond {
+		return vramCache
+	}
+	vramCache = sampleVramGPUs()
+	vramAt = time.Now()
+	return vramCache
+}
+
+// Cache court PARTAGÉ du relevé GPU : chaque onglet ouvert (PC, téléphone…) sonde
+// toutes les 3 s, et un relevé peut coûter cher (sous Windows non-NVIDIA : un
+// llama-server --list-devices + un PowerShell). Sans ça, N appareils = N relevés,
+// et un relevé plus long que 3 s empilait les requêtes. Le mutex fait aussi
+// attendre les appels concurrents au lieu de lancer des relevés en parallèle.
+var (
+	vramMu    sync.Mutex
+	vramCache []map[string]any
+	vramAt    time.Time
+)
+
+func sampleVramGPUs() []map[string]any {
+	if gpuTelemetryOff() {
+		return []map[string]any{}
+	}
 	out, err := hideCmd(exec.Command("nvidia-smi",
 		"--query-gpu=name,memory.used,memory.total,utilization.gpu,temperature.gpu",
 		"--format=csv,noheader,nounits")).Output()
@@ -206,8 +232,8 @@ func vramGPUs() []map[string]any {
 			gpus = amd
 		}
 	}
-	// Toujours rien ? Sous Windows, nvidia-smi/amd-smi/rocm-smi ne sont fournis
-	// par AUCUN pilote AMD ou Intel : dernier repli via --list-devices du moteur
+	// Toujours rien ? Sous Windows, amd-smi/rocm-smi ne sont jamais lancés
+	// (UAC en rafale, issue #259) : dernier repli via --list-devices du moteur
 	// (Vulkan), qui voit ces cartes sans outil externe. Voir vulkanVramGPUs.
 	if len(gpus) == 0 {
 		if vk := vulkanVramGPUs(); len(vk) > 0 {

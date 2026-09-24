@@ -71,7 +71,11 @@ func serviceAction(action string) error {
 	case "stop":
 		return svcStop(true)
 	case "restart":
-		_ = svcStop(false)
+		// Un stop refusé (moteur lancé en admin, restart sans élévation) laissait
+		// l'ancien moteur tourner ; on le signale au lieu de faire comme si (#80).
+		if err := svcStop(false); err != nil {
+			return err
+		}
 		time.Sleep(500 * time.Millisecond)
 		return svcStart()
 	case "status":

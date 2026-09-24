@@ -29,7 +29,7 @@ import (
 // ou muet. Les valeurs VRAM de rocm-smi sont en OCTETS → converties en MiB pour
 // s'aligner sur nvidia-smi (que l'UI attend en MiB).
 func rocmVramGPUs() []map[string]any {
-	if !hasTool("rocm-smi") {
+	if !amdSmiAllowed() || !hasTool("rocm-smi") {
 		return nil
 	}
 	// --json rend un objet { "card0": {...}, "card1": {...} }. Les drapeaux
