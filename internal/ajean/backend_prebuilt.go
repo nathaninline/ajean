@@ -37,9 +37,10 @@ import (
 const llamaReleasesAPI = "https://api.github.com/repos/ggml-org/llama.cpp/releases?per_page=15"
 
 type ghAsset struct {
-	Name string `json:"name"`
-	URL  string `json:"browser_download_url"`
-	Size int64  `json:"size"`
+	Name  string `json:"name"`
+	URL   string `json:"browser_download_url"`
+	Size  int64  `json:"size"`
+	State string `json:"state"`
 }
 
 func prebuiltDir() string {
@@ -199,25 +200,57 @@ func fetchLlamaLatest() (string, []ghAsset, error) {
 	if resp.StatusCode != 200 {
 		return "", nil, fmt.Errorf("GitHub API : HTTP %d", resp.StatusCode)
 	}
-	var rels []struct {
-		TagName string    `json:"tag_name"`
-		Assets  []ghAsset `json:"assets"`
-	}
+	var rels []llamaRelease
 	if err := json.NewDecoder(resp.Body).Decode(&rels); err != nil {
 		return "", nil, err
 	}
-	// Les releases sont renvoyées de la plus récente à la plus ancienne. On prend
-	// la première qui contient de vrais binaires de plateforme (« …-bin-… »), en
-	// sautant la release-pointeur « latest » (nightly-tag.txt seul).
+	return pickLlamaRelease(rels, time.Now())
+}
+
+type llamaRelease struct {
+	TagName     string    `json:"tag_name"`
+	PublishedAt time.Time `json:"published_at"`
+	Assets      []ghAsset `json:"assets"`
+}
+
+// pickLlamaRelease choisit la release à installer. Les releases arrivent de la
+// plus récente à la plus ancienne ; llama.cpp en publie une toutes les ~30 min et
+// ses fichiers arrivent un par un sur ~4 min (Windows en dernier). Prendre la
+// toute dernière en plein envoi donnait « aucun binaire précompilé adapté », voire
+// un variant CPU sur machine NVIDIA (issue #52). On ignore donc les fichiers pas
+// encore finis et les releases de moins de 20 min, sauf s'il n'y a rien d'autre.
+// La release-pointeur « latest » (nightly-tag.txt seul, sans « -bin- ») est sautée.
+func pickLlamaRelease(rels []llamaRelease, now time.Time) (string, []ghAsset, error) {
+	freshTag := ""
+	var freshAssets []ghAsset
 	for _, r := range rels {
 		if r.TagName == "" {
 			continue
 		}
+		var ok []ghAsset
+		hasBin := false
 		for _, a := range r.Assets {
+			if a.State != "" && a.State != "uploaded" {
+				continue
+			}
+			ok = append(ok, a)
 			if strings.Contains(a.Name, "-bin-") {
-				return r.TagName, r.Assets, nil
+				hasBin = true
 			}
 		}
+		if !hasBin {
+			continue
+		}
+		if !r.PublishedAt.IsZero() && now.Sub(r.PublishedAt) < 20*time.Minute {
+			if freshTag == "" {
+				freshTag, freshAssets = r.TagName, ok
+			}
+			continue
+		}
+		return r.TagName, ok, nil
+	}
+	if freshTag != "" {
+		return freshTag, freshAssets, nil
 	}
 	return "", nil, fmt.Errorf("aucune release llama.cpp avec des binaires trouvée")
 }

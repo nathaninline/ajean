@@ -269,10 +269,26 @@ func handleBackendDevices(w http.ResponseWriter, r *http.Request) {
 // Intel intégré, tout ce qui expose Vulkan — sans dépendance à un outil externe.
 // util/temp ne sont pas connus par cette voie (Vulkan n'expose ni l'un ni
 // l'autre) : rendus à 0 plutôt qu'omis, pour garder la forme attendue par l'UI.
-func vulkanVramGPUs() []map[string]any {
-	bin := prebuiltResolveBin(ReadConfig()["BIN"])
-	if bin == "" || !isFile(bin) {
-		return nil
+// listDevicesCached lance `<bin> --list-devices`. Sous Windows, « used » est
+// ensuite remplacé par les compteurs système (applyWindowsDedicatedUsage) : on ne
+// garde de --list-devices que l'identité et la mémoire totale, stables. On évite
+// donc de réinitialiser tous les GPU toutes les 3 s en gardant le résultat 60 s
+// (par moteur). Ailleurs, « used » vient de cet appel : pas de cache.
+var (
+	listDevMu  sync.Mutex
+	listDevBin string
+	listDevAt  time.Time
+	listDevOut []map[string]any
+)
+
+func listDevicesCached(bin string) []map[string]any {
+	win := runtime.GOOS == "windows"
+	if win {
+		listDevMu.Lock()
+		defer listDevMu.Unlock()
+		if listDevBin == bin && len(listDevOut) > 0 && time.Since(listDevAt) < time.Minute {
+			return listDevOut
+		}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -280,6 +296,18 @@ func vulkanVramGPUs() []map[string]any {
 	cmd.Env = libraryPathEnv(filepath.Dir(bin))
 	out, _ := cmd.CombinedOutput()
 	devs := parseListDevices(string(out))
+	if win {
+		listDevBin, listDevAt, listDevOut = bin, time.Now(), devs
+	}
+	return devs
+}
+
+func vulkanVramGPUs() []map[string]any {
+	bin := prebuiltResolveBin(ReadConfig()["BIN"])
+	if bin == "" || !isFile(bin) {
+		return nil
+	}
+	devs := listDevicesCached(bin)
 	if len(devs) == 0 {
 		return nil
 	}

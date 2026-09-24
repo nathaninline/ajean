@@ -22,20 +22,63 @@ package ajean
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
+)
+
+// amdSmiAllowed dit si on peut lancer les outils *-smi d'AMD (amd-smi, rocm-smi).
+// JAMAIS sous Windows : l'amd-smi.exe livré par Adrenalin (System32) lance
+// lui-même `cmd /c diskpart /?`, qui exige l'élévation. Interrogé toutes les 3 s
+// par l'UI, ça déclenchait une rafale d'UAC sur le bureau sécurisé et figeait la
+// machine (issue #259). Sous Windows, le repli Vulkan (vulkanVramGPUs) voit déjà
+// les cartes AMD sans outil externe.
+func amdSmiAllowed() bool {
+	return runtime.GOOS != "windows"
+}
+
+// gpuTelemetryOff : AJEAN_GPU_TELEMETRY=off (ou 0/false/no) coupe toute la
+// télémétrie GPU (aucun outil externe lancé), porte de sortie si un pilote se
+// comporte mal.
+func gpuTelemetryOff() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AJEAN_GPU_TELEMETRY"))) {
+	case "off", "0", "false", "no":
+		return true
+	}
+	return false
+}
+
+// État d'amd-smi entre deux relevés : les noms (statiques) ne sont lus qu'une
+// fois (tant qu'ils sont trouvés), et un amd-smi qui échoue n'est retenté
+// qu'après une pause, pas à chaque tick de l'UI.
+var (
+	amdMu      sync.Mutex
+	amdNames   map[int]string
+	amdRetryAt time.Time
 )
 
 // amdVramGPUs renvoie les GPU AMD au même format que handleVram
 // ({name, used, total, util, temp}), ou nil si amd-smi est absent / muet.
 func amdVramGPUs() []map[string]any {
-	if !hasTool("amd-smi") {
+	if !amdSmiAllowed() || !hasTool("amd-smi") {
 		return nil
 	}
-	names := amdSmiNames()
+	amdMu.Lock()
+	defer amdMu.Unlock()
+	if time.Now().Before(amdRetryAt) {
+		return nil
+	}
+	if len(amdNames) == 0 {
+		amdNames = amdSmiNames()
+	}
+	names := amdNames
 	metric := amdSmiJSON("metric")
 	if len(metric) == 0 {
+		amdRetryAt = time.Now().Add(time.Minute)
 		return nil
 	}
 	out := []map[string]any{}
