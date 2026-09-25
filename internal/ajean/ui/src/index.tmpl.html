@@ -871,7 +871,7 @@
         <div class="pe-seg">
           <label><input type="radio" name="m-run" value="local" onchange="onRunMode('local')"><span data-i18n="preset.run_local">Cette machine</span></label>
           <label><input type="radio" name="m-run" value="external" onchange="onRunMode('external')"><span data-i18n="preset.run_external">API Externe</span></label>
-          <label><input type="radio" name="m-run" value="modal" onchange="onRunMode('modal')"><span data-i18n="preset.run_modal">GPU cloud</span></label>
+          <label><input type="radio" name="m-run" value="modal" onchange="onRunMode('modal')"><span data-i18n="preset.run_modal">GPU Cloud</span></label>
         </div>
         <!-- API externe : tout modèle compatible OpenAI Chat Completions (OpenAI,
              Claude, Groq, OpenRouter, un autre serveur…). Pas de moteur local. -->
@@ -910,23 +910,34 @@
               <option value="modal">Modal</option>
             </select></span></span>
           </div>
-          <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.cloud_account_label">Compte</span><span class="pe-sub" id="s-cloud-prof-sub" style="display:none"></span></span>
+          <!-- Trois états (data-state sur #m-cloud-body) : « setup » = AJEAN installe
+               son composant GPU Cloud au premier usage ; « none » = aucun compte
+               Modal, on propose directement la connexion ; « ready » = normal. -->
+          <div id="m-cloud-setup" class="pe-row">
+            <span id="m-cloud-setup-spin" class="spinner cloud-spin"></span>
+            <span class="pe-row-l"><span id="m-cloud-setup-title" data-i18n="preset.cloud_setup_title">Préparation du GPU Cloud</span><span class="pe-sub" id="m-cloud-setup-sub"></span></span>
+            <span class="pe-row-c"><button type="button" id="m-cloud-setup-retry" class="pe-link" onclick="retryCloudRuntime()" style="display:none" data-i18n="preset.cloud_setup_retry">Réessayer</button></span>
+          </div>
+          <div id="m-cloud-connect-head" class="pe-row">
+            <span class="pe-row-l"><span data-i18n="preset.cloud_connect_title">Connecter un compte Modal</span><span class="pe-sub" data-i18n="preset.cloud_connect_sub">connexion sur modal.com, aucune clé à copier</span></span>
+          </div>
+          <div id="m-cloud-acct-row" class="pe-row">
+            <span class="pe-row-l" data-i18n="preset.cloud_account_label">Compte</span>
             <span class="pe-row-c"><span class="pe-selc"><select id="s-cloud-prof" onchange="onCloudProfile()"></select></span></span>
           </div>
-          <div class="pe-row">
+          <div id="m-cloud-credit-row" class="pe-row">
             <span class="pe-row-l"><span data-i18n="preset.cloud_credit_label">Crédit</span><span class="pe-sub" id="s-cloud-credit-sub"></span></span>
             <span class="pe-row-c"><span class="pe-unit" id="s-cloud-credit"></span></span>
           </div>
           <!-- Ajout d'un compte : replié, comme « Dossiers de modèles ». La
                connexion se fait sur modal.com (flux web de la CLI), aucune clé ici. -->
-          <div class="pe-row" style="cursor:pointer" onclick="setCloudAddOpen(document.getElementById('m-cloud-add').style.display==='none')">
+          <div id="m-cloud-add-toggle" class="pe-row" style="cursor:pointer" onclick="setCloudAddOpen(document.getElementById('m-cloud-add').style.display==='none')">
             <span class="pe-row-l"><span data-i18n="preset.cloud_account_add_title">Connecter un autre compte</span><span class="pe-sub" data-i18n="preset.cloud_account_add_sub">un compte par preset</span></span>
             <span class="pe-row-c"><span id="m-cloud-add-caret" class="pe-caret"></span></span>
           </div>
           <div id="m-cloud-add" class="pe-row stack" style="display:none">
             <div class="pe-inpbtn">
-              <input id="m-cloud-add-name" class="pe-inp" placeholder="nom du compte (ex. perso, travail)" data-i18n="preset.cloud_account_name_placeholder" data-i18n-attr="placeholder" onkeydown="if(event.key==='Enter')addCloudAccount()">
+              <input id="m-cloud-add-name" class="pe-inp" placeholder="nom du compte (ex. perso)" data-i18n="preset.cloud_account_name_placeholder" data-i18n-attr="placeholder" onkeydown="if(event.key==='Enter')addCloudAccount()">
               <button id="m-cloud-add-btn" onclick="addCloudAccount()" title="Se connecter sur modal.com" data-i18n="preset.cloud_account_connect_title" data-i18n-attr="title">→</button>
             </div>
             <div id="m-cloud-add-note" class="pe-note" data-i18n="preset.cloud_account_add_note">Connecte-toi dans l'onglet modal.com qui s'ouvre.</div>

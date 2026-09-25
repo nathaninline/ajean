@@ -200,6 +200,7 @@ async function openItem(kind, key){
   // les transitions deux frames plus tard, une fois le nouvel état peint.
   modalEl.classList.add('no-anim');
   modalEl.classList.remove('loading');
+  fitSelects();
   topPeBody();
   requestAnimationFrame(()=>requestAnimationFrame(()=>modalEl.classList.remove('no-anim')));
 }
@@ -250,6 +251,10 @@ async function populateModelPicker(){
   // regroupe par dossier, AJEAN_HOME d'abord (l'API les renvoie dans cet ordre).
   const groups = [];
   for(const m of (list||[])){
+    // Un projecteur vision (mmproj) n'est pas un modèle : il a son propre choix
+    // (« Vision »). On le garde seulement s'il est déjà, par erreur, le MODEL du
+    // preset, pour que ce réglage reste visible et corrigeable.
+    if(isMmprojName(m.name) && !(samePath(cur, m.value) || samePath(cur, m.path) || samePath(baseName(cur), m.name))) continue;
     let g = groups.find(x => x.dir === m.dir);
     if(!g){ g = {dir: m.dir, home: m.home, items: []}; groups.push(g); }
     g.items.push(m);
@@ -887,6 +892,24 @@ function eaToggleFlag(flag, on){
   eaSetTokens(t);
 }
 // --- Mémoire : mlock / no-mmap, avec le nouveau --load-mode --------------------
+// Largeur d'une liste = largeur de la valeur affichée, pour que la flèche la suive
+// au lieu de rester au bord droit. Le CSS le fait (field-sizing) ; Safari iOS ne
+// le gère pas encore, d'où cette mesure au canvas en repli.
+const FIT_SELECT_CSS = typeof CSS !== 'undefined' && CSS.supports && CSS.supports('field-sizing', 'content');
+let fitCanvas = null;
+function fitSelect(sel){
+  if(FIT_SELECT_CSS || !sel || !sel.closest('.pe-row-c')) return;
+  const opt = sel.options[sel.selectedIndex];
+  const cs = getComputedStyle(sel);
+  fitCanvas = fitCanvas || document.createElement('canvas');
+  const ctx = fitCanvas.getContext('2d');
+  ctx.font = cs.fontStyle+' '+cs.fontWeight+' '+cs.fontSize+' '+cs.fontFamily;
+  const w = ctx.measureText(opt ? opt.text : '').width;
+  sel.style.width = Math.ceil(w + parseFloat(cs.paddingLeft||0) + parseFloat(cs.paddingRight||0) + 2) + 'px';
+}
+function fitSelects(){ document.querySelectorAll('#modal .pe-row-c > .pe-selc:not(.wide) select').forEach(fitSelect); }
+// Un choix peut en modifier d'autres (type spéculatif → modèle de draft) : on refait tout.
+document.addEventListener('change', e => { if(e.target && e.target.tagName === 'SELECT') requestAnimationFrame(fitSelects); });
 // Chargement du modèle. llama.cpp récent a REMPLACÉ --mlock / --no-mmap par
 // --load-mode (auto, none, mmap, mlock, mmap+mlock, dio). L'éditeur écrit la
 // forme moderne ; au lancement, AJEAN la retraduit pour un moteur ancien (voir
@@ -984,6 +1007,7 @@ function syncRunMode(){
   document.getElementById('m-cloud-body').style.display = mode === 'modal' ? '' : 'none';
   document.getElementById('m-ext-body').style.display = mode === 'external' ? '' : 'none';
   const md = document.getElementById('modal');
+  requestAnimationFrame(fitSelects);
   md.classList.toggle('run-cloud', mode === 'modal');
   md.classList.toggle('run-external', mode === 'external');
   // Le bench mesure le moteur local : sans objet pour un preset distant.
@@ -1018,43 +1042,40 @@ async function testExternalPreset(){
   }catch(e){ st.textContent = '⚠ '+t('external.test_failed'); }
 }
 // Comptes Modal = profils de la CLI sur la machine AJEAN. Vide = profil actif.
+function setCloudState(state){ document.getElementById('m-cloud-body').dataset.state = state; }
 async function loadCloudAccounts(){
   const sel = document.getElementById('s-cloud-prof');
-  const sub = document.getElementById('s-cloud-prof-sub');
   const cur = cfgReadKey('CLOUD_PROFILE');
   let d = {accounts:[]};
   try{ d = await jget('/api/cloud/accounts'); }catch(e){}
-  // Premier usage : AJEAN installe son composant GPU cloud (Python + client
-  // Modal privés). On affiche l'étape et on réessaie jusqu'à ce qu'il soit prêt.
+  // Premier usage : AJEAN installe son composant GPU Cloud (Python + client Modal
+  // privés). Bloc dédié avec l'étape en cours, relu jusqu'à ce que ce soit prêt.
   if(d.installed === false){
-    sel.innerHTML = '<option value="">…</option>';
-    sub.style.display = '';
-    if(d.runtime === 'error'){
-      sub.textContent = t('preset.cloud_runtime_error')+(d.error ? ' : '+d.error : '');
-    } else {
-      sub.textContent = t('preset.cloud_not_installed')+(d.step ? ' · '+d.step : '')+'…';
-      setTimeout(()=>{ if(runMode() === 'modal' && document.getElementById('modal').classList.contains('show')) loadCloudAccounts(); }, 3000);
-    }
-    document.getElementById('s-cloud-credit').textContent = '—';
-    document.getElementById('s-cloud-credit-sub').textContent = '';
+    setCloudState('setup');
+    const failed = d.runtime === 'error';
+    document.getElementById('m-cloud-setup-spin').style.display = failed ? 'none' : '';
+    document.getElementById('m-cloud-setup-retry').style.display = failed ? '' : 'none';
+    document.getElementById('m-cloud-setup-title').textContent = t(failed ? 'preset.cloud_setup_error' : 'preset.cloud_setup_title');
+    document.getElementById('m-cloud-setup-sub').textContent = failed ? (d.error || '') : (d.step ? d.step+'…' : t('preset.cloud_setup_sub'));
+    if(!failed) setTimeout(()=>{ if(runMode() === 'modal' && document.getElementById('modal').classList.contains('show')) loadCloudAccounts(); }, 2000);
     return;
   }
-  sub.style.display = 'none';
   const list = d.accounts || [];
-  if(!list.length){
-    sel.innerHTML = '<option value="">'+escHtml(t('preset.cloud_account_none'))+'</option>';
-    setCloudAddOpen(true);
-    document.getElementById('s-cloud-credit').textContent = '—';
-    document.getElementById('s-cloud-credit-sub').textContent = '';
-    return;
-  }
+  // Aucun compte : on propose directement la connexion, sans liste vide.
+  if(!list.length){ setCloudState('none'); return; }
+  setCloudState('ready');
   const act = list.find(a=>a.active);
   const opts = list.filter(a=>!a.active).map(a=>'<option value="'+escHtml(a.name)+'">'+escHtml(a.name)+'</option>');
   // Option vide = profil actif de la CLI ; on affiche simplement son nom.
   sel.innerHTML = '<option value="">'+escHtml(act ? act.name : t('preset.cloud_account_default'))+'</option>' + opts.join('');
   if(cur && !list.some(a=>a.name===cur)) sel.insertAdjacentHTML('beforeend','<option value="'+escHtml(cur)+'">'+escHtml(cur)+'</option>');
   sel.value = (act && cur === act.name) ? '' : cur;
+  fitSelect(sel);
   loadCloudCredit();
+}
+async function retryCloudRuntime(){
+  try{ await jpost('/api/cloud/runtime', {}); }catch(e){}
+  loadCloudAccounts();
 }
 async function loadCloudCredit(){
   const val = document.getElementById('s-cloud-credit');

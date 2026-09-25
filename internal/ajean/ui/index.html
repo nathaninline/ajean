@@ -529,9 +529,8 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-selc{position:relative;display:flex;align-items:center;max-width:100%}
 .pe-selc select{appearance:none;-webkit-appearance:none;border:none;background:transparent;color:var(--accent);font:inherit;text-align:right;text-align-last:right;padding:4px 16px 4px 0;cursor:pointer;max-width:100%;text-overflow:ellipsis}
 .pe-selc select:focus{outline:none}
-.pe-row-c:has(> .pe-selc:not(.wide)){flex:0 0 46%;max-width:46%;justify-content:flex-start}
-.pe-row-c > .pe-selc:not(.wide){width:100%;min-width:0;overflow:hidden}
-.pe-row-c > .pe-selc:not(.wide) select{width:100%;text-align:left;text-align-last:left}
+.pe-row-c > .pe-selc:not(.wide){min-width:0;max-width:100%;overflow:hidden}
+.pe-row-c > .pe-selc:not(.wide) select{field-sizing:content}
 .pe-selc::after{content:"";position:absolute;right:1px;top:50%;width:5px;height:5px;margin-top:-4px;border-right:1.5px solid var(--dim);border-bottom:1.5px solid var(--dim);transform:rotate(45deg);pointer-events:none}
 .pe-selc.wide{width:100%}
 .pe-selc.wide select{flex:1;text-align:left;text-align-last:left;padding-right:18px}
@@ -1205,6 +1204,17 @@ button:hover{border-color:var(--dim);color:var(--text)}
 #chat > .msg, #chat > .msg-files{content-visibility:auto;contain-intrinsic-size:auto 120px}
 #modal.run-cloud #m-engine-row,#modal.run-cloud #m-model-row,#modal.run-cloud #m-gpu-group{display:none!important}
 #modal.run-external #m-engine-row,#modal.run-external #m-model-row,#modal.run-external #m-gpu-group,#modal.run-external #m-settings-row{display:none!important}
+.cloud-spin{flex:none;width:16px;height:16px}
+#m-cloud-body:not([data-state=setup]) #m-cloud-setup,
+#m-cloud-body:not([data-state=none]) #m-cloud-connect-head{display:none}
+#m-cloud-body[data-state=setup] #m-cloud-acct-row,
+#m-cloud-body[data-state=setup] #m-cloud-credit-row,
+#m-cloud-body[data-state=setup] #m-cloud-add-toggle,
+#m-cloud-body[data-state=setup] #m-cloud-add,
+#m-cloud-body[data-state=none] #m-cloud-acct-row,
+#m-cloud-body[data-state=none] #m-cloud-credit-row,
+#m-cloud-body[data-state=none] #m-cloud-add-toggle{display:none!important}
+#m-cloud-body[data-state=none] #m-cloud-add{display:flex!important}
 </style></head><body>
 <button id="menubtn" onclick="toggleSide()">☰</button>
 <button id="lc-chip" onclick="lcChipOpen()" hidden></button>
@@ -1900,7 +1910,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
         <div class="pe-seg">
           <label><input type="radio" name="m-run" value="local" onchange="onRunMode('local')"><span data-i18n="preset.run_local">Cette machine</span></label>
           <label><input type="radio" name="m-run" value="external" onchange="onRunMode('external')"><span data-i18n="preset.run_external">API Externe</span></label>
-          <label><input type="radio" name="m-run" value="modal" onchange="onRunMode('modal')"><span data-i18n="preset.run_modal">GPU cloud</span></label>
+          <label><input type="radio" name="m-run" value="modal" onchange="onRunMode('modal')"><span data-i18n="preset.run_modal">GPU Cloud</span></label>
         </div>
         <div id="m-ext-body" class="pe-list" style="display:none;margin-top:8px">
           <div class="pe-row stack">
@@ -1935,21 +1945,29 @@ button:hover{border-color:var(--dim);color:var(--text)}
               <option value="modal">Modal</option>
             </select></span></span>
           </div>
-          <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.cloud_account_label">Compte</span><span class="pe-sub" id="s-cloud-prof-sub" style="display:none"></span></span>
+          <div id="m-cloud-setup" class="pe-row">
+            <span id="m-cloud-setup-spin" class="spinner cloud-spin"></span>
+            <span class="pe-row-l"><span id="m-cloud-setup-title" data-i18n="preset.cloud_setup_title">Préparation du GPU Cloud</span><span class="pe-sub" id="m-cloud-setup-sub"></span></span>
+            <span class="pe-row-c"><button type="button" id="m-cloud-setup-retry" class="pe-link" onclick="retryCloudRuntime()" style="display:none" data-i18n="preset.cloud_setup_retry">Réessayer</button></span>
+          </div>
+          <div id="m-cloud-connect-head" class="pe-row">
+            <span class="pe-row-l"><span data-i18n="preset.cloud_connect_title">Connecter un compte Modal</span><span class="pe-sub" data-i18n="preset.cloud_connect_sub">connexion sur modal.com, aucune clé à copier</span></span>
+          </div>
+          <div id="m-cloud-acct-row" class="pe-row">
+            <span class="pe-row-l" data-i18n="preset.cloud_account_label">Compte</span>
             <span class="pe-row-c"><span class="pe-selc"><select id="s-cloud-prof" onchange="onCloudProfile()"></select></span></span>
           </div>
-          <div class="pe-row">
+          <div id="m-cloud-credit-row" class="pe-row">
             <span class="pe-row-l"><span data-i18n="preset.cloud_credit_label">Crédit</span><span class="pe-sub" id="s-cloud-credit-sub"></span></span>
             <span class="pe-row-c"><span class="pe-unit" id="s-cloud-credit"></span></span>
           </div>
-          <div class="pe-row" style="cursor:pointer" onclick="setCloudAddOpen(document.getElementById('m-cloud-add').style.display==='none')">
+          <div id="m-cloud-add-toggle" class="pe-row" style="cursor:pointer" onclick="setCloudAddOpen(document.getElementById('m-cloud-add').style.display==='none')">
             <span class="pe-row-l"><span data-i18n="preset.cloud_account_add_title">Connecter un autre compte</span><span class="pe-sub" data-i18n="preset.cloud_account_add_sub">un compte par preset</span></span>
             <span class="pe-row-c"><span id="m-cloud-add-caret" class="pe-caret"></span></span>
           </div>
           <div id="m-cloud-add" class="pe-row stack" style="display:none">
             <div class="pe-inpbtn">
-              <input id="m-cloud-add-name" class="pe-inp" placeholder="nom du compte (ex. perso, travail)" data-i18n="preset.cloud_account_name_placeholder" data-i18n-attr="placeholder" onkeydown="if(event.key==='Enter')addCloudAccount()">
+              <input id="m-cloud-add-name" class="pe-inp" placeholder="nom du compte (ex. perso)" data-i18n="preset.cloud_account_name_placeholder" data-i18n-attr="placeholder" onkeydown="if(event.key==='Enter')addCloudAccount()">
               <button id="m-cloud-add-btn" onclick="addCloudAccount()" title="Se connecter sur modal.com" data-i18n="preset.cloud_account_connect_title" data-i18n-attr="title">→</button>
             </div>
             <div id="m-cloud-add-note" class="pe-note" data-i18n="preset.cloud_account_add_note">Connecte-toi dans l'onglet modal.com qui s'ouvre.</div>
@@ -2612,11 +2630,15 @@ fr: {
   "preset.run_heading": "Exécution",
   "preset.cloud_provider_label": "Fournisseur",
   "preset.cloud_account_label": "Compte",
-  "preset.cloud_account_none": "aucun compte connecté",
-  "preset.cloud_runtime_error": "installation impossible",
+  "preset.cloud_setup_title": "Préparation du GPU Cloud",
+  "preset.cloud_setup_sub": "installation unique, environ une minute",
+  "preset.cloud_setup_error": "Préparation impossible",
+  "preset.cloud_setup_retry": "Réessayer",
+  "preset.cloud_connect_title": "Connecter un compte Modal",
+  "preset.cloud_connect_sub": "connexion sur modal.com, aucune clé à copier",
   "preset.cloud_account_add_title": "Connecter un autre compte",
   "preset.cloud_account_add_sub": "un compte par preset",
-  "preset.cloud_account_name_placeholder": "nom du compte (ex. perso, travail)",
+  "preset.cloud_account_name_placeholder": "nom du compte (ex. perso)",
   "preset.cloud_account_connect_title": "Se connecter sur modal.com",
   "preset.cloud_account_add_note": "Connecte-toi dans l'onglet modal.com qui s'ouvre.",
   "preset.cloud_account_name_invalid": "Nom invalide : lettres, chiffres, - et _ seulement.",
@@ -2629,12 +2651,11 @@ fr: {
   "preset.cloud_credit_left_short": "{left} de crédit",
   "preset.cloud_account_default": "par défaut",
   "preset.cloud_account_fail": "Connexion au compte Modal impossible",
-  "preset.cloud_not_installed": "installation du composant GPU cloud",
   "preset.cloud_credit_na": "crédit indisponible",
   "preset.cloud_credit_month": "ce mois",
   "preset.cloud_credit_billed": "facturé",
   "preset.run_local": "Cette machine",
-  "preset.run_modal": "GPU cloud",
+  "preset.run_modal": "GPU Cloud",
   "preset.run_external": "API Externe",
   "preset.cloud_gpu_label": "GPU",
   "preset.cloud_gpu_sub": "facturé à la seconde",
@@ -2779,7 +2800,6 @@ fr: {
   "status.stale_new_version": "La version",
   "status.stale_recommend": "est disponible. Il est recommandé de le mettre à jour pour profiter de toutes les fonctionnalités et éviter d'éventuels bugs de compatibilité.",
   "status.update_btn": "Mettre à jour",
-  "status.stale_dismiss_btn": "ignorer",
   "update.banner_prefix": "Nouvelle version",
   "update.banner_suffix": "disponible",
   "loadflags.notice": "La nouvelle version de llama.cpp a changé les options mémoire : --mlock / --no-mmap sont remplacés par --load-mode. D'anciens flags ont été détectés dans ta configuration.",
@@ -2842,7 +2862,7 @@ fr: {
   "settings.presets.reasoning_title": "raisonnement",
   "settings.presets.edit_title": "réglages du preset",
   "settings.presets.external_title": "API Externe (distante)",
-  "settings.presets.cloud_title": "GPU cloud",
+  "settings.presets.cloud_title": "GPU Cloud",
   "settings.presets.external_model_title": "modèle distant",
   "external.title": "API Externe",
   "external.new_title": "Nouvelle API Externe",
@@ -3417,7 +3437,7 @@ fr: {
   "models.gpu.reset": "réinitialiser",
   "models.gpu.keep_one": "gardez au moins une carte",
   "models.settings.reasoning_sub": "réflexion étape par étape",
-  "models.settings.reasoning_sub_unset": "réflexion étape par étape — non précisé : le modèle décide",
+  "models.settings.reasoning_sub_unset": "non réglé : le modèle décide",
   "models.settings.spec_type_in_config": "(dans la configuration)",
   "models.settings.spec_draft_builtin": "intégré",
   "models.settings.spec_draft_none": "aucun",
@@ -3774,11 +3794,15 @@ en: {
   "preset.run_heading": "Run on",
   "preset.cloud_provider_label": "Provider",
   "preset.cloud_account_label": "Account",
-  "preset.cloud_account_none": "no account connected",
-  "preset.cloud_runtime_error": "installation failed",
+  "preset.cloud_setup_title": "Setting up Cloud GPU",
+  "preset.cloud_setup_sub": "one-time install, about a minute",
+  "preset.cloud_setup_error": "Setup failed",
+  "preset.cloud_setup_retry": "Retry",
+  "preset.cloud_connect_title": "Connect a Modal account",
+  "preset.cloud_connect_sub": "sign in on modal.com, no key to copy",
   "preset.cloud_account_add_title": "Connect another account",
   "preset.cloud_account_add_sub": "one account per preset",
-  "preset.cloud_account_name_placeholder": "account name (e.g. personal, work)",
+  "preset.cloud_account_name_placeholder": "account name (e.g. personal)",
   "preset.cloud_account_connect_title": "Sign in on modal.com",
   "preset.cloud_account_add_note": "Sign in on the modal.com tab that opens.",
   "preset.cloud_account_name_invalid": "Invalid name: letters, digits, - and _ only.",
@@ -3791,7 +3815,6 @@ en: {
   "preset.cloud_credit_left_short": "{left} credit left",
   "preset.cloud_account_default": "default",
   "preset.cloud_account_fail": "Could not connect the Modal account",
-  "preset.cloud_not_installed": "installing the cloud GPU component",
   "preset.cloud_credit_na": "credit unavailable",
   "preset.cloud_credit_month": "this month",
   "preset.cloud_credit_billed": "billed",
@@ -3943,7 +3966,6 @@ en: {
   "status.update_btn": "Update",
   "update.banner_prefix": "New version",
   "update.banner_suffix": "available",
-  "status.stale_dismiss_btn": "dismiss",
   "loadflags.notice": "The new llama.cpp version changed the memory options: --mlock / --no-mmap are replaced by --load-mode. Old flags were detected in your configuration.",
   "loadflags.btn": "Update the flags",
   "loadflags.updating": "Updating…",
@@ -4579,7 +4601,7 @@ en: {
   "models.gpu.reset": "reset",
   "models.gpu.keep_one": "keep at least one card",
   "models.settings.reasoning_sub": "step-by-step thinking",
-  "models.settings.reasoning_sub_unset": "step-by-step thinking — not set: the model decides",
+  "models.settings.reasoning_sub_unset": "not set: the model decides",
   "models.settings.spec_type_in_config": "(in the configuration)",
   "models.settings.spec_draft_builtin": "built-in",
   "models.settings.spec_draft_none": "none",
@@ -4925,12 +4947,10 @@ async function checkServerFreshness(){
   let r;
   try{ r=await jget('/api/update'); }catch(e){ return; } 
   if(!r || r.error || !r.available || !r.latest){ box.style.display='none'; return; }
-  if(localStorage.getItem('ajean.staleDismissed')===r.latest){ box.style.display='none'; return; }
   const cur=r.current ? ' ('+t('status.stale_currently')+' v'+escHtml(r.current)+')' : '';
   box.innerHTML='⚠ '+t('status.stale_intro')+cur+'. '+
     t('status.stale_new_version')+' <b>v'+escHtml(r.latest)+'</b> '+t('status.stale_recommend')+' '+
-    '<span style="white-space:nowrap"><span id="stale-go" style="cursor:pointer;text-decoration:underline">'+t('status.update_btn')+'</span> '+
-    '· <span id="stale-x" style="cursor:pointer;text-decoration:underline">'+t('status.stale_dismiss_btn')+'</span></span>';
+    '<span style="white-space:nowrap"><span id="stale-go" style="cursor:pointer;text-decoration:underline">'+t('status.update_btn')+'</span></span>';
   box.style.display='';
   const go=document.getElementById('stale-go');
   if(go) go.onclick=function(){
@@ -4938,8 +4958,6 @@ async function checkServerFreshness(){
     if(typeof toast==='function') toast(t('status.update_launched_toast'));
     if(typeof applyUpdate==='function') applyUpdate('server-stale');
   };
-  const x=document.getElementById('stale-x');
-  if(x) x.onclick=function(){ localStorage.setItem('ajean.staleDismissed', r.latest); box.style.display='none'; };
 }
 async function checkAppUpdate(){
   if(/(^|\.)ajean\.link$/.test(location.hostname)) return; 
@@ -5158,7 +5176,7 @@ async function loadCfg(){
   const row=(k,v,title)=>'<div class="kv"><span>'+k+'</span><span title="'+String(title!=null?title:v).replace(/"/g,'&quot;')+'">'+String(v)+'</span></div>';
   const rows=[];
   if(/^modal$/i.test(c.CLOUD||'')){
-    rows.push(row(t('status.cfg_engine'), 'GPU cloud (Modal)'));
+    rows.push(row(t('status.cfg_engine'), 'GPU Cloud (Modal)'));
     rows.push(row('GPU', c.CLOUD_GPU||'A10G'));
     if(c.CLOUD_MODEL) rows.push(row('MODEL', c.CLOUD_MODEL.split('?')[0].split('/').pop(), c.CLOUD_MODEL));
     ['CTX','KV_TYPE','BATCH','UBATCH','NGL'].filter(k=>c[k]).forEach(k=>rows.push(row(k, c[k])));
@@ -5886,6 +5904,7 @@ async function openItem(kind, key){
   }
   modalEl.classList.add('no-anim');
   modalEl.classList.remove('loading');
+  fitSelects();
   topPeBody();
   requestAnimationFrame(()=>requestAnimationFrame(()=>modalEl.classList.remove('no-anim')));
 }
@@ -5923,6 +5942,7 @@ async function populateModelPicker(){
   const cur = currentModelInTextarea();
   const groups = [];
   for(const m of (list||[])){
+    if(isMmprojName(m.name) && !(samePath(cur, m.value) || samePath(cur, m.path) || samePath(baseName(cur), m.name))) continue;
     let g = groups.find(x => x.dir === m.dir);
     if(!g){ g = {dir: m.dir, home: m.home, items: []}; groups.push(g); }
     g.items.push(m);
@@ -6393,6 +6413,20 @@ function eaToggleFlag(flag, on){
   if(on) t.push(flag);
   eaSetTokens(t);
 }
+const FIT_SELECT_CSS = typeof CSS !== 'undefined' && CSS.supports && CSS.supports('field-sizing', 'content');
+let fitCanvas = null;
+function fitSelect(sel){
+  if(FIT_SELECT_CSS || !sel || !sel.closest('.pe-row-c')) return;
+  const opt = sel.options[sel.selectedIndex];
+  const cs = getComputedStyle(sel);
+  fitCanvas = fitCanvas || document.createElement('canvas');
+  const ctx = fitCanvas.getContext('2d');
+  ctx.font = cs.fontStyle+' '+cs.fontWeight+' '+cs.fontSize+' '+cs.fontFamily;
+  const w = ctx.measureText(opt ? opt.text : '').width;
+  sel.style.width = Math.ceil(w + parseFloat(cs.paddingLeft||0) + parseFloat(cs.paddingRight||0) + 2) + 'px';
+}
+function fitSelects(){ document.querySelectorAll('#modal .pe-row-c > .pe-selc:not(.wide) select').forEach(fitSelect); }
+document.addEventListener('change', e => { if(e.target && e.target.tagName === 'SELECT') requestAnimationFrame(fitSelects); });
 function eaLoadMode(){
   const lm = (eaGetValued('--load-mode') || eaGetValued('-lm')).toLowerCase();
   if(lm) return lm === 'auto' ? '' : lm;
@@ -6474,6 +6508,7 @@ function syncRunMode(){
   document.getElementById('m-cloud-body').style.display = mode === 'modal' ? '' : 'none';
   document.getElementById('m-ext-body').style.display = mode === 'external' ? '' : 'none';
   const md = document.getElementById('modal');
+  requestAnimationFrame(fitSelects);
   md.classList.toggle('run-cloud', mode === 'modal');
   md.classList.toggle('run-external', mode === 'external');
   const bench = document.getElementById('btn-bench');
@@ -6505,40 +6540,36 @@ async function testExternalPreset(){
     st.textContent = r.ok ? '✓ '+t('external.test_ok') : '⚠ '+(r.error || t('external.test_failed'));
   }catch(e){ st.textContent = '⚠ '+t('external.test_failed'); }
 }
+function setCloudState(state){ document.getElementById('m-cloud-body').dataset.state = state; }
 async function loadCloudAccounts(){
   const sel = document.getElementById('s-cloud-prof');
-  const sub = document.getElementById('s-cloud-prof-sub');
   const cur = cfgReadKey('CLOUD_PROFILE');
   let d = {accounts:[]};
   try{ d = await jget('/api/cloud/accounts'); }catch(e){}
   if(d.installed === false){
-    sel.innerHTML = '<option value="">…</option>';
-    sub.style.display = '';
-    if(d.runtime === 'error'){
-      sub.textContent = t('preset.cloud_runtime_error')+(d.error ? ' : '+d.error : '');
-    } else {
-      sub.textContent = t('preset.cloud_not_installed')+(d.step ? ' · '+d.step : '')+'…';
-      setTimeout(()=>{ if(runMode() === 'modal' && document.getElementById('modal').classList.contains('show')) loadCloudAccounts(); }, 3000);
-    }
-    document.getElementById('s-cloud-credit').textContent = '—';
-    document.getElementById('s-cloud-credit-sub').textContent = '';
+    setCloudState('setup');
+    const failed = d.runtime === 'error';
+    document.getElementById('m-cloud-setup-spin').style.display = failed ? 'none' : '';
+    document.getElementById('m-cloud-setup-retry').style.display = failed ? '' : 'none';
+    document.getElementById('m-cloud-setup-title').textContent = t(failed ? 'preset.cloud_setup_error' : 'preset.cloud_setup_title');
+    document.getElementById('m-cloud-setup-sub').textContent = failed ? (d.error || '') : (d.step ? d.step+'…' : t('preset.cloud_setup_sub'));
+    if(!failed) setTimeout(()=>{ if(runMode() === 'modal' && document.getElementById('modal').classList.contains('show')) loadCloudAccounts(); }, 2000);
     return;
   }
-  sub.style.display = 'none';
   const list = d.accounts || [];
-  if(!list.length){
-    sel.innerHTML = '<option value="">'+escHtml(t('preset.cloud_account_none'))+'</option>';
-    setCloudAddOpen(true);
-    document.getElementById('s-cloud-credit').textContent = '—';
-    document.getElementById('s-cloud-credit-sub').textContent = '';
-    return;
-  }
+  if(!list.length){ setCloudState('none'); return; }
+  setCloudState('ready');
   const act = list.find(a=>a.active);
   const opts = list.filter(a=>!a.active).map(a=>'<option value="'+escHtml(a.name)+'">'+escHtml(a.name)+'</option>');
   sel.innerHTML = '<option value="">'+escHtml(act ? act.name : t('preset.cloud_account_default'))+'</option>' + opts.join('');
   if(cur && !list.some(a=>a.name===cur)) sel.insertAdjacentHTML('beforeend','<option value="'+escHtml(cur)+'">'+escHtml(cur)+'</option>');
   sel.value = (act && cur === act.name) ? '' : cur;
+  fitSelect(sel);
   loadCloudCredit();
+}
+async function retryCloudRuntime(){
+  try{ await jpost('/api/cloud/runtime', {}); }catch(e){}
+  loadCloudAccounts();
 }
 async function loadCloudCredit(){
   const val = document.getElementById('s-cloud-credit');

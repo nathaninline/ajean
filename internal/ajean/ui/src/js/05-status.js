@@ -102,13 +102,10 @@ async function checkServerFreshness(){
   let r;
   try{ r=await jget('/api/update'); }catch(e){ return; } // hors-ligne / GitHub injoignable : on n'insiste pas
   if(!r || r.error || !r.available || !r.latest){ box.style.display='none'; return; }
-  // Ne pas reharceler si l'utilisateur a déjà écarté ce bandeau POUR CETTE version.
-  if(localStorage.getItem('ajean.staleDismissed')===r.latest){ box.style.display='none'; return; }
   const cur=r.current ? ' ('+t('status.stale_currently')+' v'+escHtml(r.current)+')' : '';
   box.innerHTML='⚠ '+t('status.stale_intro')+cur+'. '+
     t('status.stale_new_version')+' <b>v'+escHtml(r.latest)+'</b> '+t('status.stale_recommend')+' '+
-    '<span style="white-space:nowrap"><span id="stale-go" style="cursor:pointer;text-decoration:underline">'+t('status.update_btn')+'</span> '+
-    '· <span id="stale-x" style="cursor:pointer;text-decoration:underline">'+t('status.stale_dismiss_btn')+'</span></span>';
+    '<span style="white-space:nowrap"><span id="stale-go" style="cursor:pointer;text-decoration:underline">'+t('status.update_btn')+'</span></span>';
   box.style.display='';
   // « Mettre à jour » : on lance directement la MAJ existante (même chemin que le
   // bouton des réglages — /api/update/apply tourne côté serveur via le tunnel).
@@ -118,8 +115,6 @@ async function checkServerFreshness(){
     if(typeof toast==='function') toast(t('status.update_launched_toast'));
     if(typeof applyUpdate==='function') applyUpdate('server-stale');
   };
-  const x=document.getElementById('stale-x');
-  if(x) x.onclick=function(){ localStorage.setItem('ajean.staleDismissed', r.latest); box.style.display='none'; };
 }
 
 // checkAppUpdate : bandeau discret en BAS du menu quand une nouvelle version
@@ -426,7 +421,7 @@ async function loadCfg(){
   // affiche à la place les infos du preset — type, modèle, URL, clé masquée.
   // GPU cloud (Modal) : le moteur tourne là-bas, on montre ce qui y est envoyé.
   if(/^modal$/i.test(c.CLOUD||'')){
-    rows.push(row(t('status.cfg_engine'), 'GPU cloud (Modal)'));
+    rows.push(row(t('status.cfg_engine'), 'GPU Cloud (Modal)'));
     rows.push(row('GPU', c.CLOUD_GPU||'A10G'));
     if(c.CLOUD_MODEL) rows.push(row('MODEL', c.CLOUD_MODEL.split('?')[0].split('/').pop(), c.CLOUD_MODEL));
     ['CTX','KV_TYPE','BATCH','UBATCH','NGL'].filter(k=>c[k]).forEach(k=>rows.push(row(k, c[k])));
