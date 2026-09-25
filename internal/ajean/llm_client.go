@@ -515,6 +515,9 @@ type ToolUsedEvent struct {
 	// Diff : lignes ajoutées/retirées quand l'outil a MODIFIÉ quelque chose
 	// (edit, mem_add, mem_edit). L'UI les affiche en vert (+) et rouge (-).
 	Diff []DiffLine
+	// Added / Removed : nombre RÉEL de lignes ajoutées / retirées. Diff est
+	// tronqué pour l'affichage, on ne peut donc pas recompter à partir de lui.
+	Added, Removed int
 	// ArgToks : nombre CUMULÉ de tokens que le modèle a produits pour écrire les
 	// ARGUMENTS de cet appel (le code d'un write/edit, la commande d'un bash…). Ces
 	// tokens sont générés par le modèle au même titre que le raisonnement ou la
@@ -908,7 +911,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		} else {
 			authHeader(req)
 		}
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := doLLM(ctx, req, body, ep)
 		if err != nil {
 			err = friendlyLLMError(err)
 			cb(StreamEvent{Err: err})
@@ -1313,6 +1316,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				// diff : rempli par les outils d'écriture (edit / mémoire) pour que
 				// l'UI montre les lignes ajoutées et retirées.
 				var diff []DiffLine
+				var diffAdd, diffDel int     // vrais totaux (diff est tronqué pour l'UI)
 				var visionImg map[string]any // partie image_url (see_image), réinjectée après le résultat
 				// Appel rigoureusement identique déjà exécuté dans ce tour : on ne le
 				// rejoue pas. Les petits modèles réémettent volontiers deux fois la
@@ -1374,7 +1378,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 						result = "[erreur] " + werr.Error()
 					} else {
 						result = fmt.Sprintf("[ok] page '%s' créée", label)
-						diff = addedDiff(content)
+						diff, diffAdd = addedDiff(content)
 					}
 				case "mem_edit":
 					oldText, _ := args["old"].(string)
@@ -1385,7 +1389,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 						result = "[erreur] " + werr.Error()
 					} else {
 						result = fmt.Sprintf("[ok] page '%s' modifiée", label)
-						diff = lineDiff(oldText, newText)
+						diff, diffAdd, diffDel = lineDiff(oldText, newText)
 					}
 				case "tracker":
 					act, _ := args["action"].(string)
@@ -1425,7 +1429,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					content, _ := args["content"].(string)
 					result = fileWrite(label, content)
 					if !strings.HasPrefix(result, "[erreur]") {
-						diff = addedDiff(content)
+						diff, diffAdd = addedDiff(content)
 					}
 				case "edit":
 					oldText, _ := args["old"].(string)
@@ -1433,7 +1437,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					result = fileEdit(label, oldText, newText)
 					// Diff seulement si l'édition a réussi (sinon le fichier n'a pas bougé).
 					if !strings.HasPrefix(result, "[erreur]") {
-						diff = lineDiff(oldText, newText)
+						diff, diffAdd, diffDel = lineDiff(oldText, newText)
 					}
 				case "bash":
 					to := 0
@@ -1500,7 +1504,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				if !strings.HasPrefix(result, "[erreur]") {
 					doneCalls[callKey] = result
 				}
-				cb(StreamEvent{ToolUsed: fillToolResult(&ToolUsedEvent{Name: tc.Function.Name, Label: label, Done: true, Diff: diff, ArgToks: flushArgToks()}, result)})
+				cb(StreamEvent{ToolUsed: fillToolResult(&ToolUsedEvent{Name: tc.Function.Name, Label: label, Done: true, Diff: diff, Added: diffAdd, Removed: diffDel, ArgToks: flushArgToks()}, result)})
 				toolMsg := Message{Role: "tool", ToolCallID: tc.ID, Content: result}
 				messages = append(messages, toolMsg)
 				extra = append(extra, toolMsg)
@@ -1588,7 +1592,9 @@ func healthCheck() bool {
 	// sans latence — la vraie joignabilité de l'API distante se révèle à l'appel
 	// de complétion, avec un message d'erreur clair si elle échoue. Sans ce
 	// court-circuit, StartTurn refuserait tout tour (aucun /health local).
-	if externalActive() {
+	if cfg := ReadConfig(); isCloudConfig(cfg) {
+		return cloudReady(cfg)
+	} else if isExternalConfig(cfg) {
 		return true
 	}
 	resp, err := healthClient.Get(fmt.Sprintf("http://localhost:%d/health", LLMPort()))

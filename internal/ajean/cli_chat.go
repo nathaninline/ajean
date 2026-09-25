@@ -724,7 +724,8 @@ func (s *chatSession) modelCommand(arg string) {
 		if err = applyPresetFile(list[n-1].Path); err != nil {
 			return
 		}
-		if isExternalConfig(ReadConfig()) {
+		if usesRemoteEndpoint(ReadConfig()) {
+			cloudDeploy()
 			if serviceIsActive() {
 				err = serviceAction("stop")
 			}
@@ -741,7 +742,9 @@ func (s *chatSession) modelCommand(arg string) {
 		s.ctxMax = v
 	}
 	s.ctxUsed = 0
-	if externalActive() || s.waitReady("Chargement de "+list[n-1].Name) {
+	// API externe : rien à attendre. GPU cloud : on attend le déploiement
+	// (healthCheck suit cloudReady), comme un modèle local qui charge.
+	if isExternalConfig(ReadConfig()) || s.waitReady("Chargement de "+list[n-1].Name) {
 		ui.note("modèle actif : " + chatModelName())
 	}
 }
@@ -1123,13 +1126,16 @@ func toolResultLines(t *ToolUsedEvent, width int, took time.Duration) string {
 		}
 	default:
 		if len(t.Diff) > 0 {
-			add, del := 0, 0
-			for _, d := range t.Diff {
-				switch d.Op {
-				case "+":
-					add++
-				case "-":
-					del++
+			// Vrais totaux (le diff est tronqué) ; à défaut, décompte du diff.
+			add, del := t.Added, t.Removed
+			if add == 0 && del == 0 {
+				for _, d := range t.Diff {
+					switch d.Op {
+					case "+":
+						add++
+					case "-":
+						del++
+					}
 				}
 			}
 			b.WriteString(pre + dim(fmt.Sprintf("+%d −%d", add, del)) + "\n")

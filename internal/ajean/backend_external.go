@@ -29,6 +29,7 @@ type chatEndpoint struct {
 	Model    string // nom de modèle envoyé dans le payload
 	Key      string // Bearer ("" = aucun)
 	External bool   // true = API distante (pas le llama-server local)
+	Cloud    bool   // true = GPU cloud Modal (attente du réveil sur 503)
 }
 
 // isExternalConfig indique si une configuration décrit un endpoint externe.
@@ -39,7 +40,7 @@ func isExternalConfig(cfg map[string]string) bool {
 // externalActive : le preset actif est-il un endpoint externe ? Relu en direct
 // (ReadConfig passe par le cache), donc sensible à une bascule de preset sans
 // redémarrage.
-func externalActive() bool { return isExternalConfig(ReadConfig()) }
+func externalActive() bool { return usesRemoteEndpoint(ReadConfig()) }
 
 // externalVisionActive : le preset externe actif déclare-t-il accepter les
 // images (EXTERNAL_VISION=1) ? C'est ce qui remplace la détection du projecteur
@@ -73,6 +74,9 @@ func completionsURL(raw string) string {
 // externe si le preset actif en est un, sinon le llama-server local.
 func resolveChatEndpoint() chatEndpoint {
 	cfg := ReadConfig()
+	if isCloudConfig(cfg) {
+		return cloudEndpoint(cfg)
+	}
 	if isExternalConfig(cfg) {
 		return chatEndpoint{
 			URL:      completionsURL(cfg[extKeyURL]),

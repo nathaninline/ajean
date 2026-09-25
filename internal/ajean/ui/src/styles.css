@@ -185,20 +185,9 @@ details>summary::-webkit-details-marker{display:none}
    raison que .iconbtn. Petit carré arrondi, centrage parfait par fl<->box, discret
    au repos (couleur atténuée, fond du panneau) et accent au survol. */
 .preset-add{display:none;position:relative;flex:none;box-sizing:border-box;
-  width:24px;height:24px;padding:0;margin:0 6px 0 0;font-size:0;
+  width:24px;height:24px;padding:0;margin:0 6px 0 auto;font-size:0;
   background:var(--panel);color:var(--dim);border:1px solid var(--border);border-radius:7px;
   cursor:pointer;transition:border-color .15s ease,color .15s ease,background .15s ease}
-/* Bouton wifi « API externe » : même gabarit que le +, placé juste à sa gauche.
-   La marge auto pousse le duo (wifi + le +) contre le bord droit du résumé. */
-.preset-ext{display:none;align-items:center;justify-content:center;flex:none;box-sizing:border-box;
-  width:24px;height:24px;padding:0;margin:0 -3px 0 auto;
-  background:var(--panel);color:var(--dim);border:1px solid var(--border);border-radius:7px;
-  cursor:pointer;transition:border-color .15s ease,color .15s ease,background .15s ease}
-.preset-ext:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
-.preset-ext:active{transform:scale(.92)}
-details[open]>summary>.preset-ext{display:inline-flex}
-/* Icône wifi devant le nom d'un preset externe dans la liste. */
-.preset-wifi{display:inline-flex;align-items:center;margin-right:5px;color:var(--accent);vertical-align:-2px}
 /* ── Modal Mémoire ─────────────────────────────────────────────────────────── */
 .mem-head-title{display:flex;align-items:center;gap:8px}
 .mem-head-ic{flex:none;color:var(--accent)}
@@ -736,7 +725,7 @@ details>summary+.subhead{margin-top:4px}
   border-radius:7px;padding:7px 9px;font:inherit;font-size:12.5px}
 .sctl:focus,.io-input:focus{outline:none;border-color:var(--dim)}
 textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
-.side button:not(.preset-edit):not(.addbtn):not(.preset-add):not(.preset-ext):not(.copybtn):not(.iconbtn){font-size:12px;padding:6px 10px;border-radius:7px}
+.side button:not(.preset-edit):not(.addbtn):not(.preset-add):not(.copybtn):not(.iconbtn){font-size:12px;padding:6px 10px;border-radius:7px}
 .side .row{display:flex;gap:6px;align-items:center;margin:6px 0}
 .side .row .sctl,.side .row .io-input{flex:1;min-width:0}
 /* Bouton d'action à côté d'un champ (copier, ouvrir) : un CARRÉ à la hauteur du
@@ -913,6 +902,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-selc{position:relative;display:flex;align-items:center;max-width:100%}
 .pe-selc select{appearance:none;-webkit-appearance:none;border:none;background:transparent;color:var(--accent);font:inherit;text-align:right;text-align-last:right;padding:4px 16px 4px 0;cursor:pointer;max-width:100%;text-overflow:ellipsis}
 .pe-selc select:focus{outline:none}
+.pe-row-c .pe-selc select{field-sizing:content}
 .pe-selc::after{content:"›";position:absolute;right:0;transform:rotate(90deg);color:var(--dim);font-size:14px;pointer-events:none}
 /* Variante pleine largeur : la liste native s'ouvre alignée à gauche de la
    ligne (et non collée au bord droit) et le nom de fichier a la place de
@@ -1966,3 +1956,8 @@ button:hover{border-color:var(--dim);color:var(--text)}
    intrinsèque : une fois affiché, un message garde sa vraie hauteur mémorisée, la
    barre de défilement ne saute donc pas en remontant. */
 #chat > .msg, #chat > .msg-files{content-visibility:auto;contain-intrinsic-size:auto 120px}
+
+/* Preset GPU cloud : pas de moteur, de fichier ni de cartes locales. */
+#modal.run-cloud #m-engine-row,#modal.run-cloud #m-model-row,#modal.run-cloud #m-gpu-group{display:none!important}
+/* Preset API externe : ni moteur local ni réglages llama-server. */
+#modal.run-external #m-engine-row,#modal.run-external #m-model-row,#modal.run-external #m-gpu-group,#modal.run-external #m-settings-row{display:none!important}

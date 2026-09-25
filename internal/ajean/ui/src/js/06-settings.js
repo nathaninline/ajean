@@ -75,18 +75,10 @@ async function loadPresets(){
     // Puce réservée à l'actif POUR DE BON : pendant la bascule, seule la barre
     // orange parle ; la puce apparaît quand la barre passe au blanc.
     if(x.active){ const d=document.createElement('i'); d.className='preset-dot'; nm.appendChild(d); }
-    // Preset externe : petite icône wifi devant le nom pour le distinguer d'un
-    // moteur local d'un coup d'œil.
-    if(x.external){
-      const w=document.createElement('span'); w.className='preset-wifi';
-      w.title=t('settings.presets.external_title');
-      w.innerHTML='<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
-      nm.appendChild(w);
-    }
     nm.appendChild(document.createTextNode(x.name)); nm.title=x.name;
     // Second row: quant tag + bench perf, so the title row stays full-width.
     const meta=document.createElement('div'); meta.className='preset-meta';
-    // Preset externe : on affiche le modèle distant à la place des tags quant/ctx.
+    // Preset externe : le modèle distant à la place des tags quant/ctx.
     if(x.external){
       if(x.model){
         const mt=document.createElement('span'); mt.className='ctag';
@@ -94,26 +86,36 @@ async function loadPresets(){
         meta.appendChild(mt);
       }
     } else {
-    if(x.quant){
-      const q=document.createElement('span'); q.className='qtag';
-      q.textContent=x.quant; q.title=t('settings.presets.quant_title');
-      meta.appendChild(q);
+      if(x.cloud){
+        const c=document.createElement('span'); c.className='ctag';
+        c.title=t('settings.presets.cloud_title'); c.textContent='Modal '+x.cloud;
+        meta.appendChild(c);
+      }
+      if(x.quant){
+        const q=document.createElement('span'); q.className='qtag';
+        q.textContent=x.quant; q.title=t('settings.presets.quant_title');
+        meta.appendChild(q);
+      }
+      if(x.ctx){
+        const c=document.createElement('span'); c.className='ctag';
+        c.title=t('settings.presets.context_size_title');
+        c.textContent=x.ctx;
+        meta.appendChild(c);
+      }
+      if(x.bench){
+        const bt=document.createElement('span'); bt.className='btag';
+        bt.title=t('settings.presets.bench_title');
+        bt.textContent=x.bench.prefill.toFixed(0)+'-'+x.bench.decode.toFixed(0)+' t/s';
+        meta.appendChild(bt);
+      }
     }
-    if(x.ctx){
-      const c=document.createElement('span'); c.className='ctag';
-      c.title=t('settings.presets.context_size_title');
-      c.textContent=x.ctx;
-      meta.appendChild(c);
-    }
-    if(x.bench){
-      const bt=document.createElement('span'); bt.className='btag';
-      bt.title=t('settings.presets.bench_title');
-      bt.textContent=x.bench.prefill.toFixed(0)+'-'+x.bench.decode.toFixed(0)+' t/s';
-      meta.appendChild(bt);
-    }
-    // Bulle « capacités » à droite des autres : icônes vision (œil) et raisonnement
-    // (ampoule), regroupées dans une seule pastille comme les autres tags.
+    // Pastille « capacités » à droite des autres tags : API externe (planète),
+    // vision (œil), raisonnement (ampoule), regroupées comme un seul tag.
     const caps=[], capTitle=[];
+    if(x.external){
+      caps.push('<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>');
+      capTitle.push(t('settings.presets.external_title'));
+    }
     if(x.vision){
       caps.push('<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>');
       capTitle.push(t('settings.presets.vision_title'));
@@ -128,7 +130,6 @@ async function loadPresets(){
       cap.title=capTitle.join(' · ');
       meta.appendChild(cap);
     }
-    }
     info.appendChild(nm);
     if(meta.children.length) info.appendChild(meta);
     const edit=document.createElement('button');
@@ -136,7 +137,7 @@ async function loadPresets(){
     // lit comme centrée dans son coin, là où le crayon penché tirait de travers.
     edit.className='preset-edit'; edit.title=t('settings.presets.edit_title');
     edit.innerHTML='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>';
-    edit.onclick=(e)=>{ e.stopPropagation(); x.external ? openExternal(x.id) : openPreset(x.id); };
+    edit.onclick=(e)=>{ e.stopPropagation(); openPreset(x.id); };
     // Pas de poignée : la ligne entière est déplaçable, on attrape où on veut.
     row.appendChild(info); row.appendChild(edit);
     cont.appendChild(row);
@@ -291,7 +292,11 @@ async function loadBackup(){
   let msg='';
   if(s.last){ const d=new Date(s.last); msg=t('settings.backup.last_backup_prefix')+(isNaN(d)?s.last:d.toLocaleString()); }
   else msg=t('settings.backup.none_yet');
-  if(Array.isArray(s.versions)) msg+=' · '+s.versions.length+' '+t('settings.backup.versions_on_relay');
+  if(Array.isArray(s.versions)){
+    const mine = s.versions.filter(v=>v.this).length;
+    msg += ' · '+mine+' '+t('settings.backup.versions_this_machine');
+    if(s.versions.length > mine) msg += ' · '+s.versions.length+' '+t('settings.backup.versions_total');
+  }
   if(s.error) msg+='\n⚠️ '+s.error;
   st.textContent=msg; st.style.whiteSpace='pre-line';
 }
@@ -309,19 +314,30 @@ async function backupNow(){
   if(!r.ok){ await askAlert(t('common.failed_prefix')+(r.error||t('common.unknown'))); return; }
   toast(t('settings.backup.sent')); loadBackup();
 }
+// Libellé d'une sauvegarde : machine d'origine + date.
+function backupLabel(v){
+  const when = v.when ? new Date(v.when).toLocaleString() : v.id;
+  const who = v.this ? t('settings.backup.this_machine')
+            : (v.machineName || (v.machine ? v.machine.slice(0,8) : t('settings.backup.old_backup')));
+  return who+' · '+when;
+}
 async function backupRestore(){
   let s; try{ s=await jget('/api/backup/status'); }catch(e){ await askAlert(t('settings.backup.relay_unreachable')); return; }
   const vers=(s.versions||[]);
   if(!vers.length){ await askAlert(t('settings.backup.none_available')); return; }
-  const latest=vers[0];
-  const when=latest.when? new Date(latest.when).toLocaleString():latest.id;
-  if(!await askConfirm(t('settings.backup.restore_confirm_before')+when+t('settings.backup.restore_confirm_after'),{title:t('settings.backup.restore_title'),okText:t('settings.backup.restore_title'),danger:true})) return;
+  // Plusieurs machines sur le compte : on choisit explicitement la sauvegarde.
+  // Présélection : la plus récente de CETTE machine, sinon la plus récente.
+  const def = vers.find(v=>v.this) || vers[0];
+  const key = v => (v.machine||'')+'/'+v.id;
+  if(!await askConfirm(t('settings.backup.restore_choose_msg'),{title:t('settings.backup.restore_title'),okText:t('settings.backup.restore_title'),danger:true,
+      choices: vers.map(v=>({value:key(v), label:backupLabel(v)})), choice: key(def)})) return;
+  const pick = vers.find(v=>key(v)===askChoice()) || def;
   // Boucle : une clé fausse redemande tout de suite.
   while(true){
     const secret=await askPrompt(t('settings.backup.restore_secret_prompt'),{title:t('settings.backup.restore_title'),placeholder:t('settings.backup.restore_secret_placeholder')});
     if(!secret) return; // annulé
     toast(t('settings.backup.restoring'));
-    let r; try{ r=await jpost('/api/backup/restore',{id:latest.id,secret}); }catch(e){ await askAlert(t('common.failed_prefix')+e); return; }
+    let r; try{ r=await jpost('/api/backup/restore',{id:pick.id,machine:pick.machine||'',secret}); }catch(e){ await askAlert(t('common.failed_prefix')+e); return; }
     if(r.ok){ await askAlert(t('settings.backup.restore_done_msg'),{title:t('settings.backup.restore_done_title')}); loadMem(); return; }
     await askAlert((r.error&&r.error.indexOf('incorrecte')>=0)?t('settings.wrong_key'):(t('common.failed_prefix')+(r.error||t('common.unknown'))),{title:t('settings.refused_title')});
   }

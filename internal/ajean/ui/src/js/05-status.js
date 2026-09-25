@@ -365,11 +365,15 @@ function renderVram(gpus){
   // Même gabarit que la RAM (voir .stat dans le CSS) — le HTML libre d'avant
   // collait aux bords de la carte.
   swapContent(document.getElementById('vram'), (gpus||[]).map(g=>{
+    // GPU cloud (Modal) : pas de mesure en direct, on montre la capacité et l'état.
+    if(g.cloud && !g.awake) return '<div class="stat"><div class="stat-h"><span class="stat-n">'+escHtml(g.name)+'</span>'+
+      '<span class="stat-v">'+(g.total? (g.total/1024).toFixed(0)+' GiB' : '')+'</span></div>'+
+      '<div class="stat-s">'+escHtml(g.status||'')+(g.billing? ' · '+escHtml(cloudCreditText(g.billing)) : '')+'</div></div>';
     const pct=Math.round(g.used*100/g.total);
     return '<div class="stat"><div class="stat-h"><span class="stat-n">'+g.name+'</span>'+
       '<span class="stat-v">'+(g.used/1024).toFixed(1)+' / '+(g.total/1024).toFixed(1)+' GiB</span></div>'+
       '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
-      '<div class="stat-s">GPU '+g.util+' % · '+g.temp+' °C</div></div>';
+      '<div class="stat-s">GPU '+g.util+' % · '+g.temp+' °C'+(g.cloud?' · '+escHtml(g.status||''):'')+(g.billing? ' · '+escHtml(cloudCreditText(g.billing)) : '')+'</div></div>';
   }).join('') || '<div class="stat"><span class="stat-s">'+t('status.no_gpu')+'</span></div>');
 }
 // Rend le bloc RAM depuis {used,total}. Séparé du fetch (voir renderVram).
@@ -420,6 +424,18 @@ async function loadCfg(){
   const rows=[];
   // Preset externe (API distante) : pas de moteur/modèle local à montrer. On
   // affiche à la place les infos du preset — type, modèle, URL, clé masquée.
+  // GPU cloud (Modal) : le moteur tourne là-bas, on montre ce qui y est envoyé.
+  if(/^modal$/i.test(c.CLOUD||'')){
+    rows.push(row(t('status.cfg_engine'), 'GPU cloud (Modal)'));
+    rows.push(row('GPU', c.CLOUD_GPU||'A10G'));
+    if(c.CLOUD_MODEL) rows.push(row('MODEL', c.CLOUD_MODEL.split('?')[0].split('/').pop(), c.CLOUD_MODEL));
+    ['CTX','KV_TYPE','BATCH','UBATCH','NGL'].filter(k=>c[k]).forEach(k=>rows.push(row(k, c[k])));
+    const sp=(c.EXTRA_ARGS||'').match(/--spec-type\s+(\S+)/);
+    if(sp) rows.push(row('SPEC', sp[1]));
+    swapContent(document.getElementById('cfg'), rows.join(''));
+    updateReasonBtn(c.REASONING_EFFORT || '');
+    return;
+  }
   if(c.EXTERNAL==='1'){
     rows.push(row(t('external.cfg_type_label'), t('external.title')));
     if(c.EXTERNAL_MODEL) rows.push(row(t('external.model_label'), c.EXTERNAL_MODEL));

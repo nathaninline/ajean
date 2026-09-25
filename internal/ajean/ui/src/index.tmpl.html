@@ -81,7 +81,7 @@
   <details open id="cfg-details"><summary><span class="stitle" data-i18n="config.title">Configuration</span></summary>
     <div id="cfg" class="slist"><div class="kv"><span class="skel skel-line" style="width:30%"></span><span class="skel skel-line" style="width:44%"></span></div><div class="kv"><span class="skel skel-line" style="width:24%"></span><span class="skel skel-line" style="width:52%"></span></div><div class="kv"><span class="skel skel-line" style="width:34%"></span><span class="skel skel-line" style="width:38%"></span></div><div class="kv"><span class="skel skel-line" style="width:28%"></span><span class="skel skel-line" style="width:30%"></span></div></div>
   </details>
-  <details><summary><span class="stitle" data-i18n="presets.title">Presets</span><button class="preset-ext" onclick="event.preventDefault();event.stopPropagation();openExternal('')" title="ajouter une API externe" data-i18n="presets.add_external_button" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></button><button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter" data-i18n="presets.add_button" data-i18n-attr="title">+</button></summary>
+  <details><summary><span class="stitle" data-i18n="presets.title">Presets</span><button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter" data-i18n="presets.add_button" data-i18n-attr="title">+</button></summary>
     <div class="slist"><div id="presets" class="rowlist"></div></div>
   </details>
   <details><summary><span class="stitle" data-i18n="agent.title">Agent</span><span id="agent-badge" class="sbadge"></span></summary>
@@ -462,6 +462,8 @@
     <input id="ask-input" class="ask-input" style="display:none">
     <!-- Variante multiligne du prompt (opts.multiline), ex. décrire un projet. -->
     <textarea id="ask-textarea" class="ask-input" rows="6" style="display:none;resize:vertical;min-height:120px"></textarea>
+    <!-- Liste de choix d'une confirmation (opts.choices), ex. quelle sauvegarde restaurer. -->
+    <select id="ask-select" class="ask-input" style="display:none"></select>
     <!-- Option facultative de la confirmation (ex. « supprimer aussi le .gguf ») :
          sa place est ICI, dans la boîte qui pose la question, plutôt que dans le
          pied de l'éditeur où elle occupait de la place en permanence. -->
@@ -718,48 +720,6 @@
     </div>
   </div>
 </div>
-<div id="ext-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeExternal()">
-  <div class="modal-card" style="max-width:520px">
-    <div class="modal-head">
-      <strong id="ext-modal-title" data-i18n="external.title">API Externe</strong>
-      <button class="modal-x" onclick="closeExternal()" aria-label="Fermer" data-i18n="external.close_aria" data-i18n-attr="aria-label">×</button>
-    </div>
-    <div class="modal-body mform">
-      <p class="muted" style="font-size:12px;margin:0 0 4px" data-i18n="external.intro">Connecte une IA externe compatible OpenAI Chat Completions (OpenAI, Claude, Groq, OpenRouter…) pour l'utiliser à la place du moteur local.</p>
-      <div class="fld">
-        <label class="fld-l" for="ext-name"><span data-i18n="external.name_label">Nom</span> <span class="opt" data-i18n="external.name_hint">(affiché dans la liste des presets)</span></label>
-        <input id="ext-name" class="ctl" placeholder="OpenRouter · GPT-4o">
-      </div>
-      <div class="fld">
-        <label class="fld-l" for="ext-url"><span data-i18n="external.url_label">URL de l'API</span> <span class="opt" data-i18n="external.url_hint">(base OpenAI, ex: https://api.openai.com/v1)</span></label>
-        <input id="ext-url" class="ctl" spellcheck="false" placeholder="https://api.openai.com/v1">
-      </div>
-      <div class="fld">
-        <label class="fld-l" for="ext-model"><span data-i18n="external.model_label">Modèle</span> <span class="opt" data-i18n="external.model_hint">(identifiant exact, ex: gpt-4o-mini)</span></label>
-        <input id="ext-model" class="ctl" spellcheck="false" placeholder="gpt-4o-mini">
-      </div>
-      <div class="fld">
-        <label class="fld-l" for="ext-key"><span data-i18n="external.key_label">Clé API</span> <span class="opt" data-i18n="external.key_hint">(optionnelle pour un serveur local)</span></label>
-        <input id="ext-key" class="ctl" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" oninput="extKeyTouched=true">
-      </div>
-      <div class="fld">
-        <label class="fld-l" for="ext-ctx"><span data-i18n="external.ctx_label">Contexte</span> <span class="opt" data-i18n="external.ctx_hint">(taille en tokens, ex: 32768 — laisser vide pour 32768)</span></label>
-        <input id="ext-ctx" class="ctl" type="number" min="0" step="1024" spellcheck="false" placeholder="32768">
-      </div>
-      <label class="switchrow" style="margin:2px 0 0"><span class="switch"><input type="checkbox" id="ext-vision"><span class="slider"></span></span> <span data-i18n="external.vision_label">le modèle accepte les images</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="external.vision_help" data-i18n-html>coche si le modèle distant est <b>multimodal</b> (vision). Les images jointes lui sont alors envoyées pour qu'il les voie, et il peut charger une image du disque avec son outil dédié. À laisser décoché pour un modèle texte seul.</span></span></label>
-      <div id="ext-modal-status" class="muted" style="font-size:12px;min-height:0"></div>
-    </div>
-    <div class="modal-foot">
-      <div class="foot-l">
-        <button id="ext-del" class="btn-danger" onclick="deleteExternal()" style="display:none" data-i18n="external.delete">supprimer</button>
-      </div>
-      <div class="foot-r">
-        <button class="pe-btn" onclick="testExternal()" data-i18n="external.test">tester la connexion</button>
-        <button class="pe-btn primary" onclick="saveExternal()" data-i18n="external.save">enregistrer</button>
-      </div>
-    </div>
-  </div>
-</div>
 <div id="task-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeTask()">
   <div class="modal-card">
     <div class="modal-head">
@@ -903,6 +863,99 @@
         </div>
       </div>
 
+      <!-- Exécution : sur cette machine, ou sur un GPU loué chez Modal. En mode
+           cloud, moteur/fichier/cartes locales disparaissent (classe run-cloud) ;
+           tous les réglages ci-dessous restent valables et sont envoyés au GPU. -->
+      <div id="m-run-row" class="pe-group" style="display:none">
+        <div class="pe-gh" data-i18n="preset.run_heading">Exécution</div>
+        <div class="pe-seg">
+          <label><input type="radio" name="m-run" value="local" onchange="onRunMode('local')"><span data-i18n="preset.run_local">Cette machine</span></label>
+          <label><input type="radio" name="m-run" value="external" onchange="onRunMode('external')"><span data-i18n="preset.run_external">API externe</span></label>
+          <label><input type="radio" name="m-run" value="modal" onchange="onRunMode('modal')"><span data-i18n="preset.run_modal">GPU cloud</span></label>
+        </div>
+        <!-- API externe : tout modèle compatible OpenAI Chat Completions (OpenAI,
+             Claude, Groq, OpenRouter, un autre serveur…). Pas de moteur local. -->
+        <div id="m-ext-body" class="pe-list" style="display:none;margin-top:8px">
+          <div class="pe-row stack">
+            <span class="pe-row-l"><span data-i18n="external.url_label">URL de l'API</span> <span class="pe-sub" data-i18n="external.url_hint">(base OpenAI, ex: https://api.openai.com/v1)</span></span>
+            <input id="s-ext-url" class="pe-inp" spellcheck="false" placeholder="https://api.openai.com/v1" oninput="cfgWriteKey('EXTERNAL_URL', this.value)">
+          </div>
+          <div class="pe-row stack">
+            <span class="pe-row-l"><span data-i18n="external.model_label">Modèle</span> <span class="pe-sub" data-i18n="external.model_hint">(identifiant exact, ex: gpt-4o-mini)</span></span>
+            <input id="s-ext-model" class="pe-inp" spellcheck="false" placeholder="gpt-4o-mini" oninput="cfgWriteKey('EXTERNAL_MODEL', this.value)">
+          </div>
+          <div class="pe-row stack">
+            <span class="pe-row-l"><span data-i18n="external.key_label">Clé API</span> <span class="pe-sub" data-i18n="external.key_hint">(optionnelle pour un serveur local)</span></span>
+            <input id="s-ext-key" class="pe-inp" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" oninput="cfgWriteKey('EXTERNAL_KEY', this.value)">
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l" data-i18n="preset.ctx_label">Contexte</span>
+            <span class="pe-row-c"><input id="s-ext-ctx" class="pe-val" type="number" min="0" step="1024" placeholder="32768" oninput="cfgWriteKey('CTX', this.value)"><span class="pe-unit">tok</span></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l"><span data-i18n="preset.vision_label">Vision</span><span class="pe-sub" data-i18n="external.vision_label">le modèle accepte les images</span></span>
+            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-ext-vision" onchange="cfgWriteKey('EXTERNAL_VISION', this.checked ? '1' : '')"><span class="pe-sl"></span></label></span>
+          </div>
+          <div class="pe-row" style="cursor:pointer" onclick="testExternalPreset()">
+            <span class="pe-row-l"><span data-i18n="external.test">tester la connexion</span><span class="pe-sub" id="s-ext-status"></span></span>
+            <span class="pe-row-c"><span class="pe-unit">→</span></span>
+          </div>
+        </div>
+        <div id="m-cloud-body" class="pe-list" style="display:none;margin-top:8px">
+          <!-- Fournisseur de GPU : clé CLOUD. Modal seul pour l'instant, la liste
+               est là pour en accueillir d'autres. -->
+          <div class="pe-row">
+            <span class="pe-row-l" data-i18n="preset.cloud_provider_label">Fournisseur</span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="s-cloud-provider" onchange="onCloudProvider(this.value)">
+              <option value="modal">Modal</option>
+            </select></span></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l"><span data-i18n="preset.cloud_account_label">Compte</span><span class="pe-sub" id="s-cloud-prof-sub" style="display:none"></span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="s-cloud-prof" onchange="onCloudProfile()"></select></span></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l"><span data-i18n="preset.cloud_credit_label">Crédit</span><span class="pe-sub" id="s-cloud-credit-sub"></span></span>
+            <span class="pe-row-c"><span class="pe-unit" id="s-cloud-credit"></span></span>
+          </div>
+          <!-- Ajout d'un compte : replié, comme « Dossiers de modèles ». La
+               connexion se fait sur modal.com (flux web de la CLI), aucune clé ici. -->
+          <div class="pe-row" style="cursor:pointer" onclick="setCloudAddOpen(document.getElementById('m-cloud-add').style.display==='none')">
+            <span class="pe-row-l"><span data-i18n="preset.cloud_account_add_title">Connecter un autre compte</span><span class="pe-sub" data-i18n="preset.cloud_account_add_sub">un compte par preset</span></span>
+            <span class="pe-row-c"><span id="m-cloud-add-caret" class="pe-caret"></span></span>
+          </div>
+          <div id="m-cloud-add" class="pe-row stack" style="display:none">
+            <div class="pe-inpbtn">
+              <input id="m-cloud-add-name" class="pe-inp" placeholder="nom du compte (ex. perso, travail)" data-i18n="preset.cloud_account_name_placeholder" data-i18n-attr="placeholder" onkeydown="if(event.key==='Enter')addCloudAccount()">
+              <button id="m-cloud-add-btn" onclick="addCloudAccount()" title="Se connecter sur modal.com" data-i18n="preset.cloud_account_connect_title" data-i18n-attr="title">→</button>
+            </div>
+            <div id="m-cloud-add-note" class="pe-note" data-i18n="preset.cloud_account_add_note">Connecte-toi dans l'onglet modal.com qui s'ouvre.</div>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l"><span data-i18n="preset.cloud_gpu_label">GPU</span><span class="pe-sub" data-i18n="preset.cloud_gpu_sub">facturé à la seconde</span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="s-cloud-gpu" onchange="cfgWriteKey('CLOUD_GPU', this.value)">
+              <option value="T4">T4 · 16 Go</option>
+              <option value="L4">L4 · 24 Go</option>
+              <option value="A10G">A10G · 24 Go</option>
+              <option value="L40S">L40S · 48 Go</option>
+              <option value="A100-40GB">A100 · 40 Go</option>
+              <option value="A100-80GB">A100 · 80 Go</option>
+              <option value="H100">H100 · 80 Go</option>
+              <option value="H200">H200 · 141 Go</option>
+              <option value="B200">B200 · 192 Go</option>
+            </select></span></span>
+          </div>
+          <div class="pe-row stack">
+            <span class="pe-row-l"><span data-i18n="preset.cloud_model_label">Modèle</span> <span class="pe-sub" data-i18n="preset.cloud_model_sub">lien direct vers le .gguf</span></span>
+            <input id="s-cloud-model" class="pe-inp" placeholder="https://huggingface.co/…/resolve/main/model.gguf" oninput="cfgWriteKey('CLOUD_MODEL', this.value)">
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l"><span data-i18n="preset.cloud_idle_label">Mise en veille</span><span class="pe-sub" data-i18n="preset.cloud_idle_sub">arrêt après inactivité</span></span>
+            <span class="pe-row-c"><input id="s-cloud-idle" class="pe-val" type="number" min="60" step="60" placeholder="300" oninput="cfgWriteKey('CLOUD_IDLE', this.value)"><span class="pe-unit">s</span></span>
+          </div>
+        </div>
+      </div>
+
       <!-- Moteur (backend llama-server) : tout en haut du modal, juste après le nom. -->
       <div id="m-engine-row" class="pe-group" style="display:none">
         <div class="pe-gh" data-i18n="preset.engine_heading">Moteur</div>
@@ -948,11 +1001,11 @@
               <span class="pe-row-c"><span class="pe-selc"><select id="m-mmproj" onchange="onPickMmproj()"></select></span></span>
             </div>
             <div class="pe-row" id="s-mmproj-cpu-row">
-              <span class="pe-row-l"><span data-i18n="preset.mmproj_cpu_label">Projecteur vision sur le CPU</span><span class="pe-sub" data-i18n="preset.mmproj_cpu_sub">garde le mmproj hors du GPU — libère de la VRAM (--no-mmproj-offload)</span></span>
+              <span class="pe-row-l"><span data-i18n="preset.mmproj_cpu_label">Projecteur vision sur le CPU</span><span class="pe-sub" data-i18n="preset.mmproj_cpu_sub">libère de la VRAM</span></span>
               <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-mmproj-cpu" onchange="eaToggleFlag('--no-mmproj-offload', this.checked)"><span class="pe-sl"></span></label></span>
             </div>
             <div class="pe-row stack">
-              <span class="pe-row-l"><span data-i18n="preset.download_model_label">Télécharger un modèle</span> <span class="pe-sub" data-i18n="preset.download_model_sub">ou un projecteur mmproj — lien direct vers un .gguf</span></span>
+              <span class="pe-row-l"><span data-i18n="preset.download_model_label">Télécharger un modèle</span> <span class="pe-sub" data-i18n="preset.download_model_sub">lien direct vers un .gguf</span></span>
               <div class="pe-inpbtn">
                 <input id="m-hf-url" class="pe-inp" placeholder="https://…/model.gguf">
                 <button id="m-hf-btn" onclick="startDownload()" title="Télécharger" data-i18n="preset.download_button_title" data-i18n-attr="title">↓</button>
@@ -966,7 +1019,7 @@
               <span class="pe-selc"><select id="m-hf-dir"></select></span>
             </div>
             <div id="m-dirs-toggle" class="pe-row" style="cursor:pointer" onclick="toggleModelDirs()">
-              <span class="pe-row-l"><span data-i18n="preset.model_dirs_label">Dossiers de modèles</span><span class="pe-sub" data-i18n="preset.model_dirs_sub">chercher les .gguf ailleurs (disque externe…)</span></span>
+              <span class="pe-row-l"><span data-i18n="preset.model_dirs_label">Dossiers de modèles</span><span class="pe-sub" data-i18n="preset.model_dirs_sub">disque externe, autre dossier…</span></span>
               <span class="pe-row-c"><span id="m-dirs-caret" class="pe-caret"></span></span>
             </div>
             <div id="m-dirs-body" class="pe-row stack" style="display:none">
@@ -1027,22 +1080,35 @@
             <span class="pe-row-c"><input id="s-ubatch" class="pe-val" type="number" min="0" step="128" placeholder="512" oninput="cfgWriteKey('UBATCH', this.value)"></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.np_label">Séquences parallèles</span><span class="pe-sub" data-i18n="preset.np_sub">1 = recommandé · &gt;1 multiplie le cache KV (-np)</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.np_label">Séquences parallèles</span><span class="pe-sub" data-i18n="preset.np_sub">1 recommandé</span></span>
             <span class="pe-row-c"><input id="s-np" class="pe-val" type="number" min="1" step="1" placeholder="1" oninput="eaSetValued('-np', this.value)"></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.kv_label">Cache KV</span><span class="pe-sub" data-i18n="preset.kv_sub">compression du contexte — % = précision (tail 99,9%)</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.kv_label">Cache KV</span><span class="pe-sub" data-i18n="preset.kv_sub">compresse le contexte · % = qualité</span></span>
             <span class="pe-row-c"><span class="pe-selc"><select id="s-kv" onchange="kvSetCombo(this.value)">
-              <option value="" data-i18n="preset.kv_opt_f16">f16 — max qualité (100%)</option>
-              <option value="q8_0|q8_0" data-i18n="preset.kv_opt_q8">q8_0 — léger (94,6%)</option>
-              <option value="q4_0|q4_0" data-i18n="preset.kv_opt_q4">q4_0 — très léger (89,8%)</option>
-              <option value="q5_1|q5_1" data-i18n="preset.kv_opt_q51">q5_1 (92,8%) · lent en précompilé</option>
-              <optgroup label="Combos K / V (K &gt; V) · lents en précompilé" data-i18n="preset.kv_optgroup_combos" data-i18n-attr="label">
-                <option value="q8_0|q5_1" data-i18n="preset.kv_combo_1">q8_0 / q5_1 (94,2%)</option>
-                <option value="q8_0|q5_0" data-i18n="preset.kv_combo_2">q8_0 / q5_0 (93,7%)</option>
-                <option value="q5_0|q4_1" data-i18n="preset.kv_combo_3">q5_0 / q4_1 (92,7%)</option>
-                <option value="q5_0|q4_0" data-i18n="preset.kv_combo_4">q5_0 / q4_0 (91,4%)</option>
+              <option value="" data-i18n="preset.kv_opt_f16">f16 · 100 %</option>
+              <option value="q8_0|q8_0" data-i18n="preset.kv_opt_q8">q8_0 · 94,6 %</option>
+              <option value="q4_0|q4_0" data-i18n="preset.kv_opt_q4">q4_0 · 89,8 %</option>
+              <option value="q5_1|q5_1" data-i18n="preset.kv_opt_q51">q5_1 · 92,8 % (lent)</option>
+              <optgroup label="Combos K/V · lents en précompilé" data-i18n="preset.kv_optgroup_combos" data-i18n-attr="label">
+                <option value="q8_0|q5_1" data-i18n="preset.kv_combo_1">q8_0/q5_1 · 94,2 %</option>
+                <option value="q8_0|q5_0" data-i18n="preset.kv_combo_2">q8_0/q5_0 · 93,7 %</option>
+                <option value="q5_0|q4_1" data-i18n="preset.kv_combo_3">q5_0/q4_1 · 92,7 %</option>
+                <option value="q5_0|q4_0" data-i18n="preset.kv_combo_4">q5_0/q4_0 · 91,4 %</option>
               </optgroup>
+            </select></span></span>
+          </div>
+          <!-- Chargement du modèle : --load-mode de llama.cpp (remplace --mlock et
+               --no-mmap). Pour un moteur ancien, AJEAN retraduit au lancement. -->
+          <div class="pe-row">
+            <span class="pe-row-l"><span data-i18n="preset.loadmode_label">Chargement</span><span class="pe-sub" id="s-loadmode-sub"></span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="s-loadmode" onchange="eaSetLoadMode(this.value)">
+              <option value="">auto</option>
+              <option value="mmap">mmap</option>
+              <option value="none">none</option>
+              <option value="mlock">mlock</option>
+              <option value="mmap+mlock">mmap+mlock</option>
+              <option value="dio">dio</option>
             </select></span></span>
           </div>
           <!-- Décodage spéculatif : le type vient de la liste que llama-server
@@ -1050,7 +1116,7 @@
                (--spec-draft-n-max) n'a de sens qu'une fois un type choisi, donc
                sa ligne n'apparaît qu'à ce moment. -->
           <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.spec_label">Décodage spéculatif</span><span class="pe-sub" data-i18n="preset.spec_sub">anticipe des jetons pour accélérer</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.spec_label">Décodage spéculatif</span><span class="pe-sub" data-i18n="preset.spec_sub">accélère la génération</span></span>
             <span class="pe-row-c"><span class="pe-selc"><select id="s-spec" onchange="onSpecType()">
               <option value="" data-i18n="preset.spec_opt_none">non</option>
               <optgroup label="Modèle brouillon" data-i18n="preset.spec_optgroup_draft" data-i18n-attr="label">
@@ -1073,11 +1139,11 @@
                Obligatoire pour EAGLE-3/dFlash/dSpark/modèle séparé, OPTIONNEL pour
                MTP (souvent intégré au modèle). Masqué pour les n-grammes / « aucun ». -->
           <div class="pe-row" id="s-spec-draft-row" style="display:none">
-            <span class="pe-row-l"><span data-i18n="preset.spec_draft_label">Modèle de draft</span><span class="pe-sub" data-i18n="preset.spec_draft_sub">le brouillon qui anticipe</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.spec_draft_label">Modèle de draft</span><span class="pe-sub" data-i18n="preset.spec_draft_sub">modèle brouillon</span></span>
             <span class="pe-row-c"><span class="pe-selc"><select id="m-spec-draft" onchange="onPickSpecDraft()"></select></span></span>
           </div>
           <div class="pe-row" id="s-spec-n-row" style="display:none">
-            <span class="pe-row-l"><span data-i18n="preset.spec_n_label">Jetons anticipés</span><span class="pe-sub" data-i18n="preset.spec_n_sub">par étape — défaut 3</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.spec_n_label">Jetons anticipés</span><span class="pe-sub" data-i18n="preset.spec_n_sub">défaut 3</span></span>
             <span class="pe-row-c"><input id="s-spec-n" class="pe-val" type="number" min="1" step="1" placeholder="3" oninput="eaSetValued('--spec-draft-n-max', this.value)"></span>
           </div>
           <div class="pe-row">
@@ -1089,15 +1155,7 @@
             <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-flash" onchange="eaSetValued('--flash-attn', this.checked?'on':'')"><span class="pe-sl"></span></label></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.mlock_label">Garder en RAM</span><span class="pe-sub" data-i18n="preset.mlock_sub">évite le swap (mlock)</span></span>
-            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-mlock" onchange="eaToggleMem()"><span class="pe-sl"></span></label></span>
-          </div>
-          <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.nommap_label">Charger tout en mémoire</span><span class="pe-sub" data-i18n="preset.nommap_sub">désactive le mmap</span></span>
-            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-nommap" onchange="eaToggleMem()"><span class="pe-sl"></span></label></span>
-          </div>
-          <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.kvunified_label">Cache KV unifié</span><span class="pe-sub" data-i18n="preset.kvunified_sub">un seul cache partagé (--kv-unified)</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.kvunified_label">Cache KV unifié</span><span class="pe-sub" data-i18n="preset.kvunified_sub">un seul cache partagé</span></span>
             <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-kvunified" onchange="eaToggleFlag('--kv-unified', this.checked)"><span class="pe-sl"></span></label></span>
           </div>
         </div>
@@ -1112,7 +1170,7 @@
         <div class="pe-gh" data-i18n="preset.sampling_heading">Échantillonnage</div>
         <div class="pe-list">
           <div id="m-sampling-toggle" class="pe-row" style="cursor:pointer" onclick="toggleSampling()">
-            <span class="pe-row-l"><span data-i18n="preset.sampling_toggle_label">Réglages d'échantillonnage</span><span class="pe-sub" data-i18n="preset.sampling_toggle_sub">température, top_p, pénalités… (défaut du modèle si vide)</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.sampling_toggle_label">Réglages d'échantillonnage</span><span class="pe-sub" data-i18n="preset.sampling_toggle_sub">vide = défaut du modèle</span></span>
             <span class="pe-row-c"><span id="m-sampling-caret" class="pe-caret"></span></span>
           </div>
           <div id="m-sampling-body">
@@ -1133,15 +1191,15 @@
             <span class="pe-row-c"><input id="s-minp" class="pe-val" type="number" min="0" max="1" step="0.01" placeholder="—" oninput="cfgWriteKey('MIN_P', this.value)"></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.presence_label">Pénalité de présence</span><span class="pe-sub" data-i18n="preset.presence_sub">pousse vers de nouveaux mots (0 = off)</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.presence_label">Pénalité de présence</span><span class="pe-sub" data-i18n="preset.presence_sub">favorise les mots nouveaux</span></span>
             <span class="pe-row-c"><input id="s-presp" class="pe-val" type="number" min="0" max="2" step="0.1" placeholder="—" oninput="cfgWriteKey('PRESENCE_PENALTY', this.value)"></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.repeat_label">Pénalité de répétition</span><span class="pe-sub" data-i18n="preset.repeat_sub">anti-répétition (1 = neutre)</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.repeat_label">Pénalité de répétition</span><span class="pe-sub" data-i18n="preset.repeat_sub">1 = neutre</span></span>
             <span class="pe-row-c"><input id="s-reppen" class="pe-val" type="number" min="0" step="0.05" placeholder="—" oninput="cfgWriteKey('REPEAT_PENALTY', this.value)"></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.effort_label">Effort de réflexion</span><span class="pe-sub" data-i18n="preset.effort_sub">ajoute --jinja automatiquement</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.effort_label">Effort de réflexion</span><span class="pe-sub" data-i18n="preset.effort_sub">active --jinja</span></span>
             <span class="pe-row-c"><span class="pe-selc"><select id="s-effort" onchange="onEffort(this.value)">
               <option value="" data-i18n="preset.effort_opt_default">défaut du modèle</option>
               <option value="low" data-i18n="preset.effort_opt_low">low (rapide)</option>
@@ -1160,7 +1218,7 @@
         <div class="pe-gh" data-i18n="preset.sysprompt_heading">System prompt</div>
         <div class="pe-list">
           <div id="m-sys-toggle" class="pe-row" style="cursor:pointer" onclick="toggleSysPrompt()">
-            <span class="pe-row-l"><span data-i18n="preset.sysprompt_toggle_label">Prompt système du preset</span><span class="pe-sub" data-i18n="preset.sysprompt_toggle_sub">optionnel — injecté quand ce preset est actif</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.sysprompt_toggle_label">Prompt système du preset</span><span class="pe-sub" data-i18n="preset.sysprompt_toggle_sub">optionnel, propre à ce preset</span></span>
             <span class="pe-row-c"><span id="m-sys-caret" class="pe-caret"></span></span>
           </div>
           <div id="m-sys-body" class="pe-row stack" style="display:none">

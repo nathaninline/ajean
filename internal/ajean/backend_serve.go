@@ -107,7 +107,7 @@ func binSupportsLoadMode(bin string) bool {
 func reconcileLoadMode(args []string, bin string) []string {
 	// Court-circuit : sans ancien drapeau, rien à faire — et surtout on évite de
 	// lancer « --help » pour rien à chaque démarrage du moteur.
-	if !containsAny(args, "--mlock", "--no-mmap") {
+	if !containsAny(args, "--mlock", "--no-mmap", "--load-mode", "-lm") {
 		return args
 	}
 	return translateLoadMode(args, binSupportsLoadMode(bin))
@@ -118,7 +118,7 @@ func reconcileLoadMode(args []string, bin string) []string {
 // arguments inchangés (moteur ancien ou fork qui garde l'ancienne syntaxe).
 func translateLoadMode(args []string, supported bool) []string {
 	if !supported {
-		return args
+		return downgradeLoadMode(args)
 	}
 	hasMlock, hasNoMmap, hasLoadMode := false, false, false
 	kept := make([]string, 0, len(args))
@@ -152,6 +152,54 @@ func translateLoadMode(args []string, supported bool) []string {
 		mode = "none"
 	}
 	return append(kept, "--load-mode", mode)
+}
+
+// downgradeLoadMode fait le chemin inverse pour un moteur ANCIEN (ou un fork)
+// qui ne connaît pas --load-mode : l'éditeur écrit désormais --load-mode, et le
+// passer tel quel à un tel moteur le ferait sortir en erreur au démarrage.
+//
+//	none        → --no-mmap
+//	mlock       → --mlock --no-mmap
+//	mmap+mlock  → --mlock
+//	auto, mmap  → rien (comportement par défaut de l'ancien moteur)
+//	dio         → rien (DirectIO inconnu de l'ancien moteur)
+func downgradeLoadMode(args []string) []string {
+	mode, found := "", false
+	kept := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--load-mode" || args[i] == "-lm" {
+			found = true
+			if i+1 < len(args) {
+				mode = strings.ToLower(args[i+1])
+				i++
+			}
+			continue
+		}
+		kept = append(kept, args[i])
+	}
+	if !found {
+		return args
+	}
+	add := func(flag string) {
+		for _, a := range kept {
+			if a == flag {
+				return
+			}
+		}
+		kept = append(kept, flag)
+	}
+	switch mode {
+	case "none":
+		add("--no-mmap")
+	case "mlock":
+		add("--mlock")
+		add("--no-mmap")
+	case "mmap+mlock":
+		add("--mlock")
+	case "dio":
+		fmt.Fprintf(os.Stderr, "[ajean serve] ce moteur ne connaît pas --load-mode dio (DirectIO) : chargement par défaut\n")
+	}
+	return kept
 }
 
 func containsAny(args []string, needles ...string) bool {

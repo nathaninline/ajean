@@ -43,10 +43,19 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 	// (il tape vers l'API distante). On l'annonce « actif/prêt » pour que l'UI
 	// débloque la saisie au lieu d'afficher un moteur éteint indéfiniment.
 	external := externalActive()
+	cloudErr := ""
 	if external {
 		active = true
 		state = "active"
 		health = true
+		// GPU cloud : « prêt » seulement une fois déployé (sinon on déploie).
+		if cfg := ReadConfig(); isCloudConfig(cfg) {
+			health = cloudReady(cfg)
+			if !health {
+				cloudDeploy() // sans effet si déjà en cours ou déjà échoué
+				_, cloudErr = cloudStatus()
+			}
+		}
 	}
 	ctx := 32768
 	if v := ReadConfig()["CTX"]; v != "" {
@@ -58,8 +67,8 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 	// chargement qui a échoué (souvent un modèle incompatible avec le moteur)
 	// doit être signalée clairement plutôt que de laisser un « chargement… »
 	// perpétuel / un crash-loop muet.
-	loadErr := ""
-	if !health {
+	loadErr := cloudErr
+	if !health && !external {
 		loadErr = modelLoadError()
 	}
 	sendJSON(w, 200, map[string]any{
@@ -253,8 +262,15 @@ func handleVram(w http.ResponseWriter, r *http.Request) {
 // anciens et le repli côté UI) : {vram: [...], ram: {used, total}}.
 func handleTelemetry(w http.ResponseWriter, r *http.Request) {
 	used, total := ramUsageMB()
+	var gpus any = vramGPUs()
+	if c := cloudGPUInfo(); c != nil {
+		b, _ := json.Marshal(gpus)
+		var list []any
+		_ = json.Unmarshal(b, &list)
+		gpus = append([]any{c}, list...)
+	}
 	sendJSON(w, 200, map[string]any{
-		"vram": vramGPUs(),
+		"vram": gpus,
 		"ram":  map[string]any{"used": used, "total": total},
 	})
 }
@@ -487,8 +503,14 @@ func handlePresets(w http.ResponseWriter, r *http.Request) {
 				if m := strings.TrimSpace(cfg[extKeyModel]); m != "" {
 					item["model"] = m
 				}
+				if strings.TrimSpace(cfg[extKeyVision]) == "1" {
+					item["vision"] = true
+				}
 				out = append(out, item)
 				continue
+			}
+			if cfg := parseEnv(content); isCloudConfig(cfg) {
+				item["cloud"] = cloudGPU(cfg)
 			}
 			if q := detectQuant(content); q != "" {
 				item["quant"] = q
@@ -1224,14 +1246,15 @@ func handleBackupNow(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true, "id": id})
 }
 
-// handleBackupRestore restaure une sauvegarde. Corps : {id, secret}.
+// handleBackupRestore restaure une sauvegarde. Corps : {id, machine, secret}.
 func handleBackupRestore(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		ID     string `json:"id"`
-		Secret string `json:"secret"`
+		ID      string `json:"id"`
+		Machine string `json:"machine"`
+		Secret  string `json:"secret"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
-	if err := RestoreBackup(req.ID, req.Secret); err != nil {
+	if err := RestoreBackup(req.ID, req.Machine, req.Secret); err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
@@ -1323,7 +1346,8 @@ func handleSwitch(w http.ResponseWriter, r *http.Request) {
 	// Preset externe : aucun moteur local à (re)démarrer — il n'a pas de MODEL et
 	// crash-looperait. On ARRÊTE plutôt le llama-server encore en vie pour libérer
 	// la VRAM, puisque le chat part désormais vers l'API distante.
-	if isExternalConfig(ReadConfig()) {
+	if usesRemoteEndpoint(ReadConfig()) {
+		cloudDeployOpt(true) // bascule explicite : retente même après un échec
 		go func() {
 			if serviceIsActive() {
 				if err := serviceAction("stop"); err != nil {

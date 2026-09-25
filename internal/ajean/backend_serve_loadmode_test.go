@@ -43,6 +43,30 @@ func TestTranslateLoadMode(t *testing.T) {
 			want:      []string{"-m", "x.gguf", "--load-mode", "mlock"},
 		},
 		{
+			name:      "old engine: --load-mode none -> --no-mmap",
+			args:      []string{"-m", "x.gguf", "--load-mode", "none"},
+			supported: false,
+			want:      []string{"-m", "x.gguf", "--no-mmap"},
+		},
+		{
+			name:      "old engine: --load-mode mlock -> --mlock --no-mmap",
+			args:      []string{"-m", "x.gguf", "--load-mode", "mlock", "-c", "4096"},
+			supported: false,
+			want:      []string{"-m", "x.gguf", "-c", "4096", "--mlock", "--no-mmap"},
+		},
+		{
+			name:      "old engine: -lm mmap+mlock -> --mlock",
+			args:      []string{"-lm", "mmap+mlock", "-m", "x.gguf"},
+			supported: false,
+			want:      []string{"-m", "x.gguf", "--mlock"},
+		},
+		{
+			name:      "old engine: --load-mode auto -> nothing",
+			args:      []string{"-m", "x.gguf", "--load-mode", "auto"},
+			supported: false,
+			want:      []string{"-m", "x.gguf"},
+		},
+		{
 			name:      "explicit --load-mode wins, old flag stripped",
 			args:      []string{"-m", "x.gguf", "--mlock", "--load-mode", "dio"},
 			supported: true,
