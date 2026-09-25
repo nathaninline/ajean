@@ -887,12 +887,6 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-row-l{font-size:14px;color:var(--text);flex:1;min-width:0;line-height:1.3}
 .pe-row-l .pe-sub{display:block;font-size:11px;color:var(--dim);margin-top:2px}
 .pe-row-c{flex:none;display:flex;align-items:center;gap:6px;max-width:62%;justify-content:flex-end}
-/* Modèle de draft : le nom de fichier peut être long. On garde le libellé sur UNE
-   ligne (largeur naturelle) et on laisse le select céder la place et se tronquer
-   (ellipsis) plutôt que d'écraser le libellé qui passait alors sur deux lignes. */
-#s-spec-draft-row .pe-row-l{flex:0 0 auto;white-space:nowrap}
-#s-spec-draft-row .pe-row-c{flex:1 1 auto;min-width:0;max-width:none;overflow:hidden}
-#s-spec-draft-row .pe-selc{min-width:0;overflow:hidden}
 /* Valeur éditable sans bordure, alignée à droite (nombre / texte). */
 .pe-val{border:none;background:transparent;color:var(--accent);font:inherit;text-align:right;padding:4px 0;width:110px;max-width:44vw}
 .pe-val::placeholder{color:var(--dim)}
@@ -902,8 +896,17 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-selc{position:relative;display:flex;align-items:center;max-width:100%}
 .pe-selc select{appearance:none;-webkit-appearance:none;border:none;background:transparent;color:var(--accent);font:inherit;text-align:right;text-align-last:right;padding:4px 16px 4px 0;cursor:pointer;max-width:100%;text-overflow:ellipsis}
 .pe-selc select:focus{outline:none}
-.pe-row-c .pe-selc select{field-sizing:content}
-.pe-selc::after{content:"›";position:absolute;right:0;transform:rotate(90deg);color:var(--dim);font-size:14px;pointer-events:none}
+/* Listes de sélection : colonne de largeur fixe, texte aligné à gauche. Les
+   valeurs démarrent toutes au même endroit d'une ligne à l'autre (plus lisible
+   qu'un alignement à droite qui suivait la longueur de chaque valeur), la
+   flèche reste au bord droit. */
+.pe-row-c:has(> .pe-selc:not(.wide)){flex:0 0 46%;max-width:46%;justify-content:flex-start}
+.pe-row-c > .pe-selc:not(.wide){width:100%;min-width:0;overflow:hidden}
+.pe-row-c > .pe-selc:not(.wide) select{width:100%;text-align:left;text-align-last:left}
+/* Flèche dessinée (et non plus le caractère « › » tourné, dont l'approche la
+   décalait de quelques pixels) : elle tombe pile sur le bord droit, aligné avec
+   les nombres et les interrupteurs des autres lignes. */
+.pe-selc::after{content:"";position:absolute;right:1px;top:50%;width:5px;height:5px;margin-top:-4px;border-right:1.5px solid var(--dim);border-bottom:1.5px solid var(--dim);transform:rotate(45deg);pointer-events:none}
 /* Variante pleine largeur : la liste native s'ouvre alignée à gauche de la
    ligne (et non collée au bord droit) et le nom de fichier a la place de
    s'afficher en entier. */

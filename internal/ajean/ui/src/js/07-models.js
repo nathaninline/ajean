@@ -1064,7 +1064,7 @@ async function loadCloudCredit(){
   let d = null;
   try{ d = await jget('/api/cloud/billing?profile='+encodeURIComponent(p)); }catch(e){}
   if(cfgReadKey('CLOUD_PROFILE') !== p) return; // compte changé entre-temps
-  if(!d || d.error || d.month_cost == null){ val.textContent = '—'; sub.textContent = t('preset.cloud_credit_na'); return; }
+  if(!d || d.error || d.month_cost == null){ val.textContent = '—'; sub.textContent = (d && d.error) || t('preset.cloud_credit_na'); return; }
   const usd = v => Number(v).toFixed(2).replace('.', ',')+' $';
   if(d.credit_left != null){
     val.textContent = usd(d.credit_left);

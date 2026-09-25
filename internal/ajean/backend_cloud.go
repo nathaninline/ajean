@@ -349,11 +349,7 @@ func runCloudDeploy(cfg map[string]string) (string, error) {
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		msg := strings.TrimSpace(string(out))
-		if len(msg) > 600 {
-			msg = msg[len(msg)-600:]
-		}
-		return "", fmt.Errorf("modal deploy a échoué : %s", msg)
+		return "", fmt.Errorf("déploiement Modal impossible : %s", modalErrorText(string(out)))
 	}
 	url := cloudURLRe.FindString(string(out))
 	if url == "" {

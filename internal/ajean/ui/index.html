@@ -522,9 +522,6 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-row-l{font-size:14px;color:var(--text);flex:1;min-width:0;line-height:1.3}
 .pe-row-l .pe-sub{display:block;font-size:11px;color:var(--dim);margin-top:2px}
 .pe-row-c{flex:none;display:flex;align-items:center;gap:6px;max-width:62%;justify-content:flex-end}
-#s-spec-draft-row .pe-row-l{flex:0 0 auto;white-space:nowrap}
-#s-spec-draft-row .pe-row-c{flex:1 1 auto;min-width:0;max-width:none;overflow:hidden}
-#s-spec-draft-row .pe-selc{min-width:0;overflow:hidden}
 .pe-val{border:none;background:transparent;color:var(--accent);font:inherit;text-align:right;padding:4px 0;width:110px;max-width:44vw}
 .pe-val::placeholder{color:var(--dim)}
 .pe-val:focus{outline:none}
@@ -532,8 +529,10 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-selc{position:relative;display:flex;align-items:center;max-width:100%}
 .pe-selc select{appearance:none;-webkit-appearance:none;border:none;background:transparent;color:var(--accent);font:inherit;text-align:right;text-align-last:right;padding:4px 16px 4px 0;cursor:pointer;max-width:100%;text-overflow:ellipsis}
 .pe-selc select:focus{outline:none}
-.pe-row-c .pe-selc select{field-sizing:content}
-.pe-selc::after{content:"›";position:absolute;right:0;transform:rotate(90deg);color:var(--dim);font-size:14px;pointer-events:none}
+.pe-row-c:has(> .pe-selc:not(.wide)){flex:0 0 46%;max-width:46%;justify-content:flex-start}
+.pe-row-c > .pe-selc:not(.wide){width:100%;min-width:0;overflow:hidden}
+.pe-row-c > .pe-selc:not(.wide) select{width:100%;text-align:left;text-align-last:left}
+.pe-selc::after{content:"";position:absolute;right:1px;top:50%;width:5px;height:5px;margin-top:-4px;border-right:1.5px solid var(--dim);border-bottom:1.5px solid var(--dim);transform:rotate(45deg);pointer-events:none}
 .pe-selc.wide{width:100%}
 .pe-selc.wide select{flex:1;text-align:left;text-align-last:left;padding-right:18px}
 .pe-selc.wide::after{right:2px}
@@ -1900,7 +1899,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
         <div class="pe-gh" data-i18n="preset.run_heading">Exécution</div>
         <div class="pe-seg">
           <label><input type="radio" name="m-run" value="local" onchange="onRunMode('local')"><span data-i18n="preset.run_local">Cette machine</span></label>
-          <label><input type="radio" name="m-run" value="external" onchange="onRunMode('external')"><span data-i18n="preset.run_external">API externe</span></label>
+          <label><input type="radio" name="m-run" value="external" onchange="onRunMode('external')"><span data-i18n="preset.run_external">API Externe</span></label>
           <label><input type="radio" name="m-run" value="modal" onchange="onRunMode('modal')"><span data-i18n="preset.run_modal">GPU cloud</span></label>
         </div>
         <div id="m-ext-body" class="pe-list" style="display:none;margin-top:8px">
@@ -2092,7 +2091,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
             <span class="pe-row-c"><input id="s-np" class="pe-val" type="number" min="1" step="1" placeholder="1" oninput="eaSetValued('-np', this.value)"></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.kv_label">Cache KV</span><span class="pe-sub" data-i18n="preset.kv_sub">compresse le contexte · % = qualité</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.kv_label">Cache KV</span><span class="pe-sub" data-i18n="preset.kv_sub">compresse le contexte</span></span>
             <span class="pe-row-c"><span class="pe-selc"><select id="s-kv" onchange="kvSetCombo(this.value)">
               <option value="" data-i18n="preset.kv_opt_f16">f16 · 100 %</option>
               <option value="q8_0|q8_0" data-i18n="preset.kv_opt_q8">q8_0 · 94,6 %</option>
@@ -2636,7 +2635,7 @@ fr: {
   "preset.cloud_credit_billed": "facturé",
   "preset.run_local": "Cette machine",
   "preset.run_modal": "GPU cloud",
-  "preset.run_external": "API externe",
+  "preset.run_external": "API Externe",
   "preset.cloud_gpu_label": "GPU",
   "preset.cloud_gpu_sub": "facturé à la seconde",
   "preset.cloud_model_label": "Modèle",
@@ -2686,7 +2685,7 @@ fr: {
   "preset.np_label": "Séquences parallèles",
   "preset.np_sub": "1 recommandé",
   "preset.kv_label": "Cache KV",
-  "preset.kv_sub": "compresse le contexte · % = qualité",
+  "preset.kv_sub": "compresse le contexte",
   "preset.kv_opt_f16": "f16 · 100 %",
   "preset.kv_opt_q8": "q8_0 · 94,6 %",
   "preset.kv_opt_q4": "q4_0 · 89,8 %",
@@ -2842,11 +2841,11 @@ fr: {
   "settings.presets.vision_title": "vision (analyse d'images)",
   "settings.presets.reasoning_title": "raisonnement",
   "settings.presets.edit_title": "réglages du preset",
-  "settings.presets.external_title": "API externe (distante)",
+  "settings.presets.external_title": "API Externe (distante)",
   "settings.presets.cloud_title": "GPU cloud",
   "settings.presets.external_model_title": "modèle distant",
   "external.title": "API Externe",
-  "external.new_title": "Nouvelle API externe",
+  "external.new_title": "Nouvelle API Externe",
   "external.cfg_type_label": "Type",
   "external.edit_prefix": "Modifier",
   "external.close_aria": "Fermer",
@@ -2871,16 +2870,16 @@ fr: {
   "external.test_ok": "connexion réussie",
   "external.test_failed": "échec de la connexion",
   "external.saving": "enregistrement…",
-  "external.saved": "API externe enregistrée",
+  "external.saved": "API Externe enregistrée",
   "external.save_failed": "échec de l'enregistrement",
-  "external.deleted": "API externe supprimée",
+  "external.deleted": "API Externe supprimée",
   "external.delete_failed": "suppression impossible",
   "external.name_required": "nom requis",
   "external.url_required": "URL requise",
   "external.model_required": "modèle requis",
   "external.url_model_required": "URL et modèle requis",
   "external.confirm_delete_prefix": "Supprimer",
-  "external.delete_title": "Supprimer l'API externe",
+  "external.delete_title": "Supprimer l'API Externe",
   "external.delete_btn": "supprimer",
   "settings.agent.badge_on": "actif",
   "settings.agent.badge_off": "inactif",
@@ -3848,7 +3847,7 @@ en: {
   "preset.np_label": "Parallel sequences",
   "preset.np_sub": "1 recommended",
   "preset.kv_label": "KV cache",
-  "preset.kv_sub": "compresses the context · % = quality",
+  "preset.kv_sub": "compresses the context",
   "preset.kv_opt_f16": "f16 · 100%",
   "preset.kv_opt_q8": "q8_0 · 94.6%",
   "preset.kv_opt_q4": "q4_0 · 89.8%",
@@ -6549,7 +6548,7 @@ async function loadCloudCredit(){
   let d = null;
   try{ d = await jget('/api/cloud/billing?profile='+encodeURIComponent(p)); }catch(e){}
   if(cfgReadKey('CLOUD_PROFILE') !== p) return; 
-  if(!d || d.error || d.month_cost == null){ val.textContent = '—'; sub.textContent = t('preset.cloud_credit_na'); return; }
+  if(!d || d.error || d.month_cost == null){ val.textContent = '—'; sub.textContent = (d && d.error) || t('preset.cloud_credit_na'); return; }
   const usd = v => Number(v).toFixed(2).replace('.', ',')+' $';
   if(d.credit_left != null){
     val.textContent = usd(d.credit_left);

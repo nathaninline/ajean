@@ -870,7 +870,7 @@
         <div class="pe-gh" data-i18n="preset.run_heading">Exécution</div>
         <div class="pe-seg">
           <label><input type="radio" name="m-run" value="local" onchange="onRunMode('local')"><span data-i18n="preset.run_local">Cette machine</span></label>
-          <label><input type="radio" name="m-run" value="external" onchange="onRunMode('external')"><span data-i18n="preset.run_external">API externe</span></label>
+          <label><input type="radio" name="m-run" value="external" onchange="onRunMode('external')"><span data-i18n="preset.run_external">API Externe</span></label>
           <label><input type="radio" name="m-run" value="modal" onchange="onRunMode('modal')"><span data-i18n="preset.run_modal">GPU cloud</span></label>
         </div>
         <!-- API externe : tout modèle compatible OpenAI Chat Completions (OpenAI,
@@ -1084,7 +1084,7 @@
             <span class="pe-row-c"><input id="s-np" class="pe-val" type="number" min="1" step="1" placeholder="1" oninput="eaSetValued('-np', this.value)"></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.kv_label">Cache KV</span><span class="pe-sub" data-i18n="preset.kv_sub">compresse le contexte · % = qualité</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.kv_label">Cache KV</span><span class="pe-sub" data-i18n="preset.kv_sub">compresse le contexte</span></span>
             <span class="pe-row-c"><span class="pe-selc"><select id="s-kv" onchange="kvSetCombo(this.value)">
               <option value="" data-i18n="preset.kv_opt_f16">f16 · 100 %</option>
               <option value="q8_0|q8_0" data-i18n="preset.kv_opt_q8">q8_0 · 94,6 %</option>
