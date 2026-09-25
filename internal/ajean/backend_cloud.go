@@ -156,16 +156,30 @@ func cloudModelURL(link string) string {
 	return strings.Replace(strings.TrimSpace(link), "/blob/", "/resolve/", 1)
 }
 
-// cloudAPIKey : clé qui protège l'endpoint public. Générée une fois par machine.
+// cloudAPIKey : clé qui protège l'endpoint public. Générée une fois par machine
+// et gardée aussi en mémoire : si la base est momentanément inaccessible, on ne
+// doit JAMAIS en tirer une nouvelle à chaque appel (le relais présenterait au
+// GPU une autre clé que celle du déploiement).
+var cloudKeyMem struct {
+	sync.Mutex
+	k string
+}
+
 func cloudAPIKey() string {
+	cloudKeyMem.Lock()
+	defer cloudKeyMem.Unlock()
+	if cloudKeyMem.k != "" {
+		return cloudKeyMem.k
+	}
 	if k := getStr(bkState, "cloud_key"); k != "" {
+		cloudKeyMem.k = k
 		return k
 	}
 	b := make([]byte, 24)
 	_, _ = rand.Read(b)
-	k := hex.EncodeToString(b)
-	_ = putStr(bkState, "cloud_key", k)
-	return k
+	cloudKeyMem.k = hex.EncodeToString(b)
+	_ = putStr(bkState, "cloud_key", cloudKeyMem.k)
+	return cloudKeyMem.k
 }
 
 // cloudServerArgs traduit le preset en arguments llama-server pour le conteneur
