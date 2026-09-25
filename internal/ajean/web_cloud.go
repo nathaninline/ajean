@@ -3,6 +3,7 @@ package ajean
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -158,7 +159,7 @@ func cloudBillingCached(profile string) map[string]any {
 	if !b.loading && time.Since(b.at) > 5*time.Minute {
 		b.loading = true
 		go func() {
-			d := fetchCloudBilling(profile)
+			d, _ := fetchCloudBilling(profile)
 			cloudBills.Lock()
 			b.loading, b.at = false, time.Now()
 			if d != nil {
@@ -170,14 +171,19 @@ func cloudBillingCached(profile string) map[string]any {
 	return b.data
 }
 
-func fetchCloudBilling(profile string) map[string]any {
+// fetchCloudBilling lit le résumé du mois. En cas d'échec, l'erreur porte la
+// raison donnée par Modal (droits, compte, réseau…) pour que l'UI l'affiche au
+// lieu d'un « indisponible » muet.
+func fetchCloudBilling(profile string) (map[string]any, error) {
 	cmd, err := modalCmdFor(profile, "billing", "summary", "--json")
 	if err != nil {
-		return nil
+		return nil, err
 	}
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("%s", modalErrorText(stderr.String()+string(out)))
 	}
 	var s struct {
 		Metered     string            `json:"metered_cost"`
@@ -185,7 +191,7 @@ func fetchCloudBilling(profile string) map[string]any {
 		Adjustments map[string]string `json:"adjustments"`
 	}
 	if json.Unmarshal(out, &s) != nil {
-		return nil
+		return nil, fmt.Errorf("réponse de Modal illisible")
 	}
 	num := func(v string) float64 { f, _ := strconv.ParseFloat(strings.TrimSpace(v), 64); return f }
 	used := num(s.Metered)
@@ -204,7 +210,40 @@ func fetchCloudBilling(profile string) map[string]any {
 		d["credit_left"] = left
 		d["credit_month"] = modalStarterCredit
 	}
-	return d
+	return d, nil
+}
+
+// modalErrorText extrait le message d'une erreur de la CLI Modal (encadrée de
+// caractères de boîte) et traduit les cas connus en une phrase courte.
+func modalErrorText(raw string) string {
+	var parts []string
+	for _, l := range strings.Split(raw, "\n") {
+		l = strings.Trim(strings.TrimSpace(l), "│┌┐└┘─ ")
+		if l == "" || l == "Error" || strings.HasPrefix(l, "Traceback") {
+			continue
+		}
+		parts = append(parts, l)
+	}
+	msg := strings.Join(parts, " ")
+	low := strings.ToLower(msg)
+	switch {
+	case strings.Contains(low, "spend limit"):
+		return "limite de dépense atteinte : ajouter une carte ou relever la limite sur modal.com"
+	case strings.Contains(low, "permission") || strings.Contains(low, "not authorized") ||
+		strings.Contains(low, "forbidden") || strings.Contains(low, "owner") || strings.Contains(low, "manager"):
+		return "facturation réservée au propriétaire du workspace Modal"
+	case strings.Contains(low, "token") && (strings.Contains(low, "invalid") || strings.Contains(low, "expired")):
+		return "connexion au compte expirée : reconnecter le compte"
+	case strings.Contains(low, "not found in") && strings.Contains(low, "profile"):
+		return "compte introuvable sur cette machine : le reconnecter"
+	}
+	if r := []rune(msg); len(r) > 140 {
+		msg = string(r[:140]) + "…"
+	}
+	if msg == "" {
+		msg = "crédit indisponible"
+	}
+	return msg
 }
 
 // GET /api/cloud/billing?profile= : résumé du mois (attend la 1re mesure).
@@ -218,9 +257,9 @@ func handleCloudBilling(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 200, d)
 		return
 	}
-	d := fetchCloudBilling(profile)
-	if d == nil {
-		sendJSON(w, 200, map[string]any{"error": "crédit indisponible"})
+	d, err := fetchCloudBilling(profile)
+	if err != nil {
+		sendJSON(w, 200, map[string]any{"error": err.Error()})
 		return
 	}
 	cloudBills.Lock()

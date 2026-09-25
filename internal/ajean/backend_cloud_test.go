@@ -55,3 +55,18 @@ func TestUsesRemoteEndpoint(t *testing.T) {
 		t.Fatal("un preset local a un moteur local")
 	}
 }
+
+// Les erreurs encadrées de la CLI Modal deviennent une phrase courte et utile.
+func TestModalErrorText(t *testing.T) {
+	spend := "┌─ Error ──────┐\n│ Workspace ac-6uRQ has exceeded its spend limit │\n└──────────────┘"
+	if got := modalErrorText(spend); !strings.Contains(got, "limite de dépense") {
+		t.Errorf("limite : %q", got)
+	}
+	prof := "│ Modal profile 'test' was not found in /home/x/.modal.toml. │"
+	if got := modalErrorText(prof); !strings.Contains(got, "introuvable") {
+		t.Errorf("profil : %q", got)
+	}
+	if got := modalErrorText("│ something odd happened │"); got != "something odd happened" {
+		t.Errorf("brut : %q", got)
+	}
+}
