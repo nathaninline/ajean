@@ -65,12 +65,8 @@ func openEngineLog() *os.File {
 }
 
 func serviceAction(action string) error {
-	if (action == "start" || action == "restart") && usesRemoteEndpoint(ReadConfig()) {
-		// Preset externe ou GPU cloud : aucun moteur local à lancer (pas de MODEL,
-		// il crash-looperait). On (re)déploie le cloud si besoin et on arrête le local.
-		cloudDeploy()
-		action = "stop"
-	}
+	// API Externe : aucun moteur local (arrêt). GPU Cloud : relais local vers le GPU.
+	action = cloudServiceAction(action)
 	switch action {
 	case "start":
 		return svcStart()

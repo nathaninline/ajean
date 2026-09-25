@@ -218,6 +218,10 @@ func containsAny(args []string, needles ...string) bool {
 // supervises llama-server directly).
 func cmdServe(args []string) error {
 	cfg := ReadConfig()
+	// GPU Cloud : même port, même API, mais le modèle tourne chez Modal.
+	if isCloudConfig(cfg) {
+		return serveCloudProxy(cfg)
+	}
 	bin := cfg["BIN"]
 	if bin == "" {
 		return fmt.Errorf("BIN non défini — lance « ajean edit »")

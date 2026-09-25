@@ -51,12 +51,8 @@ func launchdLogPath() string { return filepath.Join(AjeanHome(), serviceName()+"
 // serviceAction mappe start/stop/restart/enable/disable sur launchctl. `load -w`
 // (re)active le service ET le rend persistant au boot ; `unload -w` le désactive.
 func serviceAction(action string) error {
-	if (action == "start" || action == "restart") && usesRemoteEndpoint(ReadConfig()) {
-		// Preset externe ou GPU cloud : aucun moteur local à lancer (pas de MODEL,
-		// il crash-looperait). On (re)déploie le cloud si besoin et on arrête le local.
-		cloudDeploy()
-		action = "stop"
-	}
+	// API Externe : aucun moteur local (arrêt). GPU Cloud : relais local vers le GPU.
+	action = cloudServiceAction(action)
 	svc := serviceName()
 	plist := launchdPlistPath(svc)
 	// Pas de LaunchDaemon installé — cas normal d'un Mac de bureau, où AJEAN tourne

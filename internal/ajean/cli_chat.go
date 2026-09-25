@@ -724,8 +724,7 @@ func (s *chatSession) modelCommand(arg string) {
 		if err = applyPresetFile(list[n-1].Path); err != nil {
 			return
 		}
-		if usesRemoteEndpoint(ReadConfig()) {
-			cloudDeploy()
+		if isExternalConfig(ReadConfig()) {
 			if serviceIsActive() {
 				err = serviceAction("stop")
 			}

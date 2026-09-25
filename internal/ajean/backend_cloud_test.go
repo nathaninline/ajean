@@ -70,3 +70,38 @@ func TestModalErrorText(t *testing.T) {
 		t.Errorf("brut : %q", got)
 	}
 }
+
+// Vision : le projecteur est téléchargé à côté du modèle et passé à llama-server.
+func TestCloudVision(t *testing.T) {
+	cfg := map[string]string{
+		"CLOUD":        "modal",
+		"CLOUD_MODEL":  "https://huggingface.co/a/b/resolve/main/m.gguf",
+		"CLOUD_MMPROJ": "https://huggingface.co/a/b/blob/main/mmproj-F16.gguf",
+	}
+	args, err := cloudServerArgs(cfg, "")
+	if err != nil || !strings.Contains(strings.Join(args, " "), "--mmproj /models/mmproj-F16.gguf") {
+		t.Fatalf("args = %v, err = %v", args, err)
+	}
+	f := cloudFiles(cfg)
+	if len(f) != 2 || f[1]["url"] != "https://huggingface.co/a/b/resolve/main/mmproj-F16.gguf" {
+		t.Fatalf("fichiers = %v", f)
+	}
+	cfg["CLOUD_MMPROJ"] = "https://huggingface.co/a/b"
+	if _, err := cloudServerArgs(cfg, ""); err == nil {
+		t.Fatal("un lien de projecteur sans .gguf doit être refusé")
+	}
+}
+
+// Un bench n'est affiché que pour le modèle sur lequel il a été mesuré.
+func TestBenchMatchesPreset(t *testing.T) {
+	sb := savedBench{Model: "Swift-IQ4_XS.gguf"}
+	if !benchMatchesPreset(sb, map[string]string{"MODEL": "/etc/ajean/models/Swift-IQ4_XS.gguf"}) {
+		t.Fatal("même modèle : bench attendu")
+	}
+	if benchMatchesPreset(sb, map[string]string{"MODEL": "Autre.gguf"}) {
+		t.Fatal("autre modèle : pas de bench")
+	}
+	if benchMatchesPreset(sb, map[string]string{"CLOUD": "modal", "MODEL": "Swift-IQ4_XS.gguf"}) {
+		t.Fatal("preset distant : pas de bench")
+	}
+}

@@ -455,7 +455,11 @@ func DeletePreset(id string) error {
 	if presetFingerprint(target) == configFingerprint(ReadConfig()) {
 		return fmt.Errorf("preset actif, switche d'abord")
 	}
-	return os.Remove(p)
+	if err := os.Remove(p); err != nil {
+		return err
+	}
+	deletePresetBench(id)
+	return nil
 }
 
 // ReadPreset returns the contents of a preset by id (filename).

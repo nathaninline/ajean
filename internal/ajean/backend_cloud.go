@@ -27,6 +27,7 @@ import (
 //   CLOUD=modal        marqueur
 //   CLOUD_GPU=A10G     type de GPU Modal (T4, L4, A10G, L40S, A100-80GB, H100…)
 //   CLOUD_MODEL=<url>  lien Hugging Face direct vers le .gguf
+//   CLOUD_MMPROJ=<url> lien vers le projecteur vision (optionnel)
 //
 // Le déploiement passe par la CLI `modal` (pip install modal + modal setup sur
 // la machine qui fait tourner AJEAN). Le modèle est téléchargé une fois dans un
@@ -39,6 +40,7 @@ const (
 	cloudKeyModel = "CLOUD_MODEL"
 	cloudKeyIdle  = "CLOUD_IDLE"
 	cloudKeyProf  = "CLOUD_PROFILE" // profil Modal (compte) ; vide = profil actif de la CLI
+	cloudKeyMM    = "CLOUD_MMPROJ"  // lien direct vers le projecteur vision (mmproj .gguf), optionnel
 	cloudVolume   = "ajean-models"
 )
 
@@ -87,6 +89,7 @@ func cloudFingerprint(cfg map[string]string) string {
 		"a": strings.Join(args, "\x00"),
 		"g": cloudGPU(cfg),
 		"m": cfg[cloudKeyModel],
+		"v": cfg[cloudKeyMM],
 		"i": cloudIdle(cfg),
 		"p": cloudProfile(cfg),
 	})
@@ -128,6 +131,24 @@ func cloudModelFile(link string) string {
 		link = link[:i]
 	}
 	return path.Base(link)
+}
+
+// cloudFiles : fichiers à télécharger dans le volume (modèle, puis projecteur
+// vision s'il y en a un).
+func cloudFiles(cfg map[string]string) []map[string]string {
+	var out []map[string]string
+	for _, k := range []string{cloudKeyModel, cloudKeyMM} {
+		if l := strings.TrimSpace(cfg[k]); l != "" {
+			out = append(out, map[string]string{"url": cloudModelURL(l), "file": cloudModelFile(l)})
+		}
+	}
+	return out
+}
+
+// cloudVisionActive : le preset cloud actif a un projecteur vision.
+func cloudVisionActive() bool {
+	cfg := ReadConfig()
+	return isCloudConfig(cfg) && strings.TrimSpace(cfg[cloudKeyMM]) != ""
 }
 
 // cloudModelURL : accepte un lien /blob/ (page HF) et le convertit en /resolve/.
@@ -184,6 +205,13 @@ func cloudServerArgs(cfg map[string]string, key string) ([]string, error) {
 			args = append(args, "--reasoning", "off")
 		}
 	}
+	if mm := strings.TrimSpace(cfg[cloudKeyMM]); mm != "" {
+		mf := cloudModelFile(mm)
+		if !strings.HasSuffix(strings.ToLower(mf), ".gguf") {
+			return nil, fmt.Errorf("lien du projecteur vision invalide : il faut un lien direct vers un .gguf")
+		}
+		args = append(args, "--mmproj", "/models/"+mf)
+	}
 	if key != "" {
 		args = append(args, "--api-key", key)
 	}
@@ -215,19 +243,20 @@ app = modal.App(CFG["app"], image=image)
 
 
 def ensure_model():
-    dst = "/models/" + CFG["file"]
-    if os.path.exists(dst):
-        return
-    tmp = dst + ".part"
-    print("téléchargement du modèle", CFG["url"], flush=True)
-    with urllib.request.urlopen(CFG["url"]) as r, open(tmp, "wb") as f:
-        while True:
-            b = r.read(16 << 20)
-            if not b:
-                break
-            f.write(b)
-    os.replace(tmp, dst)
-    models.commit()
+    for item in CFG["files"]:
+        dst = "/models/" + item["file"]
+        if os.path.exists(dst):
+            continue
+        tmp = dst + ".part"
+        print("téléchargement", item["url"], flush=True)
+        with urllib.request.urlopen(item["url"]) as r, open(tmp, "wb") as f:
+            while True:
+                b = r.read(16 << 20)
+                if not b:
+                    break
+                f.write(b)
+        os.replace(tmp, dst)
+        models.commit()
 
 
 @app.function(gpu=CFG["gpu"], memory=CFG["memory"], volumes={"/models": models},
@@ -325,8 +354,7 @@ func runCloudDeploy(cfg map[string]string) (string, error) {
 	fmt.Sscan(cloudIdle(cfg), &idle)
 	spec, _ := json.Marshal(map[string]any{
 		"app": app, "gpu": cloudGPU(cfg), "idle": idle, "memory": 32768,
-		"url": cloudModelURL(cfg[cloudKeyModel]), "file": cloudModelFile(cfg[cloudKeyModel]),
-		"args": args,
+		"files": cloudFiles(cfg), "args": args,
 	})
 	dir := filepath.Join(AjeanHome(), "cloud")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -355,6 +383,9 @@ func runCloudDeploy(cfg map[string]string) (string, error) {
 	if url == "" {
 		return "", fmt.Errorf("modal deploy n'a renvoyé aucune URL")
 	}
+	// Dernier GPU Cloud déployé : sa carte reste visible après un changement de
+	// preset tant qu'il tourne encore (voir cloudGPUInfo).
+	_ = putStr(bkState, "cloud_last", app+"|"+cloudProfile(cfg)+"|"+cloudGPU(cfg)+"|"+cloudIdle(cfg))
 	return url, nil
 }
 
@@ -385,16 +416,24 @@ func doLLM(ctx context.Context, req *http.Request, body []byte, ep chatEndpoint)
 	if !ep.Cloud {
 		return http.DefaultClient.Do(req)
 	}
+	cloudActivityBegin()
 	deadline := time.Now().Add(30 * time.Minute) // 1er démarrage = téléchargement du modèle
 	for {
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil || resp.StatusCode != http.StatusServiceUnavailable || time.Now().After(deadline) {
-			return resp, err
+			if err != nil {
+				cloudActivityEnd()
+				return resp, err
+			}
+			// La requête se termine quand le flux est lu jusqu'au bout et fermé.
+			resp.Body = &cloudBody{ReadCloser: resp.Body}
+			return resp, nil
 		}
 		io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 		select {
 		case <-ctx.Done():
+			cloudActivityEnd()
 			return nil, ctx.Err()
 		case <-time.After(5 * time.Second):
 		}
@@ -404,70 +443,223 @@ func doLLM(ctx context.Context, req *http.Request, body []byte, ep chatEndpoint)
 	}
 }
 
+// Activité vers le GPU Cloud : Modal éteint le conteneur après CLOUD_IDLE
+// secondes sans requête, comptées depuis la FIN de la dernière. En la suivant,
+// l'UI peut afficher le temps restant avant l'arrêt.
+var cloudAct struct {
+	sync.Mutex
+	inflight int
+	lastEnd  time.Time
+}
+
+func cloudActivityBegin() {
+	cloudAct.Lock()
+	cloudAct.inflight++
+	cloudAct.Unlock()
+}
+
+func cloudActivityEnd() {
+	cloudAct.Lock()
+	if cloudAct.inflight > 0 {
+		cloudAct.inflight--
+	}
+	cloudAct.lastEnd = time.Now()
+	cloudAct.Unlock()
+	// Partagé avec l'autre process : les requêtes de l'API passent par le relais
+	// du service moteur, le compte à rebours est affiché par l'interface.
+	_ = putStr(bkState, "cloud_last_end", fmt.Sprint(time.Now().UnixMilli()))
+}
+
+// cloudBody signale la fin de la requête à la fermeture du flux (une fois).
+type cloudBody struct {
+	io.ReadCloser
+	once sync.Once
+}
+
+func (b *cloudBody) Close() error {
+	b.once.Do(cloudActivityEnd)
+	return b.ReadCloser.Close()
+}
+
+// cloudOffAt : heure d'arrêt prévue du GPU (ms Unix), 0 si inconnue ou si une
+// requête est en cours (busy=true).
+func cloudOffAt(idle string) (offAt int64, busy bool) {
+	cloudAct.Lock()
+	defer cloudAct.Unlock()
+	if cloudAct.inflight > 0 {
+		return 0, true
+	}
+	last := cloudAct.lastEnd.UnixMilli()
+	if cloudAct.lastEnd.IsZero() {
+		last = 0
+	}
+	var shared int64
+	fmt.Sscan(getStr(bkState, "cloud_last_end"), &shared)
+	if shared > last {
+		last = shared
+	}
+	if last == 0 {
+		return 0, false
+	}
+	sec := 300
+	fmt.Sscan(idle, &sec)
+	return last + int64(sec)*1000, false
+}
+
 // cloudVRAMMB : mémoire des GPU Modal, pour l'affichage « Appareil ».
 var cloudVRAMMB = map[string]int{"T4": 16384, "L4": 24576, "A10G": 24576, "A10": 24576, "L40S": 49152,
 	"A100": 40960, "A100-40GB": 40960, "A100-80GB": 81920, "H100": 81920, "H200": 144384, "B200": 196608}
 
-// cloudGPUInfo : carte du GPU cloud actif pour /api/telemetry (nil sinon).
-// La conso réelle n'est pas mesurée (le conteneur peut dormir) : used = 0 et
-// l'état du déploiement dans `status`.
+// cloudGPUInfo : carte GPU Cloud pour /api/telemetry (nil = rien à montrer).
+//
+// Preset GPU Cloud actif : toujours affichée, avec son état réel (voir
+// cloudPhase). Autre preset actif : affichée SEULEMENT si le GPU du dernier
+// preset cloud tourne encore (il reste facturé jusqu'à sa mise en veille).
 func cloudGPUInfo() map[string]any {
 	cfg := ReadConfig()
-	if !isCloudConfig(cfg) {
+	active := isCloudConfig(cfg)
+	app, profile, g, idle := cloudAppName(), cloudProfile(cfg), cloudGPU(cfg), cloudIdle(cfg)
+	if !active {
+		last := strings.SplitN(getStr(bkState, "cloud_last"), "|", 4)
+		if len(last) < 3 || last[0] == "" {
+			return nil
+		}
+		app, profile, g = last[0], last[1], last[2]
+		if len(last) == 4 {
+			idle = last[3]
+		}
+	}
+	m := cloudMetricsFor(app, profile)
+	if !active && (m == nil || !m.running) {
 		return nil
 	}
-	g := cloudGPU(cfg)
-	st := "prêt · s'éteint après " + cloudIdle(cfg) + " s sans requête"
-	if dep, e := cloudStatus(); dep {
-		st = "déploiement en cours…"
-	} else if e != "" {
-		st = "erreur de déploiement"
-	} else if !cloudReady(cfg) {
-		st = "pas encore déployé"
+	out := map[string]any{"name": "Modal " + g, "total": cloudVRAMMB[strings.ToUpper(g)], "used": 0, "cloud": true}
+	phase, status := cloudPhase(cfg, m)
+	if !active {
+		phase, status = "leaving", "preset inactif · s'arrête après inactivité"
 	}
-	out := map[string]any{"name": "Modal " + g, "total": cloudVRAMMB[strings.ToUpper(g)], "used": 0, "cloud": true, "status": st}
-	if m := cloudMetrics(); m != nil {
-		out["used"], out["total"], out["util"], out["temp"] = m[0], m[1], m[2], m[3]
-		out["awake"] = true
-	} else if st == "prêt · s'éteint après "+cloudIdle(cfg)+" s sans requête" {
-		out["status"] = "en veille · se réveille au prochain message"
+	out["phase"], out["status"] = phase, status
+	// Compte à rebours avant la mise en veille (GPU allumé, aucune requête en cours).
+	if m != nil && m.running && m.partMB == 0 {
+		if off, busy := cloudOffAt(idle); busy {
+			out["busy"] = true
+		} else if off > time.Now().UnixMilli() {
+			out["off_at"] = off
+		}
 	}
-	if b := cloudBillingCached(cloudProfile(cfg)); b != nil {
+	if m != nil && m.running {
+		switch {
+		case m.partMB > 0:
+			link := cfg[cloudKeyModel]
+			if mm := cfg[cloudKeyMM]; mm != "" && cloudModelFile(mm) == m.partFile {
+				link = mm
+			}
+			out["used"], out["total"] = m.partMB, cloudModelSizeMB(link)
+		case len(m.vals) == 4:
+			out["used"], out["total"], out["util"], out["temp"] = m.vals[0], m.vals[1], m.vals[2], m.vals[3]
+			out["awake"] = true
+		}
+	}
+	if b := cloudBillingCached(profile); b != nil {
 		out["billing"] = b
 	}
 	return out
 }
 
-// Mesure du GPU cloud : `modal container list` dit si un conteneur tourne (sans
-// le réveiller), puis `modal container exec … nvidia-smi` lit sa VRAM. ~3 s par
-// mesure, donc en tâche de fond, au plus toutes les 10 s, et seulement tant que
-// l'UI la demande.
-var cloudMet struct {
+// cloudPhase : état du GPU Cloud du preset actif, en une étape + un libellé.
+//
+//	checking     état pas encore mesuré (quelques secondes)
+//	deploying    déploiement sur Modal en cours
+//	error        déploiement en échec
+//	sleeping     déployé, conteneur éteint (le prochain message le réveille)
+//	downloading  premier démarrage : le conteneur télécharge le modèle
+//	loading      conteneur allumé, modèle pas encore en VRAM
+//	ready        modèle chargé
+func cloudPhase(cfg map[string]string, m *cloudMet) (phase, label string) {
+	if dep, e := cloudStatus(); dep {
+		return "deploying", "déploiement en cours…"
+	} else if e != "" {
+		return "error", "erreur de déploiement"
+	} else if !cloudReady(cfg) {
+		return "deploying", "pas encore déployé"
+	}
+	if m == nil {
+		return "checking", "vérification…" // pas encore de première mesure
+	}
+	if !m.running {
+		return "sleeping", "en veille · se réveille au prochain message"
+	}
+	if m.partMB > 0 {
+		return "downloading", "téléchargement du modèle (premier démarrage)"
+	}
+	// Moins de 1 Go en VRAM : llama-server n'a pas encore chargé les poids.
+	if len(m.vals) != 4 || m.vals[0] < 1024 {
+		return "loading", "chargement du modèle…"
+	}
+	return "ready", "actif · s'éteint après " + cloudIdle(cfg) + " s sans requête"
+}
+
+// cloudPhaseActive : étape du preset cloud actif ("" si le preset n'est pas cloud).
+func cloudPhaseActive() string {
+	cfg := ReadConfig()
+	if !isCloudConfig(cfg) {
+		return ""
+	}
+	p, _ := cloudPhase(cfg, cloudMetricsFor(cloudAppName(), cloudProfile(cfg)))
+	return p
+}
+
+// Mesure du GPU Cloud : `modal container list` dit si un conteneur tourne (sans
+// le réveiller : ce n'est pas une requête web), puis `modal container exec`
+// lit dans le conteneur la taille du modèle en cours de téléchargement et la
+// VRAM. ~3 s par mesure, donc en tâche de fond, au plus toutes les 10 s, et
+// seulement tant que l'UI la demande.
+type cloudMet struct {
+	at       time.Time
+	busy     bool
+	running  bool   // un conteneur de l'app tourne
+	partMB   int    // fichier en cours de téléchargement : Mo déjà reçus (0 = non)
+	partFile string // … et son nom (modèle ou projecteur vision)
+	vals     []int  // used, total (Mo), util (%), temp (°C)
+}
+
+var cloudMets = struct {
 	sync.Mutex
-	at      time.Time
-	running bool
-	vals    []int // used, total (Mo), util (%), temp (°C) ; nil = conteneur éteint
+	m map[string]*cloudMet
+}{m: map[string]*cloudMet{}}
+
+// cloudMetricsFor renvoie la dernière mesure connue de l'app (nil si jamais
+// mesurée) et relance une mesure si la précédente date de plus de 10 s. Une
+// mesure ancienne reste renvoyée le temps que la nouvelle arrive (~3 s) : l'UI
+// cesse d'interroger quand l'onglet est caché, et jeter la vieille mesure au
+// retour affichait « en veille » à tort pendant ces quelques secondes.
+func cloudMetricsFor(app, profile string) *cloudMet {
+	key := profile + "|" + app
+	cloudMets.Lock()
+	defer cloudMets.Unlock()
+	c := cloudMets.m[key]
+	if c == nil {
+		c = &cloudMet{}
+		cloudMets.m[key] = c
+	}
+	if !c.busy && time.Since(c.at) > 10*time.Second {
+		c.busy = true
+		go refreshCloudMetrics(key, app, profile)
+	}
+	if c.at.IsZero() {
+		return nil
+	}
+	snap := *c
+	return &snap
 }
 
-func cloudMetrics() []int {
-	cloudMet.Lock()
-	defer cloudMet.Unlock()
-	if !cloudMet.running && time.Since(cloudMet.at) > 10*time.Second {
-		cloudMet.running = true
-		go refreshCloudMetrics(cloudAppName(), cloudProfile(ReadConfig()))
-	}
-	if time.Since(cloudMet.at) > 60*time.Second {
-		return nil // mesure trop vieille : on ne l'affiche plus
-	}
-	return cloudMet.vals
-}
-
-func refreshCloudMetrics(app, profile string) {
-	var vals []int
+func refreshCloudMetrics(key, app, profile string) {
+	var res cloudMet
 	defer func() {
-		cloudMet.Lock()
-		cloudMet.vals, cloudMet.at, cloudMet.running = vals, time.Now(), false
-		cloudMet.Unlock()
+		cloudMets.Lock()
+		res.at = time.Now()
+		cloudMets.m[key] = &res
+		cloudMets.Unlock()
 	}()
 	cmd, err := modalCmdFor(profile, "container", "list", "--json")
 	if err != nil {
@@ -493,19 +685,68 @@ func refreshCloudMetrics(app, profile string) {
 	if id == "" {
 		return
 	}
-	cmd, _ = modalCmdFor(profile, "container", "exec", id, "--", "nvidia-smi",
-		"--query-gpu=memory.used,memory.total,utilization.gpu,temperature.gpu", "--format=csv,noheader,nounits")
+	res.running = true
+	// Une seule commande dans le conteneur : taille du fichier .part (modèle en
+	// cours de téléchargement, voir cloudScript), puis la ligne nvidia-smi.
+	script := `for f in /models/*.part; do [ -f "$f" ] && echo "part $(stat -c %s "$f") $(basename "$f" .part)"; done; ` +
+		`nvidia-smi --query-gpu=memory.used,memory.total,utilization.gpu,temperature.gpu --format=csv,noheader,nounits`
+	cmd, _ = modalCmdFor(profile, "container", "exec", id, "--", "sh", "-c", script)
 	out, err = cmd.Output()
 	if err != nil {
 		return
 	}
-	f := strings.Split(strings.TrimSpace(strings.SplitN(string(out), "\n", 2)[0]), ",")
-	if len(f) != 4 {
-		return
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		line = strings.TrimSpace(line)
+		if b, ok := strings.CutPrefix(line, "part "); ok {
+			var n int64
+			fmt.Sscan(b, &n)
+			res.partMB = int(n >> 20)
+			if f := strings.Fields(b); len(f) == 2 {
+				res.partFile = f[1]
+			}
+			continue
+		}
+		f := strings.Split(line, ",")
+		if len(f) != 4 {
+			continue
+		}
+		v := make([]int, 4)
+		for i := range f {
+			fmt.Sscan(strings.TrimSpace(f[i]), &v[i])
+		}
+		res.vals = v
 	}
-	v := make([]int, 4)
-	for i := range f {
-		fmt.Sscan(strings.TrimSpace(f[i]), &v[i])
+}
+
+// cloudModelSizeMB : taille du .gguf distant (en-tête X-Linked-Size de Hugging
+// Face, sinon Content-Length), pour la barre de téléchargement. Mise en cache.
+var cloudSizes sync.Map
+
+func cloudModelSizeMB(link string) int {
+	u := cloudModelURL(link)
+	if v, ok := cloudSizes.Load(u); ok {
+		return v.(int)
 	}
-	vals = v
+	cloudSizes.Store(u, 0) // une seule requête à la fois
+	go func() {
+		c := &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+		resp, err := c.Head(u)
+		if err != nil {
+			cloudSizes.Delete(u)
+			return
+		}
+		resp.Body.Close()
+		var n int64
+		if s := resp.Header.Get("X-Linked-Size"); s != "" {
+			fmt.Sscan(s, &n)
+		} else {
+			n = resp.ContentLength
+		}
+		if n > 0 {
+			cloudSizes.Store(u, int(n>>20))
+		} else {
+			cloudSizes.Delete(u)
+		}
+	}()
+	return 0
 }

@@ -14,12 +14,8 @@ import (
 // serviceAction wraps `systemctl <action> <svc>` with passwordless sudo where
 // it makes sense, and prints a follow-up status check after start/restart.
 func serviceAction(action string) error {
-	if (action == "start" || action == "restart") && usesRemoteEndpoint(ReadConfig()) {
-		// Preset externe ou GPU cloud : aucun moteur local à lancer (pas de MODEL,
-		// il crash-looperait). On (re)déploie le cloud si besoin et on arrête le local.
-		cloudDeploy()
-		action = "stop"
-	}
+	// API Externe : aucun moteur local (arrêt). GPU Cloud : relais local vers le GPU.
+	action = cloudServiceAction(action)
 	svc := serviceName()
 	needsRoot := action == "start" || action == "stop" || action == "restart" || action == "enable" || action == "disable"
 	args := []string{}

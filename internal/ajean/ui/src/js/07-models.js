@@ -1018,6 +1018,7 @@ function syncRunMode(){
     document.getElementById('s-cloud-gpu').value = cfgReadKey('CLOUD_GPU') || 'A10G';
     document.getElementById('s-cloud-model').value = cfgReadKey('CLOUD_MODEL');
     document.getElementById('s-cloud-idle').value = cfgReadKey('CLOUD_IDLE');
+    document.getElementById('s-cloud-mmproj').value = cfgReadKey('CLOUD_MMPROJ');
     setCloudAddOpen(false);
     loadCloudAccounts();
   } else if(mode === 'external'){
