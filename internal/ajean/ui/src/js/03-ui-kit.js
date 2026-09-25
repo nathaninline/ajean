@@ -31,14 +31,18 @@ function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.
 // alert() par de vraies boîtes stylées. Chacune renvoie une Promise : askConfirm →
 // bool, askPrompt → string|null (null si annulé), askAlert → void. Échap/clic dehors
 // = annuler ; Entrée = valider (sur prompt aussi).
-let _askResolver=null, _askKind='confirm', _askCheck=false, _askMultiline=false;
+let _askResolver=null, _askKind='confirm', _askCheck=false, _askMultiline=false, _askChoice=null;
 // État de la case optionnelle de la DERNIÈRE confirmation (opts.check). Lu par
 // l'appelant juste après le await — la Promise, elle, ne renvoie que oui/non.
 function askChecked(){ return _askCheck; }
+// Valeur choisie dans la liste de la DERNIÈRE confirmation (opts.choices), null si annulée.
+function askChoice(){ return _askChoice; }
 function askResolve(ok){
   if(!_askResolver) return;
   const r=_askResolver; _askResolver=null;
   _askCheck = ok && document.getElementById('ask-check-input').checked;
+  const sel=document.getElementById('ask-select');
+  _askChoice = ok && sel.style.display!=='none' ? sel.value : null;
   hideModal('ask-modal');
   document.removeEventListener('keydown', _askKey, true);
   if(_askKind==='prompt') r(ok ? document.getElementById(_askMultiline?'ask-textarea':'ask-input').value : null);
@@ -73,6 +77,14 @@ function _openAsk(kind, message, opts){
     el.style.display=''; el.value=opts.default||''; el.placeholder=opts.placeholder||'';
     other.style.display='none';
   } else { inp.style.display='none'; ta.style.display='none'; }
+  // Liste de choix facultative : [{value,label}], opts.choice = valeur présélectionnée.
+  const sel=document.getElementById('ask-select');
+  if(Array.isArray(opts.choices) && opts.choices.length){
+    sel.innerHTML='';
+    opts.choices.forEach(c=>sel.appendChild(Object.assign(document.createElement('option'),{value:c.value,textContent:c.label})));
+    if(opts.choice!=null) sel.value=opts.choice;
+    sel.style.display='';
+  } else sel.style.display='none';
   // Case facultative (ex. « supprimer aussi le fichier .gguf »).
   const chk=document.getElementById('ask-check');
   chk.style.display = opts.check ? 'inline-flex' : 'none';

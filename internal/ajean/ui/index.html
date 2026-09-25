@@ -100,17 +100,9 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 h2{margin:20px 0 8px;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;font-weight:600}
 details>summary::-webkit-details-marker{display:none}
 .preset-add{display:none;position:relative;flex:none;box-sizing:border-box;
-  width:24px;height:24px;padding:0;margin:0 6px 0 0;font-size:0;
+  width:24px;height:24px;padding:0;margin:0 6px 0 auto;font-size:0;
   background:var(--panel);color:var(--dim);border:1px solid var(--border);border-radius:7px;
   cursor:pointer;transition:border-color .15s ease,color .15s ease,background .15s ease}
-.preset-ext{display:none;align-items:center;justify-content:center;flex:none;box-sizing:border-box;
-  width:24px;height:24px;padding:0;margin:0 -3px 0 auto;
-  background:var(--panel);color:var(--dim);border:1px solid var(--border);border-radius:7px;
-  cursor:pointer;transition:border-color .15s ease,color .15s ease,background .15s ease}
-.preset-ext:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
-.preset-ext:active{transform:scale(.92)}
-details[open]>summary>.preset-ext{display:inline-flex}
-.preset-wifi{display:inline-flex;align-items:center;margin-right:5px;color:var(--accent);vertical-align:-2px}
 .mem-head-title{display:flex;align-items:center;gap:8px}
 .mem-head-ic{flex:none;color:var(--accent)}
 #mem-modal .modal-body{display:flex;flex-direction:column;gap:0;padding:20px}
@@ -439,7 +431,7 @@ details>summary+.subhead{margin-top:4px}
   border-radius:7px;padding:7px 9px;font:inherit;font-size:12.5px}
 .sctl:focus,.io-input:focus{outline:none;border-color:var(--dim)}
 textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
-.side button:not(.preset-edit):not(.addbtn):not(.preset-add):not(.preset-ext):not(.copybtn):not(.iconbtn){font-size:12px;padding:6px 10px;border-radius:7px}
+.side button:not(.preset-edit):not(.addbtn):not(.preset-add):not(.copybtn):not(.iconbtn){font-size:12px;padding:6px 10px;border-radius:7px}
 .side .row{display:flex;gap:6px;align-items:center;margin:6px 0}
 .side .row .sctl,.side .row .io-input{flex:1;min-width:0}
 .iconbtn{flex:none;display:inline-flex;align-items:center;justify-content:center;
@@ -540,6 +532,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-selc{position:relative;display:flex;align-items:center;max-width:100%}
 .pe-selc select{appearance:none;-webkit-appearance:none;border:none;background:transparent;color:var(--accent);font:inherit;text-align:right;text-align-last:right;padding:4px 16px 4px 0;cursor:pointer;max-width:100%;text-overflow:ellipsis}
 .pe-selc select:focus{outline:none}
+.pe-row-c .pe-selc select{field-sizing:content}
 .pe-selc::after{content:"›";position:absolute;right:0;transform:rotate(90deg);color:var(--dim);font-size:14px;pointer-events:none}
 .pe-selc.wide{width:100%}
 .pe-selc.wide select{flex:1;text-align:left;text-align-last:left;padding-right:18px}
@@ -1211,6 +1204,8 @@ button:hover{border-color:var(--dim);color:var(--text)}
 #chat .history-more button:hover{color:var(--text);border-color:var(--dim);background:var(--row-bg-on)}
 #chat .history-more button:disabled{opacity:.6;cursor:default}
 #chat > .msg, #chat > .msg-files{content-visibility:auto;contain-intrinsic-size:auto 120px}
+#modal.run-cloud #m-engine-row,#modal.run-cloud #m-model-row,#modal.run-cloud #m-gpu-group{display:none!important}
+#modal.run-external #m-engine-row,#modal.run-external #m-model-row,#modal.run-external #m-gpu-group,#modal.run-external #m-settings-row{display:none!important}
 </style></head><body>
 <button id="menubtn" onclick="toggleSide()">☰</button>
 <button id="lc-chip" onclick="lcChipOpen()" hidden></button>
@@ -1250,7 +1245,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
   <details open id="cfg-details"><summary><span class="stitle" data-i18n="config.title">Configuration</span></summary>
     <div id="cfg" class="slist"><div class="kv"><span class="skel skel-line" style="width:30%"></span><span class="skel skel-line" style="width:44%"></span></div><div class="kv"><span class="skel skel-line" style="width:24%"></span><span class="skel skel-line" style="width:52%"></span></div><div class="kv"><span class="skel skel-line" style="width:34%"></span><span class="skel skel-line" style="width:38%"></span></div><div class="kv"><span class="skel skel-line" style="width:28%"></span><span class="skel skel-line" style="width:30%"></span></div></div>
   </details>
-  <details><summary><span class="stitle" data-i18n="presets.title">Presets</span><button class="preset-ext" onclick="event.preventDefault();event.stopPropagation();openExternal('')" title="ajouter une API externe" data-i18n="presets.add_external_button" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></button><button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter" data-i18n="presets.add_button" data-i18n-attr="title">+</button></summary>
+  <details><summary><span class="stitle" data-i18n="presets.title">Presets</span><button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter" data-i18n="presets.add_button" data-i18n-attr="title">+</button></summary>
     <div class="slist"><div id="presets" class="rowlist"></div></div>
   </details>
   <details><summary><span class="stitle" data-i18n="agent.title">Agent</span><span id="agent-badge" class="sbadge"></span></summary>
@@ -1531,6 +1526,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
     <div id="ask-msg" class="ask-msg"></div>
     <input id="ask-input" class="ask-input" style="display:none">
     <textarea id="ask-textarea" class="ask-input" rows="6" style="display:none;resize:vertical;min-height:120px"></textarea>
+    <select id="ask-select" class="ask-input" style="display:none"></select>
     <label id="ask-check" class="pe-delmodel" style="display:none"><input type="checkbox" id="ask-check-input"><span id="ask-check-label"></span></label>
     <div class="ask-actions">
       <button id="ask-cancel" onclick="askResolve(false)" data-i18n="modal.cancel">Annuler</button>
@@ -1771,48 +1767,6 @@ button:hover{border-color:var(--dim);color:var(--text)}
     </div>
   </div>
 </div>
-<div id="ext-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeExternal()">
-  <div class="modal-card" style="max-width:520px">
-    <div class="modal-head">
-      <strong id="ext-modal-title" data-i18n="external.title">API Externe</strong>
-      <button class="modal-x" onclick="closeExternal()" aria-label="Fermer" data-i18n="external.close_aria" data-i18n-attr="aria-label">×</button>
-    </div>
-    <div class="modal-body mform">
-      <p class="muted" style="font-size:12px;margin:0 0 4px" data-i18n="external.intro">Connecte une IA externe compatible OpenAI Chat Completions (OpenAI, Claude, Groq, OpenRouter…) pour l'utiliser à la place du moteur local.</p>
-      <div class="fld">
-        <label class="fld-l" for="ext-name"><span data-i18n="external.name_label">Nom</span> <span class="opt" data-i18n="external.name_hint">(affiché dans la liste des presets)</span></label>
-        <input id="ext-name" class="ctl" placeholder="OpenRouter · GPT-4o">
-      </div>
-      <div class="fld">
-        <label class="fld-l" for="ext-url"><span data-i18n="external.url_label">URL de l'API</span> <span class="opt" data-i18n="external.url_hint">(base OpenAI, ex: https://api.openai.com/v1)</span></label>
-        <input id="ext-url" class="ctl" spellcheck="false" placeholder="https://api.openai.com/v1">
-      </div>
-      <div class="fld">
-        <label class="fld-l" for="ext-model"><span data-i18n="external.model_label">Modèle</span> <span class="opt" data-i18n="external.model_hint">(identifiant exact, ex: gpt-4o-mini)</span></label>
-        <input id="ext-model" class="ctl" spellcheck="false" placeholder="gpt-4o-mini">
-      </div>
-      <div class="fld">
-        <label class="fld-l" for="ext-key"><span data-i18n="external.key_label">Clé API</span> <span class="opt" data-i18n="external.key_hint">(optionnelle pour un serveur local)</span></label>
-        <input id="ext-key" class="ctl" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" oninput="extKeyTouched=true">
-      </div>
-      <div class="fld">
-        <label class="fld-l" for="ext-ctx"><span data-i18n="external.ctx_label">Contexte</span> <span class="opt" data-i18n="external.ctx_hint">(taille en tokens, ex: 32768 — laisser vide pour 32768)</span></label>
-        <input id="ext-ctx" class="ctl" type="number" min="0" step="1024" spellcheck="false" placeholder="32768">
-      </div>
-      <label class="switchrow" style="margin:2px 0 0"><span class="switch"><input type="checkbox" id="ext-vision"><span class="slider"></span></span> <span data-i18n="external.vision_label">le modèle accepte les images</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="external.vision_help" data-i18n-html>coche si le modèle distant est <b>multimodal</b> (vision). Les images jointes lui sont alors envoyées pour qu'il les voie, et il peut charger une image du disque avec son outil dédié. À laisser décoché pour un modèle texte seul.</span></span></label>
-      <div id="ext-modal-status" class="muted" style="font-size:12px;min-height:0"></div>
-    </div>
-    <div class="modal-foot">
-      <div class="foot-l">
-        <button id="ext-del" class="btn-danger" onclick="deleteExternal()" style="display:none" data-i18n="external.delete">supprimer</button>
-      </div>
-      <div class="foot-r">
-        <button class="pe-btn" onclick="testExternal()" data-i18n="external.test">tester la connexion</button>
-        <button class="pe-btn primary" onclick="saveExternal()" data-i18n="external.save">enregistrer</button>
-      </div>
-    </div>
-  </div>
-</div>
 <div id="task-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeTask()">
   <div class="modal-card">
     <div class="modal-head">
@@ -1942,6 +1896,89 @@ button:hover{border-color:var(--dim);color:var(--text)}
           <div class="pe-row stack plain"><input id="m-name" class="pe-inp" placeholder="Nom du preset" data-i18n="preset.name_placeholder" data-i18n-attr="placeholder"></div>
         </div>
       </div>
+      <div id="m-run-row" class="pe-group" style="display:none">
+        <div class="pe-gh" data-i18n="preset.run_heading">Exécution</div>
+        <div class="pe-seg">
+          <label><input type="radio" name="m-run" value="local" onchange="onRunMode('local')"><span data-i18n="preset.run_local">Cette machine</span></label>
+          <label><input type="radio" name="m-run" value="external" onchange="onRunMode('external')"><span data-i18n="preset.run_external">API externe</span></label>
+          <label><input type="radio" name="m-run" value="modal" onchange="onRunMode('modal')"><span data-i18n="preset.run_modal">GPU cloud</span></label>
+        </div>
+        <div id="m-ext-body" class="pe-list" style="display:none;margin-top:8px">
+          <div class="pe-row stack">
+            <span class="pe-row-l"><span data-i18n="external.url_label">URL de l'API</span> <span class="pe-sub" data-i18n="external.url_hint">(base OpenAI, ex: https://api.openai.com/v1)</span></span>
+            <input id="s-ext-url" class="pe-inp" spellcheck="false" placeholder="https://api.openai.com/v1" oninput="cfgWriteKey('EXTERNAL_URL', this.value)">
+          </div>
+          <div class="pe-row stack">
+            <span class="pe-row-l"><span data-i18n="external.model_label">Modèle</span> <span class="pe-sub" data-i18n="external.model_hint">(identifiant exact, ex: gpt-4o-mini)</span></span>
+            <input id="s-ext-model" class="pe-inp" spellcheck="false" placeholder="gpt-4o-mini" oninput="cfgWriteKey('EXTERNAL_MODEL', this.value)">
+          </div>
+          <div class="pe-row stack">
+            <span class="pe-row-l"><span data-i18n="external.key_label">Clé API</span> <span class="pe-sub" data-i18n="external.key_hint">(optionnelle pour un serveur local)</span></span>
+            <input id="s-ext-key" class="pe-inp" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" oninput="cfgWriteKey('EXTERNAL_KEY', this.value)">
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l" data-i18n="preset.ctx_label">Contexte</span>
+            <span class="pe-row-c"><input id="s-ext-ctx" class="pe-val" type="number" min="0" step="1024" placeholder="32768" oninput="cfgWriteKey('CTX', this.value)"><span class="pe-unit">tok</span></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l"><span data-i18n="preset.vision_label">Vision</span><span class="pe-sub" data-i18n="external.vision_label">le modèle accepte les images</span></span>
+            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-ext-vision" onchange="cfgWriteKey('EXTERNAL_VISION', this.checked ? '1' : '')"><span class="pe-sl"></span></label></span>
+          </div>
+          <div class="pe-row" style="cursor:pointer" onclick="testExternalPreset()">
+            <span class="pe-row-l"><span data-i18n="external.test">tester la connexion</span><span class="pe-sub" id="s-ext-status"></span></span>
+            <span class="pe-row-c"><span class="pe-unit">→</span></span>
+          </div>
+        </div>
+        <div id="m-cloud-body" class="pe-list" style="display:none;margin-top:8px">
+          <div class="pe-row">
+            <span class="pe-row-l" data-i18n="preset.cloud_provider_label">Fournisseur</span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="s-cloud-provider" onchange="onCloudProvider(this.value)">
+              <option value="modal">Modal</option>
+            </select></span></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l"><span data-i18n="preset.cloud_account_label">Compte</span><span class="pe-sub" id="s-cloud-prof-sub" style="display:none"></span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="s-cloud-prof" onchange="onCloudProfile()"></select></span></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l"><span data-i18n="preset.cloud_credit_label">Crédit</span><span class="pe-sub" id="s-cloud-credit-sub"></span></span>
+            <span class="pe-row-c"><span class="pe-unit" id="s-cloud-credit"></span></span>
+          </div>
+          <div class="pe-row" style="cursor:pointer" onclick="setCloudAddOpen(document.getElementById('m-cloud-add').style.display==='none')">
+            <span class="pe-row-l"><span data-i18n="preset.cloud_account_add_title">Connecter un autre compte</span><span class="pe-sub" data-i18n="preset.cloud_account_add_sub">un compte par preset</span></span>
+            <span class="pe-row-c"><span id="m-cloud-add-caret" class="pe-caret"></span></span>
+          </div>
+          <div id="m-cloud-add" class="pe-row stack" style="display:none">
+            <div class="pe-inpbtn">
+              <input id="m-cloud-add-name" class="pe-inp" placeholder="nom du compte (ex. perso, travail)" data-i18n="preset.cloud_account_name_placeholder" data-i18n-attr="placeholder" onkeydown="if(event.key==='Enter')addCloudAccount()">
+              <button id="m-cloud-add-btn" onclick="addCloudAccount()" title="Se connecter sur modal.com" data-i18n="preset.cloud_account_connect_title" data-i18n-attr="title">→</button>
+            </div>
+            <div id="m-cloud-add-note" class="pe-note" data-i18n="preset.cloud_account_add_note">Connecte-toi dans l'onglet modal.com qui s'ouvre.</div>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l"><span data-i18n="preset.cloud_gpu_label">GPU</span><span class="pe-sub" data-i18n="preset.cloud_gpu_sub">facturé à la seconde</span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="s-cloud-gpu" onchange="cfgWriteKey('CLOUD_GPU', this.value)">
+              <option value="T4">T4 · 16 Go</option>
+              <option value="L4">L4 · 24 Go</option>
+              <option value="A10G">A10G · 24 Go</option>
+              <option value="L40S">L40S · 48 Go</option>
+              <option value="A100-40GB">A100 · 40 Go</option>
+              <option value="A100-80GB">A100 · 80 Go</option>
+              <option value="H100">H100 · 80 Go</option>
+              <option value="H200">H200 · 141 Go</option>
+              <option value="B200">B200 · 192 Go</option>
+            </select></span></span>
+          </div>
+          <div class="pe-row stack">
+            <span class="pe-row-l"><span data-i18n="preset.cloud_model_label">Modèle</span> <span class="pe-sub" data-i18n="preset.cloud_model_sub">lien direct vers le .gguf</span></span>
+            <input id="s-cloud-model" class="pe-inp" placeholder="https://huggingface.co/…/resolve/main/model.gguf" oninput="cfgWriteKey('CLOUD_MODEL', this.value)">
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l"><span data-i18n="preset.cloud_idle_label">Mise en veille</span><span class="pe-sub" data-i18n="preset.cloud_idle_sub">arrêt après inactivité</span></span>
+            <span class="pe-row-c"><input id="s-cloud-idle" class="pe-val" type="number" min="60" step="60" placeholder="300" oninput="cfgWriteKey('CLOUD_IDLE', this.value)"><span class="pe-unit">s</span></span>
+          </div>
+        </div>
+      </div>
       <div id="m-engine-row" class="pe-group" style="display:none">
         <div class="pe-gh" data-i18n="preset.engine_heading">Moteur</div>
         <div class="pe-seg">
@@ -1982,11 +2019,11 @@ button:hover{border-color:var(--dim);color:var(--text)}
               <span class="pe-row-c"><span class="pe-selc"><select id="m-mmproj" onchange="onPickMmproj()"></select></span></span>
             </div>
             <div class="pe-row" id="s-mmproj-cpu-row">
-              <span class="pe-row-l"><span data-i18n="preset.mmproj_cpu_label">Projecteur vision sur le CPU</span><span class="pe-sub" data-i18n="preset.mmproj_cpu_sub">garde le mmproj hors du GPU — libère de la VRAM (--no-mmproj-offload)</span></span>
+              <span class="pe-row-l"><span data-i18n="preset.mmproj_cpu_label">Projecteur vision sur le CPU</span><span class="pe-sub" data-i18n="preset.mmproj_cpu_sub">libère de la VRAM</span></span>
               <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-mmproj-cpu" onchange="eaToggleFlag('--no-mmproj-offload', this.checked)"><span class="pe-sl"></span></label></span>
             </div>
             <div class="pe-row stack">
-              <span class="pe-row-l"><span data-i18n="preset.download_model_label">Télécharger un modèle</span> <span class="pe-sub" data-i18n="preset.download_model_sub">ou un projecteur mmproj — lien direct vers un .gguf</span></span>
+              <span class="pe-row-l"><span data-i18n="preset.download_model_label">Télécharger un modèle</span> <span class="pe-sub" data-i18n="preset.download_model_sub">lien direct vers un .gguf</span></span>
               <div class="pe-inpbtn">
                 <input id="m-hf-url" class="pe-inp" placeholder="https://…/model.gguf">
                 <button id="m-hf-btn" onclick="startDownload()" title="Télécharger" data-i18n="preset.download_button_title" data-i18n-attr="title">↓</button>
@@ -2000,7 +2037,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
               <span class="pe-selc"><select id="m-hf-dir"></select></span>
             </div>
             <div id="m-dirs-toggle" class="pe-row" style="cursor:pointer" onclick="toggleModelDirs()">
-              <span class="pe-row-l"><span data-i18n="preset.model_dirs_label">Dossiers de modèles</span><span class="pe-sub" data-i18n="preset.model_dirs_sub">chercher les .gguf ailleurs (disque externe…)</span></span>
+              <span class="pe-row-l"><span data-i18n="preset.model_dirs_label">Dossiers de modèles</span><span class="pe-sub" data-i18n="preset.model_dirs_sub">disque externe, autre dossier…</span></span>
               <span class="pe-row-c"><span id="m-dirs-caret" class="pe-caret"></span></span>
             </div>
             <div id="m-dirs-body" class="pe-row stack" style="display:none">
@@ -2051,26 +2088,37 @@ button:hover{border-color:var(--dim);color:var(--text)}
             <span class="pe-row-c"><input id="s-ubatch" class="pe-val" type="number" min="0" step="128" placeholder="512" oninput="cfgWriteKey('UBATCH', this.value)"></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.np_label">Séquences parallèles</span><span class="pe-sub" data-i18n="preset.np_sub">1 = recommandé · &gt;1 multiplie le cache KV (-np)</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.np_label">Séquences parallèles</span><span class="pe-sub" data-i18n="preset.np_sub">1 recommandé</span></span>
             <span class="pe-row-c"><input id="s-np" class="pe-val" type="number" min="1" step="1" placeholder="1" oninput="eaSetValued('-np', this.value)"></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.kv_label">Cache KV</span><span class="pe-sub" data-i18n="preset.kv_sub">compression du contexte — % = précision (tail 99,9%)</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.kv_label">Cache KV</span><span class="pe-sub" data-i18n="preset.kv_sub">compresse le contexte · % = qualité</span></span>
             <span class="pe-row-c"><span class="pe-selc"><select id="s-kv" onchange="kvSetCombo(this.value)">
-              <option value="" data-i18n="preset.kv_opt_f16">f16 — max qualité (100%)</option>
-              <option value="q8_0|q8_0" data-i18n="preset.kv_opt_q8">q8_0 — léger (94,6%)</option>
-              <option value="q4_0|q4_0" data-i18n="preset.kv_opt_q4">q4_0 — très léger (89,8%)</option>
-              <option value="q5_1|q5_1" data-i18n="preset.kv_opt_q51">q5_1 (92,8%) · lent en précompilé</option>
-              <optgroup label="Combos K / V (K &gt; V) · lents en précompilé" data-i18n="preset.kv_optgroup_combos" data-i18n-attr="label">
-                <option value="q8_0|q5_1" data-i18n="preset.kv_combo_1">q8_0 / q5_1 (94,2%)</option>
-                <option value="q8_0|q5_0" data-i18n="preset.kv_combo_2">q8_0 / q5_0 (93,7%)</option>
-                <option value="q5_0|q4_1" data-i18n="preset.kv_combo_3">q5_0 / q4_1 (92,7%)</option>
-                <option value="q5_0|q4_0" data-i18n="preset.kv_combo_4">q5_0 / q4_0 (91,4%)</option>
+              <option value="" data-i18n="preset.kv_opt_f16">f16 · 100 %</option>
+              <option value="q8_0|q8_0" data-i18n="preset.kv_opt_q8">q8_0 · 94,6 %</option>
+              <option value="q4_0|q4_0" data-i18n="preset.kv_opt_q4">q4_0 · 89,8 %</option>
+              <option value="q5_1|q5_1" data-i18n="preset.kv_opt_q51">q5_1 · 92,8 % (lent)</option>
+              <optgroup label="Combos K/V · lents en précompilé" data-i18n="preset.kv_optgroup_combos" data-i18n-attr="label">
+                <option value="q8_0|q5_1" data-i18n="preset.kv_combo_1">q8_0/q5_1 · 94,2 %</option>
+                <option value="q8_0|q5_0" data-i18n="preset.kv_combo_2">q8_0/q5_0 · 93,7 %</option>
+                <option value="q5_0|q4_1" data-i18n="preset.kv_combo_3">q5_0/q4_1 · 92,7 %</option>
+                <option value="q5_0|q4_0" data-i18n="preset.kv_combo_4">q5_0/q4_0 · 91,4 %</option>
               </optgroup>
             </select></span></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.spec_label">Décodage spéculatif</span><span class="pe-sub" data-i18n="preset.spec_sub">anticipe des jetons pour accélérer</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.loadmode_label">Chargement</span><span class="pe-sub" id="s-loadmode-sub"></span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="s-loadmode" onchange="eaSetLoadMode(this.value)">
+              <option value="">auto</option>
+              <option value="mmap">mmap</option>
+              <option value="none">none</option>
+              <option value="mlock">mlock</option>
+              <option value="mmap+mlock">mmap+mlock</option>
+              <option value="dio">dio</option>
+            </select></span></span>
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l"><span data-i18n="preset.spec_label">Décodage spéculatif</span><span class="pe-sub" data-i18n="preset.spec_sub">accélère la génération</span></span>
             <span class="pe-row-c"><span class="pe-selc"><select id="s-spec" onchange="onSpecType()">
               <option value="" data-i18n="preset.spec_opt_none">non</option>
               <optgroup label="Modèle brouillon" data-i18n="preset.spec_optgroup_draft" data-i18n-attr="label">
@@ -2090,11 +2138,11 @@ button:hover{border-color:var(--dim);color:var(--text)}
             </select></span></span>
           </div>
           <div class="pe-row" id="s-spec-draft-row" style="display:none">
-            <span class="pe-row-l"><span data-i18n="preset.spec_draft_label">Modèle de draft</span><span class="pe-sub" data-i18n="preset.spec_draft_sub">le brouillon qui anticipe</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.spec_draft_label">Modèle de draft</span><span class="pe-sub" data-i18n="preset.spec_draft_sub">modèle brouillon</span></span>
             <span class="pe-row-c"><span class="pe-selc"><select id="m-spec-draft" onchange="onPickSpecDraft()"></select></span></span>
           </div>
           <div class="pe-row" id="s-spec-n-row" style="display:none">
-            <span class="pe-row-l"><span data-i18n="preset.spec_n_label">Jetons anticipés</span><span class="pe-sub" data-i18n="preset.spec_n_sub">par étape — défaut 3</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.spec_n_label">Jetons anticipés</span><span class="pe-sub" data-i18n="preset.spec_n_sub">défaut 3</span></span>
             <span class="pe-row-c"><input id="s-spec-n" class="pe-val" type="number" min="1" step="1" placeholder="3" oninput="eaSetValued('--spec-draft-n-max', this.value)"></span>
           </div>
           <div class="pe-row">
@@ -2106,15 +2154,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
             <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-flash" onchange="eaSetValued('--flash-attn', this.checked?'on':'')"><span class="pe-sl"></span></label></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.mlock_label">Garder en RAM</span><span class="pe-sub" data-i18n="preset.mlock_sub">évite le swap (mlock)</span></span>
-            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-mlock" onchange="eaToggleMem()"><span class="pe-sl"></span></label></span>
-          </div>
-          <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.nommap_label">Charger tout en mémoire</span><span class="pe-sub" data-i18n="preset.nommap_sub">désactive le mmap</span></span>
-            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-nommap" onchange="eaToggleMem()"><span class="pe-sl"></span></label></span>
-          </div>
-          <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.kvunified_label">Cache KV unifié</span><span class="pe-sub" data-i18n="preset.kvunified_sub">un seul cache partagé (--kv-unified)</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.kvunified_label">Cache KV unifié</span><span class="pe-sub" data-i18n="preset.kvunified_sub">un seul cache partagé</span></span>
             <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-kvunified" onchange="eaToggleFlag('--kv-unified', this.checked)"><span class="pe-sl"></span></label></span>
           </div>
         </div>
@@ -2123,7 +2163,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
         <div class="pe-gh" data-i18n="preset.sampling_heading">Échantillonnage</div>
         <div class="pe-list">
           <div id="m-sampling-toggle" class="pe-row" style="cursor:pointer" onclick="toggleSampling()">
-            <span class="pe-row-l"><span data-i18n="preset.sampling_toggle_label">Réglages d'échantillonnage</span><span class="pe-sub" data-i18n="preset.sampling_toggle_sub">température, top_p, pénalités… (défaut du modèle si vide)</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.sampling_toggle_label">Réglages d'échantillonnage</span><span class="pe-sub" data-i18n="preset.sampling_toggle_sub">vide = défaut du modèle</span></span>
             <span class="pe-row-c"><span id="m-sampling-caret" class="pe-caret"></span></span>
           </div>
           <div id="m-sampling-body">
@@ -2144,15 +2184,15 @@ button:hover{border-color:var(--dim);color:var(--text)}
             <span class="pe-row-c"><input id="s-minp" class="pe-val" type="number" min="0" max="1" step="0.01" placeholder="—" oninput="cfgWriteKey('MIN_P', this.value)"></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.presence_label">Pénalité de présence</span><span class="pe-sub" data-i18n="preset.presence_sub">pousse vers de nouveaux mots (0 = off)</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.presence_label">Pénalité de présence</span><span class="pe-sub" data-i18n="preset.presence_sub">favorise les mots nouveaux</span></span>
             <span class="pe-row-c"><input id="s-presp" class="pe-val" type="number" min="0" max="2" step="0.1" placeholder="—" oninput="cfgWriteKey('PRESENCE_PENALTY', this.value)"></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.repeat_label">Pénalité de répétition</span><span class="pe-sub" data-i18n="preset.repeat_sub">anti-répétition (1 = neutre)</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.repeat_label">Pénalité de répétition</span><span class="pe-sub" data-i18n="preset.repeat_sub">1 = neutre</span></span>
             <span class="pe-row-c"><input id="s-reppen" class="pe-val" type="number" min="0" step="0.05" placeholder="—" oninput="cfgWriteKey('REPEAT_PENALTY', this.value)"></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.effort_label">Effort de réflexion</span><span class="pe-sub" data-i18n="preset.effort_sub">ajoute --jinja automatiquement</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.effort_label">Effort de réflexion</span><span class="pe-sub" data-i18n="preset.effort_sub">active --jinja</span></span>
             <span class="pe-row-c"><span class="pe-selc"><select id="s-effort" onchange="onEffort(this.value)">
               <option value="" data-i18n="preset.effort_opt_default">défaut du modèle</option>
               <option value="low" data-i18n="preset.effort_opt_low">low (rapide)</option>
@@ -2168,7 +2208,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
         <div class="pe-gh" data-i18n="preset.sysprompt_heading">System prompt</div>
         <div class="pe-list">
           <div id="m-sys-toggle" class="pe-row" style="cursor:pointer" onclick="toggleSysPrompt()">
-            <span class="pe-row-l"><span data-i18n="preset.sysprompt_toggle_label">Prompt système du preset</span><span class="pe-sub" data-i18n="preset.sysprompt_toggle_sub">optionnel — injecté quand ce preset est actif</span></span>
+            <span class="pe-row-l"><span data-i18n="preset.sysprompt_toggle_label">Prompt système du preset</span><span class="pe-sub" data-i18n="preset.sysprompt_toggle_sub">optionnel, propre à ce preset</span></span>
             <span class="pe-row-c"><span id="m-sys-caret" class="pe-caret"></span></span>
           </div>
           <div id="m-sys-body" class="pe-row stack" style="display:none">
@@ -2570,6 +2610,39 @@ fr: {
   "preset.name_heading": "Nom",
   "preset.name_placeholder": "Nom du preset",
   "preset.engine_heading": "Moteur",
+  "preset.run_heading": "Exécution",
+  "preset.cloud_provider_label": "Fournisseur",
+  "preset.cloud_account_label": "Compte",
+  "preset.cloud_account_none": "aucun compte connecté",
+  "preset.cloud_runtime_error": "installation impossible",
+  "preset.cloud_account_add_title": "Connecter un autre compte",
+  "preset.cloud_account_add_sub": "un compte par preset",
+  "preset.cloud_account_name_placeholder": "nom du compte (ex. perso, travail)",
+  "preset.cloud_account_connect_title": "Se connecter sur modal.com",
+  "preset.cloud_account_add_note": "Connecte-toi dans l'onglet modal.com qui s'ouvre.",
+  "preset.cloud_account_name_invalid": "Nom invalide : lettres, chiffres, - et _ seulement.",
+  "preset.cloud_account_starting": "Préparation de la connexion…",
+  "preset.cloud_account_wait": "En attente de ta connexion dans l'onglet modal.com…",
+  "preset.cloud_account_ok": "Compte connecté et choisi pour ce preset.",
+  "preset.cloud_credit_label": "Crédit restant",
+  "preset.cloud_credit_sub": "{used} utilisés sur {month}",
+  "preset.cloud_credit_sub_paid": "consommé ce mois",
+  "preset.cloud_credit_left_short": "{left} de crédit",
+  "preset.cloud_account_default": "par défaut",
+  "preset.cloud_account_fail": "Connexion au compte Modal impossible",
+  "preset.cloud_not_installed": "installation du composant GPU cloud",
+  "preset.cloud_credit_na": "crédit indisponible",
+  "preset.cloud_credit_month": "ce mois",
+  "preset.cloud_credit_billed": "facturé",
+  "preset.run_local": "Cette machine",
+  "preset.run_modal": "GPU cloud",
+  "preset.run_external": "API externe",
+  "preset.cloud_gpu_label": "GPU",
+  "preset.cloud_gpu_sub": "facturé à la seconde",
+  "preset.cloud_model_label": "Modèle",
+  "preset.cloud_model_sub": "lien direct vers le .gguf",
+  "preset.cloud_idle_label": "Mise en veille",
+  "preset.cloud_idle_sub": "arrêt après inactivité",
   "preset.engine_fast": "Précompilé",
   "preset.engine_opt": "Compilé",
   "preset.engine_custom": "Personnalisé",
@@ -2587,14 +2660,14 @@ fr: {
   "preset.vision_label": "Vision",
   "preset.vision_sub": "projecteur mmproj",
   "preset.mmproj_cpu_label": "Projecteur vision sur le CPU",
-  "preset.mmproj_cpu_sub": "garde le mmproj hors du GPU — libère de la VRAM (--no-mmproj-offload)",
+  "preset.mmproj_cpu_sub": "libère de la VRAM",
   "preset.download_model_label": "Télécharger un modèle",
-  "preset.download_model_sub": "ou un projecteur mmproj — lien direct vers un .gguf",
+  "preset.download_model_sub": "lien direct vers un .gguf",
   "preset.download_button_title": "Télécharger",
   "preset.download_cancel": "Annuler le téléchargement",
   "preset.destination_label": "Destination",
   "preset.model_dirs_label": "Dossiers de modèles",
-  "preset.model_dirs_sub": "chercher les .gguf ailleurs (disque externe…)",
+  "preset.model_dirs_sub": "disque externe, autre dossier…",
   "preset.model_dir_add_title": "Ajouter ce dossier",
   "preset.model_dirs_note": "Ces dossiers servent aussi de destination de téléchargement.",
   "preset.gpu_heading": "Cartes graphiques",
@@ -2611,20 +2684,20 @@ fr: {
   "preset.batch_label": "BATCH",
   "preset.ubatch_label": "UBATCH",
   "preset.np_label": "Séquences parallèles",
-  "preset.np_sub": "1 = recommandé · >1 multiplie le cache KV (-np)",
+  "preset.np_sub": "1 recommandé",
   "preset.kv_label": "Cache KV",
-  "preset.kv_sub": "compression du contexte — % = précision (tail 99,9%)",
-  "preset.kv_opt_f16": "f16 — max qualité (100%)",
-  "preset.kv_opt_q8": "q8_0 — léger (94,6%)",
-  "preset.kv_opt_q4": "q4_0 — très léger (89,8%)",
-  "preset.kv_opt_q51": "q5_1 (92,8%) · lent en précompilé",
-  "preset.kv_optgroup_combos": "Combos K / V (K > V) · lents en précompilé",
-  "preset.kv_combo_1": "q8_0 / q5_1 (94,2%)",
-  "preset.kv_combo_2": "q8_0 / q5_0 (93,7%)",
-  "preset.kv_combo_3": "q5_0 / q4_1 (92,7%)",
-  "preset.kv_combo_4": "q5_0 / q4_0 (91,4%)",
+  "preset.kv_sub": "compresse le contexte · % = qualité",
+  "preset.kv_opt_f16": "f16 · 100 %",
+  "preset.kv_opt_q8": "q8_0 · 94,6 %",
+  "preset.kv_opt_q4": "q4_0 · 89,8 %",
+  "preset.kv_opt_q51": "q5_1 · 92,8 % (lent)",
+  "preset.kv_optgroup_combos": "Combos K/V · lents en précompilé",
+  "preset.kv_combo_1": "q8_0/q5_1 · 94,2 %",
+  "preset.kv_combo_2": "q8_0/q5_0 · 93,7 %",
+  "preset.kv_combo_3": "q5_0/q4_1 · 92,7 %",
+  "preset.kv_combo_4": "q5_0/q4_0 · 91,4 %",
   "preset.spec_label": "Décodage spéculatif",
-  "preset.spec_sub": "anticipe des jetons pour accélérer",
+  "preset.spec_sub": "accélère la génération",
   "preset.spec_opt_none": "non",
   "preset.spec_optgroup_draft": "Modèle brouillon",
   "preset.spec_opt_mtp": "MTP",
@@ -2639,22 +2712,25 @@ fr: {
   "preset.spec_opt_ngram_mapk": "n-grammes (map-k)",
   "preset.spec_opt_ngram_mapk4v": "n-grammes (map-k4v)",
   "preset.spec_draft_label": "Modèle de draft",
-  "preset.spec_draft_sub": "le brouillon qui anticipe",
+  "preset.spec_draft_sub": "modèle brouillon",
   "preset.spec_n_label": "Jetons anticipés",
-  "preset.spec_n_sub": "par étape — défaut 3",
+  "preset.spec_n_sub": "défaut 3",
   "preset.reasoning_label": "Raisonnement",
   "preset.reasoning_sub": "réflexion étape par étape",
+  "preset.loadmode_label": "Chargement",
+  "preset.loadmode_auto": "par défaut : mmap si possible",
+  "preset.loadmode_mmap": "lu depuis le disque à la demande",
+  "preset.loadmode_none": "copié en RAM au chargement",
+  "preset.loadmode_mlock": "copié en RAM, jamais swappé",
+  "preset.loadmode_mmap_mlock": "mappé, jamais swappé",
+  "preset.loadmode_dio": "lecture DirectIO (moteur récent)",
   "preset.flash_label": "Flash attention",
   "preset.flash_sub": "plus rapide, moins de VRAM",
-  "preset.mlock_label": "Garder en RAM",
-  "preset.mlock_sub": "évite le swap (mlock)",
-  "preset.nommap_label": "Charger tout en mémoire",
-  "preset.nommap_sub": "désactive le mmap",
   "preset.kvunified_label": "Cache KV unifié",
-  "preset.kvunified_sub": "un seul cache partagé (--kv-unified)",
+  "preset.kvunified_sub": "un seul cache partagé",
   "preset.sampling_heading": "Échantillonnage",
   "preset.sampling_toggle_label": "Réglages d'échantillonnage",
-  "preset.sampling_toggle_sub": "température, top_p, pénalités… (défaut du modèle si vide)",
+  "preset.sampling_toggle_sub": "vide = défaut du modèle",
   "preset.temp_label": "Température",
   "preset.temp_sub": "vide = défaut du modèle",
   "preset.topp_label": "top_p",
@@ -2664,11 +2740,11 @@ fr: {
   "preset.minp_label": "min_p",
   "preset.minp_sub": "seuil de probabilité",
   "preset.presence_label": "Pénalité de présence",
-  "preset.presence_sub": "pousse vers de nouveaux mots (0 = off)",
+  "preset.presence_sub": "favorise les mots nouveaux",
   "preset.repeat_label": "Pénalité de répétition",
-  "preset.repeat_sub": "anti-répétition (1 = neutre)",
+  "preset.repeat_sub": "1 = neutre",
   "preset.effort_label": "Effort de réflexion",
-  "preset.effort_sub": "ajoute --jinja automatiquement",
+  "preset.effort_sub": "active --jinja",
   "preset.effort_opt_default": "défaut du modèle",
   "preset.effort_opt_low": "low (rapide)",
   "preset.effort_opt_medium": "medium",
@@ -2676,7 +2752,7 @@ fr: {
   "preset.effort_opt_xhigh": "xhigh (max)",
   "preset.sysprompt_heading": "Prompt système",
   "preset.sysprompt_toggle_label": "Prompt système du preset",
-  "preset.sysprompt_toggle_sub": "optionnel — injecté quand ce preset est actif",
+  "preset.sysprompt_toggle_sub": "optionnel, propre à ce preset",
   "preset.sysprompt_placeholder": "(optionnel) ex : tu es un assistant concis en français",
   "preset.raw_heading": "Configuration",
   "preset.raw_toggle_label": "Éditer le fichier de configuration",
@@ -2767,8 +2843,8 @@ fr: {
   "settings.presets.reasoning_title": "raisonnement",
   "settings.presets.edit_title": "réglages du preset",
   "settings.presets.external_title": "API externe (distante)",
+  "settings.presets.cloud_title": "GPU cloud",
   "settings.presets.external_model_title": "modèle distant",
-  "presets.add_external_button": "ajouter une API externe",
   "external.title": "API Externe",
   "external.new_title": "Nouvelle API externe",
   "external.cfg_type_label": "Type",
@@ -2835,16 +2911,18 @@ fr: {
   "settings.backup.manual_badge": "manuel",
   "settings.backup.last_backup_prefix": "Dernière sauvegarde : ",
   "settings.backup.none_yet": "Aucune sauvegarde encore.",
-  "settings.backup.versions_on_relay": "version(s) sur le relais",
   "settings.backup.auto_enabled_msg": "La sauvegarde automatique tournera une fois par jour, tant que ta mémoire est déverrouillée (le paquet est chiffré avec ta clé, jamais stockée sur le serveur).",
   "settings.backup.auto_enabled_title": "Sauvegarde auto activée",
   "settings.backup_in_progress": "Sauvegarde en cours…",
   "settings.backup.sent": "Sauvegarde envoyée",
   "settings.backup.relay_unreachable": "Relais injoignable.",
   "settings.backup.none_available": "Aucune sauvegarde disponible sur le relais.",
-  "settings.backup.restore_confirm_before": "Restaurer la sauvegarde la plus récente (",
-  "settings.backup.restore_confirm_after": ") ? Cela remplacera ta mémoire, tes presets et tes réglages actuels. Un snapshot de sécurité est pris avant.",
   "settings.backup.restore_title": "Restaurer",
+  "settings.backup.restore_choose_msg": "Quelle sauvegarde restaurer ? Elle remplacera la mémoire, les presets et les réglages de cette machine. Un snapshot de sécurité est pris avant.",
+  "settings.backup.this_machine": "cette machine",
+  "settings.backup.old_backup": "ancienne sauvegarde",
+  "settings.backup.versions_this_machine": "sauvegarde(s) de cette machine",
+  "settings.backup.versions_total": "au total sur le compte",
   "settings.backup.restore_secret_prompt": "Ta clé d'API (ou ta clé de récupération) pour ouvrir la sauvegarde :",
   "settings.backup.restore_secret_placeholder": "clé d'API ou clé de récupération",
   "settings.backup.restoring": "Restauration…",
@@ -3342,8 +3420,8 @@ fr: {
   "models.settings.reasoning_sub": "réflexion étape par étape",
   "models.settings.reasoning_sub_unset": "réflexion étape par étape — non précisé : le modèle décide",
   "models.settings.spec_type_in_config": "(dans la configuration)",
-  "models.settings.spec_draft_builtin": "— intégré au modèle —",
-  "models.settings.spec_draft_none": "— aucun —",
+  "models.settings.spec_draft_builtin": "intégré",
+  "models.settings.spec_draft_none": "aucun",
   "models.name_required": "nom requis",
   "models.saved": "enregistré",
   "models.delete_confirm_prefix": "Supprimer le ",
@@ -3694,6 +3772,39 @@ en: {
   "preset.name_heading": "Name",
   "preset.name_placeholder": "Preset name",
   "preset.engine_heading": "Engine",
+  "preset.run_heading": "Run on",
+  "preset.cloud_provider_label": "Provider",
+  "preset.cloud_account_label": "Account",
+  "preset.cloud_account_none": "no account connected",
+  "preset.cloud_runtime_error": "installation failed",
+  "preset.cloud_account_add_title": "Connect another account",
+  "preset.cloud_account_add_sub": "one account per preset",
+  "preset.cloud_account_name_placeholder": "account name (e.g. personal, work)",
+  "preset.cloud_account_connect_title": "Sign in on modal.com",
+  "preset.cloud_account_add_note": "Sign in on the modal.com tab that opens.",
+  "preset.cloud_account_name_invalid": "Invalid name: letters, digits, - and _ only.",
+  "preset.cloud_account_starting": "Preparing sign-in…",
+  "preset.cloud_account_wait": "Waiting for you to sign in on modal.com…",
+  "preset.cloud_account_ok": "Account connected and selected for this preset.",
+  "preset.cloud_credit_label": "Credit left",
+  "preset.cloud_credit_sub": "{used} used of {month}",
+  "preset.cloud_credit_sub_paid": "used this month",
+  "preset.cloud_credit_left_short": "{left} credit left",
+  "preset.cloud_account_default": "default",
+  "preset.cloud_account_fail": "Could not connect the Modal account",
+  "preset.cloud_not_installed": "installing the cloud GPU component",
+  "preset.cloud_credit_na": "credit unavailable",
+  "preset.cloud_credit_month": "this month",
+  "preset.cloud_credit_billed": "billed",
+  "preset.run_local": "This machine",
+  "preset.run_modal": "Cloud GPU",
+  "preset.run_external": "External API",
+  "preset.cloud_gpu_label": "GPU",
+  "preset.cloud_gpu_sub": "billed per second",
+  "preset.cloud_model_label": "Model",
+  "preset.cloud_model_sub": "direct link to the .gguf",
+  "preset.cloud_idle_label": "Idle shutdown",
+  "preset.cloud_idle_sub": "stops when idle",
   "preset.engine_fast": "Prebuilt",
   "preset.engine_opt": "Compiled",
   "preset.engine_custom": "Custom",
@@ -3711,14 +3822,14 @@ en: {
   "preset.vision_label": "Vision",
   "preset.vision_sub": "mmproj projector",
   "preset.mmproj_cpu_label": "Vision projector on CPU",
-  "preset.mmproj_cpu_sub": "keeps the mmproj off the GPU — frees up VRAM (--no-mmproj-offload)",
+  "preset.mmproj_cpu_sub": "frees VRAM",
   "preset.download_model_label": "Download a model",
-  "preset.download_model_sub": "or an mmproj projector — direct link to a .gguf",
+  "preset.download_model_sub": "direct link to a .gguf",
   "preset.download_button_title": "Download",
   "preset.download_cancel": "Cancel the download",
   "preset.destination_label": "Destination",
   "preset.model_dirs_label": "Model folders",
-  "preset.model_dirs_sub": "look for .gguf files elsewhere (external drive…)",
+  "preset.model_dirs_sub": "external drive, other folder…",
   "preset.model_dir_add_title": "Add this folder",
   "preset.model_dirs_note": "These folders also serve as download destinations.",
   "preset.gpu_heading": "Graphics cards",
@@ -3735,20 +3846,20 @@ en: {
   "preset.batch_label": "BATCH",
   "preset.ubatch_label": "UBATCH",
   "preset.np_label": "Parallel sequences",
-  "preset.np_sub": "1 = recommended · >1 multiplies the KV cache (-np)",
+  "preset.np_sub": "1 recommended",
   "preset.kv_label": "KV cache",
-  "preset.kv_sub": "context compression — % = accuracy (tail 99.9%)",
-  "preset.kv_opt_f16": "f16 — max quality (100%)",
-  "preset.kv_opt_q8": "q8_0 — light (94.6%)",
-  "preset.kv_opt_q4": "q4_0 — very light (89.8%)",
-  "preset.kv_opt_q51": "q5_1 (92.8%) · slow with prebuilt",
-  "preset.kv_optgroup_combos": "K / V combos (K > V) · slow with prebuilt",
-  "preset.kv_combo_1": "q8_0 / q5_1 (94.2%)",
-  "preset.kv_combo_2": "q8_0 / q5_0 (93.7%)",
-  "preset.kv_combo_3": "q5_0 / q4_1 (92.7%)",
-  "preset.kv_combo_4": "q5_0 / q4_0 (91.4%)",
+  "preset.kv_sub": "compresses the context · % = quality",
+  "preset.kv_opt_f16": "f16 · 100%",
+  "preset.kv_opt_q8": "q8_0 · 94.6%",
+  "preset.kv_opt_q4": "q4_0 · 89.8%",
+  "preset.kv_opt_q51": "q5_1 · 92.8% (slow)",
+  "preset.kv_optgroup_combos": "K/V combos · slow with prebuilt",
+  "preset.kv_combo_1": "q8_0/q5_1 · 94.2%",
+  "preset.kv_combo_2": "q8_0/q5_0 · 93.7%",
+  "preset.kv_combo_3": "q5_0/q4_1 · 92.7%",
+  "preset.kv_combo_4": "q5_0/q4_0 · 91.4%",
   "preset.spec_label": "Speculative decoding",
-  "preset.spec_sub": "anticipates tokens to speed things up",
+  "preset.spec_sub": "speeds up generation",
   "preset.spec_opt_none": "no",
   "preset.spec_optgroup_draft": "Draft model",
   "preset.spec_opt_mtp": "MTP",
@@ -3763,22 +3874,25 @@ en: {
   "preset.spec_opt_ngram_mapk": "n-grams (map-k)",
   "preset.spec_opt_ngram_mapk4v": "n-grams (map-k4v)",
   "preset.spec_draft_label": "Draft model",
-  "preset.spec_draft_sub": "the draft that anticipates",
+  "preset.spec_draft_sub": "draft model",
   "preset.spec_n_label": "Anticipated tokens",
-  "preset.spec_n_sub": "per step — default 3",
+  "preset.spec_n_sub": "default 3",
   "preset.reasoning_label": "Reasoning",
   "preset.reasoning_sub": "step-by-step thinking",
+  "preset.loadmode_label": "Loading",
+  "preset.loadmode_auto": "default: mmap when possible",
+  "preset.loadmode_mmap": "read from disk on demand",
+  "preset.loadmode_none": "copied to RAM on load",
+  "preset.loadmode_mlock": "copied to RAM, never swapped",
+  "preset.loadmode_mmap_mlock": "mapped, never swapped",
+  "preset.loadmode_dio": "DirectIO reads (recent engine)",
   "preset.flash_label": "Flash attention",
   "preset.flash_sub": "faster, less VRAM",
-  "preset.mlock_label": "Keep in RAM",
-  "preset.mlock_sub": "avoids swap (mlock)",
-  "preset.nommap_label": "Load everything into memory",
-  "preset.nommap_sub": "disables mmap",
   "preset.kvunified_label": "Unified KV cache",
-  "preset.kvunified_sub": "one single shared cache (--kv-unified)",
+  "preset.kvunified_sub": "one shared cache",
   "preset.sampling_heading": "Sampling",
   "preset.sampling_toggle_label": "Sampling settings",
-  "preset.sampling_toggle_sub": "temperature, top_p, penalties… (model default if empty)",
+  "preset.sampling_toggle_sub": "empty = model default",
   "preset.temp_label": "Temperature",
   "preset.temp_sub": "empty = model default",
   "preset.topp_label": "top_p",
@@ -3788,11 +3902,11 @@ en: {
   "preset.minp_label": "min_p",
   "preset.minp_sub": "probability threshold",
   "preset.presence_label": "Presence penalty",
-  "preset.presence_sub": "pushes toward new words (0 = off)",
+  "preset.presence_sub": "favors new words",
   "preset.repeat_label": "Repetition penalty",
-  "preset.repeat_sub": "anti-repetition (1 = neutral)",
+  "preset.repeat_sub": "1 = neutral",
   "preset.effort_label": "Reasoning effort",
-  "preset.effort_sub": "adds --jinja automatically",
+  "preset.effort_sub": "enables --jinja",
   "preset.effort_opt_default": "model default",
   "preset.effort_opt_low": "low (fast)",
   "preset.effort_opt_medium": "medium",
@@ -3800,7 +3914,7 @@ en: {
   "preset.effort_opt_xhigh": "xhigh (max)",
   "preset.sysprompt_heading": "System prompt",
   "preset.sysprompt_toggle_label": "Preset's system prompt",
-  "preset.sysprompt_toggle_sub": "optional — injected when this preset is active",
+  "preset.sysprompt_toggle_sub": "optional, specific to this preset",
   "preset.sysprompt_placeholder": "(optional) e.g.: you are a concise assistant",
   "preset.raw_heading": "Configuration",
   "preset.raw_toggle_label": "Edit the configuration file",
@@ -3891,8 +4005,8 @@ en: {
   "settings.presets.reasoning_title": "reasoning",
   "settings.presets.edit_title": "preset settings",
   "settings.presets.external_title": "external API (remote)",
+  "settings.presets.cloud_title": "cloud GPU",
   "settings.presets.external_model_title": "remote model",
-  "presets.add_external_button": "add an external API",
   "external.title": "External API",
   "external.new_title": "New external API",
   "external.cfg_type_label": "Type",
@@ -3959,16 +4073,18 @@ en: {
   "settings.backup.manual_badge": "manual",
   "settings.backup.last_backup_prefix": "Last backup: ",
   "settings.backup.none_yet": "No backup yet.",
-  "settings.backup.versions_on_relay": "version(s) on the relay",
   "settings.backup.auto_enabled_msg": "Automatic backup will run once a day, as long as your memory is unlocked (the package is encrypted with your key, which is never stored on the server).",
   "settings.backup.auto_enabled_title": "Auto backup enabled",
   "settings.backup_in_progress": "Backing up…",
   "settings.backup.sent": "Backup sent",
   "settings.backup.relay_unreachable": "Relay unreachable.",
   "settings.backup.none_available": "No backup available on the relay.",
-  "settings.backup.restore_confirm_before": "Restore the most recent backup (",
-  "settings.backup.restore_confirm_after": ")? This will replace your current memory, presets, and settings. A safety snapshot is taken beforehand.",
   "settings.backup.restore_title": "Restore",
+  "settings.backup.restore_choose_msg": "Which backup should be restored? It will replace this machine's memory, presets and settings. A safety snapshot is taken beforehand.",
+  "settings.backup.this_machine": "this machine",
+  "settings.backup.old_backup": "older backup",
+  "settings.backup.versions_this_machine": "backup(s) of this machine",
+  "settings.backup.versions_total": "in total on the account",
   "settings.backup.restore_secret_prompt": "Your API key (or recovery key) to open the backup:",
   "settings.backup.restore_secret_placeholder": "API key or recovery key",
   "settings.backup.restoring": "Restoring…",
@@ -4466,8 +4582,8 @@ en: {
   "models.settings.reasoning_sub": "step-by-step thinking",
   "models.settings.reasoning_sub_unset": "step-by-step thinking — not set: the model decides",
   "models.settings.spec_type_in_config": "(in the configuration)",
-  "models.settings.spec_draft_builtin": "— built into the model —",
-  "models.settings.spec_draft_none": "— none —",
+  "models.settings.spec_draft_builtin": "built-in",
+  "models.settings.spec_draft_none": "none",
   "models.name_required": "name required",
   "models.saved": "saved",
   "models.delete_confirm_prefix": "Delete the ",
@@ -4640,12 +4756,15 @@ function hideModal(id){
   setTimeout(()=>{ if(!el.classList.contains('show')) el.style.display='none'; }, 180);
 }
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
-let _askResolver=null, _askKind='confirm', _askCheck=false, _askMultiline=false;
+let _askResolver=null, _askKind='confirm', _askCheck=false, _askMultiline=false, _askChoice=null;
 function askChecked(){ return _askCheck; }
+function askChoice(){ return _askChoice; }
 function askResolve(ok){
   if(!_askResolver) return;
   const r=_askResolver; _askResolver=null;
   _askCheck = ok && document.getElementById('ask-check-input').checked;
+  const sel=document.getElementById('ask-select');
+  _askChoice = ok && sel.style.display!=='none' ? sel.value : null;
   hideModal('ask-modal');
   document.removeEventListener('keydown', _askKey, true);
   if(_askKind==='prompt') r(ok ? document.getElementById(_askMultiline?'ask-textarea':'ask-input').value : null);
@@ -4672,6 +4791,13 @@ function _openAsk(kind, message, opts){
     el.style.display=''; el.value=opts.default||''; el.placeholder=opts.placeholder||'';
     other.style.display='none';
   } else { inp.style.display='none'; ta.style.display='none'; }
+  const sel=document.getElementById('ask-select');
+  if(Array.isArray(opts.choices) && opts.choices.length){
+    sel.innerHTML='';
+    opts.choices.forEach(c=>sel.appendChild(Object.assign(document.createElement('option'),{value:c.value,textContent:c.label})));
+    if(opts.choice!=null) sel.value=opts.choice;
+    sel.style.display='';
+  } else sel.style.display='none';
   const chk=document.getElementById('ask-check');
   chk.style.display = opts.check ? 'inline-flex' : 'none';
   document.getElementById('ask-check-label').textContent = opts.check || '';
@@ -4988,11 +5114,14 @@ function swapContent(el, html){
 }
 function renderVram(gpus){
   swapContent(document.getElementById('vram'), (gpus||[]).map(g=>{
+    if(g.cloud && !g.awake) return '<div class="stat"><div class="stat-h"><span class="stat-n">'+escHtml(g.name)+'</span>'+
+      '<span class="stat-v">'+(g.total? (g.total/1024).toFixed(0)+' GiB' : '')+'</span></div>'+
+      '<div class="stat-s">'+escHtml(g.status||'')+(g.billing? ' · '+escHtml(cloudCreditText(g.billing)) : '')+'</div></div>';
     const pct=Math.round(g.used*100/g.total);
     return '<div class="stat"><div class="stat-h"><span class="stat-n">'+g.name+'</span>'+
       '<span class="stat-v">'+(g.used/1024).toFixed(1)+' / '+(g.total/1024).toFixed(1)+' GiB</span></div>'+
       '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
-      '<div class="stat-s">GPU '+g.util+' % · '+g.temp+' °C</div></div>';
+      '<div class="stat-s">GPU '+g.util+' % · '+g.temp+' °C'+(g.cloud?' · '+escHtml(g.status||''):'')+(g.billing? ' · '+escHtml(cloudCreditText(g.billing)) : '')+'</div></div>';
   }).join('') || '<div class="stat"><span class="stat-s">'+t('status.no_gpu')+'</span></div>');
 }
 function renderRam(m){
@@ -5029,6 +5158,17 @@ async function loadCfg(){
   const [c, lc] = await Promise.all([jget('/api/config'), jget('/api/llamacpp').catch(()=>null)]);
   const row=(k,v,title)=>'<div class="kv"><span>'+k+'</span><span title="'+String(title!=null?title:v).replace(/"/g,'&quot;')+'">'+String(v)+'</span></div>';
   const rows=[];
+  if(/^modal$/i.test(c.CLOUD||'')){
+    rows.push(row(t('status.cfg_engine'), 'GPU cloud (Modal)'));
+    rows.push(row('GPU', c.CLOUD_GPU||'A10G'));
+    if(c.CLOUD_MODEL) rows.push(row('MODEL', c.CLOUD_MODEL.split('?')[0].split('/').pop(), c.CLOUD_MODEL));
+    ['CTX','KV_TYPE','BATCH','UBATCH','NGL'].filter(k=>c[k]).forEach(k=>rows.push(row(k, c[k])));
+    const sp=(c.EXTRA_ARGS||'').match(/--spec-type\s+(\S+)/);
+    if(sp) rows.push(row('SPEC', sp[1]));
+    swapContent(document.getElementById('cfg'), rows.join(''));
+    updateReasonBtn(c.REASONING_EFFORT || '');
+    return;
+  }
   if(c.EXTERNAL==='1'){
     rows.push(row(t('external.cfg_type_label'), t('external.title')));
     if(c.EXTERNAL_MODEL) rows.push(row(t('external.model_label'), c.EXTERNAL_MODEL));
@@ -5106,12 +5246,6 @@ async function loadPresets(){
     const info=document.createElement('div'); info.className='preset-info';
     const nm=document.createElement('div'); nm.className='preset-name';
     if(x.active){ const d=document.createElement('i'); d.className='preset-dot'; nm.appendChild(d); }
-    if(x.external){
-      const w=document.createElement('span'); w.className='preset-wifi';
-      w.title=t('settings.presets.external_title');
-      w.innerHTML='<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
-      nm.appendChild(w);
-    }
     nm.appendChild(document.createTextNode(x.name)); nm.title=x.name;
     const meta=document.createElement('div'); meta.className='preset-meta';
     if(x.external){
@@ -5121,24 +5255,34 @@ async function loadPresets(){
         meta.appendChild(mt);
       }
     } else {
-    if(x.quant){
-      const q=document.createElement('span'); q.className='qtag';
-      q.textContent=x.quant; q.title=t('settings.presets.quant_title');
-      meta.appendChild(q);
-    }
-    if(x.ctx){
-      const c=document.createElement('span'); c.className='ctag';
-      c.title=t('settings.presets.context_size_title');
-      c.textContent=x.ctx;
-      meta.appendChild(c);
-    }
-    if(x.bench){
-      const bt=document.createElement('span'); bt.className='btag';
-      bt.title=t('settings.presets.bench_title');
-      bt.textContent=x.bench.prefill.toFixed(0)+'-'+x.bench.decode.toFixed(0)+' t/s';
-      meta.appendChild(bt);
+      if(x.cloud){
+        const c=document.createElement('span'); c.className='ctag';
+        c.title=t('settings.presets.cloud_title'); c.textContent='Modal '+x.cloud;
+        meta.appendChild(c);
+      }
+      if(x.quant){
+        const q=document.createElement('span'); q.className='qtag';
+        q.textContent=x.quant; q.title=t('settings.presets.quant_title');
+        meta.appendChild(q);
+      }
+      if(x.ctx){
+        const c=document.createElement('span'); c.className='ctag';
+        c.title=t('settings.presets.context_size_title');
+        c.textContent=x.ctx;
+        meta.appendChild(c);
+      }
+      if(x.bench){
+        const bt=document.createElement('span'); bt.className='btag';
+        bt.title=t('settings.presets.bench_title');
+        bt.textContent=x.bench.prefill.toFixed(0)+'-'+x.bench.decode.toFixed(0)+' t/s';
+        meta.appendChild(bt);
+      }
     }
     const caps=[], capTitle=[];
+    if(x.external){
+      caps.push('<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>');
+      capTitle.push(t('settings.presets.external_title'));
+    }
     if(x.vision){
       caps.push('<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>');
       capTitle.push(t('settings.presets.vision_title'));
@@ -5153,13 +5297,12 @@ async function loadPresets(){
       cap.title=capTitle.join(' · ');
       meta.appendChild(cap);
     }
-    }
     info.appendChild(nm);
     if(meta.children.length) info.appendChild(meta);
     const edit=document.createElement('button');
     edit.className='preset-edit'; edit.title=t('settings.presets.edit_title');
     edit.innerHTML='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>';
-    edit.onclick=(e)=>{ e.stopPropagation(); x.external ? openExternal(x.id) : openPreset(x.id); };
+    edit.onclick=(e)=>{ e.stopPropagation(); openPreset(x.id); };
     row.appendChild(info); row.appendChild(edit);
     cont.appendChild(row);
   });
@@ -5266,7 +5409,11 @@ async function loadBackup(){
   let msg='';
   if(s.last){ const d=new Date(s.last); msg=t('settings.backup.last_backup_prefix')+(isNaN(d)?s.last:d.toLocaleString()); }
   else msg=t('settings.backup.none_yet');
-  if(Array.isArray(s.versions)) msg+=' · '+s.versions.length+' '+t('settings.backup.versions_on_relay');
+  if(Array.isArray(s.versions)){
+    const mine = s.versions.filter(v=>v.this).length;
+    msg += ' · '+mine+' '+t('settings.backup.versions_this_machine');
+    if(s.versions.length > mine) msg += ' · '+s.versions.length+' '+t('settings.backup.versions_total');
+  }
   if(s.error) msg+='\n⚠️ '+s.error;
   st.textContent=msg; st.style.whiteSpace='pre-line';
 }
@@ -5282,18 +5429,26 @@ async function backupNow(){
   if(!r.ok){ await askAlert(t('common.failed_prefix')+(r.error||t('common.unknown'))); return; }
   toast(t('settings.backup.sent')); loadBackup();
 }
+function backupLabel(v){
+  const when = v.when ? new Date(v.when).toLocaleString() : v.id;
+  const who = v.this ? t('settings.backup.this_machine')
+            : (v.machineName || (v.machine ? v.machine.slice(0,8) : t('settings.backup.old_backup')));
+  return who+' · '+when;
+}
 async function backupRestore(){
   let s; try{ s=await jget('/api/backup/status'); }catch(e){ await askAlert(t('settings.backup.relay_unreachable')); return; }
   const vers=(s.versions||[]);
   if(!vers.length){ await askAlert(t('settings.backup.none_available')); return; }
-  const latest=vers[0];
-  const when=latest.when? new Date(latest.when).toLocaleString():latest.id;
-  if(!await askConfirm(t('settings.backup.restore_confirm_before')+when+t('settings.backup.restore_confirm_after'),{title:t('settings.backup.restore_title'),okText:t('settings.backup.restore_title'),danger:true})) return;
+  const def = vers.find(v=>v.this) || vers[0];
+  const key = v => (v.machine||'')+'/'+v.id;
+  if(!await askConfirm(t('settings.backup.restore_choose_msg'),{title:t('settings.backup.restore_title'),okText:t('settings.backup.restore_title'),danger:true,
+      choices: vers.map(v=>({value:key(v), label:backupLabel(v)})), choice: key(def)})) return;
+  const pick = vers.find(v=>key(v)===askChoice()) || def;
   while(true){
     const secret=await askPrompt(t('settings.backup.restore_secret_prompt'),{title:t('settings.backup.restore_title'),placeholder:t('settings.backup.restore_secret_placeholder')});
     if(!secret) return; 
     toast(t('settings.backup.restoring'));
-    let r; try{ r=await jpost('/api/backup/restore',{id:latest.id,secret}); }catch(e){ await askAlert(t('common.failed_prefix')+e); return; }
+    let r; try{ r=await jpost('/api/backup/restore',{id:pick.id,machine:pick.machine||'',secret}); }catch(e){ await askAlert(t('common.failed_prefix')+e); return; }
     if(r.ok){ await askAlert(t('settings.backup.restore_done_msg'),{title:t('settings.backup.restore_done_title')}); loadMem(); return; }
     await askAlert((r.error&&r.error.indexOf('incorrecte')>=0)?t('settings.wrong_key'):(t('common.failed_prefix')+(r.error||t('common.unknown'))),{title:t('settings.refused_title')});
   }
@@ -5584,81 +5739,6 @@ async function act(a){
   }
   setTimeout(loadAll,1500);
 }
-let extEditing = null;   
-let extHasKey = false;   
-let extKeyTouched = false; 
-async function openExternal(id){
-  extEditing = id || '';
-  extKeyTouched = false;
-  extHasKey = false;
-  let d = {name:'', url:'', model:'', hasKey:false, vision:false};
-  if(id){
-    try{ d = await jget('/api/preset/external?id='+encodeURIComponent(id)); }catch(e){}
-  }
-  document.getElementById('ext-modal-title').textContent =
-    id ? t('external.edit_prefix')+' « '+(d.name||id)+' »' : t('external.title');
-  document.getElementById('ext-name').value = d.name || '';
-  document.getElementById('ext-url').value = d.url || '';
-  document.getElementById('ext-model').value = d.model || '';
-  document.getElementById('ext-ctx').value = d.ctx || '';
-  document.getElementById('ext-vision').checked = !!d.vision;
-  const key = document.getElementById('ext-key');
-  extHasKey = !!d.hasKey;
-  key.value = '';
-  key.placeholder = extHasKey ? t('external.key_saved') : 'sk-…';
-  document.getElementById('ext-del').style.display = id ? '' : 'none';
-  const st = document.getElementById('ext-modal-status');
-  st.textContent = ''; st.style.color = '';
-  showModal('ext-modal');
-}
-function closeExternal(){ hideModal('ext-modal'); extEditing = null; }
-function extBody(){
-  return {
-    id: extEditing || '',
-    name: document.getElementById('ext-name').value.trim(),
-    url: document.getElementById('ext-url').value.trim(),
-    model: document.getElementById('ext-model').value.trim(),
-    ctx: document.getElementById('ext-ctx').value.trim(),
-    vision: document.getElementById('ext-vision').checked,
-    key: document.getElementById('ext-key').value,
-    keyTouched: extKeyTouched,
-  };
-}
-async function testExternal(){
-  const b = extBody();
-  if(!b.url || !b.model){ toast(t('external.url_model_required')); return; }
-  const st = document.getElementById('ext-modal-status');
-  st.textContent = t('external.testing'); st.style.color = '';
-  try{
-    const r = await jpost('/api/preset/external/test', b);
-    if(r.ok){ st.innerHTML = '<span style="color:var(--accent)">✓</span> '+t('external.test_ok'); }
-    else { st.textContent = '⚠ '+(r.error||t('external.test_failed')); st.style.color = 'var(--err)'; }
-  }catch(e){ st.textContent = '⚠ '+t('external.test_failed'); st.style.color = 'var(--err)'; }
-}
-async function saveExternal(){
-  const b = extBody();
-  if(!b.name){ toast(t('external.name_required')); return; }
-  if(!b.url){ toast(t('external.url_required')); return; }
-  if(!b.model){ toast(t('external.model_required')); return; }
-  const st = document.getElementById('ext-modal-status');
-  st.textContent = t('external.saving'); st.style.color = '';
-  const r = await jpost('/api/preset/external/save', b);
-  if(!r.ok){ st.textContent = '⚠ '+(r.error||t('external.save_failed')); st.style.color = 'var(--err)'; return; }
-  closeExternal();
-  toast(t('external.saved'));
-  loadPresets();
-}
-async function deleteExternal(){
-  if(!extEditing) return;
-  const nm = document.getElementById('ext-name').value.trim() || extEditing;
-  if(!await askConfirm(t('external.confirm_delete_prefix')+' « '+nm+' » ?',
-      {title:t('external.delete_title'), okText:t('external.delete_btn'), danger:true})) return;
-  const r = await jpost('/api/preset/delete', {id: extEditing});
-  if(r && r.ok === false){ toast(r.error||t('external.delete_failed')); return; }
-  closeExternal();
-  loadPresets();
-  toast(t('external.deleted'));
-}
 function openBenchModal(){ showModal('bench-modal'); }
 function closeBenchModal(){ hideModal('bench-modal'); }
 async function runBenchUI(){
@@ -5756,6 +5836,9 @@ async function openItem(kind, key){
     document.getElementById('m-sys-caret').classList.remove('open');
   }
   if(engineRow) engineRow.style.display = kind === 'preset' ? '' : 'none';
+  const runRow = document.getElementById('m-run-row');
+  if(runRow) runRow.style.display = kind === 'preset' ? '' : 'none';
+  document.getElementById('modal').classList.remove('run-cloud');
   if(kind === 'preset'){
     modelRow.style.display = 'flex';
     settingsRow.style.display = 'flex';
@@ -5797,6 +5880,7 @@ async function openItem(kind, key){
     const sp = document.getElementById('m-sysprompt'); if(sp) sp.value = d.sysprompt || '';
     document.getElementById('m-quant').value = currentQuantInTextarea();
     populateSettings();
+    syncRunMode();
     attachDownload();                      
     await Promise.all([populateBackend(), populateModelPicker(), populateMmproj(), populateSpecDraft(), populateDlDirs()]);
     if(seq !== openSeq) return;
@@ -6310,24 +6394,28 @@ function eaToggleFlag(flag, on){
   if(on) t.push(flag);
   eaSetTokens(t);
 }
-function eaMemFlags(){
+function eaLoadMode(){
   const lm = (eaGetValued('--load-mode') || eaGetValued('-lm')).toLowerCase();
-  let mlock = eaHasFlag('--mlock'), nommap = eaHasFlag('--no-mmap');
-  if(lm==='mlock'){ mlock=true; nommap=true; }       
-  else if(lm==='mmap+mlock'){ mlock=true; }           
-  else if(lm==='none'){ nommap=true; }                
-  return {mlock, nommap};
+  if(lm) return lm === 'auto' ? '' : lm;
+  const mlock = eaHasFlag('--mlock'), nommap = eaHasFlag('--no-mmap');
+  if(mlock && nommap) return 'mlock';
+  if(mlock) return 'mmap+mlock';
+  if(nommap) return 'none';
+  return '';
 }
-function eaToggleMem(){
-  const ml = document.getElementById('s-mlock'), nm = document.getElementById('s-nommap');
+function eaSetLoadMode(mode){
   let t = eaTokens().filter(x=>x!=='--mlock' && x!=='--no-mmap');
   for(const f of ['--load-mode','-lm']){
     const i = t.indexOf(f);
     if(i>=0){ const hadVal = i+1<t.length && !t[i+1].startsWith('-'); t.splice(i, hadVal?2:1); }
   }
-  if(ml && ml.checked) t.push('--mlock');
-  if(nm && nm.checked) t.push('--no-mmap');
+  if(mode) t.push('--load-mode', mode);
   eaSetTokens(t);
+  syncLoadModeSub(mode);
+}
+function syncLoadModeSub(mode){
+  const el = document.getElementById('s-loadmode-sub');
+  if(el) el.textContent = t('preset.loadmode_'+({'':'auto','mmap+mlock':'mmap_mlock'}[mode] ?? mode));
 }
 function eaGetValued(flag){
   const t = eaTokens(), i = t.indexOf(flag);
@@ -6370,11 +6458,159 @@ function populateSettings(){
   }
   chk('s-kvunified', eaHasFlag('--kv-unified'));
   chk('s-flash', eaHasFlag('--flash-attn') && !/^off$/i.test(eaGetValued('--flash-attn')));
-  const mem = eaMemFlags();
-  chk('s-mlock', mem.mlock);
-  chk('s-nommap', mem.nommap);
+  set('s-loadmode', eaLoadMode());
+  syncLoadModeSub(eaLoadMode());
   chk('s-mmproj-cpu', eaHasFlag('--no-mmproj-offload'));
   syncMmprojCpuRow();
+}
+const CLOUD_PROVIDERS = ['modal'];
+function runMode(){
+  if(CLOUD_PROVIDERS.includes(cfgReadKey('CLOUD').toLowerCase())) return 'modal';
+  if(cfgReadKey('EXTERNAL') === '1') return 'external';
+  return 'local';
+}
+function syncRunMode(){
+  const mode = runMode();
+  document.querySelectorAll('input[name="m-run"]').forEach(r=>{ r.checked = r.value === mode; });
+  document.getElementById('m-cloud-body').style.display = mode === 'modal' ? '' : 'none';
+  document.getElementById('m-ext-body').style.display = mode === 'external' ? '' : 'none';
+  const md = document.getElementById('modal');
+  md.classList.toggle('run-cloud', mode === 'modal');
+  md.classList.toggle('run-external', mode === 'external');
+  const bench = document.getElementById('btn-bench');
+  if(bench && mode !== 'local') bench.style.display = 'none';
+  if(mode === 'modal'){
+    document.getElementById('s-cloud-provider').value = cfgReadKey('CLOUD').toLowerCase() || 'modal';
+    document.getElementById('s-cloud-gpu').value = cfgReadKey('CLOUD_GPU') || 'A10G';
+    document.getElementById('s-cloud-model').value = cfgReadKey('CLOUD_MODEL');
+    document.getElementById('s-cloud-idle').value = cfgReadKey('CLOUD_IDLE');
+    setCloudAddOpen(false);
+    loadCloudAccounts();
+  } else if(mode === 'external'){
+    document.getElementById('s-ext-url').value = cfgReadKey('EXTERNAL_URL');
+    document.getElementById('s-ext-model').value = cfgReadKey('EXTERNAL_MODEL');
+    document.getElementById('s-ext-key').value = cfgReadKey('EXTERNAL_KEY');
+    document.getElementById('s-ext-ctx').value = cfgReadKey('CTX');
+    document.getElementById('s-ext-vision').checked = cfgReadKey('EXTERNAL_VISION') === '1';
+    document.getElementById('s-ext-status').textContent = '';
+  }
+}
+async function testExternalPreset(){
+  const st = document.getElementById('s-ext-status');
+  const b = {id: editingKey || '', url: cfgReadKey('EXTERNAL_URL'), model: cfgReadKey('EXTERNAL_MODEL'),
+             key: cfgReadKey('EXTERNAL_KEY'), keyTouched: true};
+  if(!b.url || !b.model){ st.textContent = t('external.url_model_required'); return; }
+  st.textContent = t('external.testing');
+  try{
+    const r = await jpost('/api/preset/external/test', b);
+    st.textContent = r.ok ? '✓ '+t('external.test_ok') : '⚠ '+(r.error || t('external.test_failed'));
+  }catch(e){ st.textContent = '⚠ '+t('external.test_failed'); }
+}
+async function loadCloudAccounts(){
+  const sel = document.getElementById('s-cloud-prof');
+  const sub = document.getElementById('s-cloud-prof-sub');
+  const cur = cfgReadKey('CLOUD_PROFILE');
+  let d = {accounts:[]};
+  try{ d = await jget('/api/cloud/accounts'); }catch(e){}
+  if(d.installed === false){
+    sel.innerHTML = '<option value="">…</option>';
+    sub.style.display = '';
+    if(d.runtime === 'error'){
+      sub.textContent = t('preset.cloud_runtime_error')+(d.error ? ' : '+d.error : '');
+    } else {
+      sub.textContent = t('preset.cloud_not_installed')+(d.step ? ' · '+d.step : '')+'…';
+      setTimeout(()=>{ if(runMode() === 'modal' && document.getElementById('modal').classList.contains('show')) loadCloudAccounts(); }, 3000);
+    }
+    document.getElementById('s-cloud-credit').textContent = '—';
+    document.getElementById('s-cloud-credit-sub').textContent = '';
+    return;
+  }
+  sub.style.display = 'none';
+  const list = d.accounts || [];
+  if(!list.length){
+    sel.innerHTML = '<option value="">'+escHtml(t('preset.cloud_account_none'))+'</option>';
+    setCloudAddOpen(true);
+    document.getElementById('s-cloud-credit').textContent = '—';
+    document.getElementById('s-cloud-credit-sub').textContent = '';
+    return;
+  }
+  const act = list.find(a=>a.active);
+  const opts = list.filter(a=>!a.active).map(a=>'<option value="'+escHtml(a.name)+'">'+escHtml(a.name)+'</option>');
+  sel.innerHTML = '<option value="">'+escHtml(act ? act.name : t('preset.cloud_account_default'))+'</option>' + opts.join('');
+  if(cur && !list.some(a=>a.name===cur)) sel.insertAdjacentHTML('beforeend','<option value="'+escHtml(cur)+'">'+escHtml(cur)+'</option>');
+  sel.value = (act && cur === act.name) ? '' : cur;
+  loadCloudCredit();
+}
+async function loadCloudCredit(){
+  const val = document.getElementById('s-cloud-credit');
+  const sub = document.getElementById('s-cloud-credit-sub');
+  const p = cfgReadKey('CLOUD_PROFILE');
+  val.textContent = '…'; sub.textContent = '';
+  let d = null;
+  try{ d = await jget('/api/cloud/billing?profile='+encodeURIComponent(p)); }catch(e){}
+  if(cfgReadKey('CLOUD_PROFILE') !== p) return; 
+  if(!d || d.error || d.month_cost == null){ val.textContent = '—'; sub.textContent = t('preset.cloud_credit_na'); return; }
+  const usd = v => Number(v).toFixed(2).replace('.', ',')+' $';
+  if(d.credit_left != null){
+    val.textContent = usd(d.credit_left);
+    sub.textContent = t('preset.cloud_credit_sub').replace('{used}', usd(d.month_cost)).replace('{month}', usd(d.credit_month));
+  } else {
+    val.textContent = usd(d.month_cost);
+    sub.textContent = t('preset.cloud_credit_sub_paid');
+  }
+  if(d.billed > 0) sub.textContent += ' · '+t('preset.cloud_credit_billed')+' '+usd(d.billed);
+}
+function cloudCreditText(d){
+  if(!d || d.error || d.month_cost == null) return '';
+  const usd = v => Number(v).toFixed(2).replace('.', ',')+' $';
+  return d.credit_left != null ? t('preset.cloud_credit_left_short').replace('{left}', usd(d.credit_left))
+                               : t('preset.cloud_credit_month')+' '+usd(d.month_cost);
+}
+function onCloudProfile(){
+  cfgWriteKey('CLOUD_PROFILE', document.getElementById('s-cloud-prof').value);
+  loadCloudCredit();
+}
+function onCloudProvider(p){ cfgWriteKey('CLOUD', p); syncRunMode(); }
+function onRunMode(mode){
+  cfgWriteKey('CLOUD', mode === 'modal' ? 'modal' : '');
+  cfgWriteKey('EXTERNAL', mode === 'external' ? '1' : '');
+  if(mode === 'modal' && !cfgReadKey('CLOUD_GPU')) cfgWriteKey('CLOUD_GPU', 'A10G');
+  syncRunMode();
+}
+function setCloudAddOpen(open){
+  document.getElementById('m-cloud-add').style.display = open ? '' : 'none';
+  document.getElementById('m-cloud-add-caret').classList.toggle('open', open);
+  if(open) document.getElementById('m-cloud-add-name').focus();
+}
+function cloudAddNote(txt){ document.getElementById('m-cloud-add-note').textContent = txt; }
+async function addCloudAccount(){
+  const inp = document.getElementById('m-cloud-add-name');
+  const btn = document.getElementById('m-cloud-add-btn');
+  const name = inp.value.trim();
+  if(!/^[A-Za-z0-9_-]{1,40}$/.test(name)){ cloudAddNote(t('preset.cloud_account_name_invalid')); inp.focus(); return; }
+  const win = window.open('', '_blank');
+  btn.disabled = true; inp.disabled = true;
+  cloudAddNote(t('preset.cloud_account_starting'));
+  const done = (msg)=>{ btn.disabled = false; inp.disabled = false; cloudAddNote(msg); };
+  let r;
+  try{ r = await jpost('/api/cloud/accounts/add', {name}); }catch(e){ r = {error: String(e)}; }
+  if(!r || !r.url){ if(win) win.close(); done((r && r.error) || t('preset.cloud_account_fail')); return; }
+  if(win) win.location = r.url; else window.open(r.url, '_blank');
+  cloudAddNote(t('preset.cloud_account_wait'));
+  for(let i=0; i<450; i++){
+    await new Promise(res=>setTimeout(res, 2000));
+    let st; try{ st = await jget('/api/cloud/accounts/add?name='+encodeURIComponent(name)); }catch(e){ continue; }
+    if(st.state === 'ok'){
+      cfgWriteKey('CLOUD_PROFILE', name);
+      inp.value = '';
+      await loadCloudAccounts();
+      done(t('preset.cloud_account_ok'));
+      setTimeout(()=>{ setCloudAddOpen(false); cloudAddNote(t('preset.cloud_account_add_note')); }, 2500);
+      return;
+    }
+    if(st.state === 'error'){ done(st.error || t('preset.cloud_account_fail')); return; }
+  }
+  done(t('preset.cloud_account_fail'));
 }
 function setSpecType(v){
   const sel = document.getElementById('s-spec');
@@ -6838,6 +7074,7 @@ function setStats(el, text){
 }
 function bodyOf(el){ return el.querySelector('.body'); }
 function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(encodeMdLinkSpaces(text)); markNotices(b); addCopyButtons(b); markFileLinks(b); markWorkspaceImages(b); scrollMaybe(); }
+function bodyLineCount(s){ s=String(s).replace(/\r\n/g,'\n').replace(/\n$/,''); return s ? s.split('\n').length : 0; }
 function renderToolMsg(el, tu){
   const META = {
     bash:       {ico:'terminal', lbl:t('chat.tool.bash_lbl'),            head:t('chat.tool.bash_head')},
@@ -6886,8 +7123,9 @@ function renderToolMsg(el, tu){
   if(realChars){ lbl += '  ·  ' + Math.max(1, Math.round(realChars/4)) + ' ' + t('chat.tok_unit'); }
   setLabel(el, lbl);
   let add=0, del=0;
-  if(tu.diff && tu.diff.length){ tu.diff.forEach(l=>{ if(l.op==='+') add++; else if(l.op==='-') del++; }); }
-  else if(tu.body){ add=tu.body.split('\n').length; }
+  if(tu.added!=null || tu.removed!=null){ add=tu.added||0; del=tu.removed||0; }
+  else if(tu.diff && tu.diff.length){ tu.diff.forEach(l=>{ if(l.op==='+') add++; else if(l.op==='-') del++; }); }
+  else if(tu.body){ add=bodyLineCount(tu.body); }
   if(add||del) setLabelCounts(el, add, del);
   const body=bodyOf(el); body.innerHTML='';
   if(tu.label){

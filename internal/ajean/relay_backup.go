@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -41,10 +42,15 @@ func backupAuthReq(method, url string, body io.Reader) (*http.Request, error) {
 }
 
 // BackupVersion : métadonnées d'une sauvegarde stockée sur le relais.
+// Machine : id de la machine qui l'a faite ("" = sauvegarde d'avant le rangement
+// par machine) ; This : c'est CETTE machine.
 type BackupVersion struct {
-	ID   string `json:"id"`
-	Size int64  `json:"size"`
-	When string `json:"when"`
+	ID          string `json:"id"`
+	Size        int64  `json:"size"`
+	When        string `json:"when"`
+	Machine     string `json:"machine"`
+	MachineName string `json:"machineName,omitempty"`
+	This        bool   `json:"this"`
 }
 
 // relayBackupList récupère la liste des sauvegardes de ce compte.
@@ -70,6 +76,10 @@ func relayBackupList() ([]BackupVersion, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return nil, err
 	}
+	me := machineID()
+	for i := range out.Versions {
+		out.Versions[i].This = out.Versions[i].Machine == me
+	}
 	return out.Versions, nil
 }
 
@@ -80,6 +90,9 @@ func relayBackupUpload(blob []byte) (string, error) {
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/octet-stream")
+	// Rangement par machine côté relais : chaque machine garde ses propres
+	// versions au lieu de pousser dehors celles des autres machines du compte.
+	req.Header.Set("X-Ajean-Machine", machineID())
 	resp, err := backupHTTPClient().Do(req)
 	if err != nil {
 		return "", err
@@ -99,9 +112,14 @@ func relayBackupUpload(blob []byte) (string, error) {
 	return out.ID, nil
 }
 
-// relayBackupDownload récupère un blob chiffré par son id.
-func relayBackupDownload(id string) ([]byte, error) {
-	req, err := backupAuthReq(http.MethodGet, relayHTTPBase()+"/backup/"+id, nil)
+// relayBackupDownload récupère un blob chiffré par son id et sa machine
+// d'origine ("" = sauvegarde d'avant le rangement par machine).
+func relayBackupDownload(id, machine string) ([]byte, error) {
+	u := relayHTTPBase() + "/backup/" + url.PathEscape(id)
+	if machine != "" {
+		u += "?m=" + url.QueryEscape(machine)
+	}
+	req, err := backupAuthReq(http.MethodGet, u, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -184,8 +202,8 @@ func StartBackupScheduler() {
 
 // RestoreBackup télécharge et restaure une sauvegarde. secret = la clé d'API (ou
 // la clé de récupération) qui ouvre le keyvault de l'entête.
-func RestoreBackup(id, secret string) error {
-	blob, err := relayBackupDownload(id)
+func RestoreBackup(id, machine, secret string) error {
+	blob, err := relayBackupDownload(id, machine)
 	if err != nil {
 		return err
 	}

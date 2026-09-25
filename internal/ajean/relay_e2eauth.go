@@ -277,8 +277,9 @@ func e2eAuthOpenReq(r *http.Request) (plain []byte, key []byte, err error) {
 	if !isAuthorizedUser(env.UPub) {
 		return nil, nil, fmt.Errorf("appareil non appairé (confirme le code d'appairage)")
 	}
-	now := time.Now().UnixMilli()
+	now := e2eNowMs()
 	if d := now - env.Ts; d > e2eAuthWindowMs || d < -e2eAuthWindowMs {
+		remeasureRelayClock()
 		return nil, nil, fmt.Errorf("horodatage hors fenêtre")
 	}
 	if replayCheck(env.UPub, env.Ts, env.Iv) {

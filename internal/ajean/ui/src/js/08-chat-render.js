@@ -271,6 +271,9 @@ function setStats(el, text){
 function bodyOf(el){ return el.querySelector('.body'); }
 // Render markdown into a message body in place; safe because md() escapes HTML.
 function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(encodeMdLinkSpaces(text)); markNotices(b); addCopyButtons(b); markFileLinks(b); markWorkspaceImages(b); scrollMaybe(); }
+// Lignes d'un contenu en cours d'écriture, comptées comme côté serveur : un saut
+// de ligne final termine la dernière ligne, il n'en ouvre pas une vide.
+function bodyLineCount(s){ s=String(s).replace(/\r\n/g,'\n').replace(/\n$/,''); return s ? s.split('\n').length : 0; }
 // Render a tool call as its own conversation message: the command the model
 // wrote, then the response it got back. textContent keeps it injection-safe.
 function renderToolMsg(el, tu){
@@ -331,9 +334,13 @@ function renderToolMsg(el, tu){
   setLabel(el, lbl);
   // Volume de l'écriture (final si le diff est là, provisoire pendant la frappe)
   // reporté sur l'étiquette, pour rester lisible bulle repliée.
+  // Les vrais totaux viennent du serveur (added/removed) : le diff lui-même est
+  // tronqué pour l'affichage, le recompter donnait « +120 » pour 500 lignes.
+  // Repli sur le décompte du diff pour les conversations d'avant ces champs.
   let add=0, del=0;
-  if(tu.diff && tu.diff.length){ tu.diff.forEach(l=>{ if(l.op==='+') add++; else if(l.op==='-') del++; }); }
-  else if(tu.body){ add=tu.body.split('\n').length; }
+  if(tu.added!=null || tu.removed!=null){ add=tu.added||0; del=tu.removed||0; }
+  else if(tu.diff && tu.diff.length){ tu.diff.forEach(l=>{ if(l.op==='+') add++; else if(l.op==='-') del++; }); }
+  else if(tu.body){ add=bodyLineCount(tu.body); }
   if(add||del) setLabelCounts(el, add, del);
   const body=bodyOf(el); body.innerHTML='';
   // Plus d'en-tête « commande / recherche web » ici : il répétait le label (icône +

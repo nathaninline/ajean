@@ -729,6 +729,8 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 			// pour que le diff soit encore là après un rafraîchissement.
 			if len(ev.ToolUsed.Diff) > 0 {
 				tu["diff"] = ev.ToolUsed.Diff
+				tu["added"] = ev.ToolUsed.Added
+				tu["removed"] = ev.ToolUsed.Removed
 			}
 			// Tokens d'écriture des arguments (cumul) : nourrit le compteur du bas. On
 			// ne l'ajoute que quand il y en a, pour ne pas alourdir chaque événement.

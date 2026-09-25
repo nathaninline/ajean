@@ -637,7 +637,7 @@ Write the summary in the SAME language as the conversation.`
 	} else {
 		authHeader(req)
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := doLLM(ctx, req, body, ep)
 	if err != nil {
 		return "", friendlyLLMError(err)
 	}

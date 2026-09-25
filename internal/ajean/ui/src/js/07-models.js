@@ -131,6 +131,9 @@ async function openItem(kind, key){
     document.getElementById('m-sys-caret').classList.remove('open');
   }
   if(engineRow) engineRow.style.display = kind === 'preset' ? '' : 'none';
+  const runRow = document.getElementById('m-run-row');
+  if(runRow) runRow.style.display = kind === 'preset' ? '' : 'none';
+  document.getElementById('modal').classList.remove('run-cloud');
   if(kind === 'preset'){
     modelRow.style.display = 'flex';
     settingsRow.style.display = 'flex';
@@ -188,6 +191,7 @@ async function openItem(kind, key){
     // Ces deux-là LISENT le contenu : elles doivent passer après son arrivée.
     document.getElementById('m-quant').value = currentQuantInTextarea();
     populateSettings();
+    syncRunMode();
     attachDownload();                      // téléchargement encore en cours côté serveur ?
     await Promise.all([populateBackend(), populateModelPicker(), populateMmproj(), populateSpecDraft(), populateDlDirs()]);
     if(seq !== openSeq) return;
@@ -883,33 +887,34 @@ function eaToggleFlag(flag, on){
   eaSetTokens(t);
 }
 // --- Mémoire : mlock / no-mmap, avec le nouveau --load-mode --------------------
-// llama.cpp récent a REMPLACÉ --mlock / --no-mmap par --load-mode. Les presets
-// continuent de stocker l'ANCIENNE représentation (portable sur tous les
-// backends, y compris les forks qui gardent --mlock) ; AJEAN la traduit en
-// --load-mode au lancement pour les moteurs récents. Ces deux fonctions font le
-// pont côté éditeur pour que les interrupteurs restent justes même si un preset
-// porte déjà un --load-mode (édité à la main ou migré).
-function eaMemFlags(){
+// Chargement du modèle. llama.cpp récent a REMPLACÉ --mlock / --no-mmap par
+// --load-mode (auto, none, mmap, mlock, mmap+mlock, dio). L'éditeur écrit la
+// forme moderne ; au lancement, AJEAN la retraduit pour un moteur ancien (voir
+// downgradeLoadMode côté Go), et inversement.
+function eaLoadMode(){
   const lm = (eaGetValued('--load-mode') || eaGetValued('-lm')).toLowerCase();
-  let mlock = eaHasFlag('--mlock'), nommap = eaHasFlag('--no-mmap');
-  if(lm==='mlock'){ mlock=true; nommap=true; }       // pas de mmap + résident
-  else if(lm==='mmap+mlock'){ mlock=true; }           // mmap + résident
-  else if(lm==='none'){ nommap=true; }                // pas de mmap
-  return {mlock, nommap};
+  if(lm) return lm === 'auto' ? '' : lm;
+  // Preset écrit avec les anciens drapeaux : même correspondance que le serveur.
+  const mlock = eaHasFlag('--mlock'), nommap = eaHasFlag('--no-mmap');
+  if(mlock && nommap) return 'mlock';
+  if(mlock) return 'mmap+mlock';
+  if(nommap) return 'none';
+  return '';
 }
-// eaToggleMem : appelé par les deux interrupteurs. On réécrit TOUJOURS en
-// --mlock / --no-mmap (portable) et on retire tout --load-mode explicite :
-// l'utilisateur reprend la main, et le lancement re-traduit selon le backend.
-function eaToggleMem(){
-  const ml = document.getElementById('s-mlock'), nm = document.getElementById('s-nommap');
+function eaSetLoadMode(mode){
   let t = eaTokens().filter(x=>x!=='--mlock' && x!=='--no-mmap');
   for(const f of ['--load-mode','-lm']){
     const i = t.indexOf(f);
     if(i>=0){ const hadVal = i+1<t.length && !t[i+1].startsWith('-'); t.splice(i, hadVal?2:1); }
   }
-  if(ml && ml.checked) t.push('--mlock');
-  if(nm && nm.checked) t.push('--no-mmap');
+  if(mode) t.push('--load-mode', mode);
   eaSetTokens(t);
+  syncLoadModeSub(mode);
+}
+// Sous-titre : ce que fait le mode choisi (les options ne portent que son nom).
+function syncLoadModeSub(mode){
+  const el = document.getElementById('s-loadmode-sub');
+  if(el) el.textContent = t('preset.loadmode_'+({'':'auto','mmap+mlock':'mmap_mlock'}[mode] ?? mode));
 }
 function eaGetValued(flag){
   const t = eaTokens(), i = t.indexOf(flag);
@@ -960,11 +965,169 @@ function populateSettings(){
   }
   chk('s-kvunified', eaHasFlag('--kv-unified'));
   chk('s-flash', eaHasFlag('--flash-attn') && !/^off$/i.test(eaGetValued('--flash-attn')));
-  const mem = eaMemFlags();
-  chk('s-mlock', mem.mlock);
-  chk('s-nommap', mem.nommap);
+  set('s-loadmode', eaLoadMode());
+  syncLoadModeSub(eaLoadMode());
   chk('s-mmproj-cpu', eaHasFlag('--no-mmproj-offload'));
   syncMmprojCpuRow();
+}
+// --- Exécution : cette machine ou GPU cloud Modal (clé CLOUD) ----------------
+// Fournisseurs de GPU cloud connus (valeur de la clé CLOUD).
+const CLOUD_PROVIDERS = ['modal'];
+function runMode(){
+  if(CLOUD_PROVIDERS.includes(cfgReadKey('CLOUD').toLowerCase())) return 'modal';
+  if(cfgReadKey('EXTERNAL') === '1') return 'external';
+  return 'local';
+}
+function syncRunMode(){
+  const mode = runMode();
+  document.querySelectorAll('input[name="m-run"]').forEach(r=>{ r.checked = r.value === mode; });
+  document.getElementById('m-cloud-body').style.display = mode === 'modal' ? '' : 'none';
+  document.getElementById('m-ext-body').style.display = mode === 'external' ? '' : 'none';
+  const md = document.getElementById('modal');
+  md.classList.toggle('run-cloud', mode === 'modal');
+  md.classList.toggle('run-external', mode === 'external');
+  // Le bench mesure le moteur local : sans objet pour un preset distant.
+  const bench = document.getElementById('btn-bench');
+  if(bench && mode !== 'local') bench.style.display = 'none';
+  if(mode === 'modal'){
+    document.getElementById('s-cloud-provider').value = cfgReadKey('CLOUD').toLowerCase() || 'modal';
+    document.getElementById('s-cloud-gpu').value = cfgReadKey('CLOUD_GPU') || 'A10G';
+    document.getElementById('s-cloud-model').value = cfgReadKey('CLOUD_MODEL');
+    document.getElementById('s-cloud-idle').value = cfgReadKey('CLOUD_IDLE');
+    setCloudAddOpen(false);
+    loadCloudAccounts();
+  } else if(mode === 'external'){
+    document.getElementById('s-ext-url').value = cfgReadKey('EXTERNAL_URL');
+    document.getElementById('s-ext-model').value = cfgReadKey('EXTERNAL_MODEL');
+    document.getElementById('s-ext-key').value = cfgReadKey('EXTERNAL_KEY');
+    document.getElementById('s-ext-ctx').value = cfgReadKey('CTX');
+    document.getElementById('s-ext-vision').checked = cfgReadKey('EXTERNAL_VISION') === '1';
+    document.getElementById('s-ext-status').textContent = '';
+  }
+}
+// Test d'un preset API externe : une complétion d'un jeton vers l'API saisie.
+async function testExternalPreset(){
+  const st = document.getElementById('s-ext-status');
+  const b = {id: editingKey || '', url: cfgReadKey('EXTERNAL_URL'), model: cfgReadKey('EXTERNAL_MODEL'),
+             key: cfgReadKey('EXTERNAL_KEY'), keyTouched: true};
+  if(!b.url || !b.model){ st.textContent = t('external.url_model_required'); return; }
+  st.textContent = t('external.testing');
+  try{
+    const r = await jpost('/api/preset/external/test', b);
+    st.textContent = r.ok ? '✓ '+t('external.test_ok') : '⚠ '+(r.error || t('external.test_failed'));
+  }catch(e){ st.textContent = '⚠ '+t('external.test_failed'); }
+}
+// Comptes Modal = profils de la CLI sur la machine AJEAN. Vide = profil actif.
+async function loadCloudAccounts(){
+  const sel = document.getElementById('s-cloud-prof');
+  const sub = document.getElementById('s-cloud-prof-sub');
+  const cur = cfgReadKey('CLOUD_PROFILE');
+  let d = {accounts:[]};
+  try{ d = await jget('/api/cloud/accounts'); }catch(e){}
+  // Premier usage : AJEAN installe son composant GPU cloud (Python + client
+  // Modal privés). On affiche l'étape et on réessaie jusqu'à ce qu'il soit prêt.
+  if(d.installed === false){
+    sel.innerHTML = '<option value="">…</option>';
+    sub.style.display = '';
+    if(d.runtime === 'error'){
+      sub.textContent = t('preset.cloud_runtime_error')+(d.error ? ' : '+d.error : '');
+    } else {
+      sub.textContent = t('preset.cloud_not_installed')+(d.step ? ' · '+d.step : '')+'…';
+      setTimeout(()=>{ if(runMode() === 'modal' && document.getElementById('modal').classList.contains('show')) loadCloudAccounts(); }, 3000);
+    }
+    document.getElementById('s-cloud-credit').textContent = '—';
+    document.getElementById('s-cloud-credit-sub').textContent = '';
+    return;
+  }
+  sub.style.display = 'none';
+  const list = d.accounts || [];
+  if(!list.length){
+    sel.innerHTML = '<option value="">'+escHtml(t('preset.cloud_account_none'))+'</option>';
+    setCloudAddOpen(true);
+    document.getElementById('s-cloud-credit').textContent = '—';
+    document.getElementById('s-cloud-credit-sub').textContent = '';
+    return;
+  }
+  const act = list.find(a=>a.active);
+  const opts = list.filter(a=>!a.active).map(a=>'<option value="'+escHtml(a.name)+'">'+escHtml(a.name)+'</option>');
+  // Option vide = profil actif de la CLI ; on affiche simplement son nom.
+  sel.innerHTML = '<option value="">'+escHtml(act ? act.name : t('preset.cloud_account_default'))+'</option>' + opts.join('');
+  if(cur && !list.some(a=>a.name===cur)) sel.insertAdjacentHTML('beforeend','<option value="'+escHtml(cur)+'">'+escHtml(cur)+'</option>');
+  sel.value = (act && cur === act.name) ? '' : cur;
+  loadCloudCredit();
+}
+async function loadCloudCredit(){
+  const val = document.getElementById('s-cloud-credit');
+  const sub = document.getElementById('s-cloud-credit-sub');
+  const p = cfgReadKey('CLOUD_PROFILE');
+  val.textContent = '…'; sub.textContent = '';
+  let d = null;
+  try{ d = await jget('/api/cloud/billing?profile='+encodeURIComponent(p)); }catch(e){}
+  if(cfgReadKey('CLOUD_PROFILE') !== p) return; // compte changé entre-temps
+  if(!d || d.error || d.month_cost == null){ val.textContent = '—'; sub.textContent = t('preset.cloud_credit_na'); return; }
+  const usd = v => Number(v).toFixed(2).replace('.', ',')+' $';
+  if(d.credit_left != null){
+    val.textContent = usd(d.credit_left);
+    sub.textContent = t('preset.cloud_credit_sub').replace('{used}', usd(d.month_cost)).replace('{month}', usd(d.credit_month));
+  } else {
+    val.textContent = usd(d.month_cost);
+    sub.textContent = t('preset.cloud_credit_sub_paid');
+  }
+  if(d.billed > 0) sub.textContent += ' · '+t('preset.cloud_credit_billed')+' '+usd(d.billed);
+}
+// Texte court pour la carte « Appareil ».
+function cloudCreditText(d){
+  if(!d || d.error || d.month_cost == null) return '';
+  const usd = v => Number(v).toFixed(2).replace('.', ',')+' $';
+  return d.credit_left != null ? t('preset.cloud_credit_left_short').replace('{left}', usd(d.credit_left))
+                               : t('preset.cloud_credit_month')+' '+usd(d.month_cost);
+}
+function onCloudProfile(){
+  cfgWriteKey('CLOUD_PROFILE', document.getElementById('s-cloud-prof').value);
+  loadCloudCredit();
+}
+function onCloudProvider(p){ cfgWriteKey('CLOUD', p); syncRunMode(); }
+function onRunMode(mode){
+  cfgWriteKey('CLOUD', mode === 'modal' ? 'modal' : '');
+  cfgWriteKey('EXTERNAL', mode === 'external' ? '1' : '');
+  if(mode === 'modal' && !cfgReadKey('CLOUD_GPU')) cfgWriteKey('CLOUD_GPU', 'A10G');
+  syncRunMode();
+}
+function setCloudAddOpen(open){
+  document.getElementById('m-cloud-add').style.display = open ? '' : 'none';
+  document.getElementById('m-cloud-add-caret').classList.toggle('open', open);
+  if(open) document.getElementById('m-cloud-add-name').focus();
+}
+function cloudAddNote(txt){ document.getElementById('m-cloud-add-note').textContent = txt; }
+async function addCloudAccount(){
+  const inp = document.getElementById('m-cloud-add-name');
+  const btn = document.getElementById('m-cloud-add-btn');
+  const name = inp.value.trim();
+  if(!/^[A-Za-z0-9_-]{1,40}$/.test(name)){ cloudAddNote(t('preset.cloud_account_name_invalid')); inp.focus(); return; }
+  // Onglet ouvert AVANT l'appel réseau : après un await, le navigateur le bloque.
+  const win = window.open('', '_blank');
+  btn.disabled = true; inp.disabled = true;
+  cloudAddNote(t('preset.cloud_account_starting'));
+  const done = (msg)=>{ btn.disabled = false; inp.disabled = false; cloudAddNote(msg); };
+  let r;
+  try{ r = await jpost('/api/cloud/accounts/add', {name}); }catch(e){ r = {error: String(e)}; }
+  if(!r || !r.url){ if(win) win.close(); done((r && r.error) || t('preset.cloud_account_fail')); return; }
+  if(win) win.location = r.url; else window.open(r.url, '_blank');
+  cloudAddNote(t('preset.cloud_account_wait'));
+  for(let i=0; i<450; i++){
+    await new Promise(res=>setTimeout(res, 2000));
+    let st; try{ st = await jget('/api/cloud/accounts/add?name='+encodeURIComponent(name)); }catch(e){ continue; }
+    if(st.state === 'ok'){
+      cfgWriteKey('CLOUD_PROFILE', name);
+      inp.value = '';
+      await loadCloudAccounts();
+      done(t('preset.cloud_account_ok'));
+      setTimeout(()=>{ setCloudAddOpen(false); cloudAddNote(t('preset.cloud_account_add_note')); }, 2500);
+      return;
+    }
+    if(st.state === 'error'){ done(st.error || t('preset.cloud_account_fail')); return; }
+  }
+  done(t('preset.cloud_account_fail'));
 }
 // --- Décodage spéculatif (--spec-type / --spec-draft-n-max) ----------------
 // Sélectionne le type courant. --spec-type accepte en réalité une LISTE séparée

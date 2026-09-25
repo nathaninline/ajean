@@ -189,6 +189,10 @@ func newWebMux() *http.ServeMux {
 	api("/api/preset/external", handlePresetExternal)          // lire un preset externe (préremplissage modale)
 	api("/api/preset/external/save", handlePresetExternalSave) // créer/éditer un preset externe
 	api("/api/preset/external/test", handlePresetExternalTest) // tester la connexion à l'API distante
+	api("/api/cloud/accounts", handleCloudAccounts)            // comptes Modal (profils CLI) pour les presets GPU cloud
+	api("/api/cloud/accounts/add", handleCloudAccountAdd)      // connecter un compte Modal (flux web, renvoie le lien)
+	api("/api/cloud/runtime", handleCloudRuntime)              // composant GPU cloud (Python + client Modal privés)
+	api("/api/cloud/billing", handleCloudBilling)              // crédit / conso du mois d'un compte Modal
 	api("/api/agent", handleAgent)
 	api("/api/agent/toggle", handleAgentToggle)
 	api("/api/agent/compact", handleCompactToggle)
