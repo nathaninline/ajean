@@ -181,7 +181,7 @@ func visionEnabled() bool {
 	if strings.TrimSpace(ReadConfig()["MMPROJ"]) != "" {
 		return true
 	}
-	return externalVisionActive()
+	return externalVisionActive() || cloudVisionActive()
 }
 
 // visionImageNote annonce au modèle les images qu'il VOIT déjà en ligne (parties

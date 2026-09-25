@@ -130,8 +130,12 @@ func runBench(nPrompt, nPredict int) (*benchResult, error) {
 		PredictedN: t.PredictedN, PredictedMs: t.PredictedMs, PredictedPerSec: t.PredictedPerSec,
 		Elapsed: elapsed,
 	}
-	saveLastBench(res)
-	saveBenchForActivePreset(res)
+	// Un bench ne mesure que le moteur LOCAL : pour un preset distant (API
+	// Externe, GPU Cloud), l'enregistrer l'attribuerait à tort à ce preset.
+	if !usesRemoteEndpoint(ReadConfig()) {
+		saveLastBench(res)
+		saveBenchForActivePreset(res)
+	}
 	return res, nil
 }
 
@@ -156,6 +160,27 @@ func loadLastBench() *savedBench {
 		return nil
 	}
 	return &sb
+}
+
+// benchMatchesPreset : le bench a-t-il été mesuré sur le modèle ACTUEL du
+// preset ? Les benchs sont rangés par nom de preset : sans ce contrôle, un
+// preset recréé sous un ancien nom (ou dont le modèle a changé) affichait les
+// mesures d'un autre modèle.
+func benchMatchesPreset(sb savedBench, cfg map[string]string) bool {
+	if usesRemoteEndpoint(cfg) {
+		return false
+	}
+	m := strings.TrimSpace(cfg["MODEL"])
+	return m != "" && sb.Model == filepath.Base(m)
+}
+
+// deletePresetBench oublie le bench d'un preset supprimé.
+func deletePresetBench(id string) {
+	m := loadBenchStore()
+	if _, ok := m[id]; ok {
+		delete(m, id)
+		_ = putJSON(bkState, "bench_presets", m)
+	}
 }
 
 // loadBenchStore renvoie les benchmarks par preset (vide s'il n'y en a pas).

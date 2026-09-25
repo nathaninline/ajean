@@ -960,6 +960,10 @@
             <span class="pe-row-l"><span data-i18n="preset.cloud_model_label">Modèle</span> <span class="pe-sub" data-i18n="preset.cloud_model_sub">lien direct vers le .gguf</span></span>
             <input id="s-cloud-model" class="pe-inp" placeholder="https://huggingface.co/…/resolve/main/model.gguf" oninput="cfgWriteKey('CLOUD_MODEL', this.value)">
           </div>
+          <div class="pe-row stack">
+            <span class="pe-row-l"><span data-i18n="preset.cloud_vision_label">Vision</span> <span class="pe-sub" data-i18n="preset.cloud_vision_sub">lien direct vers le mmproj .gguf (facultatif)</span></span>
+            <input id="s-cloud-mmproj" class="pe-inp" placeholder="https://huggingface.co/…/mmproj-….gguf" oninput="cfgWriteKey('CLOUD_MMPROJ', this.value)">
+          </div>
           <div class="pe-row">
             <span class="pe-row-l"><span data-i18n="preset.cloud_idle_label">Mise en veille</span><span class="pe-sub" data-i18n="preset.cloud_idle_sub">arrêt après inactivité</span></span>
             <span class="pe-row-c"><input id="s-cloud-idle" class="pe-val" type="number" min="60" step="60" placeholder="300" oninput="cfgWriteKey('CLOUD_IDLE', this.value)"><span class="pe-unit">s</span></span>

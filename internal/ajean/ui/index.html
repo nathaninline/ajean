@@ -1990,6 +1990,10 @@ button:hover{border-color:var(--dim);color:var(--text)}
             <span class="pe-row-l"><span data-i18n="preset.cloud_model_label">Modèle</span> <span class="pe-sub" data-i18n="preset.cloud_model_sub">lien direct vers le .gguf</span></span>
             <input id="s-cloud-model" class="pe-inp" placeholder="https://huggingface.co/…/resolve/main/model.gguf" oninput="cfgWriteKey('CLOUD_MODEL', this.value)">
           </div>
+          <div class="pe-row stack">
+            <span class="pe-row-l"><span data-i18n="preset.cloud_vision_label">Vision</span> <span class="pe-sub" data-i18n="preset.cloud_vision_sub">lien direct vers le mmproj .gguf (facultatif)</span></span>
+            <input id="s-cloud-mmproj" class="pe-inp" placeholder="https://huggingface.co/…/mmproj-….gguf" oninput="cfgWriteKey('CLOUD_MMPROJ', this.value)">
+          </div>
           <div class="pe-row">
             <span class="pe-row-l"><span data-i18n="preset.cloud_idle_label">Mise en veille</span><span class="pe-sub" data-i18n="preset.cloud_idle_sub">arrêt après inactivité</span></span>
             <span class="pe-row-c"><input id="s-cloud-idle" class="pe-val" type="number" min="60" step="60" placeholder="300" oninput="cfgWriteKey('CLOUD_IDLE', this.value)"><span class="pe-unit">s</span></span>
@@ -2661,6 +2665,8 @@ fr: {
   "preset.cloud_gpu_sub": "facturé à la seconde",
   "preset.cloud_model_label": "Modèle",
   "preset.cloud_model_sub": "lien direct vers le .gguf",
+  "preset.cloud_vision_label": "Vision",
+  "preset.cloud_vision_sub": "lien direct vers le mmproj .gguf (facultatif)",
   "preset.cloud_idle_label": "Mise en veille",
   "preset.cloud_idle_sub": "arrêt après inactivité",
   "preset.engine_fast": "Précompilé",
@@ -2793,6 +2799,18 @@ fr: {
   "api.key_placeholder": "clé…",
   "status.stopped": "arrêté",
   "status.ready": "prêt",
+  "status.cloud_checking": "vérification…",
+  "status.cloud_busy": "génération en cours",
+  "status.cloud_off_in": "s'éteint dans",
+  "status.cloud_leaving_in": "preset inactif · s'éteint dans",
+  "status.cloud_stopping": "arrêt en cours…",
+  "status.cloud_sleeping": "en veille",
+  "status.cloud_deploying": "déploiement…",
+  "status.cloud_downloading": "téléchargement…",
+  "status.cloud_loading": "chargement…",
+  "chat.cloud_waking": "réveil du GPU Cloud…",
+  "chat.cloud_downloading": "téléchargement du modèle, premier démarrage (plusieurs minutes)…",
+  "chat.cloud_loading": "chargement du modèle…",
   "status.error": "erreur",
   "status.loading": "chargement…",
   "status.stale_currently": "actuellement",
@@ -3825,6 +3843,8 @@ en: {
   "preset.cloud_gpu_sub": "billed per second",
   "preset.cloud_model_label": "Model",
   "preset.cloud_model_sub": "direct link to the .gguf",
+  "preset.cloud_vision_label": "Vision",
+  "preset.cloud_vision_sub": "direct link to the mmproj .gguf (optional)",
   "preset.cloud_idle_label": "Idle shutdown",
   "preset.cloud_idle_sub": "stops when idle",
   "preset.engine_fast": "Prebuilt",
@@ -3957,6 +3977,18 @@ en: {
   "api.key_placeholder": "key…",
   "status.stopped": "stopped",
   "status.ready": "ready",
+  "status.cloud_checking": "checking…",
+  "status.cloud_busy": "generating",
+  "status.cloud_off_in": "stops in",
+  "status.cloud_leaving_in": "inactive preset · stops in",
+  "status.cloud_stopping": "stopping…",
+  "status.cloud_sleeping": "asleep",
+  "status.cloud_deploying": "deploying…",
+  "status.cloud_downloading": "downloading…",
+  "status.cloud_loading": "loading…",
+  "chat.cloud_waking": "waking up the Cloud GPU…",
+  "chat.cloud_downloading": "downloading the model, first start (several minutes)…",
+  "chat.cloud_loading": "loading the model…",
   "status.error": "error",
   "status.loading": "loading…",
   "status.stale_currently": "currently",
@@ -4878,6 +4910,7 @@ function askKeyOnce(){
 }
 async function jget(u){ const r=await jfetch(u); return r.json(); }
 async function jpost(u,b){ const r=await jfetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})}); return r.json(); }
+let CLOUD_PHASE = '';
 let LAST_BOOT=null; 
 let LAST_PRESET=null; 
 async function loadStatus(){
@@ -4901,6 +4934,10 @@ async function loadStatus(){
   if(s.active && s.health){ cls='ok'; txt=t('status.ready'); }
   else if(s.load_error){ cls='err'; txt=t('status.error'); }
   else if(s.active){ cls='loading'; txt=t('status.loading'); }
+  CLOUD_PHASE = s.cloud_phase || '';
+  const cloudPill = {checking:['loading','status.cloud_checking'], sleeping:['ok','status.cloud_sleeping'], deploying:['loading','status.cloud_deploying'],
+                     downloading:['loading','status.cloud_downloading'], loading:['loading','status.cloud_loading']}[CLOUD_PHASE];
+  if(cloudPill && s.active && !s.load_error){ cls=cloudPill[0]; txt=t(cloudPill[1]); }
   const svcWasSkel = !!el.querySelector('.skel');
   el.className='statuspill '+cls;
   el.innerHTML='<span class="dot"></span>'+txt;
@@ -5129,16 +5166,44 @@ function swapContent(el, html){
   el.innerHTML = html;
   if(fade){ el.classList.remove('fadein'); void el.offsetWidth; el.classList.add('fadein'); }
 }
+function cloudCardStatus(g){
+  if(g.busy) return escHtml(t('status.cloud_busy'));
+  if(g.off_at){
+    const pre = g.phase==='leaving' ? t('status.cloud_leaving_in') : t('status.cloud_off_in');
+    return '<span class="cloud-cd" data-off="'+Number(g.off_at)+'" data-pre="'+escHtml(pre)+'">'+escHtml(cloudCountdownText(pre, g.off_at))+'</span>';
+  }
+  return escHtml(g.status||'');
+}
+function fmtCountdown(ms){
+  const s = Math.max(0, Math.round(ms/1000));
+  return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+}
+function cloudCountdownText(pre, offAt){
+  const left = Number(offAt) - Date.now();
+  return left > 0 ? pre+' '+fmtCountdown(left) : t('status.cloud_stopping');
+}
+function tickCloudCountdown(){
+  document.querySelectorAll('.cloud-cd').forEach(el=>{ el.textContent = cloudCountdownText(el.dataset.pre, el.dataset.off); });
+}
+setInterval(tickCloudCountdown, 1000);
 function renderVram(gpus){
   swapContent(document.getElementById('vram'), (gpus||[]).map(g=>{
+    if(g.cloud && g.phase==='downloading'){
+      const pct = g.total ? Math.min(100, Math.round(g.used*100/g.total)) : 0;
+      const go = v => (v/1024).toFixed(1).replace('.', ',');
+      return '<div class="stat"><div class="stat-h"><span class="stat-n">'+escHtml(g.name)+'</span>'+
+        '<span class="stat-v">'+go(g.used)+(g.total ? ' / '+go(g.total) : '')+' Go</span></div>'+
+        '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
+        '<div class="stat-s">'+escHtml(g.status||'')+'</div></div>';
+    }
     if(g.cloud && !g.awake) return '<div class="stat"><div class="stat-h"><span class="stat-n">'+escHtml(g.name)+'</span>'+
       '<span class="stat-v">'+(g.total? (g.total/1024).toFixed(0)+' GiB' : '')+'</span></div>'+
-      '<div class="stat-s">'+escHtml(g.status||'')+(g.billing? ' · '+escHtml(cloudCreditText(g.billing)) : '')+'</div></div>';
+      '<div class="stat-s">'+cloudCardStatus(g)+(g.billing? ' · '+escHtml(cloudCreditText(g.billing)) : '')+'</div></div>';
     const pct=Math.round(g.used*100/g.total);
     return '<div class="stat"><div class="stat-h"><span class="stat-n">'+g.name+'</span>'+
       '<span class="stat-v">'+(g.used/1024).toFixed(1)+' / '+(g.total/1024).toFixed(1)+' GiB</span></div>'+
       '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
-      '<div class="stat-s">GPU '+g.util+' % · '+g.temp+' °C'+(g.cloud?' · '+escHtml(g.status||''):'')+(g.billing? ' · '+escHtml(cloudCreditText(g.billing)) : '')+'</div></div>';
+      '<div class="stat-s">GPU '+g.util+' % · '+g.temp+' °C'+(g.cloud?' · '+cloudCardStatus(g):'')+(g.billing? ' · '+escHtml(cloudCreditText(g.billing)) : '')+'</div></div>';
   }).join('') || '<div class="stat"><span class="stat-s">'+t('status.no_gpu')+'</span></div>');
 }
 function renderRam(m){
@@ -6518,6 +6583,7 @@ function syncRunMode(){
     document.getElementById('s-cloud-gpu').value = cfgReadKey('CLOUD_GPU') || 'A10G';
     document.getElementById('s-cloud-model').value = cfgReadKey('CLOUD_MODEL');
     document.getElementById('s-cloud-idle').value = cfgReadKey('CLOUD_IDLE');
+    document.getElementById('s-cloud-mmproj').value = cfgReadKey('CLOUD_MMPROJ');
     setCloudAddOpen(false);
     loadCloudAccounts();
   } else if(mode === 'external'){
@@ -7542,6 +7608,9 @@ function paintGenStatus(){
     if(rate!=null) parts.push(rate.toFixed(1)+' t/s');
   }
   const pr=activePresetName(); if(pr && !viewOn('hide-preset')) parts.push(pr);
+  if(tok===0 && CLOUD_PHASE && CLOUD_PHASE!=='ready'){
+    parts.push(t(CLOUD_PHASE==='downloading' ? 'chat.cloud_downloading' : CLOUD_PHASE==='loading' ? 'chat.cloud_loading' : 'chat.cloud_waking'));
+  }
   txt.textContent=parts.join('  ·  ');
   scrollMaybe();
 }

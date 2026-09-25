@@ -199,6 +199,10 @@ function paintGenStatus(){
     if(rate!=null) parts.push(rate.toFixed(1)+' t/s');
   }
   const pr=activePresetName(); if(pr && !viewOn('hide-preset')) parts.push(pr);
+  // GPU Cloud pas encore prêt : on dit ce qui se passe au lieu d'un silence.
+  if(tok===0 && CLOUD_PHASE && CLOUD_PHASE!=='ready'){
+    parts.push(t(CLOUD_PHASE==='downloading' ? 'chat.cloud_downloading' : CLOUD_PHASE==='loading' ? 'chat.cloud_loading' : 'chat.cloud_waking'));
+  }
   txt.textContent=parts.join('  ·  ');
   scrollMaybe();
 }

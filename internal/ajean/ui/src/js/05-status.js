@@ -1,3 +1,5 @@
+// Étape du GPU Cloud du preset actif (voir cloudPhase côté serveur), "" sinon.
+let CLOUD_PHASE = '';
 let LAST_BOOT=null; // empreinte de démarrage du serveur vue au dernier poll
 let LAST_PRESET=null; // id du preset actif vu au dernier poll (détecte une bascule faite ailleurs)
 async function loadStatus(){
@@ -33,6 +35,13 @@ async function loadStatus(){
   if(s.active && s.health){ cls='ok'; txt=t('status.ready'); }
   else if(s.load_error){ cls='err'; txt=t('status.error'); }
   else if(s.active){ cls='loading'; txt=t('status.loading'); }
+  // GPU Cloud : « prêt » voulait seulement dire « déployé ». On affiche l'étape
+  // réelle (en veille, téléchargement du modèle, chargement…). L'envoi reste
+  // possible en veille : c'est le message qui réveille le GPU.
+  CLOUD_PHASE = s.cloud_phase || '';
+  const cloudPill = {checking:['loading','status.cloud_checking'], sleeping:['ok','status.cloud_sleeping'], deploying:['loading','status.cloud_deploying'],
+                     downloading:['loading','status.cloud_downloading'], loading:['loading','status.cloud_loading']}[CLOUD_PHASE];
+  if(cloudPill && s.active && !s.load_error){ cls=cloudPill[0]; txt=t(cloudPill[1]); }
   // Fondu au premier vrai statut (le skeleton du chargement est encore là), comme
   // les jauges — voir swapContent. className est réécrit juste après, on repose donc
   // 'fadein' une fois le contenu remplacé.
@@ -355,20 +364,51 @@ function swapContent(el, html){
 }
 // Rend le bloc VRAM depuis une liste de GPU. Séparé du fetch pour être partagé par
 // loadVram (endpoint séparé, repli) ET loadTelemetry (appel groupé).
+// Libellé d'état d'une carte GPU Cloud : compte à rebours avant la mise en veille
+// (mis à jour chaque seconde par tickCloudCountdown), ou génération en cours.
+function cloudCardStatus(g){
+  if(g.busy) return escHtml(t('status.cloud_busy'));
+  if(g.off_at){
+    const pre = g.phase==='leaving' ? t('status.cloud_leaving_in') : t('status.cloud_off_in');
+    return '<span class="cloud-cd" data-off="'+Number(g.off_at)+'" data-pre="'+escHtml(pre)+'">'+escHtml(cloudCountdownText(pre, g.off_at))+'</span>';
+  }
+  return escHtml(g.status||'');
+}
+function fmtCountdown(ms){
+  const s = Math.max(0, Math.round(ms/1000));
+  return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+}
+// « s'éteint dans 4:09 », puis « arrêt en cours… » une fois le délai écoulé.
+function cloudCountdownText(pre, offAt){
+  const left = Number(offAt) - Date.now();
+  return left > 0 ? pre+' '+fmtCountdown(left) : t('status.cloud_stopping');
+}
+function tickCloudCountdown(){
+  document.querySelectorAll('.cloud-cd').forEach(el=>{ el.textContent = cloudCountdownText(el.dataset.pre, el.dataset.off); });
+}
+setInterval(tickCloudCountdown, 1000);
 function renderVram(gpus){
   // Bloc de statistique : intitulé + valeur sur une ligne, jauge, détail dessous.
   // Même gabarit que la RAM (voir .stat dans le CSS) — le HTML libre d'avant
   // collait aux bords de la carte.
   swapContent(document.getElementById('vram'), (gpus||[]).map(g=>{
     // GPU cloud (Modal) : pas de mesure en direct, on montre la capacité et l'état.
+    if(g.cloud && g.phase==='downloading'){
+      const pct = g.total ? Math.min(100, Math.round(g.used*100/g.total)) : 0;
+      const go = v => (v/1024).toFixed(1).replace('.', ',');
+      return '<div class="stat"><div class="stat-h"><span class="stat-n">'+escHtml(g.name)+'</span>'+
+        '<span class="stat-v">'+go(g.used)+(g.total ? ' / '+go(g.total) : '')+' Go</span></div>'+
+        '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
+        '<div class="stat-s">'+escHtml(g.status||'')+'</div></div>';
+    }
     if(g.cloud && !g.awake) return '<div class="stat"><div class="stat-h"><span class="stat-n">'+escHtml(g.name)+'</span>'+
       '<span class="stat-v">'+(g.total? (g.total/1024).toFixed(0)+' GiB' : '')+'</span></div>'+
-      '<div class="stat-s">'+escHtml(g.status||'')+(g.billing? ' · '+escHtml(cloudCreditText(g.billing)) : '')+'</div></div>';
+      '<div class="stat-s">'+cloudCardStatus(g)+(g.billing? ' · '+escHtml(cloudCreditText(g.billing)) : '')+'</div></div>';
     const pct=Math.round(g.used*100/g.total);
     return '<div class="stat"><div class="stat-h"><span class="stat-n">'+g.name+'</span>'+
       '<span class="stat-v">'+(g.used/1024).toFixed(1)+' / '+(g.total/1024).toFixed(1)+' GiB</span></div>'+
       '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
-      '<div class="stat-s">GPU '+g.util+' % · '+g.temp+' °C'+(g.cloud?' · '+escHtml(g.status||''):'')+(g.billing? ' · '+escHtml(cloudCreditText(g.billing)) : '')+'</div></div>';
+      '<div class="stat-s">GPU '+g.util+' % · '+g.temp+' °C'+(g.cloud?' · '+cloudCardStatus(g):'')+(g.billing? ' · '+escHtml(cloudCreditText(g.billing)) : '')+'</div></div>';
   }).join('') || '<div class="stat"><span class="stat-s">'+t('status.no_gpu')+'</span></div>');
 }
 // Rend le bloc RAM depuis {used,total}. Séparé du fetch (voir renderVram).

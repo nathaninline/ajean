@@ -72,17 +72,18 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 		loadErr = modelLoadError()
 	}
 	sendJSON(w, 200, map[string]any{
-		"state":      state,
-		"active":     active,
-		"health":     health,
-		"port":       LLMPort(),
-		"ctx":        ctx,
-		"version":    Version,
-		"warn":       appWarning(),     // ex. App Translocation macOS — vide si tout va bien
-		"load_error": loadErr,          // modèle qui ne charge pas (incompat moteur…) — vide sinon
-		"boot":       procBoot,         // empreinte de démarrage du process (détecte un redémarrage côté UI)
-		"preset":     activePresetID(), // id du preset actif : un autre appareil a pu basculer, l'UI se resynchronise sans reload (voir loadStatus)
-		"external":   external,         // preset actif = API OpenAI-compatible distante (pas de moteur local)
+		"state":       state,
+		"active":      active,
+		"health":      health,
+		"port":        LLMPort(),
+		"ctx":         ctx,
+		"version":     Version,
+		"warn":        appWarning(),       // ex. App Translocation macOS — vide si tout va bien
+		"load_error":  loadErr,            // modèle qui ne charge pas (incompat moteur…) — vide sinon
+		"boot":        procBoot,           // empreinte de démarrage du process (détecte un redémarrage côté UI)
+		"preset":      activePresetID(),   // id du preset actif : un autre appareil a pu basculer, l'UI se resynchronise sans reload (voir loadStatus)
+		"external":    external,           // preset actif = API OpenAI-compatible distante (pas de moteur local)
+		"cloud_phase": cloudPhaseActive(), // GPU Cloud : deploying|sleeping|downloading|loading|ready|error ("" hors cloud)
 		// Anciens drapeaux --mlock/--no-mmap présents alors que le moteur attend
 		// --load-mode (llama.cpp récent) : l'UI propose un bouton de mise à jour.
 		// Le serveur démarre quand même (traduits au lancement) — c'est un nettoyage.
@@ -511,6 +512,9 @@ func handlePresets(w http.ResponseWriter, r *http.Request) {
 			}
 			if cfg := parseEnv(content); isCloudConfig(cfg) {
 				item["cloud"] = cloudGPU(cfg)
+				if strings.TrimSpace(cfg[cloudKeyMM]) != "" {
+					item["vision"] = true
+				}
 			}
 			if q := detectQuant(content); q != "" {
 				item["quant"] = q
@@ -528,7 +532,7 @@ func handlePresets(w http.ResponseWriter, r *http.Request) {
 				item["vision"] = true
 			}
 		}
-		if sb, ok := store[p.ID]; ok {
+		if sb, ok := store[p.ID]; ok && benchMatchesPreset(sb, parseEnv(presetContentOrEmpty(p.ID))) {
 			item["bench"] = map[string]any{
 				"prefill": sb.Result.PromptPerSecond,
 				"decode":  sb.Result.PredictedPerSec,
@@ -1346,8 +1350,12 @@ func handleSwitch(w http.ResponseWriter, r *http.Request) {
 	// Preset externe : aucun moteur local à (re)démarrer — il n'a pas de MODEL et
 	// crash-looperait. On ARRÊTE plutôt le llama-server encore en vie pour libérer
 	// la VRAM, puisque le chat part désormais vers l'API distante.
-	if usesRemoteEndpoint(ReadConfig()) {
+	if isCloudConfig(ReadConfig()) {
 		cloudDeployOpt(true) // bascule explicite : retente même après un échec
+	}
+	// API Externe : aucun moteur local, on l'arrête. (Le GPU Cloud, lui, passe par
+	// le redémarrage normal : le service moteur y lance le relais local.)
+	if isExternalConfig(ReadConfig()) {
 		go func() {
 			if serviceIsActive() {
 				if err := serviceAction("stop"); err != nil {
@@ -1457,4 +1465,10 @@ type chatReq struct {
 	// tête du message (voir attachNote) ; le contenu, lui, reste sur le disque et
 	// n'entre dans le contexte que si le modèle décide de le lire.
 	Files []string `json:"files"`
+}
+
+// presetContentOrEmpty : contenu d'un preset, "" s'il est illisible.
+func presetContentOrEmpty(id string) string {
+	c, _ := ReadPreset(id)
+	return c
 }
