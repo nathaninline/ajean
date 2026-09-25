@@ -425,7 +425,7 @@ func cloudGPUInfo() map[string]any {
 	} else if !cloudReady(cfg) {
 		st = "pas encore déployé"
 	}
-	out := map[string]any{"name": "Modal " + g + " · cloud", "total": cloudVRAMMB[strings.ToUpper(g)], "used": 0, "cloud": true, "status": st}
+	out := map[string]any{"name": "Modal " + g, "total": cloudVRAMMB[strings.ToUpper(g)], "used": 0, "cloud": true, "status": st}
 	if m := cloudMetrics(); m != nil {
 		out["used"], out["total"], out["util"], out["temp"] = m[0], m[1], m[2], m[3]
 		out["awake"] = true

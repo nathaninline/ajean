@@ -1,19 +1,24 @@
-Version de correction de la 0.16.0 : messages d'erreur du GPU cloud explicites et éditeur de preset plus lisible.
+Version de finition de l'éditeur de preset et du GPU Cloud.
 
-## GPU cloud
+## GPU Cloud
 
-- **Crédit** : quand le crédit d'un compte Modal ne pouvait pas être lu, l'éditeur affichait seulement « crédit indisponible ». La vraie raison s'affiche désormais : facturation réservée au propriétaire du workspace Modal, connexion au compte expirée, compte introuvable sur la machine, ou le message de Modal lui-même.
-- **Déploiement** : les erreurs de Modal ne s'affichent plus sous forme de cadre brut en anglais. Une limite de dépense atteinte (compte sans carte, par exemple) donne « limite de dépense atteinte : ajouter une carte ou relever la limite sur modal.com ».
+- **Première utilisation** : pendant qu'AJEAN installe son composant GPU Cloud, un bloc « Préparation du GPU Cloud » affiche l'étape en cours, au lieu d'une ligne en petits caractères. En cas d'échec, la raison s'affiche avec un bouton « Réessayer ».
+- **Aucun compte connecté** : l'éditeur propose directement « Connecter un compte Modal », champ et bouton ouverts, au lieu d'une liste vide et d'un lien « connecter un autre compte ».
+- La carte GPU de la zone « Appareil » s'intitule simplement « Modal A100-40GB », sans la mention « cloud ».
+- « GPU Cloud » prend une majuscule.
 
 ## Éditeur de preset
 
-- Les listes de sélection sont alignées à gauche, dans une colonne commune : les valeurs démarrent au même endroit d'une ligne à l'autre.
-- La flèche des listes est dessinée et tombe exactement sur le bord droit, alignée avec les nombres et les interrupteurs.
-- La ligne « Modèle de draft » suit la même mise en page que les autres.
-- « API Externe » prend une majuscule.
+- **Listes de sélection** : chaque liste prend la largeur de la valeur choisie et se cale au bord droit, alignée avec les nombres et les interrupteurs. Il n'y a plus d'espace vide entre la valeur et sa flèche, et les libellés ne sont plus écrasés. Sur iPhone, la largeur est ajustée de la même façon.
+- **Liste des modèles** : les projecteurs vision (mmproj) n'y apparaissent plus, ils ont leur propre choix dans « Vision ». Un mmproj choisi par erreur comme modèle reste affiché pour pouvoir être corrigé.
+- Sous-titre du raisonnement non réglé raccourci : « non réglé : le modèle décide ».
+
+## Accès distant
+
+Le bandeau « le serveur n'est pas à jour » affiché sur ajean.link ne propose plus de l'ignorer : il reste visible, avec son bouton de mise à jour, tant que le serveur n'est pas à jour.
 
 ## Mise à jour
 
     ajean update
 
-Vérifié sous Windows. Non testé : Linux et macOS, et l'affichage de l'erreur de facturation d'un compte membre d'un workspace d'équipe (le message dépend de la réponse de Modal).
+Vérifié sous Windows et sur un serveur Linux. Non testé : macOS, et l'affichage sur un iPhone réel (ajustement des listes vérifié par simulation).

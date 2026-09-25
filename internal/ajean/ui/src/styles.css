@@ -896,13 +896,12 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-selc{position:relative;display:flex;align-items:center;max-width:100%}
 .pe-selc select{appearance:none;-webkit-appearance:none;border:none;background:transparent;color:var(--accent);font:inherit;text-align:right;text-align-last:right;padding:4px 16px 4px 0;cursor:pointer;max-width:100%;text-overflow:ellipsis}
 .pe-selc select:focus{outline:none}
-/* Listes de sélection : colonne de largeur fixe, texte aligné à gauche. Les
-   valeurs démarrent toutes au même endroit d'une ligne à l'autre (plus lisible
-   qu'un alignement à droite qui suivait la longueur de chaque valeur), la
-   flèche reste au bord droit. */
-.pe-row-c:has(> .pe-selc:not(.wide)){flex:0 0 46%;max-width:46%;justify-content:flex-start}
-.pe-row-c > .pe-selc:not(.wide){width:100%;min-width:0;overflow:hidden}
-.pe-row-c > .pe-selc:not(.wide) select{width:100%;text-align:left;text-align-last:left}
+/* Listes de sélection : la liste prend la largeur de la valeur affichée et se
+   cale au bord droit, comme les nombres et les interrupteurs des autres lignes
+   (sinon elle prenait la largeur de sa plus longue option et écrasait le
+   libellé). Repli JS pour Safari iOS : voir fitSelect. */
+.pe-row-c > .pe-selc:not(.wide){min-width:0;max-width:100%;overflow:hidden}
+.pe-row-c > .pe-selc:not(.wide) select{field-sizing:content}
 /* Flèche dessinée (et non plus le caractère « › » tourné, dont l'approche la
    décalait de quelques pixels) : elle tombe pile sur le bord droit, aligné avec
    les nombres et les interrupteurs des autres lignes. */
@@ -1964,3 +1963,15 @@ button:hover{border-color:var(--dim);color:var(--text)}
 #modal.run-cloud #m-engine-row,#modal.run-cloud #m-model-row,#modal.run-cloud #m-gpu-group{display:none!important}
 /* Preset API externe : ni moteur local ni réglages llama-server. */
 #modal.run-external #m-engine-row,#modal.run-external #m-model-row,#modal.run-external #m-gpu-group,#modal.run-external #m-settings-row{display:none!important}
+/* Section GPU Cloud selon l'état (voir #m-cloud-body[data-state]). */
+.cloud-spin{flex:none;width:16px;height:16px}
+#m-cloud-body:not([data-state=setup]) #m-cloud-setup,
+#m-cloud-body:not([data-state=none]) #m-cloud-connect-head{display:none}
+#m-cloud-body[data-state=setup] #m-cloud-acct-row,
+#m-cloud-body[data-state=setup] #m-cloud-credit-row,
+#m-cloud-body[data-state=setup] #m-cloud-add-toggle,
+#m-cloud-body[data-state=setup] #m-cloud-add,
+#m-cloud-body[data-state=none] #m-cloud-acct-row,
+#m-cloud-body[data-state=none] #m-cloud-credit-row,
+#m-cloud-body[data-state=none] #m-cloud-add-toggle{display:none!important}
+#m-cloud-body[data-state=none] #m-cloud-add{display:flex!important}
