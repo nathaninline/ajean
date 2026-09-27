@@ -222,6 +222,15 @@ func cmdServe(args []string) error {
 	if isCloudConfig(cfg) {
 		return serveCloudProxy(cfg)
 	}
+	// API externe : rien à servir localement, le chat part directement chez le
+	// fournisseur (voir resolveChatEndpoint). On sort PROPREMENT (code 0) : l'unité
+	// moteur est `Restart=on-failure` et démarre au boot (WantedBy=multi-user.target),
+	// donc une sortie en erreur ici la faisait relancer toutes les 3 s indéfiniment
+	// — un preset distant actif suffisait à mettre la machine en boucle.
+	if isExternalConfig(cfg) {
+		fmt.Fprintln(os.Stderr, "[ajean serve] preset API externe : aucun moteur local à lancer")
+		return nil
+	}
 	bin := cfg["BIN"]
 	if bin == "" {
 		return fmt.Errorf("BIN non défini — lance « ajean edit »")

@@ -89,7 +89,22 @@ func handlePresetExternalSave(w http.ResponseWriter, r *http.Request) {
 			key = strings.TrimSpace(parseEnv(content)[extKeyToken])
 		}
 	}
-	content := externalPresetContent(req.URL, req.Model, key, req.Ctx, req.Vision)
+	// Réglages de machine : sur une CRÉATION, ceux de la config vive (même règle
+	// que le formulaire de preset normal, newPresetSeed) ; sur une ÉDITION, ceux
+	// que le preset porte DÉJÀ — sinon changer l'URL d'un preset existant effacerait
+	// le BIN qu'il vient d'apprendre à conserver.
+	machine := newPresetSeed()
+	if req.ID != "" {
+		if old, err := ReadPreset(req.ID); err == nil {
+			have := parseEnv(old)
+			for _, k := range newPresetSeedKeys {
+				if v := strings.TrimSpace(have[k]); v != "" {
+					machine[k] = v
+				}
+			}
+		}
+	}
+	content := externalPresetContent(req.URL, req.Model, key, req.Ctx, machine, req.Vision)
 	newID, err := SavePreset(req.ID, req.Name, content)
 	if err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})

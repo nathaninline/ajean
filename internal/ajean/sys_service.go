@@ -24,6 +24,14 @@ import (
 // visible que dans le journal.
 func preflightEngine() error {
 	cfg := ReadConfig()
+	// Preset distant (API externe ou GPU cloud) : aucun llama-server LOCAL à
+	// lancer. Exiger BIN/MODEL refusait le démarrage de TOUT preset distant, avec
+	// un message invitant à réinstaller llama.cpp — alors que le cloud n'a besoin
+	// que du relais local (serveCloudProxy) et l'externe de rien du tout
+	// (resolveChatEndpoint part directement chez le fournisseur).
+	if usesRemoteEndpoint(cfg) {
+		return nil
+	}
 	bin := strings.TrimSpace(cfg["BIN"])
 	if bin == "" {
 		return fmt.Errorf("BIN non défini — installe un moteur : %s (ou renseigne BIN avec %s)",

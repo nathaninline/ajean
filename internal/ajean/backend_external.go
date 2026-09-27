@@ -97,11 +97,22 @@ func resolveChatEndpoint() chatEndpoint {
 // # NAME=, ajoutée par SavePreset). Une clé vide n'est pas écrite. `ctx` (taille
 // de contexte) est stocké dans la clé CTX standard — elle pilote la jauge de
 // contexte et le seuil de compaction, comme pour un preset local.
-func externalPresetContent(url, model, key, ctx string, vision bool) string {
+//
+// `machine` porte les réglages de MACHINE (BIN, HOST, PORT) à reprendre, comme
+// pour un preset normal : un preset distant reste ainsi une config COMPLÈTE. Sans
+// eux, basculer dessus écrasait la config vive — applyPresetFile remplace TOUT,
+// et preservedKeys ne contient ni BIN ni PORT — si bien que plus rien sur le
+// disque ne contenait BIN : il fallait réinstaller llama.cpp (issue #95).
+func externalPresetContent(url, model, key, ctx string, machine map[string]string, vision bool) string {
 	m := map[string]string{
 		extKeyFlag:  "1",
 		extKeyURL:   strings.TrimSpace(url),
 		extKeyModel: strings.TrimSpace(model),
+	}
+	for k, v := range machine {
+		if strings.TrimSpace(v) != "" {
+			m[k] = v
+		}
 	}
 	if k := strings.TrimSpace(key); k != "" {
 		m[extKeyToken] = k
