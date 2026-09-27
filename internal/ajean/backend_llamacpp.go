@@ -35,6 +35,7 @@ type buildPlan struct {
 	jobs                int      // parallélisme du build
 	gen                 string   // générateur CMake (-G), vide => défaut de la plateforme
 	genArch             string   // architecture du générateur (-A), ex. "x64" (VS uniquement)
+	forced              bool     // backend imposé par --backend (pas de conseil « GPU non utilisé »)
 }
 
 func cmdLlamacpp(args []string) error {
@@ -123,7 +124,18 @@ func llamacppInstall(args []string) error {
 	customURL := ""
 	customName := ""
 	backend := ""
-	for _, a := range args {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		// « --backend vulkan » (forme à espace) = « --backend=vulkan » : la forme
+		// seule était refusée en « option inconnue » et passait pour une régression
+		// (issue #92).
+		if a == "--backend" {
+			if i+1 >= len(args) || strings.HasPrefix(args[i+1], "--") {
+				return fmt.Errorf("--backend attend une valeur : cuda | hip | vulkan | cpu (ex. --backend=vulkan)")
+			}
+			i++
+			a = "--backend=" + args[i]
+		}
 		switch {
 		case strings.HasPrefix(a, "--dir="):
 			repo = strings.TrimPrefix(a, "--dir=")

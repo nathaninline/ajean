@@ -28,6 +28,9 @@ type Message struct {
 }
 
 type ToolCall struct {
+	// Index : position de l'appel dans un flux (delta OpenAI). Absent des
+	// messages de l'historique (nil → omis).
+	Index    *int         `json:"index,omitempty"`
 	ID       string       `json:"id"`
 	Type     string       `json:"type"`
 	Function ToolCallFunc `json:"function"`
@@ -911,6 +914,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		} else {
 			authHeader(req)
 		}
+		tReq := time.Now() // secours des stats quand le serveur n'envoie pas de timings
 		resp, err := doLLM(ctx, req, body, ep)
 		if err != nil {
 			err = friendlyLLMError(err)
@@ -974,6 +978,11 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		// arrivent sur des chunks séparés ; on émet une copie complète à chaque MAJ
 		// pour que les consommateurs (terminal, web) aient toujours tout.
 		var stats StatsEvent
+		// Serveur sans `timings` (Strata, API tierces) : on mesure nous-mêmes le
+		// décodage entre le premier et le dernier token (voir après la boucle).
+		sawTimings := false
+		var tFirst, tLast time.Time
+		usageGen, genChunks := 0, 0
 		lastPreview := ""   // last command preview emitted (to stream the typing)
 		lastBodyLines := -1 // lignes déjà diffusées du corps en cours d'écriture
 		// argToks : tokens produits pour écrire les ARGUMENTS d'outil dans cette
@@ -1023,6 +1032,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			// garde de choices, sinon `gen_tokens`/`gen_per_second` (decode) sont jetés
 			// et l'UI retombe à « 0 tok/s » à la fin de la génération.
 			if chunk.Timings != nil {
+				sawTimings = true
 				stats.PromptTokens = chunk.Timings.PromptN
 				stats.PromptPerSecond = chunk.Timings.PromptPerSecond
 				stats.PromptMs = chunk.Timings.PromptMs
@@ -1031,6 +1041,9 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				stats.GenMs = chunk.Timings.PredictedMs
 				s := stats
 				cb(StreamEvent{Stats: &s})
+			}
+			if chunk.Usage != nil && chunk.Usage.CompletionTokens > 0 {
+				usageGen = chunk.Usage.CompletionTokens
 			}
 			if chunk.Usage != nil && chunk.Usage.PromptTokens > 0 {
 				stats.PromptTokensTotal = chunk.Usage.PromptTokens
@@ -1043,6 +1056,14 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			ch := chunk.Choices[0]
 			if ch.FinishReason != "" {
 				finishReason = ch.FinishReason
+			}
+			if ch.Delta.Content != "" || ch.Delta.ReasoningContent != "" || len(ch.Delta.ToolCalls) > 0 {
+				now := time.Now()
+				if tFirst.IsZero() {
+					tFirst = now
+				}
+				tLast = now
+				genChunks++
 			}
 			// Un tool_call n'est retenu que si des outils ont VRAIMENT été annoncés ce
 			// tour-ci (même condition que le payload, cf. plus haut). Sinon — mode agent
@@ -1066,8 +1087,15 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					}
 				}
 				for i, tc := range ch.Delta.ToolCalls {
-					// llama.cpp's stream may omit index; fall back to slot i.
+					// Le champ index dit à quel appel appartient ce morceau. Un serveur
+					// qui envoie un morceau par chunk (Strata) met l'appel n°2 en
+					// position 0 du chunk : se fier à i fusionnait les appels
+					// parallèles (noms écrasés, JSON collés « {…}{…} »). Sans index,
+					// on retombe sur la position dans le chunk.
 					idx := i
+					if tc.Index != nil {
+						idx = *tc.Index
+					}
 					cur, ok := toolCalls[idx]
 					if !ok {
 						cur = &ToolCall{Type: "function"}
@@ -1212,6 +1240,23 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		// arguments tronqués. On refuse donc le tour, en le disant.
 		scanErr := sc.Err()
 		resp.Body.Close()
+		if !sawTimings && !tFirst.IsZero() {
+			// Décodage mesuré ici ; le 1er token tombe dans la lecture du prompt.
+			// Pas de débit de lecture : le serveur a pu réutiliser une partie du
+			// prompt en cache, et total/délai donnerait des chiffres fantaisistes.
+			gen := usageGen
+			if gen == 0 {
+				gen = genChunks // sans usage : un chunk ≈ un token
+			}
+			stats.PromptMs = float64(tFirst.Sub(tReq).Milliseconds())
+			stats.GenTokens = gen
+			stats.GenMs = float64(tLast.Sub(tFirst).Milliseconds())
+			if sec := tLast.Sub(tFirst).Seconds(); sec > 0 && gen > 1 {
+				stats.GenPerSecond = float64(gen-1) / sec
+			}
+			s := stats
+			cb(StreamEvent{Stats: &s})
+		}
 		if aborted {
 			return extra, nil
 		}

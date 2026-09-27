@@ -1,13 +1,16 @@
 package ajean
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -44,6 +47,17 @@ Le cuisinier ferme les yeux pour goûter la sauce. Trop salée. Il ajoute une po
 // inflating decode numbers — what you measure here is close to what you'll
 // see in real chat at the same context length.
 func runBench(nPrompt, nPredict int) (*benchResult, error) {
+	// Moteur tiers lancé par ajean (EXTERNAL_SERVICE, ex. Strata) : il ne renvoie
+	// pas les `timings` de llama.cpp, on mesure en streaming (voir runBenchStream).
+	if cfg := ReadConfig(); externalServiceOf(cfg) != "" {
+		if ok, why := externalServiceReady(cfg); !ok {
+			if why == "" {
+				why = "le moteur charge encore le modèle"
+			}
+			return nil, fmt.Errorf("%s", why)
+		}
+		return runBenchStream(nPrompt, nPredict)
+	}
 	port := LLMPort()
 	if !healthCheck() {
 		return nil, fmt.Errorf("serveur injoignable sur :%d", port)
@@ -51,22 +65,7 @@ func runBench(nPrompt, nPredict int) (*benchResult, error) {
 	if nPrompt <= 0 {
 		nPrompt = 2000
 	}
-	// 1 word ≈ 1.3 tokens roughly. Tile the varied corpus until we exceed
-	// nPrompt, then truncate to characters so the server tokenises a passage
-	// close to the requested size.
-	corpusWords := strings.Fields(benchCorpus)
-	target := nPrompt * 5 // ~5 chars/token gives a generous over-estimate
-	var b strings.Builder
-	for b.Len() < target {
-		for _, w := range corpusWords {
-			b.WriteString(w)
-			b.WriteByte(' ')
-			if b.Len() >= target {
-				break
-			}
-		}
-	}
-	prompt := strings.TrimSpace(b.String())
+	prompt := benchPrompt(nPrompt)
 	// Use the same endpoint your real chat hits, so the comparison is honest
 	// (chat template, reasoning, OpenAI-compat layer all included).
 	payload := map[string]any{
@@ -139,6 +138,26 @@ func runBench(nPrompt, nPredict int) (*benchResult, error) {
 	return res, nil
 }
 
+// benchPrompt : un passage varié d'environ nPrompt tokens (voir runBench).
+func benchPrompt(nPrompt int) string {
+	// 1 word ≈ 1.3 tokens roughly. Tile the varied corpus until we exceed
+	// nPrompt, then truncate to characters so the server tokenises a passage
+	// close to the requested size.
+	corpusWords := strings.Fields(benchCorpus)
+	target := nPrompt * 5 // ~5 chars/token gives a generous over-estimate
+	var b strings.Builder
+	for b.Len() < target {
+		for _, w := range corpusWords {
+			b.WriteString(w)
+			b.WriteByte(' ')
+			if b.Len() >= target {
+				break
+			}
+		}
+	}
+	return strings.TrimSpace(b.String())
+}
+
 // savedBench is a benchResult plus the model it was run against and a timestamp.
 type savedBench struct {
 	Result benchResult `json:"result"`
@@ -149,7 +168,7 @@ type savedBench struct {
 // saveLastBench enregistre le dernier benchmark (best-effort) pour que l'UI
 // puisse l'afficher sans le relancer.
 func saveLastBench(res *benchResult) {
-	sb := savedBench{Result: *res, Model: filepath.Base(ReadConfig()["MODEL"]), At: time.Now().Unix()}
+	sb := savedBench{Result: *res, Model: benchModelKey(ReadConfig()), At: time.Now().Unix()}
 	_ = putJSON(bkState, "last_bench", sb)
 }
 
@@ -167,11 +186,25 @@ func loadLastBench() *savedBench {
 // preset recréé sous un ancien nom (ou dont le modèle a changé) affichait les
 // mesures d'un autre modèle.
 func benchMatchesPreset(sb savedBench, cfg map[string]string) bool {
-	if usesRemoteEndpoint(cfg) {
-		return false
+	k := benchModelKey(cfg)
+	return k != "" && sb.Model == k
+}
+
+// benchModelKey : sous quel modèle ranger le bench de cette config. Un moteur
+// local : son GGUF. Un moteur tiers lancé par ajean (EXTERNAL_SERVICE) : son
+// modèle déclaré, préfixé pour ne jamais coïncider avec un GGUF. Une API
+// distante ou le GPU Cloud : "" (pas de bench attribuable).
+func benchModelKey(cfg map[string]string) string {
+	if externalServiceOf(cfg) != "" {
+		return "ext:" + strings.TrimSpace(cfg[extKeyModel])
 	}
-	m := strings.TrimSpace(cfg["MODEL"])
-	return m != "" && sb.Model == filepath.Base(m)
+	if usesRemoteEndpoint(cfg) {
+		return ""
+	}
+	if m := strings.TrimSpace(cfg["MODEL"]); m != "" {
+		return filepath.Base(m)
+	}
+	return ""
 }
 
 // deletePresetBench oublie le bench d'un preset supprimé.
@@ -212,7 +245,7 @@ func saveBenchForActivePreset(res *benchResult) {
 		return
 	}
 	m := loadBenchStore()
-	m[id] = savedBench{Result: *res, Model: filepath.Base(ReadConfig()["MODEL"]), At: time.Now().Unix()}
+	m[id] = savedBench{Result: *res, Model: benchModelKey(ReadConfig()), At: time.Now().Unix()}
 	_ = putJSON(bkState, "bench_presets", m)
 }
 
@@ -243,4 +276,125 @@ func cmdBench(args []string) error {
 	fmt.Printf("  Total                     %.2fs\n", r.Elapsed)
 	fmt.Println()
 	return nil
+}
+
+// benchNonce : marque unique EN TÊTE du prompt. Un moteur tiers peut ignorer
+// cache_prompt:false et réutiliser sa conversation en cache (Strata le fait) :
+// un 2e bench identique affichait alors 2 166 tokens « lus » en 0,1 s. Un début
+// différent à chaque fois interdit toute réutilisation de préfixe.
+func benchNonce() string {
+	// l'horloge seule ne suffit pas : sous Windows deux appels rapprochés
+	// renvoient la même valeur, d'où le compteur.
+	return fmt.Sprintf("[bench %d-%d]\n", time.Now().UnixNano(), benchSeq.Add(1))
+}
+
+var benchSeq atomic.Int64
+
+// runBenchStream mesure un moteur tiers lancé par ajean (EXTERNAL_SERVICE) qui
+// ne renvoie pas les `timings` de llama.cpp : on stream la réponse, le délai
+// jusqu'au premier token donne la lecture du prompt, le reste la génération.
+// Les comptes de tokens viennent de `usage` (dernier chunk du flux).
+func runBenchStream(nPrompt, nPredict int) (*benchResult, error) {
+	if nPrompt <= 0 {
+		nPrompt = 2000
+	}
+	ep := resolveChatEndpoint()
+	payload := map[string]any{
+		"model":          ep.Model,
+		"messages":       []Message{{Role: "user", Content: benchNonce() + benchPrompt(nPrompt) + "\n\nContinue this passage with another 1000+ words of original varied prose, mixing French and English narrative paragraphs on different topics."}},
+		"max_tokens":     nPredict,
+		"stream":         true,
+		"stream_options": map[string]any{"include_usage": true},
+		"temperature":    0.7,
+		"cache_prompt":   false,
+	}
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest("POST", ep.URL, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	if ep.Key != "" {
+		req.Header.Set("Authorization", "Bearer "+ep.Key)
+	}
+	t0 := time.Now()
+	resp, err := (&http.Client{Timeout: 10 * time.Minute}).Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 400))
+		return nil, fmt.Errorf("HTTP %d : %s", resp.StatusCode, strings.TrimSpace(string(b)))
+	}
+	var first, last time.Time
+	var usage struct {
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+	}
+	chunks := 0
+	sc := bufio.NewScanner(resp.Body)
+	sc.Buffer(make([]byte, 64*1024), 4*1024*1024)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if !strings.HasPrefix(line, "data:") {
+			continue
+		}
+		data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		if data == "[DONE]" {
+			break
+		}
+		var ch struct {
+			Choices []struct {
+				Delta struct {
+					Content          string `json:"content"`
+					ReasoningContent string `json:"reasoning_content"`
+				} `json:"delta"`
+			} `json:"choices"`
+			Usage *struct {
+				PromptTokens     int `json:"prompt_tokens"`
+				CompletionTokens int `json:"completion_tokens"`
+			} `json:"usage"`
+		}
+		if json.Unmarshal([]byte(data), &ch) != nil {
+			continue
+		}
+		if ch.Usage != nil && ch.Usage.CompletionTokens > 0 {
+			usage.PromptTokens, usage.CompletionTokens = ch.Usage.PromptTokens, ch.Usage.CompletionTokens
+		}
+		for _, c := range ch.Choices {
+			if c.Delta.Content != "" || c.Delta.ReasoningContent != "" {
+				now := time.Now()
+				if first.IsZero() {
+					first = now
+				}
+				last = now
+				chunks++
+			}
+		}
+	}
+	if err := sc.Err(); err != nil {
+		return nil, err
+	}
+	if first.IsZero() {
+		return nil, fmt.Errorf("aucun token reçu")
+	}
+	if usage.CompletionTokens == 0 { // serveur sans `usage` : un chunk ≈ un token
+		usage.CompletionTokens = chunks
+	}
+	prefill := first.Sub(t0).Seconds()
+	gen := last.Sub(first).Seconds()
+	res := &benchResult{
+		PromptN:     usage.PromptTokens,
+		PromptMs:    prefill * 1000,
+		PredictedN:  usage.CompletionTokens,
+		PredictedMs: gen * 1000,
+		Elapsed:     time.Since(t0).Seconds(),
+	}
+	if prefill > 0 && usage.PromptTokens > 0 {
+		res.PromptPerSecond = float64(usage.PromptTokens) / prefill
+	}
+	if gen > 0 && usage.CompletionTokens > 1 {
+		res.PredictedPerSec = float64(usage.CompletionTokens-1) / gen // le 1er token est compté dans la lecture
+	}
+	saveLastBench(res)
+	saveBenchForActivePreset(res)
+	return res, nil
 }

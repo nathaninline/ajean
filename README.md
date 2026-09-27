@@ -34,11 +34,11 @@ No runtime dependency, no CMake flag to remember, no container. You get a full c
 
 **It sees and it drives.** The AI can receive images in chat (attachments, screenshots) and analyze them when the model is multimodal. With `ajean computer on`, it drives a real browser on the machine (open a page, click, type, scroll) to carry out tasks on the web.
 
-**Hardware and engine, handled for you.** `ajean llamacpp install` clones and compiles llama.cpp with the right flags for *this* machine: CUDA (compute capability detected per GPU, so multi-GPU works), ROCm, Metal, Vulkan, or a CPU fallback. `ajean llamacpp update` fetches the latest commit, stops the service while it recompiles, then restarts it.
+**Hardware and engine, handled for you.** `ajean llamacpp install` clones and compiles llama.cpp with the right flags for *this* machine: CUDA (compute capability detected per GPU, so multi-GPU works), ROCm, Metal, Vulkan, or a CPU fallback. If the detection picks the wrong one, force it with `ajean llamacpp install --backend=vulkan` (or `cuda`, `hip`, `cpu`). When a graphics card is present but no toolkit can build for it, the install says so and explains how to fix it (for AMD and Intel cards, Vulkan is the simplest route). `ajean llamacpp update` fetches the latest commit, stops the service while it recompiles, then restarts it.
 
 **Services, not scripts.** `ajean install` writes the two systemd units, the sudoers rules, and the folders. Then `start`, `stop`, `status`, `logs`. Windows and macOS have their native equivalents (see below).
 
-**Several models, one click.** Presets each keep their full configuration: switching from one to another reloads the model without touching a file. The preset editor also covers sampling, the KV cache, flash attention, speculative decoding, and reasoning mode. `.gguf` files can live on any disk.
+**Several models, one click.** Presets each keep their full configuration: switching from one to another reloads the model without touching a file. The preset editor also covers sampling, the KV cache, flash attention, speculative decoding, and reasoning mode. `.gguf` files can live on any disk. A preset does not have to run on this machine: it can point to an **External API** (any OpenAI-compatible endpoint) or to the **GPU Cloud** (Modal), and switching to it frees the local GPU.
 
 **Your data stays yours.** Optional encryption at rest protects memory and conversations with a key that only lives on your devices. Notifications tell you when a reply is ready, even with the app closed. The scheduler runs recurring tasks on its own.
 
@@ -63,7 +63,7 @@ sudo ajean install        # two systemd units, sudoers, folders
 ajean llamacpp install    # compiles llama.cpp for the GPU present
 ```
 
-Requires `git` and `cmake`, plus the accelerator toolkit (CUDA, ROCm...) for GPU acceleration.
+Requires `git` and `cmake`, plus the accelerator toolkit for GPU acceleration: CUDA for NVIDIA, ROCm or the Vulkan SDK for AMD, the Vulkan SDK for Intel. To force a backend: `ajean llamacpp install --backend=vulkan`.
 
 ### 3. Start
 
@@ -89,7 +89,8 @@ Engine (ajean-engine):
   vram | gpu [index...]         VRAM / GPU selection (gpu all = all)
   set-api-key [key]             protect the inference engine (Bearer)
   network [on|off|status]       make the OpenAI endpoint reachable on the LAN
-  llamacpp install|update|status
+  llamacpp install [--backend=vulkan|cuda|hip|cpu]
+  llamacpp update|status
 
 Interface (ajean-ui):
   ui [start|stop|restart|status]  drive the interface service
@@ -101,7 +102,7 @@ Interaction:
   export [options] [file]       export the conversation (Markdown, --json, --last N...)
   agent [on|off|status]         turn on ALL tools (terminal, files, memory)
   computer [on|off|status]      browser control (the AI drives a local Chrome)
-  memory [off|ondemand|always]  memory mode
+  memory [off|ondemand|always|search|status]  memory mode
   internet [on|off|engine <go|crawl4ai>|url <url>|key <key>]   web access
 
 Remote access (ajean.link):
@@ -156,6 +157,8 @@ The engine configuration is edited with `ajean edit`, which lays it out as `key=
 
 The API key (`ajean set-api-key`) is stored outside the configuration, so it survives preset switches.
 
+**Third-party engine (Linux).** An External API preset can name the systemd unit that serves it with `EXTERNAL_SERVICE=ajean-<name>` (for example another inference engine installed on the same machine). AJEAN then starts that unit when you switch to the preset, stops it when you switch away, waits for the GPUs to be released before loading the next model, and shows "loading" until its API answers. Only units named `ajean-*` are accepted, and the service user needs a sudoers rule for that unit, like the one `ajean install` writes for `ajean-engine`. Give the unit `Conflicts=ajean-engine.service` so the two never hold the GPUs at the same time.
+
 **Models on another disk.** `.gguf` files do not have to live in `$AJEAN_HOME/models`: in the interface's preset editor, under *Model, Model folders*, add the folder you want. Its models appear in the list, grouped by folder. The list is saved in the database, so it is kept across presets.
 
 ### Environment variables
@@ -200,6 +203,30 @@ The *notify me when the reply is ready* option makes the server send a notificat
 ### Scheduled tasks
 
 The scheduler runs recurring tasks at the chosen frequency. Each task runs isolated from the conversation, and a master switch lets you pause everything at once. For a task to act (send an email, read files...), **agent mode** must be on: otherwise the task runs but the AI has no tools.
+
+### Web access
+
+By default, the AI has no web access. Once enabled, it gains `web_search` (DuckDuckGo), `web_open`, `web_read`, and `web_grep`. Two engines are available.
+
+**Built-in engine (default)**, included in the binary, nothing to install:
+
+```bash
+ajean internet on
+ajean internet status
+```
+
+It fetches pages over HTTP, extracts their content (Readability), and converts it to Markdown. It does not run JavaScript: a page rendered entirely client-side comes out empty. Docs, articles, blogs, Wikipedia, GitHub, and forums work fine.
+
+**Crawl4AI engine**, a [Crawl4AI](https://github.com/unclecode/crawl4ai) server you host, with headless Chromium, so full JavaScript rendering. **AJEAN does not provide this server, it connects to it:**
+
+```bash
+docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest
+ajean internet engine crawl4ai
+ajean internet url http://localhost:11235
+ajean internet on
+```
+
+The web tools are offered to the model only if agent mode is on, web access is enabled **and**, with Crawl4AI, the server is reachable. Otherwise they do not exist, so the model cannot invent them.
 
 ### Browser control
 

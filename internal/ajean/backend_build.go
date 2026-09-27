@@ -4,6 +4,7 @@ package ajean
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -310,7 +311,7 @@ func cudaJobsCap(cpuJobs int) int {
 // backend cassé sur la machine (HIP à demi installé, etc.).
 func buildPlanFor(force string) buildPlan {
 	force = strings.ToLower(strings.TrimSpace(force))
-	p := buildPlan{backend: "cpu", jobs: numJobs()}
+	p := buildPlan{backend: "cpu", jobs: numJobs(), forced: force != ""}
 	// Flags communs : Release + tuning natif pour la machine de build.
 	// (libcurl est activé d'office par llama.cpp ; LLAMA_CURL est déprécié.)
 	p.flags = []string{
@@ -402,8 +403,10 @@ func buildPlanFor(force string) buildPlan {
 		return p
 	}
 
-	// Vulkan (GPU générique) — utile sur Intel/AMD sans ROCm.
-	if hasTool("glslc") && (hasVulkanLib() || hasTool("vulkaninfo")) {
+	// Vulkan (GPU générique) — utile sur Intel/AMD sans ROCm. Sous Windows, la
+	// détection Unix (glslc dans le PATH + libvulkan via ldconfig) ne voit jamais
+	// rien : on reconnaît le Vulkan SDK LunarG à part (issue #92).
+	if (hasTool("glslc") && (hasVulkanLib() || hasTool("vulkaninfo"))) || windowsVulkanSDKReady() {
 		p.backend = "vulkan"
 		p.flags = append(p.flags, "-DGGML_VULKAN=ON")
 		return p
@@ -1368,4 +1371,124 @@ func printPlan(p buildPlan, repo string) {
 	fmt.Printf("  backend  : %s\n", planLabel(p))
 	fmt.Printf("  jobs     : %d\n", p.jobs)
 	fmt.Printf("  flags    : %s\n", dim(strings.Join(p.flags, " ")))
+	for _, l := range cpuPlanHints(p) {
+		fmt.Printf("  %s %s\n", yellow("[GPU]"), l)
+	}
+}
+
+// windowsVulkanSDKReady : sous Windows, le Vulkan SDK (LunarG, `winget install
+// KhronosGroup.VulkanSDK`) est installé AU COMPLET, avec tout ce que la config
+// CMake de ggml-vulkan va chercher : VULKAN_SDK, en-têtes, bibliothèque
+// d'import, compilateur de shaders glslc, et le loader vulkan-1.dll posé par le
+// pilote graphique. Exigeant exprès : aucun repli CPU n'existe si le build
+// casse, donc on ne bascule sur Vulkan que si rien ne manque (issue #92 : sans
+// ça, un GPU AMD sous Windows compilait toujours en CPU).
+func windowsVulkanSDKReady() bool {
+	if runtime.GOOS != "windows" {
+		return false
+	}
+	return vulkanSDKComplete(os.Getenv("VULKAN_SDK"), os.Getenv("SystemRoot"))
+}
+
+// vulkanSDKComplete : la vérification elle-même, séparée pour être testable.
+func vulkanSDKComplete(sdk, systemRoot string) bool {
+	if sdk == "" || systemRoot == "" {
+		return false
+	}
+	isFile := func(p string) bool {
+		st, err := os.Stat(p)
+		return err == nil && !st.IsDir()
+	}
+	if !isFile(filepath.Join(sdk, "Include", "vulkan", "vulkan.h")) ||
+		!isFile(filepath.Join(sdk, "Lib", "vulkan-1.lib")) ||
+		!isFile(filepath.Join(systemRoot, "System32", "vulkan-1.dll")) {
+		return false
+	}
+	return hasTool("glslc") || isFile(filepath.Join(sdk, "Bin", "glslc.exe"))
+}
+
+// displayGPUs : noms des cartes graphiques vues par le système. Best-effort et
+// borné dans le temps : ne sert qu'à un CONSEIL (cpuPlanHints), jamais à
+// choisir le backend. Remplaçable par les tests.
+var displayGPUs = func() []string {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var names []string
+	switch runtime.GOOS {
+	case "windows":
+		out, err := exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command",
+			"(Get-CimInstance Win32_VideoController).Name").Output()
+		if err != nil {
+			return nil
+		}
+		for _, l := range strings.Split(string(out), "\n") {
+			if l = strings.TrimSpace(l); l != "" {
+				names = append(names, l)
+			}
+		}
+	case "linux":
+		out, err := exec.CommandContext(ctx, "lspci").Output()
+		if err != nil {
+			return nil
+		}
+		for _, l := range strings.Split(string(out), "\n") {
+			if !strings.Contains(l, "VGA compatible controller") && !strings.Contains(l, "3D controller") &&
+				!strings.Contains(l, "Display controller") {
+				continue
+			}
+			if i := strings.Index(l, ": "); i >= 0 {
+				names = append(names, strings.TrimSpace(l[i+2:]))
+			}
+		}
+	}
+	return names
+}
+
+// intelArcRe : les cartes Intel Arc (dédiées), pas n'importe quel mot contenant « arc ».
+var intelArcRe = regexp.MustCompile(`\barc\b`)
+
+// cpuPlanHints : quand la détection automatique retombe sur le CPU alors qu'une
+// carte graphique dédiée est là, dire pourquoi et comment l'utiliser, au lieu
+// d'un « aucun accélérateur détecté » muet (issue #92 : GPU AMD compilé en CPU,
+// 4 tok/s au lieu de 25). Rien si le backend a été imposé (--backend=cpu).
+func cpuPlanHints(p buildPlan) []string {
+	if p.backend != "cpu" || p.forced || runtime.GOOS == "darwin" {
+		return nil
+	}
+	gpu, nvidia := "", false
+	for _, n := range displayGPUs() {
+		l := strings.ToLower(n)
+		switch {
+		case strings.Contains(l, "nvidia") || strings.Contains(l, "geforce"):
+			gpu, nvidia = n, true
+		case strings.Contains(l, "radeon") || strings.Contains(l, "amd") || strings.Contains(l, "advanced micro devices") ||
+			intelArcRe.MatchString(l):
+			if gpu == "" {
+				gpu = n
+			}
+		}
+	}
+	if gpu == "" {
+		return nil
+	}
+	lines := []string{"carte graphique détectée (" + gpu + ") mais aucun outil pour la compiler : le moteur tournera sur le CPU, beaucoup plus lentement."}
+	switch {
+	case nvidia:
+		lines = append(lines, "installe le CUDA Toolkit NVIDIA (developer.nvidia.com/cuda-downloads), puis relance « ajean llamacpp install ».")
+	case runtime.GOOS == "windows":
+		lines = append(lines,
+			"le plus simple : Vulkan. Installe le Vulkan SDK (winget install KhronosGroup.VulkanSDK),",
+			"ouvre un NOUVEAU terminal, puis relance « ajean llamacpp install --backend=vulkan ».")
+	default:
+		pkgs := "les paquets glslc et les en-têtes Vulkan de ta distribution"
+		if hasTool("apt-get") {
+			pkgs = "« sudo apt-get install -y glslc libvulkan-dev »"
+		} else if hasTool("dnf") {
+			pkgs = "« sudo dnf install -y glslc vulkan-loader-devel »"
+		} else if hasTool("pacman") {
+			pkgs = "« sudo pacman -S shaderc vulkan-headers vulkan-icd-loader »"
+		}
+		lines = append(lines, "le plus simple : Vulkan. Installe "+pkgs+", puis relance « ajean llamacpp install --backend=vulkan ».")
+	}
+	return lines
 }

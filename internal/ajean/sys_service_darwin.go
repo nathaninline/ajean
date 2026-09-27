@@ -293,3 +293,18 @@ func tailFile(path string, n int) string {
 // serviceLogTail renvoie les n dernières lignes du journal du service (pour
 // l'UI web). Le fichier est le même en mode launchd et en mode utilisateur.
 func serviceLogTail(n int) string { return tailFile(logFilePath(), n) }
+
+// unitAction : les services externes de preset (EXTERNAL_SERVICE) ne sont gérés
+// que sous Linux (systemd).
+func unitAction(unit, action string) error {
+	return fmt.Errorf("EXTERNAL_SERVICE n'est pris en charge que sous Linux")
+}
+
+// waitGPUsReleased : voir la version Linux (EXTERNAL_SERVICE n'y existe pas).
+func waitGPUsReleased(pids []int, max time.Duration) {}
+
+// unitPIDs : voir la version Linux.
+func unitPIDs(unit string) []int { return nil }
+
+// unitActiveState : pas de services externes hors Linux.
+func unitActiveState(unit string) string { return "" }

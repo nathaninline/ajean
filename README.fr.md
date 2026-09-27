@@ -32,11 +32,11 @@ Aucune dépendance à l'exécution, aucun flag CMake à retenir, aucun conteneur
 | browser_* | pilote un navigateur (avec `ajean computer on`) |
 | mcp__* | les outils des serveurs MCP configurés |
 
-**Le matériel et le moteur, gérés pour vous.** `ajean llamacpp install` clone et compile llama.cpp avec les bons flags pour *cette* machine : CUDA (capacité de calcul détectée par GPU, donc le multi-GPU fonctionne), ROCm, Metal, Vulkan, ou repli CPU. `ajean llamacpp update` récupère le dernier commit, arrête le service le temps de recompiler, puis le redémarre.
+**Le matériel et le moteur, gérés pour vous.** `ajean llamacpp install` clone et compile llama.cpp avec les bons flags pour *cette* machine : CUDA (capacité de calcul détectée par GPU, donc le multi-GPU fonctionne), ROCm, Metal, Vulkan, ou repli CPU. Si la détection se trompe, on l'impose avec `ajean llamacpp install --backend=vulkan` (ou `cuda`, `hip`, `cpu`). Quand une carte graphique est présente mais qu'aucun toolkit ne permet de compiler pour elle, l'installation le dit et explique comment corriger (pour les cartes AMD et Intel, Vulkan est la voie la plus simple). `ajean llamacpp update` récupère le dernier commit, arrête le service le temps de recompiler, puis le redémarre.
 
 **Des services, pas des scripts.** `ajean install` écrit les deux unités systemd, les règles sudoers et les dossiers. Ensuite `start`, `stop`, `status`, `logs`. Windows et macOS ont leurs équivalents natifs (voir plus bas).
 
-**Plusieurs modèles, un clic.** Les presets gardent chacun leur configuration complète : basculer de l'un à l'autre recharge le modèle sans toucher à un fichier. L'éditeur de preset couvre aussi l'échantillonnage, le cache KV, flash attention, le décodage spéculatif et le mode raisonnement. Les `.gguf` peuvent vivre sur n'importe quel disque.
+**Plusieurs modèles, un clic.** Les presets gardent chacun leur configuration complète : basculer de l'un à l'autre recharge le modèle sans toucher à un fichier. L'éditeur de preset couvre aussi l'échantillonnage, le cache KV, flash attention, le décodage spéculatif et le mode raisonnement. Les `.gguf` peuvent vivre sur n'importe quel disque. Un preset n'est pas forcément exécuté sur cette machine : il peut viser une **API externe** (n'importe quel endpoint compatible OpenAI) ou le **GPU Cloud** (Modal), et basculer dessus libère le GPU local.
 
 **Il voit et pilote.** L'IA peut recevoir des images dans le chat (pièces jointes, capture d'écran) et les analyser si le modèle est multimodal. Avec `ajean computer on`, elle pilote un vrai navigateur sur la machine (ouvrir une page, cliquer, taper, faire défiler) pour accomplir des tâches sur le web.
 
@@ -63,7 +63,7 @@ sudo ajean install        # deux unités systemd, sudoers, dossiers
 ajean llamacpp install    # compile llama.cpp pour le GPU présent
 ```
 
-Nécessite `git` et `cmake`, plus le toolkit de l'accélérateur (CUDA, ROCm…) pour l'accélération GPU.
+Nécessite `git` et `cmake`, plus le toolkit de l'accélérateur pour l'accélération GPU : CUDA pour NVIDIA, ROCm ou le Vulkan SDK pour AMD, le Vulkan SDK pour Intel. Pour imposer un backend : `ajean llamacpp install --backend=vulkan`.
 
 ### 3. Démarrage
 
@@ -89,7 +89,8 @@ Moteur (ajean-engine) :
   vram | gpu [index…]           VRAM / choix des GPU (gpu all = tous)
   set-api-key [clé]             protéger le moteur d'inférence (Bearer)
   network [on|off|status]       rendre l'endpoint OpenAI joignable sur le réseau local
-  llamacpp install|update|status
+  llamacpp install [--backend=vulkan|cuda|hip|cpu]
+  llamacpp update|status
 
 Interface (ajean-ui) :
   ui [start|stop|restart|status]  piloter le service d'interface
@@ -101,7 +102,7 @@ Interaction :
   export [options] [fichier]    exporte la conversation (Markdown, --json, --last N…)
   agent [on|off|status]         active TOUS les outils (terminal, fichiers, mémoire)
   computer [on|off|status]      contrôle du navigateur (l'IA pilote un Chrome local)
-  memory [off|ondemand|always]  mode mémoire
+  memory [off|ondemand|always|search|status]  mode mémoire
   internet [on|off|engine <go|crawl4ai>|url <url>|key <clé>]   accès web
 
 Accès distant (ajean.link) :
@@ -155,6 +156,8 @@ La configuration du moteur s'édite avec `ajean edit`, qui la déroule au format
 | `EXTRA_ARGS` | ajouté tel quel à la ligne de commande du moteur | aucun |
 
 La clé API (`ajean set-api-key`) est rangée hors de la configuration, afin de survivre aux changements de preset.
+
+**Moteur tiers (Linux).** Un preset API externe peut nommer l'unité systemd qui le sert avec `EXTERNAL_SERVICE=ajean-<nom>` (par exemple un autre moteur d'inférence installé sur la même machine). AJEAN démarre alors cette unité quand on bascule sur le preset, l'arrête quand on en repart, attend que les GPU soient libérés avant de charger le modèle suivant, et affiche « chargement » tant que son API ne répond pas. Seules les unités nommées `ajean-*` sont acceptées, et l'utilisateur du service a besoin d'une règle sudoers pour cette unité, comme celle qu'`ajean install` écrit pour `ajean-engine`. Donnez à l'unité `Conflicts=ajean-engine.service` pour que les deux n'occupent jamais les GPU en même temps.
 
 **Modèles sur un autre disque.** Les `.gguf` n'ont pas à résider dans `$AJEAN_HOME/models` : dans l'éditeur de preset de l'interface, section *Modèle, Dossiers de modèles*, ajoutez le dossier voulu. Ses modèles apparaissent dans la liste, groupés par dossier. La liste est enregistrée dans la base, donc conservée d'un preset à l'autre.
 

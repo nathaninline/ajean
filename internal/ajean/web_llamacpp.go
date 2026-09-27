@@ -613,6 +613,9 @@ func lcRunUpdate(clean bool) {
 func lcBuildAndSwitch(repo string, clean bool) bool {
 	plan := detectBuildPlan()
 	lcAppend(fmt.Sprintf("plan de build : backend=%s arch=%s jobs=%d", plan.backend, plan.cudaArch, plan.jobs))
+	for _, l := range cpuPlanHints(plan) {
+		lcAppend("[GPU] " + l)
+	}
 	lcPhase("configuration CMake…")
 	if err := buildLlamacpp(repo, plan, clean); err != nil {
 		if buildWasCanceled() {

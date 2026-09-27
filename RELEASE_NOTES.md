@@ -1,33 +1,34 @@
-Cette version rend le GPU Cloud équivalent à un GPU local : l'API OpenAI fonctionne de la même façon, l'état réel du GPU est affiché en direct, et la vision est prise en charge.
+Cette version permet de brancher un moteur d'inférence tiers sur un preset et de le piloter depuis AJEAN comme le moteur local. Elle corrige aussi les appels d'outils en parallèle, le moteur qui redémarrait en boucle sur un preset externe, et la compilation de llama.cpp sur les cartes AMD et Intel.
 
-## L'API fonctionne avec le GPU Cloud
+## Moteurs tiers pilotés par AJEAN
 
-Avec un preset GPU Cloud, l'API OpenAI d'AJEAN restait muette : elle relayait vers le moteur local, arrêté dans ce mode. Le service moteur lance désormais un relais sur le même port (8080 par défaut) vers le GPU Modal. Tous les accès continuent donc de fonctionner comme avec un GPU local, sans changer la configuration des clients : réseau local, endpoint public `<machine>.oai.ajean.link`, tunnel ajean.link.
+Un preset API externe peut désormais nommer l'unité systemd qui sert son API, avec la clé `EXTERNAL_SERVICE=ajean-<nom>` (Linux). Cas typique : un autre moteur d'inférence installé sur la même machine, qui a besoin des GPU.
 
-- Même règle d'accès que llama-server : la clé API de la machine est exigée. La clé du GPU Cloud n'est jamais communiquée aux clients.
-- Réponses en flux (streaming) relayées au fil de l'eau.
-- `/health` répond sans réveiller le GPU. Une requête qui arrive pendant le réveil attend que le modèle soit chargé au lieu d'échouer.
-
-## État du GPU Cloud en direct
-
-« Prêt » signifiait seulement « déployé », même quand le GPU était éteint ou en train de télécharger le modèle. L'état réel est maintenant affiché partout :
-
-- **Pastille de statut** : en veille, déploiement, téléchargement, chargement.
-- **Carte « Appareil »** : barre de progression pendant le téléchargement du modèle au premier démarrage, puis la VRAM avec un **compte à rebours en direct** avant la mise en veille (« s'éteint dans 4:09 »), « génération en cours » pendant une réponse. Les requêtes passées par l'API sont prises en compte.
-- **Chat** : la ligne d'activité indique « réveil du GPU Cloud… » ou « téléchargement du modèle, premier démarrage (plusieurs minutes)… » tant que le modèle n'a pas répondu.
-- **Changement de preset** : la carte reste visible tant que le GPU tourne encore (il reste facturé jusqu'à sa mise en veille), puis disparaît.
-- En revenant sur l'onglet, la carte n'affiche plus « en veille » à tort pendant quelques secondes.
-
-## Vision
-
-Un preset GPU Cloud accepte un projecteur vision : un champ « Vision » reçoit le lien direct vers le mmproj .gguf, téléchargé une fois côté Modal comme le modèle. Le preset accepte alors les images jointes et affiche l'œil dans la liste des presets.
+- **Bascule** : choisir le preset arrête le moteur llama.cpp et démarre l'unité ; revenir sur un preset local l'arrête et relance llama.cpp. Au démarrage de la machine, l'unité est relancée si son preset est actif.
+- **GPU libérés avant de recharger** : llama.cpp pouvait démarrer à la seconde où l'autre moteur s'arrêtait, avant que la carte ait rendu sa mémoire, et échouer faute de VRAM. AJEAN attend désormais que les processus de l'unité arrêtée aient quitté les GPU, sans attendre les autres programmes qui les utilisent.
+- **État réel** : la pastille indiquait « prêt » pendant tout le chargement du modèle. Elle affiche « chargement » tant que l'API du moteur ne répond pas, et une erreur si l'unité s'est arrêtée.
+- **Benchmark** : le bouton est disponible sur ces presets, et le résultat s'affiche dans la liste des presets comme pour les autres. La mesure se fait en flux (délai du premier token pour la lecture du prompt, puis génération), et chaque essai commence par un texte unique : un moteur qui réutilise sa conversation en cache affichait sinon des milliers de tokens « lus » en 0,1 s.
+- **Vitesse sous les réponses** : avec un moteur qui ne renvoie pas les mesures de llama.cpp, la vitesse de génération disparaissait. AJEAN la calcule désormais lui-même. La vitesse de lecture du prompt n'est pas affichée dans ce cas, car le moteur a pu en réutiliser une partie.
+- Seules les unités nommées `ajean-*` sont acceptées (le preset est modifiable à distance), et chacune demande sa propre règle sudoers. L'éditeur de presets conserve la clé lors d'une modification.
 
 ## Corrections
 
-- **Benchmark fantôme** : un preset nouvellement créé pouvait afficher les mesures d'un autre. Les benchmarks étaient rangés par nom de preset : un preset recréé sous un ancien nom héritait de mesures faites sur un autre modèle. Un benchmark ne s'affiche plus que pour le modèle sur lequel il a été mesuré, il est supprimé avec son preset, et il n'est plus enregistré pour un preset distant (GPU Cloud, API Externe), où il mesurait le moteur local.
+- **Appels d'outils en parallèle** : quand le modèle demandait deux outils dans la même réponse (lire une page mémoire et un tracker, par exemple), les deux appels étaient fusionnés en un seul, au nom du second, avec des arguments illisibles. Le modèle recevait « JSON invalide » et devait recommencer un par un. Chaque morceau de flux est désormais rangé selon l'appel auquel il appartient. Le problème touchait les serveurs qui envoient un morceau par message (llama.cpp n'était pas concerné).
+- **Moteur en redémarrage permanent sur un preset externe** (issue #95) : avec un preset API externe actif, le service moteur échouait sur « BIN non défini » et systemd le relançait toutes les 5 secondes. Il s'arrête désormais proprement, puisqu'aucun moteur local n'est nécessaire. BIN et MODEL reviennent en repassant sur un preset local.
+
+## Compilation de llama.cpp sur GPU AMD et Intel (issue #92)
+
+- **Windows** : un GPU AMD était toujours compilé en CPU, la détection ne cherchant ROCm et Vulkan qu'aux emplacements Linux. Le Vulkan SDK (`winget install KhronosGroup.VulkanSDK`) est désormais reconnu, à condition d'être complet : en-têtes, bibliothèque, compilateur de shaders et pilote Vulkan. À défaut, le comportement reste celui d'avant, car un build GPU raté ne se replie pas sur le CPU.
+- **Conseil explicite** : quand la compilation part en CPU alors qu'une carte graphique est présente, l'installation l'indique et donne la marche à suivre (Vulkan pour AMD et Intel, avec la commande adaptée au système ; CUDA Toolkit pour NVIDIA), en ligne de commande comme dans l'interface.
+- **`--backend vulkan`** est accepté en plus de `--backend=vulkan` : la forme avec espace était refusée en « option inconnue ». L'option figure maintenant dans `ajean help`.
+
+## Aide et documentation
+
+- `ajean help` liste la commande `computer` (contrôle du navigateur), absente jusqu'ici, et le mode mémoire `search`.
+- README (anglais et français) : presets API externe et GPU Cloud, moteurs tiers, choix du backend et voie Vulkan pour AMD et Intel. La section sur l'accès internet, présente seulement en français, est traduite en anglais.
 
 ## Mise à jour
 
     ajean update
 
-Vérifié sous Windows et sur un serveur Linux, dont l'API relayée vers le GPU Cloud (réseau local et endpoint public, réponse complète et streaming). Non testé en conditions réelles : la barre de téléchargement pendant un vrai premier démarrage, et l'envoi d'une image à un preset GPU Cloud avec vision.
+Vérifié sur un serveur Linux à deux GPU NVIDIA : bascules répétées entre un moteur tiers et llama.cpp (aucune erreur de mémoire), état « chargement », benchmark et vitesse affichée, appels d'outils en parallèle. Non testé sur du matériel réel, faute de carte AMD ou Intel : la détection du Vulkan SDK sous Windows et le conseil affiché lors d'une compilation en CPU (couverts par des tests automatiques).

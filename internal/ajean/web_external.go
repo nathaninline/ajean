@@ -90,6 +90,14 @@ func handlePresetExternalSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	content := externalPresetContent(req.URL, req.Model, key, req.Ctx, req.Vision)
+	// EXTERNAL_SERVICE n'a pas de champ dans la modale : une édition le conserve.
+	if req.ID != "" {
+		if old, err := ReadPreset(req.ID); err == nil {
+			if svc := strings.TrimSpace(parseEnv(old)[extKeyService]); svc != "" {
+				content = strings.TrimRight(content, "\n") + "\n" + extKeyService + "=" + svc + "\n"
+			}
+		}
+	}
 	newID, err := SavePreset(req.ID, req.Name, content)
 	if err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})

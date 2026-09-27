@@ -5353,12 +5353,12 @@ async function loadPresets(){
         c.textContent=x.ctx;
         meta.appendChild(c);
       }
-      if(x.bench){
-        const bt=document.createElement('span'); bt.className='btag';
-        bt.title=t('settings.presets.bench_title');
-        bt.textContent=x.bench.prefill.toFixed(0)+'-'+x.bench.decode.toFixed(0)+' t/s';
-        meta.appendChild(bt);
-      }
+    }
+    if(x.bench){
+      const bt=document.createElement('span'); bt.className='btag';
+      bt.title=t('settings.presets.bench_title');
+      bt.textContent=x.bench.prefill.toFixed(0)+'-'+x.bench.decode.toFixed(0)+' t/s';
+      meta.appendChild(bt);
     }
     const caps=[], capTitle=[];
     if(x.external){
@@ -6577,7 +6577,7 @@ function syncRunMode(){
   md.classList.toggle('run-cloud', mode === 'modal');
   md.classList.toggle('run-external', mode === 'external');
   const bench = document.getElementById('btn-bench');
-  if(bench && mode !== 'local') bench.style.display = 'none';
+  if(bench && mode !== 'local' && !(mode === 'external' && cfgReadKey('EXTERNAL_SERVICE'))) bench.style.display = 'none';
   if(mode === 'modal'){
     document.getElementById('s-cloud-provider').value = cfgReadKey('CLOUD').toLowerCase() || 'modal';
     document.getElementById('s-cloud-gpu').value = cfgReadKey('CLOUD_GPU') || 'A10G';
@@ -7673,7 +7673,7 @@ function renderStats(el, s){
   if(!el||!s) return;
   const parts=[];
   const pt=s.prompt_tokens||s.prompt_tokens_total;
-  if(pt) parts.push(t('chat.prefill')+' '+pt+' '+t('chat.tok_unit')+' · '+(s.prompt_per_second||0).toFixed(0)+' tok/s');
+  if(pt) parts.push(t('chat.prefill')+' '+pt+' '+t('chat.tok_unit')+(s.prompt_per_second ? ' · '+s.prompt_per_second.toFixed(0)+' tok/s' : ''));
   if(s.gen_tokens) parts.push(t('chat.decode')+' '+s.gen_tokens+' '+t('chat.tok_unit')+' · '+(s.gen_per_second||0).toFixed(1)+' tok/s');
   if(!parts.length) return;
   if(el.classList.contains('collapsible')){ setIcon(el,'brain'); setLabel(el, [t('chat.reflection_label')].concat(parts).join('  ·  ')); }

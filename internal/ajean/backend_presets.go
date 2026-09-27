@@ -332,7 +332,26 @@ func SwitchToPreset(target string) error {
 	}
 	fmt.Printf("%s configuration <- %s\n", green("[ok]"), filepath.Base(target))
 	fmt.Println(dim("[info] redémarrage du service..."))
-	return serviceAction("restart")
+	cfg := ReadConfig()
+	if !isExternalConfig(cfg) {
+		// vers un moteur local : on arrête d'abord le moteur tiers précédent
+		if err := syncExternalService(cfg); err != nil {
+			return err
+		}
+		return serviceAction("restart")
+	}
+	// vers un preset externe : le moteur local s'arrête (restart → stop), puis
+	// son moteur tiers éventuel démarre sur les GPU libérés
+	if err := serviceAction("restart"); err != nil {
+		return err
+	}
+	if err := syncExternalService(cfg); err != nil {
+		return err
+	}
+	if s := externalServiceOf(cfg); s != "" {
+		fmt.Printf("%s %s démarré (chargement du modèle en cours)\n", green("[ok]"), s)
+	}
+	return nil
 }
 
 func cmdSwitch(args []string) error {

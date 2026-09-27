@@ -56,6 +56,12 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 				_, cloudErr = cloudStatus()
 			}
 		}
+		// Moteur tiers lancé par ajean (EXTERNAL_SERVICE) : « prêt » seulement
+		// quand son API répond, sinon l'UI annonçait prêt pendant les 1-2 min de
+		// chargement du modèle.
+		if cfg := ReadConfig(); externalServiceOf(cfg) != "" {
+			health, cloudErr = externalServiceReady(cfg)
+		}
 	}
 	ctx := 32768
 	if v := ReadConfig()["CTX"]; v != "" {
@@ -507,28 +513,26 @@ func handlePresets(w http.ResponseWriter, r *http.Request) {
 				if strings.TrimSpace(cfg[extKeyVision]) == "1" {
 					item["vision"] = true
 				}
-				out = append(out, item)
-				continue
-			}
-			if cfg := parseEnv(content); isCloudConfig(cfg) {
+			} else if cfg := parseEnv(content); isCloudConfig(cfg) {
 				item["cloud"] = cloudGPU(cfg)
 				if strings.TrimSpace(cfg[cloudKeyMM]) != "" {
 					item["vision"] = true
 				}
 			}
-			if q := detectQuant(content); q != "" {
+			ext := isExternalConfig(parseEnv(content))
+			if q := detectQuant(content); q != "" && !ext {
 				item["quant"] = q
 			}
-			if c := presetCtx(content); c != "" {
+			if c := presetCtx(content); c != "" && !ext {
 				item["ctx"] = c
 			}
-			if r := presetReasoning(content); reasoningActive(r) {
+			if r := presetReasoning(content); reasoningActive(r) && !ext {
 				item["reasoning"] = strings.ToLower(r)
 			}
 			// Vision : le preset charge un projecteur multimodal (MMPROJ) → il sait
 			// recevoir des images. L'UI affiche un œil pour le repérer sans ouvrir
 			// les options (issue #35).
-			if strings.TrimSpace(parseEnv(content)["MMPROJ"]) != "" {
+			if strings.TrimSpace(parseEnv(content)["MMPROJ"]) != "" && !ext {
 				item["vision"] = true
 			}
 		}
@@ -1362,12 +1366,21 @@ func handleSwitch(w http.ResponseWriter, r *http.Request) {
 					fmt.Printf("%s arrêt du moteur après bascule externe: %v\n", red("[ERREUR]"), err)
 				}
 			}
+			// Moteur tiers du preset (EXTERNAL_SERVICE) : démarré APRÈS l'arrêt
+			// du moteur local, qui libère les GPU.
+			if err := syncExternalService(ReadConfig()); err != nil {
+				fmt.Printf("%s service externe: %v\n", red("[ERREUR]"), err)
+			}
 		}()
 		sendJSON(w, 200, map[string]any{"ok": true, "preset": target.Name})
 		return
 	}
 	fmt.Println(dim("[info] redémarrage du service..."))
 	go func() {
+		// Arrête d'abord un éventuel moteur tiers du preset précédent.
+		if err := syncExternalService(ReadConfig()); err != nil {
+			fmt.Printf("%s service externe: %v\n", red("[ERREUR]"), err)
+		}
 		if err := serviceAction("restart"); err != nil {
 			fmt.Printf("%s redémarrage après bascule: %v\n", red("[ERREUR]"), err)
 		}

@@ -222,6 +222,13 @@ func cmdServe(args []string) error {
 	if isCloudConfig(cfg) {
 		return serveCloudProxy(cfg)
 	}
+	// API externe : aucun moteur local. On sort SANS erreur, sinon systemd
+	// (Restart=on-failure) relance en boucle — et chaque relance arrêterait le
+	// moteur tiers du preset (EXTERNAL_SERVICE), déclaré en conflit avec nous.
+	if isExternalConfig(cfg) {
+		fmt.Println("[info] preset externe actif : pas de moteur local à lancer")
+		return nil
+	}
 	bin := cfg["BIN"]
 	if bin == "" {
 		return fmt.Errorf("BIN non défini — lance « ajean edit »")

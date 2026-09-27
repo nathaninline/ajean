@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const Version = "0.16.3"
+const Version = "0.16.4"
 
 // Main est le vrai main() du binaire (cmd/ajean ne fait que l'appeler).
 func Main() {
@@ -151,7 +151,8 @@ Interaction:
                                 --json  --last N  --no-reasoning
                                 --no-tools  --no-results
   agent [on|off|status]         donne à l'IA ses outils (shell, fichiers, mémoire)
-  memory [off|ondemand|always|status]  mode mémoire de l'IA
+  computer [on|off|status]      contrôle du navigateur (l'IA pilote un Chrome local)
+  memory [off|ondemand|always|search|status]  mode mémoire de l'IA
   internet [on|off|status|engine <go|crawl4ai>|url <url>|key <clé>]
                                 accès web de l'IA (moteur intégré ou serveur Crawl4AI)
 
@@ -162,7 +163,8 @@ Accès distant (ajean.link) :
   link status | logout          état du jeton / l'oublier
 
 Backend llama.cpp :
-  llamacpp install              clone + compile llama.cpp (CUDA/ROCm/Metal/CPU), pointe BIN dessus
+  llamacpp install              clone + compile llama.cpp (CUDA/ROCm/Vulkan/Metal/CPU), pointe BIN dessus
+    --backend=vulkan|cuda|hip|cpu  imposer le backend au lieu de la détection auto
   llamacpp update               git pull + recompile le backend existant
   llamacpp uninstall <cible>    supprime un moteur (compiled | prebuilt | custom <nom>) ; --force si actif
   llamacpp status               commit courant, backend détecté, retard sur origin

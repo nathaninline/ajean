@@ -69,6 +69,17 @@ func cmdWeb(args []string) error {
 		fmt.Printf("%s front OpenAI public prêt (activation en direct via l'UI ; état: %v)\n", green("[oai]"), oaiPublicEnabled())
 		startAppLink(mux)
 	}
+	// Au démarrage de la machine : le moteur tiers du preset actif
+	// (EXTERNAL_SERVICE) n'est pas « enabled », c'est ajean qui le relance.
+	if s := externalServiceOf(ReadConfig()); s != "" {
+		go func() {
+			if err := syncExternalService(ReadConfig()); err != nil {
+				fmt.Printf("%s service externe: %v\n", red("[ERREUR]"), err)
+			} else {
+				fmt.Printf("%s %s démarré (preset actif)\n", green("[ok]"), s)
+			}
+		}()
+	}
 	// ReadHeaderTimeout : sans lui, une connexion qui n'envoie jamais sa requête
 	// immobilise une goroutine pour toujours — et ce port écoute sur 0.0.0.0.
 	// Surtout PAS de WriteTimeout ici : il couperait les flux SSE du chat, qui

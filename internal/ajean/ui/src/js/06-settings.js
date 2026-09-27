@@ -102,12 +102,14 @@ async function loadPresets(){
         c.textContent=x.ctx;
         meta.appendChild(c);
       }
-      if(x.bench){
-        const bt=document.createElement('span'); bt.className='btag';
-        bt.title=t('settings.presets.bench_title');
-        bt.textContent=x.bench.prefill.toFixed(0)+'-'+x.bench.decode.toFixed(0)+' t/s';
-        meta.appendChild(bt);
-      }
+    }
+    // Bench : local, ou moteur tiers lancé par ajean (le serveur n'en renvoie
+    // pas pour une simple API distante).
+    if(x.bench){
+      const bt=document.createElement('span'); bt.className='btag';
+      bt.title=t('settings.presets.bench_title');
+      bt.textContent=x.bench.prefill.toFixed(0)+'-'+x.bench.decode.toFixed(0)+' t/s';
+      meta.appendChild(bt);
     }
     // Pastille « capacités » à droite des autres tags : API externe (planète),
     // vision (œil), raisonnement (ampoule), regroupées comme un seul tag.

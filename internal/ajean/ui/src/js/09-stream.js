@@ -294,7 +294,8 @@ function renderStats(el, s){
   if(!el||!s) return;
   const parts=[];
   const pt=s.prompt_tokens||s.prompt_tokens_total;
-  if(pt) parts.push(t('chat.prefill')+' '+pt+' '+t('chat.tok_unit')+' · '+(s.prompt_per_second||0).toFixed(0)+' tok/s');
+  // Débit de lecture inconnu (serveur sans timings, ex. Strata) : on n'affiche que la taille.
+  if(pt) parts.push(t('chat.prefill')+' '+pt+' '+t('chat.tok_unit')+(s.prompt_per_second ? ' · '+s.prompt_per_second.toFixed(0)+' tok/s' : ''));
   if(s.gen_tokens) parts.push(t('chat.decode')+' '+s.gen_tokens+' '+t('chat.tok_unit')+' · '+(s.gen_per_second||0).toFixed(1)+' tok/s');
   if(!parts.length) return;
   // Réponse de l'assistant : ligne de mesures dédiée sous le texte (son étiquette
