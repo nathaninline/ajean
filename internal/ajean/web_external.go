@@ -90,6 +90,9 @@ func handlePresetExternalSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	content := externalPresetContent(req.URL, req.Model, key, req.Ctx, req.Vision)
+	// Réglages de MACHINE repris dans le preset : sans eux, la bascule vers ce
+	// preset effaçait BIN de la config vive (voir externalMachineKeys).
+	content = externalPresetWithMachine(content, externalMachineKeys(req.ID))
 	// EXTERNAL_SERVICE n'a pas de champ dans la modale : une édition le conserve.
 	if req.ID != "" {
 		if old, err := ReadPreset(req.ID); err == nil {

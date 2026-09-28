@@ -114,3 +114,49 @@ func externalPresetContent(url, model, key, ctx string, vision bool) string {
 	}
 	return formatEnv(m)
 }
+
+// externalPresetWithMachine ajoute au corps d'un preset externe les réglages de
+// MACHINE (BIN, HOST, PORT), que porte un preset normal (newPresetSeed) mais pas
+// un preset externe. Sans eux, basculer vers un preset distant écrasait la config
+// vive — applyPresetFile remplace TOUT, et preservedKeys ne contient ni BIN ni
+// PORT. Sur une installation neuve, où presets/ est créé vide (sys_datadir.go),
+// plus rien sur le disque ne contenait BIN : la seule issue était de réinstaller
+// llama.cpp.
+//
+// Le détour par parseEnv/formatEnv évite le doublon quand la clé est déjà
+// présente (ré-édition d'un preset existant). Une valeur vide n'écrase rien.
+func externalPresetWithMachine(content string, machine map[string]string) string {
+	if len(machine) == 0 {
+		return content
+	}
+	m := parseEnv(content)
+	for k, v := range machine {
+		if s := strings.TrimSpace(v); s != "" {
+			m[k] = s
+		}
+	}
+	return formatEnv(m)
+}
+
+// externalMachineKeys renvoie les réglages de machine à reprendre dans un preset
+// externe. À la CRÉATION (id vide) : ceux de la config vive, comme le formulaire
+// de preset normal. À l'ÉDITION : ceux que le preset porte DÉJÀ, complétés par la
+// config vive — sinon changer l'URL d'un preset existant effacerait le BIN qu'il
+// vient d'apprendre à conserver.
+func externalMachineKeys(id string) map[string]string {
+	m := newPresetSeed()
+	if id == "" {
+		return m
+	}
+	old, err := ReadPreset(id)
+	if err != nil {
+		return m
+	}
+	have := parseEnv(old)
+	for _, k := range newPresetSeedKeys {
+		if v := strings.TrimSpace(have[k]); v != "" {
+			m[k] = v
+		}
+	}
+	return m
+}
