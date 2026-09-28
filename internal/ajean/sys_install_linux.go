@@ -31,6 +31,10 @@ WorkingDirectory=%s
 ExecStart=%s
 Restart=on-failure
 RestartSec=3
+# llama-server ignore SIGTERM tant qu'une génération est en cours : avec le
+# défaut systemd (90 s), chaque bascule de preset en plein flux restait bloquée
+# une minute et demie. Il n'a rien à sauvegarder, on le coupe au bout de 5 s.
+TimeoutStopSec=5
 
 # Priorité CPU : on remonte le process pour qu'il ne soit pas dépriorisé face
 # aux tâches de fond (sampling/orchestration côté CPU pèsent sur le débit même
