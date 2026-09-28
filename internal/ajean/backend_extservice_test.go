@@ -1,12 +1,15 @@
 package ajean
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -169,5 +172,42 @@ func TestBenchExternalService(t *testing.T) {
 	}
 	if benchModelKey(map[string]string{"EXTERNAL": "1", extKeyModel: "gpt"}) != "" {
 		t.Fatal("une API distante sans service ne doit pas avoir de bench")
+	}
+}
+
+// Réédition d'un preset externe par la modale : les réglages de machine (#97)
+// et EXTERNAL_SERVICE (qui n'a pas de champ) coexistent, sans doublon ni perte.
+func TestExternalPresetEditKeepsServiceAndMachine(t *testing.T) {
+	testHome(t)
+	body := externalPresetContent("http://127.0.0.1:8080/v1", "swift", "", "131072", true) +
+		"BIN=/opt/llama/llama-server\n" + extKeyService + "=ajean-strata\n"
+	id, err := SavePreset("", "STRATA", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	save := func(ctx string) map[string]string {
+		req := externalSaveReq{ID: id, Name: "STRATA", URL: "http://127.0.0.1:8080/v1", Model: "swift", Ctx: ctx, Vision: true}
+		b, _ := json.Marshal(req)
+		w := httptest.NewRecorder()
+		handlePresetExternalSave(w, httptest.NewRequest("POST", "/api/preset/external", bytes.NewReader(b)))
+		if w.Code != 200 {
+			t.Fatalf("enregistrement : %d %s", w.Code, w.Body.String())
+		}
+		c, err := ReadPreset(id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, k := range []string{extKeyService + "=", "BIN="} {
+			if n := strings.Count(c, "\n"+k) + map[bool]int{true: 1}[strings.HasPrefix(c, k)]; n != 1 {
+				t.Fatalf("%s présent %d fois après édition :\n%s", k, n, c)
+			}
+		}
+		return parseEnv(c)
+	}
+	for _, ctx := range []string{"200000", "131072"} { // deux éditions successives
+		cfg := save(ctx)
+		if cfg[extKeyService] != "ajean-strata" || cfg["BIN"] != "/opt/llama/llama-server" || cfg["CTX"] != ctx {
+			t.Fatalf("édition (CTX=%s) : %v", ctx, cfg)
+		}
 	}
 }
