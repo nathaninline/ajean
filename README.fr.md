@@ -177,7 +177,7 @@ La clé API (`ajean set-api-key`) est rangée hors de la configuration, afin de 
 
 ### Sessions et mémoire
 
-Chaque conversation est une **session** persistante à identifiant stable. Le bouton *Sessions* liste toutes les conversations gardées, on en rouvre une d'un clic (la courante est d'abord sauvegardée dans la sienne), et *nouvelle session* démarre un fil vierge. Les sessions peuvent être mises en favori et sont conservées dans la base, donc partagées entre tous les appareils reliés au même serveur. Une recherche par mots-clés retrouve une conversation d'après son contenu.
+Chaque conversation est une **session** persistante à identifiant stable. Le panneau *Historique* du hub de projets liste les conversations du projet courant, on en rouvre une d'un clic (la courante est d'abord sauvegardée dans la sienne), et *Nouvelle conversation* démarre un fil vierge. Les sessions peuvent être mises en favori et sont conservées dans la base, donc partagées entre tous les appareils reliés au même serveur. Une recherche par mots-clés retrouve une conversation d'après son contenu.
 
 Au-delà des sessions, l'IA tient des pages Markdown sous `$AJEAN_HOME/memory/`, relues et mises à jour entre les conversations. Trois modes, indépendants du mode agent :
 
