@@ -177,7 +177,7 @@ The API key (`ajean set-api-key`) is stored outside the configuration, so it sur
 
 ### Sessions and memory
 
-Each conversation is a persistent **session** with a stable identifier. The *Sessions* button lists all kept conversations, you reopen one with a click (the current one is first saved into its own), and *new session* starts a blank thread. Sessions can be favorited and are kept in the database, so they are shared across every device connected to the same server.
+Each conversation is a persistent **session** with a stable identifier. The *History* panel in the project hub lists the current project's conversations, you reopen one with a click (the current one is first saved into its own), and *New conversation* starts a blank thread. Sessions can be favorited and are kept in the database, so they are shared across every device connected to the same server. A keyword search finds a conversation by its content.
 
 Beyond sessions, the AI keeps Markdown pages under `$AJEAN_HOME/memory/`, re-read and updated across conversations. Three modes, independent of agent mode:
 

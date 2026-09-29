@@ -781,6 +781,24 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 @media (hover:none){.sess-menu-btn{opacity:.5}}
 .sess-menu-btn:hover{background:var(--row-bg-on);color:var(--text)}
 .sess-menu-btn svg{display:block}
+.sess-searchbar{display:flex;align-items:center;gap:7px;margin:0 0 8px;padding:0 10px;
+  background:var(--panel);border:1px solid var(--border);border-radius:10px;min-height:34px}
+.sess-searchbar:focus-within{border-color:var(--accent)}
+.sess-search-ico{flex:none;color:var(--dim)}
+.sess-search-inp{flex:1;min-width:0;padding:7px 0;background:transparent;border:none;outline:none;
+  color:var(--text);font:inherit;font-size:12.5px}
+.sess-search-inp::placeholder{color:var(--dim)}
+.sess-search-inp::-webkit-search-cancel-button{display:none}
+.sess-search-clear{flex:none;width:20px;height:20px;display:flex;align-items:center;justify-content:center;
+  padding:0;border:none;background:transparent;color:var(--dim);border-radius:6px;cursor:pointer;font-size:16px;line-height:1}
+.sess-search-clear:hover{background:var(--row-bg-on);color:var(--text)}
+.sess-note{font-size:12px;color:var(--dim);padding:8px 2px;text-align:center}
+.sess-index-note{padding:2px 8px 6px;text-align:left}
+.sess-count-note{padding:2px 8px 6px;text-align:left;font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase}
+.sess-snippet{font-size:11.5px;color:var(--dim);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sess-terms{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.sess-term{font-size:10.5px;color:var(--accent);background:var(--accent-bg);border-radius:5px;padding:1px 6px;white-space:nowrap}
+.sess-hl{background:var(--accent-bg);color:inherit;border-radius:3px;padding:0 1px}
 .tracker-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
 .tracker-intro{font-size:11.5px;color:var(--dim)}
 .tracker-newbtn{flex:none;font-size:12px;padding:6px 11px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--accent);cursor:pointer;font-weight:600}
@@ -1608,6 +1626,11 @@ button:hover{border-color:var(--dim);color:var(--text)}
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
           <span data-i18n="projects.new_session">Nouvelle conversation</span>
         </button>
+      </div>
+      <div class="sess-searchbar" role="search" aria-label="Rechercher dans l'historique" data-i18n="projects.search_aria" data-i18n-attr="aria-label">
+        <svg class="sess-search-ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20.5 20.5l-4.2-4.2"/></svg>
+        <input id="sess-search" class="sess-search-inp" type="search" autocomplete="off" placeholder="Rechercher dans l'historique…" oninput="onSessSearch()" onkeydown="if(event.key==='Escape'){clearSessSearch();}" data-i18n="projects.search_placeholder" data-i18n-attr="placeholder">
+        <button type="button" id="sess-search-clear" class="sess-search-clear" style="display:none" aria-label="Effacer la recherche" onclick="clearSessSearch()" data-i18n="projects.search_clear" data-i18n-attr="aria-label">×</button>
       </div>
       <div id="project-sessions" class="sess-list" style="margin-top:6px"></div>
     </div>
@@ -2565,6 +2588,18 @@ fr: {
   "projects.back_to_live": "Revenir à la génération",
   "projects.list_heading": "Projets",
   "projects.sessions_heading": "Historique",
+  "projects.search_placeholder": "Rechercher dans l'historique…",
+  "projects.search_aria": "Rechercher dans l'historique",
+  "projects.search_clear": "Effacer la recherche",
+  "projects.search_no_results_prefix": "Aucune conversation ne correspond à « ",
+  "projects.search_no_results_suffix": " ».",
+  "projects.search_no_terms": "Saisis au moins 2 caractères (les termes plus courts ne sont pas indexés).",
+  "projects.search_locked": "Recherche indisponible : la mémoire est verrouillée. Déverrouille-la pour fouiller l'historique.",
+  "projects.search_indexing_prefix": "Indexation en cours : ",
+  "projects.search_indexing_suffix": " conversations indexées",
+  "projects.search_count_prefix": "Résultats (",
+  "projects.search_count_suffix": ")",
+  "projects.search_matched_terms": "Termes trouvés",
   "projects.new_project_title": "Créer un projet",
   "projects.new_project_button": "+",
   "projects.clear_sessions": "Vider les conversations",
@@ -3743,6 +3778,18 @@ en: {
   "projects.back_to_live": "Back to the generation",
   "projects.list_heading": "Projects",
   "projects.sessions_heading": "History",
+  "projects.search_placeholder": "Search history…",
+  "projects.search_aria": "Search history",
+  "projects.search_clear": "Clear search",
+  "projects.search_no_results_prefix": "No conversation matches « ",
+  "projects.search_no_results_suffix": " ».",
+  "projects.search_no_terms": "Enter at least 2 characters (shorter terms are not indexed).",
+  "projects.search_locked": "Search unavailable: memory is locked. Unlock it to search history.",
+  "projects.search_indexing_prefix": "Indexing: ",
+  "projects.search_indexing_suffix": " conversations indexed",
+  "projects.search_count_prefix": "Results (",
+  "projects.search_count_suffix": ")",
+  "projects.search_matched_terms": "Matched terms",
   "projects.new_project_title": "Create a project",
   "projects.new_project_button": "+",
   "projects.clear_sessions": "Clear conversations",
@@ -9538,7 +9585,9 @@ async function loadProjects(){
   if(!r || !r.ok){ const box=document.getElementById('project-list'); if(box) box.innerHTML='<span class="muted" style="font-size:12px">'+t('projects.load_error')+'</span>'; return; }
   PROJECTS = r.projects || [];
   ACTIVE_PROJECT = r.active || '';
+  const wasBrowsing = !!BROWSE_PROJECT;
   if(!LIVE_GENERATING || !PROJECTS.some(p=>p.slug===BROWSE_PROJECT)) BROWSE_PROJECT = '';
+  if(wasBrowsing && !BROWSE_PROJECT) resetSessSearch(false);
   const act = PROJECTS.find(p=>p.slug===ACTIVE_PROJECT);
   setProjectBtnName(act ? act.name : '');
   renderProjectList();
@@ -9546,6 +9595,7 @@ async function loadProjects(){
 }
 function browseProject(slug){
   BROWSE_PROJECT = (slug === ACTIVE_PROJECT) ? '' : slug;
+  resetSessSearch(false);
   renderProjectList();
   loadProjectSessions();
 }
@@ -9635,6 +9685,7 @@ async function switchProjectUI(slug){
   if(!r.ok){ if(known) revert(); toast(r.error || t('projects.switch_failed')); return; }
   ACTIVE_PROJECT = r.active || slug;
   const ms=document.getElementById('mem-search'); if(ms) ms.value='';
+  resetSessSearch(false);
   if(typeof loadAgent === 'function') loadAgent();
   if(known) loadProjectSessions();
   else await loadProjects();
@@ -9649,38 +9700,92 @@ function showSessionsLoading(){
 }
 const SESS_PAGE = 40;
 let _sessLoad = null, _sessObs = null;
+let _sessQuery = '', _sessTimer = null;
+function onSessSearch(){
+  const inp = document.getElementById('sess-search'); if(!inp) return;
+  _sessQuery = inp.value.trim();
+  const clr = document.getElementById('sess-search-clear');
+  if(clr) clr.style.display = _sessQuery ? '' : 'none';
+  if(_sessTimer) clearTimeout(_sessTimer);
+  _sessTimer = setTimeout(()=>{ _sessTimer = null; loadProjectSessions(); }, 300);
+}
+function resetSessSearch(reload){
+  _sessQuery = '';
+  if(_sessTimer){ clearTimeout(_sessTimer); _sessTimer = null; }
+  const inp = document.getElementById('sess-search'); if(inp) inp.value = '';
+  const clr = document.getElementById('sess-search-clear'); if(clr) clr.style.display = 'none';
+  if(reload) loadProjectSessions();
+}
+function clearSessSearch(){ resetSessSearch(true); }
 async function loadProjectSessions(){
   const box = document.getElementById('project-sessions'); if(!box) return;
   showSessionsLoading();
   if(_sessObs){ _sessObs.disconnect(); _sessObs = null; }
   const foreign = !!BROWSE_PROJECT && BROWSE_PROJECT !== ACTIVE_PROJECT;
-  const base = foreign ? '/api/chat/history?project='+encodeURIComponent(BROWSE_PROJECT)+'&' : '/api/chat/history?';
-  const st = _sessLoad = {gen:(_sessLoad?_sessLoad.gen:0)+1, base, foreign, offset:0, total:0, active:'', busy:false, lastFav:null, sentinel:null};
+  const q = _sessQuery ? 'q='+encodeURIComponent(_sessQuery)+'&' : '';
+  const base = foreign ? '/api/chat/history?project='+encodeURIComponent(BROWSE_PROJECT)+'&'+q : '/api/chat/history?'+q;
+  const st = _sessLoad = {gen:(_sessLoad?_sessLoad.gen:0)+1, base, foreign, query:_sessQuery, offset:0, total:0, active:'', busy:false, lastFav:null, sentinel:null,
+    state:'ok', terms:[], indexed:0, indexedTotal:0};
   let r;
   try{ r = await jget(base+'offset=0&limit='+SESS_PAGE); }
   catch(_){ if(st!==_sessLoad) return; box.style.minHeight = ''; box.innerHTML = '<span class="muted" style="font-size:12px">'+t('projects.load_error')+'</span>'; return; }
   if(st!==_sessLoad) return;
   const list = (r && r.conversations) || [];
+  st.state = (r && r.state) || 'ok';
   st.active = (r && r.active) || ''; st.total = (r && r.total) || list.length;
+  st.terms = (r && r.terms) || []; st.indexed = (r && r.indexed) || 0; st.indexedTotal = (r && r.indexed_total) || 0;
   box.style.minHeight = '';
   box.innerHTML = '';
-  if(!list.length){ box.innerHTML = '<span class="muted" style="font-size:12px">'+t('projects.no_sessions')+'</span>'; box.classList.add('ready'); return; }
+  if(st.state === 'locked'){ sessNotice(box, t('projects.search_locked')); box.classList.add('ready'); return; }
+  if(st.state === 'no_terms'){ sessNotice(box, t('projects.search_no_terms')); box.classList.add('ready'); return; }
+  if(!list.length){
+    if(st.query) sessNotice(box, t('projects.search_no_results_prefix') + st.query + t('projects.search_no_results_suffix'));
+    else box.innerHTML = '<span class="muted" style="font-size:12px">'+t('projects.no_sessions')+'</span>';
+    box.classList.add('ready'); return;
+  }
+  if(st.query){
+    if(st.indexed < st.indexedTotal){
+      sessNotice(box, t('projects.search_indexing_prefix') + st.indexed + '/' + st.indexedTotal + t('projects.search_indexing_suffix'), 'sess-index-note');
+    }
+    sessNotice(box, t('projects.search_count_prefix') + st.total + t('projects.search_count_suffix'), 'sess-count-note');
+  }
   appendSessRows(box, st, list);
   box.classList.add('ready');
   setupSessSentinel(box, st);
+}
+function sessNotice(box, text, cls){
+  const d = document.createElement('div');
+  d.className = 'sess-note' + (cls ? ' ' + cls : '');
+  d.textContent = text;
+  box.appendChild(d);
 }
 function appendSessRows(box, st, list){
   const section = (label)=>{ const h=document.createElement('div'); h.className='sess-head'; h.style.paddingLeft='8px'; h.textContent=label; return h; };
   const frag = document.createDocumentFragment();
   for(const c of list){
     const fav = !!c.fav;
-    if(st.lastFav === null && fav) frag.appendChild(section(t('projects.favorites')));
-    else if(st.lastFav === true && !fav) frag.appendChild(section(t('projects.recent')));
-    st.lastFav = fav;
-    frag.appendChild(projSessionRow(c, c.id===st.active && !st.foreign, st.foreign));
+    if(!st.query){
+      if(st.lastFav === null && fav) frag.appendChild(section(t('projects.favorites')));
+      else if(st.lastFav === true && !fav) frag.appendChild(section(t('projects.recent')));
+      st.lastFav = fav;
+    }
+    frag.appendChild(projSessionRow(c, c.id===st.active && !st.foreign, st.foreign, st.query ? st.terms : null));
   }
   if(st.sentinel) box.insertBefore(frag, st.sentinel); else box.appendChild(frag);
   st.offset += list.length;
+}
+function _hlTerms(text, terms){
+  const src = String(text==null?'':text);
+  const pat = (terms||[]).map(x=>String(x||'')).filter(Boolean)
+    .map(x=>x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  if(!pat) return escHtml(src);
+  let out = '', last = 0; const re = new RegExp(pat, 'gi'); let m;
+  while((m = re.exec(src))){
+    out += escHtml(src.slice(last, m.index)) + '<mark class="sess-hl">' + escHtml(m[0]) + '</mark>';
+    last = m.index + m[0].length;
+    if(m.index === re.lastIndex) re.lastIndex++; 
+  }
+  return out + escHtml(src.slice(last));
 }
 function setupSessSentinel(box, st){
   if(st.offset >= st.total || typeof IntersectionObserver==='undefined'){ if(st.offset < st.total) loadMoreSessions(box, st, true); return; }
@@ -9706,7 +9811,7 @@ async function loadMoreSessions(box, st, all){
     _sessObs.unobserve(st.sentinel); _sessObs.observe(st.sentinel);
   }
 }
-function projSessionRow(c, active, foreign){
+function projSessionRow(c, active, foreign, terms){
   const genHere = LIVE_GENERATING && active; 
   const unseenHere = active && !genHere && (typeof PENDING_LIVE!=='undefined' && PENDING_LIVE); 
   const row = document.createElement('div'); row.className = 'sess-row' + (active?' active':'');
@@ -9719,13 +9824,27 @@ function projSessionRow(c, active, foreign){
   row.onclick = onOpen;
   row.onkeydown = (e)=>{ if((e.key==='Enter'||e.key===' ') && e.target===row){ e.preventDefault(); onOpen(); } };
   const info = document.createElement('div'); info.className = 'sess-info';
-  const name = document.createElement('div'); name.className = 'sess-name'; name.textContent = c.title || t('projects.conversation_fallback');
+  const name = document.createElement('div'); name.className = 'sess-name';
+  const title = c.title || t('projects.conversation_fallback');
+  if(terms && terms.length) name.innerHTML = _hlTerms(title, terms); else name.textContent = title;
+  info.appendChild(name);
+  if(c.snippet){
+    const snip = document.createElement('div'); snip.className = 'sess-snippet';
+    if(terms && terms.length) snip.innerHTML = _hlTerms(c.snippet, terms); else snip.textContent = c.snippet;
+    info.appendChild(snip);
+  }
   const meta = document.createElement('div'); meta.className = 'sess-meta';
   const n = c.turns || 0;
   meta.textContent = fmtHistDate(c.saved_at) + ' · ' + n + ' ' + t('projects.message_label') + (n>1?'s':'');
   if(genHere){ const g=document.createElement('span'); g.className='sess-gen'; g.innerHTML='<span class="spinner"></span><span>'+t('projects.generating_here')+'</span>'; meta.appendChild(g); }
   else if(unseenHere){ const d=document.createElement('span'); d.className='sess-unseen'; d.title=t('projects.unseen_response'); meta.appendChild(d); }
-  info.appendChild(name); info.appendChild(meta);
+  info.appendChild(meta);
+  if(terms && terms.length){
+    const chips = document.createElement('div'); chips.className = 'sess-terms';
+    chips.setAttribute('aria-label', t('projects.search_matched_terms'));
+    for(const term of terms){ const sp = document.createElement('span'); sp.className = 'sess-term'; sp.textContent = term; chips.appendChild(sp); }
+    info.appendChild(chips);
+  }
   row.appendChild(info);
   const menu = document.createElement('button');
   menu.className='sess-menu-btn'; menu.innerHTML=projDotsSvg(); menu.title=t('projects.options'); menu.setAttribute('aria-label',t('projects.options'));
@@ -9855,6 +9974,7 @@ async function deleteProjectUI(slug, name){
   if(!r.ok){ toast(r.error || t('projects.delete_failed')); return; }
   ACTIVE_PROJECT = r.active || ACTIVE_PROJECT;
   toast(t('projects.deleted_toast'));
+  resetSessSearch(false);
   loadProjects();
   if(typeof loadAgent === 'function') loadAgent();
 }

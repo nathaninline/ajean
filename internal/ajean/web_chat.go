@@ -137,11 +137,40 @@ func handleChatReset(w http.ResponseWriter, r *http.Request) {
 // l'UI marque « en cours ») + drapeau `generating`. Avec ?project=<slug>, liste EN
 // LECTURE SEULE les sessions d'un AUTRE projet sans basculer le projet actif : c'est
 // ce qui permet de parcourir un autre projet pendant qu'une génération tourne.
+//
+// Depuis #98, ?q= active la recherche PLEIN-TEXTE : la réponse porte alors un état
+// (ok/locked/no_terms), les correspondances triées par pertinence, et la couverture
+// de l'index (indexed / indexed_total). Sans q, le comportement historique est
+// INCHANGÉ (liste non filtrée, favoris d'abord) — garde-fou de non-régression.
 func handleChatHistory(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
+	project := strings.TrimSpace(q.Get("project"))
+	limit, _ := strconv.Atoi(q.Get("limit"))
+	offset, _ := strconv.Atoi(q.Get("offset"))
+
+	if query := strings.TrimSpace(q.Get("q")); query != "" {
+		res := histSearch(query, project, offset, limit)
+		// « total » = correspondances en portée (AVANT pagination) ; « indexed » /
+		// « indexed_total » = couverture de l'index. Ce sont DEUX nombres distincts :
+		// ne jamais se servir de total comme dénominateur de couverture.
+		convs := res.Hits
+		if convs == nil {
+			convs = make([]convArchiveHit, 0)
+		}
+		terms := res.Terms
+		if terms == nil {
+			terms = make([]string, 0)
+		}
+		sendJSON(w, 200, map[string]any{"ok": true, "state": res.State,
+			"conversations": convs, "total": res.Total,
+			"indexed": res.Indexed, "indexed_total": res.IndexedTotal, "terms": terms,
+			"active": conv.currentID(), "generating": conv.isGenerating()})
+		return
+	}
+
 	var list []convArchiveMeta
-	if p := strings.TrimSpace(q.Get("project")); p != "" {
-		list = listArchivesForProject(p)
+	if project != "" {
+		list = listArchivesForProject(project)
 	} else {
 		list = listArchives()
 	}
@@ -150,12 +179,15 @@ func handleChatHistory(w http.ResponseWriter, r *http.Request) {
 	// limit, tout est renvoyé comme avant (compat des autres appelants). Les favoris
 	// étant triés en tête, ils sont toujours dans la première page.
 	total := len(list)
-	if limit, _ := strconv.Atoi(q.Get("limit")); limit > 0 {
-		off, _ := strconv.Atoi(q.Get("offset"))
-		off = max(0, min(off, total))
+	if limit > 0 {
+		off := max(0, min(offset, total))
 		list = list[off:min(off+limit, total)]
 	}
-	sendJSON(w, 200, map[string]any{"ok": true, "conversations": list, "total": total,
+	if list == nil {
+		list = make([]convArchiveMeta, 0)
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "state": "ok", "conversations": list, "total": total,
+		"indexed": 0, "indexed_total": 0, "terms": make([]string, 0),
 		"active": conv.currentID(), "generating": conv.isGenerating()})
 }
 

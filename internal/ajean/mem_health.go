@@ -26,7 +26,7 @@ type MemHealth struct {
 
 // memHealth calcule l'état courant.
 func memHealth() MemHealth {
-	h := MemHealth{Encrypted: memEncActive(), Locked: memEncActive() && !memUnlocked()}
+	h := MemHealth{Encrypted: memEncActive(), Locked: memLocked()}
 
 	clair, chiffre := 0, 0
 	for _, name := range mdPages() {
