@@ -47,7 +47,7 @@ async function loadStatus(){
   // 'fadein' une fois le contenu remplacé.
   const svcWasSkel = !!el.querySelector('.skel');
   el.className='statuspill '+cls;
-  el.innerHTML='<span class="dot"></span>'+txt;
+  el.textContent=txt ? txt.charAt(0).toUpperCase()+txt.slice(1) : '';
   if(svcWasSkel){ el.classList.remove('fadein'); void el.offsetWidth; el.classList.add('fadein'); }
   MODEL_READY = !!(s.active && s.health);
   // Chargement en cours = moteur actif, pas encore sain, sans erreur de charge.
@@ -317,28 +317,11 @@ function updateReasonBtn(eff){
 }
 function toggleReasonMenu(ev){
   ev.stopPropagation();
-  const menu=document.getElementById('reason-menu');
-  if(menu.style.display==='block'){ menu.style.display='none'; return; }
-  // Surligne le niveau courant.
-  const cur=(REASON_EFFORT||'').trim();
-  menu.querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.eff===cur));
-  // Position : au-dessus du bouton, aligné à droite dessus (fixed, hors flux).
-  const r=document.getElementById('reason-btn').getBoundingClientRect();
-  menu.style.display='block';
-  menu.style.visibility='hidden';       // mesurer avant de placer, sans clignoter
-  const mw=menu.offsetWidth, mh=menu.offsetHeight;
-  let left=Math.max(8, r.right-mw);
-  let top=r.top-mh-6;
-  if(top<8) top=r.bottom+6;             // pas de place au-dessus : sous le bouton
-  menu.style.left=left+'px';
-  menu.style.top=top+'px';
-  menu.style.visibility='';
+  const menu=document.getElementById('reason-menu'), cur=(REASON_EFFORT||'').trim();
+  menu.querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.eff===cur)); // niveau courant
+  toggleMenu(menu, document.getElementById('reason-btn'), {side:'above', align:'right'});
 }
-function closeReasonMenu(){ const m=document.getElementById('reason-menu'); if(m) m.style.display='none'; }
-document.addEventListener('click', (e)=>{
-  const m=document.getElementById('reason-menu');
-  if(m && m.style.display==='block' && !m.contains(e.target) && e.target.closest('#reason-btn')===null){ m.style.display='none'; }
-});
+const closeReasonMenu = ()=>closeMenu();
 async function pickReason(eff){
   closeReasonMenu();
   const prev=REASON_EFFORT;

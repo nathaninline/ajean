@@ -49,7 +49,11 @@ function markNotices(root){
 }
 let msgs = [];
 let busy = false;
-function toggleSide(){ document.getElementById('side').classList.toggle('open'); document.getElementById('backdrop').classList.toggle('open'); document.body.classList.toggle('drawer-open'); }
+function toggleSide(){
+  // Le menu glisse : la barre de défilement flottante (fixe à l'écran) ne doit pas
+  // rester en plan au milieu pendant ce temps.
+  const th=document.getElementById('side-thumb'); if(th){ th.style.transition='none'; th.classList.remove('on'); void th.offsetWidth; th.style.transition=''; }
+  document.getElementById('side').classList.toggle('open'); document.getElementById('backdrop').classList.toggle('open'); document.body.classList.toggle('drawer-open'); }
 // Le prompt système est désormais réglé PAR PRESET (modal de preset), plus dans le
 // menu. Ces fonctions restent en no-op pour ne rien casser si un ancien handler les
 // appelle encore.

@@ -270,7 +270,32 @@ function setStats(el, text){
 }
 function bodyOf(el){ return el.querySelector('.body'); }
 // Render markdown into a message body in place; safe because md() escapes HTML.
-function renderBody(el, text){ const b=bodyOf(el); b.innerHTML = md(encodeMdLinkSpaces(text)); markNotices(b); addCopyButtons(b); markFileLinks(b); markWorkspaceImages(b); scrollMaybe(); }
+function renderBody(el, text, tail){ const b=bodyOf(el); b.innerHTML = md(encodeMdLinkSpaces(text)); markNotices(b); addCopyButtons(b); markFileLinks(b); markWorkspaceImages(b); if(tail) fadeTail(b, FADE_TAIL); scrollMaybe(); }
+// Apparition en fondu du texte de l'IA pendant qu'il s'écrit : les derniers
+// caractères révélés reçoivent une opacité croissante (0,2 au bout → 1). Comme ce
+// dégradé avance avec le texte, chaque mot semble apparaître en fondu, sans
+// animation CSS (le bloc est redessiné à chaque image : une animation se
+// relancerait et clignoterait). Le rendu final, lui, est posé sans dégradé.
+const FADE_TAIL = 16;
+function fadeTail(root, n){
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {acceptNode:(t)=>t.parentElement.closest('button') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT});
+  const nodes = []; while(w.nextNode()) nodes.push(w.currentNode);
+  let k = 0; // caractères déjà traités depuis la fin
+  for(let i = nodes.length - 1; i >= 0 && k < n; i--){
+    const tn = nodes[i], chars = [...tn.data];
+    if(!k && !tn.data.trim()) continue;
+    const take = Math.min(n - k, chars.length);
+    const frag = document.createDocumentFragment();
+    if(chars.length > take) frag.appendChild(document.createTextNode(chars.slice(0, chars.length - take).join('')));
+    chars.slice(chars.length - take).forEach((ch, j)=>{
+      const fromEnd = k + (take - 1 - j);
+      const sp = document.createElement('span');
+      sp.style.opacity = (0.2 + 0.8 * fromEnd / n).toFixed(2);
+      sp.textContent = ch; frag.appendChild(sp);
+    });
+    tn.replaceWith(frag); k += take;
+  }
+}
 // Lignes d'un contenu en cours d'écriture, comptées comme côté serveur : un saut
 // de ligne final termine la dernière ligne, il n'en ouvre pas une vide.
 function bodyLineCount(s){ s=String(s).replace(/\r\n/g,'\n').replace(/\n$/,''); return s ? s.split('\n').length : 0; }
@@ -501,8 +526,67 @@ function resetChat(){ jfetch('/api/chat/reset',{method:'POST'}).catch(()=>{}); t
 // Chaque conversation est une session persistante à id stable. Le modal les
 // gère : ouvrir (garde tout dans la liste), renommer, favori, supprimer, et
 // démarrer une nouvelle session.
-function openHistoryModal(){ showModal('history-modal'); loadHistory(); }
-function closeHistoryModal(){ hideModal('history-modal'); }
+// Bouton « nouvelle conversation » (tête du menu) : archive la courante (elle
+// reste dans l'historique) et repart d'un fil vierge. Rien à faire si le fil est
+// déjà vide.
+function newChatFromTop(){
+  const c=document.getElementById('chat');
+  if(c && !c.querySelector('.msg')){ document.getElementById('input')?.focus(); return; }
+  resetChat();
+  if(document.body.classList.contains('drawer-open')) toggleSide();
+  document.getElementById('input')?.focus();
+}
+// Menu latéral : bascule entre le menu normal et l'historique des conversations.
+// La vue qui part glisse et s'efface, l'autre arrive en glissant ; l'icône
+// horloge reste allumée tant que l'historique est affiché.
+let HIST_VIEW=false;
+const SIDE_ICON_HIST='<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>';
+const SIDE_ICON_MENU='<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg>';
+function showSideView(hist){
+  const main=document.getElementById('side-main'), h=document.getElementById('side-hist');
+  const side=document.getElementById('side'), btn=document.getElementById('hist-toggle');
+  if(!main||!h) return;
+  HIST_VIEW=hist;
+  if(btn){
+    // Pas d'état « enfoncé » : l'icône change, directement (pas d'animation).
+    // Horloge = aller à l'historique, lignes de menu = revenir au menu.
+    btn.classList.remove('on');
+    btn.innerHTML = hist ? SIDE_ICON_MENU : SIDE_ICON_HIST;
+    btn.title = t(hist ? 'chat.back_to_menu' : 'chat.history_btn');
+    btn.setAttribute('aria-label', btn.title);
+  }
+  const show=hist?h:main, hide=hist?main:h;
+  // Pas de barre de défilement flottante pendant la bascule (fondu rapide).
+  SIDE_THUMB_QUIET_UNTIL=Date.now()+450;
+  const th=document.getElementById('side-thumb'); if(th) th.classList.remove('on');
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  clearTimeout(showSideView._t);
+  if(reduce){ hide.hidden=true; show.hidden=false; if(side) side.scrollTop=0; return; }
+  // Les deux vues bougent EN MÊME TEMPS : celle qui part passe en surimpression
+  // (absolue, hors flux) et s'efface pendant que l'autre entre. Aucun instant
+  // sans contenu, donc rien ne saute.
+  [main,h].forEach(v=>v.classList.remove('leave-l','leave-r','enter-l','enter-r','ghost'));
+  hide.classList.add('ghost');
+  show.classList.add(hist?'enter-r':'enter-l'); show.hidden=false;
+  if(side) side.scrollTop=0;
+  void show.offsetWidth;
+  show.classList.remove('enter-r','enter-l');
+  hide.classList.add(hist?'leave-l':'leave-r');
+  showSideView._t=setTimeout(()=>{
+    hide.hidden=true; hide.classList.remove('leave-l','leave-r','ghost');
+  },270);
+}
+function toggleHistoryView(){
+  showSideView(!HIST_VIEW);
+  if(HIST_VIEW) loadHistory(); // après la bascule : l'animation n'attend pas le réseau
+}
+// Compat : anciens appels (ouvrir = afficher l'historique, fermer = revenir au
+// menu ; sur mobile on referme aussi le tiroir pour montrer la conversation).
+function openHistoryModal(){ if(!HIST_VIEW) toggleHistoryView(); }
+function closeHistoryModal(){
+  if(HIST_VIEW) showSideView(false);
+  if(document.body.classList.contains('drawer-open')) toggleSide();
+}
 function fmtHistDate(ms){
   const d = new Date(ms||0);
   try{ return d.toLocaleString([], {dateStyle:'medium', timeStyle:'short'}); }
@@ -510,6 +594,8 @@ function fmtHistDate(ms){
 }
 // Icônes SVG en ligne (l'app n'a pas de police d'icônes) : traits nets, prennent
 // la couleur courante. On renvoie une chaîne SVG posée en innerHTML.
+// Export d'une conversation (menus ⋮ de l'historique et des sessions).
+const EXPORT_IC = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 19h16"/></svg>';
 const SESS_ICONS = {
   star: '<path d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z"/>',
   pencil: '<path d="M4 20h4l10.5 -10.5a2.83 2.83 0 1 0 -4 -4l-10.5 10.5v4"/><path d="M13.5 6.5l4 4"/>',
@@ -529,49 +615,106 @@ function sessionRow(c, active){
     row.onclick = ()=>restoreHistory(c.id);
     row.onkeydown = (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); restoreHistory(c.id); } };
   }
-  // Étoile favori (clic = bascule), indépendante du clic d'ouverture.
-  const star = document.createElement('button');
-  star.className = 'sess-star' + (c.fav?' on':''); star.innerHTML = sessIconSvg('star', c.fav);
-  star.title = c.fav?t('chat.session.unfav'):t('chat.session.fav');
-  star.onclick = (e)=>{ e.stopPropagation(); favHistory(c.id, !c.fav); };
-
   const info = document.createElement('div'); info.className = 'sess-info';
-  const name = document.createElement('div'); name.className = 'sess-name'; name.textContent = c.title || t('chat.session.default_name');
+  const name = document.createElement('div'); name.className = 'sess-name';
+  if(c.fav){ const st=document.createElement('span'); st.className='sess-fav'; st.innerHTML=sessIconSvg('star', true); name.appendChild(st); }
+  name.appendChild(document.createTextNode(c.title || t('chat.session.default_name')));
   const meta = document.createElement('div'); meta.className = 'sess-meta';
   const n = c.turns || 0;
-  meta.textContent = fmtHistDate(c.saved_at) + ' · ' + n + ' ' + (n>1?t('chat.session.messages'):t('chat.session.message')) + (active?' · '+t('chat.session.ongoing'):'');
+  // Historique général : le projet de la conversation, s'il y en a un (hors Générale).
+  const pn = (c.project && c.project !== HIST_DEFAULT_PROJ) ? (HIST_PROJ_NAMES[c.project] || c.project) : '';
+  if(pn){ const pj=document.createElement('span'); pj.className='sess-proj'; pj.textContent=pn; meta.appendChild(pj); }
+  meta.appendChild(document.createTextNode(fmtHistDate(c.saved_at) + ' · ' + n + ' ' + (n>1?t('chat.session.messages'):t('chat.session.message')) + (active?' · '+t('chat.session.ongoing'):'')));
   info.appendChild(name); info.appendChild(meta);
-
-  const acts = document.createElement('div'); acts.className = 'sess-acts';
-  if(active){ const badge = document.createElement('span'); badge.className = 'sess-badge'; badge.textContent = t('chat.session.ongoing'); acts.appendChild(badge); }
-  const actBtn = (name, title, fn)=>{
-    const b = document.createElement('button'); b.className = 'sess-act'; b.innerHTML = sessIconSvg(name);
-    b.title = title; b.onclick = (e)=>{ e.stopPropagation(); fn(); };
-    return b;
-  };
-  acts.appendChild(actBtn('pencil', t('chat.session.rename'), ()=>renameHistory(c.id, c.title)));
-  acts.appendChild(actBtn('trash', t('chat.session.delete_permanently'), ()=>deleteHistory(c.id, c.title)));
-
-  row.appendChild(star); row.appendChild(info); row.appendChild(acts);
+  // Favori / renommer / exporter / supprimer : dans un petit menu ⋮.
+  const more = document.createElement('button'); more.className = 'sess-menu-btn'; more.innerHTML = projDotsSvg();
+  more.title = t('chat.session.actions'); more.setAttribute('aria-label', more.title);
+  more.onclick = (e)=>{ e.stopPropagation(); openHistRowMenu(more, c); };
+  row.appendChild(info); row.appendChild(more);
   return row;
+}
+// Menu ⋮ d'une ligne d'historique.
+function openHistRowMenu(anchor, c){
+  popMenu(anchor, [
+    {icon:'star', label:c.fav?t('chat.session.unfav'):t('chat.session.fav'), run:()=>favHistory(c.id, !c.fav)},
+    {icon:'pencil', label:t('chat.session.rename'), run:()=>renameHistory(c.id, c.title)},
+    PROJECTS.length > 1 && c.id !== HIST_ST.active && {icon:'move', label:t('projects.move_to'), run:()=>moveSessionUI(c, anchor)}, // la conversation ouverte ne se déplace pas
+    {icon:EXPORT_IC, label:t('projects.export'), run:()=>downloadExport('/api/chat/export?id='+encodeURIComponent(c.id))},
+    {icon:'trash', label:t('chat.session.delete_permanently'), danger:true, run:()=>deleteHistory(c.id, c.title)},
+  ], {side:'below'});
+}
+let HIST_PROJ_NAMES = {}, HIST_DEFAULT_PROJ = '';
+// Historique par PAGES (60 lignes, la suite au défilement) : construire d'un coup
+// les 500+ conversations figeait l'ouverture. HIST_SIG évite de reconstruire une
+// liste identique (préchargement puis ouverture : rien ne bouge à l'écran).
+const HIST_PAGE = 60;
+let HIST_ST = {off:0, total:0, active:'', section:'', loading:false, sig:''};
+let HIST_Q = '', HIST_QT = 0;
+const histUrl = (off)=>'/api/chat/history?all=1&offset='+off+'&limit='+HIST_PAGE+(HIST_Q?'&q='+encodeURIComponent(HIST_Q):'');
+// Recherche : on attend une courte pause dans la frappe avant d'interroger.
+function onHistSearch(){
+  clearTimeout(HIST_QT);
+  HIST_QT = setTimeout(()=>{ HIST_Q = document.getElementById('hist-q').value.trim(); loadHistory(); }, 180);
+}
+function histAppend(box, list, animate){
+  const section = (label)=>{ const h=document.createElement('div'); h.className='sess-head'; h.textContent=label; box.appendChild(h); };
+  let i = 0;
+  for(const c of list){
+    const sec = c.fav ? 'fav' : 'recent';
+    if(sec !== HIST_ST.section){
+      if(sec === 'fav') section(t('chat.session.favorites'));
+      else if(HIST_ST.section === 'fav') section(t('chat.session.recent'));
+      HIST_ST.section = sec;
+    }
+    const row = sessionRow(c, c.id===HIST_ST.active);
+    box.appendChild(row); i++;
+  }
 }
 async function loadHistory(){
   const box = document.getElementById('history-list'); if(!box) return;
-  // Ne pas vider tout de suite : on garde l'affichage précédent (ou un discret
-  // « chargement » à la toute première ouverture) le temps de la requête, pour
-  // éviter le clignotement vide→plein.
-  if(!box.children.length) box.innerHTML = '<span class="muted" style="font-size:12px">'+t('chat.session.loading')+'</span>';
-  let list = [], active = '';
-  try{ const r = await jget('/api/chat/history'); list = (r && r.conversations) || []; active = (r && r.active) || ''; }
-  catch(_){ box.innerHTML = '<span class="muted" style="font-size:12px">'+t('chat.session.load_error')+'</span>'; return; }
-  const cnt = document.getElementById('sess-count'); if(cnt) cnt.textContent = list.length || '';
-  if(!list.length){ box.innerHTML = '<span class="muted" style="font-size:12px">'+t('chat.session.empty')+'</span>'; return; }
-  box.innerHTML = '';
-  const favs = list.filter(c=>c.fav), others = list.filter(c=>!c.fav);
-  const section = (label)=>{ const h=document.createElement('div'); h.className='sess-head'; h.textContent=label; box.appendChild(h); };
-  if(favs.length){ section(t('chat.session.favorites')); favs.forEach(c=>box.appendChild(sessionRow(c, c.id===active))); }
-  if(others.length){ if(favs.length) section(t('chat.session.recent')); others.forEach(c=>box.appendChild(sessionRow(c, c.id===active))); }
+  let r;
+  try{ r = await jget(histUrl(0)); }
+  catch(_){ if(!box.children.length) box.innerHTML = '<span class="muted" style="font-size:12px">'+t('chat.session.load_error')+'</span>'; return; }
+  const list = (r && r.conversations) || [];
+  HIST_PROJ_NAMES = (r && r.projects) || {}; HIST_DEFAULT_PROJ = (r && r.default_project) || '';
+  const sig = JSON.stringify([HIST_Q, r.active, r.total, list.map(c=>[c.id,c.title,c.fav,c.turns,c.project])]);
+  const cnt = document.getElementById('sess-count'); if(cnt) cnt.textContent = r.total || '';
+  // « Tout supprimer » masqué pendant une recherche : il viderait tout l'historique,
+  // pas seulement les résultats affichés.
+  const clr = document.getElementById('history-clear-all'); if(clr) clr.hidden = !!HIST_Q;
+  if(sig === HIST_ST.sig && box.children.length) return; // déjà à jour : on ne touche à rien
+  const fresh = !box.querySelector('.sess-row'); // première apparition : fondu des lignes
+  HIST_ST = {off:list.length, total:r.total||list.length, active:(r && r.active)||'', section:'', loading:false, sig};
+  if(!list.length){ box.innerHTML = '<span class="muted" style="font-size:12px">'+t(HIST_Q?'chat.history_no_results':'chat.session.empty')+'</span>'; return; }
+  const frag = document.createDocumentFragment();
+  const tmp = {appendChild:(n)=>frag.appendChild(n)};
+  histAppend(tmp, list, fresh && HIST_VIEW);
+  box.replaceChildren(frag);
 }
+// Suite de la liste quand on approche du bas du menu (vue historique seulement).
+async function loadMoreHistory(){
+  const box = document.getElementById('history-list');
+  if(!box || HIST_ST.loading || HIST_ST.off >= HIST_ST.total) return;
+  HIST_ST.loading = true;
+  try{
+    const r = await jget(histUrl(HIST_ST.off));
+    const list = (r && r.conversations) || [];
+    const frag = document.createDocumentFragment();
+    histAppend({appendChild:(n)=>frag.appendChild(n)}, list, false);
+    box.appendChild(frag);
+    HIST_ST.off += list.length;
+  }catch(_){}
+  HIST_ST.loading = false;
+}
+function histInit(){
+  const side = document.getElementById('side');
+  if(side) side.addEventListener('scroll', ()=>{
+    if(HIST_VIEW && side.scrollTop + side.clientHeight > side.scrollHeight - 300) loadMoreHistory();
+  }, {passive:true});
+  // Préchargement discret : la première ouverture de l'historique est instantanée.
+  setTimeout(()=>{ loadHistory(); }, 2500);
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', histInit); else histInit();
 // Bascule le favori d'une session (étoile).
 async function favHistory(id, fav){
   let r; try{ r = await jpost('/api/chat/history/fav', {id, fav}); }catch(_){ toast(t('chat.session.network_error')); return; }
@@ -598,6 +741,7 @@ async function restoreHistory(id){
   let r; try{ r = await jpost('/api/chat/history/restore', {id}); }catch(_){ toast(t('chat.session.network_error')); return; }
   if(!r.ok){ toast(r.error || t('chat.session.open_error')); return; }
   closeHistoryModal();
+  if(typeof loadProjects==='function') loadProjects();
   toast(t('chat.session.opened'));
 }
 async function deleteHistory(id, title){
@@ -645,9 +789,14 @@ const CL_MIN_MS = 1150;
 // « interface → logo → interface » au premier rendu : on démarre donc le chrono dès
 // le chargement du script.
 let _clShownAt = Date.now(), _clHideTimer = null;
+// QUIET_LOADER_UNTIL : pendant une bascule de projet, le fil se vide et se
+// recharge en une fraction de seconde ; le gros logo pulsant (tenu au moins
+// 1,15 s) y faisait un flash inutile. On ne l'affiche donc pas dans cette fenêtre.
+let QUIET_LOADER_UNTIL=0;
 function setChatLoading(msg){
   const el=document.getElementById('chat-loading');
   if(!el) return;
+  if(msg && Date.now()<QUIET_LOADER_UNTIL){ el.classList.remove('show'); _clShownAt=0; return; }
   if(!msg){
     // Masquage : si le voile n'a pas encore été affiché assez longtemps, on retarde
     // le masquage du temps restant pour éviter le clignotement.

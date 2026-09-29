@@ -30,7 +30,7 @@
 <style>
 @@CSS@@
 </style></head><body>
-<button id="menubtn" onclick="toggleSide()">☰</button>
+<button id="menubtn" onclick="toggleSide()" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
 <!-- Installation d'un moteur en cours : le détail vit dans le panneau, qui est
      fermé sur téléphone. Sans ce rappel, un rechargement de page donnait
      l'impression que l'installation avait disparu. -->
@@ -38,17 +38,35 @@
 <div id="backdrop" onclick="toggleSide()"></div>
 <div class="side" id="side">
   <div class="sidehead">
+    <!-- Logo + version, et dessous en petit : état du moteur (sans cadre). -->
+    <div class="brandcol">
     <h1 id="brand" aria-label="ajean"><span id="brand-a"><svg viewBox="0 0 4 5" shape-rendering="crispEdges" fill="currentColor"><rect x="1" y="0" width="2" height="1"/><rect x="0" y="1" width="1" height="1"/><rect x="3" y="1" width="1" height="1"/><rect x="0" y="2" width="4" height="1"/><rect x="0" y="3" width="1" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="3" y="4" width="1" height="1"/></svg></span><span id="brand-word"><svg viewBox="0 0 17 5" shape-rendering="crispEdges" fill="currentColor"><rect x="1" y="0" width="1" height="1"/><rect x="1" y="1" width="1" height="1"/><rect x="1" y="2" width="1" height="1"/><rect x="1" y="3" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="3" y="0" width="4" height="1"/><rect x="3" y="1" width="1" height="1"/><rect x="3" y="2" width="3" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="3" y="4" width="4" height="1"/><rect x="9" y="0" width="2" height="1"/><rect x="8" y="1" width="1" height="1"/><rect x="11" y="1" width="1" height="1"/><rect x="8" y="2" width="4" height="1"/><rect x="8" y="3" width="1" height="1"/><rect x="11" y="3" width="1" height="1"/><rect x="8" y="4" width="1" height="1"/><rect x="11" y="4" width="1" height="1"/><rect x="13" y="0" width="1" height="1"/><rect x="16" y="0" width="1" height="1"/><rect x="13" y="1" width="2" height="1"/><rect x="16" y="1" width="1" height="1"/><rect x="13" y="2" width="1" height="1"/><rect x="15" y="2" width="2" height="1"/><rect x="13" y="3" width="1" height="1"/><rect x="16" y="3" width="1" height="1"/><rect x="13" y="4" width="1" height="1"/><rect x="16" y="4" width="1" height="1"/></svg></span><span id="ver" onclick="manualUpdateCheck()" style="cursor:pointer" title="vérifier les mises à jour" data-i18n="settings.check_update_title" data-i18n-attr="title"></span></h1>
-    <span id="status-svc" class="statuspill" onclick="toggleSvcLog()" title="voir le journal du moteur" data-i18n="sidebar.status_svc_title" data-i18n-attr="title"><span class="skel skel-line" style="width:52px;height:8px;border-radius:999px"></span></span>
+    <div class="brand-sub">
+      <span id="status-svc" class="statuspill" onclick="toggleSvcLog()" title="voir le journal du moteur" data-i18n="sidebar.status_svc_title" data-i18n-attr="title"><span class="skel skel-line" style="width:52px;height:8px;border-radius:999px"></span></span>
+
+    </div>
+    </div>
+    <!-- Historique : petite icône dans la ligne du logo (la nouvelle conversation
+         est dans le « + » du composeur). -->
+    <span id="side-actions">
+      <button id="hist-toggle" class="side-act" onclick="toggleHistoryView()" title="Historique" aria-label="Historique" data-i18n="chat.history_btn" data-i18n-attr="title">
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>
+      </button>
+    </span>
   </div>
+  <!-- Deux vues dans le même menu : le menu normal et l'historique des
+       conversations. L'icône horloge de l'en-tête bascule de l'une à l'autre
+       (glissé + fondu, voir toggleHistoryView). -->
+  <div id="side-views">
+  <div id="side-main" class="side-view">
   <!-- Avertissement de lancement (App Translocation macOS) — masqué par défaut. -->
-  <div id="app-warn" class="muted" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:8px;color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)"></div>
+  <div id="app-warn" class="muted" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:10px;color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent)"></div>
   <!-- Accès distant (app.ajean.link / *.ajean.link) : le front est toujours à jour
        mais le serveur local peut être ancien. Bandeau passif si une mise à jour existe. -->
-  <div id="server-stale" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:8px;color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)"></div>
-  <div id="model-err" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:8px;color:var(--err);border:1px solid color-mix(in srgb,var(--err) 45%,transparent);background:color-mix(in srgb,var(--err) 12%,transparent)"></div>
+  <div id="server-stale" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:10px;color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent)"></div>
+  <div id="model-err" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:10px;color:var(--err);background:color-mix(in srgb,var(--err) 12%,transparent)"></div>
   <!-- Anciens flags mémoire (--mlock/--no-mmap) sur un moteur llama.cpp récent qui attend --load-mode : le serveur démarre quand même (traduits au lancement), ce bandeau propose de nettoyer la config. -->
-  <div id="loadflags-fix" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:8px;color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)">
+  <div id="loadflags-fix" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:10px;color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent)">
     <span data-i18n="loadflags.notice">La nouvelle version de llama.cpp a changé les options mémoire : <code>--mlock</code> / <code>--no-mmap</code> sont remplacés par <code>--load-mode</code>. D'anciens flags ont été détectés dans ta configuration.</span>
     <span style="white-space:nowrap">&nbsp;<span id="loadflags-btn" onclick="migrateLoadFlags()" style="cursor:pointer;text-decoration:underline;font-weight:600" data-i18n="loadflags.btn">Mettre à jour les flags</span></span>
   </div>
@@ -83,84 +101,6 @@
   </details>
   <details><summary><span class="stitle" data-i18n="presets.title">Presets</span><button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter" data-i18n="presets.add_button" data-i18n-attr="title">+</button></summary>
     <div class="slist"><div id="presets" class="rowlist"></div></div>
-  </details>
-  <details><summary><span class="stitle" data-i18n="agent.title">Agent</span><span id="agent-badge" class="sbadge"></span></summary>
-    <div class="slist"><label class="switchrow"><span class="switch"><input type="checkbox" id="agent-toggle" onchange="toggleAgent()"><span class="slider"></span></span> <span data-i18n="agent.enable_toggle">activer le mode agent</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="agent.enable_help" data-i18n-html>⚠ active l'<b>accès machine</b> (shell complet via <b>bash</b> sur le serveur) — l'IA peut inspecter, lancer des scripts, écrire/lire/éditer des fichiers (timeout 30s, max 300s). Mémoire et accès internet ci-dessous ne fonctionnent que si le mode agent est activé.</span></span></label></div>
-    <!-- Sous-réglages du mode agent. MÊME gabarit que « Machine » / « Apparence » :
-         étiquette de groupe nue, puis UNE carte de lignes (.slist). Le groupe
-         entier est grisé/inerte quand l'agent est off (voir setAgentGate). -->
-    <div id="net-block" class="gated-group">
-      <div class="subhead"><span data-i18n="internet.title">Accès internet</span><span id="internet-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="internet.help" data-i18n-html>Ajoute les outils <b>web_search / web_open / web_read / web_grep</b>. Le moteur <b>intégré</b> ne demande aucune installation. Le moteur <b>Crawl4AI</b> exige un serveur que tu héberges toi-même (ex. <code>docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest</code>) mais exécute le JavaScript des pages. Actifs seulement si le <b>mode agent</b> est actif.</span></span></div>
-      <div class="slist">
-        <label class="switchrow"><span class="switch"><input type="checkbox" id="internet-toggle" onchange="toggleInternet()"><span class="slider"></span></span> <span data-i18n="internet.toggle_label">donner internet à l'IA</span></label>
-        <!-- Moteur web : « go » = intégré au binaire (rien à installer, pas de rendu
-             JavaScript) · « crawl4ai » = serveur externe avec Chromium headless.
-             Réglages propres à Crawl4AI masqués avec le moteur intégré ; l'URL et
-             la clé s'enregistrent en quittant le champ (onchange). -->
-        <div class="rowbody">
-          <div class="row" style="margin:0">
-            <select id="web-engine" class="sctl" onchange="saveWebEngine()">
-              <option value="go" data-i18n="internet.engine_builtin">Moteur Intégré</option>
-              <option value="crawl4ai" data-i18n="internet.engine_crawl4ai">Crawl4AI</option>
-            </select>
-          </div>
-          <!-- Masqués AU DÉPART : le moteur par défaut est l'intégré, et ces champs
-               ne concernent que Crawl4AI. Affichés d'emblée puis repliés par le
-               chargement de l'état, ils faisaient sauter la section sous les yeux. -->
-          <div id="crawl-fields" style="display:none">
-            <div class="row">
-              <input id="crawl-url" type="text" placeholder="http://localhost:11235" class="sctl" onchange="saveCrawlUrl()">
-            </div>
-            <!-- Clé d'accès du serveur Crawl4AI (facultative) : envoyée en
-                 « Authorization: Bearer … ». Jamais relue par l'API, on n'affiche
-                 qu'un indice sur les 4 derniers caractères. -->
-            <div class="row">
-              <input id="crawl-key" type="password" autocomplete="off" placeholder="clé API (si le serveur en exige une)" class="sctl" onchange="saveCrawlKey()" data-i18n="internet.crawl_key_placeholder" data-i18n-attr="placeholder">
-              <button id="crawl-key-clear" onclick="clearCrawlKey()" style="display:none" data-i18n="internet.crawl_key_clear">retirer</button>
-            </div>
-            <div class="muted" style="font-size:11px;margin-top:4px" data-i18n="internet.autosave_hint">enregistré automatiquement en quittant le champ</div>
-            <div id="crawl-key-state" class="muted" style="font-size:11px;margin-top:3px"></div>
-          </div>
-          <div id="internet-status" class="muted" style="font-size:11px;margin-top:4px"></div>
-        </div>
-      </div>
-    </div>
-    <div id="cu-block" class="gated-group">
-      <div class="subhead"><span data-i18n="computer.title">Contrôle du navigateur</span><span id="cu-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="computer.help" data-i18n-html>Donne à l'IA le contrôle d'un <b>navigateur</b> sur cette machine (outils <b>browser_open / browser_click / browser_type / browser_key / browser_scroll</b>). L'IA lit les éléments <b>numérotés</b> de la page et agit par numéro — aucune vision requise, ça marche avec de petits modèles. <code>browser_screenshot</code> s'ajoute si la vision est active. Nécessite Chrome/Chromium/Edge installé. Actif seulement si le <b>mode agent</b> est actif.</span></span></div>
-      <div class="slist">
-        <label class="switchrow"><span class="switch"><input type="checkbox" id="cu-toggle" onchange="toggleComputer()"><span class="slider"></span></span> <span data-i18n="computer.toggle_label">laisser l'IA piloter un navigateur</span></label>
-        <div class="rowbody">
-          <div id="cu-status" class="muted" style="font-size:11px"></div>
-        </div>
-      </div>
-    </div>
-    <div id="mcp-block" class="gated-group">
-      <div class="subhead"><span data-i18n="mcp.title">MCP servers</span><span id="mcp-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="mcp.help" data-i18n-html>Connecte des <b>serveurs MCP</b> (Model Context Protocol) pour donner de nouveaux outils à l'IA : accès fichiers, bases de données, APIs métier… <b>stdio</b> = programme lancé localement (npx/uvx/binaire) · <b>http</b> = serveur distant. ⚠ un serveur stdio exécute du code sur cette machine, au même titre que le shell.</span></span></div>
-      <div class="slist">
-        <div class="rowbody">
-          <!-- Même texte que celui rendu après chargement quand il n'y a aucun
-               serveur : sinon la carte partait vide puis grandissait d'une ligne. -->
-          <div id="mcp-list" class="mcp-list"><div class="muted" style="font-size:12px" data-i18n="mcp.empty_list">(aucun serveur — ajoute un serveur fichiers, une base de données, une API…)</div></div>
-          <button class="addbtn" style="margin-top:6px" onclick="openMcp('')" data-i18n="mcp.add_button">+ ajouter un serveur</button>
-        </div>
-      </div>
-    </div>
-    <!-- Paramètres : compactage + machines sont gatés PAR LIGNE (classe agent-gated,
-         grisées quand le mode agent est off) ; la notification, elle, marche toujours
-         donc n'est PAS gatée — mais elle vit dans la MÊME carte, collée aux deux autres.
-         Le gate est par ligne et non sur un wrapper car les séparateurs/rembourrages
-         exigent que les .switchrow soient enfants DIRECTS de .slist. -->
-    <div class="subhead" data-i18n="agent.settings_subhead">Paramètres</div>
-    <div class="slist">
-        <label class="switchrow agent-gated"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> <span data-i18n="agent.compact_toggle">compactage automatique du contexte</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="agent.compact_help" data-i18n-html>activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
-        <label class="switchrow"><span class="switch"><input type="checkbox" id="push-toggle" onchange="togglePush()"><span class="slider"></span></span> <span data-i18n="agent.push_toggle">me prévenir quand la réponse est prête</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="agent.push_help" data-i18n-html>Le serveur t'envoie une <b>notification</b> à la fin de chaque réponse, même l'app fermée ou le téléphone verrouillé. Sur iPhone : <b>ajoute d'abord AJEAN à l'écran d'accueil</b> puis active depuis l'app installée. À régler sur chaque appareil.</span></span></label>
-        <!-- Chiffrement (off par défaut) : UN seul interrupteur. Chiffre la mémoire
-             ET les conversations. Ton mot de passe ouvre le coffre, ton navigateur
-             le retient (déverrouillage auto ensuite), le serveur ne peut jamais
-             déchiffrer seul. Le corps (état + bouton déverrouiller) ne s'affiche
-             que lorsque c'est actif. -->
-        <label class="switchrow"><span class="switch"><input type="checkbox" id="mem-enc-toggle" onchange="toggleMemEncrypt()"><span class="slider"></span></span> <span data-i18n="agent.encrypt_toggle">activer le chiffrement</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="agent.encrypt_help" data-i18n-html>Chiffre ta <b>mémoire</b> ET tes <b>conversations</b> au repos (AES-256), protégées par ta <b>clé d'accès</b> : si tu as accès à l'interface, c'est déjà déverrouillé ; sinon on te demande ta clé d'accès. Une <b>clé de récupération</b> t'est donnée à l'activation (garde-la). Rien n'est perdu : snapshots automatiques avant chaque bascule.</span></span></label>
-    </div>
   </details>
   <details id="tasks-details"><summary><span class="stitle" data-i18n="tasks.title">Tasks</span><span id="tasks-badge" class="sbadge"></span></summary>
     <!-- Tâches planifiées : l'IA exécute une consigne toute seule sur une
@@ -261,7 +201,7 @@
         </div>
       </div>
       <p class="muted" style="margin:0 0 8px" data-i18n="link.remote_off_desc">Ouvrez l'accès distant à ce serveur en quelques clics, sans terminal.</p>
-      <button onclick="remoteConnect()" style="border-color:var(--accent);color:var(--accent)" data-i18n="link.connect_button">Connecter à ajean.link</button>
+      <button class="btn-primary" onclick="remoteConnect()"  data-i18n="link.connect_button">Connecter à ajean.link</button>
       <div class="link-price" data-i18n="link.price_note">4,80 €/mois · sans engagement, résiliable à tout moment</div>
     </div></div>
     <!-- Connecté : URL publique + appairage + déconnexion. Le bouton « démarrer
@@ -276,7 +216,7 @@
           <button class="iconbtn" onclick="window.open(document.getElementById('remote-url').value,'_blank')" title="ouvrir" data-i18n="link.open_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg></button>
         </div>
         <div id="remote-status" class="muted" style="margin-top:6px"></div>
-        <div class="row" style="margin-bottom:0"><button id="remote-start" onclick="remoteStart()" style="display:none;border-color:var(--accent);color:var(--accent)" data-i18n="link.start_tunnel">démarrer le tunnel</button></div>
+        <div class="row" style="margin-bottom:0"><button class="btn-primary" id="remote-start" onclick="remoteStart()" style="display:none" data-i18n="link.start_tunnel">démarrer le tunnel</button></div>
       </div></div>
       <div id="remote-firstconn">
       <div class="subhead"><span data-i18n="link.first_connection_subhead">Première connexion</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="link.first_connection_help" data-i18n-html>À votre première ouverture du portail distant, confirmez l'<b>empreinte</b> et saisissez le <b>code d'appairage</b> : cela verrouille la boîte noire sur CE serveur (anti-interception). Une seule fois par appareil.</span></span></div>
@@ -356,6 +296,86 @@
       </div>
     </div></div>
   </details>
+  <!-- Paramètres : l'ancien interrupteur « mode agent » a disparu, remplacé par le
+       sélecteur de mode du composeur (Projet / Rapide / Modèle de base). Il reste
+       ici tout ce qui règle les outils et le comportement de l'IA. -->
+  <details><summary><span class="stitle" data-i18n="settings.section_title">Paramètres</span></summary>
+    <!-- Sous-réglages du mode agent. MÊME gabarit que « Machine » / « Apparence » :
+         étiquette de groupe nue, puis UNE carte de lignes (.slist). Le groupe
+         entier est grisé/inerte quand l'agent est off (voir setAgentGate). -->
+    <div id="net-block" class="gated-group">
+      <div class="subhead"><span data-i18n="internet.title">Accès internet</span><span id="internet-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="internet.help" data-i18n-html>Ajoute les outils <b>web_search / web_open / web_read / web_grep</b>. Le moteur <b>intégré</b> ne demande aucune installation. Le moteur <b>Crawl4AI</b> exige un serveur que tu héberges toi-même (ex. <code>docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest</code>) mais exécute le JavaScript des pages. Actifs seulement si le <b>mode agent</b> est actif.</span></span></div>
+      <div class="slist">
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="internet-toggle" onchange="toggleInternet()"><span class="slider"></span></span> <span data-i18n="internet.toggle_label">donner internet à l'IA</span></label>
+        <!-- Moteur web : « go » = intégré au binaire (rien à installer, pas de rendu
+             JavaScript) · « crawl4ai » = serveur externe avec Chromium headless.
+             Réglages propres à Crawl4AI masqués avec le moteur intégré ; l'URL et
+             la clé s'enregistrent en quittant le champ (onchange). -->
+        <div class="rowbody">
+          <div class="row" style="margin:0">
+            <select id="web-engine" class="sctl" onchange="saveWebEngine()">
+              <option value="go" data-i18n="internet.engine_builtin">Moteur Intégré</option>
+              <option value="crawl4ai" data-i18n="internet.engine_crawl4ai">Crawl4AI</option>
+            </select>
+          </div>
+          <!-- Masqués AU DÉPART : le moteur par défaut est l'intégré, et ces champs
+               ne concernent que Crawl4AI. Affichés d'emblée puis repliés par le
+               chargement de l'état, ils faisaient sauter la section sous les yeux. -->
+          <div id="crawl-fields" style="display:none">
+            <div class="row">
+              <input id="crawl-url" type="text" placeholder="http://localhost:11235" class="sctl" onchange="saveCrawlUrl()">
+            </div>
+            <!-- Clé d'accès du serveur Crawl4AI (facultative) : envoyée en
+                 « Authorization: Bearer … ». Jamais relue par l'API, on n'affiche
+                 qu'un indice sur les 4 derniers caractères. -->
+            <div class="row">
+              <input id="crawl-key" type="password" autocomplete="off" placeholder="clé API (si le serveur en exige une)" class="sctl" onchange="saveCrawlKey()" data-i18n="internet.crawl_key_placeholder" data-i18n-attr="placeholder">
+              <button id="crawl-key-clear" onclick="clearCrawlKey()" style="display:none" data-i18n="internet.crawl_key_clear">retirer</button>
+            </div>
+            <div class="muted" style="font-size:11px;margin-top:4px" data-i18n="internet.autosave_hint">enregistré automatiquement en quittant le champ</div>
+            <div id="crawl-key-state" class="muted" style="font-size:11px;margin-top:3px"></div>
+          </div>
+          <div id="internet-status" class="muted" style="font-size:11px;margin-top:4px"></div>
+        </div>
+      </div>
+    </div>
+    <div id="cu-block" class="gated-group">
+      <div class="subhead"><span data-i18n="computer.title">Contrôle du navigateur</span><span id="cu-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="computer.help" data-i18n-html>Donne à l'IA le contrôle d'un <b>navigateur</b> sur cette machine (outils <b>browser_open / browser_click / browser_type / browser_key / browser_scroll</b>). L'IA lit les éléments <b>numérotés</b> de la page et agit par numéro — aucune vision requise, ça marche avec de petits modèles. <code>browser_screenshot</code> s'ajoute si la vision est active. Nécessite Chrome/Chromium/Edge installé. Actif seulement si le <b>mode agent</b> est actif.</span></span></div>
+      <div class="slist">
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="cu-toggle" onchange="toggleComputer()"><span class="slider"></span></span> <span data-i18n="computer.toggle_label">laisser l'IA piloter un navigateur</span></label>
+        <div class="rowbody">
+          <div id="cu-status" class="muted" style="font-size:11px"></div>
+        </div>
+      </div>
+    </div>
+    <div id="mcp-block" class="gated-group">
+      <div class="subhead"><span data-i18n="mcp.title">MCP servers</span><span id="mcp-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="mcp.help" data-i18n-html>Connecte des <b>serveurs MCP</b> (Model Context Protocol) pour donner de nouveaux outils à l'IA : accès fichiers, bases de données, APIs métier… <b>stdio</b> = programme lancé localement (npx/uvx/binaire) · <b>http</b> = serveur distant. ⚠ un serveur stdio exécute du code sur cette machine, au même titre que le shell.</span></span></div>
+      <div class="slist">
+        <div class="rowbody">
+          <!-- Même texte que celui rendu après chargement quand il n'y a aucun
+               serveur : sinon la carte partait vide puis grandissait d'une ligne. -->
+          <div id="mcp-list" class="mcp-list"><div class="muted" style="font-size:12px" data-i18n="mcp.empty_list">(aucun serveur — ajoute un serveur fichiers, une base de données, une API…)</div></div>
+          <button class="addbtn" style="margin-top:6px" onclick="openMcp('')" data-i18n="mcp.add_button">+ ajouter un serveur</button>
+        </div>
+      </div>
+    </div>
+    <!-- Paramètres : compactage + machines sont gatés PAR LIGNE (classe agent-gated,
+         grisées quand le mode agent est off) ; la notification, elle, marche toujours
+         donc n'est PAS gatée — mais elle vit dans la MÊME carte, collée aux deux autres.
+         Le gate est par ligne et non sur un wrapper car les séparateurs/rembourrages
+         exigent que les .switchrow soient enfants DIRECTS de .slist. -->
+    <div class="subhead" data-i18n="settings.general_subhead">Général</div>
+    <div class="slist">
+        <label class="switchrow agent-gated"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> <span data-i18n="agent.compact_toggle">compactage automatique du contexte</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="agent.compact_help" data-i18n-html>activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="push-toggle" onchange="togglePush()"><span class="slider"></span></span> <span data-i18n="agent.push_toggle">me prévenir quand la réponse est prête</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="agent.push_help" data-i18n-html>Le serveur t'envoie une <b>notification</b> à la fin de chaque réponse, même l'app fermée ou le téléphone verrouillé. Sur iPhone : <b>ajoute d'abord AJEAN à l'écran d'accueil</b> puis active depuis l'app installée. À régler sur chaque appareil.</span></span></label>
+        <!-- Chiffrement (off par défaut) : UN seul interrupteur. Chiffre la mémoire
+             ET les conversations. Ton mot de passe ouvre le coffre, ton navigateur
+             le retient (déverrouillage auto ensuite), le serveur ne peut jamais
+             déchiffrer seul. Le corps (état + bouton déverrouiller) ne s'affiche
+             que lorsque c'est actif. -->
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="mem-enc-toggle" onchange="toggleMemEncrypt()"><span class="slider"></span></span> <span data-i18n="agent.encrypt_toggle">activer le chiffrement</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="agent.encrypt_help" data-i18n-html>Chiffre ta <b>mémoire</b> ET tes <b>conversations</b> au repos (AES-256), protégées par ta <b>clé d'accès</b> : si tu as accès à l'interface, c'est déjà déverrouillé ; sinon on te demande ta clé d'accès. Une <b>clé de récupération</b> t'est donnée à l'activation (garde-la). Rien n'est perdu : snapshots automatiques avant chaque bascule.</span></span></label>
+    </div>
+  </details>
   <!-- Section « Actions » retirée : la MAJ s'affiche automatiquement dans le bandeau
        du bas (vérif manuelle possible en cliquant le n° de version), « nouvelle
        conversation » et « exporter » vivent dans le hub Projets, et le bench a
@@ -363,8 +383,34 @@
   <!-- Bandeau discret « nouvelle version AJEAN disponible », collé en bas du menu.
        Rempli et affiché par checkAppUpdate (05-status.js) en accès LOCAL ; en accès
        distant c'est #server-stale (en haut) qui joue ce rôle. -->
+  </div>
+  <div id="side-hist" class="side-view" hidden>
+    <div class="hist-head">
+      <span class="stitle" data-i18n="chat.history_btn">Historique</span><span id="sess-count" class="sess-count"></span>
+      <!-- Mémoire + trackers : deux petits liens au bout de la ligne de titre. -->
+      <span class="hist-links">
+      <button class="hist-link" onclick="openTrackerHub()" title="Trackers" aria-label="Trackers" data-i18n="projects.trackers" data-i18n-attr="title">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5M4 19h16M8 16l3-4 3 2 4-6"/></svg>
+        <span data-i18n="projects.trackers">Trackers</span>
+      </button>
+      <button class="hist-link" onclick="openMemHub()" title="Mémoire" aria-label="Mémoire" data-i18n="projects.memory" data-i18n-attr="title">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        <span data-i18n="projects.memory">Mémoire</span>
+      </button>
+      </span>
+    </div>
+    <!-- Recherche dans l'historique (titre + projet), côté serveur, pendant la frappe. -->
+    <div class="hist-search">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="hist-q" type="search" autocomplete="off" placeholder="Rechercher…" oninput="onHistSearch()" data-i18n="chat.history_search" data-i18n-attr="placeholder">
+    </div>
+    <div id="history-list" class="sess-list"></div>
+    <button id="history-clear-all" class="hist-clear" onclick="clearAllHistory()" data-i18n="sessions.delete_all">tout supprimer (sauf favoris)</button>
+  </div>
+  </div>
   <div id="app-update" class="app-update" hidden onclick="onAppUpdateClick()"></div>
 </div>
+<div id="side-thumb" aria-hidden="true"></div>
 <div class="main" style="position:relative">
   <div id="chat"></div>
   <!-- Voile de chargement du fil : sans lui, une connexion lente donne un chat
@@ -388,10 +434,32 @@
   <div id="composer">
     <div id="ctxmeta">
       <div id="ctxtrack"><div id="ctx-fill"></div></div>
-      <span id="status-preset" class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
+      <!-- Sélecteur de mode, à gauche du pied du composeur : « Projet » (chat complet :
+           mémoire, projets, web) « Rapide » (comme ajean chat : prompt court,
+           bash/write/edit seulement) ou « Modèle de base » (sans agent ni outils). Réglage de l'appareil (localStorage), envoyé à
+           chaque message ; en mode rapide, le chip projet s'efface. -->
+      <!-- Mode + projet = UNE seule bulle : en mode Projet elle s'étire pour
+           montrer le projet actif (séparé par un trait), dans les autres modes
+           la partie projet se replie. -->
+      <div id="mode-pill">
+        <button id="mode-btn" onclick="toggleModeMenu(event)" aria-haspopup="true" title="Mode du chat" data-i18n="chat.mode_title" data-i18n-attr="title">
+          <span id="mode-btn-ic" aria-hidden="true"></span><span id="mode-btn-label" data-i18n="chat.mode_project">Projet</span>
+          <svg class="pill-chev" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <!-- Projets : chaque projet a sa propre mémoire ET ses propres sessions,
+             cloisonnées. Un clic ouvre la modale de sélection/gestion des projets.
+             À droite du sélecteur de mode. L'icône (dossier) est doublée du nom du projet actif, tronqué. -->
+        <button id="project-btn" onclick="toggleProjMenu(event)" aria-haspopup="true" title="Projets (mémoire + conversations cloisonnées)" aria-label="Projets" data-i18n="chat.projects_button_title" data-i18n-attr="title">
+          <span id="project-btn-name"></span>
+          <svg class="pill-chev" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+      </div>
       <!-- Pied de carte, à droite : le décompte de contexte, compacter, puis le
            trombone — tous à la même échelle, c'est une seule ligne d'outils. -->
-      <span style="display:flex;align-items:center;gap:8px;margin-left:auto">
+      <span style="display:flex;align-items:center;gap:8px;margin-left:auto;min-width:0">
+        <!-- Nom du modèle, juste à gauche du décompte de contexte. -->
+        <span id="status-preset" class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0"></span>
+        <span class="ctx-sep muted" aria-hidden="true">·</span>
         <span id="ctx-text" class="muted">0 / 0</span>
         <span id="ctx-compactions" class="muted" style="display:none;font-size:10px;white-space:nowrap" title="Compactages du contexte dans cette conversation" data-i18n="chat.compactions_title" data-i18n-attr="title"></span>
         <!-- Raccourci « niveau de réflexion » : n'apparaît que si le preset actif a
@@ -400,13 +468,6 @@
              redémarrer le moteur). Gagne la place de l'ancien libellé écrit. -->
         <button id="reason-btn" onclick="toggleReasonMenu(event)" style="display:none" title="Niveau de réflexion" aria-label="Niveau de réflexion" aria-haspopup="true" data-i18n="chat.reason_level_title" data-i18n-attr="title">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path class="rb" data-l="1" d="M4 20v-3"/><path class="rb" data-l="2" d="M10 20v-7"/><path class="rb" data-l="3" d="M16 20v-11"/><path class="rb" data-l="4" d="M21 20V5"/></svg>
-        </button>
-        <!-- Projets : chaque projet a sa propre mémoire ET ses propres sessions,
-             cloisonnées. Un clic ouvre la modale de sélection/gestion des projets.
-             L'icône (dossier) est doublée du nom du projet actif, tronqué. -->
-        <button id="project-btn" onclick="openProjectHub()" title="Projets (mémoire + conversations cloisonnées)" aria-label="Projets" data-i18n="chat.projects_button_title" data-i18n-attr="title">
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-          <span id="project-btn-name"></span>
         </button>
         <!-- Champ fichier caché : déclenché par « Joindre un fichier » du menu + du
              composeur (le bouton visible « trombone » et « postes distants » ont
@@ -423,8 +484,11 @@
       <!-- Bouton « + » gris : JUSTE à gauche de la flèche d'envoi. Ouvre un petit menu
            (fichiers + trackers + mémoire). -->
       <button id="plus-btn" onclick="togglePlusMenu(event)" title="Ajouter" aria-label="Ajouter" aria-haspopup="true" data-i18n="chat.plus_button_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
-      <button id="send" onclick="send()" title="envoyer" aria-label="envoyer" data-i18n="chat.send_button_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V6"/><path d="M6 12l6-6 6 6"/></svg></button>
-      <button id="stop" onclick="stopGen()" style="display:none" title="stop" aria-label="stop" data-i18n="chat.stop_button_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2.5"/></svg></button>
+      <!-- Envoyer et stop superposés : fondu enchaîné de l'un à l'autre. -->
+      <span id="sendwrap">
+        <button id="send" onclick="send()" title="envoyer" aria-label="envoyer" data-i18n="chat.send_button_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V6"/><path d="M6 12l6-6 6 6"/></svg></button>
+        <button id="stop" class="is-off" onclick="stopGen()" title="stop" aria-label="stop" data-i18n="chat.stop_button_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2.5"/></svg></button>
+      </span>
     </div>
     <div id="sendhint" class="muted" data-i18n="chat.send_hint">Entrée pour envoyer · Maj+Entrée = nouvelle ligne</div>
   </div>
@@ -432,7 +496,17 @@
 <!-- Menu du raccourci « niveau de réflexion ». Position fixée par JS (getBoundingClientRect
      du bouton) et posé DIRECTEMENT sous <body> pour échapper à l'overflow:hidden de la
      carte du composeur. Chaque ligne écrit l'effort à chaud via /api/reasoning. -->
-<div id="reason-menu" style="display:none">
+<!-- Liste rapide des projets (bulle projet du composeur) : un clic bascule,
+     « Gérer les projets » ouvre le hub complet. Rempli par renderProjMenu. -->
+<div id="proj-menu" class="menu" style="display:none" role="menu"></div>
+<!-- Menu des listes déroulantes (voir 03b-select.js) : remplace la liste native. -->
+<div id="csel-menu" class="menu" style="display:none" role="listbox"></div>
+<div id="mode-menu" class="menu" style="display:none">
+  <button data-mode="fast" onclick="pickMode('fast')"><svg class="mm-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 3L5 13.5h6L10 21l8-10.5h-6z"/></svg><span class="mm-t"><span data-i18n="chat.mode_fast">Rapide</span><span class="rm-h" data-i18n="chat.mode_fast_hint">bash, write, edit</span></span></button>
+  <button data-mode="project" onclick="pickMode('project')"><svg class="mm-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="mm-t"><span data-i18n="chat.mode_project">Projet</span><span class="rm-h" data-i18n="chat.mode_project_hint">mémoire, projets, web</span></span></button>
+  <button data-mode="base" onclick="pickMode('base')"><svg class="mm-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg><span class="mm-t"><span data-i18n="chat.mode_base">Modèle de base</span><span class="rm-h" data-i18n="chat.mode_base_hint">sans agent ni outils</span></span></button>
+</div>
+<div id="reason-menu" class="menu" style="display:none">
   <button data-eff="low" onclick="pickReason('low')">low <span class="rm-h" data-i18n="reason.hint_fast">rapide</span></button>
   <button data-eff="medium" onclick="pickReason('medium')">medium</button>
   <button data-eff="high" onclick="pickReason('high')">high</button>
@@ -508,61 +582,9 @@
 <!-- Sessions : chaque conversation est une session persistante à id stable. En
      ouvrir une la garde dans la liste (la courante est sauvegardée d'abord dans
      SA session). « nouvelle session » démarre un fil vierge. -->
-<div id="history-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeHistoryModal()">
-  <div class="modal-card" style="max-width:560px">
-    <div class="modal-head">
-      <span style="display:flex;align-items:center;gap:8px"><strong data-i18n="sessions.title">Sessions</strong><span id="sess-count" class="sess-count"></span></span>
-      <button class="modal-x" onclick="closeHistoryModal()" aria-label="Fermer" data-i18n="sessions.close_aria" data-i18n-attr="aria-label">×</button>
-    </div>
-    <div class="modal-body mform">
-      <div id="history-list" class="sess-list"></div>
-    </div>
-    <div class="modal-foot">
-      <div class="foot-l"><button id="history-clear-all" class="btn-danger" onclick="clearAllHistory()" data-i18n="sessions.delete_all">tout supprimer (sauf favoris)</button></div>
-      <div class="foot-r">
-        <button onclick="closeHistoryModal()" data-i18n="sessions.close">fermer</button>
-      </div>
-    </div>
-  </div>
-</div>
 <!-- Projets : un projet = une mémoire + des sessions cloisonnées. Sélectionner un
      projet bascule dessus (nouvelle session vierge, l'ancienne est archivée dans son
      projet). Créer / renommer / supprimer depuis ici. -->
-<div id="project-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeProjectModal()">
-  <div class="modal-card" style="max-width:520px">
-    <div class="modal-head">
-      <span style="display:flex;align-items:center;gap:8px"><strong data-i18n="projects.title">Projets</strong><span id="proj-count" class="sess-count"></span></span>
-      <button class="modal-x" onclick="closeProjectModal()" aria-label="Fermer" data-i18n="projects.close_aria" data-i18n-attr="aria-label">×</button>
-    </div>
-    <div class="modal-body mform">
-      <div class="sess-head" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-        <span data-i18n="projects.list_heading">Projets</span>
-        <button class="proj-newproj" onclick="createProjectUI()" title="Créer un projet" data-i18n="projects.new_project_title" data-i18n-attr="title"><span data-i18n="projects.new_project_button">+</span></button>
-      </div>
-      <div id="project-list" class="sess-list"></div>
-      <!-- Section Conversations du projet actif, séparée de la grille Projets par un
-           filet en haut. Le bouton « Nouvelle conversation » est à DROITE du titre
-           (même logique que « + projet » à droite de « Projets »), en chip d'accent. -->
-      <div class="sess-head proj-convhead" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-        <span data-i18n="projects.sessions_heading">Historique</span>
-        <button id="proj-newsess" class="proj-cta accent compact" onclick="newSessionUI()">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-          <span data-i18n="projects.new_session">Nouvelle conversation</span>
-        </button>
-      </div>
-      <!-- Conversations du projet actif (plus de barre « Conversations · … »). -->
-      <div id="project-sessions" class="sess-list" style="margin-top:6px"></div>
-    </div>
-    <div class="modal-foot">
-      <div class="foot-l">
-        <button id="proj-clear-sessions" class="mbtn danger" onclick="clearProjectSessions()" data-i18n="projects.clear_sessions">Vider les conversations</button>
-      </div>
-      <div class="foot-r">
-        <button class="mbtn" onclick="closeProjectModal()" data-i18n="projects.close">Fermer</button>
-      </div>
-    </div>
-  </div>
-</div>
 <div id="tracker-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeTrackerModal()">
   <div class="modal-card" style="max-width:560px">
     <div class="modal-head">
@@ -585,9 +607,6 @@
         <button class="tracker-newbtn tracker-addpt" onclick="openTrackerPtModal()" data-i18n="tracker.add_point_button">+ Ajouter un point</button>
         <div id="tracker-events" class="tracker-timeline"></div>
       </div>
-    </div>
-    <div class="modal-foot">
-      <div class="foot-r"><button class="mbtn" onclick="closeTrackerModal()" data-i18n="tracker.close">Fermer</button></div>
     </div>
   </div>
 </div>
@@ -681,6 +700,7 @@
     </div>
     <div class="modal-body">
       <div id="mem-block" class="gated-group">
+        <div class="mm-sub"><span data-i18n="memory.mode_heading">Mode</span><span class="mm-sub-note" data-i18n="memory.mode_perproject">Réglage propre à ce projet.</span></div>
         <div class="mem-seg" role="radiogroup">
           <label class="mem-opt">
             <input type="radio" name="mem-mode-seg" value="always" onchange="setMemMode('always')">
@@ -707,7 +727,6 @@
             <span class="mem-radio" aria-hidden="true"></span>
           </label>
         </div>
-        <div class="mem-note muted" data-i18n="memory.mode_perproject">Réglage propre à ce projet.</div>
         <div class="mem-pages-head">
           <span class="mem-pages-title"><span data-i18n="memory.pages_heading">Pages mémoire</span></span>
           <button class="mem-add-btn" onclick="openMem('')" title="ajouter une page mémoire" data-i18n="memory.add_page_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="memory.add_page_button_short">ajouter</span></button>

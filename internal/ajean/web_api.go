@@ -1460,6 +1460,12 @@ type chatReq struct {
 	Internet *bool `json:"internet"`
 	// Surcharge par requête du computer use (outils cu_*).
 	Computer *bool `json:"computer"`
+	// Fast = mode rapide : le tour tourne comme « ajean chat » (prompt court,
+	// bash/write/edit seulement, ni mémoire, ni projet, ni web). Voir capsFromBody.
+	Fast bool `json:"fast"`
+	// Raw = mode « Modèle de base » : modèle nu, sans agent, outils, mémoire ni
+	// prompt système (comme un llama-server direct). Voir capsFromBody.
+	Raw bool `json:"raw"`
 	// Message = texte du tour à lancer (/api/chat/send) ; From = dernier Seq déjà
 	// vu par le client (le flux d'abonnement rejoue Log[From:] puis suit le direct).
 	Message string `json:"message"`

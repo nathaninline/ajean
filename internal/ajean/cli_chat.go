@@ -34,7 +34,11 @@ import (
 // baseSystemPrompt : un préambule verbeux fait sur-raisonner les modèles).
 func terminalSystemPrompt(caps Caps) string {
 	var b strings.Builder
-	b.WriteString("You are Jean, the assistant of AJEAN, running in the user's terminal on this machine.")
+	where := "running in the user's terminal on this machine"
+	if caps.Web {
+		where = "running on this machine, in fast mode"
+	}
+	b.WriteString("You are Jean, the assistant of AJEAN, " + where + ".")
 	if caps.Agent {
 		cwd := agentWorkspace()
 		b.WriteString(fmt.Sprintf("\n\nWorking directory: %s (%s/%s). The shell is %s: use its syntax. Relative paths in bash, write and edit resolve in the working directory.\n",
@@ -43,7 +47,11 @@ func terminalSystemPrompt(caps Caps) string {
 	} else {
 		b.WriteString("\n\n")
 	}
-	b.WriteString("Your answer is displayed in a terminal: be concise, use plain Markdown (short paragraphs, lists, fenced code blocks with a language).\n")
+	if caps.Web {
+		b.WriteString("Be concise, use Markdown (short paragraphs, lists, fenced code blocks with a language).\n")
+	} else {
+		b.WriteString("Your answer is displayed in a terminal: be concise, use plain Markdown (short paragraphs, lists, fenced code blocks with a language).\n")
+	}
 	b.WriteString("Date: " + time.Now().Format("2006-01-02"))
 	return b.String()
 }

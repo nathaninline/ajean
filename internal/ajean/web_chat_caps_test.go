@@ -1,6 +1,9 @@
 package ajean
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func ptrBool(b bool) *bool { return &b }
 
@@ -40,5 +43,61 @@ func TestCapsFromBodyPeutRestreindre(t *testing.T) {
 	}
 	if caps := capsFromBody(chatReq{}); !caps.Agent {
 		t.Error("sans surcharge, on doit hériter de la configuration machine")
+	}
+}
+
+// Mode rapide : le tour web tourne comme « ajean chat » (bash/write/edit, prompt
+// court, ni mémoire ni web), sans jamais rallumer un agent éteint.
+func TestCapsFromBodyModeRapide(t *testing.T) {
+	testHome(t)
+	if err := setAgentEnabled(true); err != nil {
+		t.Fatal(err)
+	}
+	caps := capsFromBody(chatReq{Fast: true})
+	if !caps.Terminal || !caps.Web || caps.Mem != MemOff || caps.Internet || caps.ComputerUse {
+		t.Fatalf("mode rapide : caps inattendues %+v", caps)
+	}
+	var names []string
+	for _, tl := range EnabledTools(caps) {
+		names = append(names, tl.Function.Name)
+	}
+	for _, n := range names {
+		if n != "bash" && n != "write" && n != "edit" && n != "see_image" {
+			t.Errorf("outil %q proposé en mode rapide (%v)", n, names)
+		}
+	}
+	if p := baseSystemPrompt(caps); strings.Contains(p, "terminal") {
+		t.Errorf("le prompt du mode rapide web ne doit pas parler de terminal : %q", p)
+	}
+	if err := setAgentEnabled(false); err != nil {
+		t.Fatal(err)
+	}
+	if caps := capsFromBody(chatReq{Fast: true}); caps.Agent || len(EnabledTools(caps)) > 0 {
+		t.Errorf("agent coupé : le mode rapide ne doit pas le rallumer (%+v)", caps)
+	}
+}
+
+// Modèle de base : rien, pas même la mémoire (elle seule réinjectait le
+// préambule « Jean + mémoire persistante »).
+func TestCapsFromBodyModeleDeBase(t *testing.T) {
+	testHome(t)
+	if err := setAgentEnabled(true); err != nil {
+		t.Fatal(err)
+	}
+	caps := capsFromBody(chatReq{Raw: true})
+	if caps.Agent || caps.Mem != MemOff || caps.Internet || caps.ComputerUse || caps.Terminal {
+		t.Fatalf("modèle de base : caps inattendues %+v", caps)
+	}
+	if p := baseSystemPrompt(caps); p != "" {
+		t.Errorf("modèle de base : aucun prompt système attendu, eu %q", p)
+	}
+	if n := len(EnabledTools(caps)); n > 0 {
+		t.Errorf("modèle de base : %d outils proposés", n)
+	}
+}
+
+func TestFoldSearch(t *testing.T) {
+	if got := foldSearch("  Écrire le RÉSUMÉ "); got != "ecrire le resume" {
+		t.Fatalf("foldSearch = %q", got)
 	}
 }

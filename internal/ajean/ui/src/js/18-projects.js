@@ -1,74 +1,54 @@
 // 18-projects.js — les PROJETS. Un projet cloisonne une mémoire (pages .md +
-// index MEMORY.md) ET ses sessions de chat. Le bouton dossier du composeur ouvre
-// ce modal : sélectionner un projet bascule dessus (nouvelle session vierge,
-// l'ancienne est archivée dans son projet), créer / renommer / supprimer aussi.
+// index MEMORY.md), ses trackers et ses conversations. On les choisit dans la
+// liste rapide de la bulle projet du composeur (plus de fenêtre dédiée) ; chaque
+// projet y a son menu ⋮ (renommer, options, voir la mémoire, supprimer).
 //
 // Après une bascule, le serveur remet la conversation à zéro (nouvelle session) :
 // le flux SSE reçoit un {reset} et l'UI se nettoie toute seule, comme un « clear
-// chat ». On rafraîchit juste la liste mémoire des réglages et le libellé du bouton.
+// chat ». On rafraîchit juste la mémoire des réglages et le libellé de la bulle.
 
 let PROJECTS = [], ACTIVE_PROJECT = '';
-// BROWSE_PROJECT : projet PARCOURU en lecture seule pendant qu'une génération
-// tourne (on regarde ailleurs sans quitter ni couper la conversation en cours).
-// Vide = on regarde le projet actif. Toujours vide hors génération (on bascule
-// vraiment dans ce cas).
-let BROWSE_PROJECT = '';
 // LIVE_GENERATING : une génération tourne-t-elle sur la conversation VIVE du
-// serveur ? C'est ça (et non `busy`, qui suit la conversation AFFICHÉE) qui pilote
-// le mode lecture seule du hub : sinon, une fois qu'on lit une archive, `busy`
-// retombe à false et le hub croirait à tort que plus rien ne génère.
+// serveur ? Pendant ce temps on ne bascule pas de projet (ça couperait la réponse).
 let LIVE_GENERATING = false;
 
-// Le projet dont on affiche les conversations dans le hub (parcouru si on lit
-// ailleurs pendant une génération, sinon le projet actif).
-function viewedProject(){ return BROWSE_PROJECT || ACTIVE_PROJECT; }
-
-function openProjectHub(){
-  // On NE réinitialise PAS BROWSE_PROJECT ici : pendant une génération, le projet
-  // qu'on parcourt en lecture seule doit rester sélectionné même si on rouvre le
-  // hub. loadProjects le remet à zéro dès qu'aucune génération ne tourne.
-  showModal('project-modal');
-  showSessionsLoading(); // spinner tout de suite : pas de flash de l'ancienne liste avant le chargement
-  loadProjects();
-}
-function closeProjectModal(){ hideModal('project-modal'); }
-
-// Met à jour le petit libellé du projet actif à côté de l'icône dossier.
+// Met à jour le libellé du projet actif dans la bulle du composeur. Changement de
+// nom animé (sortie vers le haut, largeur qui glisse, entrée par le bas) ;
+// premier affichage et mouvement réduit : direct.
 function setProjectBtnName(name){
-  const el = document.getElementById('project-btn-name');
-  if(el) el.textContent = name || '';
+  const el = document.getElementById('project-btn-name'), b = document.getElementById('project-btn');
+  if(!el) return;
+  name = name || '';
+  if(el.textContent === name) return;
+  if(!el.textContent || !b || !b.offsetWidth || matchMedia('(prefers-reduced-motion: reduce)').matches){ el.textContent = name; return; }
+  clearTimeout(el._t);
+  const w0 = b.offsetWidth;
+  el.classList.add('out');
+  el._t = setTimeout(()=>{
+    el.textContent = name;
+    b.style.width = '';
+    const w1 = b.offsetWidth;
+    b.style.width = w0 + 'px'; void b.offsetWidth; b.style.width = w1 + 'px';
+    el.classList.remove('out'); el.classList.add('in'); void el.offsetWidth;
+    el.classList.remove('in');
+    setTimeout(()=>{ b.style.width = ''; }, 300);
+  }, 140);
 }
 
-// Récupère la liste + l'actif ; rend le modal s'il est ouvert et rafraîchit le bouton.
+// Récupère la liste des projets + l'actif, et l'état de génération du serveur.
 async function loadProjects(){
-  // En parallèle : l'état réel du serveur (une génération tourne-t-elle sur la
-  // conversation vive ? → pilote le mode lecture seule) ET la liste des projets.
   let s = null, r = null;
   try{ [s, r] = await Promise.all([ jget('/api/chat/state').catch(()=>null), jget('/api/projects').catch(()=>null) ]); }catch(_){}
   LIVE_GENERATING = !!(s && s.generating);
-  if(!r || !r.ok){ const box=document.getElementById('project-list'); if(box) box.innerHTML='<span class="muted" style="font-size:12px">'+t('projects.load_error')+'</span>'; return; }
+  if(!r || !r.ok) return;
   PROJECTS = r.projects || [];
   ACTIVE_PROJECT = r.active || '';
-  // Parcours en lecture seule (BROWSE_PROJECT) : n'a de sens que pendant une
-  // génération et pour un projet qui existe encore. Sinon on retombe sur l'actif.
-  if(!LIVE_GENERATING || !PROJECTS.some(p=>p.slug===BROWSE_PROJECT)) BROWSE_PROJECT = '';
   const act = PROJECTS.find(p=>p.slug===ACTIVE_PROJECT);
   setProjectBtnName(act ? act.name : '');
-  renderProjectList();
-  loadProjectSessions();
+  refreshProjMenu();
 }
 
-// browseProject : regarde un AUTRE projet en lecture seule pendant une génération
-// (ne bascule pas, ne coupe rien). Cliquer le projet actif revient à ses sessions.
-function browseProject(slug){
-  BROWSE_PROJECT = (slug === ACTIVE_PROJECT) ? '' : slug;
-  renderProjectList();
-  loadProjectSessions();
-}
-
-
-// Dossier DUOTONE (corps rempli en fondu + tracé net) : rendu plus « produit »
-// qu'un simple contour. Prend la couleur courante (accent sur la tuile active).
+// Dossier DUOTONE (corps rempli en fondu + tracé net), à la couleur courante.
 function projFolderSvg(sz){
   const s = sz || 34;
   return '<svg viewBox="0 0 24 24" width="'+s+'" height="'+s+'" fill="none" aria-hidden="true">'
@@ -76,327 +56,42 @@ function projFolderSvg(sz){
     + '<path d="M3 9.4A2.4 2.4 0 0 1 5.4 7h3.4a1.2 1.2 0 0 1 .85.35L11.3 9h6.3A2.4 2.4 0 0 1 20 11.4V17a2.4 2.4 0 0 1-2.4 2.4H5.4A2.4 2.4 0 0 1 3 17z" stroke="currentColor" stroke-width="1.5"/>'
     + '</svg>';
 }
+// Points verticaux (⋮) des menus de ligne.
 function projDotsSvg(){
-  // Points VERTICAUX (⋮), plus discrets dans un coin.
   return '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>';
 }
-// Une carte-dossier de projet, dans une GRILLE. Cliquer bascule dessus ; le bouton
-// « ⋯ » ouvre un petit menu (renommer / supprimer) — pas d'icônes brutes entassées.
-function projectTile(p){
-  const viewed = p.slug === viewedProject();  // tuile mise en avant (projet regardé)
-  const genHere = LIVE_GENERATING && p.slug === ACTIVE_PROJECT; // génération en cours dans ce projet
-  const tile = document.createElement('div'); tile.className = 'proj-tile' + (viewed?' active':'');
-  tile.tabIndex = 0;
-  tile.title = genHere ? t('projects.generating_here') : (viewed ? t('projects.active_tile_title') : t('projects.switch_tile_title'));
-  // Pendant une génération : clic = LECTURE SEULE (parcourir), jamais de bascule (on
-  // ne coupe pas le tour en cours). Hors génération : clic = bascule réelle.
-  const act = LIVE_GENERATING ? (()=>browseProject(p.slug)) : (p.slug!==ACTIVE_PROJECT ? (()=>switchProjectUI(p.slug)) : null);
-  if(act){
-    tile.onclick = act;
-    tile.onkeydown = (e)=>{ if((e.key==='Enter'||e.key===' ') && e.target===tile){ e.preventDefault(); act(); } };
-  }
-  // Pastille « projet regardé » en haut à gauche — sauf si un spinner « en cours »
-  // y prend déjà la place (projet qui génère), pour ne pas empiler les deux.
-  if(viewed && !genHere){ const badge = document.createElement('span'); badge.className='proj-badge'; badge.textContent=t('projects.active_badge'); tile.appendChild(badge); }
-  // Marqueur « génération en cours ici » : petit spinner en haut à GAUCHE (le coin
-  // haut-droit est pris par le menu ⋯).
-  if(genHere){ const g=document.createElement('span'); g.className='proj-gen'; g.innerHTML='<span class="spinner"></span>'; g.title=t('projects.generating_here'); tile.appendChild(g); }
-  // Bouton menu ⋯
-  const menu = document.createElement('button');
-  menu.className='proj-menu-btn'; menu.innerHTML=projDotsSvg(); menu.title=t('projects.options_project_title'); menu.setAttribute('aria-label',t('projects.options_project_title'));
-  menu.onclick=(e)=>{ e.stopPropagation(); openProjMenu(menu, p); };
-  tile.appendChild(menu);
 
-  const icon = document.createElement('div'); icon.className = 'proj-ticon'; icon.innerHTML = projFolderSvg(26);
-  const name = document.createElement('div'); name.className = 'proj-tname'; name.textContent = p.name || p.slug;
-  tile.appendChild(icon); tile.appendChild(name);
-  return tile;
-}
-
-// Petit menu contextuel d'un projet (renommer / supprimer), ancré au bouton ⋯.
-let _projPop = null;
-function _projOutside(e){
-  // Ignore un clic sur un bouton ⋯ (sinon fermer+rouvrir) ou dans le menu.
-  if(_projPop && (_projPop.contains(e.target) || (e.target.closest && e.target.closest('.proj-menu-btn,.sess-menu-btn')))) return;
-  closeProjMenu();
-}
-// Ferme au défilement de l'ARRIÈRE-PLAN (le menu est position:fixed, il ne suit
-// pas), MAIS pas quand on défile DANS le menu lui-même (liste longue scrollable) :
-// sans ce garde, scroller la liste des projets la faisait disparaître.
-function _projScroll(e){ if(_projPop && _projPop.contains(e.target)) return; closeProjMenu(); }
-function closeProjMenu(){ if(_projPop){ _projPop.remove(); _projPop=null; document.removeEventListener('click', _projOutside, true); document.removeEventListener('scroll', _projScroll, true); } }
+// Menu ⋮ d'un projet (renommer, options, voir la mémoire, supprimer).
+// Compat : closeProjMenu est appelé un peu partout ; c'est le menu commun.
+const closeProjMenu = ()=>closeMenu();
 function openProjMenu(anchor, p){
-  closeProjMenu();
-  const pop = document.createElement('div'); pop.className='pop-menu';
-  const item = (icon, label, cls, fn)=>{ const b=document.createElement('button'); if(cls) b.className=cls; b.innerHTML=sessIconSvg(icon)+'<span>'+label+'</span>'; b.onclick=(e)=>{ e.stopPropagation(); closeProjMenu(); fn(); }; return b; };
-  pop.appendChild(item('pencil', t('projects.rename'), '', ()=>renameProjectUI(p.slug, p.name)));
-  // Options du projet : description fournie à l'IA.
-  pop.appendChild(item('doc', t('projects.options'), '', ()=>optionsProjectUI(p)));
-  // Voir la mémoire du projet SANS basculer dessus (consultation d'un autre projet).
-  pop.appendChild(item('mem', t('projects.view_memory'), '', ()=>{ if(typeof openMemHub==='function') openMemHub(p.slug, p.name); }));
-  if(PROJECTS.length > 1) pop.appendChild(item('trash', t('projects.delete'), 'danger', ()=>deleteProjectUI(p.slug, p.name)));
-  document.body.appendChild(pop);
-  // Positionne sous le bouton, calé à droite, en restant dans l'écran.
-  const r = anchor.getBoundingClientRect();
-  const pw = pop.offsetWidth, ph = pop.offsetHeight;
-  let left = Math.min(r.right - pw, window.innerWidth - pw - 8);
-  left = Math.max(8, left);
-  let top = r.bottom + 6;
-  if(top + ph > window.innerHeight - 8) top = r.top - ph - 6;
-  pop.style.left = left+'px'; pop.style.top = top+'px';
-  _projPop = pop;
-  // Ferme au prochain clic ailleurs / défilement (capture pour attraper tôt).
-  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', _projScroll, true); }, 0);
-}
-
-function renderProjectList(){
-  const box = document.getElementById('project-list'); if(!box) return;
-  const cnt = document.getElementById('proj-count'); if(cnt) cnt.textContent = PROJECTS.length || '';
-  box.className = 'proj-grid';
-  box.innerHTML = '';
-  if(!PROJECTS.length){ box.innerHTML='<span class="muted" style="font-size:12px">'+t('projects.none')+'</span>'; return; }
-  PROJECTS.forEach(p=>box.appendChild(projectTile(p)));
+  popMenu(anchor, [
+    {icon:'pencil', label:t('projects.rename'), run:()=>renameProjectUI(p.slug, p.name)},
+    {icon:'doc', label:t('projects.options'), run:()=>optionsProjectUI(p)},            // description fournie à l'IA
+    {icon:'mem', label:t('projects.view_memory'), run:()=>openMemHub(p.slug, p.name)},  // sans basculer dessus
+    PROJECTS.length > 1 && {icon:'trash', label:t('projects.delete'), danger:true, run:()=>deleteProjectUI(p.slug, p.name)},
+  ], {side:'below'});
 }
 
 // Basculer sur un projet : nouvelle session vierge côté serveur, la mémoire suit.
-// Le modal RESTE ouvert : on met à jour la liste + les sessions du nouveau projet,
-// pour pouvoir enchaîner (ouvrir une session, en créer une…). Le fil derrière est
-// déjà remis à zéro (le flux SSE reçoit un reset).
+// Bascule visuelle instantanée (libellé de la bulle), la requête part ensuite ;
+// en cas d'échec on revient au projet précédent.
 async function switchProjectUI(slug){
   if(slug === ACTIVE_PROJECT) return;
-  const known = PROJECTS.some(p=>p.slug===slug);
+  QUIET_LOADER_UNTIL = Date.now() + 4000; // pas de logo de chargement pendant la bascule
   const prev = ACTIVE_PROJECT;
-  const revert = ()=>{
-    ACTIVE_PROJECT = prev; renderProjectList();
-    const pp = PROJECTS.find(x=>x.slug===prev); if(pp) setProjectBtnName(pp.name);
-    loadProjectSessions();
-  };
-  // Bascule visuelle INSTANTANÉE au clic (accent + libellé + spinner des sessions),
-  // sans attendre le serveur : on connaît déjà la liste des projets côté client, seul
-  // l'actif change. La bascule serveur part en arrière-plan ; en cas d'échec on
-  // revient à l'état précédent. (Projet inconnu, ex. tout juste créé : on garde le
-  // flux serveur-d'abord, il faut relire la liste pour afficher la nouvelle tuile.)
-  if(known){
-    ACTIVE_PROJECT = slug;
-    renderProjectList();
-    const p = PROJECTS.find(x=>x.slug===slug); if(p) setProjectBtnName(p.name);
-    showSessionsLoading(); // vide l'ancienne liste tout de suite, spinner pendant la bascule
-  }
+  const label = (s)=>{ const p = PROJECTS.find(x=>x.slug===s); if(p) setProjectBtnName(p.name); };
+  ACTIVE_PROJECT = slug; label(slug);
   let r; try{ r = await jpost('/api/projects/switch', {slug}); }
-  catch(_){ if(known) revert(); toast(t('projects.network_error')); return; }
-  if(!r.ok){ if(known) revert(); toast(r.error || t('projects.switch_failed')); return; }
+  catch(_){ ACTIVE_PROJECT = prev; label(prev); toast(t('projects.network_error')); return; }
+  if(!r.ok){ ACTIVE_PROJECT = prev; label(prev); toast(r.error || t('projects.switch_failed')); return; }
   ACTIVE_PROJECT = r.active || slug;
-  // Le badge suit le projet actif, mais l'animation ne se joue qu'à la fermeture du
-  // menu (composeur visible) : ici on ne fait rien, closeProjectModal s'en charge.
-  // Rafraîchit la liste des pages mémoire des réglages (elle est projet-scopée). On
-  // vide d'abord le filtre de recherche : une requête laissée d'un projet fourni
-  // filtrerait les notes du nouveau projet (jusqu'à tout masquer) sans qu'on le voie.
+  // La mémoire des réglages est propre au projet : on vide son filtre (une requête
+  // laissée d'un autre projet masquerait les notes du nouveau) et on la recharge.
   const ms=document.getElementById('mem-search'); if(ms) ms.value='';
-  if(typeof loadAgent === 'function') loadAgent();
-  // Serveur à jour : on charge les sessions du nouveau projet. Grille déjà à jour si
-  // le projet était connu ; sinon on relit toute la liste pour afficher sa tuile.
-  if(known) loadProjectSessions();
-  else await loadProjects();
-  const pn = PROJECTS.find(x=>x.slug===ACTIVE_PROJECT);
-  toast(t('projects.switched_toast_prefix') + (pn ? pn.name : ACTIVE_PROJECT));
-}
-
-// ===== Sessions du projet actif (dans le hub) ==============================
-// Réutilise les mêmes endpoints /api/chat/history* que l'ancien modal, mais rend
-// dans #project-sessions et rafraîchit ici. Ouvrir une session ferme le hub.
-// showSessionsLoading pose le spinner rond dans la zone conversations (même rond
-// que le chargement du modal presets) en FIGEANT la hauteur courante : sinon la
-// zone se rétracte à la taille du spinner puis se redéploie quand la liste arrive
-// (la carte « saute »). Idempotent : si le spinner/verrou de hauteur sont déjà en
-// place (bascule optimiste → loadProjectSessions enchaîne), on ne re-mesure pas
-// (sinon on figerait la hauteur du spinner, pas celle de l'ancienne liste).
-function showSessionsLoading(){
-  const box = document.getElementById('project-sessions'); if(!box) return;
-  if(!box.style.minHeight){ const h = box.offsetHeight; if(h > 0) box.style.minHeight = h + 'px'; }
-  box.classList.remove('ready');
-  if(!box.querySelector('.proj-sess-load')) box.innerHTML = '<div class="proj-sess-load"><span class="spinner"></span></div>';
-}
-
-// Liste PAGINÉE : SESS_PAGE sessions au départ, les suivantes chargées quand le
-// bas de la liste approche (sentinelle observée). Tout rendre d'un coup créait des
-// centaines de lignes (537 chez Alice) et faisait lire au serveur le contenu de
-// toutes les conversations. _sessLoad : état du chargement en cours ; son `gen`
-// invalide les pages d'un chargement précédent (bascule de projet entre-temps).
-const SESS_PAGE = 40;
-let _sessLoad = null, _sessObs = null;
-async function loadProjectSessions(){
-  const box = document.getElementById('project-sessions'); if(!box) return;
-  showSessionsLoading();
-  if(_sessObs){ _sessObs.disconnect(); _sessObs = null; }
-  // Projet parcouru : le projet actif, ou un AUTRE en lecture seule (?project=)
-  // pendant une génération — sans jamais basculer.
-  const foreign = !!BROWSE_PROJECT && BROWSE_PROJECT !== ACTIVE_PROJECT;
-  const base = foreign ? '/api/chat/history?project='+encodeURIComponent(BROWSE_PROJECT)+'&' : '/api/chat/history?';
-  const st = _sessLoad = {gen:(_sessLoad?_sessLoad.gen:0)+1, base, foreign, offset:0, total:0, active:'', busy:false, lastFav:null, sentinel:null};
-  let r;
-  try{ r = await jget(base+'offset=0&limit='+SESS_PAGE); }
-  catch(_){ if(st!==_sessLoad) return; box.style.minHeight = ''; box.innerHTML = '<span class="muted" style="font-size:12px">'+t('projects.load_error')+'</span>'; return; }
-  if(st!==_sessLoad) return;
-  const list = (r && r.conversations) || [];
-  st.active = (r && r.active) || ''; st.total = (r && r.total) || list.length;
-  box.style.minHeight = '';
-  box.innerHTML = '';
-  if(!list.length){ box.innerHTML = '<span class="muted" style="font-size:12px">'+t('projects.no_sessions')+'</span>'; box.classList.add('ready'); return; }
-  appendSessRows(box, st, list);
-  box.classList.add('ready');
-  setupSessSentinel(box, st);
-}
-
-// appendSessRows ajoute une page de lignes. Les favoris arrivent en tête (tri
-// serveur) : l'en-tête « Favoris » précède la première, « Récentes » la première
-// non-favorite qui suit des favoris, même si elle tombe dans une page suivante.
-function appendSessRows(box, st, list){
-  const section = (label)=>{ const h=document.createElement('div'); h.className='sess-head'; h.style.paddingLeft='8px'; h.textContent=label; return h; };
-  const frag = document.createDocumentFragment();
-  for(const c of list){
-    const fav = !!c.fav;
-    if(st.lastFav === null && fav) frag.appendChild(section(t('projects.favorites')));
-    else if(st.lastFav === true && !fav) frag.appendChild(section(t('projects.recent')));
-    st.lastFav = fav;
-    frag.appendChild(projSessionRow(c, c.id===st.active && !st.foreign, st.foreign));
-  }
-  if(st.sentinel) box.insertBefore(frag, st.sentinel); else box.appendChild(frag);
-  st.offset += list.length;
-}
-
-// setupSessSentinel pose une sentinelle en bas de liste ; quand elle approche de
-// la zone visible (marge de 300 px), la page suivante est chargée.
-function setupSessSentinel(box, st){
-  if(st.offset >= st.total || typeof IntersectionObserver==='undefined'){ if(st.offset < st.total) loadMoreSessions(box, st, true); return; }
-  const sen = document.createElement('div'); sen.className = 'sess-more'; sen.innerHTML = '<span class="spinner"></span>';
-  box.appendChild(sen); st.sentinel = sen;
-  _sessObs = new IntersectionObserver((ents)=>{ if(ents.some(e=>e.isIntersecting)) loadMoreSessions(box, st); }, {rootMargin:'300px'});
-  _sessObs.observe(sen);
-}
-
-async function loadMoreSessions(box, st, all){
-  if(st.busy || st !== _sessLoad || st.offset >= st.total) return;
-  st.busy = true;
-  let r = null;
-  try{ r = await jget(st.base+'offset='+st.offset+'&limit='+(all ? st.total : SESS_PAGE)); }catch(_){}
-  st.busy = false;
-  if(st !== _sessLoad) return;
-  const list = (r && r.conversations) || [];
-  if(list.length) appendSessRows(box, st, list);
-  if(r && r.total) st.total = r.total;
-  // Fin de liste (ou réponse vide, pour ne pas boucler) : on retire la sentinelle.
-  if(!list.length || st.offset >= st.total){
-    if(_sessObs){ _sessObs.disconnect(); _sessObs = null; }
-    if(st.sentinel){ st.sentinel.remove(); st.sentinel = null; }
-  } else if(st.sentinel && _sessObs){
-    // Page chargée mais sentinelle encore visible (grand écran) : on relance
-    // l'observation pour redéclencher si besoin.
-    _sessObs.unobserve(st.sentinel); _sessObs.observe(st.sentinel);
-  }
-}
-
-function projSessionRow(c, active, foreign){
-  const genHere = LIVE_GENERATING && active; // la conversation vive, en cours de génération
-  const unseenHere = active && !genHere && (typeof PENDING_LIVE!=='undefined' && PENDING_LIVE); // réponse finie non lue
-  const row = document.createElement('div'); row.className = 'sess-row' + (active?' active':'');
-  // Clic : la conversation VIVE (active) ramène toujours au direct ; une AUTRE
-  // conversation pendant une génération s'ouvre en LECTURE SEULE (plein chat) ;
-  // sinon ouverture/restauration normale.
-  let onOpen = null;
-  if(active) onOpen = ()=>{ if(typeof exitReading==='function') exitReading(); closeProjectModal(); };
-  else if(LIVE_GENERATING) onOpen = ()=>{ closeProjectModal(); if(typeof readConversation==='function') readConversation(c.id, c.title); };
-  else onOpen = ()=>openProjSession(c.id);
-  row.tabIndex = 0;
-  row.title = active ? t('projects.back_to_live') : (LIVE_GENERATING ? t('projects.reading_readonly') : t('projects.open_session_title'));
-  row.onclick = onOpen;
-  row.onkeydown = (e)=>{ if((e.key==='Enter'||e.key===' ') && e.target===row){ e.preventDefault(); onOpen(); } };
-  const info = document.createElement('div'); info.className = 'sess-info';
-  const name = document.createElement('div'); name.className = 'sess-name'; name.textContent = c.title || t('projects.conversation_fallback');
-  const meta = document.createElement('div'); meta.className = 'sess-meta';
-  const n = c.turns || 0;
-  meta.textContent = fmtHistDate(c.saved_at) + ' · ' + n + ' ' + t('projects.message_label') + (n>1?'s':'');
-  // Marqueur « en cours » (spinner) sur la conversation qui génère ; sinon, si une
-  // réponse y a été générée sans être vue, un point de notif accent.
-  if(genHere){ const g=document.createElement('span'); g.className='sess-gen'; g.innerHTML='<span class="spinner"></span><span>'+t('projects.generating_here')+'</span>'; meta.appendChild(g); }
-  else if(unseenHere){ const d=document.createElement('span'); d.className='sess-unseen'; d.title=t('projects.unseen_response'); meta.appendChild(d); }
-  info.appendChild(name); info.appendChild(meta);
-  row.appendChild(info);
-  // Menu ⋮ (Favori / Renommer / Supprimer) — comme les projets, plus de crayon/poubelle.
-  const menu = document.createElement('button');
-  menu.className='sess-menu-btn'; menu.innerHTML=projDotsSvg(); menu.title=t('projects.options'); menu.setAttribute('aria-label',t('projects.options'));
-  menu.onclick=(e)=>{ e.stopPropagation(); openSessMenu(menu, c, active); };
-  row.appendChild(menu);
-  return row;
-}
-
-// Menu contextuel d'une conversation (favori / renommer / déplacer / supprimer).
-function openSessMenu(anchor, c, active){
-  closeProjMenu();
-  const pop = document.createElement('div'); pop.className='pop-menu';
-  const item = (icon, label, cls, fn)=>{ const b=document.createElement('button'); if(cls) b.className=cls; b.innerHTML=sessIconSvg(icon)+'<span>'+label+'</span>'; b.onclick=(e)=>{ e.stopPropagation(); closeProjMenu(); fn(); }; return b; };
-  pop.appendChild(item('star', c.fav?t('projects.unfavorite'):t('projects.favorite'), '', ()=>favProjSession(c.id, !c.fav)));
-  pop.appendChild(item('pencil', t('projects.rename'), '', ()=>renameProjSession(c.id, c.title)));
-  // Déplacer vers un autre projet (issue #55) — désactivé pour la conversation en cours.
-  if(PROJECTS.length > 1 && !active) pop.appendChild(item('move', t('projects.move_to'), '', ()=>moveSessionUI(c.id, anchor)));
-  // Exporter CETTE conversation (archivée), sans avoir à l'ouvrir : ?id=<session>.
-  const exp = document.createElement('button');
-  exp.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 19h16"/></svg><span>'+t('projects.export')+'</span>';
-  exp.onclick = (e)=>{ e.stopPropagation(); closeProjMenu(); if(typeof downloadExport==='function') downloadExport('/api/chat/export?id='+encodeURIComponent(c.id)); };
-  pop.appendChild(exp);
-  pop.appendChild(item('trash', t('projects.delete'), 'danger', ()=>deleteProjSession(c.id, c.title)));
-  document.body.appendChild(pop);
-  const r = anchor.getBoundingClientRect();
-  const pw = pop.offsetWidth, ph = pop.offsetHeight;
-  let left = Math.max(8, Math.min(r.right - pw, window.innerWidth - pw - 8));
-  let top = r.bottom + 6; if(top + ph > window.innerHeight - 8) top = r.top - ph - 6;
-  pop.style.left = left+'px'; pop.style.top = top+'px';
-  _projPop = pop;
-  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', _projScroll, true); }, 0);
-}
-
-// Ouverture OPTIMISTE : le menu se ferme et le voile de chargement apparaît tout
-// de suite, la requête part ensuite. Attendre la réponse avant de fermer laissait
-// le menu figé sans retour visuel (sauvegarde de la conversation quittée +
-// chargement de la nouvelle côté serveur). Le voile tombe au caught_up du rejeu.
-async function openProjSession(id){
-  closeProjectModal();
-  setChatLoading(t('chat.loading_conversation'));
-  let r; try{ r = await jpost('/api/chat/history/restore', {id}); }catch(_){ setChatLoading(null); toast(t('projects.network_error')); return; }
-  if(!r.ok){ setChatLoading(null); toast(r.error || t('projects.open_failed')); return; }
-}
-
-async function favProjSession(id, fav){
-  let r; try{ r = await jpost('/api/chat/history/fav', {id, fav}); }catch(_){ toast(t('projects.network_error')); return; }
-  if(!r.ok){ toast(r.error || t('projects.impossible')); return; }
-  loadProjectSessions();
-}
-async function renameProjSession(id, current){
-  const name = await askPrompt(t('projects.rename_session_prompt'), {title:t('projects.rename_session_title'), okText:t('projects.save_btn'), default: current||'', placeholder:t('projects.rename_session_placeholder')});
-  if(name===null) return;
-  let r; try{ r = await jpost('/api/chat/history/rename', {id, title:name}); }catch(_){ toast(t('projects.network_error')); return; }
-  if(!r.ok){ toast(r.error || t('projects.rename_failed')); return; }
-  loadProjectSessions();
-}
-async function deleteProjSession(id, title){
-  if(!await askConfirm(t('projects.delete_session_prefix') + (title || t('projects.conversation_fallback_lower')) + t('projects.delete_session_suffix'), {title:t('projects.delete_session_title'), okText:t('projects.delete'), danger:true})) return;
-  let r; try{ r = await jpost('/api/chat/history/delete', {id}); }catch(_){ toast(t('projects.network_error')); return; }
-  if(!r.ok){ toast(r.error || t('projects.delete_failed')); return; }
-  loadProjectSessions();
-}
-// Nouvelle conversation vierge dans le projet actif (archive la courante).
-async function newSessionUI(){
-  let r; try{ r = await jpost('/api/chat/reset', {}); }catch(_){ toast(t('projects.network_error')); return; }
-  if(!r || !r.ok){ toast(t('projects.impossible')); return; }
-  closeProjectModal();
-  toast(t('projects.new_session_toast'));
-}
-// Vide les conversations du projet actif sauf les favoris et celle en cours.
-async function clearProjectSessions(){
-  if(!await askConfirm(t('projects.clear_confirm'), {title:t('projects.clear_title'), okText:t('projects.clear_btn'), danger:true})) return;
-  let r; try{ r = await jpost('/api/chat/history/clear', {}); }catch(_){ toast(t('projects.network_error')); return; }
-  if(!r.ok){ toast(r.error || t('projects.delete_failed')); return; }
-  toast((r.deleted||0) + ' ' + t('projects.conversation_word') + ((r.deleted>1)?'s':'') + ' ' + t('projects.deleted_word') + ((r.deleted>1)?'s':''));
-  loadProjectSessions();
+  loadAgent();
+  if(!PROJECTS.some(p=>p.slug===slug)) await loadProjects(); // projet tout juste créé
+  toast(t('projects.switched_toast_prefix') + projName(ACTIVE_PROJECT));
 }
 
 async function createProjectUI(){
@@ -434,39 +129,23 @@ async function optionsProjectUI(p){
   loadProjects();
 }
 
-// Petit sélecteur de projet (pop-menu ancré au bouton), pour choisir une DESTINATION.
+// Petit sélecteur de projet (menu commun ancré au bouton), pour choisir une DESTINATION.
 // Exclut excludeSlug (le projet source). Appelle onPick(slug) au choix.
 function pickProjectPop(anchor, excludeSlug, onPick){
-  closeProjMenu();
-  const pop = document.createElement('div'); pop.className='pop-menu';
   const dests = PROJECTS.filter(p=>p.slug!==excludeSlug);
-  if(!dests.length){ const b=document.createElement('button'); b.disabled=true; b.innerHTML='<span class="muted">'+t('projects.no_other_project')+'</span>'; pop.appendChild(b); }
-  dests.forEach(p=>{
-    const b=document.createElement('button');
-    b.innerHTML = projFolderSvg(16) + '<span>' + (p.name||p.slug) + '</span>';
-    b.onclick=(e)=>{ e.stopPropagation(); closeProjMenu(); onPick(p.slug); };
-    pop.appendChild(b);
-  });
-  document.body.appendChild(pop);
-  const r = anchor.getBoundingClientRect();
-  const pw = pop.offsetWidth, ph = pop.offsetHeight; // ph plafonné par max-height CSS
-  let left = Math.max(8, Math.min(r.right - pw, window.innerWidth - pw - 8));
-  let top = r.bottom + 6; if(top + ph > window.innerHeight - 8) top = r.top - ph - 6;
-  // Jamais hors écran par le haut (sinon on ne voit pas le début de la liste).
-  top = Math.max(8, Math.min(top, window.innerHeight - ph - 8));
-  pop.style.left = left+'px'; pop.style.top = top+'px';
-  _projPop = pop;
-  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', _projScroll, true); }, 0);
+  popMenu(anchor, dests.length
+    ? dests.map(p=>({icon:projFolderSvg(16), label:p.name||p.slug, run:()=>onPick(p.slug)}))
+    : [{label:t('projects.no_other_project'), disabled:true}], {side:'below'});
 }
 
-// Déplacer une conversation vers un autre projet (issue #55). La liste des sessions
-// affichées appartient au projet ACTIF → destination = tout projet sauf l'actif.
-async function moveSessionUI(id, anchor){
-  pickProjectPop(anchor || document.body, ACTIVE_PROJECT, async(slug)=>{
-    let r; try{ r = await jpost('/api/projects/move-session', {id, slug}); }catch(_){ toast(t('projects.network_error')); return; }
+// Déplacer une conversation vers un autre projet (issue #55), depuis le menu ⋮ de
+// l'historique. Destination = tout projet sauf celui de la conversation.
+function moveSessionUI(c, anchor){
+  pickProjectPop(anchor, c.project || HIST_DEFAULT_PROJ, async(slug)=>{
+    let r; try{ r = await jpost('/api/projects/move-session', {id:c.id, slug}); }catch(_){ toast(t('projects.network_error')); return; }
     if(!r.ok){ toast(r.error || t('projects.move_failed')); return; }
     toast(t('projects.moved_toast_prefix') + projName(slug));
-    loadProjectSessions();
+    loadHistory();
   });
 }
 
@@ -479,56 +158,24 @@ async function deleteProjectUI(slug, name){
   if(!r.ok){ toast(r.error || t('projects.delete_failed')); return; }
   ACTIVE_PROJECT = r.active || ACTIVE_PROJECT;
   toast(t('projects.deleted_toast'));
-  loadProjects();
+  await loadProjects();
   if(typeof loadAgent === 'function') loadAgent();
 }
 
-// ===== Menu « + » du composeur (machines + fichiers) =======================
-let _plusPop = null;
-// Ferme SAUF si le clic est sur le bouton + lui-même (sinon re-cliquer fermerait
-// puis rouvrirait aussitôt) ou à l'intérieur du menu.
-function _plusOutside(e){
-  const btn = document.getElementById('plus-btn');
-  if(_plusPop && (_plusPop.contains(e.target) || (btn && btn.contains(e.target)))) return;
-  closePlusMenu();
-}
-function closePlusMenu(){
-  if(_plusPop){ _plusPop.remove(); _plusPop=null;
-    document.removeEventListener('click', _plusOutside, true);
-    const b=document.getElementById('plus-btn'); if(b) b.classList.remove('open');
-  }
-}
+// ===== Menu « + » du composeur : fichier, nouvelle conversation, compactage =====
+const PLUS_IC = {
+  file:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.05 12.25 20.2a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.67 3.67 0 1 1 5.18 5.18l-9.2 9.2a1.83 1.83 0 1 1-2.59-2.6l8.49-8.48"/></svg>',
+  chat:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  compact:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9l4-4 4 4M20 15l-4 4-4-4M8 5v6M16 19v-6"/></svg>',
+};
+const closePlusMenu = ()=>closeMenu();
 function togglePlusMenu(e){
   if(e){ e.stopPropagation(); e.preventDefault(); }
-  if(_plusPop){ closePlusMenu(); return; }
-  const anchor = document.getElementById('plus-btn'); if(!anchor) return;
-  const pop = document.createElement('div'); pop.className='pop-menu';
-  const item = (svg, label, fn)=>{ const b=document.createElement('button'); b.innerHTML=svg+'<span>'+label+'</span>'; b.onclick=(ev)=>{ ev.stopPropagation(); closePlusMenu(); fn(); }; return b; };
-  const icFile = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.05 12.25 20.2a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.67 3.67 0 1 1 5.18 5.18l-9.2 9.2a1.83 1.83 0 1 1-2.59-2.6l8.49-8.48"/></svg>';
-  const icCompact = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9l4-4 4 4M20 15l-4 4-4-4M8 5v6M16 19v-6"/></svg>';
-  pop.appendChild(item(icFile, t('projects.attach_file'), ()=>{ const inp=document.getElementById('attach-input'); if(inp) inp.click(); }));
-  const icTracker = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h16M8 16l3-4 3 2 4-6"/></svg>';
-  pop.appendChild(item(icTracker, t('projects.trackers'), ()=>{ if(typeof openTrackerHub==='function') openTrackerHub(); }));
-  // Mémoire du projet : mode + pages, dans un modal (déplacée hors du menu de gauche).
-  const icMem = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>';
-  pop.appendChild(item(icMem, t('projects.memory'), ()=>{ if(typeof openMemHub==='function') openMemHub(); }));
-  // « Compacter le contexte » : uniquement quand le contexte dépasse 50%.
-  if(typeof COMPACT_AVAILABLE!=='undefined' && COMPACT_AVAILABLE){
-    pop.appendChild(item(icCompact, t('projects.compact_context'), ()=>{ if(typeof compactContext==='function') compactContext(); }));
-  }
-  document.body.appendChild(pop);
-  // Positionne AU-DESSUS du bouton (le composeur est en bas de l'écran), calé à gauche.
-  // Écart plus généreux pour ne pas coller à la zone de saisie.
-  const r = anchor.getBoundingClientRect();
-  const pw = pop.offsetWidth, ph = pop.offsetHeight;
-  let left = Math.max(8, Math.min(r.left, window.innerWidth - pw - 8));
-  let top = r.top - ph - 14;
-  if(top < 8) top = r.bottom + 14;
-  pop.style.left = left+'px'; pop.style.top = top+'px';
-  _plusPop = pop; anchor.classList.add('open');
-  // Pas d'écoute du SCROLL : pendant la génération le chat défile tout seul, ce qui
-  // fermait le menu aussitôt (« ça saute »). Le clic-dehors suffit.
-  setTimeout(()=>{ document.addEventListener('click', _plusOutside, true); }, 0);
+  popMenu(document.getElementById('plus-btn'), [
+    {icon:PLUS_IC.file, label:t('projects.attach_file'), run:()=>document.getElementById('attach-input').click()},
+    {icon:PLUS_IC.chat, label:t('chat.new_chat_btn'), run:newChatFromTop},
+    COMPACT_AVAILABLE && {icon:PLUS_IC.compact, label:t('projects.compact_context'), run:compactContext}, // contexte ≥ 50 %
+  ], {side:'above', align:'left', gap:14, keepOnScroll:true}); // le chat défile pendant la génération
 }
 
 // Mémoire du projet : modal ouvert depuis le menu +. Le contenu (mode + pages)
@@ -554,3 +201,61 @@ function closeMemHub(){
 
 // Au chargement, on peuple le libellé du bouton (sans ouvrir le modal).
 document.addEventListener('DOMContentLoaded', ()=>{ loadProjects(); });
+
+// ===== Liste rapide (bulle projet du composeur) ============================
+// Petit menu comme celui des modes : les projets, l'actif coché, un clic bascule.
+// Pendant une génération on ne bascule pas (ça couperait la réponse) : le clic
+// ouvre le hub en lecture seule sur ce projet, comme dans le hub lui-même.
+const PM_FOLDER='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+const PM_PLUS='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+function renderProjMenu(){
+  const menu=document.getElementById('proj-menu'); if(!menu) return;
+  menu.innerHTML='';
+  menu.appendChild(Object.assign(document.createElement('div'), {className:'menu-head', textContent:t('projects.title')}));
+  // Seule la liste défile (en-tête et « Nouveau projet » restent visibles).
+  const list=document.createElement('div'); list.className='pm-list'; menu.appendChild(list);
+  PROJECTS.forEach(p=>{
+    // Une ligne = le projet (clic = bascule) + un ⋮ avec ses options (renommer,
+    // options, voir la mémoire, supprimer), comme l'ancienne fenêtre des projets.
+    const row=document.createElement('div'); row.className='pm-row';
+    const b=document.createElement('button');
+    b.innerHTML=PM_FOLDER+'<span></span>';
+    b.lastChild.textContent=p.name||p.slug;
+    if(p.slug===ACTIVE_PROJECT) b.classList.add('on');
+    b.onclick=()=>pickProjFromMenu(p.slug);
+    const more=document.createElement('button'); more.className='pm-more';
+    more.innerHTML=projDotsSvg(); more.title=t('chat.session.actions'); more.setAttribute('aria-label', more.title);
+    more.onclick=(e)=>{ e.stopPropagation(); openProjMenu(more, p); };
+    row.appendChild(b); row.appendChild(more);
+    list.appendChild(row);
+  });
+  menu.appendChild(Object.assign(document.createElement('div'), {className:'menu-sep'}));
+  const add=document.createElement('button'); add.className='pm-add';
+  add.innerHTML=PM_PLUS+'<span></span>'; add.lastChild.textContent=t('projects.new_project'); add.onclick=()=>{ closeMenu(); createProjectUI(); };
+  menu.appendChild(add);
+}
+const closeProjQuickMenu = ()=>closeMenu();
+const PM_OPTS = {side:'above', maxH:440};
+async function toggleProjMenu(ev){
+  ev.stopPropagation();
+  const menu=document.getElementById('proj-menu'), b=document.getElementById('project-btn');
+  renderProjMenu();
+  if(!toggleMenu(menu, b, PM_OPTS)) return;
+  // Liste fraîche (projets créés ailleurs, génération en cours) sans bloquer l'ouverture.
+  let s=null, r=null;
+  try{ [s, r] = await Promise.all([ jget('/api/chat/state').catch(()=>null), jget('/api/projects').catch(()=>null) ]); }catch(_){}
+  LIVE_GENERATING = !!(s && s.generating);
+  if(r && r.ok){ PROJECTS=r.projects||[]; ACTIVE_PROJECT=r.active||''; }
+  refreshProjMenu();
+}
+// Liste rapide ouverte (création, renommage…) : on la reconstruit et la recale.
+function refreshProjMenu(){
+  const b=document.getElementById('project-btn');
+  if(menuOpenFor(b)){ renderProjMenu(); placeMenu(document.getElementById('proj-menu'), b, PM_OPTS); }
+}
+async function pickProjFromMenu(slug){
+  closeMenu();
+  if(slug===ACTIVE_PROJECT) return;
+  if(LIVE_GENERATING){ toast(t('projects.busy_switch')); return; }
+  await switchProjectUI(slug);
+}

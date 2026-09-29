@@ -49,7 +49,7 @@ function removePend(entry){
 // attente » plutôt que « envoi… ».
 function addPending(text, queued){
   const el=addMsg('user', text);
-  el.classList.add('pending');
+  el.classList.add('pending','msg-in'); // entrée animée : la bulle monte depuis la zone de saisie
   const l=el.querySelector('.label'); if(l) l.textContent=queued?t('chat.queued'):t('chat.sending');
   const entry={el, text};
   PENDS.push(entry);
@@ -143,7 +143,10 @@ function fmtTok(n){
 let GENEL=null;
 function ensureGenEl(){
   const chat=chatEl();
-  if(!GENEL){ GENEL=document.createElement('div'); GENEL.className='genstatus';
+  if(!GENEL){ GENEL=document.createElement('div'); GENEL.className='genstatus gs-in';
+    // Fondu d'arrivée à la PREMIÈRE pose seulement (l'élément est ensuite déplacé en
+    // fin de fil à chaque bloc : sans ça l'animation se rejouerait en boucle).
+    GENEL.addEventListener('animationend', function(){ this.classList.remove('gs-in'); }, {once:true});
     // Le J du favicon AJEAN : deux carrés empilés (la barre) + un carré décalé à
     // gauche en bas (le pied du J). Statique, en accent. Classe (pas id) : plusieurs
     // lignes figées coexistent dans le fil, une par tour terminé.
@@ -186,24 +189,27 @@ function activePresetName(){
 }
 // EN DIRECT : chrono (temps total du tour) + tokens qui montent + vitesse decode
 // stable. La vitesse EXACTE (timings serveur) est figée à la fin par finalizeTurn.
+// Ligne sous la réponse : « durée · tokens · vitesse · preset » en texte simple.
+function paintGenParts(txt, items){ txt.textContent=items.map(it=>it.v).join('  ·  '); }
+function genItems(secs, tok, rate, pr, extra){
+  const items=[{v:fmtElapsed(secs)}];
+  if(tok>0){ items.push({v:fmtTok(tok)}); if(rate!=null) items.push({v:rate.toFixed(1)+' t/s'}); }
+  if(pr && !viewOn('hide-preset')) items.push({v:pr});
+  if(extra) items.push({v:extra});
+  return items;
+}
 function paintGenStatus(){
   if(!ELAPSED) return;
   if(COMPACTING) return; // pendant un compactage la barre affiche « compactage… »
   const g=ensureGenEl(); const txt=g.querySelector('.gtxt');
   const secs=(Date.now()-ELAPSED.start)/1000;
   const tok=genTokCount();
-  const parts=[fmtElapsed(secs)];
-  if(tok>0){
-    parts.push(fmtTok(tok));
-    const rate=genRate();
-    if(rate!=null) parts.push(rate.toFixed(1)+' t/s');
-  }
-  const pr=activePresetName(); if(pr && !viewOn('hide-preset')) parts.push(pr);
   // GPU Cloud pas encore prêt : on dit ce qui se passe au lieu d'un silence.
+  let extra='';
   if(tok===0 && CLOUD_PHASE && CLOUD_PHASE!=='ready'){
-    parts.push(t(CLOUD_PHASE==='downloading' ? 'chat.cloud_downloading' : CLOUD_PHASE==='loading' ? 'chat.cloud_loading' : 'chat.cloud_waking'));
+    extra=t(CLOUD_PHASE==='downloading' ? 'chat.cloud_downloading' : CLOUD_PHASE==='loading' ? 'chat.cloud_loading' : 'chat.cloud_waking');
   }
-  txt.textContent=parts.join('  ·  ');
+  paintGenParts(txt, genItems(secs, tok, tok>0?genRate():null, activePresetName(), extra));
   scrollMaybe();
 }
 function genStatusOn(on){ chatEl().classList.toggle('genon', !!on); }
@@ -229,15 +235,13 @@ function finalizeTurn(elapsedMs, preset){
   const rate=st.gen_per_second||null;
   if(ELAPSED){ clearInterval(ELAPSED.timer); ELAPSED=null; }
   genStatusOn(false);
-  const parts=[];
-  if(elapsedMs>0) parts.push(fmtElapsed(elapsedMs/1000));
-  if(tok>0){ parts.push(fmtTok(tok)); if(rate!=null) parts.push(rate.toFixed(1)+' t/s'); }
   // preset qui a répondu : celui journalisé par le serveur (rejoué à l'identique après
   // rechargement), avec repli sur le preset courant pour les vieux journaux sans l'info.
   const pr=(preset!==undefined && preset!==null) ? preset : activePresetName();
-  if(pr && !viewOn('hide-preset')) parts.push(pr);
-  if(!parts.length){ removeGenEl(); scrollMaybe(true); return; }
-  const g=ensureGenEl(); g.querySelector('.gtxt').textContent=parts.join('  ·  ');
+  if(!(elapsedMs>0) && !(tok>0) && !(pr && !viewOn('hide-preset'))){ removeGenEl(); scrollMaybe(true); return; }
+  const items=genItems(elapsedMs/1000, tok, rate, pr, '');
+  if(!(elapsedMs>0)) items.shift();
+  const g=ensureGenEl(); paintGenParts(g.querySelector('.gtxt'), items);
   GENEL=null;
   scrollMaybe(true); // révèle la fin (et cette ligne) même sur un fil à peine défilable
 }
@@ -343,8 +347,9 @@ function syncSendBtn(){
   // l'un ni l'autre n'est utile → on garde « envoyer » (désactivé) comme avant.
   const hasContent=composerHasContent();
   const showSend = !busy || hasContent;
-  sb.style.display=showSend?'flex':'none';
-  stop.style.display=(busy && !hasContent)?'flex':'none';
+  // Superposés (#sendwrap) : on bascule l'un vers l'autre en fondu, sans display.
+  sb.classList.toggle('is-off', !showSend);
+  stop.classList.toggle('is-off', !(busy && !hasContent));
   // Le bouton stop est une icône (carré) : on ne touche PAS à son contenu (sinon on
   // écraserait le SVG), seulement au tooltip pour signaler une tâche de fond.
   stop.title = (busy && RUNNING_TASK) ? (t('chat.stop_task_prefix')+RUNNING_TASK+t('chat.stop_task_suffix')) : t('chat.stop');
@@ -375,11 +380,11 @@ function syncSendBtn(){
 // flushRender(), appelé à chaque frontière de bloc (nouvel élément, outil, fin de
 // tour, caught_up).
 let renderTimer=null, renderPending=null, lastRenderMs=0; // {el, text}
-function scheduleRender(el, text){
+function scheduleRender(el, text, tail){
   // Changement de bloc en cours de route : on rend d'abord l'ancien à sa dernière
   // valeur, sinon son ultime bout de texte serait perdu.
   if(renderPending && renderPending.el!==el) flushRender();
-  renderPending={el, text};
+  renderPending={el, text, tail:!!tail};
   if(renderTimer) return;
   // Cadence ADAPTATIVE : on vise à ne pas passer plus d'~1/6 du temps à re-parser
   // le Markdown. Tant que le bloc est petit, un rendu coûte 1-2 ms → plancher 16 ms
@@ -394,7 +399,7 @@ function flushRender(){
   const p=renderPending; renderPending=null;
   if(!p) return;
   const t0=performance.now();
-  renderBody(p.el, p.text);
+  renderBody(p.el, p.text, p.tail && !matchMedia('(prefers-reduced-motion: reduce)').matches);
   lastRenderMs=performance.now()-t0;
 }
 // Lissage d'apparition (« machine à écrire »). Le MTP et le dual-GPU débitent les
@@ -425,11 +430,12 @@ function smoothStep(ts){
   if(!smoothLast) smoothLast=ts;
   const dt=Math.min(120, ts-smoothLast); smoothLast=ts;
   const remaining=smooth.target.length - smooth.shown;
-  if(remaining<=0){ smooth.raf=null; smoothLast=0; return; }
+  // Tout est révélé : rendu final SANS dégradé (le texte se pose net).
+  if(remaining<=0){ smooth.raf=null; smoothLast=0; scheduleRender(smooth.el, smooth.target); return; }
   let adv=remaining*dt/SMOOTH_TAU;      // vitesse ∝ retard
   if(adv<0.4) adv=0.4;                  // progrès minimal
   smooth.shown=Math.min(smooth.target.length, smooth.shown+Math.ceil(adv));
-  scheduleRender(smooth.el, smooth.target.slice(0, smooth.shown));
+  scheduleRender(smooth.el, smooth.target.slice(0, smooth.shown), true);
   smooth.raf=requestAnimationFrame(smoothStep);
 }
 function smoothFeed(el, target){
@@ -846,7 +852,7 @@ async function send(){
   if(entry) addMsgFiles(entry.el, attachSent());
   for(let attempt=0; attempt<3; attempt++){
     try{
-      const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,files:files,ctx_used:CTX_USED})});
+      const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,files:files,ctx_used:CTX_USED,fast:MODE==='fast',raw:MODE==='base',agent:MODE==='base'?false:undefined})});
       if(r.status===409 || r.ok) clearAttach();
       if(r.status===409) return;               // déjà en cours (notre envoi a abouti) → OK
       if(r.ok) return;                          // la bulle + les tokens arrivent par le flux
@@ -870,3 +876,64 @@ checkAppUpdate();
 setInterval(loadStatus, 5000);
 // VRAM + RAM en un seul appel groupé (au lieu de deux endpoints sondés séparément).
 setInterval(loadTelemetry, 3000);
+
+// Mode du chat (sélecteur à gauche du pied du composeur), réglage de l'appareil :
+//   project = chat complet (mémoire, projets, web) ;
+//   fast    = comme « ajean chat » (voir capsFromBody) ;
+//   base    = modèle brut, sans agent ni outils (agent:false pour ce tour).
+// Projet et Rapide exigent l'agent de la MACHINE : s'il est coupé, les choisir
+// demande confirmation puis l'active (voir enableAgent).
+// Mode par défaut : Rapide (ordre du menu : Rapide, Projet, Modèle de base).
+let MODE='fast', AGENT_ON=false;
+try{ MODE=localStorage.getItem('ajean-mode') || 'fast'; }catch(e){}
+if(!['project','fast','base'].includes(MODE)) MODE='fast';
+const MODE_KEYS={project:'chat.mode_project',fast:'chat.mode_fast',base:'chat.mode_base'};
+function saveMode(){ try{ localStorage.setItem('ajean-mode',MODE); }catch(e){} }
+function applyFastBtn(){
+  const l=document.getElementById('mode-btn-label'); if(!l) return;
+  const k=MODE_KEYS[MODE];
+  l.dataset.i18n=k; l.textContent=t(k);
+  // Icône du mode (reprise du menu des modes).
+  const ic=document.getElementById('mode-btn-ic'), src=document.querySelector('#mode-menu button[data-mode="'+MODE+'"] .mm-ic');
+  if(ic && src) ic.innerHTML=src.outerHTML;
+  // Rapide et Modèle de base ignorent les projets : la bulle projet se replie.
+  document.body.classList.toggle('fast-mode',MODE!=='project');
+}
+// Agent de la machine coupé : Projet / Rapide ne peuvent pas tourner, l'appareil
+// affiche donc ce qui se passe réellement (Modèle de base).
+function syncModeWithAgent(){
+  if(!AGENT_ON && MODE!=='base'){ MODE='base'; saveMode(); }
+  applyFastBtn();
+}
+// Changement de mode animé : le libellé s'efface, la bulle glisse vers sa
+// nouvelle largeur, le nouveau libellé réapparaît.
+function swapModeLabel(){
+  const b=document.getElementById('mode-btn'), l=document.getElementById('mode-btn-label');
+  if(!b||!l||matchMedia('(prefers-reduced-motion: reduce)').matches){ applyFastBtn(); return; }
+  const w0=b.offsetWidth;
+  l.classList.add('swap');
+  document.body.classList.toggle('fast-mode',MODE!=='project');
+  setTimeout(()=>{
+    b.style.width='';
+    applyFastBtn();
+    const w1=b.offsetWidth;
+    b.style.width=w0+'px'; void b.offsetWidth; b.style.width=w1+'px';
+    l.classList.remove('swap');
+    setTimeout(()=>{ b.style.width=''; },300);
+  },120);
+}
+async function pickMode(m){
+  closeModeMenu();
+  if(m===MODE || !MODE_KEYS[m]) return;
+  if(m!=='base' && !AGENT_ON && !await enableAgent()) return;
+  MODE=m; saveMode();
+  swapModeLabel();
+}
+const closeModeMenu = ()=>closeMenu();
+function toggleModeMenu(ev){
+  ev.stopPropagation();
+  const menu=document.getElementById('mode-menu');
+  menu.querySelectorAll('button').forEach(x=>x.classList.toggle('on', x.dataset.mode===MODE));
+  toggleMenu(menu, document.getElementById('mode-btn'), {side:'above'});
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',applyFastBtn); else applyFastBtn();

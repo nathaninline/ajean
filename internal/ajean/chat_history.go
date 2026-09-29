@@ -398,9 +398,9 @@ func (c *Conversation) OpenSession(id string) error {
 	c.Stop()
 	c.mu.Lock()
 	c.ID = a.ID
-	if a.Project != "" {
-		c.Project = a.Project
-	}
+	// Projet de la session (vide = Générale) : la conversation ouverte porte
+	// toujours le projet auquel elle appartient (historique général).
+	c.Project = archiveProject(convArchiveMeta{Project: a.Project})
 	c.Messages = append([]Message(nil), a.Messages...)
 	c.Log = append([]LogEvent(nil), a.Log...)
 	c.Seq = a.Seq

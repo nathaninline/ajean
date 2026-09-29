@@ -26,7 +26,7 @@ async function loadTrackers(){
   const list=(r&&r.trackers)||[];
   const cnt=document.getElementById('tracker-count'); if(cnt) cnt.textContent = list.length ? (list.length+' '+(list.length>1?t('tracker.count_plural'):t('tracker.count_singular'))) : '';
   box.innerHTML='';
-  if(!list.length){ box.innerHTML='<span class="muted" style="font-size:12px">'+t('tracker.empty_list')+'</span>'; return; }
+  if(!list.length){ box.innerHTML='<div class="mm-empty"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h16M8 16l3-4 3 2 4-6"/></svg><span>'+t('tracker.empty_list')+'</span></div>'; return; }
   list.forEach(s=>box.appendChild(trackerRow(s)));
 }
 
@@ -40,6 +40,10 @@ function trackerRow(s){
   sub.textContent = s.count ? (s.count+' '+(s.count>1?t('tracker.point_plural'):t('tracker.point_singular'))+' · '+t('tracker.updated')+' '+(s.last||'')) : t('tracker.empty_single');
   main.appendChild(name); main.appendChild(sub);
   if(s.latest){ const val=document.createElement('div'); val.className='tracker-card-val'; val.textContent=s.latest; main.appendChild(val); }
+  // Tuile d'icône, comme les pages mémoire.
+  const ic=document.createElement('span'); ic.className='mem-item-ic';
+  ic.innerHTML='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h16M8 16l3-4 3 2 4-6"/></svg>';
+  card.appendChild(ic);
   card.appendChild(main);
   const menu=document.createElement('button'); menu.className='sess-menu-btn'; menu.innerHTML=projDotsSvg(); menu.title=t('tracker.options');
   menu.onclick=(e)=>{ e.stopPropagation(); openTrackerMenu(menu, s); };
@@ -47,22 +51,13 @@ function trackerRow(s){
   return card;
 }
 
-// Menu ⋮ d'un tracker : déplacer vers un projet / supprimer. Réutilise l'infra pop du
-// hub projets (closeProjMenu / _projOutside).
+// Menu ⋮ d'un tracker : renommer / déplacer vers un projet / supprimer.
 function openTrackerMenu(anchor, s){
-  closeProjMenu();
-  const pop=document.createElement('div'); pop.className='pop-menu';
-  const item=(icon,label,cls,fn)=>{ const b=document.createElement('button'); if(cls) b.className=cls; b.innerHTML=sessIconSvg(icon)+'<span>'+label+'</span>'; b.onclick=(e)=>{ e.stopPropagation(); closeProjMenu(); fn(); }; return b; };
-  pop.appendChild(item('pencil',t('tracker.rename'),'',()=>trackerRename(s)));
-  if(typeof PROJECTS!=='undefined' && PROJECTS.length>1) pop.appendChild(item('move',t('tracker.move_to'),'',()=>trackerMove(s, anchor)));
-  pop.appendChild(item('trash',t('tracker.delete'),'danger',()=>trackerDelete(s)));
-  document.body.appendChild(pop);
-  const r=anchor.getBoundingClientRect(); const pw=pop.offsetWidth, ph=pop.offsetHeight;
-  let left=Math.max(8, Math.min(r.right-pw, window.innerWidth-pw-8));
-  let top=r.bottom+6; if(top+ph>window.innerHeight-8) top=r.top-ph-6;
-  pop.style.left=left+'px'; pop.style.top=top+'px';
-  _projPop=pop;
-  setTimeout(()=>{ document.addEventListener('click', _projOutside, true); document.addEventListener('scroll', _projScroll, true); }, 0);
+  popMenu(anchor, [
+    {icon:'pencil', label:t('tracker.rename'), run:()=>trackerRename(s)},
+    PROJECTS.length > 1 && {icon:'move', label:t('tracker.move_to'), run:()=>trackerMove(s, anchor)},
+    {icon:'trash', label:t('tracker.delete'), danger:true, run:()=>trackerDelete(s)},
+  ], {side:'below'});
 }
 
 async function trackerRename(s){

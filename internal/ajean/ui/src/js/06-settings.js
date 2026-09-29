@@ -193,9 +193,9 @@ async function loadAgent(){
   // MEM_VIEW_PROJECT (si posé) scope les pages + le mode mémoire sur un autre projet.
   const s=await jget('/api/agent' + (MEM_VIEW_PROJECT ? ('?project='+encodeURIComponent(MEM_VIEW_PROJECT)) : ''));
   const on = s.enabled;
-  document.getElementById('agent-toggle').checked = on;
+  AGENT_ON = !!on;
   document.getElementById('compact-toggle').checked = (s.compact !== false);
-  setBadge('agent-badge', on, on?t('settings.agent.badge_on'):t('settings.agent.badge_off'));
+  syncModeWithAgent();
   document.getElementById('brand').classList.toggle('agent', on);
   setAgentGate(on);
   if(s.mem_mode){ setMemModeUI(s.mem_mode); }
@@ -369,7 +369,7 @@ function renderMemList(){
   const q=(document.getElementById('mem-search').value||'').trim().toLowerCase();
   const list=document.getElementById('mem-list');
   list.textContent='';
-  if(!memPages.length){ list.innerHTML='<div class="muted">'+t('settings.memory.no_pages')+'</div>'; return; }
+  if(!memPages.length){ list.innerHTML='<div class="mm-empty"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><span>'+t('settings.memory.no_pages')+'</span></div>'; return; }
   const matches = q ? memPages.filter(x=>(x.name+' '+(x.desc||'')).toLowerCase().includes(q)) : memPages;
   if(!matches.length){ list.innerHTML='<div class="muted">'+t('settings.memory.no_results_before')+q.replace(/[<>&]/g,'')+t('settings.memory.no_results_after')+'</div>'; return; }
   const shown = matches.slice(0, memShown);
@@ -398,24 +398,12 @@ function renderMemList(){
     list.appendChild(more);
   }
 }
-// Menu ⋮ d'une page mémoire : éditer / déplacer. Réutilise l'infra pop du hub
-// projets (pop-menu, closeProjMenu, _projOutside, sessIconSvg).
+// Menu ⋮ d'une page mémoire : éditer / déplacer.
 function openMemMenu(anchor, x){
-  if(typeof closeProjMenu==='function') closeProjMenu();
-  const pop=document.createElement('div'); pop.className='pop-menu';
-  const ico=(n)=> (typeof sessIconSvg==='function'?sessIconSvg(n):'');
-  const item=(icon,label,cls,fn)=>{ const b=document.createElement('button'); if(cls) b.className=cls; b.innerHTML=ico(icon)+'<span>'+label+'</span>'; b.onclick=(e)=>{ e.stopPropagation(); if(typeof closeProjMenu==='function') closeProjMenu(); fn(); }; return b; };
-  pop.appendChild(item('pencil', t('settings.memory.edit_btn'), '', ()=>openMem(x.name)));
-  if(typeof PROJECTS!=='undefined' && PROJECTS.length>1){
-    pop.appendChild(item('move', t('settings.memory.move_btn'), '', ()=>moveMemUI(x.name, anchor)));
-  }
-  document.body.appendChild(pop);
-  const r=anchor.getBoundingClientRect(); const pw=pop.offsetWidth, ph=pop.offsetHeight;
-  let left=Math.max(8, Math.min(r.right-pw, window.innerWidth-pw-8));
-  let top=r.bottom+6; if(top+ph>window.innerHeight-8) top=r.top-ph-6;
-  pop.style.left=left+'px'; pop.style.top=top+'px';
-  if(typeof _projPop!=='undefined') _projPop=pop;
-  setTimeout(()=>{ if(typeof _projOutside==='function') document.addEventListener('click', _projOutside, true); if(typeof closeProjMenu==='function') document.addEventListener('scroll', _projScroll, true); }, 0);
+  popMenu(anchor, [
+    {icon:'pencil', label:t('settings.memory.edit_btn'), run:()=>openMem(x.name)},
+    PROJECTS.length > 1 && {icon:'move', label:t('settings.memory.move_btn'), run:()=>moveMemUI(x.name, anchor)},
+  ], {side:'below'});
 }
 
 // Déplacer une note mémoire du projet actif vers un autre projet (issue #55).
@@ -434,11 +422,13 @@ async function moveMemUI(name, anchor){
 }
 // alias : plusieurs appelants rafraîchissent juste la liste des pages mémoire
 const loadMem = loadAgent;
-async function toggleAgent(){
-  const on=document.getElementById('agent-toggle').checked;
-  if(on && !await askConfirm(t('settings.agent.enable_confirm_msg'), {title:t('settings.agent.enable_confirm_title'), okText:t('settings.agent.enable_ok'), danger:true})){ document.getElementById('agent-toggle').checked=false; return; }
-  await jpost('/api/agent/toggle',{on});
-  loadAgent();
+// Active l'agent de la machine (Projet / Rapide choisis alors qu'il est coupé).
+// Même confirmation que l'ancien interrupteur : c'est un accès shell complet.
+async function enableAgent(){
+  if(!await askConfirm(t('settings.agent.enable_confirm_msg'), {title:t('settings.agent.enable_confirm_title'), okText:t('settings.agent.enable_ok'), danger:true})) return false;
+  await jpost('/api/agent/toggle',{on:true});
+  await loadAgent();
+  return true;
 }
 async function toggleCompact(){
   const on=document.getElementById('compact-toggle').checked;

@@ -36,6 +36,19 @@ func capsFromBody(body chatReq) Caps {
 	if body.Computer != nil {
 		caps.ComputerUse = caps.ComputerUse && *body.Computer
 	}
+	// Mode rapide : même moteur que « ajean chat ». Il ne fait que retirer
+	// (mémoire, web, computer use), donc reste une restriction.
+	if body.Fast {
+		caps.Terminal, caps.Web = true, true
+		caps.Mem = MemOff
+		caps.Internet = false
+		caps.ComputerUse = false
+	}
+	// Modèle de base : tout coupé, y compris la mémoire (qui, seule, suffisait à
+	// réinjecter le préambule « Jean + mémoire » et l'index des pages).
+	if body.Raw {
+		caps = Caps{Mem: MemOff}
+	}
 	// Les outils dépendent du mode agent : agent coupé, tout est coupé.
 	if !caps.Agent {
 		caps.Internet = false
@@ -142,8 +155,26 @@ func handleChatHistory(w http.ResponseWriter, r *http.Request) {
 	var list []convArchiveMeta
 	if p := strings.TrimSpace(q.Get("project")); p != "" {
 		list = listArchivesForProject(p)
+	} else if q.Get("all") == "1" {
+		// Historique général (menu latéral) : toutes les conversations, tous projets.
+		list = listAllArchives()
 	} else {
 		list = listArchives()
+	}
+	// Recherche (?q=) : sur le titre et le nom du projet, sans tenir compte de la
+	// casse ni des accents. Faite avant la pagination.
+	if needle := foldSearch(q.Get("q")); needle != "" {
+		names := map[string]string{}
+		for _, p := range listProjects() {
+			names[p.Slug] = p.Name
+		}
+		kept := list[:0:0]
+		for _, m := range list {
+			if strings.Contains(foldSearch(m.Title+" "+names[archiveProject(m)]), needle) {
+				kept = append(kept, m)
+			}
+		}
+		list = kept
 	}
 	// Pagination optionnelle (?offset=&limit=) : la liste des sessions grandit au
 	// défilement au lieu de tout rendre d'un coup (537 sessions chez Alice). Sans
@@ -155,8 +186,15 @@ func handleChatHistory(w http.ResponseWriter, r *http.Request) {
 		off = max(0, min(off, total))
 		list = list[off:min(off+limit, total)]
 	}
+	// Noms des projets (slug → nom) : l'historique général affiche le projet de
+	// chaque conversation.
+	names := map[string]string{}
+	for _, p := range listProjects() {
+		names[p.Slug] = p.Name
+	}
 	sendJSON(w, 200, map[string]any{"ok": true, "conversations": list, "total": total,
-		"active": conv.currentID(), "generating": conv.isGenerating()})
+		"active": conv.currentID(), "generating": conv.isGenerating(),
+		"projects": names, "default_project": defaultProjectSlug})
 }
 
 // handleChatPeek (GET ?id=) : renvoie le contenu d'une conversation archivée EN
@@ -190,11 +228,21 @@ func handleChatHistoryRestore(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "id manquant"})
 		return
 	}
+	// Conversation d'un autre projet (historique général) : on bascule d'abord sur
+	// son projet, pour que mémoire et contexte suivent la conversation ouverte.
+	if a, ok := loadArchive(body.ID); ok {
+		if p := archiveProject(convArchiveMeta{Project: a.Project}); p != activeProjectSlug() && projectExists(p) {
+			if err := setActiveProject(p); err != nil {
+				sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+				return
+			}
+		}
+	}
 	if err := conv.OpenSession(body.ID); err != nil {
 		sendJSON(w, 404, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	sendJSON(w, 200, map[string]any{"ok": true})
+	sendJSON(w, 200, map[string]any{"ok": true, "project": activeProjectSlug()})
 }
 
 // handleChatHistoryDelete (POST {id}) : supprime DÉFINITIVEMENT une conversation
@@ -357,4 +405,23 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 		return true
 	}
 	runChatStream(r.Context(), body, emit)
+}
+
+// foldSearch normalise un texte pour la recherche : minuscules, accents retirés
+// (é → e), espaces de bord ôtés.
+func foldSearch(s string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(strings.TrimSpace(s)) {
+		if f, ok := accentFold[r]; ok {
+			r = f
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+var accentFold = map[rune]rune{
+	'à': 'a', 'â': 'a', 'ä': 'a', 'á': 'a', 'ã': 'a', 'ç': 'c',
+	'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e', 'î': 'i', 'ï': 'i', 'í': 'i',
+	'ô': 'o', 'ö': 'o', 'ó': 'o', 'õ': 'o', 'ù': 'u', 'û': 'u', 'ü': 'u', 'ú': 'u', 'ÿ': 'y', 'ñ': 'n',
 }

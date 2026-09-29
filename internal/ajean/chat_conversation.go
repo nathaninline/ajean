@@ -380,7 +380,7 @@ func (c *Conversation) compactAndPublish(ctx context.Context, epoch int, phase s
 	// garde, une conversation en chat pur assez longue pour compacter se verrait
 	// (ré)ajouter index/contexte/trackers, alors que memIndexMessage se fie à
 	// memMode() (mode du projet) et pas à caps.
-	if caps.Agent {
+	if caps.Agent && !caps.Terminal {
 		// Rappel des pages mémoire LUES : après compactage, leur contenu n'est plus
 		// inline (résumé). Une page de règles à suivre était donc oubliée. On n'en
 		// garde RIEN verbatim (contexte léger) : juste un rappel listant leurs noms,
@@ -495,7 +495,7 @@ func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, tem
 	// et le prompt système (AJEAN + preset) est aussi sauté plus bas (voir generate).
 	// L'index/trackers sont déjà bornés au mode auto (donc agent on), mais on garde
 	// le garde-fou explicite ici : agent off, aucun contexte.
-	if len(c.Messages) == 0 && caps.Agent {
+	if len(c.Messages) == 0 && caps.Agent && !caps.Terminal {
 		// Contexte projet (description) d'abord : l'IA sait sur quoi elle travaille
 		// avant même de lire l'index de ses pages mémoire.
 		if m, ok := projectContextMessage(); ok {
@@ -686,7 +686,14 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 	// consignes. Le prompt de preset décrivait des outils/une mémoire que ce mode
 	// n'a pas, poussant le modèle à cracher des <tool_call> en clair.
 	final := msgs
-	if sp := readSysPrompt(); sp != "" && caps.Agent {
+	// Modèle de base et mode rapide ignorent les projets : une conversation
+	// commencée en mode Projet garde en tête son contexte injecté (projet, index
+	// mémoire, trackers), qu'on retire de la vue envoyée au modèle.
+	if !caps.Agent || caps.Terminal {
+		final = dropProjectSystem(msgs)
+	}
+	// Mode rapide (Terminal) : prompt court seulement, comme « ajean chat ».
+	if sp := readSysPrompt(); sp != "" && caps.Agent && !caps.Terminal {
 		final = append([]Message{{Role: "system", Content: sp}}, msgs...)
 	}
 
@@ -1300,4 +1307,16 @@ func (c *Conversation) SubscribeTail(ctx context.Context, from int, convID strin
 		}
 		c.mu.Lock()
 	}
+}
+
+// dropProjectSystem retire les messages système propres au projet (voir
+// isProjectSystem) sans toucher à l'historique persisté.
+func dropProjectSystem(msgs []Message) []Message {
+	out := make([]Message, 0, len(msgs))
+	for _, m := range msgs {
+		if !isProjectSystem(m) {
+			out = append(out, m)
+		}
+	}
+	return out
 }

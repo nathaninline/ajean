@@ -262,6 +262,9 @@ type Caps struct {
 	// bash/write/edit dans le dossier courant, prompt court façon pi, sans
 	// mémoire, projets, tâches ni web. Voir cli_chat.go.
 	Terminal bool
+	// Web = ce mode « terminal » tourne dans l'interface web (mode rapide) : même
+	// outillage, seul le prompt ne parle plus d'un terminal. Voir capsFromBody.
+	Web bool
 }
 
 // globalCaps reads the machine-wide config — the default when a request doesn't
