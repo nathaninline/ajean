@@ -9585,7 +9585,9 @@ async function loadProjects(){
   if(!r || !r.ok){ const box=document.getElementById('project-list'); if(box) box.innerHTML='<span class="muted" style="font-size:12px">'+t('projects.load_error')+'</span>'; return; }
   PROJECTS = r.projects || [];
   ACTIVE_PROJECT = r.active || '';
+  const wasBrowsing = !!BROWSE_PROJECT;
   if(!LIVE_GENERATING || !PROJECTS.some(p=>p.slug===BROWSE_PROJECT)) BROWSE_PROJECT = '';
+  if(wasBrowsing && !BROWSE_PROJECT) resetSessSearch(false);
   const act = PROJECTS.find(p=>p.slug===ACTIVE_PROJECT);
   setProjectBtnName(act ? act.name : '');
   renderProjectList();
@@ -9972,6 +9974,7 @@ async function deleteProjectUI(slug, name){
   if(!r.ok){ toast(r.error || t('projects.delete_failed')); return; }
   ACTIVE_PROJECT = r.active || ACTIVE_PROJECT;
   toast(t('projects.deleted_toast'));
+  resetSessSearch(false);
   loadProjects();
   if(typeof loadAgent === 'function') loadAgent();
 }

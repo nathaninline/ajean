@@ -51,7 +51,12 @@ async function loadProjects(){
   ACTIVE_PROJECT = r.active || '';
   // Parcours en lecture seule (BROWSE_PROJECT) : n'a de sens que pendant une
   // génération et pour un projet qui existe encore. Sinon on retombe sur l'actif.
+  // Fin de génération = on quitte un AUTRE projet pour l'actif : une recherche
+  // laissée là filtrerait l'autre projet. On ne la vide QUE si le projet regardé
+  // change vraiment — sinon un simple rechargement (renommage…) l'effacerait.
+  const wasBrowsing = !!BROWSE_PROJECT;
   if(!LIVE_GENERATING || !PROJECTS.some(p=>p.slug===BROWSE_PROJECT)) BROWSE_PROJECT = '';
+  if(wasBrowsing && !BROWSE_PROJECT) resetSessSearch(false);
   const act = PROJECTS.find(p=>p.slug===ACTIVE_PROJECT);
   setProjectBtnName(act ? act.name : '');
   renderProjectList();
@@ -593,6 +598,9 @@ async function deleteProjectUI(slug, name){
   if(!r.ok){ toast(r.error || t('projects.delete_failed')); return; }
   ACTIVE_PROJECT = r.active || ACTIVE_PROJECT;
   toast(t('projects.deleted_toast'));
+  // Le projet actif a changé côté serveur : même piège qu'à la bascule, une requête
+  // restante filtrerait le projet désormais actif. Avant loadProjects, qui recharge.
+  resetSessSearch(false);
   loadProjects();
   if(typeof loadAgent === 'function') loadAgent();
 }
