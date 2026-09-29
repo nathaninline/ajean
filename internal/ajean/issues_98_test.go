@@ -432,19 +432,35 @@ func TestHistSearchRanksFromIndexNotBodies(t *testing.T) {
 	}
 }
 
-// --- 13. la session vive n'apparaît qu'une fois -------------------------------
-
+// --- 13. la session vive n'apparaît qu'une fois, et son score est MAX, pas SOMME
+//
 // #98 : OpenSession NE retire PAS l'archive : la session est à la fois vive et
-// dans chathist. La recherche doit la dédupliquer par id.
+// dans chathist. La recherche doit la dédupliquer par id ET fusionner les deux
+// sources par MAX (une seule entrée par id, score ÉCRASÉ) — jamais par SOMME.
+// Un score SOMMÉ (max → +=) gonflerait la session double (vive + archivée) et
+// pourrait la faire passer devant une correspondance objectivement meilleure.
+// Le fixture rend l'écart observable en plaçant un concurrent B à un score
+// STRICTEMENT intermédiaire entre le score max et le score somme :
+//
+//	requête « alpha beta » (2 termes). A = vive + archivée, B = archivée seule.
+//	A : titre « alpha »       → titre 1 ; corps « alpha beta » → corps 2.
+//	    max → score 2*1+2 = 4 ; somme (corps) → 2*1+4 = 6 ; somme (titre) → 2*2+2 = 6.
+//	B : titre « alpha beta »  → titre 2 ; corps « alpha »      → corps 1.
+//	    score 2*2+1 = 5.
+//	max : [B(5) A(4)].  += (corps OU titre) : [A(6) B(5)] — l'ordre S'INVERSE.
+//
+// Un fixture où vive et archive ne se recouvrent pas ne pourrait pas échouer :
+// ici elles se recouvrent exactement, donc la somme double visiblement le score.
 func TestHistSearchDeduplicatesActiveAgainstArchive(t *testing.T) {
 	histSetup(t)
-	histArchive(t, "A", "generale", "Titre", 100, false, []LogEvent{histUser(1, "le phare")})
+	histArchive(t, "A", "generale", "alpha", 100, false, []LogEvent{histUser(1, "alpha beta")})
+	histArchive(t, "B", "generale", "alpha beta", 200, false, []LogEvent{histUser(1, "alpha")})
 	histSetLive(t, "", "", "", nil)
 	if err := conv.OpenSession("A"); err != nil {
 		t.Fatalf("OpenSession(A) : %v", err)
 	}
 
-	res := histSearch("phare", "", 0, 0)
+	res := histSearch("alpha beta", "", 0, 0)
 	n := 0
 	for _, h := range res.Hits {
 		if h.ID == "A" {
@@ -454,8 +470,14 @@ func TestHistSearchDeduplicatesActiveAgainstArchive(t *testing.T) {
 	if n != 1 {
 		t.Fatalf("la session active devait apparaître une fois, apparue %d fois (%+v)", n, res.Hits)
 	}
-	if res.Total != 1 {
-		t.Fatalf("total attendu 1, obtenu %d", res.Total)
+	if res.Total != 2 || len(res.Hits) != 2 {
+		t.Fatalf("total attendu 2 (A + B), obtenu %d (%+v)", res.Total, res.Hits)
+	}
+	// Le SCORE de la session fusionnée, pas seulement son nombre de lignes : à
+	// score SOMMÉ, A (6) dépasserait B (5) et l'ordre s'inverserait.
+	if res.Hits[0].ID != "B" || res.Hits[1].ID != "A" {
+		t.Fatalf("fusion par max attendue : [B(5) A(4)] ; obtenu %s %s — score sommé (+=) ?",
+			res.Hits[0].ID, res.Hits[1].ID)
 	}
 }
 
