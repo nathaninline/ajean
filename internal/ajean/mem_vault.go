@@ -79,6 +79,12 @@ func memUnlocked() bool {
 	return memDEK != nil
 }
 
+// memLocked indique que la mémoire est chiffrée MAIS verrouillée (DEK absente) :
+// les valeurs chiffrées sont alors illisibles. Expression unique de « le store est
+// verrouillé » — elle composait trois copies inline (memHealth, recherche…) qu'un
+// changement de définition aurait fait diverger silencieusement.
+func memLocked() bool { return memEncActive() && !memUnlocked() }
+
 // setMemDEK charge la DEK en RAM (copie défensive).
 func setMemDEK(dek []byte) {
 	memKeyMu.Lock()

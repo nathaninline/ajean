@@ -197,7 +197,7 @@ func slimArchives() {
 		}
 		a, ok := loadArchive(id)
 		if !ok {
-			if memEncActive() && !memUnlocked() {
+			if memLocked() {
 				return // chiffrée et verrouillée : on reprendra au déverrouillage
 			}
 			// Illisible pour une autre raison (entrée corrompue) : on la saute plutôt

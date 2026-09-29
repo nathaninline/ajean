@@ -115,10 +115,15 @@ func bucketFullyEncrypted(bucket string) bool {
 }
 
 // encryptedBuckets : les buckets dont les valeurs sont chiffrées quand le
-// chiffrement est actif (conversation courante + archives + index de sessions).
-// Les autres buckets (config, prefs, state, tasks) restent en clair : ils portent
-// des réglages, pas des données personnelles de conversation.
-var encryptedBuckets = []string{bkChat, bkChatHist, bkChatMeta, bkTracker}
+// chiffrement est actif (conversation courante + archives + index de sessions +
+// index plein-texte). Les autres buckets (config, prefs, state, tasks) restent en
+// clair : ils portent des réglages, pas des données personnelles de conversation.
+//
+// bkChatSearch en fait partie : l'index plein-texte est un SAC DE MOTS dérivé des
+// conversations (et un aperçu de leur tête). Le laisser en clair exposerait, à côté
+// de conversations chiffrées, exactement le vocabulaire qu'on cherche à protéger —
+// et reencryptChatStores, qui boucle sur cette liste, ne le couvrirait pas.
+var encryptedBuckets = []string{bkChat, bkChatHist, bkChatMeta, bkChatSearch, bkTracker}
 
 // reencryptChatStores (re)chiffre les buckets de conversation. Exige la DEK.
 func reencryptChatStores() error {

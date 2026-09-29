@@ -10,9 +10,11 @@ package ajean
 //
 // Recharger une archive la remet comme conversation active. Si une conversation
 // est déjà en cours à ce moment-là, elle est elle-même archivée d'abord (un clear
-// chat implicite) : on ne perd jamais rien. L'archive rechargée est retirée de
-// l'historique — elle EST redevenue la conversation active, la garder en double
-// ferait réapparaître un doublon au prochain clear.
+// chat implicite) : on ne perd jamais rien. L'archive rechargée N'EST PAS retirée de
+// l'historique : elle devient l'active mais reste listée (marquée « en cours »), car
+// c'est la même session qui vit des deux côtés — la retirer ferait disparaître une
+// conversation toujours ouverte. Corollaire pour la recherche (#98) : la session
+// vive peut AUSSI être présente dans chathist, d'où la déduplication par id.
 
 import (
 	"fmt"
@@ -93,7 +95,14 @@ func saveArchive(a *convArchive) error {
 	}
 	// Index léger tenu à jour en parallèle : lister ne relit alors que ces petites
 	// métadonnées, pas le fil complet de chaque session.
-	return putStoreJSON(bkChatMeta, a.ID, convArchiveMeta{ID: a.ID, Project: a.Project, Title: a.Title, Fav: a.Fav, SavedAt: a.SavedAt, Turns: a.Turns})
+	if err := putStoreJSON(bkChatMeta, a.ID, convArchiveMeta{ID: a.ID, Project: a.Project, Title: a.Title, Fav: a.Fav, SavedAt: a.SavedAt, Turns: a.Turns}); err != nil {
+		return err
+	}
+	// Enfin l'index PLEIN-TEXTE (#98), une fois le fil et sa fiche écrits. Erreur
+	// avalée : l'archive est sauvée ; la couverture de recherche la signalera non
+	// indexée et le rattrapage la reprendra (aucune perte, pas d'échec trompeur).
+	_ = indexArchive(a)
+	return nil
 }
 
 func loadArchive(id string) (*convArchive, bool) {
@@ -105,6 +114,7 @@ func loadArchive(id string) (*convArchive, bool) {
 }
 
 func deleteArchive(id string) error {
+	unindexArchive(id)       // l'index plein-texte part d'abord (voir chat_search.go)
 	deleteToolResultsFor(id) // ses résultats « voir plus » partent avec elle
 	_ = putBytes(bkChatMeta, id, nil)
 	return putBytes(bkChatHist, id, nil)
