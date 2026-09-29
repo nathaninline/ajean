@@ -550,6 +550,14 @@
           <span data-i18n="projects.new_session">Nouvelle conversation</span>
         </button>
       </div>
+      <!-- Recherche plein texte dans l'historique (issue #98) : une barre SOUS le
+           titre, au-dessus de la liste. Le filtrage est fait par le SERVEUR (avant
+           pagination) ; l'UI ne fait que porter la requête et rendre les états. -->
+      <div class="sess-searchbar" role="search" aria-label="Rechercher dans l'historique" data-i18n="projects.search_aria" data-i18n-attr="aria-label">
+        <svg class="sess-search-ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20.5 20.5l-4.2-4.2"/></svg>
+        <input id="sess-search" class="sess-search-inp" type="search" autocomplete="off" placeholder="Rechercher dans l'historique…" oninput="onSessSearch()" onkeydown="if(event.key==='Escape'){clearSessSearch();}" data-i18n="projects.search_placeholder" data-i18n-attr="placeholder">
+        <button type="button" id="sess-search-clear" class="sess-search-clear" style="display:none" aria-label="Effacer la recherche" onclick="clearSessSearch()" data-i18n="projects.search_clear" data-i18n-attr="aria-label">×</button>
+      </div>
       <!-- Conversations du projet actif (plus de barre « Conversations · … »). -->
       <div id="project-sessions" class="sess-list" style="margin-top:6px"></div>
     </div>

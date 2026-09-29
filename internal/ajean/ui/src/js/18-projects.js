@@ -62,6 +62,9 @@ async function loadProjects(){
 // (ne bascule pas, ne coupe rien). Cliquer le projet actif revient à ses sessions.
 function browseProject(slug){
   BROWSE_PROJECT = (slug === ACTIVE_PROJECT) ? '' : slug;
+  // Entrée dans le parcours d'un AUTRE projet : recherche vierge, sinon la requête
+  // du projet précédent filtrerait celui-ci sans qu'on le voie.
+  resetSessSearch(false);
   renderProjectList();
   loadProjectSessions();
 }
@@ -192,6 +195,9 @@ async function switchProjectUI(slug){
   // vide d'abord le filtre de recherche : une requête laissée d'un projet fourni
   // filtrerait les notes du nouveau projet (jusqu'à tout masquer) sans qu'on le voie.
   const ms=document.getElementById('mem-search'); if(ms) ms.value='';
+  // Même piège pour la recherche d'historique : une requête laissée d'un projet
+  // filtrerait silencieusement la liste du nouveau projet (jusqu'à la vider).
+  resetSessSearch(false);
   if(typeof loadAgent === 'function') loadAgent();
   // Serveur à jour : on charge les sessions du nouveau projet. Grille déjà à jour si
   // le projet était connu ; sinon on relit toute la liste pour afficher sa tuile.
@@ -224,6 +230,33 @@ function showSessionsLoading(){
 // invalide les pages d'un chargement précédent (bascule de projet entre-temps).
 const SESS_PAGE = 40;
 let _sessLoad = null, _sessObs = null;
+// Recherche plein texte dans l'historique (issue #98). `_sessQuery` porte le terme
+// COURANT (déjà rogné) : c'est lui qui filtre côté serveur ET qui doit rester connu
+// du chemin de pagination (loadMoreSessions) pour qu'une page suivante reste
+// FILTRÉE. Le débounce évite une requête — et une relecture des archives — par frappe.
+let _sessQuery = '', _sessTimer = null;
+
+// Saisie dans la barre : on fige `_sessQuery` tout de suite (pour que la prochaine
+// page soit filtrée) mais on différe le rechargement de 300 ms.
+function onSessSearch(){
+  const inp = document.getElementById('sess-search'); if(!inp) return;
+  _sessQuery = inp.value.trim();
+  const clr = document.getElementById('sess-search-clear');
+  if(clr) clr.style.display = _sessQuery ? '' : 'none';
+  if(_sessTimer) clearTimeout(_sessTimer);
+  _sessTimer = setTimeout(()=>{ _sessTimer = null; loadProjectSessions(); }, 300);
+}
+// Remet la recherche à zéro. `reload` distingue le bouton « effacer » (qui recharge
+// aussitôt) des changements de projet, où l'appelant enchaîne son propre chargement.
+function resetSessSearch(reload){
+  _sessQuery = '';
+  if(_sessTimer){ clearTimeout(_sessTimer); _sessTimer = null; }
+  const inp = document.getElementById('sess-search'); if(inp) inp.value = '';
+  const clr = document.getElementById('sess-search-clear'); if(clr) clr.style.display = 'none';
+  if(reload) loadProjectSessions();
+}
+function clearSessSearch(){ resetSessSearch(true); }
+
 async function loadProjectSessions(){
   const box = document.getElementById('project-sessions'); if(!box) return;
   showSessionsLoading();
@@ -231,37 +264,97 @@ async function loadProjectSessions(){
   // Projet parcouru : le projet actif, ou un AUTRE en lecture seule (?project=)
   // pendant une génération — sans jamais basculer.
   const foreign = !!BROWSE_PROJECT && BROWSE_PROJECT !== ACTIVE_PROJECT;
-  const base = foreign ? '/api/chat/history?project='+encodeURIComponent(BROWSE_PROJECT)+'&' : '/api/chat/history?';
-  const st = _sessLoad = {gen:(_sessLoad?_sessLoad.gen:0)+1, base, foreign, offset:0, total:0, active:'', busy:false, lastFav:null, sentinel:null};
+  // La recherche filtre AVANT pagination côté serveur : le `q` DOIT donc entrer dans
+  // `st.base`, sinon loadMoreSessions paginerait l'historique NON filtré et ferait
+  // réapparaître des conversations hors requête au défilement. `query` fige la
+  // requête que CETTE réponse sert (rendu cohérent même si la frappe continue).
+  const q = _sessQuery ? 'q='+encodeURIComponent(_sessQuery)+'&' : '';
+  const base = foreign ? '/api/chat/history?project='+encodeURIComponent(BROWSE_PROJECT)+'&'+q : '/api/chat/history?'+q;
+  const st = _sessLoad = {gen:(_sessLoad?_sessLoad.gen:0)+1, base, foreign, query:_sessQuery, offset:0, total:0, active:'', busy:false, lastFav:null, sentinel:null,
+    state:'ok', terms:[], indexed:0, indexedTotal:0};
   let r;
   try{ r = await jget(base+'offset=0&limit='+SESS_PAGE); }
   catch(_){ if(st!==_sessLoad) return; box.style.minHeight = ''; box.innerHTML = '<span class="muted" style="font-size:12px">'+t('projects.load_error')+'</span>'; return; }
   if(st!==_sessLoad) return;
   const list = (r && r.conversations) || [];
+  // Les trois états du serveur ne se confondent JAMAIS : « locked » (archives
+  // illisibles, mémoire verrouillée) et « no_terms » (requête sans terme exploitable)
+  // ne sont pas « rien trouvé ». On branche AVANT le cas liste vide, sinon ils
+  // tomberaient sur « aucune conversation » — une affirmation fausse sur du contenu
+  // qu'on n'a pas pu lire.
+  st.state = (r && r.state) || 'ok';
   st.active = (r && r.active) || ''; st.total = (r && r.total) || list.length;
+  st.terms = (r && r.terms) || []; st.indexed = (r && r.indexed) || 0; st.indexedTotal = (r && r.indexed_total) || 0;
   box.style.minHeight = '';
   box.innerHTML = '';
-  if(!list.length){ box.innerHTML = '<span class="muted" style="font-size:12px">'+t('projects.no_sessions')+'</span>'; box.classList.add('ready'); return; }
+  if(st.state === 'locked'){ sessNotice(box, t('projects.search_locked')); box.classList.add('ready'); return; }
+  if(st.state === 'no_terms'){ sessNotice(box, t('projects.search_no_terms')); box.classList.add('ready'); return; }
+  if(!list.length){
+    // « ok » sans résultat : le SEUL cas où « rien ne correspond » est vrai.
+    if(st.query) sessNotice(box, t('projects.search_no_results_prefix') + st.query + t('projects.search_no_results_suffix'));
+    else box.innerHTML = '<span class="muted" style="font-size:12px">'+t('projects.no_sessions')+'</span>';
+    box.classList.add('ready'); return;
+  }
+  // Couverture partielle : l'index de recherche se remplit en arrière-plan. On le dit
+  // (i/total) au lieu de laisser croire que tout l'historique a été fouillé.
+  if(st.query){
+    if(st.indexed < st.indexedTotal){
+      sessNotice(box, t('projects.search_indexing_prefix') + st.indexed + '/' + st.indexedTotal + t('projects.search_indexing_suffix'), 'sess-index-note');
+    }
+    sessNotice(box, t('projects.search_count_prefix') + st.total + t('projects.search_count_suffix'), 'sess-count-note');
+  }
   appendSessRows(box, st, list);
   box.classList.add('ready');
   setupSessSentinel(box, st);
 }
 
+// Avis de la recherche (verrouillée / sans terme / aucun résultat / compteurs) :
+// un petit bloc muted, jamais confondu avec une ligne de conversation. textContent
+// (pas innerHTML) car la requête de l'utilisateur entre dans le message.
+function sessNotice(box, text, cls){
+  const d = document.createElement('div');
+  d.className = 'sess-note' + (cls ? ' ' + cls : '');
+  d.textContent = text;
+  box.appendChild(d);
+}
+
 // appendSessRows ajoute une page de lignes. Les favoris arrivent en tête (tri
 // serveur) : l'en-tête « Favoris » précède la première, « Récentes » la première
 // non-favorite qui suit des favoris, même si elle tombe dans une page suivante.
+// EN RECHERCHE, les résultats sont classés par PERTINENCE : ces en-têtes
+// mentiraient sur l'ordre, on les tait (le compte de résultats les remplace).
 function appendSessRows(box, st, list){
   const section = (label)=>{ const h=document.createElement('div'); h.className='sess-head'; h.style.paddingLeft='8px'; h.textContent=label; return h; };
   const frag = document.createDocumentFragment();
   for(const c of list){
     const fav = !!c.fav;
-    if(st.lastFav === null && fav) frag.appendChild(section(t('projects.favorites')));
-    else if(st.lastFav === true && !fav) frag.appendChild(section(t('projects.recent')));
-    st.lastFav = fav;
-    frag.appendChild(projSessionRow(c, c.id===st.active && !st.foreign, st.foreign));
+    if(!st.query){
+      if(st.lastFav === null && fav) frag.appendChild(section(t('projects.favorites')));
+      else if(st.lastFav === true && !fav) frag.appendChild(section(t('projects.recent')));
+      st.lastFav = fav;
+    }
+    frag.appendChild(projSessionRow(c, c.id===st.active && !st.foreign, st.foreign, st.query ? st.terms : null));
   }
   if(st.sentinel) box.insertBefore(frag, st.sentinel); else box.appendChild(frag);
   st.offset += list.length;
+}
+
+// Souligne les termes de recherche dans un texte, en échappant chaque morceau
+// SÉPARÉMENT. Échapper d'abord puis insérer des <mark> casserait les entités HTML
+// (un « & » du texte se retrouverait coincé dans « &amp; »). Insensible à la casse ;
+// les termes sont des fragments littéraires, pas des regex.
+function _hlTerms(text, terms){
+  const src = String(text==null?'':text);
+  const pat = (terms||[]).map(x=>String(x||'')).filter(Boolean)
+    .map(x=>x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  if(!pat) return escHtml(src);
+  let out = '', last = 0; const re = new RegExp(pat, 'gi'); let m;
+  while((m = re.exec(src))){
+    out += escHtml(src.slice(last, m.index)) + '<mark class="sess-hl">' + escHtml(m[0]) + '</mark>';
+    last = m.index + m[0].length;
+    if(m.index === re.lastIndex) re.lastIndex++; // terme vide : évite la boucle infinie
+  }
+  return out + escHtml(src.slice(last));
 }
 
 // setupSessSentinel pose une sentinelle en bas de liste ; quand elle approche de
@@ -295,7 +388,7 @@ async function loadMoreSessions(box, st, all){
   }
 }
 
-function projSessionRow(c, active, foreign){
+function projSessionRow(c, active, foreign, terms){
   const genHere = LIVE_GENERATING && active; // la conversation vive, en cours de génération
   const unseenHere = active && !genHere && (typeof PENDING_LIVE!=='undefined' && PENDING_LIVE); // réponse finie non lue
   const row = document.createElement('div'); row.className = 'sess-row' + (active?' active':'');
@@ -311,7 +404,21 @@ function projSessionRow(c, active, foreign){
   row.onclick = onOpen;
   row.onkeydown = (e)=>{ if((e.key==='Enter'||e.key===' ') && e.target===row){ e.preventDefault(); onOpen(); } };
   const info = document.createElement('div'); info.className = 'sess-info';
-  const name = document.createElement('div'); name.className = 'sess-name'; name.textContent = c.title || t('projects.conversation_fallback');
+  const name = document.createElement('div'); name.className = 'sess-name';
+  const title = c.title || t('projects.conversation_fallback');
+  // En recherche, on surligne les termes là où ils apparaissent ; sinon rendu
+  // littéral, comme avant.
+  if(terms && terms.length) name.innerHTML = _hlTerms(title, terms); else name.textContent = title;
+  info.appendChild(name);
+  // Extrait (début du premier texte visible), muted sous le titre. Il peut ne PAS
+  // contenir le terme (correspondance plus loin dans la conversation) — d'où les
+  // puces de termes ci-dessous, sans quoi une correspondance de corps semblerait
+  // un faux positif.
+  if(c.snippet){
+    const snip = document.createElement('div'); snip.className = 'sess-snippet';
+    if(terms && terms.length) snip.innerHTML = _hlTerms(c.snippet, terms); else snip.textContent = c.snippet;
+    info.appendChild(snip);
+  }
   const meta = document.createElement('div'); meta.className = 'sess-meta';
   const n = c.turns || 0;
   meta.textContent = fmtHistDate(c.saved_at) + ' · ' + n + ' ' + t('projects.message_label') + (n>1?'s':'');
@@ -319,7 +426,14 @@ function projSessionRow(c, active, foreign){
   // réponse y a été générée sans être vue, un point de notif accent.
   if(genHere){ const g=document.createElement('span'); g.className='sess-gen'; g.innerHTML='<span class="spinner"></span><span>'+t('projects.generating_here')+'</span>'; meta.appendChild(g); }
   else if(unseenHere){ const d=document.createElement('span'); d.className='sess-unseen'; d.title=t('projects.unseen_response'); meta.appendChild(d); }
-  info.appendChild(name); info.appendChild(meta);
+  info.appendChild(meta);
+  // Puces « pourquoi ça correspond » : les termes réellement cherchés par le serveur.
+  if(terms && terms.length){
+    const chips = document.createElement('div'); chips.className = 'sess-terms';
+    chips.setAttribute('aria-label', t('projects.search_matched_terms'));
+    for(const term of terms){ const sp = document.createElement('span'); sp.className = 'sess-term'; sp.textContent = term; chips.appendChild(sp); }
+    info.appendChild(chips);
+  }
   row.appendChild(info);
   // Menu ⋮ (Favori / Renommer / Supprimer) — comme les projets, plus de crayon/poubelle.
   const menu = document.createElement('button');
