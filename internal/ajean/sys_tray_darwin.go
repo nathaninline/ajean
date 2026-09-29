@@ -35,7 +35,7 @@ func runTray(url string) {
 			for {
 				select {
 				case <-mOpen.ClickedCh:
-					_ = openBrowser(url)
+					_ = openAppWindow(url)
 				case <-mQuit.ClickedCh:
 					systray.Quit()
 					return

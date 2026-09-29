@@ -1,21 +1,13 @@
-Version corrective : les presets distants (API externe, GPU Cloud) ne bloquent plus les commandes du moteur et ne font plus perdre le chemin de llama.cpp, et un changement de preset en pleine réponse ne reste plus bloqué une minute et demie.
+AJEAN s'ouvre désormais dans sa propre fenêtre, comme une application, au lieu d'un onglet de plus dans le navigateur.
 
-## Corrections
+## Interface
 
-- **Changement de preset bloqué 90 secondes** : llama-server ignore la demande d'arrêt tant qu'il écrit une réponse. Un changement de preset (ou un redémarrage) pendant une génération attendait donc le délai par défaut de systemd, 90 secondes, avant que le moteur soit arrêté de force ; pendant ce temps, l'interface semblait ne plus répondre et les clics suivants s'empilaient. Le moteur est désormais arrêté au bout de 5 secondes au maximum (il n'a rien à sauvegarder). Mesuré : 1 s au repos, 5 s en pleine génération, contre 91 s auparavant.
-- **`ajean start` et `ajean restart` refusés sur un preset distant** : la vérification préalable exigeait `BIN` et `MODEL` même pour un preset API externe ou GPU Cloud, qui n'en ont pas besoin, et invitait à tort à réinstaller llama.cpp. Elle est ignorée pour ces presets (issue #95).
-- **Chemin de llama.cpp perdu après une bascule vers un preset externe** : un preset externe ne contenait pas les réglages de la machine (`BIN`, `HOST`, `PORT`). Sur une installation sans preset local, basculer dessus effaçait `BIN`, que plus rien ne contenait ensuite : la seule issue était de réinstaller llama.cpp. Ces réglages sont désormais enregistrés dans le preset externe, à la création comme à la modification.
-
-Merci à @Olioli4 pour les deux dernières corrections (#97).
+- **Fenêtre dédiée** : au lancement (double-clic sur l'application, ou « Ouvrir AJEAN » depuis l'icône de la zone de notification / de la barre de menus), l'interface s'ouvre dans une fenêtre sans onglets ni barre d'adresse, avec sa propre icône dans la barre des tâches ou le Dock. Relancer AJEAN ne multiplie plus les onglets dans le navigateur habituel.
+- La fenêtre s'appuie sur un navigateur de la famille Chromium déjà présent sur la machine : Microsoft Edge sous Windows (installé d'office), Chrome, Edge, Brave ou Chromium sous macOS et Linux. Elle utilise un profil séparé, distinct de la navigation de tous les jours. Sans navigateur compatible, AJEAN retombe sur le navigateur par défaut, comme avant.
+- Pour revenir à l'ancien comportement (onglet dans le navigateur par défaut) : variable d'environnement `AJEAN_BROWSER=1`.
 
 ## Mise à jour
 
     ajean update
 
-Le délai d'arrêt de 5 secondes s'applique aux nouvelles installations (unité systemd écrite par `sudo ajean install`). Sur une installation existante, il peut être ajouté sans toucher à l'unité :
-
-    sudo mkdir -p /etc/systemd/system/ajean-engine.service.d
-    printf '[Service]\nTimeoutStopSec=5\n' | sudo tee /etc/systemd/system/ajean-engine.service.d/stop-timeout.conf
-    sudo systemctl daemon-reload
-
-Vérifié sur un serveur Linux (délai d'arrêt mesuré en génération et au repos, bascules entre presets locaux et moteur tiers). Les deux corrections des presets distants sont couvertes par des tests automatiques ; elles n'ont pas été rejouées sur une installation neuve.
+Vérifié sous Windows (fenêtre Edge dédiée). Le comportement sous macOS et Linux n'a pas été testé sur une vraie machine.

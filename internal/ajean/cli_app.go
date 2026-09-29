@@ -37,7 +37,7 @@ func cmdApp(args []string) error {
 		// AJEAN tourne déjà sur ce port : on ouvre juste l'UI sur l'instance
 		// existante plutôt que d'échouer.
 		fmt.Printf("AJEAN est déjà lancé — ouverture de %s\n", url)
-		return openBrowser(url)
+		return openAppWindow(url)
 	}
 
 	// UN SEUL process propriétaire de la conversation, comme le service ajean-ui
@@ -62,7 +62,7 @@ func cmdApp(args []string) error {
 
 	sp := showSplash("Lancement d'AJEAN en cours…")
 	waitServerReady(url)
-	_ = openBrowser(url)
+	_ = openAppWindow(url)
 	time.Sleep(900 * time.Millisecond) // laisse le navigateur s'afficher par-dessus le splash
 	sp.close()
 
