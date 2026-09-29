@@ -169,6 +169,24 @@ func imageMime(name string) string {
 	return imageMimes[strings.ToLower(filepath.Ext(name))]
 }
 
+// videoMimes : les extensions qu'on peut ENVOYER AU MODÈLE comme vidéo (contenu
+// multimodal input_video), quand la vision est active. Le moteur (llama-server)
+// décode les frames lui-même via ffmpeg ; un format hors de cette liste reste
+// un simple fichier du workspace.
+var videoMimes = map[string]string{
+	".mp4":  "video/mp4",
+	".webm": "video/webm",
+	".mov":  "video/quicktime",
+	".mkv":  "video/x-matroska",
+	".avi":  "video/x-msvideo",
+}
+
+// videoMime renvoie le type MIME vidéo d'un nom de fichier, ou "" si ce n'est
+// pas une vidéo qu'on sait montrer au modèle.
+func videoMime(name string) string {
+	return videoMimes[strings.ToLower(filepath.Ext(name))]
+}
+
 // visionEnabled dit si le modèle actif sait recevoir des images. Deux cas :
 //   - preset LOCAL : un projecteur multimodal est configuré (clé MMPROJ), ce qui
 //     fait passer --mmproj au moteur (backend_serve.go) ;
@@ -184,19 +202,20 @@ func visionEnabled() bool {
 	return externalVisionActive() || cloudVisionActive()
 }
 
-// visionImageNote annonce au modèle les images qu'il VOIT déjà en ligne (parties
-// image_url ajoutées juste après le texte). Elle est distincte de attachNote : on
-// dit explicitement que l'image est sous ses yeux et qu'il n'a PAS à la rouvrir
-// avec see_image (sinon, en mode agent, il rappelle l'outil pour « re-regarder »
-// une image déjà affichée). Le chemin reste donné, mais seulement pour la
-// manipuler comme fichier (la convertir, la recadrer avec un outil).
-func visionImageNote(files []attachInfo) string {
+// visionMediaNote annonce au modèle les médias (images + vidéos) qu'il VOIT déjà
+// en ligne (parties image_url / input_video ajoutées juste après le texte). Elle
+// est distincte de attachNote : on dit explicitement que le média est sous ses
+// yeux et qu'il n'a PAS à le rouvrir avec see_image/see_video (sinon, en mode
+// agent, il rappelle l'outil pour « re-regarder » un média déjà affiché). Le
+// chemin reste donné, mais seulement pour le manipuler comme fichier (le
+// convertir, le recadrer avec un outil).
+func visionMediaNote(files []attachInfo) string {
 	if len(files) == 0 {
 		return ""
 	}
-	head := "Image jointe à ce message, que tu vois directement ci-dessous — ne la rouvre PAS avec see_image, tu l'as déjà sous les yeux. Son chemin ne sert que si tu dois la manipuler comme fichier :"
+	head := "Média joint à ce message, que tu vois directement ci-dessous — ne le rouvre PAS avec see_image/see_video, tu l'as déjà sous les yeux. Son chemin ne sert que si tu dois le manipuler comme fichier :"
 	if len(files) > 1 {
-		head = "Images jointes à ce message, que tu vois directement ci-dessous — ne les rouvre PAS avec see_image, tu les as déjà sous les yeux. Leur chemin ne sert que si tu dois les manipuler comme fichiers :"
+		head = "Médias joints à ce message, que tu vois directement ci-dessous — ne les rouvre PAS avec see_image/see_video, tu les as déjà sous les yeux. Leurs chemins ne servent que si tu dois les manipuler comme fichiers :"
 	}
 	var lines []string
 	for _, f := range files {
@@ -207,16 +226,17 @@ func visionImageNote(files []attachInfo) string {
 
 // userMessageContent construit le champ Content du message utilisateur. Cas
 // courant : une simple chaîne (note des fichiers joints + texte). Quand la vision
-// est active ET qu'au moins une pièce jointe est une image, on renvoie le format
-// multimodal d'OpenAI — une partie `text` suivie d'une partie `image_url` par
-// image (data URI base64) — que llama-server comprend une fois --mmproj chargé :
-// le modèle VOIT alors l'image.
+// est active ET qu'au moins une pièce jointe est une image ou une vidéo, on
+// renvoie le format multimodal — une partie `text` suivie d'une partie
+// `image_url` par image (data URI base64) et d'une partie `input_video` par
+// vidéo — que llama-server comprend une fois --mmproj chargé : le modèle VOIT
+// alors l'image / la vidéo.
 //
-// Deux besoins distincts : voir l'image (elle part en ligne) et pouvoir agir sur
-// le FICHIER (la convertir, l'analyser avec un outil). D'où deux notes séparées —
-// les images via visionImageNote (déjà visibles, chemin pour manipulation), les
+// Deux besoins distincts : voir le média (il part en ligne) et pouvoir agir sur
+// le FICHIER (le convertir, l'analyser avec un outil). D'où deux notes séparées —
+// les médias via visionMediaNote (déjà visibles, chemin pour manipulation), les
 // autres fichiers via attachNote — pour que le modèle ne confonde pas « voir » et
-// « ouvrir », et ne rappelle pas see_image sur une image qu'il a déjà.
+// « ouvrir », et ne rappelle pas see_image/see_video sur un média qu'il a déjà.
 func userMessageContent(files []attachInfo, prompt string) any {
 	if !visionEnabled() {
 		return attachNote(files) + prompt
@@ -225,36 +245,54 @@ func userMessageContent(files []attachInfo, prompt string) any {
 	if err != nil {
 		return attachNote(files) + prompt
 	}
-	var imgParts []map[string]any
-	var imgFiles, otherFiles []attachInfo
+	var imgParts, vidParts []map[string]any
+	var mediaFiles, otherFiles []attachInfo
 	for _, f := range files {
-		mime := imageMime(f.Name)
-		if mime == "" {
-			otherFiles = append(otherFiles, f)
+		if mime := imageMime(f.Name); mime != "" {
+			b, err := os.ReadFile(filepath.Join(dir, f.Name))
+			if err != nil {
+				otherFiles = append(otherFiles, f) // illisible ici : au moins l'annoncer comme fichier
+				continue
+			}
+			// Redresse l'orientation EXIF et redimensionne les images trop grandes
+			// avant l'envoi (base64 + tokens visuels) — voir prepareImageForModel.
+			b, mime = prepareImageForModel(b, mime)
+			imgParts = append(imgParts, map[string]any{
+				"type": "image_url",
+				"image_url": map[string]any{
+					"url": "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(b),
+				},
+			})
+			mediaFiles = append(mediaFiles, f)
 			continue
 		}
-		b, err := os.ReadFile(filepath.Join(dir, f.Name))
-		if err != nil {
-			otherFiles = append(otherFiles, f) // illisible ici : au moins l'annoncer comme fichier
+		if mime := videoMime(f.Name); mime != "" {
+			b, err := os.ReadFile(filepath.Join(dir, f.Name))
+			if err != nil {
+				otherFiles = append(otherFiles, f)
+				continue
+			}
+			// Pas de redimensionnement : le moteur décode et échantillonne les
+			// frames lui-même (ffmpeg). On n'envoie que le fichier.
+			vidParts = append(vidParts, map[string]any{
+				"type": "input_video",
+				"input_video": map[string]any{
+					"url": "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(b),
+				},
+			})
+			mediaFiles = append(mediaFiles, f)
 			continue
 		}
-		// Redresse l'orientation EXIF et redimensionne les images trop grandes
-		// avant l'envoi (base64 + tokens visuels) — voir prepareImageForModel.
-		b, mime = prepareImageForModel(b, mime)
-		imgParts = append(imgParts, map[string]any{
-			"type": "image_url",
-			"image_url": map[string]any{
-				"url": "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(b),
-			},
-		})
-		imgFiles = append(imgFiles, f)
+		otherFiles = append(otherFiles, f)
 	}
-	if len(imgParts) == 0 {
+	if len(imgParts) == 0 && len(vidParts) == 0 {
 		return attachNote(files) + prompt
 	}
-	note := attachNote(otherFiles) + visionImageNote(imgFiles)
+	note := attachNote(otherFiles) + visionMediaNote(mediaFiles)
 	parts := []map[string]any{{"type": "text", "text": note + prompt}}
-	return append(parts, imgParts...)
+	parts = append(parts, imgParts...)
+	parts = append(parts, vidParts...)
+	return parts
 }
 
 // workspaceRel dit si `abs` se trouve DANS le dossier de travail de l'agent et,

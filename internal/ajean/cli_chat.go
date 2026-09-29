@@ -1086,6 +1086,8 @@ func toolTitle(name string) string {
 		return "Édition"
 	case "see_image":
 		return "Image"
+	case "see_video":
+		return "Vidéo"
 	}
 	return name
 }

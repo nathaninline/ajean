@@ -85,6 +85,7 @@ func countUserTurns(log []LogEvent) int {
 
 func saveArchive(a *convArchive) error {
 	refImagesInMessages(a.Messages) // images par référence (chat_images.go)
+	refVideosInMessages(a.Messages) // vidéos par référence (chat_video.go)
 	// Chiffré si le chiffrement est actif ET déverrouillé (le fil ET son titre
 	// d'index contiennent des infos). Verrouillé : putStoreJSON refuse d'écrire du
 	// clair (errStoreLocked) — on ne dégrade jamais un blob chiffré.
