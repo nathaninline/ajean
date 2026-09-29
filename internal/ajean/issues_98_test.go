@@ -604,6 +604,161 @@ func TestHistSearchIndexesVisibleTextOnly(t *testing.T) {
 	}
 }
 
+// --- 16. correspondance par PRÉFIXE (défaut n°1, base réelle) -------------------
+
+// #98 : un terme doit trouver les tokens qui COMMENCENT par lui. « compil » doit
+// trouver une session dont le CORPS ne contient que « compiling ». Constaté en usage
+// réel : « compiling » rendait 2 sessions, « compil » 0 — la lecture à clé EXACTE
+// (b.Get) ne voyait pas le préfixe. La session B au corps sans rapport ne doit pas
+// ressortir (le préfixe n'est pas devenu « tout matche »).
+func TestHistSearchPrefixMatchesBody(t *testing.T) {
+	histSetup(t)
+	histArchive(t, "A", "generale", "Sujet neutre", 100, false,
+		[]LogEvent{histUser(1, "on passe du temps à compiling le binaire")})
+	histArchive(t, "B", "generale", "Autre", 200, false,
+		[]LogEvent{histUser(1, "rien à voir ici")})
+
+	res := histSearch("compil", "", 0, 0)
+	if res.Total != 1 || len(res.Hits) != 1 || res.Hits[0].ID != "A" {
+		t.Fatalf("compil devait trouver A (corps « compiling »), obtenu %+v", res.Hits)
+	}
+}
+
+// --- 17. garde-fous INVERSES du préfixe ----------------------------------------
+
+// #98 : deux façons dont le préfixe ne doit PAS dégénérer. 1) Un préfixe qui ne
+// commence aucun token (« compilo ») ne rend rien : matcher tout mot plus long serait
+// un « contient », pas un préfixe. 2) Le MILIEU d'un mot ne matche pas (« eepseek »
+// sur « deepseek ») — c'est précisément ce qui empêche une future « amélioration » en
+// sous-chaîne de passer inaperçue (exigence explicite : pas de mid-word).
+//
+// « deepseek » est placé dans un TITRE (et non seulement dans un corps) à dessein : le
+// scan du corps, borné par Seek au préfixe « p|eepseek », ne peut de toute façon pas
+// atteindre un token qui trie AVANT le terme (« deepseek » < « eepseek ») — une
+// mutation du seul prédicat n'y produit rien d'observable. Le titre, lui, énumère tous
+// ses tokens via histSetMatches : c'est là qu'une bascule HasPrefix → Contains se voit.
+func TestHistSearchPrefixRejectsNonPrefix(t *testing.T) {
+	histSetup(t)
+	histArchive(t, "A", "generale", "compiling", 100, false,
+		[]LogEvent{histUser(1, "compiling le binaire")})
+	histArchive(t, "B", "generale", "deepseek", 200, false,
+		[]LogEvent{histUser(1, "on parle deepseek ici")})
+
+	cases := []struct {
+		q    string
+		desc string
+	}{
+		{"compilo", "préfixe ne commençant aucun token"},
+		{"eepseek", "milieu du mot « deepseek »"},
+	}
+	for _, c := range cases {
+		res := histSearch(c.q, "", 0, 0)
+		if res.Total != 0 || len(res.Hits) != 0 {
+			t.Fatalf("%s : %q ne devait rien trouver, obtenu total=%d %+v", c.desc, c.q, res.Total, res.Hits)
+		}
+	}
+}
+
+// --- 18. le TITRE suit la MÊME règle de préfixe que le corps -------------------
+
+// #98 : « compil » doit trouver un titre « Compilation annuelle » (même règle
+// histTermMatches, servie à l'ensemble de tokens du titre). Le score du titre (+2)
+// doit placer A devant B, trouvée par le corps (+1) : c'est la même échelle qu'avant.
+func TestHistSearchPrefixMatchesTitle(t *testing.T) {
+	histSetup(t)
+	histArchive(t, "A", "generale", "Compilation annuelle", 100, false,
+		[]LogEvent{histUser(1, "corps neutre")})
+	histArchive(t, "B", "generale", "Sujet divers", 200, false,
+		[]LogEvent{histUser(1, "on finit le compiling")})
+
+	res := histSearch("compil", "", 0, 0)
+	if res.Total != 2 || len(res.Hits) != 2 {
+		t.Fatalf("2 résultats attendus (titre A + corps B), obtenu total=%d %+v", res.Total, res.Hits)
+	}
+	if res.Hits[0].ID != "A" {
+		t.Fatalf("le titre (score +2) doit primer le corps (+1) : A attendu en tête, obtenu %+v", res.Hits)
+	}
+}
+
+// --- 19. le préfixe compte UNE fois par terme et par session ------------------
+
+// #98 : un préfixe peut matcher PLUSIEURS tokens de la même session ; le score reste
+// « nombre de TERMES distincts trouvés », pas « nombre de tokens ». A (plus ANCIENNE)
+// contient trois variantes « compil* », B (plus RÉCENTE) une seule. À une
+// incrémentation PAR TOKEN, A marquerait 3 et passerait devant B — l'ordre
+// s'inverserait alors que la même requête les touche à égalité (1 terme chacune).
+func TestHistSearchPrefixCountsTermOnce(t *testing.T) {
+	histSetup(t)
+	histArchive(t, "A", "generale", "Neutre", 100, false,
+		[]LogEvent{histUser(1, "compiling compilation compiled")})
+	histArchive(t, "B", "generale", "Neutre", 200, false,
+		[]LogEvent{histUser(1, "on a fini de compiling")})
+
+	res := histSearch("compil", "", 0, 0)
+	if res.Total != 2 || len(res.Hits) != 2 {
+		t.Fatalf("2 résultats attendus, obtenu total=%d %+v", res.Total, res.Hits)
+	}
+	if res.Hits[0].ID != "B" || res.Hits[1].ID != "A" {
+		t.Fatalf("score par TERME attendu (A et B à égalité, B plus récente) → [B A] ; obtenu %s %s — incrément par token ?",
+			res.Hits[0].ID, res.Hits[1].ID)
+	}
+}
+
+// --- 20. la session VIVE suit la même règle de préfixe ------------------------
+
+// #98 : la session active est tokenisée en mémoire (elle n'a pas de postings). Elle
+// doit répondre au préfixe comme le corps indexé — même règle, troisième consommateur.
+//
+// Le mot recherché est placé dans un événement « content » (réponse assistant) et NON
+// dans le premier message utilisateur : le titre de la session vive est dérivé de ce
+// premier message (archiveTitle), donc l'y mettre ferait matcher la session par son
+// TITRE — et le chemin du corps vif resterait non exercé. Ici le titre vaut « salut »,
+// seul le CORPS vif porte « compilation » : le test mord sur le corps de la session vive.
+func TestHistSearchPrefixMatchesLiveSession(t *testing.T) {
+	histSetup(t)
+	histArchive(t, "A", "generale", "Autre", 100, false,
+		[]LogEvent{histUser(1, "rien de spécial")})
+	histSetLive(t, "live1", "generale", "", []LogEvent{histUser(1, "salut"), histContent(2, "on parle de compilation ici")})
+
+	res := histSearch("compil", "", 0, 0)
+	if res.Total != 1 || len(res.Hits) != 1 || res.Hits[0].ID != "live1" {
+		t.Fatalf("la session vive devait ressortir sur « compil » (corps « compilation »), obtenu %+v", res.Hits)
+	}
+}
+
+// --- 21. couverture : une fiche chatmeta SANS corps n'est pas « à indexer » ---
+
+// #98 (défaut n°2, base réelle) : une session peut avoir une fiche chatmeta SANS
+// corps dans chathist (incohérence pré-existante tolérée ailleurs — le cas MIROIR est
+// traité par listAllArchives). Le rattrapage itère allKeys(bkChatHist) : cette session
+// n'aura JAMAIS de fiche d'index. La compter au dénominateur bloquait la couverture à
+// 13/14 à jamais (constaté : stable pendant des minutes, /api/chat/peek rendant 404),
+// l'UI affichant « indexation en cours » en permanence. Le dénominateur doit ranger sur
+// le MÊME ensemble que le rattrapage : chatmeta ∩ chathist, plus la session vive.
+func TestHistSearchCoverageIgnoresMetaWithoutBody(t *testing.T) {
+	histSetup(t)
+	histArchive(t, "normale", "generale", "Sujet", 100, false,
+		[]LogEvent{histUser(1, "le phare")})
+	// Fiche chatmeta ORPHELINE : AUCUN corps dans chathist — l'équivalent réel d'une
+	// session dont /api/chat/peek?id= rend 404.
+	if err := putStoreJSON(bkChatMeta, "orpheline", convArchiveMeta{ID: "orpheline", Project: "generale",
+		Title: "sans corps", SavedAt: 200}); err != nil {
+		t.Fatal(err)
+	}
+
+	res := histSearch("phare", "", 0, 0)
+	if res.IndexedTotal != 1 {
+		t.Fatalf("indexed_total attendu 1 (seule la session indexable), obtenu %d", res.IndexedTotal)
+	}
+	if res.Indexed != res.IndexedTotal {
+		t.Fatalf("couverture satisfaite attendue (l'orpheline ne doit pas rester « à indexer ») : %d/%d",
+			res.Indexed, res.IndexedTotal)
+	}
+	if !histHasHit(res, "normale") || histHasHit(res, "orpheline") {
+		t.Fatalf("la session normale attendue, l'orpheline exclue : %+v", res.Hits)
+	}
+}
+
 // putArchiveRaw écrit une archive dans l'historique SANS passer par l'index// plein-texte — pour simuler des sessions antérieures à #98.
 func putArchiveRaw(t *testing.T, a *convArchive) {
 	t.Helper()

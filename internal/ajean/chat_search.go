@@ -136,6 +136,35 @@ func histTokenSet(s string) map[string]bool {
 	return out
 }
 
+// histTermMatches est LA règle unique de correspondance (#98) : un token correspond à
+// un terme quand il COMMENCE par ce terme (préfixe depuis le début), jamais au milieu
+// du mot. Elle est servie aux TROIS consommateurs — corps (scan des postings), titre
+// (chatmeta) et session vive — et ne doit pas être réécrite ailleurs : trois
+// implémentations divergentes seraient trois comportements à dériver.
+//
+// Le repli des accents est fait en amont, symétriquement à l'indexation et à la
+// requête (voir le commentaire de tête) : la comparaison ici est purement lexicale.
+// Préfixe DEPUIS LE DÉBUT seulement : « eepseek » ne doit pas trouver « deepseek »
+// (garde-fou testé — c'est ce qui empêcherait une future « amélioration » en
+// sous-chaîne de passer inaperçue).
+func histTermMatches(token, term string) bool {
+	return strings.HasPrefix(token, term)
+}
+
+// histSetMatches : un terme correspond-il à l'un des tokens d'un ENSEMBLE ? Rend vrai
+// au plus UNE fois par terme, quel que soit le nombre de tokens qui portent le préfixe
+// (le score compte les TERMES, pas les tokens : une session riche en « compil* » ne
+// doit pas doubler son score pour un seul mot cherché). Sert au titre et à la session
+// vive, sur la même règle que le scan des postings du corps.
+func histSetMatches(set map[string]bool, term string) bool {
+	for tok := range set {
+		if histTermMatches(tok, term) {
+			return true
+		}
+	}
+	return false
+}
+
 // histQueryTerms replie et trie les termes de la requête, puis les plafonne. Il
 // réutilise le tokenizer de recall_search (recallTokens), jamais modifié.
 func histQueryTerms(q string) []string {
@@ -492,13 +521,14 @@ func histSearch(q, project string, offset, limit int) histSearchResult {
 
 	// Titres : scoring à partir de chatmeta (léger, toujours là). Les tokens de
 	// titre NE sont PAS indexés (chatmeta porte déjà tous les titres à bon compte).
+	// MÊME règle de préfixe que le corps (histSetMatches → histTermMatches).
 	bodyHits := map[string]int{}
 	titleHits := map[string]int{}
 	for _, m := range metas {
 		set := histTokenSet(m.Title)
 		n := 0
 		for _, t := range terms {
-			if set[t] {
+			if histSetMatches(set, t) {
 				n++
 			}
 		}
@@ -513,19 +543,33 @@ func histSearch(q, project string, offset, limit int) histSearchResult {
 	snippets := map[string]string{}
 	_ = view(bkChatSearch, func(b *bolt.Bucket) error {
 		for _, t := range terms {
-			raw := b.Get([]byte(histPostKey(t)))
-			if raw == nil {
-				continue
+			// SCAN PRÉFIXE, pas une lecture exacte : les clés « p|<token> » sont
+			// stockées TRIÉES, donc toutes celles qui portent le préfixe « p|<terme> »
+			// se suivent — on Seek sur ce préfixe et on avance tant qu'il tient.
+			// C'est la règle UNIQUE (histTermMatches) vue au niveau de la clé : « | »
+			// ne peut pas figurer dans un token, donc « préfixe de clé » équivaut à
+			// « le token commence par le terme ». Aucun changement d'index ni de
+			// stockage (défaut n°1 : « compil » ne trouvait pas « compiling »).
+			prefix := []byte(histPostKey(t))
+			matched := map[string]bool{} // un terme ne compte qu'UNE fois par session
+			c := b.Cursor()
+			for k, v := c.Seek(prefix); k != nil; k, v = c.Next() {
+				if !histTermMatches(string(k[len("p|"):]), t) {
+					break // triées : plus aucune clé ultérieure ne peut porter le préfixe
+				}
+				plain, err := decodeMemContent(v)
+				if err != nil {
+					continue
+				}
+				var ids []string
+				if json.Unmarshal(plain, &ids) != nil {
+					continue
+				}
+				for _, sid := range ids {
+					matched[sid] = true
+				}
 			}
-			plain, err := decodeMemContent(raw)
-			if err != nil {
-				continue
-			}
-			var ids []string
-			if json.Unmarshal(plain, &ids) != nil {
-				continue
-			}
-			for _, sid := range ids {
+			for sid := range matched {
 				bodyHits[sid]++
 			}
 		}
@@ -556,14 +600,14 @@ func histSearch(q, project string, offset, limit int) histSearchResult {
 		bset := histTokenSet(histVisibleText(liveLog))
 		nb := 0
 		for _, t := range terms {
-			if bset[t] {
+			if histSetMatches(bset, t) {
 				nb++
 			}
 		}
 		tset := histTokenSet(liveTitle)
 		nt := 0
 		for _, t := range terms {
-			if tset[t] {
+			if histSetMatches(tset, t) {
 				nt++
 			}
 		}
@@ -615,11 +659,25 @@ func histSearch(q, project string, offset, limit int) histSearchResult {
 	}
 	res.Hits = hits
 
-	// Couverture : le MÊME ensemble de portée, restreint aux entrées indexées (la
-	// session vive l'est par nature). Invariant : Indexed <= IndexedTotal.
+	// Couverture : le dénominateur est l'ensemble des sessions RÉELLEMENT indexables
+	// de la portée. Une fiche chatmeta SANS corps dans chathist ne le sera jamais : le
+	// rattrapage itère allKeys(bkChatHist), donc une telle session (incohérence de
+	// données pré-existante, du même ordre que le cas miroir traité par listAllArchives)
+	// ne peut recevoir aucune fiche d'index. La compter au dénominateur rendait
+	// indexed < indexed_total à JAMAIS — constaté sur la base réelle (13/14 stable
+	// pendant des minutes, /api/chat/peek de l'id manquant rendant 404), l'UI affichant
+	// « indexation en cours » en permanence. Les DEUX côtés doivent ranger sur le MÊME
+	// ensemble ; invariant conservé : Indexed <= IndexedTotal. allKeys ne copie que les
+	// CLÉS (jamais allKV, qui chargerait les corps de conversation).
+	histIDs := map[string]bool{}
+	for _, id := range allKeys(bkChatHist) {
+		histIDs[id] = true
+	}
 	scopeSet := map[string]bool{}
 	for _, m := range metas {
-		scopeSet[m.ID] = true
+		if histIDs[m.ID] {
+			scopeSet[m.ID] = true
+		}
 	}
 	if liveInScope {
 		scopeSet[liveID] = true
