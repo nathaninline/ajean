@@ -176,6 +176,33 @@ func TestHistSearchRelevanceThenDate(t *testing.T) {
 	}
 }
 
+// --- 3 bis. un favori ne prime jamais sur la pertinence -----------------------
+
+// #98 (critère d'acceptation) : un favori ne prime JAMAIS sur la pertinence. A est
+// favori ET plus récent, mais sa correspondance est un mot de CORPS (score 1) ; B,
+// non favori et plus ancien, porte le mot dans son TITRE (score 2). L'ordre
+// pertinence-d'abord doit mettre B devant — le tri « favoris d'abord » de
+// listAllArchives l'inverserait (A savedAt 300 > B 100 le ferait passer devant en
+// plus). Absent de la suite initiale : aucun test avec q= n'avait de favori.
+func TestHistSearchFavoriteDoesNotOutrankRelevance(t *testing.T) {
+	histSetup(t)
+	histArchive(t, "A", "generale", "Autre sujet", 300, true,
+		[]LogEvent{histUser(1, "un phare dans le corps")})
+	histArchive(t, "B", "generale", "Le phare", 100, false,
+		[]LogEvent{histUser(1, "corps neutre")})
+
+	res := histSearch("phare", "", 0, 0)
+	if res.Total != 2 || len(res.Hits) != 2 {
+		t.Fatalf("2 résultats attendus, obtenu total=%d hits=%+v", res.Total, res.Hits)
+	}
+	if res.Hits[0].ID != "B" {
+		t.Fatalf("la pertinence doit primer le favori : B attendu en tête, obtenu %s", res.Hits[0].ID)
+	}
+	if res.Hits[1].ID != "A" {
+		t.Fatalf("A attendu en second, obtenu %s", res.Hits[1].ID)
+	}
+}
+
 // --- 4. la session VIVE est cherchée aussi ------------------------------------
 
 // #98 : la session active n'est pas dans chathist (son corps vit dans bkChat). Un
