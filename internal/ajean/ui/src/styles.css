@@ -6,7 +6,7 @@
    Un seul thème (« Clean ») : noir et blanc, sobre. Deux variantes — claire par
    défaut, sombre via data-theme="dark" sur <html>. Toutes les couleurs de l'UI
    passent par ces variables ; rien d'autre ne code une couleur en dur. */
-:root{color-scheme:light;--font:'InterVar',Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--bubble:#f0f0f0;--bg:#ffffff;--panel:#fafafa;--border:#e0e0e2;--text:#0a0a0a;--dim:#6b6b70;--accent:#0a0a0a;--accent-bg:rgba(0,0,0,.05);--row-bg:rgba(0,0,0,.03);--row-bg-on:rgba(0,0,0,.042);--ok:#0a0a0a;--warn:#6b6b6b;--err:#c0392b;--mag:#6b6b6b;--code-bg:#f5f5f5;--danger-bg:#fbeae8;--warn-bg:#f2f2f2;--add:#1a7f37;--add-bg:rgba(26,127,55,.10);--del:#cf222e;--del-bg:rgba(207,34,46,.10)}
+:root{color-scheme:light;--font:'InterVar',Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--bubble:#f0f0f0;--bg:#fcfcfc;--panel:#ffffff;--border:#e0e0e2;--text:#0a0a0a;--dim:#6b6b70;--accent:#0a0a0a;--accent-bg:rgba(0,0,0,.05);--row-bg:rgba(0,0,0,.03);--row-bg-on:rgba(0,0,0,.042);--ok:#0a0a0a;--warn:#6b6b6b;--err:#c0392b;--mag:#6b6b6b;--code-bg:#f5f5f5;--danger-bg:#fbeae8;--warn-bg:#f2f2f2;--add:#1a7f37;--add-bg:rgba(26,127,55,.10);--del:#cf222e;--del-bg:rgba(207,34,46,.10)}
 [data-theme="dark"]{color-scheme:dark;--bubble:#232326;--bg:#0b0b0c;--panel:#161618;--border:#33333a;--text:#f2f2f4;--dim:#a0a0a8;--accent:#f5f5f5;--accent-bg:rgba(255,255,255,.07);--row-bg:rgba(255,255,255,.04);--row-bg-on:rgba(255,255,255,.055);--ok:#f5f5f5;--warn:#8e8e8e;--err:#f2777a;--mag:#8e8e8e;--code-bg:#000000;--danger-bg:#2e1a19;--warn-bg:#1c1c1c;--add:#4ac26b;--add-bg:rgba(74,194,107,.13);--del:#f85149;--del-bg:rgba(248,81,73,.13)}
 /* Safari iOS peint un rectangle gris/noir sur TOUT élément touché (bouton, lien,
    résumé de section, bulle repliable…). C'est un retour tactile par défaut, hors
@@ -2265,6 +2265,20 @@ details[open]:not(.closing)>summary>.preset-add{opacity:1;transform:none;pointer
    page, avec une ombre et un reflet en haut pour la détacher. */
 #inputbar,#ctxmeta{border:none;background:linear-gradient(var(--t2),var(--t2)),var(--bg)}
 [data-theme="dark"] #inputbar,[data-theme="dark"] #ctxmeta{background:var(--menu)}
+/* Mode clair : fond gris léger partout, la zone de saisie seule en blanc. */
+:root:not([data-theme="dark"]) #inputbar,:root:not([data-theme="dark"]) #ctxmeta{background:#fff}
+/* Mode clair calqué sur le sombre : surfaces plates à un cran d'écart, sans ombre.
+   Fil gris léger, menu latéral et zone de saisie blancs, éléments plus pâles. */
+:root:not([data-theme="dark"]){
+  --t1:color-mix(in srgb,var(--text) 3.5%,transparent);
+  --t2:color-mix(in srgb,var(--text) 5%,transparent);
+  --t3:color-mix(in srgb,var(--text) 8%,transparent);
+}
+/* Zone de saisie : contour fin et ombre très légère. Chaque
+   moitié coupe son ombre à la jonction pour ne pas tracer de trait entre elles. */
+:root:not([data-theme="dark"]) #inputbar,:root:not([data-theme="dark"]) #ctxmeta{box-shadow:0 0 0 1px rgba(0,0,0,.035),0 1px 2px rgba(0,0,0,.03),0 4px 14px rgba(0,0,0,.045)}
+:root:not([data-theme="dark"]) #inputbar{clip-path:inset(-24px -24px 0 -24px)}
+:root:not([data-theme="dark"]) #ctxmeta{clip-path:inset(0 -24px -24px -24px)}
 [data-theme="dark"] #inputbar{box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 -8px 22px -14px rgba(0,0,0,.6)}
 [data-theme="dark"] #ctxmeta{box-shadow:0 10px 22px -14px rgba(0,0,0,.6)}
 #ctxmeta{margin-top:-1px} /* recouvre le liseré sous-pixel entre les deux moitiés */

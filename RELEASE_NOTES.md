@@ -1,12 +1,13 @@
-Petites corrections d'interface sur la 0.17.1.
+Mode clair revu : moins de contrastes, une zone de saisie bien détachée.
 
 ## Interface
 
-- **Sans carte graphique**, un trait de séparation restait affiché seul au-dessus de la carte « Mémoire vive » depuis le retrait de la mention « (pas de GPU) ». Il n'apparaît plus.
-- **Changement de mode** : quand changer de mode démarre une nouvelle conversation, l'ancien fil s'efface désormais en fondu et le fil vierge apparaît en douceur, au lieu de disparaître d'un coup. L'animation est désactivée si le système demande de réduire les animations.
+- **Mode clair plus doux**, sur le modèle du mode sombre : surfaces plates séparées par un léger écart de teinte. Le menu latéral est blanc, la zone de discussion d'un gris très léger, et les éléments grisés (cartes, pastilles, champs, survols) sont plus pâles.
+- **Zone de saisie** : blanche, avec un contour très fin et une ombre légère qui la détachent du fond sans trait entre la ligne de saisie et la ligne d'informations.
+- Le mode sombre est inchangé.
 
 ## Mise à jour
 
     ajean update
 
-Vérifié dans le navigateur (avec et sans carte graphique, changement de mode). Non testé sur mobile ni sur macOS.
+Vérifié dans le navigateur sur ordinateur. Non testé sur mobile ni sur macOS.
