@@ -411,6 +411,7 @@ details>summary+.subhead{margin-top:4px}
 .stat{padding:9px 10px;display:flex;flex-direction:column;gap:6px}
 .stat:not(:last-child){border-bottom:1px solid var(--border)}
 #ram-details{border-top:1px solid var(--border)}
+#vram:empty+#ram-details{border-top:0} 
 .stat-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
 .stat-n{font-size:12.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .stat-v{flex:none;font-size:12.5px;color:var(--text);font-variant-numeric:tabular-nums}
@@ -1478,6 +1479,10 @@ details[open]:not(.closing)>summary>.preset-add{opacity:1;transform:none;pointer
 }
 .btn-primary,.btn-primary:hover{border:none;background:var(--text);color:var(--bg)}
 .btn-primary:hover{background:color-mix(in srgb,var(--text) 85%,transparent)}
+#chat.chat-out>*{opacity:0;transform:translateY(-6px);transition:opacity .2s ease,transform .2s ease}
+#chat.chat-in{animation:chat-in .28s ease}
+@keyframes chat-in{from{opacity:0;transform:translateY(6px)}}
+@media (prefers-reduced-motion: reduce){#chat.chat-in{animation:none}}
 </style></head><body>
 <button id="menubtn" onclick="toggleSide()" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
 <button id="lc-chip" onclick="lcChipOpen()" hidden></button>
@@ -7888,7 +7893,22 @@ function addCopyButtons(root){
     (scope.querySelector('.tool-actions')||pre).appendChild(btn);
   });
 }
-function resetChat(){ jfetch('/api/chat/reset',{method:'POST'}).catch(()=>{}); toast(t('chat.new_conversation')); }
+function resetChat(){
+  const chat=document.getElementById('chat');
+  const go=()=>{ jfetch('/api/chat/reset',{method:'POST'}).catch(()=>{}); toast(t('chat.new_conversation')); };
+  if(!chat || !chat.querySelector('.msg') || matchMedia('(prefers-reduced-motion: reduce)').matches){ go(); return; }
+  chat.classList.remove('chat-in'); chat.classList.add('chat-out');
+  clearTimeout(resetChat.t); resetChat.t=setTimeout(()=>chat.classList.remove('chat-out'), 4000);
+  setTimeout(go, 200);
+}
+function chatClearAnimated(){
+  const chat=document.getElementById('chat'); if(!chat) return;
+  chat.innerHTML='';
+  if(chat.classList.contains('chat-out')){
+    clearTimeout(resetChat.t); chat.classList.remove('chat-out');
+    chat.classList.remove('chat-in'); void chat.offsetWidth; chat.classList.add('chat-in');
+  }
+}
 function newChatFromTop(){
   const c=document.getElementById('chat');
   if(c && !c.querySelector('.msg')){ document.getElementById('input')?.focus(); return; }
@@ -8427,7 +8447,7 @@ function handleDelta(d){
     if(d.replay) REPLAYING=true;
     if(d.id!==undefined && (d.id||'')!==CONV_ID) HIST_FULL=false; 
     if(d.id!==undefined) CONV_ID=d.id||''; 
-    TURN_ENDED=true; elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDS=[]; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); setCompactCount(0); lastSeq=0; setBusy(false); return; }
+    TURN_ENDED=true; elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDS=[]; chatClearAnimated(); newTurn(); setCtxUsed(0); setCompactCount(0); lastSeq=0; setBusy(false); return; }
   if(d.history_more!==undefined){ showHistoryMore(d.history_more); return; }
   if(d.user!==undefined){
     newTurn();

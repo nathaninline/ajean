@@ -521,7 +521,26 @@ function addCopyButtons(root){
 }
 // Nouvelle conversation POUR TOUS LES APPAREILS : le serveur vide le fil et
 // diffuse un {reset} ; le flux d'abonnement nettoie alors l'affichage.
-function resetChat(){ jfetch('/api/chat/reset',{method:'POST'}).catch(()=>{}); toast(t('chat.new_conversation')); }
+// Nouvelle conversation : le fil s'efface en fondu AVANT la demande au serveur,
+// puis son reset vide le chat (chatClearAnimated) et le fil vierge apparaît.
+function resetChat(){
+  const chat=document.getElementById('chat');
+  const go=()=>{ jfetch('/api/chat/reset',{method:'POST'}).catch(()=>{}); toast(t('chat.new_conversation')); };
+  if(!chat || !chat.querySelector('.msg') || matchMedia('(prefers-reduced-motion: reduce)').matches){ go(); return; }
+  chat.classList.remove('chat-in'); chat.classList.add('chat-out');
+  // Filet : si le reset n'arrive jamais (réseau), le fil réapparaît.
+  clearTimeout(resetChat.t); resetChat.t=setTimeout(()=>chat.classList.remove('chat-out'), 4000);
+  setTimeout(go, 200);
+}
+// Vide le fil ; s'il sortait en fondu (resetChat), le fil vierge entre en fondu.
+function chatClearAnimated(){
+  const chat=document.getElementById('chat'); if(!chat) return;
+  chat.innerHTML='';
+  if(chat.classList.contains('chat-out')){
+    clearTimeout(resetChat.t); chat.classList.remove('chat-out');
+    chat.classList.remove('chat-in'); void chat.offsetWidth; chat.classList.add('chat-in');
+  }
+}
 // ===== Sessions ============================================================
 // Chaque conversation est une session persistante à id stable. Le modal les
 // gère : ouvrir (garde tout dans la liste), renommer, favori, supprimer, et

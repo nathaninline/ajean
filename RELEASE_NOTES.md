@@ -1,20 +1,12 @@
-Correctif de la 0.17.0 : fenêtre AJEAN grise au lancement sous Windows, et une conversation garde désormais son mode.
-
-## Corrections
-
-- **Windows : fenêtre grise et inerte au premier lancement** (#101). Depuis l'ouverture dans une fenêtre dédiée (0.16.6), la première fenêtre restait un cadre gris impossible à déplacer, qu'il fallait fermer en tuant Edge, ce qui fermait aussi AJEAN. Le navigateur était lancé avec une consigne « fenêtre masquée » destinée aux programmes en console, qu'Edge appliquait à la fenêtre AJEAN. La fenêtre s'affiche maintenant normalement dès le premier lancement.
-
-## Modes de chat
-
-- **Une conversation garde le mode dans lequel elle a commencé** (Rapide, Projet ou Modèle de base). Changer de mode pendant une conversation en démarre une nouvelle, et rouvrir une conversation depuis l'historique (ou depuis un autre appareil) remet le sélecteur sur son mode. Le prompt, les outils et le contexte restent ainsi cohérents d'un bout à l'autre de la conversation.
-- Si le premier message est refusé (modèle encore en chargement), le mode n'est pas figé.
+Petites corrections d'interface sur la 0.17.1.
 
 ## Interface
 
-- Plus de mention « (pas de GPU) » dans la carte Appareil ni « (aucune tâche) » dans la section Tâches : ces zones restent simplement vides.
+- **Sans carte graphique**, un trait de séparation restait affiché seul au-dessus de la carte « Mémoire vive » depuis le retrait de la mention « (pas de GPU) ». Il n'apparaît plus.
+- **Changement de mode** : quand changer de mode démarre une nouvelle conversation, l'ancien fil s'efface désormais en fondu et le fil vierge apparaît en douceur, au lieu de disparaître d'un coup. L'animation est désactivée si le système demande de réduire les animations.
 
 ## Mise à jour
 
     ajean update
 
-Vérifié sous Windows (fenêtre AJEAN avec un profil neuf, relance) et dans le navigateur. Non testé sur macOS.
+Vérifié dans le navigateur (avec et sans carte graphique, changement de mode). Non testé sur mobile ni sur macOS.

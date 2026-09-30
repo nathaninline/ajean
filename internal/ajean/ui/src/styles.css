@@ -696,6 +696,7 @@ details>summary+.subhead{margin-top:4px}
 /* La RAM vit dans son propre conteneur (masqué quand l'info manque) : le filet
    de séparation se pose donc sur le conteneur, pas entre deux .stat frères. */
 #ram-details{border-top:1px solid var(--border)}
+#vram:empty+#ram-details{border-top:0} /* pas de GPU : aucune barre au-dessus de la RAM */
 .stat-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
 .stat-n{font-size:12.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .stat-v{flex:none;font-size:12.5px;color:var(--text);font-variant-numeric:tabular-nums}
@@ -2302,3 +2303,9 @@ details[open]:not(.closing)>summary>.preset-add{opacity:1;transform:none;pointer
 }
 .btn-primary,.btn-primary:hover{border:none;background:var(--text);color:var(--bg)}
 .btn-primary:hover{background:color-mix(in srgb,var(--text) 85%,transparent)}
+
+/* Nouvelle conversation (changement de mode) : le fil sort en fondu, le vierge entre. */
+#chat.chat-out>*{opacity:0;transform:translateY(-6px);transition:opacity .2s ease,transform .2s ease}
+#chat.chat-in{animation:chat-in .28s ease}
+@keyframes chat-in{from{opacity:0;transform:translateY(6px)}}
+@media (prefers-reduced-motion: reduce){#chat.chat-in{animation:none}}

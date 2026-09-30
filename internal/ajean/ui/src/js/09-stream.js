@@ -501,7 +501,7 @@ function handleDelta(d){
     if(d.replay) REPLAYING=true;
     if(d.id!==undefined && (d.id||'')!==CONV_ID) HIST_FULL=false; // autre conversation : de nouveau paginée
     if(d.id!==undefined) CONV_ID=d.id||''; // nouvelle conversation active : on suit son id
-    TURN_ENDED=true; elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDS=[]; document.getElementById('chat').innerHTML=''; newTurn(); setCtxUsed(0); setCompactCount(0); lastSeq=0; setBusy(false); return; }
+    TURN_ENDED=true; elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDS=[]; chatClearAnimated(); newTurn(); setCtxUsed(0); setCompactCount(0); lastSeq=0; setBusy(false); return; }
   if(d.history_more!==undefined){ showHistoryMore(d.history_more); return; }
   if(d.user!==undefined){
     newTurn();
