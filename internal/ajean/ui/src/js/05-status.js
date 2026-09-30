@@ -392,7 +392,7 @@ function renderVram(gpus){
       '<span class="stat-v">'+(g.used/1024).toFixed(1)+' / '+(g.total/1024).toFixed(1)+' GiB</span></div>'+
       '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
       '<div class="stat-s">GPU '+g.util+' % · '+g.temp+' °C'+(g.cloud?' · '+cloudCardStatus(g):'')+(g.billing? ' · '+escHtml(cloudCreditText(g.billing)) : '')+'</div></div>';
-  }).join('') || '<div class="stat"><span class="stat-s">'+t('status.no_gpu')+'</span></div>');
+  }).join('')); // pas de GPU : rien du tout, la carte RAM suffit
 }
 // Rend le bloc RAM depuis {used,total}. Séparé du fetch (voir renderVram).
 function renderRam(m){

@@ -101,3 +101,32 @@ func TestFoldSearch(t *testing.T) {
 		t.Fatalf("foldSearch = %q", got)
 	}
 }
+
+// Une conversation garde le mode de son premier message.
+func TestConversationGardeSonMode(t *testing.T) {
+	c := &Conversation{}
+	if m, fresh := c.lockMode("fast"); m != "fast" || !fresh {
+		t.Fatalf("premier message : %q %v", m, fresh)
+	}
+	if m, fresh := c.lockMode("base"); m != "fast" || fresh {
+		t.Fatalf("le mode ne doit plus changer : %q %v", m, fresh)
+	}
+	b := chatReq{Raw: true}
+	m, _ := c.lockMode(requestedMode(b))
+	applyChatMode(&b, m)
+	if !b.Fast || b.Raw {
+		t.Fatalf("requête non alignée sur le mode de la conversation : %+v", b)
+	}
+}
+
+// Premier message refusé (modèle pas prêt) : le mode ne reste pas figé.
+func TestModeLibereSiMessageRefuse(t *testing.T) {
+	c := &Conversation{}
+	m, fresh := c.lockMode("fast")
+	if fresh {
+		c.unlockMode(m)
+	}
+	if m, _ := c.lockMode("base"); m != "base" {
+		t.Fatalf("le mode d'un message refusé est resté figé : %q", m)
+	}
+}

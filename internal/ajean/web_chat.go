@@ -124,8 +124,16 @@ func handleChatSend(w http.ResponseWriter, r *http.Request) {
 	// message sera injecté dans la réponse en cours à la prochaine frontière d'étape,
 	// ou traité comme tour suivant si le tour se termine avant. queued=true le signale
 	// au client (qui affiche une bulle « en attente »).
+	// Mode : celui de la conversation s'il est déjà fixé, sinon celui demandé.
+	mode, fresh := conv.lockMode(requestedMode(body))
+	applyChatMode(&body, mode)
 	queued, err := conv.EnqueueOrStart(body.Message, files, capsFromBody(body), body.Temperature)
 	if err != nil {
+		// Message refusé (modèle pas prêt) : il n'a rien démarré, le mode ne doit
+		// pas rester figé sur une conversation encore vide.
+		if fresh {
+			conv.unlockMode(mode)
+		}
 		// 503 = modèle pas prêt (ErrBusy ne remonte plus : on met en file à la place).
 		sendJSON(w, 503, map[string]any{"ok": false, "error": err.Error()})
 		return
@@ -424,4 +432,24 @@ var accentFold = map[rune]rune{
 	'à': 'a', 'â': 'a', 'ä': 'a', 'á': 'a', 'ã': 'a', 'ç': 'c',
 	'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e', 'î': 'i', 'ï': 'i', 'í': 'i',
 	'ô': 'o', 'ö': 'o', 'ó': 'o', 'õ': 'o', 'ù': 'u', 'û': 'u', 'ü': 'u', 'ú': 'u', 'ÿ': 'y', 'ñ': 'n',
+}
+
+// requestedMode : mode demandé par le client (champ mode, ou anciens drapeaux).
+func requestedMode(b chatReq) string {
+	switch {
+	case b.Mode == "fast" || b.Mode == "project" || b.Mode == "base":
+		return b.Mode
+	case b.Raw:
+		return "base"
+	case b.Fast:
+		return "fast"
+	}
+	return "project"
+}
+
+// applyChatMode aligne les drapeaux de la requête sur le mode effectif.
+func applyChatMode(b *chatReq, mode string) {
+	b.Mode = mode
+	b.Fast = mode == "fast"
+	b.Raw = mode == "base"
 }

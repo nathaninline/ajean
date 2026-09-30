@@ -612,8 +612,8 @@ function sessIconSvg(name, filled){
 function sessionRow(c, active){
   const row = document.createElement('div'); row.className = 'sess-row' + (active?' active':'');
   if(!active){ row.tabIndex = 0; row.title = t('chat.session.open_this');
-    row.onclick = ()=>restoreHistory(c.id);
-    row.onkeydown = (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); restoreHistory(c.id); } };
+    row.onclick = ()=>restoreHistory(c.id, c.mode);
+    row.onkeydown = (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); restoreHistory(c.id, c.mode); } };
   }
   const info = document.createElement('div'); info.className = 'sess-info';
   const name = document.createElement('div'); name.className = 'sess-name';
@@ -737,11 +737,12 @@ async function clearAllHistory(){
   toast((r.deleted||0) + ' ' + ((r.deleted>1)?t('chat.session.deleted_plural'):t('chat.session.deleted_singular')));
   loadHistory();
 }
-async function restoreHistory(id){
+async function restoreHistory(id, mode){
   let r; try{ r = await jpost('/api/chat/history/restore', {id}); }catch(_){ toast(t('chat.session.network_error')); return; }
   if(!r.ok){ toast(r.error || t('chat.session.open_error')); return; }
   closeHistoryModal();
-  if(typeof loadProjects==='function') loadProjects();
+  if(mode) setModeFromConv(mode); // la conversation reprend dans SON mode
+  loadProjects();
   toast(t('chat.session.opened'));
 }
 async function deleteHistory(id, title){

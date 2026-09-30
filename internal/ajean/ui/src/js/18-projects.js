@@ -40,6 +40,7 @@ async function loadProjects(){
   let s = null, r = null;
   try{ [s, r] = await Promise.all([ jget('/api/chat/state').catch(()=>null), jget('/api/projects').catch(()=>null) ]); }catch(_){}
   LIVE_GENERATING = !!(s && s.generating);
+  if(s && s.mode) setModeFromConv(s.mode); // la conversation en cours garde son mode
   if(!r || !r.ok) return;
   PROJECTS = r.projects || [];
   ACTIVE_PROJECT = r.active || '';

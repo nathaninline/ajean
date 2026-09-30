@@ -86,6 +86,10 @@ type Conversation struct {
 	// repartir sur un titre auto sans favori). Vides pour une conversation neuve.
 	ActiveTitle string `json:"active_title,omitempty"`
 	ActiveFav   bool   `json:"active_fav,omitempty"`
+	// Mode = mode de chat de la conversation (fast / project / base), fixé au
+	// premier message puis imposé : une conversation se poursuit toujours dans le
+	// mode où elle a commencé (prompt, outils et contexte restent cohérents).
+	Mode string `json:"mode,omitempty"`
 
 	Generating bool      `json:"-"`
 	genStart   time.Time // début du tour en cours → permet à un client qui se reconnecte de reprendre le chrono à la BONNE valeur (pas à zéro)
@@ -435,7 +439,8 @@ func (c *Conversation) state() map[string]any {
 		genElapsed = time.Since(c.genStart).Milliseconds()
 	}
 	return map[string]any{
-		"seq": c.Seq, "generating": c.Generating, "ctx_used": c.CtxUsed, "turns": turns,
+		"mode": c.Mode,
+		"seq":  c.Seq, "generating": c.Generating, "ctx_used": c.CtxUsed, "turns": turns,
 		"compact_count":  c.CompactCount,
 		"gen_elapsed_ms": genElapsed,
 		// Non vide seulement quand une tâche de fond occupe le verrou de génération.
@@ -910,6 +915,7 @@ func (c *Conversation) Reset() {
 	c.ID = newSessionID() // session vierge = nouvel id stable
 	c.ActiveTitle = ""    // conversation neuve : ni nom hérité, ni favori
 	c.ActiveFav = false
+	c.Mode = "" // son mode sera fixé par son premier message
 	c.epoch++
 	c.pendingReplay = false // conversation vide : rien à rejouer
 	if !taskRunning {

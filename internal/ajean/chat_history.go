@@ -36,6 +36,7 @@ type convArchive struct {
 	Seq          int        `json:"seq"`
 	CtxUsed      int        `json:"ctx_used"`
 	CompactCount int        `json:"compact_count,omitempty"` // nb de compactages (issue #47)
+	Mode         string     `json:"mode,omitempty"`          // mode de chat (voir Conversation.Mode)
 }
 
 // convArchiveMeta = la partie légère (sans Messages/Log) pour lister sans charger
@@ -45,6 +46,7 @@ type convArchiveMeta struct {
 	Project string `json:"project,omitempty"` // slug du projet propriétaire (vide = Générale)
 	Title   string `json:"title"`
 	Fav     bool   `json:"fav"`
+	Mode    string `json:"mode,omitempty"` // mode de chat de la conversation
 	SavedAt int64  `json:"saved_at"`
 	Turns   int    `json:"turns"`
 }
@@ -293,6 +295,7 @@ func (c *Conversation) snapshotForSession() *convArchive {
 		Seq:          c.Seq,
 		CtxUsed:      c.CtxUsed,
 		CompactCount: c.CompactCount,
+		Mode:         c.Mode,
 	}
 	a.Turns = countUserTurns(c.Log)
 	// Nom personnalisé si défini, sinon titre dérivé du premier message.
@@ -324,7 +327,7 @@ func (c *Conversation) upsertSessionMeta() {
 		c.mu.Unlock()
 		return
 	}
-	m := convArchiveMeta{ID: c.ID, Project: c.Project, Fav: c.ActiveFav, Turns: countUserTurns(c.Log)}
+	m := convArchiveMeta{ID: c.ID, Project: c.Project, Fav: c.ActiveFav, Mode: c.Mode, Turns: countUserTurns(c.Log)}
 	if m.Project == "" {
 		m.Project = activeProjectSlug()
 	}
@@ -408,6 +411,7 @@ func (c *Conversation) OpenSession(id string) error {
 	c.CompactCount = a.CompactCount
 	c.ActiveTitle = a.Title
 	c.ActiveFav = a.Fav
+	c.Mode = a.Mode
 	c.epoch++              // invalide les abonnés → ils nettoient et rejouent le fil
 	c.pendingReplay = true // un fil complet suit : rejeu REPLIÉ (comme au chargement de page)
 	c.Generating = false
@@ -456,4 +460,26 @@ func (c *Conversation) DeleteSession(id string) error {
 		c.Reset()
 	}
 	return nil
+}
+
+// lockMode renvoie le mode de la conversation active. S'il n'est pas encore fixé
+// (conversation neuve, ou d'avant la 0.17.1), il prend `want` : le premier message
+// décide, les suivants suivent. fresh = le mode vient d'être fixé par cet appel.
+func (c *Conversation) lockMode(want string) (mode string, fresh bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.Mode == "" {
+		c.Mode, fresh = want, true
+	}
+	return c.Mode, fresh
+}
+
+// unlockMode annule un lockMode dont le message a été refusé, si rien ne l'a
+// changé entre-temps.
+func (c *Conversation) unlockMode(mode string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.Mode == mode && countUserTurns(c.Log) == 0 {
+		c.Mode = ""
+	}
 }

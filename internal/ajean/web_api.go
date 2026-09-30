@@ -1466,6 +1466,9 @@ type chatReq struct {
 	// Raw = mode « Modèle de base » : modèle nu, sans agent, outils, mémoire ni
 	// prompt système (comme un llama-server direct). Voir capsFromBody.
 	Raw bool `json:"raw"`
+	// Mode = mode de chat demandé (fast / project / base). La conversation garde
+	// celui de son premier message (voir Conversation.lockMode).
+	Mode string `json:"mode"`
 	// Message = texte du tour à lancer (/api/chat/send) ; From = dernier Seq déjà
 	// vu par le client (le flux d'abonnement rejoue Log[From:] puis suit le direct).
 	Message string `json:"message"`

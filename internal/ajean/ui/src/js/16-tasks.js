@@ -53,7 +53,7 @@ function renderTasks(r){
   const list = document.getElementById('tasks-list');
   list.textContent = '';
   if(!tasksList.length){
-    list.innerHTML = '<div class="muted" style="font-size:12px">'+t('tasks.empty')+'</div>';
+    list.innerHTML = ''; // aucune tâche : rien
     return;
   }
   tasksList.forEach(tk=>{

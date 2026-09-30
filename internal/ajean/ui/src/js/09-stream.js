@@ -852,7 +852,7 @@ async function send(){
   if(entry) addMsgFiles(entry.el, attachSent());
   for(let attempt=0; attempt<3; attempt++){
     try{
-      const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,files:files,ctx_used:CTX_USED,fast:MODE==='fast',raw:MODE==='base',agent:MODE==='base'?false:undefined})});
+      const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,files:files,ctx_used:CTX_USED,mode:MODE})});
       if(r.status===409 || r.ok) clearAttach();
       if(r.status===409) return;               // déjà en cours (notre envoi a abouti) → OK
       if(r.ok) return;                          // la bulle + les tokens arrivent par le flux
@@ -928,6 +928,15 @@ async function pickMode(m){
   if(m!=='base' && !AGENT_ON && !await enableAgent()) return;
   MODE=m; saveMode();
   swapModeLabel();
+  // Une conversation garde le mode où elle a commencé (le serveur l'impose) :
+  // changer de mode démarre donc une nouvelle conversation, sauf si le fil est vide.
+  if(document.querySelector('#chat .msg')) resetChat();
+}
+// Mode imposé par la conversation affichée (reprise depuis l'historique, autre
+// appareil, rechargement) : le sélecteur s'aligne, sans nouvelle conversation.
+function setModeFromConv(m){
+  if(!MODE_KEYS[m] || m===MODE) return;
+  MODE=m; saveMode(); swapModeLabel();
 }
 const closeModeMenu = ()=>closeMenu();
 function toggleModeMenu(ev){

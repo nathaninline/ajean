@@ -39,7 +39,9 @@ func openAppWindow(url string) error {
 	if dir := appWindowProfileDir(); dir != "" {
 		args = append(args, "--user-data-dir="+dir)
 	}
-	if err := hideCmd(exec.Command(bin, args...)).Start(); err != nil {
+	// Surtout pas hideCmd : HideWindow (SW_HIDE) est appliqué par Edge à sa
+	// première fenêtre, qui reste alors un cadre gris inerte (#101).
+	if err := exec.Command(bin, args...).Start(); err != nil {
 		return openBrowser(url)
 	}
 	return nil
