@@ -1324,8 +1324,14 @@ func handleLoadFlagsMigrate(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleSwitch(w http.ResponseWriter, r *http.Request) {
+	// id = identité stable du preset (nom de fichier). Le numéro seul est
+	// dangereux : si la liste a changé depuis l'affichage (réordonnée, preset
+	// ajouté ou supprimé depuis un autre appareil), la même position désigne un
+	// AUTRE preset, et on chargeait le mauvais (déjà vu : un preset GPU cloud
+	// facturé à la place du local). n reste accepté pour les anciens clients.
 	var req struct {
-		N int `json:"n"`
+		N  int    `json:"n"`
+		ID string `json:"id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
@@ -1336,11 +1342,26 @@ func handleSwitch(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	if req.N < 1 || req.N > len(list) {
-		sendJSON(w, 400, map[string]any{"ok": false, "error": "index hors limites"})
-		return
+	var target Preset
+	if id := strings.TrimSpace(req.ID); id != "" {
+		found := false
+		for _, p := range list {
+			if p.ID == id {
+				target, found = p, true
+				break
+			}
+		}
+		if !found {
+			sendJSON(w, 404, map[string]any{"ok": false, "error": "preset introuvable (supprimé ou renommé ?)"})
+			return
+		}
+	} else {
+		if req.N < 1 || req.N > len(list) {
+			sendJSON(w, 400, map[string]any{"ok": false, "error": "index hors limites"})
+			return
+		}
+		target = list[req.N-1]
 	}
-	target := list[req.N-1]
 	// On écrit config.env TOUT DE SUITE (c'est lui qui décide du preset actif),
 	// puis on répond — le redémarrage du service part en arrière-plan. Passer par
 	// SwitchToPreset bloquait la réponse pendant tout l'arrêt de llama-server plus

@@ -65,7 +65,7 @@ async function loadPresets(){
     // l'ordre après un déplacement.
     row.dataset.id = x.id;
     // Guard : un glissement ne doit pas être pris pour un clic qui bascule le preset.
-    row.onclick=()=>{ if(presetJustDragged) return; switchTo(i+1, x.name); };
+    row.onclick=()=>{ if(presetJustDragged) return; switchTo(i+1, x.name, x.id); };
     const info=document.createElement('div'); info.className='preset-info';
     const nm=document.createElement('div'); nm.className='preset-name';
     // Puce de l'actif : un ÉLÉMENT rond en CSS, pas le caractère « ● ». Le glyphe

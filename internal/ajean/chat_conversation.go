@@ -3,6 +3,7 @@ package ajean
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -550,7 +551,19 @@ func (c *Conversation) EnqueueOrStart(text string, files []attachInfo, caps Caps
 		return true, nil
 	}
 	c.mu.Unlock()
-	return false, c.StartTurn(text, files, caps, temperature)
+	err := c.StartTurn(text, files, caps, temperature)
+	if errors.Is(err, ErrBusy) {
+		// Un autre tour a démarré entre le test ci-dessus et StartTurn (deux
+		// appareils qui envoient en même temps) : on met en file au lieu de refuser.
+		c.mu.Lock()
+		c.queued = append(c.queued, queuedMsg{text: text, files: files, caps: caps, temp: temperature})
+		c.mu.Unlock()
+		// Ce tour a pu finir entre-temps : sans relance, le message attendrait le
+		// prochain envoi.
+		c.startQueuedIfAny()
+		return true, nil
+	}
+	return false, err
 }
 
 // drainQueued vide la file et renvoie les messages utilisateur à injecter dans le
@@ -600,7 +613,10 @@ func (c *Conversation) startQueuedIfAny() {
 	if err := c.StartTurn(q.text, q.files, q.caps, q.temp); err != nil {
 		// Modèle indisponible au moment de dépiler (rare) : on le signale dans le fil
 		// plutôt que de perdre le message en silence, et on tente le suivant.
-		c.appendDelta(c.epoch, map[string]any{"error": err.Error()})
+		c.mu.Lock()
+		epoch := c.epoch // lu sous verrou : un Reset concurrent l'écrit
+		c.mu.Unlock()
+		c.appendDelta(epoch, map[string]any{"error": err.Error()})
 		c.startQueuedIfAny()
 	}
 }
@@ -719,6 +735,10 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 				c.appendDelta(epoch, map[string]any{"error": ev.Err.Error()})
 			}
 		case ev.ToolUsed != nil:
+			// Le texte écrit AVANT cet appel d'outil est déjà rangé dans le message
+			// assistant porteur des tool_calls (extra). Le garder aussi dans la
+			// réponse finale le doublait dans l'historique vu par le modèle.
+			content.Reset()
 			tu := map[string]any{
 				"name": ev.ToolUsed.Name, "label": ev.ToolUsed.Label,
 				"result": ev.ToolUsed.Result, "done": ev.ToolUsed.Done, "typing": ev.ToolUsed.Typing,
@@ -918,6 +938,10 @@ func (c *Conversation) Reset() {
 	c.Mode = "" // son mode sera fixé par son premier message
 	c.epoch++
 	c.pendingReplay = false // conversation vide : rien à rejouer
+	// Messages mis en file pendant le tour de l'ANCIENNE conversation : ils lui
+	// appartiennent. Sans ce vidage, ils surgissaient dans la nouvelle (injectés au
+	// premier appel d'outil, ou lancés comme tour à la fin du suivant).
+	c.queued = nil
 	if !taskRunning {
 		// Déblocage d'un tour utilisateur : on rend la main.
 		c.Generating = false

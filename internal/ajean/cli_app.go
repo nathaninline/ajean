@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -60,11 +61,20 @@ func cmdApp(args []string) error {
 		startAppLink(appWebMux)
 	}()
 
-	sp := showSplash("Lancement d'AJEAN en cours…")
-	waitServerReady(url)
-	_ = openAppWindow(url)
-	time.Sleep(900 * time.Millisecond) // laisse le navigateur s'afficher par-dessus le splash
-	sp.close()
+	// Relance après mise à jour : l'ancienne fenêtre est encore ouverte et se
+	// reconnecte seule. En rouvrir une donnait deux fenêtres AJEAN côte à côte.
+	// Si l'utilisateur l'a fermée entre-temps, on l'ouvre comme d'habitude.
+	restarted := os.Getenv(envRestarted) == "1"
+	os.Unsetenv(envRestarted)
+	if restarted && appWindowAlive() {
+		waitServerReady(url)
+	} else {
+		sp := showSplash("Lancement d'AJEAN en cours…")
+		waitServerReady(url)
+		_ = openAppWindow(url)
+		time.Sleep(900 * time.Millisecond) // laisse le navigateur s'afficher par-dessus le splash
+		sp.close()
+	}
 
 	runTray(url) // icône zone de notification ; bloque jusqu'à « Quitter »
 	return nil

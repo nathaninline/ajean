@@ -424,8 +424,23 @@ func compactMessages(ctx context.Context, msgs []Message, caps Caps) ([]Message,
 	// On réinjecte donc textuellement la dernière vraie demande du torse, juste
 	// avant la queue (les résultats d'outils qu'elle a produits la suivent, comme
 	// dans l'historique d'origine). Le torse reste entièrement compactable.
+	//
+	// Seulement quand c'est nécessaire, sinon on fabriquait deux bugs :
+	//   - la queue contient déjà un message `user` : la dernière demande du torse a
+	//     DÉJÀ reçu sa réponse, la réinjecter juste avant la nouvelle faisait
+	//     répondre le modèle une seconde fois à une vieille question ;
+	//   - repli sans résumé (mid = torse dégraissé) : ce message y est déjà, il se
+	//     retrouvait en double, cette fois APRÈS ses propres résultats d'outils.
+	tailHasUser := false
+	for _, m := range msgs[tailStart:] {
+		if m.Role == "user" {
+			tailHasUser = true
+			break
+		}
+	}
+	summarized := err == nil && !summaryLooksEmpty(summary)
 	var pending []Message
-	for i := len(torso) - 1; i >= 0; i-- {
+	for i := len(torso) - 1; i >= 0 && summarized && !tailHasUser; i-- {
 		if torso[i].Role != "user" {
 			continue
 		}

@@ -944,8 +944,7 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
   display:flex;align-items:center;justify-content:center;touch-action:manipulation;
   background:var(--bubble);color:var(--text);border:1px solid var(--border)}
 #plus-btn svg{display:block;transition:transform .2s cubic-bezier(.2,.8,.2,1)}
-#plus-btn:focus,#plus-btn:focus-visible,#plus-btn.open{outline:none;border-color:var(--border);background:var(--bubble);color:var(--text)}
-@media (hover:hover){#plus-btn{opacity:.85}#plus-btn:hover{opacity:1}}
+#plus-btn:focus,#plus-btn:focus-visible,#plus-btn.open{outline:none;border-color:var(--border);color:var(--text)}
 #plus-btn.open svg{transform:rotate(45deg)}
 @media (prefers-reduced-motion:reduce){#plus-btn svg{transition:none}}
 #ctxmeta{order:2;margin:0 var(--col);padding:6px 16px 15px;gap:10px;background:var(--panel);border:1px solid var(--border);border-top:none;border-radius:0 0 26px 26px;overflow:hidden}
@@ -1466,8 +1465,8 @@ details[open]:not(.closing)>summary>.preset-add{opacity:1;transform:none;pointer
 [data-theme="dark"] #inputbar{box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 -8px 22px -14px rgba(0,0,0,.6)}
 [data-theme="dark"] #ctxmeta{box-shadow:0 10px 22px -14px rgba(0,0,0,.6)}
 #ctxmeta{margin-top:-1px} 
-:root:not([data-theme="dark"]) :is(#plus-btn,#mode-pill){background:var(--bg)}
-:root:not([data-theme="dark"]) #plus-btn:hover,:root:not([data-theme="dark"]) #plus-btn.open{background:color-mix(in srgb,var(--bg) 70%,var(--t3))}
+:root:not([data-theme="dark"]) :is(#plus-btn,#mode-pill){background:color-mix(in srgb,var(--text) 6%,transparent)}
+:root:not([data-theme="dark"]) :is(#plus-btn,#mode-pill):hover,:root:not([data-theme="dark"]) #plus-btn.open{background:color-mix(in srgb,var(--text) 10%,transparent)}
 #ctxtrack{background:var(--t2)}
 #chat .msg.user.msg-in{animation:msgin .34s cubic-bezier(.2,.8,.2,1) both;transform-origin:bottom right}
 @keyframes msgin{from{opacity:0;transform:translateY(18px) scale(.96)}to{opacity:1;transform:none}}
@@ -5876,7 +5875,7 @@ async function loadPresets(){
     const pend = !x.active && pendingPreset===i+1;
     row.className='preset'+(x.active?' active':'')+(pend?' pending':'')+(moved?' sel-anim':'');
     row.dataset.id = x.id;
-    row.onclick=()=>{ if(presetJustDragged) return; switchTo(i+1, x.name); };
+    row.onclick=()=>{ if(presetJustDragged) return; switchTo(i+1, x.name, x.id); };
     const info=document.createElement('div'); info.className='preset-info';
     const nm=document.createElement('div'); nm.className='preset-name';
     if(x.active){ const d=document.createElement('i'); d.className='preset-dot'; nm.appendChild(d); }
@@ -6405,11 +6404,11 @@ async function runBenchUI(){
     loadPresets();
   }
 }
-async function switchTo(n,name){
+async function switchTo(n,name,id){
   if(!await askConfirm(t('models.switch_confirm_prefix')+name+t('models.switch_confirm_suffix'), {title:t('models.switch_title'), okText:t('models.switch_ok')})) return;
   toast(t('models.switching'));
   pendingPreset = n; loadPresets();
-  const r=await jpost('/api/switch',{n:n});
+  const r=await jpost('/api/switch',id?{id:id}:{n:n});
   if(!r.ok){ pendingPreset = 0; toast(t('chat.error')); loadPresets(); return; }
   toast(t('models.switched'));
   try{ await loadPresets(); }catch(e){}
@@ -8498,6 +8497,7 @@ function handleDelta(d){
     return; }
   if(d.reasoning_content){
     killTyping('reasoning');
+    if(T.contentEl){ smoothSnap(); flushRender(); T.contentEl=null; T.reasonEl=null; }
     if(!T.reasonEl){ collapseAll(T.turnCollapsibles); T.reasonEl=addMsg('reasoning',''); if(REPLAYING||viewOn('fold-tools')) collapseInstant(T.reasonEl); T.fullReason=''; T.turnCollapsibles.push(T.reasonEl); setActive(T.reasonEl); T.reasonEl._tok=0; }
     if(d.replace){ smoothSnap(); T.fullReason=''; T.reasonTok-=(T.reasonEl._tok||0); T.reasonEl._tok=0; }
     showTyping('reasoning'); reactivateLive(T.reasonEl); T.fullReason+=d.reasoning_content; feedBlock(T.reasonEl, T.fullReason);
@@ -8531,7 +8531,7 @@ async function connectStream(){
   while(true){
     while(document.hidden){ await new Promise(res=>setTimeout(res, 500)); }
     while(READING){ await new Promise(res=>setTimeout(res, 200)); }
-    CATCHUP=true; smoothReset();
+    CATCHUP=true; smoothSnap();
     streamAbort=new AbortController();
     try{
       const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:lastSeq,conv_id:CONV_ID,tail:HIST_FULL?0:HIST_TAIL}),signal:streamAbort.signal});
@@ -10377,9 +10377,9 @@ const closePlusMenu = ()=>closeMenu();
 function togglePlusMenu(e){
   if(e){ e.stopPropagation(); e.preventDefault(); }
   popMenu(document.getElementById('plus-btn'), [
+    COMPACT_AVAILABLE && {icon:PLUS_IC.compact, label:t('projects.compact_context'), run:compactContext}, 
     {icon:PLUS_IC.file, label:t('projects.attach_file'), run:()=>document.getElementById('attach-input').click()},
     {icon:PLUS_IC.chat, label:t('chat.new_chat_btn'), run:newChatFromTop},
-    COMPACT_AVAILABLE && {icon:PLUS_IC.compact, label:t('projects.compact_context'), run:compactContext}, 
   ], {side:'above', align:'left', gap:14, keepOnScroll:true}); 
 }
 function openMemHub(slug, name){

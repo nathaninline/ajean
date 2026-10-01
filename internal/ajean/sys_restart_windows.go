@@ -64,6 +64,10 @@ func cmdRestartAfterUpdate(args []string) error {
 			target = self
 		}
 	}
+	// La fenêtre AJEAN (un Edge/Chrome à part) survit à notre arrêt et se
+	// reconnecte toute seule : la nouvelle instance ne doit pas en ouvrir une
+	// seconde. Transmis par l'environnement, hérité par l'enfant.
+	os.Setenv(envRestarted, "1")
 	if !launch(target) {
 		return fmt.Errorf("relance de %s impossible", target)
 	}

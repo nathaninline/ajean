@@ -43,14 +43,15 @@ async function runBenchUI(){
     loadPresets();
   }
 }
-async function switchTo(n,name){
+async function switchTo(n,name,id){
   if(!await askConfirm(t('models.switch_confirm_prefix')+name+t('models.switch_confirm_suffix'), {title:t('models.switch_title'), okText:t('models.switch_ok')})) return;
   toast(t('models.switching'));
   // Retour visuel IMMÉDIAT : la ligne visée s'allume et clignote. Le serveur met
   // plusieurs secondes à redémarrer le service ; sans ça la liste ne bougeait pas
   // d'un pouce pendant tout ce temps et le clic semblait sans effet.
   pendingPreset = n; loadPresets();
-  const r=await jpost('/api/switch',{n:n});
+  // id d'abord : le numéro seul peut viser un autre preset si la liste a bougé.
+  const r=await jpost('/api/switch',id?{id:id}:{n:n});
   if(!r.ok){ pendingPreset = 0; toast(t('chat.error')); loadPresets(); return; }
   toast(t('models.switched'));
   // Le preset ACTIF, c'est celui dont l'empreinte est celle de la configuration : le serveur

@@ -567,6 +567,13 @@ function handleDelta(d){
     return; }
   if(d.reasoning_content){
     killTyping('reasoning');
+    // Raisonnement qui reprend APRÈS du texte de réponse (modèle qui repense en
+    // cours de réponse, reprise après coupure, saut de ligne émis avant la
+    // réflexion) : il allait dans l'ANCIENNE bulle, déjà repliée au-dessus de la
+    // réponse. À l'écran la réflexion semblait s'arrêter puis le texte reprendre.
+    // On ouvre une nouvelle bulle sous la réponse, et la suite de la réponse en
+    // ouvrira une nouvelle à son tour : l'ordre affiché suit l'ordre reçu.
+    if(T.contentEl){ smoothSnap(); flushRender(); T.contentEl=null; T.reasonEl=null; }
     if(!T.reasonEl){ collapseAll(T.turnCollapsibles); T.reasonEl=addMsg('reasoning',''); if(REPLAYING||viewOn('fold-tools')) collapseInstant(T.reasonEl); T.fullReason=''; T.turnCollapsibles.push(T.reasonEl); setActive(T.reasonEl); T.reasonEl._tok=0; }
     // d.replace : le serveur renvoie le bloc ENTIER alors qu'on en affichait déjà
     // le début (voir decorateEvent/coalesceReplay côté serveur) → on repart de zéro
@@ -626,7 +633,10 @@ async function connectStream(){
     // {caught_up} : on le rend DIRECT (CATCHUP), pas via le lissage, pour ne pas
     // figer l'UI en réanimant tout le retard token par token. On solde aussi un
     // éventuel lissage en cours resté de la connexion avortée.
-    CATCHUP=true; smoothReset();
+    // smoothSnap et non smoothReset : le lissage en cours n'avait révélé qu'un
+    // préfixe du bloc ; l'abandonner laissait le texte tronqué à l'écran (la
+    // réflexion « coupée ») jusqu'au prochain morceau reçu.
+    CATCHUP=true; smoothSnap();
     streamAbort=new AbortController();
     try{
       const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:lastSeq,conv_id:CONV_ID,tail:HIST_FULL?0:HIST_TAIL}),signal:streamAbort.signal});

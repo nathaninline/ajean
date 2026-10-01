@@ -1562,10 +1562,9 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
   background:var(--bubble);color:var(--text);border:1px solid var(--border)}
 #plus-btn svg{display:block;transition:transform .2s cubic-bezier(.2,.8,.2,1)}
 /* Aucun anneau de focus ni changement de contour au clic : seul le glyphe compte. */
-#plus-btn:focus,#plus-btn:focus-visible,#plus-btn.open{outline:none;border-color:var(--border);background:var(--bubble);color:var(--text)}
-/* Survol uniquement à la SOURIS (sinon :hover reste collé après un tap tactile et
-   laissait un contour accent). */
-@media (hover:hover){#plus-btn{opacity:.85}#plus-btn:hover{opacity:1}}
+#plus-btn:focus,#plus-btn:focus-visible,#plus-btn.open{outline:none;border-color:var(--border);color:var(--text)}
+/* Pas d'opacité réduite au repos : le « + » doit avoir EXACTEMENT le gris du
+   sélecteur de mode à côté. Le survol passe par le fond (--t3), plus bas. */
 /* Menu ouvert : le + pivote en × (45°), c'est tout. */
 #plus-btn.open svg{transform:rotate(45deg)}
 @media (prefers-reduced-motion:reduce){#plus-btn svg{transition:none}}
@@ -2282,9 +2281,10 @@ details[open]:not(.closing)>summary>.preset-add{opacity:1;transform:none;pointer
 [data-theme="dark"] #inputbar{box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 -8px 22px -14px rgba(0,0,0,.6)}
 [data-theme="dark"] #ctxmeta{box-shadow:0 10px 22px -14px rgba(0,0,0,.6)}
 #ctxmeta{margin-top:-1px} /* recouvre le liseré sous-pixel entre les deux moitiés */
-/* Clair : « + » et sélecteur en pastilles blanches sur la carte grise. */
-:root:not([data-theme="dark"]) :is(#plus-btn,#mode-pill){background:var(--bg)}
-:root:not([data-theme="dark"]) #plus-btn:hover,:root:not([data-theme="dark"]) #plus-btn.open{background:color-mix(in srgb,var(--bg) 70%,var(--t3))}
+/* Clair : « + » et sélecteur en pastilles grises, comme les autres boutons. La
+   zone de saisie est blanche depuis la 0.17.3 : une pastille blanche y disparaissait. */
+:root:not([data-theme="dark"]) :is(#plus-btn,#mode-pill){background:color-mix(in srgb,var(--text) 6%,transparent)}
+:root:not([data-theme="dark"]) :is(#plus-btn,#mode-pill):hover,:root:not([data-theme="dark"]) #plus-btn.open{background:color-mix(in srgb,var(--text) 10%,transparent)}
 #ctxtrack{background:var(--t2)}
 
 /* Envoi d'un message : la bulle monte depuis la zone de saisie en fondu ; la

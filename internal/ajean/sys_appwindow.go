@@ -47,6 +47,30 @@ func openAppWindow(url string) error {
 	return nil
 }
 
+// envRestarted : posée par l'accompagnateur de relance après mise à jour (voir
+// cmdRestartAfterUpdate) pour que la nouvelle instance réutilise la fenêtre.
+const envRestarted = "AJEAN_RESTARTED"
+
+// appWindowAlive : une fenêtre AJEAN (profil dédié) est-elle encore ouverte ?
+// Chromium tient le fichier « lockfile » de son profil ouvert en exclusif tant
+// qu'il tourne (Windows) : s'il résiste à la suppression, la fenêtre vit. Un
+// verrou orphelin, lui, se supprime sans dommage. Hors Windows (lien symbolique
+// SingletonLock, sémantique différente) on répond non : rouvrir reste sûr.
+func appWindowAlive() bool {
+	if runtime.GOOS != "windows" {
+		return false
+	}
+	dir := appWindowProfileDir()
+	if dir == "" {
+		return false
+	}
+	lock := filepath.Join(dir, "lockfile")
+	if _, err := os.Stat(lock); err != nil {
+		return false
+	}
+	return os.Remove(lock) != nil
+}
+
 // appWindowProfileDir : profil propre à la fenêtre AJEAN, dans le dossier de
 // config de l'UTILISATEUR (le dossier de données peut être machine/root).
 func appWindowProfileDir() string {

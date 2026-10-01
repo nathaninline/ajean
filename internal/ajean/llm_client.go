@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -806,6 +807,50 @@ func streamCutError(err error) error {
 	return fmt.Errorf("⚠️ Le flux de réponse du moteur (llama-server, port %d) a été coupé en cours de route : %v. La réponse est incomplète et le tour est abandonné — réessaie.", LLMPort(), err)
 }
 
+// streamRetryable : la reprise automatique ne vaut que pour une API distante
+// (réseau, tunnel). Un llama-server local coupé a planté : rejouer ne ferait
+// que retarder le message d'erreur.
+func streamRetryable(ep chatEndpoint) bool { return ep.External || ep.Cloud }
+
+// gatewayStatus : réponses d'un relais/proxy qui n'atteint pas la machine pour
+// l'instant (tunnel en reconnexion), à rejouer plutôt qu'à remonter.
+func gatewayStatus(code int) bool {
+	return code == http.StatusBadGateway || code == http.StatusServiceUnavailable || code == http.StatusGatewayTimeout
+}
+
+// transientNetErr : erreur de transport qui peut passer en réessayant (coupure,
+// reset, délai). Une URL fausse (DNS), un refus de connexion ou un certificat
+// invalide ne passeront pas : on les remonte tout de suite.
+func transientNetErr(err error) bool {
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) && !dnsErr.IsTemporary {
+		return false
+	}
+	if errors.Is(err, syscall.ECONNREFUSED) {
+		return false
+	}
+	var certErr *tls.CertificateVerificationError
+	if errors.As(err, &certErr) {
+		return false
+	}
+	low := strings.ToLower(err.Error())
+	if strings.Contains(low, "unsupported protocol scheme") || strings.Contains(low, "actively refused") || strings.Contains(low, "x509") {
+		return false
+	}
+	return true
+}
+
+// waitStreamRetry laisse au tunnel le temps de se reconnecter (2 s, 4 s, 6 s).
+// false si le tour a été annulé entre-temps.
+func waitStreamRetry(ctx context.Context, n int) bool {
+	select {
+	case <-ctx.Done():
+		return false
+	case <-time.After(time.Duration(2*n) * time.Second):
+		return true
+	}
+}
+
 // isNetTimeout : une erreur réseau qui se déclare elle-même comme un délai
 // dépassé (net.Error.Timeout), quel que soit son libellé.
 func isNetTimeout(err error) bool {
@@ -859,6 +904,9 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 	// modèle vraiment bloqué doit finir par rendre la main, pas faire attendre.
 	const maxNudges = 2
 	nudgeCount := 0
+	// Reprises après un flux coupé (voir plus bas, après la lecture du flux).
+	const maxStreamRetries = 5
+	streamRetries := 0
 	// Pas de plafond d'itérations ni d'anti-boucle : ils coupaient des tours
 	// parfaitement légitimes (une recherche enchaîne facilement des dizaines
 	// d'appels, parfois identiques). Le seul frein est le bouton stop, qui annule
@@ -919,6 +967,13 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		}
 		tReq := time.Now() // secours des stats quand le serveur n'envoie pas de timings
 		resp, err := doLLM(ctx, req, body, ep)
+		if err != nil && ctx.Err() == nil && streamRetryable(ep) && transientNetErr(err) && streamRetries < maxStreamRetries {
+			// Tunnel en pleine reconnexion : même reprise qu'un flux coupé.
+			streamRetries++
+			if waitStreamRetry(ctx, streamRetries) {
+				continue
+			}
+		}
 		if err != nil {
 			err = friendlyLLMError(err)
 			cb(StreamEvent{Err: err})
@@ -934,6 +989,15 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			msg := strings.TrimSpace(string(b))
 			if msg == "" {
 				msg = resp.Status
+			}
+			// Relais ou passerelle momentanément sans la machine (tunnel en pleine
+			// reconnexion) : on attend et on rejoue. Surtout pas la branche « appel
+			// d'outil mal formé » plus bas, qui couperait les outils pour rien.
+			if gatewayStatus(resp.StatusCode) && ctx.Err() == nil && streamRetryable(ep) && streamRetries < maxStreamRetries {
+				streamRetries++
+				if waitStreamRetry(ctx, streamRetries) {
+					continue
+				}
 			}
 			// Le prompt a peut-être dépassé la fenêtre de contexte : on tente une
 			// compaction en vol et on rejoue le tour (une seule fois) avant tout le
@@ -960,7 +1024,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			// Most common 500 here: llama.cpp couldn't parse a malformed tool call
 			// the model emitted. Retry the turn once without tools so it answers
 			// in plain text rather than leaving the chat dead.
-			if !disableTools && len(tools) > 0 {
+			if resp.StatusCode == http.StatusInternalServerError && !disableTools && len(tools) > 0 {
 				disableTools = true
 				// Nudge the model to answer in plain text from what it already
 				// gathered, so it doesn't immediately re-emit a tool call that
@@ -1006,6 +1070,30 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			argToksFlushed = true
 			return argToks
 		}
+		// sentAnswer : du texte de réponse ou un outil est déjà parti vers l'UI pour
+		// cette complétion (une reprise le doublerait). sentReasoning : seul du
+		// raisonnement est parti, qu'on sait retirer (DropReasoning).
+		// shown : texte de réponse réellement affiché (sans raisonnement ni balise
+		// <think>), c'est lui qu'on rend au modèle pour qu'il reprenne après une
+		// coupure. typingTool : appel d'outil en cours d'écriture à l'écran.
+		sentAnswer, sentReasoning := false, false
+		var shown strings.Builder
+		var typingTool *ToolUsedEvent
+		scb := func(ev StreamEvent) bool {
+			if ev.Content != "" {
+				sentAnswer = true
+				shown.WriteString(ev.Content)
+			}
+			if ev.ToolUsed != nil {
+				sentAnswer = true
+				t := *ev.ToolUsed
+				typingTool = &t
+			}
+			if ev.Reasoning != "" {
+				sentReasoning = true
+			}
+			return cb(ev)
+		}
 		// Per-completion reasoning-split state (see reasoningOn comment above).
 		sawReasoningField := false
 		thinkOpen := reasoningOn
@@ -1043,7 +1131,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				stats.GenPerSecond = chunk.Timings.PredictedPerSec
 				stats.GenMs = chunk.Timings.PredictedMs
 				s := stats
-				cb(StreamEvent{Stats: &s})
+				scb(StreamEvent{Stats: &s})
 			}
 			if chunk.Usage != nil && chunk.Usage.CompletionTokens > 0 {
 				usageGen = chunk.Usage.CompletionTokens
@@ -1051,7 +1139,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			if chunk.Usage != nil && chunk.Usage.PromptTokens > 0 {
 				stats.PromptTokensTotal = chunk.Usage.PromptTokens
 				s := stats
-				cb(StreamEvent{Stats: &s})
+				scb(StreamEvent{Stats: &s})
 			}
 			if len(chunk.Choices) == 0 {
 				continue
@@ -1084,7 +1172,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				if thinkOpen && thinkTail.Len() > 0 {
 					tail := thinkTail.String()
 					thinkTail.Reset()
-					if !cb(StreamEvent{Content: tail}) {
+					if !scb(StreamEvent{Content: tail}) {
 						aborted = true
 						break
 					}
@@ -1154,7 +1242,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 						if grew {
 							lastBodyLines = strings.Count(body, "\n")
 						}
-						if !cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: cur.Function.Name, Label: lastPreview, Body: body, Typing: true, ArgToks: argToks}}) {
+						if !scb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: cur.Function.Name, Label: lastPreview, Body: body, Typing: true, ArgToks: argToks}}) {
 							aborted = true
 							break
 						}
@@ -1166,7 +1254,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				// Backend already separates reasoning — trust it, disable our split.
 				sawReasoningField = true
 				thinkOpen = false
-				if !cb(StreamEvent{Reasoning: ch.Delta.ReasoningContent}) {
+				if !scb(StreamEvent{Reasoning: ch.Delta.ReasoningContent}) {
 					aborted = true
 					break
 				}
@@ -1174,7 +1262,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			if ch.Delta.Content != "" {
 				assistantContent.WriteString(ch.Delta.Content)
 				if !thinkOpen || sawReasoningField {
-					if !cb(StreamEvent{Content: ch.Delta.Content}) {
+					if !scb(StreamEvent{Content: ch.Delta.Content}) {
 						aborted = true
 						break
 					}
@@ -1198,11 +1286,11 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 						after := strings.TrimLeft(s[i+len(thinkClose):], "\r\n")
 						thinkOpen = false
 						thinkTail.Reset()
-						if reason != "" && !cb(StreamEvent{Reasoning: reason}) {
+						if reason != "" && !scb(StreamEvent{Reasoning: reason}) {
 							aborted = true
 							break
 						}
-						if after != "" && !cb(StreamEvent{Content: after}) {
+						if after != "" && !scb(StreamEvent{Content: after}) {
 							aborted = true
 							break
 						}
@@ -1219,7 +1307,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 							emit := s[:cut]
 							thinkTail.Reset()
 							thinkTail.WriteString(s[cut:])
-							if !cb(StreamEvent{Content: emit}) {
+							if !scb(StreamEvent{Content: emit}) {
 								aborted = true
 								break
 							}
@@ -1230,7 +1318,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		}
 		// Flush the held-back tail (never part of a </think>): it's answer text.
 		if !aborted && thinkOpen && thinkTail.Len() > 0 {
-			cb(StreamEvent{Content: strings.TrimLeft(thinkTail.String(), "\r\n")})
+			scb(StreamEvent{Content: strings.TrimLeft(thinkTail.String(), "\r\n")})
 		}
 		// ⚠️ Le flux a-t-il fini, ou CASSÉ ? sc.Scan() renvoie false dans les deux
 		// cas, et l'erreur n'était jamais consultée : une lecture coupée en plein
@@ -1263,11 +1351,49 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		if aborted {
 			return extra, nil
 		}
+		// Flux coupé vers une API distante (tunnel ajean.link qui se reconnecte,
+		// Wi-Fi/VPN qui décroche) : on relance au lieu d'abandonner le tour.
+		//   - Rien de la réponse n'est encore affiché : on rejoue la même requête
+		//     (le raisonnement déjà montré est retiré, il va être régénéré).
+		//   - Du texte est déjà affiché : on le remet au modèle comme début de sa
+		//     réponse, suivi d'un message « connexion coupée, continue », et il
+		//     reprend où il s'était arrêté. La suite s'ajoute au texte déjà à
+		//     l'écran. Ces deux messages ne vont que dans la vue modèle de ce tour :
+		//     la réponse persistée est le texte complet, reconstitué par l'appelant.
+		//     Un appel d'outil à moitié écrit est jeté : le modèle le réémettra.
+		// Coupure APRÈS le dernier chunk (finish_reason reçu) : la réponse est
+		// complète, seule la fermeture a raté. On la garde telle quelle.
+		if scanErr != nil && finishReason != "" {
+			scanErr = nil
+		}
+		if scanErr != nil && ctx.Err() == nil && !errors.Is(scanErr, bufio.ErrTooLong) &&
+			streamRetryable(ep) && streamRetries < maxStreamRetries {
+			streamRetries++
+			if sentReasoning && !sentAnswer {
+				cb(StreamEvent{DropReasoning: true})
+			}
+			// Clôt la bulle de l'outil à moitié écrit : il va être réémis, sinon
+			// elle resterait « en cours d'écriture » pour toujours.
+			if typingTool != nil {
+				cb(StreamEvent{ToolUsed: &ToolUsedEvent{Name: typingTool.Name, Label: typingTool.Label, Done: true, Result: "(appel interrompu par une coupure réseau, relancé)"}})
+			}
+			if waitStreamRetry(ctx, streamRetries) {
+				if partial := shown.String(); strings.TrimSpace(partial) != "" {
+					messages = append(messages,
+						Message{Role: "assistant", Content: partial},
+						Message{Role: "user", Content: "La connexion a été coupée pendant ta réponse. Reprends exactement là où tu t'es arrêté, sans répéter ce que tu as déjà écrit."})
+				}
+				continue
+			}
+		}
 		if scanErr != nil && ctx.Err() == nil {
 			err := streamCutError(scanErr)
 			cb(StreamEvent{Err: err})
 			return extra, err
 		}
+		// Complétion lue en entier : le budget de reprises vaut par coupure
+		// rapprochée, pas pour tout un long tour d'agent.
+		streamRetries = 0
 
 		// Treat any accumulated tool calls as a tool turn even if the backend set
 		// finish_reason to "stop" instead of "tool_calls" (some llama.cpp builds

@@ -276,7 +276,11 @@ func startAppLink(mux *http.ServeMux) {
 		backoff := time.Second
 		for ctx.Err() == nil {
 			started := time.Now()
-			_ = runLinkSession(ctx, token, handler, oaiTLS)
+			// La cause d'une coupure était jetée : on la journalise, sinon impossible de
+			// savoir pourquoi les flux en cours (chat, accès OpenAI) se font couper.
+			if err := runLinkSession(ctx, token, handler, oaiTLS); err != nil && ctx.Err() == nil {
+				fmt.Printf("%s lien coupé après %s : %v\n", yellow("[link]"), time.Since(started).Round(time.Second), err)
+			}
 			// Une session qui a TENU repart de zéro. Sans cette remise, le délai
 			// grimpait de coupure en coupure et restait collé à 30 s pour toujours,
 			// y compris pour reconnecter un lien qui venait de vivre des heures.

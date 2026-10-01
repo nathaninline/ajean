@@ -173,9 +173,9 @@ const closePlusMenu = ()=>closeMenu();
 function togglePlusMenu(e){
   if(e){ e.stopPropagation(); e.preventDefault(); }
   popMenu(document.getElementById('plus-btn'), [
+    COMPACT_AVAILABLE && {icon:PLUS_IC.compact, label:t('projects.compact_context'), run:compactContext}, // contexte ≥ 50 %, en tête
     {icon:PLUS_IC.file, label:t('projects.attach_file'), run:()=>document.getElementById('attach-input').click()},
     {icon:PLUS_IC.chat, label:t('chat.new_chat_btn'), run:newChatFromTop},
-    COMPACT_AVAILABLE && {icon:PLUS_IC.compact, label:t('projects.compact_context'), run:compactContext}, // contexte ≥ 50 %
   ], {side:'above', align:'left', gap:14, keepOnScroll:true}); // le chat défile pendant la génération
 }
 
