@@ -1079,8 +1079,8 @@ function histHeadLabel(){
   document.body.classList.toggle('hist-jean', jean);
   if(jean||MODE==='fast'||MODE==='base'){
     // Rapide : l'éclair ; Jean : son icône (reprises du menu des modes).
-    hl.textContent=t(jean?'chat.mode_jean':'chat.mode_fast');
-    const src=document.querySelector('#mode-menu button[data-mode="'+(jean?'jean':'fast')+'"] svg.mm-ic');
+    hl.textContent=t(MODE_KEYS[MODE]);
+    const src=document.querySelector('#mode-menu button[data-mode="'+MODE+'"] svg.mm-ic');
     if(ic && src){ const s=src.cloneNode(true); s.removeAttribute('class'); s.setAttribute('width','13'); s.setAttribute('height','13'); ic.replaceChildren(s); }
     return;
   }

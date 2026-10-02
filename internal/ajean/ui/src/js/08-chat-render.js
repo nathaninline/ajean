@@ -669,7 +669,7 @@ function sessionRow(c, active){
   const n = c.turns || 0;
   // Projet de la conversation : affiché seulement s'il diffère du projet actif
   // (résultats de recherche, qui couvrent tous les projets).
-  const pn = (c.project && c.project !== (ACTIVE_PROJECT||HIST_DEFAULT_PROJ)) ? (HIST_PROJ_NAMES[c.project] || c.project) : '';
+  const pn = (c.project && c.mode!=='fast' && c.mode!=='base' && c.project !== (ACTIVE_PROJECT||HIST_DEFAULT_PROJ)) ? (HIST_PROJ_NAMES[c.project] || c.project) : '';
   if(pn){ const pj=document.createElement('span'); pj.className='sess-proj'; pj.textContent=pn; meta.appendChild(pj); }
   meta.appendChild(document.createTextNode(fmtHistDate(c.saved_at) + ' · ' + n + ' ' + (n>1?t('chat.session.messages'):t('chat.session.message')) + (active?' · '+t('chat.session.ongoing'):'')));
   info.appendChild(name); info.appendChild(meta);
@@ -685,7 +685,7 @@ function openHistRowMenu(anchor, c){
   popMenu(anchor, [
     {icon:'star', label:c.fav?t('chat.session.unfav'):t('chat.session.fav'), run:()=>favHistory(c.id, !c.fav)},
     {icon:'pencil', label:t('chat.session.rename'), run:()=>renameHistory(c.id, c.title)},
-    PROJECTS.length > 1 && c.id !== HIST_ST.active && {icon:'move', label:t('projects.move_to'), run:()=>moveSessionUI(c, anchor)}, // la conversation ouverte ne se déplace pas
+    PROJECTS.length > 1 && c.id !== HIST_ST.active && c.mode!=='fast' && c.mode!=='base' && {icon:'move', label:t('projects.move_to'), run:()=>moveSessionUI(c, anchor)}, // la conversation ouverte ne se déplace pas
     {icon:EXPORT_IC, label:t('projects.export'), run:()=>downloadExport('/api/chat/export?id='+encodeURIComponent(c.id))},
     {icon:'trash', label:t('chat.session.delete_permanently'), danger:true, run:()=>deleteHistory(c.id, c.title)},
   ], {side:'below'});
@@ -698,8 +698,8 @@ const HIST_PAGE = 60;
 let HIST_ST = {off:0, total:0, active:'', section:'', loading:false, sig:''};
 let HIST_Q = '', HIST_QT = 0;
 // Historique = conversations du PROJET ACTIF ; une recherche, elle, couvre tous les projets.
-const histScope = ()=>(MODE==='fast'||MODE==='base') ? 'quick' : '';
-const histUrl = (off)=>'/api/chat/history?'+(HIST_Q?'all=1&':(histScope()?'scope=quick&':''))+'offset='+off+'&limit='+HIST_PAGE+(HIST_Q?'&q='+encodeURIComponent(HIST_Q):'');
+const histScope = ()=>(MODE==='fast'||MODE==='base') ? MODE : ''; // Rapide et Modèle de base : chacun son historique
+const histUrl = (off)=>'/api/chat/history?'+(HIST_Q?'all=1&':(histScope()?'scope='+histScope()+'&':''))+'offset='+off+'&limit='+HIST_PAGE+(HIST_Q?'&q='+encodeURIComponent(HIST_Q):'');
 // Recherche : on attend une courte pause dans la frappe avant d'interroger.
 function onHistSearch(){
   clearTimeout(HIST_QT);

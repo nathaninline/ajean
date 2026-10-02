@@ -249,7 +249,8 @@ func handleChatHistoryRestore(w http.ResponseWriter, r *http.Request) {
 	}
 	// Conversation d'un autre projet (historique général) : on bascule d'abord sur
 	// son projet, pour que mémoire et contexte suivent la conversation ouverte.
-	if a, ok := loadArchive(body.ID); ok {
+	// Sauf une conversation rapide ou de modèle de base : elle n'a pas de projet.
+	if a, ok := loadArchive(body.ID); ok && !quickMode(a.Mode) {
 		if p := archiveProject(convArchiveMeta{Project: a.Project}); p != activeProjectSlug() && projectExists(p) {
 			if err := setActiveProject(p); err != nil {
 				sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})

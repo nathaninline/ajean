@@ -422,6 +422,9 @@ func (c *Conversation) OpenSession(id string) error {
 	// Projet de la session (vide = Générale) : la conversation ouverte porte
 	// toujours le projet auquel elle appartient (historique général).
 	c.Project = archiveProject(convArchiveMeta{Project: a.Project})
+	if quickMode(a.Mode) {
+		c.Project = activeProjectSlug() // rapide / base : pas de projet à elle
+	}
 	if a.ID == jeanConvID {
 		// Jean est hors projets : on garde le projet actif, sinon la conversation
 		// suivante (Reset préserve c.Project) hériterait du pseudo-projet de Jean.
@@ -513,11 +516,22 @@ func (c *Conversation) unlockMode(mode string) {
 // leur propre historique au lieu de s'éparpiller dans le projet actif du moment.
 func quickMode(mode string) bool { return mode == "fast" || mode == "base" }
 
-// historyList : les conversations que montre l'historique latéral. scope "quick"
-// = conversations rapides (tous projets) ; sinon celles du projet actif, hors
-// conversations rapides. Les anciennes conversations sans mode restent au projet.
+// historyList : les conversations que montre l'historique latéral. scope "fast" ou
+// "base" = les conversations de CE mode (tous projets : elles n'en ont pas) ; "quick"
+// = les deux ; sinon celles du projet actif, hors conversations rapides. Les
+// anciennes conversations sans mode restent au projet.
 func historyList(scope string) []convArchiveMeta {
 	var src []convArchiveMeta
+	if scope == "fast" || scope == "base" {
+		src = listAllArchives()
+		out := src[:0:0]
+		for _, m := range src {
+			if m.Mode == scope {
+				out = append(out, m)
+			}
+		}
+		return out
+	}
 	if scope == "quick" {
 		src = listAllArchives()
 	} else {

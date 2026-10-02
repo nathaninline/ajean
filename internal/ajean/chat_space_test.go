@@ -186,3 +186,17 @@ func TestDeleteProjectGardeRapides(t *testing.T) {
 		t.Fatal("conversation du projet pas effacée")
 	}
 }
+
+// Rapide et Modèle de base ont chacun leur historique.
+func TestHistoryRapideEtBaseSepares(t *testing.T) {
+	testHome(t)
+	ensureDefaultProject()
+	_ = saveArchive(&convArchive{ID: "f1", Mode: "fast"})
+	_ = saveArchive(&convArchive{ID: "b1", Mode: "base"})
+	if l := historyList("fast"); len(l) != 1 || l[0].ID != "f1" {
+		t.Fatalf("rapide : %v", l)
+	}
+	if l := historyList("base"); len(l) != 1 || l[0].ID != "b1" {
+		t.Fatalf("base : %v", l)
+	}
+}
