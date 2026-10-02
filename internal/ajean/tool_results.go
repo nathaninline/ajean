@@ -179,7 +179,7 @@ func slimArchives() {
 	// La conversation active aussi : ses images partent au prochain enregistrement.
 	// Jamais pendant une génération : runChat lit ces mêmes messages.
 	conv.mu.Lock()
-	inline := !conv.Generating && hasInlineImages(conv.Messages)
+	inline := !conv.Generating && (hasInlineImages(conv.Messages) || hasInlineVideos(conv.Messages))
 	conv.mu.Unlock()
 	if inline {
 		conv.persist()
@@ -202,7 +202,7 @@ func slimArchives() {
 			}
 			// Illisible pour une autre raison (entrée corrompue) : on la saute plutôt
 			// que de bloquer toute la tâche.
-		} else if slimmed := slimArchiveLog(a); slimmed || hasInlineImages(a.Messages) {
+		} else if slimmed := slimArchiveLog(a); slimmed || hasInlineImages(a.Messages) || hasInlineVideos(a.Messages) {
 			if saveArchive(a) != nil { // saveArchive range les images par référence
 				return
 			}

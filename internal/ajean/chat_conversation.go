@@ -215,9 +215,11 @@ func reloadEncryptedStores() {
 // delta). L'appelant NE doit PAS détenir mu.
 func (c *Conversation) persist() {
 	c.mu.Lock()
-	// Images en base64 → références (chat_images.go) avant d'écrire : c'est ce qui
-	// faisait peser une conversation des dizaines de Mo.
+	// Images/vidéos en base64 → références (chat_images.go / chat_video.go)
+	// avant d'écrire : c'est ce qui faisait peser une conversation des dizaines
+	// de Mo.
 	refImagesInMessages(c.Messages)
+	refVideosInMessages(c.Messages)
 	b, err := json.Marshal(c)
 	c.mu.Unlock()
 	if err != nil {
