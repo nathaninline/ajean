@@ -52,13 +52,6 @@ func spaceWorkspace(ctx context.Context) string {
 	return agentWorkspace()
 }
 
-func spaceScripts(ctx context.Context) string {
-	if isJeanSpace(ctx) {
-		return jeanScriptsDir()
-	}
-	return scriptsDir()
-}
-
 // scriptsDirFor : dossier de scripts d'une tâche (Jean ou projets).
 func scriptsDirFor(jean bool) string {
 	if jean {

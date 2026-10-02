@@ -257,16 +257,13 @@ func userMessageContent(files []attachInfo, prompt string) any {
 	return append(parts, imgParts...)
 }
 
-// workspaceRel dit si `abs` se trouve DANS le dossier de travail de l'agent et,
-// si oui, renvoie son chemin relatif en séparateurs '/'.
+// dirRel dit si `abs` se trouve DANS `root` et, si oui, renvoie son chemin
+// relatif en séparateurs '/' (liens symboliques résolus).
 //
-// C'est le seul périmètre téléchargeable. L'agent peut écrire n'importe où quand
+// Les dossiers de travail (projets et Jean) sont le seul périmètre téléchargeable. L'agent peut écrire n'importe où quand
 // on lui donne un chemin absolu (voir resolveAgentPath) ; ouvrir le téléchargement
 // à ces fichiers-là ferait de /api/chat/file un « lis-moi ce fichier du serveur »
 // à usage général — l'API n'a pas forcément de clé et écoute sur 0.0.0.0.
-func workspaceRel(abs string) (string, bool) { return dirRel(agentWorkspace(), abs) }
-
-// dirRel : chemin de abs relatif à root, s'il est dedans (liens symboliques résolus).
 func dirRel(root, abs string) (string, bool) {
 	// EvalSymlinks des deux côtés : sans ça, un lien qui sort du dossier passerait
 	// le test de préfixe.

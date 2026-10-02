@@ -321,10 +321,6 @@ func fileWriteIn(ctx context.Context, path, content string) string {
 // fileEdit applies a single exact-text replacement to a file on disk: oldText
 // must appear EXACTLY once (otherwise it errors), so the model can patch a file
 // without rewriting it whole. Returns a short status string for the tool result.
-func fileEdit(path, oldText, newText string) string {
-	return fileEditIn(context.Background(), path, oldText, newText)
-}
-
 func fileEditIn(ctx context.Context, path, oldText, newText string) string {
 	if strings.TrimSpace(path) == "" {
 		return "[erreur] chemin vide"
