@@ -5,11 +5,11 @@
 // serveur) ; se reconnecter rejoue tout le fil, détails compris.
 let lastSeq=0, streamAbort=null;
 // Historique paginé : au chargement, le serveur ne rejoue que les HIST_TAIL derniers
-// échanges et annonce le reste ({history_more: N}). Le bouton en haut du fil
-// redemande alors un rejeu complet (HIST_FULL) en gardant la position de lecture
-// (HIST_RESTORE = distance au bas du fil, réappliquée au caught_up).
+// échanges et annonce le reste ({history_more: N, before: seq}). Remonter le fil
+// charge ensuite les échanges précédents par lots (loadOlder) : jamais tout le fil
+// d'un coup, ce qui compte pour la conversation sans fin du mode Jean.
 const HIST_TAIL=20;
-let HIST_FULL=false, HIST_RESTORE=null;
+let OLDER=null; // {before, more, busy} : curseur de la remontée
 // CONV_ID : id de la conversation que ce client affiche actuellement (reçu du
 // serveur au caught_up/reset). Renvoyé à chaque (re)connexion : le serveur compare
 // avec la conversation vive et, si un AUTRE appareil en a changé pendant qu'on était
@@ -75,7 +75,7 @@ function confirmPending(text){
 let REPLAYING=true;
 // État de rendu du tour courant, délimité par les événements user / turn_done.
 let T=null;
-function newTurn(){ T={ reasonEl:null, contentEl:null, pendingToolEl:null, activeEl:null, typingEl:null, fullContent:'', fullReason:'', turnCollapsibles:[], serverStats:null, reasonTok:0, contentTok:0, toolTok:0, reasonFirstTs:0, reasonLastTs:0, contentFirstTs:0, contentLastTs:0 }; }
+function newTurn(){ T={ cuShotEl:null, reasonEl:null, contentEl:null, pendingToolEl:null, activeEl:null, typingEl:null, fullContent:'', fullReason:'', turnCollapsibles:[], serverStats:null, reasonTok:0, contentTok:0, toolTok:0, reasonFirstTs:0, reasonLastTs:0, contentFirstTs:0, contentLastTs:0 }; }
 // « Élément actif » = la bulle qui porte le shimmer. Le voile reste dessus tant
 // qu'une nouvelle étape (raisonnement / outil / réponse) n'a pas pris le relais —
 // y compris pendant que l'IA LIT la réponse d'un outil terminé. On ne coupe donc
@@ -150,11 +150,13 @@ function ensureGenEl(){
     // Le J du favicon AJEAN : deux carrés empilés (la barre) + un carré décalé à
     // gauche en bas (le pied du J). Statique, en accent. Classe (pas id) : plusieurs
     // lignes figées coexistent dans le fil, une par tour terminé.
-    GENEL.innerHTML='<svg class="jlogo" viewBox="0 0 12 12" aria-hidden="true"><rect x="6" y="3" width="2" height="2"/><rect x="6" y="5" width="2" height="2"/><rect x="4" y="7" width="2" height="2"/></svg><span class="gtxt"></span>'; }
+    GENEL.innerHTML='<svg class="jlogo" viewBox="0 0 12 12" aria-hidden="true"><rect x="6" y="3" width="2" height="2"/><rect x="6" y="5" width="2" height="2"/><rect x="4" y="7" width="2" height="2"/></svg><span class="jact"></span><span class="gtxt"></span>'; }
   if(GENEL.parentNode!==chat || chat.lastElementChild!==GENEL) chat.appendChild(GENEL); // toujours en dernier
+  // Mode Jean : son avatar prend la place du logo, à gauche de ce qu'il fait.
+  if(MODE==='jean' && !REPLAYING && !CHAT_TARGET) JeanAvatar&&JeanAvatar.attach(GENEL);
   return GENEL;
 }
-function removeGenEl(){ if(GENEL&&GENEL.parentNode) GENEL.parentNode.removeChild(GENEL); GENEL=null; }
+function removeGenEl(){ if(GENEL&&GENEL.parentNode) GENEL.parentNode.removeChild(GENEL); GENEL=null; if(!CHAT_TARGET) JeanAvatar&&JeanAvatar.detach(); }
 // Vitesse decode STABLE en direct, basée sur les HORODATAGES SERVEUR des tokens
 // (d.ts), pas l'heure d'arrivée côté client : les ts serveur reflètent le vrai
 // rythme de génération et ignorent la bufferisation réseau/MTP (qui rendait la
@@ -212,15 +214,105 @@ function paintGenStatus(){
   paintGenParts(txt, genItems(secs, tok, tok>0?genRate():null, activePresetName(), extra));
   scrollMaybe();
 }
+// Mode Jean : pas de bulles de raisonnement ni d'outils (masquées en CSS), juste
+// ce que fait l'IA, en une phrase animée dans la ligne d'état (« Réfléchit… »,
+// « Fouille dans sa mémoire… »). Vide = rien à dire (le texte de la réponse coule).
+let JACT='';
+function jeanActFor(name){
+  if(/^(jean_search|jean_read|recall|recall_search|mem_search|mem_read)$/.test(name)) return 'jean.act_search';
+  if(/^(jean_remember|jean_note|jean_save|mem_add|mem_edit)$/.test(name)) return 'jean.act_remember';
+  if(/^(jean_forget|mem_delete)$/.test(name)) return 'jean.act_forget';
+  if(/^web_/.test(name)) return 'jean.act_web';
+  if(/^task_/.test(name)) return 'jean.act_task';
+  if(/^browser_/.test(name)) return 'jean.act_browse';
+  if(name==='see_image') return 'jean.act_look';
+  if(/^(bash|write|edit)$/.test(name)) return 'jean.act_machine';
+  return 'jean.act_work';
+}
+function setJeanAct(k){
+  if(MODE!=='jean' || REPLAYING || k===JACT) return;
+  JACT=k; JeanAvatar&&JeanAvatar.act(k);
+  const a=GENEL && GENEL.querySelector('.jact'); if(!a) return;
+  a.textContent=k ? t(k) : '';
+  a.classList.remove('jact-in'); void a.offsetWidth; if(k) a.classList.add('jact-in'); // fondu à chaque changement d'activité
+}
+// Tâche de Jean en cours : même ligne animée, dans le fil Jean, hors de tout tour.
+// Le serveur publie {name, tool} à chaque étape puis {done}.
+function showJeanTask(j){
+  if(!REPLAYING) j.done ? JeanAvatar&&JeanAvatar.done() : JeanAvatar&&JeanAvatar.act(j.tool ? jeanActFor(j.tool) : 'jean.act_work');
+  if(j.done){ if(!ELAPSED) removeGenEl(); return; }
+  const g=ensureGenEl(), a=g.querySelector('.jact'), x=g.querySelector('.gtxt');
+  const txt=j.tool ? t(jeanActFor(j.tool)) : t('jean.act_task_run').replace('{name}', j.name||'');
+  if(a && a.textContent!==txt){ a.textContent=txt; a.classList.remove('jact-in'); void a.offsetWidth; a.classList.add('jact-in'); }
+  if(x && !ELAPSED) x.textContent='';
+  scrollMaybe();
+}
+// Aperçu EN DIRECT du navigateur piloté. Après chaque action browser_*, le serveur
+// garde une capture en mémoire (tu.shot = son id). Une seule carte par tour : la
+// nouvelle image arrive en fondu enchaîné par-dessus l'ancienne. Purement de
+// l'interface : la carte s'efface à la fin du tour et rien n'est gardé (le serveur
+// retire l'id du journal). Une capture à conserver passe par browser_screenshot.
+async function showCuShot(tu){
+  if(REPLAYING) return;
+  let card=T.cuShotEl;
+  if(!card){
+    card=document.createElement('div'); card.className='cu-shot';
+    card.innerHTML='<div class="cu-shot-cap"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg><span class="cu-shot-t"></span></div><div class="cu-shot-img"></div>';
+    card.querySelector('.cu-shot-t').textContent=t('chat.cu_live');
+    T.cuShotEl=card;
+  }
+  if(tu.name==='browser_open' && tu.label) card.querySelector('.cu-shot-t').textContent=tu.label;
+  const chat=chatEl(), anchor=(GENEL && GENEL.parentNode===chat) ? GENEL : null;
+  if(card.parentNode!==chat || card.nextSibling!==anchor){ if(anchor) chat.insertBefore(card, anchor); else chat.appendChild(card); }
+  const my=(card._n=(card._n||0)+1); // ordre d'arrivée des captures
+  let r; try{ r=await jget('/api/chat/cushot?id='+encodeURIComponent(tu.shot)); }catch(_){ return; }
+  if(!r || !r.ok || T.cuShotEl!==card) return; // carte déjà retirée (tour fini)
+  const box=card.querySelector('.cu-shot-img');
+  const img=new Image(); img.alt=''; img.className='cu-frame';
+  img.onclick=()=>{ if(typeof openLightbox==='function'){ img.dataset.full=img.src; openLightbox(img); } };
+  img.src='data:'+(r.mime||'image/jpeg')+';base64,'+r.data;
+  // Décodée AVANT d'entrer dans la page : jamais d'image à moitié peinte.
+  try{ await img.decode(); }catch(_){ return; }
+  // Une capture plus récente est déjà affichée (réponses dans le désordre) : on jette.
+  if(T.cuShotEl!==card || my<(card._shown||0)) return;
+  card._shown=my;
+  box.appendChild(img);
+  if(!box.style.aspectRatio) box.style.aspectRatio=img.naturalWidth+' / '+img.naturalHeight;
+  // Minuterie et non requestAnimationFrame : en arrière-plan (fenêtre non
+  // affichée), rAF est suspendu et l'image restait à opacité 0.
+  setTimeout(()=>img.classList.add('in'), 20);
+  // Fondu terminé : on retire seulement les images PLUS ANCIENNES (celles d'avant
+  // dans la boîte). Retirer « toutes sauf la mienne » effaçait la plus récente
+  // quand deux captures se suivaient de près, d'où un clignotement.
+  setTimeout(()=>{ let x=img.previousElementSibling; while(x){ const p=x.previousElementSibling; x.remove(); x=p; } }, 480);
+  scrollMaybe();
+}
+// Fin du tour : l'aperçu s'efface (repli en douceur). Pas au premier texte de
+// l'IA : elle écrit souvent un bout de phrase entre deux actions, ce qui
+// effaçait la carte avant même que la capture ait chargé.
+// On retire TOUTES les cartes du fil, pas seulement celle mémorisée par le tour :
+// si un nouveau tour démarrait pendant la navigation (message pris en compte en
+// cours de réponse), la carte du précédent restait orpheline dans le fil.
+function hideCuShot(){
+  if(CHAT_TARGET) return; // rendu d'un lot ancien (loadOlder) : le fil vivant n'est pas concerné
+  if(T) T.cuShotEl=null;
+  const chat=document.getElementById('chat'); if(!chat) return;
+  chat.querySelectorAll(':scope > .cu-shot').forEach(card=>{
+    if(card.classList.contains('out')) return;
+    card.style.height=card.offsetHeight+'px'; void card.offsetHeight;
+    card.classList.add('out'); card.style.height='0px';
+    setTimeout(()=>card.remove(), 380);
+  });
+}
 function genStatusOn(on){ chatEl().classList.toggle('genon', !!on); }
 function elapsedStart(){
   if(REPLAYING) return;
   elapsedStop();
   ELAPSED={start:Date.now(), timer:setInterval(paintGenStatus,500), decodeMs:0, lastTs:0, tokBase:0};
-  genStatusOn(true); paintGenStatus();
+  genStatusOn(true); paintGenStatus(); JACT=''; setJeanAct('jean.act_think');
 }
 // Arrêt SANS conserver la ligne (erreur/reset) : le tour n'a pas de fin propre.
-function elapsedStop(){ if(ELAPSED){ clearInterval(ELAPSED.timer); ELAPSED=null; } genStatusOn(false); removeGenEl(); }
+function elapsedStop(){ JACT=''; if(ELAPSED){ clearInterval(ELAPSED.timer); ELAPSED=null; } genStatusOn(false); removeGenEl(); }
 // FIN DE TOUR (direct ET replay) : pose la ligne définitive sous le message, à
 // partir de la durée SERVEUR (elapsed_ms, rejouée donc identique après reload) et
 // des mesures serveur (tokens + vitesse decode réelle). On détache GENEL pour que
@@ -242,7 +334,7 @@ function finalizeTurn(elapsedMs, preset){
   const items=genItems(elapsedMs/1000, tok, rate, pr, '');
   if(!(elapsedMs>0)) items.shift();
   const g=ensureGenEl(); paintGenParts(g.querySelector('.gtxt'), items);
-  GENEL=null;
+  GENEL=null; if(!CHAT_TARGET) JeanAvatar&&JeanAvatar.detach();
   scrollMaybe(true); // révèle la fin (et cette ligne) même sur un fil à peine défilable
 }
 function removeTyping(){ if(T.typingEl){ T.typingEl.remove(); T.typingEl=null; } }
@@ -268,10 +360,10 @@ function setCompacting(on){
   if(!ELAPSED){ genStatusOn(false); removeGenEl(); }
 }
 // Séparateur laissé dans le fil à l'endroit exact de la coupure.
-function addCompactMark(){
+function addCompactMark(label){
   const el=document.createElement('div');
   el.className='compact-mark';
-  el.textContent=t('chat.context_compacted_mark');
+  el.textContent=label || t('chat.context_compacted_mark');
   // Devant la barre d'état encore à l'écran (compactage en cours de tour) : la
   // suite de la réponse doit rester APRÈS la marque de coupure. La barre de
   // génération (GENEL) est le repère ; à défaut l'ancien indicateur de frappe.
@@ -465,15 +557,11 @@ function handleDelta(d){
     // Fin du replay initial : on saute en bas puis on révèle (une seule fois — pas
     // sur les reconnexions, pour ne pas te ramener en bas si tu lisais plus haut).
     setChatLoading(null);
-    if(REPLAYING && HIST_RESTORE!==null){
-      // Historique complet demandé : on garde la position de lecture (distance au
-      // bas du fil) au lieu de sauter en bas, et on la recale une fois la mise en
-      // page stabilisée (le rejeu pose ses blocs de façon différée).
-      REPLAYING=false; syncSendBtn(); const c=chatEl(); c.style.transition='opacity .15s'; c.style.opacity='1';
-      const keep=HIST_RESTORE; HIST_RESTORE=null; stickyBottom=false;
-      const put=()=>{ c.scrollTop=Math.max(0, c.scrollHeight-keep); };
-      put(); requestAnimationFrame(()=>requestAnimationFrame(put)); setTimeout(put, 80); setTimeout(put, 250);
-    } else if(REPLAYING){ REPLAYING=false; jumpBottom(); syncSendBtn(); const c=chatEl(); c.style.transition='opacity .15s'; c.style.opacity='1';
+    if(REPLAYING){ REPLAYING=false; jumpBottom(); syncSendBtn(); const c=chatEl();
+      // En bas TOUT DE SUITE, avant de révéler : jumpBottom passe par l'image
+      // suivante, et le fondu montrait sinon un instant le haut du fil.
+      c.scrollTop=c.scrollHeight; clearTimeout(hideChatForReplay.t);
+      c.style.transition='opacity .15s'; c.style.opacity='1';
       // Le rejeu pose ses blocs de façon différée (scheduleRender) : la hauteur
       // finale n'est pas encore établie au caught_up, donc jumpBottom() atterrit
       // trop court (près du haut sur une session ouverte). On re-cale en bas une
@@ -489,6 +577,8 @@ function handleDelta(d){
     // settle=true : si le serveur est idle alors qu'un tour semble encore en cours
     // (génération coupée → pas de turn_done), on décolle le voile resté bloqué.
     reconcileBusy(true);
+    // Fil reconstruit : l'avatar de Jean reprend sa place sur la dernière ligne.
+    JeanAvatar&&JeanAvatar.detach();
     // Fil vide : aucune bulle n'a été rejouée, donc aucune mutation ne viendra
     // déclencher la synchro — c'est ici qu'on décide d'afficher l'accueil.
     syncChatEmpty();
@@ -499,10 +589,18 @@ function handleDelta(d){
     // (comme au chargement de page), sans l'animation « ouvre puis se ferme ». Le
     // caught_up qui clôt le rejeu remettra REPLAYING à false.
     if(d.replay) REPLAYING=true;
-    if(d.id!==undefined && (d.id||'')!==CONV_ID) HIST_FULL=false; // autre conversation : de nouveau paginée
+    OLDER=null; // autre fil : son propre curseur arrivera avec son history_more
     if(d.id!==undefined) CONV_ID=d.id||''; // nouvelle conversation active : on suit son id
-    TURN_ENDED=true; elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDS=[]; chatClearAnimated(); newTurn(); setCtxUsed(0); setCompactCount(0); lastSeq=0; setBusy(false); return; }
-  if(d.history_more!==undefined){ showHistoryMore(d.history_more); return; }
+    // Conversation changée (peut-être depuis un autre appareil) : on adopte SON mode,
+    // sinon on resterait par ex. en Jean en regardant une conversation de projet.
+    if(d.mode) setModeFromConv(d.mode);
+    TURN_ENDED=true; elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDS=[];
+    // Un fil complet suit (changement de mode, session rouverte) : on le reconstruit
+    // MASQUÉ, et caught_up le révèle en fondu, déjà positionné en bas. Sinon on le
+    // voyait se remplir puis sauter. Nouveau fil vide : simple fondu d'entrée.
+    if(d.replay) hideChatForReplay(); else chatClearAnimated();
+    newTurn(); setCtxUsed(0); setCompactCount(0); lastSeq=0; setBusy(false); return; }
+  if(d.history_more!==undefined){ showHistoryMore(d.history_more, d.before); return; }
   if(d.user!==undefined){
     newTurn();
     let el=confirmPending(d.user);
@@ -512,16 +610,22 @@ function handleDelta(d){
     // bulle neuve — sinon elles apparaîtraient en double.
     if(d.files && !hasMsgFiles(el)) addMsgFiles(el, d.files);
     TURN_ENDED=false; setBusy(true); T.typingEl=addTyping(); elapsedStart(); return; }
-  if(d.turn_done){ TURN_ENDED=true; smoothSnap(); flushRender();
+  if(d.turn_done){ TURN_ENDED=true; hideCuShot(); smoothSnap(); flushRender();
+    if(MODE==='jean' && !REPLAYING) JeanAvatar&&JeanAvatar.done();
     // MÊME ligne en direct et au replay : durée serveur (elapsed_ms, rejouée) +
     // mesures serveur. removeTyping AVANT finalize pour que la ligne soit bien le
     // dernier enfant du fil (donc sous le message).
     removeTyping(); finalizeTurn(d.elapsed_ms||0, d.preset);
     for(const el of T.turnCollapsibles){ if(el){ el.classList.remove('working'); finalizeReasonLabel(el); } } // fin de tour : plus rien n'est actif (avant collapseAll qui vide la liste)
     collapseAll(T.turnCollapsibles); setBusy(false); return; }
-  if(d.error){ smoothSnap(); flushRender(); elapsedStop(); removeTyping(); setActive(null); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
+  if(d.error){ hideCuShot(); smoothSnap(); flushRender(); elapsedStop(); removeTyping(); setActive(null); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
+  if(d.jean_task){ showJeanTask(d.jean_task); return; }
+  // Message que Jean envoie de lui-même (tâche, rappel) : une bulle de réponse
+  // ordinaire, hors de tout tour.
+  if(d.jean_post){ removeTyping(); renderBody(addMsg('assistant',''), d.jean_post); if(!REPLAYING) JeanAvatar&&JeanAvatar.done(); return; }
   if(d.compacting!==undefined){ setCompacting(d.compacting); return; }
   if(d.compacted){ setCompacting(false); addCompactMark(); return; }
+  if(d.ctx_cleared){ addCompactMark(t('jean.ctx_cleared_mark')); return; }
   // Pas de toast au REPLAY : le journal est rejoué à chaque chargement de page,
   // donc une notification persistée se re-déclenchait à chaque rafraîchissement
   // (« rien à compacter » qui revient sans raison). C'est un événement ponctuel,
@@ -538,8 +642,10 @@ function handleDelta(d){
   if(d.tool_used){
     smoothSnap(); flushRender(); // le bloc texte précédent (raisonnement/contenu) est terminé
     killTyping('tool'); T.contentEl=null; T.reasonEl=null; const tu=d.tool_used;
+    setJeanAct(jeanActFor(tu.name||''));
     if(!T.pendingToolEl){ collapseAll(T.turnCollapsibles); T.pendingToolEl=addMsg('tool',''); if(REPLAYING||viewOn('fold-tools')) collapseInstant(T.pendingToolEl); T.turnCollapsibles.push(T.pendingToolEl); setActive(T.pendingToolEl); }
     renderToolMsg(T.pendingToolEl, tu);
+    if(tu.done && tu.shot) showCuShot(tu);
     if(!tu.done) reactivateLive(T.pendingToolEl); // outil encore en cours après un refresh : lui rendre le shimmer
     // Tokens d'écriture des arguments (cumul par appel). On compte PAR BULLE (diff
     // avec le dernier cumul vu) : robuste au direct (typing successifs) comme au
@@ -566,7 +672,7 @@ function handleDelta(d){
     if(T.reasonEl){ const i=T.turnCollapsibles.indexOf(T.reasonEl); if(i>=0) T.turnCollapsibles.splice(i,1); T.reasonEl.remove(); T.reasonEl=null; T.fullReason=''; }
     return; }
   if(d.reasoning_content){
-    killTyping('reasoning');
+    killTyping('reasoning'); setJeanAct('jean.act_think');
     // Raisonnement qui reprend APRÈS du texte de réponse (modèle qui repense en
     // cours de réponse, reprise après coupure, saut de ligne émis avant la
     // réflexion) : il allait dans l'ANCIENNE bulle, déjà repliée au-dessus de la
@@ -589,7 +695,8 @@ function handleDelta(d){
     noteDecode(d); paintGenStatus();
     return; }
   if(d.content){
-    removeTyping();
+    removeTyping(); setJeanAct('');
+    if(MODE==='jean' && !REPLAYING) JeanAvatar&&JeanAvatar.speak(d.toks||1);
     if(!T.contentEl){ setActive(null); collapseAll(T.turnCollapsibles); T.contentEl=addMsg('assistant',''); T.fullContent=''; }
     if(d.replace){ smoothSnap(); T.fullContent=''; T.contentTok=0; T.contentFirstTs=0; }
     T.fullContent+=d.content; feedBlock(T.contentEl, T.fullContent);
@@ -639,7 +746,7 @@ async function connectStream(){
     CATCHUP=true; smoothSnap();
     streamAbort=new AbortController();
     try{
-      const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:lastSeq,conv_id:CONV_ID,tail:HIST_FULL?0:HIST_TAIL}),signal:streamAbort.signal});
+      const r=await jfetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:lastSeq,conv_id:CONV_ID,tail:HIST_TAIL}),signal:streamAbort.signal});
       if(REPLAYING) setChatLoading(t('chat.loading_conversation'));
       const reader=r.body.getReader(); const dec=new TextDecoder(); let buf='';
       // Tranches de travail : un rejeu arrive d'un bloc (des centaines d'événements,
@@ -670,28 +777,71 @@ async function connectStream(){
 }
 // Bouton « échanges précédents » posé en tête du fil quand le serveur n'a rejoué
 // que la fin de la conversation.
-function showHistoryMore(n){
-  const chat=chatEl(); if(!chat || !n) return;
+// Bandeau en tête du fil tant qu'il reste des échanges plus anciens. Le lot suivant
+// se charge tout seul quand on remonte près du haut (voir maybeLoadOlder) ; le
+// bouton reste pour le clavier.
+function showHistoryMore(n, before){
+  const chat=chatEl(); if(!chat) return;
+  OLDER = n>0 && before>0 ? {before, more:n, busy:false} : null;
   let box=chat.querySelector('.history-more');
+  if(!OLDER){ if(box) box.remove(); return; }
   if(!box){ box=document.createElement('div'); box.className='history-more'; chat.insertBefore(box, chat.firstChild); }
   box.innerHTML='';
   const b=document.createElement('button'); b.type='button';
   b.textContent = n===1 ? t('chat.history_more_one') : t('chat.history_more_prefix')+n+t('chat.history_more_suffix');
-  b.onclick=loadFullHistory;
+  b.onclick=loadOlder;
   box.appendChild(b);
 }
-// Rejeu COMPLET de la conversation vive, en gardant ce qu'on lisait à l'écran : on
-// vide le fil, on coupe le flux, et la boucle connectStream se reconnecte depuis le
-// début sans pagination (tail=0).
-function loadFullHistory(){
-  const chat=chatEl(); if(!chat) return;
-  const box=chat.querySelector('.history-more'); if(box){ const b=box.querySelector('button'); if(b){ b.disabled=true; b.textContent=t('chat.loading_conversation'); } }
-  HIST_RESTORE=chat.scrollHeight-chat.scrollTop;
-  HIST_FULL=true;
-  chat.innerHTML=''; newTurn();
-  smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null;
-  lastSeq=0; REPLAYING=true;
-  if(streamAbort){ try{ streamAbort.abort(); }catch(e){} }
+// Instant du dernier défilement du fil (voir loadOlder : insertion à l'arrêt).
+let LAST_CHAT_SCROLL=0;
+const SCROLL_IDLE_MS=140;
+// Appelé à chaque défilement du fil : à moins de 800 px du haut, et seulement si
+// l'utilisateur a quitté le bas (à l'ouverture d'un fil, le haut est brièvement
+// visible le temps de sauter en bas), on charge le lot précédent. L'insertion
+// recale le défilement, ce qui rappelle cette fonction : tant qu'on reste près du
+// haut, les lots s'enchaînent, puis s'arrêtent d'eux-mêmes.
+function maybeLoadOlder(){
+  LAST_CHAT_SCROLL=performance.now();
+  const c=chatEl();
+  if(OLDER && !OLDER.busy && !REPLAYING && !stickyBottom && c.scrollTop<800) loadOlder();
+}
+// Charge le lot d'échanges précédent et l'insère en tête du fil SANS bouger ce qu'on
+// lit. Le lot est rendu par le pipeline normal (handleDelta), dans un conteneur à
+// part, avec l'état du tour en cours mis de côté : une réponse en train de
+// s'écrire n'est pas dérangée (chrono, ligne d'état, compteurs, bulles en attente).
+async function loadOlder(){
+  if(!OLDER || OLDER.busy) return;
+  const cur=OLDER; cur.busy=true;
+  const chat=chatEl(), box=chat.querySelector('.history-more');
+  let r; try{ r=await jget('/api/chat/older?turns=20&before='+cur.before+'&conv='+encodeURIComponent(CONV_ID)); }catch(_){ r=null; }
+  if(OLDER!==cur) return; // le fil a changé pendant le chargement
+  // Échec (réseau, page illisible car mémoire verrouillée) : on attend un peu avant
+  // de réessayer, sinon chaque petit défilement relançait une requête.
+  if(!r || !r.ok){ setTimeout(()=>{ cur.busy=false; }, 5000); return; }
+  const frag=document.createElement('div');
+  const saved={T, REPLAYING, CATCHUP, GENEL, ELAPSED, TURN_ENDED, PENDS, busy, lastSeq, ctx:CTX_USED, cc:COMPACTIONS};
+  CHAT_TARGET=frag; REPLAYING=true; CATCHUP=true; GENEL=null; ELAPSED=null; PENDS=[]; newTurn();
+  try{
+    for(const d of r.events){ if(!d.jean_task) handleDelta(d); }
+    flushRender();
+  }finally{
+    CHAT_TARGET=null;
+    ({T, REPLAYING, CATCHUP, GENEL, ELAPSED, TURN_ENDED, PENDS, busy, lastSeq}=saved);
+    setCtxUsed(saved.ctx); setCompactCount(saved.cc);
+  }
+  // On n'insère qu'une fois le défilement ARRÊTÉ. Molette et pavé tactile font un
+  // défilement avec inertie vers une position cible : recaler la page pendant ce
+  // mouvement le laissait finir vers son ancienne cible, et la page sautait.
+  while(performance.now()-LAST_CHAT_SCROLL<SCROLL_IDLE_MS) await new Promise(res=>setTimeout(res, 50));
+  if(OLDER!==cur) return;
+  // Insertion en tête : on garde la distance au BAS du fil, donc ce qu'on lisait
+  // reste exactement à sa place à l'écran. Le bandeau est mis à jour AVANT le
+  // recalage (sa disparition après le dernier lot décalait sinon de sa hauteur).
+  const fromBottom=chat.scrollHeight-chat.scrollTop;
+  const anchor=box ? box.nextSibling : chat.firstChild;
+  while(frag.firstChild) chat.insertBefore(frag.firstChild, anchor);
+  showHistoryMore(r.more, r.before);
+  chat.scrollTop=chat.scrollHeight-fromBottom;
 }
 // readConversation : affiche une AUTRE conversation en LECTURE SEULE dans la vue
 // plein chat, SANS rien dire au serveur (la conversation vive et sa génération
@@ -706,7 +856,7 @@ async function readConversation(id, title){
   // Une génération tourne-t-elle (ou vient de finir) dans la conversation vive qu'on
   // quitte ? Si oui, on posera une pastille « réponse non lue » sur l'icône projet.
   const liveActive = busy || (typeof LIVE_GENERATING!=='undefined' && LIVE_GENERATING);
-  READING=true; READING_ID=id;
+  READING=true; READING_ID=id; chatEl().classList.add('reading'); // fil complet : rendu différé (styles.css)
   if(streamAbort){ try{ streamAbort.abort(); }catch(e){} } // fige le direct (génération autonome côté serveur, intacte)
   const chat=document.getElementById('chat'); if(chat) chat.innerHTML=''; newTurn();
   smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null;
@@ -723,7 +873,7 @@ async function readConversation(id, title){
 // et le serveur rejoue la conversation vive + suit le direct (génération comprise).
 function exitReading(){
   if(!READING) return;
-  READING=false; READING_ID='';
+  READING=false; READING_ID=''; chatEl().classList.remove('reading');
   PENDING_LIVE=false; leaveReadingUI();
   const chat=document.getElementById('chat'); if(chat) chat.innerHTML=''; newTurn();
   smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null;
@@ -862,7 +1012,7 @@ async function send(){
   if(entry) addMsgFiles(entry.el, attachSent());
   for(let attempt=0; attempt<3; attempt++){
     try{
-      const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,files:files,ctx_used:CTX_USED,mode:MODE})});
+      const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,files:files,ctx_used:CTX_USED,mode:MODE,tz:USER_TZ})});
       if(r.status===409 || r.ok) clearAttach();
       if(r.status===409) return;               // déjà en cours (notre envoi a abouti) → OK
       if(r.ok) return;                          // la bulle + les tokens arrivent par le flux
@@ -890,24 +1040,53 @@ setInterval(loadTelemetry, 3000);
 // Mode du chat (sélecteur à gauche du pied du composeur), réglage de l'appareil :
 //   project = chat complet (mémoire, projets, web) ;
 //   fast    = comme « ajean chat » (voir capsFromBody) ;
-//   base    = modèle brut, sans agent ni outils (agent:false pour ce tour).
+//   base    = modèle brut, sans agent ni outils (agent:false pour ce tour) ;
+//   jean    = assistant personnel, une conversation unique, mémoire propre (profil,
+//             fiches, journal), hors projets.
 // Projet et Rapide exigent l'agent de la MACHINE : s'il est coupé, les choisir
 // demande confirmation puis l'active (voir enableAgent).
-// Mode par défaut : Rapide (ordre du menu : Rapide, Projet, Modèle de base).
+// Mode par défaut : Rapide (ordre du menu : Rapide, Projet, Jean, Modèle de base).
 let MODE='fast', AGENT_ON=false;
+// Fuseau du navigateur, envoyé avec chaque message : le serveur (souvent en UTC)
+// date ainsi tâches et notes à l'heure de l'utilisateur.
+const USER_TZ=(()=>{ try{ return Intl.DateTimeFormat().resolvedOptions().timeZone||''; }catch(_){ return ''; } })();
 try{ MODE=localStorage.getItem('ajean-mode') || 'fast'; }catch(e){}
-if(!['project','fast','base'].includes(MODE)) MODE='fast';
-const MODE_KEYS={project:'chat.mode_project',fast:'chat.mode_fast',base:'chat.mode_base'};
+if(!['project','fast','base','jean'].includes(MODE)) MODE='fast';
+const MODE_KEYS={project:'chat.mode_project',fast:'chat.mode_fast',base:'chat.mode_base',jean:'chat.mode_jean'};
 function saveMode(){ try{ localStorage.setItem('ajean-mode',MODE); }catch(e){} }
 function applyFastBtn(){
   const l=document.getElementById('mode-btn-label'); if(!l) return;
   const k=MODE_KEYS[MODE];
   l.dataset.i18n=k; l.textContent=t(k);
+  // Jean est en bêta : petit badge à côté du nom.
+  const bt=document.getElementById('mode-btn-beta'); if(bt) bt.hidden = MODE!=='jean';
   // Icône du mode (reprise du menu des modes).
   const ic=document.getElementById('mode-btn-ic'), src=document.querySelector('#mode-menu button[data-mode="'+MODE+'"] .mm-ic');
   if(ic && src) ic.innerHTML=src.outerHTML;
   // Rapide et Modèle de base ignorent les projets : la bulle projet se replie.
   document.body.classList.toggle('fast-mode',MODE!=='project');
+  document.body.classList.toggle('jean-mode',MODE==='jean');
+  // L'historique suit le mode : conversations rapides en Rapide / base, sinon le projet.
+  histHeadLabel();
+  if(typeof loadHistory==='function' && APPLIED_MODE!==MODE){ APPLIED_MODE=MODE; loadHistory(); }
+}
+let APPLIED_MODE=null;
+function histHeadLabel(){
+  const hl=document.getElementById('hist-proj-name'); if(!hl) return;
+  const ic=document.getElementById('hist-proj-ic');
+  if(ic && !ic._folder) ic._folder=ic.innerHTML;
+  const jean=MODE==='jean';
+  document.body.classList.toggle('hist-jean', jean);
+  if(jean||MODE==='fast'||MODE==='base'){
+    // Rapide : l'éclair ; Jean : son icône (reprises du menu des modes).
+    hl.textContent=t(jean?'chat.mode_jean':'chat.mode_fast');
+    const src=document.querySelector('#mode-menu button[data-mode="'+(jean?'jean':'fast')+'"] svg.mm-ic');
+    if(ic && src){ const s=src.cloneNode(true); s.removeAttribute('class'); s.setAttribute('width','13'); s.setAttribute('height','13'); ic.replaceChildren(s); }
+    return;
+  }
+  if(ic && ic._folder) ic.innerHTML=ic._folder;
+  const p=(typeof PROJECTS!=='undefined'?PROJECTS:[]).find(x=>x.slug===ACTIVE_PROJECT);
+  hl.textContent=p?p.name:t('projects.projects');
 }
 // Agent de la machine coupé : Projet / Rapide ne peuvent pas tourner, l'appareil
 // affiche donc ce qui se passe réellement (Modèle de base).
@@ -936,8 +1115,13 @@ async function pickMode(m){
   closeModeMenu();
   if(m===MODE || !MODE_KEYS[m]) return;
   if(m!=='base' && !AGENT_ON && !await enableAgent()) return;
+  const prev=MODE;
   MODE=m; saveMode();
   swapModeLabel();
+  // Jean = toujours SA conversation unique. En la quittant, on repart d'un fil
+  // neuf même vide : sinon le message suivant tomberait dans le fil de Jean.
+  if(m==='jean'){ openJean(); return; }
+  if(prev==='jean'){ resetChat(); return; }
   // Une conversation garde le mode où elle a commencé (le serveur l'impose) :
   // changer de mode démarre donc une nouvelle conversation, sauf si le fil est vide.
   if(document.querySelector('#chat .msg')) resetChat();

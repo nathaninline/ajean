@@ -95,7 +95,7 @@ func saveArchive(a *convArchive) error {
 	}
 	// Index léger tenu à jour en parallèle : lister ne relit alors que ces petites
 	// métadonnées, pas le fil complet de chaque session.
-	return putStoreJSON(bkChatMeta, a.ID, convArchiveMeta{ID: a.ID, Project: a.Project, Title: a.Title, Fav: a.Fav, SavedAt: a.SavedAt, Turns: a.Turns})
+	return putStoreJSON(bkChatMeta, a.ID, convArchiveMeta{ID: a.ID, Project: a.Project, Title: a.Title, Fav: a.Fav, SavedAt: a.SavedAt, Turns: a.Turns, Mode: a.Mode})
 }
 
 func loadArchive(id string) (*convArchive, bool) {
@@ -133,9 +133,12 @@ func renameArchive(id, title string) error {
 
 // deleteNonFavArchives supprime toutes les sessions SAUF les favoris ET la
 // session active `activeID`. Renvoie le nombre supprimé.
-func deleteNonFavArchives(activeID string) int {
+func deleteNonFavArchives(activeID string) int { return deleteNonFavIn(listArchives(), activeID) }
+
+// deleteNonFavIn : idem sur une liste donnée (celle que l'historique affiche).
+func deleteNonFavIn(list []convArchiveMeta, activeID string) int {
 	n := 0
-	for _, m := range listArchives() {
+	for _, m := range list {
 		if m.Fav || m.ID == activeID {
 			continue
 		}
@@ -162,6 +165,9 @@ func listArchives() []convArchiveMeta { return listArchivesForProject(activeProj
 // listAllArchives renvoie TOUTES les sessions archivées (tous projets confondus),
 // la plus récente d'abord. Sert au filtrage par projet et à la migration.
 func listAllArchives() []convArchiveMeta {
+	// La conversation de Jean n'est PAS une conversation de projet : elle a son
+	// propre accès (mode Jean). Exclue ici, elle n'apparaît dans aucun historique
+	// et n'est jamais emportée par « Tout supprimer » ni par la suppression d'un projet.
 	// Les valeurs d'index peuvent être chiffrées : on les décode via getStoreJSON.
 	// Mémoire verrouillée = index illisible = liste vide (les sessions réapparaissent
 	// au déverrouillage), jamais une erreur.
@@ -170,7 +176,7 @@ func listAllArchives() []convArchiveMeta {
 	seen := map[string]bool{}
 	for id := range metaKeys {
 		var m convArchiveMeta
-		if getStoreJSON(bkChatMeta, id, &m) && m.ID != "" {
+		if getStoreJSON(bkChatMeta, id, &m) && m.ID != "" && m.ID != jeanConvID {
 			out = append(out, m)
 			seen[m.ID] = true
 		}
@@ -182,11 +188,11 @@ func listAllArchives() []convArchiveMeta {
 	// chaque ouverture de la liste coûtait ~130 ms et 250 Mo d'allocations, pour
 	// n'en garder que les clés.
 	for _, id := range allKeys(bkChatHist) {
-		if seen[id] {
+		if seen[id] || id == jeanConvID {
 			continue
 		}
 		if a, ok := loadArchive(id); ok && a.ID != "" {
-			m := convArchiveMeta{ID: a.ID, Project: a.Project, Title: a.Title, Fav: a.Fav, SavedAt: a.SavedAt, Turns: a.Turns}
+			m := convArchiveMeta{ID: a.ID, Project: a.Project, Title: a.Title, Fav: a.Fav, SavedAt: a.SavedAt, Turns: a.Turns, Mode: a.Mode}
 			_ = putStoreJSON(bkChatMeta, a.ID, m)
 			out = append(out, m)
 		}
@@ -274,6 +280,9 @@ func (c *Conversation) snapshotForSession() *convArchive {
 	if proj == "" {
 		proj = activeProjectSlug()
 	}
+	if c.ID == jeanConvID {
+		proj = jeanTaskSlug // hors projets
+	}
 	// SavedAt = horodatage de la DERNIÈRE ACTIVITÉ RÉELLE, pas du snapshot. Le
 	// dernier événement du journal porte le TS du dernier delta reçu : s'en servir
 	// évite qu'un simple upsertSession (déclenché par persist() au chargement d'une
@@ -331,6 +340,9 @@ func (c *Conversation) upsertSessionMeta() {
 	if m.Project == "" {
 		m.Project = activeProjectSlug()
 	}
+	if c.ID == jeanConvID {
+		m.Project = jeanTaskSlug
+	}
 	m.SavedAt = time.Now().UnixMilli()
 	if n := len(c.Log); n > 0 && c.Log[n-1].TS > 0 {
 		m.SavedAt = c.Log[n-1].TS
@@ -369,6 +381,12 @@ func (c *Conversation) SwitchProject(slug string) error {
 	if !projectExists(slug) {
 		return fmt.Errorf("projet introuvable")
 	}
+	// Jean est hors projets : changer de projet (pour parcourir l'historique d'un
+	// autre) ne doit pas le quitter. Seul le projet actif change ; la prochaine
+	// conversation de projet s'y ouvrira.
+	if c.currentID() == jeanConvID {
+		return setActiveProject(slug)
+	}
 	if c.currentID() != "" {
 		c.upsertSession() // sauve la conversation courante dans son projet d'origine
 	}
@@ -404,6 +422,11 @@ func (c *Conversation) OpenSession(id string) error {
 	// Projet de la session (vide = Générale) : la conversation ouverte porte
 	// toujours le projet auquel elle appartient (historique général).
 	c.Project = archiveProject(convArchiveMeta{Project: a.Project})
+	if a.ID == jeanConvID {
+		// Jean est hors projets : on garde le projet actif, sinon la conversation
+		// suivante (Reset préserve c.Project) hériterait du pseudo-projet de Jean.
+		c.Project = activeProjectSlug()
+	}
 	c.Messages = append([]Message(nil), a.Messages...)
 	c.Log = append([]LogEvent(nil), a.Log...)
 	c.Seq = a.Seq
@@ -456,6 +479,7 @@ func (c *Conversation) DeleteSession(id string) error {
 	if err := deleteArchive(id); err != nil {
 		return err
 	}
+	deletePages(id)
 	if c.currentID() == id {
 		c.Reset()
 	}
@@ -482,4 +506,28 @@ func (c *Conversation) unlockMode(mode string) {
 	if c.Mode == mode && countUserTurns(c.Log) == 0 {
 		c.Mode = ""
 	}
+}
+
+// quickMode : conversation sans projet (Rapide ou Modèle de base). Ces modes
+// ignorent la mémoire et le contexte de projet ; leurs conversations forment donc
+// leur propre historique au lieu de s'éparpiller dans le projet actif du moment.
+func quickMode(mode string) bool { return mode == "fast" || mode == "base" }
+
+// historyList : les conversations que montre l'historique latéral. scope "quick"
+// = conversations rapides (tous projets) ; sinon celles du projet actif, hors
+// conversations rapides. Les anciennes conversations sans mode restent au projet.
+func historyList(scope string) []convArchiveMeta {
+	var src []convArchiveMeta
+	if scope == "quick" {
+		src = listAllArchives()
+	} else {
+		src = listArchives()
+	}
+	out := src[:0:0]
+	for _, m := range src {
+		if quickMode(m.Mode) == (scope == "quick") {
+			out = append(out, m)
+		}
+	}
+	return out
 }

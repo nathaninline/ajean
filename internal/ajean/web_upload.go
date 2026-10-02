@@ -264,8 +264,10 @@ func userMessageContent(files []attachInfo, prompt string) any {
 // on lui donne un chemin absolu (voir resolveAgentPath) ; ouvrir le téléchargement
 // à ces fichiers-là ferait de /api/chat/file un « lis-moi ce fichier du serveur »
 // à usage général — l'API n'a pas forcément de clé et écoute sur 0.0.0.0.
-func workspaceRel(abs string) (string, bool) {
-	root := agentWorkspace()
+func workspaceRel(abs string) (string, bool) { return dirRel(agentWorkspace(), abs) }
+
+// dirRel : chemin de abs relatif à root, s'il est dedans (liens symboliques résolus).
+func dirRel(root, abs string) (string, bool) {
 	// EvalSymlinks des deux côtés : sans ça, un lien qui sort du dossier passerait
 	// le test de préfixe.
 	if r, err := filepath.EvalSymlinks(root); err == nil {
@@ -308,15 +310,28 @@ func handleChatFile(w http.ResponseWriter, r *http.Request) {
 	}
 	// Un chemin ABSOLU fourni par le client ne doit pas être suivi : on le traite
 	// comme relatif au dossier de travail, et le contrôle ci-dessous tranche.
-	abs := filepath.Join(agentWorkspace(), filepath.FromSlash(rel))
-	localOK := false
-	if _, ok := workspaceRel(abs); ok {
-		if st, err := os.Stat(abs); err == nil && !st.IsDir() {
-			localOK = true
+	// Deux dossiers téléchargeables : celui des projets et celui de Jean (son espace
+	// à part, voir chat_space.go). « jean-workspace/… » vise explicitement le second ;
+	// un chemin relatif est cherché dans le premier, puis dans le second.
+	roots := []string{agentWorkspace(), jeanWorkspace()}
+	if r2, ok := strings.CutPrefix(filepath.ToSlash(rel), "jean-workspace/"); ok {
+		rel, roots = r2, roots[1:]
+	}
+	abs := filepath.Join(roots[0], filepath.FromSlash(rel))
+	localOK, inside := false, false
+	for _, root := range roots {
+		cand := filepath.Join(root, filepath.FromSlash(rel))
+		if _, ok := dirRel(root, cand); !ok {
+			continue
+		}
+		inside = true
+		if st, err := os.Stat(cand); err == nil && !st.IsDir() {
+			abs, localOK = cand, true
+			break
 		}
 	}
 	if !localOK {
-		if _, ok := workspaceRel(abs); !ok {
+		if !inside {
 			sendJSON(w, 403, map[string]any{"ok": false, "error": "hors du dossier de travail"})
 			return
 		}

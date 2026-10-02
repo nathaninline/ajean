@@ -300,8 +300,9 @@ function fileLinkPath(href){
   h=h.replace(/\\/g,'/');
   // Chemin absolu : on ne garde que ce qui suit le dossier de travail. Le serveur
   // revérifie de toute façon — c'est lui qui fait autorité sur le périmètre.
-  const m=h.match(/(?:^|\/)workspace\/(.+)$/);
-  if(m) h=m[1];
+  // Le dossier de Jean (jean-workspace) garde son préfixe : le serveur sait l'y chercher.
+  const m=h.match(/(?:^|\/)(jean-)?workspace\/(.+)$/);
+  if(m) h=(m[1]?'jean-workspace/':'')+m[2];
   h=h.replace(/^\/+/,'').replace(/^\.\//,'');
   if(!h || h.indexOf('..')>=0) return '';
   return h;
@@ -517,3 +518,15 @@ async function attachPaths(){
   return ATTACH.filter(a=>a.state==='ok'&&a.path).map(a=>a.path);
 }
 renderAttach();
+// Liens externes : TOUJOURS dans un nouvel onglet/fenêtre. Dans la fenêtre dédiée
+// AJEAN (--app, sans barre ni bouton retour), un lien ouvert sur place remplaçait
+// l'app et on restait bloqué sur la page. Délégation globale : couvre les réponses
+// de l'IA comme le reste de l'interface, y compris le contenu rendu plus tard.
+document.addEventListener('click', (e)=>{
+  if(e.defaultPrevented || e.button!==0) return;
+  const a=e.target.closest && e.target.closest('a[href]'); if(!a) return;
+  let u; try{ u=new URL(a.getAttribute('href'), location.href); }catch(_){ return; }
+  if(!/^https?:$/.test(u.protocol) || u.origin===location.origin) return;
+  e.preventDefault();
+  window.open(u.href, '_blank', 'noopener');
+}, true);

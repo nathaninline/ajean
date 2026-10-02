@@ -274,7 +274,16 @@ func newWebMux() *http.ServeMux {
 	api("/api/chat/upload", handleChatUpload)                  // dépose un fichier dans le workspace agent (joint au message suivant)
 	api("/api/chat/file", handleChatFile)                      // télécharge un fichier produit par l'agent (dossier de travail only)
 	api("/api/chat/stop", handleChatStop)                      // interrompt la génération en cours
+	api("/api/jean/memory", handleJeanMemory)                  // mémoire de Jean : profil, fiches, journal
+	api("/api/jean/profile", handleJeanProfile)                // pose / renomme / retire une ligne du profil
+	api("/api/jean/fiche", handleJeanFiche)                    // lit (GET) / enregistre (POST) une fiche
+	api("/api/jean/fiche/delete", handleJeanFicheDelete)       // supprime une fiche
+	api("/api/jean/journal/delete", handleJeanJournalDelete)   // supprime une entrée du journal
+	api("/api/chat/cushot", handleCUShot)                      // aperçu en direct du navigateur piloté (RAM, jamais gardé)
+	api("/api/chat/jean/clear", handleChatJeanClear)           // mode Jean : vide le contexte du modèle, garde le fil
+	api("/api/chat/jean", handleChatJean)                      // ouvre la conversation unique du mode Jean
 	api("/api/chat/reset", handleChatReset)                    // nouvelle conversation (archive la courante dans l'historique)
+	api("/api/chat/older", handleChatOlder)                    // lot d'échanges plus anciens (remontée du fil, par pages)
 	api("/api/chat/history", handleChatHistory)                // liste des conversations archivées (?project= pour un autre projet, lecture seule)
 	api("/api/chat/peek", handleChatPeek)                      // contenu d'une conversation archivée, LECTURE SEULE (ne restaure pas)
 	api("/api/chat/history/restore", handleChatHistoryRestore) // recharge une conversation archivée

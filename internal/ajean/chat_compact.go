@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -685,4 +686,86 @@ Write the summary in the SAME language as the conversation.`
 		c = strings.TrimSpace(string(r[:maxChars])) + " […]"
 	}
 	return c, nil
+}
+
+// ---- dernier recours : la requête ne rentre toujours pas -------------------
+
+var reqTokensRe = regexp.MustCompile(`request \((\d+) tokens\)`)
+
+// overflowTokens extrait la taille réelle de la requête refusée par llama.cpp
+// (« request (132291 tokens) exceeds… »), 0 si absente.
+func overflowTokens(msg string) int {
+	if m := reqTokensRe.FindStringSubmatch(msg); m != nil {
+		n, _ := strconv.Atoi(m[1])
+		return n
+	}
+	return 0
+}
+
+const shrinkTruncMarker = "\n[…tronqué : contexte plein. Relance l'outil de façon plus ciblée si tu as besoin de la suite]"
+
+// shrinkToFit est le filet quand le moteur a refusé le prompt ET que le
+// compactage n'a rien pu faire (torse vide, ou réduction jugée trop faible :
+// typiquement un tour qui a lu beaucoup de gros fichiers d'un coup, tout est
+// dans la queue protégée). Avant, l'erreur 400 remontait telle quelle à
+// l'utilisateur et la conversation restait bloquée. Ici on réduit pour de bon :
+//  1. les gros résultats d'outils (du plus ancien au plus récent) sont tronqués ;
+//  2. si ça ne suffit pas, on retire les plus vieux échanges, par tour entier
+//     (frontière `user`), en gardant les messages système de tête.
+//
+// La cible vise 60 % de la fenêtre, corrigée par l'écart entre estimation et
+// taille réelle (actual, lue dans l'erreur) : l'estimation sous-compte (images…).
+func shrinkToFit(msgs []Message, actual int) ([]Message, bool) {
+	est := estimateTokens(msgs)
+	if est <= 0 {
+		return msgs, false
+	}
+	ratio := 1.0
+	if actual > est {
+		ratio = float64(actual) / float64(est)
+	}
+	target := int(float64(ctxWindow()) * 0.6 / ratio)
+	out := append([]Message(nil), msgs...)
+	for i := range out {
+		if estimateTokens(out) <= target {
+			break
+		}
+		if out[i].Role != "tool" {
+			continue
+		}
+		if r := []rune(msgText(out[i])); len(r) > 2000 {
+			out[i].Content = string(r[:1500]) + shrinkTruncMarker
+		}
+	}
+	head := 0
+	for head < len(out) && out[head].Role == "system" {
+		head++
+	}
+	for estimateTokens(out) > target {
+		next := -1
+		for k := head + 1; k < len(out); k++ {
+			if out[k].Role == "user" {
+				next = k
+				break
+			}
+		}
+		if next < 0 {
+			break
+		}
+		out = append(out[:head:head], out[next:]...)
+	}
+	return out, estimateTokens(out) < est
+}
+
+// toolResultMax borne TOUT résultat d'outil (≈ 8k tokens). Les outils web, shell
+// et navigateur ont déjà leur propre plafond, plus bas ; celui-ci rattrape les
+// autres (fiches, pages mémoire, MCP…) : un seul résultat géant suffisait à faire
+// déborder la fenêtre d'un coup, sans que le compactage puisse rien y faire.
+const toolResultMax = 30000
+
+func capToolResult(s string) string {
+	if r := []rune(s); len(r) > toolResultMax {
+		return string(r[:toolResultMax]) + "\n[…tronqué : résultat trop long. Cible une partie plus précise si tu as besoin de la suite]"
+	}
+	return s
 }

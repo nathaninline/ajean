@@ -387,16 +387,13 @@
   <div id="side-hist" class="side-view" hidden>
     <div class="hist-head">
       <span class="stitle" data-i18n="chat.history_btn">Historique</span><span id="sess-count" class="sess-count"></span>
-      <!-- Mémoire + trackers : deux petits liens au bout de la ligne de titre. -->
+      <!-- De quoi parle la liste : le projet actif, ou « Rapide ». Simple libellé : on
+           change de projet depuis la zone de saisie. -->
       <span class="hist-links">
-      <button class="hist-link" onclick="openTrackerHub()" title="Trackers" aria-label="Trackers" data-i18n="projects.trackers" data-i18n-attr="title">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5M4 19h16M8 16l3-4 3 2 4-6"/></svg>
-        <span data-i18n="projects.trackers">Trackers</span>
-      </button>
-      <button class="hist-link" onclick="openMemHub()" title="Mémoire" aria-label="Mémoire" data-i18n="projects.memory" data-i18n-attr="title">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-        <span data-i18n="projects.memory">Mémoire</span>
-      </button>
+      <span class="hist-link hist-label">
+        <span id="hist-proj-ic" class="hist-proj-ic"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+        <span id="hist-proj-name">Projets</span>
+      </span>
       </span>
     </div>
     <!-- Recherche dans l'historique (titre + projet), côté serveur, pendant la frappe. -->
@@ -443,7 +440,7 @@
            la partie projet se replie. -->
       <div id="mode-pill">
         <button id="mode-btn" onclick="toggleModeMenu(event)" aria-haspopup="true" title="Mode du chat" data-i18n="chat.mode_title" data-i18n-attr="title">
-          <span id="mode-btn-ic" aria-hidden="true"></span><span id="mode-btn-label" data-i18n="chat.mode_project">Projet</span>
+          <span id="mode-btn-ic" aria-hidden="true"></span><span id="mode-btn-label" data-i18n="chat.mode_project">Projet</span><span id="mode-btn-beta" class="beta-tag" hidden>Beta</span>
           <svg class="pill-chev" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
         </button>
         <!-- Projets : chaque projet a sa propre mémoire ET ses propres sessions,
@@ -504,6 +501,7 @@
 <div id="mode-menu" class="menu" style="display:none">
   <button data-mode="fast" onclick="pickMode('fast')"><svg class="mm-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 3L5 13.5h6L10 21l8-10.5h-6z"/></svg><span class="mm-t"><span data-i18n="chat.mode_fast">Rapide</span><span class="rm-h" data-i18n="chat.mode_fast_hint">bash, write, edit</span></span></button>
   <button data-mode="project" onclick="pickMode('project')"><svg class="mm-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="mm-t"><span data-i18n="chat.mode_project">Projet</span><span class="rm-h" data-i18n="chat.mode_project_hint">mémoire, projets, web</span></span></button>
+  <button data-mode="jean" onclick="pickMode('jean')"><svg class="mm-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span class="mm-t"><span><span data-i18n="chat.mode_jean">Jean</span> <span class="beta-tag">Beta</span></span><span class="rm-h" data-i18n="chat.mode_jean_hint">assistant personnel, se souvient de tout</span></span></button>
   <button data-mode="base" onclick="pickMode('base')"><svg class="mm-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg><span class="mm-t"><span data-i18n="chat.mode_base">Modèle de base</span><span class="rm-h" data-i18n="chat.mode_base_hint">sans agent ni outils</span></span></button>
 </div>
 <div id="reason-menu" class="menu" style="display:none">
@@ -689,6 +687,38 @@
         <button onclick="closeMcp()" data-i18n="mcpmodal.cancel">annuler</button>
         <button class="btn-save" onclick="saveMcp()" data-i18n="mcpmodal.save">enregistrer</button>
       </div>
+    </div>
+  </div>
+</div>
+<div id="jean-mem-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeJeanMem()">
+  <div class="modal-card jm-card" style="max-width:560px">
+    <div class="modal-head">
+      <span class="mem-head-title"><svg class="mem-head-ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><strong data-i18n="jean.mem_title">Mémoire de Jean</strong></span>
+      <button class="modal-x" onclick="closeJeanMem()" aria-label="Fermer" data-i18n="memory.close_aria" data-i18n-attr="aria-label">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="jm-head">
+        <span class="jm-title" data-i18n="jean.mem_profile">Profil</span>
+        <span id="jm-budget" class="jm-budget"></span>
+        <button class="mem-add-btn" onclick="jmEdit(null)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="memory.add_page_button_short">ajouter</span></button>
+      </div>
+      <div class="jm-hint" data-i18n="jean.mem_profile_hint">Ce que Jean sait de toi à coup sûr.</div>
+      <div id="jm-profile" class="jm-list"></div>
+      <div class="jm-head jm-head-j">
+        <span class="jm-title" data-i18n="jean.mem_fiches">Fiches</span>
+        <span id="jm-fcount" class="jm-budget"></span>
+        <button class="mem-add-btn" onclick="jmEditFiche(null)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="memory.add_page_button_short">ajouter</span></button>
+      </div>
+      <div class="jm-hint" data-i18n="jean.mem_fiches_hint">Procédures et guides gardés en entier.</div>
+      <div id="jm-fiches" class="jm-list"></div>
+      <div class="jm-head jm-head-j">
+        <span class="jm-title" data-i18n="jean.mem_journal">Journal</span>
+        <span id="jm-count" class="jm-budget"></span>
+      </div>
+      <div class="jm-hint" data-i18n="jean.mem_journal_hint">Tout ce qui s'est passé.</div>
+      <input id="jm-search" class="mem-search sctl" type="search" oninput="jmSearchDebounced()" placeholder="chercher dans le journal…" data-i18n="jean.mem_search" data-i18n-attr="placeholder">
+      <div id="jm-journal" class="jm-list"></div>
+      <button id="jm-more" class="jm-more" style="display:none" onclick="jmLoad(true)" data-i18n="chat.show_more">voir plus</button>
     </div>
   </div>
 </div>

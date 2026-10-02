@@ -12,6 +12,7 @@ let TASK_PROJECTS = []; // projets disponibles (pour le sélecteur « mémoire d
 let TASK_MEM_ON = true; // état mémoire global (défaut d'une nouvelle tâche)
 let TASK_WEB_ON = true; // état web global (défaut d'une nouvelle tâche)
 let TASK_SCRIPTS = []; // scripts durables disponibles (pour une tâche « script seul »)
+let TASK_JEAN_SCRIPTS = []; // scripts du mode Jean (dossier séparé)
 let tasksPollTimer = null;
 
 async function loadTasks(){ renderTasks(await jget('/api/tasks')); }
@@ -35,6 +36,7 @@ function renderTasks(r){
   TASK_MEM_ON = !r || r.mem_on !== false;
   TASK_WEB_ON = !r || r.web_on !== false;
   TASK_SCRIPTS = (r && r.scripts) || [];
+  TASK_JEAN_SCRIPTS = (r && r.jean_scripts) || [];
   TASK_PROJECTS = (r && r.projects) || [];
   TASK_RUNNING = (r && r.running_id) || '';
   ensureTasksPoll();
@@ -203,6 +205,8 @@ function openTask(id){
   fillProjectSelect(tk ? (tk.project||'') : '');
   // Type de tâche (IA ou script) + sélecteur de script.
   fillScriptSelect(tk ? (tk.script||'') : '');
+  const tp = document.getElementById('task-project');
+  if(tp) tp.onchange = ()=>fillScriptSelect(document.getElementById('task-script').value);
   setTaskKind(tk && tk.kind === 'script' ? 'script' : 'agent');
 
   // Décompose le schedule en intervalle (par défaut) ou cron. Forme intervalle :
@@ -278,8 +282,9 @@ function fillPresetSelect(selected){
 
 // fillProjectSelect peuple le sélecteur de projet (mémoire de la tâche). La
 // sélection est OBLIGATOIRE : la tâche lit/écrit dans la mémoire de ce projet. Pour
-// une tâche existante on garde son projet ; pour une nouvelle on présélectionne le
-// projet actif (ACTIVE_PROJECT, défini par 18-projects.js), sinon le premier.
+// une tâche existante on garde son projet ; pour une nouvelle on présélectionne
+// « Jean » en mode Jean, sinon le projet actif (ACTIVE_PROJECT, défini par
+// 18-projects.js), sinon le premier vrai projet (jamais « Jean » par défaut).
 function fillProjectSelect(selected){
   const sel = document.getElementById('task-project');
   if(!sel) return;
@@ -288,8 +293,10 @@ function fillProjectSelect(selected){
     const o = document.createElement('option'); o.value = p.slug; o.textContent = p.name;
     sel.appendChild(o);
   });
-  const fallback = (typeof ACTIVE_PROJECT !== 'undefined' && ACTIVE_PROJECT) ||
-    (TASK_PROJECTS[0] && TASK_PROJECTS[0].slug) || '';
+  const firstProject = TASK_PROJECTS.find(p=>p.slug!=='_jean');
+  const fallback = (MODE==='jean' && '_jean') ||
+    (typeof ACTIVE_PROJECT !== 'undefined' && ACTIVE_PROJECT) ||
+    (firstProject && firstProject.slug) || '';
   sel.value = selected || fallback;
   // Si le projet enregistré n'existe plus (supprimé), on retombe sur le fallback.
   if(!sel.value && sel.options.length) sel.selectedIndex = 0;
@@ -310,17 +317,20 @@ function setTaskKind(kind){
 // fillScriptSelect peuple le sélecteur de script. Vide s'il n'y a aucun script.
 function fillScriptSelect(selected){
   const sel = document.getElementById('task-script');
+  // Une tâche Jean ne voit que les scripts de Jean, un projet que ceux des projets.
+  const list = ((document.getElementById('task-project')||{}).value === '_jean') ? TASK_JEAN_SCRIPTS : TASK_SCRIPTS;
   sel.textContent = '';
-  if(!TASK_SCRIPTS.length){
+  if(!list.length){
     const o = document.createElement('option'); o.value = '';
     o.textContent = t('tasks.no_script'); sel.appendChild(o);
     return;
   }
-  TASK_SCRIPTS.forEach(s=>{
+  list.forEach(s=>{
     const o = document.createElement('option'); o.value = s.name; o.textContent = s.name;
     sel.appendChild(o);
   });
-  sel.value = selected || TASK_SCRIPTS[0].name;
+  // Script choisi absent de cette liste (on vient de changer de projet) : le premier.
+  sel.value = list.some(s=>s.name===selected) ? selected : list[0].name;
 }
 
 function setTaskFreqMode(mode){

@@ -12,7 +12,7 @@ import (
 
 // handleTracker (GET) : liste des trackers du projet actif (métadonnées).
 func handleTracker(w http.ResponseWriter, r *http.Request) {
-	list := trackerList()
+	list := trackerListIn(trackerProj(r.URL.Query().Get("project")))
 	out := make([]map[string]any, 0, len(list))
 	for _, m := range list {
 		row := map[string]any{"slug": m.Slug, "name": m.Name, "count": m.Count}
@@ -30,7 +30,7 @@ func handleTracker(w http.ResponseWriter, r *http.Request) {
 // regroupe par année/mois). L'IA ne passe jamais par là (elle navigue par niveaux).
 func handleTrackerEvents(w http.ResponseWriter, r *http.Request) {
 	slug := strings.TrimSpace(r.URL.Query().Get("slug"))
-	s, ok := trackerLoad(slug)
+	s, ok := trackerLoadIn(trackerProj(r.URL.Query().Get("project")), slug)
 	if !ok {
 		sendJSON(w, 404, map[string]any{"ok": false, "error": "tracker introuvable"})
 		return
@@ -44,9 +44,9 @@ func handleTrackerEvents(w http.ResponseWriter, r *http.Request) {
 
 // handleTrackerAdd (POST {name, when, text}) : ajoute un point (crée le tracker au besoin).
 func handleTrackerAdd(w http.ResponseWriter, r *http.Request) {
-	var body struct{ Name, When, Text string }
+	var body struct{ Name, When, Text, Project string }
 	_ = json.NewDecoder(r.Body).Decode(&body)
-	id, err := trackerAdd(body.Name, body.When, body.Text)
+	id, err := trackerAddIn(trackerProj(body.Project), body.Name, body.When, body.Text)
 	if err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
@@ -56,9 +56,9 @@ func handleTrackerAdd(w http.ResponseWriter, r *http.Request) {
 
 // handleTrackerEdit (POST {slug, id, when, text}) : modifie un point.
 func handleTrackerEdit(w http.ResponseWriter, r *http.Request) {
-	var body struct{ Slug, ID, When, Text string }
+	var body struct{ Slug, ID, When, Text, Project string }
 	_ = json.NewDecoder(r.Body).Decode(&body)
-	if err := trackerEditEvent(strings.TrimSpace(body.Slug), strings.TrimSpace(body.ID), body.When, body.Text); err != nil {
+	if err := trackerEditEventIn(trackerProj(body.Project), strings.TrimSpace(body.Slug), strings.TrimSpace(body.ID), body.When, body.Text); err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
@@ -67,9 +67,9 @@ func handleTrackerEdit(w http.ResponseWriter, r *http.Request) {
 
 // handleTrackerRename (POST {slug, name}) : renomme un tracker (re-clé si besoin).
 func handleTrackerRename(w http.ResponseWriter, r *http.Request) {
-	var body struct{ Slug, Name string }
+	var body struct{ Slug, Name, Project string }
 	_ = json.NewDecoder(r.Body).Decode(&body)
-	if err := trackerRename(strings.TrimSpace(body.Slug), body.Name); err != nil {
+	if err := trackerRenameIn(trackerProj(body.Project), strings.TrimSpace(body.Slug), body.Name); err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
@@ -78,9 +78,9 @@ func handleTrackerRename(w http.ResponseWriter, r *http.Request) {
 
 // handleTrackerMove (POST {slug, toSlug}) : déplace un tracker vers un autre projet.
 func handleTrackerMove(w http.ResponseWriter, r *http.Request) {
-	var body struct{ Slug, ToSlug string }
+	var body struct{ Slug, ToSlug, Project string }
 	_ = json.NewDecoder(r.Body).Decode(&body)
-	if err := trackerMoveToProject(strings.TrimSpace(body.Slug), strings.TrimSpace(body.ToSlug)); err != nil {
+	if err := trackerMoveIn(trackerProj(body.Project), strings.TrimSpace(body.Slug), strings.TrimSpace(body.ToSlug)); err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
@@ -89,18 +89,28 @@ func handleTrackerMove(w http.ResponseWriter, r *http.Request) {
 
 // handleTrackerDelete (POST {slug, id?}) : supprime un point, ou le tracker entier si id absent.
 func handleTrackerDelete(w http.ResponseWriter, r *http.Request) {
-	var body struct{ Slug, ID string }
+	var body struct{ Slug, ID, Project string }
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	slug := strings.TrimSpace(body.Slug)
 	var err error
 	if strings.TrimSpace(body.ID) == "" {
-		err = trackerDelete(slug)
+		err = trackerDeleteIn(trackerProj(body.Project), slug)
 	} else {
-		err = trackerDeleteEvent(slug, strings.TrimSpace(body.ID))
+		err = trackerDeleteEventIn(trackerProj(body.Project), slug, strings.TrimSpace(body.ID))
 	}
 	if err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
 	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
+// trackerProj : projet visé par une requête de l'UI (?project= ou champ project),
+// le projet actif à défaut. Permet de voir et gérer les trackers d'un projet depuis
+// son menu « ⋯ » sans basculer dessus.
+func trackerProj(p string) string {
+	if p = strings.TrimSpace(p); p != "" && projectExists(p) {
+		return p
+	}
+	return activeProjectSlug()
 }

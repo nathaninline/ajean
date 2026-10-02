@@ -16,6 +16,8 @@ let LIVE_GENERATING = false;
 // nom animé (sortie vers le haut, largeur qui glisse, entrée par le bas) ;
 // premier affichage et mouvement réduit : direct.
 function setProjectBtnName(name){
+  // L'en-tête de l'historique dit de quel projet on voit les conversations.
+  if(typeof histHeadLabel==='function') setTimeout(histHeadLabel); // (après la mise à jour de ACTIVE_PROJECT)
   const el = document.getElementById('project-btn-name'), b = document.getElementById('project-btn');
   if(!el) return;
   name = name || '';
@@ -62,16 +64,16 @@ function projDotsSvg(){
   return '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>';
 }
 
-// Menu ⋮ d'un projet (renommer, options, voir la mémoire, supprimer).
+// Menu ⋮ d'un projet (options = nom + description, mémoire, trackers, supprimer).
 // Compat : closeProjMenu est appelé un peu partout ; c'est le menu commun.
 const closeProjMenu = ()=>closeMenu();
 function openProjMenu(anchor, p){
   popMenu(anchor, [
-    {icon:'pencil', label:t('projects.rename'), run:()=>renameProjectUI(p.slug, p.name)},
     {icon:'doc', label:t('projects.options'), run:()=>optionsProjectUI(p)},            // description fournie à l'IA
     {icon:'mem', label:t('projects.view_memory'), run:()=>openMemHub(p.slug, p.name)},  // sans basculer dessus
+    {icon:'chart', label:t('projects.view_trackers'), run:()=>openTrackerHub(p.slug)},       // idem pour ses trackers
     PROJECTS.length > 1 && {icon:'trash', label:t('projects.delete'), danger:true, run:()=>deleteProjectUI(p.slug, p.name)},
-  ], {side:'below'});
+  ], {side:'below', sub:true});
 }
 
 // Basculer sur un projet : nouvelle session vierge côté serveur, la mémoire suit.
@@ -92,6 +94,7 @@ async function switchProjectUI(slug){
   const ms=document.getElementById('mem-search'); if(ms) ms.value='';
   loadAgent();
   if(!PROJECTS.some(p=>p.slug===slug)) await loadProjects(); // projet tout juste créé
+  if(typeof loadHistory==='function') loadHistory(); // l'historique suit le projet
   toast(t('projects.switched_toast_prefix') + projName(ACTIVE_PROJECT));
 }
 
@@ -106,24 +109,24 @@ async function createProjectUI(){
   await switchProjectUI(r.slug);
 }
 
-async function renameProjectUI(slug, current){
-  const name = await askPrompt(t('projects.rename_prompt'), {title:t('projects.rename_title'), okText:t('projects.save_btn'), default: current||'', placeholder:t('projects.rename_placeholder')});
-  if(name===null) return;
-  if(!name.trim()){ toast(t('projects.name_empty')); return; }
-  let r; try{ r = await jpost('/api/projects/rename', {slug, name}); }catch(_){ toast(t('projects.network_error')); return; }
-  if(!r.ok){ toast(r.error || t('projects.rename_failed')); return; }
-  loadProjects();
-}
-
 // Options d'un projet : la description, fournie à l'IA en tête de chaque nouvelle
 // conversation. Vide = efface la description.
 async function optionsProjectUI(p){
   const slug = p.slug;
-  const desc = await askPrompt(
+  // Nom + description dans la même fenêtre (le renommage n'a plus d'entrée à part).
+  const res = await askPrompt(
     t('projects.describe_prompt'),
     {title:t('projects.options_title'), okText:t('projects.save_btn'), multiline:true,
+     name: p.name||'', namePlaceholder:t('projects.rename_placeholder'),
      default: p.desc||'', placeholder:t('projects.describe_placeholder')});
-  if(desc===null) return;                 // annulé : on ne touche à rien
+  if(res===null) return;                  // annulé : on ne touche à rien
+  const name = res.name.trim(), desc = res.text;
+  if(!name){ toast(t('projects.name_empty')); return; }
+  if(name !== (p.name||'')){
+    let rr; try{ rr = await jpost('/api/projects/rename', {slug, name}); }catch(_){ toast(t('projects.network_error')); return; }
+    if(!rr.ok){ toast(rr.error || t('projects.rename_failed')); return; }
+  }
+  if(desc === (p.desc||'')){ loadProjects(); return; } // description inchangée
   let r; try{ r = await jpost('/api/projects/describe', {slug, desc}); }catch(_){ toast(t('projects.network_error')); return; }
   if(!r.ok){ toast(r.error || t('projects.save_failed')); return; }
   toast(desc.trim() ? t('projects.desc_saved') : t('projects.desc_cleared'));
@@ -167,6 +170,8 @@ async function deleteProjectUI(slug, name){
 const PLUS_IC = {
   file:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.05 12.25 20.2a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.67 3.67 0 1 1 5.18 5.18l-9.2 9.2a1.83 1.83 0 1 1-2.59-2.6l8.49-8.48"/></svg>',
   chat:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  mem:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',
+  clear:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
   compact:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9l4-4 4 4M20 15l-4 4-4-4M8 5v6M16 19v-6"/></svg>',
 };
 const closePlusMenu = ()=>closeMenu();
@@ -174,8 +179,11 @@ function togglePlusMenu(e){
   if(e){ e.stopPropagation(); e.preventDefault(); }
   popMenu(document.getElementById('plus-btn'), [
     COMPACT_AVAILABLE && {icon:PLUS_IC.compact, label:t('projects.compact_context'), run:compactContext}, // contexte ≥ 50 %, en tête
+    MODE==='jean' && {icon:PLUS_IC.mem, label:t('jean.mem_title'), run:openJeanMem},
     {icon:PLUS_IC.file, label:t('projects.attach_file'), run:()=>document.getElementById('attach-input').click()},
-    {icon:PLUS_IC.chat, label:t('chat.new_chat_btn'), run:newChatFromTop},
+    // Mode Jean : une seule conversation, on n'en ouvre pas d'autre, on vide le contexte.
+    MODE==='jean' ? {icon:PLUS_IC.clear, label:t('jean.clear_ctx'), run:clearJeanContext}
+                  : {icon:PLUS_IC.chat, label:t('chat.new_chat_btn'), run:newChatFromTop},
   ], {side:'above', align:'left', gap:14, keepOnScroll:true}); // le chat défile pendant la génération
 }
 
@@ -187,6 +195,7 @@ function togglePlusMenu(e){
 // contexte MEM_VIEW_PROJECT (lu par loadAgent / openMem / setMemMode / moveMemUI) et
 // on affiche le nom du projet consulté dans l'en-tête du modal.
 function openMemHub(slug, name){
+  if(!slug && MODE==='jean'){ openJeanMem(); return; } // mode Jean : sa propre mémoire
   const other = slug && (typeof ACTIVE_PROJECT==='undefined' || slug!==ACTIVE_PROJECT);
   if(typeof MEM_VIEW_PROJECT!=='undefined') MEM_VIEW_PROJECT = other ? slug : '';
   const tag=document.getElementById('mem-proj');
@@ -259,4 +268,117 @@ async function pickProjFromMenu(slug){
   if(slug===ACTIVE_PROJECT) return;
   if(LIVE_GENERATING){ toast(t('projects.busy_switch')); return; }
   await switchProjectUI(slug);
+}
+
+// ===== Mémoire de Jean ======================================================
+// Profil (toujours injecté) modifiable ligne à ligne, fiches (procédures gardées
+// en entier) et journal (à parcourir, filtrer, nettoyer). Tout passe par le
+// serveur, qui détient la clé : marche aussi avec la mémoire chiffrée.
+let JM_OFF=0, JM_T=null;
+function openJeanMem(){ showModal('jean-mem-modal'); const s=document.getElementById('jm-search'); if(s) s.value=''; jmLoad(false); }
+function closeJeanMem(){ hideModal('jean-mem-modal'); }
+function jmSearchDebounced(){ clearTimeout(JM_T); JM_T=setTimeout(()=>jmLoad(false), 220); }
+const jmEsc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const JM_DEL='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+function jmRenderProfile(r){
+  const box=document.getElementById('jm-profile'); box.textContent='';
+  document.getElementById('jm-budget').textContent=r.profile_used+' / '+r.profile_max;
+  if(!r.profile.length){ box.innerHTML='<div class="jm-empty">'+jmEsc(t('jean.mem_profile_empty'))+'</div>'; return; }
+  for(const f of r.profile){
+    const row=document.createElement('div'); row.className='jm-row jm-fact';
+    row.innerHTML='<div class="jm-main"><div class="jm-key">'+jmEsc(f.key)+'</div><div class="jm-val">'+jmEsc(f.value)+'</div></div><button class="jm-x" title="'+jmEsc(t('jean.mem_forget'))+'">'+JM_DEL+'</button>';
+    row.querySelector('.jm-main').onclick=()=>jmEdit(f, row);
+    row.querySelector('.jm-x').onclick=async(e)=>{ e.stopPropagation(); const x=await jpost('/api/jean/profile',{key:f.key,value:''}); if(!x.ok) toast(x.error); jmLoad(false); };
+    box.appendChild(row);
+  }
+}
+// Édition en place : clé + valeur, Entrée enregistre, Échap annule.
+function jmEdit(f, row){
+  const box=document.getElementById('jm-profile');
+  const ed=document.createElement('div'); ed.className='jm-row jm-edit';
+  ed.innerHTML='<input class="sctl jm-in-key" placeholder="'+jmEsc(t('jean.mem_key_ph'))+'"><textarea class="sctl jm-in-val" rows="2" placeholder="'+jmEsc(t('jean.mem_val_ph'))+'"></textarea><div class="jm-ed-btns"><button class="jm-btn jm-cancel">'+jmEsc(t('jean.mem_cancel'))+'</button><button class="jm-btn jm-btn-pri jm-save">'+jmEsc(t('jean.mem_save'))+'</button></div>';
+  const k=ed.querySelector('.jm-in-key'), v=ed.querySelector('.jm-in-val');
+  if(f){ k.value=f.key; v.value=f.value; }
+  if(row) row.replaceWith(ed); else { const e=box.querySelector('.jm-empty'); if(e) e.remove(); box.prepend(ed); }
+  const save=async()=>{
+    if(!k.value.trim()||!v.value.trim()) return;
+    const x=await jpost('/api/jean/profile',{key:k.value,value:v.value,old_key:f?f.key:''});
+    if(!x.ok){ toast(x.error); return; }
+    jmLoad(false);
+  };
+  ed.querySelector('.jm-save').onclick=save;
+  ed.querySelector('.jm-cancel').onclick=()=>jmLoad(false);
+  ed.onkeydown=(e)=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); save(); } else if(e.key==='Escape'){ e.stopPropagation(); jmLoad(false); } };
+  (f?v:k).focus();
+}
+const JM_KIND={echange:'jean.kind_exchange',note:'jean.kind_note',profil:'jean.kind_profile',message:'jean.kind_message',fiche:'jean.kind_fiche'};
+// Charge la fenêtre : profil et fiches, puis le journal (more = page suivante).
+async function jmLoad(more){
+  if(!more) JM_OFF=0;
+  const q=(document.getElementById('jm-search')||{}).value||'';
+  const r=await jget('/api/jean/memory?limit=40&offset='+JM_OFF+'&q='+encodeURIComponent(q)).catch(()=>null);
+  if(!r||!r.ok){ toast((r&&r.error)||t('jean.mem_error')); return; }
+  if(!more){ jmRenderProfile(r); jmRenderFiches(r.fiches||[]); }
+  document.getElementById('jm-count').textContent=r.entries ? String(r.entries) : '';
+  const box=document.getElementById('jm-journal');
+  if(!more) box.textContent='';
+  if(!r.total){ box.innerHTML='<div class="jm-empty">'+jmEsc(t(q?'jean.mem_no_result':'jean.mem_journal_empty'))+'</div>'; }
+  const lang=document.documentElement.lang||'fr';
+  for(const e of r.journal){
+    const row=document.createElement('div'); row.className='jm-row jm-entry';
+    const d=new Date(e.when).toLocaleString(lang,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+    row.innerHTML='<div class="jm-main"><div class="jm-meta">'+jmEsc(d)+' · '+jmEsc(t(JM_KIND[e.kind]||'jean.kind_note'))+'</div><div class="jm-text">'+jmEsc(e.text)+'</div></div><button class="jm-x" title="'+jmEsc(t('jean.mem_delete'))+'">'+JM_DEL+'</button>';
+    row.querySelector('.jm-main').onclick=()=>row.classList.toggle('open');
+    row.querySelector('.jm-x').onclick=async(ev)=>{ ev.stopPropagation(); const x=await jpost('/api/jean/journal/delete',{id:e.id}); if(!x.ok){ toast(x.error); return; } row.remove(); };
+    box.appendChild(row);
+  }
+  JM_OFF+=r.journal.length;
+  document.getElementById('jm-more').style.display = JM_OFF<r.total ? '' : 'none';
+}
+
+// Fiches : procédures et guides. La liste montre nom + « quand s'en servir » ; un
+// clic charge la fiche entière dans un éditeur en place.
+const JM_DOC='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>';
+function jmRenderFiches(list){
+  const box=document.getElementById('jm-fiches'); box.textContent='';
+  document.getElementById('jm-fcount').textContent=list.length ? String(list.length) : '';
+  if(!list.length){ box.innerHTML='<div class="jm-empty">'+jmEsc(t('jean.mem_fiches_empty'))+'</div>'; return; }
+  for(const f of list){
+    const row=document.createElement('div'); row.className='jm-row jm-fiche';
+    row.innerHTML='<span class="jm-ic">'+JM_DOC+'</span><div class="jm-main"><div class="jm-fname">'+jmEsc(f.name)+'</div><div class="jm-when">'+jmEsc(f.when)+'</div></div><button class="jm-x" title="'+jmEsc(t('jean.mem_delete'))+'">'+JM_DEL+'</button>';
+    row.querySelector('.jm-main').onclick=async()=>{
+      const r=await jget('/api/jean/fiche?name='+encodeURIComponent(f.name)).catch(()=>null);
+      if(!r||!r.ok){ toast((r&&r.error)||t('jean.mem_error')); return; }
+      jmEditFiche(r, row);
+    };
+    row.querySelector('.jm-x').onclick=async(e)=>{ e.stopPropagation();
+      if(!confirm(t('jean.mem_fiche_confirm').replace('{name}', f.name))) return;
+      const x=await jpost('/api/jean/fiche/delete',{name:f.name}); if(!x.ok){ toast(x.error); return; } jmLoad(false); };
+    box.appendChild(row);
+  }
+}
+function jmEditFiche(f, row){
+  const box=document.getElementById('jm-fiches');
+  const ed=document.createElement('div'); ed.className='jm-row jm-edit';
+  ed.innerHTML='<input class="sctl jm-in-key" placeholder="'+jmEsc(t('jean.mem_fname_ph'))+'">'+
+    '<input class="sctl jm-in-when" placeholder="'+jmEsc(t('jean.mem_when_ph'))+'">'+
+    '<textarea class="sctl jm-in-doc" rows="12" placeholder="'+jmEsc(t('jean.mem_doc_ph'))+'"></textarea>'+
+    '<div class="jm-ed-btns"><button class="jm-btn jm-cancel">'+jmEsc(t('jean.mem_cancel'))+'</button><button class="jm-btn jm-btn-pri jm-save">'+jmEsc(t('jean.mem_save'))+'</button></div>';
+  const n=ed.querySelector('.jm-in-key'), w=ed.querySelector('.jm-in-when'), c=ed.querySelector('.jm-in-doc');
+  if(f){ n.value=f.name; w.value=f.when; c.value=f.content; }
+  if(row) row.replaceWith(ed); else { const e=box.querySelector('.jm-empty'); if(e) e.remove(); box.prepend(ed); }
+  const save=async()=>{
+    if(!n.value.trim()||!w.value.trim()||!c.value.trim()){ toast(t('jean.mem_fiche_incomplete')); return; }
+    const x=await jpost('/api/jean/fiche',{name:n.value,when:w.value,content:c.value,old_name:f?f.name:''});
+    if(!x.ok){ toast(x.error); return; }
+    jmLoad(false);
+  };
+  ed.querySelector('.jm-save').onclick=save;
+  ed.querySelector('.jm-cancel').onclick=()=>jmLoad(false);
+  // Entrée enregistre depuis les champs d'une ligne ; dans le contenu, Entrée va à la ligne (Ctrl+Entrée enregistre).
+  ed.onkeydown=(e)=>{
+    if(e.key==='Escape'){ e.stopPropagation(); jmLoad(false); }
+    else if(e.key==='Enter' && (e.ctrlKey||e.metaKey || (e.target!==c && !e.shiftKey))){ e.preventDefault(); save(); }
+  };
+  (f?c:n).focus();
 }

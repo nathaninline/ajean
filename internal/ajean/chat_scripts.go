@@ -27,7 +27,10 @@ import (
 // scriptsPath résout un nom de script fourni par le modèle vers un chemin DANS
 // scriptsDir, en refusant toute évasion hors du dossier (« ../ », chemin absolu).
 // Renvoie une erreur plutôt qu'un chemin hors périmètre.
-func scriptsPath(name string) (string, error) {
+func scriptsPath(name string) (string, error) { return scriptsPathIn(scriptsDir(), name) }
+
+// scriptsPathIn : idem dans un dossier de scripts donné (projets ou Jean).
+func scriptsPathIn(root, name string) (string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return "", fmt.Errorf("nom de script vide")
@@ -52,9 +55,9 @@ func scriptsPath(name string) (string, error) {
 	if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("nom de script invalide (pas de chemin absolu ni de ../) : %s", name)
 	}
-	full := filepath.Join(scriptsDir(), clean)
+	full := filepath.Join(root, clean)
 	// Ceinture et bretelles : vérifie que le résultat est bien SOUS scriptsDir.
-	if !underDir(full, scriptsDir()) {
+	if !underDir(full, root) {
 		return "", fmt.Errorf("nom de script hors du dossier scripts : %s", name)
 	}
 	return full, nil
@@ -62,8 +65,10 @@ func scriptsPath(name string) (string, error) {
 
 // scriptExists valide qu'un nom désigne bien un fichier script existant dans le
 // dossier (sans lire son contenu). Utilisé pour valider une tâche « script seul ».
-func scriptExists(name string) error {
-	full, err := scriptsPath(name)
+func scriptExists(name string) error { return scriptExistsIn(scriptsDir(), name) }
+
+func scriptExistsIn(root, name string) error {
+	full, err := scriptsPathIn(root, name)
 	if err != nil {
 		return err
 	}
@@ -79,8 +84,9 @@ func scriptExists(name string) error {
 
 // listScripts renvoie les scripts présents (chemins relatifs à scriptsDir, avec
 // leur taille), triés. Ignore les dossiers.
-func listScripts() ([]scriptInfo, error) {
-	root := scriptsDir()
+func listScripts() ([]scriptInfo, error) { return listScriptsIn(scriptsDir()) }
+
+func listScriptsIn(root string) ([]scriptInfo, error) {
 	var out []scriptInfo
 	err := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -118,12 +124,14 @@ type scriptInfo struct {
 // Le dossier scripts N'EST PAS ici : l'IA y écrit et y exécute ses scripts
 // librement (avec write/bash). Sa durabilité vient seulement de sa séparation
 // d'avec le workspace jetable, pas d'un verrou.
-func toolOnlyDirs() []string { return []string{memoryDir()} }
+// La mémoire du mode Jean (memory/_jean) en fait partie : sinon bash/write/edit
+// la lisaient ou la modifiaient en contournant ses outils et leurs garde-fous.
+func toolOnlyDirs() []string { return []string{memoryDir(), jeanDir()} }
 
 // toolOnlyLabel donne le nom des outils à utiliser à la place d'un accès direct
 // (seule la mémoire est concernée aujourd'hui, voir toolOnlyDirs).
 func toolOnlyLabel() string {
-	return "les outils mem_* (mem_search/mem_read/mem_add/mem_edit/mem_delete)"
+	return "les outils mémoire (mem_* ou, en mode Jean, jean_*)"
 }
 
 // guardToolOnlyPath refuse un accès write/edit à un chemin (déjà résolu) situé

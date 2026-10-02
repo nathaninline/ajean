@@ -49,6 +49,11 @@ func capsFromBody(body chatReq) Caps {
 	if body.Raw {
 		caps = Caps{Mem: MemOff}
 	}
+	// Mode Jean : pas de projet ni de mémoire de projet, sa propre mémoire à la place.
+	if body.Mode == "jean" {
+		caps.Mem = MemOff
+		caps.Jean = true
+	}
 	// Les outils dépendent du mode agent : agent coupé, tout est coupé.
 	if !caps.Agent {
 		caps.Internet = false
@@ -124,6 +129,12 @@ func handleChatSend(w http.ResponseWriter, r *http.Request) {
 	// message sera injecté dans la réponse en cours à la prochaine frontière d'étape,
 	// ou traité comme tour suivant si le tour se termine avant. queued=true le signale
 	// au client (qui affiche une bulle « en attente »).
+	rememberUserTZ(body.TZ)
+	// Bonne conversation d'abord (plusieurs appareils : voir alignConvForMode).
+	if err := conv.alignConvForMode(requestedMode(body)); err != nil {
+		sendJSON(w, 409, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
 	// Mode : celui de la conversation s'il est déjà fixé, sinon celui demandé.
 	mode, fresh := conv.lockMode(requestedMode(body))
 	applyChatMode(&body, mode)
@@ -167,7 +178,7 @@ func handleChatHistory(w http.ResponseWriter, r *http.Request) {
 		// Historique général (menu latéral) : toutes les conversations, tous projets.
 		list = listAllArchives()
 	} else {
-		list = listArchives()
+		list = historyList(q.Get("scope"))
 	}
 	// Recherche (?q=) : sur le titre et le nom du projet, sans tenir compte de la
 	// casse ni des accents. Faite avant la pagination.
@@ -318,7 +329,9 @@ func handleChatHistoryFav(w http.ResponseWriter, r *http.Request) {
 // handleChatHistoryClear (POST) : supprime toutes les conversations archivées
 // SAUF les favoris.
 func handleChatHistoryClear(w http.ResponseWriter, r *http.Request) {
-	n := deleteNonFavArchives(conv.currentID())
+	var body struct{ Scope string }
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	n := deleteNonFavIn(historyList(body.Scope), conv.currentID())
 	sendJSON(w, 200, map[string]any{"ok": true, "deleted": n})
 }
 
@@ -437,7 +450,7 @@ var accentFold = map[rune]rune{
 // requestedMode : mode demandé par le client (champ mode, ou anciens drapeaux).
 func requestedMode(b chatReq) string {
 	switch {
-	case b.Mode == "fast" || b.Mode == "project" || b.Mode == "base":
+	case b.Mode == "fast" || b.Mode == "project" || b.Mode == "base" || b.Mode == "jean":
 		return b.Mode
 	case b.Raw:
 		return "base"

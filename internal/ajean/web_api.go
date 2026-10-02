@@ -1490,6 +1490,9 @@ type chatReq struct {
 	// Mode = mode de chat demandé (fast / project / base). La conversation garde
 	// celui de son premier message (voir Conversation.lockMode).
 	Mode string `json:"mode"`
+	// TZ = fuseau IANA du navigateur (« Europe/Paris »), retenu pour dater ce que
+	// le modèle planifie ou note. Voir rememberUserTZ.
+	TZ string `json:"tz"`
 	// Message = texte du tour à lancer (/api/chat/send) ; From = dernier Seq déjà
 	// vu par le client (le flux d'abonnement rejoue Log[From:] puis suit le direct).
 	Message string `json:"message"`

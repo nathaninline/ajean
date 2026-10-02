@@ -325,9 +325,27 @@ func (c *Conversation) compactLogLocked() {
 		// maxLogEvents → troncature des plus VIEUX événements, donc perte des
 		// premiers messages à l'affichage. On ne conserve donc que le done=true
 		// (même politique que coalesceReplay au replay/export).
+		// Activité d'une tâche de Jean (« Travaille sur… ») : du direct seulement. Les
+		// tâches et les tours utilisateur partagent le verrou de génération, donc
+		// aucune n'est en cours quand un tour se termine : tout peut partir.
+		if _, ok := ev.Delta["jean_task"]; ok {
+			flush()
+			continue
+		}
 		if tu, ok := ev.Delta["tool_used"].(map[string]any); ok {
 			flush()
 			if done, _ := tu["done"].(bool); done {
+				// L'aperçu du navigateur (shot) n'est que du direct : on ne le
+				// garde pas une fois le tour fini (voir cu_autoshot.go).
+				if _, has := tu["shot"]; has {
+					cp := make(map[string]any, len(tu))
+					for k, v := range tu {
+						if k != "shot" {
+							cp[k] = v
+						}
+					}
+					ev.Delta = map[string]any{"tool_used": cp}
+				}
 				out = append(out, ev)
 			}
 			continue
@@ -385,7 +403,9 @@ func (c *Conversation) compactAndPublish(ctx context.Context, epoch int, phase s
 	// garde, une conversation en chat pur assez longue pour compacter se verrait
 	// (ré)ajouter index/contexte/trackers, alors que memIndexMessage se fie à
 	// memMode() (mode du projet) et pas à caps.
-	if caps.Agent && !caps.Terminal {
+	if caps.Jean {
+		compacted = ensureJeanContextFront(compacted)
+	} else if caps.Agent && !caps.Terminal {
 		// Rappel des pages mémoire LUES : après compactage, leur contenu n'est plus
 		// inline (résumé). Une page de règles à suivre était donc oubliée. On n'en
 		// garde RIEN verbatim (contexte léger) : juste un rappel listant leurs noms,
@@ -501,7 +521,18 @@ func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, tem
 	// et le prompt système (AJEAN + preset) est aussi sauté plus bas (voir generate).
 	// L'index/trackers sont déjà bornés au mode auto (donc agent on), mais on garde
 	// le garde-fou explicite ici : agent off, aucun contexte.
-	if len(c.Messages) == 0 && caps.Agent && !caps.Terminal {
+	// Mode Jean : après une longue inactivité, on repart d'un contexte vide (comme le
+	// bouton « Vider le contexte »). Le fil affiché et le journal ne bougent pas.
+	jeanIdleCleared := false
+	if caps.Jean && c.ID == jeanConvID && len(c.Messages) > 0 && jeanIdleExpired(c.Log, time.Now()) {
+		c.Messages = nil
+		c.CtxUsed = 0
+		jeanIdleCleared = true
+	}
+	if len(c.Messages) == 0 && caps.Jean {
+		// Mode Jean : son profil seul, ni projet, ni index, ni trackers.
+		c.Messages = append(c.Messages, jeanContextMessage())
+	} else if len(c.Messages) == 0 && caps.Agent && !caps.Terminal {
 		// Contexte projet (description) d'abord : l'IA sait sur quoi elle travaille
 		// avant même de lire l'index de ses pages mémoire.
 		if m, ok := projectContextMessage(); ok {
@@ -518,9 +549,15 @@ func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, tem
 	}
 	// Content = simple texte d'ordinaire ; format multimodal (texte + images) quand
 	// la vision est active et qu'une pièce jointe est une image (userMessageContent).
+	if caps.Jean {
+		prompt = "[" + jeanNow() + "] " + prompt
+	}
 	c.Messages = append(c.Messages, Message{Role: "user", Content: userMessageContent(files, prompt)})
 	epoch := c.epoch
 	c.mu.Unlock()
+	if jeanIdleCleared {
+		c.appendDelta(epoch, map[string]any{"ctx_cleared": true})
+	}
 
 	// Borne de tour + bulle utilisateur (rejouables). Persistée tout de suite :
 	// si le process meurt en pleine génération (crash, restart après MAJ), le
@@ -591,6 +628,9 @@ func (c *Conversation) drainQueued(epoch int) []Message {
 		if strings.TrimSpace(prompt) == "" {
 			prompt = "Prends-en connaissance."
 		}
+		if q.caps.Jean {
+			prompt = "[" + jeanNow() + "] " + prompt
+		}
 		out = append(out, Message{Role: "user", Content: userMessageContent(q.files, prompt)})
 	}
 	return out
@@ -655,6 +695,7 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 		c.appendDelta(epoch, map[string]any{"turn_done": true, "elapsed_ms": time.Since(turnStart).Milliseconds(), "preset": turnPreset})
 		c.mu.Lock()
 		c.compactLogLocked() // le tour est fini : coalesce ses tokens pour garder le journal petit
+		c.pageOutLocked()    // conversation sans fin : l'ancien fil part en pages (chat_pages.go)
 		c.mu.Unlock()
 		c.persist()
 		// Notification Web Push : ce chemin (generate) ne sert QUE les tours
@@ -752,6 +793,9 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 			if ev.ToolUsed.ResultID != "" {
 				tu["result_id"] = ev.ToolUsed.ResultID
 			}
+			if ev.ToolUsed.Shot != "" {
+				tu["shot"] = ev.ToolUsed.Shot
+			}
 			// Corps en cours de frappe : transitoire (l'état final est le diff), on
 			// ne l'ajoute que quand il est là pour ne pas gonfler chaque événement.
 			if ev.ToolUsed.Body != "" {
@@ -780,7 +824,29 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 			for len(base) > 0 && base[0].Role == "system" {
 				base = base[1:]
 			}
+			// Le retrait ci-dessus emporte aussi les contextes injectés en tête (profil de
+			// Jean, contexte et index du projet) : on les remet, comme compactAndPublish.
+			if caps.Jean {
+				base = ensureJeanContextFront(base)
+			} else if caps.Agent && !caps.Terminal {
+				base = ensureMemIndexFront(base)
+				base = ensureProjectContextFront(base)
+				base = ensureTrackerIndexFront(base)
+			}
 			newBase = append([]Message(nil), base...)
+			// Compter AUSSI ces compactages-là (#102) : seuls ceux de début/fin de tour
+			// l'étaient, l'indicateur « · N compactages » restait donc caché alors que
+			// c'est le cas courant avec un petit contexte.
+			c.mu.Lock()
+			cc := -1
+			if c.epoch == epoch {
+				c.CompactCount++
+				cc = c.CompactCount
+			}
+			c.mu.Unlock()
+			if cc >= 0 {
+				c.appendDelta(epoch, map[string]any{"compact_count": cc})
+			}
 		case ev.Compacting != nil:
 			// Compaction déclenchée pendant la boucle d'outils : même bannière que la
 			// compaction de début de tour.
@@ -825,6 +891,11 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 	ctxUsed = c.CtxUsed
 	stale := c.epoch != epoch
 	c.mu.Unlock()
+
+	// Mode Jean : l'échange part au journal (froid), sans coût pour le modèle.
+	if caps.Jean && !stale && ctx.Err() == nil {
+		jeanLogExchange(lastUserText(msgs), content.String())
+	}
 
 	// Compaction de FIN DE TOUR. C'était LE trou : le seuil n'était testé qu'au
 	// DÉBUT d'un tour, avec le contexte du tour précédent. Le tour qui fait
@@ -1136,14 +1207,31 @@ func historyCut(log []LogEvent, tail int) (int, int) {
 	return 0, 0
 }
 
+// tailCut : comme historyCut, en comptant aussi les échanges d'une conversation
+// sans fin déjà rangés en pages (chat_pages.go), qui sont masqués eux aussi.
+func tailCut(log []LogEvent, convID string, tail int) (int, int) {
+	cut, hidden := historyCut(log, tail)
+	if paged(convID) && len(log) > 0 {
+		if extra := pagedTurns(pageKeys(convID)); extra > 0 {
+			if hidden == 0 {
+				cut = log[0].Seq - 1
+			}
+			hidden += extra
+		}
+	}
+	return cut, hidden
+}
+
 // historyHead : événements qui annoncent un historique tronqué. L'état global que
 // les échanges masqués auraient posé (contexte utilisé, nombre de compactages) est
 // renvoyé tel qu'il est MAINTENANT, pour que les compteurs restent justes.
-func (c *Conversation) historyHead(hidden int) []map[string]any {
+// before = premier seq rejoué : le client demande les échanges d'avant ce seq
+// (voir handleChatOlder).
+func (c *Conversation) historyHead(hidden, before int) []map[string]any {
 	c.mu.Lock()
 	ctxUsed, cc := c.CtxUsed, c.CompactCount
 	c.mu.Unlock()
-	return []map[string]any{{"history_more": hidden}, {"ctx_used": ctxUsed}, {"compact_count": cc}}
+	return []map[string]any{{"history_more": hidden, "before": before}, {"ctx_used": ctxUsed}, {"compact_count": cc}}
 }
 
 // Subscribe : abonnement sans pagination (rejeu complet), pour les anciens clients.
@@ -1180,7 +1268,7 @@ func (c *Conversation) SubscribeTail(ctx context.Context, from int, convID strin
 	c.mu.Lock()
 	snapshot := append([]LogEvent(nil), c.Log...)
 	epoch := c.epoch
-	curID := c.ID
+	curID, curMode := c.ID, c.Mode
 	c.mu.Unlock()
 	// ⚠️ Détection d'une conversation PÉRIMÉE côté client (fusion de deux fils).
 	// Le client renvoie l'id de la conversation qu'il a À L'ÉCRAN (convID) avec son
@@ -1213,15 +1301,15 @@ func (c *Conversation) SubscribeTail(ctx context.Context, from int, convID strin
 	// à l'affichage de l'ancienne conversation.
 	if staleConv {
 		from = 0
-		if !emit(map[string]any{"reset": true, "replay": true, "id": curID}) {
+		if !emit(map[string]any{"reset": true, "replay": true, "id": curID, "mode": curMode}) {
 			return
 		}
 	}
 	// Chargement initial d'un client paginé : on ne rejoue que la fin du fil.
 	if from == 0 && tail > 0 {
-		if cut, hidden := historyCut(snapshot, tail); hidden > 0 {
+		if cut, hidden := tailCut(snapshot, curID, tail); hidden > 0 {
 			from = cut
-			for _, ev := range c.historyHead(hidden) {
+			for _, ev := range c.historyHead(hidden, cut+1) {
 				if !emit(ev) {
 					return
 				}
@@ -1271,20 +1359,20 @@ func (c *Conversation) SubscribeTail(ctx context.Context, from int, convID strin
 			epoch = c.epoch
 			last = 0
 			replay := c.pendingReplay
-			rid := c.ID
+			rid, rmode := c.ID, c.Mode
 			// Session ouverte (fil complet qui suit) chez un client paginé : on saute
 			// directement aux derniers échanges.
 			cut, hidden := 0, 0
 			if replay && tail >= 0 {
-				cut, hidden = historyCut(c.Log, historyTailDefault)
+				cut, hidden = tailCut(c.Log, rid, historyTailDefault)
 			}
 			c.mu.Unlock()
-			if !emit(map[string]any{"reset": true, "replay": replay, "id": rid}) {
+			if !emit(map[string]any{"reset": true, "replay": replay, "id": rid, "mode": rmode}) {
 				return
 			}
 			if hidden > 0 {
 				last = cut
-				for _, ev := range c.historyHead(hidden) {
+				for _, ev := range c.historyHead(hidden, cut+1) {
 					if !emit(ev) {
 						return
 					}

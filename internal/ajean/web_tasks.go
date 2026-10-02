@@ -18,6 +18,14 @@ import (
 // horaire à l'écran.
 func handleTasks(w http.ResponseWriter, r *http.Request) {
 	tasks := listTasks()
+	// Une tâche de Jean s'affiche sous « Jean » même si elle date d'avant le
+	// pseudo-projet (son champ Project portait alors le projet actif du moment) :
+	// sinon la réenregistrer depuis l'UI lui faisait perdre son statut sans le dire.
+	for i := range tasks {
+		if tasks[i].Jean {
+			tasks[i].Project = jeanTaskSlug
+		}
+	}
 	conv.mu.Lock()
 	runningID := conv.runningTaskID
 	conv.mu.Unlock()
@@ -40,20 +48,28 @@ func handleTasks(w http.ResponseWriter, r *http.Request) {
 	if scripts == nil {
 		scripts = []scriptInfo{}
 	}
+	// Ceux du mode Jean, dans son propre dossier (cloisonné des projets).
+	jeanScripts, _ := listScriptsIn(jeanScriptsDir())
+	if jeanScripts == nil {
+		jeanScripts = []scriptInfo{}
+	}
 	// Projets, pour le sélecteur « mémoire du projet » du formulaire de tâche.
-	projects := []map[string]any{}
+	// « Jean » en tête : les tâches du mode Jean (mémoire de Jean, compte-rendu
+	// posté dans sa conversation).
+	projects := []map[string]any{{"slug": jeanTaskSlug, "name": "Jean"}}
 	for _, p := range listProjects() {
 		projects = append(projects, map[string]any{"slug": p.Slug, "name": p.Name})
 	}
 	sendJSON(w, 200, map[string]any{
-		"ok":         true,
-		"tasks":      tasks,
-		"paused":     tasksPaused(),
-		"agent":      agentEnabled(),
-		"running_id": runningID,
-		"presets":    presets,
-		"scripts":    scripts,
-		"projects":   projects,
+		"ok":           true,
+		"tasks":        tasks,
+		"paused":       tasksPaused(),
+		"agent":        agentEnabled(),
+		"running_id":   runningID,
+		"presets":      presets,
+		"scripts":      scripts,
+		"jean_scripts": jeanScripts,
+		"projects":     projects,
 		// État global mémoire/web, pour proposer des défauts cohérents à la création.
 		"mem_on": memMode() != MemOff,
 		"web_on": internetEnabled() && crawlReachable(),
@@ -96,7 +112,7 @@ func handleTaskSave(w http.ResponseWriter, r *http.Request) {
 			sendJSON(w, 400, map[string]any{"ok": false, "error": "script obligatoire pour une tâche script"})
 			return
 		}
-		if err := scriptExists(req.Script); err != nil {
+		if err := scriptExistsIn(scriptsDirFor(req.Project == jeanTaskSlug), req.Script); err != nil {
 			sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 			return
 		}
@@ -123,6 +139,7 @@ func handleTaskSave(w http.ResponseWriter, r *http.Request) {
 	t.Name, t.Prompt, t.Enabled = req.Name, req.Prompt, req.Enabled
 	t.TZ, t.Preset = req.TZ, req.Preset
 	t.Project = req.Project
+	t.Jean = req.Project == jeanTaskSlug
 	t.NoMem, t.NoWeb = req.NoMem, req.NoWeb
 	t.Kind, t.Script = req.Kind, req.Script
 	// Recalcule NextRun si la fréquence a changé (ou à la création).

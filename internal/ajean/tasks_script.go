@@ -84,7 +84,7 @@ func runScriptTask(t Task) {
 		recordTaskEnd(t.ID, start, "", fmt.Errorf("aucun script associé à la tâche"))
 		return
 	}
-	full, err := scriptsPath(name)
+	full, err := scriptsPathIn(scriptsDirFor(t.Jean), name)
 	if err != nil {
 		recordTaskEnd(t.ID, start, "", err)
 		return
@@ -96,6 +96,9 @@ func runScriptTask(t Task) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), scriptTaskTimeout)
 	defer cancel()
+	if t.Jean {
+		ctx = withJeanSpace(ctx)
+	}
 	// Registre : rend la tâche visible « en cours » dans l'UI et arrêtable via
 	// /api/tasks/stop (qui appelle scriptRunStop → cancel).
 	scriptRunBegin(t.ID, t.Name, cancel)

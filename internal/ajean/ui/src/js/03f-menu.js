@@ -36,23 +36,28 @@ function placeMenu(el, anchor, o = {}, rect){
 
 function openMenu(el, anchor, o = {}){
   const rect = anchor.getBoundingClientRect(); // avant closeMenu : l'ancre peut vivre dans le menu fermé
-  closeMenu(true);
+  // Sous-menu (opts.sub) : ouvert depuis un menu déjà ouvert (⋯ d'une ligne de la
+  // liste des projets), il se pose PAR-DESSUS sans refermer son parent.
+  const parent = (o.sub && MENU && MENU.el.contains(anchor)) ? MENU : null;
+  if(!parent) closeMenu(true);
   clearTimeout(el._t);
   el.classList.add('menu');
   placeMenu(el, anchor, o, rect);
   void el.offsetWidth;
   el.classList.add('open'); anchor.classList.add('open');
-  MENU = {el, anchor, o};
+  MENU = {el, anchor, o, parent};
   return el;
 }
 
-function closeMenu(now){
+// all : referme aussi les menus parents (action choisie dans un sous-menu).
+function closeMenu(now, all){
   if(!MENU) return;
-  const {el, anchor, o} = MENU; MENU = null;
+  const {el, anchor, o, parent} = MENU; MENU = parent || null;
   el.classList.remove('open'); anchor.classList.remove('open');
   const done = ()=>{ if(el.classList.contains('open')) return; if(o.dyn) el.remove(); else el.style.display = 'none'; };
   if(now) done(); else el._t = setTimeout(done, 180);
   if(o.onClose) o.onClose();
+  if(all && MENU) closeMenu(now, true);
 }
 
 const menuOpenFor = (anchor)=> !!MENU && MENU.anchor === anchor;
@@ -74,7 +79,7 @@ function popMenu(anchor, items, o = {}){
     b.classList.toggle('danger', !!it.danger); b.classList.toggle('on', !!it.on); b.disabled = !!it.disabled;
     b.innerHTML = (it.icon ? (it.icon[0] === '<' ? it.icon : sessIconSvg(it.icon)) : '') + '<span></span>';
     b.lastChild.textContent = it.label;
-    b.onclick = (e)=>{ e.stopPropagation(); closeMenu(); if(it.run) it.run(); };
+    b.onclick = (e)=>{ e.stopPropagation(); closeMenu(false, true); if(it.run) it.run(); };
     el.appendChild(b);
   }
   document.body.appendChild(el);
@@ -82,10 +87,11 @@ function popMenu(anchor, items, o = {}){
 }
 
 document.addEventListener('pointerdown', (e)=>{
-  if(MENU && !MENU.el.contains(e.target) && !MENU.anchor.contains(e.target)) closeMenu();
+  // Clic hors du sous-menu : il se ferme ; hors du parent aussi : tout se ferme.
+  while(MENU && !MENU.el.contains(e.target) && !MENU.anchor.contains(e.target)) closeMenu();
 }, true);
 document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && MENU){ e.stopPropagation(); closeMenu(); } }, true);
 document.addEventListener('scroll', (e)=>{
-  if(MENU && !MENU.o.keepOnScroll && !MENU.el.contains(e.target)) closeMenu();
+  if(MENU && !MENU.o.keepOnScroll && !MENU.el.contains(e.target)) closeMenu(false, true);
 }, true);
-addEventListener('resize', ()=>closeMenu(true));
+addEventListener('resize', ()=>closeMenu(true, true));

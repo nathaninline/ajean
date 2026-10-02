@@ -41,17 +41,19 @@ type Tracker struct {
 func trackerKey(proj, slug string) string { return proj + "/" + slug }
 
 // trackerLoad lit un tracker du projet actif par son slug. false si absent/verrouillé.
-func trackerLoad(slug string) (*Tracker, bool) {
+func trackerLoad(slug string) (*Tracker, bool) { return trackerLoadIn(activeProjectSlug(), slug) }
+
+func trackerLoadIn(proj, slug string) (*Tracker, bool) {
 	var s Tracker
-	if !getStoreJSON(bkTracker, trackerKey(activeProjectSlug(), slug), &s) {
+	if !getStoreJSON(bkTracker, trackerKey(proj, slug), &s) {
 		return nil, false
 	}
 	return &s, true
 }
 
-func trackerSave(slug string, s *Tracker) error {
+func trackerSaveIn(proj, slug string, s *Tracker) error {
 	sort.SliceStable(s.Events, func(i, j int) bool { return s.Events[i].TS < s.Events[j].TS })
-	return putStoreJSON(bkTracker, trackerKey(activeProjectSlug(), slug), s)
+	return putStoreJSON(bkTracker, trackerKey(proj, slug), s)
 }
 
 // trackerMeta = ligne légère de la vue d'ensemble.
@@ -67,15 +69,17 @@ type trackerMeta struct {
 
 // trackerList renvoie les trackers du projet actif (métadonnées seulement), le plus
 // récemment alimenté d'abord.
-func trackerList() []trackerMeta {
-	prefix := activeProjectSlug() + "/"
+func trackerList() []trackerMeta { return trackerListIn(activeProjectSlug()) }
+
+func trackerListIn(proj string) []trackerMeta {
+	prefix := proj + "/"
 	var out []trackerMeta
 	for k := range allKV(bkTracker) {
 		if !strings.HasPrefix(k, prefix) {
 			continue
 		}
 		slug := strings.TrimPrefix(k, prefix)
-		if s, ok := trackerLoad(slug); ok {
+		if s, ok := trackerLoadIn(proj, slug); ok {
 			m := trackerMeta{Slug: slug, Name: s.Name, Count: len(s.Events)}
 			if n := len(s.Events); n > 0 {
 				m.FirstTS = s.Events[0].TS
@@ -95,6 +99,10 @@ func trackerList() []trackerMeta {
 
 // trackerAdd ajoute un point à un tracker (créé s'il n'existe pas). `when` vide = maintenant.
 func trackerAdd(name, when, text string) (string, error) {
+	return trackerAddIn(activeProjectSlug(), name, when, text)
+}
+
+func trackerAddIn(proj, name, when, text string) (string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return "", fmt.Errorf("nom de tracker vide")
@@ -110,16 +118,22 @@ func trackerAdd(name, when, text string) (string, error) {
 	if slug == "" {
 		slug = "tracker"
 	}
-	s, ok := trackerLoad(slug)
+	s, ok := trackerLoadIn(proj, slug)
 	if !ok {
 		s = &Tracker{Name: name}
 	}
 	if strings.TrimSpace(s.Name) == "" {
 		s.Name = name
 	}
-	id := fmt.Sprintf("%d", time.Now().UnixNano())
+	// Id = horodatage ns, rendu UNIQUE : sous Windows l'horloge avance par paliers,
+	// deux ajouts rapprochés recevaient le même id et une édition visait le mauvais point.
+	n := time.Now().UnixNano()
+	for trackerHasID(s, fmt.Sprintf("%d", n)) {
+		n++
+	}
+	id := fmt.Sprintf("%d", n)
 	s.Events = append(s.Events, TrackerEvent{ID: id, TS: ts, Text: strings.TrimSpace(text), DateOnly: dateOnly})
-	if err := trackerSave(slug, s); err != nil {
+	if err := trackerSaveIn(proj, slug, s); err != nil {
 		return "", err
 	}
 	return id, nil
@@ -127,7 +141,11 @@ func trackerAdd(name, when, text string) (string, error) {
 
 // trackerEditEvent modifie un événement (texte et/ou date). when/text vides = inchangés.
 func trackerEditEvent(slug, id, when, text string) error {
-	s, ok := trackerLoad(slug)
+	return trackerEditEventIn(activeProjectSlug(), slug, id, when, text)
+}
+
+func trackerEditEventIn(proj, slug, id, when, text string) error {
+	s, ok := trackerLoadIn(proj, slug)
 	if !ok {
 		return fmt.Errorf("tracker introuvable")
 	}
@@ -144,7 +162,7 @@ func trackerEditEvent(slug, id, when, text string) error {
 				s.Events[i].TS = ts
 				s.Events[i].DateOnly = dateOnly
 			}
-			return trackerSave(slug, s)
+			return trackerSaveIn(proj, slug, s)
 		}
 	}
 	return fmt.Errorf("événement introuvable")
@@ -152,7 +170,11 @@ func trackerEditEvent(slug, id, when, text string) error {
 
 // trackerDeleteEvent retire un événement. trackerDelete supprime le tracker entier.
 func trackerDeleteEvent(slug, id string) error {
-	s, ok := trackerLoad(slug)
+	return trackerDeleteEventIn(activeProjectSlug(), slug, id)
+}
+
+func trackerDeleteEventIn(proj, slug, id string) error {
+	s, ok := trackerLoadIn(proj, slug)
 	if !ok {
 		return fmt.Errorf("tracker introuvable")
 	}
@@ -169,11 +191,13 @@ func trackerDeleteEvent(slug, id string) error {
 		return fmt.Errorf("événement introuvable")
 	}
 	s.Events = kept
-	return trackerSave(slug, s)
+	return trackerSaveIn(proj, slug, s)
 }
 
-func trackerDelete(slug string) error {
-	return putBytes(bkTracker, trackerKey(activeProjectSlug(), slug), nil)
+func trackerDelete(slug string) error { return trackerDeleteIn(activeProjectSlug(), slug) }
+
+func trackerDeleteIn(proj, slug string) error {
+	return putBytes(bkTracker, trackerKey(proj, slug), nil)
 }
 
 // trackerRename change le NOM d'un tracker du projet actif. Le slug étant dérivé du
@@ -183,11 +207,15 @@ func trackerDelete(slug string) error {
 // (sinon un point ajouté depuis le détail créerait un tracker parallèle). Renommer
 // exige la mémoire déverrouillée (on relit puis réécrit le contenu déchiffré).
 func trackerRename(slug, newName string) error {
+	return trackerRenameIn(activeProjectSlug(), slug, newName)
+}
+
+func trackerRenameIn(proj, slug, newName string) error {
 	newName = strings.TrimSpace(newName)
 	if newName == "" {
 		return fmt.Errorf("nom vide")
 	}
-	s, ok := trackerLoad(slug)
+	s, ok := trackerLoadIn(proj, slug)
 	if !ok {
 		return fmt.Errorf("tracker introuvable")
 	}
@@ -197,23 +225,26 @@ func trackerRename(slug, newName string) error {
 	}
 	if newSlug == slug {
 		s.Name = newName
-		return trackerSave(slug, s)
+		return trackerSaveIn(proj, slug, s)
 	}
-	if _, exists := trackerLoad(newSlug); exists {
+	if _, exists := trackerLoadIn(proj, newSlug); exists {
 		return fmt.Errorf("un tracker du même nom existe déjà")
 	}
 	s.Name = newName
-	if err := trackerSave(newSlug, s); err != nil {
+	if err := trackerSaveIn(proj, newSlug, s); err != nil {
 		return err
 	}
-	return trackerDelete(slug)
+	return trackerDeleteIn(proj, slug)
 }
 
 // trackerMoveToProject déplace un tracker du projet actif vers un autre projet. Les
 // octets sont déplacés tels quels (la DEK est globale → un blob chiffré reste
 // lisible dans le projet cible, déplacement possible même mémoire verrouillée).
 func trackerMoveToProject(slug, toSlug string) error {
-	from := activeProjectSlug()
+	return trackerMoveIn(activeProjectSlug(), slug, toSlug)
+}
+
+func trackerMoveIn(from, slug, toSlug string) error {
 	if !projectExists(toSlug) {
 		return fmt.Errorf("projet cible introuvable")
 	}
@@ -507,4 +538,13 @@ func ensureTrackerIndexFront(msgs []Message) []Message {
 		return append([]Message{m}, msgs...)
 	}
 	return msgs
+}
+
+func trackerHasID(s *Tracker, id string) bool {
+	for _, e := range s.Events {
+		if e.ID == id {
+			return true
+		}
+	}
+	return false
 }

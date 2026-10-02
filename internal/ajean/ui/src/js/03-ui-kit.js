@@ -37,6 +37,7 @@ let _askResolver=null, _askKind='confirm', _askCheck=false, _askMultiline=false,
 function askChecked(){ return _askCheck; }
 // Valeur choisie dans la liste de la DERNIÈRE confirmation (opts.choices), null si annulée.
 function askChoice(){ return _askChoice; }
+let _askWithName=false;
 function askResolve(ok){
   if(!_askResolver) return;
   const r=_askResolver; _askResolver=null;
@@ -45,7 +46,8 @@ function askResolve(ok){
   _askChoice = ok && sel.style.display!=='none' ? sel.value : null;
   hideModal('ask-modal');
   document.removeEventListener('keydown', _askKey, true);
-  if(_askKind==='prompt') r(ok ? document.getElementById(_askMultiline?'ask-textarea':'ask-input').value : null);
+  if(_askKind==='prompt' && _askWithName) r(ok ? {name:document.getElementById('ask-input').value, text:document.getElementById('ask-textarea').value} : null);
+  else if(_askKind==='prompt') r(ok ? document.getElementById(_askMultiline?'ask-textarea':'ask-input').value : null);
   else r(ok);
 }
 function _askKey(e){
@@ -53,7 +55,7 @@ function _askKey(e){
   // En multiligne, Entrée insère un saut de ligne (Ctrl/⌘+Entrée valide) ; sinon
   // Entrée valide directement.
   else if(e.key==='Enter'){
-    if(_askKind==='prompt' && _askMultiline && !(e.ctrlKey||e.metaKey)) return;
+    if(_askKind==='prompt' && _askMultiline && !(e.ctrlKey||e.metaKey) && !(_askWithName && e.target.id==='ask-input')) return;
     e.preventDefault(); e.stopPropagation(); askResolve(true);
   }
 }
@@ -76,6 +78,9 @@ function _openAsk(kind, message, opts){
     const el = _askMultiline ? ta : inp, other = _askMultiline ? inp : ta;
     el.style.display=''; el.value=opts.default||''; el.placeholder=opts.placeholder||'';
     other.style.display='none';
+    // Champ « nom » en plus du texte multiligne (opts.name) : la réponse devient {name, text}.
+    _askWithName = _askMultiline && opts.name!=null;
+    if(_askWithName){ inp.style.display=''; inp.value=opts.name; inp.placeholder=opts.namePlaceholder||''; }
   } else { inp.style.display='none'; ta.style.display='none'; }
   // Liste de choix facultative : [{value,label}], opts.choice = valeur présélectionnée.
   const sel=document.getElementById('ask-select');
@@ -98,7 +103,7 @@ function _openAsk(kind, message, opts){
   ok.classList.toggle('danger', !!opts.danger);
   showModal('ask-modal');
   document.addEventListener('keydown', _askKey, true);
-  setTimeout(()=>{ const el = _askMultiline?ta:inp; const f = kind==='prompt'?el:ok; f.focus(); if(kind==='prompt') el.select(); }, 30);
+  setTimeout(()=>{ const el = (_askMultiline && !_askWithName)?ta:inp; const f = kind==='prompt'?el:ok; f.focus(); if(kind==='prompt') el.select(); }, 30);
   return new Promise(res=>{ _askResolver=res; });
 }
 function askConfirm(message,opts){ return _openAsk('confirm',message,opts); }

@@ -95,9 +95,9 @@ type exportPayload struct {
 func (c *Conversation) ExportJSON(o exportOpts) ([]byte, error) {
 	c.mu.Lock()
 	msgs := append([]Message(nil), c.Messages...)
-	log := append([]LogEvent(nil), c.Log...)
 	ctxUsed := c.CtxUsed
 	c.mu.Unlock()
+	log := c.fullLog()
 
 	if o.Turns > 0 {
 		msgs = lastTurnsMessages(msgs, o.Turns)
@@ -261,9 +261,7 @@ func lastTurnsLog(log []LogEvent, n int) []LogEvent {
 // dans un export. coalesceReplay est réutilisé tel quel pour recoller les
 // milliers de deltas d'un tour en un bloc de texte par bulle.
 func (c *Conversation) ExportMarkdown(o exportOpts) string {
-	c.mu.Lock()
-	snapshot := append([]LogEvent(nil), c.Log...)
-	c.mu.Unlock()
+	snapshot := c.fullLog()
 	if o.Turns > 0 {
 		snapshot = lastTurnsLog(snapshot, o.Turns)
 	}
@@ -388,7 +386,7 @@ func exportBody(o exportOpts) ([]byte, string, string, error) {
 		if !ok {
 			return nil, "", "", fmt.Errorf("session introuvable")
 		}
-		target = &Conversation{Messages: a.Messages, Log: a.Log, Seq: a.Seq, CtxUsed: a.CtxUsed}
+		target = &Conversation{ID: a.ID, Messages: a.Messages, Log: a.Log, Seq: a.Seq, CtxUsed: a.CtxUsed}
 	}
 	if o.Format == "json" {
 		b, err := target.ExportJSON(o)

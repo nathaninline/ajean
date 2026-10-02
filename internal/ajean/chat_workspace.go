@@ -1,6 +1,7 @@
 package ajean
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -70,7 +71,10 @@ func workspaceCandidates() []string {
 
 // resolveAgentPath résout un chemin fourni par le modèle. Absolu → inchangé ;
 // "~/x" → dans le home de l'utilisateur ; relatif → dans le workspace.
-func resolveAgentPath(p string) string {
+func resolveAgentPath(p string) string { return resolveSpacePath(context.Background(), p) }
+
+// resolveSpacePath : comme resolveAgentPath, relatif au workspace de l'espace du tour (Jean ou projets).
+func resolveSpacePath(ctx context.Context, p string) string {
 	p = strings.TrimSpace(p)
 	if p == "" {
 		return p
@@ -83,5 +87,5 @@ func resolveAgentPath(p string) string {
 	if filepath.IsAbs(p) {
 		return p
 	}
-	return filepath.Join(agentWorkspace(), filepath.FromSlash(p))
+	return filepath.Join(spaceWorkspace(ctx), filepath.FromSlash(p))
 }

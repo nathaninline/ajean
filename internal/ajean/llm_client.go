@@ -266,6 +266,10 @@ type Caps struct {
 	// Web = ce mode « terminal » tourne dans l'interface web (mode rapide) : même
 	// outillage, seul le prompt ne parle plus d'un terminal. Voir capsFromBody.
 	Web bool
+	// Jean = mode « Jean » (assistant personnel) : mémoire propre à ce mode, hors
+	// projets (profil toujours injecté, fiches, journal cherchable). Voir
+	// jean_memory.go.
+	Jean bool
 }
 
 // globalCaps reads the machine-wide config — the default when a request doesn't
@@ -395,7 +399,8 @@ func isProjectSystem(m Message) bool {
 	return strings.HasPrefix(s, activeProjectPrefix) ||
 		strings.HasPrefix(s, projectContextPrefix) ||
 		strings.HasPrefix(s, memIndexPrefix) ||
-		strings.HasPrefix(s, trackerIndexPrefix)
+		strings.HasPrefix(s, trackerIndexPrefix) ||
+		strings.HasPrefix(s, jeanContextPrefix)
 }
 
 // prependToFirstUser place ctx en tête du premier message user de msgs (modifié en
@@ -460,6 +465,10 @@ func EnabledTools(caps Caps) []Tool {
 		// Trackers (3ᵉ type de mémoire : données datées qui s'accumulent). Même axe que
 		// la mémoire (persistant, par projet), donc fourni dès que la mémoire est ON.
 		tools = append(tools, trackerTool())
+	}
+	// Mode Jean : ses outils mémoire propres (profil, fiches, journal) remplacent mem_*.
+	if caps.Jean {
+		tools = append(tools, jeanTools()...)
 	}
 	// Outils web : seulement si le mode agent ET l'accès internet sont actifs.
 	// caps.Internet intègre déjà la joignabilité (globalCaps / override web_server.go),
@@ -542,6 +551,9 @@ type ToolUsedEvent struct {
 	// l'aperçu (léger), le reste n'est chargé qu'au clic sur « voir plus ». Vide =
 	// Result est déjà complet (rien à charger).
 	ResultID string
+	// Shot : identifiant de la capture du navigateur prise après une action
+	// browser_* (en mémoire vive), pour l'aperçu en direct. Voir cu_autoshot.go.
+	Shot string
 }
 
 // toolPreviewChars borne l'aperçu de résultat d'outil envoyé à l'UI. Le résultat
@@ -865,6 +877,10 @@ func isNetTimeout(err error) bool {
 // de réponse) au lieu d'obliger à arrêter puis relancer. Ces messages sont ajoutés à
 // `messages` (vue modèle) ET à `extra` (persistance), dans l'ordre.
 func runChat(ctx context.Context, messages []Message, temperature float64, caps Caps, cb ChatCallback, injectQueued func() []Message) ([]Message, error) {
+	// Mode Jean : son propre espace (workspace + scripts), cloisonné des projets.
+	if caps.Jean {
+		ctx = withJeanSpace(ctx)
+	}
 	var extra []Message
 	tools := EnabledTools(caps)
 	// Destination des complétions : llama-server local, ou une API OpenAI-compatible
@@ -887,6 +903,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 	// dépassement de la fenêtre de contexte après de gros résultats d'outils), on
 	// compacte l'historique en vol et on rejoue le tour — une seule fois.
 	compactedRetry := false
+	shrinkRetries := 0
 	// Appels d'outil déjà exécutés (clé = nom + arguments bruts) : sert à ne pas
 	// rejouer deux fois exactement la même écriture dans un même échange.
 	doneCalls := map[string]string{}
@@ -1016,6 +1033,18 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					// Même publication qu'en cours de tour : sans elle, la compaction de
 					// secours ne survit pas à la fin du tour et le prompt re-déborde au
 					// message suivant.
+					extra = nil
+					cb(StreamEvent{NewHistory: append([]Message(nil), messages...)})
+					continue
+				}
+			}
+			// Compactage impuissant (ou déjà tenté et encore trop long) : réduction
+			// forcée plutôt que de laisser remonter un 400 qui bloque la conversation.
+			if compactEnabled() && shrinkRetries < 2 && contextOverflow(msg, messages) {
+				if c, changed := shrinkToFit(messages, overflowTokens(msg)); changed {
+					shrinkRetries++
+					logCompact("réduction", overflowTokens(msg), messages, c, changed)
+					messages = c
 					extra = nil
 					cb(StreamEvent{NewHistory: append([]Message(nil), messages...)})
 					continue
@@ -1437,6 +1466,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			}
 			messages = append(messages, assistant)
 			extra = append(extra, assistant)
+			stepStart := len(messages)
 			// 2. Execute each tool locally and append a "tool" reply.
 			for _, tc := range tcs {
 				// Arrêt demandé : on n'enchaîne pas les outils restants. Sans ce
@@ -1458,6 +1488,8 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					label, _ = args["file"].(string)
 				case "recall":
 					label, _ = args["id"].(string)
+				case "jean_search", "jean_remember", "jean_forget", "jean_note", "jean_save", "jean_read", "jean_projects", "jean_project_mem", "jean_project_file":
+					label = jeanToolLabel(tc.Function.Name, args)
 				case "bash":
 					label, _ = args["command"].(string)
 				case "web_open", "web_read":
@@ -1516,6 +1548,11 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					messages = append(messages, toolMsg)
 					extra = append(extra, toolMsg)
 					continue
+				}
+				// Mode Jean : les outils task_* travaillent sur les tâches de Jean (pas
+				// celles du projet actif), et une tâche créée parlera dans son fil.
+				if caps.Jean && args != nil && strings.HasPrefix(tc.Function.Name, "task_") {
+					args["_jean"] = true
 				}
 				switch tc.Function.Name {
 				case "mem_search":
@@ -1601,14 +1638,14 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					}
 				case "write":
 					content, _ := args["content"].(string)
-					result = fileWrite(label, content)
+					result = fileWriteIn(ctx, label, content)
 					if !strings.HasPrefix(result, "[erreur]") {
 						diff, diffAdd = addedDiff(content)
 					}
 				case "edit":
 					oldText, _ := args["old"].(string)
 					newText, _ := args["new"].(string)
-					result = fileEdit(label, oldText, newText)
+					result = fileEditIn(ctx, label, oldText, newText)
 					// Diff seulement si l'édition a réussi (sinon le fichier n'a pas bougé).
 					if !strings.HasPrefix(result, "[erreur]") {
 						diff, diffAdd, diffDel = lineDiff(oldText, newText)
@@ -1628,6 +1665,8 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					} else {
 						result = fmt.Sprintf("[ok] page '%s' supprimée", label)
 					}
+				case "jean_search", "jean_remember", "jean_forget", "jean_note", "jean_save", "jean_read", "jean_projects", "jean_project_mem", "jean_project_file":
+					result, _ = jeanToolCall(tc.Function.Name, args)
 				case "recall":
 					result = toolRecall(args)
 				case "recall_search":
@@ -1635,7 +1674,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				case "task_list":
 					result = toolTaskList(args)
 				case "see_image":
-					result, visionImg = toolSeeImage(label)
+					result, visionImg = toolSeeImage(ctx, label)
 				case "task_create":
 					result = toolTaskCreate(args)
 				case "task_update":
@@ -1675,10 +1714,15 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 						result = "[erreur] outil inconnu: " + tc.Function.Name
 					}
 				}
+				result = capToolResult(result)
+				shot := ""
 				if !strings.HasPrefix(result, "[erreur]") {
 					doneCalls[callKey] = result
+					if cuAutoShotTool(tc.Function.Name) {
+						shot = cuAutoShot()
+					}
 				}
-				cb(StreamEvent{ToolUsed: fillToolResult(&ToolUsedEvent{Name: tc.Function.Name, Label: label, Done: true, Diff: diff, Added: diffAdd, Removed: diffDel, ArgToks: flushArgToks()}, result)})
+				cb(StreamEvent{ToolUsed: fillToolResult(&ToolUsedEvent{Name: tc.Function.Name, Label: label, Done: true, Diff: diff, Added: diffAdd, Removed: diffDel, ArgToks: flushArgToks(), Shot: shot}, result)})
 				toolMsg := Message{Role: "tool", ToolCallID: tc.ID, Content: result}
 				messages = append(messages, toolMsg)
 				extra = append(extra, toolMsg)
@@ -1706,7 +1750,10 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			// enchaînés), on partait à 60% et on finissait en dépassement — rattrapé au
 			// mieux par le filet réactif sur 500, une seule fois. On re-teste donc ici,
 			// avec le contexte RÉEL du dernier appel (usage.prompt_tokens + généré).
-			if used := stats.PromptTokensTotal + stats.GenTokens; compactWouldTrigger(messages, used) {
+			// + les résultats d'outils de CETTE étape : le moteur ne les a pas encore
+			// comptés. Sans eux, une étape qui lit plusieurs gros fichiers d'un coup
+			// passait de 60 % à plus de 130 % de la fenêtre sans jamais compacter.
+			if used := stats.PromptTokensTotal + stats.GenTokens + estimateTokens(messages[stepStart:]); compactWouldTrigger(messages, used) {
 				yes, no := true, false
 				cb(StreamEvent{Compacting: &yes})
 				c, changed := compactMessages(ctx, messages, caps)

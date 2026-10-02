@@ -8,6 +8,7 @@ package ajean
 // jointes, voir userMessageContent). Réservé au mode agent ET à la vision active.
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"os"
@@ -21,14 +22,17 @@ const maxVisionBytes = 12 << 20 // 12 Mio
 
 // toolSeeImage lit un fichier image et renvoie (accusé texte, partie image_url).
 // La partie image vaut nil en cas d'erreur : l'appelant n'injecte alors rien.
-func toolSeeImage(path string) (string, map[string]any) {
+func toolSeeImage(ctx context.Context, path string) (string, map[string]any) {
 	if !visionEnabled() {
 		return "[erreur] la vision n'est pas active sur ce modèle — impossible de voir une image", nil
 	}
 	if path == "" {
 		return "[erreur] chemin de fichier manquant", nil
 	}
-	abs := resolveAgentPath(path)
+	abs := resolveSpacePath(ctx, path)
+	if msg := guardSpacePath(ctx, abs); msg != "" {
+		return msg, nil
+	}
 	mime := imageMime(abs)
 	if mime == "" {
 		return "[erreur] format non reconnu comme image (attendu : png, jpg, gif, webp, bmp)", nil

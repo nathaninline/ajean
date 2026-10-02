@@ -9,7 +9,9 @@ let TRACKER_CUR = null;  // {slug, name} du tracker ouvert, ou null en vue liste
 let TRACKER_EDIT = null; // point en cours d'édition (mode inline), ou null
 let TRACKER_WHEN_AUTO = null; // {date,time} préremplis par le reset (pour détecter « inchangé »)
 
-function openTrackerHub(){ showModal('tracker-modal'); trackerBack(); if(typeof loadProjects==='function' && (typeof PROJECTS==='undefined' || !PROJECTS.length)) loadProjects(); }
+let TRACKER_PROJ = ''; // projet dont on voit les trackers ('' = projet actif)
+// Ouvert depuis le menu ⋯ d'un projet : ses trackers, sans basculer dessus.
+function openTrackerHub(slug){ TRACKER_PROJ = slug || ''; showModal('tracker-modal'); trackerBack(); if(typeof loadProjects==='function' && (typeof PROJECTS==='undefined' || !PROJECTS.length)) loadProjects(); }
 function closeTrackerModal(){ hideModal('tracker-modal'); }
 
 // Vue LISTE (referme le détail).
@@ -22,7 +24,7 @@ function trackerBack(){
 
 async function loadTrackers(){
   const box=document.getElementById('tracker-list'); if(!box) return;
-  let r; try{ r=await jget('/api/tracker'); }catch(_){ box.innerHTML='<span class="muted" style="font-size:12px">'+t('tracker.load_error')+'</span>'; return; }
+  let r; try{ r=await jget('/api/tracker?project='+encodeURIComponent(TRACKER_PROJ)); }catch(_){ box.innerHTML='<span class="muted" style="font-size:12px">'+t('tracker.load_error')+'</span>'; return; }
   const list=(r&&r.trackers)||[];
   const cnt=document.getElementById('tracker-count'); if(cnt) cnt.textContent = list.length ? (list.length+' '+(list.length>1?t('tracker.count_plural'):t('tracker.count_singular'))) : '';
   box.innerHTML='';
@@ -64,7 +66,7 @@ async function trackerRename(s){
   const name=await askPrompt(t('tracker.rename_prompt'), {title:t('tracker.rename_title'), okText:t('tracker.rename'), placeholder:t('tracker.new_name_placeholder'), default:s.name});
   if(name===null) return; const nn=name.trim(); if(!nn){ toast(t('tracker.empty_name')); return; }
   if(nn===s.name) return;
-  let r; try{ r=await jpost('/api/tracker/rename', {slug:s.slug, name:nn}); }catch(_){ toast(t('tracker.network_error')); return; }
+  let r; try{ r=await jpost('/api/tracker/rename', {project:TRACKER_PROJ, slug:s.slug, name:nn}); }catch(_){ toast(t('tracker.network_error')); return; }
   if(!r.ok){ toast(r.error||t('tracker.rename_failed')); return; }
   toast(t('tracker.renamed'));
   // Le slug a pu changer (dérivé du nom) : on repart de la liste plutôt que de garder
@@ -75,8 +77,8 @@ async function trackerRename(s){
 
 function trackerMove(s, anchor){
   if(typeof pickProjectPop!=='function') return;
-  pickProjectPop(anchor||document.body, (typeof ACTIVE_PROJECT!=='undefined'?ACTIVE_PROJECT:''), async(slug)=>{
-    let r; try{ r=await jpost('/api/tracker/move', {slug:s.slug, toSlug:slug}); }catch(_){ toast(t('tracker.network_error')); return; }
+  pickProjectPop(anchor||document.body, TRACKER_PROJ||(typeof ACTIVE_PROJECT!=='undefined'?ACTIVE_PROJECT:''), async(slug)=>{
+    let r; try{ r=await jpost('/api/tracker/move', {project:TRACKER_PROJ, slug:s.slug, toSlug:slug}); }catch(_){ toast(t('tracker.network_error')); return; }
     if(!r.ok){ toast(r.error||t('tracker.move_failed')); return; }
     toast(t('tracker.moved')); loadTrackers();
   });
@@ -84,7 +86,7 @@ function trackerMove(s, anchor){
 
 async function trackerDelete(s){
   if(!await askConfirm(t('tracker.delete_confirm_prefix')+s.name+t('tracker.delete_confirm_suffix'), {title:t('tracker.delete_title'), okText:t('tracker.delete'), danger:true})) return;
-  let r; try{ r=await jpost('/api/tracker/delete', {slug:s.slug}); }catch(_){ toast(t('tracker.network_error')); return; }
+  let r; try{ r=await jpost('/api/tracker/delete', {project:TRACKER_PROJ, slug:s.slug}); }catch(_){ toast(t('tracker.network_error')); return; }
   if(!r.ok){ toast(r.error||t('tracker.delete_failed')); return; }
   toast(t('tracker.deleted'));
   if(TRACKER_CUR && TRACKER_CUR.slug===s.slug) trackerBack(); else loadTrackers();
@@ -96,7 +98,7 @@ async function newTrackerUI(){
   if(name===null) return; if(!name.trim()){ toast(t('tracker.empty_name')); return; }
   const text=await askPrompt(t('tracker.new_point_prompt'), {title:t('tracker.new_title_named_prefix')+name.trim(), okText:t('tracker.new_create'), placeholder:t('tracker.new_point_placeholder')});
   if(text===null) return; if(!text.trim()){ toast(t('tracker.empty_value')); return; }
-  let r; try{ r=await jpost('/api/tracker/add', {name:name.trim(), when:'', text:text.trim()}); }catch(_){ toast(t('tracker.network_error')); return; }
+  let r; try{ r=await jpost('/api/tracker/add', {project:TRACKER_PROJ, name:name.trim(), when:'', text:text.trim()}); }catch(_){ toast(t('tracker.network_error')); return; }
   if(!r.ok){ toast(r.error||t('tracker.create_failed')); return; }
   toast(t('tracker.created'));
   openTrackerDetail((name.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'tracker'), name.trim());
@@ -114,7 +116,7 @@ async function renderTrackerEvents(){
   const hero=document.getElementById('tracker-hero');
   const box=document.getElementById('tracker-events'); if(!box) return;
   box.innerHTML='<span class="muted" style="font-size:12px">'+t('tracker.loading')+'</span>';
-  let r; try{ r=await jget('/api/tracker/events?slug='+encodeURIComponent(TRACKER_CUR.slug)); }catch(_){ box.innerHTML='<span class="muted" style="font-size:12px">'+t('tracker.error')+'</span>'; return; }
+  let r; try{ r=await jget('/api/tracker/events?slug='+encodeURIComponent(TRACKER_CUR.slug)+'&project='+encodeURIComponent(TRACKER_PROJ)); }catch(_){ box.innerHTML='<span class="muted" style="font-size:12px">'+t('tracker.error')+'</span>'; return; }
   if(!r.ok){ box.innerHTML='<span class="muted" style="font-size:12px">'+(r.error||t('tracker.error'))+'</span>'; return; }
   TRACKER_CUR.name = r.name || TRACKER_CUR.name;
   const evs=(r.events||[]).slice().sort((a,b)=>b.ts-a.ts); // plus récent d'abord
@@ -202,8 +204,8 @@ async function trackerAddPoint(){
   const when=trackerWhenValue();
   let r;
   try{
-    if(TRACKER_EDIT) r=await jpost('/api/tracker/edit', {slug:TRACKER_CUR.slug, id:TRACKER_EDIT.id, text, when});
-    else r=await jpost('/api/tracker/add', {name:TRACKER_CUR.name, when, text});
+    if(TRACKER_EDIT) r=await jpost('/api/tracker/edit', {project:TRACKER_PROJ, slug:TRACKER_CUR.slug, id:TRACKER_EDIT.id, text, when});
+    else r=await jpost('/api/tracker/add', {project:TRACKER_PROJ, name:TRACKER_CUR.name, when, text});
   }catch(_){ toast(t('tracker.network_error')); return; }
   if(!r.ok){ toast(r.error||t('tracker.add_failed')); return; }
   closeTrackerPtModal();
@@ -223,7 +225,7 @@ function editTrackerPoint(e){
 
 async function deleteTrackerPoint(e){
   if(!await askConfirm(t('tracker.delete_point_confirm_prefix')+e.when+' — '+e.text, {title:t('tracker.delete_point_title'), okText:t('tracker.delete'), danger:true})) return;
-  let r; try{ r=await jpost('/api/tracker/delete', {slug:TRACKER_CUR.slug, id:e.id}); }catch(_){ toast(t('tracker.network_error')); return; }
+  let r; try{ r=await jpost('/api/tracker/delete', {project:TRACKER_PROJ, slug:TRACKER_CUR.slug, id:e.id}); }catch(_){ toast(t('tracker.network_error')); return; }
   if(!r.ok){ toast(r.error||t('tracker.delete_point_failed')); return; }
   if(TRACKER_EDIT && TRACKER_EDIT.id===e.id) trackerClearForm();
   renderTrackerEvents();

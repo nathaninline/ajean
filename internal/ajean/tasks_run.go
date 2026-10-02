@@ -59,23 +59,19 @@ func (c *Conversation) RunAutonomous(ctx context.Context, taskID, taskName, prom
 	if temperature == 0 {
 		temperature = 0.7
 	}
+	// La note de tâche (mode autonome + compte-rendu précédent) va EN TÊTE DU
+	// MESSAGE UTILISATEUR, pas dans le système : le préfixe système + outils reste
+	// ainsi identique à celui du chat. Sur un modèle hybride, le cache ne se reprend
+	// qu'aux débuts de messages utilisateur ; une note dans le système faisait tout
+	// recalculer à la tâche, PUIS au message suivant de l'utilisateur (12 s mesurées
+	// pour un simple « salut » après une tâche).
+	if note := taskContextNote(taskName, lastReport); note != "" {
+		prompt = note + "\n\n" + prompt
+	}
 	msgs := []Message{{Role: "user", Content: prompt}}
-	// Même préambule que la vraie génération : sysprompt perso + préambule agent
-	// + briefing machine (via InjectSkills), pour que l'IA ait le même contexte et
-	// les mêmes outils qu'en chat. On préfixe le tout d'une note de contexte tâche
-	// (conscience du mode autonome + mémoire du run précédent), fusionnée dans UN
-	// SEUL message système : certains templates (Qwen) exigent le system en tête et
-	// unique.
 	final := msgs
-	sys := readSysPrompt()
-	note := taskContextNote(taskName, lastReport)
-	switch {
-	case sys != "" && note != "":
-		final = append([]Message{{Role: "system", Content: sys + "\n\n" + note}}, msgs...)
-	case sys != "":
+	if sys := readSysPrompt(); sys != "" {
 		final = append([]Message{{Role: "system", Content: sys}}, msgs...)
-	case note != "":
-		final = append([]Message{{Role: "system", Content: note}}, msgs...)
 	}
 
 	// Le compte-rendu = le SEUL message final, pas toute la narration. Entre les
@@ -85,7 +81,15 @@ func (c *Conversation) RunAutonomous(ctx context.Context, taskID, taskName, prom
 	// produit APRÈS le dernier outil, c'est-à-dire le compte-rendu que l'IA rédige
 	// pour clore la tâche. (Un run sans aucun outil garde son unique réponse.)
 	var content strings.Builder
+	// Tâche de Jean : son activité s'affiche en direct dans la conversation Jean.
+	if caps.Jean {
+		c.jeanTaskStart(taskName)
+		defer c.jeanTaskEnd()
+	}
 	extra, err := runChat(ctx, InjectSkills(final, caps), temperature, caps, func(ev StreamEvent) bool {
+		if caps.Jean && ev.ToolUsed != nil && !ev.ToolUsed.Done && !ev.ToolUsed.Typing {
+			c.jeanTaskAct(ev.ToolUsed.Name)
+		}
 		if ev.ToolUsed != nil {
 			content.Reset()
 		}
@@ -158,7 +162,11 @@ func runTask(t Task) {
 	setProjectOverride(p)
 	defer setProjectOverride("")
 
-	report, err := conv.RunAutonomous(context.Background(), t.ID, t.Name, t.Prompt, t.LastReport, taskCaps(t), 0)
+	prompt := t.Prompt
+	if t.Jean {
+		prompt = jeanTaskPrompt(prompt)
+	}
+	report, err := conv.RunAutonomous(context.Background(), t.ID, t.Name, prompt, t.LastReport, taskCaps(t), 0)
 
 	// Occupé ou modèle pas encore prêt : ce n'est pas un échec de la tâche, juste
 	// un mauvais moment. On ne touche pas à son état (NextRun reste dans le passé)
@@ -167,6 +175,9 @@ func runTask(t Task) {
 		return
 	}
 	recordTaskEnd(t.ID, start, report, err)
+	if t.Jean && err == nil {
+		go conv.JeanPost(report)
+	}
 }
 
 // taskCaps dérive les capacités d'une tâche : on part du mode agent de la machine
@@ -183,7 +194,10 @@ func taskCaps(t Task) Caps {
 	} else {
 		c.Internet = internetEnabled() && crawlReachable()
 	}
-	if t.NoMem {
+	if t.Jean {
+		// Mémoire de Jean, pas celle d'un projet.
+		c.Mem, c.Jean = MemOff, true
+	} else if t.NoMem {
 		c.Mem = MemOff
 	} else if m := memMode(); m == MemOff {
 		// La tâche veut la mémoire mais la machine l'a coupée globalement : on donne
@@ -245,6 +259,9 @@ func recordTaskEnd(id string, start time.Time, report string, err error) {
 	cur.LastDurMs = now.Sub(start).Milliseconds()
 	cur.LastRun = now.UnixMilli()
 	cur.NextRun = computeNextRun(cur.Schedule, cur.TZ, now)
+	if isOnce(cur.Schedule) {
+		cur.Enabled, cur.NextRun = false, 0 // passée une fois : terminée
+	}
 	if errors.Is(err, context.Canceled) {
 		// Arrêt volontaire (bouton stop) : ce n'est pas un échec. On garde la trace
 		// « interrompue » sans allumer l'indicateur rouge d'erreur.

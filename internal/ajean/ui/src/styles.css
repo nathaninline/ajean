@@ -1850,12 +1850,13 @@ button:hover{border-color:var(--dim);color:var(--text)}
   transition:background .15s,color .15s,border-color .15s}
 #chat .history-more button:hover{color:var(--text);border-color:var(--dim);background:var(--row-bg-on)}
 #chat .history-more button:disabled{opacity:.6;cursor:default}
-/* Fil : le navigateur ne met en page et ne peint QUE les messages visibles. Sans ça,
-   ouvrir une conversation calculait tout le fil d'un coup (≈ 110 ms de blocage) et
-   le défilement redessinait tout ce qui était hors écran. `auto` dans la taille
-   intrinsèque : une fois affiché, un message garde sa vraie hauteur mémorisée, la
-   barre de défilement ne saute donc pas en remontant. */
-#chat > .msg, #chat > .msg-files{content-visibility:auto;contain-intrinsic-size:auto 120px}
+/* PAS de content-visibility sur le fil vivant : il est chargé par lots de 20
+   échanges (loadOlder), il reste donc léger. Le rendu différé faisait saccader la
+   remontée : les messages jamais affichés avaient une hauteur supposée de 120 px,
+   corrigée au moment où ils entraient à l'écran, ce qui recalait la page en
+   permanence. Seule exception : la lecture d'une conversation archivée (.reading),
+   rejouée EN ENTIER d'un coup, où il évite de tout mettre en page. */
+#chat.reading > .msg, #chat.reading > .msg-files{content-visibility:auto;contain-intrinsic-size:auto 120px}
 
 /* Preset GPU cloud : pas de moteur, de fichier ni de cartes locales. */
 #modal.run-cloud #m-engine-row,#modal.run-cloud #m-model-row,#modal.run-cloud #m-gpu-group{display:none!important}
@@ -2032,7 +2033,6 @@ details>summary .stitle,.hist-head .stitle{font-size:11.5px;font-weight:500;colo
 .hist-links{display:flex;align-items:center;gap:2px;margin-left:auto}
 #side-hist .hist-link{height:24px;min-height:24px;margin:0;padding:0 7px;display:flex;align-items:center;gap:5px;border:none;border-radius:7px;
   background:transparent;color:var(--dim);font-size:11.5px;font-weight:500;transition:background .15s ease,color .15s ease}
-#side-hist .hist-link:hover{background:var(--t2);color:var(--text)}
 .hist-link svg{display:block;flex:none}
 #side-hist .sess-menu-btn{padding:0;width:26px;height:26px}
 /* Conversations en tuiles, comme les presets : fond teinté par ligne, 4 px
@@ -2059,11 +2059,6 @@ details>summary .stitle,.hist-head .stitle{font-size:11.5px;font-weight:500;colo
 .sess-fav svg{width:12px;height:12px}
 .sess-proj{display:inline-block;margin-right:6px;padding:0 6px;border-radius:5px;background:var(--t2);color:var(--text);font-size:10.5px;
   line-height:16px;max-width:110px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
-@media (max-width:720px){ /* Mémoire / Trackers : icônes seules */
-  #side-hist .hist-link{padding:0;width:32px;justify-content:center}
-  #side-hist .hist-link span{display:none}
-  .hist-link svg{width:17px;height:17px}
-}
 
 /* ----- Fenêtres (toutes : modales + confirmations) ------------------------- */
 [data-theme="dark"] .modal-ov,[data-theme="dark"] .ask-overlay{background:rgba(0,0,0,.66)}
@@ -2323,3 +2318,231 @@ details[open]:not(.closing)>summary>.preset-add{opacity:1;transform:none;pointer
 #chat.chat-in{animation:chat-in .28s ease}
 @keyframes chat-in{from{opacity:0;transform:translateY(6px)}}
 @media (prefers-reduced-motion: reduce){#chat.chat-in{animation:none}}
+
+/* ===== Mode Jean : l'IA ne montre ni sa réflexion ni ses outils, seulement ce
+   qu'elle fait, en une phrase dans la ligne d'état. Le reflet est un voile posé
+   PAR-DESSUS le texte et déplacé en transform (pas de background-clip:text, qui
+   n'anime pas sur iOS). Le chrono et les tokens s'effacent tant qu'une activité
+   est affichée. */
+body.jean-mode #chat .msg.reasoning,body.jean-mode #chat .msg.tool{display:none}
+.genstatus .jact{display:none}
+body.jean-mode .genstatus .jact:not(:empty){display:inline-block;position:relative;overflow:hidden;
+  font-family:var(--font, inherit);font-size:13px;letter-spacing:0;color:var(--dim);padding-right:2px}
+body.jean-mode .genstatus .jact:not(:empty)::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(100deg,transparent 30%,color-mix(in srgb,var(--bg) 75%,transparent) 50%,transparent 70%);
+  transform:translateX(-100%);animation:jactsweep 1.8s ease-in-out infinite}
+body.jean-mode .genstatus .jact:not(:empty)+.gtxt{display:none}
+body.jean-mode .genstatus .jact.jact-in{animation:jactin .3s cubic-bezier(.2,.7,.3,1) both}
+@keyframes jactsweep{0%{transform:translateX(-100%)}70%,100%{transform:translateX(100%)}}
+@keyframes jactin{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){body.jean-mode .genstatus .jact::after,body.jean-mode .genstatus .jact.jact-in{animation:none}}
+
+/* ===== Mémoire de Jean : lignes sans cadre, fond léger au survol (monochrome). */
+.jm-head{display:flex;align-items:center;gap:10px;margin:2px 0 4px}
+.jm-head-j{margin-top:22px}
+.jm-title{font-size:13px;font-weight:600;color:var(--text)}
+.jm-budget{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;flex:1}
+.jm-hint{font-size:11.5px;color:var(--dim);margin:0 0 10px;line-height:1.45}
+.jm-list{display:flex;flex-direction:column;gap:2px}
+.jm-row{display:flex;align-items:flex-start;gap:8px;padding:9px 10px;border-radius:10px;transition:background .15s}
+.jm-row:hover{background:var(--row-bg)}
+.jm-main{flex:1;min-width:0;cursor:pointer}
+.jm-key,.jm-meta{font-size:11px;color:var(--dim);font-family:var(--mono);margin-bottom:2px}
+.jm-val{font-size:13px;color:var(--text);line-height:1.45;overflow-wrap:anywhere}
+.jm-text{font-size:12.5px;color:var(--text);line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.jm-entry.open .jm-text{display:block;-webkit-line-clamp:unset}
+.jm-x{flex:none;background:none;border:none;color:var(--dim);cursor:pointer;padding:2px;border-radius:6px;opacity:0;transition:opacity .15s}
+.jm-row:hover .jm-x{opacity:.7}
+.jm-x:hover{opacity:1;color:var(--text)}
+@media (hover:none){.jm-x{opacity:.55}}
+.jm-edit{flex-direction:column;align-items:stretch;background:var(--row-bg)}
+.jm-edit:hover{background:var(--row-bg)}
+.jm-in-key{font-family:var(--mono);font-size:12px}
+.jm-in-val{resize:vertical;font:inherit;font-size:13px}
+.jm-ed-btns{display:flex;justify-content:flex-end;gap:8px}
+.jm-btn{background:var(--row-bg-on);color:var(--text);border:none;border-radius:8px;padding:6px 12px;font:inherit;font-size:12px;cursor:pointer}
+.jm-btn-pri{background:var(--accent);color:var(--bg)}
+.jm-empty{font-size:12px;color:var(--dim);padding:8px 10px}
+.jm-more{margin:10px auto 0;display:block;background:none;border:none;color:var(--dim);cursor:pointer;font:inherit;font-size:12px}
+.jm-more:hover{color:var(--text)}
+/* Fiches : icône, nom, « quand s'en servir », éditeur du contenu. */
+.jm-ic{flex:none;color:var(--dim);display:flex;padding-top:2px}
+.jm-fname{font-size:13px;font-weight:600;color:var(--text);overflow-wrap:anywhere}
+.jm-when{font-size:12px;color:var(--dim);line-height:1.4;margin-top:1px}
+.jm-in-doc{resize:vertical;font-family:var(--mono);font-size:12px;line-height:1.5;min-height:180px}
+
+/* Aperçu en direct du navigateur piloté. Sans cadre : coins arrondis, ombre
+   légère, légende discrète. Les images s'empilent et la nouvelle arrive en fondu
+   enchaîné par-dessus l'ancienne ; la carte se replie à la fin du tour.
+   flex-shrink:0 indispensable : #chat est une colonne flex de hauteur fixe ; quand
+   le fil déborde, un enfant en overflow:hidden y est écrasé à 0 px de haut. */
+.cu-shot{flex-shrink:0;align-self:flex-start;width:min(640px,100%);margin:2px 0 6px;overflow:hidden;
+  transition:height .35s cubic-bezier(.2,.7,.3,1),opacity .3s ease,margin .35s ease;animation:cushotcard .3s ease both}
+.cu-shot.out{opacity:0;margin:0}
+@keyframes cushotcard{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.cu-shot-cap{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--dim);margin:0 0 6px 2px;min-width:0}
+.cu-shot-cap svg{flex:none}
+.cu-shot-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cu-shot-img{position:relative;border-radius:12px;overflow:hidden;background:var(--row-bg);
+  box-shadow:0 4px 18px rgba(0,0,0,.10);aspect-ratio:16 / 10}
+.cu-shot-img img.cu-frame{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top;
+  opacity:0;transition:opacity .45s ease;cursor:zoom-in}
+.cu-shot-img img.cu-frame.in{opacity:1}
+@media (prefers-reduced-motion:reduce){.cu-shot,.cu-shot-img img.cu-frame{transition:none;animation:none}}
+
+/* ===== Avatar de Jean (20-jean-avatar.js) : un rond, des lunettes rondes et une
+   fine moustache. Monochrome
+   comme l'app (rond = couleur du texte, yeux = couleur du fond, donc inversé en
+   thème sombre). Mode Jean uniquement. Il remplace le logo « J » de la dernière
+   ligne d'activité du fil (.jav-inline) ; fil vide, il trône au centre (.jav-hero). */
+#jean-avatar{display:none}
+#jean-avatar.jav-hero{display:block;position:absolute;left:0;top:0;z-index:3;width:var(--jav-size,96px);height:var(--jav-size,96px);
+  pointer-events:none;animation:javin .5s ease backwards}
+#jean-avatar.jav-inline{display:inline-block;flex:none;width:26px;height:26px;margin:-6px 2px -6px -2px;animation:javin .3s ease backwards}
+@keyframes javin{from{opacity:0;transform-origin:center}to{opacity:1}}
+#jean-avatar .jav-svg{width:100%;height:100%;overflow:visible;display:block;pointer-events:auto;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.genstatus.jav-host .jlogo{display:none}
+/* Copie de Jean qui vole entre la scène et sa ligne du fil (glide). */
+.jav-ghost{position:fixed;z-index:60;pointer-events:none;transform-origin:0 0;
+  transition:transform .75s cubic-bezier(.22,.9,.24,1)}
+.jav-ghost .jav-svg{width:100%;height:100%;overflow:visible;display:block}
+.jav-body{fill:var(--text)}
+.jav-eye{fill:var(--bg)}
+.jav-line{fill:none;stroke:var(--bg);stroke-width:2.4;stroke-linecap:round}
+.jav-frame{fill:none;stroke:var(--bg);stroke-width:2.2;stroke-linecap:round}
+.jav-stache{fill:var(--bg)}
+/* Fil vide : il remplace le logo de l'accueil, la phrase passe sous lui. */
+body.jean-mode #ce-logo{display:none}
+body.jean-mode #ce-title{margin-top:150px}
+@media (prefers-reduced-motion:reduce){#jean-avatar.jav-hero,#jean-avatar.jav-inline{animation:none}}
+
+/* ===== Scène du mode Jean (21-jean-stage.js) : Jean en grand au centre, la
+   réponse dans une bulle au-dessus de lui, la saisie dans une bulle qui sort de
+   lui et qu'il avale à l'envoi. Couche posée PAR-DESSUS le fil et le composeur,
+   qui continuent de tourner dessous (envoi, flux, file d'attente). Le bouton en
+   haut à droite bascule sur le fil complet (body.jean-history). Sans cadre,
+   monochrome : bulles en fond doux, ombres légères, mouvements à ressort. */
+#jean-stage{display:none;position:absolute;inset:0;z-index:6;background:var(--bg);flex-direction:column;
+  transition:opacity .45s ease,visibility 0s linear 0s}
+body.jean-mode #jean-stage{display:flex;animation:jstin .45s ease backwards}
+/* Fil complet : la scène s'efface en fondu (puis devient inerte), Jean glisse
+   jusqu'à sa place en bas du fil (voir place() dans 20-jean-avatar.js). */
+body.jean-mode.jean-history #jean-stage{opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .45s ease,visibility 0s linear .45s}
+/* Le reste suit le mouvement : le fil et la saisie apparaissent en fondu quand on
+   ouvre le fil complet ; au retour, la scène revient en fondu. Fondu SEUL, sans
+   glissement : Jean vole vers une place mesurée au départ, et un fil qui glissait
+   le faisait atterrir à côté puis sauter à sa vraie place. */
+body.jean-mode.jean-history #chat,body.jean-mode.jean-history #composer{animation:jhistin .55s cubic-bezier(.2,.8,.2,1) backwards}
+@keyframes jhistin{from{opacity:0}to{opacity:1}}
+.jst-scene{transition:opacity .45s ease}
+body.jean-mode.jean-history .jst-scene{opacity:0}
+@keyframes jstin{from{opacity:0}to{opacity:1}}
+.jst-hist{display:none;position:absolute;top:14px;right:16px;z-index:7;width:38px;height:38px;border:none;border-radius:50%;
+  background:var(--row-bg);color:var(--dim);cursor:pointer;align-items:center;justify-content:center;transition:background .2s,color .2s}
+.jst-hist:hover{background:var(--row-bg-on);color:var(--text)}
+body.jean-mode .jst-hist{display:flex}
+.jst-scene{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 16px 24px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.jst-bubble,.jst-screen{cursor:auto}
+/* Bulle de réponse : repliée tant qu'il n'y a rien à dire, puis elle sort de Jean
+   (origine en bas) et pousse le personnage vers le bas en douceur. */
+.jst-bubble{position:relative;width:min(640px,94%);max-height:0;opacity:0;margin-bottom:0;
+  transform:translateY(16px) scale(.92);transform-origin:50% 100%;background:var(--bubble);border-radius:24px;
+  transition:max-height .6s cubic-bezier(.2,.9,.25,1),opacity .35s ease,transform .55s cubic-bezier(.2,.9,.25,1.15),margin .6s cubic-bezier(.2,.9,.25,1)}
+#jean-stage.has-answer .jst-bubble{max-height:52vh;opacity:1;transform:none;margin-bottom:22px}
+.jst-bubble-body{max-height:52vh;overflow-y:auto;overscroll-behavior:contain;padding:18px 22px;font-size:15px;line-height:1.6;
+  color:var(--text);position:relative;z-index:1;border-radius:24px;scrollbar-width:thin}
+.jst-bubble-body>:first-child{margin-top:0}.jst-bubble-body>:last-child{margin-bottom:0}
+/* Mise en forme des réponses : la même que dans le fil (dont les règles visent
+   .msg.assistant .body, que la bulle n'est pas). Tableaux larges : défilement
+   horizontal dans la bulle plutôt qu'un débordement. */
+.jst-bubble-body h1,.jst-bubble-body h2,.jst-bubble-body h3,.jst-bubble-body h4{font-weight:600;line-height:1.25;margin:1.2em 0 .5em}
+.jst-bubble-body h1{font-size:1.3em}.jst-bubble-body h2{font-size:1.15em}.jst-bubble-body h3{font-size:1em}.jst-bubble-body h4{font-size:.95em}
+.jst-bubble-body ul,.jst-bubble-body ol{padding-left:1.4em}
+.jst-bubble-body li{margin:.15em 0}
+.jst-bubble-body li>p{margin:0}
+.jst-bubble-body code{background:var(--code-bg);padding:1px 5px;border-radius:3px;font-size:.9em;overflow-wrap:anywhere;word-break:break-word}
+.jst-bubble-body pre{position:relative;background:var(--code-bg);border-radius:12px;padding:12px 14px;overflow-x:auto;max-width:100%;margin:.5em 0}
+.jst-bubble-body pre code{background:transparent;padding:0;font-size:.85em;line-height:1.4}
+.jst-bubble-body blockquote{border-left:3px solid var(--border);padding:0 0 0 10px;margin:.4em 0;color:var(--dim)}
+.jst-bubble-body a{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+.jst-bubble-body table{display:block;max-width:100%;overflow-x:auto;border-collapse:collapse;margin:.6em 0;font-size:.93em}
+.jst-bubble-body th,.jst-bubble-body td{border:1px solid var(--border);padding:5px 10px;text-align:left;vertical-align:top}
+.jst-bubble-body th{font-weight:600;background:var(--row-bg)}
+.jst-bubble-body hr{border:none;border-top:1px solid var(--border);margin:.6em 0}
+/* Écran du navigateur piloté : un petit moniteur au-dessus de Jean, qui sort
+   comme la bulle (origine en bas) et montre la page en direct (captures en fondu
+   enchaîné). Pendant la navigation, il remplace la bulle de réponse. */
+.jst-screen{position:relative;width:min(560px,92%);max-height:0;opacity:0;margin-bottom:0;transform:translateY(16px) scale(.9);
+  transform-origin:50% 100%;transition:max-height .6s cubic-bezier(.2,.9,.25,1),opacity .35s ease,transform .55s cubic-bezier(.2,.9,.25,1.15),margin .6s cubic-bezier(.2,.9,.25,1)}
+#jean-stage.browsing .jst-screen{max-height:60vh;opacity:1;transform:none;margin-bottom:24px;pointer-events:auto}
+/* ⚠️ Repliés, la bulle et l'écran COUPENT leur contenu et ignorent le toucher :
+   sinon leur contenu (invisible mais à sa vraie taille) débordait par-dessus la
+   bulle de saisie et volait les touchers (« impossible de cliquer pour écrire »). */
+.jst-bubble,.jst-screen{overflow:hidden;pointer-events:none}
+#jean-stage.has-answer:not(.browsing) .jst-bubble{pointer-events:auto}
+#jean-stage.browsing .jst-bubble{max-height:0;opacity:0;margin-bottom:0;transform:translateY(16px) scale(.92)}
+.jst-screen-url{font-size:11.5px;color:var(--dim);text-align:center;margin:0 0 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jst-screen-view{position:relative;aspect-ratio:16 / 10;border-radius:14px;overflow:hidden;background:var(--row-bg);
+  border:7px solid var(--text);box-shadow:0 12px 34px rgba(0,0,0,.14)}
+.jst-screen-view img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top;opacity:0;transition:opacity .45s ease}
+.jst-screen-view img.in{opacity:1}
+/* Jean et les points qui tournent autour de lui quand il travaille. */
+.jst-char{position:relative;flex:none;width:150px;height:150px;--orbit:94px;transition:transform .6s cubic-bezier(.2,.9,.25,1.15)}
+.jst-char-host{width:100%;height:100%}
+#jean-avatar.jav-stage{display:block;width:100%;height:100%}
+.jst-orbit{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .5s ease}
+#jean-stage.busy .jst-orbit{opacity:1}
+.jst-orbit span{position:absolute;left:50%;top:50%;width:7px;height:7px;margin:-3.5px;border-radius:50%;background:var(--text);opacity:.45;
+  animation:jorbit 2.6s cubic-bezier(.45,.05,.55,.95) infinite;animation-delay:calc(var(--i) * -0.87s)}
+@keyframes jorbit{0%{transform:rotate(0deg) translateX(var(--orbit)) scale(1)}50%{transform:rotate(180deg) translateX(var(--orbit)) scale(.55)}100%{transform:rotate(360deg) translateX(var(--orbit)) scale(1)}}
+/* Ce qu'il fait, sous lui. */
+.jst-caption{min-height:22px;margin-top:14px;display:flex;align-items:center;gap:12px;font-size:13px;color:var(--dim)}
+.jst-cap-text.in{animation:jcapin .35s cubic-bezier(.2,.7,.3,1) both}
+#jean-stage.idle-hint .jst-cap-text{cursor:pointer;transition:color .2s}
+#jean-stage.idle-hint .jst-cap-text:hover{color:var(--text)}
+#jean-stage.typing .jst-caption{opacity:0}
+.jst-caption{transition:opacity .25s ease}
+@keyframes jcapin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.jst-cap-stop{border:none;background:none;color:var(--dim);font:inherit;font-size:12px;cursor:pointer;padding:2px 6px;border-radius:6px;opacity:.7}
+.jst-cap-stop:hover{opacity:1;color:var(--text);background:var(--row-bg)}
+.jst-cap-stop[hidden]{display:none}
+/* Bulle de saisie : sort de Jean (origine en haut) quand on clique sur lui ou
+   qu'on tape, puis file vers lui en rétrécissant à l'envoi (.gulp). */
+.jst-input{width:min(560px,94%);display:flex;align-items:flex-end;gap:8px;max-height:0;opacity:0;margin-top:0;pointer-events:none;
+  padding:0 8px 0 18px;background:var(--panel);border-radius:24px;box-shadow:0 10px 34px rgba(0,0,0,.09);overflow:hidden;
+  transform:translateY(-18px);transform-origin:50% 0;
+  transition:max-height .5s cubic-bezier(.2,.9,.25,1),opacity .3s ease,transform .5s cubic-bezier(.2,.9,.25,1.2),margin .5s cubic-bezier(.2,.9,.25,1),padding .5s}
+#jean-stage.typing .jst-input{max-height:200px;opacity:1;margin-top:18px;padding:0 9px 0 0;pointer-events:auto;transform:none}
+.jst-input textarea{flex:1 1 auto;width:100%;min-width:0;border:none;outline:none;background:transparent;resize:none;font:inherit;font-size:16px;line-height:1.5;color:var(--text);
+  padding:15px 8px 15px 18px;max-height:180px;min-height:54px;align-self:stretch;box-sizing:border-box}
+/* Le champ couvre TOUTE la bulle (les marges sont dedans, pas autour) : toucher
+   n'importe où dans la bulle tombe dans le champ. cursor:pointer pour que Safari
+   iOS traite aussi le reste de la bulle comme cliquable. */
+.jst-input{cursor:pointer}
+.jst-input textarea::placeholder{color:var(--dim)}
+.jst-send{flex:none;align-self:flex-end;margin-bottom:9px;width:36px;height:36px;border:none;border-radius:50%;background:var(--accent);color:var(--bg);cursor:pointer;display:flex;align-items:center;justify-content:center}
+#jean-stage .jst-input.gulp{transition:transform .42s cubic-bezier(.55,0,.85,.35),opacity .42s ease-in;opacity:0;
+  transform:translate(var(--gx),var(--gy)) scale(.04)}
+@media (max-width:720px){.jst-char{width:116px;height:116px;--orbit:74px}.jst-bubble-body{font-size:14.5px;padding:16px 18px}}
+/* Clavier ouvert : la scène occupe juste la zone visible au-dessus du clavier,
+   tout est tassé vers le bas (saisie collée au clavier), Jean rapetisse et la
+   bulle de réponse se raccourcit pour que tout tienne. */
+#jean-stage.kb{position:fixed;inset:auto 0 auto 0;top:var(--vv-top,0);height:var(--vv-h,100%);z-index:30}
+#jean-stage.kb::after{content:"";position:absolute;left:0;right:0;top:100%;height:100vh;background:var(--bg)}
+/* Sous la scène, le fil et le composeur restent actifs (envoi, flux) mais sont
+   masqués : sinon ils transparaissaient là où la scène ne couvre pas (bande au-
+   dessus du clavier iPhone). Ils réapparaissent dès qu'on ouvre le fil complet. */
+body.jean-mode:not(.jean-history) #chat,body.jean-mode:not(.jean-history) #composer{visibility:hidden}
+#jean-stage.kb .jst-scene{justify-content:flex-end;padding:12px 12px 10px}
+#jean-stage.kb .jst-char{width:72px;height:72px;--orbit:46px}
+#jean-stage.kb.has-answer .jst-bubble,#jean-stage.kb .jst-bubble-body{max-height:calc(var(--vv-h,60vh) - 210px)}
+#jean-stage.kb.has-answer .jst-bubble{margin-bottom:14px}
+#jean-stage.kb .jst-input{margin-top:12px}
+@media (prefers-reduced-motion:reduce){#jean-stage *{transition:none!important;animation:none!important}
+  body.jean-mode.jean-history #chat,body.jean-mode.jean-history #composer{animation:none}}
+#hist-proj-name{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hist-proj-ic{display:inline-flex}
+body.hist-jean #side-hist .hist-search,body.hist-jean #sess-count,body.hist-jean #history-clear-all{display:none}
+.beta-tag{display:inline-block;margin-left:5px;padding:0 5px;border-radius:5px;font-size:9.5px;font-weight:600;line-height:15px;letter-spacing:.02em;vertical-align:1px;color:var(--dim);background:var(--t2)}.beta-tag[hidden]{display:none}

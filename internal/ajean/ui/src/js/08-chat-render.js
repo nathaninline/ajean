@@ -1,5 +1,8 @@
 let stickyBottom = true;
-const chatEl = () => document.getElementById('chat');
+// CHAT_TARGET : conteneur hors page où rendre un lot d'échanges anciens (voir
+// loadOlder) ; null = le fil lui-même.
+let CHAT_TARGET=null;
+const chatEl = () => CHAT_TARGET || document.getElementById('chat');
 function isNearBottom(){
   const c = chatEl();
   return c.scrollHeight - c.scrollTop - c.clientHeight < 60;
@@ -115,6 +118,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const c = chatEl();
   c.addEventListener('scroll', ()=>{
     stickyBottom = isNearBottom();
+    maybeLoadOlder(); // remontée du fil : lot d'échanges précédent près du haut
     document.getElementById('scrollbtn').classList.toggle('show', !stickyBottom);
   });
 });
@@ -519,11 +523,23 @@ function addCopyButtons(root){
     (scope.querySelector('.tool-actions')||pre).appendChild(btn);
   });
 }
+// Mode Jean : une seule conversation, sans fin. L'ouvrir la rouvre (ou la crée) ;
+// « vider le contexte » allège le modèle sans toucher au fil affiché.
+function openJean(){
+  const chat=document.getElementById('chat');
+  if(chat && chat.querySelector('.msg')){ chat.classList.remove('chat-in'); chat.classList.add('chat-out'); }
+  jfetch('/api/chat/jean',{method:'POST'}).catch(()=>{ if(chat) chat.classList.remove('chat-out'); });
+}
+async function clearJeanContext(){
+  const r=await jfetch('/api/chat/jean/clear',{method:'POST'}).then(x=>x.json()).catch(()=>null);
+  if(!r || !r.ok) toast((r && r.error) || t('jean.clear_ctx_fail'));
+}
 // Nouvelle conversation POUR TOUS LES APPAREILS : le serveur vide le fil et
 // diffuse un {reset} ; le flux d'abonnement nettoie alors l'affichage.
 // Nouvelle conversation : le fil s'efface en fondu AVANT la demande au serveur,
 // puis son reset vide le chat (chatClearAnimated) et le fil vierge apparaît.
 function resetChat(){
+  if(MODE==='jean'){ openJean(); return; } // Jean : une seule conversation, on y revient
   const chat=document.getElementById('chat');
   const go=()=>{ jfetch('/api/chat/reset',{method:'POST'}).catch(()=>{}); toast(t('chat.new_conversation')); };
   if(!chat || !chat.querySelector('.msg') || matchMedia('(prefers-reduced-motion: reduce)').matches){ go(); return; }
@@ -531,6 +547,15 @@ function resetChat(){
   // Filet : si le reset n'arrive jamais (réseau), le fil réapparaît.
   clearTimeout(resetChat.t); resetChat.t=setTimeout(()=>chat.classList.remove('chat-out'), 4000);
   setTimeout(go, 200);
+}
+// Vide le fil et le garde invisible jusqu'au caught_up du rejeu qui suit (qui le
+// révèle en fondu, en bas). Filet : révélé de toute façon après 2 s.
+function hideChatForReplay(){
+  const chat=document.getElementById('chat'); if(!chat) return;
+  clearTimeout(resetChat.t); chat.classList.remove('chat-out','chat-in');
+  chat.innerHTML=''; chat.style.transition='none'; chat.style.opacity='0';
+  clearTimeout(hideChatForReplay.t);
+  hideChatForReplay.t=setTimeout(()=>{ if(chat.style.opacity==='0'){ chat.style.transition='opacity .15s'; chat.style.opacity='1'; jumpBottom(); } }, 2000);
 }
 // Vide le fil ; s'il sortait en fondu (resetChat), le fil vierge entre en fondu.
 function chatClearAnimated(){
@@ -603,7 +628,8 @@ function toggleHistoryView(){
 // menu ; sur mobile on referme aussi le tiroir pour montrer la conversation).
 function openHistoryModal(){ if(!HIST_VIEW) toggleHistoryView(); }
 function closeHistoryModal(){
-  if(HIST_VIEW) showSideView(false);
+  // La vue historique RESTE affichée après avoir ouvert une conversation : seul le
+  // bouton de bascule menu / historique change de vue. Sur mobile, le tiroir se referme.
   if(document.body.classList.contains('drawer-open')) toggleSide();
 }
 function fmtHistDate(ms){
@@ -621,7 +647,8 @@ const SESS_ICONS = {
   trash: '<path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"/><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/>',
   doc: '<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"/><path d="M9 9h1"/><path d="M9 13h6"/><path d="M9 17h6"/>',
   move: '<path d="M2 9V5a2 2 0 0 1 2-2h3.6a1 1 0 0 1 .8.4l1.2 1.6a1 1 0 0 0 .8.4H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2"/><path d="M2 13h10"/><path d="M9 16l3-3-3-3"/>',
-  mem: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>'
+  mem: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>',
+  chart: '<path d="M4 19V5M4 19h16M8 16l3-4 3 2 4-6"/>'
 };
 function sessIconSvg(name, filled){
   return '<svg viewBox="0 0 24 24" width="17" height="17" fill="'+(filled?'currentColor':'none')+'" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+SESS_ICONS[name]+'</svg>';
@@ -640,8 +667,9 @@ function sessionRow(c, active){
   name.appendChild(document.createTextNode(c.title || t('chat.session.default_name')));
   const meta = document.createElement('div'); meta.className = 'sess-meta';
   const n = c.turns || 0;
-  // Historique général : le projet de la conversation, s'il y en a un (hors Générale).
-  const pn = (c.project && c.project !== HIST_DEFAULT_PROJ) ? (HIST_PROJ_NAMES[c.project] || c.project) : '';
+  // Projet de la conversation : affiché seulement s'il diffère du projet actif
+  // (résultats de recherche, qui couvrent tous les projets).
+  const pn = (c.project && c.project !== (ACTIVE_PROJECT||HIST_DEFAULT_PROJ)) ? (HIST_PROJ_NAMES[c.project] || c.project) : '';
   if(pn){ const pj=document.createElement('span'); pj.className='sess-proj'; pj.textContent=pn; meta.appendChild(pj); }
   meta.appendChild(document.createTextNode(fmtHistDate(c.saved_at) + ' · ' + n + ' ' + (n>1?t('chat.session.messages'):t('chat.session.message')) + (active?' · '+t('chat.session.ongoing'):'')));
   info.appendChild(name); info.appendChild(meta);
@@ -669,7 +697,9 @@ let HIST_PROJ_NAMES = {}, HIST_DEFAULT_PROJ = '';
 const HIST_PAGE = 60;
 let HIST_ST = {off:0, total:0, active:'', section:'', loading:false, sig:''};
 let HIST_Q = '', HIST_QT = 0;
-const histUrl = (off)=>'/api/chat/history?all=1&offset='+off+'&limit='+HIST_PAGE+(HIST_Q?'&q='+encodeURIComponent(HIST_Q):'');
+// Historique = conversations du PROJET ACTIF ; une recherche, elle, couvre tous les projets.
+const histScope = ()=>(MODE==='fast'||MODE==='base') ? 'quick' : '';
+const histUrl = (off)=>'/api/chat/history?'+(HIST_Q?'all=1&':(histScope()?'scope=quick&':''))+'offset='+off+'&limit='+HIST_PAGE+(HIST_Q?'&q='+encodeURIComponent(HIST_Q):'');
 // Recherche : on attend une courte pause dans la frappe avant d'interroger.
 function onHistSearch(){
   clearTimeout(HIST_QT);
@@ -691,6 +721,8 @@ function histAppend(box, list, animate){
 }
 async function loadHistory(){
   const box = document.getElementById('history-list'); if(!box) return;
+  // Mode Jean : une seule conversation, pas d'historique (on change de mode pour le voir).
+  if(MODE==='jean'){ HIST_ST={off:0,total:0,active:'',section:'',loading:false,sig:'jean'}; box.innerHTML='<span class="muted" style="font-size:12px">'+t('jean.no_history')+'</span>'; return; }
   let r;
   try{ r = await jget(histUrl(0)); }
   catch(_){ if(!box.children.length) box.innerHTML = '<span class="muted" style="font-size:12px">'+t('chat.session.load_error')+'</span>'; return; }
@@ -751,7 +783,7 @@ async function renameHistory(id, current){
 // Supprime toutes les sessions SAUF les favoris (et la session en cours).
 async function clearAllHistory(){
   if(!await askConfirm(t('chat.session.clear_all_confirm'), {title:t('chat.session.clear_all_title'), okText:t('chat.session.clear_all_ok'), danger:true})) return;
-  let r; try{ r = await jpost('/api/chat/history/clear', {}); }catch(_){ toast(t('chat.session.network_error')); return; }
+  let r; try{ r = await jpost('/api/chat/history/clear', {scope:histScope()}); }catch(_){ toast(t('chat.session.network_error')); return; }
   if(!r.ok){ toast(r.error || t('chat.session.delete_error')); return; }
   toast((r.deleted||0) + ' ' + ((r.deleted>1)?t('chat.session.deleted_plural'):t('chat.session.deleted_singular')));
   loadHistory();
@@ -761,7 +793,8 @@ async function restoreHistory(id, mode){
   if(!r.ok){ toast(r.error || t('chat.session.open_error')); return; }
   closeHistoryModal();
   if(mode) setModeFromConv(mode); // la conversation reprend dans SON mode
-  loadProjects();
+  // Une conversation d'un autre projet (recherche) bascule le projet : l'historique suit.
+  Promise.resolve(loadProjects()).then(()=>loadHistory());
   toast(t('chat.session.opened'));
 }
 async function deleteHistory(id, title){

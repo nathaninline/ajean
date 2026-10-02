@@ -358,8 +358,17 @@ func deleteProject(slug string) error {
 	if !found {
 		return fmt.Errorf("projet introuvable")
 	}
-	// Sessions du projet.
+	// Sessions du projet. Les conversations RAPIDES n'appartiennent à aucun projet
+	// (elles ont leur propre historique) : elles ne partent pas avec lui, elles
+	// rejoignent le premier projet restant.
 	for _, m := range listArchivesForProject(slug) {
+		if quickMode(m.Mode) {
+			if a, ok := loadArchive(m.ID); ok {
+				a.Project = kept[0].Slug
+				_ = saveArchive(a)
+			}
+			continue
+		}
 		_ = deleteArchive(m.ID)
 	}
 	// Dossier disque du projet.

@@ -31,7 +31,7 @@ func baseSystemPrompt(caps Caps) string {
 	if caps.Terminal {
 		return terminalSystemPrompt(caps)
 	}
-	hasMem := caps.Mem != MemOff
+	hasMem := caps.Mem != MemOff || caps.Jean
 	// No tool access at all → no agentic preamble. A plain chat model told to
 	// "call tools immediately" hallucinates textual tool calls (e.g.
 	// default_api:bash) that leak into the answer. Let the user's own system
@@ -86,6 +86,9 @@ func baseSystemPrompt(caps Caps) string {
 		b.WriteString("- Dated data that piles up (counters, readings, a running follow-up) goes in the `tracker` tool, not a note — a note would bloat.\n")
 	case MemOnDemand:
 		b.WriteString("\nMemory is ON-DEMAND: you have the mem_* tools but do NOT read or write memory on your own. Call mem_search/mem_read only when the user explicitly asks you to recall or look something up, and mem_add/mem_edit only when the user explicitly asks you to remember something. Otherwise leave memory untouched and answer directly.\n")
+	}
+	if caps.Jean {
+		b.WriteString(jeanPromptSection())
 	}
 	if caps.Agent {
 		// La règle « write, jamais echo/cat » est INDISPENSABLE (cmd.exe massacre
@@ -151,7 +154,10 @@ func machineSystemPrompt(caps Caps) string {
 	if u, err := user.Current(); err == nil {
 		who = u.Username
 	}
-	cwd := agentWorkspace()
+	cwd, scripts := agentWorkspace(), scriptsDir()
+	if caps.Jean {
+		cwd, scripts = jeanWorkspace(), jeanScriptsDir()
+	}
 
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("Machine: host=%s, %s/%s", host, runtime.GOOS, runtime.GOARCH))
@@ -163,11 +169,19 @@ func machineSystemPrompt(caps Caps) string {
 	}
 	b.WriteString(".")
 	if cwd != "" {
-		b.WriteString(" This is your working folder: relative paths in write/edit/bash resolve here, and it is the default place for scratch work — notes, outputs, downloads, a clone or a test. But it is DISPOSABLE: a cleanup or a test can wipe it, so never keep anything important here. Any script you want to KEEP (or schedule), write it into your scripts folder " + scriptsDir() + " instead — a separate folder a workspace wipe won't touch; you write and run scripts there normally. Do NOT install or write files into system directories such as /usr/local/bin, /usr, /bin or /etc: those need root and are not yours. Only use an absolute path outside this folder (except your scripts folder) when the user explicitly named that location.")
+		b.WriteString(" This is your working folder: relative paths in write/edit/bash resolve here, and it is the default place for scratch work — notes, outputs, downloads, a clone or a test. But it is DISPOSABLE: a cleanup or a test can wipe it, so never keep anything important here. Any script you want to KEEP (or schedule), write it into your scripts folder " + scripts + " instead — a separate folder a workspace wipe won't touch; you write and run scripts there normally. Do NOT install or write files into system directories such as /usr/local/bin, /usr, /bin or /etc: those need root and are not yours. Only use an absolute path outside this folder (except your scripts folder) when the user explicitly named that location.")
 		// memory reste réservé à ses outils : le modèle essaie parfois de `cat` le
 		// dossier memory, on lui dit explicitement de ne pas le faire (bash/write/edit
 		// le refuseront de toute façon).
-		b.WriteString(" The memory folder is OFF-LIMITS to bash, write and edit (those tools will refuse) — always use the mem_* tools for it.")
+		// En mode Jean, sa mémoire passe par les outils jean_* (pas de mem_* fournis).
+		memTools := "mem_*"
+		if caps.Jean {
+			memTools = "jean_*"
+		}
+		if caps.Jean {
+			b.WriteString(" This workspace and scripts folder are YOURS alone: the AJEAN projects have their own, which you cannot modify (bash, write and edit will refuse); read them with jean_projects, jean_project_mem and jean_project_file. Never modify a project's scripts; if you need a similar script, write your own copy in your scripts folder.")
+		}
+		b.WriteString(" The memory folder is OFF-LIMITS to bash, write and edit (those tools will refuse) — always use the " + memTools + " tools for it.")
 	}
 	return b.String()
 }
@@ -185,6 +199,9 @@ func runShell(parent context.Context, command string, timeoutSec int) string {
 	// Accès réservé aux outils : memory et scripts ne sont JAMAIS touchés au shell
 	// (ni lus, ni écrits, ni listés) — uniquement via mem_* et script_*.
 	if msg := guardToolOnlyCommand(command); msg != "" {
+		return msg
+	}
+	if msg := guardSpaceCommand(parent, command); msg != "" {
 		return msg
 	}
 	if timeoutSec <= 0 {
@@ -206,7 +223,7 @@ func runShell(parent context.Context, command string, timeoutSec int) string {
 	// such file or directory » incompréhensible, et ce jusqu'au redémarrage. On
 	// le recrée au besoin, et à défaut on démarre là où on peut plutôt que de
 	// tout refuser.
-	if ws := agentWorkspace(); ws != "" {
+	if ws := spaceWorkspace(parent); ws != "" {
 		if err := os.MkdirAll(ws, 0o755); err == nil {
 			cmd.Dir = ws
 		}
@@ -264,13 +281,18 @@ func shellName() string {
 // replacing any existing file. This is the escape hatch from shell quoting: a
 // model with only a shell has to build files with echo/python -c, which is
 // unreliable everywhere and outright broken on cmd.exe.
-func fileWrite(path, content string) string {
+func fileWrite(path, content string) string { return fileWriteIn(context.Background(), path, content) }
+
+func fileWriteIn(ctx context.Context, path, content string) string {
 	if strings.TrimSpace(path) == "" {
 		return "[erreur] chemin vide"
 	}
-	path = resolveAgentPath(path)
+	path = resolveSpacePath(ctx, path)
 	// memory et scripts sont réservés à leurs outils dédiés : pas d'écriture directe.
 	if msg := guardToolOnlyPath(path); msg != "" {
+		return msg
+	}
+	if msg := guardSpacePath(ctx, path); msg != "" {
 		return msg
 	}
 	if dir := filepath.Dir(path); dir != "" && dir != "." {
@@ -300,15 +322,22 @@ func fileWrite(path, content string) string {
 // must appear EXACTLY once (otherwise it errors), so the model can patch a file
 // without rewriting it whole. Returns a short status string for the tool result.
 func fileEdit(path, oldText, newText string) string {
+	return fileEditIn(context.Background(), path, oldText, newText)
+}
+
+func fileEditIn(ctx context.Context, path, oldText, newText string) string {
 	if strings.TrimSpace(path) == "" {
 		return "[erreur] chemin vide"
 	}
 	if oldText == "" {
 		return "[erreur] old vide"
 	}
-	path = resolveAgentPath(path)
+	path = resolveSpacePath(ctx, path)
 	// memory et scripts sont réservés à leurs outils dédiés : pas d'édition directe.
 	if msg := guardToolOnlyPath(path); msg != "" {
+		return msg
+	}
+	if msg := guardSpacePath(ctx, path); msg != "" {
 		return msg
 	}
 	b, err := os.ReadFile(path)
