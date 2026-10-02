@@ -175,9 +175,9 @@ La clé API (`ajean set-api-key`) est rangée hors de la configuration, afin de 
 
 ## Les capacités de l'IA
 
-### Sessions et mémoire
+### Modes, projets et mémoire
 
-Chaque conversation est une **session** persistante à identifiant stable. Le bouton *Sessions* liste toutes les conversations gardées, on en rouvre une d'un clic (la courante est d'abord sauvegardée dans la sienne), et *nouvelle session* démarre un fil vierge. Les sessions peuvent être mises en favori et sont conservées dans la base, donc partagées entre tous les appareils reliés au même serveur.
+Le chat a quatre modes, choisis depuis la zone de saisie : **Rapide** (outils du terminal, sans mémoire), **Projet** (mémoire, projets, web), **Jean** (assistant personnel, bêta, voir plus bas) et **Modèle de base** (le modèle brut, sans outils). Chaque **projet** garde sa propre mémoire et ses propres conversations. L'historique latéral suit le mode en cours : les conversations du projet actif en mode Projet, les conversations rapides en mode Rapide ou Modèle de base ; la recherche couvre toutes les conversations. Les conversations sont conservées dans la base, peuvent être mises en favori et sont partagées entre tous les appareils reliés au même serveur.
 
 Au-delà des sessions, l'IA tient des pages Markdown sous `$AJEAN_HOME/memory/`, relues et mises à jour entre les conversations. Trois modes, indépendants du mode agent :
 
@@ -186,6 +186,15 @@ ajean memory always     # (défaut) elle cherche avant de répondre et enregistr
 ajean memory ondemand   # outils disponibles, mais utilisés seulement sur demande
 ajean memory off        # mémoire coupée
 ```
+
+### Jean, assistant personnel (bêta)
+
+**Jean** est un assistant personnel qui se souvient de vous au fil du temps, dans une seule conversation continue. C'est une **bêta** : tout n'a pas encore été testé, donc pour un travail sérieux, mieux vaut continuer d'utiliser le mode Projet ou le mode Rapide.
+
+- **Une mémoire à lui, sur trois niveaux** : un profil court (faits durables : prénom, proches, préférences, habitudes), des *fiches* (procédures, recettes, guides gardés en entier) et un journal où chaque échange est consigné et peut être recherché. La fenêtre *Mémoire de Jean* permet de tout consulter, corriger ou supprimer.
+- **Une seule conversation, sans fin.** Les anciens échanges sont rangés au fur et à mesure et se rechargent en remontant le fil. Après 3 heures sans message, le contexte du modèle repart à vide (le fil affiché et le journal restent) ; la clé `JEAN_IDLE_HOURS` règle ce délai (`0` = jamais).
+- **Rappels et tâches** : Jean peut programmer un rappel ou une tâche récurrente, et le résultat arrive comme un message de sa part, avec une notification.
+- **Un espace de travail séparé** : Jean a son propre dossier de travail et de scripts, et ne peut pas modifier les scripts, fichiers ni la mémoire des projets. Il peut en revanche les **consulter** (pour voir comment fonctionne un projet) et refaire ce dont il a besoin dans son propre espace.
 
 ### Chiffrement au repos
 

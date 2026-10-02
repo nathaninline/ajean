@@ -175,9 +175,9 @@ The API key (`ajean set-api-key`) is stored outside the configuration, so it sur
 
 ## The AI's capabilities
 
-### Sessions and memory
+### Modes, projects and memory
 
-Each conversation is a persistent **session** with a stable identifier. The *Sessions* button lists all kept conversations, you reopen one with a click (the current one is first saved into its own), and *new session* starts a blank thread. Sessions can be favorited and are kept in the database, so they are shared across every device connected to the same server.
+Chat has four modes, picked from the input bar: **Quick** (terminal tools, no memory), **Project** (memory, projects, web), **Jean** (personal assistant, beta, see below) and **Base model** (the raw model, no tools). Each **project** keeps its own memory and its own conversations. The side history follows the current mode: the active project's conversations in Project mode, the quick conversations in Quick or Base model mode; search covers every conversation. Conversations are kept in the database, can be favorited, and are shared across every device connected to the same server.
 
 Beyond sessions, the AI keeps Markdown pages under `$AJEAN_HOME/memory/`, re-read and updated across conversations. Three modes, independent of agent mode:
 
@@ -186,6 +186,15 @@ ajean memory always     # (default) it searches before answering and saves on it
 ajean memory ondemand   # tools available, but used only on request
 ajean memory off        # memory off
 ```
+
+### Jean, personal assistant (beta)
+
+**Jean** is a personal assistant that remembers you over time, in a single ongoing conversation. It is a **beta**: not everything has been tested yet, so for serious work keep using Project or Quick mode.
+
+- **Its own memory, on three levels**: a short profile (lasting facts: name, family, preferences, habits), *fiches* (procedures, recipes, guides kept in full) and a journal where every exchange is logged and searchable. The *Jean memory* window lets you review, edit or delete everything.
+- **One endless conversation.** Older exchanges are paged out and reload as you scroll up. After 3 hours without a message, the model's context starts fresh (the displayed thread and the journal stay); set `JEAN_IDLE_HOURS` to change the delay (`0` = never).
+- **Reminders and tasks**: Jean can schedule a reminder or a recurring task, and the result arrives as a message from Jean, with a notification.
+- **A separate workspace**: Jean has its own working folder and scripts folder, and cannot modify the projects' scripts, files or memory. It can **read** them (to see how a project works) and rebuild what it needs in its own space.
 
 ### Encryption at rest
 
