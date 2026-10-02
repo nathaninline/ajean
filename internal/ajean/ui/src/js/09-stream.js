@@ -594,6 +594,7 @@ function handleDelta(d){
     // Conversation changée (peut-être depuis un autre appareil) : on adopte SON mode,
     // sinon on resterait par ex. en Jean en regardant une conversation de projet.
     if(d.mode) setModeFromConv(d.mode);
+    histRefreshSoon();
     TURN_ENDED=true; elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDS=[];
     // Un fil complet suit (changement de mode, session rouverte) : on le reconstruit
     // MASQUÉ, et caught_up le révèle en fondu, déjà positionné en bas. Sinon on le
@@ -602,6 +603,7 @@ function handleDelta(d){
     newTurn(); setCtxUsed(0); setCompactCount(0); lastSeq=0; setBusy(false); return; }
   if(d.history_more!==undefined){ showHistoryMore(d.history_more, d.before); return; }
   if(d.user!==undefined){
+    histRefreshSoon();
     newTurn();
     let el=confirmPending(d.user);
     if(!el) el=addMsg('user', d.user);
@@ -634,6 +636,7 @@ function handleDelta(d){
   if(d.compact_noop){ setCompacting(false); if(!REPLAYING) toast(t('chat.compact_noop')); return; }
   if(d.ctx_used!==undefined){ setCtxUsed(d.ctx_used); return; }
   if(d.compact_count!==undefined){ setCompactCount(d.compact_count); return; }
+  if(d.stats) histRefreshSoon();
   if(d.stats){ T.serverStats=d.stats;
     if(d.stats.prompt_tokens_total){ setCtxUsed((d.stats.prompt_tokens_total||0)+(d.stats.gen_tokens||0)); }
     // Les mesures définitives sont posées par finalizeTurn (à turn_done), même

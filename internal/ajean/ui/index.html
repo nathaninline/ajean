@@ -8396,6 +8396,8 @@ async function loadMoreHistory(){
   }catch(_){}
   HIST_ST.loading = false;
 }
+let HIST_RT=0;
+function histRefreshSoon(){ if(typeof REPLAYING!=='undefined' && REPLAYING) return; clearTimeout(HIST_RT); HIST_RT=setTimeout(loadHistory, 700); }
 function histInit(){
   const side = document.getElementById('side');
   if(side) side.addEventListener('scroll', ()=>{
@@ -8850,11 +8852,13 @@ function handleDelta(d){
     OLDER=null; 
     if(d.id!==undefined) CONV_ID=d.id||''; 
     if(d.mode) setModeFromConv(d.mode);
+    histRefreshSoon();
     TURN_ENDED=true; elapsedStop(); smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending=null; PENDS=[];
     if(d.replay) hideChatForReplay(); else chatClearAnimated();
     newTurn(); setCtxUsed(0); setCompactCount(0); lastSeq=0; setBusy(false); return; }
   if(d.history_more!==undefined){ showHistoryMore(d.history_more, d.before); return; }
   if(d.user!==undefined){
+    histRefreshSoon();
     newTurn();
     let el=confirmPending(d.user);
     if(!el) el=addMsg('user', d.user);
@@ -8874,6 +8878,7 @@ function handleDelta(d){
   if(d.compact_noop){ setCompacting(false); if(!REPLAYING) toast(t('chat.compact_noop')); return; }
   if(d.ctx_used!==undefined){ setCtxUsed(d.ctx_used); return; }
   if(d.compact_count!==undefined){ setCompactCount(d.compact_count); return; }
+  if(d.stats) histRefreshSoon();
   if(d.stats){ T.serverStats=d.stats;
     if(d.stats.prompt_tokens_total){ setCtxUsed((d.stats.prompt_tokens_total||0)+(d.stats.gen_tokens||0)); }
     return; }
@@ -11580,8 +11585,10 @@ var JeanAvatar = (()=>{
     document.addEventListener('keydown', e=>{
       if(!inStage() || inputOpen || e.ctrlKey || e.metaKey || e.altKey || e.key.length!==1) return;
       const a=document.activeElement;
-      if(a && a.id!=='input' && (a.tagName==='INPUT' || a.tagName==='TEXTAREA' || a.isContentEditable)) return;
-      if(document.querySelector('.modal-ov.show')) return;
+      const shown=el=>!!el && el.getClientRects().length>0;
+      if(a && a.id!=='input' && (a.tagName==='INPUT' || a.tagName==='TEXTAREA' || a.isContentEditable) && shown(a)) return;
+      if([...document.querySelectorAll('.modal-ov.show,.ask-overlay.show')].some(shown)) return;
+      if(a && a!==document.body && !shown(a)) a.blur();
       openInput();
     });
     setInterval(()=>{ if(inStage()) sync(); }, 500); 

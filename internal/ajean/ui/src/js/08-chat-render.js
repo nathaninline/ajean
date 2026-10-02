@@ -757,6 +757,10 @@ async function loadMoreHistory(){
   }catch(_){}
   HIST_ST.loading = false;
 }
+// Rafraîchit la liste peu après un événement qui la change (nouveau message, autre
+// conversation, fin de tour) : une conversation neuve y apparaît tout de suite.
+let HIST_RT=0;
+function histRefreshSoon(){ if(typeof REPLAYING!=='undefined' && REPLAYING) return; clearTimeout(HIST_RT); HIST_RT=setTimeout(loadHistory, 700); }
 function histInit(){
   const side = document.getElementById('side');
   if(side) side.addEventListener('scroll', ()=>{

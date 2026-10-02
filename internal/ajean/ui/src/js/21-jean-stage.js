@@ -230,8 +230,12 @@
     document.addEventListener('keydown', e=>{
       if(!inStage() || inputOpen || e.ctrlKey || e.metaKey || e.altKey || e.key.length!==1) return;
       const a=document.activeElement;
-      if(a && a.id!=='input' && (a.tagName==='INPUT' || a.tagName==='TEXTAREA' || a.isContentEditable)) return;
-      if(document.querySelector('.modal-ov.show')) return;
+      // Seul un champ VISIBLE garde la frappe : la recherche de l'historique, masquée
+      // en mode Jean, pouvait garder le focus et empêcher la bulle de s'ouvrir.
+      const shown=el=>!!el && el.getClientRects().length>0;
+      if(a && a.id!=='input' && (a.tagName==='INPUT' || a.tagName==='TEXTAREA' || a.isContentEditable) && shown(a)) return;
+      if([...document.querySelectorAll('.modal-ov.show,.ask-overlay.show')].some(shown)) return;
+      if(a && a!==document.body && !shown(a)) a.blur();
       openInput();
     });
     setInterval(()=>{ if(inStage()) sync(); }, 500); // occupé/libre change aussi sans mutation du fil
