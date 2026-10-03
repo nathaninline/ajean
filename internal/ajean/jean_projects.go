@@ -22,7 +22,14 @@ const jeanProjectFileMax = 24 << 10 // 24 Kio lus au plus par fichier
 func jeanProjectTools() []Tool {
 	str := func(d string) map[string]any { return map[string]any{"type": "string", "description": d} }
 	obj := func(props map[string]any, req ...string) map[string]any {
-		return map[string]any{"type": "object", "properties": props, "required": req}
+		// Omettre `required` (plutôt que l'émettre null) quand rien n'est requis :
+		// les API OpenAI strictes rejettent « required: null » (« null is not of
+		// type "array" »).
+		m := map[string]any{"type": "object", "properties": props}
+		if len(req) > 0 {
+			m["required"] = req
+		}
+		return m
 	}
 	mk := func(name, desc string, params map[string]any) Tool {
 		return Tool{Type: "function", Function: ToolFunction{Name: name, Description: desc, Parameters: params}}

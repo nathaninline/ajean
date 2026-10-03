@@ -486,7 +486,13 @@ func JeanSearch(query string, limit int) string {
 // Schémas volontairement minuscules : un petit modèle local les lit à chaque tour.
 func jeanTools() []Tool {
 	obj := func(props map[string]any, req ...string) map[string]any {
-		return map[string]any{"type": "object", "properties": props, "required": req}
+		// Omettre `required` (plutôt que l'émettre null) quand rien n'est requis :
+		// les API OpenAI strictes rejettent « required: null ».
+		m := map[string]any{"type": "object", "properties": props}
+		if len(req) > 0 {
+			m["required"] = req
+		}
+		return m
 	}
 	str := func(d string) map[string]any { return map[string]any{"type": "string", "description": d} }
 	mk := func(name, desc string, params map[string]any) Tool {
