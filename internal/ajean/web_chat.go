@@ -72,7 +72,10 @@ func capsFromBody(body chatReq) Caps {
 func sseHeartbeat(w http.ResponseWriter, flusher http.Flusher) (*sync.Mutex, func()) {
 	mu := &sync.Mutex{}
 	done := make(chan struct{})
+	stopped := make(chan struct{})
+	var stopOnce sync.Once
 	go func() {
+		defer close(stopped)
 		// 4 s (et non 15) : borne le temps qu'un dernier bout de flux peut rester
 		// coincé dans un buffer proxy (Cloudflare) faute d'octets pour le pousser.
 		t := time.NewTicker(4 * time.Second)
@@ -84,7 +87,7 @@ func sseHeartbeat(w http.ResponseWriter, flusher http.Flusher) (*sync.Mutex, fun
 			case <-t.C:
 				mu.Lock()
 				_, err := w.Write([]byte(": ping\n\n"))
-				if flusher != nil {
+				if err == nil && flusher != nil {
 					flusher.Flush()
 				}
 				mu.Unlock()
@@ -94,7 +97,11 @@ func sseHeartbeat(w http.ResponseWriter, flusher http.Flusher) (*sync.Mutex, fun
 			}
 		}
 	}()
-	return mu, func() { close(done) }
+	return mu, func() {
+		stopOnce.Do(func() { close(done) })
+		// A ResponseWriter must not be used after the handler returns.
+		<-stopped
+	}
 }
 
 // runChatStream est désormais un pur ABONNÉ au journal de la conversation serveur :
