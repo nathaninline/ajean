@@ -72,7 +72,9 @@ func capsFromBody(body chatReq) Caps {
 func sseHeartbeat(w http.ResponseWriter, flusher http.Flusher) (*sync.Mutex, func()) {
 	mu := &sync.Mutex{}
 	done := make(chan struct{})
+	exited := make(chan struct{})
 	go func() {
+		defer close(exited)
 		// 4 s (et non 15) : borne le temps qu'un dernier bout de flux peut rester
 		// coincé dans un buffer proxy (Cloudflare) faute d'octets pour le pousser.
 		t := time.NewTicker(4 * time.Second)
@@ -83,8 +85,16 @@ func sseHeartbeat(w http.ResponseWriter, flusher http.Flusher) (*sync.Mutex, fun
 				return
 			case <-t.C:
 				mu.Lock()
+				// Arrêt demandé pendant l'attente du verrou : la réponse HTTP est
+				// peut-être déjà rendue, on n'y écrit plus.
+				select {
+				case <-done:
+					mu.Unlock()
+					return
+				default:
+				}
 				_, err := w.Write([]byte(": ping\n\n"))
-				if flusher != nil {
+				if err == nil && flusher != nil {
 					flusher.Flush()
 				}
 				mu.Unlock()
@@ -94,7 +104,14 @@ func sseHeartbeat(w http.ResponseWriter, flusher http.Flusher) (*sync.Mutex, fun
 			}
 		}
 	}()
-	return mu, func() { close(done) }
+	// L'arrêt ATTEND la fin de la goroutine (issue #105) : sinon un battement en
+	// attente du verrou écrivait après le retour du handler, et l'écriture sur
+	// une réponse terminée faisait tomber le process de l'interface.
+	var once sync.Once
+	return mu, func() {
+		once.Do(func() { close(done) })
+		<-exited
+	}
 }
 
 // runChatStream est désormais un pur ABONNÉ au journal de la conversation serveur :
@@ -138,6 +155,9 @@ func handleChatSend(w http.ResponseWriter, r *http.Request) {
 	// Mode : celui de la conversation s'il est déjà fixé, sinon celui demandé.
 	mode, fresh := conv.lockMode(requestedMode(body))
 	applyChatMode(&body, mode)
+	if mode == "jean" {
+		files = moveUploadsToJean(files)
+	}
 	queued, err := conv.EnqueueOrStart(body.Message, files, capsFromBody(body), body.Temperature)
 	if err != nil {
 		// Message refusé (modèle pas prêt) : il n'a rien démarré, le mode ne doit

@@ -122,6 +122,14 @@ func JeanSave(name, when, content string) (string, error) {
 	if n := len([]rune(content)); n > jeanFicheMaxChars {
 		return "", fmt.Errorf("fiche trop longue (%d car., max %d) : découpe-la en plusieurs fiches", n, jeanFicheMaxChars)
 	}
+	// Nouvelle fiche qui double une existante : refusée, sinon la mémoire se
+	// remplit de deux procédures pour la même chose (vu en vrai : youtube-vues
+	// puis youtube-alice-views). Jean complète l'existante à la place.
+	if !jeanFicheExists(name) {
+		if f, dup := jeanSimilarFiche(name, when); dup {
+			return "", fmt.Errorf("une fiche couvre déjà ça : « %s » (when: %s). Ne crée pas de doublon : complète-la (jean_read puis jean_patch, ou jean_save sous le nom « %s »)", f.Name, f.When, f.Name)
+		}
+	}
 	jeanMu.Lock()
 	defer jeanMu.Unlock()
 	old, _ := jeanRead(ficheFile(name))
@@ -134,29 +142,6 @@ func JeanSave(name, when, content string) (string, error) {
 	}
 	_ = jeanAppendLocked("fiche", fmt.Sprintf("Fiche « %s » créée (%s)", name, when))
 	return fmt.Sprintf("[ok] fiche « %s » enregistrée", name), nil
-}
-
-// JeanRead renvoie une fiche entière.
-func JeanRead(name string) (string, error) {
-	name = normFicheName(name)
-	jeanMu.Lock()
-	s, err := jeanRead(ficheFile(name))
-	jeanMu.Unlock()
-	if err != nil {
-		return "", err
-	}
-	if s == "" {
-		var names []string
-		for _, f := range jeanFiches(false) {
-			names = append(names, f.Name)
-		}
-		if len(names) == 0 {
-			return "", fmt.Errorf("fiche « %s » introuvable : aucune fiche enregistrée", name)
-		}
-		return "", fmt.Errorf("fiche « %s » introuvable. Fiches : %s", name, strings.Join(names, ", "))
-	}
-	f := parseFiche(name, s)
-	return "# " + f.Name + "\n(when: " + f.When + ")\n\n" + f.Content, nil
 }
 
 // jeanDeleteFiche supprime une fiche (trace gardée au journal).
@@ -176,39 +161,7 @@ func jeanDeleteFiche(name string) error {
 	return nil
 }
 
-// jeanFicheIndex : la liste injectée dans le bloc Jean memory.
-func jeanFicheIndex() string {
-	fs := jeanFiches(false)
-	if len(fs) == 0 {
-		return ""
-	}
-	var b strings.Builder
-	b.WriteString("\nYour fiches (procedures, how-tos, guides): when one matches the request, jean_read it FIRST and follow it.\n")
-	for i, f := range fs {
-		if i >= jeanFicheIndexLimit {
-			fmt.Fprintf(&b, "(+%d older fiches: find them with jean_search)\n", len(fs)-i)
-			break
-		}
-		b.WriteString("- " + f.Name + ": " + f.When + "\n")
-	}
-	return b.String()
-}
-
-// jeanFicheHits : fiches qui contiennent au moins la moitié des termes (pour jean_search).
-func jeanFicheHits(terms []string) []string {
-	var out []string
-	for _, f := range jeanFiches(true) {
-		hay := foldSearch(f.Name + " " + f.When + " " + f.Content)
-		matched := 0
-		for _, t := range terms {
-			if strings.Contains(hay, t) {
-				matched++
-			}
-		}
-		// Au moins la moitié des mots : une requête bavarde ne doit pas tout rater.
-		if matched > 0 && matched*2 >= len(terms) {
-			out = append(out, "- [fiche] "+f.Name+": "+f.When+" (jean_read to open)")
-		}
-	}
-	return out
+func jeanFicheExists(name string) bool {
+	_, err := os.Stat(filepath.Join(jeanDir(), ficheFile(name)))
+	return err == nil
 }

@@ -157,10 +157,12 @@ func cdpLaunch() (*cdpSession, error) {
 		args = append([]string{"--headless=new"}, args...)
 	}
 	cmd := exec.Command(bin, args...)
+	prepareBoundChild(cmd) // meurt avec AJEAN (sys_childbind_*.go)
 	if err := cmd.Start(); err != nil {
 		os.RemoveAll(userDir)
 		return nil, err
 	}
+	bindChild(cmd)
 	// Chrome écrit le port de debug réel dans DevToolsActivePort (ligne 1).
 	port := ""
 	portFile := filepath.Join(userDir, "DevToolsActivePort")
@@ -340,7 +342,7 @@ func (s *cdpSession) close() {
 		s.wcancel()
 	}
 	if s.cmd != nil && s.cmd.Process != nil {
-		_ = s.cmd.Process.Kill()
+		killProcessTree(s.cmd) // les sous-processus aussi (GPU, rendu), voir sys_childbind_*.go
 	}
 	if s.userDir != "" {
 		os.RemoveAll(s.userDir)
@@ -352,6 +354,7 @@ func (s *cdpSession) close() {
 func cdpGet() (*cdpSession, error) {
 	cdpMu.Lock()
 	defer cdpMu.Unlock()
+	cdpTouchLocked()
 	if cdpCur != nil {
 		if _, err := cdpCur.call("Runtime.evaluate", map[string]any{"expression": "1", "returnByValue": true}); err == nil {
 			return cdpCur, nil
@@ -365,6 +368,21 @@ func cdpGet() (*cdpSession, error) {
 	}
 	cdpCur = s
 	return s, nil
+}
+
+// cdpIdleClose : le navigateur est fermé après cdpIdleAfter sans usage, et
+// relancé au besoin. Une page animée (webcam, vidéo, canvas) restée ouverte
+// continuait sinon d'être dessinée sans fin par le processeur (issue #109,
+// vécu aussi en test). Réarmé à chaque usage, dans cdpGet.
+const cdpIdleAfter = 10 * time.Minute
+
+var cdpIdleTimer *time.Timer
+
+func cdpTouchLocked() {
+	if cdpIdleTimer != nil {
+		cdpIdleTimer.Stop()
+	}
+	cdpIdleTimer = time.AfterFunc(cdpIdleAfter, cdpShutdown)
 }
 
 // cdpShutdown ferme la session navigateur si elle existe (appelé quand on coupe
@@ -524,6 +542,21 @@ func (s *cdpSession) snapshotDedup() (string, error) {
 	return full, nil
 }
 
+// refMissingHint : après un numéro introuvable, la liste ACTUELLE complète.
+// Vu en test : le modèle cliquait un numéro deviné (hors de la liste), on lui
+// disait « refais un browser_snapshot », et le snapshot répondait « page
+// inchangée, les mêmes numéros restent valides » : il tournait en rond. La
+// liste complète est renvoyée ici, et la mémoire du dernier affichage remise
+// à jour pour que le prochain dédoublonnage reste juste.
+func (s *cdpSession) refMissingHint() string {
+	full, err := s.snapshot()
+	if err != nil {
+		return ""
+	}
+	s.lastSnap = full
+	return ". Numéros valides maintenant (un élément hors de la vue : browser_find) :\n\n" + full
+}
+
 // cdpFindJS cherche, sur TOUTE la page (pas seulement le viewport), les éléments
 // interactifs dont le rôle ou le nom contient la requête, leur pose un
 // data-ajean-ref numéroté, fait défiler le premier au centre, et renvoie la liste.
@@ -668,7 +701,7 @@ func (s *cdpSession) refCenter(ref int) (float64, float64, error) {
 		return 0, 0, err
 	}
 	if string(val) == "null" || len(val) == 0 {
-		return 0, 0, fmt.Errorf("élément [%d] introuvable — refais un browser_snapshot (la page a peut-être changé)", ref)
+		return 0, 0, fmt.Errorf("élément [%d] introuvable : il n'est pas (ou plus) dans la liste", ref)
 	}
 	var p struct{ X, Y float64 }
 	if err := json.Unmarshal(val, &p); err != nil {
@@ -742,7 +775,7 @@ func (s *cdpSession) typeInto(ref int, text string) error {
 	}
 	switch strings.Trim(string(val), `"`) {
 	case "NOTFOUND":
-		return fmt.Errorf("champ [%d] introuvable — refais un browser_snapshot", ref)
+		return fmt.Errorf("champ [%d] introuvable : il n'est pas (ou plus) dans la liste", ref)
 	case "NOOPT":
 		return fmt.Errorf("aucune option de la liste [%d] ne correspond à « %s » — fais un browser_screenshot pour voir les choix", ref, text)
 	case "SELECT":
@@ -812,8 +845,35 @@ func (s *cdpSession) scroll(dir string) error {
 }
 
 // screenshot capture le viewport en PNG (octets décodés).
-func (s *cdpSession) screenshot() ([]byte, error) {
-	res, err := s.call("Page.captureScreenshot", map[string]any{"format": "png"})
+func (s *cdpSession) screenshot() ([]byte, error) { return s.screenshotClip(0, 0, 0, 0) }
+
+// screenshotClip : capture d'une zone de la vue (w,h > 0), redessinée par le
+// navigateur à une échelle plus grande. C'est un vrai zoom (plus de détail),
+// pas un agrandissement des pixels d'une capture : un bâtiment de 80 px au
+// fond d'une webcam devient lisible.
+func (s *cdpSession) screenshotClip(x, y, w, h float64) ([]byte, error) {
+	params := map[string]any{"format": "png"}
+	if w > 0 && h > 0 {
+		scale := float64(cuViewW) / w
+		if scale > 4 {
+			scale = 4
+		}
+		if scale < 1 {
+			scale = 1
+		}
+		// Le clip se compte depuis le haut du DOCUMENT, les coordonnées lues sur
+		// la capture depuis le haut de la VUE : on ajoute le défilement (vu en
+		// test : le zoom montrait l'en-tête de la page au lieu de la webcam).
+		if v, err := s.eval(`[scrollX, scrollY]`); err == nil {
+			var off [2]float64
+			if json.Unmarshal(v, &off) == nil {
+				x, y = x+off[0], y+off[1]
+			}
+		}
+		params["clip"] = map[string]any{"x": x, "y": y, "width": w, "height": h, "scale": scale}
+		params["captureBeyondViewport"] = false
+	}
+	res, err := s.call("Page.captureScreenshot", params)
 	if err != nil {
 		return nil, err
 	}

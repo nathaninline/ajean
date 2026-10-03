@@ -503,6 +503,7 @@ func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, tem
 	}
 	c.Generating = true
 	c.genStart = time.Now()
+	jeanReflectAbort() // le moteur est à l'utilisateur, la révision attendra
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
 	// Envoi sans un mot, juste un fichier : la bulle reste vide (les pastilles
@@ -524,7 +525,9 @@ func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, tem
 	// Mode Jean : après une longue inactivité, on repart d'un contexte vide (comme le
 	// bouton « Vider le contexte »). Le fil affiché et le journal ne bougent pas.
 	jeanIdleCleared := false
+	var jeanOld []Message
 	if caps.Jean && c.ID == jeanConvID && len(c.Messages) > 0 && jeanIdleExpired(c.Log, time.Now()) {
+		jeanOld = c.Messages
 		c.Messages = nil
 		c.CtxUsed = 0
 		jeanIdleCleared = true
@@ -550,12 +553,15 @@ func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, tem
 	// Content = simple texte d'ordinaire ; format multimodal (texte + images) quand
 	// la vision est active et qu'une pièce jointe est une image (userMessageContent).
 	if caps.Jean {
-		prompt = "[" + jeanNow() + "] " + prompt
+		// Ce que l'arrière-plan a appris depuis (jean_notes.go), sauf sur un contexte
+		// neuf : le bloc mémoire qu'on vient d'y mettre est déjà à jour.
+		prompt = "[" + jeanNow() + "] " + jeanTakeNotes(len(c.Messages) <= 1) + prompt
 	}
 	c.Messages = append(c.Messages, Message{Role: "user", Content: userMessageContent(files, prompt)})
 	epoch := c.epoch
 	c.mu.Unlock()
 	if jeanIdleCleared {
+		jeanReflectBeforeClear(jeanOld) // révisé plus tard, après ce tour (moteur occupé)
 		c.appendDelta(epoch, map[string]any{"ctx_cleared": true})
 	}
 
@@ -629,7 +635,7 @@ func (c *Conversation) drainQueued(epoch int) []Message {
 			prompt = "Prends-en connaissance."
 		}
 		if q.caps.Jean {
-			prompt = "[" + jeanNow() + "] " + prompt
+			prompt = "[" + jeanNow() + "] " + jeanTakeNotes(false) + prompt
 		}
 		out = append(out, Message{Role: "user", Content: userMessageContent(q.files, prompt)})
 	}
@@ -763,6 +769,18 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 	// Non-nil = elle remplace l'historique (elle contient déjà le tour en cours).
 	var newBase []Message
 	var content strings.Builder
+	// Mode Jean : ses règles appliquées (jean_rules.go) filtrent le texte pendant
+	// la diffusion. nil hors Jean ou sans règle : le texte passe tel quel.
+	var rulesF *jeanStreamFilter
+	if caps.Jean {
+		rulesF = newJeanStreamFilter(jeanRules())
+	}
+	flushRules := func() {
+		if t := rulesF.Flush(); t != "" {
+			content.WriteString(t)
+			c.appendDelta(epoch, map[string]any{"content": t})
+		}
+	}
 	extra, _ := runChat(ctx, InjectSkills(final, caps), temperature, caps, func(ev StreamEvent) bool {
 		switch {
 		case ev.Err != nil:
@@ -779,6 +797,7 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 			// Le texte écrit AVANT cet appel d'outil est déjà rangé dans le message
 			// assistant porteur des tool_calls (extra). Le garder aussi dans la
 			// réponse finale le doublait dans l'historique vu par le modèle.
+			flushRules()
 			content.Reset()
 			tu := map[string]any{
 				"name": ev.ToolUsed.Name, "label": ev.ToolUsed.Label,
@@ -867,11 +886,14 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 		case ev.Reasoning != "":
 			c.appendDelta(epoch, map[string]any{"reasoning_content": ev.Reasoning})
 		case ev.Content != "":
-			content.WriteString(ev.Content)
-			c.appendDelta(epoch, map[string]any{"content": ev.Content})
+			if t := rulesF.Push(ev.Content); t != "" {
+				content.WriteString(t)
+				c.appendDelta(epoch, map[string]any{"content": t})
+			}
 		}
 		return true // génération détachée : on ne s'interrompt jamais sur un abonné
 	}, func() []Message { return c.drainQueued(epoch) })
+	flushRules()
 
 	// Persiste la vue modèle : messages d'outils (assistant tool_calls + résultats)
 	// PUIS la réponse finale — même ordre que l'ancien client, pour que le modèle
@@ -894,7 +916,8 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 
 	// Mode Jean : l'échange part au journal (froid), sans coût pour le modèle.
 	if caps.Jean && !stale && ctx.Err() == nil {
-		jeanLogExchange(lastUserText(msgs), content.String())
+		jeanLogExchange(jeanTurnUserText(msgs), jeanVisibleAnswer(extra, content.String()))
+		jeanReflectNoteTurn(caps, temperature, jeanTurnUserText(msgs), jeanRuleViolations(content.String()), jeanFichesRead(extra), jeanToolCallCount(extra))
 	}
 
 	// Compaction de FIN DE TOUR. C'était LE trou : le seuil n'était testé qu'au

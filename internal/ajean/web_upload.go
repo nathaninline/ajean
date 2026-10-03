@@ -92,19 +92,26 @@ func safeUploadName(name string) string {
 // uniqueUploadPath évite d'écraser un dépôt précédent : rapport.pdf,
 // rapport-2.pdf, rapport-3.pdf…
 func uniqueUploadPath(dir, name string) string {
-	p := filepath.Join(dir, name)
-	if _, err := os.Stat(p); os.IsNotExist(err) {
-		return p
+	// Libre ici ET chez Jean : ses pièces jointes y sont déplacées après coup
+	// (moveUploadsToJean), un même nom écraserait la précédente.
+	free := func(n string) bool {
+		_, e1 := os.Stat(filepath.Join(dir, n))
+		_, e2 := os.Stat(filepath.Join(jeanWorkspace(), "uploads", n))
+		return os.IsNotExist(e1) && os.IsNotExist(e2)
+	}
+	if free(name) {
+		return filepath.Join(dir, name)
 	}
 	ext := filepath.Ext(name)
 	base := strings.TrimSuffix(name, ext)
+	n := name
 	for i := 2; i < 1000; i++ {
-		p = filepath.Join(dir, fmt.Sprintf("%s-%d%s", base, i, ext))
-		if _, err := os.Stat(p); os.IsNotExist(err) {
-			return p
+		n = fmt.Sprintf("%s-%d%s", base, i, ext)
+		if free(n) {
+			break
 		}
 	}
-	return p
+	return filepath.Join(dir, n)
 }
 
 // attachInfo décrit une pièce jointe retenue : ce que le modèle lira dans le
@@ -134,6 +141,32 @@ func attachFiles(files []string) []attachInfo {
 		out = append(out, attachInfo{Name: name, Path: "uploads/" + name, Size: st.Size()})
 	}
 	return out
+}
+
+// moveUploadsToJean : en mode Jean, les pièces jointes passent dans SON dossier
+// de travail. Déposées dans celui des projets, « uploads/x.jpg » ne se résolvait
+// pas chez lui (cloisonnement, chat_space.go) : vu en test, il a fouillé tout le
+// disque pour retrouver les photos qu'on venait de lui envoyer. Le chemin
+// relatif annoncé reste « uploads/… », juste chez lui ; /api/chat/file cherche
+// déjà dans les deux dossiers.
+func moveUploadsToJean(files []attachInfo) []attachInfo {
+	src, err := uploadsDir()
+	if err != nil || len(files) == 0 {
+		return files
+	}
+	dst := filepath.Join(jeanWorkspace(), "uploads")
+	if err := os.MkdirAll(dst, 0o755); err != nil {
+		return files
+	}
+	for _, f := range files {
+		from, to := filepath.Join(src, f.Name), filepath.Join(dst, f.Name)
+		if err := os.Rename(from, to); err != nil {
+			if b, rerr := os.ReadFile(from); rerr == nil && os.WriteFile(to, b, 0o644) == nil {
+				_ = os.Remove(from)
+			}
+		}
+	}
+	return files
 }
 
 // attachNote est la phrase ajoutée en tête du message pour le MODÈLE. Elle ne
@@ -194,9 +227,9 @@ func visionImageNote(files []attachInfo) string {
 	if len(files) == 0 {
 		return ""
 	}
-	head := "Image jointe à ce message, que tu vois directement ci-dessous — ne la rouvre PAS avec see_image, tu l'as déjà sous les yeux. Son chemin ne sert que si tu dois la manipuler comme fichier :"
+	head := "Image jointe à ce message, que tu vois directement ci-dessous : ne la rouvre PAS avec see_image, tu l'as déjà sous les yeux. Son chemin ne sert que si tu dois la manipuler comme fichier :"
 	if len(files) > 1 {
-		head = "Images jointes à ce message, que tu vois directement ci-dessous — ne les rouvre PAS avec see_image, tu les as déjà sous les yeux. Leur chemin ne sert que si tu dois les manipuler comme fichiers :"
+		head = "Images jointes à ce message, que tu vois directement ci-dessous : ne les rouvre PAS avec see_image, tu les as déjà sous les yeux. Leur chemin ne sert que si tu dois les manipuler comme fichiers :"
 	}
 	var lines []string
 	for _, f := range files {
@@ -234,6 +267,9 @@ func userMessageContent(files []attachInfo, prompt string) any {
 			continue
 		}
 		b, err := os.ReadFile(filepath.Join(dir, f.Name))
+		if err != nil { // passée chez Jean (moveUploadsToJean)
+			b, err = os.ReadFile(filepath.Join(jeanWorkspace(), "uploads", f.Name))
+		}
 		if err != nil {
 			otherFiles = append(otherFiles, f) // illisible ici : au moins l'annoncer comme fichier
 			continue

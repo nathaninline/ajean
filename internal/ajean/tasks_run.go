@@ -42,6 +42,7 @@ func (c *Conversation) RunAutonomous(ctx context.Context, taskID, taskName, prom
 	c.Generating = true
 	c.genStart = time.Now()
 	c.cancel = cancel
+	jeanReflectAbort()
 	c.runningTaskID = taskID
 	c.runningTaskName = taskName
 	c.mu.Unlock()
@@ -98,8 +99,15 @@ func (c *Conversation) RunAutonomous(ctx context.Context, taskID, taskName, prom
 		}
 		return true
 	}, nil)
-	_ = extra // les messages d'outils ne sont pas conservés : la tâche est éphémère
-	return strings.TrimSpace(content.String()), err
+	report := strings.TrimSpace(content.String())
+	// Tâche de Jean qui a travaillé (outils) : on la révise avant de rendre la
+	// main, comme un échange (jean_reflect.go). Même préfixe que la tâche, donc
+	// cache repris : quelques secondes. Ce qui a raté puis marché devient une
+	// leçon ou une correction de fiche, au lieu d'être refait à chaque exécution.
+	if caps.Jean && err == nil && ctx.Err() == nil && jeanReflectEnabled() && jeanTaskWorthReview(extra) {
+		jeanReviewTask(ctx, InjectSkills(final, caps), extra, report, caps, temperature)
+	}
+	return report, err
 }
 
 // taskContextNote construit la note de contexte injectée en tête du fil d'une

@@ -220,7 +220,7 @@ function paintGenStatus(){
 let JACT='';
 function jeanActFor(name){
   if(/^(jean_search|jean_read|recall|recall_search|mem_search|mem_read)$/.test(name)) return 'jean.act_search';
-  if(/^(jean_remember|jean_note|jean_save|mem_add|mem_edit)$/.test(name)) return 'jean.act_remember';
+  if(/^(jean_remember|jean_note|jean_save|jean_lesson|jean_patch|jean_rule|mem_add|mem_edit)$/.test(name)) return 'jean.act_remember';
   if(/^(jean_forget|mem_delete)$/.test(name)) return 'jean.act_forget';
   if(/^web_/.test(name)) return 'jean.act_web';
   if(/^task_/.test(name)) return 'jean.act_task';

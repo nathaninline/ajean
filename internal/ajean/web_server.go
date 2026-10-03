@@ -278,6 +278,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/jean/profile", handleJeanProfile)                // pose / renomme / retire une ligne du profil
 	api("/api/jean/fiche", handleJeanFiche)                    // lit (GET) / enregistre (POST) une fiche
 	api("/api/jean/fiche/delete", handleJeanFicheDelete)       // supprime une fiche
+	api("/api/jean/lesson/delete", handleJeanLessonDelete)     // retire une leçon
 	api("/api/jean/journal/delete", handleJeanJournalDelete)   // supprime une entrée du journal
 	api("/api/chat/cushot", handleCUShot)                      // aperçu en direct du navigateur piloté (RAM, jamais gardé)
 	api("/api/chat/jean/clear", handleChatJeanClear)           // mode Jean : vide le contexte du modèle, garde le fil

@@ -39,7 +39,7 @@ func webOpenTool() Tool {
 	// et il évite que le modèle réessaie en boucle une page rendue côté client.
 	urlDesc := "Full URL"
 	if webEngine() == engineGo {
-		urlDesc += " (this engine reads served HTML only, no JavaScript: a client-rendered page comes back empty — switch source instead of retrying)"
+		urlDesc += " (this engine reads served HTML only, no JavaScript: a client-rendered page comes back empty, so switch source instead of retrying)"
 	}
 	props := map[string]any{
 		"url":     map[string]any{"type": "string", "description": urlDesc},

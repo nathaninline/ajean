@@ -211,11 +211,11 @@ func writeTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name:        "write",
-			Description: "Create or overwrite a file with exact content — always use this to write files, never shell redirection.",
+			Description: "Create or overwrite a file with exact content. Always use this to write files, never shell redirection.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"file":    map[string]any{"type": "string", "description": "Path. A relative name lands in your working folder — the default for anything you create. Absolute path only if the user named a location; never into system dirs (/usr, /bin, /etc, /usr/local/bin)."},
+					"file":    map[string]any{"type": "string", "description": "Path, relative to your working folder (absolute only for a location the user named)"},
 					"content": map[string]any{"type": "string", "description": "Full content"},
 				},
 				"required": []string{"file", "content"},
@@ -474,7 +474,7 @@ func EnabledTools(caps Caps) []Tool {
 	// caps.Internet intègre déjà la joignabilité (globalCaps / override web_server.go),
 	// donc prompt et outils restent cohérents — pas de web_search halluciné.
 	if caps.Agent && caps.Internet {
-		tools = append(tools, webSearchTool(), webOpenTool(), webReadTool(), webGrepTool())
+		tools = append(tools, webSearchTool(), webImagesTool(), webOpenTool(), webReadTool(), webGrepTool())
 	}
 	// Outils computer use : pilotage d'un navigateur de la machine hôte. Comme
 	// bash, actions réelles → réservé au mode agent (voir computer_use.go).
@@ -882,7 +882,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		ctx = withJeanSpace(ctx)
 	}
 	var extra []Message
-	tools := EnabledTools(caps)
+	tools := withRecallTools(EnabledTools(caps), messages)
 	// Destination des complétions : llama-server local, ou une API OpenAI-compatible
 	// externe si le preset actif en est un (voir backend_external.go). Résolu une
 	// fois par tour ; une bascule de preset en plein tour est rare et se rejoue au
@@ -1238,7 +1238,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				if cur := toolCalls[0]; cur != nil {
 					key := "command"
 					switch cur.Function.Name {
-					case "mem_search", "web_search":
+					case "mem_search", "web_search", "web_images":
 						key = "query"
 					case "mem_read", "mem_add", "mem_edit", "mem_delete", "edit", "write", "see_image":
 						key = "file"
@@ -1482,13 +1482,13 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				// nothing while a slow shell command runs and looks frozen.
 				label := ""
 				switch tc.Function.Name {
-				case "mem_search", "web_search", "recall_search":
+				case "mem_search", "web_search", "web_images", "recall_search":
 					label, _ = args["query"].(string)
 				case "mem_read", "mem_add", "mem_edit", "mem_delete", "edit", "write", "see_image":
 					label, _ = args["file"].(string)
 				case "recall":
 					label, _ = args["id"].(string)
-				case "jean_search", "jean_remember", "jean_forget", "jean_note", "jean_save", "jean_read", "jean_projects", "jean_project_mem", "jean_project_file":
+				case "jean_search", "jean_remember", "jean_forget", "jean_note", "jean_save", "jean_read", "jean_lesson", "jean_patch", "jean_rule", "jean_projects", "jean_project_mem", "jean_project_file":
 					label = jeanToolLabel(tc.Function.Name, args)
 				case "bash":
 					label, _ = args["command"].(string)
@@ -1531,6 +1531,14 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				// Arguments illisibles : l'exécuter avec des arguments vides donnait une
 				// erreur trompeuse (« fichier manquant », « commande vide »). On le dit
 				// tel quel au modèle, pour qu'il renvoie un appel complet.
+				if isJeanReflecting(ctx) && !jeanReflectAllowed(tc.Function.Name) && !jeanReflectScriptWrite(ctx, tc.Function.Name, args) && !jeanReflectReadFile(ctx, tc.Function.Name, args) {
+					result = "[erreur] pendant une révision de la mémoire, seuls les outils jean_* de mémoire sont permis"
+					cb(StreamEvent{ToolUsed: fillToolResult(&ToolUsedEvent{Name: tc.Function.Name, Label: label, Done: true, ArgToks: flushArgToks()}, result)})
+					toolMsg := Message{Role: "tool", ToolCallID: tc.ID, Content: result}
+					messages = append(messages, toolMsg)
+					extra = append(extra, toolMsg)
+					continue
+				}
 				if badArgs[tc.ID] {
 					result = "[erreur] arguments de l'appel illisibles (JSON invalide ou tronqué) : l'outil n'a PAS été exécuté. Renvoie l'appel avec des arguments JSON complets et valides."
 					cb(StreamEvent{ToolUsed: fillToolResult(&ToolUsedEvent{Name: tc.Function.Name, Label: label, Done: true, ArgToks: flushArgToks()}, result)})
@@ -1665,7 +1673,10 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					} else {
 						result = fmt.Sprintf("[ok] page '%s' supprimée", label)
 					}
-				case "jean_search", "jean_remember", "jean_forget", "jean_note", "jean_save", "jean_read", "jean_projects", "jean_project_mem", "jean_project_file":
+				case "jean_search", "jean_remember", "jean_forget", "jean_note", "jean_save", "jean_read", "jean_lesson", "jean_patch", "jean_rule", "jean_projects", "jean_project_mem", "jean_project_file":
+					if isJeanReflecting(ctx) && args != nil {
+						args["_silent"] = true // révision, ménage : une relecture n'est pas un usage
+					}
 					result, _ = jeanToolCall(tc.Function.Name, args)
 				case "recall":
 					result = toolRecall(args)
@@ -1683,6 +1694,8 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					result = toolTaskDelete(args)
 				case "web_search":
 					result = capWebOutput(toolWebSearch(args))
+				case "web_images":
+					result = capWebOutput(toolWebImages(args))
 				case "web_open":
 					result = capWebOutput(toolWebOpen(args))
 				case "web_read":
@@ -1706,7 +1719,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				case "browser_scroll":
 					result = capCUOutput(toolCUScroll(args))
 				case "browser_screenshot":
-					result, visionImg = toolCUScreenshot()
+					result, visionImg = toolCUScreenshot(ctx, args)
 				default:
 					if isMCPTool(tc.Function.Name) {
 						result = mcpCall(tc.Function.Name, args)
@@ -1761,12 +1774,19 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				logCompact("en-tour", used, messages, c, changed)
 				if changed {
 					messages = c
+					tools = withRecallTools(EnabledTools(caps), messages)
 					// La nouvelle base contient déjà tout ce tour : on la publie et on
 					// repart d'un `extra` vide, sinon l'appelant la ré-empilerait avec
 					// les messages du tour et dupliquerait tout.
 					extra = nil
 					cb(StreamEvent{NewHistory: append([]Message(nil), messages...)})
 				}
+			}
+			// Mode Jean : réponse écrite PUIS rangement de la mémoire dans le même
+			// message. La réponse est déjà affichée ; relancer le modèle la faisait
+			// répéter en entier (vu en test) ou finir sur « j'ai noté… ».
+			if caps.Jean && jeanAnswerThenSave(assistant, messages[stepStart:]) {
+				return extra, nil
 			}
 			continue
 		}

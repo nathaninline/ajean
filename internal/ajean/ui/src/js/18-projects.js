@@ -311,14 +311,27 @@ function jmEdit(f, row){
   ed.onkeydown=(e)=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); save(); } else if(e.key==='Escape'){ e.stopPropagation(); jmLoad(false); } };
   (f?v:k).focus();
 }
-const JM_KIND={echange:'jean.kind_exchange',note:'jean.kind_note',profil:'jean.kind_profile',message:'jean.kind_message',fiche:'jean.kind_fiche'};
+const JM_KIND={echange:'jean.kind_exchange',note:'jean.kind_note',profil:'jean.kind_profile',message:'jean.kind_message',fiche:'jean.kind_fiche',lecon:'jean.kind_lesson',revision:'jean.kind_revision',consolidation:'jean.kind_consolidation'};
+// Leçons : lecture et suppression seulement (Jean les écrit et les range lui-même).
+function jmRenderLessons(r){
+  const box=document.getElementById('jm-lessons'); if(!box) return; box.textContent='';
+  const list=r.lessons||[];
+  document.getElementById('jm-lbudget').textContent=list.length ? (r.lessons_used+' / '+r.lessons_max) : '';
+  if(!list.length){ box.innerHTML='<div class="jm-empty">'+jmEsc(t('jean.mem_lessons_empty'))+'</div>'; return; }
+  for(const l of list){
+    const row=document.createElement('div'); row.className='jm-row jm-fact';
+    row.innerHTML='<div class="jm-main"><div class="jm-val">'+jmEsc(l.text)+'</div></div><button class="jm-x" title="'+jmEsc(t('jean.mem_forget'))+'">'+JM_DEL+'</button>';
+    row.querySelector('.jm-x').onclick=async(e)=>{ e.stopPropagation(); const x=await jpost('/api/jean/lesson/delete',{n:l.n}); if(!x.ok) toast(x.error); jmLoad(false); };
+    box.appendChild(row);
+  }
+}
 // Charge la fenêtre : profil et fiches, puis le journal (more = page suivante).
 async function jmLoad(more){
   if(!more) JM_OFF=0;
   const q=(document.getElementById('jm-search')||{}).value||'';
   const r=await jget('/api/jean/memory?limit=40&offset='+JM_OFF+'&q='+encodeURIComponent(q)).catch(()=>null);
   if(!r||!r.ok){ toast((r&&r.error)||t('jean.mem_error')); return; }
-  if(!more){ jmRenderProfile(r); jmRenderFiches(r.fiches||[]); }
+  if(!more){ jmRenderProfile(r); jmRenderLessons(r); jmRenderFiches(r.fiches||[]); }
   document.getElementById('jm-count').textContent=r.entries ? String(r.entries) : '';
   const box=document.getElementById('jm-journal');
   if(!more) box.textContent='';

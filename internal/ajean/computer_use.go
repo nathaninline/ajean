@@ -13,6 +13,7 @@ package ajean
 // même niveau de confiance que bash. Interrupteur : clé bkState "computer".
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -72,7 +73,7 @@ func cuClickTool() Tool {
 func cuTypeTool() Tool {
 	return Tool{Type: "function", Function: ToolFunction{
 		Name:        "browser_type",
-		Description: "Type text into a field. ALWAYS give 'ref' (the field's number) so it targets the right field and REPLACES its current content — no need to browser_click the field first. For a dropdown/select (role 'combobox'), pass the option's text and it picks that option directly (don't click it open). Without a ref it types into whatever is focused, which is unreliable.",
+		Description: "Type text into a field, replacing its content. Always give ref (the field's number), no click needed first. For a dropdown (combobox), give the option's text: it is picked directly.",
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -99,7 +100,7 @@ func cuKeyTool() Tool {
 func cuFindTool() Tool {
 	return Tool{Type: "function", Function: ToolFunction{
 		Name:        "browser_find",
-		Description: "Find interactive elements ANYWHERE on the page (not just the visible part) whose label contains the text, and scroll the first into view. Use it to locate an off-screen link or button (e.g. 'créer un compte', 'panier') instead of scrolling blindly or guessing URLs.",
+		Description: "Find elements anywhere on the page whose label contains the text, and scroll the first into view: the way to reach an off-screen link or button.",
 		Parameters: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"text": map[string]any{"type": "string", "description": "Text to look for in element labels"}},
@@ -139,7 +140,12 @@ func cuScreenshotTool() Tool {
 	return Tool{Type: "function", Function: ToolFunction{
 		Name:        "browser_screenshot",
 		Description: "Capture the current page as an image. It is shown to the user immediately AND saved to your working folder; the result gives the filename to link with Markdown if they want the file. Use it to see a visual layout the numbered elements don't convey, or when the user asks for a screenshot — never hunt the disk for it.",
-		Parameters:  map[string]any{"type": "object", "properties": map[string]any{}},
+		Parameters: map[string]any{"type": "object", "properties": map[string]any{
+			"x": map[string]any{"type": "number", "description": "Zoom: left of the region, in page pixels read on the grid"},
+			"y": map[string]any{"type": "number", "description": "Zoom: top of the region"},
+			"w": map[string]any{"type": "number", "description": "Zoom: width of the region (re-rendered larger, real detail)"},
+			"h": map[string]any{"type": "number", "description": "Zoom: height of the region"},
+		}},
 	}}
 }
 
@@ -158,9 +164,9 @@ func computerUseTools() []Tool {
 // cuPromptLine est la consigne d'usage ajoutée au prompt système quand le
 // computer use est actif (l'ordre d'appel que les schémas isolés ne disent pas).
 func cuPromptLine() string {
-	line := "\nComputer use (a browser you control on this machine): browser_open a URL, then act on the NUMBERED elements — browser_click(ref), browser_type(text, ref), browser_key, browser_scroll. Each action returns the fresh numbered elements; after the page changes, trust the new numbers, not old ones. The list shows only what's in view: to reach an off-screen link or button (e.g. 'créer un compte'), use browser_find(text) to jump straight to it rather than scrolling blindly or, worse, guessing URLs — inventing paths mostly 404s. If a page shows an error (404, 'introuvable'), browser_open goes 'back' or try another link. Prefer the numbered elements over screenshots."
+	line := "\nBrowser (on this machine): browser_open a URL, then act on its numbered elements; after each change, use the fresh numbers. For an element out of view use browser_find, never guessed URLs; on an error page, go 'back' or try another link."
 	if visionEnabled() {
-		line += " Use browser_screenshot when the numbers aren't enough (canvas, visual layout). If a button is visible but NOT in the numbered list (e.g. a cookie banner inside an iframe), browser_screenshot then browser_click_xy(x,y) at its pixel position."
+		line += " When the numbers aren't enough (canvas, a button missing from the list), browser_screenshot then browser_click_xy at its position."
 	}
 	line += "\n"
 	return line
@@ -225,7 +231,7 @@ func toolCUClick(args map[string]any) string {
 		return "[erreur] " + err.Error()
 	}
 	if err := s.clickRef(ref); err != nil {
-		return "[erreur] " + err.Error()
+		return "[erreur] " + err.Error() + s.refMissingHint()
 	}
 	snap, _ := s.snapshotDedup()
 	return fmt.Sprintf("[ok] cliqué [%d]\n\n%s", ref, snap)
@@ -239,7 +245,7 @@ func toolCUType(args map[string]any) string {
 	}
 	if ref, ok := intArg(args, "ref"); ok {
 		if err := s.typeInto(ref, text); err != nil {
-			return "[erreur] " + err.Error()
+			return "[erreur] " + err.Error() + s.refMissingHint()
 		}
 	} else if err := s.typeText(text); err != nil {
 		return "[erreur] " + err.Error()
@@ -298,7 +304,7 @@ func toolCUScroll(args map[string]any) string {
 // sans ça, le modèle qui reçoit « envoie-moi une capture » partait chercher un
 // PNG inexistant sur tout le disque (vécu sur le test de navigation, ~12 bash find pour
 // rien). Avec le chemin en retour, il n'a plus qu'à le donner en lien Markdown.
-func toolCUScreenshot() (string, map[string]any) {
+func toolCUScreenshot(ctx context.Context, args map[string]any) (string, map[string]any) {
 	if !visionEnabled() {
 		return "[erreur] la vision n'est pas active sur ce modèle — impossible de capturer l'écran", nil
 	}
@@ -306,15 +312,40 @@ func toolCUScreenshot() (string, map[string]any) {
 	if err != nil {
 		return "[erreur] " + err.Error(), nil
 	}
-	png, err := s.screenshot()
+	zx, _ := floatArg(args, "x")
+	zy, _ := floatArg(args, "y")
+	zw, _ := floatArg(args, "w")
+	zh, _ := floatArg(args, "h")
+	zoom := zw > 0 && zh > 0
+	png, err := s.screenshotClip(zx, zy, zw, zh)
 	if err != nil {
 		return "[erreur] " + err.Error(), nil
+	}
+	if zoom {
+		// Zoom : pas de grille (ses repères ne correspondraient plus à la page).
+		saved := ""
+		name := "zoom-" + time.Now().Format("20060102-150405") + ".png"
+		if ws := spaceWorkspace(ctx); ws != "" {
+			_ = os.MkdirAll(ws, 0o755)
+			if os.WriteFile(filepath.Join(ws, name), png, 0o644) == nil {
+				saved = name
+			}
+		}
+		b, mime := prepareImageForModel(png, "image/png")
+		msg := fmt.Sprintf("[ok] zoom sur la zone x=%.0f y=%.0f %.0fx%.0f (tu la vois ci-dessous, en plus grand). Les coordonnées pour cliquer restent celles de la capture entière.", zx, zy, zw, zh)
+		if saved != "" {
+			msg += " Enregistré sous « " + saved + " » : ![zoom](" + saved + ") pour le montrer."
+		}
+		return msg, imageURLPart(b, mime)
 	}
 	// Enregistre le PNG plein format dans le workspace (chemin RELATIF renvoyé au
 	// modèle : un lien Markdown [capture](nom.png) est servi par /api/chat/file).
 	saved := ""
 	name := "capture-" + time.Now().Format("20060102-150405") + ".png"
-	if ws := agentWorkspace(); ws != "" {
+	// Dossier de l'espace courant : en mode Jean, le sien (sinon « capture-….png »
+	// ne se résolvait pas chez lui et il fouillait le disque pour la retrouver).
+	if ws := spaceWorkspace(ctx); ws != "" {
+		_ = os.MkdirAll(ws, 0o755)
 		if err := os.WriteFile(filepath.Join(ws, name), png, 0o644); err == nil {
 			saved = name
 		}

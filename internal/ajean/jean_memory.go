@@ -83,6 +83,9 @@ func jeanWrite(name, content string) error {
 	if err := os.MkdirAll(jeanDir(), 0o755); err != nil {
 		return err
 	}
+	if name == jeanProfileFile || name == jeanLessonsFile || strings.HasPrefix(name, jeanFichePrefix) {
+		jeanMemDirty.Store(true) // à consolider (jean_consolidate.go)
+	}
 	return memWriteFileVerified(filepath.Join(jeanDir(), name), out, 0o600)
 }
 
@@ -133,6 +136,9 @@ func JeanRemember(key, value string) (string, error) {
 	value = strings.Join(strings.Fields(value), " ") // une seule ligne
 	if value == "" {
 		return "", fmt.Errorf("valeur vide (pour retirer une ligne : jean_forget)")
+	}
+	if jeanLooksSecret(value) {
+		return "", fmt.Errorf("refusé : le profil est relu à chaque message, aucun mot de passe, clé ni jeton dedans. Mets l'identifiant dans la fiche du service (jean_save / jean_patch) et, ici, seulement un renvoi (ex. « identifiants dans la fiche media-server »)")
 	}
 	if len([]rune(value)) > jeanValueMaxChars {
 		return "", fmt.Errorf("valeur trop longue (%d car. max) : garde l'essentiel, le détail va dans jean_note", jeanValueMaxChars)
@@ -200,12 +206,15 @@ var errJeanNoFact = errors.New("clé absente du profil")
 
 // JeanForget (outil jean_forget) : une ligne du profil, à défaut une fiche du même nom.
 func JeanForget(key string) (string, error) {
+	if out, isLesson, err := jeanForgetLesson(key); isLesson {
+		return out, err
+	}
 	out, err := jeanForgetFact(key)
 	if !errors.Is(err, errJeanNoFact) {
 		return out, err
 	}
-	if jeanDeleteFiche(key) == nil {
-		return fmt.Sprintf("[ok] fiche « %s » supprimée", normFicheName(key)), nil
+	if jeanArchiveFiche(key) == nil {
+		return fmt.Sprintf("[ok] fiche « %s » archivée : hors de ta liste, jean_search la retrouve et la relire la ramène", normFicheName(key)), nil
 	}
 	return "", fmt.Errorf("« %s » n'est ni une clé du profil ni une fiche", key)
 }
@@ -229,6 +238,8 @@ func jeanContextMessage() Message {
 		}
 	}
 	if err == nil {
+		b.WriteString(jeanLessonsBlock())
+		b.WriteString(jeanRulesBlock())
 		b.WriteString(jeanFicheIndex())
 	}
 	return Message{Role: "system", Content: strings.TrimRight(b.String(), "\n")}
@@ -283,11 +294,7 @@ func JeanNote(text string) (string, error) {
 func jeanLogExchange(user, answer string) {
 	// L'entrée est déjà datée : le préfixe « [date heure (fuseau)] » ajouté au
 	// message pour le modèle (voir jeanNow) ferait doublon.
-	if strings.HasPrefix(user, "[") {
-		if i := strings.Index(user, "] "); i > 0 && i < 80 {
-			user = user[i+2:]
-		}
-	}
+	user = jeanCleanUserText(user) // ni la date, ni la note d'arrière-plan, ni celle des pièces jointes
 	user, answer = clipRunes(strings.TrimSpace(user), jeanAutoExcerpt), clipRunes(strings.TrimSpace(answer), jeanAutoExcerpt)
 	if user == "" {
 		return
@@ -366,14 +373,41 @@ func jeanJournalAll() []jeanEntry {
 		if e.IsDir() || !strings.HasPrefix(n, "journal-") || !strings.HasSuffix(n, ".md") {
 			continue
 		}
-		s, err := jeanRead(n)
+		info, err := e.Info()
 		if err != nil {
-			continue // mois chiffré et mémoire verrouillée : ignoré
+			continue
 		}
-		out = append(out, parseJeanJournal(s)...)
+		jeanJournalCacheMu.Lock()
+		c, ok := jeanJournalCache[filepath.Join(jeanDir(), n)]
+		jeanJournalCacheMu.Unlock()
+		if !ok || !c.mod.Equal(info.ModTime()) || c.size != info.Size() {
+			s, err := jeanRead(n)
+			if err != nil {
+				continue // mois chiffré et mémoire verrouillée : ignoré
+			}
+			c = jeanJournalMonth{info.ModTime(), info.Size(), parseJeanJournal(s)}
+			jeanJournalCacheMu.Lock()
+			jeanJournalCache[filepath.Join(jeanDir(), n)] = c
+			jeanJournalCacheMu.Unlock()
+		}
+		out = append(out, c.ents...)
 	}
 	return out
 }
+
+// Cache des mois du journal déjà lus : seul le mois en cours change, les autres
+// ne sont déchiffrés et analysés qu'une fois par démarrage. Sans lui, chaque
+// recherche relisait toutes les années de journal (lent au bout de quelques ans).
+type jeanJournalMonth struct {
+	mod  time.Time
+	size int64
+	ents []jeanEntry
+}
+
+var (
+	jeanJournalCacheMu sync.Mutex
+	jeanJournalCache   = map[string]jeanJournalMonth{}
+)
 
 // jeanRecall : compteur de rappels d'une note (nombre + jours distincts).
 type jeanRecall struct {
@@ -486,7 +520,13 @@ func JeanSearch(query string, limit int) string {
 // Schémas volontairement minuscules : un petit modèle local les lit à chaque tour.
 func jeanTools() []Tool {
 	obj := func(props map[string]any, req ...string) map[string]any {
-		return map[string]any{"type": "object", "properties": props, "required": req}
+		o := map[string]any{"type": "object", "properties": props}
+		// Pas de « required: null » : les API OpenAI strictes (DeepSeek…) le
+		// refusent (issue #106) ; llama.cpp seul le tolérait.
+		if len(req) > 0 {
+			o["required"] = req
+		}
+		return o
 	}
 	str := func(d string) map[string]any { return map[string]any{"type": "string", "description": d} }
 	mk := func(name, desc string, params map[string]any) Tool {
@@ -497,13 +537,19 @@ func jeanTools() []Tool {
 			obj(map[string]any{"query": str("Keywords"), "limit": map[string]any{"type": "integer", "description": "Default 6"}}, "query")),
 		mk("jean_remember", "Save or REPLACE a lasting fact in the user's profile (always visible to you). Same key = replaces the old value.",
 			obj(map[string]any{"key": str("Short dotted key, e.g. family.mother.birthday"), "value": str("One short line")}, "key", "value")),
-		mk("jean_forget", "Remove a profile line (it stays findable in the journal) or delete a fiche.",
-			obj(map[string]any{"key": str("Profile key or fiche name")}, "key")),
+		mk("jean_forget", "Remove a profile line or a lesson (lecon-N); they stay findable in the journal. Or archive a fiche no longer useful (still findable, reading it brings it back).",
+			obj(map[string]any{"key": str("Profile key, lecon-N or fiche name")}, "key")),
 		mk("jean_save", "Save or REPLACE a fiche: a procedure, how-to, recipe or guide to keep in full. Same name = new version.",
 			obj(map[string]any{"name": str("Short name, e.g. deploy-server"), "when": str("One line: when to use it"), "content": str("Full content, Markdown")}, "name", "when", "content")),
 		mk("jean_read", "Open a fiche in full.",
 			obj(map[string]any{"name": str("Fiche name")}, "name")),
-		mk("jean_note", "Write a note in your journal (details, events, things to find later).",
+		mk("jean_lesson", "Save a lesson: a correction from the user, or what failed before what worked. One short rule (a full procedure goes in a fiche). Give fiche to add it to that fiche's pitfalls.",
+			obj(map[string]any{"text": str("One sentence: the rule to follow and why"), "fiche": str("Optional fiche name")}, "text")),
+		mk("jean_rule", "Have your harness enforce a mechanical writing rule on all you write: kind=replace (banned text 'from' becomes 'to'), no_numbered_lists, or max_list_items (max). action=remove, from=rule-N drops one. Behavior rules go in jean_lesson.",
+			obj(map[string]any{"kind": str("replace | no_numbered_lists | max_list_items"), "from": str("replace: the exact banned text; remove: rule-N"), "to": str("replace: what to write instead"), "max": map[string]any{"type": "integer", "description": "max_list_items: the limit"}, "action": str("add (default) or remove"), "why": str("Short reason")}, "kind")),
+		mk("jean_patch", "Fix part of a fiche without rewriting it: replace an exact passage.",
+			obj(map[string]any{"name": str("Fiche name"), "old": str("Exact passage to replace"), "new": str("Replacement (empty = delete)")}, "name", "old", "new")),
+		mk("jean_note", "Write a note in your journal: details or events to find later (not changing lists, those live in a fiche).",
 			obj(map[string]any{"text": str("The note")}, "text")),
 	}, jeanProjectTools()...)
 }
@@ -527,8 +573,22 @@ func jeanToolCall(name string, args map[string]any) (result string, ok bool) {
 		result, err = JeanNote(s("text"))
 	case "jean_save":
 		result, err = JeanSave(s("name"), s("when"), s("content"))
+	case "jean_rule":
+		mx := 0
+		if v, ok := args["max"].(float64); ok {
+			mx = int(v)
+		}
+		result, err = JeanRule(s("action"), s("kind"), s("from"), s("to"), mx, s("why"))
 	case "jean_read":
-		result, err = JeanRead(s("name"))
+		if silent, _ := args["_silent"].(bool); silent {
+			result, err = jeanReadSilent(s("name"))
+		} else {
+			result, err = JeanRead(s("name"))
+		}
+	case "jean_lesson":
+		result, err = JeanLesson(s("text"), s("fiche"))
+	case "jean_patch":
+		result, err = JeanPatch(s("name"), s("old"), s("new"))
 	default:
 		if isJeanProjectTool(name) {
 			return jeanProjectToolCall(name, args), true
@@ -543,7 +603,7 @@ func jeanToolCall(name string, args map[string]any) (result string, ok bool) {
 
 // jeanToolLabel : libellé affiché dans la bulle d'outil.
 func jeanToolLabel(name string, args map[string]any) string {
-	for _, k := range []string{"path", "page", "project", "query", "key", "name", "text"} {
+	for _, k := range []string{"path", "page", "project", "query", "key", "name", "fiche", "text", "from", "kind"} {
 		if v, ok := args[k].(string); ok && v != "" {
 			return clipRunes(v, 80)
 		}
@@ -554,12 +614,21 @@ func jeanToolLabel(name string, args map[string]any) string {
 // jeanPromptSection : consignes du mode Jean, ajoutées au préambule système.
 // Courtes à dessein (voir baseSystemPrompt) : un petit modèle doit les suivre.
 func jeanPromptSection() string {
-	return "\nYou are the user's personal assistant and you remember everything. Your memory has three levels:\n" +
-		"- The profile (\"Jean memory\" block, always in front of you): lasting facts about the user. When you learn one (name, family, birthdays, preferences, habits, people, places, ongoing projects), save it right away with jean_remember, without asking. A new value for an existing key replaces it.\n" +
-		"- Fiches (listed by name in the \"Jean memory\" block): procedures, how-tos, recipes, guides, anything long to keep in full. When the user asks you to remember how to do something, save it with jean_save (name + one line saying when to use it + full content). When a request matches a fiche, jean_read it first and follow it. If a procedure changes, jean_save it again under the same name.\n" +
-		"- The journal: every past conversation is logged automatically. When the user refers to the past (\"you remember\", \"last time\", a name or thing not in the profile), call jean_search first, then answer. Never claim you don't know before searching.\n" +
-		"Use jean_note for details worth finding later that don't belong in the profile. Use task_create for reminders and anything to do later or regularly: when it runs, its result is sent to the user as a message from you in this conversation (write its prompt as what you will do then, e.g. \"Remind the user to call their mother\"). For a one-time reminder give in_minutes or at (\"HH:MM\"), never a cron. All times are the user's local time, shown in brackets at the start of their messages; the server clock (bash date) may be in another time zone: never use it for times. Keep profile lines short; jean_forget what's obsolete.\n" +
-		"The user's AJEAN projects are READ-ONLY for you: jean_projects, jean_project_mem and jean_project_file let you look at their memory and scripts (e.g. to see how something was done). Never try to change them; to reuse or adapt something, make your own version in your own space.\n"
+	return "\nYou are the user's personal assistant and you remember everything.\n" +
+		"Memory (the \"Jean memory\" block is always in front of you):\n" +
+		"- Profile: lasting facts about the user (name, family, dates, preferences, habits, places, projects). Save each new one at once with jean_remember, without asking. Only what they said or confirmed: never your guess, a nickname you assumed, or a secret (passwords, keys, tokens live in the fiche of the service, the profile at most points to it).\n" +
+		"- Fiches: procedures and long things to keep in full. When a request matches one, jean_read it first and follow it. Name a fiche after the real thing.\n" +
+		"- Journal: every exchange is logged. When the user refers to the past or to something you don't recognize, jean_search before answering; never say you don't know before searching.\n" +
+		"- Lessons: when the user corrects you or something fails before what works, save it (jean_lesson, with fiche=<name> if it is about that fiche; fix a wrong step with jean_patch), confirm in one short sentence what you will do from now on, and redo it right. A mechanical writing rule (banned word or character, list limits) is also enforced with jean_rule. Don't mention your memory or rules unless asked.\n" +
+		"- Living lists the user updates (todo, shopping, collection) are kept in ONE fiche with the current state, edited in place; never as journal notes. jean_note is for details worth finding later.\n" +
+		"How you work:\n" +
+		"- State only what you checked; mark a guess as a guess. Follow the user's instructions literally. When a word looks like a typo or a name you don't know, use the obvious meaning, then ask in one line which it was.\n" +
+		"- When a tool result contradicts the user (an error, a missing file), tell them what you saw; never note their claim as fact or blame a bug without proof. Your own reading of an image or your memory is not proof: when the user corrects it, above all about their own photo or life, believe them.\n" +
+		"- Ask before changing the system (system files, network settings, services, installs) or anything that isn't the user's.\n" +
+		"- When a request took many steps or trial and error, save the direct path in a fiche BEFORE answering: exact commands, URLs and values that worked, plus pitfalls, and its script (robust, kept in your scripts folder) if one did the job, so next time takes one or two calls. When a saved script fails, fix the script. A fiche keeps HOW to get a changing value, never the value. Drafts and tests stay in your workspace.\n" +
+		"- Your answer: in the user's language (every visible word, notes before tool calls too); first answer the question actually asked, in one line, then only what helps; never refer to something you didn't show. Save to memory before answering, then stop: nothing after the answer.\n" +
+		"- Reminders are tasks: their result reaches the user as your message here, so write the prompt as what you will do then (\"Remind the user to call their mother\"). One-time: in_minutes or at (\"HH:MM\"), never a cron. Times are the user's, in brackets at the start of their messages; never the server clock.\n" +
+		"- The user's AJEAN projects are read-only for you (jean_projects); to reuse something, make your own copy.\n"
 }
 
 // lastUserText : texte du dernier message utilisateur (parties texte seulement

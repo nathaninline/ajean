@@ -22,18 +22,22 @@ const jeanProjectFileMax = 24 << 10 // 24 Kio lus au plus par fichier
 func jeanProjectTools() []Tool {
 	str := func(d string) map[string]any { return map[string]any{"type": "string", "description": d} }
 	obj := func(props map[string]any, req ...string) map[string]any {
-		return map[string]any{"type": "object", "properties": props, "required": req}
+		o := map[string]any{"type": "object", "properties": props}
+		// Pas de « required: null » : les API OpenAI strictes (DeepSeek…) le
+		// refusent (issue #106) ; llama.cpp seul le tolérait.
+		if len(req) > 0 {
+			o["required"] = req
+		}
+		return o
 	}
 	mk := func(name, desc string, params map[string]any) Tool {
 		return Tool{Type: "function", Function: ToolFunction{Name: name, Description: desc, Parameters: params}}
 	}
+	// Un seul outil pour les trois lectures : elles servent rarement, trois
+	// schémas coûtaient ~300 tokens à chaque requête.
 	return []Tool{
-		mk("jean_projects", "READ-ONLY: list the user's AJEAN projects (slug, name, description) and their shared scripts. Use it to look at how a project works.",
-			obj(map[string]any{})),
-		mk("jean_project_mem", "READ-ONLY: read a project's memory. Without page: its index and list of pages. With page: that page in full.",
-			obj(map[string]any{"project": str("Project slug or name"), "page": str("Page file name, e.g. mail-setup.md (optional)")}, "project")),
-		mk("jean_project_file", "READ-ONLY: read a file or list a folder of the projects' space. path starts with scripts/ (projects' scripts) or workspace/ (projects' workspace), e.g. scripts/mail.py. You can NOT modify it: to reuse it, write your own copy in your own scripts folder.",
-			obj(map[string]any{"path": str("scripts/... or workspace/...")}, "path")),
+		mk("jean_projects", "READ-ONLY look at the user's AJEAN projects. No argument: list them with their shared scripts. project (+ optional page): that project's memory index, or one page in full. path (scripts/... or workspace/...): read a file or list a folder of the projects' space. To reuse something, copy it into your own scripts folder.",
+			obj(map[string]any{"project": str("Project slug or name"), "page": str("Memory page, e.g. mail-setup.md"), "path": str("scripts/... or workspace/...")})),
 	}
 }
 
@@ -45,6 +49,13 @@ func jeanProjectToolCall(name string, args map[string]any) string {
 	s := func(k string) string { v, _ := args[k].(string); return strings.TrimSpace(v) }
 	switch name {
 	case "jean_projects":
+		// Les anciens noms restent compris : des fils déjà enregistrés les appellent.
+		if s("path") != "" {
+			return jeanProjectFile(s("path"))
+		}
+		if s("project") != "" {
+			return jeanProjectMem(s("project"), s("page"))
+		}
 		return jeanListProjects()
 	case "jean_project_mem":
 		return jeanProjectMem(s("project"), s("page"))

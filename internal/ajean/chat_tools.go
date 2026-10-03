@@ -94,27 +94,25 @@ func baseSystemPrompt(caps Caps) string {
 		// La règle « write, jamais echo/cat » est INDISPENSABLE (cmd.exe massacre
 		// les guillemets imbriqués) mais elle vit maintenant dans les schémas de
 		// write et bash, là où elle s'applique. Elle était écrite trois fois.
-		b.WriteString("For anything about the system or files, use bash instead of guessing. Act immediately — call the right tool, then answer. Never end your turn after only thinking. Be concise.\n")
+		b.WriteString("For anything about the system or files, use your tools instead of guessing, and before saying you can't do something; if it fails, say what you tried. Act immediately: call the right tool, then answer. Never end your turn after only thinking. Be concise.\n")
 		// Un lien Markdown ordinaire, comme dans n'importe quel chat : l'UI en fait
 		// un téléchargement (voir /api/chat/file). Aucun outil ni syntaxe spéciale
 		// à connaître pour le modèle — juste [texte](chemin).
-		b.WriteString("To give the user a file, link it in Markdown with its path relative to your working directory — [the report](report.pdf) — which downloads it. A raw server path is useless: they read you in a browser.\n")
+		b.WriteString("To give the user a file, link it in Markdown with its path relative to your working directory, e.g. [the report](report.pdf): they read you in a browser, a raw server path is useless.\n")
 		// Auto-planification : le modèle a les outils task_* (schémas joints). On ne
 		// répète pas leur usage, juste QUE la capacité existe et QUAND s'en servir —
 		// sinon il ne penserait jamais à se planifier quoi que ce soit.
-		b.WriteString("You can also schedule work for yourself: task_create sets a future/recurring job (reminders, watches, cleanups), task_list/task_update/task_delete manage them. Only for something that must recur or happen later, not a one-off you can do now.\n")
+		b.WriteString("You can schedule work for yourself with task_create (reminders, watches, cleanups): only for something later or recurring, not a one-off you can do now.\n")
 		// La consigne « garder les scripts dans le dossier scripts, pas le workspace »
 		// vit dans le briefing machine ; ici on n'ajoute que ce qu'elle ne dit pas —
 		// qu'un tel script peut tourner en tâche SANS modèle.
-		b.WriteString("A script kept in your scripts folder can be scheduled to run on its own with no model via task_create's 'script'.\n")
+		b.WriteString("A script from your scripts folder can run that way on its own, with no model (task_create's 'script').\n")
 	}
 	if caps.Internet {
 		// Le catalogue des outils web est parti dans leurs schémas ; ne reste ici
 		// que l'ordre d'appel, que les schémas pris isolément ne disent pas.
 		year := time.Now().Format("2006")
-		b.WriteString("\nWeb: web_open first, then web_read/web_grep on it.\n")
-		b.WriteString("Your training data is stale. For ANY question about recent/latest/current things (releases, versions, news, prices, scores, 'since when') call web_search BEFORE writing any date or version, and match what you actually read.\n")
-		b.WriteString("Today is in " + year + ". If a query needs a year use ONLY " + year + ", never a remembered past year like " + prevYear(year) + " — it biases results toward stale pages; better still, omit the year. Don't hedge ('probably') about a fact a tool can verify — search instead.\n")
+		b.WriteString("\nWeb: web_open a page, then web_read/web_grep it. Your knowledge is limited and stale: like anyone unsure, check on the web before answering whenever you are not sure of a fact (name, place, date, version, how something works), and always for anything recent or current; then report what you read. Told you're wrong? Search, don't guess again. It is " + year + ": in a query use only that year (never " + prevYear(year) + "), or none.\n")
 	}
 	if caps.Agent && caps.ComputerUse {
 		b.WriteString(cuPromptLine())
@@ -169,7 +167,7 @@ func machineSystemPrompt(caps Caps) string {
 	}
 	b.WriteString(".")
 	if cwd != "" {
-		b.WriteString(" This is your working folder: relative paths in write/edit/bash resolve here, and it is the default place for scratch work — notes, outputs, downloads, a clone or a test. But it is DISPOSABLE: a cleanup or a test can wipe it, so never keep anything important here. Any script you want to KEEP (or schedule), write it into your scripts folder " + scripts + " instead — a separate folder a workspace wipe won't touch; you write and run scripts there normally. Do NOT install or write files into system directories such as /usr/local/bin, /usr, /bin or /etc: those need root and are not yours. Only use an absolute path outside this folder (except your scripts folder) when the user explicitly named that location.")
+		b.WriteString(" This is your working folder: relative paths resolve here, and scratch work goes here (outputs, downloads, tests). It is DISPOSABLE and can be wiped: a script you want to keep or schedule goes in your scripts folder " + scripts + ". Never write into system directories; use an absolute path elsewhere only when the user named that location.")
 		// memory reste réservé à ses outils : le modèle essaie parfois de `cat` le
 		// dossier memory, on lui dit explicitement de ne pas le faire (bash/write/edit
 		// le refuseront de toute façon).
@@ -178,10 +176,7 @@ func machineSystemPrompt(caps Caps) string {
 		if caps.Jean {
 			memTools = "jean_*"
 		}
-		if caps.Jean {
-			b.WriteString(" This workspace and scripts folder are YOURS alone: the AJEAN projects have their own, which you cannot modify (bash, write and edit will refuse); read them with jean_projects, jean_project_mem and jean_project_file. Never modify a project's scripts; if you need a similar script, write your own copy in your scripts folder.")
-		}
-		b.WriteString(" The memory folder is OFF-LIMITS to bash, write and edit (those tools will refuse) — always use the " + memTools + " tools for it.")
+		b.WriteString(" The memory folder is off-limits to bash, write and edit: use the " + memTools + " tools.")
 	}
 	return b.String()
 }

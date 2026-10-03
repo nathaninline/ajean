@@ -2178,6 +2178,12 @@ body.hist-jean #side-hist .hist-search,body.hist-jean #sess-count,body.hist-jean
       <div class="jm-hint" data-i18n="jean.mem_profile_hint">Ce que Jean sait de toi à coup sûr.</div>
       <div id="jm-profile" class="jm-list"></div>
       <div class="jm-head jm-head-j">
+        <span class="jm-title" data-i18n="jean.mem_lessons">Leçons</span>
+        <span id="jm-lbudget" class="jm-budget"></span>
+      </div>
+      <div class="jm-hint" data-i18n="jean.mem_lessons_hint">Ce que Jean a appris de ses erreurs.</div>
+      <div id="jm-lessons" class="jm-list"></div>
+      <div class="jm-head jm-head-j">
         <span class="jm-title" data-i18n="jean.mem_fiches">Fiches</span>
         <span id="jm-fcount" class="jm-budget"></span>
         <button class="mem-add-btn" onclick="jmEditFiche(null)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="memory.add_page_button_short">ajouter</span></button>
@@ -2899,7 +2905,7 @@ fr: {
   "memory.add_page_button": "+ ajouter",
   "memory.search_placeholder": "filtrer la mémoire…",
   "internet.title": "Accès internet",
-  "internet.help": "Ajoute les outils <b>web_search / web_open / web_read / web_grep</b>. Le moteur <b>intégré</b> ne demande aucune installation. Le moteur <b>Crawl4AI</b> exige un serveur que tu héberges toi-même (ex. <code>docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest</code>) mais exécute le JavaScript des pages. Actifs seulement si le <b>mode agent</b> est actif.",
+  "internet.help": "Ajoute les outils <b>web_search / web_images / web_open / web_read / web_grep</b>. Le moteur <b>intégré</b> ne demande aucune installation. Le moteur <b>Crawl4AI</b> exige un serveur que tu héberges toi-même (ex. <code>docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest</code>) mais exécute le JavaScript des pages. Actifs seulement si le <b>mode agent</b> est actif.",
   "internet.toggle_label": "donner internet à l'IA",
   "computer.title": "Contrôle du navigateur",
   "computer.help": "Donne à l'IA le contrôle d'un <b>navigateur</b> sur cette machine (outils <b>browser_open / browser_find / browser_click / browser_type / browser_key / browser_scroll</b>). L'IA lit les éléments <b>numérotés</b> de la page et agit par numéro — aucune vision requise, ça marche avec de petits modèles. <code>browser_screenshot</code> s'ajoute si la vision est active. Nécessite Chrome/Chromium/Edge installé. Actif seulement si le <b>mode agent</b> est actif.",
@@ -3038,6 +3044,12 @@ fr: {
   "jean.kind_profile": "profil",
   "jean.kind_message": "message de Jean",
   "jean.kind_fiche": "fiche",
+  "jean.kind_lesson": "leçon",
+  "jean.kind_revision": "révision",
+  "jean.kind_consolidation": "consolidation",
+  "jean.mem_lessons": "Leçons",
+  "jean.mem_lessons_hint": "Ce que Jean a appris de ses erreurs et de tes corrections. Toujours sous ses yeux ; il les relit et les range seul quand tu ne lui parles pas.",
+  "jean.mem_lessons_empty": "Aucune leçon pour l'instant : corrige Jean quand il se trompe, il s'en souviendra.",
   "jean.clear_ctx": "Vider le contexte",
   "jean.clear_ctx_fail": "Impossible de vider le contexte pendant une réponse",
   "jean.ctx_cleared_mark": "Contexte vidé, Jean garde tout en mémoire",
@@ -3818,6 +3830,8 @@ fr: {
   "chat.tool.edit_head": "édition",
   "chat.tool.web_search_lbl": "Recherche web",
   "chat.tool.web_search_head": "recherche web",
+  "chat.tool.web_images_lbl": "Recherche d'images",
+  "chat.tool.web_images_head": "images",
   "chat.tool.web_open_lbl": "Ouverture de page",
   "chat.tool.web_open_head": "ouverture",
   "chat.tool.web_read_lbl": "Lecture de page",
@@ -4152,7 +4166,7 @@ en: {
   "memory.add_page_button": "+ add",
   "memory.search_placeholder": "filter memory…",
   "internet.title": "Internet access",
-  "internet.help": "Adds the <b>web_search / web_open / web_read / web_grep</b> tools. The <b>built-in</b> engine requires no installation. The <b>Crawl4AI</b> engine needs a server you host yourself (e.g. <code>docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest</code>) but it runs pages' JavaScript. Only active if <b>agent mode</b> is on.",
+  "internet.help": "Adds the <b>web_search / web_images / web_open / web_read / web_grep</b> tools. The <b>built-in</b> engine requires no installation. The <b>Crawl4AI</b> engine needs a server you host yourself (e.g. <code>docker run -d -p 11235:11235 --shm-size=1g unclecode/crawl4ai:latest</code>) but it runs pages' JavaScript. Only active if <b>agent mode</b> is on.",
   "internet.toggle_label": "give the AI internet access",
   "computer.title": "Browser control",
   "computer.help": "Lets the AI drive a <b>browser</b> on this machine (<b>browser_open / browser_find / browser_click / browser_type / browser_key / browser_scroll</b> tools). The AI reads the page's <b>numbered</b> elements and acts by number — no vision required, works with small models. <code>browser_screenshot</code> is added when vision is active. Requires Chrome/Chromium/Edge installed. Only active if <b>agent mode</b> is on.",
@@ -4291,6 +4305,12 @@ en: {
   "jean.kind_profile": "profile",
   "jean.kind_message": "message from Jean",
   "jean.kind_fiche": "fiche",
+  "jean.kind_lesson": "lesson",
+  "jean.kind_revision": "review",
+  "jean.kind_consolidation": "consolidation",
+  "jean.mem_lessons": "Lessons",
+  "jean.mem_lessons_hint": "What Jean learned from mistakes and your corrections. Always in front of him; he reviews and tidies them on his own while you are away.",
+  "jean.mem_lessons_empty": "No lesson yet: correct Jean when he gets something wrong, he will remember.",
   "jean.clear_ctx": "Clear context",
   "jean.clear_ctx_fail": "Can't clear the context during a reply",
   "jean.ctx_cleared_mark": "Context cleared, Jean still remembers everything",
@@ -5071,6 +5091,8 @@ en: {
   "chat.tool.edit_head": "edit",
   "chat.tool.web_search_lbl": "Web search",
   "chat.tool.web_search_head": "web search",
+  "chat.tool.web_images_lbl": "Image search",
+  "chat.tool.web_images_head": "images",
   "chat.tool.web_open_lbl": "Page open",
   "chat.tool.web_open_head": "open",
   "chat.tool.web_read_lbl": "Page read",
@@ -8046,6 +8068,7 @@ function renderToolMsg(el, tu){
     write:      {ico:'file',     lbl:t('chat.tool.write_lbl'),           head:t('chat.tool.write_head')},
     edit:       {ico:'edit',     lbl:t('chat.tool.edit_lbl'),            head:t('chat.tool.edit_head')},
     web_search: {ico:'search',   lbl:t('chat.tool.web_search_lbl'),      head:t('chat.tool.web_search_head')},
+    web_images: {ico:'search',   lbl:t('chat.tool.web_images_lbl'),      head:t('chat.tool.web_images_head')},
     web_open:   {ico:'globe',    lbl:t('chat.tool.web_open_lbl'),        head:t('chat.tool.web_open_head')},
     web_read:   {ico:'globe',    lbl:t('chat.tool.web_read_lbl'),        head:t('chat.tool.web_read_head')},
     web_grep:   {ico:'globe',    lbl:t('chat.tool.web_grep_lbl'),        head:t('chat.tool.web_grep_head')},
@@ -8629,7 +8652,7 @@ function paintGenStatus(){
 let JACT='';
 function jeanActFor(name){
   if(/^(jean_search|jean_read|recall|recall_search|mem_search|mem_read)$/.test(name)) return 'jean.act_search';
-  if(/^(jean_remember|jean_note|jean_save|mem_add|mem_edit)$/.test(name)) return 'jean.act_remember';
+  if(/^(jean_remember|jean_note|jean_save|jean_lesson|jean_patch|jean_rule|mem_add|mem_edit)$/.test(name)) return 'jean.act_remember';
   if(/^(jean_forget|mem_delete)$/.test(name)) return 'jean.act_forget';
   if(/^web_/.test(name)) return 'jean.act_web';
   if(/^task_/.test(name)) return 'jean.act_task';
@@ -9953,7 +9976,14 @@ function cssEsc(s){ try{ return CSS.escape(s); }catch(_){ return s.replace(/["\\
 function markWorkspaceImages(root){
   for(const img of root.querySelectorAll('img[src]')){
     const p=fileLinkPath(img.getAttribute('src'));
-    if(!p) continue;
+    if(!p){
+      if(/^https?:/i.test(img.getAttribute('src')||'')){
+        img.classList.add('chat-img'); img.loading='lazy'; img.referrerPolicy='no-referrer';
+        if(!img._lb){ img._lb=true; img.addEventListener('click', ()=>{ if(img.naturalWidth && typeof openLightbox==='function') openLightbox(img); }); }
+        if(!img._err){ img._err=true; img.addEventListener('error', ()=>{ img.style.display='none'; }); }
+      }
+      continue;
+    }
     img.classList.add('chat-img');
     if(!img.getAttribute('alt')) img.alt=p.split('/').pop();
     img.dataset.path=p; img.dataset.name=p.split('/').pop();
@@ -10961,13 +10991,25 @@ function jmEdit(f, row){
   ed.onkeydown=(e)=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); save(); } else if(e.key==='Escape'){ e.stopPropagation(); jmLoad(false); } };
   (f?v:k).focus();
 }
-const JM_KIND={echange:'jean.kind_exchange',note:'jean.kind_note',profil:'jean.kind_profile',message:'jean.kind_message',fiche:'jean.kind_fiche'};
+const JM_KIND={echange:'jean.kind_exchange',note:'jean.kind_note',profil:'jean.kind_profile',message:'jean.kind_message',fiche:'jean.kind_fiche',lecon:'jean.kind_lesson',revision:'jean.kind_revision',consolidation:'jean.kind_consolidation'};
+function jmRenderLessons(r){
+  const box=document.getElementById('jm-lessons'); if(!box) return; box.textContent='';
+  const list=r.lessons||[];
+  document.getElementById('jm-lbudget').textContent=list.length ? (r.lessons_used+' / '+r.lessons_max) : '';
+  if(!list.length){ box.innerHTML='<div class="jm-empty">'+jmEsc(t('jean.mem_lessons_empty'))+'</div>'; return; }
+  for(const l of list){
+    const row=document.createElement('div'); row.className='jm-row jm-fact';
+    row.innerHTML='<div class="jm-main"><div class="jm-val">'+jmEsc(l.text)+'</div></div><button class="jm-x" title="'+jmEsc(t('jean.mem_forget'))+'">'+JM_DEL+'</button>';
+    row.querySelector('.jm-x').onclick=async(e)=>{ e.stopPropagation(); const x=await jpost('/api/jean/lesson/delete',{n:l.n}); if(!x.ok) toast(x.error); jmLoad(false); };
+    box.appendChild(row);
+  }
+}
 async function jmLoad(more){
   if(!more) JM_OFF=0;
   const q=(document.getElementById('jm-search')||{}).value||'';
   const r=await jget('/api/jean/memory?limit=40&offset='+JM_OFF+'&q='+encodeURIComponent(q)).catch(()=>null);
   if(!r||!r.ok){ toast((r&&r.error)||t('jean.mem_error')); return; }
-  if(!more){ jmRenderProfile(r); jmRenderFiches(r.fiches||[]); }
+  if(!more){ jmRenderProfile(r); jmRenderLessons(r); jmRenderFiches(r.fiches||[]); }
   document.getElementById('jm-count').textContent=r.entries ? String(r.entries) : '';
   const box=document.getElementById('jm-journal');
   if(!more) box.textContent='';

@@ -74,10 +74,12 @@ func (c *Conversation) ClearJeanContext() error {
 		c.mu.Unlock()
 		return ErrBusy
 	}
+	old := c.Messages
 	c.Messages = nil
 	c.CtxUsed = 0
 	epoch := c.epoch
 	c.mu.Unlock()
+	jeanReflectBeforeClear(old) // rien de non révisé ne doit partir avec le contexte
 	c.appendDelta(epoch, map[string]any{"ctx_cleared": true})
 	c.appendDelta(epoch, map[string]any{"ctx_used": 0})
 	c.persist()
@@ -99,7 +101,7 @@ func handleChatJeanClear(w http.ResponseWriter, r *http.Request) {
 // ou non. Si un tour y tourne, on attend qu'il finisse (le message ne doit pas
 // s'intercaler au milieu d'une réponse).
 func (c *Conversation) JeanPost(text string) {
-	text = strings.TrimSpace(text)
+	text = strings.TrimSpace(jeanApplyRules(text)) // règles appliquées aussi aux messages des tâches
 	if text == "" || strings.EqualFold(strings.Trim(text, " .\n"), jeanSilence) {
 		return
 	}

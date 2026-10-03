@@ -72,7 +72,16 @@ func handleJeanMemory(w http.ResponseWriter, r *http.Request) {
 	for _, f := range jeanFiches(false) {
 		fiches = append(fiches, map[string]any{"name": f.Name, "when": f.When, "mod": f.ModTime})
 	}
+	lessons := []map[string]any{}
+	lused := 0
+	if ls, err := jeanLessons(); err == nil {
+		for _, l := range ls {
+			lessons = append(lessons, map[string]any{"n": l.N, "text": l.Text})
+		}
+		lused = len(renderJeanLessons(ls))
+	}
 	sendJSON(w, 200, map[string]any{"ok": true, "profile": prof, "profile_used": used, "fiches": fiches,
+		"lessons": lessons, "lessons_used": lused, "lessons_max": jeanLessonsMaxChars,
 		"profile_max": jeanProfileMaxChars, "journal": out, "total": total, "entries": len(all)})
 }
 
@@ -193,6 +202,19 @@ func handleJeanFicheDelete(w http.ResponseWriter, r *http.Request) {
 	var b map[string]string
 	_ = json.NewDecoder(r.Body).Decode(&b)
 	if err := jeanDeleteFiche(b["name"]); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true})
+}
+
+// handleJeanLessonDelete (POST {n}) : retire la leçon lecon-N.
+func handleJeanLessonDelete(w http.ResponseWriter, r *http.Request) {
+	var b struct {
+		N int `json:"n"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&b)
+	if _, _, err := jeanForgetLesson(fmt.Sprintf("lecon-%d", b.N)); err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}

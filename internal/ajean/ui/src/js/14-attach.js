@@ -330,7 +330,15 @@ function cssEsc(s){ try{ return CSS.escape(s); }catch(_){ return s.replace(/["\\
 function markWorkspaceImages(root){
   for(const img of root.querySelectorAll('img[src]')){
     const p=fileLinkPath(img.getAttribute('src'));
-    if(!p) continue;
+    // Image du web (web_images) : même rendu et même agrandissement au clic.
+    if(!p){
+      if(/^https?:/i.test(img.getAttribute('src')||'')){
+        img.classList.add('chat-img'); img.loading='lazy'; img.referrerPolicy='no-referrer';
+        if(!img._lb){ img._lb=true; img.addEventListener('click', ()=>{ if(img.naturalWidth && typeof openLightbox==='function') openLightbox(img); }); }
+        if(!img._err){ img._err=true; img.addEventListener('error', ()=>{ img.style.display='none'; }); }
+      }
+      continue;
+    }
     img.classList.add('chat-img');
     if(!img.getAttribute('alt')) img.alt=p.split('/').pop();
     img.dataset.path=p; img.dataset.name=p.split('/').pop();

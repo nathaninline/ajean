@@ -315,6 +315,7 @@ function renderToolMsg(el, tu){
     write:      {ico:'file',     lbl:t('chat.tool.write_lbl'),           head:t('chat.tool.write_head')},
     edit:       {ico:'edit',     lbl:t('chat.tool.edit_lbl'),            head:t('chat.tool.edit_head')},
     web_search: {ico:'search',   lbl:t('chat.tool.web_search_lbl'),      head:t('chat.tool.web_search_head')},
+    web_images: {ico:'search',   lbl:t('chat.tool.web_images_lbl'),      head:t('chat.tool.web_images_head')},
     web_open:   {ico:'globe',    lbl:t('chat.tool.web_open_lbl'),        head:t('chat.tool.web_open_head')},
     web_read:   {ico:'globe',    lbl:t('chat.tool.web_read_lbl'),        head:t('chat.tool.web_read_head')},
     web_grep:   {ico:'globe',    lbl:t('chat.tool.web_grep_lbl'),        head:t('chat.tool.web_grep_head')},

@@ -275,6 +275,27 @@ func recallSnippet(s string, n int) string {
 	return s
 }
 
+// withRecallTools : recall et recall_search ne servent qu'une fois le fil
+// compacté avec des blocs archivés. Avant, leurs deux schémas pesaient ~220
+// tokens à chaque requête pour rien. Le compactage réécrit de toute façon le
+// début du contexte : les ajouter à ce moment ne casse aucun cache.
+func withRecallTools(tools []Tool, msgs []Message) []Tool {
+	for _, m := range msgs {
+		if m.Role == "user" {
+			if t := msgText(m); strings.HasPrefix(t, compactSummaryPrefix) && strings.Contains(t, "recall(id)") {
+				return tools
+			}
+		}
+	}
+	out := tools[:0:0]
+	for _, t := range tools {
+		if t.Function.Name != "recall" && t.Function.Name != "recall_search" {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
 // recallTool / recallSearchTool : schémas annoncés au modèle en mode agent.
 func recallTool() Tool {
 	return Tool{
