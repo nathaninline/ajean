@@ -771,7 +771,7 @@ const thinkClose = "</think>"
 // de l'OS, et « connexion refusée » d'un Windows français ne ressemble à aucun
 // des motifs anglais. Les sous-chaînes restent en second rideau, pour les
 // erreurs enveloppées par une bibliothèque qui perd le type d'origine.
-func friendlyLLMError(err error) error {
+func friendlyLLMError(err error, ep chatEndpoint) error {
 	if err == nil {
 		return nil
 	}
@@ -780,31 +780,47 @@ func friendlyLLMError(err error) error {
 	}
 	switch {
 	case errors.Is(err, syscall.ECONNREFUSED):
-		return errEngineDown()
+		return errEngineDown(ep)
 	case errors.Is(err, context.DeadlineExceeded), isNetTimeout(err):
-		return fmt.Errorf("⚠️ Le moteur (llama-server) met trop de temps à répondre (port %d) — il est peut-être surchargé ou en plein chargement. Réessaie dans un instant.", LLMPort())
+		return engineTimeout(ep)
 	case errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, syscall.ECONNRESET):
-		return errEngineReset()
+		return errEngineReset(ep)
 	}
 	low := strings.ToLower(err.Error())
 	switch {
 	case strings.Contains(low, "context canceled"):
 		return err
 	case strings.Contains(low, "connection refused"), strings.Contains(low, "actively refused"), strings.Contains(low, "connectex"), strings.Contains(low, "no connection could be made"):
-		return errEngineDown()
+		return errEngineDown(ep)
 	case strings.Contains(low, "timeout"), strings.Contains(low, "deadline exceeded"):
-		return fmt.Errorf("⚠️ Le moteur (llama-server) met trop de temps à répondre (port %d) — il est peut-être surchargé ou en plein chargement. Réessaie dans un instant.", LLMPort())
+		return engineTimeout(ep)
 	case strings.Contains(low, "eof"), strings.Contains(low, "connection reset"):
-		return errEngineReset()
+		return errEngineReset(ep)
 	}
 	return err
 }
 
-func errEngineDown() error {
+// engineTimeout, errEngineDown et errEngineReset nomment le moteur selon le
+// endpoint : local → llama-server + port ; distant (externe/cloud) → ni l'un ni
+// l'autre n'a de sens, on parle du service distant.
+func engineTimeout(ep chatEndpoint) error {
+	if ep.External {
+		return fmt.Errorf("⚠️ Le service distant met trop de temps à répondre — il est peut-être surchargé. Réessaie dans un instant.")
+	}
+	return fmt.Errorf("⚠️ Le moteur (llama-server) met trop de temps à répondre (port %d) — il est peut-être surchargé ou en plein chargement. Réessaie dans un instant.", LLMPort())
+}
+
+func errEngineDown(ep chatEndpoint) error {
+	if ep.External {
+		return fmt.Errorf("⚠️ Le service distant ne répond pas. Il est peut-être en cours de démarrage ou de chargement — réessaie dans quelques secondes.")
+	}
 	return fmt.Errorf("⚠️ Le moteur (llama-server) ne répond pas sur le port %d. Il est probablement en train de démarrer ou de charger le modèle — réessaie dans quelques secondes.", LLMPort())
 }
 
-func errEngineReset() error {
+func errEngineReset(ep chatEndpoint) error {
+	if ep.External {
+		return fmt.Errorf("⚠️ Connexion au service distant interrompue — réessaie.")
+	}
 	return fmt.Errorf("⚠️ Connexion au moteur (llama-server, port %d) interrompue — il a peut-être redémarré. Réessaie.", LLMPort())
 }
 
@@ -812,9 +828,12 @@ func errEngineReset() error {
 // part de friendlyLLMError : ici la requête avait ABOUTI (200 reçu, tokens déjà
 // reçus), c'est la lecture qui a lâché. Le dire autrement qu'un « le moteur ne
 // répond pas » évite d'envoyer l'utilisateur vérifier un moteur qui va bien.
-func streamCutError(err error) error {
+func streamCutError(err error, ep chatEndpoint) error {
 	if errors.Is(err, bufio.ErrTooLong) {
 		return fmt.Errorf("⚠️ Réponse du moteur illisible : une ligne du flux dépasse la taille maximale (%d Mio). C'est presque toujours un appel d'outil démesuré (écriture d'un très gros fichier). Le tour est abandonné pour ne pas exécuter un appel tronqué.", 8)
+	}
+	if ep.External {
+		return fmt.Errorf("⚠️ Le flux de réponse du service distant a été coupé en cours de route : %v. La réponse est incomplète et le tour est abandonné — réessaie.", err)
 	}
 	return fmt.Errorf("⚠️ Le flux de réponse du moteur (llama-server, port %d) a été coupé en cours de route : %v. La réponse est incomplète et le tour est abandonné — réessaie.", LLMPort(), err)
 }
@@ -992,7 +1011,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			}
 		}
 		if err != nil {
-			err = friendlyLLMError(err)
+			err = friendlyLLMError(err, ep)
 			cb(StreamEvent{Err: err})
 			return extra, err
 		}
@@ -1063,7 +1082,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				messages = append(messages, Message{Role: "user", Content: "Do not call any more tools. Answer now, directly, in the user's language, using only the information already gathered."})
 				continue
 			}
-			err := fmt.Errorf("llama-server a renvoyé %d : %s", resp.StatusCode, msg)
+			err := fmt.Errorf("%s a renvoyé %d : %s", ep.engineLabel(), resp.StatusCode, msg)
 			cb(StreamEvent{Err: err})
 			return extra, err
 		}
@@ -1416,7 +1435,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			}
 		}
 		if scanErr != nil && ctx.Err() == nil {
-			err := streamCutError(scanErr)
+			err := streamCutError(scanErr, ep)
 			cb(StreamEvent{Err: err})
 			return extra, err
 		}

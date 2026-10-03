@@ -655,12 +655,12 @@ Write the summary in the SAME language as the conversation.`
 	}
 	resp, err := doLLM(ctx, req, body, ep)
 	if err != nil {
-		return "", friendlyLLMError(err)
+		return "", friendlyLLMError(err, ep)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 500))
-		return "", fmt.Errorf("résumé: llama-server %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
+		return "", fmt.Errorf("résumé: %s a renvoyé %d: %s", ep.engineLabel(), resp.StatusCode, strings.TrimSpace(string(b)))
 	}
 	var out summarizeResp
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {

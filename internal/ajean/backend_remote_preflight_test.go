@@ -71,3 +71,21 @@ func TestExternalWithBinPresentIsNotAConflict(t *testing.T) {
 		t.Errorf("pré-vol : %v", err)
 	}
 }
+
+// 6) engineLabel nomme le moteur pour les messages d'erreur : un preset distant
+// n'a pas de llama-server local, l'accuser induit en erreur.
+func TestEngineLabel(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		ep   chatEndpoint
+		want string
+	}{
+		{"local", chatEndpoint{}, "llama-server"},
+		{"externe", chatEndpoint{External: true}, "le service externe"},
+		{"cloud", chatEndpoint{External: true, Cloud: true}, "le GPU cloud"},
+	} {
+		if got := tc.ep.engineLabel(); got != tc.want {
+			t.Errorf("%s : engineLabel() = %q, attendu %q", tc.name, got, tc.want)
+		}
+	}
+}

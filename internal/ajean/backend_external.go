@@ -32,6 +32,19 @@ type chatEndpoint struct {
 	Cloud    bool   // true = GPU cloud Modal (attente du réveil sur 503)
 }
 
+// engineLabel nomme le moteur dans les messages d'erreur destinés à l'utilisateur.
+// Un preset distant n'a pas de llama-server local : l'accuser induit en erreur.
+func (ep chatEndpoint) engineLabel() string {
+	switch {
+	case ep.Cloud:
+		return "le GPU cloud"
+	case ep.External:
+		return "le service externe"
+	default:
+		return "llama-server"
+	}
+}
+
 // isExternalConfig indique si une configuration décrit un endpoint externe.
 func isExternalConfig(cfg map[string]string) bool {
 	return strings.TrimSpace(cfg[extKeyFlag]) == "1"
