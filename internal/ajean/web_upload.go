@@ -387,6 +387,20 @@ func handleChatFile(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	if t := q.Get("thumb"); t != "" {
+		// Vignette légère (JSON, donc elle traverse aussi le tunnel E2E) : le fil
+		// n'a besoin que de ~560 px, pas d'une capture de 3 Mo. Derrière
+		// ajean.link, chaque image partait en entier, en base64 chiffré : lent,
+		// et certaines n'arrivaient jamais. L'original reste servi à la demande.
+		px, _ := strconv.Atoi(t)
+		data, mime, err := chatThumb(abs, st, px)
+		if err != nil {
+			sendJSON(w, 415, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		sendJSON(w, 200, map[string]any{"ok": true, "mime": mime, "data": base64.StdEncoding.EncodeToString(data)})
+		return
+	}
 	if q.Get("b64") != "" {
 		off, _ := strconv.ParseInt(q.Get("offset"), 10, 64)
 		length, _ := strconv.ParseInt(q.Get("len"), 10, 64)

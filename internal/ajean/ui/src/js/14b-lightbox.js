@@ -94,6 +94,8 @@ function lbVisibleRect(el){
 
 function openLightbox(img){
   if(!img || !img.src || !img.naturalWidth) return;
+  // Le fil n'affiche qu'une vignette : l'original n'est chargé qu'ici.
+  if(typeof loadFullOnDemand==='function') loadFullOnDemand(img);
   lbBuild();
   let list=lbGroup(img), idx=list.indexOf(img);
   if(idx<0){ list=[img]; idx=0; }
@@ -107,6 +109,7 @@ function openLightbox(img){
 
 function lbShow(fromThumb, dir){
   const src=LB.list[LB.idx], im=LB.img;
+  if(typeof loadFullOnDemand==='function') loadFullOnDemand(src); // image suivante/précédente aussi
   lbResetZoom();
   // On démarre avec la VIGNETTE (déjà décodée, mêmes proportions) : poser d'emblée
   // l'original, pas encore décodé, faisait démarrer l'animation sur une image vide

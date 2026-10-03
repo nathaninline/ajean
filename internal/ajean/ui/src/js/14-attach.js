@@ -192,12 +192,49 @@ async function getWorkspaceBlob(path){
   if(!r.ok) throw new Error('HTTP '+r.status);
   return await r.blob();
 }
+// File des chargements d'images : deux à la fois au plus. Derrière ajean.link,
+// une conversation pleine d'images lançait tout en même temps dans le tunnel :
+// tout traînait, et certaines n'arrivaient jamais.
+const WS_Q={run:0, wait:[]};
+function wsQueued(fn){
+  return new Promise((res,rej)=>{
+    const go=()=>{ WS_Q.run++; fn().then(res,rej).finally(()=>{ WS_Q.run--; const n=WS_Q.wait.shift(); if(n) n(); }); };
+    if(WS_Q.run<2) go(); else WS_Q.wait.push(go);
+  });
+}
+// Vignette légère calculée par le serveur (~560 px, JPEG), au lieu de
+// l'original : quelques dizaines de Ko au lieu de plusieurs Mo. Un nouvel essai
+// en cas d'échec, puis repli sur l'original (format que le serveur ne sait pas
+// réduire).
+async function getWorkspaceThumb(path){
+  const once=async()=>{
+    const r=await jfetch('/api/chat/file?thumb=560&path='+encodeURIComponent(path));
+    const j=await r.json().catch(()=>({}));
+    if(r.status===415) return null; // pas de vignette possible : l'original
+    if(!r.ok || !j.ok) throw new Error(j.error||('HTTP '+r.status));
+    return new Blob([b64ToBytes(j.data||'')], {type:j.mime||'image/jpeg'});
+  };
+  return wsQueued(async()=>{
+    let b;
+    try{ b=await once(); }catch(_){ b=await once(); }
+    return b || await getWorkspaceBlob(path);
+  });
+}
+// L'original n'est chargé que pour l'agrandissement (visionneuse).
+function loadFullOnDemand(img){
+  if(!img || img.dataset.full || !img.dataset.path || img._fullLoading) return;
+  img._fullLoading=true;
+  getWorkspaceBlob(img.dataset.path).then(b=>{
+    img.dataset.full=URL.createObjectURL(b);
+    if(typeof LB!=='undefined' && LB.open && LB.list && LB.list[LB.idx]===img && LB.img) LB.img.src=img.dataset.full;
+  }).catch(()=>{}).finally(()=>{ img._fullLoading=false; });
+}
 // Charge la vignette d'une image du fil. En cas d'échec on ne fait rien : la
 // pastille reste avec son nom, comme avant. L'objectURL n'est pas révoqué —
 // la vignette vit aussi longtemps que la bulle, et le fil n'en accumule pas des
 // milliers.
 async function loadThumb(img, path, tile, name){
-  try{ setThumb(img, await getWorkspaceBlob(path)); }
+  try{ img.src=URL.createObjectURL(await getWorkspaceThumb(path)); }
   catch(_){ if(tile) tileBroken(tile, name||path); else img.remove(); }
 }
 // VRAIE vignette : l'image d'origine (une photo de 12 Mpx) était affichée telle
@@ -352,16 +389,16 @@ function markWorkspaceImages(root){
     if(!img.getAttribute('alt')) img.alt=p.split('/').pop();
     img.dataset.path=p; img.dataset.name=p.split('/').pop();
     if(!img._lb){ img._lb=true; img.addEventListener('click', ()=>{ if(img.naturalWidth && typeof openLightbox==='function') openLightbox(img); }); }
-    if(WS_IMG_CACHE[p]){ img.dataset.full=WS_IMG_CACHE[p+'\u0000full']||WS_IMG_CACHE[p]; img.src=WS_IMG_CACHE[p]; continue; }
+    if(WS_IMG_CACHE[p]){ img.src=WS_IMG_CACHE[p]; continue; }
     img.removeAttribute('src');            // évite le flash « image cassée »
     img.setAttribute('data-wsimg', p);
-    getWorkspaceBlob(p).then(async blob=>{
-      const full=URL.createObjectURL(blob);
-      const th=await makeThumbURL(blob);
-      const url=(th&&th.url)?th.url:full; WS_IMG_CACHE[p]=url; WS_IMG_CACHE[p+'\u0000full']=full;
+    if(WS_IMG_CACHE[p+'\u0000loading']) continue; // déjà demandée : le re-render la recevra
+    WS_IMG_CACHE[p+'\u0000loading']=true;
+    getWorkspaceThumb(p).then(blob=>{
+      const url=URL.createObjectURL(blob); WS_IMG_CACHE[p]=url;
       // l'<img> a pu être recréé par un re-render du markdown : on recible par data-wsimg.
-      document.querySelectorAll('img[data-wsimg="'+cssEsc(p)+'"]').forEach(i=>{ i.dataset.full=full; i.src=url; });
-    }).catch(()=>{});
+      document.querySelectorAll('img[data-wsimg="'+cssEsc(p)+'"]').forEach(i=>{ i.src=url; });
+    }).catch(()=>{}).finally(()=>{ delete WS_IMG_CACHE[p+'\u0000loading']; });
   }
 }
 function attachListEl(){ return document.getElementById('attach-list'); }
