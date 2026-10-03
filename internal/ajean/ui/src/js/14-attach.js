@@ -312,6 +312,15 @@ function markFileLinks(root){
   for(const a of root.querySelectorAll('a[href]')){
     const p=fileLinkPath(a.getAttribute('href'));
     if(!p) continue;
+    // Lien vers une IMAGE ([le poster](poster.png)) : on l'affiche, au lieu d'un
+    // simple bouton de téléchargement (vu par Alice : « il fait juste un lien »).
+    // markWorkspaceImages, appelé juste après, la charge ; un clic l'agrandit.
+    if(isImageName(p)){
+      const img=document.createElement('img');
+      img.setAttribute('src', p); img.alt=a.textContent||p.split('/').pop();
+      a.replaceWith(img);
+      continue;
+    }
     a.classList.add('filelink');
     a.removeAttribute('target');
     a.setAttribute('href','#');

@@ -9963,6 +9963,12 @@ function markFileLinks(root){
   for(const a of root.querySelectorAll('a[href]')){
     const p=fileLinkPath(a.getAttribute('href'));
     if(!p) continue;
+    if(isImageName(p)){
+      const img=document.createElement('img');
+      img.setAttribute('src', p); img.alt=a.textContent||p.split('/').pop();
+      a.replaceWith(img);
+      continue;
+    }
     a.classList.add('filelink');
     a.removeAttribute('target');
     a.setAttribute('href','#');
