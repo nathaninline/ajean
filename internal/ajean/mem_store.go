@@ -130,12 +130,6 @@ func reencryptChatStores() error {
 	return nil
 }
 
-// decryptChatStores remet en clair les buckets de conversation. Exige la DEK.
-func decryptChatStores() error {
-	_, err := decryptChatStoresSkipping()
-	return err
-}
-
 // unreadableValue : une valeur chiffrée qui ne se déchiffre pas avec la clé
 // actuelle (écrite avec une autre clé, ou abîmée). Gardée telle quelle.
 type unreadableValue struct {

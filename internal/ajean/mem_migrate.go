@@ -299,15 +299,10 @@ func finishDecryption() error {
 	return nil
 }
 
-// decryptAllPages réécrit en clair toutes les pages encore chiffrées, DANS TOUS LES
-// PROJETS, en vérifiant chacune. Exige la DEK en RAM. Sûr à rejouer (idempotent).
-func decryptAllPages() error {
-	_, err := decryptAllPagesSkipping()
-	return err
-}
-
-// decryptAllPagesSkipping : comme decryptAllPages, mais un fichier indéchiffrable
-// est laissé tel quel et renvoyé au lieu de tout arrêter.
+// decryptAllPagesSkipping réécrit en clair tous les fichiers encore chiffrés de la
+// mémoire, DANS TOUS LES PROJETS, en vérifiant chacun. Exige la DEK en RAM. Sûr à
+// rejouer. Un fichier indéchiffrable est laissé tel quel et renvoyé au lieu de
+// tout arrêter.
 func decryptAllPagesSkipping() ([]unreadableValue, error) {
 	var bad []unreadableValue
 	for _, p := range allMemFilesForDecrypt() {
