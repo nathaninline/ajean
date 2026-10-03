@@ -132,17 +132,40 @@ func reencryptChatStores() error {
 
 // decryptChatStores remet en clair les buckets de conversation. Exige la DEK.
 func decryptChatStores() error {
+	_, err := decryptChatStoresSkipping()
+	return err
+}
+
+// unreadableValue : une valeur chiffrée qui ne se déchiffre pas avec la clé
+// actuelle (écrite avec une autre clé, ou abîmée). Gardée telle quelle.
+type unreadableValue struct {
+	Bucket string `json:"bucket"`
+	Key    string `json:"key"`
+	Blob   []byte `json:"blob"` // base64 en JSON
+	Error  string `json:"error"`
+}
+
+// decryptChatStoresSkipping déchiffre tout ce qui peut l'être et RENVOIE ce qui
+// ne le peut pas, au lieu de s'arrêter au premier échec. Vu le 2026-10-03 : une
+// seule valeur illisible bloquait toute la désactivation du chiffrement, sans
+// dire laquelle, alors que tout le reste était déjà en clair.
+func decryptChatStoresSkipping() ([]unreadableValue, error) {
+	var bad []unreadableValue
 	for _, b := range encryptedBuckets {
-		if err := decryptBucket(b); err != nil {
-			return err
+		u, err := decryptBucket(b)
+		if err != nil {
+			return bad, err
 		}
+		bad = append(bad, u...)
 	}
-	return nil
+	return bad, nil
 }
 
 // decryptBucket remet en clair toutes les valeurs chiffrées d'un bucket. Exige
-// la DEK en RAM. Sûr à rejouer.
-func decryptBucket(bucket string) error {
+// la DEK en RAM. Sûr à rejouer. Une valeur indéchiffrable est laissée telle
+// quelle et renvoyée ; seule une erreur d'écriture est fatale.
+func decryptBucket(bucket string) ([]unreadableValue, error) {
+	var bad []unreadableValue
 	for k, v := range allKV(bucket) {
 		raw := []byte(v)
 		if !looksEncrypted(raw) {
@@ -150,11 +173,12 @@ func decryptBucket(bucket string) error {
 		}
 		plain, err := decodeMemContent(raw)
 		if err != nil {
-			return err
+			bad = append(bad, unreadableValue{Bucket: bucket, Key: k, Blob: raw, Error: err.Error()})
+			continue
 		}
 		if err := putBytes(bucket, k, plain); err != nil {
-			return err
+			return bad, err
 		}
 	}
-	return nil
+	return bad, nil
 }

@@ -2,6 +2,7 @@ package ajean
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -217,5 +218,52 @@ func TestSnapshotRestore(t *testing.T) {
 		if got := MemContent(name); got != want {
 			t.Fatalf("après restauration %s: %q != %q", name, got, want)
 		}
+	}
+}
+
+// Vu le 2026-10-03 sur un vrai serveur : une seule valeur indéchiffrable
+// bloquait toute la désactivation, et les fichiers non .md de Jean (rules.json,
+// usage-fiches.json…) restaient chiffrés sans clé. Désormais : tout ce qui se lit
+// est déchiffré, l'illisible part en quarantaine, et la désactivation aboutit.
+func TestDisableMemEncryptionSurvitAuxValeursIllisibles(t *testing.T) {
+	testHome(t)
+	if _, err := EnableMemEncryption("pass-de-test-1234"); err != nil {
+		t.Fatal(err)
+	}
+	if err := jeanWrite("usage-fiches.json", `{"x":1}`); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(filepath.Join(jeanDir(), "usage-fiches.json"))
+	if !looksEncrypted(raw) {
+		t.Fatal("usage-fiches.json devrait être chiffré")
+	}
+	other := make([]byte, 32)
+	other[0] = 7
+	alien, err := encPage(other, []byte("conversation chiffrée avec une autre clé"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := putBytes(bkChatHist, "vieille", alien); err != nil {
+		t.Fatal(err)
+	}
+	if err := DisableMemEncryption(); err != nil {
+		t.Fatalf("la désactivation aurait dû aboutir : %v", err)
+	}
+	if memEncActive() {
+		t.Fatal("le chiffrement devrait être désactivé")
+	}
+	b, _ := os.ReadFile(filepath.Join(jeanDir(), "usage-fiches.json"))
+	if string(b) != `{"x":1}` {
+		t.Fatalf("usage-fiches.json pas déchiffré : %q", b)
+	}
+	if v := getBytes(bkChatHist, "vieille"); len(v) != 0 {
+		t.Fatal("la valeur illisible aurait dû quitter la base")
+	}
+	q, _ := filepath.Glob(filepath.Join(AjeanHome(), "chiffre-illisible-*", "valeurs.json"))
+	if len(q) != 1 {
+		t.Fatalf("quarantaine attendue, trouvée : %v", q)
+	}
+	if qb, _ := os.ReadFile(q[0]); !strings.Contains(string(qb), "vieille") {
+		t.Fatal("la quarantaine doit contenir la valeur illisible")
 	}
 }
