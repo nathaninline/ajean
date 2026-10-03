@@ -1,17 +1,12 @@
-Correctifs du chiffrement de la mémoire et de l'affichage des images, après la v0.17.7.
-
-## Chiffrement de la mémoire
-
-- **La désactivation du chiffrement va désormais au bout.** Une seule valeur illisible (chiffrée avec une ancienne clé) arrêtait toute l'opération avec « déchiffrement refusé », sans dire laquelle. Ce qui peut être déchiffré l'est ; ce qui ne le peut pas est mis de côté, toujours chiffré, dans un dossier `chiffre-illisible-<date>` de `AJEAN_HOME`, avec une copie du trousseau de clés, et le journal du serveur indique chaque valeur concernée.
-- **Tous les fichiers de la mémoire sont déchiffrés**, sous-dossiers compris. Auparavant seules les pages `.md` l'étaient : les autres fichiers du mode Jean (règles, compteurs, copies de sécurité du ménage) restaient chiffrés sans plus aucune clé une fois le chiffrement retiré.
-- **La reprise d'un déchiffrement interrompu** au démarrage déchiffre maintenant aussi les conversations avant de retirer la clé. Elle pouvait les laisser chiffrées et illisibles.
+Images beaucoup plus rapides dans le chat, surtout derrière ajean.link.
 
 ## Images
 
-- Un lien vers une image dans une réponse affiche l'image dans le chat, au lieu d'un simple bouton de téléchargement. Un clic l'agrandit.
+- **Vignettes légères.** Le chat affichait chaque image en taille originale : une capture ou un poster de 1 à 3 Mo traversait en entier le tunnel chiffré d'ajean.link pour une vignette de quelques centimètres. Le serveur produit désormais une vignette (environ 25 fois plus légère), et l'image en pleine taille n'est chargée que pour l'agrandissement.
+- **Chargement en file.** Les images d'une conversation se chargent deux par deux, avec un nouvel essai en cas d'échec, au lieu de partir toutes en même temps : certaines n'arrivaient jamais.
 
 ## Mise à jour
 
     ajean update
 
-Vérifié sur le serveur Linux (désactivation du chiffrement sur une vraie mémoire contenant d'anciennes conversations illisibles, puis réactivation et nouvelle désactivation) et par les tests automatiques. L'affichage des images derrière app.ajean.link n'a pas encore été éprouvé en conditions réelles.
+Vérifié sur le serveur Linux derrière ajean.link et par les tests automatiques.
