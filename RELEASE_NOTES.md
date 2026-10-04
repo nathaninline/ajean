@@ -8,4 +8,4 @@ Correctif de la lecture vidéo arrivée en 0.17.11.
 
     ajean update
 
-Vérifié sur le serveur Linux (Strata et llama.cpp) et par les tests automatiques.
+Vérifié par les tests automatiques, et sur le serveur Linux pour la détection du moteur (Strata et llama.cpp). Une lecture vidéo complète avec llama.cpp n'a pas été refaite après ce correctif.
