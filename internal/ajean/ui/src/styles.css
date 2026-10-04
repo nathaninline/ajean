@@ -172,6 +172,9 @@ h1{margin:0;font-size:18px;color:var(--accent)}
    le groupe, mais appliqué à la .switchrow seule pour qu'une ligne voisine non gatée
    (la notification) reste pleinement active dans la même carte. */
 .switchrow.gated{opacity:.4;pointer-events:none;filter:grayscale(.4);transition:opacity .15s}
+/* Grisé = inactif, pas muet : l'aide « ? » reste survolable pour expliquer le
+   réglage (#104 ; pointer-events:none du parent bloquait aussi le survol). */
+.gated .help{pointer-events:auto}
 .switch{position:relative;display:inline-block;width:36px;height:20px;flex:none}
 .switch input{position:absolute;opacity:0;width:0;height:0}
 /* Piste décochée : un gris franc (pas --border), sinon le pavé blanc ne se
