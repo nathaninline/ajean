@@ -480,7 +480,12 @@ async function loadCfg(){
     if(lc && lc.prebuilt && lc.prebuilt.in_use) v=t('status.engine_prebuilt');
     else if(lc && lc.in_use) v=t('status.engine_compiled');
     else v=t('status.engine_custom_prefix')+' '+c.BIN;
-    rows.push(row(t('status.cfg_engine'), v, c.BIN));
+    // Commande exacte du dernier lancement (#108) : petite icône de copie
+    // accolée au libellé MOTEUR, le détail au survol.
+    const cl=await jget('/api/engine/cmdline').catch(()=>null);
+    ENGINE_CMDLINE=(cl&&cl.cmdline)||'';
+    const cp=ENGINE_CMDLINE ? '<button class="cfg-copy" onclick="copyText(ENGINE_CMDLINE, t(\'status.cmdline_copied\'))" title="'+escHtml(t('status.cmdline_copy')+' : '+ENGINE_CMDLINE)+'"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>' : '';
+    rows.push(row(t('status.cfg_engine')+cp, v, c.BIN));
   }
   // Nombre de couches du modèle (#43) : NGL au-delà de ngl_max ne change rien,
   // en dessous on libère de la VRAM pour le contexte et le cache KV.
@@ -493,11 +498,6 @@ async function loadCfg(){
   // n-cpu-moe : affiché seulement s'il est réellement présent dans EXTRA_ARGS.
   const m=(c.EXTRA_ARGS||'').match(/--n-cpu-moe\s+(\d+)/);
   if(m) rows.push(row('N-CPU-MOE', m[1]));
-  // Ligne de commande exacte du dernier lancement (#108), copiable pour la
-  // vérifier ou la partager.
-  const cl=await jget('/api/engine/cmdline').catch(()=>null);
-  ENGINE_CMDLINE=(cl&&cl.cmdline)||'';
-  if(ENGINE_CMDLINE) rows.push('<div class="kv"><span>'+t('status.cfg_cmdline')+'</span><button class="pe-link" onclick="copyText(ENGINE_CMDLINE, t(\'status.cmdline_copied\'))" title="'+escHtml(ENGINE_CMDLINE)+'">'+t('status.cmdline_copy')+'</button></div>');
   swapContent(document.getElementById('cfg'), rows.join(''));
   // Raccourci « niveau de réflexion » du composeur : présent seulement si le preset
   // actif définit un effort. Rafraîchi à chaque loadCfg (donc après une bascule de

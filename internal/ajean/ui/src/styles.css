@@ -371,6 +371,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .help:hover>.tip,.help:focus>.tip,.help.open>.tip{display:block}
 .kv{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;border-bottom:1px solid var(--border);font-size:13px;min-height:38px;align-items:center}
 .kv span:first-child{color:var(--text);flex-shrink:0}
+/* Copie de la commande du moteur (#108) : icône discrète accolée au libellé. */
+.cfg-copy{border:0;background:none;padding:0 0 0 6px;margin:0;color:var(--dim);opacity:.5;cursor:pointer;vertical-align:middle;line-height:0}
+.cfg-copy:hover{opacity:1;color:var(--text)}
 .kv:last-child{border-bottom:0}
 /* direction:rtl tronque par la GAUCHE (on garde la fin d'un chemin long), mais
    inversait l'ordre des groupes : « 18,2 / 24 Go » s'affichait « Go 24 / 18,2 ».

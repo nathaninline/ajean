@@ -222,6 +222,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .help:hover>.tip,.help:focus>.tip,.help.open>.tip{display:block}
 .kv{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;border-bottom:1px solid var(--border);font-size:13px;min-height:38px;align-items:center}
 .kv span:first-child{color:var(--text);flex-shrink:0}
+.cfg-copy{border:0;background:none;padding:0 0 0 6px;margin:0;color:var(--dim);opacity:.5;cursor:pointer;vertical-align:middle;line-height:0}
+.cfg-copy:hover{opacity:1;color:var(--text)}
 .kv:last-child{border-bottom:0}
 .kv span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;unicode-bidi:plaintext;text-align:right;min-width:0;color:var(--dim)}
 .bar{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin:0}
@@ -3423,7 +3425,6 @@ fr: {
   "status.ram_label": "Mémoire vive",
   "status.used_pct_suffix": "utilisée",
   "status.cfg_engine": "MOTEUR",
-  "status.cfg_cmdline": "COMMANDE",
   "status.ngl_max_title": "Ce modèle a {l} couches : NGL={n} le met entièrement sur le GPU. En dessous, les couches restantes vont en RAM et libèrent de la VRAM pour le contexte.",
   "status.cmdline_copy": "copier",
   "status.cmdline_copied": "commande llama-server copiée",
@@ -4688,7 +4689,6 @@ en: {
   "status.ram_label": "RAM",
   "status.used_pct_suffix": "used",
   "status.cfg_engine": "ENGINE",
-  "status.cfg_cmdline": "COMMAND",
   "status.ngl_max_title": "This model has {l} layers: NGL={n} puts it fully on the GPU. Below that, the remaining layers go to RAM and free VRAM for the context.",
   "status.cmdline_copy": "copy",
   "status.cmdline_copied": "llama-server command copied",
@@ -6164,7 +6164,10 @@ async function loadCfg(){
     if(lc && lc.prebuilt && lc.prebuilt.in_use) v=t('status.engine_prebuilt');
     else if(lc && lc.in_use) v=t('status.engine_compiled');
     else v=t('status.engine_custom_prefix')+' '+c.BIN;
-    rows.push(row(t('status.cfg_engine'), v, c.BIN));
+    const cl=await jget('/api/engine/cmdline').catch(()=>null);
+    ENGINE_CMDLINE=(cl&&cl.cmdline)||'';
+    const cp=ENGINE_CMDLINE ? '<button class="cfg-copy" onclick="copyText(ENGINE_CMDLINE, t(\'status.cmdline_copied\'))" title="'+escHtml(t('status.cmdline_copy')+' : '+ENGINE_CMDLINE)+'"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>' : '';
+    rows.push(row(t('status.cfg_engine')+cp, v, c.BIN));
   }
   const ly=c.MODEL ? await jget('/api/model/layers').catch(()=>null) : null;
   ['MODEL','CTX','BATCH','UBATCH','NGL'].filter(k=>c[k]).forEach(k=>{
@@ -6174,9 +6177,6 @@ async function loadCfg(){
   });
   const m=(c.EXTRA_ARGS||'').match(/--n-cpu-moe\s+(\d+)/);
   if(m) rows.push(row('N-CPU-MOE', m[1]));
-  const cl=await jget('/api/engine/cmdline').catch(()=>null);
-  ENGINE_CMDLINE=(cl&&cl.cmdline)||'';
-  if(ENGINE_CMDLINE) rows.push('<div class="kv"><span>'+t('status.cfg_cmdline')+'</span><button class="pe-link" onclick="copyText(ENGINE_CMDLINE, t(\'status.cmdline_copied\'))" title="'+escHtml(ENGINE_CMDLINE)+'">'+t('status.cmdline_copy')+'</button></div>');
   swapContent(document.getElementById('cfg'), rows.join(''));
   updateReasonBtn(c.REASONING_EFFORT || '');
 }
