@@ -1,18 +1,24 @@
-Correctif pour Windows : Microsoft Defender supprimait AJEAN.
+Recherche dans le texte des conversations, vidéos comprises par le modèle, et réglages du moteur plus transparents.
 
-## Windows
+## Historique
 
-- **AJEAN supprimé par Defender (Trojan:Win32/Bearfoos.A!ml).** Depuis la 0.17.5, Defender pouvait classer AJEAN comme cheval de Troie juste après une mise à jour, puis supprimer le programme et ses raccourcis. Il s'agit d'un faux positif. La 0.17.7 l'aggravait : pour fermer le navigateur piloté par l'IA en même temps qu'AJEAN, ce navigateur était lancé suspendu puis relancé par un appel système bas niveau, une méthode qui ressemble à une injection de processus. Il est désormais lancé normalement, et sa fermeture avec AJEAN est conservée.
-- **Les données n'ont pas été perdues.** Defender ne retire que le programme (`ajean.exe`) et ses raccourcis. Conversations, mémoire, presets et modèles restent dans `C:\ProgramData\ajean`.
+- **Recherche dans le texte des conversations.** La recherche de l'historique ne regardait que les titres : une conversation dont le titre ne rappelait rien restait introuvable. Elle trouve désormais aussi les mots écrits dans les échanges (début de mot, sans tenir compte des accents), titres en tête des résultats. L'index est chiffré comme les conversations quand la mémoire l'est, et les anciennes conversations sont indexées en tâche de fond après la mise à jour. Contribution d'Olioli4 (#99).
 
-## Récupérer AJEAN après une suppression
+## Vision
 
-1. Sécurité Windows, Protection contre les virus et menaces, Historique de protection.
-2. Ouvrir l'alerte Bearfoos, puis Actions, Restaurer (ou télécharger à nouveau AJEAN depuis ajean.app).
-3. Pour éviter une nouvelle alerte : Gérer les paramètres, Exclusions, ajouter le dossier `C:\ProgramData\ajean`.
+- **Vidéos.** Avec un modèle qui lit la vidéo (Qwen3.8 par exemple) et son projecteur vision, une vidéo jointe au message (mp4, webm, mov, mkv, avi) est transmise au modèle, et en mode agent l'outil `see_video` lui permet d'en ouvrir une sur le disque. Nécessite un llama.cpp récent et ffmpeg sur la machine du moteur. Contribution de Trombo38 (#100).
+
+## Configuration
+
+- **Commande du moteur.** Le bloc Configuration affiche la ligne de commande llama-server exacte du dernier lancement, copiable en un clic (clé API masquée) : pratique pour voir ce qu'AJEAN ajoute, ou partager un réglage (#108).
+- **Nombre de couches du modèle.** Le nombre de couches est lu dans le fichier du modèle et affiché à côté de NGL, dans le bloc Configuration et dans l'éditeur de preset. Il devient facile de baisser NGL juste ce qu'il faut pour laisser de la VRAM au contexte (#43).
+
+## Corrections
+
+- **Aide des réglages grisés.** Le « ? » d'aide ne réagissait plus au survol quand le réglage était grisé (mode agent désactivé). Il reste maintenant consultable (#104).
 
 ## Mise à jour
 
     ajean update
 
-Vérifié par les tests automatiques et un scan Defender. La fermeture du navigateur piloté avec AJEAN n'a pas été retestée sous Windows.
+Vérifié par les tests automatiques. La lecture vidéo et le nouvel affichage de la configuration n'ont pas été essayés sous Windows ni sur macOS.
