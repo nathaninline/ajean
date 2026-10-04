@@ -1,12 +1,18 @@
-Images beaucoup plus rapides dans le chat, surtout derrière ajean.link.
+Correctif pour Windows : Microsoft Defender supprimait AJEAN.
 
-## Images
+## Windows
 
-- **Vignettes légères.** Le chat affichait chaque image en taille originale : une capture ou un poster de 1 à 3 Mo traversait en entier le tunnel chiffré d'ajean.link pour une vignette de quelques centimètres. Le serveur produit désormais une vignette (environ 25 fois plus légère), et l'image en pleine taille n'est chargée que pour l'agrandissement.
-- **Chargement en file.** Les images d'une conversation se chargent deux par deux, avec un nouvel essai en cas d'échec, au lieu de partir toutes en même temps : certaines n'arrivaient jamais.
+- **AJEAN supprimé par Defender (Trojan:Win32/Bearfoos.A!ml).** Depuis la 0.17.5, Defender pouvait classer AJEAN comme cheval de Troie juste après une mise à jour, puis supprimer le programme et ses raccourcis. Il s'agit d'un faux positif. La 0.17.7 l'aggravait : pour fermer le navigateur piloté par l'IA en même temps qu'AJEAN, ce navigateur était lancé suspendu puis relancé par un appel système bas niveau, une méthode qui ressemble à une injection de processus. Il est désormais lancé normalement, et sa fermeture avec AJEAN est conservée.
+- **Les données n'ont pas été perdues.** Defender ne retire que le programme (`ajean.exe`) et ses raccourcis. Conversations, mémoire, presets et modèles restent dans `C:\ProgramData\ajean`.
+
+## Récupérer AJEAN après une suppression
+
+1. Sécurité Windows, Protection contre les virus et menaces, Historique de protection.
+2. Ouvrir l'alerte Bearfoos, puis Actions, Restaurer (ou télécharger à nouveau AJEAN depuis ajean.app).
+3. Pour éviter une nouvelle alerte : Gérer les paramètres, Exclusions, ajouter le dossier `C:\ProgramData\ajean`.
 
 ## Mise à jour
 
     ajean update
 
-Vérifié sur le serveur Linux derrière ajean.link et par les tests automatiques.
+Vérifié par les tests automatiques et un scan Defender. La fermeture du navigateur piloté avec AJEAN n'a pas été retestée sous Windows.

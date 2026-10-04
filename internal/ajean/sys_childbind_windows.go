@@ -10,8 +10,11 @@ package ajean
 //
 // Mécanisme : un « job object » avec KILL_ON_JOB_CLOSE. Seul AJEAN en détient
 // le handle ; à sa mort le système le ferme et tue tout le job. L'enfant est
-// lancé SUSPENDU, rattaché, puis relancé : aucun sous-processus ne peut naître
-// avant le rattachement et s'échapper du job.
+// rattaché juste après son lancement, SANS être créé suspendu : le couple
+// CREATE_SUSPENDED + NtResumeProcess est la signature de l'injection de
+// processus et faisait classer AJEAN en cheval de Troie par Defender
+// (Bearfoos.A!ml). Les rares sous-processus nés avant le rattachement sont
+// rattrapés par killProcessTree.
 
 import (
 	"os/exec"
@@ -26,7 +29,6 @@ import (
 var (
 	childJobOnce sync.Once
 	childJob     windows.Handle
-	ntResume     = windows.NewLazySystemDLL("ntdll.dll").NewProc("NtResumeProcess")
 )
 
 func childJobHandle() windows.Handle {
@@ -47,31 +49,21 @@ func childJobHandle() windows.Handle {
 	return childJob
 }
 
-// prepareBoundChild : à appeler AVANT cmd.Start().
-func prepareBoundChild(cmd *exec.Cmd) {
-	if childJobHandle() == 0 {
-		return
-	}
-	if cmd.SysProcAttr == nil {
-		cmd.SysProcAttr = &syscall.SysProcAttr{}
-	}
-	cmd.SysProcAttr.CreationFlags |= windows.CREATE_SUSPENDED
-}
+// prepareBoundChild : à appeler AVANT cmd.Start(). Rien à préparer sous
+// Windows ; gardé pour la symétrie avec Linux.
+func prepareBoundChild(cmd *exec.Cmd) {}
 
-// bindChild : à appeler juste APRÈS cmd.Start(). Rattache puis relance. Si le
-// rattachement échoue, l'enfant est relancé quand même (mieux vaut un
-// navigateur qui risque de rester orphelin qu'un navigateur figé).
+// bindChild : à appeler juste APRÈS cmd.Start(). Rattache l'enfant au job.
 func bindChild(cmd *exec.Cmd) {
-	if cmd.Process == nil || cmd.SysProcAttr == nil || cmd.SysProcAttr.CreationFlags&windows.CREATE_SUSPENDED == 0 {
+	if cmd.Process == nil || childJobHandle() == 0 {
 		return
 	}
-	h, err := windows.OpenProcess(windows.PROCESS_SET_QUOTA|windows.PROCESS_TERMINATE|windows.PROCESS_SUSPEND_RESUME, false, uint32(cmd.Process.Pid))
+	h, err := windows.OpenProcess(windows.PROCESS_SET_QUOTA|windows.PROCESS_TERMINATE, false, uint32(cmd.Process.Pid))
 	if err != nil {
 		return
 	}
 	defer windows.CloseHandle(h)
 	_ = windows.AssignProcessToJobObject(childJobHandle(), h)
-	ntResume.Call(uintptr(h))
 }
 
 // killProcessTree : tue le processus ET ses descendants. Process.Kill ne vise
