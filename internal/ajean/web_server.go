@@ -128,6 +128,8 @@ func newWebMux() *http.ServeMux {
 	StartBackupScheduler()
 	// Allègement sans perte des anciennes conversations (tâche de fond, une fois).
 	startSlimArchives()
+	// Index plein-texte des conversations archivées (#98), rattrapage en fond.
+	startHistSearchBackfill()
 	go pruneToolResults()
 	mux := http.NewServeMux()
 	// Pages publiques : le HTML et le JS ne contiennent aucun secret. Toute la

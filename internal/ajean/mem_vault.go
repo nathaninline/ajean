@@ -79,6 +79,9 @@ func memUnlocked() bool {
 	return memDEK != nil
 }
 
+// memLocked : mémoire chiffrée MAIS verrouillée (DEK absente).
+func memLocked() bool { return memEncActive() && !memUnlocked() }
+
 // setMemDEK charge la DEK en RAM (copie défensive).
 func setMemDEK(dek []byte) {
 	memKeyMu.Lock()

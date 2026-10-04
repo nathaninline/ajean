@@ -1166,9 +1166,10 @@ func handleMemUnlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setMemDEK(dek)
-	resumeMemMigration()    // si une migration attendait le déverrouillage
-	reloadEncryptedStores() // recharge la conversation chiffrée en RAM
-	startSlimArchives()     // allègement des anciennes conversations (attendait la clé)
+	resumeMemMigration()      // si une migration attendait le déverrouillage
+	reloadEncryptedStores()   // recharge la conversation chiffrée en RAM
+	startSlimArchives()       // allègement des anciennes conversations (attendait la clé)
+	startHistSearchBackfill() // index plein-texte des archives (attendait la clé), #98
 	// Migration douce : chiffre les conversations restées en clair (ex. mémoire
 	// activée avant que le chiffrement des conversations existe). Idempotent :
 	// n'encode que ce qui ne l'est pas encore.

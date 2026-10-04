@@ -95,7 +95,13 @@ func saveArchive(a *convArchive) error {
 	}
 	// Index léger tenu à jour en parallèle : lister ne relit alors que ces petites
 	// métadonnées, pas le fil complet de chaque session.
-	return putStoreJSON(bkChatMeta, a.ID, convArchiveMeta{ID: a.ID, Project: a.Project, Title: a.Title, Fav: a.Fav, SavedAt: a.SavedAt, Turns: a.Turns, Mode: a.Mode})
+	if err := putStoreJSON(bkChatMeta, a.ID, convArchiveMeta{ID: a.ID, Project: a.Project, Title: a.Title, Fav: a.Fav, SavedAt: a.SavedAt, Turns: a.Turns, Mode: a.Mode}); err != nil {
+		return err
+	}
+	// Index plein-texte (#98). Erreur avalée : l'archive est sauvée, le
+	// rattrapage reprendra l'entrée manquante.
+	_ = indexArchive(a)
+	return nil
 }
 
 func loadArchive(id string) (*convArchive, bool) {
@@ -107,6 +113,7 @@ func loadArchive(id string) (*convArchive, bool) {
 }
 
 func deleteArchive(id string) error {
+	unindexArchive(id)       // l'index plein-texte part d'abord (chat_search.go)
 	deleteToolResultsFor(id) // ses résultats « voir plus » partent avec elle
 	_ = putBytes(bkChatMeta, id, nil)
 	return putBytes(bkChatHist, id, nil)

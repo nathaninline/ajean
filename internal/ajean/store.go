@@ -35,9 +35,12 @@ const (
 	bkChat     = "chat"     // conversation partagée
 	bkChatHist = "chathist" // conversations archivées (historique) — une entrée JSON par conversation
 	bkChatMeta = "chatmeta" // index LÉGER des sessions (id→métadonnées) pour lister sans parser les gros blobs
-	bkTasks    = "tasks"    // tâches planifiées (une entrée JSON par tâche)
-	bkRecall   = "recall"   // blocs archivés au compactage (id monotone → contenu verbatim, pour recall/recall_search)
-	bkTracker  = "suivi"    // trackers (données datées qui s'accumulent) — clé <projet>/<slug> → JSON {name, events} ; valeur "suivi" conservée pour ne pas orphaniser les données existantes
+	// Index PLEIN-TEXTE des conversations archivées (#98) : fiche par session
+	// (« d|<id> ») + listes d'occurrences par mot (« p|<token> »).
+	bkChatSearch = "chatsearch"
+	bkTasks      = "tasks"  // tâches planifiées (une entrée JSON par tâche)
+	bkRecall     = "recall" // blocs archivés au compactage (id monotone → contenu verbatim, pour recall/recall_search)
+	bkTracker    = "suivi"  // trackers (données datées qui s'accumulent) — clé <projet>/<slug> → JSON {name, events} ; valeur "suivi" conservée pour ne pas orphaniser les données existantes
 )
 
 // La base n'est PAS gardée ouverte entre deux opérations, et c'est délibéré.

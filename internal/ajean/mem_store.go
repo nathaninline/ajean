@@ -118,7 +118,7 @@ func bucketFullyEncrypted(bucket string) bool {
 // chiffrement est actif (conversation courante + archives + index de sessions).
 // Les autres buckets (config, prefs, state, tasks) restent en clair : ils portent
 // des réglages, pas des données personnelles de conversation.
-var encryptedBuckets = []string{bkChat, bkChatHist, bkChatMeta, bkTracker}
+var encryptedBuckets = []string{bkChat, bkChatHist, bkChatMeta, bkChatSearch, bkTracker}
 
 // reencryptChatStores (re)chiffre les buckets de conversation. Exige la DEK.
 func reencryptChatStores() error {

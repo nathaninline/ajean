@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -200,19 +201,31 @@ func handleChatHistory(w http.ResponseWriter, r *http.Request) {
 	} else {
 		list = historyList(q.Get("scope"))
 	}
-	// Recherche (?q=) : sur le titre et le nom du projet, sans tenir compte de la
-	// casse ni des accents. Faite avant la pagination.
+	// Recherche (?q=) : titre et nom du projet (sous-chaîne, sans casse ni
+	// accents) ET texte des conversations (index plein-texte, #98). Pertinence
+	// d'abord (titre = 2, chaque terme trouvé dans le texte = 1), puis l'ordre
+	// de la liste (favoris, date). Faite avant la pagination.
+	state, terms := "ok", []string{}
 	if needle := foldSearch(q.Get("q")); needle != "" {
+		var body map[string]int
+		body, terms, state = histBodyScores(q.Get("q"))
 		names := map[string]string{}
 		for _, p := range listProjects() {
 			names[p.Slug] = p.Name
 		}
+		score := map[string]int{}
 		kept := list[:0:0]
 		for _, m := range list {
+			sc := body[m.ID]
 			if strings.Contains(foldSearch(m.Title+" "+names[archiveProject(m)]), needle) {
+				sc += 2
+			}
+			if sc > 0 {
+				score[m.ID] = sc
 				kept = append(kept, m)
 			}
 		}
+		sort.SliceStable(kept, func(i, j int) bool { return score[kept[i].ID] > score[kept[j].ID] })
 		list = kept
 	}
 	// Pagination optionnelle (?offset=&limit=) : la liste des sessions grandit au
@@ -231,7 +244,11 @@ func handleChatHistory(w http.ResponseWriter, r *http.Request) {
 	for _, p := range listProjects() {
 		names[p.Slug] = p.Name
 	}
+	if list == nil {
+		list = []convArchiveMeta{}
+	}
 	sendJSON(w, 200, map[string]any{"ok": true, "conversations": list, "total": total,
+		"state": state, "terms": terms, "indexed": 0, "indexed_total": 0,
 		"active": conv.currentID(), "generating": conv.isGenerating(),
 		"projects": names, "default_project": defaultProjectSlug})
 }
