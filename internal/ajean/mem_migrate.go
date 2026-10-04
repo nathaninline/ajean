@@ -296,7 +296,31 @@ func finishDecryption() error {
 	removeVault()
 	clearMemDEK()
 	clearMigrationJournal()
+	scrubEncryptedResidue()
 	return nil
+}
+
+// scrubEncryptedResidue retire les .bak encore CHIFFRÉS de la mémoire une fois
+// le chiffrement désactivé : la clé est partie avec le keyvault, ils ne
+// pourront plus jamais être lus (vu : 246 fichiers sur le 127). Pendant
+// symétrique de scrubPlaintextResidue. Les valeurs illisibles mises en
+// quarantaine et les snapshots vivent hors de memory/ : jamais touchés.
+// Rien n'est fait tant que le chiffrement est actif.
+func scrubEncryptedResidue() int {
+	if memEncActive() {
+		return 0
+	}
+	n := 0
+	_ = filepath.WalkDir(projectsRoot(), func(p string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(d.Name(), ".bak") {
+			return nil
+		}
+		if b, err := os.ReadFile(p); err == nil && looksEncrypted(b) && os.Remove(p) == nil {
+			n++
+		}
+		return nil
+	})
+	return n
 }
 
 // decryptAllPagesSkipping réécrit en clair tous les fichiers encore chiffrés de la

@@ -120,6 +120,11 @@ func newWebMux() *http.ServeMux {
 	// Sans DEK en RAM (démarrage à froid), laisse le journal en place : un
 	// déverrouillage ultérieur la reprendra. Ne perd jamais de données.
 	resumeMemMigration()
+	// Chiffrement désactivé avant la 0.17.14 : les .bak chiffrés restés derrière
+	// sont illisibles (clé retirée). No-op tant que le chiffrement est actif.
+	if n := scrubEncryptedResidue(); n > 0 {
+		fmt.Printf("[mémoire] %d copie(s) .bak chiffrée(s) devenue(s) illisible(s) retirée(s)\n", n)
+	}
 	// La clé de pilotage n'est plus stockée en clair (juste son empreinte) : on
 	// convertit une ancienne valeur en clair une fois pour toutes.
 	migrateWebKeyToHash()
