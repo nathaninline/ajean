@@ -686,7 +686,7 @@ function openHistRowMenu(anchor, c){
   popMenu(anchor, [
     {icon:'star', label:c.fav?t('chat.session.unfav'):t('chat.session.fav'), run:()=>favHistory(c.id, !c.fav)},
     {icon:'pencil', label:t('chat.session.rename'), run:()=>renameHistory(c.id, c.title)},
-    PROJECTS.length > 1 && c.id !== HIST_ST.active && c.mode!=='fast' && c.mode!=='base' && {icon:'move', label:t('projects.move_to'), run:()=>moveSessionUI(c, anchor)}, // la conversation ouverte ne se déplace pas
+    (PROJECTS.length > 1 || c.mode==='fast') && c.id !== HIST_ST.active && c.mode!=='base' && {icon:'move', label:t('projects.move_to'), run:()=>moveSessionUI(c, anchor)}, // la conversation ouverte ne se déplace pas ; une rapide devient une conversation de projet (#111)
     {icon:EXPORT_IC, label:t('projects.export'), run:()=>downloadExport('/api/chat/export?id='+encodeURIComponent(c.id))},
     {icon:'trash', label:t('chat.session.delete_permanently'), danger:true, run:()=>deleteHistory(c.id, c.title)},
   ], {side:'below'});

@@ -253,7 +253,14 @@ func moveArchiveToProject(id, toSlug string) error {
 	if !ok {
 		return fmt.Errorf("conversation introuvable")
 	}
-	if a.Project == toSlug {
+	if a.Mode == "base" {
+		return fmt.Errorf("une conversation « Modèle de base » ne se range pas dans un projet")
+	}
+	// Conversation rapide (#111) : la déplacer la CONVERTIT en conversation de
+	// projet. Elle quitte la liste Rapide et reprendra en mode Projet.
+	if a.Mode == "fast" {
+		a.Mode = "project"
+	} else if a.Project == toSlug {
 		return nil // déjà là : rien à faire
 	}
 	a.Project = toSlug

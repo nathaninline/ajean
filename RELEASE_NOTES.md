@@ -1,15 +1,12 @@
-Mémoire de Jean mieux rangée et nettoyage après la désactivation du chiffrement.
+Rangement des conversations rapides et recherche plus claire.
 
-## Mode Jean
+## Historique
 
-- **Valeurs périmées pendant le rangement nocturne.** Quand une information changeait (une durée, un rythme, un chemin), la consolidation de la mémoire pouvait ajouter la nouvelle valeur à côté de l'ancienne au lieu de la remplacer, ce qui laissait des fiches contradictoires (par exemple deux durées différentes pour le même envoi). La consigne demande désormais de remplacer l'ancienne valeur et de vérifier que le reste de la ligne reste cohérent.
-
-## Mémoire
-
-- **Copies chiffrées devenues inutiles.** Après la désactivation du chiffrement de la mémoire, les copies de sécurité `.bak` de l'ancienne version restaient chiffrées alors que la clé avait été retirée : illisibles pour toujours, elles encombraient le dossier de la mémoire. Elles sont retirées à la fin de la désactivation, et au démarrage pour les installations où le chiffrement a déjà été désactivé. Les copies en clair, les sauvegardes et les valeurs mises en quarantaine ne sont pas touchées.
+- **Ranger une conversation rapide dans un projet.** Une conversation commencée en mode Rapide ne pouvait plus rejoindre un projet. Le menu de la conversation propose de nouveau « Déplacer vers… » : elle devient alors une conversation de ce projet, quitte la liste Rapide et reprend en mode Projet à sa prochaine ouverture. Les conversations « Modèle de base » restent à part (#111).
+- **Recherche dans tout l'historique.** La recherche de l'historique couvre déjà toutes les conversations, tous projets et tous modes confondus, mais rien ne l'indiquait : affichée sous le projet actif, elle semblait limitée à celui-ci. Le champ s'intitule désormais « Rechercher partout… » (#111).
 
 ## Mise à jour
 
     ajean update
 
-Vérifié par les tests automatiques et sur le serveur Linux. L'effet de la nouvelle consigne se verra à la prochaine consolidation nocturne.
+Vérifié par les tests automatiques et sur le serveur Linux.

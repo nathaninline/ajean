@@ -145,7 +145,8 @@ function pickProjectPop(anchor, excludeSlug, onPick){
 // Déplacer une conversation vers un autre projet (issue #55), depuis le menu ⋮ de
 // l'historique. Destination = tout projet sauf celui de la conversation.
 function moveSessionUI(c, anchor){
-  pickProjectPop(anchor, c.project || HIST_DEFAULT_PROJ, async(slug)=>{
+  // Une conversation rapide n'a pas de projet : tous les projets sont proposés.
+  pickProjectPop(anchor, c.mode==='fast' ? '' : (c.project || HIST_DEFAULT_PROJ), async(slug)=>{
     let r; try{ r = await jpost('/api/projects/move-session', {id:c.id, slug}); }catch(_){ toast(t('projects.network_error')); return; }
     if(!r.ok){ toast(r.error || t('projects.move_failed')); return; }
     toast(t('projects.moved_toast_prefix') + projName(slug));

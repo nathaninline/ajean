@@ -1935,7 +1935,7 @@ body.hist-jean #side-hist .hist-search,body.hist-jean #sess-count,body.hist-jean
     </div>
     <div class="hist-search">
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-      <input id="hist-q" type="search" autocomplete="off" placeholder="Rechercher…" oninput="onHistSearch()" data-i18n="chat.history_search" data-i18n-attr="placeholder">
+      <input id="hist-q" type="search" autocomplete="off" placeholder="Rechercher partout…" oninput="onHistSearch()" data-i18n="chat.history_search" data-i18n-attr="placeholder">
     </div>
     <div id="history-list" class="sess-list"></div>
     <button id="history-clear-all" class="hist-clear" onclick="clearAllHistory()" data-i18n="sessions.delete_all">tout supprimer (sauf favoris)</button>
@@ -3069,7 +3069,7 @@ fr: {
   "chat.mode_fast": "Rapide",
   "chat.mode_fast_hint": "bash, write, edit",
   "chat.mode_base": "Modèle de base",
-  "chat.history_search": "Rechercher…",
+  "chat.history_search": "Rechercher partout…",
   "chat.history_no_results": "aucune conversation ne correspond.",
   "memory.mode_heading": "Mode",
   "chat.stat_time": "Durée de la réponse",
@@ -4333,7 +4333,7 @@ en: {
   "chat.mode_fast": "Fast",
   "chat.mode_fast_hint": "bash, write, edit",
   "chat.mode_base": "Base model",
-  "chat.history_search": "Search…",
+  "chat.history_search": "Search everywhere…",
   "chat.history_no_results": "no matching conversation.",
   "memory.mode_heading": "Mode",
   "chat.stat_time": "Response time",
@@ -8383,7 +8383,7 @@ function openHistRowMenu(anchor, c){
   popMenu(anchor, [
     {icon:'star', label:c.fav?t('chat.session.unfav'):t('chat.session.fav'), run:()=>favHistory(c.id, !c.fav)},
     {icon:'pencil', label:t('chat.session.rename'), run:()=>renameHistory(c.id, c.title)},
-    PROJECTS.length > 1 && c.id !== HIST_ST.active && c.mode!=='fast' && c.mode!=='base' && {icon:'move', label:t('projects.move_to'), run:()=>moveSessionUI(c, anchor)}, 
+    (PROJECTS.length > 1 || c.mode==='fast') && c.id !== HIST_ST.active && c.mode!=='base' && {icon:'move', label:t('projects.move_to'), run:()=>moveSessionUI(c, anchor)}, 
     {icon:EXPORT_IC, label:t('projects.export'), run:()=>downloadExport('/api/chat/export?id='+encodeURIComponent(c.id))},
     {icon:'trash', label:t('chat.session.delete_permanently'), danger:true, run:()=>deleteHistory(c.id, c.title)},
   ], {side:'below'});
@@ -10921,7 +10921,7 @@ function pickProjectPop(anchor, excludeSlug, onPick){
     : [{label:t('projects.no_other_project'), disabled:true}], {side:'below'});
 }
 function moveSessionUI(c, anchor){
-  pickProjectPop(anchor, c.project || HIST_DEFAULT_PROJ, async(slug)=>{
+  pickProjectPop(anchor, c.mode==='fast' ? '' : (c.project || HIST_DEFAULT_PROJ), async(slug)=>{
     let r; try{ r = await jpost('/api/projects/move-session', {id:c.id, slug}); }catch(_){ toast(t('projects.network_error')); return; }
     if(!r.ok){ toast(r.error || t('projects.move_failed')); return; }
     toast(t('projects.moved_toast_prefix') + projName(slug));
