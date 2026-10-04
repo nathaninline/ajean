@@ -146,6 +146,23 @@ func seeImageTool() Tool {
 	}
 }
 
+func seeVideoTool() Tool {
+	return Tool{
+		Type: "function",
+		Function: ToolFunction{
+			Name:        "see_video",
+			Description: "Load a video file from disk so you can actually watch it (mp4, webm, mov, mkv, avi). The engine samples frames at ~4 fps; keep clips short (a few minutes max).",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"file": map[string]any{"type": "string", "description": "Path to the video (relative to your working folder unless absolute)"},
+				},
+				"required": []string{"file"},
+			},
+		},
+	}
+}
+
 func memDeleteTool() Tool {
 	return Tool{
 		Type: "function",
@@ -436,7 +453,7 @@ func EnabledTools(caps Caps) []Tool {
 		}
 		tools = append(tools, bashTool(), writeTool(), editTool())
 		if visionEnabled() {
-			tools = append(tools, seeImageTool())
+			tools = append(tools, seeImageTool(), seeVideoTool())
 		}
 		return tools
 	}
@@ -451,11 +468,11 @@ func EnabledTools(caps Caps) []Tool {
 		// agent — le compactage n'injecte les ids rappelables que là (voir
 		// compactSummaryUserMsg). Voir chat_recall.go.
 		tools = append(tools, recallTool(), recallSearchTool())
-		// Voir une image du disque : seulement quand la vision est réellement active
-		// (projecteur MMPROJ). Sinon l'outil ne pourrait que renvoyer une erreur, et
-		// l'annoncer ferait croire au modèle qu'il a des yeux qu'il n'a pas.
+		// Voir une image/vidéo du disque : seulement quand la vision est réellement
+		// active (projecteur MMPROJ). Sinon l'outil ne pourrait que renvoyer une
+		// erreur, et l'annoncer ferait croire au modèle qu'il a des yeux qu'il n'a pas.
 		if visionEnabled() {
-			tools = append(tools, seeImageTool())
+			tools = append(tools, seeImageTool(), seeVideoTool())
 		}
 	}
 	// Mémoire = axe indépendant du mode agent : les outils mem_* sont fournis dès
@@ -613,7 +630,7 @@ func fillToolResult(ev *ToolUsedEvent, result string) *ToolUsedEvent {
 //     SANS l'image et tournait en boucle (vécu sur le test de navigation). Ces outils ont des
 //     effets de bord (naviguer, cliquer, taper) : on les exécute toujours.
 func dedupableTool(name string) bool {
-	if name == "bash" || name == "see_image" {
+	if name == "bash" || name == "see_image" || name == "see_video" {
 		return false
 	}
 	return !strings.HasPrefix(name, "browser_")
@@ -943,9 +960,10 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			"model": ep.Model,
 			// Normalisé juste avant l'envoi : un seul system, en tête. Les gabarits
 			// stricts (Qwen3.x) refusent un system ailleurs qu'en position 0 (issue #26).
-			// Les images de l'historique y sont rangées par référence (chat_images.go) :
-			// on remet leurs octets juste avant l'envoi.
-			"messages":    expandImageRefs(normalizeSystemMessages(messages)),
+			// Les images/vidéos de l'historique y sont rangées par référence
+			// (chat_images.go / chat_video.go) : on remet leurs octets juste avant
+			// l'envoi.
+			"messages":    expandVideoRefs(expandImageRefs(normalizeSystemMessages(messages))),
 			"stream":      true,
 			"temperature": temperature,
 			// include_usage → chunk final avec `usage.prompt_tokens` = taille TOTALE
@@ -1240,7 +1258,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					switch cur.Function.Name {
 					case "mem_search", "web_search", "web_images":
 						key = "query"
-					case "mem_read", "mem_add", "mem_edit", "mem_delete", "edit", "write", "see_image":
+					case "mem_read", "mem_add", "mem_edit", "mem_delete", "edit", "write", "see_image", "see_video":
 						key = "file"
 					case "web_open", "web_read", "web_grep":
 						key = "url"
@@ -1484,7 +1502,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				switch tc.Function.Name {
 				case "mem_search", "web_search", "web_images", "recall_search":
 					label, _ = args["query"].(string)
-				case "mem_read", "mem_add", "mem_edit", "mem_delete", "edit", "write", "see_image":
+				case "mem_read", "mem_add", "mem_edit", "mem_delete", "edit", "write", "see_image", "see_video":
 					label, _ = args["file"].(string)
 				case "recall":
 					label, _ = args["id"].(string)
@@ -1522,8 +1540,8 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				// diff : rempli par les outils d'écriture (edit / mémoire) pour que
 				// l'UI montre les lignes ajoutées et retirées.
 				var diff []DiffLine
-				var diffAdd, diffDel int     // vrais totaux (diff est tronqué pour l'UI)
-				var visionImg map[string]any // partie image_url (see_image), réinjectée après le résultat
+				var diffAdd, diffDel int                  // vrais totaux (diff est tronqué pour l'UI)
+				var visionImg, visionVideo map[string]any // partie image_url (see_image), réinjectée après le résultat
 				// Appel rigoureusement identique déjà exécuté dans ce tour : on ne le
 				// rejoue pas. Les petits modèles réémettent volontiers deux fois la
 				// même écriture ; la rejouer produisait une fausse erreur (« old
@@ -1686,6 +1704,8 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					result = toolTaskList(args)
 				case "see_image":
 					result, visionImg = toolSeeImage(ctx, label)
+				case "see_video":
+					result, visionVideo = toolSeeVideo(ctx, label)
 				case "task_create":
 					result = toolTaskCreate(args)
 				case "task_update":
@@ -1756,6 +1776,21 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					}}
 					messages = append(messages, imgMsg)
 					extra = append(extra, imgMsg)
+				}
+				// see_video a réussi : même mécanisme, la vidéo passe dans un message
+				// utilisateur multimodal (partie input_video) que llama-server décode en
+				// frames via ffmpeg une fois --mmproj chargé.
+				if visionVideo != nil {
+					vidText := "Vidéo :"
+					if label != "" {
+						vidText = "Vidéo demandée (" + label + ") :"
+					}
+					vidMsg := Message{Role: "user", Content: []map[string]any{
+						{"type": "text", "text": vidText},
+						visionVideo,
+					}}
+					messages = append(messages, vidMsg)
+					extra = append(extra, vidMsg)
 				}
 			}
 			// Compaction EN COURS DE TOUR. Le seuil n'était testé qu'AU DÉBUT du tour :

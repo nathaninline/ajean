@@ -116,6 +116,9 @@ func compactSummaryBudget() int {
 // le modèle sait qu'il doit rappeler see_image plutôt que de deviner.
 const imageLostMarker = " [image — not kept past this point in the conversation once summarized; call see_image on the same file again if you still need to see it]"
 
+// videoLostMarker : équivalent pour une partie `input_video` (voir imageLostMarker).
+const videoLostMarker = " [video — not kept past this point in the conversation once summarized; call see_video on the same file again if you still need to see it]"
+
 // msgText extrait le texte d'un message (Content est `any`, en pratique string
 // ou nil quand l'assistant n'a que des tool_calls). Un message multimodal
 // (userMessageContent : parties texte + image quand la vision est active) porte
@@ -137,6 +140,8 @@ func msgText(m Message) string {
 				}
 			case "image_url":
 				b.WriteString(imageLostMarker)
+			case "input_video":
+				b.WriteString(videoLostMarker)
 			}
 		}
 		return b.String()
@@ -154,6 +159,8 @@ func msgText(m Message) string {
 				}
 			case "image_url":
 				b.WriteString(imageLostMarker)
+			case "input_video":
+				b.WriteString(videoLostMarker)
 			}
 		}
 		return b.String()

@@ -147,6 +147,19 @@ func stripInlineImagesValue(v any) any {
 			}
 			cp["image_url"] = c2
 		}
+		// Partie vidéo (format llama.cpp) : même élision de la data-URI.
+		if iv, ok := cp["input_video"].(map[string]any); ok {
+			c2 := make(map[string]any, len(iv))
+			for k, val := range iv {
+				c2[k] = val
+			}
+			for _, key := range []string{"url", "data"} {
+				if s, ok := c2[key].(string); ok && strings.HasPrefix(s, "data:") {
+					c2[key] = elideDataURI(s)
+				}
+			}
+			cp["input_video"] = c2
+		}
 		return cp
 	}
 	switch parts := v.(type) {
