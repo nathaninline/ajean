@@ -30,6 +30,9 @@ func toolSeeVideo(ctx context.Context, path string) (string, map[string]any) {
 	if path == "" {
 		return "[erreur] chemin de fichier manquant", nil
 	}
+	if !videoInputSupported() {
+		return "[erreur] " + videoFallbackNote, nil
+	}
 	abs := resolveSpacePath(ctx, path)
 	if msg := guardSpacePath(ctx, abs); msg != "" {
 		return msg, nil

@@ -51,6 +51,7 @@ func TestVideoRefsRoundTrip(t *testing.T) {
 // userMessageContent : une vidéo jointe devient une partie input_video (et une
 // image jointe reste une partie image_url), quand la vision est active.
 func TestUserMessageContentVideo(t *testing.T) {
+	videoEngine(t, true)
 	home := testHome(t)
 	// Active la vision (clé MMPROJ) dans le $AJEAN_HOME du test.
 	if err := WriteConfig(map[string]string{"MMPROJ": "mmproj.gguf"}); err != nil {
@@ -100,6 +101,7 @@ func TestUserMessageContentVideo(t *testing.T) {
 
 // toolSeeVideo : refuse un format non vidéo et un fichier absent, accepte un mp4.
 func TestToolSeeVideo(t *testing.T) {
+	videoEngine(t, true)
 	home := testHome(t)
 	if err := WriteConfig(map[string]string{"MMPROJ": "mmproj.gguf"}); err != nil {
 		t.Fatal(err)
@@ -124,5 +126,43 @@ func TestToolSeeVideo(t *testing.T) {
 	}
 	if part["type"] != "input_video" {
 		t.Fatalf("partie inattendue : %v", part["type"])
+	}
+}
+
+// videoEngine simule un moteur qui sait (ou non) lire la vidéo.
+func videoEngine(t *testing.T, ok bool) {
+	prev := videoInputSupported
+	videoInputSupported = func() bool { return ok }
+	t.Cleanup(func() { videoInputSupported = prev })
+}
+
+// Moteur sans vidéo (API externe, Strata) : il ignorait la partie input_video
+// sans erreur et le modèle ne recevait que le texte. La vidéo doit alors être
+// annoncée comme fichier, avec la marche à suivre (ffmpeg puis see_image), et
+// see_video doit le dire au lieu de charger le fichier.
+func TestVideoUnsupportedEngine(t *testing.T) {
+	videoEngine(t, false)
+	testHome(t)
+	if err := WriteConfig(map[string]string{"MMPROJ": "mmproj.gguf"}); err != nil {
+		t.Fatal(err)
+	}
+	dir, err := uploadsDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	vname := "clip-test.mp4"
+	if err := os.WriteFile(filepath.Join(dir, vname), []byte("fake-mp4-bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	content := userMessageContent([]attachInfo{{Name: vname, Path: "uploads/" + vname, Size: 15}}, "décris ce clip")
+	s, ok := content.(string)
+	if !ok {
+		t.Fatalf("attendu du texte seul (pas de partie input_video), obtenu %T", content)
+	}
+	if !strings.Contains(s, "uploads/"+vname) || !strings.Contains(s, "ffmpeg") {
+		t.Fatalf("chemin et consigne ffmpeg attendus : %q", s)
+	}
+	if msg, part := toolSeeVideo(context.Background(), filepath.Join(dir, vname)); part != nil || !strings.Contains(msg, "ffmpeg") {
+		t.Fatalf("see_video doit refuser avec la consigne ffmpeg : %q", msg)
 	}
 }

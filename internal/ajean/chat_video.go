@@ -202,3 +202,40 @@ func expandVideoRefs(msgs []Message) []Message {
 	}
 	return out
 }
+
+// videoInputSupported : le moteur actif sait-il lire une partie input_video ?
+// Seul un llama.cpp local récent (option --video-fps, décodage par ffmpeg) le
+// fait. Une API externe ou Strata IGNORE la partie sans erreur : le modèle ne
+// recevait que le texte et cherchait à voir la vidéo avec see_image. Résultat
+// mémoïsé par binaire (le --help coûte un lancement de processus).
+var videoInputSupported = func() bool {
+	cfg := ReadConfig()
+	if isExternalConfig(cfg) || isCloudConfig(cfg) || strings.TrimSpace(cfg["MMPROJ"]) == "" {
+		return false
+	}
+	bin := strings.TrimSpace(cfg["BIN"])
+	if bin == "" {
+		return false
+	}
+	if !filepath.IsAbs(bin) {
+		bin = filepath.Join(AjeanHome(), bin)
+	}
+	bin = prebuiltResolveBin(bin)
+	key := bin
+	if st, err := os.Stat(bin); err == nil {
+		key += "\x00" + st.ModTime().String()
+	}
+	if v, ok := videoCapCache.Load(key); ok {
+		return v.(bool)
+	}
+	h, ok := binHelp(bin)
+	ok = ok && strings.Contains(h, "--video-fps")
+	videoCapCache.Store(key, ok)
+	return ok
+} // variable : remplaçable dans les tests
+
+var videoCapCache sync.Map // "binaire\x00mtime" -> bool
+
+// videoFallbackNote : consigne quand le moteur ne lit pas la vidéo. Le fichier
+// reste utilisable : quelques images extraites avec ffmpeg, puis see_image.
+const videoFallbackNote = "Le moteur actif ne lit pas la vidéo directement. Pour en voir le contenu, extrais quelques images avec ffmpeg (par exemple `ffmpeg -i <vidéo> -vf fps=1 frame_%03d.jpg`) puis regarde-les avec see_image.\n"

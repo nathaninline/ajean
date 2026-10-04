@@ -453,7 +453,10 @@ func EnabledTools(caps Caps) []Tool {
 		}
 		tools = append(tools, bashTool(), writeTool(), editTool())
 		if visionEnabled() {
-			tools = append(tools, seeImageTool(), seeVideoTool())
+			tools = append(tools, seeImageTool())
+			if videoInputSupported() {
+				tools = append(tools, seeVideoTool())
+			}
 		}
 		return tools
 	}
@@ -472,7 +475,10 @@ func EnabledTools(caps Caps) []Tool {
 		// active (projecteur MMPROJ). Sinon l'outil ne pourrait que renvoyer une
 		// erreur, et l'annoncer ferait croire au modèle qu'il a des yeux qu'il n'a pas.
 		if visionEnabled() {
-			tools = append(tools, seeImageTool(), seeVideoTool())
+			tools = append(tools, seeImageTool())
+			if videoInputSupported() {
+				tools = append(tools, seeVideoTool())
+			}
 		}
 	}
 	// Mémoire = axe indépendant du mode agent : les outils mem_* sont fournis dès

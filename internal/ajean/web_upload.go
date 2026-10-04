@@ -182,10 +182,18 @@ func attachNote(files []attachInfo) string {
 		head = "Fichiers joints à ce message, déposés dans ton dossier de travail :"
 	}
 	var lines []string
+	video := false
 	for _, f := range files {
 		lines = append(lines, fmt.Sprintf("- %s (%s)", f.Path, humanBytes(f.Size)))
+		video = video || videoMime(f.Name) != ""
 	}
-	return head + "\n" + strings.Join(lines, "\n") + "\n\n"
+	note := head + "\n" + strings.Join(lines, "\n") + "\n"
+	// Vidéo jointe que le moteur ne sait pas lire : dire comment la regarder
+	// quand même, au lieu de laisser le modèle tâtonner.
+	if video && visionEnabled() && !videoInputSupported() {
+		note += videoFallbackNote
+	}
+	return note + "\n"
 }
 
 // imageMimes : les extensions qu'on peut ENVOYER AU MODÈLE comme image (contenu
@@ -307,7 +315,7 @@ func userMessageContent(files []attachInfo, prompt string) any {
 			mediaFiles = append(mediaFiles, f)
 			continue
 		}
-		if mime := videoMime(f.Name); mime != "" {
+		if mime := videoMime(f.Name); mime != "" && videoInputSupported() {
 			b, err := readAttach(f.Name)
 			if err != nil {
 				otherFiles = append(otherFiles, f)
