@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -409,10 +410,37 @@ func cmdServe(args []string) error {
 
 	fmt.Fprintf(os.Stderr, "[ajean serve] %s  model=%s  port=%s\n",
 		bin, filepath.Base(model), port)
+	// Ligne de commande réellement lancée, gardée pour l'interface (#108) :
+	// vérifier ce qu'AJEAN ajoute, la partager. Clé API masquée.
+	_ = putBytes(bkState, engineCmdlineKey, []byte(engineCmdline(llmArgs)))
 
 	// Hand off to the llama-server process. On Unix this replaces the current
 	// process (exec); on Windows it runs as a child and waits. See sys_platform_*.go.
 	return execServer(bin, llmArgs)
+}
+
+// engineCmdlineKey : dernière commande du moteur (bkState), lue par l'UI.
+const engineCmdlineKey = "engine_cmdline"
+
+// engineCmdline met les arguments sous forme copiable dans un terminal :
+// guillemets autour de ce qui contient un espace, clé API masquée.
+func engineCmdline(args []string) string {
+	out := make([]string, len(args))
+	for i, a := range args {
+		if i > 0 && args[i-1] == "--api-key" {
+			a = "<clé masquée>"
+		}
+		if a == "" || strings.ContainsAny(a, " \t\"") {
+			a = `"` + strings.ReplaceAll(a, `"`, `\"`) + `"`
+		}
+		out[i] = a
+	}
+	return strings.Join(out, " ")
+}
+
+// handleEngineCmdline (GET) : la commande du dernier lancement du moteur local.
+func handleEngineCmdline(w http.ResponseWriter, r *http.Request) {
+	sendJSON(w, 200, map[string]any{"ok": true, "cmdline": string(getBytes(bkState, engineCmdlineKey))})
 }
 
 // argValue renvoie la valeur de la DERNIÈRE occurrence de flag (llama-server

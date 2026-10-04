@@ -434,6 +434,7 @@ async function loadTelemetry(){
   renderVram(d.vram||[]);
   renderRam(d.ram||null);
 }
+let ENGINE_CMDLINE='';
 async function loadCfg(){
   // /api/llamacpp en parallèle : il indique si le BIN de la config correspond au
   // précompilé (prebuilt.in_use) ou compilé ici (in_use) — sinon c'est un fork perso.
@@ -481,13 +482,22 @@ async function loadCfg(){
     else v=t('status.engine_custom_prefix')+' '+c.BIN;
     rows.push(row(t('status.cfg_engine'), v, c.BIN));
   }
+  // Nombre de couches du modèle (#43) : NGL au-delà de ngl_max ne change rien,
+  // en dessous on libère de la VRAM pour le contexte et le cache KV.
+  const ly=c.MODEL ? await jget('/api/model/layers').catch(()=>null) : null;
   ['MODEL','CTX','BATCH','UBATCH','NGL'].filter(k=>c[k]).forEach(k=>{
-    let v=c[k]; if(k==='MODEL') v=v.split('/').pop();
+    let v=c[k]; if(k==='MODEL') v=v.split(/[\\/]/).pop();
+    if(k==='NGL' && ly && ly.ok){ rows.push(row(k, v+' / '+ly.ngl_max, t('status.ngl_max_title').replace('{n}', ly.ngl_max).replace('{l}', ly.layers))); return; }
     rows.push(row(k, v));
   });
   // n-cpu-moe : affiché seulement s'il est réellement présent dans EXTRA_ARGS.
   const m=(c.EXTRA_ARGS||'').match(/--n-cpu-moe\s+(\d+)/);
   if(m) rows.push(row('N-CPU-MOE', m[1]));
+  // Ligne de commande exacte du dernier lancement (#108), copiable pour la
+  // vérifier ou la partager.
+  const cl=await jget('/api/engine/cmdline').catch(()=>null);
+  ENGINE_CMDLINE=(cl&&cl.cmdline)||'';
+  if(ENGINE_CMDLINE) rows.push('<div class="kv"><span>'+t('status.cfg_cmdline')+'</span><button class="pe-link" onclick="copyText(ENGINE_CMDLINE, t(\'status.cmdline_copied\'))" title="'+escHtml(ENGINE_CMDLINE)+'">'+t('status.cmdline_copy')+'</button></div>');
   swapContent(document.getElementById('cfg'), rows.join(''));
   // Raccourci « niveau de réflexion » du composeur : présent seulement si le preset
   // actif définit un effort. Rafraîchi à chaque loadCfg (donc après une bascule de

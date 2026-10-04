@@ -359,6 +359,7 @@ function onPickModel(){
     ta.value = 'MODEL="'+val+'"\n' + ta.value;
   }
   toast('MODEL='+val);
+  showNglMax(val);
 }
 
 // --- Vision (projecteur multimodal --mmproj) --------------------------------
@@ -951,11 +952,24 @@ function eaSetValued(flag, val){
   if(val !== '') t.push(flag, val);
   eaSetTokens(t);
 }
+// Nombre de couches du modèle du preset (#43), lu dans son en-tête GGUF :
+// affiché en indication du champ NGL (placeholder + survol).
+async function showNglMax(model){
+  const e=document.getElementById('s-ngl'), u=document.getElementById('s-ngl-max'); if(!e) return;
+  e.placeholder='999'; e.title=''; if(u) u.textContent='';
+  if(!model) return;
+  const ly=await jget('/api/model/layers?model='+encodeURIComponent(model)).catch(()=>null);
+  if(!ly || !ly.ok) return;
+  e.placeholder=String(ly.ngl_max);
+  if(u) u.textContent='/ '+ly.ngl_max;
+  e.title=t('status.ngl_max_title').replace('{n}', ly.ngl_max).replace('{l}', ly.layers);
+}
 // Remplit les champs de réglage depuis le contenu courant du preset.
 function populateSettings(){
   const set = (id,v)=>{ const e=document.getElementById(id); if(e) e.value=v; };
   set('s-ctx', cfgReadKey('CTX'));
   set('s-ngl', cfgReadKey('NGL'));
+  showNglMax(cfgReadKey('MODEL'));
   set('s-threads', cfgReadKey('THREADS'));
   set('s-batch', cfgReadKey('BATCH'));
   set('s-ubatch', cfgReadKey('UBATCH'));
