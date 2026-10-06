@@ -109,9 +109,6 @@ func moeSrcDir() string  { return filepath.Join(moeHome(), "ajean-moe-"+moeVersi
 func moeDataDir() string { return filepath.Join(moeHome(), "data") }
 func moeDLDir() string   { return filepath.Join(moeHome(), "dl") }
 
-// moePython : l'interpréteur de l'environnement que l'installeur a créé.
-func moePython() string { return filepath.Join(moeSrcDir(), ".venv", "bin", "python") }
-
 // isMoeConfig : la configuration active fait tourner le moteur MoE.
 func isMoeConfig(cfg map[string]string) bool { return cfg["ENGINE"] == "moe" }
 
