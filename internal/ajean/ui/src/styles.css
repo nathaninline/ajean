@@ -359,7 +359,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 /* Réordonnancement des presets (SortableJS). Le clone qui suit le curseur est
    bien mis en avant (fond + ombre + contour accent) ; l'emplacement cible reste
    discret pour montrer où ça va tomber. */
-.preset-drag{cursor:grabbing;background:var(--row-bg-on);border:none;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.35);outline:none;opacity:1}
+.preset-drag{cursor:grabbing;background:var(--row-bg-on);border:none;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.35);outline:none;opacity:1!important}
 .preset-ghost{opacity:.35}
 .preset-chosen{cursor:grabbing}
 /* Petit « ? » d'aide : bulle au survol/clic au lieu d'un pavé de texte permanent. */
@@ -2372,6 +2372,7 @@ body.jean-mode .genstatus .jact.jact-in{animation:jactin .3s cubic-bezier(.2,.7,
 .jm-head-j{margin-top:22px}
 .jm-title{font-size:13px;font-weight:600;color:var(--text)}
 .jm-budget{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;flex:1}
+.jm-sleep{width:100%;margin:0 0 18px}
 .jm-hint{font-size:11.5px;color:var(--dim);margin:0 0 10px;line-height:1.45}
 .jm-list{display:flex;flex-direction:column;gap:2px}
 .jm-row{display:flex;align-items:flex-start;gap:8px;padding:9px 10px;border-radius:10px;transition:background .15s}
@@ -2483,6 +2484,14 @@ body.jean-mode .jst-hist{display:flex}
 #jean-stage.has-answer .jst-bubble{max-height:52vh;opacity:1;transform:none;margin-bottom:22px}
 .jst-bubble-body{max-height:52vh;overflow-y:auto;overscroll-behavior:contain;padding:18px 22px;font-size:15px;line-height:1.6;
   color:var(--text);position:relative;z-index:1;border-radius:24px;scrollbar-width:thin}
+/* Images de la bulle : emplacement animé tant qu'elles arrivent, puis fondu. */
+.jst-bubble-body img.jimg{opacity:0;transform:scale(.98);transition:opacity .35s ease,transform .35s ease}
+.jst-bubble-body img.jimg.jimg-in{opacity:1;transform:none}
+.jimg-ph{display:block;position:relative;overflow:hidden;width:min(320px,100%);aspect-ratio:4/3;margin:8px 0;border-radius:8px;background:var(--row-bg)}
+.jimg-ph::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--text) 7%,transparent),transparent);
+  transform:translateX(-100%);animation:jimgsh 1.3s ease-in-out infinite}
+@keyframes jimgsh{to{transform:translateX(100%)}}
+@media (prefers-reduced-motion:reduce){.jimg-ph::after{animation:none}.jst-bubble-body img.jimg{transition:none}}
 .jst-bubble-body>:first-child{margin-top:0}.jst-bubble-body>:last-child{margin-bottom:0}
 /* Mise en forme des réponses : la même que dans le fil (dont les règles visent
    .msg.assistant .body, que la bulle n'est pas). Tableaux larges : défilement
@@ -2576,3 +2585,5 @@ body.jean-mode:not(.jean-history) #chat,body.jean-mode:not(.jean-history) #compo
 .hist-proj-ic{display:inline-flex}
 body.hist-jean #side-hist .hist-search,body.hist-jean #sess-count,body.hist-jean #history-clear-all{display:none}
 .beta-tag{display:inline-block;margin-left:5px;padding:0 5px;border-radius:5px;font-size:9.5px;font-weight:600;line-height:15px;letter-spacing:.02em;vertical-align:1px;color:var(--dim);background:var(--t2)}.beta-tag[hidden]{display:none}
+/* Mode Jean : conversation unique compactée en continu, le compteur ne dit rien d'utile. */
+body.jean-mode #ctx-compactions{display:none!important}

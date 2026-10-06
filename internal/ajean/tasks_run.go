@@ -220,6 +220,11 @@ func taskCaps(t Task) Caps {
 // ensureTaskPreset bascule le moteur sur le preset d'id `id` s'il n'est pas déjà
 // actif, puis attend que le modèle ait rechargé. Vide = rien à faire.
 func ensureTaskPreset(id string) error {
+	return ensurePreset(id, 4*time.Minute)
+}
+
+// ensurePreset : ensureTaskPreset avec un délai de chargement au choix.
+func ensurePreset(id string, wait time.Duration) error {
 	if id == "" {
 		return nil
 	}
@@ -245,7 +250,7 @@ func ensureTaskPreset(id string) error {
 	}
 	// Le service redémarre : on attend que le modèle réponde à nouveau (le
 	// chargement d'un gros modèle peut prendre un moment).
-	deadline := time.Now().Add(4 * time.Minute)
+	deadline := time.Now().Add(wait)
 	for time.Now().Before(deadline) {
 		if healthCheck() {
 			return nil

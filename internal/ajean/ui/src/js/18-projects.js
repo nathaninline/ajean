@@ -276,7 +276,23 @@ async function pickProjFromMenu(slug){
 // en entier) et journal (à parcourir, filtrer, nettoyer). Tout passe par le
 // serveur, qui détient la clé : marche aussi avec la mémoire chiffrée.
 let JM_OFF=0, JM_T=null;
-function openJeanMem(){ showModal('jean-mem-modal'); const s=document.getElementById('jm-search'); if(s) s.value=''; jmLoad(false); }
+function openJeanMem(){ showModal('jean-mem-modal'); const s=document.getElementById('jm-search'); if(s) s.value=''; jmLoad(false); jmLoadSleep(); }
+// Preset du sommeil : la consolidation de nuit bascule dessus, puis revient.
+async function jmLoadSleep(){
+  const sel=document.getElementById('jm-sleep'); if(!sel) return;
+  let r; try{ r=await jget('/api/jean/sleep'); }catch(_){ return; }
+  if(!r || !r.ok) return;
+  sel.innerHTML='';
+  const add=(v, label)=>{ const o=document.createElement('option'); o.value=v; o.textContent=label; sel.appendChild(o); };
+  add('', t('jean.sleep_active'));
+  (r.presets||[]).forEach(p=>add(p.id, p.name||p.id));
+  if(r.preset && !(r.presets||[]).some(p=>p.id===r.preset)) add(r.preset, r.preset+' '+t('jean.sleep_missing'));
+  sel.value=r.preset||'';
+}
+async function jmSaveSleep(){
+  const sel=document.getElementById('jm-sleep'); if(!sel) return;
+  try{ const r=await jpost('/api/jean/sleep', {preset:sel.value}); if(!r || !r.ok) toast((r&&r.error)||'erreur'); }catch(e){ toast(String(e)); }
+}
 function closeJeanMem(){ hideModal('jean-mem-modal'); }
 function jmSearchDebounced(){ clearTimeout(JM_T); JM_T=setTimeout(()=>jmLoad(false), 220); }
 const jmEsc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));

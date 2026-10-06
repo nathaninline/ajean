@@ -130,7 +130,10 @@
     const html=settled ? (answer ? (answer.querySelector('.body')||answer).innerHTML : '') : lastHTML;
     if(html!==lastHTML){
       const fresh=!lastHTML;
+      const keep=new Map();
+      for(const im of bubbleBody.querySelectorAll('img[src]')) if(im.complete && im.naturalWidth) keep.set(im.getAttribute('src'), im);
       lastHTML=html; bubbleBody.innerHTML=html;
+      adoptImages(keep);
       if(fresh){ userScrolled=false; bubbleBody.scrollTop=0; }
       else if(!userScrolled) bubbleBody.scrollTop=bubbleBody.scrollHeight;
     }
@@ -178,6 +181,23 @@
     screenView.appendChild(img);
     setTimeout(()=>img.classList.add('in'), 20);
     setTimeout(()=>{ let x=img.previousElementSibling; while(x){ const p=x.previousElementSibling; x.remove(); x=p; } }, 480);
+  }
+  // Images de la bulle : innerHTML recopie le fil, sans les écouteurs (clic vers
+  // la visionneuse) et en recréant chaque <img> à chaque mise à jour (rechargement,
+  // image cassée un instant). On garde les images déjà chargées, une image encore
+  // en route (sans src) devient un emplacement animé, et l'arrivée se fait en fondu.
+  function adoptImages(keep){
+    for(const img of [...bubbleBody.querySelectorAll('img')]){
+      const src=img.getAttribute('src');
+      if(!src){ const ph=document.createElement('span'); ph.className='jimg-ph'; img.replaceWith(ph); continue; }
+      const old=keep.get(src);
+      if(old){ keep.delete(src); img.replaceWith(old); continue; }
+      img.classList.add('chat-img','jimg');
+      img.onclick=e=>{ e.stopPropagation(); if(img.naturalWidth && typeof openLightbox==='function') openLightbox(img); };
+      img.addEventListener('error', ()=>{ img.style.display='none'; }, {once:true});
+      if(img.complete && img.naturalWidth) img.classList.add('jimg-in');
+      else img.addEventListener('load', ()=>img.classList.add('jimg-in'), {once:true});
+    }
   }
   const schedule=()=>{ if(!syncTimer) syncTimer=setTimeout(sync, 90); };
 

@@ -213,7 +213,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .captag{flex-shrink:0;display:inline-flex;align-items:center;gap:5px;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px}
 .captag::before{content:"\200b";margin-right:-5px}
 .captag svg{display:block;width:1.35em;height:1.35em}
-.preset-drag{cursor:grabbing;background:var(--row-bg-on);border:none;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.35);outline:none;opacity:1}
+.preset-drag{cursor:grabbing;background:var(--row-bg-on);border:none;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.35);outline:none;opacity:1!important}
 .preset-ghost{opacity:.35}
 .preset-chosen{cursor:grabbing}
 .help{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;margin-left:6px;flex-shrink:0;font-size:10px;font-weight:600;line-height:1;color:var(--dim);border:1px solid var(--border);border-radius:50%;cursor:help;user-select:none;vertical-align:middle}
@@ -1528,6 +1528,7 @@ body.jean-mode .genstatus .jact.jact-in{animation:jactin .3s cubic-bezier(.2,.7,
 .jm-head-j{margin-top:22px}
 .jm-title{font-size:13px;font-weight:600;color:var(--text)}
 .jm-budget{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;flex:1}
+.jm-sleep{width:100%;margin:0 0 18px}
 .jm-hint{font-size:11.5px;color:var(--dim);margin:0 0 10px;line-height:1.45}
 .jm-list{display:flex;flex-direction:column;gap:2px}
 .jm-row{display:flex;align-items:flex-start;gap:8px;padding:9px 10px;border-radius:10px;transition:background .15s}
@@ -1609,6 +1610,13 @@ body.jean-mode .jst-hist{display:flex}
 #jean-stage.has-answer .jst-bubble{max-height:52vh;opacity:1;transform:none;margin-bottom:22px}
 .jst-bubble-body{max-height:52vh;overflow-y:auto;overscroll-behavior:contain;padding:18px 22px;font-size:15px;line-height:1.6;
   color:var(--text);position:relative;z-index:1;border-radius:24px;scrollbar-width:thin}
+.jst-bubble-body img.jimg{opacity:0;transform:scale(.98);transition:opacity .35s ease,transform .35s ease}
+.jst-bubble-body img.jimg.jimg-in{opacity:1;transform:none}
+.jimg-ph{display:block;position:relative;overflow:hidden;width:min(320px,100%);aspect-ratio:4/3;margin:8px 0;border-radius:8px;background:var(--row-bg)}
+.jimg-ph::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--text) 7%,transparent),transparent);
+  transform:translateX(-100%);animation:jimgsh 1.3s ease-in-out infinite}
+@keyframes jimgsh{to{transform:translateX(100%)}}
+@media (prefers-reduced-motion:reduce){.jimg-ph::after{animation:none}.jst-bubble-body img.jimg{transition:none}}
 .jst-bubble-body>:first-child{margin-top:0}.jst-bubble-body>:last-child{margin-bottom:0}
 .jst-bubble-body h1,.jst-bubble-body h2,.jst-bubble-body h3,.jst-bubble-body h4{font-weight:600;line-height:1.25;margin:1.2em 0 .5em}
 .jst-bubble-body h1{font-size:1.3em}.jst-bubble-body h2{font-size:1.15em}.jst-bubble-body h3{font-size:1em}.jst-bubble-body h4{font-size:.95em}
@@ -1680,6 +1688,7 @@ body.jean-mode:not(.jean-history) #chat,body.jean-mode:not(.jean-history) #compo
 .hist-proj-ic{display:inline-flex}
 body.hist-jean #side-hist .hist-search,body.hist-jean #sess-count,body.hist-jean #history-clear-all{display:none}
 .beta-tag{display:inline-block;margin-left:5px;padding:0 5px;border-radius:5px;font-size:9.5px;font-weight:600;line-height:15px;letter-spacing:.02em;vertical-align:1px;color:var(--dim);background:var(--t2)}.beta-tag[hidden]{display:none}
+body.jean-mode #ctx-compactions{display:none!important}
 </style></head><body>
 <button id="menubtn" onclick="toggleSide()" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
 <button id="lc-chip" onclick="lcChipOpen()" hidden></button>
@@ -2261,6 +2270,11 @@ body.hist-jean #side-hist .hist-search,body.hist-jean #sess-count,body.hist-jean
       </div>
       <div class="jm-hint" data-i18n="jean.mem_fiches_hint">Procédures et guides gardés en entier.</div>
       <div id="jm-fiches" class="jm-list"></div>
+      <div class="jm-head jm-head-j">
+        <span class="jm-title" data-i18n="jean.sleep_title">Sommeil</span>
+      </div>
+      <div class="jm-hint" data-i18n="jean.sleep_hint">Modèle utilisé la nuit pour réorganiser la mémoire.</div>
+      <select id="jm-sleep" class="sctl jm-sleep" onchange="jmSaveSleep()"></select>
       <div class="jm-head jm-head-j">
         <span class="jm-title" data-i18n="jean.mem_journal">Journal</span>
         <span id="jm-count" class="jm-budget"></span>
@@ -3079,6 +3093,11 @@ fr: {
   "chat.mode_jean": "Jean",
   "chat.mode_jean_hint": "assistant personnel, se souvient de tout",
   "jean.act_think": "Réfléchit…",
+  "jean.act_read": "Lit le message…",
+  "jean.sleep_title": "Sommeil",
+  "jean.sleep_hint": "Preset utilisé la nuit pour réorganiser la mémoire. Jean y bascule le temps du sommeil, puis revient au preset d'avant.",
+  "jean.sleep_active": "Preset actif au moment du sommeil",
+  "jean.sleep_missing": "(introuvable)",
   "jean.stage_loading": "Chargement du modèle…",
   "jean.stage_placeholder": "Écris à Jean…",
   "jean.stage_stop": "Arrêter",
@@ -4399,6 +4418,11 @@ en: {
   "chat.mode_jean": "Jean",
   "chat.mode_jean_hint": "personal assistant, remembers everything",
   "jean.act_think": "Thinking…",
+  "jean.act_read": "Reading the message…",
+  "jean.sleep_title": "Sleep",
+  "jean.sleep_hint": "Preset used at night to reorganize memory. Jean switches to it for the sleep, then returns to the previous preset.",
+  "jean.sleep_active": "Preset active at sleep time",
+  "jean.sleep_missing": "(not found)",
   "jean.stage_loading": "Loading the model…",
   "jean.stage_placeholder": "Write to Jean…",
   "jean.stage_stop": "Stop",
@@ -6497,6 +6521,7 @@ function initPresetSortable(cont){
     easing: 'cubic-bezier(.2,.7,.3,1)',
     forceFallback: true,
     fallbackTolerance: 3,
+    fallbackOnBody: true,
     delay: 220,
     delayOnTouchOnly: true,
     touchStartThreshold: 6,
@@ -8950,7 +8975,7 @@ function elapsedStart(){
   if(REPLAYING) return;
   elapsedStop();
   ELAPSED={start:Date.now(), timer:setInterval(paintGenStatus,500), decodeMs:0, lastTs:0, tokBase:0};
-  genStatusOn(true); paintGenStatus(); JACT=''; setJeanAct('jean.act_think');
+  genStatusOn(true); paintGenStatus(); JACT=''; setJeanAct('jean.act_read'); 
 }
 function elapsedStop(){ JACT=''; if(ELAPSED){ clearInterval(ELAPSED.timer); ELAPSED=null; } genStatusOn(false); removeGenEl(); }
 function finalizeTurn(elapsedMs, preset){
@@ -11385,7 +11410,22 @@ async function pickProjFromMenu(slug){
   await switchProjectUI(slug);
 }
 let JM_OFF=0, JM_T=null;
-function openJeanMem(){ showModal('jean-mem-modal'); const s=document.getElementById('jm-search'); if(s) s.value=''; jmLoad(false); }
+function openJeanMem(){ showModal('jean-mem-modal'); const s=document.getElementById('jm-search'); if(s) s.value=''; jmLoad(false); jmLoadSleep(); }
+async function jmLoadSleep(){
+  const sel=document.getElementById('jm-sleep'); if(!sel) return;
+  let r; try{ r=await jget('/api/jean/sleep'); }catch(_){ return; }
+  if(!r || !r.ok) return;
+  sel.innerHTML='';
+  const add=(v, label)=>{ const o=document.createElement('option'); o.value=v; o.textContent=label; sel.appendChild(o); };
+  add('', t('jean.sleep_active'));
+  (r.presets||[]).forEach(p=>add(p.id, p.name||p.id));
+  if(r.preset && !(r.presets||[]).some(p=>p.id===r.preset)) add(r.preset, r.preset+' '+t('jean.sleep_missing'));
+  sel.value=r.preset||'';
+}
+async function jmSaveSleep(){
+  const sel=document.getElementById('jm-sleep'); if(!sel) return;
+  try{ const r=await jpost('/api/jean/sleep', {preset:sel.value}); if(!r || !r.ok) toast((r&&r.error)||'erreur'); }catch(e){ toast(String(e)); }
+}
 function closeJeanMem(){ hideModal('jean-mem-modal'); }
 function jmSearchDebounced(){ clearTimeout(JM_T); JM_T=setTimeout(()=>jmLoad(false), 220); }
 const jmEsc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -11796,11 +11836,12 @@ var JeanAvatar = (()=>{
   }
   function glide(from){
     const to=wrap.getBoundingClientRect(); if(!to.width) return;
-    if(glide.g) glide.g.remove();                     
+    if(glide.g){ const r=glide.g.getBoundingClientRect(); if(r.width) from=r; glide.g.remove(); }
     const big=from.width>=to.width ? from : to;
     const at=r=>`translate(${(r.left-big.left).toFixed(1)}px, ${(r.top-big.top).toFixed(1)}px) scale(${(r.width/big.width).toFixed(4)})`;
     const ghost=glide.g=wrap.cloneNode(true);
     ghost.removeAttribute('id'); ghost.className='jav-ghost';
+    ghost.style.visibility='';
     Object.assign(ghost.style, {left:big.left+'px', top:big.top+'px', width:big.width+'px', height:big.height+'px', transition:'none', transform:at(from)});
     document.body.appendChild(ghost);
     wrap.style.visibility='hidden';
@@ -11870,7 +11911,7 @@ var JeanAvatar = (()=>{
     act(k){
       if(!k) return;
       wake();
-      const map={'jean.act_think':'think','jean.act_search':'search','jean.act_remember':'search','jean.act_forget':'search',
+      const map={'jean.act_think':'think','jean.act_read':'think','jean.act_search':'search','jean.act_remember':'search','jean.act_forget':'search',
         'jean.act_web':'web','jean.act_browse':'web','jean.act_look':'web','jean.act_machine':'work','jean.act_task':'work','jean.act_work':'work'};
       setState(map[k]||'think');
     },
@@ -11978,7 +12019,10 @@ var JeanAvatar = (()=>{
     const html=settled ? (answer ? (answer.querySelector('.body')||answer).innerHTML : '') : lastHTML;
     if(html!==lastHTML){
       const fresh=!lastHTML;
+      const keep=new Map();
+      for(const im of bubbleBody.querySelectorAll('img[src]')) if(im.complete && im.naturalWidth) keep.set(im.getAttribute('src'), im);
       lastHTML=html; bubbleBody.innerHTML=html;
+      adoptImages(keep);
       if(fresh){ userScrolled=false; bubbleBody.scrollTop=0; }
       else if(!userScrolled) bubbleBody.scrollTop=bubbleBody.scrollHeight;
     }
@@ -12018,6 +12062,19 @@ var JeanAvatar = (()=>{
     screenView.appendChild(img);
     setTimeout(()=>img.classList.add('in'), 20);
     setTimeout(()=>{ let x=img.previousElementSibling; while(x){ const p=x.previousElementSibling; x.remove(); x=p; } }, 480);
+  }
+  function adoptImages(keep){
+    for(const img of [...bubbleBody.querySelectorAll('img')]){
+      const src=img.getAttribute('src');
+      if(!src){ const ph=document.createElement('span'); ph.className='jimg-ph'; img.replaceWith(ph); continue; }
+      const old=keep.get(src);
+      if(old){ keep.delete(src); img.replaceWith(old); continue; }
+      img.classList.add('chat-img','jimg');
+      img.onclick=e=>{ e.stopPropagation(); if(img.naturalWidth && typeof openLightbox==='function') openLightbox(img); };
+      img.addEventListener('error', ()=>{ img.style.display='none'; }, {once:true});
+      if(img.complete && img.naturalWidth) img.classList.add('jimg-in');
+      else img.addEventListener('load', ()=>img.classList.add('jimg-in'), {once:true});
+    }
   }
   const schedule=()=>{ if(!syncTimer) syncTimer=setTimeout(sync, 90); };
   function toggleHistory(){

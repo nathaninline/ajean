@@ -309,7 +309,7 @@ function elapsedStart(){
   if(REPLAYING) return;
   elapsedStop();
   ELAPSED={start:Date.now(), timer:setInterval(paintGenStatus,500), decodeMs:0, lastTs:0, tokBase:0};
-  genStatusOn(true); paintGenStatus(); JACT=''; setJeanAct('jean.act_think');
+  genStatusOn(true); paintGenStatus(); JACT=''; setJeanAct('jean.act_read'); // prefill : il lit, il ne réfléchit pas encore (act_think vient avec le raisonnement)
 }
 // Arrêt SANS conserver la ligne (erreur/reset) : le tour n'a pas de fin propre.
 function elapsedStop(){ JACT=''; if(ELAPSED){ clearInterval(ELAPSED.timer); ELAPSED=null; } genStatusOn(false); removeGenEl(); }

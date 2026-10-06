@@ -164,6 +164,9 @@ function initPresetSortable(cont){
     // Le clone (.preset-drag) reste donc PLEIN, comme la ligne d'origine.
     forceFallback: true,
     fallbackTolerance: 3,
+    // Clone posé sur <body> : dans la modale (ancêtre transformé), sa position fixe
+    // se calculait par rapport à la modale et il apparaissait loin du curseur.
+    fallbackOnBody: true,
     // Il faut MAINTENIR l'appui avant que le glissement démarre : sinon, sur mobile,
     // un simple défilement attrapait un preset. Le délai ne s'applique qu'au toucher
     // (souris immédiate), et un petit mouvement pendant le délai est toléré.

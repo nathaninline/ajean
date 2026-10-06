@@ -162,11 +162,16 @@ var JeanAvatar = (()=>{
   // n'était redessiné net qu'à l'arrivée).
   function glide(from){
     const to=wrap.getBoundingClientRect(); if(!to.width) return;
-    if(glide.g) glide.g.remove();                     // vol précédent interrompu
+    // Vol précédent interrompu (clics rapides) : on repart de là où la copie se
+    // trouve à l'écran, pas de la place du vrai Jean (saut).
+    if(glide.g){ const r=glide.g.getBoundingClientRect(); if(r.width) from=r; glide.g.remove(); }
     const big=from.width>=to.width ? from : to;
     const at=r=>`translate(${(r.left-big.left).toFixed(1)}px, ${(r.top-big.top).toFixed(1)}px) scale(${(r.width/big.width).toFixed(4)})`;
     const ghost=glide.g=wrap.cloneNode(true);
     ghost.removeAttribute('id'); ghost.className='jav-ghost';
+    // Le vrai Jean est déjà caché si un vol est en cours : la copie héritait de son
+    // visibility:hidden et Jean disparaissait le temps du vol.
+    ghost.style.visibility='';
     Object.assign(ghost.style, {left:big.left+'px', top:big.top+'px', width:big.width+'px', height:big.height+'px', transition:'none', transform:at(from)});
     document.body.appendChild(ghost);
     // visibility et non opacity : l'animation d'apparition (javin) imposait son
@@ -246,7 +251,7 @@ var JeanAvatar = (()=>{
     act(k){
       if(!k) return;
       wake();
-      const map={'jean.act_think':'think','jean.act_search':'search','jean.act_remember':'search','jean.act_forget':'search',
+      const map={'jean.act_think':'think','jean.act_read':'think','jean.act_search':'search','jean.act_remember':'search','jean.act_forget':'search',
         'jean.act_web':'web','jean.act_browse':'web','jean.act_look':'web','jean.act_machine':'work','jean.act_task':'work','jean.act_work':'work'};
       setState(map[k]||'think');
     },

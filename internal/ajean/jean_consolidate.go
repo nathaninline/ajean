@@ -17,7 +17,9 @@ package ajean
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -70,6 +72,28 @@ func runJeanConsolidate() {
 	jeanReflect.mu.Unlock()
 	if pending > 0 {
 		runJeanReflect()
+	}
+
+	// Preset du sommeil : la nuit tourne sur le modèle choisi pour ça, pas sur
+	// celui laissé actif la veille (un petit modèle rapide raserait la mémoire).
+	// On revient ensuite au preset de la veille, sauf si quelqu'un a changé entre-temps.
+	if id := jeanSleepPreset(); id != "" {
+		if prev := activePresetID(); prev != id {
+			if err := ensurePreset(id, 15*time.Minute); err != nil {
+				fmt.Fprintf(os.Stderr, "[jean] consolidation reportée, preset du sommeil : %v\n", err)
+				jeanReflect.mu.Lock()
+				jeanConsolidateArmLocked(time.Hour)
+				jeanReflect.mu.Unlock()
+				return
+			}
+			defer func() {
+				if prev != "" && activePresetID() == id {
+					if err := ensurePreset(prev, 15*time.Minute); err != nil {
+						fmt.Fprintf(os.Stderr, "[jean] retour au preset %s après le sommeil : %v\n", prev, err)
+					}
+				}
+			}()
+		}
 	}
 
 	// Ordre des verrous : c.mu jamais sous jeanReflect.mu (voir runJeanReflect).
@@ -300,4 +324,30 @@ func jeanStaleChange(text, current string) bool {
 		}
 	}
 	return true
+}
+
+// jeanSleepPreset : id du preset qui fait la consolidation ("" = preset actif).
+// En base et non dans la config : une bascule de preset réécrit la config.
+func jeanSleepPreset() string { return getStr(bkState, "jean_sleep_preset") }
+
+// GET : preset du sommeil + presets disponibles. POST {preset} : le règle.
+func handleJeanSleep(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		var b struct {
+			Preset string `json:"preset"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&b)
+		if err := putStr(bkState, "jean_sleep_preset", strings.TrimSpace(b.Preset)); err != nil {
+			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		sendJSON(w, 200, map[string]any{"ok": true})
+		return
+	}
+	list, _ := ListPresets()
+	ps := make([]map[string]string, 0, len(list))
+	for _, p := range list {
+		ps = append(ps, map[string]string{"id": p.ID, "name": p.Name})
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "preset": jeanSleepPreset(), "presets": ps})
 }
