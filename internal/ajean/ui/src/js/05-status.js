@@ -473,6 +473,30 @@ async function loadCfg(){
     updateReasonBtn('');
     return;
   }
+  // Moteur optimisé (Qwen3.8 Flash Next) : la config réelle de lancement,
+  // calculée par le serveur comme au démarrage (/api/moe → details).
+  if(c.ENGINE==='moe'){
+    const [s, cl] = await Promise.all([jget('/api/moe').catch(()=>null), jget('/api/engine/cmdline').catch(()=>null)]);
+    let fam=null, fit=null;
+    for(const f of (s&&s.families)||[]){ const x=f.fits.find(x=>x.active); if(x){ fam=f; fit=x; } }
+    const d=fit&&fit.details;
+    ENGINE_CMDLINE=(cl&&cl.cmdline)||'';
+    const cp=ENGINE_CMDLINE ? '<button class="cfg-copy" onclick="copyText(ENGINE_CMDLINE, t(\'status.cmdline_copied\'))" title="'+escHtml(t('status.cmdline_copy')+' : '+ENGINE_CMDLINE)+'"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>' : '';
+    rows.push(row(t('status.cfg_engine')+cp, t('status.engine_moe')));
+    if(fam) rows.push(row('MODEL', fam.label+' '+fit.quant.id));
+    if(d){
+      const k=n=>(+n>=1024 ? Math.round(+n/1024)+'K' : n);
+      rows.push(row('CTX', d.ctx));
+      rows.push(row('KV', d.kv+(d.kv_resident ? ' · '+k(d.kv_resident)+' VRAM' : '')));
+      rows.push(row('MTP', d.spec));
+      rows.push(row('PREFILL', k(d.prefill)));
+      rows.push(row('EXPERTS', d.drop ? 'mlock' : d.mmap ? 'mmap' : 'RAM', d.drop ? t('moe.d_drop') : d.mmap ? t('moe.d_mmap') : t('moe.d_inram')));
+      if(d.vision_gpu) rows.push(row('VISION', 'on', d.vision_gpu));
+    }else if(c.CTX) rows.push(row('CTX', c.CTX));
+    swapContent(document.getElementById('cfg'), rows.join(''));
+    updateReasonBtn(c.REASONING_EFFORT || '');
+    return;
+  }
   if(c.BIN){
     // Moteur : précompilé / compilé / personnalisé (avec le chemin). Le title garde
     // toujours le chemin complet, quel que soit le libellé.

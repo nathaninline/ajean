@@ -849,6 +849,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
    cartes dans une carte) : pas de cadre propre, un filet entre elles, comme
    n'importe quelle ligne de réglage du menu. */
 .lc-modes{display:flex;flex-direction:column}
+.slist:has(>.lc-modes){overflow:hidden}
 .lc-modes.busy{opacity:.5;pointer-events:none}
 .slist>.lc-modes:not(:first-child){border-top:1px solid var(--border)}
 .lc-mode{padding:10px;cursor:pointer;transition:background .12s}
@@ -859,6 +860,27 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
    gris atténué du thème monochrome et devenait illisible en mode sombre. */
 .lc-reco{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;background:var(--text);color:var(--bg);border:1px solid var(--text);border-radius:8px;padding:1px 6px}
 .lc-mode-d{font-size:11px;color:var(--dim);margin-top:3px}
+#moe-quants .lc-mode.moe-sel{background:var(--accent-bg)}
+#moe-quants{overflow:hidden}
+#moe-quants .lc-mode.moe-sel .lc-mode-t{color:var(--accent)}
+#moe-quants .lc-mode.moe-off{cursor:default}
+#moe-quants .lc-mode.moe-off:hover{background:none}
+#moe-quants .lc-mode.moe-off .lc-mode-t{color:var(--dim)}
+.moe-details{padding:4px 10px}
+.moe-details .moe-kv{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;padding:5px 0}
+.moe-details .moe-kv .switch{display:block}
+.moe-details .moe-kv:not(:last-child){border-bottom:1px solid var(--border)}
+.moe-details .moe-kv span:first-child{color:var(--dim)}
+.moe-ctx{display:flex;align-items:center;gap:10px}
+.moe-ctx input[type=range]{width:160px;height:16px;margin:0;padding:0;background:transparent;border:none;-webkit-appearance:none;appearance:none;cursor:ew-resize}
+.moe-ctx input[type=range]:focus{outline:none}
+.moe-ctx input[type=range]::-webkit-slider-runnable-track{height:4px;border:none;border-radius:999px;background:linear-gradient(to right,var(--accent) var(--p,50%),color-mix(in srgb,var(--dim) 25%,transparent) var(--p,50%))}
+.moe-ctx input[type=range]::-moz-range-track{height:4px;border:none;border-radius:999px;background:color-mix(in srgb,var(--dim) 25%,transparent)}
+.moe-ctx input[type=range]::-moz-range-progress{height:4px;border-radius:999px;background:var(--accent)}
+.moe-ctx input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;margin-top:-5px;border:none;border-radius:50%;background:var(--accent)}
+.moe-ctx input[type=range]::-moz-range-thumb{width:14px;height:14px;border:none;border-radius:50%;background:var(--accent)}
+.moe-ctx span{min-width:62px;text-align:right;font-variant-numeric:tabular-nums}
+.moe-details .moe-kv span:last-child{text-align:right}
 /* Hauteur réservée : la ligne d'état arrive après l'appel réseau, sans elle
    les trois cartes grandissaient d'un cran une fois l'état connu. */
 .lc-mode-state{font-size:11px;min-height:16px;margin-top:7px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
@@ -2086,8 +2108,10 @@ details>summary .stitle,.hist-head .stitle{font-size:11.5px;font-weight:500;colo
 :is(.modal-foot,.pe-foot) :is(.btn-save,.primary):hover,.ask-actions .ask-ok:hover{background:color-mix(in srgb,var(--text) 85%,transparent)}
 :is(.modal-foot,.pe-foot) .btn-danger,.ask-actions .ask-ok.danger,.pe-foot .pe-del{background:color-mix(in srgb,var(--err) 12%,transparent);color:var(--err)}
 :is(.modal-foot,.pe-foot) .btn-danger:hover,.ask-actions .ask-ok.danger:hover,.pe-foot .pe-del:hover{background:color-mix(in srgb,var(--err) 20%,transparent)}
-.pe-foot .foot-l button{width:36px;height:36px;min-height:36px;padding:0}  /* boutons-icônes (supprimer, benchmark) */
+.pe-foot .foot-l button,.modal-foot .foot-l button.pe-icon{width:36px;height:36px;min-height:36px;padding:0}  /* boutons-icônes (supprimer, benchmark) */
 .pe-foot .foot-l button svg{width:16px;height:16px;display:block}
+.modal-foot button[hidden]{display:none}
+.modal-foot .foot-l button.pe-icon svg{width:16px;height:16px;display:block}
 /* Champs : sans contour, fond teinté, anneau doux à la saisie */
 .modal-card :is(.ctl,.pe-inp,textarea,select,input:is([type=text],[type=password],[type=number],[type=url],[type=search],:not([type]))),.ask-input{
   border:none;border-radius:10px;background:var(--t1)}

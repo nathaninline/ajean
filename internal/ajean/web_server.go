@@ -201,6 +201,9 @@ func newWebMux() *http.ServeMux {
 	api("/api/llamacpp/prebuilt", handleLlamacppPrebuilt)                // job : binaires officiels précompilés
 	api("/api/llamacpp/prebuilt/check", handleLlamacppPrebuiltCheck)     // dernière release officielle vs installée
 	api("/api/llamacpp/use", handleLlamacppUse)                          // bascule BIN entre versions déjà installées
+	api("/api/moe", handleMoe)                                           // moteur MoE : machine, catalogue figé, recommandation, modèles installés
+	api("/api/moe/install", handleMoeInstall)                            // job : paquet figé + installeur du moteur + preset (suivi par /api/llamacpp/job)
+	api("/api/moe/settings", handleMoeSettings)                          // réglages d'un modèle MoE installé (relance s'il est actif)
 	api("/api/presets", handlePresets)
 	api("/api/presets/order", handlePresetsOrder)
 	api("/api/preset", handlePreset)

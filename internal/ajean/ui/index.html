@@ -497,6 +497,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 }
 .lc-head{font-size:12px;line-height:1.5}
 .lc-modes{display:flex;flex-direction:column}
+.slist:has(>.lc-modes){overflow:hidden}
 .lc-modes.busy{opacity:.5;pointer-events:none}
 .slist>.lc-modes:not(:first-child){border-top:1px solid var(--border)}
 .lc-mode{padding:10px;cursor:pointer;transition:background .12s}
@@ -505,6 +506,27 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .lc-mode-t{font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px}
 .lc-reco{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;background:var(--text);color:var(--bg);border:1px solid var(--text);border-radius:8px;padding:1px 6px}
 .lc-mode-d{font-size:11px;color:var(--dim);margin-top:3px}
+#moe-quants .lc-mode.moe-sel{background:var(--accent-bg)}
+#moe-quants{overflow:hidden}
+#moe-quants .lc-mode.moe-sel .lc-mode-t{color:var(--accent)}
+#moe-quants .lc-mode.moe-off{cursor:default}
+#moe-quants .lc-mode.moe-off:hover{background:none}
+#moe-quants .lc-mode.moe-off .lc-mode-t{color:var(--dim)}
+.moe-details{padding:4px 10px}
+.moe-details .moe-kv{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;padding:5px 0}
+.moe-details .moe-kv .switch{display:block}
+.moe-details .moe-kv:not(:last-child){border-bottom:1px solid var(--border)}
+.moe-details .moe-kv span:first-child{color:var(--dim)}
+.moe-ctx{display:flex;align-items:center;gap:10px}
+.moe-ctx input[type=range]{width:160px;height:16px;margin:0;padding:0;background:transparent;border:none;-webkit-appearance:none;appearance:none;cursor:ew-resize}
+.moe-ctx input[type=range]:focus{outline:none}
+.moe-ctx input[type=range]::-webkit-slider-runnable-track{height:4px;border:none;border-radius:999px;background:linear-gradient(to right,var(--accent) var(--p,50%),color-mix(in srgb,var(--dim) 25%,transparent) var(--p,50%))}
+.moe-ctx input[type=range]::-moz-range-track{height:4px;border:none;border-radius:999px;background:color-mix(in srgb,var(--dim) 25%,transparent)}
+.moe-ctx input[type=range]::-moz-range-progress{height:4px;border-radius:999px;background:var(--accent)}
+.moe-ctx input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;margin-top:-5px;border:none;border-radius:50%;background:var(--accent)}
+.moe-ctx input[type=range]::-moz-range-thumb{width:14px;height:14px;border:none;border-radius:50%;background:var(--accent)}
+.moe-ctx span{min-width:62px;text-align:right;font-variant-numeric:tabular-nums}
+.moe-details .moe-kv span:last-child{text-align:right}
 .lc-mode-state{font-size:11px;min-height:16px;margin-top:7px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .lc-mode-go{color:var(--accent)}
 .lc-mode-active-tag{color:var(--accent);font-weight:600}
@@ -1317,8 +1339,10 @@ details>summary .stitle,.hist-head .stitle{font-size:11.5px;font-weight:500;colo
 :is(.modal-foot,.pe-foot) :is(.btn-save,.primary):hover,.ask-actions .ask-ok:hover{background:color-mix(in srgb,var(--text) 85%,transparent)}
 :is(.modal-foot,.pe-foot) .btn-danger,.ask-actions .ask-ok.danger,.pe-foot .pe-del{background:color-mix(in srgb,var(--err) 12%,transparent);color:var(--err)}
 :is(.modal-foot,.pe-foot) .btn-danger:hover,.ask-actions .ask-ok.danger:hover,.pe-foot .pe-del:hover{background:color-mix(in srgb,var(--err) 20%,transparent)}
-.pe-foot .foot-l button{width:36px;height:36px;min-height:36px;padding:0}  
+.pe-foot .foot-l button,.modal-foot .foot-l button.pe-icon{width:36px;height:36px;min-height:36px;padding:0}  
 .pe-foot .foot-l button svg{width:16px;height:16px;display:block}
+.modal-foot button[hidden]{display:none}
+.modal-foot .foot-l button.pe-icon svg{width:16px;height:16px;display:block}
 .modal-card :is(.ctl,.pe-inp,textarea,select,input:is([type=text],[type=password],[type=number],[type=url],[type=search],:not([type]))),.ask-input{
   border:none;border-radius:10px;background:var(--t1)}
 .modal-card :is(.ctl,.pe-inp,input,textarea,select):focus,.ask-input:focus{outline:none;border:none;box-shadow:0 0 0 2px var(--t3)}
@@ -1850,6 +1874,11 @@ body.hist-jean #side-hist .hist-search,body.hist-jean #sess-count,body.hist-jean
         <div class="lc-mode-d" data-i18n="engine.mode_custom_desc">un fork de llama.cpp pour modèles spéciaux (quant ternaire…)</div>
         <div class="lc-mode-state" id="lc-custom-state"></div>
       </div>
+      <div class="lc-mode" id="lc-mode-moe" hidden onclick="openMoe()">
+        <div class="lc-mode-t" data-i18n="moe.mode_title">Qwen3.8 Flash Next</div>
+        <div class="lc-mode-d" data-i18n="moe.mode_desc">le plus rapide pour ce modèle, installation en un clic</div>
+        <div class="lc-mode-state" id="lc-moe-state"></div>
+      </div>
     </div>
     <div id="lc-job" class="rowbody" style="display:none">
       <div style="display:flex;align-items:center;gap:8px">
@@ -2028,6 +2057,45 @@ body.hist-jean #side-hist .hist-search,body.hist-jean #sess-count,body.hist-jean
     <div class="ask-actions">
       <button id="ask-cancel" onclick="askResolve(false)" data-i18n="modal.cancel">Annuler</button>
       <button id="ask-ok" class="ask-ok" onclick="askResolve(true)" data-i18n="modal.confirm">Confirmer</button>
+    </div>
+  </div>
+</div>
+<div id="moe-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeMoe()">
+  <div class="modal-card" style="max-width:520px">
+    <div class="modal-head">
+      <strong data-i18n="moe.modal_title">Qwen3.8 Flash Next</strong>
+      <button class="modal-x" onclick="closeMoe()" aria-label="Fermer" data-i18n="moe.close_aria" data-i18n-attr="aria-label">×</button>
+    </div>
+    <div class="modal-body mform">
+      <div id="moe-machine" class="muted" style="font-size:12px;line-height:1.5"></div>
+      <div class="fld">
+        <label class="fld-l" data-i18n="moe.version_label">Version</label>
+        <div class="seg" id="moe-fams"></div>
+      </div>
+      <div class="fld">
+        <label class="fld-l" data-i18n="moe.quality_label">Qualité</label>
+        <div class="slist" id="moe-quants"></div>
+      </div>
+      <div id="moe-disk" class="muted" style="font-size:12px;line-height:1.5"></div>
+      <div class="fld" id="moe-settings-fld" hidden>
+        <label class="fld-l" data-i18n="moe.settings_label">Réglages</label>
+        <div class="slist moe-details" id="moe-settings"></div>
+      </div>
+      <div class="fld" id="moe-details-fld" hidden>
+        <label class="fld-l" data-i18n="moe.details_label">Configuration</label>
+        <div class="slist moe-details" id="moe-details"></div>
+      </div>
+      <div id="moe-note" class="muted" style="font-size:11px;line-height:1.5"></div>
+    </div>
+    <div class="modal-foot">
+      <div class="foot-l">
+        <button id="moe-bench" class="pe-icon" onclick="runBenchUI()" hidden title="Benchmark" aria-label="Benchmark" data-i18n="bench.title" data-i18n-attr="title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 13.5l3.6-3.6"/><path d="M4.6 19a9 9 0 1 1 14.8 0"/><circle cx="12" cy="13.5" r="1.3" fill="currentColor" stroke="none"/></svg></button>
+      </div>
+      <div class="foot-r">
+        <button onclick="closeMoe()" data-i18n="moe.close">fermer</button>
+        <button id="moe-save" hidden onclick="moeSaveSettings()" data-i18n="moe.save">Enregistrer</button>
+        <button class="btn-save" id="moe-go" onclick="moeInstall()" data-i18n="moe.install">Installer</button>
+      </div>
     </div>
   </div>
 </div>
@@ -3429,6 +3497,7 @@ fr: {
   "status.cmdline_copy": "copier",
   "status.cmdline_copied": "commande llama-server copiée",
   "status.engine_prebuilt": "llama.cpp précompilé",
+  "status.engine_moe": "AJEAN MoE",
   "status.engine_compiled": "llama.cpp compilé",
   "status.engine_custom_prefix": "llama.cpp personnalisé :",
   "settings.presets.active_title": "preset actif",
@@ -3582,6 +3651,61 @@ fr: {
   "settings.network.open_title": "Ouvrir sur le réseau",
   "settings.network.close_title": "Fermer sur le réseau",
   "settings.network.restart_ok": "Redémarrer",
+  "moe.mode_title": "Qwen3.8 Flash Next",
+  "moe.mode_desc": "moteur optimisé, installation en un clic",
+  "moe.state_installed": "{n} modèle(s) installé(s)",
+  "moe.modal_title": "Qwen3.8 Flash Next",
+  "moe.close_aria": "Fermer",
+  "moe.machine": "Machine : {gpus}, {ram} Go de RAM, {disk} Go libres. Réglages automatiques.",
+  "moe.version_label": "Version",
+  "moe.quality_label": "Qualité",
+  "moe.recommended": "conseillé",
+  "moe.download": "~{gb} Go sur le disque",
+  "moe.note": "Installation et activation automatiques. Premier chargement : quelques minutes.",
+  "moe.note_mmap": "RAM insuffisante pour tout charger : experts lus depuis le disque (mmap, ~45 Go de plus). Installation et activation automatiques.",
+  "moe.nothing_fits": "Aucune version ne tient sur cette machine.",
+  "moe.confirm": "Installer {name} ? Téléchargement : ~{gb} Go. Le modèle sera activé à la fin.",
+  "moe.installed": "installé",
+  "moe.active": "actif",
+  "moe.activate": "Activer",
+  "moe.is_active": "Déjà actif",
+  "moe.note_installed": "Modèle installé, prêt à être activé.",
+  "moe.note_active": "Modèle actif.",
+  "moe.disk_ok": "Disque : {free} Go libres, ~{need} Go requis, ~{left} Go restants.",
+  "moe.disk_short": "Disque : {free} Go libres, ~{need} Go requis. Espace insuffisant.",
+  "moe.disk_installed": "Disque : {free} Go libres. Modèle déjà présent.",
+  "moe.details_label": "Configuration",
+  "moe.d_main": "Carte principale",
+  "moe.d_helper": "Carte d'appoint",
+  "moe.d_vision": "Lecture des images",
+  "moe.d_none": "aucune",
+  "moe.d_ctx": "Contexte",
+  "moe.d_tokens": "jetons",
+  "moe.d_kv": "Cache KV",
+  "moe.d_kv_resident": "{n} en VRAM, le reste en RAM",
+  "moe.d_mtp": "Prédiction (MTP)",
+  "moe.d_mtp_val": "{n} jetons",
+  "moe.d_ram": "Experts hors GPU",
+  "moe.d_mmap": "lus depuis le disque (mmap)",
+  "moe.d_inram": "chargés en RAM",
+  "moe.d_drop": "verrouillés en RAM, hors ceux de la carte d'appoint",
+  "moe.d_read": "Lecture des prompts",
+  "moe.d_read_val": "blocs de {chunk}, lecture directe sous {short} jetons",
+  "moe.d_root": "Démarrage d'une conversation",
+  "moe.d_root_val": "reprise après le prompt système (dès {n} jetons)",
+  "moe.d_version": "Version du moteur",
+  "moe.settings_label": "Réglages",
+  "moe.kv_fp16": "fp16 (meilleure qualité)",
+  "moe.kv_int8": "8 bits (plus léger)",
+  "moe.s_vision": "Lire les images",
+  "moe.s_helper": "Carte d'appoint",
+  "moe.save": "Enregistrer",
+  "moe.save_confirm": "Le modèle va redémarrer avec ces réglages (quelques minutes).",
+  "moe.saved": "Réglages enregistrés",
+  "moe.saved_restart": "Réglages enregistrés, redémarrage en cours",
+  "moe.install": "Installer",
+  "moe.close": "Fermer",
+  "moe.chip": "Installation du modèle",
   "llamacpp.chip_install": "Compilation du moteur",
   "llamacpp.chip_update": "Mise à jour du moteur",
   "llamacpp.chip_prebuilt": "Téléchargement du moteur",
@@ -4693,6 +4817,7 @@ en: {
   "status.cmdline_copy": "copy",
   "status.cmdline_copied": "llama-server command copied",
   "status.engine_prebuilt": "llama.cpp prebuilt",
+  "status.engine_moe": "AJEAN MoE",
   "status.engine_compiled": "llama.cpp compiled",
   "status.engine_custom_prefix": "llama.cpp custom:",
   "settings.presets.active_title": "active preset",
@@ -4846,6 +4971,61 @@ en: {
   "settings.network.open_title": "Open on the network",
   "settings.network.close_title": "Close on the network",
   "settings.network.restart_ok": "Restart",
+  "moe.mode_title": "Qwen3.8 Flash Next",
+  "moe.mode_desc": "optimized engine, one-click install",
+  "moe.state_installed": "{n} model(s) installed",
+  "moe.modal_title": "Qwen3.8 Flash Next",
+  "moe.close_aria": "Close",
+  "moe.machine": "Machine: {gpus}, {ram} GB of RAM, {disk} GB free. Automatic settings.",
+  "moe.version_label": "Version",
+  "moe.quality_label": "Quality",
+  "moe.recommended": "recommended",
+  "moe.download": "~{gb} GB on disk",
+  "moe.note": "Automatic installation and activation. First load: a few minutes.",
+  "moe.note_mmap": "Not enough RAM to load everything: experts read from disk (mmap, ~45 GB more). Automatic installation and activation.",
+  "moe.nothing_fits": "No version fits this machine.",
+  "moe.confirm": "Install {name}? Download: ~{gb} GB. The model is activated at the end.",
+  "moe.installed": "installed",
+  "moe.active": "active",
+  "moe.activate": "Activate",
+  "moe.is_active": "Already active",
+  "moe.note_installed": "Model installed, ready to activate.",
+  "moe.note_active": "Active model.",
+  "moe.disk_ok": "Disk: {free} GB free, ~{need} GB required, ~{left} GB left.",
+  "moe.disk_short": "Disk: {free} GB free, ~{need} GB required. Not enough space.",
+  "moe.disk_installed": "Disk: {free} GB free. Model already present.",
+  "moe.details_label": "Configuration",
+  "moe.d_main": "Main card",
+  "moe.d_helper": "Secondary card",
+  "moe.d_vision": "Image reading",
+  "moe.d_none": "none",
+  "moe.d_ctx": "Context",
+  "moe.d_tokens": "tokens",
+  "moe.d_kv": "KV cache",
+  "moe.d_kv_resident": "{n} in VRAM, the rest in RAM",
+  "moe.d_mtp": "Prediction (MTP)",
+  "moe.d_mtp_val": "{n} tokens",
+  "moe.d_ram": "Experts off the GPU",
+  "moe.d_mmap": "read from disk (mmap)",
+  "moe.d_inram": "loaded in RAM",
+  "moe.d_drop": "locked in RAM, except the secondary card's",
+  "moe.d_read": "Prompt reading",
+  "moe.d_read_val": "{chunk} chunks, direct read under {short} tokens",
+  "moe.d_root": "Starting a conversation",
+  "moe.d_root_val": "resumes after the system prompt (from {n} tokens)",
+  "moe.d_version": "Engine version",
+  "moe.settings_label": "Settings",
+  "moe.kv_fp16": "fp16 (best quality)",
+  "moe.kv_int8": "8-bit (lighter)",
+  "moe.s_vision": "Read images",
+  "moe.s_helper": "Secondary card",
+  "moe.save": "Save",
+  "moe.save_confirm": "The model will restart with these settings (a few minutes).",
+  "moe.saved": "Settings saved",
+  "moe.saved_restart": "Settings saved, restarting",
+  "moe.install": "Install",
+  "moe.close": "Close",
+  "moe.chip": "Installing the model",
   "llamacpp.chip_install": "Compiling the engine",
   "llamacpp.chip_update": "Updating the engine",
   "llamacpp.chip_prebuilt": "Downloading the engine",
@@ -6159,6 +6339,28 @@ async function loadCfg(){
     updateReasonBtn('');
     return;
   }
+  if(c.ENGINE==='moe'){
+    const [s, cl] = await Promise.all([jget('/api/moe').catch(()=>null), jget('/api/engine/cmdline').catch(()=>null)]);
+    let fam=null, fit=null;
+    for(const f of (s&&s.families)||[]){ const x=f.fits.find(x=>x.active); if(x){ fam=f; fit=x; } }
+    const d=fit&&fit.details;
+    ENGINE_CMDLINE=(cl&&cl.cmdline)||'';
+    const cp=ENGINE_CMDLINE ? '<button class="cfg-copy" onclick="copyText(ENGINE_CMDLINE, t(\'status.cmdline_copied\'))" title="'+escHtml(t('status.cmdline_copy')+' : '+ENGINE_CMDLINE)+'"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>' : '';
+    rows.push(row(t('status.cfg_engine')+cp, t('status.engine_moe')));
+    if(fam) rows.push(row('MODEL', fam.label+' '+fit.quant.id));
+    if(d){
+      const k=n=>(+n>=1024 ? Math.round(+n/1024)+'K' : n);
+      rows.push(row('CTX', d.ctx));
+      rows.push(row('KV', d.kv+(d.kv_resident ? ' · '+k(d.kv_resident)+' VRAM' : '')));
+      rows.push(row('MTP', d.spec));
+      rows.push(row('PREFILL', k(d.prefill)));
+      rows.push(row('EXPERTS', d.drop ? 'mlock' : d.mmap ? 'mmap' : 'RAM', d.drop ? t('moe.d_drop') : d.mmap ? t('moe.d_mmap') : t('moe.d_inram')));
+      if(d.vision_gpu) rows.push(row('VISION', 'on', d.vision_gpu));
+    }else if(c.CTX) rows.push(row('CTX', c.CTX));
+    swapContent(document.getElementById('cfg'), rows.join(''));
+    updateReasonBtn(c.REASONING_EFFORT || '');
+    return;
+  }
   if(c.BIN){
     let v;
     if(lc && lc.prebuilt && lc.prebuilt.in_use) v=t('status.engine_prebuilt');
@@ -6279,7 +6481,7 @@ async function loadPresets(){
     const edit=document.createElement('button');
     edit.className='preset-edit'; edit.title=t('settings.presets.edit_title');
     edit.innerHTML='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>';
-    edit.onclick=(e)=>{ e.stopPropagation(); openPreset(x.id); };
+    edit.onclick=(e)=>{ e.stopPropagation(); x.moe ? openMoe(x.id) : openPreset(x.id); };
     row.appendChild(info); row.appendChild(edit);
     cont.appendChild(row);
   });
@@ -6690,7 +6892,7 @@ async function clearCrawlKey(){
   toast(t('settings.internet.key_removed'));
 }
 async function loadAll(){
-  await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadComputer(),loadMCP(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadRemote(),loadTasks()]);
+  await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadComputer(),loadMCP(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadMoe(),loadRemote(),loadTasks()]);
   releaseHeights(); 
 }
 async function act(a){
@@ -9284,7 +9486,7 @@ async function loadLlamacpp(){
 let lcSeenEnd = false, lcEndShown = false;
 function lcChipLabel(action){
   return {install:t('llamacpp.chip_install'), update:t('llamacpp.chip_update'),
-          prebuilt:t('llamacpp.chip_prebuilt'), custom:t('llamacpp.chip_custom')}[action] || t('llamacpp.chip_default');
+          prebuilt:t('llamacpp.chip_prebuilt'), custom:t('llamacpp.chip_custom'), moe:t('moe.chip')}[action] || t('llamacpp.chip_default');
 }
 function lcChipSync(j){
   const chip = document.getElementById('lc-chip');
@@ -9519,6 +9721,169 @@ function lcToggleLog(){
   const bar = document.querySelector('.lc-logbar');
   if(pre.hasAttribute('hidden')){ pre.removeAttribute('hidden'); bar.classList.add('open'); pre.scrollTop = pre.scrollHeight; }
   else { pre.setAttribute('hidden',''); bar.classList.remove('open'); }
+}
+let moeState = null, moeFam = '', moeQuant = '', moeTarget = '';
+async function loadMoe(){
+  let s;
+  try{ s = await jget('/api/moe'); }catch(_){ return; }
+  moeState = s;
+  const row = document.getElementById('lc-mode-moe');
+  if(!row) return;
+  row.hidden = !(s.env && s.env.supported);
+  const st = document.getElementById('lc-moe-state');
+  if(st) st.textContent = (s.installed||[]).length
+    ? t('moe.state_installed').replace('{n}', s.installed.length)
+    : '';
+}
+async function openMoe(presetId){
+  await loadMoe();
+  if(!moeState) return;
+  moeTarget = typeof presetId === 'string' ? presetId : '';
+  const s = moeState, env = s.env || {};
+  const cards = (env.gpus||[]).filter(g=>g.index===env.main || g.index===env.helper)
+    .sort((a,b)=>(a.index===env.main?-1:1))
+    .map(g=>g.name.replace(/^NVIDIA GeForce /,'')+' '+Math.round(g.vram_gb)+' Go');
+  document.getElementById('moe-machine').textContent =
+    t('moe.machine').replace('{gpus}', cards.join(' + '))
+      .replace('{ram}', Math.round(env.ram_gb)).replace('{disk}', Math.round(env.disk_free_gb));
+  if(!moeFam) moeFam = (s.families[0]||{}).id || '';
+  if(moeTarget){
+    for(const f of s.families){
+      const hit = f.fits.find(x=>x.preset===moeTarget);
+      if(hit){ moeFam = f.id; moeQuant = hit.quant.id; }
+    }
+  }
+  moeRenderFams();
+  moeRenderQuants(!moeTarget);
+  showModal('moe-modal');
+}
+function closeMoe(){ hideModal('moe-modal'); }
+function moeRenderFams(){
+  const box = document.getElementById('moe-fams');
+  box.innerHTML = moeState.families.map(f=>
+    '<label><input type="radio" name="moe-fam" value="'+f.id+'"'+(f.id===moeFam?' checked':'')
+    +' onchange="moeFam=this.value;moeRenderQuants(true)">'
+    +'<span>'+escHtml(f.label)+'</span><span class="be-note">'+escHtml(f.about)+'</span></label>').join('');
+}
+function moeRenderQuants(pickReco){
+  const f = moeState.families.find(x=>x.id===moeFam);
+  if(!f) return;
+  if(pickReco || !f.fits.some(x=>x.quant.id===moeQuant && (x.ok || x.preset))){
+    const cur = f.fits.find(x=>x.active) || f.fits.find(x=>x.preset);
+    moeQuant = cur ? cur.quant.id : (f.recommend || '');
+  }
+  const box = document.getElementById('moe-quants');
+  box.innerHTML = f.fits.map(x=>{
+    const q = x.quant, sel = q.id===moeQuant;
+    const tag = x.active ? t('moe.active') : x.preset ? t('moe.installed') : q.id===f.recommend ? t('moe.recommended') : '';
+    const reco = tag ? ' <span class="lc-reco">'+tag+'</span>' : '';
+    const usable = x.ok || !!x.preset;   
+    const desc = x.preset ? escHtml(q.about)
+      : x.ok ? escHtml(q.about)+' · '+t('moe.download').replace('{gb}', Math.round(x.disk_gb))
+      : escHtml(x.why);
+    return '<div class="lc-mode'+(sel?' moe-sel':'')+(usable?'':' moe-off')+'"'
+      +(usable?' onclick="moeQuant=\''+q.id+'\';moeRenderQuants(false)"':'')+'>'
+      +'<div class="lc-mode-t">'+q.id+reco+'</div><div class="lc-mode-d">'+desc+'</div></div>';
+  }).join('');
+  const fit = f.fits.find(x=>x.quant.id===moeQuant);
+  const go = document.getElementById('moe-go');
+  go.disabled = !fit || !!fit.active;
+  document.getElementById('moe-bench').hidden = !(fit && fit.active);
+  go.textContent = fit && fit.active ? t('moe.is_active') : fit && fit.preset ? t('moe.activate') : t('moe.install');
+  moeRenderDisk(fit);
+  moeRenderSettings(fit);
+  moeRenderDetails(fit);
+  document.getElementById('moe-note').textContent = !fit ? t('moe.nothing_fits')
+    : fit.active ? t('moe.note_active') : fit.preset ? t('moe.note_installed')
+    : (fit.mmap ? t('moe.note_mmap') : t('moe.note'));
+}
+function moeRenderDisk(fit){
+  const el = document.getElementById('moe-disk');
+  const free = Math.round((moeState.env||{}).disk_free_gb||0);
+  if(!fit){ el.textContent = ''; return; }
+  if(fit.preset){ el.textContent = t('moe.disk_installed').replace('{free}', free); return; }
+  const need = Math.round(fit.disk_gb), left = free - need;
+  el.textContent = (left >= 5 ? t('moe.disk_ok') : t('moe.disk_short'))
+    .replace('{free}', free).replace('{need}', need).replace('{left}', Math.max(left, 0));
+}
+function moeRenderSettings(fit){
+  const fld = document.getElementById('moe-settings-fld'), save = document.getElementById('moe-save');
+  const d = fit && fit.details;
+  fld.hidden = save.hidden = !d;
+  if(!d) return;
+  const sel = (id, opts, cur) => '<select class="ctl" id="'+id+'" style="width:auto">'
+    + opts.map(([v,l])=>'<option value="'+v+'"'+(String(v)===String(cur)?' selected':'')+'>'+escHtml(l)+'</option>').join('')+'</select>';
+  const sw = (id, on) => '<label class="switch"><input type="checkbox" id="'+id+'"'+(on?' checked':'')+'><span class="slider"></span></label>';
+  const rows = [
+    [t('moe.d_ctx'), '<span class="moe-ctx"><input type="range" id="moe-s-ctx" min="32768" max="262144" step="4096" value="'+(+d.ctx||131072)+'" oninput="moeCtxLbl()"><span id="moe-s-ctx-v"></span></span>'],
+    [t('moe.d_kv'), sel('moe-s-kv', [['fp16', t('moe.kv_fp16')],['int8', t('moe.kv_int8')]], d.kv)],
+    [t('moe.d_mtp'), sel('moe-s-spec', [[2,'2'],[3,'3'],[4,'4']], d.spec)],
+    [t('moe.s_vision'), sw('moe-s-vision', d.vision)],
+  ];
+  if(d.has_helper) rows.push([t('moe.s_helper'), sw('moe-s-helper', d.helper_on)]);
+  document.getElementById('moe-settings').innerHTML = rows.map(([a,b])=>
+    '<div class="moe-kv"><span>'+escHtml(a)+'</span><span>'+b+'</span></div>').join('');
+  moeCtxLbl();
+}
+function moeCtxLbl(){
+  const r = document.getElementById('moe-s-ctx'), o = document.getElementById('moe-s-ctx-v');
+  if(!r || !o) return;
+  o.textContent = (+r.value).toLocaleString('fr-FR');
+  r.style.setProperty('--p', ((r.value - r.min) / (r.max - r.min) * 100) + '%');
+}
+async function moeSaveSettings(){
+  const f = moeState && moeState.families.find(x=>x.id===moeFam);
+  const fit = f && f.fits.find(x=>x.quant.id===moeQuant);
+  if(!fit || !fit.preset) return;
+  const v = id => document.getElementById(id);
+  const body = {preset: fit.preset, ctx: +v('moe-s-ctx').value, kv: v('moe-s-kv').value, spec: +v('moe-s-spec').value,
+    vision: v('moe-s-vision').checked, helper: v('moe-s-helper') ? v('moe-s-helper').checked : false};
+  if(fit.active && !await askConfirm(t('moe.save_confirm'), {title:t('moe.modal_title'), okText:t('moe.save')})) return;
+  const r = await jpost('/api/moe/settings', body);
+  if(!r.ok){ toast(t('llamacpp.error_prefix')+(r.error||'')); return; }
+  toast(r.restarted ? t('moe.saved_restart') : t('moe.saved'));
+  moeTarget = fit.preset;
+  await openMoe(fit.preset);
+  if(typeof loadPresets === 'function') loadPresets();
+}
+function moeRenderDetails(fit){
+  const fld = document.getElementById('moe-details-fld');
+  const d = fit && fit.details;
+  fld.hidden = !d;
+  if(!d) return;
+  const k = n => (+n >= 1024 ? Math.round(+n/1024)+'K' : n);
+  const rows = [
+    [t('moe.d_main'), d.main_gpu],
+    [t('moe.d_helper'), d.helper_gpu || t('moe.d_none')],
+    [t('moe.d_vision'), d.vision_gpu || t('moe.d_none')],
+    [t('moe.d_ctx'), (+d.ctx).toLocaleString('fr-FR')+' '+t('moe.d_tokens')],
+    [t('moe.d_kv'), d.kv + (d.kv_resident ? ' · '+t('moe.d_kv_resident').replace('{n}', k(d.kv_resident)) : '')],
+    [t('moe.d_mtp'), t('moe.d_mtp_val').replace('{n}', d.spec)],
+    [t('moe.d_ram'), d.drop ? t('moe.d_drop') : d.mmap ? t('moe.d_mmap') : t('moe.d_inram')],
+    [t('moe.d_read'), t('moe.d_read_val').replace('{chunk}', k(d.prefill)).replace('{short}', d.short_read)],
+    [t('moe.d_root'), t('moe.d_root_val').replace('{n}', d.cache_root)],
+    [t('moe.d_version'), d.version],
+  ];
+  document.getElementById('moe-details').innerHTML = rows.map(([a,b])=>
+    '<div class="moe-kv"><span>'+escHtml(a)+'</span><span>'+escHtml(b)+'</span></div>').join('');
+}
+async function moeInstall(){
+  const f = moeState && moeState.families.find(x=>x.id===moeFam);
+  const fit = f && f.fits.find(x=>x.quant.id===moeQuant);
+  if(!fit || fit.active) return;
+  if(fit.preset){
+    closeMoe();
+    await switchTo(0, f.label+' '+moeQuant, fit.preset);
+    loadMoe();
+    return;
+  }
+  const msg = t('moe.confirm').replace('{name}', f.label+' '+moeQuant).replace('{gb}', Math.round(fit.disk_gb));
+  if(!await askConfirm(msg, {title:t('moe.modal_title'), okText:t('moe.install')})) return;
+  const r = await jpost('/api/moe/install', {family:moeFam, quant:moeQuant});
+  if(!r.ok){ toast(t('llamacpp.error_prefix')+(r.error||'')); return; }
+  closeMoe();
+  document.getElementById('lc-details').open = true;
+  lcStartPolling();
 }
 let mcpServers = [];
 let mcpEditing = null; 

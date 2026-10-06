@@ -139,7 +139,8 @@ async function loadPresets(){
     // lit comme centrée dans son coin, là où le crayon penché tirait de travers.
     edit.className='preset-edit'; edit.title=t('settings.presets.edit_title');
     edit.innerHTML='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>';
-    edit.onclick=(e)=>{ e.stopPropagation(); openPreset(x.id); };
+    // modèle du moteur MoE : sa propre fenêtre (réglages qui le concernent), pas l'éditeur llama.cpp
+    edit.onclick=(e)=>{ e.stopPropagation(); x.moe ? openMoe(x.id) : openPreset(x.id); };
     // Pas de poignée : la ligne entière est déplaçable, on attrape où on veut.
     row.appendChild(info); row.appendChild(edit);
     cont.appendChild(row);
@@ -684,7 +685,7 @@ async function loadAll(){
   // allSettled et pas all : un seul chargement en échec (accès distant coupé,
   // clé API absente…) ne doit pas empêcher la suite — et surtout pas laisser les
   // hauteurs réservées en place pour toujours.
-  await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadComputer(),loadMCP(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadRemote(),loadTasks()]);
+  await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadComputer(),loadMCP(),loadApiKey(),loadNetwork(),loadPrefs(),loadLlamacpp(),loadMoe(),loadRemote(),loadTasks()]);
   releaseHeights(); // tout est en place : on rend la main et on mesure pour la prochaine fois
 }
 // Démarrer / arrêter / redémarrer le moteur. On REMONTE l'erreur si le serveur répond

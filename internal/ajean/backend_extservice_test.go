@@ -28,7 +28,7 @@ func TestSyncExternalService(t *testing.T) {
 	extUnitPIDs = func(string) []int { return []int{4242} }
 	defer func() { extUnitPIDs = unitPIDs }()
 
-	strata := map[string]string{"EXTERNAL": "1", "EXTERNAL_URL": "http://127.0.0.1:8080/v1", extKeyService: "ajean-strata"}
+	moe := map[string]string{"EXTERNAL": "1", "EXTERNAL_URL": "http://127.0.0.1:8080/v1", extKeyService: "ajean-moe"}
 	local := map[string]string{"MODEL": "x.gguf"}
 	plainExt := map[string]string{"EXTERNAL": "1", "EXTERNAL_URL": "https://api.example.com/v1"}
 
@@ -36,12 +36,12 @@ func TestSyncExternalService(t *testing.T) {
 		cfg  map[string]string
 		want []string
 	}{
-		{strata, []string{"start ajean-strata"}},
-		{strata, []string{"start ajean-strata"}}, // re-bascule : start est idempotent
-		{local, []string{"stop ajean-strata"}},
+		{moe, []string{"start ajean-moe"}},
+		{moe, []string{"start ajean-moe"}}, // re-bascule : start est idempotent
+		{local, []string{"stop ajean-moe"}},
 		{local, nil}, // plus rien à arrêter
-		{strata, []string{"start ajean-strata"}},
-		{plainExt, []string{"stop ajean-strata"}}, // externe sans service
+		{moe, []string{"start ajean-moe"}},
+		{plainExt, []string{"stop ajean-moe"}}, // externe sans service
 	}
 	for i, s := range steps {
 		calls = nil
@@ -64,7 +64,7 @@ func TestSyncExternalServiceRejectsForeignUnits(t *testing.T) {
 	called := false
 	extUnitAction = func(unit, action string) error { called = true; return nil }
 	defer func() { extUnitAction = unitAction }()
-	for _, bad := range []string{"sshd", "ajean-strata; rm -rf /", "../ajean-x", "Ajean-strata", "ajean-"} {
+	for _, bad := range []string{"sshd", "ajean-moe; rm -rf /", "../ajean-x", "Ajean-moe", "ajean-"} {
 		cfg := map[string]string{"EXTERNAL": "1", extKeyService: bad}
 		if err := syncExternalService(cfg); err == nil {
 			t.Fatalf("%q accepté", bad)
@@ -74,7 +74,7 @@ func TestSyncExternalServiceRejectsForeignUnits(t *testing.T) {
 		t.Fatal("systemctl appelé pour une unité refusée")
 	}
 	// un moteur local ne déclenche jamais EXTERNAL_SERVICE, même renseigné
-	if s := externalServiceOf(map[string]string{extKeyService: "ajean-strata"}); s != "" {
+	if s := externalServiceOf(map[string]string{extKeyService: "ajean-moe"}); s != "" {
 		t.Fatalf("service %q pour un preset non externe", s)
 	}
 }
@@ -92,7 +92,7 @@ func TestExternalServiceReady(t *testing.T) {
 	state := "activating"
 	extUnitState = func(string) string { return state }
 	defer func() { extUnitState = unitActiveState }()
-	cfg := map[string]string{"EXTERNAL": "1", extKeyURL: srv.URL + "/v1", extKeyService: "ajean-strata"}
+	cfg := map[string]string{"EXTERNAL": "1", extKeyURL: srv.URL + "/v1", extKeyService: "ajean-moe"}
 
 	if ok, msg := externalServiceReady(cfg); ok || msg != "" {
 		t.Fatalf("unité en démarrage : prêt=%v msg=%q", ok, msg)
@@ -137,13 +137,13 @@ func TestBenchExternalService(t *testing.T) {
 	defer srv.Close()
 	extUnitState = func(string) string { return "active" }
 	defer func() { extUnitState = unitActiveState }()
-	cfg := map[string]string{"EXTERNAL": "1", extKeyURL: srv.URL + "/v1", extKeyModel: "swift", extKeyService: "ajean-strata"}
+	cfg := map[string]string{"EXTERNAL": "1", extKeyURL: srv.URL + "/v1", extKeyModel: "swift", extKeyService: "ajean-moe"}
 	// un vrai preset actif : le bench doit aussi être rangé sous lui (liste de gauche)
 	if err := os.MkdirAll(presetsDir(), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	pf := filepath.Join(presetsDir(), "STRATA.env")
-	if err := os.WriteFile(pf, []byte(externalPresetContent(cfg[extKeyURL], "swift", "", "", false)+extKeyService+"=ajean-strata\n"), 0o644); err != nil {
+	pf := filepath.Join(presetsDir(), "MOE.env")
+	if err := os.WriteFile(pf, []byte(externalPresetContent(cfg[extKeyURL], "swift", "", "", false)+extKeyService+"=ajean-moe\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := applyPresetFile(pf); err != nil {
@@ -164,7 +164,7 @@ func TestBenchExternalService(t *testing.T) {
 		t.Fatalf("bench mal rangé : %+v", sb)
 	}
 	store := loadBenchStore()
-	if sp, ok := store["STRATA"]; !ok || !benchMatchesPreset(sp, cfg) {
+	if sp, ok := store["MOE"]; !ok || !benchMatchesPreset(sp, cfg) {
 		t.Fatalf("bench absent de la liste des presets : %+v", store)
 	}
 	if a, b := benchNonce(), benchNonce(); a == b {
@@ -180,13 +180,13 @@ func TestBenchExternalService(t *testing.T) {
 func TestExternalPresetEditKeepsServiceAndMachine(t *testing.T) {
 	testHome(t)
 	body := externalPresetContent("http://127.0.0.1:8080/v1", "swift", "", "131072", true) +
-		"BIN=/opt/llama/llama-server\n" + extKeyService + "=ajean-strata\n"
-	id, err := SavePreset("", "STRATA", body)
+		"BIN=/opt/llama/llama-server\n" + extKeyService + "=ajean-moe\n"
+	id, err := SavePreset("", "MOE", body)
 	if err != nil {
 		t.Fatal(err)
 	}
 	save := func(ctx string) map[string]string {
-		req := externalSaveReq{ID: id, Name: "STRATA", URL: "http://127.0.0.1:8080/v1", Model: "swift", Ctx: ctx, Vision: true}
+		req := externalSaveReq{ID: id, Name: "MOE", URL: "http://127.0.0.1:8080/v1", Model: "swift", Ctx: ctx, Vision: true}
 		b, _ := json.Marshal(req)
 		w := httptest.NewRecorder()
 		handlePresetExternalSave(w, httptest.NewRequest("POST", "/api/preset/external", bytes.NewReader(b)))
@@ -206,7 +206,7 @@ func TestExternalPresetEditKeepsServiceAndMachine(t *testing.T) {
 	}
 	for _, ctx := range []string{"200000", "131072"} { // deux éditions successives
 		cfg := save(ctx)
-		if cfg[extKeyService] != "ajean-strata" || cfg["BIN"] != "/opt/llama/llama-server" || cfg["CTX"] != ctx {
+		if cfg[extKeyService] != "ajean-moe" || cfg["BIN"] != "/opt/llama/llama-server" || cfg["CTX"] != ctx {
 			t.Fatalf("édition (CTX=%s) : %v", ctx, cfg)
 		}
 	}

@@ -230,6 +230,9 @@ func cmdServe(args []string) error {
 		fmt.Println("[info] preset externe actif : pas de moteur local à lancer")
 		return nil
 	}
+	if isMoeConfig(cfg) {
+		return serveMoe(cfg)
+	}
 	bin := cfg["BIN"]
 	if bin == "" {
 		return fmt.Errorf("BIN non défini — lance « ajean edit »")

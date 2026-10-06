@@ -513,6 +513,12 @@ func handlePresets(w http.ResponseWriter, r *http.Request) {
 				if strings.TrimSpace(cfg[extKeyVision]) == "1" {
 					item["vision"] = true
 				}
+			} else if cfg := parseEnv(content); isMoeConfig(cfg) {
+				// moteur MoE : réglages dans sa propre fenêtre, pas l'éditeur llama.cpp
+				item["moe"] = true
+				if cfg["MOE_VISION"] != "0" {
+					item["vision"] = true
+				}
 			} else if cfg := parseEnv(content); isCloudConfig(cfg) {
 				item["cloud"] = cloudGPU(cfg)
 				if strings.TrimSpace(cfg[cloudKeyMM]) != "" {

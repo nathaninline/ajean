@@ -240,7 +240,7 @@ func visionEnabled() bool {
 	if strings.TrimSpace(ReadConfig()["MMPROJ"]) != "" {
 		return true
 	}
-	return externalVisionActive() || cloudVisionActive()
+	return externalVisionActive() || cloudVisionActive() || moeVisionActive()
 }
 
 // visionMediaNote annonce au modèle les médias (images + vidéos) qu'il VOIT déjà

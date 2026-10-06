@@ -9,8 +9,8 @@ import (
 )
 
 // backend_extservice.go — un preset externe peut nommer le service système qui
-// sert son API (clé EXTERNAL_SERVICE, ex. « ajean-strata » : un moteur tiers
-// comme Strata, lancé par sa propre unité systemd). ajean le démarre quand on
+// sert son API (clé EXTERNAL_SERVICE, ex. « ajean-moe » : un moteur tiers
+// comme un moteur MoE spécialisé, lancé par sa propre unité systemd). ajean le démarre quand on
 // bascule sur ce preset et l'arrête quand on en repart, pour qu'un seul moteur
 // occupe les GPU à la fois. L'unité déclare en plus Conflicts=ajean-engine :
 // systemd arrête l'un quand l'autre démarre, quel que soit l'ordre des appels.

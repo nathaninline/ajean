@@ -506,6 +506,9 @@ func newLinkHandler(mux *http.ServeMux) http.Handler {
 	base := lp.Director
 	lp.Director = func(req *http.Request) {
 		base(req)
+		// Le moteur se voit appelé sous son propre nom, pas sous celui du relais :
+		// certains moteurs refusent (403) un Host inconnu (protection DNS rebinding).
+		req.Host = llama.Host
 		// Le client distant n'a pas la clé API de llama-server ; on l'injecte ici
 		// (l'auth réelle est faite par le relais via la clé de liaison du compte).
 		if apiKey != "" {

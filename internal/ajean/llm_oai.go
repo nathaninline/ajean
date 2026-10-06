@@ -47,6 +47,13 @@ func oaiHandler() http.Handler {
 	llama := &url.URL{Scheme: "http", Host: fmt.Sprintf("127.0.0.1:%d", LLMPort())}
 	lp := httputil.NewSingleHostReverseProxy(llama)
 	lp.FlushInterval = -1 // streaming SSE des complétions
+	base := lp.Director
+	lp.Director = func(req *http.Request) {
+		base(req)
+		// Host local : certains moteurs refusent (403) <machine>.oai.ajean.link, un nom qu'ils ne
+		// connaissent pas (protection DNS rebinding).
+		req.Host = llama.Host
+	}
 	lp.ErrorHandler = func(w http.ResponseWriter, r *http.Request, e error) {
 		http.Error(w, "llama-server injoignable: "+e.Error(), http.StatusBadGateway)
 	}

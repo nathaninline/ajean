@@ -1098,7 +1098,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		// arrivent sur des chunks séparés ; on émet une copie complète à chaque MAJ
 		// pour que les consommateurs (terminal, web) aient toujours tout.
 		var stats StatsEvent
-		// Serveur sans `timings` (Strata, API tierces) : on mesure nous-mêmes le
+		// Serveur sans `timings` (moteurs MoE, API tierces) : on mesure nous-mêmes le
 		// décodage entre le premier et le dernier token (voir après la boucle).
 		sawTimings := false
 		var tFirst, tLast time.Time
@@ -1232,7 +1232,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				}
 				for i, tc := range ch.Delta.ToolCalls {
 					// Le champ index dit à quel appel appartient ce morceau. Un serveur
-					// qui envoie un morceau par chunk (Strata) met l'appel n°2 en
+					// qui envoie un morceau par chunk (certains moteurs) met l'appel n°2 en
 					// position 0 du chunk : se fier à i fusionnait les appels
 					// parallèles (noms écrasés, JSON collés « {…}{…} »). Sans index,
 					// on retombe sur la position dans le chunk.

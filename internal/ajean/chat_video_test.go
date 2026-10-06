@@ -136,7 +136,7 @@ func videoEngine(t *testing.T, ok bool) {
 	t.Cleanup(func() { videoInputSupported = prev })
 }
 
-// Moteur sans vidéo (API externe, Strata) : il ignorait la partie input_video
+// Moteur sans vidéo (API externe, moteur MoE) : il ignorait la partie input_video
 // sans erreur et le modèle ne recevait que le texte. La vidéo doit alors être
 // annoncée comme fichier, avec la marche à suivre (ffmpeg puis see_image), et
 // see_video doit le dire au lieu de charger le fichier.

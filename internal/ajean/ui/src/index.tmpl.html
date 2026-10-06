@@ -273,6 +273,13 @@
         <div class="lc-mode-d" data-i18n="engine.mode_custom_desc">un fork de llama.cpp pour modèles spéciaux (quant ternaire…)</div>
         <div class="lc-mode-state" id="lc-custom-state"></div>
       </div>
+      <!-- Moteur MoE spécialisé Qwen3.8 Flash Next, installé en un clic (version
+           figée par ajean). Affiché seulement là où il tourne (Linux + NVIDIA). -->
+      <div class="lc-mode" id="lc-mode-moe" hidden onclick="openMoe()">
+        <div class="lc-mode-t" data-i18n="moe.mode_title">Qwen3.8 Flash Next</div>
+        <div class="lc-mode-d" data-i18n="moe.mode_desc">le plus rapide pour ce modèle, installation en un clic</div>
+        <div class="lc-mode-state" id="lc-moe-state"></div>
+      </div>
     </div>
     <div id="lc-job" class="rowbody" style="display:none">
       <div style="display:flex;align-items:center;gap:8px">
@@ -543,6 +550,46 @@
     <div class="ask-actions">
       <button id="ask-cancel" onclick="askResolve(false)" data-i18n="modal.cancel">Annuler</button>
       <button id="ask-ok" class="ask-ok" onclick="askResolve(true)" data-i18n="modal.confirm">Confirmer</button>
+    </div>
+  </div>
+</div>
+<div id="moe-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeMoe()">
+  <div class="modal-card" style="max-width:520px">
+    <div class="modal-head">
+      <strong data-i18n="moe.modal_title">Qwen3.8 Flash Next</strong>
+      <button class="modal-x" onclick="closeMoe()" aria-label="Fermer" data-i18n="moe.close_aria" data-i18n-attr="aria-label">×</button>
+    </div>
+    <div class="modal-body mform">
+      <div id="moe-machine" class="muted" style="font-size:12px;line-height:1.5"></div>
+      <div class="fld">
+        <label class="fld-l" data-i18n="moe.version_label">Version</label>
+        <div class="seg" id="moe-fams"></div>
+      </div>
+      <div class="fld">
+        <label class="fld-l" data-i18n="moe.quality_label">Qualité</label>
+        <div class="slist" id="moe-quants"></div>
+      </div>
+      <div id="moe-disk" class="muted" style="font-size:12px;line-height:1.5"></div>
+      <div class="fld" id="moe-settings-fld" hidden>
+        <label class="fld-l" data-i18n="moe.settings_label">Réglages</label>
+        <div class="slist moe-details" id="moe-settings"></div>
+      </div>
+      <div class="fld" id="moe-details-fld" hidden>
+        <label class="fld-l" data-i18n="moe.details_label">Configuration</label>
+        <div class="slist moe-details" id="moe-details"></div>
+      </div>
+      <div id="moe-note" class="muted" style="font-size:11px;line-height:1.5"></div>
+    </div>
+    <div class="modal-foot">
+      <div class="foot-l">
+        <!-- Bench : seulement pour le modèle qui tourne (moeRenderQuants) -->
+        <button id="moe-bench" class="pe-icon" onclick="runBenchUI()" hidden title="Benchmark" aria-label="Benchmark" data-i18n="bench.title" data-i18n-attr="title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 13.5l3.6-3.6"/><path d="M4.6 19a9 9 0 1 1 14.8 0"/><circle cx="12" cy="13.5" r="1.3" fill="currentColor" stroke="none"/></svg></button>
+      </div>
+      <div class="foot-r">
+        <button onclick="closeMoe()" data-i18n="moe.close">fermer</button>
+        <button id="moe-save" hidden onclick="moeSaveSettings()" data-i18n="moe.save">Enregistrer</button>
+        <button class="btn-save" id="moe-go" onclick="moeInstall()" data-i18n="moe.install">Installer</button>
+      </div>
     </div>
   </div>
 </div>

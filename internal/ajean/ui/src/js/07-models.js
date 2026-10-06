@@ -1026,7 +1026,7 @@ function syncRunMode(){
   md.classList.toggle('run-cloud', mode === 'modal');
   md.classList.toggle('run-external', mode === 'external');
   // Le bench mesure le moteur local : sans objet pour un preset distant, sauf un
-  // moteur tiers lancé par ajean (EXTERNAL_SERVICE, ex. Strata), mesuré en streaming.
+  // moteur tiers lancé par ajean (EXTERNAL_SERVICE, ex. moteur MoE), mesuré en streaming.
   const bench = document.getElementById('btn-bench');
   if(bench && mode !== 'local' && !(mode === 'external' && cfgReadKey('EXTERNAL_SERVICE'))) bench.style.display = 'none';
   if(mode === 'modal'){

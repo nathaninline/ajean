@@ -47,7 +47,7 @@ Le cuisinier ferme les yeux pour goûter la sauce. Trop salée. Il ajoute une po
 // inflating decode numbers — what you measure here is close to what you'll
 // see in real chat at the same context length.
 func runBench(nPrompt, nPredict int) (*benchResult, error) {
-	// Moteur tiers lancé par ajean (EXTERNAL_SERVICE, ex. Strata) : il ne renvoie
+	// Moteur tiers lancé par ajean (EXTERNAL_SERVICE, ex. moteur MoE) : il ne renvoie
 	// pas les `timings` de llama.cpp, on mesure en streaming (voir runBenchStream).
 	if cfg := ReadConfig(); externalServiceOf(cfg) != "" {
 		if ok, why := externalServiceReady(cfg); !ok {
@@ -55,6 +55,13 @@ func runBench(nPrompt, nPredict int) (*benchResult, error) {
 				why = "le moteur charge encore le modèle"
 			}
 			return nil, fmt.Errorf("%s", why)
+		}
+		return runBenchStream(nPrompt, nPredict)
+	} else if isMoeConfig(cfg) {
+		// moteur MoE intégré : il garde la conversation en cache malgré
+		// cache_prompt:false, la marque unique en tête (runBenchStream) l'en empêche
+		if !healthCheck() {
+			return nil, fmt.Errorf("le moteur charge encore le modèle")
 		}
 		return runBenchStream(nPrompt, nPredict)
 	}
@@ -198,6 +205,13 @@ func benchModelKey(cfg map[string]string) string {
 	if externalServiceOf(cfg) != "" {
 		return "ext:" + strings.TrimSpace(cfg[extKeyModel])
 	}
+	// moteur MoE intégré : sa config d'installation désigne le modèle
+	if isMoeConfig(cfg) {
+		if c := strings.TrimSpace(cfg["MOE_CONFIG"]); c != "" {
+			return "moe:" + filepath.Base(c)
+		}
+		return ""
+	}
 	if usesRemoteEndpoint(cfg) {
 		return ""
 	}
@@ -279,7 +293,7 @@ func cmdBench(args []string) error {
 }
 
 // benchNonce : marque unique EN TÊTE du prompt. Un moteur tiers peut ignorer
-// cache_prompt:false et réutiliser sa conversation en cache (Strata le fait) :
+// cache_prompt:false et réutiliser sa conversation en cache (certains moteurs le font) :
 // un 2e bench identique affichait alors 2 166 tokens « lus » en 0,1 s. Un début
 // différent à chaque fois interdit toute réutilisation de préfixe.
 func benchNonce() string {
