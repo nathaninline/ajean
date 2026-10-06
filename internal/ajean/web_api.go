@@ -177,7 +177,11 @@ func handleServiceLog(w http.ResponseWriter, r *http.Request) {
 			n = k
 		}
 	}
-	sendJSON(w, 200, map[string]any{"log": serviceLogTail(n)})
+	log := serviceLogTail(n)
+	if isMoeConfig(ReadConfig()) {
+		log = moeNeutral(log) // les lignes du moteur MoE ne nomment pas l'amont
+	}
+	sendJSON(w, 200, map[string]any{"log": log})
 }
 
 // vramGPUs échantillonne les GPU (VRAM utilisée/totale, util, température). Extrait

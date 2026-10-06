@@ -979,15 +979,35 @@ func serveMoe(cfg map[string]string) error {
 	if err != nil {
 		return err
 	}
-	out := strings.TrimSuffix(path, ".json") + "-ajean.json"
-	data, _ := json.MarshalIndent(final, "", " ")
-	if err := os.WriteFile(out, data, 0o644); err != nil {
-		return err
-	}
 	srcDir := filepath.Dir(path)
 	py := filepath.Join(srcDir, ".venv", "bin", "python")
 	if _, err := os.Stat(py); err != nil {
 		return fmt.Errorf("environnement Python du moteur absent (%s) : réinstaller le modèle", py)
+	}
+	// Tout ce qu'ajean lance porte le nom du moteur MoE d'AJEAN : binaires,
+	// lanceur, config et journal (les noms d'origine restent dans le dossier
+	// d'installation, qu'ils ne quittent pas).
+	tag := moeConfigTag(path)
+	final["log"] = filepath.Join(moeHome(), "ajean-moe-"+tag+".log")
+	if exe, ok := final["exe"].(string); ok {
+		final["exe"] = moeAlias(exe, "ajean-moe-engine")
+		// le serveur lit la version du moteur dans BUILD.json, à côté du binaire
+		moeAlias(filepath.Join(filepath.Dir(exe), "BUILD.json"), "BUILD.json")
+	}
+	_ = os.Remove(strings.TrimSuffix(path, ".json") + "-ajean.json") // ancien emplacement
+	if v, ok := final["vision"].(map[string]any); ok {
+		if exe, ok := v["exe"].(string); ok {
+			v["exe"] = moeAlias(exe, "ajean-moe-vision")
+		}
+	}
+	out := filepath.Join(moeHome(), "ajean-moe-"+tag+".json")
+	data, _ := json.MarshalIndent(final, "", " ")
+	if err := os.WriteFile(out, data, 0o644); err != nil {
+		return err
+	}
+	launcher, err := moeWriteLauncher(srcDir, py)
+	if err != nil {
+		return err
 	}
 	_ = os.Setenv("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
 	if dev := moeCudaDevices(cfg); dev != "" {
@@ -997,11 +1017,53 @@ func serveMoe(cfg map[string]string) error {
 	if err := waitPortFree(fmt.Sprint(final["host"]), port, 5e9); err != nil {
 		return err
 	}
-	args := []string{py, filepath.Join(srcDir, "serve", "server.py"), "--engine", "strata", "--config", out, "--port", port}
+	args := []string{launcher, "--config", out, "--port", port}
 	_ = os.Chdir(srcDir)
-	fmt.Fprintf(os.Stderr, "[ajean serve] moteur MoE %s  config=%s  port=%s  gpu=%s\n", moeVersion, filepath.Base(out), port, os.Getenv("CUDA_VISIBLE_DEVICES"))
+	fmt.Fprintf(os.Stderr, "[ajean serve] AJEAN MoE %s  config=%s  port=%s  gpu=%s\n", moeEngineRev, filepath.Base(out), port, os.Getenv("CUDA_VISIBLE_DEVICES"))
 	_ = putBytes(bkState, engineCmdlineKey, []byte(engineCmdline(args)))
-	return execServer(py, args)
+	return execServer(launcher, args)
+}
+
+// moeConfigTag : le modèle d'une config de l'installeur (strata-swift-iq3_xxs.json → swift-iq3_xxs).
+func moeConfigTag(path string) string {
+	b := strings.TrimSuffix(filepath.Base(path), ".json")
+	if i := strings.Index(b, "-"); i >= 0 {
+		b = b[i+1:]
+	}
+	return b
+}
+
+// moeAlias : un lien moeHome()/bin/<name> vers un binaire du moteur, recréé à
+// chaque lancement ; le process apparaît sous ce nom. En cas d'échec, le chemin
+// d'origine.
+func moeAlias(target, name string) string {
+	dir := filepath.Join(moeHome(), "bin")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return target
+	}
+	link := filepath.Join(dir, name)
+	tmp := link + ".new"
+	_ = os.Remove(tmp)
+	if err := os.Symlink(target, tmp); err != nil {
+		return target
+	}
+	if err := os.Rename(tmp, link); err != nil {
+		_ = os.Remove(tmp)
+		return target
+	}
+	return link
+}
+
+// moeWriteLauncher : le lanceur moeHome()/ajean-moe, qui démarre le serveur du
+// moteur (son nom technique d'origine reste à l'intérieur).
+func moeWriteLauncher(srcDir, py string) (string, error) {
+	p := filepath.Join(moeHome(), "ajean-moe")
+	body := "#!/bin/sh\n# AJEAN MoE : serveur du moteur MoE d'AJEAN (lancé par ajean serve)\n" +
+		"cd '" + srcDir + "' && exec '" + py + "' '" + filepath.Join(srcDir, "serve", "server.py") + "' --engine strata \"$@\"\n"
+	if err := os.WriteFile(p+".new", []byte(body), 0o755); err != nil {
+		return "", err
+	}
+	return p, os.Rename(p+".new", p)
 }
 
 // moeVisionActive : le preset MoE actif lit les images (encodeur installé).
