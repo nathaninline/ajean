@@ -111,7 +111,7 @@ func TestMoeBuildConfigDrop(t *testing.T) {
 	_ = os.MkdirAll(pack, 0o755)
 	base := map[string]any{"args": []any{"--pack", pack, "--pcie-frac", "0.3"}, "env": map[string]any{}}
 	cfg := map[string]string{"MOE_HELPER_GPU": "0", "MOE_DROP": "1", "MOE_MMAP": "0"}
-	// sans experts.bin ni moteur p1 : repli mmap (ce lancement écrit experts.bin)
+	// sans experts.bin ni moteur à jour : repli mmap (ce lancement écrit experts.bin)
 	out, _ := moeBuildConfig(base, cfg, "")
 	if out["env"].(map[string]any)["STRATA_ARENA_MMAP"] != "1" || out["env"].(map[string]any)["STRATA_REMOTE_DROP"] != nil {
 		t.Fatalf("repli mmap attendu : %v", out["env"])

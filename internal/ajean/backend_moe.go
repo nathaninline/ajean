@@ -39,27 +39,23 @@ import (
 	"strings"
 )
 
-// Version du moteur livrée par ajean et paquet correspondant. Le moteur est
-// compilé par nous (CUDA 12.8, mode portable AVX2, sm_75/80/86/89/120 : RTX 20
-// à 50) : l'amont ne publie pas de binaire Linux.
-//
-// moeEngineRev : révision de NOTRE compilation du moteur (p1 = les experts de la
-// carte d'aide retirés de la RAM, voir moeDropFits). Un moteur installé d'une
-// autre révision est remplacé au lancement (moeEnsureEngine).
+// Version du moteur AJEAN MoE et paquets correspondants. Le moteur est compilé
+// par nous (CUDA 12.8, mode portable AVX2, sm_75/80/86/89/120 : RTX 20 à 50),
+// avec les experts de la carte d'appoint gardés hors RAM (voir moeDropFits).
+// Un moteur installé d'un autre paquet est remplacé au lancement (moeEnsureEngine).
 const (
-	moeVersion     = "0.1.39"
-	moeEngineRev   = "p1"
+	moeVersion     = "1.0"
 	moeReleaseBase = "https://github.com/nathaninline/ajean/releases/download/moe-v" + moeVersion + "/"
 	moeSrcAsset    = "ajean-moe-src-" + moeVersion + ".tar.gz"
-	moeEngineAsset = "ajean-moe-engine-" + moeVersion + "-" + moeEngineRev + "-linux-x64-cuda12.zip"
+	moeEngineAsset = "ajean-moe-engine-" + moeVersion + "-linux-x64-cuda12.zip"
 	// moeEngineLocal : le nom sous lequel l'installeur attend le moteur (CUDA12_ASSET).
 	moeEngineLocal = "strata-linux-x64-cuda12.zip"
 )
 
 // moeAssetSHA : empreintes des fichiers de la release, vérifiées avant usage.
 var moeAssetSHA = map[string]string{
-	moeSrcAsset:    "4382d1648516ad8b8fa13a78b58475c77589dc62877e984b88b12deed1004850",
-	moeEngineAsset: "6d4376e953d6f0704f6c024ef2d71e0fbfac48ad25c3571b711b4c5912ca8814",
+	moeSrcAsset:    "5747f69426973d957e4f9894a8e3333c6ef0d6ac8565e26ddb8d36f52211cb3b",
+	moeEngineAsset: "b5851bc138ab32ca3ffefc16bf91c8f557e4d503503473a22f2b6c9e9b8fd34c",
 }
 
 // moeFamily / moeQuant : ce que l'installeur du moteur sait installer,
@@ -78,7 +74,7 @@ type moeQuant struct {
 	ArenaGB    float64 `json:"arena_gb"`    // experts à garder en RAM (ou en mmap)
 }
 
-// Valeurs reprises de la table MODELS de setup.py v0.1.39.
+// Valeurs reprises de la table MODELS de l'installeur du moteur.
 var moeFamilies = []moeFamily{
 	{ID: "swift", Label: "Swift 1.5", About: "réfléchit moins, répond plus vite", Quants: []string{"IQ2_XS", "IQ3_XXS"}},
 	{ID: "qwen", Label: "Classique", About: "le Qwen3.8-Flash-Next original", Quants: []string{"Q2_0", "IQ2_XS", "IQ3_XXS", "IQ3_S"}},
@@ -109,7 +105,7 @@ func moeHelperExpertsGB(vramGB float64) float64 { return max(vramGB-2.5, 0) }
 const moeMmapExtraGB = 45
 
 func moeHome() string    { return filepath.Join(AjeanHome(), "moe") }
-func moeSrcDir() string  { return filepath.Join(moeHome(), "moe-"+moeVersion) }
+func moeSrcDir() string  { return filepath.Join(moeHome(), "ajean-moe-"+moeVersion) }
 func moeDataDir() string { return filepath.Join(moeHome(), "data") }
 func moeDLDir() string   { return filepath.Join(moeHome(), "dl") }
 
@@ -632,7 +628,11 @@ func moeRunInstall(req moeInstallReq) {
 var reUpstreamName = regexp.MustCompile(`(?i)strata`)
 
 // moeNeutral retire le nom du moteur amont d'une ligne de journal.
-func moeNeutral(line string) string { return reUpstreamName.ReplaceAllString(line, "moteur") }
+func moeNeutral(line string) string {
+	// le binaire annonce sa version d'origine (« engine 0.1.39 ») : c'est la 1.0 d'AJEAN MoE
+	line = strings.ReplaceAll(line, "engine 0.1.39", "AJEAN MoE "+moeVersion)
+	return reUpstreamName.ReplaceAllString(line, "moteur")
+}
 
 func moeFamilyLabel(id string) string {
 	for _, f := range moeFamilies {
@@ -853,7 +853,7 @@ func moeBuildConfig(base map[string]any, cfg map[string]string, apiKey string) (
 }
 
 // moeDropReady : le mode « experts de la carte d'aide hors RAM » lit les experts
-// dans experts.bin (écrit au premier lancement, en mmap) et demande notre moteur p1.
+// dans experts.bin (écrit au premier lancement, en mmap) et demande notre moteur.
 func moeDropReady(args []string) bool {
 	pack := ""
 	for i := 0; i+1 < len(args); i++ {
@@ -1019,7 +1019,7 @@ func serveMoe(cfg map[string]string) error {
 	}
 	args := []string{launcher, "--config", out, "--port", port}
 	_ = os.Chdir(srcDir)
-	fmt.Fprintf(os.Stderr, "[ajean serve] AJEAN MoE %s  config=%s  port=%s  gpu=%s\n", moeEngineRev, filepath.Base(out), port, os.Getenv("CUDA_VISIBLE_DEVICES"))
+	fmt.Fprintf(os.Stderr, "[ajean serve] AJEAN MoE %s  config=%s  port=%s  gpu=%s\n", moeVersion, filepath.Base(out), port, os.Getenv("CUDA_VISIBLE_DEVICES"))
 	_ = putBytes(bkState, engineCmdlineKey, []byte(engineCmdline(args)))
 	return execServer(launcher, args)
 }
