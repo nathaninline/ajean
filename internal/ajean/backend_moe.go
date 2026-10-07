@@ -5,8 +5,9 @@ package ajean
 //
 // Version FIGÉE : ajean livre une version testée (sources + moteur Linux compilé
 // par nous) depuis SA propre release GitHub, vérifiée par SHA-256 ; on ne monte
-// de version qu'après l'avoir validée sur le serveur de test. Périmètre de cette
-// première version : Linux x86_64 + NVIDIA, une ou deux cartes.
+// de version qu'après l'avoir validée sur le serveur de test. Périmètre : Linux
+// x86_64 + NVIDIA, une ou deux cartes ; Windows x86_64 + NVIDIA avec le moteur
+// Windows publié par l'amont pour la même version (voir moeEnginePkg).
 //
 // Déroulé :
 //  1. installation (tâche « moe », même suivi que llama.cpp) : télécharge le
@@ -50,12 +51,57 @@ const (
 	moeEngineAsset = "ajean-moe-engine-" + moeVersion + "-linux-x64-cuda12.zip"
 	// moeEngineLocal : le nom sous lequel l'installeur attend le moteur (CUDA12_ASSET).
 	moeEngineLocal = "strata-linux-x64-cuda12.zip"
+
+	// Windows : pas de moteur compilé par nous. Les sources du paquet sont celles
+	// de l'amont v0.1.39 sans changement ; on prend donc son moteur Windows de la
+	// même version, en CUDA 13 (le moteur prêt à l'emploi de l'installeur sous
+	// Windows, PREBUILT_ASSET). Il lui manque seulement remote-drop (moeEngineHasDrop).
+	moeWinReleaseBase = "https://github.com/Niko1221/Strata/releases/download/v0.1.39/"
+	moeWinEngineAsset = "strata-windows-x64.zip"
 )
 
 // moeAssetSHA : empreintes des fichiers de la release, vérifiées avant usage.
 var moeAssetSHA = map[string]string{
-	moeSrcAsset:    "5747f69426973d957e4f9894a8e3333c6ef0d6ac8565e26ddb8d36f52211cb3b",
-	moeEngineAsset: "b5851bc138ab32ca3ffefc16bf91c8f557e4d503503473a22f2b6c9e9b8fd34c",
+	moeSrcAsset:       "5747f69426973d957e4f9894a8e3333c6ef0d6ac8565e26ddb8d36f52211cb3b",
+	moeEngineAsset:    "b5851bc138ab32ca3ffefc16bf91c8f557e4d503503473a22f2b6c9e9b8fd34c",
+	moeWinEngineAsset: "a862bcfa2330cd1c23f9b5d6e49f4027da8f8313842bd62e858ec6cd4533813a",
+}
+
+// moeAssetURL : d'où vient un fichier figé (notre release, ou celle de l'amont
+// pour le moteur Windows).
+func moeAssetURL(asset string) string {
+	if asset == moeWinEngineAsset {
+		return moeWinReleaseBase + asset
+	}
+	return moeReleaseBase + asset
+}
+
+// moeEnginePkg : le paquet du moteur pour ce système, le nom sous lequel
+// l'installeur l'attend dans --prebuilt, son CUDA (--cuda) et le dossier où
+// l'installeur le décompresse.
+type moeEnginePkg struct {
+	Asset, Local, Cuda, Dir string
+}
+
+func moeEngine() moeEnginePkg {
+	if runtime.GOOS == "windows" {
+		return moeEnginePkg{Asset: moeWinEngineAsset, Local: moeWinEngineAsset, Cuda: "13", Dir: "engine"}
+	}
+	return moeEnginePkg{Asset: moeEngineAsset, Local: moeEngineLocal, Cuda: "12", Dir: "engine-cuda12"}
+}
+
+// moeEngineHasDrop : le moteur de ce système sait garder hors RAM les experts de
+// la carte d'aide (STRATA_REMOTE_DROP, notre remote-drop.patch). Le moteur
+// Windows de l'amont ne l'a pas : la carte d'aide y calcule ses experts, mais
+// le reste passe en mmap quand la RAM ne suffit pas. Variable pour les tests.
+var moeEngineHasDrop = runtime.GOOS == "linux"
+
+// moeExe : nom d'un binaire du moteur sur ce système.
+func moeExe(name string) string {
+	if runtime.GOOS == "windows" {
+		return name + ".exe"
+	}
+	return name
 }
 
 // moeFamily / moeQuant : ce que l'installeur du moteur sait installer,
@@ -104,10 +150,32 @@ func moeHelperExpertsGB(vramGB float64) float64 { return max(vramGB-2.5, 0) }
 // (experts.bin), à compter en plus du téléchargement.
 const moeMmapExtraGB = 45
 
-func moeHome() string    { return filepath.Join(AjeanHome(), "moe") }
+// Emplacements : le moteur (sources, environnement Python, paquets, journaux,
+// packs et tête MTP qu'il prépare) dans backends/ajean-moe, à côté des autres
+// moteurs ; les GGUF du modèle dans models/Qwen3.8-Flash-Next, avec les autres
+// modèles (dans un sous-dossier : le sélecteur de llama.cpp ne lit que le haut
+// de models/, où ces GGUF ne se lancent pas). Une installation de la 1.0 dans
+// AJEAN_HOME/moe reste à sa place, GGUF compris (moeLegacyHome).
+func moeLegacyHome() string { return filepath.Join(AjeanHome(), "moe") }
+
+func moeHome() string {
+	if isDir(moeLegacyHome()) {
+		return moeLegacyHome()
+	}
+	return filepath.Join(backendsDir(), "ajean-moe")
+}
 func moeSrcDir() string  { return filepath.Join(moeHome(), "ajean-moe-"+moeVersion) }
 func moeDataDir() string { return filepath.Join(moeHome(), "data") }
 func moeDLDir() string   { return filepath.Join(moeHome(), "dl") }
+
+// moeModelsDir : où l'installeur range les GGUF (--models-dir), un dossier par
+// choix (<tag>/) plus l'encodeur d'images.
+func moeModelsDir() string {
+	if isDir(moeLegacyHome()) {
+		return filepath.Join(moeDataDir(), "models")
+	}
+	return filepath.Join(modelsDir(), "Qwen3.8-Flash-Next")
+}
 
 // isMoeConfig : la configuration active fait tourner le moteur MoE.
 func isMoeConfig(cfg map[string]string) bool { return cfg["ENGINE"] == "moe" }
@@ -145,8 +213,8 @@ func moeDetect() moeEnv {
 	if f := diskFree(AjeanHome()); f > 0 {
 		env.DiskFreeGB = float64(f) / 1e9
 	}
-	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
-		env.Reason = "ce moteur n'est proposé pour l'instant que sous Linux (x86_64)"
+	if (runtime.GOOS != "linux" && runtime.GOOS != "windows") || runtime.GOARCH != "amd64" {
+		env.Reason = "ce moteur n'est proposé pour l'instant que sous Linux et Windows (x86_64)"
 		return env
 	}
 	gpus, err := detectGPUs()
@@ -180,7 +248,7 @@ func moeDetect() moeEnv {
 	if len(cards) > 1 && cards[1].Arch >= moeMinArch && cards[1].VRAMGB >= 5.5 {
 		env.Helper = cards[1].Index
 	}
-	py, perr := moeCheckPython()
+	py, _, perr := moeCheckPython()
 	env.Python = py
 	if perr != nil {
 		env.Reason = perr.Error()
@@ -194,25 +262,49 @@ var rePyVersion = regexp.MustCompile(`Python (\d+)\.(\d+)`)
 
 // moeCheckPython : l'installeur du moteur est en Python (3.10 ou plus récent)
 // et crée son propre environnement (module venv, paquet python3-venv sur Debian/Ubuntu).
-func moeCheckPython() (string, error) {
-	out, err := hideCmd(exec.Command("python3", "--version")).CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("Python 3 est introuvable : installe-le (sudo apt install python3 python3-venv)")
+// Rend la version et la commande qui lance ce Python (sous Windows : le
+// lanceur py, puis python, comme START-HERE.bat).
+func moeCheckPython() (string, []string, error) {
+	cands := [][]string{{"python3"}}
+	missing := "Python 3 est introuvable : installe-le (sudo apt install python3 python3-venv)"
+	if runtime.GOOS == "windows" {
+		cands = [][]string{{"py", "-3"}, {"python"}}
+		missing = "Python 3 est introuvable : installe Python 3.12 (winget install Python.Python.3.12)"
+	}
+	var py []string
+	var out []byte
+	for _, c := range cands {
+		o, err := hideCmd(exec.Command(c[0], append(c[1:], "--version")...)).CombinedOutput()
+		if err == nil && rePyVersion.Match(o) {
+			py, out = c, o
+			break
+		}
+	}
+	if py == nil {
+		return "", nil, fmt.Errorf("%s", missing)
 	}
 	m := rePyVersion.FindStringSubmatch(string(out))
-	if m == nil {
-		return "", fmt.Errorf("version de Python illisible : %s", strings.TrimSpace(string(out)))
-	}
 	maj, _ := strconv.Atoi(m[1])
 	min, _ := strconv.Atoi(m[2])
 	ver := m[1] + "." + m[2]
 	if maj < 3 || (maj == 3 && min < 10) {
-		return ver, fmt.Errorf("Python %s est trop ancien : il faut Python 3.10 ou plus récent", ver)
+		return ver, nil, fmt.Errorf("Python %s est trop ancien : il faut Python 3.10 ou plus récent", ver)
 	}
-	if e := hideCmd(exec.Command("python3", "-c", "import venv, ensurepip")).Run(); e != nil {
-		return ver, fmt.Errorf("le module venv de Python manque : sudo apt install python%s-venv", ver)
+	if e := hideCmd(exec.Command(py[0], append(py[1:], "-c", "import venv, ensurepip")...)).Run(); e != nil {
+		if runtime.GOOS == "windows" {
+			return ver, nil, fmt.Errorf("le module venv de Python %s manque : réinstalle Python depuis python.org", ver)
+		}
+		return ver, nil, fmt.Errorf("le module venv de Python manque : sudo apt install python%s-venv", ver)
 	}
-	return ver, nil
+	return ver, py, nil
+}
+
+// moeVenvPython : le Python de l'environnement du moteur (.venv dans ses sources).
+func moeVenvPython(srcDir string) string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(srcDir, ".venv", "Scripts", "python.exe")
+	}
+	return filepath.Join(srcDir, ".venv", "bin", "python")
 }
 
 // moeTag : le nom que l'installeur donne aux dossiers d'un choix
@@ -242,7 +334,7 @@ func moeDirGB(dir string) float64 {
 // tête MTP commune à tous les choix. Autant de téléchargement en moins.
 func moeHaveGB(family, quant string) float64 {
 	tag := moeTag(family, quant)
-	return moeDirGB(filepath.Join(moeDataDir(), "models", tag)) +
+	return moeDirGB(filepath.Join(moeModelsDir(), tag)) +
 		moeDirGB(filepath.Join(moeDataDir(), "packs", strings.ToLower(tag))) +
 		moeDirGB(filepath.Join(moeDataDir(), "mtp"))
 }
@@ -257,7 +349,7 @@ func moeNeedsMmap(q moeQuant, ramGB float64) bool {
 // RAM ; le reste est verrouillé en RAM (plus rapide que le mmap : génération
 // ~64 au lieu de ~56 tok/s, lecture +17 à +38 %). Il faut que ce reste tienne.
 func moeDropFits(q moeQuant, env moeEnv) bool {
-	if env.Helper < 0 {
+	if env.Helper < 0 || !moeEngineHasDrop {
 		return false
 	}
 	for _, g := range env.GPUs {
@@ -473,9 +565,9 @@ func moeFetch(asset string) (string, error) {
 	if err := os.MkdirAll(moeDLDir(), 0o755); err != nil {
 		return "", err
 	}
-	lcPhase("téléchargement de " + asset + "…")
+	lcPhase("téléchargement de " + moeNeutral(asset) + "…")
 	tmp := dst + ".part"
-	if err := downloadWithProgress(moeReleaseBase+asset, tmp, 0, lcAppend); err != nil {
+	if err := downloadWithProgress(moeAssetURL(asset), tmp, 0, lcAppend); err != nil {
 		_ = os.Remove(tmp)
 		return "", fmt.Errorf("téléchargement de %s : %w", asset, err)
 	}
@@ -527,7 +619,8 @@ func moeRunInstall(req moeInstallReq) {
 		lcFail(err)
 		return
 	}
-	engine, err := moeFetch(moeEngineAsset)
+	pkg := moeEngine()
+	engine, err := moeFetch(pkg.Asset)
 	if err != nil {
 		lcFail(err)
 		return
@@ -540,10 +633,11 @@ func moeRunInstall(req moeInstallReq) {
 		}
 	}
 	// L'installeur prend le moteur dans un dossier local (--prebuilt) : il le
-	// décompresse dans engine-cuda12/ et contrôle qu'il couvre la carte.
+	// décompresse dans engine-cuda12/ (engine/ sous Windows) et contrôle qu'il
+	// couvre la carte.
 	pre := filepath.Join(moeHome(), "prebuilt")
 	_ = os.MkdirAll(pre, 0o755)
-	if err := copyFile(engine, filepath.Join(pre, moeEngineLocal)); err != nil {
+	if err := copyFile(engine, filepath.Join(pre, pkg.Local)); err != nil {
 		lcFail(err)
 		return
 	}
@@ -551,14 +645,11 @@ func moeRunInstall(req moeInstallReq) {
 	// 2. l'installeur du moteur, sans question : environnement Python, moteur,
 	// modèle (Hugging Face, révisions figées), tête MTP, encodeur vision, pack.
 	lcPhase(fmt.Sprintf("installation de %s %s (téléchargement de ~%.0f Go)…", req.Family, q.ID, q.DownloadGB))
-	// setup.sh crée l'environnement Python (.venv) puis y relance setup.py :
-	// Python 3.10+ et venv sont vérifiés plus haut (moeDetect), il ne
-	// tombera donc jamais sur sa branche « sudo apt install ».
-	args := []string{"setup.sh", "--setup", "--yes", "--no-start", "--no-browser",
+	args := []string{"setup.py", "--setup", "--yes", "--no-start", "--no-browser",
 		"--family", req.Family, "--model", q.ID,
 		"--context", "131072", "--vision", "gpu",
-		"--cuda", "12", "--prebuilt", pre + string(os.PathSeparator),
-		"--data-dir", moeDataDir(),
+		"--cuda", pkg.Cuda, "--prebuilt", pre + string(os.PathSeparator),
+		"--data-dir", moeDataDir(), "--models-dir", moeModelsDir(),
 		"--gpu", strconv.Itoa(env.Main),
 	}
 	// Le mode « peu de RAM » est décidé et appliqué par ajean (MOE_MMAP, voir
@@ -570,7 +661,22 @@ func moeRunInstall(req moeInstallReq) {
 	// lignes passent par moeNeutral avant d'atteindre l'interface.
 	setBuildSink(func(l string) { lcAppend(moeNeutral(l)) })
 	defer setBuildSink(lcAppend)
-	if err := runStepEnv("installation du moteur", moeSrcDir(), extra, "bash", args...); err != nil {
+	bin := "bash"
+	if runtime.GOOS == "windows" {
+		// pas de bash : ce que font setup.sh / START-HERE.bat (environnement .venv,
+		// puis setup.py dedans), le Python étant vérifié plus haut (moeDetect)
+		bin, err = moeEnsureVenv(moeSrcDir(), extra)
+		if err != nil {
+			lcFail(err)
+			return
+		}
+	} else {
+		// setup.sh crée l'environnement Python (.venv) puis y relance setup.py :
+		// Python 3.10+ et venv sont vérifiés plus haut (moeDetect), il ne
+		// tombera donc jamais sur sa branche « sudo apt install ».
+		args[0] = "setup.sh"
+	}
+	if err := runStepEnv("installation du moteur", moeSrcDir(), extra, bin, args...); err != nil {
 		if buildWasCanceled() {
 			lcFail(fmt.Errorf("installation annulée"))
 		} else {
@@ -620,6 +726,28 @@ func moeRunInstall(req moeInstallReq) {
 		return
 	}
 	lcDone(moeFamilyLabel(req.Family) + " " + q.ID + " installé")
+}
+
+// moeEnsureVenv (Windows) : l'environnement Python du moteur, créé comme le fait
+// START-HERE.bat ; un .venv dont pip ne répond plus est refait, comme setup.sh.
+// Rend son python.exe.
+func moeEnsureVenv(srcDir, extraEnv string) (string, error) {
+	py := moeVenvPython(srcDir)
+	if _, err := os.Stat(py); err == nil {
+		if hideCmd(exec.Command(py, "-m", "pip", "--version")).Run() == nil {
+			return py, nil
+		}
+		_ = os.RemoveAll(filepath.Join(srcDir, ".venv"))
+	}
+	_, sys, err := moeCheckPython()
+	if err != nil {
+		return "", err
+	}
+	if err := runStepEnv("environnement Python du moteur", srcDir, extraEnv, sys[0], append(sys[1:], "-m", "venv", ".venv")...); err != nil {
+		_ = os.RemoveAll(filepath.Join(srcDir, ".venv"))
+		return "", fmt.Errorf("création de l'environnement Python (.venv) : %w", err)
+	}
+	return py, nil
 }
 
 var reUpstreamName = regexp.MustCompile(`(?i)strata`)
@@ -864,11 +992,11 @@ func moeDropReady(args []string) bool {
 	if _, err := os.Stat(filepath.Join(pack, "experts.bin")); err != nil {
 		return false
 	}
-	return moeEngineInstalled() == moeEngineAsset
+	return moeEngineHasDrop && moeEngineInstalled() == moeEngine().Asset
 }
 
 // moeEngineMarker : le paquet dont vient le moteur installé.
-func moeEngineMarker() string { return filepath.Join(moeSrcDir(), "engine-cuda12", ".ajean-engine") }
+func moeEngineMarker() string { return filepath.Join(moeSrcDir(), moeEngine().Dir, ".ajean-engine") }
 
 func moeEngineInstalled() string {
 	b, _ := os.ReadFile(moeEngineMarker())
@@ -879,14 +1007,15 @@ func moeEngineInstalled() string {
 // du paquet attendu (téléchargé et vérifié si besoin). En cas d'échec l'ancien
 // reste, et le mode qui demande le nouveau n'est pas activé (moeDropReady).
 func moeEnsureEngine() error {
-	if moeEngineInstalled() == moeEngineAsset {
+	pkg := moeEngine()
+	if moeEngineInstalled() == pkg.Asset {
 		return nil
 	}
-	dir := filepath.Join(moeSrcDir(), "engine-cuda12")
+	dir := filepath.Join(moeSrcDir(), pkg.Dir)
 	if _, err := os.Stat(dir); err != nil {
 		return err
 	}
-	zp, err := moeFetch(moeEngineAsset)
+	zp, err := moeFetch(pkg.Asset)
 	if err != nil {
 		return err
 	}
@@ -897,7 +1026,7 @@ func moeEnsureEngine() error {
 	defer z.Close()
 	for _, f := range z.File {
 		name := filepath.Base(f.Name)
-		if name != "strata" && name != "strata-vision" && name != "BUILD.json" {
+		if name != moeExe("strata") && name != moeExe("strata-vision") && name != "BUILD.json" {
 			continue
 		}
 		rc, err := f.Open()
@@ -922,7 +1051,7 @@ func moeEnsureEngine() error {
 			return err
 		}
 	}
-	return os.WriteFile(moeEngineMarker(), []byte(moeEngineAsset+"\n"), 0o644)
+	return os.WriteFile(moeEngineMarker(), []byte(pkg.Asset+"\n"), 0o644)
 }
 
 func firstNonEmpty(v ...string) string {
@@ -970,14 +1099,14 @@ func serveMoe(cfg map[string]string) error {
 		return fmt.Errorf("configuration du moteur illisible (%s) : %w", path, err)
 	}
 	if err := moeEnsureEngine(); err != nil {
-		fmt.Fprintf(os.Stderr, "[ajean serve] moteur %s non installé (%v) : l'ancien reste en place\n", moeEngineAsset, err)
+		fmt.Fprintf(os.Stderr, "[ajean serve] moteur %s non installé (%v) : l'ancien reste en place\n", moeNeutral(moeEngine().Asset), err)
 	}
 	final, err := moeBuildConfig(base, cfg, readAPIKey())
 	if err != nil {
 		return err
 	}
 	srcDir := filepath.Dir(path)
-	py := filepath.Join(srcDir, ".venv", "bin", "python")
+	py := moeVenvPython(srcDir)
 	if _, err := os.Stat(py); err != nil {
 		return fmt.Errorf("environnement Python du moteur absent (%s) : réinstaller le modèle", py)
 	}
@@ -1002,9 +1131,11 @@ func serveMoe(cfg map[string]string) error {
 	if err := os.WriteFile(out, data, 0o644); err != nil {
 		return err
 	}
-	launcher, err := moeWriteLauncher(srcDir, py)
-	if err != nil {
-		return err
+	launcher := ""
+	if runtime.GOOS != "windows" {
+		if launcher, err = moeWriteLauncher(srcDir, py); err != nil {
+			return err
+		}
 	}
 	_ = os.Setenv("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
 	if dev := moeCudaDevices(cfg); dev != "" {
@@ -1015,10 +1146,35 @@ func serveMoe(cfg map[string]string) error {
 		return err
 	}
 	args := []string{launcher, "--config", out, "--port", port}
+	if runtime.GOOS == "windows" {
+		// pas de lanceur shell : le Python du moteur lance directement son serveur
+		args = append([]string{py, moeServerScript(srcDir), "--engine", "strata"}, args[1:]...)
+		launcher = py
+	}
 	_ = os.Chdir(srcDir)
 	fmt.Fprintf(os.Stderr, "[ajean serve] AJEAN MoE %s  config=%s  port=%s  gpu=%s\n", moeVersion, filepath.Base(out), port, os.Getenv("CUDA_VISIBLE_DEVICES"))
 	_ = putBytes(bkState, engineCmdlineKey, []byte(engineCmdline(args)))
 	return execServer(launcher, args)
+}
+
+// moePreflight : ce sans quoi serveMoe ne peut pas démarrer (preflightEngine).
+func moePreflight(cfg map[string]string) error {
+	path := strings.TrimSpace(cfg["MOE_CONFIG"])
+	if path == "" {
+		return fmt.Errorf("MOE_CONFIG non défini : réinstaller le modèle depuis la section Moteur")
+	}
+	if _, err := os.Stat(path); err != nil {
+		return fmt.Errorf("configuration du moteur introuvable : %s — réinstaller le modèle depuis la section Moteur", path)
+	}
+	if py := moeVenvPython(filepath.Dir(path)); !fileExistsMoe(py) {
+		return fmt.Errorf("environnement Python du moteur absent (%s) : réinstaller le modèle depuis la section Moteur", py)
+	}
+	return nil
+}
+
+func fileExistsMoe(p string) bool {
+	fi, err := os.Stat(p)
+	return err == nil && !fi.IsDir()
 }
 
 // moeConfigTag : le modèle d'une config de l'installeur (strata-swift-iq3_xxs.json → swift-iq3_xxs).
@@ -1032,8 +1188,12 @@ func moeConfigTag(path string) string {
 
 // moeAlias : un lien moeHome()/bin/<name> vers un binaire du moteur, recréé à
 // chaque lancement ; le process apparaît sous ce nom. En cas d'échec, le chemin
-// d'origine.
+// d'origine. Sous Windows, toujours le chemin d'origine : un lien symbolique y
+// demande des droits (mode développeur ou administrateur).
 func moeAlias(target, name string) string {
+	if runtime.GOOS == "windows" {
+		return target
+	}
 	dir := filepath.Join(moeHome(), "bin")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return target
@@ -1056,12 +1216,15 @@ func moeAlias(target, name string) string {
 func moeWriteLauncher(srcDir, py string) (string, error) {
 	p := filepath.Join(moeHome(), "ajean-moe")
 	body := "#!/bin/sh\n# AJEAN MoE : serveur du moteur MoE d'AJEAN (lancé par ajean serve)\n" +
-		"cd '" + srcDir + "' && exec '" + py + "' '" + filepath.Join(srcDir, "serve", "server.py") + "' --engine strata \"$@\"\n"
+		"cd '" + srcDir + "' && exec '" + py + "' '" + moeServerScript(srcDir) + "' --engine strata \"$@\"\n"
 	if err := os.WriteFile(p+".new", []byte(body), 0o755); err != nil {
 		return "", err
 	}
 	return p, os.Rename(p+".new", p)
 }
+
+// moeServerScript : le serveur HTTP du moteur, dans ses sources.
+func moeServerScript(srcDir string) string { return filepath.Join(srcDir, "serve", "server.py") }
 
 // moeVisionActive : le preset MoE actif lit les images (encodeur installé).
 func moeVisionActive() bool {

@@ -3,6 +3,7 @@ package ajean
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -84,7 +85,17 @@ func TestMoeBuildConfigHelperGPU(t *testing.T) {
 	}
 }
 
+// withDropEngine : le moteur de la machine de test sait garder hors RAM les
+// experts de la carte d'aide (notre moteur Linux), quel que soit le système.
+func withDropEngine(t *testing.T, on bool) {
+	t.Helper()
+	old := moeEngineHasDrop
+	moeEngineHasDrop = on
+	t.Cleanup(func() { moeEngineHasDrop = old })
+}
+
 func TestMoeDropFits(t *testing.T) {
+	withDropEngine(t, true)
 	q := moeQuants["IQ3_XXS"]
 	env := moeEnv{Main: 1, Helper: 0, RAMGB: 46.9, GPUs: []moeGPU{{Index: 0, VRAMGB: 7.8}, {Index: 1, VRAMGB: 15.9}}}
 	if !moeDropFits(q, env) {
@@ -104,7 +115,47 @@ func TestMoeDropFits(t *testing.T) {
 	}
 }
 
+// Moteur sans remote-drop (celui de l'amont, sous Windows) : la carte d'aide ne
+// fait pas tenir un quant qui ne tient pas en RAM, il reste en mmap.
+func TestMoeDropFitsWithoutDropEngine(t *testing.T) {
+	withDropEngine(t, false)
+	q := moeQuants["IQ3_XXS"]
+	env := moeEnv{Main: 1, Helper: 0, RAMGB: 46.9, GPUs: []moeGPU{{Index: 0, VRAMGB: 7.8}, {Index: 1, VRAMGB: 15.9}}}
+	if moeDropFits(q, env) {
+		t.Error("moteur sans remote-drop : pas de mode hors RAM")
+	}
+	if f := moeFitFor(q, env, 0); !f.Mmap || f.Drop {
+		t.Errorf("fit = mmap %v drop %v, attendu mmap", f.Mmap, f.Drop)
+	}
+}
+
+func TestMoeEnginePerOS(t *testing.T) {
+	pkg := moeEngine()
+	if _, ok := moeAssetSHA[pkg.Asset]; !ok {
+		t.Fatalf("paquet %s sans empreinte SHA-256", pkg.Asset)
+	}
+	if runtime.GOOS == "windows" {
+		if pkg.Asset != moeWinEngineAsset || pkg.Cuda != "13" || pkg.Dir != "engine" {
+			t.Errorf("Windows : %+v", pkg)
+		}
+		if !strings.HasPrefix(moeAssetURL(pkg.Asset), moeWinReleaseBase) {
+			t.Errorf("URL du moteur Windows : %s", moeAssetURL(pkg.Asset))
+		}
+		if got := moeVenvPython(`C:\m`); got != `C:\m\.venv\Scripts\python.exe` {
+			t.Errorf("python du .venv : %s", got)
+		}
+		return
+	}
+	if pkg.Asset != moeEngineAsset || pkg.Local != moeEngineLocal || pkg.Cuda != "12" || pkg.Dir != "engine-cuda12" {
+		t.Errorf("Linux : %+v", pkg)
+	}
+	if !strings.HasPrefix(moeAssetURL(moeSrcAsset), moeReleaseBase) {
+		t.Errorf("URL des sources : %s", moeAssetURL(moeSrcAsset))
+	}
+}
+
 func TestMoeBuildConfigDrop(t *testing.T) {
+	withDropEngine(t, true)
 	home := t.TempDir()
 	t.Setenv("AJEAN_HOME", home)
 	pack := filepath.Join(home, "pack")
@@ -117,8 +168,8 @@ func TestMoeBuildConfigDrop(t *testing.T) {
 		t.Fatalf("repli mmap attendu : %v", out["env"])
 	}
 	_ = os.WriteFile(filepath.Join(pack, "experts.bin"), []byte("x"), 0o644)
-	_ = os.MkdirAll(filepath.Join(moeSrcDir(), "engine-cuda12"), 0o755)
-	_ = os.WriteFile(moeEngineMarker(), []byte(moeEngineAsset+"\n"), 0o644)
+	_ = os.MkdirAll(filepath.Join(moeSrcDir(), moeEngine().Dir), 0o755)
+	_ = os.WriteFile(moeEngineMarker(), []byte(moeEngine().Asset+"\n"), 0o644)
 	out, _ = moeBuildConfig(base, cfg, "")
 	e := out["env"].(map[string]any)
 	if e["STRATA_REMOTE_DROP"] != "1" || e["STRATA_ARENA_MMAP"] != nil {
@@ -166,7 +217,9 @@ func TestMoeCudaDevices(t *testing.T) {
 }
 
 func TestMoeRecommend(t *testing.T) {
-	// la machine de test : 5060 Ti 16 Go + 3070 8 Go, 47 Go de RAM, disque large
+	// la machine de test : 5060 Ti 16 Go + 3070 8 Go, 47 Go de RAM, disque large,
+	// avec notre moteur Linux (remote-drop)
+	withDropEngine(t, true)
 	env := moeEnv{Supported: true, Main: 1, Helper: 0, RAMGB: 47, DiskFreeGB: 400,
 		GPUs: []moeGPU{{Index: 0, VRAMGB: 8, Arch: 86}, {Index: 1, VRAMGB: 16, Arch: 120}}}
 	if got := moeRecommend("swift", env); got != "IQ3_XXS" {
@@ -275,19 +328,62 @@ func TestMoeDetailsFor(t *testing.T) {
 	}
 }
 
+// `ajean start` / `restart` sur un preset MoE : pas de BIN/MODEL à exiger, mais
+// sa config et son environnement Python doivent être là.
+func TestPreflightMoePreset(t *testing.T) {
+	testHome(t)
+	src := filepath.Join(t.TempDir(), "src")
+	cfgPath := filepath.Join(src, "strata-swift-iq3_xxs.json")
+	setConfig(t, "ENGINE=moe\nMOE_CONFIG="+cfgPath+"\n")
+	if err := preflightEngine(); err == nil || !strings.Contains(err.Error(), "configuration du moteur introuvable") {
+		t.Fatalf("config absente : %v", err)
+	}
+	_ = os.MkdirAll(src, 0o755)
+	_ = os.WriteFile(cfgPath, []byte("{}"), 0o644)
+	if err := preflightEngine(); err == nil || !strings.Contains(err.Error(), "environnement Python") {
+		t.Fatalf(".venv absent : %v", err)
+	}
+	py := moeVenvPython(src)
+	_ = os.MkdirAll(filepath.Dir(py), 0o755)
+	_ = os.WriteFile(py, nil, 0o755)
+	if err := preflightEngine(); err != nil {
+		t.Errorf("preset MoE complet refusé : %v", err)
+	}
+}
+
+// Le moteur va dans backends/, les GGUF dans models/ ; une installation de la
+// 1.0 dans AJEAN_HOME/moe reste à sa place, GGUF compris.
+func TestMoeDirs(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("AJEAN_HOME", home)
+	if got, want := moeHome(), filepath.Join(home, "backends", "ajean-moe"); got != want {
+		t.Errorf("moeHome = %s, attendu %s", got, want)
+	}
+	if got, want := moeModelsDir(), filepath.Join(home, "models", "Qwen3.8-Flash-Next"); got != want {
+		t.Errorf("moeModelsDir = %s, attendu %s", got, want)
+	}
+	_ = os.MkdirAll(filepath.Join(home, "moe"), 0o755)
+	if got, want := moeHome(), filepath.Join(home, "moe"); got != want {
+		t.Errorf("1.0 en place : moeHome = %s, attendu %s", got, want)
+	}
+	if got, want := moeModelsDir(), filepath.Join(home, "moe", "data", "models"); got != want {
+		t.Errorf("1.0 en place : moeModelsDir = %s, attendu %s", got, want)
+	}
+}
+
 func TestMoeHaveGBPerChoice(t *testing.T) {
 	t.Setenv("AJEAN_HOME", t.TempDir())
-	write := func(rel string, n int) {
-		p := filepath.Join(moeDataDir(), rel)
+	write := func(dir, rel string, n int) {
+		p := filepath.Join(dir, rel)
 		_ = os.MkdirAll(filepath.Dir(p), 0o755)
 		if err := os.WriteFile(p, make([]byte, n), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
-	write("models/swift-IQ3_XXS/a.gguf", 3000)
-	write("packs/swift-iq3_xxs/experts.bin", 2000)
-	write("mtp/rt/x", 500)
-	write("models/IQ2_XS/b.gguf", 7000) // un autre choix : ne compte pas pour swift IQ3_XXS
+	write(moeModelsDir(), "swift-IQ3_XXS/a.gguf", 3000)
+	write(moeDataDir(), "packs/swift-iq3_xxs/experts.bin", 2000)
+	write(moeDataDir(), "mtp/rt/x", 500)
+	write(moeModelsDir(), "IQ2_XS/b.gguf", 7000) // un autre choix : ne compte pas pour swift IQ3_XXS
 	if got := moeHaveGB("swift", "IQ3_XXS") * 1e9; got != 5500 {
 		t.Errorf("swift IQ3_XXS : %v octets, attendu 5500", got)
 	}

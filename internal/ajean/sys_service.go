@@ -35,6 +35,11 @@ func preflightEngine() error {
 	if usesRemoteEndpoint(cfg) {
 		return nil
 	}
+	// Moteur MoE : ni BIN ni MODEL (serveMoe lance son propre serveur) ; sans ce
+	// cas, `ajean start` / `ajean restart` refusaient tout preset MoE.
+	if isMoeConfig(cfg) {
+		return moePreflight(cfg)
+	}
 	bin := strings.TrimSpace(cfg["BIN"])
 	if bin == "" {
 		return fmt.Errorf("BIN non défini — installe un moteur : %s (ou renseigne BIN avec %s)",
