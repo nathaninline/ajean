@@ -127,7 +127,11 @@ type moeGPU struct {
 
 // moeEnv : ce que l'écran d'installation doit savoir de la machine.
 type moeEnv struct {
-	Supported  bool     `json:"supported"`
+	Supported bool `json:"supported"`
+	// Visible : système et carte compatibles. La ligne du moteur s'affiche alors
+	// même si un prérequis manque (Python, venv) : sa raison est montrée au lieu
+	// de faire disparaître le moteur sans explication (issue #125).
+	Visible    bool     `json:"visible"`
 	Reason     string   `json:"reason,omitempty"` // pourquoi pas, en clair
 	GPUs       []moeGPU `json:"gpus"`
 	Main       int      `json:"main"`   // index nvidia-smi de la carte principale
@@ -180,6 +184,7 @@ func moeDetect() moeEnv {
 	if len(cards) > 1 && cards[1].Arch >= moeMinArch && cards[1].VRAMGB >= 5.5 {
 		env.Helper = cards[1].Index
 	}
+	env.Visible = true
 	py, perr := moeCheckPython()
 	env.Python = py
 	if perr != nil {
@@ -197,7 +202,7 @@ var rePyVersion = regexp.MustCompile(`Python (\d+)\.(\d+)`)
 func moeCheckPython() (string, error) {
 	out, err := hideCmd(exec.Command("python3", "--version")).CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("Python 3 est introuvable : installe-le (sudo apt install python3 python3-venv)")
+		return "", fmt.Errorf("Python 3 introuvable. Installation : sudo apt install python3 python3-venv")
 	}
 	m := rePyVersion.FindStringSubmatch(string(out))
 	if m == nil {
@@ -207,10 +212,10 @@ func moeCheckPython() (string, error) {
 	min, _ := strconv.Atoi(m[2])
 	ver := m[1] + "." + m[2]
 	if maj < 3 || (maj == 3 && min < 10) {
-		return ver, fmt.Errorf("Python %s est trop ancien : il faut Python 3.10 ou plus récent", ver)
+		return ver, fmt.Errorf("Python %s est trop ancien. Python 3.10 ou plus récent est requis.", ver)
 	}
 	if e := hideCmd(exec.Command("python3", "-c", "import venv, ensurepip")).Run(); e != nil {
-		return ver, fmt.Errorf("le module venv de Python manque : sudo apt install python%s-venv", ver)
+		return ver, fmt.Errorf("Module venv de Python absent. Installation : sudo apt install python%s-venv", ver)
 	}
 	return ver, nil
 }

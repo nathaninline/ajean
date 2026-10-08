@@ -11,11 +11,14 @@ async function loadMoe(){
   moeState = s;
   const row = document.getElementById('lc-mode-moe');
   if(!row) return;
-  // Hors Linux + NVIDIA, la ligne n'apparaît pas : rien à y proposer.
-  row.hidden = !(s.env && s.env.supported);
+  // Hors Linux + NVIDIA compatible, la ligne n'apparaît pas : rien à y proposer.
+  // Un prérequis manquant (Python, venv) la laisse visible, avec sa raison :
+  // la cacher faisait disparaître le moteur sans explication (issue #125).
+  const env = s.env || {};
+  row.hidden = !(env.supported || env.visible);
   const st = document.getElementById('lc-moe-state');
-  if(st) st.textContent = (s.installed||[]).length
-    ? t('moe.state_installed').replace('{n}', s.installed.length)
+  if(st) st.textContent = !env.supported ? (env.reason || '')
+    : (s.installed||[]).length ? t('moe.state_installed').replace('{n}', s.installed.length)
     : '';
 }
 
@@ -26,6 +29,7 @@ async function openMoe(presetId){
   // proposait encore « Installer »
   await loadMoe();
   if(!moeState) return;
+  if(!(moeState.env||{}).supported){ toast(moeState.env.reason || t('moe.chip')); return; }
   moeTarget = typeof presetId === 'string' ? presetId : '';
   const s = moeState, env = s.env || {};
   const cards = (env.gpus||[]).filter(g=>g.index===env.main || g.index===env.helper)
