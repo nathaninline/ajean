@@ -119,7 +119,11 @@ function moeRenderSettings(fit){
     [t('moe.d_mtp'), sel('moe-s-spec', [[2,'2'],[3,'3'],[4,'4']], d.spec)],
     [t('moe.s_vision'), sw('moe-s-vision', d.vision)],
   ];
-  if(d.has_helper) rows.push([t('moe.s_helper'), sw('moe-s-helper', d.helper_on)]);
+  // Seconde carte : aide aux experts (défaut mesuré) ou partage des couches,
+  // souvent plus rapide avec deux cartes identiques (#121).
+  if(d.has_helper) rows.push([t('moe.s_helper'), sel('moe-s-helper',
+    [['off', t('moe.second_off')], ['helper', t('moe.second_helper')], ['layers', t('moe.second_layers')]],
+    !d.helper_on ? 'off' : d.split_layers ? 'layers' : 'helper')]);
   document.getElementById('moe-settings').innerHTML = rows.map(([a,b])=>
     '<div class="moe-kv"><span>'+escHtml(a)+'</span><span>'+b+'</span></div>').join('');
   moeCtxLbl();
@@ -139,7 +143,10 @@ async function moeSaveSettings(){
   if(!fit || !fit.preset) return;
   const v = id => document.getElementById(id);
   const body = {preset: fit.preset, ctx: +v('moe-s-ctx').value, kv: v('moe-s-kv').value, spec: +v('moe-s-spec').value,
-    vision: v('moe-s-vision').checked, helper: v('moe-s-helper') ? v('moe-s-helper').checked : false};
+    vision: v('moe-s-vision').checked};
+  const second = v('moe-s-helper') ? v('moe-s-helper').value : 'off';
+  body.helper = second !== 'off';
+  if(body.helper) body.split = second;
   if(fit.active && !await askConfirm(t('moe.save_confirm'), {title:t('moe.modal_title'), okText:t('moe.save')})) return;
   const r = await jpost('/api/moe/settings', body);
   if(!r.ok){ toast(t('llamacpp.error_prefix')+(r.error||'')); return; }
@@ -158,7 +165,7 @@ function moeRenderDetails(fit){
   const k = n => (+n >= 1024 ? Math.round(+n/1024)+'K' : n);
   const rows = [
     [t('moe.d_main'), d.main_gpu],
-    [t('moe.d_helper'), d.helper_gpu || t('moe.d_none')],
+    [t('moe.d_helper'), d.helper_gpu ? d.helper_gpu + (d.split_layers ? ' · '+t('moe.second_layers') : '') : t('moe.d_none')],
     [t('moe.d_vision'), d.vision_gpu || t('moe.d_none')],
     [t('moe.d_ctx'), (+d.ctx).toLocaleString('fr-FR')+' '+t('moe.d_tokens')],
     [t('moe.d_kv'), d.kv + (d.kv_resident ? ' · '+t('moe.d_kv_resident').replace('{n}', k(d.kv_resident)) : '')],
