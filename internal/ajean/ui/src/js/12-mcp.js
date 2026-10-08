@@ -36,8 +36,7 @@ function wireMcpTimeoutField(el){
     if(r && r.ok) toast(t('mcp.timeouts_saved'));
     else toast(t('mcp.timeouts_error'));
   };
-  el.addEventListener('change', save);
-  el.addEventListener('blur', save);
+  el.addEventListener('change', save); // « change » part déjà à la perte du focus
 }
 
 function renderMCP(r){
