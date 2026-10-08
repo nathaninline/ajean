@@ -242,6 +242,13 @@ func runShell(parent context.Context, command string, timeoutSec int) string {
 		return "[commande interrompue]"
 	}
 	exit := 0
+	// ErrWaitDelay : la commande s'est terminée normalement, mais un process
+	// laissé en arrière-plan tenait encore les tubes. Ce qu'elle a écrit est déjà
+	// capturé : le renvoyer, au lieu d'une erreur qui l'effaçait.
+	detached := errors.Is(err, exec.ErrWaitDelay)
+	if detached {
+		err = nil
+	}
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
 			exit = ee.ExitCode()
@@ -257,6 +264,9 @@ func runShell(parent context.Context, command string, timeoutSec int) string {
 	}
 	if errOut != "" {
 		parts = append(parts, "stderr:\n"+errOut)
+	}
+	if detached {
+		parts = append(parts, "(un process lancé en arrière-plan tourne toujours ; sa sortie n'est plus suivie)")
 	}
 	return strings.Join(parts, "\n\n")
 }
