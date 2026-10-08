@@ -759,6 +759,12 @@ func findNvccUnix(lookPath func(string) (string, error)) string {
 	if len(matches) > 0 {
 		return highestVersionedPath(matches) // tri sémantique : cuda-12.10 > cuda-12.4
 	}
+	// Arch (paquet cuda) installe le toolkit dans /opt/cuda et ne l'ajoute au PATH
+	// qu'à la prochaine ouverture de session (profile.d) : sans ce repli, CUDA
+	// passait inaperçu et la compilation retombait sur Vulkan (issue #117).
+	if p := unixCudaToolkitNvcc(); p != "" {
+		return p
+	}
 	if p, err := lookPath("nvcc"); err == nil {
 		return p
 	}
@@ -805,10 +811,25 @@ func nvccCandidates() []string {
 	for _, p := range m {
 		add(p)
 	}
+	add(unixCudaToolkitNvcc())
 	if p, err := exec.LookPath("nvcc"); err == nil {
 		add(p)
 	}
 	return out
+}
+
+// unixCudaToolkitNvcc : nvcc d'un toolkit installé hors /usr/local, désigné par
+// CUDA_PATH / CUDA_HOME ou au chemin d'Arch (/opt/cuda). "" si aucun.
+func unixCudaToolkitNvcc() string {
+	for _, root := range []string{os.Getenv("CUDA_PATH"), os.Getenv("CUDA_HOME"), "/opt/cuda"} {
+		if root == "" {
+			continue
+		}
+		if p := filepath.Join(root, "bin", "nvcc"); isFile(p) {
+			return p
+		}
+	}
+	return ""
 }
 
 // reNvccRelease capture la version dans la sortie de `nvcc --version`

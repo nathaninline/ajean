@@ -167,6 +167,12 @@ func cudaLibDirs() []string {
 	for _, d := range versioned {
 		add(d)
 	}
+	// Toolkit hors /usr/local (Arch : /opt/cuda, ou CUDA_PATH / CUDA_HOME).
+	if nvcc := unixCudaToolkitNvcc(); nvcc != "" {
+		root := filepath.Dir(filepath.Dir(nvcc))
+		add(filepath.Join(root, "lib64"))
+		add(filepath.Join(root, "targets", "x86_64-linux", "lib"))
+	}
 	return dirs
 }
 
