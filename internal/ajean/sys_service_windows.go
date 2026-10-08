@@ -5,11 +5,13 @@ package ajean
 import (
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 	"unsafe"
@@ -64,7 +66,16 @@ func openEngineLog() *os.File {
 	return nil
 }
 
+// svcMu sérialise start/stop/restart. Chaque bascule de preset lance son
+// redémarrage en arrière-plan : deux clics rapprochés faisaient courir deux
+// restart en parallèle, chacun lisant un fichier PID périmé et lançant SON
+// `ajean serve` → deux modèles en RAM et « port 8080 déjà utilisé » (issue #114).
+// systemd sérialise de lui-même sous Linux ; ici c'est à nous de le faire.
+var svcMu sync.Mutex
+
 func serviceAction(action string) error {
+	svcMu.Lock()
+	defer svcMu.Unlock()
 	// API Externe : aucun moteur local (arrêt). GPU Cloud : relais local vers le GPU.
 	action = cloudServiceAction(action)
 	switch action {
@@ -169,11 +180,43 @@ func svcStop(verbose bool) error {
 	if err != nil {
 		return fmt.Errorf("arrêt du PID %d: %w\n%s", pid, err, string(out))
 	}
+	// taskkill /F rend la main AVANT que Windows ait fini de détruire les processus :
+	// la mémoire du modèle (verrouillée par le pilote) et le port restent pris un
+	// moment. Relancer tout de suite empilait deux modèles en RAM et faisait échouer
+	// le nouveau sur « port déjà utilisé » (issue #114). On attend la vraie fin.
+	waitServiceGone(pid, 30*time.Second)
 	_ = os.Remove(pidFilePath())
 	if verbose {
 		fmt.Println(green("[ok]") + " arrêté")
 	}
 	return nil
+}
+
+// waitServiceGone attend que le processus du service soit terminé et que le port
+// du moteur ne réponde plus (llama-server, son enfant, le tient jusqu'au bout).
+// Borné par max : au pire on relance quand même et l'erreur éventuelle remonte.
+func waitServiceGone(pid int, max time.Duration) {
+	port := strings.TrimSpace(ReadConfig()["PORT"])
+	if port == "" {
+		port = "8080"
+	}
+	deadline := time.Now().Add(max)
+	for time.Now().Before(deadline) {
+		if !processAlive(pid) && !portListening(port) {
+			return
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+}
+
+// portListening : vrai si quelque chose accepte des connexions sur ce port local.
+func portListening(port string) bool {
+	c, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", port), 300*time.Millisecond)
+	if err != nil {
+		return false
+	}
+	c.Close()
+	return true
 }
 
 func svcStatus() error {

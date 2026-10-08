@@ -154,7 +154,15 @@ func execServer(bin string, args []string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Env = os.Environ()
-	return cmd.Run()
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	// Pas d'exec sous Windows : llama-server est un ENFANT de `ajean serve`. On le
+	// lie à sa vie (job object) pour qu'il ne survive jamais à son parent ; sinon un
+	// parent tué hors de taskkill /T laissait un llama-server orphelin qui gardait
+	// le port 8080 et sa mémoire verrouillée (issue #114).
+	bindChild(cmd)
+	return cmd.Wait()
 }
 
 // wingetIDs maps a tool's command name to its winget package ID.
