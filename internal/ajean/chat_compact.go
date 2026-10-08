@@ -405,6 +405,13 @@ func compactMessages(ctx context.Context, msgs []Message, caps Caps) ([]Message,
 	}
 	summary, err := summarizeTranscript(ctx, renderTranscript(forSummary))
 	var mid []Message
+	// La cause d'un résumé raté n'était écrite nulle part : on ne voyait que des
+	// compactions « changé=false » à répétition, sans savoir pourquoi.
+	if err != nil {
+		fmt.Fprintf(compactLogOut, "[compact] résumé raté : %v\n", err)
+	} else if summaryLooksEmpty(summary) {
+		fmt.Fprintf(compactLogOut, "[compact] résumé vide ou dégénéré (%d car.)\n", len([]rune(strings.TrimSpace(summary))))
+	}
 	if err != nil || summaryLooksEmpty(summary) {
 		// Résumé raté (erreur, vide, ou juste une référence recall) → on garde le
 		// torse dégraissé, qui porte au moins les têtes de blocs + les marqueurs

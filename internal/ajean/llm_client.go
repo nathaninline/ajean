@@ -927,6 +927,11 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 	// compacte l'historique en vol et on rejoue le tour — une seule fois.
 	compactedRetry := false
 	shrinkRetries := 0
+	// Compaction en cours de tour qui n'a rien pu réduire : ne la retenter qu'une
+	// fois le contexte nettement plus gros. Sinon chaque étape relançait un résumé
+	// complet voué au même échec (vu le 2026-10-04 : plus d'une heure de tentatives
+	// à vide, une par étape, sur une longue tâche de Jean).
+	compactRetryAt := 0
 	// Appels d'outil déjà exécutés (clé = nom + arguments bruts) : sert à ne pas
 	// rejouer deux fois exactement la même écriture dans un même échange.
 	doneCalls := map[string]string{}
@@ -1807,12 +1812,15 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			// + les résultats d'outils de CETTE étape : le moteur ne les a pas encore
 			// comptés. Sans eux, une étape qui lit plusieurs gros fichiers d'un coup
 			// passait de 60 % à plus de 130 % de la fenêtre sans jamais compacter.
-			if used := stats.PromptTokensTotal + stats.GenTokens + estimateTokens(messages[stepStart:]); compactWouldTrigger(messages, used) {
+			if used := stats.PromptTokensTotal + stats.GenTokens + estimateTokens(messages[stepStart:]); used >= compactRetryAt && compactWouldTrigger(messages, used) {
 				yes, no := true, false
 				cb(StreamEvent{Compacting: &yes})
 				c, changed := compactMessages(ctx, messages, caps)
 				cb(StreamEvent{Compacting: &no})
 				logCompact("en-tour", used, messages, c, changed)
+				if !changed {
+					compactRetryAt = used + ctxWindow()/20
+				}
 				if changed {
 					messages = c
 					tools = withRecallTools(EnabledTools(caps), messages)
