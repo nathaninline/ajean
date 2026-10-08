@@ -1948,6 +1948,23 @@ body.jean-mode #ctx-compactions{display:none!important}
       <div class="subhead"><span data-i18n="mcp.title">MCP servers</span><span id="mcp-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="mcp.help" data-i18n-html>Connecte des <b>serveurs MCP</b> (Model Context Protocol) pour donner de nouveaux outils à l'IA : accès fichiers, bases de données, APIs métier… <b>stdio</b> = programme lancé localement (npx/uvx/binaire) · <b>http</b> = serveur distant. ⚠ un serveur stdio exécute du code sur cette machine, au même titre que le shell.</span></span></div>
       <div class="slist">
         <div class="rowbody">
+          <div class="mcp-timeouts" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:8px">
+            <span style="font-size:12px;color:var(--dim)" data-i18n="mcp.timeouts_label">Délais</span>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px">
+              <span data-i18n="mcp.connect_label">Connexion</span>
+              <input id="mcp-timeout-connect" type="number" min="1" max="3600" value="20"
+                     style="width:56px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font:inherit;font-size:12px;padding:2px 5px;text-align:right"
+                     data-i18n="mcp.connect_hint" data-i18n-attr="title">
+              <span style="color:var(--dim)">s</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px">
+              <span data-i18n="mcp.call_label">Appel d'outil</span>
+              <input id="mcp-timeout-call" type="number" min="1" max="3600" value="120"
+                     style="width:56px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font:inherit;font-size:12px;padding:2px 5px;text-align:right"
+                     data-i18n="mcp.call_hint" data-i18n-attr="title">
+              <span style="color:var(--dim)">s</span>
+            </label>
+          </div>
           <div id="mcp-list" class="mcp-list"><div class="muted" style="font-size:12px" data-i18n="mcp.empty_list">(aucun serveur — ajoute un serveur fichiers, une base de données, une API…)</div></div>
           <button class="addbtn" style="margin-top:6px" onclick="openMcp('')" data-i18n="mcp.add_button">+ ajouter un serveur</button>
         </div>
@@ -3013,6 +3030,13 @@ fr: {
   "mcp.help": "Connecte des <b>serveurs MCP</b> (Model Context Protocol) pour donner de nouveaux outils à l'IA : accès fichiers, bases de données, APIs métier… <b>stdio</b> = programme lancé localement (npx/uvx/binaire) · <b>http</b> = serveur distant. ⚠ un serveur stdio exécute du code sur cette machine, au même titre que le shell.",
   "mcp.empty_list": "(aucun serveur — ajoute un serveur fichiers, une base de données, une API…)",
   "mcp.add_button": "+ ajouter un serveur",
+  "mcp.timeouts_label": "Délais",
+  "mcp.connect_label": "Connexion",
+  "mcp.connect_hint": "délai d'établissement de la session (handshake)",
+  "mcp.call_label": "Appel d'outil",
+  "mcp.call_hint": "délai maximal d'un appel d'outil MCP",
+  "mcp.timeouts_saved": "délais MCP enregistrés",
+  "mcp.timeouts_error": "enregistrement des délais MCP impossible",
   "tasks.title": "Tâches",
   "tasks.pause_toggle": "suspendre toutes les tâches",
   "tasks.pause_help": "Interrupteur maître : coche pour que plus aucune tâche ne se déclenche. Les tâches gardent leur réglage et repartent quand tu décoches.",
@@ -4340,6 +4364,13 @@ en: {
   "mcp.help": "Connect <b>MCP servers</b> (Model Context Protocol) to give the AI new tools: file access, databases, business APIs… <b>stdio</b> = program launched locally (npx/uvx/binary) · <b>http</b> = remote server. ⚠ a stdio server runs code on this machine, just like the shell.",
   "mcp.empty_list": "(no servers — add a file server, a database, an API…)",
   "mcp.add_button": "+ add a server",
+  "mcp.timeouts_label": "Timeouts",
+  "mcp.connect_label": "Connection",
+  "mcp.connect_hint": "session establishment timeout (handshake)",
+  "mcp.call_label": "Tool call",
+  "mcp.call_hint": "maximum time for one MCP tool call",
+  "mcp.timeouts_saved": "MCP timeouts saved",
+  "mcp.timeouts_error": "failed to save MCP timeouts",
   "tasks.title": "Tasks",
   "tasks.pause_toggle": "pause all tasks",
   "tasks.pause_help": "Master switch: check it so no task triggers anymore. Tasks keep their settings and resume when you uncheck it.",
@@ -9924,7 +9955,36 @@ async function moeInstall(){
 }
 let mcpServers = [];
 let mcpEditing = null; 
-async function loadMCP(){ renderMCP(await jget('/api/mcp')); }
+async function loadMCP(){
+  renderMCP(await jget('/api/mcp'));
+  loadMCPTimeouts();
+}
+async function loadMCPTimeouts(){
+  const r = await jget('/api/mcp/timeouts');
+  if(!r || !r.ok) return;
+  const c = document.getElementById('mcp-timeout-connect');
+  const k = document.getElementById('mcp-timeout-call');
+  if(c){ c.value = r.connect; wireMcpTimeoutField(c); }
+  if(k){ k.value = r.call; wireMcpTimeoutField(k); }
+}
+function wireMcpTimeoutField(el){
+  if(el.dataset.wired) return;
+  el.dataset.wired = '1';
+  const save = async ()=>{
+    const c = parseInt(document.getElementById('mcp-timeout-connect').value, 10);
+    const k = parseInt(document.getElementById('mcp-timeout-call').value, 10);
+    if(!(c >= 1 && c <= 3600) || !(k >= 1 && k <= 3600)){
+      toast(t('mcp.timeouts_error'));
+      loadMCPTimeouts();
+      return;
+    }
+    const r = await jpost('/api/mcp/timeouts/save', {connect: c, call: k});
+    if(r && r.ok) toast(t('mcp.timeouts_saved'));
+    else toast(t('mcp.timeouts_error'));
+  };
+  el.addEventListener('change', save);
+  el.addEventListener('blur', save);
+}
 function renderMCP(r){
   mcpServers = (r && r.servers) || [];
   setBadge('mcp-badge', null);

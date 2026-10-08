@@ -1067,6 +1067,49 @@ func handleMCPTest(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true, "servers": list})
 }
 
+// handleMCPTimeoutsGET renvoie les délais MCP configurés (secondes).
+func handleMCPTimeouts(w http.ResponseWriter, r *http.Request) {
+	t := LoadMCPTimeouts()
+	sendJSON(w, 200, map[string]any{
+		"ok":      true,
+		"connect": t.Connect,
+		"call":    t.Call,
+	})
+}
+
+// handleMCPTimeoutsSave enregistre les délais MCP (secondes) et invalide les
+// sessions pour que le nouveau délai s'applique au prochain appel.
+func handleMCPTimeoutsSave(w http.ResponseWriter, r *http.Request) {
+	var req MCPTimeouts
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	// Bornes raisonnables : 1 s à 3600 s (1 h).
+	if req.Connect < 1 || req.Connect > 3600 {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "connect : 1 à 3600 s"})
+		return
+	}
+	if req.Call < 1 || req.Call > 3600 {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "call : 1 à 3600 s"})
+		return
+	}
+	if err := SaveMCPTimeouts(req); err != nil {
+		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	// Invalide toutes les sessions : le délai de connexion change.
+	servers, _ := LoadMCPConfig()
+	for name := range servers {
+		mcpInvalidate(name)
+	}
+	sendJSON(w, 200, map[string]any{
+		"ok":      true,
+		"connect": req.Connect,
+		"call":    req.Call,
+	})
+}
+
 // handleMem / handleMemSave / handleMemDelete : éditeur web des pages mémoire
 // (memory/<nom>.md). Payload partagé saveReq (name/old/content) ; "name" = nom
 // de fichier de la page.

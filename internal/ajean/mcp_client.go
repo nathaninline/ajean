@@ -11,7 +11,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -33,13 +32,9 @@ import (
 // pour router les appels sans avoir à re-parser des noms potentiellement
 // ambigus.
 
-const (
-	// mcpConnectTimeout borne l'établissement d'une session (handshake initialize
-	// + tools/list). Un serveur qui rame ne doit pas figer le tour de chat.
-	mcpConnectTimeout = 20 * time.Second
-	// mcpCallTimeout borne un appel d'outil MCP.
-	mcpCallTimeout = 120 * time.Second
-)
+// Les délais de connexion et d'appel d'outil sont configurables par
+// l'utilisateur (voir mcp_timeouts.go) ; les valeurs par défaut sont
+// mcpConnectTimeoutDefault (20 s) et mcpCallTimeoutDefault (120 s).
 
 // mcpSession est une connexion vivante à un serveur MCP.
 //
@@ -172,7 +167,7 @@ func (m *mcpManager) ensure(name string, cfg MCPServerConfig) *mcpSession {
 	m.mu.Unlock()
 
 	// Connexion hors-lock (peut être lente).
-	ctx, cancel := context.WithTimeout(context.Background(), mcpConnectTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), effectiveConnectTimeout())
 	defer cancel()
 	sess, err := mcpConnect(ctx, name, cfg)
 	if err != nil {
@@ -381,7 +376,7 @@ func mcpCallOnce(ref mcpToolRef, args map[string]any) (string, error) {
 	if s == nil || s.sess == nil {
 		return "", fmt.Errorf("serveur %s non connecté", ref.server)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), mcpCallTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), effectiveCallTimeout())
 	defer cancel()
 	res, err := s.sess.CallTool(ctx, &mcpsdk.CallToolParams{Name: ref.tool, Arguments: args})
 	if err != nil {
