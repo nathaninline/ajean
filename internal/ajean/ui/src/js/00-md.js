@@ -14,7 +14,62 @@ function fixMd(s){
   s = s.replace(/\n{3,}/g, '\n\n');
   return s;
 }
-function md(src){ return src ? marked.parse(fixMd(src)) : ''; }
+function md(src){
+  if(!src) return '';
+  const m = mathExtract(fixMd(src));
+  const html = marked.parse(m.text);
+  return m.list.length ? html.replace(/(\d+)/g, (_, i)=>mathHtml(m.list[+i])) : html;
+}
+
+// --- Formules LaTeX (KaTeX) ---------------------------------------------------
+// Les formules sont mises de côté AVANT marked, qui abîmerait \\, _ et * ; un
+// repère (caractères à usage privé) prend leur place puis reçoit le rendu. Le
+// code (blocs et `en ligne`) n'est jamais touché. $…$ n'est une formule que s'il
+// ne commence ni ne finit par une espace et n'est pas suivi d'un chiffre : « 5 $
+// et 10 $ » reste du texte. KaTeX (embarqué, /katex/) n'est chargé qu'à la
+// première formule ; d'ici là la source s'affiche, puis est rendue sur place.
+// (Pas de lookbehind dans l'expression : les iOS d'avant 16.4 refusent de
+// charger le script entier. Ces contrôles-là sont faits dans le remplacement.)
+const MATH_RE = /(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`[^`\n]*`)|\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|\$(?![\s$])((?:\\.|[^$\\\n])+?)\$(?![\d$])/g;
+function mathExtract(s){
+  const list = [];
+  const text = s.replace(MATH_RE, (all, code, dd, br, pa, d, at)=>{
+    if(code !== undefined) return all;
+    // $…$ : pas collé à un mot ni échappé (\$) avant, pas d'espace avant le $ final.
+    if(d !== undefined && (/[\\$\w]/.test(s[at-1] || '') || /\s$/.test(d))) return all;
+    const display = dd !== undefined || br !== undefined;
+    list.push({tex: (dd ?? br ?? pa ?? d).trim(), display});
+    return '' + (list.length-1) + '';
+  });
+  return {text, list};
+}
+const mathEsc = (s)=>s.replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function mathHtml(f){
+  if(window.katex){
+    try{ return katex.renderToString(f.tex, {displayMode: f.display, throwOnError: false, output: 'html'}); }
+    catch(_){ return '<code>'+mathEsc(f.tex)+'</code>'; }
+  }
+  mathLoad();
+  return '<span class="math-pending" data-d="'+(f.display?1:0)+'">'+mathEsc(f.tex)+'</span>';
+}
+let mathLoading = null;
+function mathLoad(){
+  if(mathLoading) return mathLoading;
+  const css = document.createElement('link');
+  css.rel = 'stylesheet'; css.href = 'katex/katex.min.css';
+  document.head.appendChild(css);
+  mathLoading = new Promise((ok, ko)=>{
+    const s = document.createElement('script');
+    s.src = 'katex/katex.min.js'; s.onload = ok; s.onerror = ko;
+    document.head.appendChild(s);
+  }).then(()=>{
+    document.querySelectorAll('.math-pending').forEach(el=>{
+      try{ katex.render(el.textContent, el, {displayMode: el.dataset.d === '1', throwOnError: false, output: 'html'}); }catch(_){}
+      el.classList.remove('math-pending');
+    });
+  }).catch(()=>{ mathLoading = null; });
+  return mathLoading;
+}
 // Les garde-fous du serveur ("[stop: trop d'appels d'outils]") sont concaténés
 // au texte de la réponse : ils arrivent donc en clair, au milieu du markdown.
 // markNotices les sort du fil pour qu'on ne les prenne pas pour une phrase du

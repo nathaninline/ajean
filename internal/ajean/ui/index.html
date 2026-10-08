@@ -1129,6 +1129,9 @@ button:hover{border-color:var(--dim);color:var(--text)}
   border:1px solid var(--border);border-radius:999px;background:var(--panel);
   color:var(--dim);font-size:12px;line-height:1.5}
 .stopnote::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:var(--dim)}
+.katex{font-size:1.08em}
+.katex-display{margin:.6em 0;overflow-x:auto;overflow-y:hidden;padding:2px 0}
+.math-pending{font-family:var(--mono);font-size:.92em;color:var(--dim)}
 .modal-card,.ask-box,.modal-box,.pe-list,.pe-adv{border-radius:12px}
 .modal-card,.ask-box{box-shadow:0 8px 30px rgba(0,0,0,.12)}
 .pe-seg>label:has(input:checked),.seg>label:has(input:checked){background:var(--text);border-color:var(--text);color:var(--bg)}
@@ -2840,7 +2843,51 @@ function fixMd(s){
   s = s.replace(/\n{3,}/g, '\n\n');
   return s;
 }
-function md(src){ return src ? marked.parse(fixMd(src)) : ''; }
+function md(src){
+  if(!src) return '';
+  const m = mathExtract(fixMd(src));
+  const html = marked.parse(m.text);
+  return m.list.length ? html.replace(/(\d+)/g, (_, i)=>mathHtml(m.list[+i])) : html;
+}
+const MATH_RE = /(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`[^`\n]*`)|\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|\$(?![\s$])((?:\\.|[^$\\\n])+?)\$(?![\d$])/g;
+function mathExtract(s){
+  const list = [];
+  const text = s.replace(MATH_RE, (all, code, dd, br, pa, d, at)=>{
+    if(code !== undefined) return all;
+    if(d !== undefined && (/[\\$\w]/.test(s[at-1] || '') || /\s$/.test(d))) return all;
+    const display = dd !== undefined || br !== undefined;
+    list.push({tex: (dd ?? br ?? pa ?? d).trim(), display});
+    return '' + (list.length-1) + '';
+  });
+  return {text, list};
+}
+const mathEsc = (s)=>s.replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function mathHtml(f){
+  if(window.katex){
+    try{ return katex.renderToString(f.tex, {displayMode: f.display, throwOnError: false, output: 'html'}); }
+    catch(_){ return '<code>'+mathEsc(f.tex)+'</code>'; }
+  }
+  mathLoad();
+  return '<span class="math-pending" data-d="'+(f.display?1:0)+'">'+mathEsc(f.tex)+'</span>';
+}
+let mathLoading = null;
+function mathLoad(){
+  if(mathLoading) return mathLoading;
+  const css = document.createElement('link');
+  css.rel = 'stylesheet'; css.href = 'katex/katex.min.css';
+  document.head.appendChild(css);
+  mathLoading = new Promise((ok, ko)=>{
+    const s = document.createElement('script');
+    s.src = 'katex/katex.min.js'; s.onload = ok; s.onerror = ko;
+    document.head.appendChild(s);
+  }).then(()=>{
+    document.querySelectorAll('.math-pending').forEach(el=>{
+      try{ katex.render(el.textContent, el, {displayMode: el.dataset.d === '1', throwOnError: false, output: 'html'}); }catch(_){}
+      el.classList.remove('math-pending');
+    });
+  }).catch(()=>{ mathLoading = null; });
+  return mathLoading;
+}
 const NOTICE_RE=/\[stop\s*:\s*([^\]]+)\]/g;
 function markNotices(root){
   const walk=document.createTreeWalker(root, NodeFilter.SHOW_TEXT);

@@ -1837,6 +1837,10 @@ button:hover{border-color:var(--dim);color:var(--text)}
   border:1px solid var(--border);border-radius:999px;background:var(--panel);
   color:var(--dim);font-size:12px;line-height:1.5}
 .stopnote::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:var(--dim)}
+/* Formules LaTeX (KaTeX, 00-md.js) : une longue formule défile au lieu de déborder. */
+.katex{font-size:1.08em}
+.katex-display{margin:.6em 0;overflow-x:auto;overflow-y:hidden;padding:2px 0}
+.math-pending{font-family:var(--mono);font-size:.92em;color:var(--dim)}
 
 /* ===== Fenêtres et sélecteurs =====================================
    Coins arrondis et ombre douce plutôt qu'un cadre marqué. */

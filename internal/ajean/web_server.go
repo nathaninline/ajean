@@ -5,6 +5,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
@@ -18,7 +19,7 @@ import (
 )
 
 //go:generate go run ../../tools/assemble-ui ui
-//go:embed ui/index.html ui/marked.min.js ui/sw.js ui/manifest.webmanifest
+//go:embed ui/index.html ui/marked.min.js ui/sw.js ui/manifest.webmanifest ui/katex
 var uiFS embed.FS
 
 // cmdWeb starts the HTTP server on the given port (default 8090).
@@ -146,6 +147,15 @@ func newWebMux() *http.ServeMux {
 		w.Header().Set("Cache-Control", "public, max-age=86400")
 		w.Write(b)
 	})
+	// KaTeX (formules LaTeX des réponses) : chargé par l'UI seulement quand une
+	// réponse contient des maths. Embarqué : l'app doit marcher hors ligne.
+	if sub, err := fs.Sub(uiFS, "ui"); err == nil {
+		files := http.FileServer(http.FS(sub))
+		mux.Handle("/katex/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "public, max-age=86400")
+			files.ServeHTTP(w, r)
+		}))
+	}
 	// Service worker + manifeste des notifications Web Push (voir push.go / sw.js).
 	// PUBLICS (aucun secret) et servis en clair à la RACINE : un service worker doit
 	// venir de l'origine même, et son scope est celui de son URL. no-store sur le SW
