@@ -12,6 +12,8 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
+	"time"
 )
 
 // La clé de pilotage n'est plus stockée en CLAIR : seule son EMPREINTE (SHA-256)
@@ -27,9 +29,48 @@ func hashWebKey(k string) string {
 
 // webKeyHashErr renvoie l'empreinte stockée en distinguant « aucune clé » d'une
 // lecture ratée (voir requireWebAuth : une lecture ratée FERME l'API).
+//
+// requireWebAuth la consulte à CHAQUE requête : sans cache, chacune payait une
+// ouverture complète de la base (issue #120). On garde donc la dernière lecture
+// RÉUSSIE, invalidée comme cachedKV (écriture de ce process, date/taille du
+// fichier pour les autres process, une seconde au plus). Une lecture ratée n'est
+// jamais mise en cache : elle remonte, et l'API reste fermée.
+var webKeyCache struct {
+	sync.Mutex
+	ok    bool
+	path  string // la base lue (AJEAN_HOME peut changer, tests compris)
+	hash  string
+	when  time.Time
+	mtime time.Time
+	size  int64
+}
+
 func webKeyHashErr() (string, error) {
+	path := dbPath()
+	mtime, size := dbStamp()
+	c := &webKeyCache
+	c.Lock()
+	if c.ok && c.path == path && c.size == size && c.mtime.Equal(mtime) && time.Since(c.when) < cacheMaxAge {
+		h := c.hash
+		c.Unlock()
+		return h, nil
+	}
+	c.Unlock()
 	b, err := getBytesErr(bkState, "web_key_hash")
-	return string(b), err
+	if err != nil {
+		return "", err
+	}
+	c.Lock()
+	c.ok, c.path, c.hash, c.when, c.mtime, c.size = true, path, string(b), time.Now(), mtime, size
+	c.Unlock()
+	return string(b), nil
+}
+
+// webKeyCacheBust : à appeler après toute écriture de l'empreinte.
+func webKeyCacheBust() {
+	webKeyCache.Lock()
+	webKeyCache.ok = false
+	webKeyCache.Unlock()
 }
 
 // webKeyConfigured indique qu'une clé de pilotage est définie (empreinte présente).
@@ -44,6 +85,7 @@ func storeWebKey(key string) error {
 	if key != "" {
 		hash = hashWebKey(key)
 	}
+	defer webKeyCacheBust()
 	return putStr(bkState, "web_key_hash", hash)
 }
 
@@ -56,6 +98,7 @@ func migrateWebKeyToHash() {
 	}
 	if !webKeyConfigured() {
 		_ = putStr(bkState, "web_key_hash", hashWebKey(plain))
+		webKeyCacheBust()
 	}
 	_ = putStr(bkState, "web_key", "") // le clair ne doit plus jamais traîner
 }
