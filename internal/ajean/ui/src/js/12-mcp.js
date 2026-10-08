@@ -5,7 +5,40 @@
 let mcpServers = [];
 let mcpEditing = null; // nom du serveur en cours d'édition ('' ou null = nouveau)
 
-async function loadMCP(){ renderMCP(await jget('/api/mcp')); }
+async function loadMCP(){
+  renderMCP(await jget('/api/mcp'));
+  loadMCPTimeouts();
+}
+
+// Délais MCP (connexion + appel d'outil) : chargés depuis /api/mcp/timeouts,
+// enregistrés au changement du champ.
+async function loadMCPTimeouts(){
+  const r = await jget('/api/mcp/timeouts');
+  if(!r || !r.ok) return;
+  const c = document.getElementById('mcp-timeout-connect');
+  const k = document.getElementById('mcp-timeout-call');
+  if(c){ c.value = r.connect; wireMcpTimeoutField(c); }
+  if(k){ k.value = r.call; wireMcpTimeoutField(k); }
+}
+
+function wireMcpTimeoutField(el){
+  if(el.dataset.wired) return;
+  el.dataset.wired = '1';
+  const save = async ()=>{
+    const c = parseInt(document.getElementById('mcp-timeout-connect').value, 10);
+    const k = parseInt(document.getElementById('mcp-timeout-call').value, 10);
+    if(!(c >= 1 && c <= 3600) || !(k >= 1 && k <= 3600)){
+      toast(t('mcp.timeouts_error'));
+      loadMCPTimeouts();
+      return;
+    }
+    const r = await jpost('/api/mcp/timeouts/save', {connect: c, call: k});
+    if(r && r.ok) toast(t('mcp.timeouts_saved'));
+    else toast(t('mcp.timeouts_error'));
+  };
+  el.addEventListener('change', save);
+  el.addEventListener('blur', save);
+}
 
 function renderMCP(r){
   mcpServers = (r && r.servers) || [];
