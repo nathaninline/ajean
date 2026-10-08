@@ -540,6 +540,19 @@ func installCustomBackend(url, name, ref string, phase func(string)) (string, er
 	if url == "" {
 		return "", fmt.Errorf("URL du dépôt vide")
 	}
+	// URL copiée depuis la barre d'adresse de GitHub sur une branche
+	// (…/owner/repo/tree/<branche>) : on en tire le dépôt et la branche.
+	if u, r, ok := splitGitHubTreeURL(url); ok {
+		url = u
+		if strings.TrimSpace(ref) == "" {
+			ref = r
+		}
+	}
+	ref = strings.TrimSpace(ref)
+	// Le ref est passé à git en argument : un tiret en tête serait lu comme une option.
+	if strings.HasPrefix(ref, "-") || strings.ContainsAny(ref, " \t\r\n") {
+		return "", fmt.Errorf("branche, tag ou commit invalide : %q", ref)
+	}
 	if !looksLikeGitURL(url) {
 		return "", fmt.Errorf("URL de dépôt invalide (attendu https://…, git@… ou ssh://…) : %s", url)
 	}
@@ -565,7 +578,7 @@ func installCustomBackend(url, name, ref string, phase func(string)) (string, er
 		phase("dépôt déjà présent — mise à jour…")
 		_ = runStep("git fetch", dir, "git", "fetch", "origin", "--quiet")
 		if ref != "" {
-			if err := runStep("git checkout", dir, "git", "checkout", ref); err != nil {
+			if err := checkoutGitRef(dir, ref); err != nil {
 				return "", err
 			}
 		} else if branch := gitOutput(dir, "rev-parse", "--abbrev-ref", "HEAD"); branch != "" && branch != "HEAD" {
@@ -580,9 +593,7 @@ func installCustomBackend(url, name, ref string, phase func(string)) (string, er
 			return "", fmt.Errorf("git clone a échoué : %w", err)
 		}
 		if ref != "" {
-			// --depth=1 ne récupère que HEAD ; on approfondit pour atteindre le ref.
-			_ = runStep("git fetch", dir, "git", "fetch", "--unshallow", "origin")
-			if err := runStep("git checkout", dir, "git", "checkout", ref); err != nil {
+			if err := checkoutGitRef(dir, ref); err != nil {
 				return "", err
 			}
 		}
@@ -598,6 +609,31 @@ func installCustomBackend(url, name, ref string, phase func(string)) (string, er
 		return "", fmt.Errorf("build terminé mais binaire introuvable sous %s", filepath.Join(dir, "build"))
 	}
 	return bin, nil
+}
+
+// checkoutGitRef place le dépôt sur une branche, un tag ou un commit précis.
+// Un clone --depth=1 ne suit que la branche par défaut : ni « fetch --unshallow »
+// ni « checkout <branche> » n'atteignaient une autre branche du fork (issue #116).
+// On récupère donc le ref lui-même, puis on se place dessus.
+func checkoutGitRef(dir, ref string) error {
+	if err := runStep("git fetch", dir, "git", "fetch", "--depth=1", "origin", ref); err != nil {
+		return fmt.Errorf("branche, tag ou commit « %s » introuvable sur le dépôt : %w", ref, err)
+	}
+	return runStep("git checkout", dir, "git", "checkout", "--force", "--detach", "FETCH_HEAD")
+}
+
+// splitGitHubTreeURL : https://github.com/o/r/tree/<ref> → (https://github.com/o/r.git, <ref>).
+// Le ref peut contenir des « / » (model/K2Horizon).
+func splitGitHubTreeURL(u string) (repo, ref string, ok bool) {
+	rest, found := strings.CutPrefix(u, "https://github.com/")
+	if !found {
+		return "", "", false
+	}
+	parts := strings.SplitN(strings.TrimRight(rest, "/"), "/", 4)
+	if len(parts) != 4 || parts[2] != "tree" || parts[0] == "" || parts[1] == "" || parts[3] == "" {
+		return "", "", false
+	}
+	return "https://github.com/" + parts[0] + "/" + strings.TrimSuffix(parts[1], ".git") + ".git", parts[3], true
 }
 
 func looksLikeGitURL(u string) bool {

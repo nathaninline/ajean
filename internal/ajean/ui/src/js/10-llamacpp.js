@@ -188,6 +188,7 @@ function openCustomBackends(){
   showModal('lc-custom-modal');
   document.getElementById('lc-custom-url').value = '';
   document.getElementById('lc-custom-name').value = '';
+  document.getElementById('lc-custom-ref').value = '';
   loadCustomBackends();
 }
 function closeCustomBackends(){ hideModal('lc-custom-modal'); }
@@ -219,8 +220,9 @@ async function lcInstallCustom(){
   const url = (document.getElementById('lc-custom-url').value||'').trim();
   if(!url){ toast(t('llamacpp.paste_git_url')); return; }
   const name = (document.getElementById('lc-custom-name').value||'').trim();
-  if(!await askConfirm(t('llamacpp.confirm_custom_prefix')+'\n'+url+'\n\n'+t('llamacpp.confirm_custom_suffix'), {title:t('llamacpp.custom_backend_title'), okText:t('llamacpp.install_btn')})) return;
-  const r = await jpost('/api/llamacpp/install-custom', {repo:url, name});
+  const ref = (document.getElementById('lc-custom-ref').value||'').trim();
+  if(!await askConfirm(t('llamacpp.confirm_custom_prefix')+'\n'+url+(ref ? ' @ '+ref : '')+'\n\n'+t('llamacpp.confirm_custom_suffix'), {title:t('llamacpp.custom_backend_title'), okText:t('llamacpp.install_btn')})) return;
+  const r = await jpost('/api/llamacpp/install-custom', {repo:url, name, ref});
   if(!r.ok){ toast(t('llamacpp.error_prefix')+(r.error||'')); return; }
   closeCustomBackends();
   document.getElementById('lc-details').open = true;

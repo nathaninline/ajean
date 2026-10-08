@@ -2128,6 +2128,10 @@ body.jean-mode #ctx-compactions{display:none!important}
         <label class="fld-l" for="lc-custom-name"><span data-i18n="backends.name_label">Nom</span> <span class="opt" data-i18n="backends.name_optional_hint">(optionnel — déduit de l'URL sinon)</span></label>
         <input id="lc-custom-name" class="ctl" placeholder="llama.cpp-prism">
       </div>
+      <div class="fld">
+        <label class="fld-l" for="lc-custom-ref"><span data-i18n="backends.ref_label">Branche, tag ou commit</span> <span class="opt" data-i18n="backends.ref_optional_hint">(optionnel, branche par défaut sinon)</span></label>
+        <input id="lc-custom-ref" class="ctl" placeholder="model/K2Horizon">
+      </div>
     </div>
     <div class="modal-foot">
       <div class="foot-l"></div>
@@ -3194,6 +3198,8 @@ fr: {
   "backends.install_url_label": "Installer depuis un dépôt Git",
   "backends.name_label": "Nom",
   "backends.name_optional_hint": "(optionnel — déduit de l'URL sinon)",
+  "backends.ref_label": "Branche, tag ou commit",
+  "backends.ref_optional_hint": "(optionnel, branche par défaut sinon)",
   "backends.close": "fermer",
   "backends.install_compile": "Installer & compiler",
   "sessions.title": "Sessions",
@@ -4519,6 +4525,8 @@ en: {
   "backends.install_url_label": "Install from a Git repo",
   "backends.name_label": "Name",
   "backends.name_optional_hint": "(optional — otherwise inferred from the URL)",
+  "backends.ref_label": "Branch, tag or commit",
+  "backends.ref_optional_hint": "(optional, default branch otherwise)",
   "backends.close": "close",
   "backends.install_compile": "Install & compile",
   "sessions.title": "Sessions",
@@ -5974,7 +5982,9 @@ document.addEventListener('pointerdown', (e)=>{
 }, true);
 document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && MENU){ e.stopPropagation(); closeMenu(); } }, true);
 document.addEventListener('scroll', (e)=>{
-  if(MENU && !MENU.o.keepOnScroll && !MENU.el.contains(e.target)) closeMenu(false, true);
+  if(!MENU || MENU.o.keepOnScroll || MENU.el.contains(e.target)) return;
+  const t = e.target;
+  if(t === document || t === document.documentElement || t === document.body || (t.contains && t.contains(MENU.anchor))) closeMenu(false, true);
 }, true);
 addEventListener('resize', ()=>closeMenu(true, true));
 let TOKEN = localStorage.getItem('ajean.key') || '';
@@ -9624,6 +9634,7 @@ function openCustomBackends(){
   showModal('lc-custom-modal');
   document.getElementById('lc-custom-url').value = '';
   document.getElementById('lc-custom-name').value = '';
+  document.getElementById('lc-custom-ref').value = '';
   loadCustomBackends();
 }
 function closeCustomBackends(){ hideModal('lc-custom-modal'); }
@@ -9649,8 +9660,9 @@ async function lcInstallCustom(){
   const url = (document.getElementById('lc-custom-url').value||'').trim();
   if(!url){ toast(t('llamacpp.paste_git_url')); return; }
   const name = (document.getElementById('lc-custom-name').value||'').trim();
-  if(!await askConfirm(t('llamacpp.confirm_custom_prefix')+'\n'+url+'\n\n'+t('llamacpp.confirm_custom_suffix'), {title:t('llamacpp.custom_backend_title'), okText:t('llamacpp.install_btn')})) return;
-  const r = await jpost('/api/llamacpp/install-custom', {repo:url, name});
+  const ref = (document.getElementById('lc-custom-ref').value||'').trim();
+  if(!await askConfirm(t('llamacpp.confirm_custom_prefix')+'\n'+url+(ref ? ' @ '+ref : '')+'\n\n'+t('llamacpp.confirm_custom_suffix'), {title:t('llamacpp.custom_backend_title'), okText:t('llamacpp.install_btn')})) return;
+  const r = await jpost('/api/llamacpp/install-custom', {repo:url, name, ref});
   if(!r.ok){ toast(t('llamacpp.error_prefix')+(r.error||'')); return; }
   closeCustomBackends();
   document.getElementById('lc-details').open = true;
