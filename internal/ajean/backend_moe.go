@@ -306,6 +306,7 @@ type moeDetails struct {
 	// pour les réglages : ce que la machine permet et l'état actuel
 	HasHelper bool `json:"has_helper"` // une carte d'aide est disponible
 	HelperOn  bool `json:"helper_on"`
+	Split     bool `json:"split_layers"` // les deux cartes se partagent les couches
 	Vision    bool `json:"vision"`
 }
 
@@ -362,6 +363,7 @@ func moeDetailsFor(presetID string, env moeEnv) *moeDetails {
 		if moeHelperOn(pc) {
 			d.HelperOn = true
 			d.HelperGPU = gpuName(h)
+			d.Split = moeLayerSplit(pc)
 		}
 	}
 	d.Vision = pc["MOE_VISION"] != "0"
@@ -768,6 +770,16 @@ func moeBuildConfig(base map[string]any, cfg map[string]string, apiKey string) (
 	}
 	helper := strings.TrimSpace(cfg["MOE_HELPER_GPU"])
 	hasHelper := moeHelperOn(cfg)
+	layers := moeLayerSplit(cfg)
+	if layers {
+		// Partage des couches : le serveur du moteur le fait de lui-même quand sa
+		// clé « gpu » liste plusieurs cartes (--layer-split auto, réparti selon la
+		// VRAM libre), numérotées comme nvidia-smi. Pas de chemin « aide ».
+		main, _ := strconv.Atoi(strings.TrimSpace(cfg["MOE_MAIN_GPU"]))
+		second, _ := strconv.Atoi(strings.TrimSpace(cfg["MOE_HELPER_GPU"]))
+		out["gpu"] = []any{main, second}
+		hasHelper = false
+	}
 	// Deuxième carte en aide : elle garde et CALCULE sa part des experts (le
 	// chemin « helper » du moteur), la carte principale reste CUDA0. Les cartes
 	// sont posées par CUDA_VISIBLE_DEVICES (serveMoe), PAS par la clé « gpu » :
@@ -800,6 +812,8 @@ func moeBuildConfig(base map[string]any, cfg map[string]string, apiKey string) (
 	if e, ok := out["env"].(map[string]any); ok {
 		env = e
 	}
+	// (experts de la carte d'aide hors RAM : propre au mode d'aide, d'où hasHelper,
+	// faux en partage des couches ; MOE_DROP y retombe sur le mmap ci-dessous)
 	if hasHelper && cfg["MOE_DROP"] == "1" && moeDropReady(args) {
 		// Les experts de la carte d'aide hors RAM, le reste verrouillé en RAM
 		// (moeDropFits) : la principale relit aussi par PCIe une part de ce qui
@@ -946,6 +960,16 @@ func moeHelperOn(cfg map[string]string) bool {
 	return h != "" && h != "-1" && cfg["MOE_HELPER"] != "0"
 }
 
+// moeLayerSplit : les deux cartes se partagent les COUCHES du modèle (clé de
+// preset MOE_SPLIT=layers) au lieu que la seconde n'aide que pour une part des
+// experts. Mesuré par un utilisateur sur deux RTX 3060 identiques (#121) : la
+// carte d'aide ne travaillait qu'à ~15 %, le partage des couches donnait +50 %
+// en génération. Sur deux cartes très différentes, le mode d'aide reste le
+// défaut mesuré ici : le partage est donc un choix, jamais imposé.
+func moeLayerSplit(cfg map[string]string) bool {
+	return moeHelperOn(cfg) && cfg["MOE_SPLIT"] == "layers"
+}
+
 // moeCudaDevices : ordre des cartes vu par le moteur, la principale en CUDA0.
 func moeCudaDevices(cfg map[string]string) string {
 	main := strings.TrimSpace(cfg["MOE_MAIN_GPU"])
@@ -958,21 +982,39 @@ func moeCudaDevices(cfg map[string]string) string {
 	return main
 }
 
+// moePreflight : ce sans quoi le moteur MoE ne peut pas démarrer (sa config
+// d'installeur, lisible, et l'environnement Python à côté). Partagé par serveMoe
+// et par le pré-vol de `ajean start` / `ajean restart`, qui exigeait BIN et
+// MODEL : un preset MoE n'a ni l'un ni l'autre et était refusé.
+func moePreflight(cfg map[string]string) (string, map[string]any, error) {
+	path := strings.TrimSpace(cfg["MOE_CONFIG"])
+	if path == "" {
+		return "", nil, fmt.Errorf("MOE_CONFIG non défini : réinstaller le modèle depuis la section Moteur")
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return "", nil, fmt.Errorf("configuration du moteur introuvable : %s (réinstaller le modèle depuis la section Moteur)", path)
+	}
+	var base map[string]any
+	if err := json.Unmarshal(raw, &base); err != nil {
+		return "", nil, fmt.Errorf("configuration du moteur illisible (%s) : %w", path, err)
+	}
+	if py := moeVenvPython(filepath.Dir(path)); !isFile(py) {
+		return "", nil, fmt.Errorf("environnement Python du moteur absent (%s) : réinstaller le modèle depuis la section Moteur", py)
+	}
+	return path, base, nil
+}
+
+// moeVenvPython : le Python de l'environnement du moteur, dans ses sources.
+func moeVenvPython(srcDir string) string { return filepath.Join(srcDir, ".venv", "bin", "python") }
+
 // serveMoe : la branche moteur MoE de `ajean serve`. Écrit la config finale à
 // côté de celle de l'installeur puis remplace le process par le serveur du moteur
 // (comme llama-server : systemd supervise directement le moteur).
 func serveMoe(cfg map[string]string) error {
-	path := strings.TrimSpace(cfg["MOE_CONFIG"])
-	if path == "" {
-		return fmt.Errorf("MOE_CONFIG non défini : réinstaller le modèle depuis l'interface")
-	}
-	raw, err := os.ReadFile(path)
+	path, base, err := moePreflight(cfg)
 	if err != nil {
-		return fmt.Errorf("configuration du moteur introuvable : %s", path)
-	}
-	var base map[string]any
-	if err := json.Unmarshal(raw, &base); err != nil {
-		return fmt.Errorf("configuration du moteur illisible (%s) : %w", path, err)
+		return err
 	}
 	if err := moeEnsureEngine(); err != nil {
 		fmt.Fprintf(os.Stderr, "[ajean serve] moteur %s non installé (%v) : l'ancien reste en place\n", moeEngineAsset, err)
@@ -982,10 +1024,7 @@ func serveMoe(cfg map[string]string) error {
 		return err
 	}
 	srcDir := filepath.Dir(path)
-	py := filepath.Join(srcDir, ".venv", "bin", "python")
-	if _, err := os.Stat(py); err != nil {
-		return fmt.Errorf("environnement Python du moteur absent (%s) : réinstaller le modèle", py)
-	}
+	py := moeVenvPython(srcDir)
 	// Tout ce qu'ajean lance porte le nom du moteur MoE d'AJEAN : binaires,
 	// lanceur, config et journal (les noms d'origine restent dans le dossier
 	// d'installation, qu'ils ne quittent pas).
@@ -1129,6 +1168,9 @@ type moeSettingsReq struct {
 	Spec   int    `json:"spec"`
 	Vision bool   `json:"vision"`
 	Helper bool   `json:"helper"`
+	// Split : rôle de la seconde carte, « helper » (aide aux experts) ou
+	// « layers » (partage des couches). Vide = inchangé (anciens clients).
+	Split string `json:"split"`
 }
 
 // moeMaxCtx : contexte natif maximal de Qwen3.8 Flash Next.
@@ -1144,11 +1186,17 @@ func moeApplySettings(content string, r moeSettingsReq) (string, error) {
 		return "", fmt.Errorf("cache KV inconnu : %s", r.KV)
 	case r.Spec < 2 || r.Spec > 4:
 		return "", fmt.Errorf("MTP hors limites : %d", r.Spec)
+	case r.Split != "" && r.Split != "helper" && r.Split != "layers":
+		return "", fmt.Errorf("répartition inconnue : %s", r.Split)
 	}
 	set := map[string]string{
 		"CTX": strconv.Itoa(r.Ctx), "MOE_KV": r.KV, "MOE_SPEC": strconv.Itoa(r.Spec),
 		"MOE_VISION": map[bool]string{true: "1", false: "0"}[r.Vision],
 		"MOE_HELPER": map[bool]string{true: "1", false: "0"}[r.Helper],
+	}
+	if r.Split != "" {
+		// « helper » est le défaut : la clé disparaît plutôt que d'être écrite
+		set["MOE_SPLIT"] = map[bool]string{true: "layers", false: ""}[r.Split == "layers"]
 	}
 	var lines []string
 	for _, l := range strings.Split(strings.TrimRight(content, "\n"), "\n") {
@@ -1158,8 +1206,10 @@ func moeApplySettings(content string, r moeSettingsReq) (string, error) {
 		}
 		lines = append(lines, l)
 	}
-	for _, k := range []string{"CTX", "MOE_KV", "MOE_SPEC", "MOE_VISION", "MOE_HELPER"} {
-		lines = append(lines, k+"="+set[k])
+	for _, k := range []string{"CTX", "MOE_KV", "MOE_SPEC", "MOE_VISION", "MOE_HELPER", "MOE_SPLIT"} {
+		if v, ok := set[k]; ok && (v != "" || k != "MOE_SPLIT") {
+			lines = append(lines, k+"="+v)
+		}
 	}
 	return strings.Join(lines, "\n") + "\n", nil
 }

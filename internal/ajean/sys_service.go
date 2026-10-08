@@ -35,6 +35,11 @@ func preflightEngine() error {
 	if usesRemoteEndpoint(cfg) {
 		return nil
 	}
+	// Moteur MoE : ni BIN ni MODEL, il lance son propre serveur (serveMoe).
+	if isMoeConfig(cfg) {
+		_, _, err := moePreflight(cfg)
+		return err
+	}
 	bin := strings.TrimSpace(cfg["BIN"])
 	if bin == "" {
 		return fmt.Errorf("BIN non défini — installe un moteur : %s (ou renseigne BIN avec %s)",
