@@ -91,7 +91,12 @@ document.addEventListener('pointerdown', (e)=>{
   while(MENU && !MENU.el.contains(e.target) && !MENU.anchor.contains(e.target)) closeMenu();
 }, true);
 document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && MENU){ e.stopPropagation(); closeMenu(); } }, true);
+// Seul un défilement qui DÉPLACE l'ancre ferme le menu (page entière ou conteneur
+// de l'ancre). Le fil du chat défile tout seul pendant la génération : avant,
+// n'importe quel défilement refermait les menus ouverts ailleurs (issue #113).
 document.addEventListener('scroll', (e)=>{
-  if(MENU && !MENU.o.keepOnScroll && !MENU.el.contains(e.target)) closeMenu(false, true);
+  if(!MENU || MENU.o.keepOnScroll || MENU.el.contains(e.target)) return;
+  const t = e.target;
+  if(t === document || t === document.documentElement || t === document.body || (t.contains && t.contains(MENU.anchor))) closeMenu(false, true);
 }, true);
 addEventListener('resize', ()=>closeMenu(true, true));
