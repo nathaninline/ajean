@@ -234,6 +234,8 @@ func newWebMux() *http.ServeMux {
 	api("/api/mcp/toggle", handleMCPToggle)
 	api("/api/mcp/tool", handleMCPTool)
 	api("/api/mcp/test", handleMCPTest)
+	api("/api/mcp/timeouts", handleMCPTimeouts)
+	api("/api/mcp/timeouts/save", handleMCPTimeoutsSave)
 	api("/api/memory", handleMemoryMode)
 	api("/api/network", handleNetwork) // écoute LAN du moteur + pare-feu (Windows)
 	api("/api/prefs", handleWebPrefs)

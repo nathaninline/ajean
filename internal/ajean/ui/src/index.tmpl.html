@@ -361,6 +361,24 @@
         <div class="rowbody">
           <!-- Même texte que celui rendu après chargement quand il n'y a aucun
                serveur : sinon la carte partait vide puis grandissait d'une ligne. -->
+          <!-- Délais MCP (connexion + appel d'outil) : entre le titre et la liste. -->
+          <div class="mcp-timeouts" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:8px">
+            <span style="font-size:12px;color:var(--dim)" data-i18n="mcp.timeouts_label">Délais</span>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px">
+              <span data-i18n="mcp.connect_label">Connexion</span>
+              <input id="mcp-timeout-connect" type="number" min="1" max="3600" value="20"
+                     style="width:56px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font:inherit;font-size:12px;padding:2px 5px;text-align:right"
+                     data-i18n="mcp.connect_hint" data-i18n-attr="title">
+              <span style="color:var(--dim)">s</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px">
+              <span data-i18n="mcp.call_label">Appel d'outil</span>
+              <input id="mcp-timeout-call" type="number" min="1" max="3600" value="120"
+                     style="width:56px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font:inherit;font-size:12px;padding:2px 5px;text-align:right"
+                     data-i18n="mcp.call_hint" data-i18n-attr="title">
+              <span style="color:var(--dim)">s</span>
+            </label>
+          </div>
           <div id="mcp-list" class="mcp-list"><div class="muted" style="font-size:12px" data-i18n="mcp.empty_list">(aucun serveur — ajoute un serveur fichiers, une base de données, une API…)</div></div>
           <button class="addbtn" style="margin-top:6px" onclick="openMcp('')" data-i18n="mcp.add_button">+ ajouter un serveur</button>
         </div>
