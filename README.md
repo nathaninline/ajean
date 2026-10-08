@@ -156,7 +156,7 @@ ajean internet url http://localhost:11235
 
 **Files.** Send files to the AI from the chat (up to 1 GB each), and download the files it creates with a click.
 
-**MCP servers.** Plug in any [Model Context Protocol](https://modelcontextprotocol.io) server (files, databases, mail, APIs) from the interface, over stdio or HTTP. The format is the one used by Claude Desktop, so an existing configuration copies over as is. Servers and individual tools can be switched on and off.
+**MCP servers.** Plug in any [Model Context Protocol](https://modelcontextprotocol.io) server (files, databases, mail, APIs) from the interface, over stdio or HTTP. The format is the one used by Claude Desktop, so an existing configuration copies over as is. Servers and individual tools can be switched on and off. For a keyless web search and page extraction example, see [Parallel Search MCP](docs/PARALLEL_SEARCH.md#english).
 
 **Scheduled tasks.** The AI works on its own, at the frequency you choose (every N minutes, hours or days, or a cron expression): check a mailbox, summarize news, follow a figure. A task can also be a **script only**, run without loading the model. Each task chooses its project, its preset, and whether it may use memory and the web. A master switch pauses everything.
 

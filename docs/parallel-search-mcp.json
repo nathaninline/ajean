@@ -1,0 +1,8 @@
+{
+  "name": "parallel-search",
+  "url": "https://search.parallel.ai/mcp",
+  "headers": {
+    "User-Agent": "ajean (https://github.com/nathaninline/ajean)"
+  },
+  "enabled": true
+}
