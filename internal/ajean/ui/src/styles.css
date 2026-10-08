@@ -2588,6 +2588,5 @@ body.jean-mode:not(.jean-history) #chat,body.jean-mode:not(.jean-history) #compo
 #hist-proj-name{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hist-proj-ic{display:inline-flex}
 body.hist-jean #side-hist .hist-search,body.hist-jean #sess-count,body.hist-jean #history-clear-all{display:none}
-.beta-tag{display:inline-block;margin-left:5px;padding:0 5px;border-radius:5px;font-size:9.5px;font-weight:600;line-height:15px;letter-spacing:.02em;vertical-align:1px;color:var(--dim);background:var(--t2)}.beta-tag[hidden]{display:none}
 /* Mode Jean : conversation unique compactée en continu, le compteur ne dit rien d'utile. */
 body.jean-mode #ctx-compactions{display:none!important}

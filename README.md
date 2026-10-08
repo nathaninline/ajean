@@ -91,7 +91,7 @@ Pick a mode from the button on the left of the input bar.
 |---|---|---|
 | **Quick** | quick questions, small tasks | terminal and files, no memory |
 | **Project** | real work that spans several conversations | memory, trackers, web, browser, MCP, tasks |
-| **Jean** *(beta)* | a personal assistant that knows you | its own memory, reminders, a single ongoing conversation |
+| **Jean** | a personal assistant that knows you | its own memory, reminders, a single ongoing conversation |
 | **Base model** | talking to the raw model | nothing: no tools, no system prompt |
 
 A conversation keeps the mode it started in. Tools only exist when **agent mode** is on (`ajean agent on`, or the switch in the interface); without it, every mode behaves like Base model.
@@ -107,7 +107,7 @@ Each project has:
 - **A description**, given to the AI at the start of every conversation (context, constraints, tone).
 - **Options** in its *⋯* menu: name and description, its memory, its trackers.
 
-### Jean, personal assistant (beta)
+### Jean, personal assistant
 
 Jean is an assistant that remembers **you** over time, in a single conversation that never ends. Open it from the mode menu: it gets a full-screen view with its avatar.
 
@@ -115,8 +115,6 @@ Jean is an assistant that remembers **you** over time, in a single conversation 
 - **Reminders and tasks**: ask Jean to remind you of something, and the reminder arrives as a message from Jean, with a notification.
 - **A separate workspace**: Jean cannot modify your projects' scripts, files or memory. It can read them, to see how something was done, and rebuild what it needs in its own space.
 - **A fresh start after a break**: after 3 hours without a message, the model's context starts over. The thread on screen and the journal stay. Set `JEAN_IDLE_HOURS` to change the delay (`0` = never).
-
-> Jean is a **beta**: not everything has been tested yet. For serious work, keep using Project or Quick mode.
 
 ### History
 

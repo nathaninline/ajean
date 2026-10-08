@@ -91,7 +91,7 @@ Choisissez le mode avec le bouton à gauche de la zone de saisie.
 |---|---|---|
 | **Rapide** | questions rapides, petites tâches | terminal et fichiers, sans mémoire |
 | **Projet** | un vrai travail qui s'étale sur plusieurs conversations | mémoire, trackers, web, navigateur, MCP, tâches |
-| **Jean** *(bêta)* | un assistant personnel qui vous connaît | sa propre mémoire, des rappels, une conversation unique et continue |
+| **Jean** | un assistant personnel qui vous connaît | sa propre mémoire, des rappels, une conversation unique et continue |
 | **Modèle de base** | parler au modèle brut | rien : ni outils, ni prompt système |
 
 Une conversation garde le mode dans lequel elle a commencé. Les outils n'existent que si le **mode agent** est activé (`ajean agent on`, ou l'interrupteur de l'interface) ; sans lui, tous les modes se comportent comme Modèle de base.
@@ -107,7 +107,7 @@ Chaque projet a :
 - **Une description**, fournie à l'IA au début de chaque conversation (contexte, contraintes, ton).
 - **Des options** dans son menu *⋯* : nom et description, sa mémoire, ses trackers.
 
-### Jean, assistant personnel (bêta)
+### Jean, assistant personnel
 
 Jean est un assistant qui se souvient de **vous** au fil du temps, dans une seule conversation qui ne se termine jamais. Ouvrez-le depuis le menu des modes : il s'affiche en plein écran avec son avatar.
 
@@ -115,8 +115,6 @@ Jean est un assistant qui se souvient de **vous** au fil du temps, dans une seul
 - **Rappels et tâches** : demandez à Jean de vous rappeler quelque chose, et le rappel arrive comme un message de sa part, avec une notification.
 - **Un espace de travail séparé** : Jean ne peut pas modifier les scripts, fichiers ni la mémoire de vos projets. Il peut les lire, pour voir comment une chose a été faite, et refaire ce dont il a besoin dans son propre espace.
 - **Un nouveau départ après une pause** : après 3 heures sans message, le contexte du modèle repart à vide. Le fil affiché et le journal restent. La clé `JEAN_IDLE_HOURS` règle ce délai (`0` = jamais).
-
-> Jean est une **bêta** : tout n'a pas encore été testé. Pour un travail sérieux, continuez d'utiliser le mode Projet ou le mode Rapide.
 
 ### Historique
 

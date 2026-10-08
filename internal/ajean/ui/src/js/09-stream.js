@@ -1061,8 +1061,6 @@ function applyFastBtn(){
   const l=document.getElementById('mode-btn-label'); if(!l) return;
   const k=MODE_KEYS[MODE];
   l.dataset.i18n=k; l.textContent=t(k);
-  // Jean est en bêta : petit badge à côté du nom.
-  const bt=document.getElementById('mode-btn-beta'); if(bt) bt.hidden = MODE!=='jean';
   // Icône du mode (reprise du menu des modes).
   const ic=document.getElementById('mode-btn-ic'), src=document.querySelector('#mode-menu button[data-mode="'+MODE+'"] .mm-ic');
   if(ic && src) ic.innerHTML=src.outerHTML;

@@ -1,16 +1,22 @@
-Moteur MoE : partage des couches entre deux cartes, et démarrage d'un preset MoE en ligne de commande corrigé.
+Le mode Jean sort de la bêta.
 
-## Nouveautés
+## Jean, assistant personnel
 
-- **Seconde carte en partage des couches.** Dans les réglages d'un modèle du moteur MoE (section Moteur), la ligne « Seconde carte » propose maintenant trois choix : « Non utilisée », « Aide aux experts » (le mode existant, qui reste le défaut) et « Partage des couches ». Dans ce dernier mode, les deux cartes se répartissent les couches du modèle selon leur VRAM libre. Avec deux cartes identiques, la seconde carte était peu sollicitée en mode d'aide (environ 15 %), et un utilisateur a mesuré +50 % en génération avec le partage des couches. Les presets existants ne changent pas. (#121)
+Après plusieurs semaines d'utilisation quotidienne, le mode Jean n'est plus marqué « Beta ». Pour rappel, Jean :
+
+- garde **sa propre mémoire** : un profil court, des fiches (procédures, guides) et un journal de chaque échange, consultables et modifiables depuis la fenêtre *Mémoire de Jean* ;
+- **apprend de ses erreurs** : une correction devient une leçon qui ne se répète plus, et une tâche laborieuse est rangée en fiche et en script pour aller plus vite la fois suivante ;
+- **range sa mémoire la nuit** (consolidation), avec un garde-fou qui restaure tout ce qui aurait été perdu ;
+- **repart d'un contexte vide** après 3 heures sans message (clé `JEAN_IDLE_HOURS`, `0` = jamais), après avoir relu l'ancien fil pour ne rien oublier. Le fil affiché et le journal ne bougent pas ;
+- travaille dans **son propre espace**, sans pouvoir modifier les scripts, fichiers ni la mémoire des projets.
 
 ## Corrections
 
-- **`ajean start` et `ajean restart` refusaient un preset MoE.** Le contrôle avant démarrage réclamait un moteur llama.cpp et un fichier de modèle, qu'un preset MoE n'a pas. Il vérifie désormais ce dont le moteur MoE a besoin (sa configuration et son environnement Python).
-- **Sortie d'une commande perdue par l'outil shell de l'IA.** Quand une commande laissait un process tourner en arrière-plan (par exemple `./serveur &`), l'outil renvoyait parfois « WaitDelay expired » au lieu de ce que la commande avait affiché. La sortie est maintenant renvoyée, avec la mention qu'un process tourne encore.
+- **Compactage relancé en boucle.** Au cours d'une très longue tâche, quand le résumé de l'historique échouait, la compaction était retentée à chaque étape, chaque fois avec un résumé complet voué au même échec. Après un échec, elle attend désormais que le contexte ait nettement grandi avant de réessayer.
+- **Cause des résumés ratés.** Un résumé en erreur ou vide est maintenant inscrit dans le journal du service, avec sa cause, au lieu de passer inaperçu.
 
 ## Mise à jour
 
     ajean update
 
-Vérifié par les tests automatiques. Non testé sur du matériel réel : le partage des couches entre deux cartes.
+Vérifié par les tests automatiques et par l'historique d'utilisation du mode Jean sur le serveur de test (révisions, consolidations de nuit, vidage du contexte). Non testé en conditions réelles : la nouvelle temporisation du compactage pendant une longue tâche.

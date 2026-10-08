@@ -456,7 +456,7 @@
            la partie projet se replie. -->
       <div id="mode-pill">
         <button id="mode-btn" onclick="toggleModeMenu(event)" aria-haspopup="true" title="Mode du chat" data-i18n="chat.mode_title" data-i18n-attr="title">
-          <span id="mode-btn-ic" aria-hidden="true"></span><span id="mode-btn-label" data-i18n="chat.mode_project">Projet</span><span id="mode-btn-beta" class="beta-tag" hidden>Beta</span>
+          <span id="mode-btn-ic" aria-hidden="true"></span><span id="mode-btn-label" data-i18n="chat.mode_project">Projet</span>
           <svg class="pill-chev" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
         </button>
         <!-- Projets : chaque projet a sa propre mémoire ET ses propres sessions,
@@ -517,7 +517,7 @@
 <div id="mode-menu" class="menu" style="display:none">
   <button data-mode="fast" onclick="pickMode('fast')"><svg class="mm-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 3L5 13.5h6L10 21l8-10.5h-6z"/></svg><span class="mm-t"><span data-i18n="chat.mode_fast">Rapide</span><span class="rm-h" data-i18n="chat.mode_fast_hint">bash, write, edit</span></span></button>
   <button data-mode="project" onclick="pickMode('project')"><svg class="mm-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="mm-t"><span data-i18n="chat.mode_project">Projet</span><span class="rm-h" data-i18n="chat.mode_project_hint">mémoire, projets, web</span></span></button>
-  <button data-mode="jean" onclick="pickMode('jean')"><svg class="mm-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span class="mm-t"><span><span data-i18n="chat.mode_jean">Jean</span> <span class="beta-tag">Beta</span></span><span class="rm-h" data-i18n="chat.mode_jean_hint">assistant personnel, se souvient de tout</span></span></button>
+  <button data-mode="jean" onclick="pickMode('jean')"><svg class="mm-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span class="mm-t"><span><span data-i18n="chat.mode_jean">Jean</span></span><span class="rm-h" data-i18n="chat.mode_jean_hint">assistant personnel, se souvient de tout</span></span></button>
   <button data-mode="base" onclick="pickMode('base')"><svg class="mm-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg><span class="mm-t"><span data-i18n="chat.mode_base">Modèle de base</span><span class="rm-h" data-i18n="chat.mode_base_hint">sans agent ni outils</span></span></button>
 </div>
 <div id="reason-menu" class="menu" style="display:none">
