@@ -3577,6 +3577,7 @@ fr: {
   "status.reason_set_failed": "réglage du niveau impossible",
   "status.ram_label": "Mémoire vive",
   "status.used_pct_suffix": "utilisée",
+  "status.unified_mem": "mémoire unifiée",
   "status.cfg_engine": "MOTEUR",
   "status.ngl_max_title": "Ce modèle a {l} couches : NGL={n} le met entièrement sur le GPU. En dessous, les couches restantes vont en RAM et libèrent de la VRAM pour le contexte.",
   "status.cmdline_copy": "copier",
@@ -4913,6 +4914,7 @@ en: {
   "status.reason_set_failed": "couldn't set the level",
   "status.ram_label": "RAM",
   "status.used_pct_suffix": "used",
+  "status.unified_mem": "unified memory",
   "status.cfg_engine": "ENGINE",
   "status.ngl_max_title": "This model has {l} layers: NGL={n} puts it fully on the GPU. Below that, the remaining layers go to RAM and free VRAM for the context.",
   "status.cmdline_copy": "copy",
@@ -6375,10 +6377,12 @@ function renderVram(gpus){
       '<span class="stat-v">'+(g.total? (g.total/1024).toFixed(0)+' GiB' : '')+'</span></div>'+
       '<div class="stat-s">'+cloudCardStatus(g)+(g.billing? ' · '+escHtml(cloudCreditText(g.billing)) : '')+'</div></div>';
     const pct=Math.round(g.used*100/g.total);
+    const temp = g.temp > 0 ? ' · '+g.temp+' °C' : '';
+    const unified = g.unified ? ' · '+escHtml(t('status.unified_mem')) : '';
     return '<div class="stat"><div class="stat-h"><span class="stat-n">'+g.name+'</span>'+
       '<span class="stat-v">'+(g.used/1024).toFixed(1)+' / '+(g.total/1024).toFixed(1)+' GiB</span></div>'+
       '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
-      '<div class="stat-s">GPU '+g.util+' % · '+g.temp+' °C'+(g.cloud?' · '+cloudCardStatus(g):'')+(g.billing? ' · '+escHtml(cloudCreditText(g.billing)) : '')+'</div></div>';
+      '<div class="stat-s">GPU '+g.util+' %'+temp+unified+(g.cloud?' · '+cloudCardStatus(g):'')+(g.billing? ' · '+escHtml(cloudCreditText(g.billing)) : '')+'</div></div>';
   }).join('')); 
 }
 function renderRam(m){
