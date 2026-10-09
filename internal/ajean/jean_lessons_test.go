@@ -204,11 +204,11 @@ func TestJeanLessonNumbersNeverReused(t *testing.T) {
 
 func TestJeanHygiene(t *testing.T) {
 	for v, want := range map[string]bool{
-		"Serveur média 10.0.0.5, identifiants alice / Hunter2024":         true,
-		"Boîte mail : alice@example.com, mdp Hunter2024+":             true,
+		"Serveur média 10.0.0.5, identifiants alice / Hunter2024":              true,
+		"Boîte mail : alice@example.com, mdp Hunter2024+":                      true,
 		"clé 9f1c0b7e4a2d6835e0c7b19af3d42e86b5a0c1d7e39f84a26b0d5c1e7f3a9b24": true,
-		"Serveur média 10.0.0.5, identifiants dans la fiche media-server": false,
-		"Alice aime les films d'action et de science-fiction":                 false,
+		"Serveur média 10.0.0.5, identifiants dans la fiche media-server":      false,
+		"Alice aime les films d'action et de science-fiction":                  false,
 	} {
 		if got := jeanLooksSecret(v); got != want {
 			t.Errorf("jeanLooksSecret(%q) = %v", v, got)

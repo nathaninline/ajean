@@ -106,7 +106,7 @@ func oaiTLSConfig() *tls.Config {
 	// On le renvoie sur un port HAUT bindable sans privilège : ce listener local
 	// n'est jamais contacté par Let's Encrypt (la validation passe par le tunnel),
 	// il ne sert qu'à satisfaire certmagic. (Avant le 2026-08-07 ajean-ui tournait en
-	// root et bindait :443, d'où les anciens certs ; le passage en nathan a cassé
+	// root et bindait :443, d'où les anciens certs ; le passage en utilisateur non root a cassé
 	// l'émission des nouveaux hostnames oai.)
 	certmagic.DefaultACME.AltTLSALPNPort = 44300
 	magic := certmagic.NewDefault()

@@ -1328,7 +1328,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					// The prompt opened a <think> block. Stream `content` LIVE as
 					// the answer, holding back only a short tail that could be the
 					// start of a literal "</think>". A reasoning-aware backend
-					// (llama.cpp with --reasoning-format, Alice's fork) strips the
+					// (llama.cpp with --reasoning-format, custom fork) strips the
 					// think tags server-side, so </think> never appears in content
 					// and the whole answer streams straight through — including
 					// when the model answers WITHOUT thinking (no reasoning_content,

@@ -3,7 +3,7 @@ package ajean
 // chat_search.go — recherche PLEIN-TEXTE dans les conversations archivées (#98).
 //
 // Parcourir le corps des conversations à chaque requête est hors de question :
-// chathist pèse 252 Mo pour 537 sessions sur la machine de Alice (constat déjà
+// chathist pèse 252 Mo pour 537 sessions sur une machine de test (constat déjà
 // documenté sur la liste de l'historique, chat_history.go). On tient donc un INDEX
 // INVERSÉ dans bkChatSearch, à deux familles de clés :
 //

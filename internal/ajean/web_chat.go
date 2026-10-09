@@ -229,7 +229,7 @@ func handleChatHistory(w http.ResponseWriter, r *http.Request) {
 		list = kept
 	}
 	// Pagination optionnelle (?offset=&limit=) : la liste des sessions grandit au
-	// défilement au lieu de tout rendre d'un coup (537 sessions chez Alice). Sans
+	// défilement au lieu de tout rendre d'un coup (537 sessions sur une machine de test). Sans
 	// limit, tout est renvoyé comme avant (compat des autres appelants). Les favoris
 	// étant triés en tête, ils sont toujours dans la première page.
 	total := len(list)

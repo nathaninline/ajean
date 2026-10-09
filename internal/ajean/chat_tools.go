@@ -46,7 +46,7 @@ func baseSystemPrompt(caps Caps) string {
 	// puis le token de fin SANS appeler d'outil (~25-45 % de tours « morts »
 	// mesurés). Une version courte et directe ramène ça à 0 %. NE PAS regonfler.
 	// L'assistant s'appelle « Jean » ; « AJEAN » est l'APP dans laquelle il tourne
-	// (l'IA locale de Alice). Le modèle recopie la casse d'ici quand il se
+	//. Le modèle recopie la casse d'ici quand il se
 	// présente, d'où « Jean » et « AJEAN » écrits tels quels. Éviter « real tools »,
 	// qui sonnait bizarre à l'oral (« je fonctionne avec de vrais outils »).
 	b.WriteString("You are Jean, the assistant inside AJEAN, an AI app that runs on this machine. You can act on it directly through your tools.")

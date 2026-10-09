@@ -141,7 +141,7 @@ func jeanDupInFiches(text string) string {
 
 // jeanBetterFiche : une autre fiche colle-t-elle nettement mieux au sujet du
 // piège que celle visée ? On compare le texte au nom + « when » de chaque fiche,
-// sans les mots communs à la plupart des fiches (« nathan », « demande »).
+// sans les mots communs à la plupart des fiches (« alice », « demande »).
 func jeanBetterFiche(target, text string) string {
 	fs := jeanFiches(false)
 	if len(fs) < 2 {

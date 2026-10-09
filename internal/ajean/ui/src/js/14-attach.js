@@ -350,7 +350,7 @@ function markFileLinks(root){
     const p=fileLinkPath(a.getAttribute('href'));
     if(!p) continue;
     // Lien vers une IMAGE ([le poster](poster.png)) : on l'affiche, au lieu d'un
-    // simple bouton de téléchargement (vu par Alice : « il fait juste un lien »).
+    // simple bouton de téléchargement (signalé : « il fait juste un lien »).
     // markWorkspaceImages, appelé juste après, la charge ; un clic l'agrandit.
     if(isImageName(p)){
       const img=document.createElement('img');
@@ -368,7 +368,7 @@ function markFileLinks(root){
 }
 // Le modèle écrit parfois une capture en syntaxe IMAGE Markdown ![](fichier.png)
 // (ex. browser_screenshot). Le src relatif ne pointe vers aucune URL servable →
-// image cassée (petit carré « ? », vu par Alice). On résout donc ces <img> vers
+// image cassée (petit carré « ? »). On résout donc ces <img> vers
 // le dossier de travail, comme markFileLinks le fait pour les liens : on récupère
 // le blob (E2E-safe via getWorkspaceBlob) et on l'affiche inline.
 const WS_IMG_CACHE = {}; // path -> objectURL, pour ne PAS re-télécharger à chaque re-render du streaming
