@@ -388,10 +388,15 @@ function renderVram(gpus){
       '<span class="stat-v">'+(g.total? (g.total/1024).toFixed(0)+' GiB' : '')+'</span></div>'+
       '<div class="stat-s">'+cloudCardStatus(g)+(g.billing? ' · '+escHtml(cloudCreditText(g.billing)) : '')+'</div></div>';
     const pct=Math.round(g.used*100/g.total);
+    // Température : 0 = inconnue (Apple Silicon, Vulkan, AMD/Intel sous Windows),
+    // on la tait plutôt que d'afficher « 0 °C ». Mémoire unifiée (Mac) : le total
+    // est la RAM elle-même, on le dit pour que les deux jauges ne se contredisent pas.
+    const temp = g.temp > 0 ? ' · '+g.temp+' °C' : '';
+    const unified = g.unified ? ' · '+escHtml(t('status.unified_mem')) : '';
     return '<div class="stat"><div class="stat-h"><span class="stat-n">'+g.name+'</span>'+
       '<span class="stat-v">'+(g.used/1024).toFixed(1)+' / '+(g.total/1024).toFixed(1)+' GiB</span></div>'+
       '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
-      '<div class="stat-s">GPU '+g.util+' % · '+g.temp+' °C'+(g.cloud?' · '+cloudCardStatus(g):'')+(g.billing? ' · '+escHtml(cloudCreditText(g.billing)) : '')+'</div></div>';
+      '<div class="stat-s">GPU '+g.util+' %'+temp+unified+(g.cloud?' · '+cloudCardStatus(g):'')+(g.billing? ' · '+escHtml(cloudCreditText(g.billing)) : '')+'</div></div>';
   }).join('')); // pas de GPU : rien du tout, la carte RAM suffit
 }
 // Rend le bloc RAM depuis {used,total}. Séparé du fetch (voir renderVram).

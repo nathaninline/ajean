@@ -213,6 +213,12 @@ func sampleVramGPUs() []map[string]any {
 	if gpuTelemetryOff() {
 		return []map[string]any{}
 	}
+	// Mac Apple Silicon : mémoire unifiée lue via ioreg (voir sys_gpu_apple.go).
+	// Avant les replis ci-dessous, qui sur Metal donnaient une barre à zéro à vie
+	// et relançaient un llama-server toutes les 3 s.
+	if apple := appleGPUs(); len(apple) > 0 {
+		return apple
+	}
 	out, err := hideCmd(exec.Command("nvidia-smi",
 		"--query-gpu=name,memory.used,memory.total,utilization.gpu,temperature.gpu",
 		"--format=csv,noheader,nounits")).Output()
