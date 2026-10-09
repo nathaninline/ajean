@@ -74,44 +74,67 @@ func recallIDToSeq(id string) (uint64, bool) {
 	return n, true
 }
 
-// archiveRecallBlock enregistre un bloc et renvoie son id ("r<seq>"). L'id est
-// alloué par NextSequence dans la transaction d'écriture : monotone, sans
-// collision, même si deux compactages se croisent. En cas d'échec d'écriture
-// (base indisponible, ex. tests sans AjeanHome) on renvoie une erreur et
-// l'appelant se rabat sur le compactage classique (troncature sans id).
-func archiveRecallBlock(label, role, content string) (string, error) {
-	var id string
+type recallArchiveInput struct {
+	Label   string
+	Role    string
+	Content string
+}
+
+// archiveRecallBlocks écrit tous les blocs d'une compaction dans une seule
+// transaction. Les ids sont alloués par NextSequence, et leur ordre correspond
+// à celui des blocs fournis.
+func archiveRecallBlocks(blocks []recallArchiveInput) ([]recallEntry, error) {
+	if len(blocks) == 0 {
+		return nil, nil
+	}
+	entries := make([]recallEntry, 0, len(blocks))
 	err := withDB(func(d *bolt.DB) error {
 		return d.Update(func(tx *bolt.Tx) error {
 			b, err := tx.CreateBucketIfNotExists([]byte(bkRecall))
 			if err != nil {
 				return err
 			}
-			seq, err := b.NextSequence()
-			if err != nil {
-				return err
+			for _, input := range blocks {
+				seq, err := b.NextSequence()
+				if err != nil {
+					return err
+				}
+				blk := recallBlock{
+					ID:      "r" + strconv.FormatUint(seq, 10),
+					Seq:     seq,
+					Label:   input.Label,
+					Role:    input.Role,
+					Content: input.Content,
+					Created: time.Now().Unix(),
+				}
+				raw, err := json.Marshal(blk)
+				if err != nil {
+					return err
+				}
+				if err := b.Put(recallKey(seq), raw); err != nil {
+					return err
+				}
+				entries = append(entries, recallEntry{id: blk.ID, label: blk.Label})
 			}
-			blk := recallBlock{
-				ID:      "r" + strconv.FormatUint(seq, 10),
-				Seq:     seq,
-				Label:   label,
-				Role:    role,
-				Content: content,
-				Created: time.Now().Unix(),
-			}
-			id = blk.ID
-			raw, err := json.Marshal(blk)
-			if err != nil {
-				return err
-			}
-			return b.Put(recallKey(seq), raw)
+			return nil
 		})
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	cacheBust(bkRecall)
-	return id, nil
+	return entries, nil
+}
+
+// archiveRecallBlock enregistre un bloc et renvoie son id ("r<seq>").
+func archiveRecallBlock(label, role, content string) (string, error) {
+	entries, err := archiveRecallBlocks([]recallArchiveInput{{
+		Label: label, Role: role, Content: content,
+	}})
+	if err != nil {
+		return "", err
+	}
+	return entries[0].id, nil
 }
 
 // recallGet ramène un bloc par son id. false si l'id est mal formé ou absent.
