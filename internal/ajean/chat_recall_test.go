@@ -78,6 +78,37 @@ func TestRecallIDsMonotonic(t *testing.T) {
 	}
 }
 
+func TestArchiveRecallBlocksBatch(t *testing.T) {
+	testHome(t)
+	blocks := []recallArchiveInput{
+		{Label: "premier", Role: "tool", Content: "contenu un"},
+		{Label: "second", Role: "assistant", Content: "contenu deux"},
+	}
+	entries, err := archiveRecallBlocks(blocks)
+	if err != nil {
+		t.Fatalf("archive batch: %v", err)
+	}
+	if len(entries) != len(blocks) {
+		t.Fatalf("reçu %d ids pour %d blocs", len(entries), len(blocks))
+	}
+	for i, entry := range entries {
+		block, ok := recallGet(entry.id)
+		if !ok {
+			t.Fatalf("bloc %q introuvable", entry.id)
+		}
+		if block.Label != blocks[i].Label || block.Role != blocks[i].Role || block.Content != blocks[i].Content {
+			t.Fatalf("bloc %q différent de l'entrée %d: %+v", entry.id, i, block)
+		}
+		if i > 0 {
+			prev, _ := recallIDToSeq(entries[i-1].id)
+			current, _ := recallIDToSeq(entry.id)
+			if current != prev+1 {
+				t.Fatalf("séquence non contiguë dans le batch: %d puis %d", prev, current)
+			}
+		}
+	}
+}
+
 // La recherche lexicale retrouve un bloc par un mot-clé de son contenu, même
 // sans connaître son id.
 func TestRecallSearchFindsByKeyword(t *testing.T) {
@@ -161,5 +192,21 @@ func TestCompactNoArchiveWithoutAgent(t *testing.T) {
 	_, _ = compactMessages(t.Context(), msgs, Caps{}) // agent off
 	if hits := recallSearch("volumineux", 5); len(hits) != 0 {
 		t.Fatalf("archivage effectué sans mode agent (%d blocs)", len(hits))
+	}
+}
+
+func TestCompactDoesNotArchiveWhenReductionIsRejected(t *testing.T) {
+	testHome(t)
+	summarizerStub(t, "trop court")
+	content := "archive_should_not_be_written " + strings.Repeat("contenu assistant ", 100)
+	msgs := []Message{um("question initiale"), am(content)}
+	for i := 0; i < 10; i++ {
+		msgs = append(msgs, um("suite"), am("réponse courte"))
+	}
+	if _, changed := compactMessages(t.Context(), msgs, Caps{Agent: true}); changed {
+		t.Fatal("une compaction sans réduction suffisante a été acceptée")
+	}
+	if hits := recallSearch("archive_should_not_be_written", 5); len(hits) != 0 {
+		t.Fatalf("un bloc a été archivé alors que la compaction a été refusée (%d blocs)", len(hits))
 	}
 }
