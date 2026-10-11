@@ -2590,3 +2590,30 @@ body.jean-mode:not(.jean-history) #chat,body.jean-mode:not(.jean-history) #compo
 body.hist-jean #side-hist .hist-search,body.hist-jean #sess-count,body.hist-jean #history-clear-all{display:none}
 /* Mode Jean : conversation unique compactée en continu, le compteur ne dit rien d'utile. */
 body.jean-mode #ctx-compactions{display:none!important}
+
+/* ==========================================================================
+   Monitoring mémoire (22-memory.js) — jauges, alertes, limites
+   ========================================================================== */
+.mem-gauge{margin-bottom:10px}
+.mem-gauge-h{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--dim);margin-bottom:4px}
+.mem-gauge-h span:first-child{font-weight:600;color:var(--text)}
+.mem-val{font-variant-numeric:tabular-nums}
+.mem-bar{height:8px;border-radius:999px;background:var(--panel);border:1px solid var(--border);overflow:hidden}
+.mem-bar-fill{height:100%;border-radius:999px;transition:width .5s ease,background .3s ease;background:var(--ok)}
+.mem-bar-fill.mem-ok{background:var(--ok)}
+.mem-bar-fill.mem-warning{background:var(--warn)}
+.mem-bar-fill.mem-critical{background:var(--err)}
+.mem-alert{display:none;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:10px;border:1px solid}
+.mem-alert.mem-warning{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.mem-alert.mem-critical{color:var(--err);border-color:color-mix(in srgb,var(--err) 45%,transparent);background:color-mix(in srgb,var(--err) 12%,transparent);animation:pulse 2s ease-in-out infinite}
+.mem-stats{font-size:11px;line-height:1.6;margin-top:8px}
+.mem-subdetails{margin-top:8px;border-top:1px solid var(--border);padding-top:8px}
+.mem-subtitle{font-size:11px;color:var(--dim);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px}
+.mem-subtitle::before{content:"▸";transition:transform .2s}
+.mem-subdetails[open] .mem-subtitle::before{transform:rotate(90deg)}
+.mem-field{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--dim);margin-bottom:8px}
+.mem-field span{flex:1}
+.mem-field input{width:70px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-size:12px;text-align:right}
+.mem-field input:focus{outline:none;border-color:var(--accent)}
+.sbadge.mem-warning{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.sbadge.mem-critical{color:var(--err);border-color:color-mix(in srgb,var(--err) 45%,transparent);background:color-mix(in srgb,var(--err) 12%,transparent)}

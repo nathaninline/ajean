@@ -1691,6 +1691,29 @@ body.jean-mode:not(.jean-history) #chat,body.jean-mode:not(.jean-history) #compo
 .hist-proj-ic{display:inline-flex}
 body.hist-jean #side-hist .hist-search,body.hist-jean #sess-count,body.hist-jean #history-clear-all{display:none}
 body.jean-mode #ctx-compactions{display:none!important}
+.mem-gauge{margin-bottom:10px}
+.mem-gauge-h{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--dim);margin-bottom:4px}
+.mem-gauge-h span:first-child{font-weight:600;color:var(--text)}
+.mem-val{font-variant-numeric:tabular-nums}
+.mem-bar{height:8px;border-radius:999px;background:var(--panel);border:1px solid var(--border);overflow:hidden}
+.mem-bar-fill{height:100%;border-radius:999px;transition:width .5s ease,background .3s ease;background:var(--ok)}
+.mem-bar-fill.mem-ok{background:var(--ok)}
+.mem-bar-fill.mem-warning{background:var(--warn)}
+.mem-bar-fill.mem-critical{background:var(--err)}
+.mem-alert{display:none;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:10px;border:1px solid}
+.mem-alert.mem-warning{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.mem-alert.mem-critical{color:var(--err);border-color:color-mix(in srgb,var(--err) 45%,transparent);background:color-mix(in srgb,var(--err) 12%,transparent);animation:pulse 2s ease-in-out infinite}
+.mem-stats{font-size:11px;line-height:1.6;margin-top:8px}
+.mem-subdetails{margin-top:8px;border-top:1px solid var(--border);padding-top:8px}
+.mem-subtitle{font-size:11px;color:var(--dim);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px}
+.mem-subtitle::before{content:"▸";transition:transform .2s}
+.mem-subdetails[open] .mem-subtitle::before{transform:rotate(90deg)}
+.mem-field{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--dim);margin-bottom:8px}
+.mem-field span{flex:1}
+.mem-field input{width:70px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-size:12px;text-align:right}
+.mem-field input:focus{outline:none;border-color:var(--accent)}
+.sbadge.mem-warning{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.sbadge.mem-critical{color:var(--err);border-color:color-mix(in srgb,var(--err) 45%,transparent);background:color-mix(in srgb,var(--err) 12%,transparent)}
 </style></head><body>
 <button id="menubtn" onclick="toggleSide()" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
 <button id="lc-chip" onclick="lcChipOpen()" hidden></button>
@@ -1737,6 +1760,32 @@ body.jean-mode #ctx-compactions{display:none!important}
       <div id="vram"><div class="stat"><div class="stat-h"><span class="skel skel-line" style="width:46%"></span><span class="skel skel-line" style="width:30%"></span></div><div class="skel skel-bar"></div><span class="skel skel-line" style="width:54%;height:9px"></span></div></div>
       <div id="ram-details"><div id="ram"><div class="stat"><div class="stat-h"><span class="skel skel-line" style="width:30%"></span><span class="skel skel-line" style="width:34%"></span></div><div class="skel skel-bar"></div><span class="skel skel-line" style="width:38%;height:9px"></span></div></div></div>
     </div>
+  </details>
+  <details id="memory-details"><summary><span class="stitle" data-i18n="memory.title">Mémoire</span><span id="memory-badge" class="sbadge" style="display:none"></span></summary>
+    <div class="slist">
+      <div class="mem-gauge" id="mem-ram">
+        <div class="mem-gauge-h"><span data-i18n="memory.ram">RAM</span><span id="mem-ram-val" class="mem-val">--</span></div>
+        <div class="mem-bar"><div id="mem-ram-bar" class="mem-bar-fill"></div></div>
+      </div>
+      <div class="mem-gauge" id="mem-vram">
+        <div class="mem-gauge-h"><span data-i18n="memory.vram">VRAM</span><span id="mem-vram-val" class="mem-val">--</span></div>
+        <div class="mem-bar"><div id="mem-vram-bar" class="mem-bar-fill"></div></div>
+      </div>
+      <div id="mem-alert" class="mem-alert" style="display:none"></div>
+      <button class="addbtn" id="mem-cleanup-btn" onclick="memCleanup()" data-i18n="memory.cleanup_btn">🧹 Nettoyer la mémoire</button>
+      <div class="mem-stats muted" id="mem-stats"></div>
+    </div>
+    <details class="mem-subdetails"><summary class="mem-subtitle" data-i18n="memory.limits_title">Limites</summary>
+      <div class="slist">
+        <label class="mem-field"><span data-i18n="memory.ram_warn">RAM warning (%)</span><input type="number" id="mem-limit-ram-warn" min="50" max="95" step="1"></label>
+        <label class="mem-field"><span data-i18n="memory.ram_critical">RAM critical (%)</span><input type="number" id="mem-limit-ram-critical" min="60" max="99" step="1"></label>
+        <label class="mem-field"><span data-i18n="memory.vram_warn">VRAM warning (%)</span><input type="number" id="mem-limit-vram-warn" min="50" max="95" step="1"></label>
+        <label class="mem-field"><span data-i18n="memory.vram_critical">VRAM critical (%)</span><input type="number" id="mem-limit-vram-critical" min="60" max="99" step="1"></label>
+        <label class="mem-field"><span data-i18n="memory.max_conversations">Max conversations RAM</span><input type="number" id="mem-limit-max-conv" min="1" max="100" step="1"></label>
+        <label class="mem-field"><span data-i18n="memory.max_messages">Max messages/conversation</span><input type="number" id="mem-limit-max-msg" min="50" max="5000" step="50"></label>
+        <button class="addbtn" onclick="memSaveLimits()" data-i18n="memory.save_limits">💾 Enregistrer les limites</button>
+      </div>
+    </details>
   </details>
   <details open id="cfg-details"><summary><span class="stitle" data-i18n="config.title">Configuration</span></summary>
     <div id="cfg" class="slist"><div class="kv"><span class="skel skel-line" style="width:30%"></span><span class="skel skel-line" style="width:44%"></span></div><div class="kv"><span class="skel skel-line" style="width:24%"></span><span class="skel skel-line" style="width:52%"></span></div><div class="kv"><span class="skel skel-line" style="width:34%"></span><span class="skel skel-line" style="width:38%"></span></div><div class="kv"><span class="skel skel-line" style="width:28%"></span><span class="skel skel-line" style="width:30%"></span></div></div>
@@ -3014,6 +3063,18 @@ fr: {
   "sidebar.svc_log_refresh_title": "rafraîchir",
   "sidebar.paths_title": "Emplacements",
   "device.title": "Appareil",
+  "memory.title": "Mémoire",
+  "memory.ram": "RAM",
+  "memory.vram": "VRAM",
+  "memory.cleanup_btn": "🧹 Nettoyer la mémoire",
+  "memory.limits_title": "Limites",
+  "memory.ram_warn": "Alerte RAM (%)",
+  "memory.ram_critical": "Critique RAM (%)",
+  "memory.vram_warn": "Alerte VRAM (%)",
+  "memory.vram_critical": "Critique VRAM (%)",
+  "memory.max_conversations": "Max conversations en RAM",
+  "memory.max_messages": "Max messages / conversation",
+  "memory.save_limits": "💾 Enregistrer les limites",
   "config.title": "Configuration",
   "presets.title": "Presets",
   "presets.add_button": "ajouter",
@@ -4350,6 +4411,18 @@ en: {
   "sidebar.svc_log_refresh_title": "refresh",
   "sidebar.paths_title": "Locations",
   "device.title": "Device",
+  "memory.title": "Memory",
+  "memory.ram": "RAM",
+  "memory.vram": "VRAM",
+  "memory.cleanup_btn": "🧹 Clean memory",
+  "memory.limits_title": "Limits",
+  "memory.ram_warn": "RAM warning (%)",
+  "memory.ram_critical": "RAM critical (%)",
+  "memory.vram_warn": "VRAM warning (%)",
+  "memory.vram_critical": "VRAM critical (%)",
+  "memory.max_conversations": "Max conversations in RAM",
+  "memory.max_messages": "Max messages / conversation",
+  "memory.save_limits": "💾 Save limits",
   "config.title": "Configuration",
   "presets.title": "Presets",
   "presets.add_button": "add",
@@ -12242,5 +12315,178 @@ var JeanAvatar = (()=>{
     sync();
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+(function(){
+  'use strict';
+  const POLL_INTERVAL = 10000; 
+  let pollTimer = null;
+  let lastSnapshot = null;
+  const el = {
+    details:   () => document.getElementById('memory-details'),
+    badge:     () => document.getElementById('memory-badge'),
+    ramVal:    () => document.getElementById('mem-ram-val'),
+    ramBar:    () => document.getElementById('mem-ram-bar'),
+    vramVal:   () => document.getElementById('mem-vram-val'),
+    vramBar:   () => document.getElementById('mem-vram-bar'),
+    alert:     () => document.getElementById('mem-alert'),
+    cleanupBtn:() => document.getElementById('mem-cleanup-btn'),
+    stats:     () => document.getElementById('mem-stats'),
+    limitRamWarn:      () => document.getElementById('mem-limit-ram-warn'),
+    limitRamCritical:  () => document.getElementById('mem-limit-ram-critical'),
+    limitVramWarn:     () => document.getElementById('mem-limit-vram-warn'),
+    limitVramCritical: () => document.getElementById('mem-limit-vram-critical'),
+    limitMaxConv:      () => document.getElementById('mem-limit-max-conv'),
+    limitMaxMsg:       () => document.getElementById('mem-limit-max-msg'),
+  };
+  function init(){
+    const d = el.details();
+    if(!d) return;
+    d.addEventListener('toggle', ()=>{
+      if(d.open) startPolling(); else stopPolling();
+    });
+    if(d.open) startPolling();
+    loadLimits();
+  }
+  function startPolling(){
+    stopPolling();
+    fetchStatus();
+    pollTimer = setInterval(fetchStatus, POLL_INTERVAL);
+  }
+  function stopPolling(){
+    if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
+  }
+  async function fetchStatus(){
+    try{
+      const r = await fetch('/api/memory/status');
+      if(!r.ok) return;
+      const data = await r.json();
+      if(!data.ok) return;
+      lastSnapshot = data.snapshot;
+      render(data.snapshot, data.limits);
+    }catch(e){   }
+  }
+  function render(snap, limits){
+    if(!snap) return;
+    const ramPct = snap.ram_used_percent || 0;
+    const ramText = `${fmtMiB(snap.ram_used_mib)} / ${fmtMiB(snap.ram_total_mib)} (${ramPct.toFixed(0)}%)`;
+    el.ramVal().textContent = ramText;
+    el.ramBar().style.width = Math.min(100, ramPct) + '%';
+    el.ramBar().className = 'mem-bar-fill ' + barClass(ramPct, limits?.RAMWarnPercent, limits?.RAMCriticalPercent);
+    const vramPct = snap.vram_used_percent || 0;
+    const vramText = snap.vram_total_mib > 0
+      ? `${fmtMiB(snap.vram_used_mib)} / ${fmtMiB(snap.vram_total_mib)} (${vramPct.toFixed(0)}%)`
+      : 'N/A';
+    el.vramVal().textContent = vramText;
+    el.vramBar().style.width = snap.vram_total_mib > 0 ? Math.min(100, vramPct) + '%' : '0%';
+    el.vramBar().className = 'mem-bar-fill ' + barClass(vramPct, limits?.VRAMWarnPercent, limits?.VRAMCriticalPercent);
+    const alertEl = el.alert();
+    const isCritical = ramPct >= (limits?.RAMCriticalPercent || 90) || vramPct >= (limits?.VRAMCriticalPercent || 95);
+    const isWarning  = ramPct >= (limits?.RAMWarnPercent || 80) || vramPct >= (limits?.VRAMWarnPercent || 85);
+    if(isCritical){
+      alertEl.style.display = 'block';
+      alertEl.className = 'mem-alert mem-critical';
+      alertEl.textContent = '🚨 Mémoire critique — nettoyage recommandé';
+    } else if(isWarning){
+      alertEl.style.display = 'block';
+      alertEl.className = 'mem-alert mem-warning';
+      alertEl.textContent = '⚠ Mémoire élevée — surveillance active';
+    } else {
+      alertEl.style.display = 'none';
+    }
+    const badge = el.badge();
+    if(isCritical){ badge.style.display = ''; badge.textContent = '!'; badge.className = 'sbadge mem-critical'; }
+    else if(isWarning){ badge.style.display = ''; badge.textContent = '⚠'; badge.className = 'sbadge mem-warning'; }
+    else { badge.style.display = 'none'; }
+    const stats = [];
+    stats.push(`Conversations: ${snap.conversations_in_ram || 0}`);
+    stats.push(`Nettoyages: ${snap.cleanup_count || 0}`);
+    if(snap.last_cleanup && snap.last_cleanup !== '0001-01-01T00:00:00Z'){
+      stats.push(`Dernier: ${new Date(snap.last_cleanup).toLocaleTimeString()}`);
+    }
+    if(snap.warnings_emitted > 0){
+      stats.push(`Alertes: ${snap.warnings_emitted}`);
+    }
+    el.stats().textContent = stats.join(' · ');
+  }
+  function barClass(pct, warn, critical){
+    if(pct >= (critical || 95)) return 'mem-critical';
+    if(pct >= (warn || 85)) return 'mem-warning';
+    return 'mem-ok';
+  }
+  function fmtMiB(mib){
+    if(mib >= 1024) return (mib/1024).toFixed(1) + ' GiB';
+    return Math.round(mib) + ' MiB';
+  }
+  window.memCleanup = async function(){
+    const btn = el.cleanupBtn();
+    btn.disabled = true;
+    btn.textContent = '⏳ Nettoyage…';
+    try{
+      const r = await fetch('/api/memory/cleanup', {method:'POST'});
+      const data = await r.json();
+      if(data.ok){
+        const s = data.stats;
+        toast(`🧹 Nettoyage effectué : ${s.conversations_evicted} conversations évincées, ${fmtMiB(s.ram_freed_mib)} libérés`);
+        fetchStatus(); 
+      } else {
+        toast('❌ Erreur: ' + (data.error || 'inconnue'));
+      }
+    }catch(e){
+      toast('❌ Erreur réseau');
+    }
+    btn.disabled = false;
+    btn.textContent = '🧹 Nettoyer la mémoire';
+  };
+  async function loadLimits(){
+    try{
+      const r = await fetch('/api/memory/limits');
+      const data = await r.json();
+      if(!data.ok) return;
+      const l = data.limits;
+      el.limitRamWarn().value = l.RAMWarnPercent;
+      el.limitRamCritical().value = l.RAMCriticalPercent;
+      el.limitVramWarn().value = l.VRAMWarnPercent;
+      el.limitVramCritical().value = l.VRAMCriticalPercent;
+      el.limitMaxConv().value = l.MaxConversationsInRAM;
+      el.limitMaxMsg().value = l.MaxConversationMessages;
+    }catch(e){   }
+  }
+  window.memSaveLimits = async function(){
+    const body = {
+      ram_warn_percent:        parseFloat(el.limitRamWarn().value),
+      ram_critical_percent:    parseFloat(el.limitRamCritical().value),
+      vram_warn_percent:       parseFloat(el.limitVramWarn().value),
+      vram_critical_percent:   parseFloat(el.limitVramCritical().value),
+      max_conversations_in_ram: parseInt(el.limitMaxConv().value),
+      max_conversation_messages: parseInt(el.limitMaxMsg().value),
+    };
+    try{
+      const r = await fetch('/api/memory/limits', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body),
+      });
+      const data = await r.json();
+      if(data.ok){
+        toast('💾 Limites enregistrées');
+        fetchStatus();
+      } else {
+        toast('❌ Erreur: ' + (data.error || 'inconnue'));
+      }
+    }catch(e){
+      toast('❌ Erreur réseau');
+    }
+  };
+  function toast(msg){
+    if(typeof window.showToast === 'function'){ window.showToast(msg); return; }
+    if(typeof window.toast === 'function'){ window.toast(msg); return; }
+    console.log(msg);
+    alert(msg);
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })();
 </script></body></html>
