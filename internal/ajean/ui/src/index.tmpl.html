@@ -90,43 +90,27 @@
   </div>
   <!-- GPU et RAM décrivent la même chose (les ressources de la machine) :
        une seule section, deux blocs de statistique dans la même carte. -->
-  <details open><summary><span class="stitle" data-i18n="device.title">Device</span></summary>
+  <details open id="device-details"><summary><span class="stitle" data-i18n="device.title">Device</span><span id="dev-mon-badge" class="sbadge" style="display:none"></span></summary>
     <div class="slist">
       <div id="vram"><div class="stat"><div class="stat-h"><span class="skel skel-line" style="width:46%"></span><span class="skel skel-line" style="width:30%"></span></div><div class="skel skel-bar"></div><span class="skel skel-line" style="width:54%;height:9px"></span></div></div>
       <div id="ram-details"><div id="ram"><div class="stat"><div class="stat-h"><span class="skel skel-line" style="width:30%"></span><span class="skel skel-line" style="width:34%"></span></div><div class="skel skel-bar"></div><span class="skel skel-line" style="width:38%;height:9px"></span></div></div></div>
     </div>
-  </details>
-  <!-- Monitoring mémoire centralisé : jauges temps réel, limites configurables,
-       nettoyage manuel. Issue #133 (plantage OOM multi-GPU). -->
-  <details id="memory-details"><summary><span class="stitle" data-i18n="memory.title">Mémoire</span><span id="memory-badge" class="sbadge" style="display:none"></span></summary>
-    <div class="slist">
-      <!-- Jauge RAM -->
-      <div class="mem-gauge" id="mem-ram">
-        <div class="mem-gauge-h"><span data-i18n="memory.ram">RAM</span><span id="mem-ram-val" class="mem-val">--</span></div>
-        <div class="mem-bar"><div id="mem-ram-bar" class="mem-bar-fill"></div></div>
-      </div>
-      <!-- Jauge VRAM -->
-      <div class="mem-gauge" id="mem-vram">
-        <div class="mem-gauge-h"><span data-i18n="memory.vram">VRAM</span><span id="mem-vram-val" class="mem-val">--</span></div>
-        <div class="mem-bar"><div id="mem-vram-bar" class="mem-bar-fill"></div></div>
-      </div>
-      <!-- Alertes -->
-      <div id="mem-alert" class="mem-alert" style="display:none"></div>
-      <!-- Bouton nettoyage manuel -->
-      <button class="addbtn" id="mem-cleanup-btn" onclick="memCleanup()" data-i18n="memory.cleanup_btn">🧹 Nettoyer la mémoire</button>
-      <!-- Stats -->
-      <div class="mem-stats muted" id="mem-stats"></div>
+    <!-- Monitoring mémoire avancé (issue #133) : alertes, nettoyage, limites.
+         Intégré dans Device car c'est la section qui affiche déjà RAM/VRAM. -->
+    <div id="dev-mon-alert" class="dev-mon-alert" style="display:none"></div>
+    <div class="dev-mon-actions">
+      <button class="addbtn" id="dev-mon-cleanup-btn" onclick="devMonCleanup()" data-i18n="device.mon_cleanup">🧹 Nettoyer</button>
+      <span class="dev-mon-stats muted" id="dev-mon-stats"></span>
     </div>
-    <!-- Limites configurables (dépliable) -->
-    <details class="mem-subdetails"><summary class="mem-subtitle" data-i18n="memory.limits_title">Limites</summary>
+    <details class="dev-mon-sub"><summary class="dev-mon-subtitle" data-i18n="device.mon_limits">Limites mémoire</summary>
       <div class="slist">
-        <label class="mem-field"><span data-i18n="memory.ram_warn">RAM warning (%)</span><input type="number" id="mem-limit-ram-warn" min="50" max="95" step="1"></label>
-        <label class="mem-field"><span data-i18n="memory.ram_critical">RAM critical (%)</span><input type="number" id="mem-limit-ram-critical" min="60" max="99" step="1"></label>
-        <label class="mem-field"><span data-i18n="memory.vram_warn">VRAM warning (%)</span><input type="number" id="mem-limit-vram-warn" min="50" max="95" step="1"></label>
-        <label class="mem-field"><span data-i18n="memory.vram_critical">VRAM critical (%)</span><input type="number" id="mem-limit-vram-critical" min="60" max="99" step="1"></label>
-        <label class="mem-field"><span data-i18n="memory.max_conversations">Max conversations RAM</span><input type="number" id="mem-limit-max-conv" min="1" max="100" step="1"></label>
-        <label class="mem-field"><span data-i18n="memory.max_messages">Max messages/conversation</span><input type="number" id="mem-limit-max-msg" min="50" max="5000" step="50"></label>
-        <button class="addbtn" onclick="memSaveLimits()" data-i18n="memory.save_limits">💾 Enregistrer les limites</button>
+        <label class="dev-mon-field"><span data-i18n="device.mon_ram_warn">Alerte RAM (%)</span><input type="number" id="dev-mon-ram-warn" min="50" max="95" step="1"></label>
+        <label class="dev-mon-field"><span data-i18n="device.mon_ram_crit">Critique RAM (%)</span><input type="number" id="dev-mon-ram-crit" min="60" max="99" step="1"></label>
+        <label class="dev-mon-field"><span data-i18n="device.mon_vram_warn">Alerte VRAM (%)</span><input type="number" id="dev-mon-vram-warn" min="50" max="95" step="1"></label>
+        <label class="dev-mon-field"><span data-i18n="device.mon_vram_crit">Critique VRAM (%)</span><input type="number" id="dev-mon-vram-crit" min="60" max="99" step="1"></label>
+        <label class="dev-mon-field"><span data-i18n="device.mon_max_conv">Max conversations RAM</span><input type="number" id="dev-mon-max-conv" min="1" max="100" step="1"></label>
+        <label class="dev-mon-field"><span data-i18n="device.mon_max_msg">Max messages/conv.</span><input type="number" id="dev-mon-max-msg" min="50" max="5000" step="50"></label>
+        <button class="addbtn" onclick="devMonSaveLimits()" data-i18n="device.mon_save">💾 Enregistrer</button>
       </div>
     </details>
   </details>
