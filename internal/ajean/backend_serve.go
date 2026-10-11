@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -262,6 +263,10 @@ func cmdServe(args []string) error {
 		return fmt.Errorf("modèle incomplet : il manque %s dans %s — ce modèle tient en %d fichiers, télécharge-les tous",
 			strings.Join(missing, ", "), filepath.Dir(model), len(shardFamily(filepath.Base(model))))
 	}
+	// Surveillance VRAM : avertit si la mémoire GPU est faible avant le chargement
+	// du modèle. Sur les GPU 16 Go avec un modèle 27B + KV cache 32K, on frôle la
+	// limite — un avertissement précoce aide à comprendre les OOM au démarrage.
+	checkVRAMWarning()
 	if !filepath.IsAbs(bin) {
 		bin = filepath.Join(AjeanHome(), bin)
 	}
@@ -315,6 +320,32 @@ func cmdServe(args []string) error {
 	}
 	if vtv != "" {
 		llmArgs = append(llmArgs, "-ctv", vtv)
+	}
+	// Optimisations mémoire par défaut (activées sauf désactivation explicite) :
+	// - --kv-unified : un seul buffer KV partagé au lieu de K/V séparés → moins
+	//   de fragmentation VRAM, crucial quand on frôle la limite (16 Go sur RTX
+	//   4060 Ti avec un modèle 27B). Désactivable via KV_UNIFIED=off.
+	// - --no-cache-idle-slots : ne sauvegarde pas les slots inactifs dans le
+	//   prompt cache → évite les pics mémoire inutiles quand on ouvre plusieurs
+	//   conversations. Réactivable via CACHE_IDLE_SLOTS=on.
+	if get("KV_UNIFIED", "on") != "off" {
+		llmArgs = append(llmArgs, "--kv-unified")
+	}
+	if get("CACHE_IDLE_SLOTS", "off") != "on" {
+		llmArgs = append(llmArgs, "--no-cache-idle-slots")
+	}
+	// Speculative decoding MTP (Multi-Token Prediction) : accélère la génération
+	// de +20-50% sans changer la qualité. Qwen3.8 intègre un bloc MTP (blk.64.nextn)
+	// que llama-server ne charge pas automatiquement — il faut --spec-type draft-mtp.
+	//
+	// DÉSACTIVÉ PAR DÉFAUT : MTP alloue ~260-500 MiB de VRAM supplémentaires pour le
+	// draft model. Sur les GPU 16 Go avec un modèle 27B + KV cache 32K (NGL=999),
+	// la VRAM est déjà à 94% — activer MTP cause un OOM au démarrage. L'utilisateur
+	// peut l'activer explicitement via SPEC_TYPE=draft-mtp s'il a de la marge VRAM
+	// (ex: modèle plus petit, contexte réduit, ou GPU avec plus de VRAM).
+	if specType := get("SPEC_TYPE", "none"); specType != "none" && specType != "" {
+		llmArgs = append(llmArgs, "--spec-type", specType)
+		fmt.Fprintf(os.Stderr, "[ajean serve] speculative decoding activé : --spec-type %s (surveille la VRAM)\n", specType)
 	}
 	// Vision : le projecteur multimodal (mmproj-*.gguf) donne des yeux au modèle.
 	// C'est un fichier .gguf À PART du modèle, chargé via --mmproj. On le résout
@@ -505,5 +536,38 @@ func warnKVPrebuilt(bin, k, v string) {
 	if !fastKVPrebuilt[k+"|"+v] {
 		fmt.Fprintf(os.Stderr, "[ajean serve] avertissement : cache KV %s/%s non accéléré par le llama.cpp précompilé "+
 			"(converti en f16 à chaque pas, lent). Préfère q8_0, q4_0 ou f16, ou compile llama.cpp localement.\n", k, v)
+	}
+}
+
+// checkVRAMWarning interroge nvidia-smi pour avertir si la VRAM disponible est
+// faible avant le chargement du modèle. Non bloquant : c'est un avertissement
+// précoce, pas une vérification. Sur les GPU 16 Go avec un modèle 27B + KV
+// cache 32K, on frôle la limite — un log aide à comprendre les OOM au démarrage.
+func checkVRAMWarning() {
+	cmd := exec.Command("nvidia-smi",
+		"--query-gpu=memory.total,memory.used,memory.free",
+		"--format=csv,noheader,nounits")
+	out, err := cmd.Output()
+	if err != nil {
+		return // nvidia-smi absent (CPU-only, macOS…) : pas d'avertissement
+	}
+	fields := strings.Split(strings.TrimSpace(string(out)), ",")
+	if len(fields) < 3 {
+		return
+	}
+	total, err1 := strconv.ParseFloat(strings.TrimSpace(fields[0]), 64)
+	used, err2 := strconv.ParseFloat(strings.TrimSpace(fields[1]), 64)
+	free, err3 := strconv.ParseFloat(strings.TrimSpace(fields[2]), 64)
+	if err1 != nil || err2 != nil || err3 != nil || total <= 0 {
+		return
+	}
+	usedPct := used / total * 100
+	freeMiB := free
+	// Avertissement si moins de 2 Go libres ou plus de 85% utilisés avant même
+	// de charger le modèle (le modèle + KV cache prendront le reste).
+	if freeMiB < 2048 || usedPct > 85 {
+		fmt.Fprintf(os.Stderr,
+			"[ajean serve] ⚠ VRAM faible : %.0f MiB libres sur %.0f MiB (%.0f%% utilisés) — le modèle + KV cache 32K risquent de dépasser\n",
+			freeMiB, total, usedPct)
 	}
 }
