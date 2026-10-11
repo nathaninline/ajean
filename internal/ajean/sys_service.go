@@ -93,6 +93,9 @@ var configTemplate = []struct{ key, help string }{
 	{"REASONING_BUDGET", "plafond de tokens de réflexion ; -1 = illimité"},
 	{"COMPACT", "compactage automatique du contexte (off pour couper)"},
 	{"MEM_MODE", "mémoire de l'IA (repli global ; réglable par projet) : off / ondemand / always / search"},
+	{"ENGINE_ONLY", "mode core (allégé) : UI réduite au moteur pour un harness (1 = actif)"},
+	{"CACHE_REUSE", "mode core : réutilisation KV d'un préfixe partiel (0 = off, défaut 256)"},
+	{"CACHE_RAM", "mode core : taille du cache de préfixes en MiB (défaut moteur : 8192)"},
 	{"EXTRA_ARGS", "ajouté tel quel à la ligne de commande de llama-server"},
 }
 

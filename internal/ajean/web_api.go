@@ -382,13 +382,22 @@ func handleEngineStatus(w http.ResponseWriter, r *http.Request) {
 	snap := GetMemoryManager().GetSnapshot()
 	cfg := ReadConfig()
 	uptimeMs := time.Now().UnixMilli() - procBoot
+	port := LLMPort()
+	// Info harness : tout ce qu'un client (OpenFox, OpenCode…) doit connaître
+	// pour se configurer. L'URL OpenAI pointe sur llama-server, pas sur l'UI.
+	ctx := 0
+	if v, err := strconv.Atoi(cfg["CTX"]); err == nil {
+		ctx = v
+	}
 	sendJSON(w, 200, map[string]any{
-		"ok":         true,
-		"engineOnly": isEngineOnly(),
-		"model":      cfg["MODEL"],
-		"port":       LLMPort(),
-		"uptimeMs":   uptimeMs,
-		"memory":     snap,
+		"ok":            true,
+		"engineOnly":    isEngineOnly(),
+		"model":         cfg["MODEL"],
+		"port":          port,
+		"openaiUrl":     fmt.Sprintf("http://127.0.0.1:%d/v1", port),
+		"contextWindow": ctx,
+		"uptimeMs":      uptimeMs,
+		"memory":        snap,
 	})
 }
 

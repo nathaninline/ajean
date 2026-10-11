@@ -334,6 +334,25 @@ func cmdServe(args []string) error {
 	if get("CACHE_IDLE_SLOTS", "off") != "on" {
 		llmArgs = append(llmArgs, "--no-cache-idle-slots")
 	}
+	// MODE CORE : réglages orientés harness (OpenFox, OpenCode…). Un harness
+	// renvoie à chaque tour un préfixe stable (system prompt + historique) : le
+	// prompt cache standard de llama.cpp le réutilise déjà (mesuré : 2e appel =
+	// 14 tokens préfillés au lieu de 1657). On ajoute ici les leviers qui vont
+	// plus loin pour ce cas d'usage :
+	//   - --cache-reuse : réutilise via KV shifting un préfixe PARTIELLEMENT
+	//     commun (quand le début du prompt diffère légèrement d'un appel à
+	//     l'autre) ; au-delà du cache standard, qui exige un préfixe identique.
+	//   - --cache-ram : élargit le cache de préfixes gardé en RAM, utile quand
+	//     plusieurs sessions/conversations doivent rester « chaudes ».
+	// Configurables : CACHE_REUSE=0 pour couper, CACHE_RAM=<MiB> pour fixer.
+	if isEngineOnly() {
+		if cr := get("CACHE_REUSE", "256"); cr != "0" && cr != "" {
+			llmArgs = append(llmArgs, "--cache-reuse", cr)
+		}
+		if cram := get("CACHE_RAM", ""); cram != "" {
+			llmArgs = append(llmArgs, "--cache-ram", cram)
+		}
+	}
 	// Speculative decoding MTP (Multi-Token Prediction) : accélère la génération
 	// de +20-50% sans changer la qualité. Qwen3.8 intègre un bloc MTP (blk.64.nextn)
 	// que llama-server ne charge pas automatiquement — il faut --spec-type draft-mtp.
