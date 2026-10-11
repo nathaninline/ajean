@@ -86,6 +86,13 @@ func cmdWeb(args []string) error {
 	// Surtout PAS de WriteTimeout ici : il couperait les flux SSE du chat, qui
 	// restent ouverts aussi longtemps que l'utilisateur regarde la page.
 	srv := &http.Server{Handler: gzipHandler(mux), ReadHeaderTimeout: 10 * time.Second}
+
+	// Démarre le gestionnaire de mémoire centralisé (surveillance RAM/VRAM,
+	// nettoyage automatique, éviction des conversations — issue #133).
+	memMgr := GetMemoryManager()
+	memMgr.Start()
+	defer memMgr.Stop()
+
 	return srv.Serve(ln)
 }
 
@@ -181,6 +188,9 @@ func newWebMux() *http.ServeMux {
 	api("/api/vram", handleVram)
 	api("/api/ram", handleRam)
 	api("/api/telemetry", handleTelemetry) // VRAM+RAM en un seul appel (réduit le polling de l'UI)
+	api("/api/memory/status", handleMemoryStatus)   // snapshot mémoire complet (gestionnaire centralisé)
+	api("/api/memory/cleanup", handleMemoryCleanup) // déclenche un nettoyage manuel
+	api("/api/memory/limits", handleMemoryLimits)   // lit/modifie les limites mémoire
 	api("/api/config", handleConfigEnv)
 	api("/api/engine/cmdline", handleEngineCmdline) // commande llama-server du dernier lancement (#108)
 	api("/api/model/layers", handleModelLayers)     // nombre de couches du modèle (#43)

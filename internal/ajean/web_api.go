@@ -295,6 +295,82 @@ func handleRam(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"used": used, "total": total})
 }
 
+// handleMemoryStatus (GET) retourne le snapshot mémoire complet du gestionnaire
+// (RAM système, VRAM GPU, état des nettoyages, limites configurées).
+func handleMemoryStatus(w http.ResponseWriter, r *http.Request) {
+	mm := GetMemoryManager()
+	snap := mm.GetSnapshot()
+	limits := mm.GetLimits()
+	sendJSON(w, 200, map[string]any{
+		"ok":       true,
+		"snapshot": snap,
+		"limits":   limits,
+	})
+}
+
+// handleMemoryCleanup (POST) déclenche un nettoyage manuel immédiat.
+func handleMemoryCleanup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		sendJSON(w, 405, map[string]any{"ok": false, "error": "méthode non autorisée"})
+		return
+	}
+	mm := GetMemoryManager()
+	stats := mm.Cleanup("manual")
+	sendJSON(w, 200, map[string]any{
+		"ok":    true,
+		"stats": stats,
+	})
+}
+
+// handleMemoryLimits (GET/POST) lit ou modifie les limites du gestionnaire.
+func handleMemoryLimits(w http.ResponseWriter, r *http.Request) {
+	mm := GetMemoryManager()
+	switch r.Method {
+	case http.MethodGet:
+		sendJSON(w, 200, map[string]any{"ok": true, "limits": mm.GetLimits()})
+	case http.MethodPost:
+		var body struct {
+			RAMWarnPercent         *float64 `json:"ram_warn_percent"`
+			RAMCriticalPercent     *float64 `json:"ram_critical_percent"`
+			VRAMWarnPercent        *float64 `json:"vram_warn_percent"`
+			VRAMCriticalPercent    *float64 `json:"vram_critical_percent"`
+			MaxConversationsInRAM  *int     `json:"max_conversations_in_ram"`
+			MaxConversationMessages *int    `json:"max_conversation_messages"`
+			MonitorIntervalSeconds *int     `json:"monitor_interval_seconds"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		limits := mm.GetLimits()
+		if body.RAMWarnPercent != nil {
+			limits.RAMWarnPercent = *body.RAMWarnPercent
+		}
+		if body.RAMCriticalPercent != nil {
+			limits.RAMCriticalPercent = *body.RAMCriticalPercent
+		}
+		if body.VRAMWarnPercent != nil {
+			limits.VRAMWarnPercent = *body.VRAMWarnPercent
+		}
+		if body.VRAMCriticalPercent != nil {
+			limits.VRAMCriticalPercent = *body.VRAMCriticalPercent
+		}
+		if body.MaxConversationsInRAM != nil {
+			limits.MaxConversationsInRAM = *body.MaxConversationsInRAM
+		}
+		if body.MaxConversationMessages != nil {
+			limits.MaxConversationMessages = *body.MaxConversationMessages
+		}
+		if body.MonitorIntervalSeconds != nil {
+			limits.MonitorIntervalSeconds = *body.MonitorIntervalSeconds
+		}
+		mm.SetLimits(limits)
+		sendJSON(w, 200, map[string]any{"ok": true, "limits": limits})
+	default:
+		sendJSON(w, 405, map[string]any{"ok": false, "error": "méthode non autorisée"})
+	}
+}
+
 func handleConfigEnv(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, ReadConfig())
 }
