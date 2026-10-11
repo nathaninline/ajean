@@ -40,7 +40,7 @@
   <div class="sidehead">
     <!-- Logo + version, et dessous en petit : état du moteur (sans cadre). -->
     <div class="brandcol">
-    <h1 id="brand" aria-label="ajean"><span id="brand-a"><svg viewBox="0 0 4 5" shape-rendering="crispEdges" fill="currentColor"><rect x="1" y="0" width="2" height="1"/><rect x="0" y="1" width="1" height="1"/><rect x="3" y="1" width="1" height="1"/><rect x="0" y="2" width="4" height="1"/><rect x="0" y="3" width="1" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="3" y="4" width="1" height="1"/></svg></span><span id="brand-word"><svg viewBox="0 0 17 5" shape-rendering="crispEdges" fill="currentColor"><rect x="1" y="0" width="1" height="1"/><rect x="1" y="1" width="1" height="1"/><rect x="1" y="2" width="1" height="1"/><rect x="1" y="3" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="3" y="0" width="4" height="1"/><rect x="3" y="1" width="1" height="1"/><rect x="3" y="2" width="3" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="3" y="4" width="4" height="1"/><rect x="9" y="0" width="2" height="1"/><rect x="8" y="1" width="1" height="1"/><rect x="11" y="1" width="1" height="1"/><rect x="8" y="2" width="4" height="1"/><rect x="8" y="3" width="1" height="1"/><rect x="11" y="3" width="1" height="1"/><rect x="8" y="4" width="1" height="1"/><rect x="11" y="4" width="1" height="1"/><rect x="13" y="0" width="1" height="1"/><rect x="16" y="0" width="1" height="1"/><rect x="13" y="1" width="2" height="1"/><rect x="16" y="1" width="1" height="1"/><rect x="13" y="2" width="1" height="1"/><rect x="15" y="2" width="2" height="1"/><rect x="13" y="3" width="1" height="1"/><rect x="16" y="3" width="1" height="1"/><rect x="13" y="4" width="1" height="1"/><rect x="16" y="4" width="1" height="1"/></svg></span><span id="ver" onclick="manualUpdateCheck()" style="cursor:pointer" title="vérifier les mises à jour" data-i18n="settings.check_update_title" data-i18n-attr="title"></span></h1>
+    <h1 id="brand" aria-label="ajean"><span id="brand-a"><svg viewBox="0 0 4 5" shape-rendering="crispEdges" fill="currentColor"><rect x="1" y="0" width="2" height="1"/><rect x="0" y="1" width="1" height="1"/><rect x="3" y="1" width="1" height="1"/><rect x="0" y="2" width="4" height="1"/><rect x="0" y="3" width="1" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="3" y="4" width="1" height="1"/></svg></span><span id="brand-word"><svg viewBox="0 0 17 5" shape-rendering="crispEdges" fill="currentColor"><rect x="1" y="0" width="1" height="1"/><rect x="1" y="1" width="1" height="1"/><rect x="1" y="2" width="1" height="1"/><rect x="1" y="3" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="3" y="0" width="4" height="1"/><rect x="3" y="1" width="1" height="1"/><rect x="3" y="2" width="3" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="3" y="4" width="4" height="1"/><rect x="9" y="0" width="2" height="1"/><rect x="8" y="1" width="1" height="1"/><rect x="11" y="1" width="1" height="1"/><rect x="8" y="2" width="4" height="1"/><rect x="8" y="3" width="1" height="1"/><rect x="11" y="3" width="1" height="1"/><rect x="8" y="4" width="1" height="1"/><rect x="11" y="4" width="1" height="1"/><rect x="13" y="0" width="1" height="1"/><rect x="16" y="0" width="1" height="1"/><rect x="13" y="1" width="2" height="1"/><rect x="16" y="1" width="1" height="1"/><rect x="13" y="2" width="1" height="1"/><rect x="15" y="2" width="2" height="1"/><rect x="13" y="3" width="1" height="1"/><rect x="16" y="3" width="1" height="1"/><rect x="13" y="4" width="1" height="1"/><rect x="16" y="4" width="1" height="1"/></svg></span><span id="ver" onclick="manualUpdateCheck()" style="cursor:pointer" title="vérifier les mises à jour" data-i18n="settings.check_update_title" data-i18n-attr="title"></span><span id="engine-only-badge" style="display:none" data-i18n="engine.only_badge">⚡ core</span></h1>
     <div class="brand-sub">
       <span id="status-svc" class="statuspill" onclick="toggleSvcLog()" title="voir le journal du moteur" data-i18n="sidebar.status_svc_title" data-i18n-attr="title"><span class="skel skel-line" style="width:52px;height:8px;border-radius:999px"></span></span>
 
@@ -48,7 +48,7 @@
     </div>
     <!-- Historique : petite icône dans la ligne du logo (la nouvelle conversation
          est dans le « + » du composeur). -->
-    <span id="side-actions">
+    <span id="side-actions" data-engine-hide>
       <button id="hist-toggle" class="side-act" onclick="toggleHistoryView()" title="Historique" aria-label="Historique" data-i18n="chat.history_btn" data-i18n-attr="title">
         <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>
       </button>
@@ -113,6 +113,11 @@
         <button class="addbtn" onclick="devMonSaveLimits()" data-i18n="device.mon_save">💾 Enregistrer</button>
       </div>
     </details>
+    <!-- Journal des événements mémoire (logs persistants) -->
+    <details class="dev-mon-sub"><summary class="dev-mon-subtitle" data-i18n="device.mon_log">Journal</summary>
+      <div class="dev-mon-log" id="dev-mon-log">Chargement…</div>
+      <button class="addbtn" style="margin-top:6px" onclick="devMonRefreshLog()" data-i18n="device.mon_refresh">↻ Rafraîchir</button>
+    </details>
   </details>
   <details open id="cfg-details"><summary><span class="stitle" data-i18n="config.title">Configuration</span></summary>
     <div id="cfg" class="slist"><div class="kv"><span class="skel skel-line" style="width:30%"></span><span class="skel skel-line" style="width:44%"></span></div><div class="kv"><span class="skel skel-line" style="width:24%"></span><span class="skel skel-line" style="width:52%"></span></div><div class="kv"><span class="skel skel-line" style="width:34%"></span><span class="skel skel-line" style="width:38%"></span></div><div class="kv"><span class="skel skel-line" style="width:28%"></span><span class="skel skel-line" style="width:30%"></span></div></div>
@@ -120,7 +125,7 @@
   <details><summary><span class="stitle" data-i18n="presets.title">Presets</span><button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter" data-i18n="presets.add_button" data-i18n-attr="title">+</button></summary>
     <div class="slist"><div id="presets" class="rowlist"></div></div>
   </details>
-  <details id="tasks-details"><summary><span class="stitle" data-i18n="tasks.title">Tasks</span><span id="tasks-badge" class="sbadge"></span></summary>
+  <details id="tasks-details" data-engine-hide><summary><span class="stitle" data-i18n="tasks.title">Tasks</span><span id="tasks-badge" class="sbadge"></span></summary>
     <!-- Tâches planifiées : l'IA exécute une consigne toute seule sur une
          fréquence réglable (voir tasks.go). Chaque tâche tourne ISOLÉE de la
          conversation — elle livre son résultat via les outils de l'IA (mail via
@@ -325,6 +330,15 @@
        sélecteur de mode du composeur (Projet / Rapide / Modèle de base). Il reste
        ici tout ce qui règle les outils et le comportement de l'IA. -->
   <details><summary><span class="stitle" data-i18n="settings.section_title">Paramètres</span></summary>
+    <!-- MODE CORE (allégé) : réduit l'UI à un panneau de contrôle du moteur pour
+         un harness (OpenFox, OpenCode…). Le moteur llama-server reste inchangé ;
+         seules l'UI et les traitements de fond (conversation, mémoire, tâches)
+         sont désactivés. Redémarrage requis pour appliquer. -->
+    <div class="subhead" data-i18n="settings.engine_mode_subhead">Mode de fonctionnement</div>
+    <div class="slist">
+      <label class="switchrow"><span class="switch"><input type="checkbox" id="engine-only-toggle" onchange="toggleEngineOnly(this.checked)"><span class="slider"></span></span> <span data-i18n="settings.engine_only_label">mode core (allégé)</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="settings.engine_only_help" data-i18n-html>Mode <b>core</b> : Ajean devient un <b>moteur d'inférence</b> pour un harness (OpenFox, OpenCode…). Le chat, l'historique, la mémoire persistante, les projets et les tâches sont <b>désactivés</b> (le harness gère le contexte). Restent : le monitoring mémoire, la gestion du moteur, les modèles et les presets. <b>Redémarre l'interface</b> pour appliquer.</span></span></label>
+      <div id="engine-only-status" class="muted" style="font-size:12px;margin:2px 2px 0"></div>
+    </div>
     <!-- Sous-réglages du mode agent. MÊME gabarit que « Machine » / « Apparence » :
          étiquette de groupe nue, puis UNE carte de lignes (.slist). Le groupe
          entier est grisé/inerte quand l'agent est off (voir setAgentGate). -->
@@ -418,7 +432,7 @@
        Rempli et affiché par checkAppUpdate (05-status.js) en accès LOCAL ; en accès
        distant c'est #server-stale (en haut) qui joue ce rôle. -->
   </div>
-  <div id="side-hist" class="side-view" hidden>
+  <div id="side-hist" class="side-view" hidden data-engine-hide>
     <div class="hist-head">
       <span class="stitle" data-i18n="chat.history_btn">Historique</span><span id="sess-count" class="sess-count"></span>
       <!-- De quoi parle la liste : le projet actif, ou « Rapide ». Simple libellé : on
@@ -443,7 +457,7 @@
 </div>
 <div id="side-thumb" aria-hidden="true"></div>
 <div class="main" style="position:relative">
-  <div id="chat"></div>
+  <div id="chat" data-engine-hide></div>
   <!-- Voile de chargement du fil : sans lui, une connexion lente donne un chat
        VIDE indiscernable d'une conversation vide. Masqué au signal {caught_up}. -->
   <!-- Loader du fil : la marque « J » d'ajean (même glyphe que le favicon et le logo
@@ -462,7 +476,7 @@
   <button id="scrollbtn" onclick="jumpBottom()" title="aller en bas" data-i18n="chat.scroll_bottom_title" data-i18n-attr="title">↓</button>
   <!-- Voile de dépôt : révélé pendant qu'on survole la fenêtre avec un fichier. -->
   <div id="dropveil" aria-hidden="true"><div data-i18n="chat.drop_hint">Déposer pour joindre au message</div></div>
-  <div id="composer">
+  <div id="composer" data-engine-hide>
     <div id="ctxmeta">
       <div id="ctxtrack"><div id="ctx-fill"></div></div>
       <!-- Sélecteur de mode, à gauche du pied du composeur : « Projet » (chat complet :

@@ -272,3 +272,29 @@ func LLMPort() int {
 	}
 	return 8080
 }
+
+// isEngineOnly dit si le MODE CORE (allégé) est actif. En mode core, l'UI web
+// se réduit à un panneau de contrôle du moteur : le chat, l'historique, la
+// mémoire persistante, les projets et les tâches sont désactivés. Objectif :
+// utiliser Ajean comme moteur d'inférence pur derrière un harness (OpenFox,
+// OpenCode…), qui gère lui-même le contexte. Le moteur llama-server reste
+// inchangé — les harness s'y connectent directement sur /v1/*.
+//
+// Le drapeau est lu dans la config (clé ENGINE_ONLY) ou via l'environnement
+// AJEAN_ENGINE_ONLY (priorité à l'environnement, utile pour un lancement ad hoc).
+func isEngineOnly() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AJEAN_ENGINE_ONLY"))) {
+	case "1", "true", "on", "yes":
+		return true
+	}
+	return ReadConfig()["ENGINE_ONLY"] == "1"
+}
+
+// setEngineOnly active ou désactive le mode core (persisté dans la config).
+func setEngineOnly(enabled bool) error {
+	v := "0"
+	if enabled {
+		v = "1"
+	}
+	return SetConfigKey("ENGINE_ONLY", v)
+}

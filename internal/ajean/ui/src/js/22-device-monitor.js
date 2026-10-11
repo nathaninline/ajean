@@ -40,6 +40,8 @@
     });
     if(d.open) startPolling();
     loadLimits();
+    // Charge le journal mémoire au démarrage (lecture légère, pas de polling).
+    window.devMonRefreshLog();
   }
 
   function startPolling(){
@@ -187,6 +189,23 @@
     if(mib >= 1024) return (mib/1024).toFixed(1) + ' GiB';
     return Math.round(mib) + ' MiB';
   }
+
+  // Charge et affiche les dernières lignes du journal mémoire persistant.
+  window.devMonRefreshLog = async function(){
+    const box = document.getElementById('dev-mon-log');
+    if(!box) return;
+    try{
+      const r = await fetch('/api/memory/log?n=100');
+      const d = await r.json();
+      if(!d || !d.ok){ box.textContent = t('device.mon_log_error'); return; }
+      if(!d.lines || d.lines.length === 0){ box.textContent = t('device.mon_log_empty'); return; }
+      // Les lignes sont déjà horodatées ; on les affiche telles quelles.
+      box.textContent = d.lines.join('\n');
+      box.scrollTop = box.scrollHeight;
+    }catch(e){
+      box.textContent = t('device.mon_log_error');
+    }
+  };
 
   // Démarrage
   if(document.readyState === 'loading'){

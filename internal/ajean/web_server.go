@@ -102,18 +102,27 @@ func cmdWeb(args []string) error {
 var convLoadOnce sync.Once
 
 func newWebMux() *http.ServeMux {
-	// Charge l'état de conversation persisté (une fois par process : ajean web ET
-	// ajean link serve appellent newWebMux).
-	convLoadOnce.Do(func() {
-		// Amorce le projet « Générale » et migre l'existant (mémoire plate + sessions
-		// + keyvault) AVANT de charger la conversation, pour que memoryDir() et le
-		// projet actif soient corrects dès le premier accès.
-		ensureDefaultProject()
-		LoadConversation()
-	})
-	// Pré-chauffe les serveurs MCP en tâche de fond : sinon le handshake (plusieurs
-	// secondes pour un serveur lancé via npx) est payé par le premier message.
-	MCPPrewarm()
+	// MODE CORE (allégé) : on n'a pas besoin de la conversation, de la mémoire
+	// persistante, des serveurs MCP, ni des tâches — le harness (OpenFox…) gère
+	// le contexte et s'adresse directement à llama-server sur /v1/*. On évite donc
+	// tout le chargement lourd ci-dessous pour un démarrage instantané et une
+	// empreinte mémoire minimale.
+	engineOnly := isEngineOnly()
+
+	if !engineOnly {
+		// Charge l'état de conversation persisté (une fois par process : ajean web ET
+		// ajean link serve appellent newWebMux).
+		convLoadOnce.Do(func() {
+			// Amorce le projet « Générale » et migre l'existant (mémoire plate + sessions
+			// + keyvault) AVANT de charger la conversation, pour que memoryDir() et le
+			// projet actif soient corrects dès le premier accès.
+			ensureDefaultProject()
+			LoadConversation()
+		})
+		// Pré-chauffe les serveurs MCP en tâche de fond : sinon le handshake (plusieurs
+		// secondes pour un serveur lancé via npx) est payé par le premier message.
+		MCPPrewarm()
+	}
 	// Un téléchargement de modèle coupé net (crash, restart du service) laisse un
 	// .part orphelin non reprenable : on nettoie au démarrage.
 	cleanStalePartFiles()
@@ -124,26 +133,29 @@ func newWebMux() *http.ServeMux {
 	// recharge son état pour l'annoncer « interrompue » au lieu de n'afficher
 	// plus rien du tout.
 	lcRestoreOnce.Do(lcRestore)
-	// Reprend une migration de chiffrement mémoire interrompue (crash/coupure).
-	// Sans DEK en RAM (démarrage à froid), laisse le journal en place : un
-	// déverrouillage ultérieur la reprendra. Ne perd jamais de données.
-	resumeMemMigration()
-	// Chiffrement désactivé avant la 0.17.14 : les .bak chiffrés restés derrière
-	// sont illisibles (clé retirée). No-op tant que le chiffrement est actif.
-	if n := scrubEncryptedResidue(); n > 0 {
-		fmt.Printf("[mémoire] %d copie(s) .bak chiffrée(s) devenue(s) illisible(s) retirée(s)\n", n)
+	if !engineOnly {
+		// Reprend une migration de chiffrement mémoire interrompue (crash/coupure).
+		// Sans DEK en RAM (démarrage à froid), laisse le journal en place : un
+		// déverrouillage ultérieur la reprendra. Ne perd jamais de données.
+		resumeMemMigration()
+		// Chiffrement désactivé avant la 0.17.14 : les .bak chiffrés restés derrière
+		// sont illisibles (clé retirée). No-op tant que le chiffrement est actif.
+		if n := scrubEncryptedResidue(); n > 0 {
+			fmt.Printf("[mémoire] %d copie(s) .bak chiffrée(s) devenue(s) illisible(s) retirée(s)\n", n)
+		}
+		// Boucle de sauvegarde automatique vers ajean.link (no-op tant que non activée
+		// / non liée / non armée depuis le démarrage).
+		StartBackupScheduler()
+		// Allègement sans perte des anciennes conversations (tâche de fond, une fois).
+		startSlimArchives()
+		// Index plein-texte des conversations archivées (#98), rattrapage en fond.
+		startHistSearchBackfill()
+		go pruneToolResults()
 	}
 	// La clé de pilotage n'est plus stockée en clair (juste son empreinte) : on
-	// convertit une ancienne valeur en clair une fois pour toutes.
+	// convertit une ancienne valeur en clair une fois pour toutes. Indépendant du
+	// mode (sécurité), donc exécuté dans tous les cas.
 	migrateWebKeyToHash()
-	// Boucle de sauvegarde automatique vers ajean.link (no-op tant que non activée
-	// / non liée / non armée depuis le démarrage).
-	StartBackupScheduler()
-	// Allègement sans perte des anciennes conversations (tâche de fond, une fois).
-	startSlimArchives()
-	// Index plein-texte des conversations archivées (#98), rattrapage en fond.
-	startHistSearchBackfill()
-	go pruneToolResults()
 	mux := http.NewServeMux()
 	// Pages publiques : le HTML et le JS ne contiennent aucun secret. Toute la
 	// donnée et toutes les actions passent par /api/* qui, lui, exige la clé.
@@ -187,10 +199,13 @@ func newWebMux() *http.ServeMux {
 	api("/api/service/log", handleServiceLog) // journal du service pour diagnostiquer un modèle qui ne charge pas
 	api("/api/vram", handleVram)
 	api("/api/ram", handleRam)
-	api("/api/telemetry", handleTelemetry) // VRAM+RAM en un seul appel (réduit le polling de l'UI)
+	api("/api/telemetry", handleTelemetry)          // VRAM+RAM en un seul appel (réduit le polling de l'UI)
 	api("/api/memory/status", handleMemoryStatus)   // snapshot mémoire complet (gestionnaire centralisé)
 	api("/api/memory/cleanup", handleMemoryCleanup) // déclenche un nettoyage manuel
 	api("/api/memory/limits", handleMemoryLimits)   // lit/modifie les limites mémoire
+	api("/api/memory/log", handleMemoryLog)         // logs persistants des événements mémoire
+	api("/api/engine/mode", handleEngineMode)       // mode core (allégé) : lecture/écriture
+	api("/api/engine/status", handleEngineStatus)   // état moteur (modèle, port, uptime, mémoire)
 	api("/api/config", handleConfigEnv)
 	api("/api/engine/cmdline", handleEngineCmdline) // commande llama-server du dernier lancement (#108)
 	api("/api/model/layers", handleModelLayers)     // nombre de couches du modèle (#43)
@@ -349,7 +364,11 @@ func newWebMux() *http.ServeMux {
 	api("/api/tasks/pause", handleTasksPause)
 	api("/api/tasks/run", handleTaskRun)
 	api("/api/tasks/stop", handleTaskStop)
-	StartTaskScheduler()
+	// Le scheduler de tâches tourne en boucle dans CE process : inutile (et
+	// coûteux en CPU) en mode core, où aucune tâche n'est censée être planifiée.
+	if !engineOnly {
+		StartTaskScheduler()
+	}
 	return mux
 }
 

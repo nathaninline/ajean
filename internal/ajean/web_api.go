@@ -322,6 +322,76 @@ func handleMemoryCleanup(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleMemoryLog (GET) retourne les N dernières lignes du log mémoire.
+// ?n=50 par défaut, max 500.
+func handleMemoryLog(w http.ResponseWriter, r *http.Request) {
+	n := 50
+	if v := r.URL.Query().Get("n"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			n = parsed
+		}
+	}
+	if n > 500 {
+		n = 500
+	}
+	lines, err := ReadMemoryLog(n)
+	if err != nil {
+		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{
+		"ok":    true,
+		"lines": lines,
+		"count": len(lines),
+	})
+}
+
+// handleEngineMode (GET/POST) lit ou change le mode core (allégé) — l'option qui
+// réduit l'UI d'Ajean à un panneau de contrôle du moteur pour un harness.
+func handleEngineMode(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		sendJSON(w, 200, map[string]any{"ok": true, "engineOnly": isEngineOnly()})
+	case http.MethodPost:
+		var body struct {
+			Enable bool `json:"enable"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		if err := setEngineOnly(body.Enable); err != nil {
+			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		sendJSON(w, 200, map[string]any{
+			"ok":              true,
+			"engineOnly":      body.Enable,
+			"restartRequired": true,
+		})
+	default:
+		sendJSON(w, 405, map[string]any{"ok": false, "error": "méthode non autorisée"})
+	}
+}
+
+// handleEngineStatus (GET) expose l'état du moteur pour un harness : modèle
+// chargé, port d'écoute, mode, uptime et métriques mémoire. Les harness
+// s'adressent directement à llama-server (/v1/*, port 8080) ; ce point d'entrée
+// sert à un éventuel tableau de bord, pas au chat.
+func handleEngineStatus(w http.ResponseWriter, r *http.Request) {
+	snap := GetMemoryManager().GetSnapshot()
+	cfg := ReadConfig()
+	uptimeMs := time.Now().UnixMilli() - procBoot
+	sendJSON(w, 200, map[string]any{
+		"ok":         true,
+		"engineOnly": isEngineOnly(),
+		"model":      cfg["MODEL"],
+		"port":       LLMPort(),
+		"uptimeMs":   uptimeMs,
+		"memory":     snap,
+	})
+}
+
 // handleMemoryLimits (GET/POST) lit ou modifie les limites du gestionnaire.
 func handleMemoryLimits(w http.ResponseWriter, r *http.Request) {
 	mm := GetMemoryManager()
@@ -330,13 +400,13 @@ func handleMemoryLimits(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 200, map[string]any{"ok": true, "limits": mm.GetLimits()})
 	case http.MethodPost:
 		var body struct {
-			RAMWarnPercent         *float64 `json:"ram_warn_percent"`
-			RAMCriticalPercent     *float64 `json:"ram_critical_percent"`
-			VRAMWarnPercent        *float64 `json:"vram_warn_percent"`
-			VRAMCriticalPercent    *float64 `json:"vram_critical_percent"`
-			MaxConversationsInRAM  *int     `json:"max_conversations_in_ram"`
-			MaxConversationMessages *int    `json:"max_conversation_messages"`
-			MonitorIntervalSeconds *int     `json:"monitor_interval_seconds"`
+			RAMWarnPercent          *float64 `json:"ram_warn_percent"`
+			RAMCriticalPercent      *float64 `json:"ram_critical_percent"`
+			VRAMWarnPercent         *float64 `json:"vram_warn_percent"`
+			VRAMCriticalPercent     *float64 `json:"vram_critical_percent"`
+			MaxConversationsInRAM   *int     `json:"max_conversations_in_ram"`
+			MaxConversationMessages *int     `json:"max_conversation_messages"`
+			MonitorIntervalSeconds  *int     `json:"monitor_interval_seconds"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})

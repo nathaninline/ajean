@@ -47,11 +47,11 @@ func TestMemoryManagerThresholds(t *testing.T) {
 
 	// Test avec RAM à 60% → warning
 	snap := MemorySnapshot{
-		RAMTotalMiB:    16000,
-		RAMUsedMiB:     9600, // 60%
-		RAMUsedPercent: 60,
-		VRAMTotalMiB:   16000,
-		VRAMUsedMiB:    8000, // 50%
+		RAMTotalMiB:     16000,
+		RAMUsedMiB:      9600, // 60%
+		RAMUsedPercent:  60,
+		VRAMTotalMiB:    16000,
+		VRAMUsedMiB:     8000, // 50%
 		VRAMUsedPercent: 50,
 	}
 	level := mm.evaluateThresholds(snap)
@@ -134,8 +134,8 @@ func TestParseMeminfoValue(t *testing.T) {
 		line     string
 		expected float64
 	}{
-		{"MemTotal:       16384000 kB", 16000},      // 16384000 kB = 16000 MiB
-		{"MemAvailable:    8192000 kB", 8000},       // 8192000 kB = 8000 MiB
+		{"MemTotal:       16384000 kB", 16000}, // 16384000 kB = 16000 MiB
+		{"MemAvailable:    8192000 kB", 8000},  // 8192000 kB = 8000 MiB
 		{"Invalid line", 0},
 		{"", 0},
 	}

@@ -12,15 +12,117 @@ package ajean
 // il ne bloque jamais les générations, il nettoie et avertit.
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
+
+// ---------------------------------------------------------------------------
+// Logs persistants des événements mémoire (issue #133 : debug après crash)
+// ---------------------------------------------------------------------------
+
+// memoryLogPath retourne le chemin du fichier de log mémoire.
+// Le log est persistant : il survit aux redémarrages et permet de comprendre
+// ce qui s'est passé avant un plantage (OOM, fuite mémoire, etc.).
+func memoryLogPath() string {
+	return filepath.Join(AjeanHome(), "logs", "memory.log")
+}
+
+// logMemoryEvent écrit un événement dans le log mémoire avec timestamp.
+// Format: [2026-10-11 19:30:45] LEVEL message
+// Le fichier est créé si inexistant, tronqué si > 1 MiB (rotation simple).
+func logMemoryEvent(level, format string, args ...any) {
+	msg := fmt.Sprintf(format, args...)
+	timestamp := time.Now().Format("2006-01-02 15:04:05")
+	line := fmt.Sprintf("[%s] %s %s\n", timestamp, level, msg)
+
+	// Créer le répertoire logs si nécessaire
+	logPath := memoryLogPath()
+	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
+		fmt.Fprintf(os.Stderr, "[memory] impossible de créer le répertoire logs: %v\n", err)
+		return
+	}
+
+	// Rotation simple : si le fichier dépasse 1 MiB, on garde les 500 dernières lignes
+	if fi, err := os.Stat(logPath); err == nil && fi.Size() > 1024*1024 {
+		rotateMemoryLog(logPath)
+	}
+
+	// Ajouter la ligne
+	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[memory] impossible d'écrire le log: %v\n", err)
+		return
+	}
+	defer f.Close()
+	f.WriteString(line)
+
+	// Également sur stderr pour les logs systemd
+	fmt.Fprint(os.Stderr, line)
+}
+
+// rotateMemoryLog tronque le log en gardant les 500 dernières lignes.
+func rotateMemoryLog(path string) {
+	f, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	var lines []string
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+
+	// Garder les 500 dernières lignes
+	if len(lines) > 500 {
+		lines = lines[len(lines)-500:]
+	}
+
+	// Réécrire le fichier
+	content := strings.Join(lines, "\n") + "\n"
+	os.WriteFile(path, []byte(content), 0o644)
+}
+
+// ReadMemoryLog retourne les N dernières lignes du log mémoire.
+// Si n <= 0, retourne tout le fichier (limité à 1000 lignes max).
+func ReadMemoryLog(n int) ([]string, error) {
+	logPath := memoryLogPath()
+	f, err := os.Open(logPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []string{}, nil
+		}
+		return nil, err
+	}
+	defer f.Close()
+
+	var lines []string
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+
+	// Limiter à 1000 lignes max
+	if len(lines) > 1000 {
+		lines = lines[len(lines)-1000:]
+	}
+
+	// Retourner les N dernières lignes
+	if n > 0 && len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+
+	return lines, nil
+}
 
 // MemoryLimits définit les seuils de mémoire au-delà desquels le gestionnaire
 // agit (avertissement, nettoyage, éviction). Toutes les valeurs sont en MiB.
@@ -44,13 +146,13 @@ type MemoryLimits struct {
 // DefaultMemoryLimits retourne les limites par défaut, ajustées à la machine.
 func DefaultMemoryLimits() MemoryLimits {
 	return MemoryLimits{
-		RAMWarnPercent:         80,
-		RAMCriticalPercent:     90,
-		VRAMWarnPercent:        85,
-		VRAMCriticalPercent:    95,
-		MaxConversationsInRAM:  10,
+		RAMWarnPercent:          80,
+		RAMCriticalPercent:      90,
+		VRAMWarnPercent:         85,
+		VRAMCriticalPercent:     95,
+		MaxConversationsInRAM:   10,
 		MaxConversationMessages: 500,
-		MonitorIntervalSeconds: 30,
+		MonitorIntervalSeconds:  30,
 	}
 }
 
@@ -59,11 +161,11 @@ type MemorySnapshot struct {
 	Timestamp time.Time `json:"timestamp"`
 
 	// RAM système (MiB)
-	RAMTotalMiB     float64 `json:"ram_total_mib"`
-	RAMUsedMiB      float64 `json:"ram_used_mib"`
-	RAMFreeMiB      float64 `json:"ram_free_mib"`
-	RAMUsedPercent  float64 `json:"ram_used_percent"`
-	RAMProcessMiB   float64 `json:"ram_process_mib"` // mémoire utilisée par Ajean
+	RAMTotalMiB    float64 `json:"ram_total_mib"`
+	RAMUsedMiB     float64 `json:"ram_used_mib"`
+	RAMFreeMiB     float64 `json:"ram_free_mib"`
+	RAMUsedPercent float64 `json:"ram_used_percent"`
+	RAMProcessMiB  float64 `json:"ram_process_mib"` // mémoire utilisée par Ajean
 
 	// VRAM GPU (MiB) — 0 si pas de GPU NVIDIA
 	VRAMTotalMiB    float64 `json:"vram_total_mib"`
@@ -72,10 +174,10 @@ type MemorySnapshot struct {
 	VRAMUsedPercent float64 `json:"vram_used_percent"`
 
 	// État du gestionnaire
-	ConversationsInRAM int `json:"conversations_in_ram"`
-	LastCleanup       time.Time `json:"last_cleanup,omitempty"`
-	CleanupCount      int `json:"cleanup_count"`
-	WarningsEmitted   int `json:"warnings_emitted"`
+	ConversationsInRAM int       `json:"conversations_in_ram"`
+	LastCleanup        time.Time `json:"last_cleanup,omitempty"`
+	CleanupCount       int       `json:"cleanup_count"`
+	WarningsEmitted    int       `json:"warnings_emitted"`
 }
 
 // MemoryManager gère la surveillance et le nettoyage mémoire.
@@ -94,11 +196,11 @@ type MemoryManager struct {
 
 // CleanupStats statistiques d'un nettoyage.
 type CleanupStats struct {
-	Timestamp          time.Time `json:"timestamp"`
-	ConversationsEvicted int `json:"conversations_evicted"`
-	MessagesTruncated  int `json:"messages_truncated"`
-	RAMFreedMiB        float64 `json:"ram_freed_mib"`
-	Trigger            string `json:"trigger"` // "scheduled", "ram_critical", "vram_critical", "manual"
+	Timestamp            time.Time `json:"timestamp"`
+	ConversationsEvicted int       `json:"conversations_evicted"`
+	MessagesTruncated    int       `json:"messages_truncated"`
+	RAMFreedMiB          float64   `json:"ram_freed_mib"`
+	Trigger              string    `json:"trigger"` // "scheduled", "ram_critical", "vram_critical", "manual"
 }
 
 // Global memory manager instance
@@ -124,10 +226,12 @@ func NewMemoryManager(limits MemoryLimits) *MemoryManager {
 // Start lance la surveillance en arrière-plan.
 func (m *MemoryManager) Start() {
 	go m.monitorLoop()
-	fmt.Fprintf(os.Stderr, "[memory] surveillance démarrée (intervalle: %ds, limites: RAM %d%%/%d%%, VRAM %d%%/%d%%)\n",
+	msg := fmt.Sprintf("surveillance démarrée (intervalle: %ds, limites: RAM %d%%/%d%%, VRAM %d%%/%d%%)",
 		m.limits.MonitorIntervalSeconds,
 		int(m.limits.RAMWarnPercent), int(m.limits.RAMCriticalPercent),
 		int(m.limits.VRAMWarnPercent), int(m.limits.VRAMCriticalPercent))
+	fmt.Fprintf(os.Stderr, "[memory] %s\n", msg)
+	logMemoryEvent("INFO", "%s", msg)
 }
 
 // Stop arrête la surveillance.
@@ -204,10 +308,11 @@ func (m *MemoryManager) handleWarning(snap MemorySnapshot) {
 	m.latest.WarningsEmitted++
 	m.mu.Unlock()
 
-	msg := fmt.Sprintf("[memory] ⚠ AVERTISSEMENT: RAM %.0f%% (%.0f/%.0f MiB), VRAM %.0f%% (%.0f/%.0f MiB)",
+	msg := fmt.Sprintf("⚠ AVERTISSEMENT: RAM %.0f%% (%.0f/%.0f MiB), VRAM %.0f%% (%.0f/%.0f MiB)",
 		snap.RAMUsedPercent, snap.RAMUsedMiB, snap.RAMTotalMiB,
 		snap.VRAMUsedPercent, snap.VRAMUsedMiB, snap.VRAMTotalMiB)
-	fmt.Fprintln(os.Stderr, msg)
+	fmt.Fprintf(os.Stderr, "[memory] %s\n", msg)
+	logMemoryEvent("WARN", "%s", msg)
 
 	if m.onWarning != nil {
 		m.onWarning(snap, "warning")
@@ -216,9 +321,11 @@ func (m *MemoryManager) handleWarning(snap MemorySnapshot) {
 
 // handleCritical effectue un nettoyage agressif.
 func (m *MemoryManager) handleCritical(snap MemorySnapshot) {
-	msg := fmt.Sprintf("[memory] 🚨 CRITIQUE: RAM %.0f%%, VRAM %.0f%% — nettoyage agressif déclenché",
-		snap.RAMUsedPercent, snap.VRAMUsedPercent)
-	fmt.Fprintln(os.Stderr, msg)
+	msg := fmt.Sprintf("🚨 CRITIQUE: RAM %.0f%% (%.0f/%.0f MiB), VRAM %.0f%% (%.0f/%.0f MiB) — nettoyage agressif déclenché",
+		snap.RAMUsedPercent, snap.RAMUsedMiB, snap.RAMTotalMiB,
+		snap.VRAMUsedPercent, snap.VRAMUsedMiB, snap.VRAMTotalMiB)
+	fmt.Fprintf(os.Stderr, "[memory] %s\n", msg)
+	logMemoryEvent("CRIT", "%s", msg)
 
 	if m.onCritical != nil {
 		m.onCritical(snap)
@@ -226,8 +333,10 @@ func (m *MemoryManager) handleCritical(snap MemorySnapshot) {
 
 	// Nettoyage agressif
 	stats := m.Cleanup("ram_critical")
-	fmt.Fprintf(os.Stderr, "[memory] nettoyage effectué: %d conversations évincées, %.0f MiB libérés\n",
-		stats.ConversationsEvicted, stats.RAMFreedMiB)
+	logMsg := fmt.Sprintf("nettoyage effectué: %d conversations évincées, %d messages tronqués, %.0f MiB libérés",
+		stats.ConversationsEvicted, stats.MessagesTruncated, stats.RAMFreedMiB)
+	fmt.Fprintf(os.Stderr, "[memory] %s\n", logMsg)
+	logMemoryEvent("INFO", "%s", logMsg)
 }
 
 // takeSnapshot collecte les métriques mémoire actuelles.
@@ -267,6 +376,8 @@ func (m *MemoryManager) takeSnapshot() MemorySnapshot {
 // Cleanup effectue un nettoyage des ressources mémoire.
 // trigger indique la raison du nettoyage.
 func (m *MemoryManager) Cleanup(trigger string) CleanupStats {
+	logMemoryEvent("INFO", "nettoyage démarré (trigger: %s)", trigger)
+
 	stats := CleanupStats{
 		Timestamp: time.Now(),
 		Trigger:   trigger,
@@ -294,6 +405,9 @@ func (m *MemoryManager) Cleanup(trigger string) CleanupStats {
 	m.latest.LastCleanup = time.Now()
 	m.latest.CleanupCount++
 	m.mu.Unlock()
+
+	logMemoryEvent("INFO", "nettoyage terminé: %d conv. évincées, %d msg tronqués, %.0f MiB libérés (avant: %.0f MiB, après: %.0f MiB)",
+		stats.ConversationsEvicted, stats.MessagesTruncated, stats.RAMFreedMiB, before, after)
 
 	if m.onCleanup != nil {
 		m.onCleanup(stats)
