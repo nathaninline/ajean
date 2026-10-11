@@ -15,6 +15,9 @@
     document.body.classList.toggle('engine-only', engineOnly);
     const badge = document.getElementById('engine-only-badge');
     if(badge) badge.style.display = engineOnly ? '' : 'none';
+    // Bandeau bien visible en haut de la sidebar (état du moteur au 1er coup d'œil).
+    const banner = document.getElementById('engine-core-banner');
+    if(banner) banner.style.display = engineOnly ? 'flex' : 'none';
     document.querySelectorAll('[data-engine-hide]').forEach(function(el){
       el.style.display = engineOnly ? 'none' : '';
     });

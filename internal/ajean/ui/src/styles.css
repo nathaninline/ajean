@@ -2628,3 +2628,13 @@ body.engine-only #side{width:100%;max-width:820px;margin:0 auto;border-right:non
 .dev-mon-log{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;line-height:1.5;
   white-space:pre-wrap;word-break:break-word;max-height:200px;overflow:auto;margin:6px 0 0;
   padding:8px 10px;border-radius:8px;background:var(--t1);color:var(--dim)}
+/* Bandeau mode core : état du moteur visible dès la connexion (23-engine-mode.js) */
+#engine-core-banner{display:none;align-items:center;gap:8px;margin:0 0 12px;padding:9px 12px;
+  border-radius:10px;font-size:12px;font-weight:600;line-height:1.4;color:var(--bg);background:var(--accent)}
+#engine-core-banner .ecb-dot{width:8px;height:8px;border-radius:50%;background:var(--bg);
+  animation:pulse 1.6s ease-in-out infinite;flex:none}
+#engine-core-banner .ecb-txt{flex:1}
+/* Barre du mode core : toujours visible en haut de la sidebar. Contient le
+   bouton d'activation et, en mode core, le bandeau d'état. */
+#engine-mode-bar{margin:0 0 12px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+#engine-mode-bar .switchrow{margin:0}

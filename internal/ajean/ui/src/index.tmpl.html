@@ -59,6 +59,15 @@
        (glissé + fondu, voir toggleHistoryView). -->
   <div id="side-views">
   <div id="side-main" class="side-view">
+  <!-- BOUTON DU MODE CORE : toujours visible (complet ET core). En mode core,
+       toute l'UI est masquée sauf les jauges VRAM/RAM et ce bloc. -->
+  <div id="engine-mode-bar">
+    <label class="switchrow"><span class="switch"><input type="checkbox" id="engine-only-toggle" onchange="toggleEngineOnly(this.checked)"><span class="slider"></span></span> <span data-i18n="settings.engine_only_label">mode core (allégé)</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="settings.engine_only_help" data-i18n-html>Mode <b>core</b> : Ajean devient un <b>moteur d'inférence</b> pour un harness (OpenFox, OpenCode…). En mode core, l'interface n'affiche plus que l'usage <b>VRAM/RAM</b> ; le chat, la mémoire, les projets et les tâches sont désactivés (le harness gère le contexte). Le moteur llama-server reste joignable sur <code>/v1/*</code>. <b>Redémarre l'interface</b> pour appliquer.</span></span></label>
+    <div id="engine-core-banner" style="display:none">
+      <span class="ecb-dot"></span>
+      <span class="ecb-txt" data-i18n="engine.core_banner">Mode core actif — moteur pour harness (OpenFox…). Chat et mémoire désactivés.</span>
+    </div>
+  </div>
   <!-- Avertissement de lancement (App Translocation macOS) — masqué par défaut. -->
   <div id="app-warn" class="muted" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:10px;color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent)"></div>
   <!-- Accès distant (app.ajean.link / *.ajean.link) : le front est toujours à jour
@@ -97,12 +106,12 @@
     </div>
     <!-- Monitoring mémoire avancé (issue #133) : alertes, nettoyage, limites.
          Intégré dans Device car c'est la section qui affiche déjà RAM/VRAM. -->
-    <div id="dev-mon-alert" class="dev-mon-alert" style="display:none"></div>
-    <div class="dev-mon-actions">
+    <div id="dev-mon-alert" class="dev-mon-alert" style="display:none" data-engine-hide></div>
+    <div class="dev-mon-actions" data-engine-hide>
       <button class="addbtn" id="dev-mon-cleanup-btn" onclick="devMonCleanup()" data-i18n="device.mon_cleanup">🧹 Nettoyer</button>
       <span class="dev-mon-stats muted" id="dev-mon-stats"></span>
     </div>
-    <details class="dev-mon-sub"><summary class="dev-mon-subtitle" data-i18n="device.mon_limits">Limites mémoire</summary>
+    <details class="dev-mon-sub" data-engine-hide><summary class="dev-mon-subtitle" data-i18n="device.mon_limits">Limites mémoire</summary>
       <div class="slist">
         <label class="dev-mon-field"><span data-i18n="device.mon_ram_warn">Alerte RAM (%)</span><input type="number" id="dev-mon-ram-warn" min="50" max="95" step="1"></label>
         <label class="dev-mon-field"><span data-i18n="device.mon_ram_crit">Critique RAM (%)</span><input type="number" id="dev-mon-ram-crit" min="60" max="99" step="1"></label>
@@ -114,15 +123,15 @@
       </div>
     </details>
     <!-- Journal des événements mémoire (logs persistants) -->
-    <details class="dev-mon-sub"><summary class="dev-mon-subtitle" data-i18n="device.mon_log">Journal</summary>
+    <details class="dev-mon-sub" data-engine-hide><summary class="dev-mon-subtitle" data-i18n="device.mon_log">Journal</summary>
       <div class="dev-mon-log" id="dev-mon-log">Chargement…</div>
       <button class="addbtn" style="margin-top:6px" onclick="devMonRefreshLog()" data-i18n="device.mon_refresh">↻ Rafraîchir</button>
     </details>
   </details>
-  <details open id="cfg-details"><summary><span class="stitle" data-i18n="config.title">Configuration</span></summary>
+  <details open id="cfg-details" data-engine-hide><summary><span class="stitle" data-i18n="config.title">Configuration</span></summary>
     <div id="cfg" class="slist"><div class="kv"><span class="skel skel-line" style="width:30%"></span><span class="skel skel-line" style="width:44%"></span></div><div class="kv"><span class="skel skel-line" style="width:24%"></span><span class="skel skel-line" style="width:52%"></span></div><div class="kv"><span class="skel skel-line" style="width:34%"></span><span class="skel skel-line" style="width:38%"></span></div><div class="kv"><span class="skel skel-line" style="width:28%"></span><span class="skel skel-line" style="width:30%"></span></div></div>
   </details>
-  <details><summary><span class="stitle" data-i18n="presets.title">Presets</span><button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter" data-i18n="presets.add_button" data-i18n-attr="title">+</button></summary>
+  <details data-engine-hide><summary><span class="stitle" data-i18n="presets.title">Presets</span><button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter" data-i18n="presets.add_button" data-i18n-attr="title">+</button></summary>
     <div class="slist"><div id="presets" class="rowlist"></div></div>
   </details>
   <details id="tasks-details" data-engine-hide><summary><span class="stitle" data-i18n="tasks.title">Tasks</span><span id="tasks-badge" class="sbadge"></span></summary>
@@ -142,7 +151,7 @@
       </div>
     </div>
   </details>
-  <details><summary><span class="stitle" data-i18n="appearance.title">Appearance</span></summary>
+  <details data-engine-hide><summary><span class="stitle" data-i18n="appearance.title">Appearance</span></summary>
     <div class="slist">
       <label class="switchrow rev"><span data-i18n="appearance.dark_mode">mode sombre</span>
         <span class="switch"><input type="checkbox" id="theme-dark" onchange="toggleThemeDark()"><span class="slider"></span></span>
@@ -161,7 +170,7 @@
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-preset" onchange="toggleView('hide-preset')"><span class="slider"></span></span> <span data-i18n="appearance.hide_preset">masquer le nom du preset</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="appearance.hide_preset_help" data-i18n-html>Retire le nom du preset de la ligne d'état sous chaque réponse (durée, tokens, vitesse). Les autres informations restent affichées.</span></span></label>
     </div>
   </details>
-  <details><summary><span class="stitle" data-i18n="api.title">API</span></summary>
+  <details data-engine-hide><summary><span class="stitle" data-i18n="api.title">API</span></summary>
     <div class="subhead"><span data-i18n="api.endpoint_subhead">Endpoint compatible OpenAI</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="api.endpoint_help" data-i18n-html>Branchez n'importe quel client compatible OpenAI (OpenCode, Continue, Cursor…) sur ces adresses. Si une clé est définie, le client doit envoyer <code>Authorization: Bearer &lt;clé&gt;</code>.</span></span></div>
     <!-- UNE carte pour tout l'endpoint : adresse locale, bascule « public » et
          adresse publique sont un seul sujet — trois cartes accolées donnaient
@@ -203,7 +212,7 @@
       </div>
     </div></div>
   </details>
-  <details id="remote-details"><summary><span class="stitle" data-i18n="link.title">AJEAN LINK</span><span id="remote-badge" class="sbadge"></span></summary>
+  <details id="remote-details" data-engine-hide><summary><span class="stitle" data-i18n="link.title">AJEAN LINK</span><span id="remote-badge" class="sbadge"></span></summary>
     <div class="subhead"><span data-i18n="link.remote_subhead">Accès distant</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="link.remote_help" data-i18n-html>Accédez à ce serveur AJEAN depuis <b>n'importe où</b>, sans ouvrir de port, à travers le relais <b>ajean.link</b>. Le trafic est chiffré de <b>bout en bout</b> : le relais ne voit rien. Abonnement 4,80 €/mois.</span></span></div>
     <!-- Non connecté : on met en avant les avantages de l'abonnement AJEAN LINK pour
          donner envie de s'abonner, puis le bouton (tout se passe dans la popup). -->
@@ -271,7 +280,7 @@
          section AJEAN LINK, pas coincé entre deux cartes : piloté par renderRemote. -->
     <div id="remote-perks-mini" class="link-perks-mini" style="display:none" data-i18n="link.perks_mini" data-i18n-html>Inclus dans <b>AJEAN LINK</b> : accès distant chiffré de bout en bout · support dédié par chat · sauvegarde de vos réglages, presets, historique et mémoire.</div>
   </details>
-  <details id="lc-details"><summary><span class="stitle" data-i18n="engine.title">Engine</span></summary>
+  <details id="lc-details" data-engine-hide><summary><span class="stitle" data-i18n="engine.title">Engine</span></summary>
     <!-- Une seule carte : état, choix du mode et journal d'installation sont le
          même sujet. Les trois modes sont des LIGNES de cette carte (elles
          étaient des cartes dans une carte). -->
@@ -329,16 +338,7 @@
   <!-- Paramètres : l'ancien interrupteur « mode agent » a disparu, remplacé par le
        sélecteur de mode du composeur (Projet / Rapide / Modèle de base). Il reste
        ici tout ce qui règle les outils et le comportement de l'IA. -->
-  <details><summary><span class="stitle" data-i18n="settings.section_title">Paramètres</span></summary>
-    <!-- MODE CORE (allégé) : réduit l'UI à un panneau de contrôle du moteur pour
-         un harness (OpenFox, OpenCode…). Le moteur llama-server reste inchangé ;
-         seules l'UI et les traitements de fond (conversation, mémoire, tâches)
-         sont désactivés. Redémarrage requis pour appliquer. -->
-    <div class="subhead" data-i18n="settings.engine_mode_subhead">Mode de fonctionnement</div>
-    <div class="slist">
-      <label class="switchrow"><span class="switch"><input type="checkbox" id="engine-only-toggle" onchange="toggleEngineOnly(this.checked)"><span class="slider"></span></span> <span data-i18n="settings.engine_only_label">mode core (allégé)</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="settings.engine_only_help" data-i18n-html>Mode <b>core</b> : Ajean devient un <b>moteur d'inférence</b> pour un harness (OpenFox, OpenCode…). Le chat, l'historique, la mémoire persistante, les projets et les tâches sont <b>désactivés</b> (le harness gère le contexte). Restent : le monitoring mémoire, la gestion du moteur, les modèles et les presets. <b>Redémarre l'interface</b> pour appliquer.</span></span></label>
-      <div id="engine-only-status" class="muted" style="font-size:12px;margin:2px 2px 0"></div>
-    </div>
+  <details data-engine-hide><summary><span class="stitle" data-i18n="settings.section_title">Paramètres</span></summary>
     <!-- Sous-réglages du mode agent. MÊME gabarit que « Machine » / « Apparence » :
          étiquette de groupe nue, puis UNE carte de lignes (.slist). Le groupe
          entier est grisé/inerte quand l'agent est off (voir setAgentGate). -->
