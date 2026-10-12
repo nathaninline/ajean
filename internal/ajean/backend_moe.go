@@ -62,6 +62,71 @@ func moeEngineAssetName() string {
 	return moeEngineAsset
 }
 
+// moeSourceHash : l'empreinte des sources du moteur telle que setup.py la
+// calcule (source_hash()) pour savoir s'il doit recompiler. Fichiers des
+// ENGINE_SOURCES et VISION_SOURCES, ordre trié, \r\n normalisé en \n, préfixés
+// par le commit llama.cpp (LLAMA_CPP_COMMIT) — sur le checkout PATCHÉ. Utilisée
+// sous Windows pour déclarer src/vision_src de BUILD.json (source "local") de
+// sorte que setup.py voie un moteur local à jour et ne recompile pas.
+func moeSourceHash(srcDir string) (map[string]string, error) {
+	const llamaCommit = "3cf03257f219afbe7334045ff7c6a06ac68c627d"
+	hashParts := func(parts []string) (string, error) {
+		h := sha256.New()
+		_, _ = io.WriteString(h, llamaCommit)
+		root := filepath.Clean(srcDir)
+		// Même ordre que setup.py : chaque partie (fichier ou dossier) est
+		// parcourue dans l'ordre, ses fichiers triés par chemin, puis hasher.
+		for _, part := range parts {
+			base := filepath.Join(root, filepath.FromSlash(part))
+			fi, err := os.Stat(base)
+			if err != nil {
+				continue
+			}
+			var files []string
+			if !fi.IsDir() {
+				files = append(files, base)
+			} else {
+				_ = filepath.WalkDir(base, func(p string, d os.DirEntry, err error) error {
+					if err == nil && d.Type().IsRegular() {
+						files = append(files, p)
+					}
+					return nil
+				})
+			}
+			// Tri sur le chemin POSIX (comme Python trie les Path) : l'ordre
+			// dirait semble différent entre \ et / sinon.
+			rels := make([]string, 0, len(files))
+			for _, f := range files {
+				if rel, err := filepath.Rel(root, f); err == nil {
+					rels = append(rels, filepath.ToSlash(rel))
+				}
+			}
+			sort.Strings(rels)
+			for _, rel := range rels {
+				f := filepath.Join(root, filepath.FromSlash(rel))
+				data, err := os.ReadFile(f)
+				if err != nil {
+					return "", err
+				}
+				norm := strings.ReplaceAll(string(data), "\r\n", "\n")
+				_, _ = io.WriteString(h, rel)
+				_, _ = io.WriteString(h, "\x00")
+				_, _ = io.WriteString(h, norm)
+			}
+		}
+		return hex.EncodeToString(h.Sum(nil))[:16], nil
+	}
+	engine, err := hashParts([]string{"CMakeLists.txt", "src", "include", "third_party/ggml"})
+	if err != nil {
+		return nil, err
+	}
+	vision, err := hashParts([]string{"tools/vision"})
+	if err != nil {
+		return nil, err
+	}
+	return map[string]string{"engine": engine, "vision": vision}, nil
+}
+
 // moeAssetSHA : empreintes des fichiers de la release, vérifiées avant usage.
 var moeAssetSHA = map[string]string{
 	moeSrcAsset:    "5747f69426973d957e4f9894a8e3333c6ef0d6ac8565e26ddb8d36f52211cb3b",
