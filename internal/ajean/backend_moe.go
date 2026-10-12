@@ -23,9 +23,9 @@ package ajean
 
 import (
 	"crypto/sha256"
-	"errors"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -964,7 +964,6 @@ func moePreflight(cfg map[string]string) (string, map[string]any, error) {
 	return path, base, nil
 }
 
-
 // serveMoe : la branche moteur MoE de `ajean serve`. Écrit la config finale à
 // côté de celle de l'installeur puis remplace le process par le serveur du moteur
 // (comme llama-server : systemd supervise directement le moteur).
@@ -1030,8 +1029,6 @@ func moeConfigTag(path string) string {
 	}
 	return b
 }
-
-
 
 // moeVisionActive : le preset MoE actif lit les images (encodeur installé).
 func moeVisionActive() bool {

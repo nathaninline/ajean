@@ -117,8 +117,8 @@ func TestMoeBuildConfigDrop(t *testing.T) {
 		t.Fatalf("repli mmap attendu : %v", out["env"])
 	}
 	_ = os.WriteFile(filepath.Join(pack, "experts.bin"), []byte("x"), 0o644)
-	_ = os.MkdirAll(filepath.Join(moeSrcDir(), "engine-cuda12"), 0o755)
-	_ = os.WriteFile(moeEngineMarker(), []byte(moeEngineAsset+"\n"), 0o644)
+	_ = os.MkdirAll(moeEngineDir(), 0o755)
+	_ = os.WriteFile(moeEngineMarker(), []byte(moeEngineAssetName()+"\n"), 0o644)
 	out, _ = moeBuildConfig(base, cfg, "")
 	e := out["env"].(map[string]any)
 	if e["STRATA_REMOTE_DROP"] != "1" || e["STRATA_ARENA_MMAP"] != nil {
