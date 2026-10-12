@@ -10,15 +10,24 @@ package ajean
 // (moeApplyPatch — le patch voyage dans le pack Linux, qui le distribue
 // appliqué). Prérequis : le toolkit CUDA (nvcc), Visual Studio Build Tools
 // (cl.exe), CMake et Ninja.
+//
+// La détection de l'outillage est réutilisée depuis le reste d'ajean (la
+// compilation Windows de llama.cpp) : findNvcc/nvccCandidates pour CUDA,
+// vswhere/vcvarsPath/msvcDevEnv pour Visual Studio, et le générateur Ninja
+// avec l'environnement MSVC posé via buildEnv — pas de .bat temporaire à un
+// chemin fixe ni de liens durs vers des dossiers de VS/CUDA.
 
 import (
 	"archive/zip"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -26,11 +35,16 @@ import (
 
 // moeApplyPatch : applique le patch remote-drop aux sources du paquet (une
 // fois, marqué par un fichier). Le patch est extrait du pack Linux
-// (moeEngineAsset) : pas d'asset supplémentaire à publier.
+// (moeEngineAsset) : pas d'asset supplémentaire à publier. git est vérifié
+// avant, et l'idempotence repose sur le marqueur (pas sur le texte d'une
+// erreur git).
 func moeApplyPatch() error {
 	marker := filepath.Join(moeSrcDir(), ".ajean-patch-applied")
 	if _, err := os.Stat(marker); err == nil {
 		return nil
+	}
+	if _, err := exec.LookPath("git"); err != nil {
+		return fmt.Errorf("git introuvable sur le PATH : requis pour appliquer le patch remote-drop au moteur")
 	}
 	zp, err := moeFetch(moeEngineAsset)
 	if err != nil {
@@ -78,10 +92,6 @@ func moeApplyPatch() error {
 	git := exec.Command("git", "apply", patchPath)
 	git.Dir = moeSrcDir()
 	if out, err := git.CombinedOutput(); err != nil {
-		if strings.Contains(string(out), "previously applied") || strings.Contains(string(out), "Reversed") {
-			// déjà appliqué (réinstallation)
-			return os.WriteFile(marker, []byte("1"), 0o644)
-		}
 		return fmt.Errorf("application du patch remote-drop : %s", strings.TrimSpace(string(out)))
 	}
 	return os.WriteFile(marker, []byte("1"), 0o644)
@@ -97,9 +107,8 @@ func moeEngineDir() string {
 }
 
 // moePrepareEngine : compile le moteur (patché) dans le dossier engine du
-// toolkit CUDA en place
-// où l'installeur attend le moteur CUDA 12/13. Le même build que la release
-// Linux : portable AVX2, sm_75..120 (RTX 20 à 50).
+// toolkit CUDA en place où l'installeur attend le moteur CUDA 12/13. Le même
+// build que la release Linux : portable AVX2, sm_75..120 (RTX 20 à 50).
 func moePrepareEngine() error {
 	eng := moeEngineDir()
 	if moeEngineInstalled() == moeEngineAssetName() {
@@ -114,8 +123,7 @@ func moePrepareEngine() error {
 	if err != nil {
 		return err
 	}
-	vcvars, err := moeWinFindVcvars()
-	if err != nil {
+	if _, err := msvcDevEnv(); err != nil {
 		return err
 	}
 	for _, t := range []string{"cmake", "ninja"} {
@@ -123,19 +131,21 @@ func moePrepareEngine() error {
 			return fmt.Errorf("%s introuvable sur le PATH : requis pour compiler le moteur", t)
 		}
 	}
+	jobs := cudaJobsCap(numJobs())
 	bdir := filepath.Join(moeSrcDir(), "build-windows")
 	lcPhase("compilation du moteur (CUDA " + strconv.Itoa(major) + ", ~15-40 min au premier passage)…")
 	// Le moteur (cible strata) et l'encodeur vision (cible strata-vision, projet
 	// tools/vision sur le même checkout llama.cpp) — mêmes réglages que la
-	// release Linux : portable AVX2, sm_75..120 (RTX 20 à 50).
-	if err := moeWinStep(vcvars, bdir, cudaBin, "cmake",
+	// release Linux : portable AVX2, sm_75..120 (RTX 20 à 50). L'étape tourne
+	// DANS l'environnement MSVC (msvcDevEnv) + CUDA, sans .bat intermédiaire.
+	if err := moeWinStep(bdir, cudaBin, "cmake",
 		"-G", "Ninja", "-S", moeSrcDir(), "-B", bdir, "-DCMAKE_BUILD_TYPE=Release",
 		"-DSTRATA_ENABLE_CUDA=ON", "-DSTRATA_PORTABLE=ON", "-DSTRATA_BUILD_TESTS=OFF",
 		"-DCMAKE_CUDA_ARCHITECTURES=75;80;86;89;120"); err != nil {
 		return fmt.Errorf("configure : %w (voir le journal)", err)
 	}
-	if err := moeWinStep(vcvars, bdir, cudaBin, "cmake",
-		"--build", bdir, "--target", "strata", "-j", "8"); err != nil {
+	if err := moeWinStep(bdir, cudaBin, "cmake",
+		"--build", bdir, "--target", "strata", "-j", strconv.Itoa(jobs)); err != nil {
 		return fmt.Errorf("compilation du moteur : %w (voir le journal)", err)
 	}
 	// L'encodeur vision : projet tools/vision, sur le checkout llama.cpp du
@@ -145,14 +155,14 @@ func moePrepareEngine() error {
 		return fmt.Errorf("checkout llama.cpp introuvable (%s) : le build principal a-t-il échoué ?", llama)
 	}
 	vbdir := filepath.Join(moeSrcDir(), "build-windows-vision")
-	if err := moeWinStep(vcvars, vbdir, cudaBin, "cmake",
+	if err := moeWinStep(vbdir, cudaBin, "cmake",
 		"-G", "Ninja", "-S", filepath.Join(moeSrcDir(), "tools", "vision"), "-B", vbdir,
 		"-DCMAKE_BUILD_TYPE=Release", "-DSTRATA_PORTABLE=ON", "-DSTRATA_VISION_CUDA=ON",
 		"-DCMAKE_CUDA_ARCHITECTURES=75;80;86;89;120", "-DLLAMA_DIR="+llama); err != nil {
 		return fmt.Errorf("configure vision : %w (voir le journal)", err)
 	}
-	if err := moeWinStep(vcvars, vbdir, cudaBin, "cmake",
-		"--build", vbdir, "--target", "strata-vision", "-j", "8"); err != nil {
+	if err := moeWinStep(vbdir, cudaBin, "cmake",
+		"--build", vbdir, "--target", "strata-vision", "-j", strconv.Itoa(jobs)); err != nil {
 		return fmt.Errorf("compilation de l'encodeur vision : %w (voir le journal)", err)
 	}
 	if err := os.MkdirAll(eng, 0o755); err != nil {
@@ -164,11 +174,18 @@ func moePrepareEngine() error {
 	if err := copyFile(filepath.Join(vbdir, "bin", "strata-vision.exe"), filepath.Join(eng, "strata-vision.exe")); err != nil {
 		return fmt.Errorf("pose de l'encodeur vision : %w", err)
 	}
-	// BUILD.json : source "prebuilt" (pas "local") pour que setup.py ne
-	// recompile pas ; ptx:true pour la compat avant (une carte plus récente
-	// que sm_120 tourne en PTX).
-	bj := fmt.Sprintf(`{"version":"%s","source":"prebuilt","archs":[75,80,86,89,120],"vision_archs":[75,80,86,89,120],"ptx":true,"cuda":"%d.x","toolkit":%d,"experimental":true,"vision":"gpu","portable":true}
-`, moeVersion, major, major)
+	// BUILD.json : le moteur est COMPILÉ ICI (source "local"), pas un binaire de
+	// release. setup.py s'en sert pour savoir s'il doit (re)compiler : on lui
+	// pose src/vision_src = l'empreinte des sources POST-patch (voir moeSourceHash,
+	// même algorithme que source_hash() de setup.py) pour qu'il voie un moteur
+	// local à jour et ne recompile pas. ptx:true pour la compat avant (une carte
+	// plus récente que sm_120 tourne en PTX) ; pas d'isa_floor : build AVX2 normal.
+	srcs, err := moeSourceHash(moeSrcDir())
+	if err != nil {
+		return fmt.Errorf("empreinte des sources du moteur : %w", err)
+	}
+	bj := fmt.Sprintf(`{"version":"%s","source":"local","src":"%s","vision_src":"%s","archs":[75,80,86,89,120],"vision_archs":[75,80,86,89,120],"ptx":true,"cuda":"%d.x","toolkit":%d,"experimental":true,"vision":"gpu","portable":true}
+`, moeVersion, srcs["engine"], srcs["vision"], major, major)
 	if err := os.WriteFile(filepath.Join(eng, "BUILD.json"), []byte(bj), 0o644); err != nil {
 		return err
 	}
@@ -196,7 +213,7 @@ func moeEnsureEngine() error {
 // moeRunInstaller : l'installeur du moteur sous Windows. setup.py s'exécute
 // DANS son venv (sys.executable) : ajean crée le .venv, y installe les
 // dépendances, puis lance setup.py — qui trouve le moteur compilé dans
-// engine-cuda12/ (source "local") et fait modèle + pack + vision.
+// engine-cuda12/ (source "prebuilt") et fait modèle + pack + vision.
 func moeRunInstaller(family, quant string, env moeEnv, pre string) error {
 	py, err := exec.LookPath("python")
 	if err != nil {
@@ -234,29 +251,16 @@ func moeRunInstaller(family, quant string, env moeEnv, pre string) error {
 }
 
 // moeWinCuda : le dossier bin/ du toolkit CUDA le plus récent installé (12+),
-// ou nvcc sur le PATH. Renvoie (dossier, version majeure, erreur).
+// ou nvcc sur le PATH — via la détection partagée (findNvcc/nvccCandidates).
+// Renvoie (dossier, version majeure, erreur).
 func moeWinCuda() (string, int, error) {
-	if p, err := exec.LookPath("nvcc"); err == nil {
-		return filepath.Dir(p), moeNvccMajor(filepath.Dir(p)), nil
-	}
-	root := `C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA`
-	entries, err := os.ReadDir(root)
-	if err != nil {
+	candidates := nvccCandidates()
+	if len(candidates) == 0 {
 		return "", 0, fmt.Errorf("nvcc introuvable : installe le toolkit CUDA (12.x ou 13.x)")
 	}
-	best := 0
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		if v, err := strconv.Atoi(strings.TrimPrefix(e.Name(), "v")); err == nil && v >= 12 && v > best {
-			best = v
-		}
-	}
-	if best == 0 {
-		return "", 0, fmt.Errorf("aucun toolkit CUDA 12+ trouvé dans %s", root)
-	}
-	return filepath.Join(root, "v"+strconv.Itoa(best), "bin"), best, nil
+	nvcc := highestVersionedPath(candidates)
+	cudaBin := filepath.Dir(nvcc)
+	return cudaBin, moeNvccMajor(cudaBin), nil
 }
 
 func moeWinCudaPath() string {
@@ -291,9 +295,6 @@ func moeRunWinStep(cwd, extraEnv, name, bin string, args ...string) error {
 	pr, pw := io.Pipe()
 	cmd.Stdout = pw
 	cmd.Stderr = pw
-	if logf != nil {
-		_ = logf
-	}
 	go func() {
 		buf := make([]byte, 32<<10)
 		var partial []byte
@@ -373,53 +374,40 @@ func moeRunWinStep(cwd, extraEnv, name, bin string, args ...string) error {
 	return err
 }
 
-// moeWinStep : une commande cmake/ninja dans l'environnement MSVC (vcvars64.bat)
-// + le PATH étendu du toolkit CUDA. Le .bat est exécuté par cmd /c avec la
-// sortie pipée (pas de console — ajean mode application Windows).
-func moeWinStep(vcvars, cwd, cudaBin, bin string, args ...string) error {
+// moeWinStep : une commande cmake/ninja exécutée DANS l'environnement MSVC
+// (msvcDevEnv → INCLUDE, LIB, PATH avec cl.exe) étendu du dossier bin du
+// toolkit CUDA. Même mécanique que la compilation Windows de llama.cpp : pas de
+// .bat temporaire ni de console (ajean mode application Windows). La sortie
+// complète va dans un log (moeRunWinStep).
+func moeWinStep(cwd, cudaBin, bin string, args ...string) error {
 	if err := os.MkdirAll(cwd, 0o755); err != nil {
 		return fmt.Errorf("création du dossier de build %s : %w", cwd, err)
 	}
-	inner := `"` + bin + `"`
-	for _, a := range args {
-		inner += " " + strconv.Quote(a)
-	}
-	bat := filepath.Join(os.TempDir(), "ajean-moe-step.bat")
-	body := "@echo off\r\ncall \"" + vcvars + "\" >nul\r\nset \"PATH=" + cudaBin + ";%PATH%\"\r\n" + inner + "\r\n"
-	if err := os.WriteFile(bat, []byte(body), 0o644); err != nil {
+	be := newBuildEnv()
+	devEnv, err := msvcDevEnv()
+	if err != nil {
 		return err
 	}
-	return moeRunWinStep(cwd, "", filepath.Base(bin), "cmd", "/c", bat)
-}
-
-// moeWinFindVcvars : le vcvars64.bat des Visual Studio Build Tools (ou d'un
-// Visual Studio complet).
-func moeWinFindVcvars() (string, error) {
-	for _, base := range []string{
-		`C:\Program Files (x86)\Microsoft Visual Studio`,
-		`C:\Program Files\Microsoft Visual Studio`,
-	} {
-		entries, err := os.ReadDir(base)
-		if err != nil {
-			continue
-		}
-		for _, e := range entries {
-			for _, sub := range []string{"BuildTools", ""} {
-				p := filepath.Join(base, e.Name(), sub, "VC", "Auxiliary", "Build", "vcvars64.bat")
-				if _, err := os.Stat(p); err == nil {
-					return p, nil
-				}
-			}
+	for _, kv := range devEnv {
+		if i := strings.IndexByte(kv, '='); i > 0 {
+			be.set(kv[:i], kv[i+1:])
 		}
 	}
-	return "", fmt.Errorf("Visual Studio Build Tools introuvables (charge « Développement avec C++ ») : requis pour compiler le moteur")
+	if cudaBin != "" {
+		be.prependPath(cudaBin)
+		be.set("CUDACXX", filepath.Join(cudaBin, "nvcc.exe"))
+	}
+	return moeRunWinStep(cwd, be.serialize(), filepath.Base(bin), bin, args...)
 }
 
 // moeVenvPython : le Python de l'environnement du moteur, dans ses sources.
-func moeVenvPython(srcDir string) string { return filepath.Join(srcDir, ".venv", "Scripts", "python.exe") }
+func moeVenvPython(srcDir string) string {
+	return filepath.Join(srcDir, ".venv", "Scripts", "python.exe")
+}
 
 // moeWriteLauncher : sous Windows, pas de lanceur .bat (CreateProcess ne le
-// prend pas) : ajean serve exécute directement le python du venv sur
+// prend pas) : ajean serve exécute directement le python de SON venv (en place,
+// dans les sources — il retrouve pyvenv.cfg et ses dépendances à côté) sur
 // serve/server.py. Renvoie (programme, args).
 func moeWriteLauncher(srcDir, py string) (string, []string, error) {
 	if _, err := os.Stat(py); err != nil {
@@ -429,7 +417,10 @@ func moeWriteLauncher(srcDir, py string) (string, []string, error) {
 }
 
 // moeAlias : Windows ne crée pas de lien symbolique sans privilèges : une
-// copie du binaire dans moeHome()/bin/, le process tourne sous ce nom.
+// copie du binaire dans moeHome()/bin/, le process tourne sous ce nom. Uniquement
+// utilisé pour les binaires auto-contenus du moteur (strata.exe, strata-vision.exe,
+// BUILD.json) — jamais pour le python du venv, qui lui reste en place dans ses
+// sources (moeWriteLauncher) et conserve ainsi pyvenv.cfg et ses dépendances.
 func moeAlias(target, name string) string {
 	dir := filepath.Join(moeHome(), "bin")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -443,6 +434,69 @@ func moeAlias(target, name string) string {
 }
 
 var reNvccMajor = regexp.MustCompile(`release (\d+)\.\d+`)
+
+// moeSourceHash : l'empreinte des sources du moteur telle que setup.py la
+// calcule (source_hash()) pour savoir s'il doit recompiler. Fichiers des
+// ENGINE_SOURCES et VISION_SOURCES, ordre trié, \r\n normalisé en \n, préfixés
+// par le commit llama.cpp (LLAMA_CPP_COMMIT) — sur le checkout PATCHÉ.
+func moeSourceHash(srcDir string) (map[string]string, error) {
+	const llamaCommit = "3cf03257f219afbe7334045ff7c6a06ac68c627d"
+	hashParts := func(parts []string) (string, error) {
+		h := sha256.New()
+		_, _ = io.WriteString(h, llamaCommit)
+		root := filepath.Clean(srcDir)
+		// Même ordre que setup.py : chaque partie (fichier ou dossier) est
+		// parcourue dans l'ordre, ses fichiers triés par chemin, puis hasher.
+		for _, part := range parts {
+			base := filepath.Join(root, filepath.FromSlash(part))
+			fi, err := os.Stat(base)
+			if err != nil {
+				continue
+			}
+			var files []string
+			if !fi.IsDir() {
+				files = append(files, base)
+			} else {
+				_ = filepath.WalkDir(base, func(p string, d os.DirEntry, err error) error {
+					if err == nil && d.Type().IsRegular() {
+						files = append(files, p)
+					}
+					return nil
+				})
+			}
+			// Tri sur le chemin POSIX (comme Python trie les Path) : l'ordre
+			// dirait semble différent entre \ et / sinon.
+			rels := make([]string, 0, len(files))
+			for _, f := range files {
+				if rel, err := filepath.Rel(root, f); err == nil {
+					rels = append(rels, filepath.ToSlash(rel))
+				}
+			}
+			sort.Strings(rels)
+			for _, rel := range rels {
+				f := filepath.Join(root, filepath.FromSlash(rel))
+				data, err := os.ReadFile(f)
+				if err != nil {
+					return "", err
+				}
+				norm := strings.ReplaceAll(string(data), "\r\n", "\n")
+				_, _ = io.WriteString(h, rel)
+				_, _ = io.WriteString(h, "\x00")
+				_, _ = io.WriteString(h, norm)
+			}
+		}
+		return hex.EncodeToString(h.Sum(nil))[:16], nil
+	}
+	engine, err := hashParts([]string{"CMakeLists.txt", "src", "include", "third_party/ggml"})
+	if err != nil {
+		return nil, err
+	}
+	vision, err := hashParts([]string{"tools/vision"})
+	if err != nil {
+		return nil, err
+	}
+	return map[string]string{"engine": engine, "vision": vision}, nil
+}
 
 // moeNvccMajor : la version majeure du nvcc d'un dossier toolkit (12 ou 13).
 func moeNvccMajor(cudaBin string) int {
