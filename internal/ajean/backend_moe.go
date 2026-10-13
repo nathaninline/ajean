@@ -1080,10 +1080,11 @@ func serveMoe(cfg map[string]string) error {
 		return err
 	}
 	largs = append(largs, "--config", out, "--port", port)
+	full := append([]string{prog}, largs...)
 	_ = os.Chdir(srcDir)
 	fmt.Fprintf(os.Stderr, "[ajean serve] AJEAN MoE %s  config=%s  port=%s  gpu=%s\n", moeVersion, filepath.Base(out), port, os.Getenv("CUDA_VISIBLE_DEVICES"))
-	_ = putBytes(bkState, engineCmdlineKey, []byte(engineCmdline(append([]string{prog}, largs...))))
-	return execServer(prog, largs)
+	_ = putBytes(bkState, engineCmdlineKey, []byte(engineCmdline(full)))
+	return execServer(prog, full)
 }
 
 // moeConfigTag : le modèle d'une config de l'installeur (strata-swift-iq3_xxs.json → swift-iq3_xxs).

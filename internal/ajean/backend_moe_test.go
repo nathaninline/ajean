@@ -148,6 +148,26 @@ func TestMoeBuildConfigMmap(t *testing.T) {
 	}
 }
 
+func TestMoeLauncherArgs(t *testing.T) {
+	t.Setenv("AJEAN_HOME", t.TempDir())
+	srcDir := t.TempDir()
+	py := filepath.Join(srcDir, ".venv", "bin", "python")
+	_ = os.MkdirAll(filepath.Dir(py), 0o755)
+	_ = os.WriteFile(py, []byte("x"), 0o755)
+	prog, largs, err := moeWriteLauncher(srcDir, py)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if prog == "" {
+		t.Fatal("pas de programme")
+	}
+	for _, a := range largs {
+		if a == prog {
+			t.Errorf("le programme est injecté dans les args (doublé dans la commande) : %v", largs)
+		}
+	}
+}
+
 func TestMoeCudaDevices(t *testing.T) {
 	cases := []struct {
 		main, helper, want string

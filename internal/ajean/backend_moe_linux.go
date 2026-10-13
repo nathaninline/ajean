@@ -99,7 +99,9 @@ func moeRunInstaller(family, quant string, env moeEnv, pre string) error {
 func moeVenvPython(srcDir string) string { return filepath.Join(srcDir, ".venv", "bin", "python") }
 
 // moeWriteLauncher : le lanceur moeHome()/ajean-moe (sh) que ajean serve exécute.
-// Renvoie (programme, args) — le sh passe ses args à server.py via "$@".
+// Renvoie (programme, args) — le sh passe ses args à server.py via "$@", et args
+// est SANS le programme (c'est serveMoe qui le pose en tête, comme pour
+// llama-server).
 func moeWriteLauncher(srcDir, py string) (string, []string, error) {
 	p := filepath.Join(moeHome(), "ajean-moe")
 	body := "#!/bin/sh\n# AJEAN MoE : serveur du moteur MoE d'AJEAN (lancé par ajean serve)\n" +
@@ -110,7 +112,7 @@ func moeWriteLauncher(srcDir, py string) (string, []string, error) {
 	if err := os.Rename(p+".new", p); err != nil {
 		return "", nil, err
 	}
-	return p, []string{p}, nil
+	return p, nil, nil
 }
 
 // moeAlias : un lien moeHome()/bin/<name> vers un binaire du moteur, recréé à

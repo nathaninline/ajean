@@ -405,12 +405,13 @@ func moeVenvPython(srcDir string) string {
 // moeWriteLauncher : sous Windows, pas de lanceur .bat (CreateProcess ne le
 // prend pas) : ajean serve exécute directement le python de SON venv (en place,
 // dans les sources — il retrouve pyvenv.cfg et ses dépendances à côté) sur
-// serve/server.py. Renvoie (programme, args).
+// serve/server.py. Renvoie (programme, args) — args SANS le programme (c'est
+// serveMoe qui le pose en tête, comme pour llama-server).
 func moeWriteLauncher(srcDir, py string) (string, []string, error) {
 	if _, err := os.Stat(py); err != nil {
 		return "", nil, fmt.Errorf("python du venv du moteur absent (%s) : réinstaller le modèle", py)
 	}
-	return py, []string{py, filepath.Join(srcDir, "serve", "server.py"), "--engine", "strata"}, nil
+	return py, []string{filepath.Join(srcDir, "serve", "server.py"), "--engine", "strata"}, nil
 }
 
 // moeAlias : Windows ne crée pas de lien symbolique sans privilèges : une
