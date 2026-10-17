@@ -3,6 +3,7 @@ package ajean
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -117,8 +118,8 @@ func TestMoeBuildConfigDrop(t *testing.T) {
 		t.Fatalf("repli mmap attendu : %v", out["env"])
 	}
 	_ = os.WriteFile(filepath.Join(pack, "experts.bin"), []byte("x"), 0o644)
-	_ = os.MkdirAll(filepath.Join(moeSrcDir(), "engine-cuda12"), 0o755)
-	_ = os.WriteFile(moeEngineMarker(), []byte(moeEngineAsset+"\n"), 0o644)
+	_ = os.MkdirAll(moeEngineDir(), 0o755)
+	_ = os.WriteFile(moeEngineMarker(), []byte(moeEngineAssetName()+"\n"), 0o644)
 	out, _ = moeBuildConfig(base, cfg, "")
 	e := out["env"].(map[string]any)
 	if e["STRATA_REMOTE_DROP"] != "1" || e["STRATA_ARENA_MMAP"] != nil {
@@ -145,6 +146,40 @@ func TestMoeBuildConfigMmap(t *testing.T) {
 	env := out["env"].(map[string]any)
 	if hasArg(a, "--mmap-experts") || argAfter(a, "--pcie-frac") != "0" || env["STRATA_ARENA_MMAP"] != "1" || env["X"] != "1" {
 		t.Errorf("mmap validé non appliqué : %v %v", a, env)
+	}
+}
+
+// TestMoeLauncherArgs : les args du lanceur ne doivent pas contenir le
+// programme (serveMoe le pose en tête, comme pour llama-server — sinon il est
+// deux fois sur la ligne de commande et server.py reçoit un flag inattendu).
+// Sous Linux le lanceur est écrit dans moeHome/ : le dossier doit exister
+// (t.Setenv ne le crée pas). Sous Windows il n'y a rien à écrire, le python
+// doit seulement exister. Ailleurs il n'y a pas de moteur : pas de test.
+func TestMoeLauncherArgs(t *testing.T) {
+	switch runtime.GOOS {
+	case "linux", "windows":
+	default:
+		t.Skipf("pas de moteur MoE sous %s : rien à lancer", runtime.GOOS)
+	}
+	t.Setenv("AJEAN_HOME", t.TempDir())
+	if err := os.MkdirAll(moeHome(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	srcDir := t.TempDir()
+	py := moeVenvPython(srcDir)
+	_ = os.MkdirAll(filepath.Dir(py), 0o755)
+	_ = os.WriteFile(py, []byte("x"), 0o755)
+	prog, largs, err := moeWriteLauncher(srcDir, py)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if prog == "" {
+		t.Fatal("pas de programme")
+	}
+	for _, a := range largs {
+		if a == prog {
+			t.Errorf("le programme est injecté dans les args (doublé dans la commande) : %v", largs)
+		}
 	}
 }
 
