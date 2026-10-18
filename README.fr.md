@@ -354,3 +354,7 @@ L'interface existe en anglais et en français ; voir [docs/TRANSLATING.md](docs/
 [MIT](LICENSE). Le fichier intégré `marked.min.js` est [Marked](https://github.com/markedjs/marked), lui aussi sous licence MIT.
 
 [Import AMD HIP local expérimental](docs/import-amd-hip.fr.md) — import/préparation testés sur CPU ; qualification GPU à effectuer.
+
+[Connexions Radiance et Paiton](docs/amd-engine-connections.fr.md) — connexions externes enregistrées dans le chat original, découverte des modèles et sélection explicite.
+
+[Mesures historiques Flash Next](docs/benchmarks/README.fr.md) — profils mesurés, conditions et provenance SHA256 ; aucune qualification matérielle déduite pour cette PR.

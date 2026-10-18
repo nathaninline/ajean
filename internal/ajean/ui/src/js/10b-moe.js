@@ -3,12 +3,15 @@
 // tout le reste (cartes, RAM, mmap, réglages) est déduit côté serveur
 // (backend_moe.go). L'installation est une tâche comme celles de llama.cpp :
 // même suivi (#lc-job), même pastille, même annulation.
-let moeState = null, moeFam = '', moeQuant = '', moeTarget = '';
+let moeState = null, moeFam = '', moeQuant = '', moeTarget = '', moeRequestedBackend = '';
 
-async function loadMoe(){
+async function loadMoe(backend=moeRequestedBackend){
   let s;
-  try{ s = await jget('/api/moe'); }catch(_){ return; }
+  try{ s = await jget('/api/moe'+(backend==='hip'?'?backend=hip':'')); }catch(_){ return; }
   moeState = s;
+  if(backend==='hip') return;
+  const hipRow=document.getElementById('lc-mode-hip');
+  if(hipRow) hipRow.hidden=!(s.hip_recipes||[]).length && !(s.hip_installables||[]).length;
   const row = document.getElementById('lc-mode-moe');
   if(!row) return;
   // Hors Linux + NVIDIA compatible, la ligne n'apparaît pas : rien à y proposer.
@@ -28,13 +31,16 @@ async function loadMoe(){
 
 // presetId (optionnel) : ouverte depuis l'engrenage d'un modèle installé, la
 // fenêtre se place directement sur lui.
-async function openMoe(presetId){
+async function openMoe(presetId, backend){
   document.getElementById('moe-save').disabled=false;
   const modalTitle=document.getElementById('moe-modal-title');
   modalTitle.setAttribute('data-i18n','moe.modal_title');modalTitle.textContent=t('moe.modal_title');
   // état relu à chaque ouverture : juste après une installation, l'ancien
   // proposait encore « Installer »
-  await loadMoe();
+  if(!backend && typeof presetId==='string' && moeState &&
+     (moeState.hip_recipes||[]).some(r=>r.preset===presetId)) backend='hip';
+  moeRequestedBackend=backend||'';
+  await loadMoe(moeRequestedBackend);
   if(!moeState) return;
   if((moeState.env||{}).backend === "hip") { modalTitle.setAttribute("data-i18n", "moe.hip_title"); modalTitle.textContent=t("moe.hip_title"); openMoeHIP(presetId); return; }
   document.getElementById('moe-hip-result').hidden=true;
@@ -61,7 +67,7 @@ async function openMoe(presetId){
   moeRenderQuants(!moeTarget);
   showModal('moe-modal');
 }
-function closeMoe(){ hideModal('moe-modal'); }
+function closeMoe(){ hideModal('moe-modal'); moeRequestedBackend=''; }
 
 function moeRenderFams(){
   if(moeIsHIP()){ moeRenderHIPFams(); return; }

@@ -178,17 +178,23 @@ func TestMoeHIPNativeProcessReplacement(t *testing.T) {
 
 func TestMoeHIPExplicitCatalogueSelectsBackendWithoutDeviceCommands(t *testing.T) {
 	hipCatalogFixture(t)
-	// Empty PATH ensures this CPU test cannot execute a GPU utility. An imported
-	// catalogue is an explicit backend choice, including on mixed-GPU machines.
+	// Empty PATH ensures this CPU test cannot execute a GPU utility. The
+	// request selects imports explicitly; a stored catalogue alone does not.
 	t.Setenv("PATH", t.TempDir())
 	env := moeDetect()
-	if env.Backend != "hip" || !env.Supported || !env.Visible || len(env.GPUs) != 0 {
-		t.Fatal("explicit HIP catalogue did not select the CPU-only metadata branch", env)
+	if env.Backend == "hip" {
+		t.Fatal("stored HIP catalogue overrode automatic hardware detection", env)
 	}
 	rr := httptest.NewRecorder()
-	handleMoe(rr, httptest.NewRequest("GET", "/api/moe", nil))
+	handleMoe(rr, httptest.NewRequest("GET", "/api/moe?backend=hip", nil))
 	var data map[string]any
 	if rr.Code != 200 || json.Unmarshal(rr.Body.Bytes(), &data) != nil || data["backend"] != "hip" || data["proof_state"] != "prepared" || data["version"] != Version {
 		t.Fatal("incorrect HIP availability metadata", rr.Body.String())
+	}
+	rr = httptest.NewRecorder()
+	handleMoe(rr, httptest.NewRequest("GET", "/api/moe", nil))
+	data = nil
+	if json.Unmarshal(rr.Body.Bytes(), &data) != nil || data["backend"] == "hip" || data["hip_available"] != true || len(data["families"].([]any)) == 0 {
+		t.Fatal("local catalogue hid the standard installation choices", rr.Body.String())
 	}
 }

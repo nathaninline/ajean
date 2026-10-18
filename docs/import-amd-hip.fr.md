@@ -15,9 +15,10 @@ source tiers n'est livré ; acquérir les composants compatibles séparément en
 conservant leurs attributions/licences et les qualifier avant activation.
 
 La cible initiale est Linux x86_64, texte, une génération et écoute loopback.
-Un catalogue HIP local non vide choisit explicitement HIP avant la détection
-NVIDIA, y compris sur une machine mixte. Sans catalogue HIP, CUDA conserve son
-chemin existant. Un import déclaré ne constitue pas une mesure du matériel.
+Le mode d’import HIP local doit être choisi explicitement. La présence d’un
+catalogue ne remplace ni la détection matérielle normale ni le parcours CUDA
+existant. L’API expose cette vue par `GET /api/moe?backend=hip`. Un import déclaré
+ne constitue pas une mesure du matériel.
 
 Créer `AJEAN_HOME/moe-hip/catalogue.json` avec une liste `recipes` décrivant les
 chemins absolus et empreintes de la configuration, du moteur, des sources et du

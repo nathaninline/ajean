@@ -718,6 +718,16 @@ Write the summary in the SAME language as the conversation.`
 	if !ep.External {
 		payload["chat_template_kwargs"] = map[string]any{"enable_thinking": false}
 	}
+	cfg := ReadConfig()
+	if isExternalConfig(cfg) && cfg[externalEngineKey] == "radiance" {
+		for _, eff := range strings.Split(cfg["EXTERNAL_REASONING_EFFORTS"], ",") {
+			if eff == "none" {
+				payload["reasoning_effort"] = "none"
+				break
+			}
+		}
+	}
+
 	body, _ := json.Marshal(payload)
 	req, err := http.NewRequestWithContext(ctx, "POST", ep.URL, bytes.NewReader(body))
 	if err != nil {

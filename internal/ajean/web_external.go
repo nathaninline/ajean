@@ -43,6 +43,8 @@ func handlePresetExternal(w http.ResponseWriter, r *http.Request) {
 		"ctx":    strings.TrimSpace(cfg["CTX"]),
 		"vision": strings.TrimSpace(cfg[extKeyVision]) == "1",
 		"hasKey": strings.TrimSpace(cfg[extKeyToken]) != "",
+		"engine": cfg[externalEngineKey],
+		"effort": cfg["REASONING_EFFORT"],
 	})
 }
 
@@ -50,20 +52,31 @@ func handlePresetExternal(w http.ResponseWriter, r *http.Request) {
 // conserve la clé existante (voir keyTouched) ; sur une création, absence de clé
 // = pas d'authentification.
 type externalSaveReq struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	URL        string `json:"url"`
-	Model      string `json:"model"`
-	Key        string `json:"key"`
-	Ctx        string `json:"ctx"`        // taille de contexte (clé CTX), optionnelle
-	Vision     bool   `json:"vision"`     // le modèle distant accepte les images
-	KeyTouched bool   `json:"keyTouched"` // l'utilisateur a modifié le champ clé
+	Engine     string  `json:"engine"`
+	Effort     *string `json:"effort,omitempty"`
+	ID         string  `json:"id"`
+	Name       string  `json:"name"`
+	URL        string  `json:"url"`
+	Model      string  `json:"model"`
+	Key        string  `json:"key"`
+	Ctx        string  `json:"ctx"`        // taille de contexte (clé CTX), optionnelle
+	Vision     bool    `json:"vision"`     // le modèle distant accepte les images
+	KeyTouched bool    `json:"keyTouched"` // l'utilisateur a modifié le champ clé
 }
 
 func handlePresetExternalSave(w http.ResponseWriter, r *http.Request) {
 	var req externalSaveReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16384)).Decode(&req); err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if req.Engine == "" && req.ID != "" {
+		if old, e := ReadPreset(req.ID); e == nil {
+			req.Engine = parseEnv(old)[externalEngineKey]
+		}
+	}
+	if req.Engine != "" {
+		handleEngineConnectionSave(w, r, req)
 		return
 	}
 	req.Name = strings.TrimSpace(req.Name)
@@ -114,8 +127,17 @@ func handlePresetExternalSave(w http.ResponseWriter, r *http.Request) {
 // sans clé fournie, on réutilise la clé stockée.
 func handlePresetExternalTest(w http.ResponseWriter, r *http.Request) {
 	var req externalSaveReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16384)).Decode(&req); err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if req.Engine == "" && req.ID != "" {
+		if old, e := ReadPreset(req.ID); e == nil {
+			req.Engine = parseEnv(old)[externalEngineKey]
+		}
+	}
+	if req.Engine != "" {
+		handleEngineConnectionTest(w, r, req)
 		return
 	}
 	url := completionsURL(req.URL)

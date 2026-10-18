@@ -16,10 +16,10 @@ licenses, and qualify them before enabling a model.
 ## Scope
 
 The initial branch targets Linux x86_64, text only, one active generation and
-loopback binding. A nonempty operator HIP recipe or install catalogue explicitly
-selects this branch before NVIDIA detection, including on mixed-GPU machines.
-Without a HIP catalogue, the existing CUDA path is unchanged. This is not
-hardware discovery: a catalogue declares an import, not a verified working GPU.
+loopback binding. The local HIP import mode must be selected explicitly;
+merely storing a recipe or install catalogue does not replace normal hardware
+detection or the existing CUDA path. The API exposes the import view through
+`GET /api/moe?backend=hip`. A catalogue declares an import, not a verified GPU.
 
 Imported engine arguments remain explicit. CUDA helpers, vision, remote/batched
 execution and implicit device remapping are rejected. Context is capped at

@@ -354,3 +354,7 @@ The interface is available in English and French; see [docs/TRANSLATING.md](docs
 [MIT](LICENSE). The embedded `marked.min.js` is [Marked](https://github.com/markedjs/marked), also MIT.
 
 [Experimental local AMD HIP imports](docs/amd-hip-import.md) — CPU-tested import/preparation; GPU qualification pending.
+
+[Radiance and Paiton connections](docs/amd-engine-connections.md) — saved external engine connections in the original chat workflow; model discovery and explicit selection.
+
+[Historical Flash Next engine measurements](docs/benchmarks/README.md) — measured profiles with conditions and raw-artifact SHA256 provenance; not a hardware qualification of this PR.

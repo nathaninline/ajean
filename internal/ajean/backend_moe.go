@@ -162,14 +162,6 @@ func moeDetect() moeEnv {
 		env.Reason = "ce moteur n'est proposé pour l'instant que sous Linux (x86_64)"
 		return env
 	}
-	// An explicitly imported HIP catalogue selects this branch before any
-	// NVIDIA probing, including on machines that also have an NVIDIA adapter.
-	if moeHIPLocalAvailable() {
-		env.Visible = true
-		env.Supported = true
-		env.Backend = "hip"
-		return env
-	}
 	gpus, err := detectGPUs()
 	if err != nil {
 		env.Reason = "ce moteur demande une carte NVIDIA (" + err.Error() + ")"
@@ -1265,11 +1257,20 @@ func moeVisionActive() bool {
 // handleMoe (GET) : la machine, ce qui y tient, la recommandation par
 // version, et les modèles déjà installés (presets ENGINE=moe).
 func handleMoe(w http.ResponseWriter, r *http.Request) {
-	env := moeDetect()
-	if env.Backend == "hip" {
+	// Local imports are an explicit installation mode. Merely storing a
+	// catalogue must not replace automatic hardware detection or hide other
+	// installed engines (including the standard AMD installer).
+	if r.URL.Query().Get("backend") == "hip" {
+		env := moeEnv{Backend: "hip", Main: -1, Helper: -1, RAMGB: totalRAMGB()}
+		env.Supported = runtime.GOOS == "linux" && runtime.GOARCH == "amd64" && moeHIPLocalAvailable()
+		env.Visible = true
+		if free := diskFree(AjeanHome()); free > 0 {
+			env.DiskFreeGB = float64(free) / 1e9
+		}
 		sendJSON(w, 200, map[string]any{"version": Version, "backend": "hip", "proof_state": "prepared", "env": env, "families": []any{}, "installed": []any{}, "hip_recipes": moeHIPViews(), "hip_installables": moeHIPInstallViews()})
 		return
 	}
+	env := moeDetect()
 	type famView struct {
 		moeFamily
 		Fits      []moeFit `json:"fits"`
@@ -1306,6 +1307,8 @@ func handleMoe(w http.ResponseWriter, r *http.Request) {
 	}
 	sendJSON(w, 200, map[string]any{
 		"version": moeVersion, "env": env, "families": fams, "installed": installed,
+		"hip_available": moeHIPLocalAvailable(),
+		"hip_recipes":   moeHIPViews(), "hip_installables": moeHIPInstallViews(),
 	})
 }
 
