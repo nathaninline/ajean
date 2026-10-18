@@ -100,8 +100,15 @@ function KIND(kind){
 // backends, GPU) — sinon on voyait les champs se peupler un par un.
 let openSeq = 0;
 async function openItem(kind, key){
-  const K = KIND(kind);
   const seq = ++openSeq;
+  if(typeof resetEngineConnectionEditor==='function') resetEngineConnectionEditor();
+  if(kind==='preset' && key && typeof loadEngineConnections==='function'){
+    await loadEngineConnections();
+    if(seq!==openSeq)return;
+    const connection=engineConnections.find(c=>c.id===key);
+    if(connection)return openEngineConnection(connection.engine,connection.id);
+  }
+  const K = KIND(kind);
   editingKind = kind; editingKey = key || '';
   document.getElementById('modal-title').textContent = key ? (K.label ? K.label + ' · ' + key : key) : K.newLabel;
   document.getElementById('m-name').value = key || '';
@@ -1050,6 +1057,7 @@ function syncRunMode(){
 }
 // Test d'un preset API externe : une complétion d'un jeton vers l'API saisie.
 async function testExternalPreset(){
+  if(typeof engineConnectionEditor!=='undefined' && engineConnectionEditor) return testEngineConnection();
   const st = document.getElementById('s-ext-status');
   const b = {id: editingKey || '', url: cfgReadKey('EXTERNAL_URL'), model: cfgReadKey('EXTERNAL_MODEL'),
              key: cfgReadKey('EXTERNAL_KEY'), keyTouched: true};
@@ -1316,8 +1324,9 @@ const openPreset = (id)=>openItem('preset', id);
 const openMem    = (n)=>openItem('mem', n);
 // Fermer la modale n'annule PAS un téléchargement en cours (il vit côté
 // serveur) : on arrête juste de l'interroger.
-function closeModal(){ hideModal('modal'); document.getElementById('modal').classList.remove('loading'); stopDlPoll(); }
+function closeModal(){ ++openSeq; resetEngineConnectionEditor(); hideModal('modal'); document.getElementById('modal').classList.remove('loading'); stopDlPoll(); }
 async function saveItem(){
+  if(typeof engineConnectionEditor!=='undefined' && engineConnectionEditor) return saveEngineConnection();
   const K = KIND(editingKind);
   const name = document.getElementById('m-name').value.trim();
   // Interrupteur « Raisonnement » : on matérialise son état dans le preset AVANT

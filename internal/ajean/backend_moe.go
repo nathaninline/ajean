@@ -135,7 +135,8 @@ type moeGPU struct {
 
 // moeEnv : ce que l'écran d'installation doit savoir de la machine.
 type moeEnv struct {
-	Supported bool `json:"supported"`
+	Supported bool   `json:"supported"`
+	Backend   string `json:"backend,omitempty"`
 	// Visible : système et carte compatibles. La ligne du moteur s'affiche alors
 	// même si un prérequis manque (Python, venv) : sa raison est montrée au lieu
 	// de faire disparaître le moteur sans explication (issue #125).
@@ -524,6 +525,10 @@ func sha256File(p string) (string, error) {
 // moeRunInstall : le corps de la tâche d'installation.
 func moeRunInstall(req moeInstallReq) {
 	env := moeDetect()
+	if env.Backend == "hip" {
+		lcFail(fmt.Errorf("AMD : utiliser une recette Strata HIP locale vérifiée, pas le paquet CUDA"))
+		return
+	}
 	if !env.Supported {
 		lcFail(fmt.Errorf("%s", env.Reason))
 		return
@@ -1032,6 +1037,9 @@ func moeCudaDevices(cfg map[string]string) string {
 // et par le pré-vol de `ajean start` / `ajean restart`, qui exigeait BIN et
 // MODEL : un preset MoE n'a ni l'un ni l'autre et était refusé.
 func moePreflight(cfg map[string]string) (string, map[string]any, error) {
+	if cfg["MOE_BACKEND"] == "hip" {
+		return moeHIPPreflight(cfg)
+	}
 	path := strings.TrimSpace(cfg["MOE_CONFIG"])
 	if path == "" {
 		return "", nil, fmt.Errorf("MOE_CONFIG non défini : réinstaller le modèle depuis la section Moteur")
@@ -1057,6 +1065,13 @@ func moeVenvPython(srcDir string) string { return filepath.Join(srcDir, ".venv",
 // côté de celle de l'installeur puis remplace le process par le serveur du moteur
 // (comme llama-server : systemd supervise directement le moteur).
 func serveMoe(cfg map[string]string) error {
+	// Branch before CUDA migration or automatic engine replacement.
+	if cfg["MOE_BACKEND"] == "hip" {
+		return serveMoeHIP(cfg)
+	}
+	if cfg["MOE_BACKEND"] != "" && cfg["MOE_BACKEND"] != "cuda" {
+		return fmt.Errorf("backend MoE inconnu")
+	}
 	if err := moeMigrate(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "[ajean serve] passage à AJEAN MoE %s impossible (%v) : la version installée reste utilisée\n", moeVersion, err)
 	}
@@ -1242,6 +1257,19 @@ func moeVisionActive() bool {
 // handleMoe (GET) : la machine, ce qui y tient, la recommandation par
 // version, et les modèles déjà installés (presets ENGINE=moe).
 func handleMoe(w http.ResponseWriter, r *http.Request) {
+	// Local imports are an explicit installation mode. Merely storing a
+	// catalogue must not replace automatic hardware detection or hide other
+	// installed engines (including the standard AMD installer).
+	if r.URL.Query().Get("backend") == "hip" {
+		env := moeEnv{Backend: "hip", Main: -1, Helper: -1, RAMGB: totalRAMGB()}
+		env.Supported = runtime.GOOS == "linux" && runtime.GOARCH == "amd64" && moeHIPLocalAvailable()
+		env.Visible = true
+		if free := diskFree(AjeanHome()); free > 0 {
+			env.DiskFreeGB = float64(free) / 1e9
+		}
+		sendJSON(w, 200, map[string]any{"version": Version, "backend": "hip", "proof_state": "prepared", "env": env, "families": []any{}, "installed": []any{}, "hip_recipes": moeHIPViews(), "hip_installables": moeHIPInstallViews()})
+		return
+	}
 	env := moeDetect()
 	type famView struct {
 		moeFamily
@@ -1279,6 +1307,8 @@ func handleMoe(w http.ResponseWriter, r *http.Request) {
 	}
 	sendJSON(w, 200, map[string]any{
 		"version": moeVersion, "env": env, "families": fams, "installed": installed,
+		"hip_available": moeHIPLocalAvailable(),
+		"hip_recipes":   moeHIPViews(), "hip_installables": moeHIPInstallViews(),
 	})
 }
 
@@ -1427,6 +1457,10 @@ func handleMoeSettings(w http.ResponseWriter, r *http.Request) {
 	b, err := os.ReadFile(path)
 	if err != nil || !isMoeConfig(parseEnv(string(b))) {
 		sendJSON(w, 404, map[string]any{"ok": false, "error": "modèle introuvable"})
+		return
+	}
+	if parseEnv(string(b))["MOE_BACKEND"] == "hip" {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "Réglages HIP gérés par la recette opérateur, pas par les réglages CUDA"})
 		return
 	}
 	next, err := moeApplySettings(string(b), req)

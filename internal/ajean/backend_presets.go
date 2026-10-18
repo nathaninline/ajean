@@ -2,6 +2,7 @@ package ajean
 
 import (
 	"bufio"
+	"context"
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
@@ -327,6 +328,9 @@ func applyPresetFile(target string) error {
 // SwitchToPreset installe le preset et redémarre le service. Les réglages
 // « appareil » (preservedKeys) sont conservés à travers la bascule.
 func SwitchToPreset(target string) error {
+	if raw, e := os.ReadFile(target); e == nil && namedExternalEngine(parseEnv(string(raw))) {
+		return selectEngineConnection(context.Background(), target)
+	}
 	if err := applyPresetFile(target); err != nil {
 		return err
 	}

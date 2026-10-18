@@ -86,6 +86,10 @@ func Main() {
 		mustExit(cmdComputer(args))
 	case "memory":
 		mustExit(cmdMemory(args))
+	case "moe-hip-install":
+		mustExit(cmdMoeHIPInstall(args))
+	case "moe-hip-check":
+		mustExit(cmdMoeHIPCheck(args))
 	case "serve":
 		mustExit(cmdServe(args))
 	case "test":

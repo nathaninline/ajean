@@ -435,7 +435,7 @@ func handleLlamacppJobCancel(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 200, map[string]any{"ok": false, "error": "aucun job en cours"})
 		return
 	}
-	if cancelCurrentBuild() {
+	if moeHIPCancelInstall() || cancelCurrentBuild() {
 		lcPhase("arrêt demandé…")
 		sendJSON(w, 200, map[string]any{"ok": true})
 		return

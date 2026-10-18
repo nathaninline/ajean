@@ -322,7 +322,26 @@ func handleReasoning(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	eff := strings.TrimSpace(req.Effort)
+	cfg := ReadConfig()
+	radiance := isExternalConfig(cfg) && cfg[externalEngineKey] == "radiance"
+	if radiance && eff != "" {
+		allowed := false
+		for _, v := range strings.Split(cfg["EXTERNAL_REASONING_EFFORTS"], ",") {
+			if eff == v {
+				allowed = true
+			}
+		}
+		if !allowed {
+			sendJSON(w, 400, map[string]any{"ok": false, "error": "niveau non déclaré par le serveur Radiance sélectionné"})
+			return
+		}
+	}
 	switch eff {
+	case "none", "minimal":
+		if !radiance {
+			sendJSON(w, 400, map[string]any{"ok": false, "error": "effort inconnu"})
+			return
+		}
 	case "", "low", "medium", "high", "xhigh":
 	default:
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "effort inconnu"})
@@ -513,6 +532,9 @@ func handlePresets(w http.ResponseWriter, r *http.Request) {
 			// wifi et le nom du modèle distant, au lieu des tags quant/ctx/moteur.
 			if cfg := parseEnv(content); isExternalConfig(cfg) {
 				item["external"] = true
+				if namedExternalEngine(cfg) {
+					item["engine"] = cfg[externalEngineKey]
+				}
 				if m := strings.TrimSpace(cfg[extKeyModel]); m != "" {
 					item["model"] = m
 				}
@@ -1434,6 +1456,14 @@ func handleSwitch(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		target = list[req.N-1]
+	}
+	if raw, e := os.ReadFile(target.Path); e == nil && namedExternalEngine(parseEnv(string(raw))) {
+		if e = selectEngineConnection(r.Context(), target.Path); e != nil {
+			sendJSON(w, 400, map[string]any{"ok": false, "error": e.Error()})
+			return
+		}
+		sendJSON(w, 200, map[string]any{"ok": true, "preset": target.Name})
+		return
 	}
 	// On écrit config.env TOUT DE SUITE (c'est lui qui décide du preset actif),
 	// puis on répond — le redémarrage du service part en arrière-plan. Passer par

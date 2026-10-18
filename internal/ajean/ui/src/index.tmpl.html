@@ -279,6 +279,20 @@
         <div class="lc-mode-d" data-i18n="moe.mode_desc">le plus rapide pour ce modèle, installation en un clic</div>
         <div class="lc-mode-state" id="lc-moe-state"></div>
       </div>
+      <div class="lc-mode" id="lc-mode-hip" hidden onclick="openMoe('', 'hip')">
+        <div class="lc-mode-t" data-i18n="moe.hip_engine_label">Strata HIP (AMD)</div>
+        <div class="lc-mode-d" data-i18n="moe.hip_engine_desc">Bundles AMD importés et recettes locales</div>
+      </div>
+      <div class="lc-mode" id="lc-mode-radiance" onclick="openEngineConnection('radiance')">
+        <div class="lc-mode-t">Radiance</div>
+        <div class="lc-mode-d" data-i18n="engine.connection_desc">Connecter un serveur existant compatible OpenAI</div>
+        <div class="lc-mode-state" id="lc-radiance-state"></div>
+      </div>
+      <div class="lc-mode" id="lc-mode-paiton" onclick="openEngineConnection('paiton')">
+        <div class="lc-mode-t">Paiton</div>
+        <div class="lc-mode-d" data-i18n="engine.connection_desc">Connecter un serveur existant compatible OpenAI</div>
+        <div class="lc-mode-state" id="lc-paiton-state"></div>
+      </div>
     </div>
     <div id="lc-job" class="rowbody" style="display:none">
       <div style="display:flex;align-items:center;gap:8px">
@@ -541,6 +555,9 @@
   <button data-mode="base" onclick="pickMode('base')"><svg class="mm-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg><span class="mm-t"><span data-i18n="chat.mode_base">Modèle de base</span><span class="rm-h" data-i18n="chat.mode_base_hint">sans agent ni outils</span></span></button>
 </div>
 <div id="reason-menu" class="menu" style="display:none">
+  <button data-eff="" onclick="pickReason('')" style="display:none" data-i18n="engine.connection_effort_default">Défaut du serveur</button>
+  <button data-eff="none" onclick="pickReason('none')" style="display:none">none</button>
+  <button data-eff="minimal" onclick="pickReason('minimal')" style="display:none">minimal</button>
   <button data-eff="low" onclick="pickReason('low')">low <span class="rm-h" data-i18n="reason.hint_fast">rapide</span></button>
   <button data-eff="medium" onclick="pickReason('medium')">medium</button>
   <button data-eff="high" onclick="pickReason('high')">high</button>
@@ -585,7 +602,7 @@
 <div id="moe-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeMoe()">
   <div class="modal-card" style="max-width:520px">
     <div class="modal-head">
-      <strong data-i18n="moe.modal_title">Qwen3.8 Flash Next</strong>
+      <strong id="moe-modal-title" data-i18n="moe.modal_title">Qwen3.8 Flash Next</strong>
       <button class="modal-x" onclick="closeMoe()" aria-label="Fermer" data-i18n="moe.close_aria" data-i18n-attr="aria-label">×</button>
     </div>
     <div class="modal-body mform">
@@ -608,6 +625,7 @@
         <div class="slist moe-details" id="moe-details"></div>
       </div>
       <div id="moe-note" class="muted" style="font-size:11px;line-height:1.5"></div>
+      <p id="moe-hip-result" class="muted" role="status" aria-live="polite" hidden></p>
     </div>
     <div class="modal-foot">
       <div class="foot-l">
@@ -1021,17 +1039,30 @@
         <!-- API externe : tout modèle compatible OpenAI Chat Completions (OpenAI,
              Claude, Groq, OpenRouter, un autre serveur…). Pas de moteur local. -->
         <div id="m-ext-body" class="pe-list" style="display:none;margin-top:8px">
+          <div id="engine-connection-picker" class="pe-row" hidden>
+            <span class="pe-row-l" data-i18n="engine.connection_saved">Connexion</span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="engine-connection-id" onchange="openEngineConnection(engineConnectionEditor.engine,this.value)"></select></span></span>
+          </div>
+          <div id="engine-connection-note" class="pe-row stack" hidden>
+            <span class="pe-sub" data-i18n="engine.connection_discover">Laisse le modèle vide puis teste la connexion pour choisir parmi les modèles du serveur.</span>
+            <span class="pe-sub" data-i18n="engine.connection_owned">AJEAN se connecte au serveur existant. Installation, démarrage, quantification, KV et MTP sont gérés par ce serveur ; cette connexion ne les recharge pas.</span>
+          </div>
           <div class="pe-row stack">
             <span class="pe-row-l"><span data-i18n="external.url_label">URL de l'API</span> <span class="pe-sub" data-i18n="external.url_hint">(base OpenAI, ex: https://api.openai.com/v1)</span></span>
             <input id="s-ext-url" class="pe-inp" spellcheck="false" placeholder="https://api.openai.com/v1" oninput="cfgWriteKey('EXTERNAL_URL', this.value)">
           </div>
           <div class="pe-row stack">
             <span class="pe-row-l"><span data-i18n="external.model_label">Modèle</span> <span class="pe-sub" data-i18n="external.model_hint">(identifiant exact, ex: gpt-4o-mini)</span></span>
-            <input id="s-ext-model" class="pe-inp" spellcheck="false" placeholder="gpt-4o-mini" oninput="cfgWriteKey('EXTERNAL_MODEL', this.value)">
+            <input id="s-ext-model" list="s-ext-model-list" class="pe-inp" spellcheck="false" placeholder="gpt-4o-mini" oninput="cfgWriteKey('EXTERNAL_MODEL', this.value)">
+          </div>
+          <datalist id="s-ext-model-list"></datalist>
+          <div id="engine-connection-effort-row" class="pe-row" hidden>
+            <span class="pe-row-l"><span data-i18n="engine.connection_effort">Effort de raisonnement</span><span class="pe-sub" data-i18n="engine.connection_effort_note">Choix déclarés par le modèle après le test de connexion ; sinon, défaut du serveur.</span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="s-ext-effort" onchange="markEngineConnectionDirty()"></select></span></span>
           </div>
           <div class="pe-row stack">
             <span class="pe-row-l"><span data-i18n="external.key_label">Clé API</span> <span class="pe-sub" data-i18n="external.key_hint">(optionnelle pour un serveur local)</span></span>
-            <input id="s-ext-key" class="pe-inp" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" oninput="cfgWriteKey('EXTERNAL_KEY', this.value)">
+            <input id="s-ext-key" class="pe-inp" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" oninput="cfgWriteKey('EXTERNAL_KEY', this.value);if(engineConnectionEditor)engineConnectionEditor.keyTouched=true">
           </div>
           <div class="pe-row">
             <span class="pe-row-l" data-i18n="preset.ctx_label">Contexte</span>
@@ -1044,6 +1075,10 @@
           <div class="pe-row" style="cursor:pointer" onclick="testExternalPreset()">
             <span class="pe-row-l"><span data-i18n="external.test">tester la connexion</span><span class="pe-sub" id="s-ext-status"></span></span>
             <span class="pe-row-c"><span class="pe-unit">→</span></span>
+          </div>
+          <div id="engine-connection-select-row" class="pe-row" hidden>
+            <span class="pe-row-l" data-i18n="engine.connection_select_note">Vérifie le modèle puis utilise cette connexion pour le chat.</span>
+            <span class="pe-row-c"><button type="button" id="engine-connection-select" class="pe-btn" onclick="selectEngineConnection()" data-i18n="engine.connection_select">Utiliser pour le chat</button></span>
           </div>
         </div>
         <div id="m-cloud-body" class="pe-list" style="display:none;margin-top:8px">

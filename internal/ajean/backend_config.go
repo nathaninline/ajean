@@ -255,7 +255,11 @@ func applySamplingFrom(payload map[string]any, cfg map[string]string) {
 		}
 	}
 	if eff := strings.TrimSpace(cfg["REASONING_EFFORT"]); eff != "" {
-		payload["chat_template_kwargs"] = map[string]any{"reasoning_effort": eff}
+		if isExternalConfig(cfg) && cfg[externalEngineKey] == "radiance" {
+			payload["reasoning_effort"] = eff
+		} else {
+			payload["chat_template_kwargs"] = map[string]any{"reasoning_effort": eff}
+		}
 	}
 }
 

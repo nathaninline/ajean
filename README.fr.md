@@ -166,6 +166,8 @@ ajean internet url http://localhost:11235
 
 ## Modèles et moteur
 
+Alternatives AMD : [Radiance, Paiton et Strata HIP — architecture et état de l’intégration](docs/moteurs-amd.fr.md). L’import HIP local expérimental de cette PR concerne Strata ; les autres moteurs peuvent utiliser l’API externe existante.
+
 ### Presets
 
 Un preset est une configuration complète de modèle : fichier du modèle, taille du contexte, couches sur le GPU, cache KV, échantillonnage, raisonnement, décodage spéculatif, vision. Changer de preset recharge le modèle, depuis l'interface ou avec `ajean switch`. Les presets se règlent dans l'interface ; les fichiers `.gguf` peuvent être sur n'importe quel disque.
@@ -350,3 +352,9 @@ L'interface existe en anglais et en français ; voir [docs/TRANSLATING.md](docs/
 ## Licence
 
 [MIT](LICENSE). Le fichier intégré `marked.min.js` est [Marked](https://github.com/markedjs/marked), lui aussi sous licence MIT.
+
+[Import AMD HIP local expérimental](docs/import-amd-hip.fr.md) — import/préparation testés sur CPU ; qualification GPU à effectuer.
+
+[Connexions Radiance et Paiton](docs/amd-engine-connections.fr.md) — connexions externes enregistrées dans le chat original, découverte des modèles et sélection explicite.
+
+[Mesures historiques Flash Next](docs/benchmarks/README.fr.md) — profils mesurés, conditions et provenance SHA256 ; aucune qualification matérielle déduite pour cette PR.

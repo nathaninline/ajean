@@ -304,6 +304,7 @@ let REASON_EFFORT = null; // null = pas encore chargé
 // raccourci est donc toujours là. Son gabarit connaît low, medium et xhigh (son
 // défaut) ; « high » y vaut xhigh.
 let REASON_MOE = false;
+let REASON_EXTERNAL_OPTIONS=null;
 function reasonLevel(){
   const e=(REASON_EFFORT||'').trim();
   return REASON_MOE ? ((!e || e==='high') ? 'xhigh' : e) : e;
@@ -316,25 +317,28 @@ function updateReasonBtn(eff, moe){
   const e=reasonLevel();
   // Pas d'effort défini sur le preset → pas de raccourci (on ne veut pas envoyer
   // reasoning_effort à un moteur lancé sans --jinja, où il n'aurait aucun effet).
-  if(!e){ btn.style.display='none'; return; }
+  if(!e && !REASON_EXTERNAL_OPTIONS?.length){ btn.style.display='none'; return; }
   btn.style.display='flex';
   // Jauge de signal : on allume autant de barres que le niveau (low=1 … xhigh=4),
   // les autres restent estompées. On lit le mode d'un coup d'œil, sans cliquer.
   const n={low:1, medium:2, high:3, xhigh:4}[e] || 0;
   btn.querySelectorAll('.rb').forEach(p=>{ p.style.opacity = (Number(p.dataset.l)<=n) ? '1' : '.28'; });
-  btn.title = t('status.reason_level_prefix')+' '+e+' '+t('status.reason_level_suffix');
+  btn.title = t('status.reason_level_prefix')+' '+(e||t('engine.connection_effort_default'))+' '+t('status.reason_level_suffix');
 }
 function toggleReasonMenu(ev){
   ev.stopPropagation();
   const menu=document.getElementById('reason-menu'), cur=reasonLevel();
   menu.querySelectorAll('button').forEach(b=>{
     b.classList.toggle('on', b.dataset.eff===cur); // niveau courant
-    b.style.display = (REASON_MOE && b.dataset.eff==='high') ? 'none' : '';
+    b.style.display = REASON_EXTERNAL_OPTIONS!==null
+      ? (!b.dataset.eff || REASON_EXTERNAL_OPTIONS.includes(b.dataset.eff) ? '' : 'none')
+      : ((!b.dataset.eff || ['none','minimal'].includes(b.dataset.eff) || (REASON_MOE && b.dataset.eff==='high')) ? 'none' : '');
   });
   toggleMenu(menu, document.getElementById('reason-btn'), {side:'above', align:'right'});
 }
 const closeReasonMenu = ()=>closeMenu();
 async function pickReason(eff){
+  if(REASON_EXTERNAL_OPTIONS!==null && eff && !REASON_EXTERNAL_OPTIONS.includes(eff))return;
   closeReasonMenu();
   const prev=REASON_EFFORT;
   updateReasonBtn(eff);                 // retour visuel immédiat
@@ -453,6 +457,7 @@ async function loadTelemetry(){
 }
 let ENGINE_CMDLINE='';
 async function loadCfg(){
+  REASON_EXTERNAL_OPTIONS=null;
   // /api/llamacpp en parallèle : il indique si le BIN de la config correspond au
   // précompilé (prebuilt.in_use) ou compilé ici (in_use) — sinon c'est un fork perso.
   const [c, lc] = await Promise.all([jget('/api/config'), jget('/api/llamacpp').catch(()=>null)]);
@@ -475,7 +480,7 @@ async function loadCfg(){
     return;
   }
   if(c.EXTERNAL==='1'){
-    rows.push(row(t('external.cfg_type_label'), t('external.title')));
+    rows.push(row(t('external.cfg_type_label'), engineConnectionLabel(c.EXTERNAL_ENGINE)||t('external.title')));
     if(c.EXTERNAL_MODEL) rows.push(row(t('external.model_label'), c.EXTERNAL_MODEL));
     if(c.CTX) rows.push(row('CTX', c.CTX));
     if(c.EXTERNAL_URL){
@@ -489,7 +494,10 @@ async function loadCfg(){
       rows.push(row(t('external.key_label'), mask, ''));
     }
     swapContent(document.getElementById('cfg'), rows.join(''));
-    updateReasonBtn('', false);
+    if(engineConnectionLabel(c.EXTERNAL_ENGINE)){
+      REASON_EXTERNAL_OPTIONS=(c.EXTERNAL_REASONING_EFFORTS||'').split(',').filter(e=>/^(none|minimal|low|medium|high|xhigh)$/.test(e) && (c.EXTERNAL_ENGINE==='radiance'||!['none','minimal'].includes(e)));
+      updateReasonBtn(c.REASONING_EFFORT||'', false);
+    }else updateReasonBtn('',false);
     return;
   }
   // Moteur optimisé (Qwen3.8 Flash Next) : la config réelle de lancement,

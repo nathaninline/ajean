@@ -1,0 +1,246 @@
+{
+  "scope": "Historical server measurements, not a GPU qualification of this PR connection implementation. Profile comparison, not engine-isolated ranking.",
+  "metric_definition": "C is submitted clients. Values are aggregate output tok/s over wall time including prefill; Strata has1 native active sequence so higher C queues. Pure native prefill/decode unavailable in these selected cells.",
+  "sources": {
+    "radiance-grid": {
+      "raw_sha256": "87ffabbcd2e336ef089b616c18b2b7025fda6f01f8c30812dccaeb1a2cd02e52",
+      "bytes": 1639691,
+      "artifact": "summary.json"
+    },
+    "strata-qwen-dual": {
+      "raw_sha256": "b1be1495c884d441aee62e19415a451e8e4158834b89a72107323a5d885f5032",
+      "bytes": 16463730,
+      "artifact": "summary.json"
+    },
+    "strata-swift-dual": {
+      "raw_sha256": "f71026e2d192bdea9c1576994eefcd26060087480e6ab945fc986b6e94f18b6e",
+      "bytes": 13735016,
+      "artifact": "summary.json"
+    },
+    "paiton-qwen-flash": {
+      "raw_sha256": "96274c32e0e6833a03e58c6a5dc1938e46f2a301705ec4d938ff61bda1bffff6",
+      "bytes": 2146676,
+      "artifact": "summary.json"
+    },
+    "paiton-qwen-flash-log": {
+      "raw_sha256": "50916e19b71c2011d06eae2b4e3316fedc7b950d3a36e6bb396b4b8ffbab2b3f",
+      "bytes": 74087,
+      "artifact": "native.log"
+    },
+    "radiance-flash-original-tp2-command": {
+      "raw_sha256": "28134e9cf9d4640640fa38f82b9a99829b5e2755f33c3b382323ca64deb60215",
+      "bytes": 1437,
+      "artifact": "command-0.json"
+    },
+    "radiance-flash-original-tp2-runtime": {
+      "raw_sha256": "fe0604d595a4f83f0bef1d2c265dbcc40530600640e145a57f221ffbb5bd1758",
+      "bytes": 163,
+      "artifact": "runtime.json"
+    },
+    "radiance-flash-swift-tp2-command": {
+      "raw_sha256": "cafa4f723f88d4731ecfdf9f37450d3d6f5325dd964a60904b0a31cd3de2d1b0",
+      "bytes": 1440,
+      "artifact": "command-0.json"
+    },
+    "radiance-flash-swift-tp2-runtime": {
+      "raw_sha256": "f53b99ca6a2939b481c14c6372281bb5903e402a52ffe6ddad7d8149ba3e58f5",
+      "bytes": 163,
+      "artifact": "runtime.json"
+    },
+    "strata-qwen-log": {
+      "raw_sha256": "d9ab57ea2d7d0afb65b86c502d3027874f6455a4ad6d7dcaa6048db9604bd689",
+      "bytes": 111601,
+      "artifact": "native.log"
+    },
+    "strata-swift-log": {
+      "raw_sha256": "c4c47dd1ab8fb98340379d445defd7b49133e95d8fef48953fbcb505907b625b",
+      "bytes": 104830,
+      "artifact": "native.log"
+    }
+  },
+  "rows": [
+    {
+      "model": "Qwen3.8 Flash Next",
+      "engine": "Paiton/vLLM",
+      "date": "2026-10-12",
+      "gpus": "2 × Radeon AI PRO R9700, TP2",
+      "quantization": "Paiton FNQ / W3A4",
+      "kv": "auto in native runtime config; exact cache precision not independently established",
+      "speculation": "MTP 0 / no speculative_config",
+      "configured_context": 98304,
+      "input": "common-source:30622 tokens (different C1 prompt30630)",
+      "output": "3397–4096 observed generated tokens per request",
+      "effort": "no reasoning output observed; not a matched low-effort run",
+      "metric": "sum usage.completion_tokens / group_elapsed_s",
+      "C": {
+        "1": 77.465,
+        "2": 136.623,
+        "4": 137.65,
+        "8": 164.846
+      },
+      "repetitions": "C1 median of first/repeat/different; C2/4/8 one group each",
+      "native_active_capacity": null,
+      "cache": "prefix caching disabled",
+      "status": "historical completed measurement; overlap is client wall intervals, not proof of active native sequences",
+      "provenance": [
+        "paiton-qwen-flash",
+        "paiton-qwen-flash-log"
+      ],
+      "native_prefill_tokens_s": null,
+      "native_decode_tokens_s": null
+    },
+    {
+      "model": "Qwen3.8 Flash Next",
+      "engine": "Radiance",
+      "date": "2026-10-17",
+      "gpus": "2 × Radeon AI PRO R9700",
+      "quantization": "IQ4R experts + INT8 trunk",
+      "kv": "FP8",
+      "speculation": "MTP 3",
+      "configured_context": 262144,
+      "input": "source30k (~30K tokens; engine tokenization)",
+      "output": "budget 4096; actual generation length varies",
+      "effort": "none",
+      "metric": "aggregate output tokens / client group wall seconds, includes prefill",
+      "C": {
+        "1": 84.774,
+        "2": 281.917,
+        "4": 454.35,
+        "8": 818.492
+      },
+      "repetitions": "median of2 fresh-engine repetitions",
+      "native_active_capacity": 8,
+      "cache": "natural prefix reuse; not matched across engines",
+      "status": "historical completed cells",
+      "provenance": [
+        "radiance-grid",
+        "radiance-flash-original-tp2-command",
+        "radiance-flash-original-tp2-runtime"
+      ],
+      "native_prefill_tokens_s": null,
+      "native_decode_tokens_s": null
+    },
+    {
+      "model": "Qwen3.8 Flash Next",
+      "engine": "Strata AMD",
+      "date": "2026-10-16",
+      "gpus": "2 × Radeon AI PRO R9700, layer split",
+      "quantization": "UD-IQ4_XS",
+      "kv": "FP16; resident 32768",
+      "speculation": "MTP 3",
+      "configured_context": 131072,
+      "input": "source30k: 30552 tokens",
+      "output": "budget 4096; actual generation length varies",
+      "effort": "none",
+      "metric": "aggregate output tokens / client group wall seconds, includes prefill and queue",
+      "C": {
+        "1": 34.826,
+        "2": 61.428,
+        "4": 59.266,
+        "8": 56.142
+      },
+      "repetitions": "one retained grid; Qwen grid includes retained/imported cells",
+      "native_active_capacity": 1,
+      "cache": "prompt cache enabled; not matched across engines",
+      "status": "historical completed cells; submitted C2/4/8 queue",
+      "provenance": [
+        "strata-qwen-dual",
+        "strata-qwen-log"
+      ],
+      "native_prefill_tokens_s": null,
+      "native_decode_tokens_s": null
+    },
+    {
+      "model": "Swift1.5 Qwen3.8 Flash Next GSQ RCO",
+      "engine": "Paiton/vLLM",
+      "date": null,
+      "gpus": null,
+      "quantization": null,
+      "kv": null,
+      "speculation": null,
+      "configured_context": null,
+      "input": null,
+      "output": null,
+      "effort": null,
+      "metric": null,
+      "C": {
+        "1": null,
+        "2": null,
+        "4": null,
+        "8": null
+      },
+      "status": "N/D: no qualified matching Swift Flash Next result found. Swift 27B attempts are a different model and cannot fill this cell.",
+      "native_prefill_tokens_s": null,
+      "native_decode_tokens_s": null,
+      "provenance": []
+    },
+    {
+      "model": "Swift1.5 Qwen3.8 Flash Next GSQ RCO",
+      "engine": "Radiance",
+      "date": "2026-10-17",
+      "gpus": "2 × Radeon AI PRO R9700",
+      "quantization": "IQ4R experts + INT8 trunk",
+      "kv": "FP8",
+      "speculation": "MTP 3",
+      "configured_context": 262144,
+      "input": "source30k (~30K tokens; engine tokenization)",
+      "output": "budget 4096; actual generation length varies",
+      "effort": "none",
+      "metric": "aggregate output tokens / client group wall seconds, includes prefill",
+      "C": {
+        "1": 87.333,
+        "2": 319.225,
+        "4": 581.939,
+        "8": 1025.359
+      },
+      "repetitions": "median of2 fresh-engine repetitions",
+      "native_active_capacity": 8,
+      "cache": "natural prefix reuse; not matched across engines",
+      "status": "historical completed cells",
+      "provenance": [
+        "radiance-grid",
+        "radiance-flash-swift-tp2-command",
+        "radiance-flash-swift-tp2-runtime"
+      ],
+      "native_prefill_tokens_s": null,
+      "native_decode_tokens_s": null
+    },
+    {
+      "model": "Swift1.5 Qwen3.8 Flash Next GSQ RCO",
+      "engine": "Strata AMD",
+      "date": "2026-10-16",
+      "gpus": "2 × Radeon AI PRO R9700, layer split",
+      "quantization": "IQ3_XXS",
+      "kv": "FP16; resident 32768",
+      "speculation": "MTP 3",
+      "configured_context": 131072,
+      "input": "source30k: 30552 tokens",
+      "output": "budget 4096; actual generation length varies",
+      "effort": "none",
+      "metric": "aggregate output tokens / client group wall seconds, includes prefill and queue",
+      "C": {
+        "1": 44.21,
+        "2": 74.46,
+        "4": 76.54,
+        "8": 76.878
+      },
+      "repetitions": "one retained grid; Qwen grid includes retained/imported cells",
+      "native_active_capacity": 1,
+      "cache": "prompt cache enabled; not matched across engines",
+      "status": "historical completed cells; submitted C2/4/8 queue",
+      "provenance": [
+        "strata-swift-dual",
+        "strata-swift-log"
+      ],
+      "native_prefill_tokens_s": null,
+      "native_decode_tokens_s": null
+    }
+  ],
+  "limitations": [
+    "Different weight formats and precisions, KV formats, speculation, context limits, cache protocols, dates and repetition counts. No speedup ratio or quality equivalence claimed.",
+    "Qwen 27B and Swift 27B results are excluded from these Flash Next rows.",
+    "128K input plus 4096 output is unsupported by these Strata 131072 recipes: low prompt 127685 +4096=131781. Those cells must not be interpreted as throughput0.",
+    "Paiton Flash Next98K MTP 0 result must not be substituted for a128K MTP 3 result.",
+    "No new benchmark, GPU operation, model load or inference was performed for this summary."
+  ]
+}
