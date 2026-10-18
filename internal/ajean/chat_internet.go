@@ -172,16 +172,14 @@ type crwlOptions struct {
 	rawMarkdown   bool // true => préfère raw_markdown (recherche) ; false => fit_markdown
 }
 
-// runCrwl appelle POST {base}/crawl et renvoie le markdown extrait. Port de web.ts.
+// runCrwl routes explicit browser actions to /execute_js; /crawl accepts only
+// the untrusted crawl configuration (Crawl4AI 0.9.5+).
 func runCrwl(target string, opts crwlOptions) (string, error) {
 	base := crawl4aiURL()
 	if base == "" {
 		return "", fmt.Errorf("aucun serveur Crawl4AI configuré (CRAWL4AI_URL)")
 	}
 	params := map[string]any{}
-	if len(opts.jsCode) > 0 {
-		params["js_code"] = opts.jsCode
-	}
 	if opts.waitFor != "" {
 		params["wait_for"] = opts.waitFor
 	}
@@ -199,12 +197,17 @@ func runCrwl(target string, opts crwlOptions) (string, error) {
 			"params": params,
 		},
 	}
+	endpoint := "/crawl"
+	if len(opts.jsCode) > 0 {
+		endpoint = "/execute_js"
+		body = map[string]any{"url": target, "scripts": opts.jsCode}
+	}
 	buf, _ := json.Marshal(body)
 
 	timeout := 60 * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base+"/crawl", bytes.NewReader(buf))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base+endpoint, bytes.NewReader(buf))
 	if err != nil {
 		return "", err
 	}
