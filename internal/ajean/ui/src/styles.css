@@ -2688,3 +2688,6 @@ button.th-head:hover{background:var(--t1)}
 .jm-embed .switch{flex:none}
 .jm-embed-t{min-width:0}
 .jm-embed-st{color:var(--dim);font-size:11.5px}
+
+/* Keep selected family text readable in the original MoE modal. */
+#moe-modal #moe-fams>label:has(input:checked){background:var(--text);color:var(--bg)}

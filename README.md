@@ -350,3 +350,5 @@ The interface is available in English and French; see [docs/TRANSLATING.md](docs
 ## License
 
 [MIT](LICENSE). The embedded `marked.min.js` is [Marked](https://github.com/markedjs/marked), also MIT.
+
+[Experimental local AMD HIP imports](docs/amd-hip-import.md) — CPU-tested import/preparation; GPU qualification pending.

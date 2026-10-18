@@ -585,7 +585,7 @@
 <div id="moe-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeMoe()">
   <div class="modal-card" style="max-width:520px">
     <div class="modal-head">
-      <strong data-i18n="moe.modal_title">Qwen3.8 Flash Next</strong>
+      <strong id="moe-modal-title" data-i18n="moe.modal_title">Qwen3.8 Flash Next</strong>
       <button class="modal-x" onclick="closeMoe()" aria-label="Fermer" data-i18n="moe.close_aria" data-i18n-attr="aria-label">×</button>
     </div>
     <div class="modal-body mform">
@@ -608,6 +608,7 @@
         <div class="slist moe-details" id="moe-details"></div>
       </div>
       <div id="moe-note" class="muted" style="font-size:11px;line-height:1.5"></div>
+      <p id="moe-hip-result" class="muted" role="status" aria-live="polite" hidden></p>
     </div>
     <div class="modal-foot">
       <div class="foot-l">
