@@ -166,6 +166,8 @@ ajean internet url http://localhost:11235
 
 ## Models and engine
 
+AMD alternatives: [Radiance, Paiton and Strata HIP — architecture and integration status](docs/amd-engines.md). The experimental local HIP import in this draft targets Strata; other engines can use the existing External API path.
+
 ### Presets
 
 A preset is a complete model configuration: model file, context size, GPU layers, KV cache, sampling, reasoning, speculative decoding, vision. Switching preset reloads the model, from the interface or with `ajean switch`. Presets are edited in the interface; `.gguf` files can live on any disk.

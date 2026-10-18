@@ -1,5 +1,7 @@
 # Importing a local Strata HIP installation (experimental)
 
+For the distinction between Radiance, Paiton and Strata, and exactly what this draft integrates, see [AMD engines](amd-engines.md).
+
 This change adds an explicit HIP branch to AJEAN's existing MoE backend. It
 reuses the original model dialog, presets, installer jobs, chat, four chat modes,
 memory, encryption and compactor. It does not add another chat server or proxy.

@@ -1,5 +1,7 @@
 # Importer une installation Strata HIP locale (expérimental)
 
+Pour distinguer Radiance, Paiton et Strata, et le périmètre exact de cette PR, voir [Moteurs AMD](moteurs-amd.fr.md).
+
 Cette contribution ajoute une branche HIP explicite au moteur MoE existant.
 Elle conserve le modal, les presets, les tâches d'installation, le chat et ses
 quatre modes, la mémoire, le coffre et le compactor AJEAN d'origine. Aucun chat
