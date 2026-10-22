@@ -6,7 +6,8 @@ package ajean
 // Version FIGÉE : ajean livre une version testée (sources + moteur Linux compilé
 // par nous) depuis SA propre release GitHub, vérifiée par SHA-256 ; on ne monte
 // de version qu'après l'avoir validée sur le serveur de test. Périmètre de cette
-// première version : Linux x86_64 + NVIDIA, une ou deux cartes.
+// version : Linux x86_64, une carte NVIDIA (une ou deux) ou une carte AMD
+// Radeon (une, 12 Go de VRAM minimum).
 //
 // Déroulé :
 //  1. installation (tâche « moe », même suivi que llama.cpp) : télécharge le
@@ -52,6 +53,16 @@ const (
 	moeEngineAsset = "ajean-moe-engine-" + moeVersion + "-linux-x64-cuda12.zip"
 	// moeEngineLocal : le nom sous lequel l'installeur attend le moteur (CUDA12_ASSET).
 	moeEngineLocal = "strata-linux-x64-cuda12.zip"
+)
+
+// moeVendor : le fournisseur de carte qui porte le moteur. "nvidia" est la
+// valeur d'origine ; "amd" (backend HIP) est ajouté par la prise en charge des
+// Radeon sous Linux. Les chemins, l'installeur et les variables
+// d'environnement divergent selon le vendor : chaque fonction qui les touche
+// lit ce champ plutôt que de supposer NVIDIA.
+const (
+	moeVendorNVIDIA = "nvidia"
+	moeVendorAMD    = "amd"
 )
 
 // moeAssetSHA : empreintes des fichiers de la release, vérifiées avant usage.
@@ -124,13 +135,86 @@ func isMoeConfig(cfg map[string]string) bool { return cfg["ENGINE"] == "moe" }
 // Matériel et recommandation
 // ---------------------------------------------------------------------------
 
-// moeGPU : une carte NVIDIA vue par nvidia-smi (index = numérotation nvidia-smi,
-// alignée sur CUDA avec CUDA_DEVICE_ORDER=PCI_BUS_ID).
+// moeGPU : une carte vue par nvidia-smi (NVIDIA) ou la topologie KFD du kernel
+// (AMD). Index = numérotation de l'outil (alignée sur CUDA avec
+// CUDA_DEVICE_ORDER=PCI_BUS_ID pour NVIDIA ; ordre des nœuds KFD pour AMD,
+// celle de HIP).
 type moeGPU struct {
 	Index  int     `json:"index"`
 	Name   string  `json:"name"`
 	VRAMGB float64 `json:"vram_gb"`
-	Arch   int     `json:"arch"` // compute capability ×10 (8.6 → 86)
+	Arch   int     `json:"arch"` // NVIDIA : compute capability ×10 (8.6 → 86) ; AMD : 0
+
+	// AMD : l'architecture vue par le kernel (gfx1201). Elle décide si le
+	// backend HIP du moteur se compile pour la carte (moeAMDArchs). Vide quand
+	// la source ne la donne pas (repli amd-smi/rocm-smi).
+	AMDArch string `json:"amd_arch,omitempty"`
+	// UMA : la carte est un APU à mémoire unifiée (Strix Halo). Sa « VRAM » est
+	// la mémoire partagée avec le système, pas de la GDDR.
+	UMA bool `json:"uma,omitempty"`
+	// DedicatedGB : la mémoire de la carte qui s'AJOUTE à la RAM. Un APU : son
+	// seul carve-out BIOS (sa mémoire partagée EST la RAM). Une carte dédiée :
+	// toute sa VRAM.
+	DedicatedGB float64 `json:"dedicated_gb,omitempty"`
+}
+
+// moeCardExtraGB : la mémoire de la carte qui s'ajoute à la RAM du système.
+// Compter la mémoire partagée d'un APU en plus de la RAM la compterait deux
+// fois et ferait passer un modèle qui n'y tient pas.
+func moeCardExtraGB(g moeGPU) float64 {
+	if g.UMA {
+		return g.DedicatedGB
+	}
+	return g.VRAMGB
+}
+
+// moeAMDArchsList : les architectures supportées, dans l'ordre d'affichage.
+// Source unique : la map est construite depuis cette liste, pour que le texte
+// montré à l'écran ne dérive pas de ce qui est réellement accepté.
+var moeAMDArchsList = []string{"gfx1100", "gfx1101", "gfx1102", "gfx1200", "gfx1201", "gfx1030", "gfx1031", "gfx1151"}
+
+// moeAMDArchs : les architectures pour lesquelles le backend HIP du moteur est
+// compilé (liste AMD_ARCHS de setup.py). gfx1103 n'y est qu'« opt-in » côté
+// amont (STRATA_EXPERIMENTAL_GFX1103=1) : il n'est donc pas proposé. Une carte
+// hors liste ne se compile pas — la proposer ferait échouer l'installation.
+// Le seuil de VRAM, seul, ne suffit pas : une MI300X (gfx942) a 192 Go, et le
+// carve-out BIOS d'un APU va « de 512 Mo à 96 Go » (setup.py) : les deux
+// passent un seuil de 12 Go et ne sont pas supportées.
+var moeAMDArchs = func() map[string]bool {
+	m := make(map[string]bool, len(moeAMDArchsList))
+	for _, a := range moeAMDArchsList {
+		m[a] = true
+	}
+	return m
+}()
+
+// moeAMDArchsText : la liste, en clair (la raison montrée à l'écran).
+func moeAMDArchsText() string { return strings.Join(moeAMDArchsList, ", ") }
+
+// moeAMDSupported : les cartes que ce moteur peut porter, en ordre de choix
+// (la carte DÉDIÉE d'abord — sa GDDR est plus rapide que la LPDDR5X partagée
+// d'un Strix Halo — puis la plus grosse mémoire ; le rang de l'installeur amont,
+// amd_rank). Séparée de moeDetect pour être testable sans détection.
+//
+// Une carte sans arch lisible n'est PAS proposée : on ne peut pas dire qu'elle
+// se compile, et l'installeur ferait télécharger ~68 Go pour échouer à la
+// compilation — promettre une installation qui ne tient pas est le pire des
+// deux faux (mieux vaut refuser et dire pourquoi). KFD donne toujours l'arch :
+// le cas ne vient que d'un repli muet sur ce champ.
+func moeAMDSupported(list []moeGPU) []moeGPU {
+	var ok []moeGPU
+	for _, g := range list {
+		if moeAMDArchs[g.AMDArch] {
+			ok = append(ok, g)
+		}
+	}
+	sort.SliceStable(ok, func(i, j int) bool {
+		if ok[i].UMA != ok[j].UMA {
+			return !ok[i].UMA
+		}
+		return ok[i].VRAMGB > ok[j].VRAMGB
+	})
+	return ok
 }
 
 // moeEnv : ce que l'écran d'installation doit savoir de la machine.
@@ -141,16 +225,41 @@ type moeEnv struct {
 	// de faire disparaître le moteur sans explication (issue #125).
 	Visible    bool     `json:"visible"`
 	Reason     string   `json:"reason,omitempty"` // pourquoi pas, en clair
+	Vendor     string   `json:"vendor,omitempty"` // "nvidia" ou "amd" (moeEngineVendor)
 	GPUs       []moeGPU `json:"gpus"`
-	Main       int      `json:"main"`   // index nvidia-smi de la carte principale
+	Main       int      `json:"main"`   // index de l'outil de la carte principale
 	Helper     int      `json:"helper"` // index de la carte d'aide, -1 sans
 	RAMGB      float64  `json:"ram_gb"`
 	DiskFreeGB float64  `json:"disk_free_gb"`
 	Python     string   `json:"python,omitempty"`
 }
 
-// moeMinArch : la plus ancienne carte pour laquelle notre moteur est compilé (RTX 20).
+// moeMinArch : la plus ancienne carte NVIDIA pour laquelle notre moteur est
+// compilé (RTX 20).
 const moeMinArch = 75
+
+// moeMinAMDVRAMGB : la mémoire GPU minimale d'une carte AMD pour ce moteur.
+// Le moteur amont ne pose PAS de minimum de VRAM côté AMD (son gate est la
+// liste d'architectures moeAMDArchs, et son mode « peu de RAM » ne dépend pas
+// du vendor) : ce chiffre est le choix d'ajean. Il vient de ce que le cache
+// d'experts du GPU est la VRAM moins ~5 Go (poids denses, buffers, KV) : à
+// 12 Go il reste ~7 Go d'experts sur la carte, à 8 Go à peine 3 Go — le modèle
+// se chargerait presque entièrement depuis la RAM, à une vitesse qui ne vaut
+// plus le nom de ce moteur.
+const moeMinAMDVRAMGB = 12
+
+// moeAMDListText : les cartes vues, en clair (la raison montrée à l'écran).
+func moeAMDListText(list []moeGPU) string {
+	parts := make([]string, 0, len(list))
+	for _, g := range list {
+		arch := g.AMDArch
+		if arch == "" {
+			arch = "?"
+		}
+		parts = append(parts, fmt.Sprintf("%s (%s, %.0f Go)", g.Name, arch, g.VRAMGB))
+	}
+	return strings.Join(parts, ", ")
+}
 
 func moeDetect() moeEnv {
 	env := moeEnv{Main: -1, Helper: -1, RAMGB: totalRAMGB()}
@@ -163,9 +272,37 @@ func moeDetect() moeEnv {
 	}
 	gpus, err := detectGPUs()
 	if err != nil {
-		env.Reason = "ce moteur demande une carte NVIDIA (" + err.Error() + ")"
+		// AMD : le moteur tourne sur le backend HIP (moteur compilé pendant
+		// l'installation, pilote amdgpu). Une seule carte (le partage de deux
+		// cartes n'existe que côté NVIDIA).
+		if amds := moeAMDGPUs(); len(amds) > 0 {
+			env.Vendor = moeVendorAMD
+			ok := moeAMDSupported(amds)
+			if len(ok) == 0 {
+				env.Reason = fmt.Sprintf("aucune carte AMD supportée par ce moteur (le backend HIP se compile pour %s ; cette machine : %s)",
+					moeAMDArchsText(), moeAMDListText(amds))
+				return env
+			}
+			env.GPUs = ok
+			if ok[0].VRAMGB < moeMinAMDVRAMGB {
+				env.Reason = fmt.Sprintf("la carte %s n'a que %.0f Go de mémoire pour le GPU (%d Go minimum)", ok[0].Name, ok[0].VRAMGB, moeMinAMDVRAMGB)
+				return env
+			}
+			env.Main = ok[0].Index
+			env.Visible = true
+			py, perr := moeCheckPython()
+			env.Python = py
+			if perr != nil {
+				env.Reason = perr.Error()
+				return env
+			}
+			env.Supported = true
+			return env
+		}
+		env.Reason = "ce moteur demande une carte NVIDIA ou AMD Radeon (" + err.Error() + ")"
 		return env
 	}
+	env.Vendor = moeVendorNVIDIA
 	for _, g := range gpus {
 		mib, _ := strconv.ParseFloat(g.MemTotal, 64)
 		cap, _ := strconv.ParseFloat(g.Cap, 64)
@@ -201,6 +338,94 @@ func moeDetect() moeEnv {
 	}
 	env.Supported = true
 	return env
+}
+
+// moeAMDGPUs : les cartes AMD Radeon, au format moeGPU. Source principale : la
+// topologie KFD du kernel (backend_moe_kfd.go) — elle ne demande ni ROCm ni
+// amd-smi/rocm-smi (absents par défaut), et sa numérotation est celle de HIP.
+// Replis : amd-smi (le détecteur de l'UI, backend_gpu_amd.go) puis rocm-smi
+// (backend_gpu_rocm.go), quand KFD est illisible (noyau sans amdgpu exposé).
+func moeAMDGPUs() []moeGPU {
+	if cards := moeKFDGPUs("/sys"); len(cards) > 0 {
+		return cards
+	}
+	// Replis : la VRAM vient de l'outil, l'architecture de `amd-smi static`
+	// (KFD est la seule source qui donne les deux d'un coup).
+	archs := moeAMDSmiArchs()
+	for _, list := range [][]map[string]any{amdVramGPUs(), rocmVramGPUs()} {
+		if cards := moeAMDCards(list, archs); len(cards) > 0 {
+			return cards
+		}
+	}
+	return nil
+}
+
+// moeAMDSmiArchs : l'architecture de chaque carte vue par `amd-smi static`
+// (asic.target_graphics_version), indexée par numéro de GPU. Le nom seul ne
+// suffit pas à décider : un iGPU s'appelle « Radeon Graphics » comme une carte
+// dédiée. Séparé pour être testable sans amd-smi installé (amdSmiArchsOf).
+func moeAMDSmiArchs() map[int]string {
+	return amdSmiArchsOf(amdSmiJSON("static"))
+}
+
+// amdSmiArchsOf : la table arch d'une sortie `amd-smi static --json` décodée.
+// La clé est target_graphics_version, une chaîne déjà formatée (« gfx1201 ») ;
+// elle vaut « N/A » quand le pilote ne la donne pas.
+func amdSmiArchsOf(static []map[string]any) map[int]string {
+	archs := map[int]string{}
+	for i, e := range static {
+		idx := amdNum(e["gpu"])
+		if idx < 0 {
+			idx = i
+		}
+		arch := amdStr(e, "asic", "target_graphics_version")
+		if strings.HasPrefix(arch, "gfx") {
+			archs[idx] = arch
+		}
+	}
+	return archs
+}
+
+// amdStr : la chaîne d'un champ imbriqué ("" si absent ou non textuel).
+func amdStr(m map[string]any, keys ...string) string {
+	var cur any = m
+	for _, k := range keys {
+		mm, ok := cur.(map[string]any)
+		if !ok {
+			return ""
+		}
+		cur, ok = mm[k]
+		if !ok {
+			return ""
+		}
+	}
+	s, _ := cur.(string)
+	return s
+}
+
+// moeAMDCards : les cartes d'une liste de télémétrie (format de l'UI, VRAM en
+// MiB) qui ont une VRAM DÉDIÉE, au format moeGPU. Séparée de moeAMDGPUs pour
+// être testable sans amd-smi/rocm-smi (comme amdParseJSON).
+//
+// Un GPU intégré (780M, iGPU d'un Ryzen) partage la RAM du système et n'a pas
+// de VRAM propre : la valeur « total » y est une part de la RAM, pas de quoi
+// démarrer ce moteur. On ne propose donc que les cartes à ≥ 8 Go de VRAM
+// dédiée (le minimum d'ajean est 12 Go, vérifié dans moeDetect, et le gate
+// d'architecture moeAMDArchs passe avant lui).
+func moeAMDCards(list []map[string]any, archs map[int]string) []moeGPU {
+	var out []moeGPU
+	for i, g := range list {
+		total, _ := g["total"].(int)
+		if total < 8*1024 {
+			continue
+		}
+		name, _ := g["name"].(string)
+		if name == "" {
+			name = fmt.Sprintf("AMD GPU %d", i)
+		}
+		out = append(out, moeGPU{Index: i, Name: name, VRAMGB: float64(total) / 1024, AMDArch: archs[i]})
+	}
+	return out
 }
 
 var rePyVersion = regexp.MustCompile(`Python (\d+)\.(\d+)`)
@@ -411,16 +636,18 @@ func moeFitFor(q moeQuant, env moeEnv, haveGB float64) moeFit {
 	f.DiskGB = max(f.DiskGB-haveGB, 10)
 	// En mmap, le système garde les experts en cache tant que la RAM le permet ;
 	// au-delà, ils sont relus depuis le disque à chaque jeton : trop lent. On
-	// demande que la RAM + la VRAM des cartes couvrent au moins les experts.
-	vram := 0.0
+	// demande que la RAM + la mémoire des cartes couvrent au moins les experts.
+	// La mémoire d'un APU à mémoire unifiée (Strix Halo) est la RAM elle-même :
+	// la compter en plus de la RAM la compterait deux fois (moeCardExtraGB).
+	extra := 0.0
 	for _, g := range env.GPUs {
 		if g.Index == env.Main || g.Index == env.Helper {
-			vram += g.VRAMGB
+			extra += moeCardExtraGB(g)
 		}
 	}
 	switch {
-	case env.RAMGB+vram-12 < q.ArenaGB:
-		f.Why = fmt.Sprintf("demande plus de mémoire : %.0f Go de RAM + VRAM, il en faut ~%.0f", env.RAMGB+vram, q.ArenaGB+12)
+	case env.RAMGB+extra-12 < q.ArenaGB:
+		f.Why = fmt.Sprintf("demande plus de mémoire : %.0f Go utilisables, il en faut ~%.0f", env.RAMGB+extra, q.ArenaGB+12)
 	case env.DiskFreeGB > 0 && env.DiskFreeGB < f.DiskGB+5:
 		f.Why = fmt.Sprintf("pas assez d'espace disque : %.0f Go libres, il en faut ~%.0f", env.DiskFreeGB, f.DiskGB+5)
 	default:
@@ -547,16 +774,20 @@ func moeRunInstall(req moeInstallReq) {
 		return
 	}
 
-	// 1. le paquet figé : sources (installeur + serveur) et moteur compilé
+	// 1. le paquet figé : sources (installeur + serveur) et, sur NVIDIA, le
+	// moteur compilé (AMD : le moteur HIP est compilé pendant l'installation)
 	src, err := moeFetch(moeSrcAsset)
 	if err != nil {
 		lcFail(err)
 		return
 	}
-	engine, err := moeFetch(moeEngineAsset)
-	if err != nil {
-		lcFail(err)
-		return
+	engine := ""
+	if env.Vendor != moeVendorAMD {
+		engine, err = moeFetch(moeEngineAsset)
+		if err != nil {
+			lcFail(err)
+			return
+		}
 	}
 	if _, err := os.Stat(filepath.Join(moeSrcDir(), "setup.py")); err != nil {
 		lcPhase("décompression du moteur…")
@@ -567,11 +798,15 @@ func moeRunInstall(req moeInstallReq) {
 	}
 	// L'installeur prend le moteur dans un dossier local (--prebuilt) : il le
 	// décompresse dans engine-cuda12/ et contrôle qu'il couvre la carte.
+	// AMD : pas de binaire figé — l'installeur compile le moteur HIP sur la
+	// machine (10 à 20 min, ROCm), il n'y a donc rien à lui imposer.
 	pre := filepath.Join(moeHome(), "prebuilt")
-	_ = os.MkdirAll(pre, 0o755)
-	if err := copyFile(engine, filepath.Join(pre, moeEngineLocal)); err != nil {
-		lcFail(err)
-		return
+	if env.Vendor != moeVendorAMD {
+		_ = os.MkdirAll(pre, 0o755)
+		if err := copyFile(engine, filepath.Join(pre, moeEngineLocal)); err != nil {
+			lcFail(err)
+			return
+		}
 	}
 
 	// 2. l'installeur du moteur, sans question : environnement Python, moteur,
@@ -583,9 +818,15 @@ func moeRunInstall(req moeInstallReq) {
 	args := []string{"setup.sh", "--setup", "--yes", "--no-start", "--no-browser",
 		"--family", req.Family, "--model", q.ID,
 		"--context", "131072", "--vision", "gpu",
-		"--cuda", "12", "--prebuilt", pre + string(os.PathSeparator),
 		"--data-dir", moeDataDir(),
 		"--gpu", strconv.Itoa(env.Main),
+	}
+	if env.Vendor == moeVendorAMD {
+		// backend HIP : le moteur est compilé sur la machine (pas de --prebuilt
+		// ni de --cuda, qui ne concernent que le binaire NVIDIA figé).
+		args = append(args, "--backend", "hip")
+	} else {
+		args = append(args, "--cuda", "12", "--prebuilt", pre+string(os.PathSeparator))
 	}
 	// Le mode « peu de RAM » est décidé et appliqué par ajean (MOE_MMAP, voir
 	// moeBuildConfig) : l'installeur tourne en mode normal, sans réserver sa
@@ -936,27 +1177,71 @@ func moeDropReady(args []string) bool {
 	if _, err := os.Stat(filepath.Join(pack, "experts.bin")); err != nil {
 		return false
 	}
-	return moeEngineInstalled() == moeEngineAsset
+	return moeEngineInstalled() == moeEngineFor(moeVendorNVIDIA)
 }
 
-// moeEngineMarker : le paquet dont vient le moteur installé.
+// moeEngineFor : le marqueur du moteur attendu pour un vendor. NVIDIA : le nom
+// du binaire figé. AMD : le moteur est compilé sur la machine par l'installeur,
+// il n'y a pas de paquet à vérifier — « compiled » suffit à marquer le dossier.
+func moeEngineFor(vendor string) string {
+	if vendor == moeVendorAMD {
+		return "compiled"
+	}
+	return moeEngineAsset
+}
+
+// moeEngineDir : le dossier du moteur pour un vendor. NVIDIA : engine-cuda12/
+// (le binaire CUDA 12 figé). AMD : engine/ (le moteur HIP, compilé par
+// l'installeur — voir engine_dir de setup.py).
+func moeEngineDir(vendor string) string {
+	if vendor == moeVendorAMD {
+		return filepath.Join(moeSrcDir(), "engine")
+	}
+	return filepath.Join(moeSrcDir(), "engine-cuda12")
+}
+
+// moeEngineMarker : le marqueur du moteur NVIDIA (dossier engine-cuda12/).
 func moeEngineMarker() string { return filepath.Join(moeSrcDir(), "engine-cuda12", ".ajean-engine") }
 
+// moeEngineMarkerFor : le marqueur dans le dossier du moteur du vendor.
+func moeEngineMarkerFor(vendor string) string {
+	return filepath.Join(moeEngineDir(vendor), ".ajean-engine")
+}
+
 func moeEngineInstalled() string {
-	b, _ := os.ReadFile(moeEngineMarker())
+	return moeEngineInstalledFor(moeVendorNVIDIA)
+}
+
+// moeEngineInstalledFor : le marqueur lu dans le dossier du moteur du vendor.
+func moeEngineInstalledFor(vendor string) string {
+	b, _ := os.ReadFile(moeEngineMarkerFor(vendor))
 	return strings.TrimSpace(string(b))
+}
+
+// moeEngineVendor : le vendor de la config de l'installeur (clé « backend »,
+// posée par l'installeur : « hip » pour AMD). NVIDIA si absente.
+func moeEngineVendor(base map[string]any) string {
+	if b, ok := base["backend"].(string); ok && b == "hip" {
+		return moeVendorAMD
+	}
+	return moeVendorNVIDIA
 }
 
 // moeEnsureEngine : remplace un moteur installé d'une autre révision par celui
 // du paquet attendu (téléchargé et vérifié si besoin). En cas d'échec l'ancien
 // reste, et le mode qui demande le nouveau n'est pas activé (moeDropReady).
-func moeEnsureEngine() error {
-	if moeEngineInstalled() == moeEngineAsset {
+// AMD : le moteur est compilé par l'installeur (pas de binaire à remplacer) ;
+// on s'assure seulement que le dossier existe et on pose le marqueur.
+func moeEnsureEngine(vendor string) error {
+	if moeEngineInstalledFor(vendor) == moeEngineFor(vendor) {
 		return nil
 	}
-	dir := filepath.Join(moeSrcDir(), "engine-cuda12")
+	dir := moeEngineDir(vendor)
 	if _, err := os.Stat(dir); err != nil {
 		return err
+	}
+	if vendor == moeVendorAMD {
+		return os.WriteFile(moeEngineMarkerFor(vendor), []byte(moeEngineFor(moeVendorAMD)+"\n"), 0o644)
 	}
 	zp, err := moeFetch(moeEngineAsset)
 	if err != nil {
@@ -1061,6 +1346,79 @@ func moePreflight(cfg map[string]string) (string, map[string]any, error) {
 // moeVenvPython : le Python de l'environnement du moteur, dans ses sources.
 func moeVenvPython(srcDir string) string { return filepath.Join(srcDir, ".venv", "bin", "python") }
 
+// moeVenvLibDirs : les dossiers de bibliothèques ROCm de l'environnement Python
+// du moteur (les wheels TheRock de l'installeur : `_rocm_sdk_devel`,
+// `_rocm_sdk_libraries_<famille>`), trouvés DANS LA SOURCE INSTALLÉE.
+// L'installeur écrit ces chemins en ABSOLU dans sa config (clé « lib_dirs ») et
+// dans engine/BUILD.json ; le binaire du moteur n'a aucun RPATH, il ne trouve
+// libhipblaslt.so.1, libhipblas.so.3 et libamdhip64.so.7 que par LD_LIBRARY_PATH.
+// Si l'environnement Python a été déplacé (le home d'installation d'origine n'est
+// plus le home courant), la config porte des dossiers qui n'existent plus : le
+// serveur du moteur écarte les chemins morts, LD_LIBRARY_PATH se retrouve vide et
+// le moteur meurt à la charge des bibliothèques.
+func moeVenvLibDirs(srcDir string) []string {
+	var out []string
+	sps, _ := filepath.Glob(filepath.Join(srcDir, ".venv", "lib", "python*", "site-packages"))
+	for _, sp := range sps {
+		devel := filepath.Join(sp, "_rocm_sdk_devel", "lib")
+		if isDir(devel) {
+			out = append(out, devel)
+		}
+		libs, _ := filepath.Glob(filepath.Join(sp, "_rocm_sdk_libraries_*", "lib"))
+		sort.Strings(libs)
+		for _, l := range libs {
+			if isDir(l) {
+				out = append(out, l)
+			}
+		}
+	}
+	return out
+}
+
+// moeRepairLibDirs : remplace la clé « lib_dirs » d'une config de l'installeur
+// par les dossiers qui existent réellement. Pure : ne touche pas au fichier.
+// Renvoie true quand la liste a changé. Les chemins morts ne sont jamais
+// réécrits dans la config d'origine (celle de l'installeur reste lisible).
+func moeRepairLibDirs(final map[string]any, srcDir string) bool {
+	var old, kept []string
+	if list, ok := final["lib_dirs"].([]any); ok {
+		for _, v := range list {
+			if s, ok := v.(string); ok {
+				old = append(old, s)
+				if isDir(s) {
+					kept = append(kept, s)
+				}
+			}
+		}
+	}
+	for _, d := range moeVenvLibDirs(srcDir) {
+		if !moeHas(kept, d) {
+			kept = append(kept, d)
+		}
+	}
+	if len(kept) == 0 || moeSameList(kept, old) {
+		return false
+	}
+	list := make([]any, len(kept))
+	for i, d := range kept {
+		list[i] = d
+	}
+	final["lib_dirs"] = list
+	return true
+}
+
+func moeSameList(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // serveMoe : la branche moteur MoE de `ajean serve`. Écrit la config finale à
 // côté de celle de l'installeur puis remplace le process par le serveur du moteur
 // (comme llama-server : systemd supervise directement le moteur).
@@ -1072,8 +1430,11 @@ func serveMoe(cfg map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if err := moeEnsureEngine(); err != nil {
-		fmt.Fprintf(os.Stderr, "[ajean serve] moteur %s non installé (%v) : l'ancien reste en place\n", moeEngineAsset, err)
+	// le vendor vient de la config de l'installeur (clé « backend ») : le
+	// moteur NVIDIA est vérifié/renouvelé, le moteur AMD est compilé sur place
+	vendor := moeEngineVendor(base)
+	if err := moeEnsureEngine(vendor); err != nil {
+		fmt.Fprintf(os.Stderr, "[ajean serve] moteur %s non installé (%v) : l'ancien reste en place\n", moeEngineFor(vendor), err)
 	}
 	final, err := moeBuildConfig(base, cfg, readAPIKey())
 	if err != nil {
@@ -1081,6 +1442,13 @@ func serveMoe(cfg map[string]string) error {
 	}
 	srcDir := filepath.Dir(path)
 	py := moeVenvPython(srcDir)
+	if vendor == moeVendorAMD && moeRepairLibDirs(final, srcDir) {
+		// les chemins de bibliothèques de la config ne sont pas tous réels : la
+		// config est écrite avec ceux de l'installation d'origine. Sans ce
+		// redressement le serveur du moteur écarte les dossiers morts et lance
+		// le moteur SANS LD_LIBRARY_PATH : « libhipblaslt.so.1 ... cannot open ».
+		fmt.Fprintf(os.Stderr, "[ajean serve] chemins ROCm de la config redressés sur %s\n", srcDir)
+	}
 	// Tout ce qu'ajean lance porte le nom du moteur MoE d'AJEAN : binaires,
 	// lanceur, config et journal (les noms d'origine restent dans le dossier
 	// d'installation, qu'ils ne quittent pas).
@@ -1106,9 +1474,14 @@ func serveMoe(cfg map[string]string) error {
 	if err != nil {
 		return err
 	}
-	_ = os.Setenv("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
-	if dev := moeCudaDevices(cfg); dev != "" {
-		_ = os.Setenv("CUDA_VISIBLE_DEVICES", dev)
+	// CUDA_DEVICE_ORDER / CUDA_VISIBLE_DEVICES ne concernent que NVIDIA : le
+	// backend HIP ne les lit pas, la carte est portée par la clé « gpu » de la
+	// config (numérotée comme l'installeur la numérote).
+	if vendor == moeVendorNVIDIA {
+		_ = os.Setenv("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
+		if dev := moeCudaDevices(cfg); dev != "" {
+			_ = os.Setenv("CUDA_VISIBLE_DEVICES", dev)
+		}
 	}
 	port := fmt.Sprint(final["port"])
 	if err := waitPortFree(fmt.Sprint(final["host"]), port, 5e9); err != nil {
@@ -1116,7 +1489,7 @@ func serveMoe(cfg map[string]string) error {
 	}
 	args := []string{launcher, "--config", out, "--port", port}
 	_ = os.Chdir(srcDir)
-	fmt.Fprintf(os.Stderr, "[ajean serve] AJEAN MoE %s  config=%s  port=%s  gpu=%s\n", moeVersion, filepath.Base(out), port, os.Getenv("CUDA_VISIBLE_DEVICES"))
+	fmt.Fprintf(os.Stderr, "[ajean serve] AJEAN MoE %s  config=%s  port=%s  vendor=%s  gpu=%s\n", moeVersion, filepath.Base(out), port, vendor, os.Getenv("CUDA_VISIBLE_DEVICES"))
 	_ = putBytes(bkState, engineCmdlineKey, []byte(engineCmdline(args)))
 	return execServer(launcher, args)
 }
@@ -1166,7 +1539,8 @@ func moeMigrate(cfg map[string]string) error {
 		if err := os.MkdirAll(filepath.Join(newDir, "engine-cuda12"), 0o755); err != nil {
 			return err
 		}
-		if err := moeEnsureEngine(); err != nil {
+		// les versions précédentes n'avaient que le moteur NVIDIA
+		if err := moeEnsureEngine(moeVendorNVIDIA); err != nil {
 			return err
 		}
 		body := strings.ReplaceAll(string(raw), oldDir+string(os.PathSeparator), newDir+string(os.PathSeparator))

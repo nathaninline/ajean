@@ -3973,6 +3973,8 @@ fr: {
   "moe.download": "~{gb} Go sur le disque",
   "moe.note": "Installation et activation automatiques. Premier chargement : quelques minutes.",
   "moe.note_mmap": "RAM insuffisante pour tout charger : experts lus depuis le disque (mmap, ~45 Go de plus). Installation et activation automatiques.",
+  "moe.note_amd": "Carte AMD : le moteur est compilé sur la machine (ROCm), installation plus longue au premier lancement.",
+  "moe.note_apu": "Mémoire partagée avec le système : la mémoire du GPU est la RAM, elle ne s'ajoute pas à elle.",
   "moe.nothing_fits": "Aucune version ne tient sur cette machine.",
   "moe.confirm": "Installer {name} ? Téléchargement : ~{gb} Go. Le modèle sera activé à la fin.",
   "moe.installed": "installé",
@@ -5323,6 +5325,8 @@ en: {
   "moe.download": "~{gb} GB on disk",
   "moe.note": "Automatic installation and activation. First load: a few minutes.",
   "moe.note_mmap": "Not enough RAM to load everything: experts read from disk (mmap, ~45 GB more). Automatic installation and activation.",
+  "moe.note_amd": "AMD card: the engine is compiled on the machine (ROCm), first install takes longer.",
+  "moe.note_apu": "Memory shared with the system: the GPU's memory is the RAM, it does not add to it.",
   "moe.nothing_fits": "No version fits this machine.",
   "moe.confirm": "Install {name}? Download: ~{gb} GB. The model is activated at the end.",
   "moe.installed": "installed",
@@ -10227,9 +10231,13 @@ function moeRenderQuants(pickReco){
   moeRenderDisk(fit);
   moeRenderSettings(fit);
   moeRenderDetails(fit);
-  document.getElementById('moe-note').textContent = !fit ? t('moe.nothing_fits')
+  let note = !fit ? t('moe.nothing_fits')
     : fit.active ? t('moe.note_active') : fit.preset ? t('moe.note_installed')
     : (fit.mmap ? t('moe.note_mmap') : t('moe.note'));
+  if(fit && !fit.active && (moeState.env||{}).vendor==='amd') note += ' ' + t('moe.note_amd');
+  const env = moeState.env||{}, main = (env.gpus||[]).find(g=>g.index===env.main);
+  if(fit && !fit.active && main && main.uma) note += ' ' + t('moe.note_apu');
+  document.getElementById('moe-note').textContent = note;
 }
 function moeRenderDisk(fit){
   const el = document.getElementById('moe-disk');
