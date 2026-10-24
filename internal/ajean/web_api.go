@@ -38,6 +38,11 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 	health := false
 	if active {
 		health = healthCheck()
+		// Moteur prêt : on pré-chauffe le préfixe (système + outils) pour que le
+		// premier message d'une conversation ne paie plus son préfill. Détaché :
+		// la construction du préfixe peut sonder MCP/Crawl4AI, elle n'a rien à
+		// faire dans le temps de réponse de /api/status.
+		go LLMPrewarm(health)
 	}
 	// Preset externe : pas de service llama-server local, mais le chat est prêt
 	// (il tape vers l'API distante). On l'annonce « actif/prêt » pour que l'UI

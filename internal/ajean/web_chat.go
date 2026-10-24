@@ -155,6 +155,9 @@ func handleChatSend(w http.ResponseWriter, r *http.Request) {
 	}
 	// Mode : celui de la conversation s'il est déjà fixé, sinon celui demandé.
 	mode, fresh := conv.lockMode(requestedMode(body))
+	// Dernier mode utilisé : le pré-chauffage s'en sert tant que la conversation
+	// suivante est vide (voir prewarmTarget).
+	rememberChatMode(mode)
 	applyChatMode(&body, mode)
 	if mode == "jean" {
 		files = moveUploadsToJean(files)

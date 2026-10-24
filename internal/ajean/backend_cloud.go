@@ -471,6 +471,10 @@ func cloudEndpoint(cfg map[string]string) chatEndpoint {
 // doLLM envoie la requête ; pour un GPU cloud, attend le réveil du conteneur
 // (llama-server répond 503 « Loading model » tant que le modèle charge).
 func doLLM(ctx context.Context, req *http.Request, body []byte, ep chatEndpoint) (*http.Response, error) {
+	// Vu par le pré-chauffage de prompt (llm_prewarm.go) : une génération occupe
+	// le moteur, il ne faut pas s'insérer devant elle.
+	llmInFlight.Add(1)
+	defer llmInFlight.Add(-1)
 	if !ep.Cloud {
 		return http.DefaultClient.Do(req)
 	}

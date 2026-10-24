@@ -352,6 +352,26 @@ func newWebMux() *http.ServeMux {
 	api("/api/tasks/pause", handleTasksPause)
 	api("/api/tasks/run", handleTaskRun)
 	api("/api/tasks/stop", handleTaskStop)
+	// Pré-chauffe le préfixe dès que le moteur répond, sans attendre le premier
+	// sondage du navigateur (ui/link peut tourner sans page ouverte).
+	// • déjà lancé (redémarrage de l'UI seule) : tout de suite ;
+	// • en cours de chargement (démarrage de la machine) : dès qu'il répond,
+	//   pendant 10 min au plus. Un moteur volontairement arrêté ne coûte que
+	//   des connexions refusées, sans journal.
+	go func() {
+		if healthCheck() {
+			LLMPrewarm(true)
+			return
+		}
+		deadline := time.Now().Add(10 * time.Minute)
+		for time.Now().Before(deadline) {
+			time.Sleep(3 * time.Second)
+			if healthCheck() {
+				LLMPrewarm(true)
+				return
+			}
+		}
+	}()
 	StartTaskScheduler()
 	return mux
 }

@@ -524,6 +524,9 @@ func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, tem
 	}
 	c.Generating = true
 	c.genStart = time.Now()
+	// Le message de l'utilisateur passe devant tout pré-chauffage interne : le
+	// tour va de toute façon traiter le préfixe et garder le cache KV.
+	cancelLLMPrewarmForTurn()
 	jeanReflectAbort() // le moteur est à l'utilisateur, la révision attendra
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
@@ -603,6 +606,10 @@ func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, tem
 	if temperature == 0 {
 		temperature = 0.7
 	}
+	// Un tour utilisateur est en cours : le pré-chauffage s'efface, y compris
+	// pendant les trous entre deux appels d'outil (llmTurnsActive, voir
+	// llm_prewarm.go).
+	llmTurnsActive.Add(1)
 	go c.generate(ctx, caps, temperature, epoch)
 	return nil
 }
@@ -709,6 +716,7 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 	// donc les vieux tours affichaient le preset du moment, pas celui qui a répondu).
 	turnPreset := activePresetName()
 	defer func() {
+		llmTurnsActive.Add(-1)
 		c.mu.Lock()
 		stale := c.epoch != epoch
 		// ⚠️ Un tour périmé ne touche PAS à l'état courant. Depuis que Reset
