@@ -251,7 +251,8 @@ var JeanAvatar = (()=>{
     act(k){
       if(!k) return;
       wake();
-      const map={'jean.act_think':'think','jean.act_read':'think','jean.act_search':'search','jean.act_remember':'search','jean.act_forget':'search',
+      const map={'jean.act_think':'think','jean.act_read':'think','jean.act_search':'search','jean.act_remember':'search','jean.act_note':'search','jean.act_lesson':'search',
+  'jean.act_save':'search','jean.act_patch':'search','jean.act_rule':'search','jean.act_forget':'search',
         'jean.act_web':'web','jean.act_browse':'web','jean.act_look':'web','jean.act_machine':'work','jean.act_task':'work','jean.act_work':'work'};
       setState(map[k]||'think');
     },

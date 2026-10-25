@@ -220,8 +220,17 @@ function paintGenStatus(){
 let JACT='';
 function jeanActFor(name){
   if(/^(jean_search|jean_read|recall|recall_search|mem_search|mem_read)$/.test(name)) return 'jean.act_search';
-  if(/^(jean_remember|jean_note|jean_save|jean_lesson|jean_patch|jean_rule|mem_add|mem_edit)$/.test(name)) return 'jean.act_remember';
-  if(/^(jean_forget|mem_delete)$/.test(name)) return 'jean.act_forget';
+  // Un libellé par GESTE. Les six opérations mémoire partageaient « Retient ça… », qui est
+  // l'état le plus affiché de toute l'app (les consignes font enregistrer à chaque tour) :
+  // à l'écran, noter une ligne de journal, écrire une fiche et retenir un fait durable
+  // étaient le même mot. L'utilisateur ne pouvait pas distinguer ce qui venait d'être écrit.
+  if(name==='jean_remember'||name==='mem_add'||name==='mem_edit') return 'jean.act_remember';
+  if(name==='jean_note') return 'jean.act_note';
+  if(name==='jean_lesson') return 'jean.act_lesson';
+  if(name==='jean_save') return 'jean.act_save';
+  if(name==='jean_patch') return 'jean.act_patch';
+  if(name==='jean_rule') return 'jean.act_rule';
+  if(name==='jean_forget'||name==='mem_delete') return 'jean.act_forget';
   if(/^web_/.test(name)) return 'jean.act_web';
   if(/^task_/.test(name)) return 'jean.act_task';
   if(/^browser_/.test(name)) return 'jean.act_browse';
@@ -333,7 +342,15 @@ function finalizeTurn(elapsedMs, preset){
   if(!(elapsedMs>0) && !(tok>0) && !(pr && !viewOn('hide-preset'))){ removeGenEl(); scrollMaybe(true); return; }
   const items=genItems(elapsedMs/1000, tok, rate, pr, '');
   if(!(elapsedMs>0)) items.shift();
-  const g=ensureGenEl(); paintGenParts(g.querySelector('.gtxt'), items);
+  const g=ensureGenEl();
+  // Le mot d'activité DOIT être effacé ici. `GENEL=null` détache la ligne sans la vider :
+  // elle reste dans le fil comme trace du tour fini, avec son <span class="jact"> encore
+  // plein. Or le CSS anime tout `.jact:not(:empty)::after` avec un balayage `infinite`,
+  // donc chaque « Retient ça… » des tours passés continuait à briller pour toujours — et
+  // la règle `.jact:not(:empty)+.gtxt{display:none}` cachait par-dessus le coup la ligne
+  // de métriques (durée · tokens · t/s), remplacée par ce mot figé.
+  const act=g.querySelector('.jact'); if(act){ act.textContent=''; act.classList.remove('jact-in'); }
+  paintGenParts(g.querySelector('.gtxt'), items);
   GENEL=null; if(!CHAT_TARGET) JeanAvatar&&JeanAvatar.detach();
   scrollMaybe(true); // révèle la fin (et cette ligne) même sur un fil à peine défilable
 }
