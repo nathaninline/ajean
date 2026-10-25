@@ -10,10 +10,17 @@ import (
 
 // backend_extservice.go — un preset externe peut nommer le service système qui
 // sert son API (clé EXTERNAL_SERVICE, ex. « ajean-moe » : un moteur tiers
-// comme un moteur MoE spécialisé, lancé par sa propre unité systemd). ajean le démarre quand on
-// bascule sur ce preset et l'arrête quand on en repart, pour qu'un seul moteur
-// occupe les GPU à la fois. L'unité déclare en plus Conflicts=ajean-engine :
-// systemd arrête l'un quand l'autre démarre, quel que soit l'ordre des appels.
+// comme un moteur MoE spécialisé). ajean le démarre quand on bascule sur ce
+// preset et l'arrête quand on en repart, pour qu'un seul moteur occupe les
+// GPU à la fois.
+//
+// Sous Linux, le service est une unité systemd (l'unité déclare en plus
+// Conflicts=ajean-engine : systemd arrête l'un quand l'autre démarre, quel
+// que soit l'ordre des appels). Sous Windows, c'est un processus local défini
+// par $AJEAN_HOME\services\ajean-<nom>.json (voir
+// sys_service_windows_extservice.go) — l'exclusivité des GPU y est obtenue par
+// l'ordre des appels de SwitchToPreset, qui arrête toujours un moteur avant de
+// démarrer l'autre.
 
 const extKeyService = "EXTERNAL_SERVICE"
 

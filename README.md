@@ -184,7 +184,7 @@ The **Engine** section installs and updates llama.cpp in three flavors, chosen p
 - **compiled**: built for this machine (CUDA with the right compute capability for each GPU, ROCm, Metal, Vulkan or CPU);
 - **custom**: any fork, from a Git URL, for models that need a special engine.
 
-**Third-party engine (Linux).** An External API preset can name a systemd unit with `EXTERNAL_SERVICE=ajean-<name>`. AJEAN starts it when you switch to the preset, stops it when you switch away, and waits for the GPUs to be released before loading the next model. Give the unit `Conflicts=ajean-engine.service`.
+**Third-party engine (Linux & Windows).** An External API preset can name a service with `EXTERNAL_SERVICE=ajean-<name>`. AJEAN starts it when you switch to the preset, stops it when you switch away, and waits for the GPUs to be released before loading the next model. On Linux the service is a systemd unit (give it `Conflicts=ajean-engine.service`); on Windows it is a local process defined by `$AJEAN_HOME\services\ajean-<name>.json` — `command`, `args`, `cwd` and optional `env`, launched detached with its log in `$AJEAN_HOME`.
 
 ---
 
