@@ -465,6 +465,8 @@ func cloudEndpoint(cfg map[string]string) chatEndpoint {
 		Key:      cloudAPIKey(),
 		External: true,
 		Cloud:    true,
+		// Le GPU loué fait tourner llama-server : les kwargs de gabarit y sont valides.
+		Template: true,
 	}
 }
 

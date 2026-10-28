@@ -452,6 +452,15 @@ async function loadTelemetry(){
   renderRam(d.ram||null);
 }
 let ENGINE_CMDLINE='';
+// Quel dialecte natif de raisonnement parler à une API distante : clé explicite,
+// sinon DeepSeek reconnu à son hôte ou au préfixe de son modèle. « none » coupe
+// l'émission. Même règle que externalReasoningMode côté serveur.
+function extReasoningModeFor(key, url, model){
+  const m = (key || '').toLowerCase();
+  if(m) return m === 'none' ? '' : m;
+  const u = (url || '').toLowerCase();
+  return ((u.includes('deepseek.com') || (model || '').toLowerCase().startsWith('deepseek')) ? 'deepseek' : '');
+}
 async function loadCfg(){
   // /api/llamacpp en parallèle : il indique si le BIN de la config correspond au
   // précompilé (prebuilt.in_use) ou compilé ici (in_use) — sinon c'est un fork perso.
@@ -489,7 +498,11 @@ async function loadCfg(){
       rows.push(row(t('external.key_label'), mask, ''));
     }
     swapContent(document.getElementById('cfg'), rows.join(''));
-    updateReasonBtn('', false);
+    // Même règle que pour un moteur local : le raccourci n'apparaît que si un
+    // effort est défini ET que le fournisseur a un dialecte natif connu (sinon le
+    // niveau n'aurait aucun effet et le bouton serait un leurre).
+    const extMode = extReasoningModeFor(c.EXTERNAL_REASONING, c.EXTERNAL_URL, c.EXTERNAL_MODEL);
+    updateReasonBtn(extMode ? (c.REASONING_EFFORT || '') : '', false);
     return;
   }
   // Moteur optimisé (Qwen3.8 Flash Next) : la config réelle de lancement,

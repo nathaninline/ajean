@@ -1165,7 +1165,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
 #m-exl3-row,#m-exl3-set,#m-exl3-gpu{display:none}
 #modal.eng-exl3 #m-exl3-row,#modal.eng-exl3 #m-exl3-set{display:flex}
 #modal.eng-exl3 #m-exl3-gpu:not([hidden]){display:flex}
-#modal.eng-exl3 #m-model-row,#modal.eng-exl3 #m-settings-row,#modal.eng-exl3 #m-gpu-group,
+#modal.eng-exl3 #m-model-row,#modal.eng-exl3 #m-settings-row,#modal.eng-exl3 #m-reasoning-row,#modal.eng-exl3 #m-gpu-group,
 #modal.eng-exl3 #m-backend-custom,#modal.eng-exl3 #be-avail-note{display:none!important}
 #modal.run-cloud #m-exl3-row,#modal.run-cloud #m-exl3-set,#modal.run-cloud #m-exl3-gpu,
 #modal.run-external #m-exl3-row,#modal.run-external #m-exl3-set,#modal.run-external #m-exl3-gpu{display:none!important}
@@ -2875,6 +2875,15 @@ button.th-head:hover{background:var(--t1)}
             <span class="pe-row-l"><span data-i18n="preset.vision_label">Vision</span><span class="pe-sub" data-i18n="external.vision_label">le modèle accepte les images</span></span>
             <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-ext-vision" onchange="cfgWriteKey('EXTERNAL_VISION', this.checked ? '1' : '')"><span class="pe-sl"></span></label></span>
           </div>
+          <div class="pe-row">
+            <span class="pe-row-l"><span data-i18n="external.reasoning_label">Raisonnement</span><span class="pe-sub" data-i18n="external.reasoning_hint">champs natifs du fournisseur</span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="s-ext-reasoning" onchange="onExtReasoning(this.value)">
+              <option value="" data-i18n="external.reasoning_auto">automatique</option>
+              <option value="none" data-i18n="external.reasoning_none">aucun</option>
+              <option value="deepseek" data-i18n="external.reasoning_deepseek">DeepSeek</option>
+              <option value="openai" data-i18n="external.reasoning_openai">OpenAI</option>
+            </select></span></span>
+          </div>
           <div class="pe-row" style="cursor:pointer" onclick="testExternalPreset()">
             <span class="pe-row-l"><span data-i18n="external.test">tester la connexion</span><span class="pe-sub" id="s-ext-status"></span></span>
             <span class="pe-row-c"><span class="pe-unit">→</span></span>
@@ -3239,16 +3248,21 @@ button.th-head:hover{background:var(--t1)}
             <span class="pe-row-c"><input id="s-spec-n" class="pe-val" type="number" min="1" step="1" placeholder="3" oninput="eaSetValued('--spec-draft-n-max', this.value)"></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.reasoning_label">Raisonnement</span><span class="pe-sub" id="s-reasoning-sub" data-i18n="preset.reasoning_sub">réflexion étape par étape</span></span>
-            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-reasoning" onchange="cfgWriteKey('REASONING', this.checked?'on':'off')"><span class="pe-sl"></span></label></span>
-          </div>
-          <div class="pe-row">
             <span class="pe-row-l"><span data-i18n="preset.flash_label">Flash attention</span><span class="pe-sub" data-i18n="preset.flash_sub">plus rapide, moins de VRAM</span></span>
             <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-flash" onchange="eaSetValued('--flash-attn', this.checked?'on':'')"><span class="pe-sl"></span></label></span>
           </div>
           <div class="pe-row">
             <span class="pe-row-l"><span data-i18n="preset.kvunified_label">Cache KV unifié</span><span class="pe-sub" data-i18n="preset.kvunified_sub">un seul cache partagé</span></span>
             <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-kvunified" onchange="eaToggleFlag('--kv-unified', this.checked)"><span class="pe-sl"></span></label></span>
+          </div>
+        </div>
+      </div>
+      <div id="m-reasoning-row" class="pe-group" style="display:none">
+        <div class="pe-gh" data-i18n="preset.reasoning_heading">Raisonnement</div>
+        <div class="pe-list">
+          <div class="pe-row">
+            <span class="pe-row-l"><span data-i18n="preset.reasoning_label">Raisonnement</span><span class="pe-sub" id="s-reasoning-sub" data-i18n="preset.reasoning_sub">réflexion étape par étape</span></span>
+            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-reasoning" onchange="onReasoningToggle(this.checked)"><span class="pe-sl"></span></label></span>
           </div>
         </div>
       </div>
@@ -3284,8 +3298,8 @@ button.th-head:hover{background:var(--t1)}
             <span class="pe-row-l"><span data-i18n="preset.repeat_label">Pénalité de répétition</span><span class="pe-sub" data-i18n="preset.repeat_sub">1 = neutre</span></span>
             <span class="pe-row-c"><input id="s-reppen" class="pe-val" type="number" min="0" step="0.05" placeholder="—" oninput="cfgWriteKey('REPEAT_PENALTY', this.value)"></span>
           </div>
-          <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.effort_label">Effort de réflexion</span><span class="pe-sub" data-i18n="preset.effort_sub">active --jinja</span></span>
+          <div class="pe-row" id="s-effort-row">
+            <span class="pe-row-l"><span data-i18n="preset.effort_label">Effort de réflexion</span><span class="pe-sub" id="s-effort-sub" data-i18n="preset.effort_sub">active --jinja</span></span>
             <span class="pe-row-c"><span class="pe-selc"><select id="s-effort" onchange="onEffort(this.value)">
               <option value="" data-i18n="preset.effort_opt_default">défaut du modèle</option>
               <option value="low" data-i18n="preset.effort_opt_low">low (rapide)</option>
@@ -4038,6 +4052,7 @@ fr: {
   "preset.spec_n_label": "Jetons anticipés",
   "preset.spec_n_sub": "défaut 3",
   "preset.reasoning_label": "Raisonnement",
+  "preset.reasoning_heading": "Raisonnement",
   "preset.reasoning_sub": "réflexion étape par étape",
   "preset.loadmode_label": "Chargement",
   "preset.loadmode_auto": "par défaut : mmap si possible",
@@ -4067,6 +4082,7 @@ fr: {
   "preset.repeat_sub": "1 = neutre",
   "preset.effort_label": "Effort de réflexion",
   "preset.effort_sub": "active --jinja",
+  "preset.effort_sub_external": "champ natif de l'API",
   "preset.effort_opt_default": "défaut du modèle",
   "preset.effort_opt_low": "low (rapide)",
   "preset.effort_opt_medium": "medium",
@@ -4198,6 +4214,12 @@ fr: {
   "external.ctx_hint": "(taille en tokens, ex: 32768 — laisser vide pour 32768)",
   "external.vision_label": "le modèle accepte les images",
   "external.vision_help": "coche si le modèle distant est <b>multimodal</b> (vision). Les images jointes lui sont alors envoyées pour qu'il les voie, et il peut charger une image du disque avec son outil dédié. À laisser décoché pour un modèle texte seul.",
+  "external.reasoning_label": "Raisonnement",
+  "external.reasoning_hint": "champs natifs du fournisseur",
+  "external.reasoning_auto": "automatique",
+  "external.reasoning_none": "aucun",
+  "external.reasoning_deepseek": "DeepSeek",
+  "external.reasoning_openai": "OpenAI",
   "external.key_label": "Clé API",
   "external.key_hint": "(optionnelle pour un serveur local)",
   "external.key_saved": "clé enregistrée — laisser vide pour la conserver",
@@ -4879,6 +4901,7 @@ fr: {
   "models.gpu.reset": "réinitialiser",
   "models.gpu.keep_one": "gardez au moins une carte",
   "models.settings.reasoning_sub": "réflexion étape par étape",
+  "models.settings.reasoning_sub_external": "transmis à l'API distante",
   "models.settings.reasoning_sub_unset": "non réglé : le modèle décide",
   "models.settings.spec_type_in_config": "(dans la configuration)",
   "models.settings.spec_draft_builtin": "intégré",
@@ -5492,6 +5515,7 @@ en: {
   "preset.spec_n_label": "Anticipated tokens",
   "preset.spec_n_sub": "default 3",
   "preset.reasoning_label": "Reasoning",
+  "preset.reasoning_heading": "Reasoning",
   "preset.reasoning_sub": "step-by-step thinking",
   "preset.loadmode_label": "Loading",
   "preset.loadmode_auto": "default: mmap when possible",
@@ -5521,6 +5545,7 @@ en: {
   "preset.repeat_sub": "1 = neutral",
   "preset.effort_label": "Reasoning effort",
   "preset.effort_sub": "enables --jinja",
+  "preset.effort_sub_external": "native API field",
   "preset.effort_opt_default": "model default",
   "preset.effort_opt_low": "low (fast)",
   "preset.effort_opt_medium": "medium",
@@ -5652,6 +5677,12 @@ en: {
   "external.ctx_hint": "(size in tokens, e.g. 32768 — leave empty for 32768)",
   "external.vision_label": "the model accepts images",
   "external.vision_help": "check this if the remote model is <b>multimodal</b> (vision). Attached images are then sent to it so it can see them, and it can load an image from disk with its dedicated tool. Leave unchecked for a text-only model.",
+  "external.reasoning_label": "Reasoning",
+  "external.reasoning_hint": "provider-native fields",
+  "external.reasoning_auto": "automatic",
+  "external.reasoning_none": "none",
+  "external.reasoning_deepseek": "DeepSeek",
+  "external.reasoning_openai": "OpenAI",
   "external.key_label": "API key",
   "external.key_hint": "(optional for a local server)",
   "external.key_saved": "key saved — leave empty to keep it",
@@ -6333,6 +6364,7 @@ en: {
   "models.gpu.reset": "reset",
   "models.gpu.keep_one": "keep at least one card",
   "models.settings.reasoning_sub": "step-by-step thinking",
+  "models.settings.reasoning_sub_external": "sent to the remote API",
   "models.settings.reasoning_sub_unset": "not set: the model decides",
   "models.settings.spec_type_in_config": "(in the configuration)",
   "models.settings.spec_draft_builtin": "built-in",
@@ -7214,6 +7246,12 @@ async function loadTelemetry(){
   renderRam(d.ram||null);
 }
 let ENGINE_CMDLINE='';
+function extReasoningModeFor(key, url, model){
+  const m = (key || '').toLowerCase();
+  if(m) return m === 'none' ? '' : m;
+  const u = (url || '').toLowerCase();
+  return ((u.includes('deepseek.com') || (model || '').toLowerCase().startsWith('deepseek')) ? 'deepseek' : '');
+}
 async function loadCfg(){
   const [c, lc] = await Promise.all([jget('/api/config'), jget('/api/llamacpp').catch(()=>null)]);
   const row=(k,v,title)=>'<div class="kv"><span>'+k+'</span><span title="'+String(title!=null?title:v).replace(/"/g,'&quot;')+'">'+String(v)+'</span></div>';
@@ -7246,7 +7284,8 @@ async function loadCfg(){
       rows.push(row(t('external.key_label'), mask, ''));
     }
     swapContent(document.getElementById('cfg'), rows.join(''));
-    updateReasonBtn('', false);
+    const extMode = extReasoningModeFor(c.EXTERNAL_REASONING, c.EXTERNAL_URL, c.EXTERNAL_MODEL);
+    updateReasonBtn(extMode ? (c.REASONING_EFFORT || '') : '', false);
     return;
   }
   if(c.ENGINE==='moe'){
@@ -7932,6 +7971,7 @@ async function openItem(kind, key){
   const engineRow = document.getElementById('m-engine-row'); 
   const settingsRow = document.getElementById('m-settings-row');
   const samplingRow = document.getElementById('m-sampling-row');
+  const reasoningRow = document.getElementById('m-reasoning-row');
   const rawHead = document.getElementById('m-raw-head');
   const rawToggle = document.getElementById('m-raw-toggle');
   const rawBody = document.getElementById('m-raw-body');
@@ -7952,6 +7992,7 @@ async function openItem(kind, key){
     modelRow.style.display = 'flex';
     settingsRow.style.display = 'flex';
     if(samplingRow) samplingRow.style.display = 'flex';
+    if(reasoningRow) reasoningRow.style.display = 'flex';
     const sb = document.getElementById('m-sampling-body'); if(sb) sb.style.display = 'none';
     const sc = document.getElementById('m-sampling-caret'); if(sc) sc.classList.remove('open');
     document.getElementById('m-hf-url').value = '';
@@ -7966,6 +8007,7 @@ async function openItem(kind, key){
     modelRow.style.display = 'none';
     settingsRow.style.display = 'none';
     if(samplingRow) samplingRow.style.display = 'none';
+    if(reasoningRow) reasoningRow.style.display = 'none';
     rawHead.textContent = t('models.raw_content');
     rawToggle.style.display = 'none';
     rawBody.style.display = '';
@@ -8598,11 +8640,14 @@ function populateSettings(){
   setSpecType(eaGetValued('--spec-type'));
   const chk = (id,v)=>{ const e=document.getElementById(id); if(e) e.checked=v; };
   const rz = cfgReadKey('REASONING');
-  chk('s-reasoning', /^(on|1|true|auto|deepseek)$/i.test(rz));
+  const eff = cfgReadKey('REASONING_EFFORT');
+  const ext = runMode() === 'external';
+  chk('s-reasoning', eff !== '' || (ext && rz === '') || /^(on|1|true|auto|deepseek)$/i.test(rz));
   const rzSub = document.getElementById('s-reasoning-sub');
   if(rzSub){
-    rzSub.textContent = rz ? t('models.settings.reasoning_sub')
-                           : t('models.settings.reasoning_sub_unset');
+    rzSub.textContent = ext ? t('models.settings.reasoning_sub_external')
+                            : rz ? t('models.settings.reasoning_sub')
+                                 : t('models.settings.reasoning_sub_unset');
   }
   chk('s-kvunified', eaHasFlag('--kv-unified'));
   chk('s-flash', eaHasFlag('--flash-attn') && !/^off$/i.test(eaGetValued('--flash-attn')));
@@ -8626,6 +8671,13 @@ function syncRunMode(){
   requestAnimationFrame(fitSelects);
   md.classList.toggle('run-cloud', mode === 'modal');
   md.classList.toggle('run-external', mode === 'external');
+  const extMode = mode === 'external' ? extReasoningMode() : '';
+  const rr = document.getElementById('m-reasoning-row');
+  if(rr) rr.style.display = (mode === 'external' && !extMode) ? 'none' : 'flex';
+  const erow = document.getElementById('s-effort-row');
+  if(erow) erow.style.display = (mode === 'external' && !extMode) ? 'none' : '';
+  const esub = document.getElementById('s-effort-sub');
+  if(esub) esub.textContent = mode === 'external' ? t('preset.effort_sub_external') : t('preset.effort_sub');
   const bench = document.getElementById('btn-bench');
   if(bench && mode !== 'local' && !(mode === 'external' && cfgReadKey('EXTERNAL_SERVICE'))) bench.style.display = 'none';
   if(mode === 'modal'){
@@ -8644,6 +8696,7 @@ function syncRunMode(){
     document.getElementById('s-ext-key').value = cfgReadKey('EXTERNAL_KEY');
     document.getElementById('s-ext-ctx').value = cfgReadKey('CTX');
     document.getElementById('s-ext-vision').checked = cfgReadKey('EXTERNAL_VISION') === '1';
+    document.getElementById('s-ext-reasoning').value = cfgReadKey('EXTERNAL_REASONING') || '';
     document.getElementById('s-ext-status').textContent = '';
   }
 }
@@ -8822,7 +8875,22 @@ async function populateSpecDraft(){
 }
 function onEffort(val){
   cfgWriteKey('REASONING_EFFORT', val);
-  if(val) eaToggleFlag('--jinja', true);
+  if(val){
+    const cur = cfgReadKey('REASONING');
+    if(!/^(on|1|true|auto|deepseek)$/i.test(cur)) cfgWriteKey('REASONING', 'on');
+    if(runMode() !== 'external') eaToggleFlag('--jinja', true);
+  }
+}
+function onReasoningToggle(on){
+  cfgWriteKey('REASONING', on ? 'on' : 'off');
+  if(!on) cfgWriteKey('REASONING_EFFORT', '');
+}
+function extReasoningMode(){
+  return extReasoningModeFor(cfgReadKey('EXTERNAL_REASONING'), cfgReadKey('EXTERNAL_URL'), cfgReadKey('EXTERNAL_MODEL'));
+}
+function onExtReasoning(v){
+  cfgWriteKey('EXTERNAL_REASONING', v);
+  syncRunMode();
 }
 function syncSpecRow(){
   const sel = document.getElementById('s-spec');

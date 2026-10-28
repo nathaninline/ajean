@@ -1055,8 +1055,9 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		// Paramètres d'échantillonnage du preset (top_p, top_k, min_p, présence…,
 		// et TEMP qui écrase la température par défaut si le preset la fixe). Appliqués
 		// à chaque itération : une bascule de preset en cours de tour est ainsi prise
-		// en compte, comme le reste de la config relue par ReadConfig().
-		applySampling(payload)
+		// en compte, comme le reste de la config relue par ReadConfig(). Le choix des
+		// champs dépend de l'endpoint (llama.cpp vs API distante) : voir applySampling.
+		applySampling(payload, ep)
 		if len(tools) > 0 && !disableTools {
 			payload["tools"] = tools
 			// The model sometimes emits parallel tool calls, which this llama.cpp

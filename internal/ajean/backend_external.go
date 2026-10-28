@@ -2,6 +2,7 @@ package ajean
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -16,11 +17,20 @@ import (
 // l'inférence (resolveChatEndpoint) et de la bascule (pas de redémarrage moteur).
 
 const (
-	extKeyFlag   = "EXTERNAL"        // marqueur : "1" = preset externe
-	extKeyURL    = "EXTERNAL_URL"    // base ou URL complète des complétions
-	extKeyModel  = "EXTERNAL_MODEL"  // nom du modèle envoyé dans le payload
-	extKeyToken  = "EXTERNAL_KEY"    // clé API (Bearer), peut être vide
-	extKeyVision = "EXTERNAL_VISION" // "1" = le modèle distant accepte les images
+	extKeyFlag      = "EXTERNAL"           // marqueur : "1" = preset externe
+	extKeyURL       = "EXTERNAL_URL"       // base ou URL complète des complétions
+	extKeyModel     = "EXTERNAL_MODEL"     // nom du modèle envoyé dans le payload
+	extKeyToken     = "EXTERNAL_KEY"       // clé API (Bearer), peut être vide
+	extKeyVision    = "EXTERNAL_VISION"    // "1" = le modèle distant accepte les images
+	extKeyReasoning = "EXTERNAL_REASONING" // "deepseek" / "openai" / "none" / vide = auto
+)
+
+// Valeurs de EXTERNAL_REASONING. Une API distante n'accepte pas les champs
+// llama.cpp (chat_template_kwargs…) : il faut lui parler sa langue. « none »
+// désactive explicitement l'auto-détection ; une valeur vide la laisse faire.
+const (
+	extReasoningDeepSeek = "deepseek"
+	extReasoningOpenAI   = "openai"
 )
 
 // chatEndpoint : où partent les appels /v1/chat/completions de ce tour.
@@ -30,6 +40,10 @@ type chatEndpoint struct {
 	Key      string // Bearer ("" = aucun)
 	External bool   // true = API distante (pas le llama-server local)
 	Cloud    bool   // true = GPU cloud Modal (attente du réveil sur 503)
+	// Template : l'endpoint parle llama.cpp (local, Modal, EXTERNAL_SERVICE) et
+	// accepte donc chat_template_kwargs / top_k / min_p / repeat_penalty. Faux
+	// pour une vraie API distante, qui reçoit à la place ses champs natifs.
+	Template bool
 }
 
 // isExternalConfig indique si une configuration décrit un endpoint externe.
@@ -83,6 +97,10 @@ func resolveChatEndpoint() chatEndpoint {
 			Model:    strings.TrimSpace(cfg[extKeyModel]),
 			Key:      strings.TrimSpace(cfg[extKeyToken]),
 			External: true,
+			// Un moteur tiers lancé par ajean (EXTERNAL_SERVICE, ex. MoE) est un
+			// serveur llama.cpp : il comprend les kwargs de gabarit. Une vraie API
+			// distante, non.
+			Template: externalServiceOf(cfg) != "",
 		}
 	}
 	return chatEndpoint{
@@ -90,7 +108,32 @@ func resolveChatEndpoint() chatEndpoint {
 		Model:    "ajean",
 		Key:      readAPIKey(),
 		External: false,
+		Template: true,
 	}
+}
+
+// externalReasoningMode : quel dialecte natif de raisonnement parler à cette API
+// distante. la clé EXTERNAL_REASONING l'emporte ; « none » coupe l'auto-détection.
+// Sans clé, DeepSeek est reconnu à son hôte ou au préfixe de son modèle — sinon
+// on n'envoie rien, une API inconnue pouvant rejeter le champ en 400.
+func externalReasoningMode(cfg map[string]string) string {
+	if m := strings.ToLower(strings.TrimSpace(cfg[extKeyReasoning])); m != "" {
+		switch m {
+		case extReasoningDeepSeek, extReasoningOpenAI:
+			return m
+		}
+		return "" // none / valeur inconnue : aucune émission
+	}
+	if u, err := url.Parse(strings.TrimSpace(cfg[extKeyURL])); err == nil {
+		h := strings.ToLower(u.Hostname())
+		if h == "deepseek.com" || strings.HasSuffix(h, ".deepseek.com") {
+			return extReasoningDeepSeek
+		}
+	}
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(cfg[extKeyModel])), "deepseek") {
+		return extReasoningDeepSeek
+	}
+	return ""
 }
 
 // externalPresetContent construit le corps .env d'un preset externe (hors ligne

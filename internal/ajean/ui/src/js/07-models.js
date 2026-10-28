@@ -116,6 +116,7 @@ async function openItem(kind, key){
   const engineRow = document.getElementById('m-engine-row'); // Moteur, en haut du modal
   const settingsRow = document.getElementById('m-settings-row');
   const samplingRow = document.getElementById('m-sampling-row');
+  const reasoningRow = document.getElementById('m-reasoning-row');
   const rawHead = document.getElementById('m-raw-head');
   const rawToggle = document.getElementById('m-raw-toggle');
   const rawBody = document.getElementById('m-raw-body');
@@ -139,6 +140,7 @@ async function openItem(kind, key){
     modelRow.style.display = 'flex';
     settingsRow.style.display = 'flex';
     if(samplingRow) samplingRow.style.display = 'flex';
+    if(reasoningRow) reasoningRow.style.display = 'flex';
     // Échantillonnage replié par défaut (réglage avancé).
     const sb = document.getElementById('m-sampling-body'); if(sb) sb.style.display = 'none';
     const sc = document.getElementById('m-sampling-caret'); if(sc) sc.classList.remove('open');
@@ -156,6 +158,7 @@ async function openItem(kind, key){
     modelRow.style.display = 'none';
     settingsRow.style.display = 'none';
     if(samplingRow) samplingRow.style.display = 'none';
+    if(reasoningRow) reasoningRow.style.display = 'none';
     // Page mémoire : le contenu EST le champ principal — affiché en clair.
     rawHead.textContent = t('models.raw_content');
     rawToggle.style.display = 'none';
@@ -1007,11 +1010,18 @@ function populateSettings(){
   // sous-titre la dit. (Les presets créés ou modifiés depuis cette version
   // écrivent toujours on ou off, la question ne se pose plus pour eux.)
   const rz = cfgReadKey('REASONING');
-  chk('s-reasoning', /^(on|1|true|auto|deepseek)$/i.test(rz));
+  const eff = cfgReadKey('REASONING_EFFORT');
+  const ext = runMode() === 'external';
+  // Un niveau d'effort défini implique le raisonnement : c'est ce qui répare les
+  // presets où l'interrupteur masqué avait laissé REASONING=off à côté d'un
+  // REASONING_EFFORT. Sur une API distante, une clé absente suit le défaut du
+  // fournisseur (activé chez DeepSeek), donc l'interrupteur s'affiche coché.
+  chk('s-reasoning', eff !== '' || (ext && rz === '') || /^(on|1|true|auto|deepseek)$/i.test(rz));
   const rzSub = document.getElementById('s-reasoning-sub');
   if(rzSub){
-    rzSub.textContent = rz ? t('models.settings.reasoning_sub')
-                           : t('models.settings.reasoning_sub_unset');
+    rzSub.textContent = ext ? t('models.settings.reasoning_sub_external')
+                            : rz ? t('models.settings.reasoning_sub')
+                                 : t('models.settings.reasoning_sub_unset');
   }
   chk('s-kvunified', eaHasFlag('--kv-unified'));
   chk('s-flash', eaHasFlag('--flash-attn') && !/^off$/i.test(eaGetValued('--flash-attn')));
@@ -1037,6 +1047,16 @@ function syncRunMode(){
   requestAnimationFrame(fitSelects);
   md.classList.toggle('run-cloud', mode === 'modal');
   md.classList.toggle('run-external', mode === 'external');
+  // Raisonnement : côté API distante, l'interrupteur et l'effort ne servent que si
+  // le fournisseur a un dialecte natif connu ; sinon on les masque plutôt que
+  // d'afficher des réglages morts (le serveur n'enverrait rien).
+  const extMode = mode === 'external' ? extReasoningMode() : '';
+  const rr = document.getElementById('m-reasoning-row');
+  if(rr) rr.style.display = (mode === 'external' && !extMode) ? 'none' : 'flex';
+  const erow = document.getElementById('s-effort-row');
+  if(erow) erow.style.display = (mode === 'external' && !extMode) ? 'none' : '';
+  const esub = document.getElementById('s-effort-sub');
+  if(esub) esub.textContent = mode === 'external' ? t('preset.effort_sub_external') : t('preset.effort_sub');
   // Le bench mesure le moteur local : sans objet pour un preset distant, sauf un
   // moteur tiers lancé par ajean (EXTERNAL_SERVICE, ex. moteur MoE), mesuré en streaming.
   const bench = document.getElementById('btn-bench');
@@ -1057,6 +1077,7 @@ function syncRunMode(){
     document.getElementById('s-ext-key').value = cfgReadKey('EXTERNAL_KEY');
     document.getElementById('s-ext-ctx').value = cfgReadKey('CTX');
     document.getElementById('s-ext-vision').checked = cfgReadKey('EXTERNAL_VISION') === '1';
+    document.getElementById('s-ext-reasoning').value = cfgReadKey('EXTERNAL_REASONING') || '';
     document.getElementById('s-ext-status').textContent = '';
   }
 }
@@ -1264,15 +1285,34 @@ async function populateSpecDraft(){
   }
   sel.innerHTML = html;
 }
-// Effort de réflexion : REASONING_EFFORT part dans la requête (chat_template_kwargs)
-// mais n'a d'effet que si le moteur tourne avec --jinja. Comme éditer le preset
-// impose déjà un switch (= redémarrage du moteur), autant ajouter --jinja tout de
-// suite quand on choisit un effort. On ne le RETIRE pas en repassant sur « défaut » :
-// il a pu être posé à la main pour les appels d'outils, et le laisser est sans
-// risque.
+// Effort de réflexion : REASONING_EFFORT part dans la requête. Pour llama.cpp il
+// passe par les kwargs de gabarit (--jinja requis), pour une API distante par son
+// champ natif (voir applyReasoningFrom). Un niveau implique le raisonnement : on
+// rallume l'interrupteur s'il était resté sur off.
 function onEffort(val){
   cfgWriteKey('REASONING_EFFORT', val);
-  if(val) eaToggleFlag('--jinja', true);
+  if(val){
+    const cur = cfgReadKey('REASONING');
+    if(!/^(on|1|true|auto|deepseek)$/i.test(cur)) cfgWriteKey('REASONING', 'on');
+    // --jinja ne concerne que le moteur local : l'écrire dans un preset externe
+    // y laisserait un drapeau inerte.
+    if(runMode() !== 'external') eaToggleFlag('--jinja', true);
+  }
+}
+// Couper le raisonnement coupe un éventuel effort resté en place : c'est la
+// combinaison REASONING=off + REASONING_EFFORT qui rendait le preset incohérent.
+function onReasoningToggle(on){
+  cfgWriteKey('REASONING', on ? 'on' : 'off');
+  if(!on) cfgWriteKey('REASONING_EFFORT', '');
+}
+// Dialecte natif de la config en cours d'édition (défini dans 05-status.js pour
+// être disponible dès le premier loadCfg).
+function extReasoningMode(){
+  return extReasoningModeFor(cfgReadKey('EXTERNAL_REASONING'), cfgReadKey('EXTERNAL_URL'), cfgReadKey('EXTERNAL_MODEL'));
+}
+function onExtReasoning(v){
+  cfgWriteKey('EXTERNAL_REASONING', v);
+  syncRunMode();
 }
 // Le nombre de jetons anticipés ne veut rien dire sans type : ligne masquée, et
 // flag retiré pour ne pas laisser un réglage orphelin dans le preset.

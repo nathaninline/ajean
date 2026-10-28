@@ -14,7 +14,7 @@ func TestApplySamplingFrom(t *testing.T) {
 		"MIN_P":            "0",
 		"PRESENCE_PENALTY": "", // vide → ignoré
 		"REASONING_EFFORT": "medium",
-	})
+	}, chatEndpoint{Template: true})
 	if payload["temperature"] != 1.0 {
 		t.Errorf("TEMP doit écraser la température : %v", payload["temperature"])
 	}
@@ -37,7 +37,7 @@ func TestApplySamplingFrom(t *testing.T) {
 // valeurs qui contrediraient le défaut du modèle.
 func TestApplySamplingEmpty(t *testing.T) {
 	payload := map[string]any{"temperature": 0.7}
-	applySamplingFrom(payload, map[string]string{})
+	applySamplingFrom(payload, map[string]string{}, chatEndpoint{Template: true})
 	if len(payload) != 1 || payload["temperature"] != 0.7 {
 		t.Errorf("payload modifié à tort : %v", payload)
 	}

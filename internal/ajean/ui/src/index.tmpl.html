@@ -1123,6 +1123,18 @@
             <span class="pe-row-l"><span data-i18n="preset.vision_label">Vision</span><span class="pe-sub" data-i18n="external.vision_label">le modèle accepte les images</span></span>
             <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-ext-vision" onchange="cfgWriteKey('EXTERNAL_VISION', this.checked ? '1' : '')"><span class="pe-sl"></span></label></span>
           </div>
+          <!-- Dialecte natif de raisonnement : une API distante n'accepte pas les
+               champs llama.cpp. « automatique » reconnaît DeepSeek à son hôte ou à
+               son modèle ; « aucun » coupe l'émission. -->
+          <div class="pe-row">
+            <span class="pe-row-l"><span data-i18n="external.reasoning_label">Raisonnement</span><span class="pe-sub" data-i18n="external.reasoning_hint">champs natifs du fournisseur</span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="s-ext-reasoning" onchange="onExtReasoning(this.value)">
+              <option value="" data-i18n="external.reasoning_auto">automatique</option>
+              <option value="none" data-i18n="external.reasoning_none">aucun</option>
+              <option value="deepseek" data-i18n="external.reasoning_deepseek">DeepSeek</option>
+              <option value="openai" data-i18n="external.reasoning_openai">OpenAI</option>
+            </select></span></span>
+          </div>
           <div class="pe-row" style="cursor:pointer" onclick="testExternalPreset()">
             <span class="pe-row-l"><span data-i18n="external.test">tester la connexion</span><span class="pe-sub" id="s-ext-status"></span></span>
             <span class="pe-row-c"><span class="pe-unit">→</span></span>
@@ -1522,16 +1534,25 @@
             <span class="pe-row-c"><input id="s-spec-n" class="pe-val" type="number" min="1" step="1" placeholder="3" oninput="eaSetValued('--spec-draft-n-max', this.value)"></span>
           </div>
           <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.reasoning_label">Raisonnement</span><span class="pe-sub" id="s-reasoning-sub" data-i18n="preset.reasoning_sub">réflexion étape par étape</span></span>
-            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-reasoning" onchange="cfgWriteKey('REASONING', this.checked?'on':'off')"><span class="pe-sl"></span></label></span>
-          </div>
-          <div class="pe-row">
             <span class="pe-row-l"><span data-i18n="preset.flash_label">Flash attention</span><span class="pe-sub" data-i18n="preset.flash_sub">plus rapide, moins de VRAM</span></span>
             <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-flash" onchange="eaSetValued('--flash-attn', this.checked?'on':'')"><span class="pe-sl"></span></label></span>
           </div>
           <div class="pe-row">
             <span class="pe-row-l"><span data-i18n="preset.kvunified_label">Cache KV unifié</span><span class="pe-sub" data-i18n="preset.kvunified_sub">un seul cache partagé</span></span>
             <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-kvunified" onchange="eaToggleFlag('--kv-unified', this.checked)"><span class="pe-sl"></span></label></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Raisonnement : hors de #m-settings-row, sinon il disparaissait avec les
+           réglages llama.cpp sur un preset API externe — alors qu'il y pilote les
+           champs natifs du fournisseur (voir applyReasoningFrom côté serveur). -->
+      <div id="m-reasoning-row" class="pe-group" style="display:none">
+        <div class="pe-gh" data-i18n="preset.reasoning_heading">Raisonnement</div>
+        <div class="pe-list">
+          <div class="pe-row">
+            <span class="pe-row-l"><span data-i18n="preset.reasoning_label">Raisonnement</span><span class="pe-sub" id="s-reasoning-sub" data-i18n="preset.reasoning_sub">réflexion étape par étape</span></span>
+            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-reasoning" onchange="onReasoningToggle(this.checked)"><span class="pe-sl"></span></label></span>
           </div>
         </div>
       </div>
@@ -1573,8 +1594,8 @@
             <span class="pe-row-l"><span data-i18n="preset.repeat_label">Pénalité de répétition</span><span class="pe-sub" data-i18n="preset.repeat_sub">1 = neutre</span></span>
             <span class="pe-row-c"><input id="s-reppen" class="pe-val" type="number" min="0" step="0.05" placeholder="—" oninput="cfgWriteKey('REPEAT_PENALTY', this.value)"></span>
           </div>
-          <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.effort_label">Effort de réflexion</span><span class="pe-sub" data-i18n="preset.effort_sub">active --jinja</span></span>
+          <div class="pe-row" id="s-effort-row">
+            <span class="pe-row-l"><span data-i18n="preset.effort_label">Effort de réflexion</span><span class="pe-sub" id="s-effort-sub" data-i18n="preset.effort_sub">active --jinja</span></span>
             <span class="pe-row-c"><span class="pe-selc"><select id="s-effort" onchange="onEffort(this.value)">
               <option value="" data-i18n="preset.effort_opt_default">défaut du modèle</option>
               <option value="low" data-i18n="preset.effort_opt_low">low (rapide)</option>

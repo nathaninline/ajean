@@ -216,13 +216,14 @@ func splitArgs(s string) []string {
 var samplingKeys = []struct {
 	cfg, field string
 	integer    bool
+	llamaOnly  bool // champ propre à llama.cpp : jamais envoyé à une API distante
 }{
-	{"TEMP", "temperature", false},
-	{"TOP_P", "top_p", false},
-	{"TOP_K", "top_k", true},
-	{"MIN_P", "min_p", false},
-	{"PRESENCE_PENALTY", "presence_penalty", false},
-	{"REPEAT_PENALTY", "repeat_penalty", false},
+	{"TEMP", "temperature", false, false},
+	{"TOP_P", "top_p", false, false},
+	{"TOP_K", "top_k", true, true},
+	{"MIN_P", "min_p", false, true},
+	{"PRESENCE_PENALTY", "presence_penalty", false, false},
+	{"REPEAT_PENALTY", "repeat_penalty", false, true},
 }
 
 // applySampling superpose les paramètres d'échantillonnage du preset au corps
@@ -235,11 +236,23 @@ var samplingKeys = []struct {
 // gabarits jinja de llama.cpp (chat_template_kwargs) : il n'a d'effet que si le
 // serveur tourne avec --jinja, mais on ne l'envoie que lorsqu'un preset le
 // définit explicitement, donc jamais à l'aveugle.
-func applySampling(payload map[string]any) { applySamplingFrom(payload, ReadConfig()) }
+//
+// ⚠️ Un preset EXTERNAL=1 parle à une API distante, pas à llama.cpp : elle
+// rejette silencieusement (DeepSeek) ou en 400 (OpenAI, Azure, Groq, Mistral) les
+// champs qui n'existent pas chez elle. chat_template_kwargs, top_k, min_p et
+// repeat_penalty ne partent donc QUE vers un endpoint llama.cpp (local, GPU
+// Modal, moteur EXTERNAL_SERVICE) ; vers une API distante, on émet à la place les
+// champs natifs du fournisseur (voir applyReasoningFrom).
+func applySampling(payload map[string]any, ep chatEndpoint) {
+	applySamplingFrom(payload, ReadConfig(), ep)
+}
 
 // applySamplingFrom est la partie pure d'applySampling : testable sans base.
-func applySamplingFrom(payload map[string]any, cfg map[string]string) {
+func applySamplingFrom(payload map[string]any, cfg map[string]string, ep chatEndpoint) {
 	for _, s := range samplingKeys {
+		if s.llamaOnly && !ep.Template {
+			continue
+		}
 		v := strings.TrimSpace(cfg[s.cfg])
 		if v == "" {
 			continue
@@ -254,9 +267,77 @@ func applySamplingFrom(payload map[string]any, cfg map[string]string) {
 			payload[s.field] = f
 		}
 	}
-	if eff := strings.TrimSpace(cfg["REASONING_EFFORT"]); eff != "" {
-		payload["chat_template_kwargs"] = map[string]any{"reasoning_effort": eff}
+	applyReasoningFrom(payload, cfg, ep)
+}
+
+// applyReasoningFrom décide comment le niveau de raisonnement part sur le fil.
+//
+// Endpoint llama.cpp : chat_template_kwargs.reasoning_effort (gabarit jinja).
+// API distante : champs natifs, et seulement si le preset (ou l'URL/le modèle)
+// déclare le fournisseur — sinon on n'envoie rien plutôt que de risquer un 400.
+// Pour DeepSeek, un effort défini implique le raisonnement ACTIVÉ : c'est ce qui
+// répare les presets où l'interrupteur masqué avait laissé REASONING=off à côté
+// d'un REASONING_EFFORT.
+func applyReasoningFrom(payload map[string]any, cfg map[string]string, ep chatEndpoint) {
+	eff := strings.TrimSpace(cfg["REASONING_EFFORT"])
+	if ep.Template {
+		if eff != "" {
+			payload["chat_template_kwargs"] = map[string]any{"reasoning_effort": eff}
+		}
+		return
 	}
+	raw := strings.TrimSpace(cfg["REASONING"])
+	off := raw != "" && !reasoningActive(raw)
+	switch externalReasoningMode(cfg) {
+	case extReasoningDeepSeek:
+		if eff != "" {
+			payload["thinking"] = map[string]any{"type": "enabled"}
+			if v := deepseekEffort(eff); v != "" {
+				payload["reasoning_effort"] = v
+			}
+			return
+		}
+		if off {
+			payload["thinking"] = map[string]any{"type": "disabled"}
+		}
+	case extReasoningOpenAI:
+		if eff == "" {
+			return // off : pas de champ universel côté OpenAI, on garde son défaut
+		}
+		if v := openAIEffort(eff); v != "" {
+			payload["reasoning_effort"] = v
+		}
+	}
+}
+
+// deepseekEffort traduit le niveau AJeAN vers les trois paliers réels de DeepSeek
+// (low/high/max). L'API ramène elle-même medium et xhigh à high, mais l'UI
+// d'AJeAN libelle xhigh « (max) » : on honore ce libellé plutôt que de laisser
+// l'alias officiel raboter le niveau.
+func deepseekEffort(eff string) string {
+	switch strings.ToLower(eff) {
+	case "low":
+		return "low"
+	case "medium", "high":
+		return "high"
+	case "xhigh":
+		return "max"
+	}
+	return ""
+}
+
+// openAIEffort : l'API OpenAI connaît minimal/low/medium/high. AJeAN n'expose pas
+// minimal, et xhigh retombe sur high (pas de palier au-dessus).
+func openAIEffort(eff string) string {
+	switch strings.ToLower(eff) {
+	case "low":
+		return "low"
+	case "medium":
+		return "medium"
+	case "high", "xhigh":
+		return "high"
+	}
+	return ""
 }
 
 // Le plafond d'appels d'outils par tour (TOOL_LIMIT) et l'anti-boucle ont été

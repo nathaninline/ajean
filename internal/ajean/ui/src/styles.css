@@ -1904,7 +1904,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
 #m-exl3-row,#m-exl3-set,#m-exl3-gpu{display:none}
 #modal.eng-exl3 #m-exl3-row,#modal.eng-exl3 #m-exl3-set{display:flex}
 #modal.eng-exl3 #m-exl3-gpu:not([hidden]){display:flex}
-#modal.eng-exl3 #m-model-row,#modal.eng-exl3 #m-settings-row,#modal.eng-exl3 #m-gpu-group,
+#modal.eng-exl3 #m-model-row,#modal.eng-exl3 #m-settings-row,#modal.eng-exl3 #m-reasoning-row,#modal.eng-exl3 #m-gpu-group,
 #modal.eng-exl3 #m-backend-custom,#modal.eng-exl3 #be-avail-note{display:none!important}
 #modal.run-cloud #m-exl3-row,#modal.run-cloud #m-exl3-set,#modal.run-cloud #m-exl3-gpu,
 #modal.run-external #m-exl3-row,#modal.run-external #m-exl3-set,#modal.run-external #m-exl3-gpu{display:none!important}

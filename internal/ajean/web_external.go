@@ -36,13 +36,14 @@ func handlePresetExternal(w http.ResponseWriter, r *http.Request) {
 	// que la modale montre « clé enregistrée » sans l'exposer. Un ré-enregistrement
 	// sans toucher au champ clé la conserve (voir handlePresetExternalSave).
 	sendJSON(w, 200, map[string]any{
-		"id":     id,
-		"name":   presetDisplayName(content, id),
-		"url":    strings.TrimSpace(cfg[extKeyURL]),
-		"model":  strings.TrimSpace(cfg[extKeyModel]),
-		"ctx":    strings.TrimSpace(cfg["CTX"]),
-		"vision": strings.TrimSpace(cfg[extKeyVision]) == "1",
-		"hasKey": strings.TrimSpace(cfg[extKeyToken]) != "",
+		"id":        id,
+		"name":      presetDisplayName(content, id),
+		"url":       strings.TrimSpace(cfg[extKeyURL]),
+		"model":     strings.TrimSpace(cfg[extKeyModel]),
+		"ctx":       strings.TrimSpace(cfg["CTX"]),
+		"vision":    strings.TrimSpace(cfg[extKeyVision]) == "1",
+		"reasoning": strings.TrimSpace(cfg[extKeyReasoning]),
+		"hasKey":    strings.TrimSpace(cfg[extKeyToken]) != "",
 	})
 }
 
@@ -57,6 +58,7 @@ type externalSaveReq struct {
 	Key        string `json:"key"`
 	Ctx        string `json:"ctx"`        // taille de contexte (clé CTX), optionnelle
 	Vision     bool   `json:"vision"`     // le modèle distant accepte les images
+	Reasoning  string `json:"reasoning"`  // dialecte natif : deepseek / openai / none
 	KeyTouched bool   `json:"keyTouched"` // l'utilisateur a modifié le champ clé
 }
 
@@ -100,6 +102,23 @@ func handlePresetExternalSave(w http.ResponseWriter, r *http.Request) {
 				content = strings.TrimRight(content, "\n") + "\n" + extKeyService + "=" + svc + "\n"
 			}
 		}
+	}
+	// Dialecte de raisonnement : validé, et conservé sur une édition qui ne le
+	// fournit pas (même logique que la clé API). Vide = auto-détection.
+	reasoning := strings.ToLower(strings.TrimSpace(req.Reasoning))
+	switch reasoning {
+	case "", "none", extReasoningDeepSeek, extReasoningOpenAI:
+	default:
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "raisonnement inconnu"})
+		return
+	}
+	if reasoning == "" && req.ID != "" {
+		if old, err := ReadPreset(req.ID); err == nil {
+			reasoning = strings.ToLower(strings.TrimSpace(parseEnv(old)[extKeyReasoning]))
+		}
+	}
+	if reasoning != "" {
+		content = strings.TrimRight(content, "\n") + "\n" + extKeyReasoning + "=" + reasoning + "\n"
 	}
 	newID, err := SavePreset(req.ID, req.Name, content)
 	if err != nil {
