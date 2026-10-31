@@ -339,7 +339,12 @@ function finalizeTurn(elapsedMs, preset){
   if(!(elapsedMs>0) && !(tok>0) && !(pr && !viewOn('hide-preset'))){ removeGenEl(); scrollMaybe(true); return; }
   const items=genItems(elapsedMs/1000, tok, rate, pr, '');
   if(!(elapsedMs>0)) items.shift();
-  const g=ensureGenEl(); paintGenParts(g.querySelector('.gtxt'), items);
+  const g=ensureGenEl();
+  // Tour fini : on vide le mot d'activité (« Retient ça… »). La ligne reste dans le
+  // fil comme trace du tour ; pleine, elle gardait son balayage animé à l'infini et
+  // cachait la ligne de métriques (durée · tokens · t/s). Correctif de la PR #173.
+  const act=g.querySelector('.jact'); if(act){ act.textContent=''; act.classList.remove('jact-in'); }
+  paintGenParts(g.querySelector('.gtxt'), items);
   GENEL=null; if(!CHAT_TARGET) JeanAvatar&&JeanAvatar.detach();
   scrollMaybe(true); // révèle la fin (et cette ligne) même sur un fil à peine défilable
 }
@@ -1000,6 +1005,8 @@ async function send(){
   // Garde-fou : le bouton est déjà désactivé, mais l'Entrée passe aussi par ici.
   if(STATUS_SEEN && !MODEL_READY){ toast(t('chat.model_not_ready')); return; }
   const ta=document.getElementById('input'); const text=ta.value.trim();
+  // Message dicté par le mode vocal (24-jean-voice.js) : réponse à l'oral côté serveur.
+  const voiceTurn=!!window.VOICE_SEND; window.VOICE_SEND=false;
   // Un envoi sans texte est légitime s'il porte une pièce jointe (« tiens, regarde »).
   if(!text && !ATTACH.length) return;
   ta.value=''; autoGrow(ta); syncSendBtn();
@@ -1017,7 +1024,7 @@ async function send(){
   if(entry) addMsgFiles(entry.el, attachSent());
   for(let attempt=0; attempt<3; attempt++){
     try{
-      const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,files:files,ctx_used:CTX_USED,mode:MODE,tz:USER_TZ})});
+      const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,files:files,ctx_used:CTX_USED,mode:MODE,tz:USER_TZ,voice:voiceTurn})});
       if(r.status===409 || r.ok) clearAttach();
       if(r.status===409) return;               // déjà en cours (notre envoi a abouti) → OK
       if(r.ok) return;                          // la bulle + les tokens arrivent par le flux

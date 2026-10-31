@@ -330,6 +330,20 @@
          donc n'est PAS gatée — mais elle vit dans la MÊME carte, collée aux deux autres.
          Le gate est par ligne et non sur un wrapper car les séparateurs/rembourrages
          exigent que les .switchrow soient enfants DIRECTS de .slist. -->
+    <!-- Voix de Jean (voice.go, 25-voice-settings.js) : conversation à voix haute du
+         mode Jean, via un serveur audio.cpp. Réglages rangés côté serveur. -->
+    <div id="voice-block">
+      <div class="subhead"><span data-i18n="voice.title">Voix de Jean</span><span id="voice-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="voice.help" data-i18n-html>Conversation à voix haute en mode Jean : bouton micro sur sa scène. La transcription et la voix passent par un <b>serveur audio.cpp</b> (Qwen3-ASR et VoxCPM2). Les voix sont enregistrées dans AJEAN.</span></span></div>
+      <div class="slist">
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="voice-toggle" onchange="voiceSave({on:this.checked})"><span class="slider"></span></span> <span data-i18n="voice.toggle">conversation vocale</span></label>
+        <label class="switchrow"><span data-i18n="voice.server">serveur audio</span><input id="voice-url" class="sctl" type="text" spellcheck="false" autocomplete="off" placeholder="http://127.0.0.1:8095" onchange="voiceSave({url:this.value})"></label>
+        <div class="switchrow"><span data-i18n="voice.voice">voix</span><span class="voice-pick"><select id="voice-name" class="sctl" onchange="voiceSave({voice:this.value})"></select><button type="button" class="voice-play" onclick="voiceTest()" data-i18n="voice.test" data-i18n-attr="title" title="Écouter"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg></button></span></div>
+        <label class="switchrow"><span data-i18n="voice.sens">sensibilité du micro</span><select id="voice-sens" class="sctl" onchange="voiceSave({sens:+this.value})"><option value="1" data-i18n="voice.sens_low">faible</option><option value="2" data-i18n="voice.sens_mid">normale</option><option value="3" data-i18n="voice.sens_high">élevée</option></select></label>
+        <label class="switchrow"><span data-i18n="voice.silence">pause avant envoi</span><select id="voice-silence" class="sctl" onchange="voiceSave({silence_ms:+this.value})"><option value="500">0,5 s</option><option value="800">0,8 s</option><option value="1200">1,2 s</option><option value="1800">1,8 s</option><option value="2500">2,5 s</option></select></label>
+        <button type="button" class="switchrow sw-action" onclick="voiceCreate()"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="voice.create">Créer une voix</span></button>
+        <button type="button" class="switchrow sw-action" id="voice-del" onclick="voiceDelete()"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span data-i18n="voice.delete">Supprimer la voix choisie</span></button>
+      </div>
+    </div>
     <div class="subhead" data-i18n="settings.general_subhead">Général</div>
     <div class="slist">
         <label class="switchrow agent-gated"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> <span data-i18n="agent.compact_toggle">compactage automatique du contexte</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="agent.compact_help" data-i18n-html>activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
@@ -892,6 +906,46 @@
         <input id="jm-search" class="mem-search sctl" type="search" oninput="jmSearchDebounced()" placeholder="chercher dans le journal…" data-i18n="jean.mem_search" data-i18n-attr="placeholder">
         <div id="jm-journal" class="jm-list"></div>
         <button id="jm-more" class="jm-more" style="display:none" onclick="jmLoad(true)" data-i18n="chat.show_more">voir plus</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="jean-files-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeJeanFiles()">
+  <div class="modal-card jf-card">
+    <div class="modal-head jf-head">
+      <button id="jf-back" class="jf-ic" type="button" onclick="jfList(jfUpDir(JF.dir))" data-drop="1" title="Dossier parent" aria-label="Dossier parent" data-i18n="jean.files_up" data-i18n-attr="title" hidden><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div class="jf-title"><nav id="jf-crumbs" aria-label="Chemin"></nav><span id="jf-count"></span></div>
+      <button class="modal-x" onclick="closeJeanFiles()" aria-label="Fermer" data-i18n="memory.close_aria" data-i18n-attr="aria-label">×</button>
+    </div>
+    <div class="jf-tools">
+      <input id="jf-filter" type="search" autocomplete="off" spellcheck="false" enterkeyhint="search" placeholder="Filtrer, ou Entrée pour chercher dans le contenu" data-i18n="jean.files_filter_ph" data-i18n-attr="placeholder">
+      <button id="jf-view" class="jf-ic" type="button"></button>
+      <button class="jf-btn" type="button" onclick="jfMkdir()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 10v6M9 13h6"/></svg><span class="jf-btn-t" data-i18n="jean.files_mkdir">Nouveau dossier</span></button>
+      <label class="jf-btn jf-btn-pri"><input type="file" multiple hidden onchange="const f=[...this.files]; this.value=''; jfUpload(f)"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg><span class="jf-btn-t" data-i18n="jean.files_import">Importer</span></label>
+    </div>
+    <div id="jf-cols"><button type="button" data-sort="name" data-i18n="jean.files_col_name">Nom</button><button type="button" data-sort="size" data-i18n="jean.files_col_size">Taille</button><button type="button" data-sort="mod" data-i18n="jean.files_col_mod">Modifié</button><span></span></div>
+    <div class="jf-body">
+      <div id="jf-list"></div>
+      <div id="jf-sel" role="toolbar">
+        <span id="jf-seln"></span>
+        <button type="button" data-bulk="dl" data-i18n="jean.files_download">Télécharger</button>
+        <button type="button" data-bulk="ask" data-i18n="jean.files_ask">Demander à Jean</button>
+        <button type="button" data-bulk="rename" data-i18n="jean.files_rename">Renommer</button>
+        <button type="button" data-bulk="delete" class="danger" data-i18n="jean.files_delete">Supprimer</button>
+        <button type="button" data-bulk="none" class="jf-ic" aria-label="×"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <div id="jf-viewer">
+        <div class="jf-vhead">
+          <button class="jf-ic" type="button" onclick="jfCloseViewer()" title="Retour" aria-label="Retour" data-i18n="jean.files_back" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <div class="jf-title"><b id="jf-vname"></b><span id="jf-vmeta"></span></div>
+          <div class="jf-vacts">
+            <button class="jf-btn" type="button" onclick="jfViewerAct('ask')"><span data-i18n="jean.files_ask">Demander à Jean</span></button>
+            <button class="jf-ic" type="button" onclick="jfViewerAct('dl')" title="Télécharger" data-i18n="jean.files_download" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 19h16"/></svg></button>
+            <button class="jf-ic" type="button" onclick="jfViewerAct('rename')" title="Renommer" data-i18n="jean.files_rename" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
+            <button class="jf-ic jf-danger" type="button" onclick="jfViewerAct('delete')" title="Supprimer" data-i18n="jean.files_delete" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>
+          </div>
+        </div>
+        <div id="jf-vbody" class="jf-vbody"></div>
       </div>
     </div>
   </div>

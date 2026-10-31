@@ -234,7 +234,8 @@ var samplingKeys = []struct {
 // REASONING_EFFORT (Qwen3.8 : low/medium/high/xhigh…) passe par le mécanisme des
 // gabarits jinja de llama.cpp (chat_template_kwargs) : il n'a d'effet que si le
 // serveur tourne avec --jinja, mais on ne l'envoie que lorsqu'un preset le
-// définit explicitement, donc jamais à l'aveugle.
+// définit explicitement, donc jamais à l'aveugle. Vers une API externe, c'est le
+// champ OpenAI de premier niveau reasoning_effort qui part.
 func applySampling(payload map[string]any) { applySamplingFrom(payload, ReadConfig()) }
 
 // applySamplingFrom est la partie pure d'applySampling : testable sans base.
@@ -255,7 +256,14 @@ func applySamplingFrom(payload map[string]any, cfg map[string]string) {
 		}
 	}
 	if eff := strings.TrimSpace(cfg["REASONING_EFFORT"]); eff != "" {
-		payload["chat_template_kwargs"] = map[string]any{"reasoning_effort": eff}
+		if isExternalConfig(cfg) {
+			// API distante (preset EXTERNAL=1) : chat_template_kwargs n'existe que chez
+			// llama.cpp ; les API qui valident le schéma (OpenAI, Mistral, Groq…) le
+			// rejetaient et les autres l'ignoraient (issue #178). Champ natif à la place.
+			payload["reasoning_effort"] = eff
+		} else {
+			payload["chat_template_kwargs"] = map[string]any{"reasoning_effort": eff}
+		}
 	}
 }
 

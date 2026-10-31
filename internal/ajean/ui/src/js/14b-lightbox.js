@@ -52,8 +52,8 @@ function lbBuild(){
 // Les images « voisines » : celles du même message / composeur / réponse, déjà
 // chargées (une vignette encore vide n'a rien à montrer en grand).
 function lbGroup(img){
-  const scope=img.closest('.msg-files, #attach-list, .body, .msg') || img.parentNode || document.body;
-  return [...scope.querySelectorAll('img.it-img, img.chat-img')].filter(i=>i.src && i.naturalWidth);
+  const scope=img.closest('#jf-list, .msg-files, #attach-list, .body, .msg') || img.parentNode || document.body;
+  return [...scope.querySelectorAll('img.it-img, img.chat-img, img.jf-img')].filter(i=>i.src && i.naturalWidth);
 }
 
 // Taille d'affichage « ajustée » : l'image tient dans l'écran (marges comprises)

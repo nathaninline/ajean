@@ -311,6 +311,12 @@ func newWebMux() *http.ServeMux {
 	api("/api/bench/last", handleBenchLast)
 	api("/api/chat", handleChat)                               // flux d'ABONNEMENT (SSE) : rejoue + suit le fil
 	api("/api/chat/send", handleChatSend)                      // envoie un message (lance la génération détachée)
+	api("/api/voice/status", handleVoiceStatus)                // voix du mode Jean réglée ? (voice.go)
+	api("/api/voice/stt", handleVoiceSTT)                      // audio dicté -> texte (relais audio.cpp)
+	api("/api/voice/tts", handleVoiceTTS)                      // texte -> audio de la voix de Jean
+	api("/api/voice/settings", handleVoiceSettings)            // réglages voix (GET / POST)
+	api("/api/voice/design", handleVoiceDesign)                // crée une voix à partir d'une description
+	api("/api/voice/delete", handleVoiceDelete)                // retire une voix de la bibliothèque
 	api("/api/chat/upload", handleChatUpload)                  // dépose un fichier dans le workspace agent (joint au message suivant)
 	api("/api/chat/file", handleChatFile)                      // télécharge un fichier produit par l'agent (dossier de travail only)
 	api("/api/chat/stop", handleChatStop)                      // interrompt la génération en cours
@@ -323,6 +329,12 @@ func newWebMux() *http.ServeMux {
 	api("/api/jean/sleeps", handleJeanSleeps)                  // historique des sommeils : changements, retour arrière, archives
 	api("/api/jean/sleep", handleJeanSleep)                    // preset utilisé pour le sommeil (consolidation)
 	api("/api/jean/journal/delete", handleJeanJournalDelete)   // supprime une entrée du journal
+	api("/api/jean/files", handleJeanFiles)                    // gestionnaire de fichiers : contenu d'un dossier de Jean
+	api("/api/jean/files/mkdir", handleJeanFilesMkdir)         // nouveau dossier
+	api("/api/jean/files/delete", handleJeanFilesDelete)       // supprime fichiers et dossiers
+	api("/api/jean/files/move", handleJeanFilesMove)           // range dans un autre dossier
+	api("/api/jean/files/rename", handleJeanFilesRename)       // renomme
+	api("/api/jean/files/search", handleJeanFilesSearch)       // fichiers qui parlent de… (par le sens)
 	api("/api/chat/cushot", handleCUShot)                      // aperçu en direct du navigateur piloté (RAM, jamais gardé)
 	api("/api/chat/jean/clear", handleChatJeanClear)           // mode Jean : vide le contexte du modèle, garde le fil
 	api("/api/chat/jean", handleChatJean)                      // ouvre la conversation unique du mode Jean

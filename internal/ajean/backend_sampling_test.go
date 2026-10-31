@@ -42,3 +42,21 @@ func TestApplySamplingEmpty(t *testing.T) {
 		t.Errorf("payload modifié à tort : %v", payload)
 	}
 }
+
+// Issue #178 : vers une API externe, l'effort de réflexion part en champ natif,
+// jamais dans chat_template_kwargs (propre à llama.cpp, rejeté par OpenAI & co).
+func TestApplySamplingExternalEffort(t *testing.T) {
+	ext := map[string]any{}
+	applySamplingFrom(ext, map[string]string{"EXTERNAL": "1", "REASONING_EFFORT": "high"})
+	if ext["reasoning_effort"] != "high" {
+		t.Fatalf("reasoning_effort absent : %v", ext)
+	}
+	if _, ok := ext["chat_template_kwargs"]; ok {
+		t.Fatalf("chat_template_kwargs envoyé à une API externe : %v", ext)
+	}
+	local := map[string]any{}
+	applySamplingFrom(local, map[string]string{"REASONING_EFFORT": "high"})
+	if _, ok := local["reasoning_effort"]; ok || local["chat_template_kwargs"] == nil {
+		t.Fatalf("llama.cpp local : %v", local)
+	}
+}

@@ -17,7 +17,7 @@
   const srchSeen=new WeakSet();
   let term, termView, termKey='', termTyped=0, termTimer=0, termSig='', avatarLooking=false, termRuns=[], termCmd='';
   const termSeen=new WeakSet(); // résultats déjà apparus (leur fondu ne se rejoue pas)
-  let stage, scene, bubble, bubbleBody, caption, capPast, capText, capStop, inputBox, ta, sendBtn, histBtn;
+  let stage, scene, bubble, bubbleBody, caption, capPast, capText, capStop, inputBox, ta, sendBtn, histBtn, filesBtn;
   let screen, screenView, screenUrl, screenSrc='';
   let jeanWasOn=false;
   let inputOpen=false, syncTimer=0, lastHTML='', userScrolled=false;
@@ -30,6 +30,10 @@
     stage=$('div','', main); stage.id='jean-stage';
     histBtn=$('button','jst-hist', main); histBtn.type='button';
     histBtn.onclick=toggleHistory;
+    // Les fichiers de Jean (23-jean-files.js), à portée de la scène.
+    filesBtn=$('button','jst-files', main); filesBtn.type='button';
+    filesBtn.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+    filesBtn.onclick=()=>{ if(typeof openJeanFiles==='function') openJeanFiles(); };
     scene=$('div','jst-scene', stage);
     bubble=$('div','jst-bubble', scene);
     bubbleBody=$('div','jst-bubble-body body', bubble);
@@ -93,6 +97,7 @@
   function applyTexts(){
     ta.placeholder=t('jean.stage_placeholder');
     sendBtn.title=t('chat.send_button_title');
+    filesBtn.title=filesBtn.ariaLabel=t('jean.files_title');
     capStop.textContent=t('jean.stage_stop');
     const hist=document.body.classList.contains('jean-history');
     histBtn.title=hist ? t('jean.stage_back') : t('jean.stage_history');

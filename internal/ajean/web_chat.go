@@ -55,6 +55,7 @@ func capsFromBody(body chatReq) Caps {
 		caps.Mem = MemOff
 		caps.Jean = true
 	}
+	caps.Voice = body.Voice
 	// Les outils dépendent du mode agent : agent coupé, tout est coupé.
 	if !caps.Agent {
 		caps.Internet = false
@@ -161,6 +162,16 @@ func handleChatSend(w http.ResponseWriter, r *http.Request) {
 	applyChatMode(&body, mode)
 	if mode == "jean" {
 		files = moveUploadsToJean(files)
+	} else {
+		// Un fichier du dossier de Jean ne part pas dans un projet (espaces
+		// cloisonnés, chat_space.go).
+		kept := files[:0]
+		for _, f := range files {
+			if !f.jeanAttached() {
+				kept = append(kept, f)
+			}
+		}
+		files = kept
 	}
 	queued, err := conv.EnqueueOrStart(body.Message, files, capsFromBody(body), body.Temperature)
 	if err != nil {

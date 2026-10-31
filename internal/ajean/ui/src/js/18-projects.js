@@ -174,6 +174,7 @@ const PLUS_IC = {
   mem:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',
   clear:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
   compact:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9l4-4 4 4M20 15l-4 4-4-4M8 5v6M16 19v-6"/></svg>',
+  folder:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
 };
 const closePlusMenu = ()=>closeMenu();
 function togglePlusMenu(e){
@@ -181,6 +182,7 @@ function togglePlusMenu(e){
   popMenu(document.getElementById('plus-btn'), [
     COMPACT_AVAILABLE && {icon:PLUS_IC.compact, label:t('projects.compact_context'), run:compactContext}, // contexte ≥ 50 %, en tête
     MODE==='jean' && {icon:PLUS_IC.mem, label:t('jean.mem_title'), run:openJeanMem},
+    MODE==='jean' && {icon:PLUS_IC.folder, label:t('jean.files_title'), run:openJeanFiles},
     {icon:PLUS_IC.file, label:t('projects.attach_file'), run:()=>document.getElementById('attach-input').click()},
     // Mode Jean : une seule conversation, on n'en ouvre pas d'autre, on vide le contexte.
     MODE==='jean' ? {icon:PLUS_IC.clear, label:t('jean.clear_ctx'), run:clearJeanContext}

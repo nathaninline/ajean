@@ -1962,6 +1962,160 @@ button.th-head:hover{background:var(--t1)}
 .body .wi{animation:aj-word-in 450ms cubic-bezier(.33,.1,.45,1) both}
 .body li.li-wait::marker{color:transparent}
 @media (prefers-reduced-motion: reduce){.body .wi{animation:none}}
+.jst-files{display:none;position:absolute;top:14px;right:62px;z-index:7;width:38px;height:38px;border:none;border-radius:50%;margin:0;padding:0;
+  background:var(--row-bg);color:var(--dim);cursor:pointer;align-items:center;justify-content:center;transition:background .2s,color .2s}
+.jst-files:hover{background:var(--row-bg-on);color:var(--text)}
+body.jean-mode:not(.jean-history) .jst-files{display:flex}
+.jst-voice{display:none;position:absolute;top:14px;right:108px;z-index:7;width:38px;height:38px;border:none;border-radius:50%;margin:0;padding:0;
+  background:var(--row-bg);color:var(--dim);cursor:pointer;align-items:center;justify-content:center;transition:background .2s,color .2s,transform .2s}
+.jst-voice:hover{background:var(--row-bg-on);color:var(--text)}
+body.voice-ready.jean-mode:not(.jean-history) .jst-voice{display:flex}
+.jst-voice.on{background:var(--accent);color:var(--accent-fg,var(--bg))}
+.jst-voice.on[data-st="rec"]{transform:scale(1.12)}
+.jst-voice.on[data-st="listen"]{animation:jvPulse 2.4s ease-in-out infinite}
+@keyframes jvPulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 35%,transparent)}50%{box-shadow:0 0 0 8px color-mix(in srgb,var(--accent) 0%,transparent)}}
+.jst-voice-st{position:absolute;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translate(-50%,6px);z-index:7;
+  padding:6px 14px;border-radius:999px;background:var(--row-bg);color:var(--dim);font-size:13px;pointer-events:none;cursor:pointer;opacity:0;transition:opacity .25s,transform .25s}
+.jst-voice-st.in{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+body:not(.jean-mode) .jst-voice-st,body.jean-history .jst-voice-st{display:none}
+body.jean-voice #jean-stage .jst-input{display:none}
+.jf-card{max-width:1040px;height:min(820px,88vh);overflow:hidden}
+.jf-card.dropping .jf-body{box-shadow:inset 0 0 0 2px var(--t3);border-radius:0 0 12px 12px}
+.jf-head{justify-content:flex-start;gap:6px;padding:10px 12px;border-bottom:none}
+.jf-title{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.jf-title b{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#jf-crumbs{display:flex;align-items:center;min-width:0;white-space:nowrap;overflow:hidden;font-size:14px;font-weight:600}
+#jf-crumbs button{margin:0;padding:2px 5px;border:none;background:none;border-radius:6px;font:inherit;color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-width:0;cursor:pointer}
+#jf-crumbs button:last-child{flex-shrink:0;max-width:100%}
+#jf-crumbs button:not(:last-child){color:var(--dim);font-weight:500}
+#jf-crumbs button:hover{background:var(--t1)}
+#jf-crumbs i{color:var(--dim);font-style:normal;padding:0 1px;flex:none;opacity:.6}
+#jf-count,#jf-vmeta{font-size:11.5px;color:var(--dim);padding-left:5px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#jf-vmeta{padding-left:0}
+.jf-ic{margin:0;width:34px;height:34px;padding:0;flex:none;border:none;background:none;border-radius:9px;color:var(--dim);
+  display:inline-grid;place-items:center;cursor:pointer;transition:background .14s,color .14s}
+.jf-ic:hover{background:var(--t1);color:var(--text)}
+.jf-ic[hidden]{display:none}
+.jf-ic.jf-danger:hover{color:var(--err)}
+.jf-tools{display:flex;align-items:center;gap:8px;padding:2px 14px 8px}
+#jf-filter{flex:1;min-width:0;margin:0;background:var(--t1);color:var(--text);border:none;border-radius:10px;padding:8px 12px;font:inherit;font-size:13px;outline:none}
+#jf-filter::placeholder{color:var(--dim)}
+.jf-btn{margin:0;flex:none;display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border:none;border-radius:10px;
+  background:var(--t2);color:var(--text);font:inherit;font-size:13px;line-height:1.3;cursor:pointer;white-space:nowrap;transition:background .14s}
+.jf-btn:hover{background:var(--t3)}
+.jf-btn-pri{background:var(--accent);color:var(--bg)}
+.jf-btn-pri:hover{background:var(--accent);opacity:.88}
+.jf-btn svg{flex:none}
+.jf-body{position:relative;flex:1;min-height:0;display:flex;flex-direction:column}
+#jf-list{flex:1;min-height:0;overflow-y:auto;padding:2px 8px 76px;overscroll-behavior:contain}
+.jf-row{display:flex;align-items:center;gap:2px;border-radius:12px;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;
+  transition:background .14s,transform .15s,opacity .15s}
+.jf-main{flex:1;min-width:0;margin:0;display:flex;align-items:center;gap:12px;text-align:left;padding:8px 6px;border:none;
+  border-radius:12px;background:none;color:var(--text);font:inherit;cursor:pointer}
+.jf-main:focus-visible{outline:2px solid var(--t3);outline-offset:-2px}
+.jf-row:hover:not(.sel){background:var(--row-bg)}
+.jf-row.sel{background:var(--t2)}
+.jf-more{margin:0;width:40px;height:40px;flex:none;padding:0;border:none;border-radius:50%;background:none;color:var(--dim);
+  display:grid;place-items:center;cursor:pointer}
+.jf-more:hover{background:var(--t1);color:var(--text)}
+.jf-ficon{width:42px;height:42px;flex:none;border-radius:10px;background:var(--t1);display:grid;place-items:center;overflow:hidden;color:var(--dim)}
+.jf-ficon svg{width:21px;height:21px}
+.jf-ficon.dir{color:var(--text);background:var(--t2)}
+.jf-ficon.dir svg{opacity:.75}
+.jf-ficon img{width:100%;height:100%;object-fit:cover;display:block}
+.jf-ficon img:not([src]){visibility:hidden}
+.jf-ficon.big{width:72px;height:72px;margin:0 auto 12px;border-radius:16px}
+.jf-ficon.big svg{width:32px;height:32px}
+.jf-name{flex:1;min-width:0;display:flex;flex-direction:column}
+.jf-name b{font-weight:500;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jf-name span{color:var(--dim);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jf-size,.jf-date{display:none}
+#jf-cols{display:none}
+.jf-empty{color:var(--dim);text-align:center;padding:16vh 24px 0;font-size:13px;line-height:1.5}
+.jf-hint{color:var(--dim);font-size:11.5px;text-align:center;padding:12px 0 0;opacity:.8}
+.jf-row.lifted{transform:scale(1.02);background:var(--t2);box-shadow:var(--pop-shadow)}
+.jf-row.drop-here,#jf-back.drop-here,#jf-crumbs button.drop-here{background:var(--t3)}
+.jf-ghost{position:fixed;left:0;top:0;z-index:1100;pointer-events:none;padding:8px 12px;border-radius:12px;background:var(--menu);color:var(--text);
+  box-shadow:var(--pop-shadow);font-size:13px;max-width:60vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#jf-list.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:6px;align-content:start}
+#jf-list.grid .jf-row{position:relative;flex-direction:column}
+#jf-list.grid .jf-main{flex-direction:column;gap:7px;padding:7px;width:100%}
+#jf-list.grid .jf-ficon{width:100%;height:auto;aspect-ratio:1;border-radius:12px}
+#jf-list.grid .jf-ficon svg{width:36%;height:36%}
+#jf-list.grid .jf-name{width:100%;text-align:center}
+#jf-list.grid .jf-name span{display:none}
+#jf-list.grid .jf-more{position:absolute;top:10px;right:10px;width:30px;height:30px;background:color-mix(in srgb,var(--bg) 78%,transparent);opacity:0}
+#jf-list.grid .jf-row:hover .jf-more,#jf-list.grid .jf-more:focus-visible{opacity:1}
+#jf-list.grid .jf-empty,#jf-list.grid .jf-hint,#jf-list.grid .jf-shead,#jf-list.grid .jf-hit{grid-column:1/-1}
+@media (hover:none){#jf-list.grid .jf-more{opacity:1}}
+#jf-sel{position:absolute;left:50%;bottom:14px;transform:translate(-50%,160%);z-index:3;display:flex;align-items:center;gap:2px;
+  padding:5px;border-radius:14px;background:var(--menu);box-shadow:var(--pop-shadow);transition:transform .22s var(--ease);
+  max-width:calc(100% - 24px);overflow-x:auto;scrollbar-width:none}
+#jf-sel.show{transform:translate(-50%,0)}
+#jf-sel>span{padding:0 8px;color:var(--dim);white-space:nowrap;font-size:12.5px}
+#jf-sel>button:not(.jf-ic){margin:0;padding:7px 11px;border:none;border-radius:9px;background:none;color:var(--text);font:inherit;font-size:12.5px;white-space:nowrap;cursor:pointer}
+#jf-sel>button:not(.jf-ic):hover{background:var(--t2)}
+#jf-sel>button.danger{color:var(--err)}
+#jf-sel>button[hidden]{display:none}
+.jf-shead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 6px 4px 8px;font-size:12px;color:var(--dim)}
+.jf-hit{display:flex;align-items:flex-start;gap:12px;width:100%;margin:0;padding:9px 8px;border:none;border-radius:12px;background:none;color:var(--text);
+  font:inherit;text-align:left;cursor:pointer}
+.jf-hit:hover{background:var(--row-bg)}
+.jf-hit .jf-name b{white-space:normal;overflow-wrap:anywhere}
+.jf-hit .jf-hit-dir{font-family:var(--mono);font-size:11px}
+.jf-hit .jf-hit-p{white-space:normal;color:var(--text);opacity:.75;font-size:12px;line-height:1.45;margin-top:3px;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+#jf-viewer{position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;background:var(--bg);
+  opacity:0;visibility:hidden;transform:translateY(8px);transition:opacity .18s ease,transform .2s var(--ease),visibility 0s .2s}
+#jf-viewer.show{opacity:1;visibility:visible;transform:none;transition:opacity .18s ease,transform .2s var(--ease)}
+.jf-vhead{display:flex;align-items:center;gap:6px;padding:4px 10px 8px}
+.jf-vacts{display:flex;align-items:center;gap:4px;flex:none}
+.jf-vbody{flex:1;min-height:0;overflow:auto;padding:4px 16px 20px}
+.jf-vbody.pdf{padding:0 8px 8px;overflow:hidden}
+.jf-pdf{display:block;width:100%;height:100%;border:none;border-radius:10px;background:#fff}
+.jf-media{display:block;max-width:100%;max-height:100%;margin:0 auto;border-radius:10px}
+audio.jf-media{width:min(520px,100%);margin-top:18vh}
+.jf-code{margin:0;padding:12px 14px;background:var(--code-bg);border-radius:10px;overflow-x:auto;font:12px/1.55 var(--mono);color:var(--text);white-space:pre}
+.jf-code .n{display:inline-block;width:var(--nw,3ch);margin-right:14px;text-align:right;color:var(--dim);opacity:.7;user-select:none;-webkit-user-select:none}
+.jf-md{max-width:780px;margin:0 auto;font-size:14px;line-height:1.6}
+.jf-nopv{text-align:center;color:var(--dim);font-size:13px;padding-top:14vh}
+@media (min-width:840px){
+  #jf-list:not(.grid) .jf-row{border-radius:9px}
+  #jf-list:not(.grid) .jf-main{display:grid;grid-template-columns:28px minmax(0,1fr) 100px 170px;gap:12px;padding:5px 8px;border-radius:9px}
+  #jf-list:not(.grid) .jf-ficon{width:28px;height:28px;border-radius:7px}
+  #jf-list:not(.grid) .jf-ficon svg{width:16px;height:16px}
+  #jf-list:not(.grid) .jf-name span{display:none}
+  #jf-list:not(.grid) .jf-size,#jf-list:not(.grid) .jf-date{display:block;color:var(--dim);font-size:12.5px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  #jf-list:not(.grid) .jf-size{text-align:right}
+  #jf-list:not(.grid) .jf-more{width:32px;height:32px;opacity:0}
+  #jf-list:not(.grid) .jf-row:hover .jf-more,#jf-list:not(.grid) .jf-row.sel .jf-more{opacity:1}
+  #jean-files-modal:not(.jf-gridview) #jf-cols{display:grid;grid-template-columns:28px minmax(0,1fr) 100px 170px 34px;gap:12px;padding:4px 8px;margin:0 8px;
+    font-size:11.5px;color:var(--dim)}
+  #jf-cols button{margin:0;padding:2px 0;border:none;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+  #jf-cols button:first-child{grid-column:1/3}
+  #jf-cols button[data-sort="size"]{text-align:right}
+  #jf-cols button:hover,#jf-cols button.on{color:var(--text)}
+  #jf-cols button.on::after{content:" ↑"}
+  #jf-cols button.on.desc::after{content:" ↓"}
+}
+@media (max-width:720px){
+  #jean-files-modal{padding:0}
+  #jean-files-modal .jf-card{height:100%;max-height:none;border-radius:0;border:none;
+    padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+  .jf-btn .jf-btn-t{display:none}
+  .jf-btn{padding:8px 10px}
+  .jf-vacts .jf-btn{padding:7px 10px}
+  #jf-sel{gap:0;padding:4px;bottom:10px}
+  #jf-sel>span{padding:0 6px}
+  #jf-sel>button:not(.jf-ic){padding:7px 8px;font-size:12px}
+}
+.voice-pick{margin-left:auto;order:2;display:flex;align-items:center;gap:6px;max-width:62%}
+.voice-pick .sctl{width:auto;min-width:0}
+.voice-play{flex:none;width:30px;height:30px;border:none;border-radius:50%;background:var(--t1);color:var(--text);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.voice-play:disabled{opacity:.4}
+#voice-url{min-width:0;flex:1 1 auto;max-width:62%}
 </style></head><body>
 <button id="menubtn" onclick="toggleSide()" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
 <button id="lc-chip" onclick="lcChipOpen()" hidden></button>
@@ -2192,6 +2346,18 @@ button.th-head:hover{background:var(--t1)}
           <div id="mcp-list" class="mcp-list"><div class="muted" style="font-size:12px" data-i18n="mcp.empty_list">Aucun serveur. Un serveur MCP ajoute des outils : fichiers, base de données, API…</div></div>
         </div>
         <button type="button" class="switchrow sw-action" onclick="openMcp('')"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="mcp.add_button">Ajouter un serveur</span></button>
+      </div>
+    </div>
+    <div id="voice-block">
+      <div class="subhead"><span data-i18n="voice.title">Voix de Jean</span><span id="voice-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="voice.help" data-i18n-html>Conversation à voix haute en mode Jean : bouton micro sur sa scène. La transcription et la voix passent par un <b>serveur audio.cpp</b> (Qwen3-ASR et VoxCPM2). Les voix sont enregistrées dans AJEAN.</span></span></div>
+      <div class="slist">
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="voice-toggle" onchange="voiceSave({on:this.checked})"><span class="slider"></span></span> <span data-i18n="voice.toggle">conversation vocale</span></label>
+        <label class="switchrow"><span data-i18n="voice.server">serveur audio</span><input id="voice-url" class="sctl" type="text" spellcheck="false" autocomplete="off" placeholder="http://127.0.0.1:8095" onchange="voiceSave({url:this.value})"></label>
+        <div class="switchrow"><span data-i18n="voice.voice">voix</span><span class="voice-pick"><select id="voice-name" class="sctl" onchange="voiceSave({voice:this.value})"></select><button type="button" class="voice-play" onclick="voiceTest()" data-i18n="voice.test" data-i18n-attr="title" title="Écouter"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg></button></span></div>
+        <label class="switchrow"><span data-i18n="voice.sens">sensibilité du micro</span><select id="voice-sens" class="sctl" onchange="voiceSave({sens:+this.value})"><option value="1" data-i18n="voice.sens_low">faible</option><option value="2" data-i18n="voice.sens_mid">normale</option><option value="3" data-i18n="voice.sens_high">élevée</option></select></label>
+        <label class="switchrow"><span data-i18n="voice.silence">pause avant envoi</span><select id="voice-silence" class="sctl" onchange="voiceSave({silence_ms:+this.value})"><option value="500">0,5 s</option><option value="800">0,8 s</option><option value="1200">1,2 s</option><option value="1800">1,8 s</option><option value="2500">2,5 s</option></select></label>
+        <button type="button" class="switchrow sw-action" onclick="voiceCreate()"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="voice.create">Créer une voix</span></button>
+        <button type="button" class="switchrow sw-action" id="voice-del" onclick="voiceDelete()"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span data-i18n="voice.delete">Supprimer la voix choisie</span></button>
       </div>
     </div>
     <div class="subhead" data-i18n="settings.general_subhead">Général</div>
@@ -2663,6 +2829,46 @@ button.th-head:hover{background:var(--t1)}
         <input id="jm-search" class="mem-search sctl" type="search" oninput="jmSearchDebounced()" placeholder="chercher dans le journal…" data-i18n="jean.mem_search" data-i18n-attr="placeholder">
         <div id="jm-journal" class="jm-list"></div>
         <button id="jm-more" class="jm-more" style="display:none" onclick="jmLoad(true)" data-i18n="chat.show_more">voir plus</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="jean-files-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeJeanFiles()">
+  <div class="modal-card jf-card">
+    <div class="modal-head jf-head">
+      <button id="jf-back" class="jf-ic" type="button" onclick="jfList(jfUpDir(JF.dir))" data-drop="1" title="Dossier parent" aria-label="Dossier parent" data-i18n="jean.files_up" data-i18n-attr="title" hidden><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div class="jf-title"><nav id="jf-crumbs" aria-label="Chemin"></nav><span id="jf-count"></span></div>
+      <button class="modal-x" onclick="closeJeanFiles()" aria-label="Fermer" data-i18n="memory.close_aria" data-i18n-attr="aria-label">×</button>
+    </div>
+    <div class="jf-tools">
+      <input id="jf-filter" type="search" autocomplete="off" spellcheck="false" enterkeyhint="search" placeholder="Filtrer, ou Entrée pour chercher dans le contenu" data-i18n="jean.files_filter_ph" data-i18n-attr="placeholder">
+      <button id="jf-view" class="jf-ic" type="button"></button>
+      <button class="jf-btn" type="button" onclick="jfMkdir()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 10v6M9 13h6"/></svg><span class="jf-btn-t" data-i18n="jean.files_mkdir">Nouveau dossier</span></button>
+      <label class="jf-btn jf-btn-pri"><input type="file" multiple hidden onchange="const f=[...this.files]; this.value=''; jfUpload(f)"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg><span class="jf-btn-t" data-i18n="jean.files_import">Importer</span></label>
+    </div>
+    <div id="jf-cols"><button type="button" data-sort="name" data-i18n="jean.files_col_name">Nom</button><button type="button" data-sort="size" data-i18n="jean.files_col_size">Taille</button><button type="button" data-sort="mod" data-i18n="jean.files_col_mod">Modifié</button><span></span></div>
+    <div class="jf-body">
+      <div id="jf-list"></div>
+      <div id="jf-sel" role="toolbar">
+        <span id="jf-seln"></span>
+        <button type="button" data-bulk="dl" data-i18n="jean.files_download">Télécharger</button>
+        <button type="button" data-bulk="ask" data-i18n="jean.files_ask">Demander à Jean</button>
+        <button type="button" data-bulk="rename" data-i18n="jean.files_rename">Renommer</button>
+        <button type="button" data-bulk="delete" class="danger" data-i18n="jean.files_delete">Supprimer</button>
+        <button type="button" data-bulk="none" class="jf-ic" aria-label="×"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <div id="jf-viewer">
+        <div class="jf-vhead">
+          <button class="jf-ic" type="button" onclick="jfCloseViewer()" title="Retour" aria-label="Retour" data-i18n="jean.files_back" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <div class="jf-title"><b id="jf-vname"></b><span id="jf-vmeta"></span></div>
+          <div class="jf-vacts">
+            <button class="jf-btn" type="button" onclick="jfViewerAct('ask')"><span data-i18n="jean.files_ask">Demander à Jean</span></button>
+            <button class="jf-ic" type="button" onclick="jfViewerAct('dl')" title="Télécharger" data-i18n="jean.files_download" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 19h16"/></svg></button>
+            <button class="jf-ic" type="button" onclick="jfViewerAct('rename')" title="Renommer" data-i18n="jean.files_rename" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
+            <button class="jf-ic jf-danger" type="button" onclick="jfViewerAct('delete')" title="Supprimer" data-i18n="jean.files_delete" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>
+          </div>
+        </div>
+        <div id="jf-vbody" class="jf-vbody"></div>
       </div>
     </div>
   </div>
@@ -3754,6 +3960,92 @@ fr: {
   "jean.embed_no_model": " · modèle absent",
   "jean.embed_indexing": " · {n} / {t} souvenirs indexés",
   "jean.embed_ready": " · {t} souvenirs indexés",
+  "jean.files_title": "Fichiers de Jean",
+  "voice.title": "Voix de Jean",
+  "voice.help": "Conversation à voix haute en mode Jean : bouton micro sur sa scène. La transcription et la voix passent par un <b>serveur audio.cpp</b> (Qwen3-ASR et VoxCPM2). Les voix sont enregistrées dans AJEAN.",
+  "voice.toggle": "conversation vocale",
+  "voice.server": "serveur audio",
+  "voice.voice": "voix",
+  "voice.test": "Écouter",
+  "voice.sens": "sensibilité du micro",
+  "voice.sens_low": "faible",
+  "voice.sens_mid": "normale",
+  "voice.sens_high": "élevée",
+  "voice.silence": "pause avant envoi",
+  "voice.create": "Créer une voix",
+  "voice.delete": "Supprimer la voix choisie",
+  "voice.badge_ok": "connecté",
+  "voice.badge_down": "injoignable",
+  "voice.badge_off": "coupée",
+  "voice.test_text": "Bonjour. Voici ma voix, telle que vous l'entendrez en conversation.",
+  "voice.create_desc": "Décrivez la voix souhaitée. Une description en anglais donne les meilleurs résultats.",
+  "voice.create_desc_ph": "A calm, warm male voice, deep and reassuring",
+  "voice.create_title": "Nouvelle voix",
+  "voice.create_name": "Nom de la voix (minuscules, chiffres, - ou _)",
+  "voice.create_name_ph": "majordome",
+  "voice.creating": "Création de la voix…",
+  "voice.created": "Voix créée : {name}",
+  "voice.delete_confirm": "Supprimer la voix « {name} » ?",
+  "voice.error": "Erreur : {msg}",
+  "voice.none": "aucune voix",
+  "jean.voice_on": "Parler à Jean",
+  "jean.voice_off": "Terminer la conversation vocale",
+  "jean.voice_listen": "À l'écoute",
+  "jean.voice_rec": "Vous parlez…",
+  "jean.voice_stt": "Transcription…",
+  "jean.voice_speak": "Toucher pour l'interrompre",
+  "jean.voice_mic_denied": "Accès au micro refusé",
+  "jean.voice_unsupported": "Audio non pris en charge par ce navigateur",
+  "jean.voice_stt_error": "Transcription impossible",
+  "jean.files_root": "Fichiers",
+  "jean.files_count": "{n} / {t} fichiers lus par Jean",
+  "jean.files_count_off": "Recherche par le sens coupée : Jean ne lit pas ces fichiers",
+  "jean.files_filter_ph": "Filtrer, ou Entrée pour chercher dans le contenu",
+  "jean.files_mkdir": "Nouveau dossier",
+  "jean.files_mkdir_ph": "Nom du dossier",
+  "jean.files_create": "Créer",
+  "jean.files_import": "Importer",
+  "jean.files_empty": "Dossier vide. Jean lit les fichiers ajoutés ici, y compris ce que montrent les photos.",
+  "jean.files_empty_drop": "Il est possible de les glisser ici.",
+  "jean.files_no_match": "Aucun nom ne correspond.",
+  "jean.files_folder": "Dossier",
+  "jean.files_up": "Dossier parent",
+  "jean.files_back": "Retour",
+  "jean.files_actions": "Actions",
+  "jean.files_open": "Ouvrir",
+  "jean.files_preview": "Aperçu",
+  "jean.files_download": "Télécharger",
+  "jean.files_ask": "Demander à Jean",
+  "jean.files_select": "Sélectionner",
+  "jean.files_rename": "Renommer",
+  "jean.files_delete": "Supprimer",
+  "jean.files_delete_n": "Supprimer {n} éléments",
+  "jean.files_sel_one": "1 sélectionné",
+  "jean.files_sel_many": "{n} sélectionnés",
+  "jean.files_del_one": "Supprimer « {name} » ?",
+  "jean.files_del_many": "Supprimer {n} éléments ?",
+  "jean.files_del_msg": "La suppression est définitive.",
+  "jean.files_del_dir_msg": "Les dossiers partent avec tout leur contenu. La suppression est définitive.",
+  "jean.files_deleted": "Supprimé",
+  "jean.files_renamed": "Renommé",
+  "jean.files_moved": "Déplacé",
+  "jean.files_attached": "Fichier joint au prochain message",
+  "jean.files_uploading": "Envoi en cours… {p} %",
+  "jean.files_added_one": "Fichier ajouté",
+  "jean.files_added_many": "{n} fichiers ajoutés",
+  "jean.files_error": "Action impossible : ",
+  "jean.files_loading": "Ouverture…",
+  "jean.files_no_preview": "Pas d'aperçu pour ce type de fichier.",
+  "jean.files_view_grid": "Affichage en grille",
+  "jean.files_view_list": "Affichage en liste",
+  "jean.files_col_name": "Nom",
+  "jean.files_col_size": "Taille",
+  "jean.files_col_mod": "Modifié",
+  "jean.files_hint_move": "Un appui long sur un fichier permet de le glisser dans un dossier.",
+  "jean.files_search_title": "Dans le contenu des fichiers",
+  "jean.files_search_by_name": "(par le nom : la recherche par le sens ne répond pas)",
+  "jean.files_searching": "Recherche…",
+  "jean.files_search_none": "Aucun fichier ne correspond.",
   "jean.mem_search": "chercher dans le journal…",
   "jean.mem_profile_empty": "Profil vide : Jean le remplit en apprenant à te connaître.",
   "jean.mem_journal_empty": "Journal vide pour l'instant.",
@@ -5208,6 +5500,92 @@ en: {
   "jean.embed_no_model": " · model missing",
   "jean.embed_indexing": " · {n} / {t} memories indexed",
   "jean.embed_ready": " · {t} memories indexed",
+  "jean.files_title": "Jean's files",
+  "voice.title": "Jean's voice",
+  "voice.help": "Spoken conversation in Jean mode: microphone button on the stage. Transcription and speech go through an <b>audio.cpp server</b> (Qwen3-ASR and VoxCPM2). Voices are stored in AJEAN.",
+  "voice.toggle": "voice conversation",
+  "voice.server": "audio server",
+  "voice.voice": "voice",
+  "voice.test": "Listen",
+  "voice.sens": "microphone sensitivity",
+  "voice.sens_low": "low",
+  "voice.sens_mid": "normal",
+  "voice.sens_high": "high",
+  "voice.silence": "pause before sending",
+  "voice.create": "Create a voice",
+  "voice.delete": "Delete the selected voice",
+  "voice.badge_ok": "connected",
+  "voice.badge_down": "unreachable",
+  "voice.badge_off": "off",
+  "voice.test_text": "Hello. This is my voice, as you will hear it in conversation.",
+  "voice.create_desc": "Describe the desired voice. A description in English gives the best results.",
+  "voice.create_desc_ph": "A calm, warm male voice, deep and reassuring",
+  "voice.create_title": "New voice",
+  "voice.create_name": "Voice name (lowercase, digits, - or _)",
+  "voice.create_name_ph": "butler",
+  "voice.creating": "Creating the voice…",
+  "voice.created": "Voice created: {name}",
+  "voice.delete_confirm": "Delete the voice “{name}”?",
+  "voice.error": "Error: {msg}",
+  "voice.none": "no voice",
+  "jean.voice_on": "Talk to Jean",
+  "jean.voice_off": "End voice conversation",
+  "jean.voice_listen": "Listening",
+  "jean.voice_rec": "Speaking…",
+  "jean.voice_stt": "Transcribing…",
+  "jean.voice_speak": "Tap to interrupt",
+  "jean.voice_mic_denied": "Microphone access denied",
+  "jean.voice_unsupported": "Audio not supported by this browser",
+  "jean.voice_stt_error": "Transcription failed",
+  "jean.files_root": "Files",
+  "jean.files_count": "{n} / {t} files read by Jean",
+  "jean.files_count_off": "Search by meaning is off: Jean does not read these files",
+  "jean.files_filter_ph": "Filter, or Enter to search the contents",
+  "jean.files_mkdir": "New folder",
+  "jean.files_mkdir_ph": "Folder name",
+  "jean.files_create": "Create",
+  "jean.files_import": "Import",
+  "jean.files_empty": "Empty folder. Jean reads the files added here, including what photos show.",
+  "jean.files_empty_drop": "Files can be dropped here.",
+  "jean.files_no_match": "No name matches.",
+  "jean.files_folder": "Folder",
+  "jean.files_up": "Parent folder",
+  "jean.files_back": "Back",
+  "jean.files_actions": "Actions",
+  "jean.files_open": "Open",
+  "jean.files_preview": "Preview",
+  "jean.files_download": "Download",
+  "jean.files_ask": "Ask Jean",
+  "jean.files_select": "Select",
+  "jean.files_rename": "Rename",
+  "jean.files_delete": "Delete",
+  "jean.files_delete_n": "Delete {n} items",
+  "jean.files_sel_one": "1 selected",
+  "jean.files_sel_many": "{n} selected",
+  "jean.files_del_one": "Delete “{name}”?",
+  "jean.files_del_many": "Delete {n} items?",
+  "jean.files_del_msg": "Deletion is permanent.",
+  "jean.files_del_dir_msg": "Folders go with everything they contain. Deletion is permanent.",
+  "jean.files_deleted": "Deleted",
+  "jean.files_renamed": "Renamed",
+  "jean.files_moved": "Moved",
+  "jean.files_attached": "File attached to the next message",
+  "jean.files_uploading": "Uploading… {p} %",
+  "jean.files_added_one": "File added",
+  "jean.files_added_many": "{n} files added",
+  "jean.files_error": "Action failed: ",
+  "jean.files_loading": "Opening…",
+  "jean.files_no_preview": "No preview for this type of file.",
+  "jean.files_view_grid": "Grid view",
+  "jean.files_view_list": "List view",
+  "jean.files_col_name": "Name",
+  "jean.files_col_size": "Size",
+  "jean.files_col_mod": "Modified",
+  "jean.files_hint_move": "Press and hold a file to drag it into a folder.",
+  "jean.files_search_title": "In the contents of files",
+  "jean.files_search_by_name": "(by name: search by meaning is not answering)",
+  "jean.files_searching": "Searching…",
+  "jean.files_search_none": "No file matches.",
   "jean.mem_search": "search the journal…",
   "jean.mem_profile_empty": "Empty profile: Jean fills it as he gets to know you.",
   "jean.mem_journal_empty": "Empty journal for now.",
@@ -10096,7 +10474,9 @@ function finalizeTurn(elapsedMs, preset){
   if(!(elapsedMs>0) && !(tok>0) && !(pr && !viewOn('hide-preset'))){ removeGenEl(); scrollMaybe(true); return; }
   const items=genItems(elapsedMs/1000, tok, rate, pr, '');
   if(!(elapsedMs>0)) items.shift();
-  const g=ensureGenEl(); paintGenParts(g.querySelector('.gtxt'), items);
+  const g=ensureGenEl();
+  const act=g.querySelector('.jact'); if(act){ act.textContent=''; act.classList.remove('jact-in'); }
+  paintGenParts(g.querySelector('.gtxt'), items);
   GENEL=null; if(!CHAT_TARGET) JeanAvatar&&JeanAvatar.detach();
   scrollMaybe(true); 
 }
@@ -10491,6 +10871,7 @@ async function send(){
   const wasBusy = busy;
   if(STATUS_SEEN && !MODEL_READY){ toast(t('chat.model_not_ready')); return; }
   const ta=document.getElementById('input'); const text=ta.value.trim();
+  const voiceTurn=!!window.VOICE_SEND; window.VOICE_SEND=false;
   if(!text && !ATTACH.length) return;
   ta.value=''; autoGrow(ta); syncSendBtn();
   const entry=addPending(text, wasBusy);
@@ -10500,7 +10881,7 @@ async function send(){
   if(entry) addMsgFiles(entry.el, attachSent());
   for(let attempt=0; attempt<3; attempt++){
     try{
-      const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,files:files,ctx_used:CTX_USED,mode:MODE,tz:USER_TZ})});
+      const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,files:files,ctx_used:CTX_USED,mode:MODE,tz:USER_TZ,voice:voiceTurn})});
       if(r.status===409 || r.ok) clearAttach();
       if(r.status===409) return;               
       if(r.ok) return;                          
@@ -12123,8 +12504,8 @@ function lbBuild(){
   return LB;
 }
 function lbGroup(img){
-  const scope=img.closest('.msg-files, #attach-list, .body, .msg') || img.parentNode || document.body;
-  return [...scope.querySelectorAll('img.it-img, img.chat-img')].filter(i=>i.src && i.naturalWidth);
+  const scope=img.closest('#jf-list, .msg-files, #attach-list, .body, .msg') || img.parentNode || document.body;
+  return [...scope.querySelectorAll('img.it-img, img.chat-img, img.jf-img')].filter(i=>i.src && i.naturalWidth);
 }
 function lbFit(w, h){
   const mw=Math.max(80, innerWidth - (innerWidth<600 ? 16 : 120)), mh=Math.max(80, innerHeight - (innerWidth<600 ? 120 : 140));
@@ -12857,6 +13238,7 @@ const PLUS_IC = {
   mem:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',
   clear:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
   compact:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9l4-4 4 4M20 15l-4 4-4-4M8 5v6M16 19v-6"/></svg>',
+  folder:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
 };
 const closePlusMenu = ()=>closeMenu();
 function togglePlusMenu(e){
@@ -12864,6 +13246,7 @@ function togglePlusMenu(e){
   popMenu(document.getElementById('plus-btn'), [
     COMPACT_AVAILABLE && {icon:PLUS_IC.compact, label:t('projects.compact_context'), run:compactContext}, 
     MODE==='jean' && {icon:PLUS_IC.mem, label:t('jean.mem_title'), run:openJeanMem},
+    MODE==='jean' && {icon:PLUS_IC.folder, label:t('jean.files_title'), run:openJeanFiles},
     {icon:PLUS_IC.file, label:t('projects.attach_file'), run:()=>document.getElementById('attach-input').click()},
     MODE==='jean' ? {icon:PLUS_IC.clear, label:t('jean.clear_ctx'), run:clearJeanContext}
                   : {icon:PLUS_IC.chat, label:t('chat.new_chat_btn'), run:newChatFromTop},
@@ -13576,7 +13959,7 @@ var JeanAvatar = (()=>{
   const srchSeen=new WeakSet();
   let term, termView, termKey='', termTyped=0, termTimer=0, termSig='', avatarLooking=false, termRuns=[], termCmd='';
   const termSeen=new WeakSet(); 
-  let stage, scene, bubble, bubbleBody, caption, capPast, capText, capStop, inputBox, ta, sendBtn, histBtn;
+  let stage, scene, bubble, bubbleBody, caption, capPast, capText, capStop, inputBox, ta, sendBtn, histBtn, filesBtn;
   let screen, screenView, screenUrl, screenSrc='';
   let jeanWasOn=false;
   let inputOpen=false, syncTimer=0, lastHTML='', userScrolled=false;
@@ -13587,6 +13970,9 @@ var JeanAvatar = (()=>{
     stage=$('div','', main); stage.id='jean-stage';
     histBtn=$('button','jst-hist', main); histBtn.type='button';
     histBtn.onclick=toggleHistory;
+    filesBtn=$('button','jst-files', main); filesBtn.type='button';
+    filesBtn.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+    filesBtn.onclick=()=>{ if(typeof openJeanFiles==='function') openJeanFiles(); };
     scene=$('div','jst-scene', stage);
     bubble=$('div','jst-bubble', scene);
     bubbleBody=$('div','jst-bubble-body body', bubble);
@@ -13641,6 +14027,7 @@ var JeanAvatar = (()=>{
   function applyTexts(){
     ta.placeholder=t('jean.stage_placeholder');
     sendBtn.title=t('chat.send_button_title');
+    filesBtn.title=filesBtn.ariaLabel=t('jean.files_title');
     capStop.textContent=t('jean.stage_stop');
     const hist=document.body.classList.contains('jean-history');
     histBtn.title=hist ? t('jean.stage_back') : t('jean.stage_history');
@@ -14279,4 +14666,896 @@ function appCardFor(el, tu){
   el.after(card);
   jget('/api/apps/'+id).then(j=>{ if(j && j.app && j.app.icon) card.querySelector('.app-ico').textContent = j.app.icon; }).catch(()=>{});
 }
+const JF = {dir:'', entries:[], sel:new Set(), anchor:null, sort:'name', desc:false, grid:false,
+  search:null, count:'', thumbs:new Map(), io:null, open:null, viewURL:null, busy:false};
+const jfFine = matchMedia('(hover: hover) and (pointer: fine)');
+(()=>{ try{ const p=JSON.parse(localStorage.getItem('jf-prefs')||'{}'); JF.sort=p.sort||'name'; JF.desc=!!p.desc; JF.grid=!!p.grid; }catch(_){} })();
+function jfSavePrefs(){ try{ localStorage.setItem('jf-prefs', JSON.stringify({sort:JF.sort, desc:JF.desc, grid:JF.grid})); }catch(_){} }
+const jfEl = (id)=>document.getElementById(id);
+const jfRel = (name)=>(JF.dir ? JF.dir+'/' : '')+name;
+const jfUpDir = (dir)=>dir.split('/').slice(0,-1).join('/');
+const jfWS = (rel)=>'jean-workspace/'+rel;
+const jfIsOpen = ()=>{ const m=jfEl('jean-files-modal'); return !!m && m.classList.contains('show'); };
+const JF_TEXT = /\.(txt|md|markdown|log|csv|tsv|json|jsonl|yaml|yml|toml|ini|cfg|conf|env|xml|html|htm|css|js|mjs|ts|tsx|jsx|py|go|rs|java|kt|c|h|cpp|hpp|cs|rb|php|sh|bash|zsh|ps1|bat|sql|lua|swift|r|tex|srt|vtt)$/i;
+const JF_VIDEO = /\.(mp4|webm|mov|m4v)$/i, JF_AUDIO = /\.(mp3|m4a|wav|ogg|oga|flac|aac)$/i;
+const JF_IC = {
+  dir:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h4l2 2.2h7A2.5 2.5 0 0 1 21 8.7v8.8A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/></svg>',
+  more:'<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>',
+  grid:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>',
+  list:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>',
+  open:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  dl:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 19h16"/></svg>',
+  ask:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  ren:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  del:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>',
+  sel:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>',
+};
+const jfHuman = (b)=>fmtSize(b);
+const jfDate = (ms)=>{ try{ return new Date(ms).toLocaleString([], {dateStyle:'medium', timeStyle:'short'}); }catch(_){ return ''; } };
+async function jfPost(url, body){
+  const r=await jfetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body||{})});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok || !j.ok) throw new Error(j.error || ('HTTP '+r.status));
+  return j;
+}
+const jfFail = (e)=>toast(t('jean.files_error')+((e&&e.message)||''));
+function openJeanFiles(){
+  if(typeof closeMenu==='function') closeMenu(true, true);
+  showModal('jean-files-modal');
+  jfList(JF.dir);
+}
+function closeJeanFiles(){
+  jfCloseViewer();
+  jfClearSel();
+  hideModal('jean-files-modal');
+}
+async function jfList(dir){
+  if(dir!==JF.dir){ JF.sel.clear(); JF.anchor=null; jfEl('jf-filter').value=''; JF.search=null; }
+  JF.dir=dir;
+  let d;
+  try{ d=await jfPost('/api/jean/files', {dir}); }
+  catch(e){
+    if(dir){ JF.dir=''; return jfList(''); } 
+    JF.entries=[]; jfCrumbs(); jfRender(e.message); return;
+  }
+  JF.entries=d.entries||[];
+  JF.count = d.meaning ? t('jean.files_count').replace('{n}', d.indexed).replace('{t}', d.total) : t('jean.files_count_off');
+  const names=new Set(JF.entries.map(e=>e.name));
+  for(const n of [...JF.sel]) if(!names.has(n)) JF.sel.delete(n);
+  jfCrumbs();
+  jfRender();
+}
+function jfCrumbs(){
+  const nav=jfEl('jf-crumbs'); nav.textContent='';
+  const parts=JF.dir ? JF.dir.split('/') : [];
+  [[t('jean.files_root'), ''], ...parts.map((p,i)=>[p, parts.slice(0,i+1).join('/')])].forEach(([label, to], i, all)=>{
+    if(i){ const s=document.createElement('i'); s.textContent='›'; nav.appendChild(s); }
+    const b=document.createElement('button'); b.type='button'; b.textContent=label;
+    if(i===all.length-1) b.setAttribute('aria-current','page');
+    b.onclick=()=>{ if(to!==JF.dir) jfList(to); };
+    b.dataset.rel=to; b.dataset.drop='1';
+    nav.appendChild(b);
+  });
+  nav.scrollLeft=nav.scrollWidth;
+  jfEl('jf-back').hidden=!JF.dir;
+}
+function jfShown(){
+  const q=jfEl('jf-filter').value.trim().toLowerCase();
+  const k=JF.sort, m=JF.desc ? -1 : 1;
+  return (JF.entries||[]).filter(e=>!q || e.name.toLowerCase().includes(q)).sort((a,b)=>{
+    if(a.dir!==b.dir) return a.dir ? -1 : 1;
+    const c = k==='name' ? a.name.localeCompare(b.name, undefined, {numeric:true, sensitivity:'base'}) : ((a[k]-b[k]) || a.name.localeCompare(b.name));
+    return c*m;
+  });
+}
+function jfThumbObserver(){
+  if(JF.io || typeof IntersectionObserver!=='function') return JF.io;
+  JF.io=new IntersectionObserver((ents)=>{
+    for(const en of ents){
+      if(!en.isIntersecting) continue;
+      JF.io.unobserve(en.target);
+      jfLoadThumb(en.target);
+    }
+  }, {root:jfEl('jf-list'), rootMargin:'300px'});
+  return JF.io;
+}
+function jfLoadThumb(img){
+  const key=img.dataset.key, path=img.dataset.path;
+  const ready=JF.thumbs.get(key);
+  if(ready){ img.src=ready; return; }
+  getWorkspaceThumb(path).then(b=>{
+    const u=URL.createObjectURL(b);
+    JF.thumbs.set(key, u);
+    if(JF.thumbs.size>400){ const [k0,u0]=JF.thumbs.entries().next().value; JF.thumbs.delete(k0); try{ URL.revokeObjectURL(u0); }catch(_){} }
+    if(img.isConnected) img.src=u;
+  }).catch(()=>{ const box=img.parentNode; if(box){ img.remove(); box.innerHTML=fileIconSvg(img.dataset.name||''); } });
+}
+function jfRender(err){
+  const list=jfEl('jf-list');
+  list.classList.toggle('grid', JF.grid);
+  jfEl('jean-files-modal').classList.toggle('jf-gridview', JF.grid);
+  const vb=jfEl('jf-view'); vb.innerHTML=JF.grid ? JF_IC.list : JF_IC.grid;
+  vb.title=vb.ariaLabel=JF.grid ? t('jean.files_view_list') : t('jean.files_view_grid');
+  document.querySelectorAll('#jf-cols button').forEach(b=>{ b.classList.toggle('on', b.dataset.sort===JF.sort); b.classList.toggle('desc', JF.desc); });
+  jfEl('jf-count').textContent=JF.busy ? JF.busy : (JF.count||'');
+  list.textContent='';
+  if(JF.search){ jfRenderSearch(list); jfSelBar(); return; }
+  const entries=err ? [] : jfShown();
+  if(!entries.length){
+    const em=document.createElement('div'); em.className='jf-empty';
+    em.textContent = err || (jfEl('jf-filter').value.trim() ? t('jean.files_no_match') : t('jean.files_empty')+(jfFine.matches ? ' '+t('jean.files_empty_drop') : ''));
+    list.appendChild(em);
+  }
+  const io=jfThumbObserver();
+  for(const e of entries){
+    const rel=jfRel(e.name);
+    const row=document.createElement('div'); row.className='jf-row';
+    row.innerHTML='<button type="button" class="jf-main"><span class="jf-ficon"></span><span class="jf-name"><b></b><span></span></span><span class="jf-size"></span><span class="jf-date"></span></button><button type="button" class="jf-more"></button>';
+    row.dataset.name=e.name; row.dataset.rel=rel;
+    if(e.dir){ row.dataset.dir='1'; row.dataset.drop='1'; }
+    if(JF.sel.has(e.name)) row.classList.add('sel');
+    const more=row.querySelector('.jf-more');
+    more.innerHTML=JF_IC.more; more.title=more.ariaLabel=t('jean.files_actions');
+    more.addEventListener('pointerdown', ev=>ev.stopPropagation()); 
+    more.onclick=(ev)=>{ ev.stopPropagation(); jfMenu(more, e); };
+    const icon=row.querySelector('.jf-ficon');
+    if(!e.dir && isImageName(e.name)){
+      const img=document.createElement('img');
+      img.className='jf-img'; img.alt=e.name; img.draggable=false;
+      img.dataset.path=jfWS(rel); img.dataset.name=e.name; img.dataset.key=rel+'|'+e.mod;
+      icon.appendChild(img);
+      if(io) io.observe(img); else jfLoadThumb(img);
+    } else icon.innerHTML = e.dir ? JF_IC.dir : fileIconSvg(e.name);
+    if(e.dir) icon.classList.add('dir');
+    row.querySelector('b').textContent=e.name;
+    row.querySelector('.jf-name span').textContent = e.dir ? t('jean.files_folder') : jfHuman(e.size)+' · '+new Date(e.mod).toLocaleDateString();
+    row.querySelector('.jf-size').textContent = e.dir ? '' : jfHuman(e.size);
+    row.querySelector('.jf-date').textContent = jfDate(e.mod);
+    const main=row.querySelector('.jf-main');
+    main.title=e.name;
+    const open=()=>jfOpenEntry(e, row);
+    main.onclick=(ev)=>{
+      if(JF_DRAG.suppress){ JF_DRAG.suppress=false; return; } 
+      if(!jfFine.matches && !JF.sel.size) return open();
+      jfSelect(e.name, ev);
+    };
+    main.ondblclick=open;
+    main.onkeydown=(ev)=>{ if(ev.key==='Enter'){ ev.preventDefault(); open(); } };
+    row.addEventListener('contextmenu', ev=>{
+      if(!jfFine.matches) return;
+      ev.preventDefault();
+      if(!JF.sel.has(e.name)) jfSelect(e.name, {});
+      jfMenuAt(ev.clientX, ev.clientY, e);
+    });
+    jfDraggable(row, rel, e.name);
+    list.appendChild(row);
+  }
+  if(entries.length>1 && !jfFine.matches && jfHintLeft()){
+    const h=document.createElement('div'); h.className='jf-hint'; h.textContent=t('jean.files_hint_move'); list.appendChild(h);
+  }
+  jfSelBar();
+}
+function jfHintLeft(){ try{ if(localStorage.getItem('jf-moved')==='1') return false; const n=+localStorage.getItem('jf-hint')||0; localStorage.setItem('jf-hint', n+1); return n<3; }catch(_){ return false; } }
+function jfOpenEntry(e, row){
+  if(e.dir){ jfList(jfRel(e.name)); return; }
+  const img=row && row.querySelector('img.jf-img');
+  if(img && typeof openLightbox==='function'){
+    if(img.naturalWidth){ openLightbox(img); return; }
+    img.addEventListener('load', ()=>openLightbox(img), {once:true});
+    jfLoadThumb(img);
+    return;
+  }
+  jfView(e);
+}
+function jfSelect(name, ev){
+  const names=jfShown().map(e=>e.name);
+  if(ev.shiftKey && JF.anchor!==null && names.includes(JF.anchor)){
+    const [a,b]=[names.indexOf(JF.anchor), names.indexOf(name)].sort((x,y)=>x-y);
+    if(!ev.ctrlKey && !ev.metaKey) JF.sel.clear();
+    names.slice(a, b+1).forEach(n=>JF.sel.add(n));
+  } else if(ev.ctrlKey || ev.metaKey || (!jfFine.matches && JF.sel.size) || ev.toggle){
+    JF.sel.has(name) ? JF.sel.delete(name) : JF.sel.add(name);
+    JF.anchor=name;
+  } else { JF.sel.clear(); JF.sel.add(name); JF.anchor=name; }
+  document.querySelectorAll('#jf-list .jf-row').forEach(r=>r.classList.toggle('sel', JF.sel.has(r.dataset.name)));
+  jfSelBar();
+}
+function jfClearSel(){
+  JF.sel.clear(); JF.anchor=null;
+  document.querySelectorAll('#jf-list .jf-row.sel').forEach(r=>r.classList.remove('sel'));
+  jfSelBar();
+}
+const jfSelected = ()=>(JF.entries||[]).filter(e=>JF.sel.has(e.name));
+function jfSelBar(){
+  const sel=jfSelected(), n=sel.length, bar=jfEl('jf-sel');
+  bar.classList.toggle('show', n>0 && !JF.search);
+  jfEl('jf-seln').textContent = n===1 ? t('jean.files_sel_one') : t('jean.files_sel_many').replace('{n}', n);
+  bar.querySelector('[data-bulk="rename"]').hidden = n!==1;
+  bar.querySelector('[data-bulk="dl"]').hidden = !sel.some(e=>!e.dir);
+  bar.querySelector('[data-bulk="ask"]').hidden = !sel.some(e=>!e.dir);
+}
+async function jfDownload(entries){
+  for(const e of entries.filter(x=>!x.dir)) await downloadWorkspaceFile(jfWS(jfRel(e.name)), e.name, null);
+}
+async function jfBulk(act){
+  const sel=jfSelected();
+  if(!sel.length && act!=='none') return;
+  switch(act){
+    case 'none': jfClearSel(); break;
+    case 'dl': jfDownload(sel); break;
+    case 'ask': jfAsk(sel); break;
+    case 'rename': if(await jfRename(jfRel(sel[0].name), sel[0].name, sel[0].dir)!==null){ jfClearSel(); jfList(JF.dir); } break;
+    case 'delete': if(await jfRemove(sel)){ jfClearSel(); jfList(JF.dir); } break;
+  }
+}
+function jfMenuItems(e){
+  const many=JF.sel.size>1 && JF.sel.has(e.name);
+  if(many) return [
+    {icon:JF_IC.dl, label:t('jean.files_download'), run:()=>jfBulk('dl')},
+    {icon:JF_IC.ask, label:t('jean.files_ask'), run:()=>jfBulk('ask')},
+    '-',
+    {icon:JF_IC.del, label:t('jean.files_delete_n').replace('{n}', JF.sel.size), danger:true, run:()=>jfBulk('delete')},
+  ];
+  const rel=jfRel(e.name);
+  return [
+    {icon:JF_IC.open, label:e.dir ? t('jean.files_open') : t('jean.files_preview'), run:()=>jfOpenEntry(e, [...document.querySelectorAll('#jf-list .jf-row')].find(r=>r.dataset.name===e.name))},
+    !e.dir && {icon:JF_IC.dl, label:t('jean.files_download'), run:()=>downloadWorkspaceFile(jfWS(rel), e.name, null)},
+    !e.dir && {icon:JF_IC.ask, label:t('jean.files_ask'), run:()=>jfAsk([e])},
+    !jfFine.matches && {icon:JF_IC.sel, label:t('jean.files_select'), run:()=>jfSelect(e.name, {toggle:true})},
+    '-',
+    {icon:JF_IC.ren, label:t('jean.files_rename'), run:async()=>{ if(await jfRename(rel, e.name, e.dir)!==null) jfList(JF.dir); }},
+    {icon:JF_IC.del, label:t('jean.files_delete'), danger:true, run:async()=>{ if(await jfRemove([e])) jfList(JF.dir); }},
+  ];
+}
+function jfMenu(anchor, e){ popMenu(anchor, jfMenuItems(e), {align:'right', minW:200}); }
+function jfMenuAt(x, y, e){
+  const a=document.createElement('span');
+  a.style.cssText='position:fixed;width:1px;height:1px;left:'+x+'px;top:'+y+'px;pointer-events:none';
+  document.body.appendChild(a);
+  popMenu(a, jfMenuItems(e), {align:'left', minW:200, gap:2, onClose:()=>setTimeout(()=>a.remove(), 300)});
+}
+async function jfRemove(entries){
+  if(!entries.length) return false;
+  const dirs=entries.some(e=>e.dir);
+  const title = entries.length===1 ? t('jean.files_del_one').replace('{name}', entries[0].name) : t('jean.files_del_many').replace('{n}', entries.length);
+  const ok=await askConfirm(dirs ? t('jean.files_del_dir_msg') : t('jean.files_del_msg'), {title, okText:t('jean.files_delete'), danger:true});
+  if(!ok) return false;
+  try{ await jfPost('/api/jean/files/delete', {paths:entries.map(e=>jfRel(e.name))}); toast(t('jean.files_deleted')); return true; }
+  catch(e){ jfFail(e); return true; } 
+}
+async function jfRename(rel, name, dir){
+  const dot = dir ? -1 : name.lastIndexOf('.');
+  const base = dot>0 ? name.slice(0, dot) : name;
+  const typed=await askPrompt('', {title:t('jean.files_rename'), default:base, okText:t('jean.files_rename')});
+  if(typed===null || !typed.trim() || typed===base || typed===name) return null;
+  try{ const r=await jfPost('/api/jean/files/rename', {path:rel, name:typed}); toast(t('jean.files_renamed')); return r.name; }
+  catch(e){ jfFail(e); return null; }
+}
+async function jfMkdir(){
+  const name=await askPrompt('', {title:t('jean.files_mkdir'), placeholder:t('jean.files_mkdir_ph'), okText:t('jean.files_create')});
+  if(!name || !name.trim()) return;
+  try{ await jfPost('/api/jean/files/mkdir', {dir:JF.dir, name}); }catch(e){ jfFail(e); }
+  jfList(JF.dir);
+}
+function jfAsk(entries){
+  const files=entries.filter(e=>!e.dir);
+  if(!files.length) return;
+  for(const e of files){
+    const path=jfWS(jfRel(e.name));
+    if(ATTACH.some(a=>a.path===path)) continue;
+    const rec={id:++ATTACH_SEQ, name:e.name, size:e.size, file:null, path, state:'ok'};
+    ATTACH.push(rec);
+    if(isImageName(e.name)) getWorkspaceThumb(path).then(b=>{ rec.thumb=URL.createObjectURL(b); renderAttach(); }).catch(()=>{});
+  }
+  renderAttach();
+  closeJeanFiles();
+  const b=document.body;
+  if(b.classList.contains('jean-mode') && !b.classList.contains('jean-history')){ const h=document.querySelector('.jst-hist'); if(h) h.click(); }
+  setTimeout(()=>{ const i=jfEl('input'); if(i) i.focus(); }, 380);
+  toast(t('jean.files_attached'));
+}
+async function jfUpload(files){
+  files=[...(files||[])].filter(f=>{
+    if(!f.size){ toast(t('attach.quote_open')+f.name+t('attach.quote_close')+t('attach.empty_middle')); return false; }
+    if(f.size>ATTACH_MAX){ toast(t('attach.quote_open')+f.name+t('attach.quote_close')+t('attach.too_big_middle')+fmtSize(f.size)+t('attach.too_big_max')+fmtSize(ATTACH_MAX)); return false; }
+    return true;
+  });
+  if(!files.length) return;
+  const dir=JF.dir, total=files.reduce((s,f)=>s+f.size, 0);
+  let sent=0, failed=0;
+  const show=()=>{ JF.busy=t('jean.files_uploading').replace('{p}', Math.round(sent*100/Math.max(1,total))); const c=jfEl('jf-count'); if(c) c.textContent=JF.busy; };
+  show();
+  for(const f of files){
+    try{
+      let id='', off=0;
+      do{
+        const end=Math.min(off+ATTACH_CHUNK, f.size);
+        const data=await readAsBase64(f.slice(off, end));
+        const last=end>=f.size;
+        const payload={name:f.name, data, id, more:!last, size:(id?0:f.size)};
+        if(!id) payload.dest=dir;
+        const j=await sendChunk(payload);
+        if(j.id) id=j.id;
+        sent+=end-off; off=end; show();
+      } while(off<f.size);
+    }catch(e){ failed++; toast(t('attach.quote_open')+f.name+t('attach.quote_close')+' : '+((e&&e.message)||t('attach.failed'))); }
+  }
+  JF.busy=false;
+  if(!failed) toast(files.length===1 ? t('jean.files_added_one') : t('jean.files_added_many').replace('{n}', files.length));
+  if(JF.dir===dir) jfList(dir); else jfRender();
+}
+async function jfSearch(q){
+  q=String(q||'').trim();
+  if(!q){ JF.search=null; jfRender(); return; }
+  JF.search={q, hits:null, by:''};
+  jfRender();
+  try{
+    const r=await jfPost('/api/jean/files/search', {q});
+    if(!JF.search || JF.search.q!==q) return;
+    JF.search.hits=r.hits||[]; JF.search.by=r.by||'';
+  }catch(e){ if(JF.search && JF.search.q===q){ JF.search.hits=[]; JF.search.err=e.message; } }
+  jfRender();
+}
+function jfRenderSearch(list){
+  const s=JF.search;
+  const head=document.createElement('div'); head.className='jf-shead';
+  head.innerHTML='<span></span><button type="button" class="jf-ic" aria-label="×"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>';
+  head.firstChild.textContent = t('jean.files_search_title')+(s.by==='name' ? ' '+t('jean.files_search_by_name') : '');
+  head.lastChild.onclick=()=>{ jfEl('jf-filter').value=''; jfSearch(''); };
+  list.appendChild(head);
+  if(!s.hits){ const w=document.createElement('div'); w.className='jf-empty'; w.textContent=t('jean.files_searching'); list.appendChild(w); return; }
+  if(!s.hits.length){ const w=document.createElement('div'); w.className='jf-empty'; w.textContent=s.err || t('jean.files_search_none'); list.appendChild(w); return; }
+  for(const h of s.hits){
+    const row=document.createElement('button'); row.type='button'; row.className='jf-hit';
+    row.innerHTML='<span class="jf-ficon"></span><span class="jf-name"><b></b><span class="jf-hit-dir"></span><span class="jf-hit-p"></span></span>';
+    const name=h.path.split('/').pop(), dir=jfUpDir(h.path);
+    row.querySelector('.jf-ficon').innerHTML=fileIconSvg(name);
+    row.querySelector('b').textContent=name;
+    row.querySelector('.jf-hit-dir').textContent=dir ? dir+'/' : t('jean.files_root');
+    row.querySelector('.jf-hit-p').textContent=h.passage||'';
+    row.onclick=()=>jfReveal(h.path);
+    list.appendChild(row);
+  }
+}
+async function jfReveal(rel){
+  const dir=jfUpDir(rel), name=rel.split('/').pop();
+  jfEl('jf-filter').value=''; JF.search=null;
+  await jfList(dir);
+  const e=(JF.entries||[]).find(x=>x.name===name);
+  if(!e) return;
+  JF.sel.clear(); JF.sel.add(name); JF.anchor=name;
+  const row=[...document.querySelectorAll('#jf-list .jf-row')].find(r=>r.dataset.name===name);
+  if(row){ row.classList.add('sel'); row.scrollIntoView({block:'nearest'}); }
+  jfSelBar();
+  jfOpenEntry(e, row);
+}
+async function jfView(e){
+  const rel=jfRel(e.name), path=jfWS(rel);
+  const v=jfEl('jf-viewer'), body=jfEl('jf-vbody');
+  jfRevokeView();
+  JF.open={rel, name:e.name, entry:e};
+  const open=JF.open;
+  jfEl('jf-vname').textContent=e.name;
+  jfEl('jf-vmeta').textContent=jfHuman(e.size)+' · '+jfDate(e.mod);
+  body.className='jf-vbody'; body.textContent='';
+  v.classList.add('show');
+  const kind = /\.pdf$/i.test(e.name) ? 'pdf' : JF_TEXT.test(e.name) && e.size<=(1<<20) ? 'text'
+    : JF_VIDEO.test(e.name) && e.size<=(300<<20) ? 'video' : JF_AUDIO.test(e.name) && e.size<=(200<<20) ? 'audio' : '';
+  if(!kind){ jfNoPreview(body, e); return; }
+  const wait=document.createElement('div'); wait.className='jf-empty'; wait.textContent=t('jean.files_loading'); body.appendChild(wait);
+  let blob;
+  try{ blob=await getWorkspaceBlob(path); }
+  catch(err){ if(JF.open===open){ wait.textContent=t('jean.files_error')+err.message; } return; }
+  if(JF.open!==open) return; 
+  body.textContent='';
+  if(kind==='text'){
+    const text=await blob.text();
+    if(JF.open!==open) return;
+    if(/\.(md|markdown)$/i.test(e.name)){
+      const d=document.createElement('div'); d.className='jf-md body'; d.innerHTML=md(text); body.appendChild(d);
+      return;
+    }
+    const lines=text.replace(/\n$/, '').split('\n');
+    const pre=document.createElement('pre'); pre.className='jf-code';
+    pre.style.setProperty('--nw', String(lines.length).length+'ch');
+    lines.forEach((l, i)=>{
+      const n=document.createElement('span'); n.className='n'; n.textContent=i+1;
+      pre.appendChild(n); pre.appendChild(document.createTextNode(l+'\n'));
+    });
+    body.appendChild(pre);
+    return;
+  }
+  const type = kind==='pdf' ? 'application/pdf' : (blob.type && blob.type!=='application/octet-stream' ? blob.type : '');
+  JF.viewURL=URL.createObjectURL(type ? new Blob([blob], {type}) : blob);
+  if(kind==='pdf'){
+    body.classList.add('pdf');
+    const f=document.createElement('iframe'); f.className='jf-pdf'; f.title=e.name; f.src=JF.viewURL; body.appendChild(f);
+  } else {
+    const m=document.createElement(kind); m.controls=true; m.src=JF.viewURL; m.className='jf-media'; m.setAttribute('playsinline', '');
+    body.appendChild(m);
+  }
+}
+function jfNoPreview(body, e){
+  body.innerHTML='<div class="jf-nopv"><span class="jf-ficon big"></span><div></div></div>';
+  body.querySelector('.jf-ficon').innerHTML=fileIconSvg(e.name);
+  body.querySelector('.jf-nopv div').textContent=t('jean.files_no_preview');
+}
+function jfRevokeView(){ if(JF.viewURL){ const u=JF.viewURL; JF.viewURL=null; setTimeout(()=>{ try{ URL.revokeObjectURL(u); }catch(_){} }, 1000); } }
+function jfCloseViewer(){
+  const v=jfEl('jf-viewer'); if(!v) return;
+  v.classList.remove('show');
+  JF.open=null; jfRevokeView();
+  setTimeout(()=>{ if(!v.classList.contains('show')) jfEl('jf-vbody').textContent=''; }, 200);
+}
+async function jfViewerAct(act){
+  const o=JF.open; if(!o) return;
+  if(act==='dl') downloadWorkspaceFile(jfWS(o.rel), o.name, null);
+  else if(act==='ask') jfAsk([o.entry]);
+  else if(act==='rename'){
+    const name=await jfRename(o.rel, o.name, false);
+    if(name===null) return;
+    o.rel=jfRel(name); o.name=name; o.entry={...o.entry, name};
+    jfEl('jf-vname').textContent=name;
+    jfList(JF.dir);
+  } else if(act==='delete'){
+    if(await jfRemove([o.entry])){ jfCloseViewer(); jfList(JF.dir); }
+  }
+}
+const JF_DRAG={item:null, ghost:null, target:null, timer:0, x:0, y:0, suppress:false};
+document.addEventListener('touchmove', e=>{ if(JF_DRAG.item) e.preventDefault(); }, {passive:false}); 
+function jfDropTarget(x, y){
+  JF_DRAG.ghost.style.display='none';
+  const el=document.elementFromPoint(x, y);
+  JF_DRAG.ghost.style.display='';
+  if(!el) return null;
+  const row=el.closest('#jf-list .jf-row[data-dir]');
+  if(row && row.dataset.rel!==JF_DRAG.item.rel && !JF.sel.has(row.dataset.name)) return {el:row, to:row.dataset.rel};
+  if(el.closest('#jf-back') && JF.dir) return {el:jfEl('jf-back'), to:jfUpDir(JF.dir)};
+  const crumb=el.closest('#jf-crumbs button');
+  if(crumb && crumb.dataset.rel!==JF.dir) return {el:crumb, to:crumb.dataset.rel};
+  return null;
+}
+function jfEndDrag(drop){
+  clearTimeout(JF_DRAG.timer);
+  if(!JF_DRAG.item) return;
+  const {item, target}=JF_DRAG;
+  JF_DRAG.ghost.remove();
+  item.row.classList.remove('lifted');
+  if(target) target.el.classList.remove('drop-here');
+  JF_DRAG.item=JF_DRAG.ghost=JF_DRAG.target=null;
+  if(drop && target){
+    const paths = JF.sel.has(item.name) && JF.sel.size>1 ? jfSelected().map(e=>jfRel(e.name)) : [item.rel];
+    jfPost('/api/jean/files/move', {paths, to:target.to})
+      .then(()=>{ try{ localStorage.setItem('jf-moved', '1'); }catch(_){} toast(t('jean.files_moved')); }, jfFail)
+      .finally(()=>{ jfClearSel(); jfList(JF.dir); });
+  }
+}
+function jfDraggable(row, rel, name){
+  row.addEventListener('pointerdown', e=>{
+    if(e.button>0) return;
+    JF_DRAG.x=e.clientX; JF_DRAG.y=e.clientY;
+    const pid=e.pointerId;
+    clearTimeout(JF_DRAG.timer);
+    JF_DRAG.timer=setTimeout(()=>{
+      JF_DRAG.item={row, rel, name};
+      try{ row.setPointerCapture(pid); }catch(_){}
+      const g=JF_DRAG.ghost=document.createElement('div');
+      g.className='jf-ghost';
+      g.textContent = JF.sel.has(name) && JF.sel.size>1 ? t('jean.files_sel_many').replace('{n}', JF.sel.size) : name;
+      document.body.appendChild(g);
+      g.style.transform='translate('+(JF_DRAG.x+12)+'px,'+(JF_DRAG.y-24)+'px)';
+      row.classList.add('lifted');
+      if(navigator.vibrate) navigator.vibrate(12);
+    }, e.pointerType==='mouse' ? 220 : 400);
+  });
+  row.addEventListener('pointermove', e=>{
+    if(!JF_DRAG.item){ 
+      if(Math.hypot(e.clientX-JF_DRAG.x, e.clientY-JF_DRAG.y)>8) clearTimeout(JF_DRAG.timer);
+      return;
+    }
+    if(JF_DRAG.item.row!==row) return;
+    e.preventDefault();
+    JF_DRAG.ghost.style.transform='translate('+(e.clientX+12)+'px,'+(e.clientY-24)+'px)';
+    const tg=jfDropTarget(e.clientX, e.clientY);
+    if((tg&&tg.el)!==(JF_DRAG.target&&JF_DRAG.target.el)){
+      if(JF_DRAG.target) JF_DRAG.target.el.classList.remove('drop-here');
+      if(tg) tg.el.classList.add('drop-here');
+      JF_DRAG.target=tg;
+    }
+  });
+  row.addEventListener('pointerup', ()=>{
+    clearTimeout(JF_DRAG.timer);
+    if(JF_DRAG.item && JF_DRAG.item.row===row){ JF_DRAG.suppress=true; jfEndDrag(true); setTimeout(()=>{ JF_DRAG.suppress=false; }, 350); }
+  });
+  row.addEventListener('pointercancel', ()=>jfEndDrag(false));
+  row.addEventListener('contextmenu', e=>{ if(!jfFine.matches) e.preventDefault(); }); 
+}
+document.addEventListener('DOMContentLoaded', ()=>{
+  const m=jfEl('jean-files-modal'); if(!m) return;
+  jfEl('jf-filter').addEventListener('input', ()=>{ if(JF.search) JF.search=null; jfRender(); });
+  jfEl('jf-filter').addEventListener('keydown', e=>{
+    if(e.key==='Enter'){ e.preventDefault(); jfSearch(e.target.value); }
+    else if(e.key==='Escape' && e.target.value){ e.preventDefault(); e.stopPropagation(); e.target.value=''; JF.search=null; jfRender(); }
+  });
+  jfEl('jf-view').onclick=()=>{ JF.grid=!JF.grid; jfSavePrefs(); jfRender(); };
+  document.querySelectorAll('#jf-cols button').forEach(b=>b.onclick=()=>{
+    if(JF.sort===b.dataset.sort) JF.desc=!JF.desc; else { JF.sort=b.dataset.sort; JF.desc=b.dataset.sort!=='name'; }
+    jfSavePrefs(); jfRender();
+  });
+  jfEl('jf-sel').addEventListener('click', e=>{ const b=e.target.closest('[data-bulk]'); if(b) jfBulk(b.dataset.bulk); });
+  jfEl('jf-list').addEventListener('click', e=>{ if(e.target===jfEl('jf-list') && jfFine.matches) jfClearSel(); });
+  const card=m.querySelector('.jf-card');
+  card.addEventListener('dragover', e=>{ if(e.dataTransfer && [...e.dataTransfer.types].includes('Files')){ e.preventDefault(); e.stopPropagation(); card.classList.add('dropping'); } });
+  card.addEventListener('dragleave', e=>{ if(!card.contains(e.relatedTarget)) card.classList.remove('dropping'); });
+  card.addEventListener('drop', e=>{
+    if(!e.dataTransfer || !e.dataTransfer.files.length) return;
+    e.preventDefault(); e.stopPropagation();
+    card.classList.remove('dropping');
+    jfUpload(e.dataTransfer.files);
+  });
+});
+document.addEventListener('keydown', e=>{
+  if(!jfIsOpen()) return;
+  if((typeof LB!=='undefined' && LB && LB.open) || (jfEl('ask-modal') && jfEl('ask-modal').classList.contains('show')) || (typeof MENU!=='undefined' && MENU)) return;
+  if(e.key==='Escape'){
+    e.preventDefault();
+    if(jfEl('jf-viewer').classList.contains('show')) jfCloseViewer();
+    else if(JF.sel.size) jfClearSel();
+    else closeJeanFiles();
+    return;
+  }
+  if(jfEl('jf-viewer').classList.contains('show')) return;
+  if(e.target.closest && e.target.closest('input, textarea, select')) return;
+  const names=jfShown().map(x=>x.name);
+  const at=JF.anchor!==null ? names.indexOf(JF.anchor) : -1;
+  const go=(i)=>{
+    if(!names.length) return;
+    i=Math.max(0, Math.min(names.length-1, i));
+    jfSelect(names[i], {shiftKey:e.shiftKey});
+    if(!e.shiftKey) JF.anchor=names[i];
+    const row=[...document.querySelectorAll('#jf-list .jf-row')].find(r=>r.dataset.name===names[i]);
+    if(row){ row.scrollIntoView({block:'nearest'}); row.querySelector('.jf-main').focus({preventScroll:true}); }
+  };
+  const cols=JF.grid ? Math.max(1, Math.round(jfEl('jf-list').clientWidth/140)) : 1;
+  switch(e.key){
+    case 'ArrowDown': e.preventDefault(); go(at+cols); break;
+    case 'ArrowUp': e.preventDefault(); go(at<0 ? 0 : at-cols); break;
+    case 'ArrowRight': if(JF.grid){ e.preventDefault(); go(at+1); } break;
+    case 'ArrowLeft': if(JF.grid){ e.preventDefault(); go(at-1); } break;
+    case 'Enter': { const s=jfSelected(); if(s.length===1){ e.preventDefault(); jfOpenEntry(s[0], [...document.querySelectorAll('#jf-list .jf-row')].find(r=>r.dataset.name===s[0].name)); } break; }
+    case 'Delete': if(JF.sel.size){ e.preventDefault(); jfBulk('delete'); } break;
+    case 'F2': if(JF.sel.size===1){ e.preventDefault(); jfBulk('rename'); } break;
+    case 'Backspace': if(JF.dir){ e.preventDefault(); jfList(jfUpDir(JF.dir)); } break;
+    case 'a': if(e.ctrlKey||e.metaKey){ e.preventDefault(); names.forEach(n=>JF.sel.add(n)); jfRender(); } break;
+    case 'f': if(e.ctrlKey||e.metaKey){ e.preventDefault(); jfEl('jf-filter').focus(); } break;
+  }
+});
+(()=>{
+  let enabled=false, on=false, btn=null, pill=null, sens=2, silenceMs=800;
+  let ctx=null, stream=null, srcNode=null, proc=null;
+  let state='off';
+  let floor=0.006, pre=[], frames=[], loudMs=0, speechMs=0, silMs=0, recMs=0, lastNudge=0;
+  let turn=null, queue=[], playing=false, gen=0, tickTimer=0, deafUntil=0;
+  const player=new Audio(); player.playsInline=true; player.preload='auto';
+  const SILENT='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+  const MIC='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
+  function build(){
+    const main=document.querySelector('.main'); if(!main) return;
+    btn=document.createElement('button'); btn.type='button'; btn.className='jst-voice'; btn.innerHTML=MIC;
+    btn.onclick=()=>on ? stop() : start();
+    main.appendChild(btn);
+    pill=document.createElement('div'); pill.className='jst-voice-st';
+    pill.onclick=interrupt;
+    main.appendChild(pill);
+    document.addEventListener('pointerdown', e=>{
+      if(!on || !document.body.classList.contains('jean-mode') || (btn && btn.contains(e.target))) return;
+      if(interrupt()){ e.preventDefault(); e.stopPropagation(); }
+    }, true);
+    texts();
+  }
+  function texts(){ if(btn) btn.title=btn.ariaLabel=t(on ? 'jean.voice_off' : 'jean.voice_on'); }
+  function setState(s){
+    state=s;
+    document.body.classList.toggle('jean-voice', on);
+    if(btn){ btn.classList.toggle('on', on); btn.dataset.st=on ? s : ''; }
+    const msg={listen:'jean.voice_listen', rec:'jean.voice_rec', stt:'jean.voice_stt', speak:'jean.voice_speak'}[s];
+    if(pill){ pill.textContent=on && msg ? t(msg) : ''; pill.classList.toggle('in', !!(on && msg)); }
+  }
+  async function start(){
+    if(on) return;
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(_){ toast(t('jean.voice_unsupported')); return; }
+    ctx.resume().catch(()=>{});
+    player.src=SILENT; player.play().catch(()=>{});
+    try{
+      stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}});
+    }catch(e){ try{ ctx.close(); }catch(_){} ctx=null; toast(t('jean.voice_mic_denied')); return; }
+    srcNode=ctx.createMediaStreamSource(stream);
+    proc=ctx.createScriptProcessor(2048, 1, 1);
+    proc.onaudioprocess=onAudio;
+    srcNode.connect(proc); proc.connect(ctx.destination); 
+    on=true; pre=[]; frames=[]; loudMs=0; floor=0.006;
+    texts(); setState('listen');
+    tickTimer=setInterval(tick, 200);
+  }
+  function stop(){
+    if(!on) return;
+    on=false; stopSpeech();
+    clearInterval(tickTimer); tickTimer=0;
+    try{ proc&&proc.disconnect(); srcNode&&srcNode.disconnect(); }catch(_){}
+    if(stream) stream.getTracks().forEach(tr=>tr.stop());
+    try{ ctx&&ctx.close(); }catch(_){}
+    ctx=stream=srcNode=proc=null; turn=null;
+    texts(); setState('off');
+  }
+  const sumMs=a=>a.reduce((n,f)=>n+f.length, 0)/(ctx ? ctx.sampleRate : 48000)*1000;
+  function onAudio(e){
+    if(!on) return;
+    const x=e.inputBuffer.getChannelData(0);
+    const f=new Float32Array(x);
+    let s=0; for(let i=0;i<f.length;i++) s+=f[i]*f[i];
+    const rms=Math.sqrt(s/f.length), ms=f.length/ctx.sampleRate*1000;
+    if(state==='speak' || playing || Date.now()<deafUntil){ pre=[]; loudMs=0; return; }
+    const thr=sens===1 ? Math.max(floor*4, 0.022) : sens===3 ? Math.max(floor*2.2, 0.009) : Math.max(floor*3, 0.014);
+    const loud=rms>thr;
+    if(state==='listen' || state==='wait'){
+      if(!loud && state==='listen') floor=Math.min(0.03, Math.max(0.002, floor*0.97+rms*0.03));
+      pre.push(f); while(pre.length>1 && sumMs(pre)>450) pre.shift();
+      if(loud){ loudMs+=ms; if(loudMs>=140) beginRec(); }
+      else loudMs=Math.max(0, loudMs-ms/2);
+    } else if(state==='rec'){
+      frames.push(f); recMs+=ms;
+      if(loud){ speechMs+=ms; silMs=0; } else silMs+=ms;
+      if(Date.now()-lastNudge>400 && loud){ lastNudge=Date.now(); window.JeanAvatar&&JeanAvatar.listen(); }
+      if(silMs>=silenceMs || recMs>60000) endRec();
+    }
+  }
+  function beginRec(){
+    frames=pre; pre=[]; recMs=sumMs(frames); speechMs=loudMs; silMs=0; loudMs=0;
+    setState('rec');
+  }
+  async function endRec(){
+    const fr=frames; frames=[];
+    if(speechMs<350){ setState(turn ? 'wait' : 'listen'); return; }
+    setState('stt');
+    const wav=encodeWav(fr, ctx.sampleRate);
+    let text='';
+    try{
+      const r=await jfetch('/api/voice/stt', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({wav})});
+      const j=await r.json(); if(!r.ok) throw new Error(j.error||'');
+      text=(j.text||'').trim();
+    }catch(e){ toast(t('jean.voice_stt_error')); }
+    if(!on) return;
+    if(!text || !/[\p{L}\d]/u.test(text)){ setState(turn ? 'wait' : 'listen'); return; }
+    say(text);
+  }
+  function encodeWav(fr, rate){
+    const n=fr.reduce((a,f)=>a+f.length, 0), all=new Float32Array(n);
+    let o=0; for(const f of fr){ all.set(f, o); o+=f.length; }
+    const ratio=rate/16000, len=Math.floor(n/ratio), pcm=new Int16Array(len);
+    for(let i=0;i<len;i++){
+      const a=Math.floor(i*ratio), b=Math.min(n, Math.floor((i+1)*ratio));
+      let s=0; for(let j=a;j<b;j++) s+=all[j];
+      const v=Math.max(-1, Math.min(1, s/Math.max(1, b-a)));
+      pcm[i]=v<0 ? v*0x8000 : v*0x7fff;
+    }
+    const buf=new ArrayBuffer(44+pcm.length*2), dv=new DataView(buf);
+    const w=(p, s)=>{ for(let i=0;i<s.length;i++) dv.setUint8(p+i, s.charCodeAt(i)); };
+    w(0,'RIFF'); dv.setUint32(4, 36+pcm.length*2, true); w(8,'WAVE'); w(12,'fmt ');
+    dv.setUint32(16,16,true); dv.setUint16(20,1,true); dv.setUint16(22,1,true);
+    dv.setUint32(24,16000,true); dv.setUint32(28,32000,true); dv.setUint16(32,2,true); dv.setUint16(34,16,true);
+    w(36,'data'); dv.setUint32(40, pcm.length*2, true);
+    new Int16Array(buf, 44).set(pcm);
+    const bytes=new Uint8Array(buf); let bin='';
+    for(let i=0;i<bytes.length;i+=0x8000) bin+=String.fromCharCode.apply(null, bytes.subarray(i, i+0x8000));
+    return btoa(bin);
+  }
+  function say(text){
+    const input=document.getElementById('input'); if(!input) return;
+    input.value=text;
+    window.VOICE_SEND=true;
+    stopSpeech();
+    turn={spoken:0, at:Date.now()};
+    send();
+    setState('wait');
+  }
+  function segments(){
+    const chat=document.getElementById('chat'); if(!chat) return [];
+    const all=[...chat.querySelectorAll(':scope > .msg.user, :scope > .msg.assistant:not(.typing), :scope > .msg.tool')];
+    let i=all.length-1; while(i>=0 && !all[i].classList.contains('user')) i--;
+    const out=[];
+    for(const el of all.slice(i+1)){
+      if(el.classList.contains('tool')){
+        const tu=el._tu;
+        if(tu && tu.desc && !tu.typing) out.push({tool:true, text:String(tu.desc).trim()});
+        continue;
+      }
+      const b=(el.querySelector('.body')||el).cloneNode(true);
+      b.querySelectorAll('pre,table,img,.katex,details,.jimg-ph,button').forEach(n=>n.remove());
+      b.querySelectorAll('p,li,h1,h2,h3,h4,h5,h6,br,blockquote').forEach(n=>n.append('\n'));
+      out.push({tool:false, text:b.textContent||''});
+    }
+    return out;
+  }
+  function sentencesOf(full){
+    const flat=full.replace(/\s+/g, ' ').trim();
+    const done=[]; const re=/[^.!?…]+?(?:[.!?…]+["»”)]*)(?=\s|$)/g; let m, end=0;
+    while((m=re.exec(flat))){ done.push(m[0].trim()); end=re.lastIndex; }
+    return {done, rest:flat.slice(end).trim()};
+  }
+  function tick(){
+    if(!on || !turn) return;
+    const done=!busy && !(typeof PENDS!=="undefined" && PENDS.length) && Date.now()-turn.at>1500;
+    const segs=segments();
+    const ready=[];
+    segs.forEach((sg, k)=>{
+      if(sg.tool){ if(sg.text) ready.push({tool:true, text:sg.text}); return; }
+      const sp=sentencesOf(sg.text), last=k===segs.length-1;
+      const parts=last && !done ? sp.done.slice(0, -1) : sp.done.concat(sp.rest ? [sp.rest] : []);
+      for(const x of parts) ready.push({tool:false, text:x});
+    });
+    if(ready.length>turn.spoken){
+      let text='';
+      for(const it of ready.slice(turn.spoken)){
+        if(it.tool){ if(text){ enqueue(text); text=''; } enqueue(it.text, true); }
+        else text+=(text ? ' ' : '')+it.text;
+      }
+      if(text) enqueue(text);
+      turn.spoken=ready.length;
+    }
+    if(done && turn.spoken>=ready.length && !queue.length && !playing){
+      turn=null; if(state==='wait' || state==='speak') setState('listen');
+    }
+  }
+  function enqueue(txt, tool){
+    let clean=txt.replace(/https?:\/\/\S+/g, '').replace(/[*_#`>|~\[\]]/g, '').replace(/\s+/g, ' ').trim();
+    if(!/[\p{L}\d]/u.test(clean)) return;
+    if(tool){
+      if(!/[.!?…]$/.test(clean)) clean+='.';
+      queue=queue.filter(it=>!it.tool || it.cur);
+      queue.push({text:clean, p:null, tool:true});
+      pump(); return;
+    }
+    const last=queue[queue.length-1];
+    if(last && !last.p && !last.tool && (last.text+' '+clean).length<220) last.text+=' '+clean;
+    else queue.push({text:clean, p:null});
+    pump();
+  }
+  async function fetchTts(text, g){
+    try{
+      const r=await jfetch('/api/voice/tts', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text})});
+      const j=await r.json(); if(!r.ok || !j.wav || g!==gen) return null;
+      const bin=atob(j.wav), u8=new Uint8Array(bin.length);
+      for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+      return URL.createObjectURL(new Blob([u8], {type:'audio/wav'}));
+    }catch(_){ return null; }
+  }
+  async function pump(){
+    const g=gen;
+    for(const it of queue.slice(0, 2)) if(!it.p) it.p=fetchTts(it.text, g);
+    if(playing || !queue.length) return;
+    playing=true;
+    const item=queue[0]; item.cur=true;
+    const url=await item.p;
+    if(g!==gen) return;
+    queue=queue.filter(x=>x!==item);
+    if(url){
+      setState('speak');
+      await new Promise(res=>{ player.onended=res; player.onerror=res; player.src=url; player.play().catch(res); });
+      URL.revokeObjectURL(url);
+      deafUntil=Date.now()+700;
+    }
+    if(g!==gen) return;
+    playing=false;
+    if(queue.length) pump();
+    else if(state==='speak') setState(turn ? 'wait' : 'listen');
+  }
+  function interrupt(){
+    if(!on || !(state==='speak' || playing)) return false;
+    stopSpeech(); turn=null; if(busy) stopGen();
+    deafUntil=Date.now()+300; setState('listen');
+    return true;
+  }
+  function stopSpeech(){
+    gen++; queue=[]; playing=false; deafUntil=Date.now()+700;
+    try{ player.pause(); player.removeAttribute('src'); player.load(); }catch(_){}
+  }
+  async function refresh(){
+    try{
+      const r=await jfetch('/api/voice/status'); const j=await r.json();
+      enabled=!!j.enabled; sens=j.sens||2; silenceMs=j.silence_ms||800;
+    }catch(_){ enabled=false; }
+    document.body.classList.toggle('voice-ready', enabled);
+    if(!enabled && on) stop();
+  }
+  async function init(){
+    build();
+    await refresh();
+    window.addEventListener('voice-settings', refresh);
+    new MutationObserver(()=>{ if(on && !document.body.classList.contains('jean-mode')) stop(); texts(); })
+      .observe(document.body, {attributes:true, attributeFilter:['class']});
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+let VOICE_SET=null;
+const _voicePlayer=new Audio();
+function _voicePlay(b64){
+  try{
+    const bin=atob(b64), u8=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+    const url=URL.createObjectURL(new Blob([u8], {type:'audio/wav'}));
+    _voicePlayer.onended=()=>URL.revokeObjectURL(url);
+    _voicePlayer.src=url; _voicePlayer.play().catch(()=>{});
+  }catch(_){}
+}
+function _voiceFill(s){
+  VOICE_SET=s;
+  const $=id=>document.getElementById(id);
+  if(!$('voice-block')) return;
+  $('voice-toggle').checked=!!s.on;
+  const url=$('voice-url');
+  if(document.activeElement!==url) url.value=s.url||'';
+  url.placeholder=s.url_default||'http://127.0.0.1:8095';
+  const sel=$('voice-name');
+  const names=(s.voices||[]).slice();
+  if(s.voice && !names.includes(s.voice)) names.unshift(s.voice);
+  sel.replaceChildren(...names.map(n=>{ const o=document.createElement('option'); o.value=o.textContent=n; return o; }));
+  if(!names.length){ const o=document.createElement('option'); o.value=''; o.textContent=t('voice.none'); sel.appendChild(o); }
+  sel.value=s.voice||'';
+  $('voice-sens').value=String(s.sens||2);
+  const sil=$('voice-silence');
+  if(![...sil.options].some(o=>o.value===String(s.silence_ms))){ const o=document.createElement('option'); o.value=String(s.silence_ms); o.textContent=(s.silence_ms/1000).toLocaleString()+' s'; sil.appendChild(o); }
+  sil.value=String(s.silence_ms||800);
+  $('voice-del').disabled=!(s.voices||[]).includes(s.voice);
+  const configured=!!(s.url||s.url_default);
+  setBadge('voice-badge', !configured || !s.on ? false : s.reachable ? true : 'warn',
+    !configured || !s.on ? t('voice.badge_off') : s.reachable ? t('voice.badge_ok') : t('voice.badge_down'));
+}
+async function loadVoiceSettings(){
+  try{ const r=await jfetch('/api/voice/settings'); if(r.ok) _voiceFill(await r.json()); }catch(_){}
+}
+async function voiceSave(patch){
+  try{
+    const r=await jfetch('/api/voice/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(patch)});
+    const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status);
+    _voiceFill(j);
+    window.dispatchEvent(new Event('voice-settings'));
+  }catch(e){ toast(t('voice.error').replace('{msg}', e.message)); loadVoiceSettings(); }
+}
+async function voiceTest(){
+  const btn=document.querySelector('#voice-block .voice-play'); if(btn) btn.disabled=true;
+  try{
+    const voice=document.getElementById('voice-name').value;
+    const r=await jfetch('/api/voice/tts', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text:t('voice.test_text'), voice})});
+    const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status);
+    _voicePlay(j.wav);
+  }catch(e){ toast(t('voice.error').replace('{msg}', e.message)); }
+  finally{ if(btn) btn.disabled=false; }
+}
+async function voiceCreate(){
+  const desc=await askPrompt(t('voice.create_desc'), {title:t('voice.create_title'), placeholder:t('voice.create_desc_ph')});
+  if(!desc || !desc.trim()) return;
+  const raw=await askPrompt(t('voice.create_name'), {title:t('voice.create_title'), placeholder:t('voice.create_name_ph')});
+  if(!raw || !raw.trim()) return;
+  const name=raw.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,32);
+  toast(t('voice.creating'));
+  try{
+    const r=await jfetch('/api/voice/design', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, description:desc.trim()})});
+    const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status);
+    _voicePlay(j.wav);
+    toast(t('voice.created').replace('{name}', j.name));
+    await voiceSave({voice:j.name});
+  }catch(e){ toast(t('voice.error').replace('{msg}', e.message)); }
+}
+async function voiceDelete(){
+  const name=document.getElementById('voice-name').value;
+  if(!name || !(VOICE_SET && (VOICE_SET.voices||[]).includes(name))) return;
+  if(!await askConfirm(t('voice.delete_confirm').replace('{name}', name))) return;
+  try{
+    const r=await jfetch('/api/voice/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})});
+    const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status);
+    const left=j.voices||[];
+    await voiceSave({voice: left[0]||''});
+  }catch(e){ toast(t('voice.error').replace('{msg}', e.message)); }
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', loadVoiceSettings); else loadVoiceSettings();
 </script></body></html>

@@ -35,8 +35,12 @@ const (
 	jeanRecallPastFloor   = 0.32
 	jeanRecallBand        = 0.10 // au-delà du seuil, seulement ce qui est proche du meilleur
 	jeanRecallSame        = 0.92 // deux entrées aussi proches disent la même chose
-	jeanRecallWait        = 3 * time.Second
-	jeanRecallMark        = "\n\n[Recalled from memory for this message"
+	// Fichiers du dossier de Jean (jean_files.go) : le seuil des souvenirs, deux
+	// fichiers au plus, leur meilleur passage en court.
+	jeanRecallFileFloor = jeanRecallPastFloor
+	jeanRecallFiles     = 2
+	jeanRecallWait      = 3 * time.Second
+	jeanRecallMark      = "\n\n[Recalled from memory for this message"
 )
 
 // jeanRecalled : les fiches données en entier au dernier tour, jugées comme si
@@ -147,6 +151,7 @@ func jeanRecallFor(text string, since time.Time) string {
 	var topCos float32
 	var order []int
 	var vecs map[string][]float32
+	var files []jeanFileHit
 	meaning := false
 	if jeanEmbedEnabled() {
 		ctx, cancel := context.WithTimeout(context.Background(), jeanRecallWait)
@@ -154,6 +159,7 @@ func jeanRecallFor(text string, since time.Time) string {
 		cancel()
 		if err == nil {
 			q := vs[0]
+			files = jeanFileHits(q, jeanRecallFileFloor, jeanRecallBand, jeanRecallFiles)
 			top, topCos, meaning = jeanFichesByMeaning(q, fiches)
 			vecs = jeanJournalVecs()
 			cos := make([]float32, len(past))
@@ -234,6 +240,9 @@ func jeanRecallFor(text string, since time.Time) string {
 		}
 		e := past[i]
 		fmt.Fprintf(&b, "- [%s · %s] %s\n", e.When.In(userLoc).Format("2006-01-02"), e.Kind, clipRunes(squashSpaces(e.Text), jeanRecallPastChars))
+	}
+	if len(files) > 0 {
+		b.WriteString("From your files (paths in your workspace):\n" + jeanFormatFileHits(files, jeanRecallPastChars))
 	}
 	if b.Len() == 0 {
 		return ""

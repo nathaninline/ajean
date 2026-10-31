@@ -567,6 +567,13 @@ func jeanEmbedLoop() {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			n, err := jeanEmbedIndexOnce(ctx, 64)
 			cancel()
+			// Le journal d'abord (petit, ce dont le rappel a le plus besoin), puis
+			// les fichiers de Jean, quelques-uns à la fois (jean_files.go).
+			if err == nil && n == 0 {
+				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+				n, err = jeanFilesIndexOnce(ctx, jeanFilesBudget)
+				cancel()
+			}
 			if err != nil || n == 0 {
 				break
 			}
@@ -591,20 +598,28 @@ func jeanJournalVecs() map[string][]float32 {
 	return vecs
 }
 
-// jeanSemanticRank classe tout le journal par proximité de sens avec la requête.
-// nil si la recherche par le sens est coupée, indisponible ou l'index vide : le
-// classement par mots prend alors seul le relais.
-func jeanSemanticRank(query string, all []jeanEntry) ([]int, map[int]float32) {
-	if !jeanEmbedEnabled() || len(all) == 0 {
-		return nil, nil
+// jeanQueryVec : le vecteur d'une requête, nil si la recherche par le sens est
+// coupée ou que le moteur ne répond pas dans les 10 s (démarrage à froid compris).
+func jeanQueryVec(query string) []float32 {
+	if !jeanEmbedEnabled() {
+		return nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // démarrage à froid compris
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	vs, err := jeanEmbed(ctx, []string{jeanEmbedQueryText(query)})
 	if err != nil {
+		return nil
+	}
+	return vs[0]
+}
+
+// jeanSemanticRank classe tout le journal par proximité de sens avec le vecteur
+// q d'une requête. nil si q manque ou l'index est vide : le classement par mots
+// prend alors seul le relais.
+func jeanSemanticRank(q []float32, all []jeanEntry) ([]int, map[int]float32) {
+	if q == nil || len(all) == 0 {
 		return nil, nil
 	}
-	q := vs[0]
 	vecs := jeanJournalVecs()
 	if len(vecs) == 0 {
 		return nil, nil

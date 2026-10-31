@@ -345,8 +345,8 @@ func vulkanVramGPUs() []map[string]any {
 // GPU INTÉGRÉ (Intel UHD, iGPU AMD) n'a pas de VRAM propre — Windows compte son
 // usage dans "Shared Usage" (RAM système), "Dedicated Usage" y reste ~0 en
 // permanence. Un GPU DISCRET (carte dédiée) a de la vraie VRAM : c'est lui qui
-// concentre le "Dedicated Usage". On assigne donc les cartes dont le nom Vulkan
-// ne contient pas "intel" aux LUID triés par Dedicated Usage décroissant ; les
+// concentre le "Dedicated Usage". On assigne donc les cartes qui ne sont pas
+// intégrées (integratedGPUName) aux LUID triés par Dedicated Usage décroissant ; les
 // cartes intégrées gardent la valeur (proche de 0, donc déjà correcte) issue de
 // --list-devices. Best-effort : une erreur PowerShell laisse "used"/"util" tels quels.
 func applyWindowsDedicatedUsage(gpus []map[string]any) {
@@ -370,7 +370,7 @@ func applyWindowsDedicatedUsage(gpus []map[string]any) {
 	ai := 0
 	for _, g := range gpus {
 		name, _ := g["name"].(string)
-		if strings.Contains(strings.ToLower(name), "intel") {
+		if integratedGPUName(name) {
 			continue
 		}
 		if amdTempOK && !amdTempUsed {
@@ -384,6 +384,28 @@ func applyWindowsDedicatedUsage(gpus []map[string]any) {
 		g["util"] = adapters[ai].UtilPct
 		ai++
 	}
+}
+
+// integratedGPUName : le nom désigne-t-il un GPU intégré au processeur ? Intel
+// (UHD, Iris), et les puces Radeon intégrées des Ryzen, dont le nom finit par
+// « Graphics » sans gamme de carte (« AMD Radeon(TM) Graphics », « Radeon 780M
+// Graphics », « Radeon Vega 8 Graphics »). Seul « intel » était reconnu : sur un
+// portable Ryzen + Radeon RX, la puce intégrée recevait la VRAM de la vraie
+// carte et inversement (issue #182).
+func integratedGPUName(name string) bool {
+	n := strings.ToLower(strings.TrimSpace(name))
+	if strings.Contains(n, "intel") {
+		return true
+	}
+	if !strings.Contains(n, "radeon") || !strings.HasSuffix(n, "graphics") {
+		return false
+	}
+	for _, discrete := range []string{" rx ", " pro ", "radeon pro", "radeon vii", "instinct", "firepro"} {
+		if strings.Contains(" "+n+" ", discrete) {
+			return false
+		}
+	}
+	return true
 }
 
 // windowsAdapterStat regroupe VRAM dédiée commise (MiB) et % d'utilisation

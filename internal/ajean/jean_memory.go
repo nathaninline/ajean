@@ -534,7 +534,8 @@ func JeanSearch(query string, limit int) string {
 	// correspondance exacte les retrouve, le sens les confond (jean_exact.go).
 	exact := jeanExactTokens(query)
 	var order []int
-	if sem, cos := jeanSemanticRank(query, all); sem != nil {
+	q := jeanQueryVec(query)
+	if sem, cos := jeanSemanticRank(q, all); sem != nil {
 		var near []int
 		for _, i := range sem {
 			if cos[i] < jeanSemanticFloor {
@@ -554,7 +555,9 @@ func JeanSearch(query string, limit int) string {
 		hits = append(hits, hit{all[i]})
 	}
 	fiches := jeanFicheHits(terms)
-	if len(hits) == 0 && len(fiches) == 0 {
+	// Les fichiers de son dossier qui en parlent (jean_files.go), par le sens.
+	files := jeanFileHits(q, jeanSemanticFloor, 1, 4)
+	if len(hits) == 0 && len(fiches) == 0 && len(files) == 0 {
 		return "[aucun résultat] (essaie d'autres mots, un synonyme, ou un seul mot-clé)"
 	}
 	if len(hits) > limit {
@@ -571,6 +574,7 @@ func JeanSearch(query string, limit int) string {
 	for _, f := range fiches {
 		b.WriteString(f + "\n")
 	}
+	b.WriteString(jeanFormatFileHits(files, 600))
 	for _, h := range hits {
 		r := recalls[h.e.ID]
 		if r == nil {
@@ -613,7 +617,7 @@ func jeanTools() []Tool {
 		return Tool{Type: "function", Function: ToolFunction{Name: name, Description: desc, Parameters: params}}
 	}
 	return append([]Tool{
-		mk("jean_search", "Search your journal (all past conversations and notes) by meaning: write the query as one natural sentence describing what you look for, not keywords.",
+		mk("jean_search", "Search your journal (all past conversations and notes) and the files of your workspace by meaning: write the query as one natural sentence describing what you look for, not keywords.",
 			obj(map[string]any{"query": str("One natural sentence describing what you are looking for (the topic, the situation), not a list of keywords"), "limit": map[string]any{"type": "integer", "description": "Default 6"}}, "query")),
 		mk("jean_remember", "Save or REPLACE a lasting fact in the user's profile (always visible to you). Same key = replaces the old value.",
 			obj(map[string]any{"key": str("Short dotted key, e.g. family.mother.birthday"), "value": str("One short line")}, "key", "value")),
@@ -722,6 +726,7 @@ func jeanPromptSection() string {
 		"- Journal: every exchange is logged. When the user refers to the past or to something you don't recognize, jean_search before answering; never say you don't know before searching.\n" +
 		"- Lessons: when the user corrects you or something fails before what works, save it (jean_lesson, with fiche=<name> if it is about that fiche; fix a wrong step with jean_patch), confirm in one short sentence what you will do from now on, and redo it right. A mechanical writing rule (banned word or character, list limits) is also enforced with jean_rule. Don't mention your memory or rules unless asked.\n" +
 		"- Living lists the user updates (todo, shopping, collection) are kept in ONE fiche with the current state, edited in place; never as journal notes. jean_note is for details worth finding later.\n" +
+		"- Files: your workspace is also the user's file manager in the app: what they add there is theirs, and what you make for them to keep goes there with a clear name. Everything in it is indexed by content (text, PDF, Word, what images show): jean_search finds a file by what is in it.\n" +
 		"How you work:\n" +
 		"- State only what you checked; mark a guess as a guess. Follow the user's instructions literally. When a word looks like a typo or a name you don't know, use the obvious meaning, then ask in one line which it was.\n" +
 		"- When a tool result contradicts the user (an error, a missing file), tell them what you saw; never note their claim as fact or blame a bug without proof. Your own reading of an image or your memory is not proof: when the user corrects it, above all about their own photo or life, believe them.\n" +

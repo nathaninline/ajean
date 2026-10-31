@@ -1582,6 +1582,8 @@ type chatReq struct {
 	// tête du message (voir attachNote) ; le contenu, lui, reste sur le disque et
 	// n'entre dans le contexte que si le modèle décide de le lire.
 	Files []string `json:"files"`
+	// Voice = message dicté depuis le mode vocal : réponse à l'oral (voir voice.go).
+	Voice bool `json:"voice"`
 }
 
 // presetContentOrEmpty : contenu d'un preset, "" s'il est illisible.

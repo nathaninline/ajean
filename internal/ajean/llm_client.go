@@ -288,6 +288,8 @@ type Caps struct {
 	// projets (profil toujours injecté, fiches, journal cherchable). Voir
 	// jean_memory.go.
 	Jean bool
+	// Voice = message dicté (mode vocal) : la réponse sera lue à voix haute. Voir voice.go.
+	Voice bool
 }
 
 // globalCaps reads the machine-wide config — the default when a request doesn't
@@ -1945,7 +1947,11 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			// + les résultats d'outils de CETTE étape : le moteur ne les a pas encore
 			// comptés. Sans eux, une étape qui lit plusieurs gros fichiers d'un coup
 			// passait de 60 % à plus de 130 % de la fenêtre sans jamais compacter.
-			if used := stats.PromptTokensTotal + stats.GenTokens + estimateTokens(messages[stepStart:]); used >= compactRetryAt && compactWouldTrigger(messages, used) {
+			// Messages de CETTE étape, mis de côté avant un éventuel compactage : celui-ci
+			// remplace `messages` par une liste plus courte, et stepStart pouvait alors
+			// dépasser sa longueur (panique « slice bounds out of range », issue #181).
+			stepMsgs := messages[stepStart:]
+			if used := stats.PromptTokensTotal + stats.GenTokens + estimateTokens(stepMsgs); used >= compactRetryAt && compactWouldTrigger(messages, used) {
 				yes, no := true, false
 				cb(StreamEvent{Compacting: &yes})
 				c, changed := compactMessages(ctx, messages, caps)
@@ -1970,7 +1976,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			// Mode Jean : réponse écrite PUIS rangement de la mémoire dans le même
 			// message. La réponse est déjà affichée ; relancer le modèle la faisait
 			// répéter en entier (vu en test) ou finir sur « j'ai noté… ».
-			if caps.Jean && jeanAnswerThenSave(assistant, messages[stepStart:]) {
+			if caps.Jean && jeanAnswerThenSave(assistant, stepMsgs) {
 				return extra, nil
 			}
 			continue

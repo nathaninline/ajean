@@ -119,8 +119,38 @@ func uniqueUploadPath(dir, name string) string {
 // texte, et ce que l'UI affiche dans la bulle.
 type attachInfo struct {
 	Name string `json:"name"` // nom seul, pour l'affichage
-	Path string `json:"path"` // "uploads/<nom>", ce que le modèle reçoit
+	// "uploads/<nom>", ce que le modèle reçoit ; ou "jean-workspace/<chemin>" pour
+	// un fichier du dossier de Jean joint depuis le gestionnaire de fichiers.
+	Path string `json:"path"`
 	Size int64  `json:"size"`
+}
+
+// modelPath : le chemin annoncé au modèle, relatif à SON dossier de travail (un
+// fichier de Jean y est sans le préfixe de l'interface).
+func (f attachInfo) modelPath() string { return strings.TrimPrefix(f.Path, jeanWSPrefix) }
+
+// jeanAttached : la pièce jointe est-elle un fichier du dossier de Jean ?
+func (f attachInfo) jeanAttached() bool { return strings.HasPrefix(f.Path, jeanWSPrefix) }
+
+// readAttach lit le contenu d'une pièce jointe, où qu'elle soit rangée.
+func readAttach(f attachInfo) ([]byte, error) {
+	if f.jeanAttached() {
+		abs, err := jeanFilesPath(f.modelPath())
+		if err != nil {
+			return nil, err
+		}
+		return os.ReadFile(abs)
+	}
+	dir, err := uploadsDir()
+	if err != nil {
+		return nil, err
+	}
+	// Une pièce jointe peut être passée chez Jean (moveUploadsToJean).
+	b, err := os.ReadFile(filepath.Join(dir, f.Name))
+	if err != nil {
+		b, err = os.ReadFile(filepath.Join(jeanWorkspace(), "uploads", f.Name))
+	}
+	return b, err
 }
 
 // attachFiles valide les chemins envoyés par le CLIENT : on les re-normalise en
@@ -134,6 +164,21 @@ func attachFiles(files []string) []attachInfo {
 	}
 	var out []attachInfo
 	for _, f := range files {
+		// Un fichier du dossier de Jean, joint depuis le gestionnaire de fichiers
+		// (« Demander à Jean ») : il reste où il est. Gardé seulement en mode
+		// Jean (handleChatSend), et jamais hors de son dossier.
+		if rel, ok := strings.CutPrefix(filepath.ToSlash(f), jeanWSPrefix); ok {
+			abs, err := jeanFilesPath(rel)
+			if err != nil {
+				continue
+			}
+			st, err := os.Stat(abs)
+			if err != nil || st.IsDir() {
+				continue
+			}
+			out = append(out, attachInfo{Name: filepath.Base(abs), Path: jeanWSPrefix + jeanRelSlash(jeanFilesRoot(), abs), Size: st.Size()})
+			continue
+		}
 		name := safeUploadName(f)
 		st, err := os.Stat(filepath.Join(dir, name))
 		if err != nil || st.IsDir() {
@@ -160,6 +205,9 @@ func moveUploadsToJean(files []attachInfo) []attachInfo {
 		return files
 	}
 	for _, f := range files {
+		if f.jeanAttached() {
+			continue // déjà chez lui
+		}
 		from, to := filepath.Join(src, f.Name), filepath.Join(dst, f.Name)
 		if err := os.Rename(from, to); err != nil {
 			if b, rerr := os.ReadFile(from); rerr == nil && os.WriteFile(to, b, 0o644) == nil {
@@ -185,7 +233,7 @@ func attachNote(files []attachInfo) string {
 	var lines []string
 	video := false
 	for _, f := range files {
-		lines = append(lines, fmt.Sprintf("- %s (%s)", f.Path, humanBytes(f.Size)))
+		lines = append(lines, fmt.Sprintf("- %s (%s)", f.modelPath(), humanBytes(f.Size)))
 		video = video || videoMime(f.Name) != ""
 	}
 	note := head + "\n" + strings.Join(lines, "\n") + "\n"
@@ -261,7 +309,7 @@ func visionMediaNote(files []attachInfo) string {
 	}
 	var lines []string
 	for _, f := range files {
-		lines = append(lines, fmt.Sprintf("- %s (%s)", f.Path, humanBytes(f.Size)))
+		lines = append(lines, fmt.Sprintf("- %s (%s)", f.modelPath(), humanBytes(f.Size)))
 	}
 	return head + "\n" + strings.Join(lines, "\n") + "\n\n"
 }
@@ -283,23 +331,11 @@ func userMessageContent(files []attachInfo, prompt string) any {
 	if !visionEnabled() {
 		return attachNote(files) + prompt
 	}
-	dir, err := uploadsDir()
-	if err != nil {
-		return attachNote(files) + prompt
-	}
-	// Une pièce jointe peut être passée chez Jean (moveUploadsToJean).
-	readAttach := func(name string) ([]byte, error) {
-		b, err := os.ReadFile(filepath.Join(dir, name))
-		if err != nil {
-			b, err = os.ReadFile(filepath.Join(jeanWorkspace(), "uploads", name))
-		}
-		return b, err
-	}
 	var imgParts, vidParts []map[string]any
 	var mediaFiles, otherFiles []attachInfo
 	for _, f := range files {
 		if mime := imageMime(f.Name); mime != "" {
-			b, err := readAttach(f.Name)
+			b, err := readAttach(f)
 			if err != nil {
 				otherFiles = append(otherFiles, f) // illisible ici : au moins l'annoncer comme fichier
 				continue
@@ -317,7 +353,7 @@ func userMessageContent(files []attachInfo, prompt string) any {
 			continue
 		}
 		if mime := videoMime(f.Name); mime != "" && videoInputSupported() {
-			b, err := readAttach(f.Name)
+			b, err := readAttach(f)
 			if err != nil {
 				otherFiles = append(otherFiles, f)
 				continue
@@ -516,6 +552,10 @@ type uploadReq struct {
 	// disque avant d'entamer un envoi d'un gigaoctet. Purement indicatif : le
 	// vrai plafond reste vérifié morceau par morceau.
 	Size int64 `json:"size"`
+	// Dest = dossier de destination, relatif au dossier de Jean (gestionnaire de
+	// fichiers du mode Jean), au premier morceau. Absent : un dépôt du chat,
+	// dans uploads/.
+	Dest *string `json:"dest,omitempty"`
 }
 
 // upSession = un envoi en cours, adossé à un fichier .part sur le disque.
@@ -534,6 +574,7 @@ type upSession struct {
 	busy    bool // écriture en cours : le ménage doit passer son tour
 	f       *os.File
 	name    string
+	dest    string // dossier de Jean où ranger le fichier ("" : uploads/)
 	written int64
 	last    time.Time
 }
@@ -623,13 +664,28 @@ func handleChatUpload(w http.ResponseWriter, r *http.Request) {
 				"error": fmt.Sprintf("espace insuffisant : %s libres, %s nécessaires", humanBytes(free), humanBytes(body.Size+uploadSpaceMargin))})
 			return
 		}
+		dest := ""
+		if body.Dest != nil {
+			d, err := jeanFilesPath(*body.Dest)
+			if err == nil {
+				if st, serr := os.Stat(d); serr != nil || !st.IsDir() {
+					err = fmt.Errorf("dossier introuvable")
+				}
+			}
+			if err != nil {
+				upMu.Unlock()
+				sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+				return
+			}
+			dest = d
+		}
 		f, err := os.CreateTemp(dir, ".upload-*.part")
 		if err != nil {
 			upMu.Unlock()
 			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 			return
 		}
-		s = &upSession{f: f, name: safeUploadName(body.Name)}
+		s = &upSession{f: f, name: safeUploadName(body.Name), dest: dest}
 		body.ID = filepath.Base(f.Name())
 		upSessions[body.ID] = s
 	}
@@ -690,6 +746,19 @@ func handleChatUpload(w http.ResponseWriter, r *http.Request) {
 	if s.written == 0 {
 		os.Remove(part)
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "fichier vide"})
+		return
+	}
+	if s.dest != "" {
+		// Gestionnaire de fichiers de Jean : rangé dans le dossier choisi, puis lu
+		// par l'indexeur.
+		dst, err := jeanSaveUpload(part, s.dest, s.name)
+		if err != nil {
+			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		jeanEmbedKick()
+		rel := jeanRelSlash(jeanFilesRoot(), dst)
+		sendJSON(w, 200, map[string]any{"ok": true, "path": jeanWSPrefix + rel, "rel": rel, "size": s.written})
 		return
 	}
 	dest := uniqueUploadPath(filepath.Dir(part), s.name)

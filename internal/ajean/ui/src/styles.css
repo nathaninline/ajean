@@ -2912,3 +2912,173 @@ button.th-head:hover{background:var(--t1)}
 .body .wi{animation:aj-word-in 450ms cubic-bezier(.33,.1,.45,1) both}
 .body li.li-wait::marker{color:transparent}
 @media (prefers-reduced-motion: reduce){.body .wi{animation:none}}
+/* ===== Fichiers de Jean (23-jean-files.js) ===================================
+   Le dossier de travail de Jean, comme un gestionnaire de fichiers : une liste
+   sur téléphone, un tableau à colonnes sur ordinateur, une grille de vignettes au
+   choix. Fonds teintés, pas de bordures. */
+.jst-files{display:none;position:absolute;top:14px;right:62px;z-index:7;width:38px;height:38px;border:none;border-radius:50%;margin:0;padding:0;
+  background:var(--row-bg);color:var(--dim);cursor:pointer;align-items:center;justify-content:center;transition:background .2s,color .2s}
+.jst-files:hover{background:var(--row-bg-on);color:var(--text)}
+body.jean-mode:not(.jean-history) .jst-files{display:flex}
+/* Mode vocal de Jean (24-jean-voice.js) : micro à côté des fichiers, pastille d'état en bas. */
+.jst-voice{display:none;position:absolute;top:14px;right:108px;z-index:7;width:38px;height:38px;border:none;border-radius:50%;margin:0;padding:0;
+  background:var(--row-bg);color:var(--dim);cursor:pointer;align-items:center;justify-content:center;transition:background .2s,color .2s,transform .2s}
+.jst-voice:hover{background:var(--row-bg-on);color:var(--text)}
+body.voice-ready.jean-mode:not(.jean-history) .jst-voice{display:flex}
+.jst-voice.on{background:var(--accent);color:var(--accent-fg,var(--bg))}
+.jst-voice.on[data-st="rec"]{transform:scale(1.12)}
+.jst-voice.on[data-st="listen"]{animation:jvPulse 2.4s ease-in-out infinite}
+@keyframes jvPulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 35%,transparent)}50%{box-shadow:0 0 0 8px color-mix(in srgb,var(--accent) 0%,transparent)}}
+.jst-voice-st{position:absolute;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translate(-50%,6px);z-index:7;
+  padding:6px 14px;border-radius:999px;background:var(--row-bg);color:var(--dim);font-size:13px;pointer-events:none;cursor:pointer;opacity:0;transition:opacity .25s,transform .25s}
+.jst-voice-st.in{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+body:not(.jean-mode) .jst-voice-st,body.jean-history .jst-voice-st{display:none}
+body.jean-voice #jean-stage .jst-input{display:none}
+
+
+.jf-card{max-width:1040px;height:min(820px,88vh);overflow:hidden}
+.jf-card.dropping .jf-body{box-shadow:inset 0 0 0 2px var(--t3);border-radius:0 0 12px 12px}
+.jf-head{justify-content:flex-start;gap:6px;padding:10px 12px;border-bottom:none}
+.jf-title{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.jf-title b{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#jf-crumbs{display:flex;align-items:center;min-width:0;white-space:nowrap;overflow:hidden;font-size:14px;font-weight:600}
+#jf-crumbs button{margin:0;padding:2px 5px;border:none;background:none;border-radius:6px;font:inherit;color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-width:0;cursor:pointer}
+#jf-crumbs button:last-child{flex-shrink:0;max-width:100%}
+#jf-crumbs button:not(:last-child){color:var(--dim);font-weight:500}
+#jf-crumbs button:hover{background:var(--t1)}
+#jf-crumbs i{color:var(--dim);font-style:normal;padding:0 1px;flex:none;opacity:.6}
+#jf-count,#jf-vmeta{font-size:11.5px;color:var(--dim);padding-left:5px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#jf-vmeta{padding-left:0}
+.jf-ic{margin:0;width:34px;height:34px;padding:0;flex:none;border:none;background:none;border-radius:9px;color:var(--dim);
+  display:inline-grid;place-items:center;cursor:pointer;transition:background .14s,color .14s}
+.jf-ic:hover{background:var(--t1);color:var(--text)}
+.jf-ic[hidden]{display:none}
+.jf-ic.jf-danger:hover{color:var(--err)}
+.jf-tools{display:flex;align-items:center;gap:8px;padding:2px 14px 8px}
+#jf-filter{flex:1;min-width:0;margin:0;background:var(--t1);color:var(--text);border:none;border-radius:10px;padding:8px 12px;font:inherit;font-size:13px;outline:none}
+#jf-filter::placeholder{color:var(--dim)}
+.jf-btn{margin:0;flex:none;display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border:none;border-radius:10px;
+  background:var(--t2);color:var(--text);font:inherit;font-size:13px;line-height:1.3;cursor:pointer;white-space:nowrap;transition:background .14s}
+.jf-btn:hover{background:var(--t3)}
+.jf-btn-pri{background:var(--accent);color:var(--bg)}
+.jf-btn-pri:hover{background:var(--accent);opacity:.88}
+.jf-btn svg{flex:none}
+.jf-body{position:relative;flex:1;min-height:0;display:flex;flex-direction:column}
+#jf-list{flex:1;min-height:0;overflow-y:auto;padding:2px 8px 76px;overscroll-behavior:contain}
+.jf-row{display:flex;align-items:center;gap:2px;border-radius:12px;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;
+  transition:background .14s,transform .15s,opacity .15s}
+.jf-main{flex:1;min-width:0;margin:0;display:flex;align-items:center;gap:12px;text-align:left;padding:8px 6px;border:none;
+  border-radius:12px;background:none;color:var(--text);font:inherit;cursor:pointer}
+.jf-main:focus-visible{outline:2px solid var(--t3);outline-offset:-2px}
+.jf-row:hover:not(.sel){background:var(--row-bg)}
+.jf-row.sel{background:var(--t2)}
+.jf-more{margin:0;width:40px;height:40px;flex:none;padding:0;border:none;border-radius:50%;background:none;color:var(--dim);
+  display:grid;place-items:center;cursor:pointer}
+.jf-more:hover{background:var(--t1);color:var(--text)}
+.jf-ficon{width:42px;height:42px;flex:none;border-radius:10px;background:var(--t1);display:grid;place-items:center;overflow:hidden;color:var(--dim)}
+.jf-ficon svg{width:21px;height:21px}
+.jf-ficon.dir{color:var(--text);background:var(--t2)}
+.jf-ficon.dir svg{opacity:.75}
+.jf-ficon img{width:100%;height:100%;object-fit:cover;display:block}
+.jf-ficon img:not([src]){visibility:hidden}
+.jf-ficon.big{width:72px;height:72px;margin:0 auto 12px;border-radius:16px}
+.jf-ficon.big svg{width:32px;height:32px}
+.jf-name{flex:1;min-width:0;display:flex;flex-direction:column}
+.jf-name b{font-weight:500;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jf-name span{color:var(--dim);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jf-size,.jf-date{display:none}
+#jf-cols{display:none}
+.jf-empty{color:var(--dim);text-align:center;padding:16vh 24px 0;font-size:13px;line-height:1.5}
+.jf-hint{color:var(--dim);font-size:11.5px;text-align:center;padding:12px 0 0;opacity:.8}
+/* Glisser-déposer : la ligne prise se soulève, une étiquette suit le doigt, le dossier visé s'éclaire. */
+.jf-row.lifted{transform:scale(1.02);background:var(--t2);box-shadow:var(--pop-shadow)}
+.jf-row.drop-here,#jf-back.drop-here,#jf-crumbs button.drop-here{background:var(--t3)}
+.jf-ghost{position:fixed;left:0;top:0;z-index:1100;pointer-events:none;padding:8px 12px;border-radius:12px;background:var(--menu);color:var(--text);
+  box-shadow:var(--pop-shadow);font-size:13px;max-width:60vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* La grille : vignettes, le nom dessous. */
+#jf-list.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:6px;align-content:start}
+#jf-list.grid .jf-row{position:relative;flex-direction:column}
+#jf-list.grid .jf-main{flex-direction:column;gap:7px;padding:7px;width:100%}
+#jf-list.grid .jf-ficon{width:100%;height:auto;aspect-ratio:1;border-radius:12px}
+#jf-list.grid .jf-ficon svg{width:36%;height:36%}
+#jf-list.grid .jf-name{width:100%;text-align:center}
+#jf-list.grid .jf-name span{display:none}
+#jf-list.grid .jf-more{position:absolute;top:10px;right:10px;width:30px;height:30px;background:color-mix(in srgb,var(--bg) 78%,transparent);opacity:0}
+#jf-list.grid .jf-row:hover .jf-more,#jf-list.grid .jf-more:focus-visible{opacity:1}
+#jf-list.grid .jf-empty,#jf-list.grid .jf-hint,#jf-list.grid .jf-shead,#jf-list.grid .jf-hit{grid-column:1/-1}
+@media (hover:none){#jf-list.grid .jf-more{opacity:1}}
+/* La sélection : ses actions, posées sur la liste. */
+#jf-sel{position:absolute;left:50%;bottom:14px;transform:translate(-50%,160%);z-index:3;display:flex;align-items:center;gap:2px;
+  padding:5px;border-radius:14px;background:var(--menu);box-shadow:var(--pop-shadow);transition:transform .22s var(--ease);
+  max-width:calc(100% - 24px);overflow-x:auto;scrollbar-width:none}
+#jf-sel.show{transform:translate(-50%,0)}
+#jf-sel>span{padding:0 8px;color:var(--dim);white-space:nowrap;font-size:12.5px}
+#jf-sel>button:not(.jf-ic){margin:0;padding:7px 11px;border:none;border-radius:9px;background:none;color:var(--text);font:inherit;font-size:12.5px;white-space:nowrap;cursor:pointer}
+#jf-sel>button:not(.jf-ic):hover{background:var(--t2)}
+#jf-sel>button.danger{color:var(--err)}
+#jf-sel>button[hidden]{display:none}
+/* Recherche dans le contenu. */
+.jf-shead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 6px 4px 8px;font-size:12px;color:var(--dim)}
+.jf-hit{display:flex;align-items:flex-start;gap:12px;width:100%;margin:0;padding:9px 8px;border:none;border-radius:12px;background:none;color:var(--text);
+  font:inherit;text-align:left;cursor:pointer}
+.jf-hit:hover{background:var(--row-bg)}
+.jf-hit .jf-name b{white-space:normal;overflow-wrap:anywhere}
+.jf-hit .jf-hit-dir{font-family:var(--mono);font-size:11px}
+.jf-hit .jf-hit-p{white-space:normal;color:var(--text);opacity:.75;font-size:12px;line-height:1.45;margin-top:3px;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+/* L'aperçu : par-dessus la liste, dans la même fenêtre. */
+#jf-viewer{position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;background:var(--bg);
+  opacity:0;visibility:hidden;transform:translateY(8px);transition:opacity .18s ease,transform .2s var(--ease),visibility 0s .2s}
+#jf-viewer.show{opacity:1;visibility:visible;transform:none;transition:opacity .18s ease,transform .2s var(--ease)}
+.jf-vhead{display:flex;align-items:center;gap:6px;padding:4px 10px 8px}
+.jf-vacts{display:flex;align-items:center;gap:4px;flex:none}
+.jf-vbody{flex:1;min-height:0;overflow:auto;padding:4px 16px 20px}
+.jf-vbody.pdf{padding:0 8px 8px;overflow:hidden}
+.jf-pdf{display:block;width:100%;height:100%;border:none;border-radius:10px;background:#fff}
+.jf-media{display:block;max-width:100%;max-height:100%;margin:0 auto;border-radius:10px}
+audio.jf-media{width:min(520px,100%);margin-top:18vh}
+.jf-code{margin:0;padding:12px 14px;background:var(--code-bg);border-radius:10px;overflow-x:auto;font:12px/1.55 var(--mono);color:var(--text);white-space:pre}
+.jf-code .n{display:inline-block;width:var(--nw,3ch);margin-right:14px;text-align:right;color:var(--dim);opacity:.7;user-select:none;-webkit-user-select:none}
+.jf-md{max-width:780px;margin:0 auto;font-size:14px;line-height:1.6}
+.jf-nopv{text-align:center;color:var(--dim);font-size:13px;padding-top:14vh}
+/* Un ordinateur : un tableau à colonnes, des boutons avec leur texte. */
+@media (min-width:840px){
+  #jf-list:not(.grid) .jf-row{border-radius:9px}
+  #jf-list:not(.grid) .jf-main{display:grid;grid-template-columns:28px minmax(0,1fr) 100px 170px;gap:12px;padding:5px 8px;border-radius:9px}
+  #jf-list:not(.grid) .jf-ficon{width:28px;height:28px;border-radius:7px}
+  #jf-list:not(.grid) .jf-ficon svg{width:16px;height:16px}
+  #jf-list:not(.grid) .jf-name span{display:none}
+  #jf-list:not(.grid) .jf-size,#jf-list:not(.grid) .jf-date{display:block;color:var(--dim);font-size:12.5px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  #jf-list:not(.grid) .jf-size{text-align:right}
+  #jf-list:not(.grid) .jf-more{width:32px;height:32px;opacity:0}
+  #jf-list:not(.grid) .jf-row:hover .jf-more,#jf-list:not(.grid) .jf-row.sel .jf-more{opacity:1}
+  #jean-files-modal:not(.jf-gridview) #jf-cols{display:grid;grid-template-columns:28px minmax(0,1fr) 100px 170px 34px;gap:12px;padding:4px 8px;margin:0 8px;
+    font-size:11.5px;color:var(--dim)}
+  #jf-cols button{margin:0;padding:2px 0;border:none;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+  #jf-cols button:first-child{grid-column:1/3}
+  #jf-cols button[data-sort="size"]{text-align:right}
+  #jf-cols button:hover,#jf-cols button.on{color:var(--text)}
+  #jf-cols button.on::after{content:" ↑"}
+  #jf-cols button.on.desc::after{content:" ↓"}
+}
+/* Un téléphone : la fenêtre prend l'écran, les boutons gardent leur icône. */
+@media (max-width:720px){
+  #jean-files-modal{padding:0}
+  #jean-files-modal .jf-card{height:100%;max-height:none;border-radius:0;border:none;
+    padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+  .jf-btn .jf-btn-t{display:none}
+  .jf-btn{padding:8px 10px}
+  .jf-vacts .jf-btn{padding:7px 10px}
+  #jf-sel{gap:0;padding:4px;bottom:10px}
+  #jf-sel>span{padding:0 6px}
+  #jf-sel>button:not(.jf-ic){padding:7px 8px;font-size:12px}
+}
+
+/* Réglages voix : liste des voix + bouton écouter, à droite de la ligne. */
+.voice-pick{margin-left:auto;order:2;display:flex;align-items:center;gap:6px;max-width:62%}
+.voice-pick .sctl{width:auto;min-width:0}
+.voice-play{flex:none;width:30px;height:30px;border:none;border-radius:50%;background:var(--t1);color:var(--text);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.voice-play:disabled{opacity:.4}
+#voice-url{min-width:0;flex:1 1 auto;max-width:62%}
