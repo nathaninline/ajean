@@ -35,15 +35,6 @@ import (
 	"time"
 )
 
-// isOpenAIPath : routes servies par openaiHandler.
-func isOpenAIPath(p string) bool {
-	switch p {
-	case "/v1/chat/completions", "/v1/completions", "/v1/models":
-		return true
-	}
-	return strings.HasPrefix(p, "/v1/models/")
-}
-
 func oaiError(w http.ResponseWriter, code int, kind, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
