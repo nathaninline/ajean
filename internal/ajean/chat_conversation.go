@@ -115,6 +115,12 @@ type Conversation struct {
 	// prochaine frontière d'étape (après un appel d'outil), soit — si le tour se
 	// termine avant — traités comme des tours suivants, dans l'ordre. Protégée par mu.
 	queued []queuedMsg
+
+	// Capacités du dernier tour utilisateur : le re-chauffage (llm_rewarm.go)
+	// reconstruit le préfixe du tour SUIVANT avec elles. Pas persistées : après
+	// un redémarrage, repli sur celles du mode (prewarmCaps). Protégées par mu.
+	lastCaps    Caps
+	hasLastCaps bool
 }
 
 // queuedMsg = un message mis en file pendant la génération. On mémorise ses caps et
@@ -558,6 +564,7 @@ func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, tem
 	}
 	c.Generating = true
 	c.genStart = time.Now()
+	c.lastCaps, c.hasLastCaps = caps, true
 	// Le message de l'utilisateur passe devant tout pré-chauffage interne : le
 	// tour va de toute façon traiter le préfixe et garder le cache KV.
 	cancelLLMPrewarmForTurn()
@@ -775,6 +782,9 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 		c.pageOutLocked()    // conversation sans fin : l'ancien fil part en pages (chat_pages.go)
 		c.mu.Unlock()
 		c.persist()
+		// Le cache KV tient maintenant cette conversation : on retient son
+		// empreinte pour savoir, plus tard, s'il faut la re-chauffer.
+		go convRewarmSettled()
 		// Notification Web Push : ce chemin (generate) ne sert QUE les tours
 		// utilisateur — les tâches de fond passent par RunAutonomous, sans turn_done
 		// dans la conversation partagée — donc pas de spam. Détaché : l'envoi HTTP
@@ -824,17 +834,7 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 	// veut parler au modèle nu (comme un llama-server direct), sans persona ni
 	// consignes. Le prompt de preset décrivait des outils/une mémoire que ce mode
 	// n'a pas, poussant le modèle à cracher des <tool_call> en clair.
-	final := msgs
-	// Modèle de base et mode rapide ignorent les projets : une conversation
-	// commencée en mode Projet garde en tête son contexte injecté (projet, index
-	// mémoire, trackers), qu'on retire de la vue envoyée au modèle.
-	if !caps.Agent || caps.Terminal {
-		final = dropProjectSystem(msgs)
-	}
-	// Mode rapide (Terminal) : prompt court seulement, comme « ajean chat ».
-	if sp := readSysPrompt(); sp != "" && caps.Agent && !caps.Terminal {
-		final = append([]Message{{Role: "system", Content: sp}}, msgs...)
-	}
+	final := turnModelView(msgs, caps)
 
 	// newBase : vue modèle publiée par une compaction survenue PENDANT le tour.
 	// Non-nil = elle remplace l'historique (elle contient déjà le tour en cours).
@@ -852,7 +852,9 @@ func (c *Conversation) generate(ctx context.Context, caps Caps, temperature floa
 			c.appendDelta(epoch, map[string]any{"content": t})
 		}
 	}
-	extra, _ := runChat(ctx, InjectSkills(final, caps), temperature, caps, func(ev StreamEvent) bool {
+	// withConvTurn : ces requêtes-là tiennent le cache KV de LA conversation
+	// (llm_rewarm.go), contrairement aux tâches de fond.
+	extra, _ := runChat(withConvTurn(ctx), InjectSkills(final, caps), temperature, caps, func(ev StreamEvent) bool {
 		switch {
 		case ev.Err != nil:
 			// Arrêt volontaire (bouton stop → cancel du contexte) : ce n'est pas une
@@ -1525,6 +1527,24 @@ func (c *Conversation) SubscribeTail(ctx context.Context, from int, convID strin
 		}
 		c.mu.Lock()
 	}
+}
+
+// turnModelView : la vue envoyée au modèle pour un tour, avant InjectSkills.
+// Partagée par generate et le re-chauffage (llm_rewarm.go) : le préfixe chauffé
+// doit être identique à l'octet près à celui du vrai tour.
+func turnModelView(msgs []Message, caps Caps) []Message {
+	// Modèle de base et mode rapide ignorent les projets : une conversation
+	// commencée en mode Projet garde en tête son contexte injecté (projet, index
+	// mémoire, trackers), qu'on retire de la vue envoyée au modèle.
+	if !caps.Agent || caps.Terminal {
+		return dropProjectSystem(msgs)
+	}
+	// Prompt système personnalisé (Paramètres) : seulement en mode agent complet.
+	// Mode rapide (Terminal) : prompt court seulement, comme « ajean chat ».
+	if sp := readSysPrompt(); sp != "" {
+		return append([]Message{{Role: "system", Content: sp}}, msgs...)
+	}
+	return msgs
 }
 
 // dropProjectSystem retire les messages système propres au projet (voir

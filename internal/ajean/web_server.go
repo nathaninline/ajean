@@ -149,6 +149,13 @@ func newWebMux() *http.ServeMux {
 	// exigée, traduction vers le preset actif (anthropic_api.go).
 	mux.Handle("/v1/messages", anthropicHandler())
 	mux.Handle("/v1/messages/count_tokens", anthropicHandler())
+	// API OpenAI (IDE, agents CLI : OpenCode, Aider, Continue…) : même clé,
+	// requêtes nettoyées pour les gabarits stricts, preset actif (openai_api.go).
+	oai := openaiHandler()
+	mux.Handle("/v1/chat/completions", oai)
+	mux.Handle("/v1/completions", oai)
+	mux.Handle("/v1/models", oai)
+	mux.Handle("/v1/models/", oai)
 	mux.HandleFunc("/marked.min.js", func(w http.ResponseWriter, r *http.Request) {
 		b, _ := uiFS.ReadFile("ui/marked.min.js")
 		w.Header().Set("Content-Type", "application/javascript")
@@ -389,6 +396,9 @@ func newWebMux() *http.ServeMux {
 			}
 		}
 	}()
+	// Conversation gardée chaude quand un travail de fond ou un IDE a pris le
+	// créneau de cache du moteur (llm_rewarm.go).
+	startConvRewarm()
 	StartTaskScheduler()
 	return mux
 }

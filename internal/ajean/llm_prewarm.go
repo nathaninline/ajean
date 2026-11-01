@@ -408,6 +408,7 @@ func cancelLLMPrewarmForTurn() {
 	if cancel != nil {
 		cancel()
 	}
+	cancelConvRewarm()
 }
 
 // sendLLMPrewarm envoie la requête de pré-chauffage et draine la réponse (pour

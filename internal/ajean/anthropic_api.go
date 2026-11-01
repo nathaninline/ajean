@@ -357,7 +357,9 @@ func anthropicHandler() http.Handler {
 			return
 		}
 		body, _ := json.Marshal(antToOpenAI(in, ep.Model))
-		req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, ep.URL, bytes.NewReader(body))
+		// Client tiers : son passage sur le moteur est compté (llm_rewarm.go).
+		ctx := withThirdParty(r.Context())
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, ep.URL, bytes.NewReader(body))
 		if err != nil {
 			antError(w, http.StatusInternalServerError, "api_error", err.Error())
 			return
@@ -366,7 +368,7 @@ func anthropicHandler() http.Handler {
 		if ep.Key != "" {
 			req.Header.Set("Authorization", "Bearer "+ep.Key)
 		}
-		resp, err := doLLM(r.Context(), req, body, ep)
+		resp, err := doLLM(ctx, req, body, ep)
 		if err != nil {
 			antError(w, http.StatusBadGateway, "api_error", "moteur injoignable : "+err.Error())
 			return

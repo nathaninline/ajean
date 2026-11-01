@@ -214,6 +214,20 @@ Any tool that speaks the OpenAI API can use your model:
 - **on your network**: `ajean network on` makes the endpoint reachable on the LAN;
 - **on the internet**: an opt-in public address `https://<machine>.oai.ajean.link/v1`, authenticated with your API key. TLS ends on your machine; the relay only passes encrypted traffic through.
 
+**For IDEs and coding agents** (OpenCode, Crush, Aider, Continue, Cline, Zed…), use the interface port instead: `http://<machine>:8090/v1`, with your API key as the Bearer token and the model name `ajean`. It always targets the active preset (local, external API or cloud GPU), cleans up requests that strict chat templates reject (several or misplaced system messages, the `developer` role), fills in the preset's recommended sampling for what the client leaves unset, and keeps AJEAN's background work from stealing the IDE's prompt cache. For example, in `opencode.json`:
+
+```json
+{
+  "provider": {
+    "ajean": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": { "baseURL": "http://localhost:8090/v1", "apiKey": "sk-ajean-…" },
+      "models": { "ajean": {} }
+    }
+  }
+}
+```
+
 ---
 
 ## Your data
