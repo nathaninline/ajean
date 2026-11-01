@@ -960,6 +960,12 @@ func isNetTimeout(err error) bool {
 // modèle les prenne en compte dans la SUITE de sa réponse (issue #74 — ajout en cours
 // de réponse) au lieu d'obliger à arrêter puis relancer. Ces messages sont ajoutés à
 // `messages` (vue modèle) ET à `extra` (persistance), dans l'ordre.
+// wireMessages : l'historique tel qu'il part au moteur. Partagé avec le
+// re-chauffage (llm_rewarm.go), qui doit produire exactement le même préfixe.
+func wireMessages(messages []Message) []Message {
+	return expandVideoRefs(expandImageRefs(normalizeSystemMessages(repairToolPairs(messages))))
+}
+
 func runChat(ctx context.Context, messages []Message, temperature float64, caps Caps, cb ChatCallback, injectQueued func() []Message) ([]Message, error) {
 	// Mode Jean : son propre espace (workspace + scripts), cloisonné des projets.
 	if caps.Jean {
@@ -1045,7 +1051,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			// Les images/vidéos de l'historique y sont rangées par référence
 			// (chat_images.go / chat_video.go) : on remet leurs octets juste avant
 			// l'envoi.
-			"messages":    expandVideoRefs(expandImageRefs(normalizeSystemMessages(repairToolPairs(messages)))),
+			"messages":    wireMessages(messages),
 			"stream":      true,
 			"temperature": temperature,
 			// include_usage → chunk final avec `usage.prompt_tokens` = taille TOTALE

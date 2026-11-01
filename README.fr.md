@@ -214,6 +214,20 @@ Tout outil qui parle l'API OpenAI peut utiliser votre modèle :
 - **sur votre réseau** : `ajean network on` rend le point d'accès joignable sur le réseau local ;
 - **sur internet** : une adresse publique optionnelle `https://<machine>.oai.ajean.link/v1`, protégée par votre clé d'API. Le TLS se termine sur votre machine ; le relais ne fait passer que du trafic chiffré.
 
+**Pour les IDE et agents de code** (OpenCode, Crush, Aider, Continue, Cline, Zed…), passez plutôt par le port de l'interface : `http://<machine>:8090/v1`, avec votre clé d'API en Bearer et le nom de modèle `ajean`. Il vise toujours le preset actif (local, API externe ou GPU cloud), nettoie les requêtes que les gabarits stricts refusent (plusieurs messages system ou mal placés, rôle `developer`), complète l'échantillonnage recommandé du preset pour ce que le client ne fixe pas, et empêche le travail de fond d'AJEAN de voler le cache de prompt de l'IDE. Par exemple, dans `opencode.json` :
+
+```json
+{
+  "provider": {
+    "ajean": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": { "baseURL": "http://localhost:8090/v1", "apiKey": "sk-ajean-…" },
+      "models": { "ajean": {} }
+    }
+  }
+}
+```
+
 ---
 
 ## Vos données

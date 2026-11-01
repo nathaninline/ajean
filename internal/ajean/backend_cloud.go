@@ -472,12 +472,22 @@ func cloudEndpoint(cfg map[string]string) chatEndpoint {
 // (llama-server répond 503 « Loading model » tant que le modèle charge).
 func doLLM(ctx context.Context, req *http.Request, body []byte, ep chatEndpoint) (*http.Response, error) {
 	// Vu par le pré-chauffage de prompt (llm_prewarm.go) : une génération occupe
-	// le moteur, il ne faut pas s'insérer devant elle.
+	// le moteur, il ne faut pas s'insérer devant elle. Le compteur tient jusqu'à
+	// la FIN du flux (engineBody), pas seulement jusqu'aux en-têtes : sinon toute
+	// la génération streamée passait pour « moteur libre ».
 	llmInFlight.Add(1)
-	defer llmInFlight.Add(-1)
+	// Toute requête passe devant un re-chauffage de conversation (llm_rewarm.go).
+	cancelConvRewarm()
 	if !ep.Cloud {
-		return http.DefaultClient.Do(req)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			engineRequestDone(ctx)
+			return resp, err
+		}
+		resp.Body = &engineBody{ReadCloser: resp.Body, ctx: ctx}
+		return resp, nil
 	}
+	defer engineRequestDone(ctx)
 	cloudActivityBegin()
 	deadline := time.Now().Add(30 * time.Minute) // 1er démarrage = téléchargement du modèle
 	for {
@@ -503,6 +513,37 @@ func doLLM(ctx context.Context, req *http.Request, body []byte, ep chatEndpoint)
 		next.Body = io.NopCloser(bytes.NewReader(body))
 		req = next
 	}
+}
+
+// engineBody libère le compteur llmInFlight à la fin du flux : fermeture, ou
+// lecture jusqu'au bout (un appelant qui oublierait Close ne bloque pas le
+// pré-chauffage pour toujours). Une seule fois.
+type engineBody struct {
+	io.ReadCloser
+	ctx  context.Context
+	once sync.Once
+}
+
+func (b *engineBody) done() { engineRequestDone(b.ctx) }
+
+func (b *engineBody) Read(p []byte) (int, error) {
+	n, err := b.ReadCloser.Read(p)
+	if err != nil {
+		b.once.Do(b.done)
+	}
+	return n, err
+}
+
+func (b *engineBody) Close() error {
+	b.once.Do(b.done)
+	return b.ReadCloser.Close()
+}
+
+// engineRequestDone : une requête vers le moteur est terminée. Le créneau de
+// cache a pu changer de mains (llm_rewarm.go).
+func engineRequestDone(ctx context.Context) {
+	llmInFlight.Add(-1)
+	noteEngineUse(engineUserOf(ctx))
 }
 
 // Activité vers le GPU Cloud : Modal éteint le conteneur après CLOUD_IDLE
