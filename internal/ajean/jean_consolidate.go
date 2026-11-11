@@ -596,7 +596,7 @@ func handleJeanSleep(w http.ResponseWriter, r *http.Request) {
 			}
 			jeanReflect.mu.Unlock()
 			if running {
-				sendJSON(w, 409, map[string]any{"ok": false, "error": "Jean est déjà en train de réfléchir ou de dormir"})
+				sendJSON(w, 409, map[string]any{"ok": false, "error": "AJEAN est déjà en train de réfléchir ou de dormir"})
 				return
 			}
 			fmt.Fprintf(os.Stderr, "[jean] sommeil lancé à la main\n")

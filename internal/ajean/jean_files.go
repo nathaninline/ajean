@@ -569,7 +569,7 @@ func jeanFilesIndexOnce(ctx context.Context, budget int) (int, error) {
 	jeanFiles.Lock()
 	if !jeanFilesLoadLocked() {
 		jeanFiles.Unlock()
-		return 0, errors.New("mémoire de Jean illisible (verrouillée)")
+		return 0, errors.New("mémoire d'AJEAN illisible (verrouillée)")
 	}
 	jeanFilesWalk(root, func(path string, d fs.DirEntry) {
 		info, err := d.Info()

@@ -937,7 +937,7 @@ const HIST_PAGE = 60;
 let HIST_ST = {off:0, total:0, active:'', section:'', loading:false, sig:''};
 let HIST_Q = '', HIST_QT = 0;
 // Historique = conversations du PROJET ACTIF ; une recherche, elle, couvre tous les projets.
-const histScope = ()=>(MODE==='fast'||MODE==='base') ? MODE : ''; // Rapide et Modèle de base : chacun son historique
+const histScope = ()=>''; // un seul historique par projet (plus de modes Rapide / Modèle de base)
 const histUrl = (off)=>'/api/chat/history?'+(HIST_Q?'all=1&':(histScope()?'scope='+histScope()+'&':''))+'offset='+off+'&limit='+HIST_PAGE+(HIST_Q?'&q='+encodeURIComponent(HIST_Q):'');
 // Recherche : on attend une courte pause dans la frappe avant d'interroger.
 function onHistSearch(){

@@ -55,7 +55,7 @@ func (c *Conversation) OpenJean() error {
 	c.mu.Lock()
 	c.ID = jeanConvID
 	c.Mode = "jean"
-	c.ActiveTitle = "Jean"
+	c.ActiveTitle = "AJEAN"
 	c.mu.Unlock()
 	c.persist()
 	return nil
@@ -77,7 +77,7 @@ func (c *Conversation) ClearJeanContext() error {
 	c.mu.Lock()
 	if c.ID != jeanConvID {
 		c.mu.Unlock()
-		return fmt.Errorf("la conversation Jean n'est pas ouverte")
+		return fmt.Errorf("la conversation AJEAN n'est pas ouverte")
 	}
 	if c.Generating && c.runningTaskID == "" {
 		c.mu.Unlock()
@@ -144,7 +144,7 @@ func (c *Conversation) JeanPost(text string) {
 	jeanMu.Unlock()
 	// Corps générique : la notification transite par Apple/Google.
 	if hasPushSubs() {
-		go sendPushToAll("Jean", "Jean t'a envoyé un message")
+		go sendPushToAll("AJEAN", "AJEAN t'a envoyé un message")
 	}
 }
 
@@ -153,7 +153,7 @@ func (c *Conversation) JeanPost(text string) {
 func jeanPostToArchive(text string) error {
 	a, ok := loadArchive(jeanConvID)
 	if !ok {
-		a = &convArchive{ID: jeanConvID, Project: jeanTaskSlug, Title: "Jean", Mode: "jean"}
+		a = &convArchive{ID: jeanConvID, Project: jeanTaskSlug, Title: "AJEAN", Mode: "jean"}
 	}
 	now := time.Now().UnixMilli()
 	a.Messages = append(a.Messages, Message{Role: "assistant", Content: text})

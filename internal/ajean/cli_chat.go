@@ -38,7 +38,7 @@ func terminalSystemPrompt(caps Caps) string {
 	if caps.Web {
 		where = "running on this machine, in fast mode"
 	}
-	b.WriteString("You are Jean, the assistant of AJEAN, " + where + ".")
+	b.WriteString("You are AJEAN, an AI assistant, " + where + ".")
 	if caps.Agent {
 		cwd := agentWorkspace()
 		b.WriteString(fmt.Sprintf("\n\nWorking directory: %s (%s/%s). The shell is %s: use its syntax. Relative paths in bash, write and edit resolve in the working directory.\n",

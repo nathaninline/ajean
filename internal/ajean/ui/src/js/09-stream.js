@@ -1050,14 +1050,16 @@ setInterval(loadTelemetry, 3000);
 //             fiches, journal), hors projets.
 // Projet et Rapide exigent l'agent de la MACHINE : s'il est coupé, les choisir
 // demande confirmation puis l'active (voir enableAgent).
-// Mode par défaut : Rapide (ordre du menu : Rapide, Projet, Jean, Modèle de base).
-let MODE='fast', AGENT_ON=false;
+// Deux modes depuis la 0.19.2 : Projet (défaut) et AJEAN (identifiant interne
+// « jean »). Rapide et Modèle de base sont retirés ; un réglage enregistré sur
+// l'un d'eux repasse en Projet.
+let MODE='project', AGENT_ON=false;
 // Fuseau du navigateur, envoyé avec chaque message : le serveur (souvent en UTC)
 // date ainsi tâches et notes à l'heure de l'utilisateur.
 const USER_TZ=(()=>{ try{ return Intl.DateTimeFormat().resolvedOptions().timeZone||''; }catch(_){ return ''; } })();
-try{ MODE=localStorage.getItem('ajean-mode') || 'fast'; }catch(e){}
-if(!['project','fast','base','jean'].includes(MODE)) MODE='fast';
-const MODE_KEYS={project:'chat.mode_project',fast:'chat.mode_fast',base:'chat.mode_base',jean:'chat.mode_jean'};
+try{ MODE=localStorage.getItem('ajean-mode') || 'project'; }catch(e){}
+if(!['project','jean'].includes(MODE)) MODE='project';
+const MODE_KEYS={project:'chat.mode_project',jean:'chat.mode_jean'};
 function saveMode(){ try{ localStorage.setItem('ajean-mode',MODE); }catch(e){} }
 function applyFastBtn(){
   const l=document.getElementById('mode-btn-label'); if(!l) return;
@@ -1080,7 +1082,7 @@ function histHeadLabel(){
   if(ic && !ic._folder) ic._folder=ic.innerHTML;
   const jean=MODE==='jean';
   document.body.classList.toggle('hist-jean', jean);
-  if(jean||MODE==='fast'||MODE==='base'){
+  if(jean){
     // Rapide : l'éclair ; Jean : son icône (reprises du menu des modes).
     hl.textContent=t(MODE_KEYS[MODE]);
     const src=document.querySelector('#mode-menu button[data-mode="'+MODE+'"] svg.mm-ic');
@@ -1094,7 +1096,6 @@ function histHeadLabel(){
 // Agent de la machine coupé : Projet / Rapide ne peuvent pas tourner, l'appareil
 // affiche donc ce qui se passe réellement (Modèle de base).
 function syncModeWithAgent(){
-  if(!AGENT_ON && MODE!=='base'){ MODE='base'; saveMode(); }
   applyFastBtn();
 }
 // Changement de mode animé : le libellé s'efface, la bulle glisse vers sa
@@ -1117,7 +1118,7 @@ function swapModeLabel(){
 async function pickMode(m){
   closeModeMenu();
   if(m===MODE || !MODE_KEYS[m]) return;
-  if(m!=='base' && !AGENT_ON && !await enableAgent()) return;
+  if(!AGENT_ON && !await enableAgent()) return;
   const prev=MODE;
   MODE=m; saveMode();
   swapModeLabel();

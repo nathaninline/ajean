@@ -48,7 +48,7 @@ func baseSystemPrompt(caps Caps) string {
 	//. Le modèle recopie la casse d'ici quand il se
 	// présente, d'où « Jean » et « AJEAN » écrits tels quels. Éviter « real tools »,
 	// qui sonnait bizarre à l'oral (« je fonctionne avec de vrais outils »).
-	b.WriteString("You are Jean, the assistant inside AJEAN, an AI app that runs on this machine. You can act on it directly through your tools.")
+	b.WriteString("You are AJEAN, an AI assistant that runs on this machine. You can act on it directly through your tools.")
 	if memProactive(caps.Mem) {
 		b.WriteString(" You evolve with every conversation: you actively maintain a persistent memory so nothing useful is lost between sessions.")
 	}

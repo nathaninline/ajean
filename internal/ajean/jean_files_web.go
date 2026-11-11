@@ -34,13 +34,13 @@ import (
 // (/api/chat/file le comprend, voir handleChatFile).
 const jeanWSPrefix = "jean-workspace/"
 
-var errJeanFilesOut = errors.New("en dehors du dossier de Jean")
+var errJeanFilesOut = errors.New("en dehors du dossier d'AJEAN")
 
 // jeanFilesDir : le dossier de Jean, créé au besoin.
 func jeanFilesDir() (string, error) {
 	root := jeanFilesRoot()
 	if root == "" {
-		return "", errors.New("dossier de Jean introuvable")
+		return "", errors.New("dossier d'AJEAN introuvable")
 	}
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return "", err
@@ -315,7 +315,7 @@ func handleJeanFilesDelete(w http.ResponseWriter, r *http.Request) {
 	for _, rel := range req.Paths {
 		p, err := jeanFilesPath(rel)
 		if err == nil && jeanIsRoot(root, p) {
-			err = errors.New("le dossier de Jean lui-même reste")
+			err = errors.New("le dossier d'AJEAN lui-même reste")
 		}
 		if err == nil {
 			err = os.RemoveAll(p)
@@ -403,7 +403,7 @@ func handleJeanFilesRename(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case err != nil:
 	case jeanIsRoot(jeanFilesRoot(), from):
-		err = errors.New("le dossier de Jean garde son nom")
+		err = errors.New("le dossier d'AJEAN garde son nom")
 	case serr != nil:
 		err = errors.New("introuvable")
 	}

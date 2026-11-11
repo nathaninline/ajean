@@ -1,26 +1,22 @@
-Une petite orbe de lumière accompagne désormais la conversation et remplace le personnage du mode Jean. Nouveau logo, et correction de l'affichage des tableaux.
+Deux modes au lieu de quatre, l'assistant s'appelle désormais AJEAN, et l'orbe gagne en douceur.
+
+## Deux modes : Projet et AJEAN
+
+- **Les modes Rapide et Modèle de base sont retirés.** Il reste **Projet** (le mode par défaut) et **AJEAN**, l'assistant personnel qui se souvient de vous.
+- Un appareil réglé sur Rapide ou Modèle de base passe automatiquement en Projet. Les anciennes conversations de ces modes ne sont pas supprimées : la recherche de l'historique les retrouve.
+
+## Jean devient AJEAN
+
+- **Le mode et l'assistant s'appellent maintenant AJEAN** partout dans l'interface : menu des modes, zone de saisie, mémoire, fichiers, notifications et titre de la conversation.
+- L'IA se présente elle-même comme AJEAN.
+- La mémoire, les fichiers et la conversation existants sont conservés tels quels.
 
 ## L'orbe
 
-- **Une orbe de lumière en pixels** vit dans l'interface, dans tous les modes. Pendant le chargement, elle apparaît en petit au centre, puis grandit d'un coup quand la conversation est prête.
-- **Pendant une réponse**, elle se pose au début de la ligne d'activité, qui s'écarte pour lui faire de la place, et s'agite pendant que l'IA travaille. À la fin, elle lance un éclat.
-- **Pendant la frappe**, elle vient flotter au-dessus de la zone de saisie et suit le texte.
-- **Au repos**, après 15 secondes sans action, elle glisse se poser sous la dernière réponse et devient une petite étoile fixe : plus aucune animation tant qu'il ne se passe rien. Un clic, une touche ou une nouvelle réponse la réveillent.
-- **On peut l'embêter** : touchée du doigt ou d'un clic, elle sursaute en arrière et lance un éclat. Sur ordinateur, elle esquive la souris qui s'approche.
-- Elle ne couvre plus le bouton pour redescendre en bas du fil, et se cache quand une app est ouverte.
-- Elle se masque dans **Paramètres > Apparence > masquer le petit esprit**. Avec l'option système « animations réduites », elle ne se déplace plus en vol.
-
-## Mode Jean
-
-- **Le personnage de Jean et la scène plein écran sont retirés.** Le mode Jean affiche la conversation comme les autres modes ; l'orbe prend la place du personnage. L'option « masquer le terminal du plein écran » disparaît avec la scène.
-
-## Logo
-
-- **Nouveau logo** : le mot AJEAN en pixels, avec l'étoile de repos de l'orbe en haut à droite. Il remplace le J dans l'en-tête, l'accueil, l'icône de l'onglet et les lignes d'activité.
-
-## Corrections
-
-- **Tableaux écrasés dans le chat** : en mode normal, les colonnes se tassaient jusqu'à couper les mots (« Dat/e »). Les cellules ne coupent plus les mots et un tableau trop large défile sur le côté, comme en plein écran.
+- **Halo plus discret** : un peu plus resserré, avec un bord qui s'estompe en douceur. On ne devine plus le disque autour de la lumière.
+- **Pendant la frappe**, elle vient voir ce que l'on écrit en curieuse : elle arrive doucement, flotte plus haut au-dessus de la zone de saisie et suit le texte sans à-coups.
+- **Vol plus fluide** : elle accélère et freine en douceur, sans dépasser sa cible, et ses changements de direction ne donnent plus de sursaut.
+- **Quand on la touche**, elle part en arrière en freinant puis revient en douceur, au lieu de sauter d'un coup.
 
 ## Mise à jour
 
@@ -28,4 +24,4 @@ Une petite orbe de lumière accompagne désormais la conversation et remplace le
 ajean update
 ```
 
-Testé par les tests automatiques et sur un serveur Linux. Les animations de l'orbe ont été réglées à l'œil sur mobile ; le rendu sur macOS n'a pas été vérifié.
+Testé par les tests automatiques et sur un serveur Linux. Les mouvements de l'orbe ont été réglés à l'œil sur mobile ; le rendu sur macOS n'a pas été vérifié.

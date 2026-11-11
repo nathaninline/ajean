@@ -95,7 +95,7 @@ async function newAppPrompt(){
   // L'outil app n'existe qu'en Projet et en Jean : Rapide n'a que le terminal,
   // Modèle de base aucun outil. Sans bascule, la demande partait dans un mode
   // où elle ne pouvait pas aboutir.
-  if(MODE === 'fast' || MODE === 'base'){
+  if(MODE !== 'project' && MODE !== 'jean'){
     await pickMode('project');
     if(MODE !== 'project') return; // mode agent refusé
   }

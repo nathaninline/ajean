@@ -87,18 +87,16 @@ Or the update button in the interface. Each release is verified against its publ
 
 ## Using AJEAN
 
-### Four chat modes
+### Two chat modes
 
 Pick a mode from the button on the left of the input bar.
 
 | Mode | For | What the AI has |
 |---|---|---|
-| **Quick** | quick questions, small tasks | terminal and files, no memory |
 | **Project** | real work that spans several conversations | memory, trackers, web, browser, MCP, tasks |
-| **Jean** | a personal assistant that knows you | its own memory, reminders, a single ongoing conversation |
-| **Base model** | talking to the raw model | nothing: no tools, no system prompt |
+| **AJEAN** | a personal assistant that knows you | its own memory, reminders, a single ongoing conversation |
 
-A conversation keeps the mode it started in. Tools only exist when **agent mode** is on (`ajean agent on`, or the switch in the interface); without it, every mode behaves like Base model.
+A conversation keeps the mode it started in. Tools only exist when **agent mode** is on (`ajean agent on`, or the switch in the interface); without it, the AI answers without tools.
 
 ### Projects
 
@@ -111,18 +109,18 @@ Each project has:
 - **A description**, given to the AI at the start of every conversation (context, constraints, tone).
 - **Options** in its *⋯* menu: name and description, its memory, its trackers.
 
-### Jean, personal assistant
+### AJEAN, personal assistant
 
-Jean is an assistant that remembers **you** over time, in a single conversation that never ends. Open it from the mode menu: it gets a full-screen view with its avatar.
+AJEAN mode is an assistant that remembers **you** over time, in a single conversation that never ends. Pick it from the mode menu.
 
-- **Its own memory**: a short profile (name, family, preferences, habits), *fiches* (procedures, recipes, guides kept in full), and a journal where every exchange is logged and searchable. The *Jean memory* window lets you review, edit or delete all of it.
-- **Reminders and tasks**: ask Jean to remind you of something, and the reminder arrives as a message from Jean, with a notification.
-- **A separate workspace**: Jean cannot modify your projects' scripts, files or memory. It can read them, to see how something was done, and rebuild what it needs in its own space.
+- **Its own memory**: a short profile (name, family, preferences, habits), *fiches* (procedures, recipes, guides kept in full), and a journal where every exchange is logged and searchable. The *AJEAN memory* window lets you review, edit or delete all of it.
+- **Reminders and tasks**: ask AJEAN to remind you of something, and the reminder arrives as a message from AJEAN, with a notification.
+- **A separate workspace**: AJEAN cannot modify your projects' scripts, files or memory. It can read them, to see how something was done, and rebuild what it needs in its own space.
 - **A fresh start after a break**: after 3 hours without a message, the model's context starts over. The thread on screen and the journal stay.
 
 ### History
 
-The clock icon at the top of the side menu switches to the history. It follows what you are doing: the active project's conversations in Project mode, the quick conversations in Quick mode, the Base model conversations in Base model mode. Search covers every conversation. Conversations can be renamed, pinned as favorites, moved to another project, and exported to Markdown or JSON.
+The clock icon at the top of the side menu switches to the history. It follows what you are doing: the active project's conversations in Project mode, the single ongoing conversation in AJEAN mode. Search covers every conversation. Conversations can be renamed, pinned as favorites, moved to another project, and exported to Markdown or JSON.
 
 Conversations live on the server, so they are the **same on every device**, live: start a question on your computer, read the answer on your phone. Closing the browser never stops a reply.
 

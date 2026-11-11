@@ -128,7 +128,7 @@ func toolOnlyDirs() []string { return []string{memoryDir(), jeanDir(), appsDir()
 // toolOnlyLabel donne le nom des outils à utiliser à la place d'un accès direct
 // (seule la mémoire est concernée aujourd'hui, voir toolOnlyDirs).
 func toolOnlyLabel() string {
-	return "l'outil memory (ou, en mode Jean, l'outil jean) ou, pour les apps, l'outil app"
+	return "l'outil memory (ou, en mode AJEAN, l'outil jean) ou, pour les apps, l'outil app"
 }
 
 // guardToolOnlyPath refuse un accès write/edit à un chemin (déjà résolu) situé

@@ -214,7 +214,7 @@ func jeanSleepRestore(id string) error {
 	busy := jeanReflect.cancel != nil
 	jeanReflect.mu.Unlock()
 	if busy {
-		return fmt.Errorf("Jean est en train de réfléchir ou de dormir, réessayer dans un moment")
+		return fmt.Errorf("AJEAN est en train de réfléchir ou de dormir, réessayer dans un moment")
 	}
 	jeanSnapMemory()
 	jeanSleepSaveMeta(jeanLastSnapID, "restauration", "ok", "Copie prise avant de revenir à l'état du "+jeanSleepLoadMeta(id).whenText())

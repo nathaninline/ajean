@@ -87,18 +87,16 @@ Ou le bouton de mise à jour dans l'interface. Chaque version est vérifiée ave
 
 ## Utiliser AJEAN
 
-### Quatre modes de discussion
+### Deux modes de discussion
 
 Choisissez le mode avec le bouton à gauche de la zone de saisie.
 
 | Mode | Pour | Ce dont l'IA dispose |
 |---|---|---|
-| **Rapide** | questions rapides, petites tâches | terminal et fichiers, sans mémoire |
 | **Projet** | un vrai travail qui s'étale sur plusieurs conversations | mémoire, trackers, web, navigateur, MCP, tâches |
-| **Jean** | un assistant personnel qui vous connaît | sa propre mémoire, des rappels, une conversation unique et continue |
-| **Modèle de base** | parler au modèle brut | rien : ni outils, ni prompt système |
+| **AJEAN** | un assistant personnel qui vous connaît | sa propre mémoire, des rappels, une conversation unique et continue |
 
-Une conversation garde le mode dans lequel elle a commencé. Les outils n'existent que si le **mode agent** est activé (`ajean agent on`, ou l'interrupteur de l'interface) ; sans lui, tous les modes se comportent comme Modèle de base.
+Une conversation garde le mode dans lequel elle a commencé. Les outils n'existent que si le **mode agent** est activé (`ajean agent on`, ou l'interrupteur de l'interface)  ; sans lui, l'IA répond sans outils.
 
 ### Projets
 
@@ -111,18 +109,18 @@ Chaque projet a :
 - **Une description**, fournie à l'IA au début de chaque conversation (contexte, contraintes, ton).
 - **Des options** dans son menu *⋯* : nom et description, sa mémoire, ses trackers.
 
-### Jean, assistant personnel
+### AJEAN, assistant personnel
 
-Jean est un assistant qui se souvient de **vous** au fil du temps, dans une seule conversation qui ne se termine jamais. Ouvrez-le depuis le menu des modes : il s'affiche en plein écran avec son avatar.
+Le mode AJEAN est un assistant qui se souvient de **vous** au fil du temps, dans une seule conversation qui ne se termine jamais. Choisissez-le dans le menu des modes.
 
-- **Sa propre mémoire** : un profil court (prénom, proches, préférences, habitudes), des *fiches* (procédures, recettes, guides gardés en entier) et un journal où chaque échange est consigné et peut être recherché. La fenêtre *Mémoire de Jean* permet de tout consulter, corriger ou supprimer.
-- **Rappels et tâches** : demandez à Jean de vous rappeler quelque chose, et le rappel arrive comme un message de sa part, avec une notification.
-- **Un espace de travail séparé** : Jean ne peut pas modifier les scripts, fichiers ni la mémoire de vos projets. Il peut les lire, pour voir comment une chose a été faite, et refaire ce dont il a besoin dans son propre espace.
+- **Sa propre mémoire** : un profil court (prénom, proches, préférences, habitudes), des *fiches* (procédures, recettes, guides gardés en entier) et un journal où chaque échange est consigné et peut être recherché. La fenêtre *Mémoire d'AJEAN* permet de tout consulter, corriger ou supprimer.
+- **Rappels et tâches** : demandez à AJEAN de vous rappeler quelque chose, et le rappel arrive comme un message de sa part, avec une notification.
+- **Un espace de travail séparé** : AJEAN ne peut pas modifier les scripts, fichiers ni la mémoire de vos projets. Il peut les lire, pour voir comment une chose a été faite, et refaire ce dont il a besoin dans son propre espace.
 - **Un nouveau départ après une pause** : après 3 heures sans message, le contexte du modèle repart à vide. Le fil affiché et le journal restent.
 
 ### Historique
 
-L'icône horloge en haut du menu latéral affiche l'historique. Il suit ce que vous faites : les conversations du projet actif en mode Projet, les conversations rapides en mode Rapide, celles du modèle de base en mode Modèle de base. La recherche couvre toutes les conversations. Une conversation peut être renommée, mise en favori, déplacée vers un autre projet et exportée en Markdown ou en JSON.
+L'icône horloge en haut du menu latéral affiche l'historique. Il suit ce que vous faites : les conversations du projet actif en mode Projet, la conversation unique en mode AJEAN. La recherche couvre toutes les conversations. Une conversation peut être renommée, mise en favori, déplacée vers un autre projet et exportée en Markdown ou en JSON.
 
 Les conversations vivent sur le serveur : elles sont **les mêmes sur tous les appareils**, en direct. Posez une question sur l'ordinateur, lisez la réponse sur le téléphone. Fermer le navigateur n'arrête jamais une réponse.
 

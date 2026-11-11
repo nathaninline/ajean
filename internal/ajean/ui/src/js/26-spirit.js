@@ -94,8 +94,10 @@ var Spirit = (()=>{
     const sp=busy?1.8:1;
     const pulse=.5+.5*Math.sin(t*4*sp);
     // halo qui respire
-    const GR=(26+pulse*6)*s;
-    for(let j=-GR;j<=GR;j++) for(let i=-GR;i<=GR;i++){ const d=Math.hypot(i,j)/GR; if(d<1) add(cx+i,cy+j,.55*Math.pow(1-d,2.2)); }
+    // un peu plus resserré qu'à l'origine, et une chute plus douce vers le bord
+    // pour qu'on ne devine plus le cercle
+    const GR=(24+pulse*5)*s;
+    for(let j=-GR;j<=GR;j++) for(let i=-GR;i<=GR;i++){ const d=Math.hypot(i,j)/GR; if(d<1) add(cx+i,cy+j,.55*Math.pow(1-d,2.9)); }
     // rayons qui tournent lentement
     for(let q=0;q<8;q++){ const a=q/8*Math.PI*2+t*.4*sp, L=(q%2?14:22)*s*(.8+.2*Math.sin(t*3+q));
       for(let r=6*s;r<L;r+=.5) put(cx+Math.cos(a)*r, cy+Math.sin(a)*r, .5*(1-r/L)); }
