@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.png">
-    <img src="docs/logo-light.png" alt="AJEAN" width="380">
+    <img src="docs/logo-light.png" alt="AJEAN" width="320">
   </picture>
 </p>
 
@@ -96,7 +96,7 @@ Pick a mode from the button on the left of the input bar.
 | **Project** | real work that spans several conversations | memory, trackers, web, browser, MCP, tasks |
 | **AJEAN** | a personal assistant that knows you | its own memory, reminders, a single ongoing conversation |
 
-A conversation keeps the mode it started in. Tools only exist when **agent mode** is on (`ajean agent on`, or the switch in the interface); without it, the AI answers without tools.
+A conversation keeps the mode it started in. The AI always has its tools: AJEAN has access to the system, there is no agent mode to turn on.
 
 ### Projects
 
@@ -136,7 +136,7 @@ A lightweight chat in the terminal, independent from the web interface, with thr
 
 ## What the AI can do
 
-These tools are given to the model only when agent mode is on.
+These tools are always available to the model.
 
 **Terminal and files.** The AI runs commands (bash, or `cmd.exe` on Windows) and writes or edits files. It works in a disposable **workspace**; scripts worth keeping go into a separate **scripts** folder that a cleanup never touches.
 
@@ -257,7 +257,7 @@ Interface (ajean-ui)
 AI
   chat                          terminal chat (tools in the current folder)
   export [options] [file]       export the conversation (--json, --last N...)
-  agent [on|off|status]         give the AI its tools
+  agent [status]                the AI tools (always on)
   computer [on|off|status]      browser control
   memory [off|ondemand|always|search|status]
   internet [on|off|status]

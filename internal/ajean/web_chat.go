@@ -212,7 +212,7 @@ func handleChatHistory(w http.ResponseWriter, r *http.Request) {
 		// Historique général (menu latéral) : toutes les conversations, tous projets.
 		list = listAllArchives()
 	} else {
-		list = historyList(q.Get("scope"))
+		list = historyList()
 	}
 	// Recherche (?q=) : titre et nom du projet (sous-chaîne, sans casse ni
 	// accents) ET texte des conversations (index plein-texte, #98). Pertinence
@@ -264,26 +264,6 @@ func handleChatHistory(w http.ResponseWriter, r *http.Request) {
 		"state": state, "terms": terms, "indexed": 0, "indexed_total": 0,
 		"active": conv.currentID(), "generating": conv.isGenerating(),
 		"projects": names, "default_project": defaultProjectSlug})
-}
-
-// handleChatPeek (GET ?id=) : renvoie le contenu d'une conversation archivée EN
-// LECTURE SEULE (titre + projet + journal rejouable), sans la restaurer ni toucher
-// la conversation vive — pour la lire pendant qu'une génération tourne ailleurs.
-// Le client rejoue ce `log` avec le même pipeline que le fil normal (rendu natif).
-func handleChatPeek(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimSpace(r.URL.Query().Get("id"))
-	if id == "" {
-		sendJSON(w, 400, map[string]any{"ok": false, "error": "id manquant"})
-		return
-	}
-	syncActiveArchive(id)
-	a, ok := loadArchive(id)
-	if !ok {
-		sendJSON(w, 404, map[string]any{"ok": false, "error": "conversation introuvable"})
-		return
-	}
-	sendJSON(w, 200, map[string]any{"ok": true, "id": a.ID, "title": a.Title,
-		"project": a.Project, "log": a.Log})
 }
 
 // handleChatHistoryRestore (POST {id}) : ouvre une session comme conversation
@@ -380,9 +360,7 @@ func handleChatHistoryFav(w http.ResponseWriter, r *http.Request) {
 // handleChatHistoryClear (POST) : supprime toutes les conversations archivées
 // SAUF les favoris.
 func handleChatHistoryClear(w http.ResponseWriter, r *http.Request) {
-	var body struct{ Scope string }
-	_ = json.NewDecoder(r.Body).Decode(&body)
-	n := deleteNonFavIn(historyList(body.Scope), conv.currentID())
+	n := deleteNonFavIn(historyList(), conv.currentID())
 	sendJSON(w, 200, map[string]any{"ok": true, "deleted": n})
 }
 

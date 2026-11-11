@@ -234,7 +234,7 @@ func handleAgent(w http.ResponseWriter, r *http.Request) {
 	if out == nil {
 		out = []map[string]any{}
 	}
-	sendJSON(w, 200, map[string]any{"enabled": agentEnabled(), "compact": compactEnabled(), "compact_max": compactMaxTokens(), "prewarm": prewarmEnabled(), "mem_mode": mode, "computer": computerUseEnabled(), "pages": out, "skills": out})
+	sendJSON(w, 200, map[string]any{"compact": compactEnabled(), "compact_max": compactMaxTokens(), "prewarm": prewarmEnabled(), "mem_mode": mode, "computer": computerUseEnabled(), "pages": out, "skills": out})
 }
 
 // memScope exécute fn dans le contexte mémoire d'un projet donné (pour voir/éditer
@@ -326,18 +326,6 @@ func handlePrewarmToggle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJSON(w, 200, map[string]any{"ok": true, "prewarm": prewarmEnabled()})
-}
-
-func handleAgentToggle(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		On bool `json:"on"`
-	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
-	if err := setAgentEnabled(req.On); err != nil {
-		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
-		return
-	}
-	sendJSON(w, 200, map[string]any{"ok": true, "enabled": agentEnabled()})
 }
 
 // handleComputer pilote le computer use (pilotage d'un navigateur de l'hôte).
@@ -561,25 +549,6 @@ func handleMCPTool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	list, _ := MCPStatus()
-	sendJSON(w, 200, map[string]any{"ok": true, "servers": list})
-}
-
-// handleMCPTest force une reconnexion d'un serveur et renvoie son état (bouton
-// « tester/rafraîchir » de l'UI).
-func handleMCPTest(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Name string `json:"name"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
-		return
-	}
-	mcpInvalidate(req.Name)
-	list, err := MCPStatus()
-	if err != nil {
-		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
-		return
-	}
 	sendJSON(w, 200, map[string]any{"ok": true, "servers": list})
 }
 
@@ -902,17 +871,6 @@ func handleBench(w http.ResponseWriter, r *http.Request) {
 // handleBenchProgress : avancement du test en cours (prefill, tokens générés).
 func handleBenchProgress(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, benchProgressGet())
-}
-
-// handleBenchLast returns the most recent persisted benchmark, or {ok:false}
-// when none has been run yet.
-func handleBenchLast(w http.ResponseWriter, r *http.Request) {
-	sb := loadLastBench()
-	if sb == nil {
-		sendJSON(w, 200, map[string]any{"ok": false})
-		return
-	}
-	sendJSON(w, 200, map[string]any{"ok": true, "result": sb.Result, "model": sb.Model, "at": sb.At})
 }
 
 // chatReq est le corps d'une requête de chat (commun au chat clair et au chat E2E).

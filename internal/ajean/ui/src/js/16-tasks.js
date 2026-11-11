@@ -31,7 +31,6 @@ function ensureTasksPoll(){
 function renderTasks(r){
   tasksList = (r && r.tasks) || [];
   const paused = !!(r && r.paused);
-  const agentOn = !!(r && r.agent);
   TASK_PRESETS = (r && r.presets) || [];
   TASK_MEM_ON = !r || r.mem_on !== false;
   TASK_WEB_ON = !r || r.web_on !== false;
@@ -43,8 +42,6 @@ function renderTasks(r){
   const pc = document.getElementById('tasks-pause-toggle');
   if(pc) pc.checked = paused;
   // Avertissement : sans mode agent, une tâche n'a aucun outil pour agir.
-  const warn = document.getElementById('tasks-agent-warn');
-  if(warn) warn.style.display = (tasksList.length && !agentOn) ? '' : 'none';
   // Pastille : « en cours » l'emporte, puis l'interrupteur maître (tout suspendu),
   // sinon le nombre de tâches actives.
   const nActive = tasksList.filter(t=>t.enabled).length;

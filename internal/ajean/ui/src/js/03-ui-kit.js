@@ -32,9 +32,6 @@ function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.
 // bool, askPrompt → string|null (null si annulé), askAlert → void. Échap/clic dehors
 // = annuler ; Entrée = valider (sur prompt aussi).
 let _askResolver=null, _askKind='confirm', _askCheck=false, _askMultiline=false, _askChoice=null;
-// État de la case optionnelle de la DERNIÈRE confirmation (opts.check). Lu par
-// l'appelant juste après le await — la Promise, elle, ne renvoie que oui/non.
-function askChecked(){ return _askCheck; }
 // Valeur choisie dans la liste de la DERNIÈRE confirmation (opts.choices), null si annulée.
 function askChoice(){ return _askChoice; }
 let _askWithName=false;

@@ -213,12 +213,8 @@ func mcpEnsureAll(servers map[string]MCPServerConfig) {
 
 // MCPPrewarm établit les sessions MCP en tâche de fond, au démarrage du service
 // web/link. Sans ça le handshake était payé par le premier message de chat, ce
-// qui donnait l'impression d'une IA très lente à démarrer. Sans mode agent les
-// outils MCP ne sont de toute façon pas exposés : inutile de lancer les process.
+// qui donnait l'impression d'une IA très lente à démarrer.
 func MCPPrewarm() {
-	if !agentEnabled() {
-		return
-	}
 	servers, err := LoadMCPConfig()
 	if err != nil || len(servers) == 0 {
 		return

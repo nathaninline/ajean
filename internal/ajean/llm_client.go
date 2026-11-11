@@ -296,14 +296,6 @@ func globalCaps() Caps {
 	// Le prompt système (chat_tools.go) et les outils fournis (EnabledTools) sont
 	// gouvernés par la MÊME condition — sinon le prompt promet web_search alors que
 	// l'outil n'existe pas, et le modèle le tape en bash (command not found).
-	// Mémoire et accès internet sont des sous-réglages du mode agent (cf. UI web) :
-	// sans agent, on ne fournit NI les outils mem_*, NI les outils web. Ça garde le
-	// prompt système et les outils cohérents avec l'interface (blocs grisés quand
-	// l'agent est off) — l'IA en chat pur répond sans mémoire ni web.
-	agent := agentEnabled()
-	if !agent {
-		return Caps{Agent: false, Internet: false, Mem: MemOff}
-	}
 	return Caps{Agent: true, Internet: internetEnabled(), Mem: memMode(), ComputerUse: computerUseEnabled()}
 }
 

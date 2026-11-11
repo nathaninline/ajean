@@ -94,7 +94,7 @@ type wndClassExW struct {
 }
 
 const (
-	// Fond noir + étoile blanche : même marque que le favicon et que les icônes
+	// Fond noir + « j » blanc : même marque que le favicon et que les icônes
 	// système (voir sys_brand_icon.go). L'écran de démarrage restait bleu.
 	colBrand = 0x00000000 // COLORREF = 0x00BBGGRR
 	colWhite = 0x00FFFFFF
@@ -220,23 +220,22 @@ func paintSplash(hdc uintptr) {
 	pFillRect.Call(hdc, uintptr(unsafe.Pointer(&full)), bg)
 	pDeleteObject.Call(bg)
 
-	// Logo : l'étoile de l'orbe (starGrid, sys_brand_icon.go), un carré gris
-	// par pixel de la grille, de l'intensité du pixel.
-	const logo = 57 // 19 x 3 px
+	// Logo « j » blanc — mêmes rectangles que l'icône et le favicon
+	// (glyphRects, sys_brand_icon.go), mis à l'échelle.
+	white, _, _ := pCreateSolidBrush.Call(colWhite)
+	const logo = 58
 	ox, oy := int32(40), int32((splashH-logo)/2)
-	const cell = int32(logo / starN)
-	for gy := 0; gy < starN; gy++ {
-		for gx := 0; gx < starN; gx++ {
-			v := uint32(starGrid[gy][gx])
-			if v == 0 {
-				continue
-			}
-			br, _, _ := pCreateSolidBrush.Call(uintptr(v | v<<8 | v<<16))
-			r := rect{left: ox + int32(gx)*cell, top: oy + int32(gy)*cell, right: ox + int32(gx+1)*cell, bottom: oy + int32(gy+1)*cell}
-			pFillRect.Call(hdc, uintptr(unsafe.Pointer(&r)), br)
-			pDeleteObject.Call(br)
+	scale := float64(logo) / 12
+	for _, rc := range glyphRects {
+		r := rect{
+			left:   ox + int32(rc[0]*scale),
+			top:    oy + int32(rc[1]*scale),
+			right:  ox + int32((rc[0]+rc[2])*scale),
+			bottom: oy + int32((rc[1]+rc[3])*scale),
 		}
+		pFillRect.Call(hdc, uintptr(unsafe.Pointer(&r)), white)
 	}
+	pDeleteObject.Call(white)
 
 	// Textes (blanc, fond transparent).
 	const transparent = 1

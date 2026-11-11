@@ -39,7 +39,6 @@ function at(k, vars){
   if(vars) for(const v in vars) s = s.split('{'+v+'}').join(vars[v]);
   return s;
 }
-function appEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 let APPS = [], APPS_Q = '';
 

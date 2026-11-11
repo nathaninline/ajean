@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.png">
-    <img src="docs/logo-light.png" alt="AJEAN" width="380">
+    <img src="docs/logo-light.png" alt="AJEAN" width="320">
   </picture>
 </p>
 
@@ -96,7 +96,7 @@ Choisissez le mode avec le bouton à gauche de la zone de saisie.
 | **Projet** | un vrai travail qui s'étale sur plusieurs conversations | mémoire, trackers, web, navigateur, MCP, tâches |
 | **AJEAN** | un assistant personnel qui vous connaît | sa propre mémoire, des rappels, une conversation unique et continue |
 
-Une conversation garde le mode dans lequel elle a commencé. Les outils n'existent que si le **mode agent** est activé (`ajean agent on`, ou l'interrupteur de l'interface)  ; sans lui, l'IA répond sans outils.
+Une conversation garde le mode dans lequel elle a commencé. L'IA dispose toujours de ses outils : AJEAN a accès au système, il n'y a pas de mode agent à activer.
 
 ### Projets
 
@@ -136,7 +136,7 @@ Une discussion légère dans le terminal, indépendante de l'interface web, avec
 
 ## Ce que l'IA sait faire
 
-Ces outils ne sont fournis au modèle que lorsque le mode agent est activé.
+Ces outils sont toujours fournis au modèle.
 
 **Terminal et fichiers.** L'IA exécute des commandes (bash, ou `cmd.exe` sous Windows) et écrit ou modifie des fichiers. Elle travaille dans un **dossier de travail** jetable ; les scripts à conserver vont dans un dossier **scripts** séparé qu'aucun nettoyage ne touche.
 
@@ -257,7 +257,7 @@ Interface (ajean-ui)
 IA
   chat                          discussion en terminal (outils dans le dossier courant)
   export [options] [fichier]    exporter la conversation (--json, --last N...)
-  agent [on|off|status]         donner ses outils à l'IA
+  agent [status]                outils de l'IA (toujours actifs)
   computer [on|off|status]      pilotage du navigateur
   memory [off|ondemand|always|search|status]
   internet [on|off|status]

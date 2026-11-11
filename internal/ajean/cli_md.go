@@ -10,9 +10,9 @@ import (
 	"strings"
 )
 
-func accent(s string) string   { return col("36", s) }
+func accent(s string) string   { return col("1", s) } // DA monochrome : gras
 func italic(s string) string   { return col("3", s) }
-func codeText(s string) string { return col("33", s) }
+func codeText(s string) string { return col("38;5;252;48;5;236", s) } // gris sur fond gris foncé
 
 type mdRenderer struct {
 	inCode bool
@@ -60,7 +60,7 @@ func (m *mdRenderer) line(s string, width int) string {
 	if h := reMdHead.FindStringSubmatch(s); h != nil {
 		t := termMdInline(h[2])
 		if len(h[1]) <= 2 {
-			return col("1;36", stripANSI(t))
+			return col("1;4", stripANSI(t))
 		}
 		return bold(t)
 	}

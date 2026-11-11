@@ -677,7 +677,7 @@ function renderToolMsg(el, tu){
           // laisse réessayer.
           more.disabled=true; const prevTxt=more.textContent; more.textContent='…';
           let got=null;
-          try{ const sid=(typeof READING!=='undefined' && READING) ? READING_ID : (typeof CONV_ID!=='undefined' ? CONV_ID : '');
+          try{ const sid=(typeof CONV_ID!=='undefined' ? CONV_ID : '');
           const r=await jfetch('/api/chat/tool-result?id='+encodeURIComponent(rid)+(sid?'&sid='+encodeURIComponent(sid):'')); const j=await r.json(); if(r.ok && j && typeof j.result==='string') got=j.result; }
           catch(_){}
           more.disabled=false; more.textContent=prevTxt;
@@ -863,9 +863,6 @@ function toggleHistoryView(){
   showSideView(HIST_VIEW ? 'main' : 'hist');
   if(HIST_VIEW) loadHistory(); // après la bascule : l'animation n'attend pas le réseau
 }
-// Compat : anciens appels (ouvrir = afficher l'historique, fermer = revenir au
-// menu ; sur mobile on referme aussi le tiroir pour montrer la conversation).
-function openHistoryModal(){ if(!HIST_VIEW) toggleHistoryView(); }
 function closeHistoryModal(){
   // La vue historique RESTE affichée après avoir ouvert une conversation : seul le
   // bouton de bascule menu / historique change de vue. Sur mobile, le tiroir se referme.
@@ -937,8 +934,7 @@ const HIST_PAGE = 60;
 let HIST_ST = {off:0, total:0, active:'', section:'', loading:false, sig:''};
 let HIST_Q = '', HIST_QT = 0;
 // Historique = conversations du PROJET ACTIF ; une recherche, elle, couvre tous les projets.
-const histScope = ()=>''; // un seul historique par projet (plus de modes Rapide / Modèle de base)
-const histUrl = (off)=>'/api/chat/history?'+(HIST_Q?'all=1&':(histScope()?'scope='+histScope()+'&':''))+'offset='+off+'&limit='+HIST_PAGE+(HIST_Q?'&q='+encodeURIComponent(HIST_Q):'');
+const histUrl = (off)=>'/api/chat/history?'+(HIST_Q?'all=1&':'')+'offset='+off+'&limit='+HIST_PAGE+(HIST_Q?'&q='+encodeURIComponent(HIST_Q):'');
 // Recherche : on attend une courte pause dans la frappe avant d'interroger.
 function onHistSearch(){
   clearTimeout(HIST_QT);
@@ -1026,7 +1022,7 @@ async function renameHistory(id, current){
 // Supprime toutes les sessions SAUF les favoris (et la session en cours).
 async function clearAllHistory(){
   if(!await askConfirm(t('chat.session.clear_all_confirm'), {title:t('chat.session.clear_all_title'), okText:t('chat.session.clear_all_ok'), danger:true})) return;
-  let r; try{ r = await jpost('/api/chat/history/clear', {scope:histScope()}); }catch(_){ toast(t('chat.session.network_error')); return; }
+  let r; try{ r = await jpost('/api/chat/history/clear', {}); }catch(_){ toast(t('chat.session.network_error')); return; }
   if(!r.ok){ toast(r.error || t('chat.session.delete_error')); return; }
   toast((r.deleted||0) + ' ' + ((r.deleted>1)?t('chat.session.deleted_plural'):t('chat.session.deleted_singular')));
   loadHistory();
@@ -1063,9 +1059,6 @@ async function compactContext(){
     if(!j.ok) toast(j.error||t('chat.compact_unavailable'));
   }catch(e){ toast(t('common.error_prefix')+(e.message||e)); }
 }
-// Persistance de la conversation : on garde user+assistant en localStorage pour
-// survivre à un refresh (les bulles tool/reasoning sont éphémères, non stockées).
-function saveChat(){ try{ localStorage.setItem('ajean.chat', JSON.stringify(msgs)); }catch(e){} }
 // Source de vérité = SERVEUR. Au chargement on ouvre le flux d'abonnement
 // permanent (connectStream), qui rejoue tout le fil depuis le serveur — texte,
 // appels d'outils, vitesses, raisonnement — puis suit le direct. Plus de

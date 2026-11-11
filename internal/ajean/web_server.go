@@ -178,7 +178,6 @@ func newWebMux() *http.ServeMux {
 	api("/api/update", handleUpdateCheck)
 	api("/api/update/apply", handleUpdateApply)
 	api("/api/agent", handleAgent)
-	api("/api/agent/toggle", handleAgentToggle)
 	api("/api/agent/compact", handleCompactToggle)
 	api("/api/agent/prewarm", handlePrewarmToggle)
 	api("/api/apikey", handleAPIKey)
@@ -195,20 +194,14 @@ func newWebMux() *http.ServeMux {
 	api("/api/mcp/delete", handleMCPDelete)
 	api("/api/mcp/toggle", handleMCPToggle)
 	api("/api/mcp/tool", handleMCPTool)
-	api("/api/mcp/test", handleMCPTest)
 	api("/api/mcp/timeouts", handleMCPTimeouts)
 	api("/api/mcp/timeouts/save", handleMCPTimeoutsSave)
 	api("/api/memory", handleMemoryMode)
 	api("/api/open", handleOpenURL) // ouvre un lien externe dans le navigateur choisi (la fenêtre AJEAN ne bouge pas)
 	api("/api/prefs", handleWebPrefs)
-	api("/api/sysprompt", handleSysPrompt)
 	// Alias rétro-compat : l'ancien portail ajean.link (dépôt ajean-relay) pilote
 	// encore l'agent via /api/tools* et /api/skills/toggle à travers le tunnel E2E.
 	// On les mappe sur le mode agent unifié le temps que le portail soit mis à jour.
-	api("/api/tools", handleAgent)
-	api("/api/tools/toggle", handleAgentToggle)
-	api("/api/skills", handleAgent)
-	api("/api/skills/toggle", handleAgentToggle)
 	api("/api/projects", handleProjects)                        // liste des projets + projet actif
 	api("/api/projects/create", handleProjectCreate)            // crée un projet
 	api("/api/projects/rename", handleProjectRename)            // renomme (libellé)
@@ -239,7 +232,6 @@ func newWebMux() *http.ServeMux {
 	api("/api/backup/restore", handleBackupRestore) // restauration depuis le relais
 	api("/api/backup/auto", handleBackupAuto)       // active/désactive l'auto
 	api("/api/bench", handleBench)
-	api("/api/bench/last", handleBenchLast)
 	api("/api/bench/progress", handleBenchProgress)
 	api("/api/stt", handleSTT)
 	api("/api/stt/settings", handleSTTSettings)
@@ -270,7 +262,6 @@ func newWebMux() *http.ServeMux {
 	api("/api/chat/reset", handleChatReset)                    // nouvelle conversation (archive la courante dans l'historique)
 	api("/api/chat/older", handleChatOlder)                    // lot d'échanges plus anciens (remontée du fil, par pages)
 	api("/api/chat/history", handleChatHistory)                // liste des conversations archivées (?project= pour un autre projet, lecture seule)
-	api("/api/chat/peek", handleChatPeek)                      // contenu d'une conversation archivée, LECTURE SEULE (ne restaure pas)
 	api("/api/chat/history/restore", handleChatHistoryRestore) // recharge une conversation archivée
 	api("/api/chat/history/delete", handleChatHistoryDelete)   // supprime définitivement une archive
 	api("/api/chat/history/rename", handleChatHistoryRename)   // renomme une conversation archivée

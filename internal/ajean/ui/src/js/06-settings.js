@@ -181,13 +181,9 @@ function initPresetSortable(cont){
     },
   });
 }
-// « Mode agent » = accès machine + skills réunis en un seul interrupteur.
-// Quand il est actif, un « a » blanc apparaît en fondu devant « ajean » → « ajean ».
 async function loadAgent(){
   // MEM_VIEW_PROJECT (si posé) scope les pages + le mode mémoire sur un autre projet.
   const s=await jget('/api/agent' + (MEM_VIEW_PROJECT ? ('?project='+encodeURIComponent(MEM_VIEW_PROJECT)) : ''));
-  const on = s.enabled;
-  AGENT_ON = !!on;
   document.getElementById('compact-toggle').checked = (s.compact !== false);
   const pw=document.getElementById('prewarm-toggle'); if(pw) pw.checked = (s.prewarm !== false);
   const cm = document.getElementById('compact-max');
@@ -196,9 +192,7 @@ async function loadAgent(){
     if(![...cm.options].some(o=>o.value===v)) cm.add(new Option(Math.round(+v/1024)+'K', v));
     cm.value = v; cm.disabled = s.compact === false;
   }
-  syncModeWithAgent();
-  document.getElementById('brand').classList.toggle('agent', on);
-  setAgentGate(on);
+  applyFastBtn();
   if(s.mem_mode){ setMemModeUI(s.mem_mode); }
   memPages = (s.pages || s.skills || []).slice().sort((a,b)=>a.name.localeCompare(b.name));
   memShown = MEM_PAGE;
@@ -345,17 +339,6 @@ async function backupRestore(){
     await askAlert((r.error&&r.error.indexOf('incorrecte')>=0)?t('settings.wrong_key'):(t('common.failed_prefix')+(r.error||t('common.unknown'))),{title:t('settings.refused_title')});
   }
 }
-// Mémoire + accès internet sont des sous-réglages du mode agent : sans agent, ni
-// les outils mem_* ni les outils web ne sont fournis (voir globalCaps côté Go). On
-// grise donc ces blocs quand l'agent est off pour que l'UI ne mente pas.
-function setAgentGate(on){
-  ['mem-block','net-block','cu-block','mcp-block'].forEach(id=>{
-    const el=document.getElementById(id); if(el) el.classList.toggle('gated', !on);
-  });
-  // « Paramètres » n'a plus de wrapper gaté (la notification y cohabite mais reste
-  // toujours active) : on grise les lignes agent UNE PAR UNE via .agent-gated.
-  document.querySelectorAll('.agent-gated').forEach(el=>el.classList.toggle('gated', !on));
-}
 // Liste mémoire scalable : recherche + rendu plafonné (les milliers de pages ne
 // déroulent plus une barre géante). memShown grimpe par paliers via « voir plus ».
 let memPages=[], memShown=0; const MEM_PAGE=50;
@@ -364,8 +347,6 @@ let memPages=[], memShown=0; const MEM_PAGE=50;
 // Vide = projet actif. Les appels mémoire (liste, lecture, mode, déplacement) y
 // ajoutent ?project=/from= pour cibler ce projet côté serveur.
 let MEM_VIEW_PROJECT='';
-// Suffixe de requête ?…&project=slug pour un GET (l'appelant a déjà un « ? »).
-function memProjQ(){ return MEM_VIEW_PROJECT ? ('&project='+encodeURIComponent(MEM_VIEW_PROJECT)) : ''; }
 function renderMemList(){
   const q=(document.getElementById('mem-search').value||'').trim().toLowerCase();
   const list=document.getElementById('mem-list');
@@ -423,14 +404,6 @@ async function moveMemUI(name, anchor){
 }
 // alias : plusieurs appelants rafraîchissent juste la liste des pages mémoire
 const loadMem = loadAgent;
-// Active l'agent de la machine (Projet / Rapide choisis alors qu'il est coupé).
-// Même confirmation que l'ancien interrupteur : c'est un accès shell complet.
-async function enableAgent(){
-  if(!await askConfirm(t('settings.agent.enable_confirm_msg'), {title:t('settings.agent.enable_confirm_title'), okText:t('settings.agent.enable_ok'), danger:true})) return false;
-  await jpost('/api/agent/toggle',{on:true});
-  await loadAgent();
-  return true;
-}
 // Pré-chauffage du prompt : réglage du serveur, commun à tous les appareils.
 async function togglePrewarm(){
   const cb=document.getElementById('prewarm-toggle');

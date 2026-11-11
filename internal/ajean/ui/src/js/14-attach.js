@@ -260,14 +260,7 @@ async function makeThumbURL(blob){
     return {url: out ? URL.createObjectURL(out) : null, w, h};
   }catch(_){ return null; }   // format non décodable ici (HEIC…) : on garde l'original
 }
-// Pose l'original (data-full) puis, dès qu'elle est prête, la vignette réduite.
-async function setThumb(img, blob){
-  const full=URL.createObjectURL(blob);
-  img.dataset.full=full;
-  const th=await makeThumbURL(blob);
-  if(th){ img.dataset.w=th.w; img.dataset.h=th.h; }
-  img.src=(th && th.url) ? th.url : full;
-}
+
 async function downloadWorkspaceFile(path, name, a){
   if(a) a.classList.add('busy');
   const wasTitle=a?a.title:'';
@@ -448,9 +441,6 @@ function renderAttach(){
     if(sz) sz.textContent = a.state==='err' ? t('attach.failed') : (pct>=0 && a.state==='up') ? pct+t('attach.percent_suffix') : fmtSize(a.size);
   }
 }
-// L'objectURL d'une vignette du composeur tient un blob en mémoire : on le libère
-// dès que le fichier quitte la liste (retrait ou envoi terminé).
-function releaseThumb(a){ if(a&&a.thumb){ try{ URL.revokeObjectURL(a.thumb); }catch(_){} a.thumb=null; } }
 function releaseThumbLater(a){ const u=a&&a.thumb; if(!u) return; a.thumb=null; setTimeout(()=>{ try{ URL.revokeObjectURL(u); }catch(_){} }, 600); }
 function clearAttach(){ for(const a of ATTACH) releaseThumbLater(a); ATTACH=[]; renderAttach(); }
 // Ce qui part avec le message, pour l'afficher dans sa bulle.

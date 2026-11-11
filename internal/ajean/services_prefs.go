@@ -151,7 +151,6 @@ func saveServiceBench(s *Service, res *benchResult) {
 	m := loadBenchStore()
 	m[s.promptKey()] = savedBench{Result: *res, Model: "svc:" + s.ID, At: time.Now().Unix()}
 	_ = putJSON(bkState, "bench_presets", m)
-	_ = putJSON(bkState, "last_bench", m[s.promptKey()])
 }
 
 // handleServiceSysPrompt : GET/POST /api/services/sysprompt?id=

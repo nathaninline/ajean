@@ -17,15 +17,6 @@ let OLDER=null; // {before, more, busy} : curseur de la remontée
 // l'ancienne conversation et la fin de la nouvelle se retrouvaient fusionnés à
 // l'écran jusqu'au refresh.
 let CONV_ID='';
-// READING = on regarde une AUTRE conversation en LECTURE SEULE pendant qu'une
-// génération tourne. La génération est autonome côté serveur : on coupe juste le
-// flux d'affichage et on rejoue le journal de la conversation lue. « Revenir »
-// reconnecte le flux → le serveur rejoue la conversation VIVE en direct.
-let READING=false, READING_ID='';
-// PENDING_LIVE : une réponse a été générée dans la conversation vive pendant qu'on
-// lisait ailleurs et on ne l'a pas encore vue → pastille de notif (icône projet +
-// conversation dans le hub). Retombe à false dès qu'on revient au direct.
-let PENDING_LIVE=false;
 // Bulle « en attente » : affichée EN GRIS dès l'appui sur envoyer, avant tout
 // aller-retour réseau. Le message ne disparaît donc plus de l'écran entre la
 // frappe et la réponse du serveur. Elle s'éclaircit (classe retirée) quand
@@ -150,13 +141,12 @@ function ensureGenEl(){
     // Le J du favicon AJEAN : deux carrés empilés (la barre) + un carré décalé à
     // gauche en bas (le pied du J). Statique, en accent. Classe (pas id) : plusieurs
     // lignes figées coexistent dans le fil, une par tour terminé.
-    GENEL.innerHTML='<svg class="jlogo" viewBox="0 0 12 12" aria-hidden="true"><rect x="5" y="1" width="2" height="10" opacity=".3"/><rect x="1" y="5" width="10" height="2" opacity=".3"/><rect x="5" y="3" width="2" height="6" opacity=".7"/><rect x="3" y="5" width="6" height="2" opacity=".7"/><rect x="4" y="4" width="4" height="4" opacity=".35"/><rect x="5" y="5" width="2" height="2"/></svg><span class="jact"></span><span class="gtxt"></span>'; }
+    GENEL.innerHTML='<svg class="jlogo" viewBox="0 0 12 12" aria-hidden="true"><rect x="6" y="3" width="2" height="2"/><rect x="6" y="5" width="2" height="2"/><rect x="4" y="7" width="2" height="2"/></svg><span class="jact"></span><span class="gtxt"></span>'; }
   if(GENEL.parentNode!==chat || chat.lastElementChild!==GENEL) chat.appendChild(GENEL); // toujours en dernier
   // Mode Jean : son avatar prend la place du logo, à gauche de ce qu'il fait.
-  if(MODE==='jean' && !REPLAYING && !CHAT_TARGET) Spirit&&Spirit.wake();
   return GENEL;
 }
-function removeGenEl(){ if(GENEL&&GENEL.parentNode) GENEL.parentNode.removeChild(GENEL); GENEL=null; if(!CHAT_TARGET) Spirit&&Spirit.wake(); }
+function removeGenEl(){ if(GENEL&&GENEL.parentNode) GENEL.parentNode.removeChild(GENEL); GENEL=null; }
 // Vitesse decode STABLE en direct, basée sur les HORODATAGES SERVEUR des tokens
 // (d.ts), pas l'heure d'arrivée côté client : les ts serveur reflètent le vrai
 // rythme de génération et ignorent la bufferisation réseau/MTP (qui rendait la
@@ -215,8 +205,6 @@ function paintGenStatus(){
 // « Fouille dans sa mémoire… »). Vide = rien à dire (le texte de la réponse coule).
 let JACT='';
 // Jean dort (consolidation de sa mémoire) : relevé par reconcileBusy, montré par la scène.
-// JEAN_SLEEP_HOLD : juste après « Dormir maintenant », endormi sans attendre le sondage.
-let JEAN_SLEEPING=false, JEAN_SLEEP_HOLD=0;
 function jeanActFor(name){
   if(/^(jean_search|jean_read|recall|recall_search|mem_search|mem_read)$/.test(name)) return 'jean.act_search';
   if(/^(jean_remember|jean_note|jean_save|jean_lesson|jean_patch|jean_rule|mem_add|mem_edit)$/.test(name)) return 'jean.act_remember';
@@ -232,7 +220,7 @@ function jeanActFor(name){
 function setJeanAct(k, txt){
   const id=k+' '+(txt||'');
   if(MODE!=='jean' || REPLAYING || id===JACT) return;
-  JACT=id; Spirit&&Spirit.wake();
+  JACT=id;
   const a=GENEL && GENEL.querySelector('.jact'); if(!a) return;
   a.textContent=txt || (k ? t(k) : '');
   a.classList.remove('jact-in'); void a.offsetWidth; if(k) a.classList.add('jact-in'); // fondu à chaque changement d'activité
@@ -240,7 +228,6 @@ function setJeanAct(k, txt){
 // Tâche de Jean en cours : même ligne animée, dans le fil Jean, hors de tout tour.
 // Le serveur publie {name, tool} à chaque étape puis {done}.
 function showJeanTask(j){
-  if(!REPLAYING) j.done ? Spirit&&Spirit.wake() : Spirit&&Spirit.wake();
   if(j.done){ if(!ELAPSED) removeGenEl(); return; }
   const g=ensureGenEl(), a=g.querySelector('.jact'), x=g.querySelector('.gtxt');
   const txt=j.tool ? t(jeanActFor(j.tool)) : t('jean.act_task_run').replace('{name}', j.name||'');
@@ -340,7 +327,7 @@ function finalizeTurn(elapsedMs, preset){
   // cachait la ligne de métriques (durée · tokens · t/s). Correctif de la PR #173.
   const act=g.querySelector('.jact'); if(act){ act.textContent=''; act.classList.remove('jact-in'); }
   paintGenParts(g.querySelector('.gtxt'), items);
-  GENEL=null; if(!CHAT_TARGET) Spirit&&Spirit.wake();
+  GENEL=null;
   scrollMaybe(true); // révèle la fin (et cette ligne) même sur un fil à peine défilable
 }
 function removeTyping(){ if(T.typingEl){ T.typingEl.remove(); T.typingEl=null; } }
@@ -390,22 +377,6 @@ const typingKept=(kind)=>simpleMode()
 function killTyping(kind){ if(!T.typingEl) return; if(typingKept(kind)) return; removeTyping(); }
 function showTyping(kind){ if(!typingKept(kind)) return; const c=document.getElementById('chat');
   if(!T.typingEl){ T.typingEl=addTyping(); } else if(c.lastElementChild!==T.typingEl){ c.appendChild(T.typingEl); } }
-// Label de vitesse rendu depuis les valeurs (fonctionne aussi bien en direct
-// qu'au replay — pas de timer performance.now, qui n'a pas de sens hors-ligne).
-function renderStats(el, s){
-  if(!el||!s) return;
-  const parts=[];
-  const pt=s.prompt_tokens||s.prompt_tokens_total;
-  // Débit de lecture inconnu (serveur sans timings) : on n'affiche que la taille.
-  if(pt) parts.push(t('chat.prefill')+' '+pt+' '+t('chat.tok_unit')+(s.prompt_per_second ? ' · '+s.prompt_per_second.toFixed(0)+' tok/s' : ''));
-  if(s.gen_tokens) parts.push(t('chat.decode')+' '+s.gen_tokens+' '+t('chat.tok_unit')+' · '+(s.gen_per_second||0).toFixed(1)+' tok/s');
-  if(!parts.length) return;
-  // Réponse de l'assistant : ligne de mesures dédiée sous le texte (son étiquette
-  // est masquée dans cette mise en page). Bulle repliable : l'étiquette EST le
-  // bouton de repli, on y écrit comme avant.
-  if(el.classList.contains('collapsible')){ setIcon(el,'brain'); setLabel(el, [t('chat.reflection_label')].concat(parts).join('  ·  ')); }
-  else setStats(el, parts.join('  ·  '));
-}
 // Label d'une bulle de raisonnement : rôle + nombre de tokens. PAS de vitesse
 // (tok/s) : elle est déjà affichée en bas dans la ligne d'état de génération, la
 // répéter sur chaque bulle de raisonnement n'apporte rien (firstTs/lastTs restent
@@ -578,8 +549,6 @@ function handleDelta(d){
     // settle=true : si le serveur est idle alors qu'un tour semble encore en cours
     // (génération coupée → pas de turn_done), on décolle le voile resté bloqué.
     reconcileBusy(true);
-    // Fil reconstruit : l'avatar de Jean reprend sa place sur la dernière ligne.
-    Spirit&&Spirit.wake();
     // Fil vide : aucune bulle n'a été rejouée, donc aucune mutation ne viendra
     // déclencher la synchro — c'est ici qu'on décide d'afficher l'accueil.
     syncChatEmpty();
@@ -614,7 +583,6 @@ function handleDelta(d){
     if(d.files && !hasMsgFiles(el)) addMsgFiles(el, d.files);
     TURN_ENDED=false; setBusy(true); T.typingEl=addTyping(); elapsedStart(); return; }
   if(d.turn_done){ TURN_ENDED=true; hideCuShot(); smoothSnap(); flushRender();
-    if(MODE==='jean' && !REPLAYING) Spirit&&Spirit.wake();
     // MÊME ligne en direct et au replay : durée serveur (elapsed_ms, rejouée) +
     // mesures serveur. removeTyping AVANT finalize pour que la ligne soit bien le
     // dernier enfant du fil (donc sous le message).
@@ -625,7 +593,7 @@ function handleDelta(d){
   if(d.jean_task){ showJeanTask(d.jean_task); return; }
   // Message que Jean envoie de lui-même (tâche, rappel) : une bulle de réponse
   // ordinaire, hors de tout tour.
-  if(d.jean_post){ removeTyping(); renderBody(addMsg('assistant',''), d.jean_post); if(!REPLAYING) Spirit&&Spirit.wake(); return; }
+  if(d.jean_post){ removeTyping(); renderBody(addMsg('assistant',''), d.jean_post); return; }
   if(d.compacting!==undefined){ setCompacting(d.compacting); return; }
   if(d.compacted){ setCompacting(false); addCompactMark(); return; }
   if(d.ctx_cleared){ addCompactMark(t('jean.ctx_cleared_mark')); return; }
@@ -700,7 +668,6 @@ function handleDelta(d){
     return; }
   if(d.content){
     removeTyping(); setJeanAct('');
-    if(MODE==='jean' && !REPLAYING) Spirit&&Spirit.wake();
     if(!T.contentEl){ setActive(null); collapseAll(T.turnCollapsibles); T.contentEl=addMsg('assistant',''); T.fullContent=''; }
     if(d.replace){ smoothSnap(); T.fullContent=''; T.contentTok=0; T.contentFirstTs=0; }
     T.fullContent+=d.content; feedBlock(T.contentEl, T.fullContent);
@@ -737,9 +704,6 @@ async function connectStream(){
   while(true){
     // Onglet en arrière-plan : on n'ouvre aucune connexion, on attend le retour.
     while(document.hidden){ await new Promise(res=>setTimeout(res, 500)); }
-    // Lecture d'une autre conversation : on ne suit pas le direct (la génération
-    // continue côté serveur). On attend « revenir » avant de reconnecter.
-    while(READING){ await new Promise(res=>setTimeout(res, 200)); }
     // Chaque (re)connexion commence par un rejeu coalescé de Log[from:] suivi de
     // {caught_up} : on le rend DIRECT (CATCHUP), pas via le lissage, pour ne pas
     // figer l'UI en réanimant tout le retard token par token. On solde aussi un
@@ -847,65 +811,6 @@ async function loadOlder(){
   showHistoryMore(r.more, r.before);
   chat.scrollTop=chat.scrollHeight-fromBottom;
 }
-// readConversation : affiche une AUTRE conversation en LECTURE SEULE dans la vue
-// plein chat, SANS rien dire au serveur (la conversation vive et sa génération
-// autonome ne bougent pas). On coupe le flux d'affichage, puis on rejoue le
-// journal de la conversation lue via le même pipeline que le rejeu normal — rendu
-// 100% natif. « Revenir » (exitReading) reconnecte le flux : le serveur rejoue la
-// conversation vive EN DIRECT, exactement comme un rechargement de page.
-async function readConversation(id, title){
-  let r; try{ r = await jfetch('/api/chat/peek?id='+encodeURIComponent(id)); r = await r.json(); }
-  catch(_){ toast(t('projects.network_error')); return; }
-  if(!r || !r.ok){ toast(t('projects.load_error')); return; }
-  // Une génération tourne-t-elle (ou vient de finir) dans la conversation vive qu'on
-  // quitte ? Si oui, on posera une pastille « réponse non lue » sur l'icône projet.
-  const liveActive = busy || (typeof LIVE_GENERATING!=='undefined' && LIVE_GENERATING);
-  READING=true; READING_ID=id; chatEl().classList.add('reading'); // fil complet : rendu différé (styles.css)
-  if(streamAbort){ try{ streamAbort.abort(); }catch(e){} } // fige le direct (génération autonome côté serveur, intacte)
-  const chat=document.getElementById('chat'); if(chat) chat.innerHTML=''; newTurn();
-  smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending.clear();
-  const wasReplaying=REPLAYING; REPLAYING=true;
-  for(const ev of (r.log||[])){ try{ handleDelta((ev&&ev.delta)||{}); }catch(e){} }
-  REPLAYING=wasReplaying;
-  elapsedStop(); setBusy(false);
-  PENDING_LIVE = !!liveActive;
-  enterReadingUI();
-  jumpBottom();
-}
-// exitReading : revient à la conversation VIVE. On vide, on redemande un rejeu
-// complet depuis le début (lastSeq=0) : la boucle connectStream sort de sa pause
-// et le serveur rejoue la conversation vive + suit le direct (génération comprise).
-function exitReading(){
-  if(!READING) return;
-  READING=false; READING_ID=''; chatEl().classList.remove('reading');
-  PENDING_LIVE=false; leaveReadingUI();
-  const chat=document.getElementById('chat'); if(chat) chat.innerHTML=''; newTurn();
-  smoothReset(); if(renderTimer){ clearTimeout(renderTimer); renderTimer=null; } renderPending.clear();
-  lastSeq=0; REPLAYING=true; setChatLoading(t('chat.loading_conversation'));
-}
-// Pas de gros bandeau : juste un indice discret dans le composeur (le placeholder)
-// et une pastille de notif sur l'icône projet. Le composeur RESTE actif — cliquer
-// dedans ramène à la conversation vive (listener plus bas), donc on n'est jamais
-// « bloqué ».
-let _savedPlaceholder=null;
-function enterReadingUI(){
-  const ta=document.getElementById('input');
-  if(ta && _savedPlaceholder===null){ _savedPlaceholder = ta.getAttribute('placeholder')||''; ta.setAttribute('placeholder', t('projects.back_hint')); }
-  updateLiveBadge();
-}
-function leaveReadingUI(){
-  const ta=document.getElementById('input');
-  if(ta && _savedPlaceholder!==null){ ta.setAttribute('placeholder', _savedPlaceholder); _savedPlaceholder=null; }
-  updateLiveBadge();
-}
-// Pastille de notification (petit point accent) sur le bouton projet du composeur :
-// une réponse a été générée dans la conversation vive et pas encore vue.
-function updateLiveBadge(){
-  const btn=document.getElementById('project-btn'); if(!btn) return;
-  let dot=btn.querySelector('.notif-dot');
-  if(PENDING_LIVE){ if(!dot){ dot=document.createElement('span'); dot.className='notif-dot'; btn.appendChild(dot); } }
-  else if(dot){ dot.remove(); }
-}
 
 // Interrompt la génération en cours côté serveur (la goroutine détachée est
 // annulée). Le serveur émet alors turn_done → le bouton repasse en « send ».
@@ -948,13 +853,11 @@ function finalizeStuckTurn(){
 }
 async function reconcileBusy(settle){
   if(document.hidden) return; // onglet en arrière-plan : sondage en pause (palier 1) ; on recale au retour (visibilitychange)
-  if(READING) return; // en lecture seule : ne pas resynchroniser l'état sur la vue lue
   try{
     const s=await (await jfetch('/api/chat/state')).json();
     const rt = s.running_task || '';
     if(rt !== RUNNING_TASK){ RUNNING_TASK = rt; if(!REPLAYING) syncSendBtn(); }
     if(typeof s.generating==='boolean' && s.generating!==busy) setBusy(s.generating);
-    JEAN_SLEEPING=!!s.sleeping;
     if(typeof s.compact_count==='number') setCompactCount(s.compact_count); // source de vérité après rejeu
     // Reprise d'une génération DÉJÀ en cours (page actualisée en plein tour) : au
     // replay, l'événement `user` qui démarre la ligne d'état a été rejoué alors que
@@ -992,7 +895,6 @@ setInterval(reconcileBusy, 3000);
 // erreur qu'après plusieurs échecs ET vérification que rien ne tourne — plus de
 // « network error » alarmiste alors que l'IA répond quand même.
 async function send(){
-  if(READING){ exitReading(); return; } // en lecture seule : le geste ramène au direct
   // busy n'est PLUS un blocage (issue #74) : un message envoyé pendant une génération
   // est mis en FILE côté serveur (injecté dans la réponse en cours, ou traité au tour
   // suivant). On mémorise l'état au moment de l'envoi pour le libellé de la bulle.
@@ -1031,9 +933,6 @@ async function send(){
 }
 loadAll();
 // Retour naturel au direct : si on est en train de lire une autre conversation et
-// qu'on clique/focus le composeur (« je veux écrire dans MON chat »), on revient à
-// la conversation vive. Plus besoin d'un bouton dédié.
-(function(){ const ta=document.getElementById('input'); if(ta) ta.addEventListener('focus', ()=>{ if(READING) exitReading(); }); })();
 // Une seule fois au démarrage (interroge GitHub côté serveur) : prévient en accès
 // distant si le serveur AJEAN de la machine est plus ancien que le front hébergé.
 checkServerFreshness();
@@ -1049,11 +948,11 @@ setInterval(loadTelemetry, 3000);
 //   jean    = assistant personnel, une conversation unique, mémoire propre (profil,
 //             fiches, journal), hors projets.
 // Projet et Rapide exigent l'agent de la MACHINE : s'il est coupé, les choisir
-// demande confirmation puis l'active (voir enableAgent).
+// (l'agent est désormais toujours actif).
 // Deux modes depuis la 0.19.2 : Projet (défaut) et AJEAN (identifiant interne
 // « jean »). Rapide et Modèle de base sont retirés ; un réglage enregistré sur
 // l'un d'eux repasse en Projet.
-let MODE='project', AGENT_ON=false;
+let MODE='project';
 // Fuseau du navigateur, envoyé avec chaque message : le serveur (souvent en UTC)
 // date ainsi tâches et notes à l'heure de l'utilisateur.
 const USER_TZ=(()=>{ try{ return Intl.DateTimeFormat().resolvedOptions().timeZone||''; }catch(_){ return ''; } })();
@@ -1093,11 +992,6 @@ function histHeadLabel(){
   const p=(typeof PROJECTS!=='undefined'?PROJECTS:[]).find(x=>x.slug===ACTIVE_PROJECT);
   hl.textContent=p?p.name:t('projects.projects');
 }
-// Agent de la machine coupé : Projet / Rapide ne peuvent pas tourner, l'appareil
-// affiche donc ce qui se passe réellement (Modèle de base).
-function syncModeWithAgent(){
-  applyFastBtn();
-}
 // Changement de mode animé : le libellé s'efface, la bulle glisse vers sa
 // nouvelle largeur, le nouveau libellé réapparaît.
 function swapModeLabel(){
@@ -1118,7 +1012,6 @@ function swapModeLabel(){
 async function pickMode(m){
   closeModeMenu();
   if(m===MODE || !MODE_KEYS[m]) return;
-  if(!AGENT_ON && !await enableAgent()) return;
   const prev=MODE;
   MODE=m; saveMode();
   swapModeLabel();

@@ -60,8 +60,8 @@ func TestLecturesSurBaseVide(t *testing.T) {
 	if len(ReadConfig()) != 0 {
 		t.Error("configuration non vide sur une base neuve")
 	}
-	if agentEnabled() || internetEnabled() {
-		t.Error("interrupteurs actifs sur une base neuve")
+	if internetEnabled() {
+		t.Error("accès internet actif sur une base neuve")
 	}
 	wk, _ := webKeyHashErr()
 	if readAPIKey() != "" || wk != "" || readLinkToken() != "" {

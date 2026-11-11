@@ -529,30 +529,14 @@ func (c *Conversation) unlockMode(mode string) {
 // leur propre historique au lieu de s'éparpiller dans le projet actif du moment.
 func quickMode(mode string) bool { return mode == "fast" || mode == "base" }
 
-// historyList : les conversations que montre l'historique latéral. scope "fast" ou
-// "base" = les conversations de CE mode (tous projets : elles n'en ont pas) ; "quick"
-// = les deux ; sinon celles du projet actif, hors conversations rapides. Les
-// anciennes conversations sans mode restent au projet.
-func historyList(scope string) []convArchiveMeta {
-	var src []convArchiveMeta
-	if scope == "fast" || scope == "base" {
-		src = listAllArchives()
-		out := src[:0:0]
-		for _, m := range src {
-			if m.Mode == scope {
-				out = append(out, m)
-			}
-		}
-		return out
-	}
-	if scope == "quick" {
-		src = listAllArchives()
-	} else {
-		src = listArchives()
-	}
+// historyList : les conversations que montre l'historique latéral, celles du
+// projet actif. Les anciennes conversations Rapide / Modèle de base (modes retirés)
+// n'y figurent pas ; la recherche les retrouve toujours.
+func historyList() []convArchiveMeta {
+	src := listArchives()
 	out := src[:0:0]
 	for _, m := range src {
-		if quickMode(m.Mode) == (scope == "quick") {
+		if !quickMode(m.Mode) {
 			out = append(out, m)
 		}
 	}

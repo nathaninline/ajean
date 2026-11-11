@@ -215,7 +215,7 @@ func runTask(t Task) {
 // la mémoire et le web. Le web reste borné à l'interrupteur de la machine : une
 // tâche ne peut pas l'inventer.
 func taskCaps(t Task) Caps {
-	c := Caps{Agent: agentEnabled()}
+	c := Caps{Agent: true}
 	if !c.Agent {
 		return c // agent coupé : aucun outil, mémoire et web n'ont pas de sens
 	}

@@ -96,8 +96,8 @@ option,optgroup{background:var(--panel);color:var(--text)}
 /* Desktop : menu plus large et bulles (badges) un peu plus grosses. */
 @media (min-width:721px){
   .side{width:380px}
-  .preset-meta .ctag,.preset-meta .qtag,.preset-meta .rtag,.preset-meta .btag,.preset-meta .captag{font-size:11px;padding:2px 9px;border-radius:9px}
-  .preset-meta .ctag svg,.preset-meta .rtag svg,.preset-meta .btag svg{width:11px;height:11px}
+  .preset-meta .ctag,.preset-meta .qtag,.preset-meta .btag,.preset-meta .captag{font-size:11px;padding:2px 9px;border-radius:9px}
+  .preset-meta .ctag svg,.preset-meta .btag svg{width:11px;height:11px}
   /* Sur desktop (tags en 11px), 1.35em ferait des icônes trop grosses : on les
      ramène à 1.2em pour qu'elles épousent la hauteur du texte. Mobile inchangé. */
   .preset-meta .captag svg{width:1.2em;height:1.2em}
@@ -108,14 +108,6 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 #brand{display:inline-flex;align-items:center}
 #brand svg{height:10px;width:auto;display:block;shape-rendering:crispEdges;fill:currentColor}
 #brand-word{display:inline-flex;color:var(--accent)}
-/* L'étoile du logo (étoile de repos de l'orbe, 26-spirit.js) : en haut à droite
-   du N, un pixel d'étoile = un demi-pixel de lettre. */
-#brand-word{position:relative}
-#brand .brand-star{position:absolute;left:27px;top:-11.5px;width:19px;height:19px;color:var(--text);pointer-events:none}
-#brand .brand-star svg{width:19px;height:19px}
-#ce-logo .brand-star{position:absolute;left:54px;top:-23px;width:38px;height:38px;color:var(--text);pointer-events:none}
-#ce-logo .brand-star svg{width:38px;height:38px}
-#ce-logo .ce-word{position:relative}
 #ver{font-size:10px;font-weight:400;color:var(--dim);margin-left:7px;letter-spacing:0;align-self:flex-end;line-height:1;position:relative;top:1px}
 .sidehead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:18px}
 /* pastille d'état service, en haut à droite de la barre latérale */
@@ -127,19 +119,12 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
 .statuspill .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
 /* en-tête + bouton d'ajout de skill (toujours visible) */
-.skillshead{display:flex;align-items:center;justify-content:space-between;margin:12px 0 5px}
-.skillshead>span{font-size:11.5px;color:var(--dim);font-weight:600}
-.addbtn{font-size:11px;padding:4px 11px;background:var(--panel);color:var(--dim);border:1px solid var(--border);border-radius:999px;cursor:pointer;line-height:1.3;letter-spacing:.02em}
-.addbtn:hover{border-color:var(--dim);color:var(--text);background:var(--accent-bg)}
 .mem-count{font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;font-family:var(--font);margin-left:4px}
 /* Titre de sous-section (Mémoire / Accès internet) : simple libellé, PAS de trait
    (le trait est réservé aux sections principales — cf. `details`). La séparation
    visuelle vient de la carte de lignes qui suit (.slist). */
 /* Barre « Voir la mémoire » : libellé à gauche, bouton « + ajouter » à droite.
    Pas de chevron : la liste s'ouvre sous la ligne, ça se voit. */
-.pages-bar{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:7px 0;margin-top:4px}
-.pages-bar .pages-title{font-size:11.5px;color:var(--dim);font-weight:600}
-.pages-bar .addbtn{margin-left:auto}
 .mem-search{width:100%;box-sizing:border-box;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 9px;font:inherit;font-size:12px;margin:0 0 6px}
 .mem-search:focus{outline:none;border-color:var(--accent)}
 .mem-list{max-height:240px;overflow-y:auto;overscroll-behavior:contain}
@@ -154,7 +139,7 @@ h1{margin:0;font-size:18px;color:var(--accent)}
 .ask-actions button{margin:0;padding:7px 16px}
 .ask-ok{border-color:var(--accent);color:var(--accent)}
 .ask-ok.danger{border-color:var(--err);color:var(--err)}
-#brand-a{display:inline-flex;line-height:0;color:var(--text);margin-right:2px}
+#brand-a{display:inline-flex;line-height:0;color:var(--accent);margin-right:2px}
 /* Mode agent : le A passe en couleur d'accent (il était masqué hors agent,
    la marque se lisant alors « AJEAN »). L'état agent reste signalé par sa
    pastille dans les réglages. */
@@ -165,17 +150,8 @@ h1{margin:0;font-size:18px;color:var(--accent)}
    au-dessus, puis UNE carte .slist qui porte toutes les lignes. Auparavant
    chaque sous-groupe était une carte qui embarquait son propre titre et du
    contenu libre aux marges variables — quatre îlots décollés au lieu d'une
-   colonne régulière. Le grisé « agent désactivé » se pose sur le GROUPE
-   (étiquette comprise), plus sur la carte seule. */
+   colonne régulière. */
 .gated-group{margin:0 0 10px;transition:opacity .15s}
-.gated-group.gated{opacity:.4;pointer-events:none;filter:grayscale(.4)}
-/* Gate d'UNE ligne (ex. compactage/machines dans « Paramètres ») : même effet que
-   le groupe, mais appliqué à la .switchrow seule pour qu'une ligne voisine non gatée
-   (la notification) reste pleinement active dans la même carte. */
-.switchrow.gated{opacity:.4;pointer-events:none;filter:grayscale(.4);transition:opacity .15s}
-/* Grisé = inactif, pas muet : l'aide « ? » reste survolable pour expliquer le
-   réglage (#104 ; pointer-events:none du parent bloquait aussi le survol). */
-.gated .help{pointer-events:auto}
 .switch{position:relative;display:inline-block;width:36px;height:20px;flex:none}
 .switch input{position:absolute;opacity:0;width:0;height:0}
 /* Piste décochée : un gris franc (pas --border), sinon le pavé blanc ne se
@@ -202,7 +178,6 @@ details>summary::-webkit-details-marker{display:none}
 /* Espacement piloté par des marges EXPLICITES (gap:0) : le rythme vertical est
    ainsi maîtrisé bloc par bloc, généreux, sans dépendre d'un gap uniforme. */
 #mem-modal .modal-body{display:flex;flex-direction:column;gap:0;padding:20px}
-.mem-intro{font-size:12.5px;line-height:1.55;margin:0 0 18px;color:var(--dim)}
 /* Sélecteur de mode mémoire : cartes-lignes (icône ronde + titre + sous-titre +
    pastille radio). Un rail horizontal écrasait les libellés ; une simple liste
    faisait « stagiaire ». Ligne active : liseré accent, fond légèrement teinté,
@@ -230,7 +205,6 @@ details>summary::-webkit-details-marker{display:none}
 .mem-radio::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent);
   transform:scale(0);transition:transform .15s ease}
 .mem-opt:has(input:checked) .mem-radio::after{transform:scale(1)}
-.mem-note{font-size:11px;color:var(--dim);margin:0 2px 20px}
 /* Nom du projet consulté quand on ouvre la mémoire d'un AUTRE projet (pastille). */
 .mem-proj:not(:empty){margin-left:8px;padding:2px 8px;border:1px solid var(--border);border-radius:999px;
   font-size:11px;font-weight:600;color:var(--dim)}
@@ -345,7 +319,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .preset-meta{display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap}
 .ctag{flex-shrink:0;display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em}
 .qtag{flex-shrink:0;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em;text-transform:uppercase}
-.rtag{flex-shrink:0;display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em}
 .btag{flex-shrink:0;display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border:1px solid var(--border);color:var(--dim);border-radius:8px;letter-spacing:.03em}
 /* Bulle « capacités » : regroupe les icônes vision (œil) et raisonnement (ampoule)
    d'un preset, dans une pastille au même style que les autres tags (issue #35). */
@@ -421,7 +394,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 #scrollbtn.show{display:block}
 .msg.reasoning{align-self:flex-start;background:transparent;border:1px dashed var(--border);color:var(--mag);font-size:12px;max-width:90%;overflow-wrap:anywhere;word-break:break-word}
 .msg.tool{align-self:flex-start;background:transparent;border:1px dashed var(--border);max-width:90%;white-space:normal;padding:8px 12px;font-size:12px;overflow-wrap:anywhere;word-break:break-word}
-.msg.tool .tool-head{font-size:12px;color:var(--accent);font-weight:600;margin-bottom:6px}
 /* ===== Diff des écritures (outil edit / mémoire) ==================
    Lignes ajoutées en vert, retirées en rouge, contexte neutre. Les couleurs
    viennent de variables : chaque thème peut les ajuster (clair vs sombre). */
@@ -475,7 +447,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
    en accent, un libellé apparaît à côté). Un seul objet à l'écran, au bon
    endroit — pas de bannière qui doublonne. */
 .msg.typing.compacting .dot{background:var(--accent)}
-.msg.typing .tlabel{animation:tlabelfade 1.6s ease-in-out infinite;font-size:12px;color:var(--accent);margin-left:1px;white-space:nowrap}
 @keyframes tlabelfade{0%,100%{opacity:.6}50%{opacity:1}}
 /* Ligne d'état de génération (façon Claude Code) : posée DANS le fil, en dernier,
    donc juste SOUS le texte de l'IA. Reste affichée pendant toute la génération et
@@ -487,12 +458,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
    animation — simple marque à côté des mesures. */
 .genstatus .jlogo{width:16px;height:16px;flex:none;color:var(--accent)}
 .genstatus .jlogo rect{fill:currentColor}
-/* Avec l'orbe (26-spirit.js) : pas de logo, le texte commence au bord. Quand
-   l'orbe vient se poser sur la ligne, la place du logo s'ouvre en douceur et
-   le texte glisse vers la droite ; elle se referme quand l'orbe repart. */
-html:not([data-hide-spirit="1"]) .genstatus .jlogo{width:0;margin-right:-8px;opacity:0;
-  transition:width .5s cubic-bezier(.2,.8,.2,1),margin .5s cubic-bezier(.2,.8,.2,1)}
-html:not([data-hide-spirit="1"]) .genstatus.orb-seat .jlogo{width:24px;margin-right:6px}
 #chat.genon .msg.typing:not(.compacting){display:none}
 /* Compactage : MÊME barre, texte « compactage… » en accent, logo dont l'opacité
    baisse puis remonte (fondu, pas de zoom) pour montrer que ça travaille. */
@@ -546,18 +511,6 @@ html:not([data-hide-spirit="1"]) .genstatus.orb-seat .jlogo{width:24px;margin-ri
 #cl-logo{width:52px;height:52px;display:block;color:var(--accent);fill:currentColor;
   shape-rendering:crispEdges;animation:jpulse 1.1s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){#cl-logo{animation:none;opacity:.7}}
-/* Petit esprit (26-spirit.js) : orbe de lumière en pixels qui accompagne le fil.
-   Le canvas (120 x 120 pixels du dessin, 3 px écran chacun) suit l'orbe. */
-#spirit{position:absolute;left:0;top:0;width:360px;height:360px;z-index:7;pointer-events:none;
-  image-rendering:pixelated;image-rendering:crisp-edges;opacity:0;transition:opacity .35s ease;will-change:transform}
-[data-hide-spirit="1"] #spirit{display:none}
-/* Le chargement montre l'orbe animée (26-spirit.js) ; le logo fixe ne sert plus
-   que si l'orbe est masquée dans l'apparence. */
-html:not([data-hide-spirit="1"]) #cl-logo{visibility:hidden}
-.cl-dots{display:inline-flex;gap:5px;align-items:center}
-.cl-dots span{width:7px;height:7px;border-radius:50%;background:var(--dim);animation:typingdot 1.2s infinite ease-in-out}
-.cl-dots span:nth-child(2){animation-delay:.16s}
-.cl-dots span:nth-child(3){animation-delay:.32s}
 /* Les 3 points « qui sautent » du voile de chargement. Ce keyframes avait disparu
    (renommé/supprimé lors d'un ménage), laissant l'animation pointer dans le vide →
    points figés. On le redéfinit : petit saut vers le haut, échelonné par les délais
@@ -620,7 +573,7 @@ details>summary{display:flex;align-items:center;gap:8px;height:34px;font-size:13
    MÊME façon : monospace, capitales, même interlettrage. La casse vient du CSS,
    pas du HTML, pour qu'aucun libellé ne puisse diverger. Seule la taille et la
    couleur distinguent les deux niveaux. */
-.stitle,.subhead,.io-cap,.pages-bar .pages-title,.skillshead>span{
+.stitle,.subhead,.io-cap{
   font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em}
 /* Pastille d'état d'une section (mode agent, accès internet, MCP, accès distant).
    Un point + un mot, dans une pilule — l'ancien couple « on / off » en étiquette
@@ -650,19 +603,17 @@ details>summary::after{content:"";flex:none;width:6px;height:6px;
 details[open]>summary::after{transform:rotate(45deg)}
 
 /* --- Étiquette de groupe : une seule règle pour toutes les variantes --- */
-.subhead,.io-cap,.pages-bar .pages-title,.skillshead>span{position:relative;display:flex;align-items:center;
+.subhead,.io-cap{position:relative;display:flex;align-items:center;
   font-size:11px;font-weight:600;color:var(--dim);margin:10px 2px 5px}
 .io-cap{margin:0 2px 5px}
 /* ⚠️ APRÈS la règle commune ci-dessus, qui pose une marge haute/basse : dans une
    LIGNE de carte, elle décalait le libellé vers le bas au lieu de le centrer. */
-.pages-bar .pages-title{margin:0}
 /* Étiquette de groupe en tête d'un sous-groupe du mode agent : elle suit une
    carte, elle a donc besoin de son air normal — mais pas d'un cumul de marges. */
 .gated-group>.subhead:first-child{margin-top:12px}
 /* Une étiquette de groupe qui suit immédiatement le titre de section n'a pas
    besoin de reprendre de l'air : le titre en a déjà donné. */
 details>summary+.subhead{margin-top:4px}
-.io-group{margin-top:8px}
 /* AJEAN LINK — mise en avant des avantages (état non connecté) + rappel discret
    (état connecté). Monochrome : accent noir/blanc, aucune couleur en dur. */
 .link-perks-head{font-size:13px;font-weight:600;color:var(--text);margin:2px 0 10px}
@@ -691,13 +642,12 @@ details>summary+.subhead{margin-top:4px}
    pages mémoire) : même rembourrage et même filet de séparation qu'une ligne,
    pour qu'il ne flotte pas au milieu de la carte. */
 .slist>.rowbody{padding:9px 10px}
-.slist>.rowbody:not(:first-child),.slist>.pages-bar:not(:first-child){border-top:1px solid var(--border)}
+.slist>.rowbody:not(:first-child){border-top:1px solid var(--border)}
 /* …sauf juste après une ligne de réglage : elle porte DÉJÀ son filet bas, les
    deux se cumuleraient en un trait double. */
-.slist>.switchrow+.rowbody,.slist>.switchrow+.pages-bar{border-top:0}
+.slist>.switchrow+.rowbody{border-top:0}
 .slist>.rowbody>:first-child{margin-top:0}
 .slist>.rowbody>:last-child{margin-bottom:0}
-.slist>.pages-bar{min-height:34px;padding:4px 10px;margin-top:0}
 /* Contrôle posé à droite d'une ligne (liste « mode » de la mémoire) : même place
    que l'interrupteur, largeur ajustée au contenu. */
 .switchrow>.sctl{margin-left:auto;order:2;width:auto;max-width:62%}
@@ -710,7 +660,6 @@ details>summary+.subhead{margin-top:4px}
 /* Filet HAUT explicite : pour une ligne qui suit le navigateur de pages
    (.pages-bar/.mem-pages-body ne portent pas de filet bas), sinon elle se colle
    à la liste au-dessus sans séparation. */
-.slist>.switchrow.septop{border-top:1px solid var(--border)}
 .switchrow .switch{margin-left:auto;order:2;flex:none}
 .switchrow>span:first-child{min-width:0}
 
@@ -750,23 +699,15 @@ details>summary+.subhead{margin-top:4px}
 .kv span:first-child{color:var(--text);flex-shrink:0}
 
 /* --- Champs et boutons --- */
-.sctl,.io-input{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--border);
+.sctl{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--border);
   border-radius:7px;padding:7px 9px;font:inherit;font-size:12.5px}
-.sctl:focus,.io-input:focus{outline:none;border-color:var(--dim)}
+.sctl:focus{outline:none;border-color:var(--dim)}
 textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
-.side button:not(.preset-edit):not(.addbtn):not(.preset-add):not(.copybtn):not(.iconbtn){font-size:12px;padding:6px 10px;border-radius:7px}
 .side .row{display:flex;gap:6px;align-items:center;margin:6px 0}
-.side .row .sctl,.side .row .io-input{flex:1;min-width:0}
+.side .row .sctl{flex:1;min-width:0}
 /* Bouton d'action à côté d'un champ (copier, ouvrir) : un CARRÉ à la hauteur du
    champ, icône au trait centrée. Le glyphe seul (⧉, ↗) dans un bouton texte se
    posait de travers et changeait de largeur d'une police à l'autre. */
-.iconbtn{flex:none;display:inline-flex;align-items:center;justify-content:center;
-  width:34px;height:34px;padding:0;margin:0;color:var(--dim);background:var(--panel);
-  border:1px solid var(--border);border-radius:9px;cursor:pointer}
-.iconbtn:hover{color:var(--text);border-color:var(--dim);background:var(--accent-bg)}
-.iconbtn svg{width:15px;height:15px;display:block}
-.side .btn-danger-o{border-color:var(--err);color:var(--err)}
-.side .btn-danger-o:hover{background:var(--danger-bg);border-color:var(--err);color:var(--err)}
 .side .muted{font-size:11.5px;line-height:1.5}
 
 /* ===== Réglages d'affichage ======================================
@@ -811,7 +752,6 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 #ctxtrack{position:absolute;top:0;left:0;right:0;height:3px;background:var(--panel);overflow:hidden}
 #ctx-fill{height:100%;width:0%;background:var(--ok,#3a7);transition:width .3s,background .3s}
 #ctxmeta{position:relative;display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:8px 12px 0}
-#ctx-compact{display:none;margin:0;padding:2px 10px;font-size:10px;background:var(--warn-bg);border-color:var(--warn,#c93)}
 #inputbar{padding:8px 12px;display:flex;gap:8px}
 /* Astuce clavier sous la saisie (style repris du HTML : un thème doit pouvoir
    changer ses marges, ce qu'un style en ligne empêchait). */
@@ -829,7 +769,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
    appareils tactiles uniquement (le desktop garde son rendu, le pinch-zoom
    manuel reste possible). */
 @media (hover:none) and (pointer:coarse){
-  #input,#sysprompt,#mem-edit-modal input,#mem-edit-modal textarea{font-size:16px}
+  #input,#mem-edit-modal input,#mem-edit-modal textarea{font-size:16px}
 }
 /* Appareil TACTILE en PAYSAGE : on réduit nettement tout pour gagner de la place
    (interface « un peu grosse » en horizontal, utile pour enregistrer des démos).
@@ -899,8 +839,6 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
    cale au bord droit, comme les nombres et les interrupteurs des autres lignes
    (sinon elle prenait la largeur de sa plus longue option et écrasait le
    libellé). Repli JS pour Safari iOS : voir fitSelect. */
-.pe-row-c > .pe-selc:not(.wide){min-width:0;max-width:100%;overflow:hidden}
-.pe-row-c > .pe-selc:not(.wide) select{field-sizing:content}
 /* Flèche dessinée (et non plus le caractère « › » tourné, dont l'approche la
    décalait de quelques pixels) : elle tombe pile sur le bord droit, aligné avec
    les nombres et les interrupteurs des autres lignes. */
@@ -908,9 +846,6 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 /* Variante pleine largeur : la liste native s'ouvre alignée à gauche de la
    ligne (et non collée au bord droit) et le nom de fichier a la place de
    s'afficher en entier. */
-.pe-selc.wide{width:100%}
-.pe-selc.wide select{flex:1;text-align:left;text-align-last:left;padding-right:18px}
-.pe-selc.wide::after{right:2px}
 /* Ligne « champ pleine largeur » (Nom, chemin, config brute…). */
 .pe-row.stack{flex-direction:column;align-items:stretch;gap:8px}
 .pe-inp{width:100%;box-sizing:border-box;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font:inherit;transition:border-color .12s,box-shadow .12s}
@@ -1074,12 +1009,10 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .fld{display:flex;flex-direction:column;gap:5px}
 .fld-l{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--dim)}
 .fld-l .opt{text-transform:none;letter-spacing:0;font-weight:400;opacity:.65}
-.fld-hint{font-size:11px;color:var(--dim);margin-top:2px}
 .ctl{width:100%;box-sizing:border-box;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:9px 11px;font:inherit}
 .ctl:focus{outline:none;border-color:var(--accent)}
 .ta{min-height:220px;resize:vertical;line-height:1.5}
 .card{border:1px solid var(--border);border-radius:10px;padding:13px;display:flex;flex-direction:column;gap:13px}
-.card-h{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
 .row{display:flex;gap:6px}
 .row .ctl{flex:1;min-width:0}
 .seg{display:flex;gap:6px}
@@ -1152,7 +1085,6 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 /* Minimal : l'actif est un simple voile, sans cadre. */
 .sess-row.active{background:var(--accent-bg);cursor:default}
 /* Point « conversation en cours » dans l'angle haut-gauche de la ligne. */
-.sess-corner-dot{position:absolute;top:6px;left:6px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
 /* Bouton menu ⋮ d'une conversation : discret à droite, net au survol / sur l'active. */
 .sess-menu-btn{flex:none;width:28px;height:28px;display:flex;align-items:center;justify-content:center;
   padding:0;margin:0;border:none;background:transparent;color:var(--dim);border-radius:7px;cursor:pointer;
@@ -1193,8 +1125,6 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .tracker-fld input{width:100%;min-width:0;box-sizing:border-box;min-height:44px;padding:10px 12px;font:inherit;font-size:14px;line-height:1.2;border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text);font-variant-numeric:tabular-nums;-webkit-appearance:none;appearance:none}
 .tracker-fld input::-webkit-date-and-time-value{text-align:left}
 .tracker-fld input:focus{outline:none;border-color:var(--dim)}
-.tracker-add-go{width:100%;min-height:46px;font-size:14px;font-weight:700;padding:0 12px;border-radius:10px;border:none;background:var(--accent);color:var(--bg);cursor:pointer}
-.tracker-add-go:active{filter:brightness(.92)}
 /* Bouton « + Ajouter un point » du détail (ouvre le modal du point) : pleine largeur. */
 .tracker-addpt{width:100%;min-height:40px;margin:0 0 14px}
 /* Formulaire du point dans son modal : plus de marge basse (le pied porte les boutons). */
@@ -1218,40 +1148,20 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .tracker-pt-acts button.danger:hover{color:#f76b6b}
 .sess-row:focus-visible{outline:none;box-shadow:0 0 0 2px var(--border)}
 /* Étoile favori : éteinte (contour dim), allumée (pleine, accent). */
-.sess-star{flex:none;display:flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;background:none;border:none;border-radius:7px;color:var(--dim);cursor:pointer}
-.sess-star:hover{background:var(--row-bg-on);color:var(--text)}
-.sess-star.on{color:var(--accent)}
 .sess-info{flex:1;min-width:0}
 .sess-name{font-size:13.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sess-meta{font-size:11.5px;color:var(--dim);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sess-acts{display:flex;align-items:center;gap:2px;flex:none;opacity:.5;transition:opacity .12s}
-.sess-row:hover .sess-acts,.sess-row.active .sess-acts,.sess-row:focus-within .sess-acts{opacity:1}
-.sess-act{display:flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;background:none;border:none;border-radius:7px;color:var(--dim);cursor:pointer}
-.sess-act:hover{background:var(--row-bg-on);color:var(--text)}
-.sess-badge{font-size:10px;font-weight:600;color:var(--accent);letter-spacing:.03em;padding:0 4px;white-space:nowrap}
 /* Action principale du hub : « Nouvelle conversation », pleine largeur, remplie en
    accent (comme le bouton d'envoi) — bien visible tout en haut. */
 /* Action principale « Nouvelle conversation » : bouton plein largeur SOBRE (bordure
    fine, fond au survol), pas un bloc noir. Minimal Linear/Notion. */
-.proj-cta{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;margin:0 0 4px;
-  padding:12px 14px;border:none;border-radius:11px;
-  background:var(--row-bg);color:var(--text);font-size:13.5px;font-weight:500;cursor:pointer;
-  touch-action:manipulation;transition:background .12s}
-.proj-cta svg{display:block;color:var(--dim)}
-.proj-cta:focus,.proj-cta:focus-visible{outline:none}
-.proj-cta:active{transform:scale(.995)}
-@media (hover:hover){.proj-cta:hover{background:var(--row-bg-on)}.proj-cta:hover svg{color:var(--text)}}
 /* Variante ACCENT : l'action principale (nouvelle conversation), posée au-dessus des
    conversations du projet actif. Fond accent plein + texte sur le fond → bien visible,
    sans sortir de la charte monochrome. Un peu d'air au-dessus pour la détacher de la
    grille de projets. */
-.proj-cta.accent{background:var(--accent);color:var(--bg);font-weight:600;margin:0 0 8px}
-.proj-cta.accent svg{color:var(--bg)}
-@media (hover:hover){.proj-cta.accent:hover{background:var(--accent);opacity:.85}.proj-cta.accent:hover svg{color:var(--bg)}}
 /* Variante COMPACTE : chip à droite de l'en-tête « Conversations » (comme « + projet »
    à droite de « Projets »), pas pleine largeur. On annule le texte en capitales hérité
    de .sess-head pour garder un libellé de bouton normal. */
-.proj-cta.compact{width:auto;flex:none;margin:0;padding:5px 11px;font-size:12px;border-radius:8px;gap:6px;text-transform:none;letter-spacing:0}
 /* Boutons MINIMAUX (footer, + projet…) : texte discret, fond léger au survol, sans
    cadre — cohérents dans tous les modals. */
 .mbtn{margin:0;padding:7px 12px;border:none;background:transparent;color:var(--dim);
@@ -1266,9 +1176,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .notif-dot{position:absolute;top:-2px;right:-2px;width:9px;height:9px;border-radius:50%;
   background:var(--accent);border:2px solid var(--bg);pointer-events:none}
 /* Même point, sur une conversation du hub (réponse non lue). */
-.sess-unseen{flex:none;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-left:8px;display:inline-block}
 /* Point « conversation en cours » : à DROITE, juste avant le menu ⋮. */
-.sess-dot{flex:none;width:6px;height:6px;border-radius:50%;background:var(--accent);margin:0}
 /* La modale des tâches emprunte tout le design de l'éditeur de preset (.pe-*) :
    même largeur, même mise en carte. */
 #task-modal .modal-card{max-width:520px;overflow:hidden}
@@ -1303,7 +1211,6 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 
 /* Accès OpenAI / Accès distant : champs lecture seule (URL, clé) + libellés
    compacts, pour une présentation homogène et sans surcharge visuelle. */
-.io-input{flex:1;min-width:0;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:8px 10px;font:inherit;font-size:13px}
 
 /* Modale MCP (ajout/édition) : les champs des groupes stdio/http n'avaient aucun
    espacement vertical (le conteneur n'est pas un flex à gap) → ils se touchaient.
@@ -1476,8 +1383,6 @@ h1{color:var(--text);font-weight:600;letter-spacing:-.01em}
    iOS gère déjà correctement le clavier tout seul — on le laisse faire. */
 #ctx-text,#status-preset{color:var(--dim);font-size:11.5px;letter-spacing:.01em;white-space:nowrap;font-weight:500}
 #ctx-text{font-variant-numeric:tabular-nums}
-#ctx-compact{border-radius:999px;padding:2px 10px;font-size:10px;background:transparent;border-color:var(--border);color:var(--dim)}
-#ctx-compact:hover{border-color:var(--dim);color:var(--text)}
 /* Jauge = bord bas de la carte : épaisse, plaquée au ras du bord, rognée par
    l'arrondi du pied de carte. */
 #ctxtrack{top:auto;bottom:0;height:7px;background:var(--border)}
@@ -1706,7 +1611,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
 
 /* ===== Fenêtres et sélecteurs =====================================
    Coins arrondis et ombre douce plutôt qu'un cadre marqué. */
-.modal-card,.ask-box,.modal-box,.pe-list{border-radius:12px}
+.modal-card,.ask-box,.pe-list{border-radius:12px}
 .modal-card,.ask-box{box-shadow:0 8px 30px rgba(0,0,0,.12)}
 /* Sélecteurs segmentés : noir plein quand c'est coché, pas de couleur. */
 .pe-seg>label:has(input:checked),.seg>label:has(input:checked){background:var(--text);border-color:var(--text);color:var(--bg)}
@@ -1717,22 +1622,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
    à droite vaut « toute la conversation ». Le libellé sous la piste donne le
    compte RÉEL d'échanges et le poids du fichier, la question qu'on se pose
    vraiment avant d'exporter. */
-.xr{position:relative;display:flex;align-items:center;height:22px}
-.xr-track{width:100%;height:10px;border-radius:999px;overflow:hidden;background:color-mix(in srgb,var(--dim) 20%,transparent)}
-.xr-fill{height:100%;background:var(--accent);border-radius:999px;transition:width .12s}
-.xr-range{position:absolute;inset:0;width:100%;height:22px;margin:0;padding:0;background:transparent;-webkit-appearance:none;appearance:none;cursor:ew-resize}
-.xr-range:focus{outline:none}
-.xr-range::-webkit-slider-runnable-track{height:22px;background:transparent;border:none}
-.xr-range::-moz-range-track{height:22px;background:transparent;border:none}
-.xr-range::-moz-range-progress{background:transparent}
-.xr-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;margin-top:3px;border-radius:50%;background:var(--bg);border:2px solid var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.3);cursor:ew-resize}
-.xr-range::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--bg);border:2px solid var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.3);cursor:ew-resize}
-.xr-range:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(--accent-bg)}
-.xr-range:focus-visible::-moz-range-thumb{box-shadow:0 0 0 3px var(--accent-bg)}
-.xr-range:disabled{cursor:default;opacity:.5}
 /* Conversation vide : un seul message centré à la place des réglages. */
-.xempty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:44px 20px;text-align:center;color:var(--text);font-size:14px}
-.xempty-i{font-size:30px;line-height:1;color:var(--dim);opacity:.7}
 
 /* Capture (browser_screenshot) insérée en ![](fichier.png) : résolue vers le dossier de travail par markWorkspaceImages. */
 .chat-img{max-width:100%;height:auto;border-radius:8px;display:block;margin:8px 0;border:1px solid var(--border)}
@@ -1895,7 +1785,7 @@ body.fast-mode #project-btn{max-width:0;padding:0;opacity:0;overflow:hidden;poin
 #side-actions .side-act:active{transform:scale(.9)}
 #side-actions svg{display:block;width:18px;height:18px}
 /* Titres de section et de groupe : Inter en petites capitales */
-.stitle,.subhead,.io-cap,.pages-bar .pages-title,.skillshead>span{font-family:var(--font);letter-spacing:.07em}
+.stitle,.subhead,.io-cap{font-family:var(--font);letter-spacing:.07em}
 details>summary .stitle,.hist-head .stitle{font-size:11.5px;font-weight:500;color:var(--text)}
 .subhead{font-size:10px;font-weight:600}
 /* Deux vues (menu / historique) : glissé + fondu, la vue qui part flotte au-dessus */
@@ -2055,22 +1945,20 @@ button{border-color:transparent;background:var(--t2);border-radius:999px}
 button:hover{border-color:transparent;background:var(--t3);color:var(--text)}
 /* Cartes du menu latéral et blocs de contenu */
 .slist,.card,.task-report,.mcp-tools-list,.app-update{border:none;background:var(--t1);border-radius:12px}
-:is(.slist>.rowbody:not(:first-child),.slist>.pages-bar:not(:first-child),.slist>.switchrow:not(:last-child),.slist>.switchrow.septop,
+:is(.slist>.rowbody:not(:first-child),.slist>.switchrow:not(:last-child),.slist>.switchrow.septop,
   .stat:not(:last-child),#ram-details,.rowlist>.preset:not(:last-child),.kv){border-color:var(--t2)}
 .rowlist>.preset.active,.rowlist>.preset.pending{background:var(--t2)}
 .rowlist>.preset:hover{background:var(--t1)}
 /* Petits boutons d'action : + des presets, « + ajouter… », icônes, « ? » */
-.preset-add,.addbtn,.iconbtn,.pe-icon,.copybtn,.tool-more,#ctx-compact,#chat .history-more button{
+.preset-add,.pe-icon,.copybtn,.tool-more,#chat .history-more button{
   border:none;background:var(--t2);color:var(--text)}
-.preset-add:hover,.addbtn:hover,.iconbtn:hover,.pe-icon:hover,.copybtn:hover,.tool-more:hover,#ctx-compact:hover,#chat .history-more button:hover{
+.preset-add:hover,.pe-icon:hover,.copybtn:hover,.tool-more:hover,#chat .history-more button:hover{
   border:none;background:var(--t3);color:var(--text)}
-.preset-add,.addbtn{border-radius:999px}
-.addbtn{padding:5px 12px}
-.iconbtn{border-radius:10px}
+.preset-add{border-radius:999px}
 .help{border:none;background:var(--t2);color:var(--dim)}
 .help:hover{border:none;background:var(--t3);color:var(--text)}
 /* Badges, étiquettes, pastilles d'état */
-.sbadge,.statuspill,.tag,.ctag,.qtag,.rtag,.btag,.captag,.mcp-tag,.stopnote,.pe-delmodel{border:none;background:var(--t2)}
+.sbadge,.statuspill,.tag,.ctag,.qtag,.btag,.captag,.mcp-tag,.stopnote,.pe-delmodel{border:none;background:var(--t2)}
 .sbadge.on{background:var(--text)}
 .sbadge.warn{background:color-mix(in srgb,var(--warn) 14%,transparent)}
 .sbadge.err{background:color-mix(in srgb,var(--err) 12%,transparent)}
@@ -2078,8 +1966,7 @@ button:hover{border-color:transparent;background:var(--t3);color:var(--text)}
 /* Lignes MCP, pièces jointes, vignettes */
 .mcp-row,#attach-list .chip-file,.img-tile{border:none;background:var(--t1)}
 /* Champs du menu latéral et autres champs hors fenêtres */
-.sctl,.io-input,.mem-search,.side select{border:none;border-radius:10px;background:var(--t1);color:var(--text)}
-:is(.sctl,.io-input,.mem-search,.side select):focus{outline:none;border:none;box-shadow:0 0 0 2px var(--t3)}
+.sctl,.mem-search,.side select{border:none;border-radius:10px;background:var(--t1);color:var(--text)}
 /* Blocs de code : fond seul */
 .msg.assistant .body pre,.msg.reasoning .body pre,.msg.tool pre,.md-report pre{border:none}
 /* Éléments flottants : carte de menu */
@@ -2222,7 +2109,6 @@ body.jean-mode .genstatus .jact.jact-in{animation:jactin .3s cubic-bezier(.2,.7,
 
 /* ===== Mémoire de Jean : lignes sans cadre, fond léger au survol (monochrome). */
 .jm-head{display:flex;align-items:center;gap:10px;margin:2px 0 4px}
-.jm-head-j{margin-top:22px}
 .jm-title{font-size:13px;font-weight:600;color:var(--text)}
 .jm-budget{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;flex:1}
 .jm-sleep-row{display:flex;gap:10px;margin:0 0 18px}
@@ -2346,7 +2232,6 @@ button.th-head{display:flex;align-items:center;gap:10px;width:100%;min-height:0;
 button.th-head:hover{background:var(--t1)}
 .th-when{font-weight:500}
 .th-meta{flex:1;min-width:0;color:var(--dim);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.th-error .th-meta{color:var(--err)}
 .th-chev{flex:none;color:var(--dim);transition:transform .2s var(--ease)}
 .th-row.open .th-chev{transform:rotate(90deg)}
 .th-body{margin:0 8px 8px;max-height:320px;overflow:auto}
@@ -2374,19 +2259,9 @@ button.th-head:hover{background:var(--t1)}
 
 /* Ligne « libellé + valeur » (adresses, clé API) : valeur en texte, pas de
    champ encadré ; copie et liens discrets à droite. */
-.slist>.sw-field{display:flex;align-items:center;gap:4px;min-height:34px;padding:7px 4px 7px 10px}
-.slist>.sw-field:not(:last-child),.slist>.sw-acts:not(:last-child){border-bottom:1px solid var(--border)}
-.sw-lbl{font-size:11px;line-height:1.35;color:var(--dim)}
-.sw-lbl code{font-size:10.5px;padding:0 4px;border-radius:4px;background:var(--t2)}
-.side input.sw-val{flex:1;min-width:0;width:100%;height:auto;margin:0;padding:0;border:none;border-radius:0;background:transparent;box-shadow:none;
-  color:var(--text);font-family:var(--mono);font-size:11.5px;line-height:1.4;text-overflow:ellipsis;outline:none}
 .side button.sw-ic{flex:none;width:30px;height:30px;min-height:30px;margin:0;padding:0;display:flex;align-items:center;justify-content:center;
   border:none;border-radius:8px;background:transparent;color:var(--dim);box-shadow:none;cursor:pointer;transition:color .15s ease}
 .side button.sw-ic:hover{background:transparent;color:var(--text)}
-.side button.sw-link{flex:none;height:26px;min-height:26px;margin:0;padding:0 8px;border:none;border-radius:7px;background:transparent;color:var(--dim);
-  font:inherit;font-size:12px;box-shadow:none;cursor:pointer;transition:color .15s ease}
-.side button.sw-link:hover{background:transparent;color:var(--text)}
-.slist>.sw-acts{display:flex;align-items:center;gap:2px;padding:4px 2px}
 /* Liste dans une carte (tâches) : rien quand elle est vide. */
 .slist>.rowbody.list-body{padding:8px 10px}
 .slist>.rowbody.list-body:has(>.mcp-list:empty){display:none}
@@ -2396,9 +2271,6 @@ button.th-head:hover{background:var(--t1)}
 .slist .mcp-row:hover{background:var(--t2)}
 /* Ligne « libellé : valeur » sur une seule ligne (API) : libellé à gauche,
    valeur en texte grisé à droite, icônes après. */
-.slist>.switchrow.sw-kv{gap:4px;padding:4px 4px 4px 10px;cursor:default}
-.sw-k{flex:none;white-space:nowrap}
-.slist>.sw-kv input.sw-val{text-align:right;color:var(--dim);margin-left:10px}
 .side button.sw-ic.on{color:var(--text)}
 .slist>.switchrow.sw-action.danger:hover{color:var(--err)}
 /* API : carte « Connexion », une entrée par bloc, libellé gris au-dessus, valeur
@@ -2429,8 +2301,6 @@ button.th-head:hover{background:var(--t1)}
 .api-state.on{color:var(--text)}
 .api-state.on::before{background:var(--accent)}
 .slist.api-conn>.sw-action{border-top:1px solid var(--border)}
-.slist>.rowbody.remote-pair{font-size:12.5px;line-height:1.6;color:var(--dim);border-top:1px solid var(--border)}
-.slist>.rowbody.remote-pair b{color:var(--text);font-weight:600;letter-spacing:.02em}
 /* Lignes d'action : de vrais boutons, reconnaissables au premier coup d'oeil
    (icône, texte foncé, fond au survol), distincts des lignes de réglage. */
 .slist>.switchrow.sw-action{gap:10px;color:var(--text);font-weight:500;cursor:pointer;transition:background .15s ease,color .15s ease}
@@ -2648,8 +2518,6 @@ audio.jf-media{width:min(520px,100%);margin-top:18vh}
 }
 
 /* Section Modèles (services système, 07b-services.js) */
-.svc-msg{font-size:11px;line-height:1.4;color:var(--t3,var(--dim));margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.svc-empty{padding:8px 10px;font-size:12px}
 .svc-ta{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;resize:vertical}
 .svc-cmd{min-height:64px;max-height:60vh;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;overflow-y:auto}
 .svc-log{max-height:220px;overflow:auto;background:var(--bg);border-radius:8px;padding:10px;margin:0;font-size:11px;line-height:1.45;white-space:pre-wrap;word-break:break-all;color:var(--t2,var(--dim))}

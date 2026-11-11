@@ -344,7 +344,7 @@ async function jmSleepNow(){
   try{
     const r=await jpost('/api/jean/sleep', {now:true});
     if(!r || !r.ok){ toast((r&&r.error)||'erreur'); return; }
-    JEAN_SLEEP_HOLD=Date.now()+6000; toast(t('jean.sleep_started')); jmSleepState(true);
+    toast(t('jean.sleep_started')); jmSleepState(true);
   }catch(e){ toast(String(e)); }
 }
 async function jmSaveSleep(){

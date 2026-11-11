@@ -156,9 +156,6 @@ func TestPrewarmPrefixMatchesGenerate(t *testing.T) {
 	for _, mode := range []string{"project", "fast", "jean"} {
 		t.Run(mode, func(t *testing.T) {
 			testHome(t)
-			if err := setAgentEnabled(true); err != nil {
-				t.Fatal(err)
-			}
 			if err := SetConfigKey("MEM_MODE", "always"); err != nil {
 				t.Fatal(err)
 			}
@@ -215,9 +212,6 @@ func TestPrewarmPrefixMatchesGenerate(t *testing.T) {
 // preset, Jean a ses outils et son préambule.
 func TestPrewarmPrefixDiffersByMode(t *testing.T) {
 	testHome(t)
-	if err := setAgentEnabled(true); err != nil {
-		t.Fatal(err)
-	}
 	if err := SetConfigKey("MEM_MODE", "always"); err != nil {
 		t.Fatal(err)
 	}
@@ -238,24 +232,11 @@ func TestPrewarmPrefixDiffersByMode(t *testing.T) {
 }
 
 // Modèle de base (ni agent ni mémoire) : aucun préfixe à chauffer, on ne doit pas
-// envoyer de requête inutile au moteur — même si l'agent de la machine est actif.
+// envoyer de requête inutile au moteur.
 func TestPrewarmPrefixEmptyForRawModel(t *testing.T) {
 	testHome(t)
-	if err := setAgentEnabled(true); err != nil {
-		t.Fatal(err)
-	}
 	if _, _, ok := prewarmPrefix(prewarmCaps("base")); ok {
 		t.Fatal("pré-chauffage proposé pour le modèle de base, sans système ni outil")
-	}
-	// Agent coupé sur la machine : plus rien à chauffer non plus, quel que soit le mode.
-	if err := setAgentEnabled(false); err != nil {
-		t.Fatal(err)
-	}
-	if err := SetConfigKey("MEM_MODE", "off"); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, ok := prewarmPrefix(prewarmCaps("project")); ok {
-		t.Fatal("pré-chauffage proposé alors que l'agent est coupé")
 	}
 }
 
@@ -368,9 +349,6 @@ func TestPrewarmTarget(t *testing.T) {
 // au sondage suivant.
 func TestLLMPrewarmWaitsForEmptyConversation(t *testing.T) {
 	testHome(t)
-	if err := setAgentEnabled(true); err != nil {
-		t.Fatal(err)
-	}
 	if err := SetConfigKey("MEM_MODE", "on"); err != nil {
 		t.Fatal(err)
 	}
@@ -427,9 +405,6 @@ func TestLLMPrewarmWaitsForEmptyConversation(t *testing.T) {
 // conversation vide et un moteur sain. Réactivé : le pré-chauffage reprend.
 func TestLLMPrewarmDisabledSetting(t *testing.T) {
 	testHome(t)
-	if err := setAgentEnabled(true); err != nil {
-		t.Fatal(err)
-	}
 	spy := newEngineSpy(t)
 	resetWarmState(t)
 	rememberChatMode("project")

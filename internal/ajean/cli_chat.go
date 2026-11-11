@@ -270,7 +270,16 @@ func (s *chatSession) interactive(first string) error {
 func (s *chatSession) banner() {
 	out := s.ui.out
 	model := chatModelName()
-	fmt.Fprintf(out, "\n %s %s\n", col("1;36", "ajean"), dim("v"+Version))
+	// logo en pixels ; sans couleurs, le nom en clair
+	if logo := termLogo(); logo != nil {
+		fmt.Fprint(out, "\n")
+		for _, l := range logo {
+			fmt.Fprintf(out, " %s\n", l)
+		}
+		fmt.Fprintf(out, " %s\n\n", dim("v"+Version))
+	} else {
+		fmt.Fprintf(out, "\n %s %s\n", bold("AJEAN"), dim("v"+Version))
+	}
 	info := model
 	if s.ctxMax > 0 {
 		info += dim(" · contexte " + fmtCtxWindow(s.ctxMax))
@@ -321,7 +330,7 @@ func (s *chatSession) ensureEngine() bool {
 		return false
 	}
 	if st := osSvcStateOf(sv); st != "active" && st != "activating" {
-		fmt.Fprint(ui.out, "\n"+yellow("●")+" "+sv.Name+" est arrêté. Le démarrer ? "+dim("[O/n] "))
+		fmt.Fprint(ui.out, "\n"+bold("●")+" "+sv.Name+" est arrêté. Le démarrer ? "+dim("[O/n] "))
 		k, ok := <-ui.keys
 		if !ok {
 			return false
@@ -1028,7 +1037,7 @@ func (u *chatUI) endTurn(interrupted bool) string {
 		fmt.Fprint(u.out, dim("╰─")+"\n")
 	}
 	if interrupted {
-		fmt.Fprint(u.out, yellow("■ Interrompu")+"\n")
+		fmt.Fprint(u.out, bold("■ Interrompu")+"\n")
 	}
 	return strings.TrimSpace(u.reply.String())
 }
@@ -1049,7 +1058,7 @@ func (u *chatUI) footer(used, max int) {
 		pct := used * 100 / max
 		c := fmt.Sprintf("contexte %s/%s (%d%%)", fmtTokens(used), fmtCtxWindow(max), pct)
 		if pct >= 80 {
-			c = yellow(c)
+			c = bold(c)
 		}
 		parts = append(parts, c)
 	}
@@ -1090,7 +1099,7 @@ func toolResultLines(t *ToolUsedEvent, width int, took time.Duration) string {
 		} else if exit == 0 && strings.HasPrefix(res, "exit:") {
 			status = "ok"
 		} else {
-			status = yellow(oneLine(res))
+			status = bold(oneLine(res))
 		}
 		sum := status
 		if len(lines) > 0 {
@@ -1135,7 +1144,7 @@ func toolResultLines(t *ToolUsedEvent, width int, took time.Duration) string {
 				if d.Op == "+" {
 					b.WriteString(ind + accent("+ "+l) + "\n")
 				} else {
-					b.WriteString(ind + red("- "+l) + "\n")
+					b.WriteString(ind + dim("- "+l) + "\n")
 				}
 				shown++
 			}

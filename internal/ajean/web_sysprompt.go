@@ -8,8 +8,6 @@
 package ajean
 
 import (
-	"encoding/json"
-	"net/http"
 	"strings"
 )
 
@@ -80,35 +78,5 @@ func setPresetSysPrompt(id, text string) error {
 func deletePresetSysPrompt(id string) {
 	if id != "" {
 		_ = putStr(bkState, "sysprompt/"+id, "")
-	}
-}
-
-func saveSysPrompt(text string) error {
-	return putStr(bkState, "sysprompt", strings.TrimSpace(text))
-}
-
-// handleSysPrompt :
-//
-//	GET  → {ok, text}
-//	POST {text} → enregistre ("" = efface) puis renvoie {ok, text}
-func handleSysPrompt(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		sendJSON(w, 200, map[string]any{"ok": true, "text": readSysPrompt()})
-	case http.MethodPost:
-		var body struct {
-			Text string `json:"text"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
-			return
-		}
-		if err := saveSysPrompt(body.Text); err != nil {
-			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
-			return
-		}
-		sendJSON(w, 200, map[string]any{"ok": true, "text": readSysPrompt()})
-	default:
-		sendJSON(w, 405, map[string]any{"ok": false, "error": "méthode non autorisée"})
 	}
 }

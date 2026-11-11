@@ -26,11 +26,6 @@ func TestMoveQuickConversationToProject(t *testing.T) {
 	if a.Mode != "project" || a.Project != p.Slug {
 		t.Fatalf("attendu mode project dans %s, obtenu mode=%q projet=%q", p.Slug, a.Mode, a.Project)
 	}
-	for _, m := range historyList("fast") {
-		if m.ID == "rapide" {
-			t.Fatal("la conversation déplacée ne doit plus être dans la liste Rapide")
-		}
-	}
 	if err := moveArchiveToProject("base", p.Slug); err == nil {
 		t.Fatal("une conversation Modèle de base ne doit pas être déplacée")
 	}

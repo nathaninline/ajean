@@ -9,14 +9,7 @@ let svcPollTimer = null;
 
 function tf(key, fr){ const v = t(key); return v === key ? fr : v; }
 
-const SVC_STATE = {
-  active:     ['svc.state_active', 'en marche'],
-  activating: ['svc.state_activating', 'chargement'],
-  inactive:   ['svc.state_inactive', 'arrêté'],
-  failed:     ['svc.state_failed', 'erreur'],
-  remote:     ['svc.state_remote', 'distant'],
-  unknown:    ['svc.state_unknown', 'inconnu'],
-};
+
 
 async function loadServices(){
   let list;

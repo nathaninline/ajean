@@ -59,7 +59,6 @@ func handleTasks(w http.ResponseWriter, r *http.Request) {
 		"ok":           true,
 		"tasks":        tasks,
 		"paused":       tasksPaused(),
-		"agent":        agentEnabled(),
 		"running_id":   runningID,
 		"presets":      presets,
 		"scripts":      scripts,

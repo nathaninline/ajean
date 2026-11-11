@@ -128,7 +128,6 @@ func runBench(nPrompt, nPredict int) (*benchResult, error) {
 	// Un bench ne mesure que le moteur LOCAL : pour un preset distant (API
 	// Externe, GPU Cloud), l'enregistrer l'attribuerait à tort à ce preset.
 	if !usesRemoteEndpoint(ReadConfig()) {
-		saveLastBench(res)
 		saveBenchForActivePreset(res)
 	}
 	return res, nil
@@ -159,22 +158,6 @@ type savedBench struct {
 	Result benchResult `json:"result"`
 	Model  string      `json:"model"`
 	At     int64       `json:"at"`
-}
-
-// saveLastBench enregistre le dernier benchmark (best-effort) pour que l'UI
-// puisse l'afficher sans le relancer.
-func saveLastBench(res *benchResult) {
-	sb := savedBench{Result: *res, Model: benchModelKey(ReadConfig()), At: time.Now().Unix()}
-	_ = putJSON(bkState, "last_bench", sb)
-}
-
-// loadLastBench relit le benchmark enregistré, ou nil s'il n'y en a pas.
-func loadLastBench() *savedBench {
-	var sb savedBench
-	if !getJSON(bkState, "last_bench", &sb) {
-		return nil
-	}
-	return &sb
 }
 
 // benchModelKey : sous quel modèle ranger le bench de cette config. Un moteur
@@ -228,7 +211,7 @@ func loadBenchStore() map[string]savedBench {
 
 // saveBenchForActivePreset records res under the name of the currently active
 // preset (celui qui correspond à la configuration active). Sans effet si aucun
-// preset ne correspond — le benchmark reste enregistré par saveLastBench.
+// preset ne correspond.
 func saveBenchForActivePreset(res *benchResult) {
 	if s := explicitChatService(); s != nil {
 		saveServiceBench(s, res)
@@ -404,7 +387,6 @@ func runBenchStream(nPrompt, nPredict int) (*benchResult, error) {
 	if gen > 0 && usage.CompletionTokens > 1 {
 		res.PredictedPerSec = float64(usage.CompletionTokens-1) / gen // le 1er token est compté dans la lecture
 	}
-	saveLastBench(res)
 	saveBenchForActivePreset(res)
 	return res, nil
 }
