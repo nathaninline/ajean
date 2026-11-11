@@ -1,5 +1,19 @@
 // marked: GFM on, no auto-breaks (single newlines stay inline).
 marked.setOptions({ gfm: true, breaks: false });
+// HTML brut dans le texte : affiché tel quel, jamais interprété. Un modèle qui
+// parle de HTML écrit des balises hors bloc de code (« un <h3> par groupe ») :
+// interprétée, une balise jamais refermée avalait toute la suite du message
+// (texte soudain en titre, en gras, en majuscules). Seules passent quelques
+// balises de mise en forme qui se referment d'elles-mêmes en fin de paragraphe.
+const MD_RAW_OK = /^<\/?(br|sub|sup|kbd)\s*\/?>$/i;
+const mdEscRaw = (s)=>s.replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+marked.use({ renderer: { html(html, block){
+  const raw = typeof html === 'string' ? html : ((html && (html.raw || html.text)) || '');
+  if(MD_RAW_OK.test(raw.trim())) return raw;
+  const esc = mdEscRaw(raw);
+  // Bloc HTML entier : un paragraphe, lignes conservées.
+  return block || /\n/.test(raw.trim()) ? '<p>'+esc.trim().replace(/\n/g, '<br>')+'</p>\n' : esc;
+} } });
 // Pre-process to fix common LLM markdown mistakes before handing to marked:
 //  - code fences glued to preceding text on the same line ("foo ```ruby ...")
 //  - fences without a closing newline

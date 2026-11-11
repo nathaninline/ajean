@@ -29,6 +29,7 @@ func cmdInstall(args []string) error {
 		return err
 	}
 	fmt.Printf("  %s arborescence prête\n", green("✓"))
+	retire019Units() // services Windows des modèles laissés par la 0.19
 
 	// 2. Le binaire va dans AJEAN_HOME\bin, ajouté au PATH utilisateur, pour que
 	//    `ajean` soit appelable depuis n'importe quel shell (pendant Windows du

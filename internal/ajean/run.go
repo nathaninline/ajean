@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const Version = "0.18.17"
+const Version = "0.20.0"
 
 // Main est le vrai main() du binaire (cmd/ajean ne fait que l'appeler).
 func Main() {
@@ -70,6 +70,10 @@ func Main() {
 		mustExit(cmdChat(args))
 	case "export":
 		mustExit(cmdExport(args))
+	case "dialog-test": // banc d'essai de la boîte de dialogue de mise à jour (Windows)
+		mustExit(cmdDialogTest(args))
+	case "window-icon": // banc d'essai de l'icône de fenêtre (Windows)
+		mustExit(cmdWindowIcon(args))
 	case "cu-probe": // banc d'essai des outils du navigateur, sans modèle
 		mustExit(cmdCUProbe(args))
 	case "jean-sleep-test": // banc d'essai du sommeil, sur une copie de la mémoire
@@ -96,10 +100,14 @@ func Main() {
 		mustExit(cmdTest(args))
 	case "bench":
 		mustExit(cmdBench(args))
+	case "engine":
+		mustExit(cmdEngine(args))
 	case "llamacpp":
-		mustExit(cmdLlamacpp(args))
-	case "exl3":
-		mustExit(cmdExl3(args))
+		// Avant la 0.20 : install / update / uninstall d'un llama.cpp au choix.
+		// Le moteur est désormais livré avec AJEAN ; on renvoie vers « engine ».
+		fmt.Fprintf(os.Stderr, "%s « ajean llamacpp » n'existe plus : le moteur llama.cpp est livré avec AJEAN et s'installe seul. Voir %s.\n\n",
+			yellow("[info]"), bold("ajean engine"))
+		mustExit(cmdEngine(nil))
 	case "update":
 		mustExit(cmdUpdate(args))
 	case "where":
@@ -168,18 +176,12 @@ Accès distant (ajean.link) :
   link newid                    change l'identifiant de la machine (si l'ancien a fuité)
   link status | logout          état du jeton / l'oublier
 
-Backend llama.cpp :
-  llamacpp install              clone + compile llama.cpp (CUDA/ROCm/Vulkan/Metal/CPU), pointe BIN dessus
-    --backend=vulkan|cuda|hip|cpu  imposer le backend au lieu de la détection auto
-  llamacpp update               git pull + recompile le backend existant
-  llamacpp uninstall <cible>    supprime un moteur (compiled | prebuilt | custom <nom>) ; --force si actif
-  llamacpp status               commit courant, backend détecté, retard sur origin
-
-Moteur ExLlama (modèles EXL3, NVIDIA) :
-  exl3 install                  installe TabbyAPI + ExLlamaV3 (version validée, sans prérequis)
-  exl3 update                   installe la dernière version de TabbyAPI et d'ExLlamaV3
-  exl3 download <lien HF>       télécharge une branche d'un dépôt EXL3 dans models/exl3
-  exl3 status | uninstall       version installée, modèles / retirer le moteur (garde les modèles)
+Moteur llama.cpp (livré avec AJEAN : une version précise, testée, installée
+automatiquement ; elle change avec les mises à jour d'AJEAN) :
+  engine                        version livrée, variante installée (CUDA/ROCm/Vulkan/Metal/CPU)
+  engine install                l'installer tout de suite (sinon : au premier démarrage)
+  engine repair                 le retélécharger
+    --variant=vulkan|cuda|rocm|cpu|auto  imposer une variante sur cette machine
 
 Installation:
   where                         affiche l'emplacement du binaire, de la base et des dossiers

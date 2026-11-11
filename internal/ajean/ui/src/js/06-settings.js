@@ -5,7 +5,7 @@
 // hauteur d'une session à l'autre et on la réserve au démarrage ; la réserve
 // tombe dès que le vrai contenu est là (elle ne fait que TENIR la place, elle
 // n'affiche jamais rien de faux).
-const HRESERVE=['cfg','vram','ram-details','presets','internet-status','mcp-list'];
+const HRESERVE=['vram','ram-details','presets','mcp-list'];
 function reserveHeights(){
   HRESERVE.forEach(id=>{
     try{
@@ -60,7 +60,9 @@ async function loadPresets(){
   p.forEach((x,i)=>{
     const row=document.createElement('div');
     const pend = !x.active && pendingPreset===i+1;
-    row.className='preset'+(x.active?' active':'')+(pend?' pending':'')+(moved?' sel-anim':'');
+    // « actif » = ce preset TOURNE. Moteur arrêté, le preset choisi reste repéré
+    // (classe « chosen », discrète) : c'est lui qui démarrera, mais il ne tourne pas.
+    row.className='preset'+(x.active?(ENGINE_ON===false?' chosen':' active'):'')+(pend?' pending':'')+(moved?' sel-anim':'');
     // Réordonnable à la souris (SortableJS, init plus bas). data-id sert à relire
     // l'ordre après un déplacement.
     row.dataset.id = x.id;
@@ -80,17 +82,18 @@ async function loadPresets(){
     const meta=document.createElement('div'); meta.className='preset-meta';
     // Preset externe : le modèle distant à la place des tags quant/ctx.
     if(x.external){
+      if(x.service){
+        const st=document.createElement('span'); st.className='ctag';
+        st.textContent=t('preset.run_service');
+        meta.appendChild(st);
+      }
       if(x.model){
         const mt=document.createElement('span'); mt.className='ctag';
         mt.title=t('settings.presets.external_model_title'); mt.textContent=x.model;
         meta.appendChild(mt);
       }
     } else {
-      if(x.cloud){
-        const c=document.createElement('span'); c.className='ctag';
-        c.title=t('settings.presets.cloud_title'); c.textContent='Modal '+x.cloud;
-        meta.appendChild(c);
-      }
+
       if(x.quant){
         const q=document.createElement('span'); q.className='qtag';
         q.textContent=x.quant; q.title=t('settings.presets.quant_title');
@@ -139,8 +142,9 @@ async function loadPresets(){
     // lit comme centrée dans son coin, là où le crayon penché tirait de travers.
     edit.className='preset-edit'; edit.title=t('settings.presets.edit_title');
     edit.innerHTML='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>';
-    // modèle du moteur MoE : sa propre fenêtre (réglages qui le concernent), pas l'éditeur llama.cpp
-    edit.onclick=(e)=>{ e.stopPropagation(); x.moe ? openMoe(x.id) : openPreset(x.id); };
+    edit.onclick=(e)=>{ e.stopPropagation(); openPreset(x.id); };
+    // Preset d'un moteur retiré en 0.20 (MoE, ExLlama) : grisé, avec la raison.
+    if(x.removed_engine){ row.classList.add('preset-removed'); row.title=t('settings.presets.removed_engine').replace('{engine}', x.removed_engine); }
     // Pas de poignée : la ligne entière est déplaçable, on attrape où on veut.
     row.appendChild(info); row.appendChild(edit);
     cont.appendChild(row);
@@ -359,7 +363,7 @@ async function backupRestore(){
 // les outils mem_* ni les outils web ne sont fournis (voir globalCaps côté Go). On
 // grise donc ces blocs quand l'agent est off pour que l'UI ne mente pas.
 function setAgentGate(on){
-  ['mem-block','net-block','cu-block','mcp-block'].forEach(id=>{
+  ['mem-block','cu-block','mcp-block'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.classList.toggle('gated', !on);
   });
   // « Paramètres » n'a plus de wrapper gaté (la notification y cohabite mais reste
@@ -434,9 +438,8 @@ async function moveMemUI(name, anchor){
 // alias : plusieurs appelants rafraîchissent juste la liste des pages mémoire
 const loadMem = loadAgent;
 // Active l'agent de la machine (Projet / Rapide choisis alors qu'il est coupé).
-// Même confirmation que l'ancien interrupteur : c'est un accès shell complet.
+// Sans confirmation : ces accès font partie du fonctionnement normal d'AJEAN.
 async function enableAgent(){
-  if(!await askConfirm(t('settings.agent.enable_confirm_msg'), {title:t('settings.agent.enable_confirm_title'), okText:t('settings.agent.enable_ok'), danger:true})) return false;
   await jpost('/api/agent/toggle',{on:true});
   await loadAgent();
   return true;
@@ -473,15 +476,6 @@ async function setMemMode(mode){
   const r=await jpost('/api/memory',{mode, project: MEM_VIEW_PROJECT||''});
   setMemModeUI(r.mode||mode);
 }
-// Accès internet : le moteur web intégré, rien à configurer, juste l'interrupteur.
-let internetOn=false;
-function renderInternet(s){
-  internetOn = !!s.enabled;
-  document.getElementById('internet-toggle').checked = internetOn;
-  const st=document.getElementById('internet-status');
-  st.textContent=t('settings.internet.builtin_engine_status');
-}
-async function loadInternet(){ renderInternet(await jget('/api/internet')); }
 // Computer use : pilotage d'un navigateur de l'hôte (outils cu_*). La pastille ne
 // signale que l'anomalie — activé mais aucun navigateur détecté sur la machine.
 function renderComputer(s){
@@ -668,10 +662,7 @@ async function apiKeySet(){
   OAI_REVEAL=true; toast(t('settings.applying'));
   renderApiKey(await jpost('/api/apikey', {action:'set', key:k.trim()}));
 }
-async function toggleInternet(){
-  const on=document.getElementById('internet-toggle').checked;
-  renderInternet(await jpost('/api/internet',{enabled:on}));
-}
+
 // Navigateur des liens externes cliqués dans l'interface. Réglage partagé entre
 // appareils (/api/prefs) mais écrit à part de savePrefs() : celui-ci poste tout le
 // jeu connu à chaque changement de thème, et écraserait donc, sur un appareil au
@@ -709,13 +700,30 @@ async function loadAll(){
   // allSettled et pas all : un seul chargement en échec (accès distant coupé,
   // clé API absente…) ne doit pas empêcher la suite — et surtout pas laisser les
   // hauteurs réservées en place pour toujours.
-  await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadComputer(),loadMCP(),loadApiKey(),loadNetwork(),loadPrefs(),loadOpen(),loadLlamacpp(),loadMoe(),loadExl3(),loadRemote(),loadTasks()]);
+  await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadAgent(),loadComputer(),loadMCP(),loadApiKey(),loadNetwork(),loadPrefs(),loadOpen(),loadEngine(),loadSTT(),loadRemote(),loadTasks()]);
   releaseHeights(); // tout est en place : on rend la main et on mesure pour la prochaine fois
 }
 // Démarrer / arrêter / redémarrer le moteur. On REMONTE l'erreur si le serveur répond
 // {ok:false} (issue #88 : avant, l'échec — ex. « Accès refusé » sur le log — était avalé
 // et l'UI affichait juste « start… » sans jamais dire pourquoi le moteur ne chargeait pas).
-async function act(a){
+// Bouton « moteur » dans le pied de l'éditeur du preset ACTIF : un menu pour
+// l'arrêter ou le redémarrer (le démarrer s'il est arrêté), et copier la
+// commande exacte du dernier lancement. Remplace la section « Moteur » du menu.
+function togglePowerMenu(ev){
+  ev.stopPropagation();
+  const on = ENGINE_ON !== false;
+  document.getElementById('pw-start').style.display = on ? 'none' : '';
+  document.getElementById('pw-restart').style.display = on ? '' : 'none';
+  document.getElementById('pw-stop').style.display = on ? '' : 'none';
+  toggleMenu(document.getElementById('power-menu'), document.getElementById('btn-power'), {side:'above', align:'left'});
+}
+function powerAct(a){ closeMenu(); act(a); }
+async function powerCopyCmd(){
+  closeMenu();
+  const cl = await jget('/api/engine/cmdline').catch(()=>null);
+  if(!cl || !cl.cmdline){ toast(t('preset.power_no_cmd')); return; }
+  copyText(cl.cmdline, t('status.cmdline_copied'));
+}async function act(a){
   toast(a+'…');
   let r;
   try{ r = await jpost('/api/'+a); }

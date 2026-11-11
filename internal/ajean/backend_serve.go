@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -58,20 +59,17 @@ func binHelp(bin string) (string, bool) {
 	return out.String(), true
 }
 
-// backendUsesLoadMode dit si le BIN donné attend la NOUVELLE syntaxe
+// backendUsesLoadMode dit si le moteur installé attend la NOUVELLE syntaxe
 // « --load-mode » (et a donc potentiellement retiré --mlock / --no-mmap).
 // Résultat mémoïsé par chemin+mtime du binaire : handleStatus est sondé souvent,
 // on ne relance pas « --help » à chaque fois (un seul spawn par binaire).
 var loadModeCapCache sync.Map // clé "chemin\x00mtime" -> bool
 
-func backendUsesLoadMode(bin string) bool {
+func backendUsesLoadMode() bool {
+	bin := engineBin()
 	if bin == "" {
 		return false
 	}
-	if !filepath.IsAbs(bin) {
-		bin = filepath.Join(AjeanHome(), bin)
-	}
-	bin = prebuiltResolveBin(bin)
 	key := bin
 	if fi, err := os.Stat(bin); err == nil {
 		key = fmt.Sprintf("%s\x00%d", bin, fi.ModTime().UnixNano())
@@ -218,27 +216,22 @@ func containsAny(args []string, needles ...string) bool {
 // llama-server invocation, and exec it (replacing this process so systemd
 // supervises llama-server directly).
 func cmdServe(args []string) error {
+	migrateFrom019() // avant de lire la config : une installation 0.19 la fait repartir d'un preset
 	cfg := ReadConfig()
-	// GPU Cloud : même port, même API, mais le modèle tourne chez Modal.
-	if isCloudConfig(cfg) {
-		return serveCloudProxy(cfg)
-	}
+
 	// API externe : aucun moteur local. On sort SANS erreur, sinon systemd
 	// (Restart=on-failure) relance en boucle — et chaque relance arrêterait le
 	// moteur tiers du preset (EXTERNAL_SERVICE), déclaré en conflit avec nous.
+	// Service système : la commande du preset tourne à la place de llama-server.
+	if cmd := serviceCmdOf(cfg); cmd != "" {
+		return serveServiceCmd(cfg, cmd)
+	}
 	if isExternalConfig(cfg) {
 		fmt.Println("[info] preset externe actif : pas de moteur local à lancer")
 		return nil
 	}
-	if isMoeConfig(cfg) {
-		return serveMoe(cfg)
-	}
-	if isExl3Config(cfg) {
-		return serveExl3(cfg)
-	}
-	bin := cfg["BIN"]
-	if bin == "" {
-		return fmt.Errorf("BIN non défini — lance « ajean edit »")
+	if name := removedEngine(cfg); name != "" {
+		return removedEngineError(name)
 	}
 	model := cfg["MODEL"]
 	if model == "" {
@@ -265,13 +258,17 @@ func cmdServe(args []string) error {
 		return fmt.Errorf("modèle incomplet : il manque %s dans %s — ce modèle tient en %d fichiers, télécharge-les tous",
 			strings.Join(missing, ", "), filepath.Dir(model), len(shardFamily(filepath.Base(model))))
 	}
-	if !filepath.IsAbs(bin) {
-		bin = filepath.Join(AjeanHome(), bin)
+	// Le moteur : le llama-server de la version épinglée par cette version
+	// d'AJEAN (voir engine.go). Il n'y a rien à configurer ; s'il manque (première
+	// installation, ou mise à jour d'AJEAN qui change de version de llama.cpp),
+	// il est installé ici, avant de charger le modèle.
+	bin, err := engineEnsure(
+		func(s string) { fmt.Fprintln(os.Stderr, "[ajean serve]   "+s) },
+		func(s string) { fmt.Fprintln(os.Stderr, "[ajean serve] moteur : "+s) },
+	)
+	if err != nil {
+		return fmt.Errorf("moteur llama.cpp indisponible : %w", err)
 	}
-	// Le moteur précompilé s'installe dans un dossier versionné : un preset écrit
-	// avant une mise à jour pointe sur une release qui n'existe plus. On le fait
-	// suivre au moteur courant plutôt que d'échouer en 127.
-	bin = prebuiltResolveBin(bin)
 
 	// Make sure llama-server can find its bundled shared libraries (the .so/.dll
 	// neighbours of the binary). This is platform-specific: LD_LIBRARY_PATH on
@@ -300,8 +297,6 @@ func cmdServe(args []string) error {
 		"-m", model,
 		"-ngl", get("NGL", "999"),
 		"-c", get("CTX", "32768"),
-		"-t", get("THREADS", "0"),
-		"-tb", get("THREADS_BATCH", "0"),
 		"-b", get("BATCH", "2048"),
 		"-ub", get("UBATCH", "512"),
 		// Une seule séquence par défaut : au-delà, llama-server DIVISE le contexte
@@ -312,6 +307,15 @@ func cmdServe(args []string) error {
 		"-np", get("NP", "1"),
 		"--host", get("HOST", "0.0.0.0"),
 		"--port", get("PORT", "8080"),
+	}
+	// Threads : on ne les passe que si le preset en fixe. « 0 » passé tel quel
+	// fait prendre à llama-server TOUS les cœurs logiques, alors que sans
+	// l'argument il choisit lui-même (les cœurs performants sur un processeur
+	// hybride), ce qui est plus rapide. Comme Ollama : sans réglage, le moteur décide.
+	for _, kf := range [][2]string{{"THREADS", "-t"}, {"THREADS_BATCH", "-tb"}} {
+		if n, err := strconv.Atoi(strings.TrimSpace(cfg[kf[0]])); err == nil && n > 0 {
+			llmArgs = append(llmArgs, kf[1], strconv.Itoa(n))
+		}
 	}
 	if ktv != "" {
 		llmArgs = append(llmArgs, "-ctk", ktv)
@@ -412,7 +416,7 @@ func cmdServe(args []string) error {
 	if err := waitPortFree(host, port, 5*time.Second); err != nil {
 		return err
 	}
-	warnKVPrebuilt(bin, ktv, vtv)
+	warnKVCuda(ktv, vtv)
 
 	fmt.Fprintf(os.Stderr, "[ajean serve] %s  model=%s  port=%s\n",
 		bin, filepath.Base(model), port)
@@ -489,14 +493,13 @@ func waitPortFree(host, port string, wait time.Duration) error {
 	}
 }
 
-// fastKVPrebuilt : combinaisons K/V que le llama.cpp PRÉCOMPILÉ officiel (CUDA)
-// accélère en Flash-Attention (GGML_CUDA_FA_QUANTS par défaut). Les autres
-// (q5_*, combos mixtes) marchent mais sont reconverties en f16 à chaque pas :
-// lent (issue #90). Notre compilation locale active FA_ALL_QUANTS, pas concernée.
-var fastKVPrebuilt = map[string]bool{"f16|f16": true, "q8_0|q8_0": true, "q4_0|q4_0": true, "bf16|bf16": true}
+// fastKVCuda : combinaisons K/V que le llama.cpp officiel (CUDA) accélère en
+// Flash-Attention (GGML_CUDA_FA_QUANTS par défaut). Les autres (q5_*, combos
+// mixtes) marchent mais sont reconverties en f16 à chaque pas : lent (issue #90).
+var fastKVCuda = map[string]bool{"f16|f16": true, "q8_0|q8_0": true, "q4_0|q4_0": true, "bf16|bf16": true}
 
-func warnKVPrebuilt(bin, k, v string) {
-	if _, cudaVer := prebuiltVersion(); !prebuiltOwns(bin) || cudaVer == "" || cudaVer[0] < '0' || cudaVer[0] > '9' {
+func warnKVCuda(k, v string) {
+	if e := engineInstalled(); e == nil || e.Variant != "cuda" {
 		return
 	}
 	if k == "" {
@@ -505,8 +508,8 @@ func warnKVPrebuilt(bin, k, v string) {
 	if v == "" {
 		v = "f16"
 	}
-	if !fastKVPrebuilt[k+"|"+v] {
-		fmt.Fprintf(os.Stderr, "[ajean serve] avertissement : cache KV %s/%s non accéléré par le llama.cpp précompilé "+
-			"(converti en f16 à chaque pas, lent). Préfère q8_0, q4_0 ou f16, ou compile llama.cpp localement.\n", k, v)
+	if !fastKVCuda[k+"|"+v] {
+		fmt.Fprintf(os.Stderr, "[ajean serve] avertissement : cache KV %s/%s non accéléré par le moteur CUDA "+
+			"(converti en f16 à chaque pas, lent). Préfère q8_0, q4_0 ou f16.\n", k, v)
 	}
 }

@@ -21,7 +21,10 @@ func main() {
 	}
 	// Les tailles attendues par l'explorateur Windows, de la barre des tâches à
 	// l'aperçu en grandes icônes.
-	write(out, ajean.BrandICO(16, 32, 48, 64, 128, 256))
+	// 20, 24 et 40 px : la barre des tâches à 125 %, 150 % et 250 % d'échelle.
+	// Sans elles Windows réduit ou agrandit une taille voisine, et l'icône est
+	// floue à côté de celles des autres applications.
+	write(out, ajean.BrandICO(16, 20, 24, 32, 40, 48, 64, 96, 128, 256))
 
 	// PNG 1024 pour le bundle macOS : la CI en tire le .icns via sips/iconutil.
 	// Elle partait auparavant du .ico, ce qui suppose que sips sache lire un ICO —

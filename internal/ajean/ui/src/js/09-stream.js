@@ -152,11 +152,9 @@ function ensureGenEl(){
     // lignes figées coexistent dans le fil, une par tour terminé.
     GENEL.innerHTML='<svg class="jlogo" viewBox="0 0 12 12" aria-hidden="true"><rect x="6" y="3" width="2" height="2"/><rect x="6" y="5" width="2" height="2"/><rect x="4" y="7" width="2" height="2"/></svg><span class="jact"></span><span class="gtxt"></span>'; }
   if(GENEL.parentNode!==chat || chat.lastElementChild!==GENEL) chat.appendChild(GENEL); // toujours en dernier
-  // Mode Jean : son avatar prend la place du logo, à gauche de ce qu'il fait.
-  if(MODE==='jean' && !REPLAYING && !CHAT_TARGET) JeanAvatar&&JeanAvatar.attach(GENEL);
   return GENEL;
 }
-function removeGenEl(){ if(GENEL&&GENEL.parentNode) GENEL.parentNode.removeChild(GENEL); GENEL=null; if(!CHAT_TARGET) JeanAvatar&&JeanAvatar.detach(); }
+function removeGenEl(){ if(GENEL&&GENEL.parentNode) GENEL.parentNode.removeChild(GENEL); GENEL=null; }
 // Vitesse decode STABLE en direct, basée sur les HORODATAGES SERVEUR des tokens
 // (d.ts), pas l'heure d'arrivée côté client : les ts serveur reflètent le vrai
 // rythme de génération et ignorent la bufferisation réseau/MTP (qui rendait la
@@ -207,11 +205,7 @@ function paintGenStatus(){
   const g=ensureGenEl(); const txt=g.querySelector('.gtxt');
   const secs=(Date.now()-ELAPSED.start)/1000;
   const tok=genTokCount();
-  // GPU Cloud pas encore prêt : on dit ce qui se passe au lieu d'un silence.
-  let extra='';
-  if(tok===0 && CLOUD_PHASE && CLOUD_PHASE!=='ready'){
-    extra=t(CLOUD_PHASE==='downloading' ? 'chat.cloud_downloading' : CLOUD_PHASE==='loading' ? 'chat.cloud_loading' : 'chat.cloud_waking');
-  }
+  const extra='';
   paintGenParts(txt, genItems(secs, tok, tok>0?genRate():null, activePresetName(), extra));
   scrollMaybe();
 }
@@ -237,7 +231,7 @@ function jeanActFor(name){
 function setJeanAct(k, txt){
   const id=k+' '+(txt||'');
   if(MODE!=='jean' || REPLAYING || id===JACT) return;
-  JACT=id; JeanAvatar&&JeanAvatar.act(k);
+  JACT=id;
   const a=GENEL && GENEL.querySelector('.jact'); if(!a) return;
   a.textContent=txt || (k ? t(k) : '');
   a.classList.remove('jact-in'); void a.offsetWidth; if(k) a.classList.add('jact-in'); // fondu à chaque changement d'activité
@@ -245,7 +239,6 @@ function setJeanAct(k, txt){
 // Tâche de Jean en cours : même ligne animée, dans le fil Jean, hors de tout tour.
 // Le serveur publie {name, tool} à chaque étape puis {done}.
 function showJeanTask(j){
-  if(!REPLAYING) j.done ? JeanAvatar&&JeanAvatar.done() : JeanAvatar&&JeanAvatar.act(j.tool ? jeanActFor(j.tool) : 'jean.act_work');
   if(j.done){ if(!ELAPSED) removeGenEl(); return; }
   const g=ensureGenEl(), a=g.querySelector('.jact'), x=g.querySelector('.gtxt');
   const txt=j.tool ? t(jeanActFor(j.tool)) : t('jean.act_task_run').replace('{name}', j.name||'');
@@ -337,7 +330,8 @@ function finalizeTurn(elapsedMs, preset){
   // rechargement), avec repli sur le preset courant pour les vieux journaux sans l'info.
   const pr=(preset!==undefined && preset!==null) ? preset : activePresetName();
   if(!(elapsedMs>0) && !(tok>0) && !(pr && !viewOn('hide-preset'))){ removeGenEl(); scrollMaybe(true); return; }
-  const items=genItems(elapsedMs/1000, tok, rate, pr, '');
+  // Niveau de réflexion du preset refusé par le fournisseur : dit ici, une fois par tour.
+  const items=genItems(elapsedMs/1000, tok, rate, pr, st.reasoning_ignored ? t('chat.reason_ignored') : '');
   if(!(elapsedMs>0)) items.shift();
   const g=ensureGenEl();
   // Tour fini : on vide le mot d'activité (« Retient ça… »). La ligne reste dans le
@@ -345,7 +339,7 @@ function finalizeTurn(elapsedMs, preset){
   // cachait la ligne de métriques (durée · tokens · t/s). Correctif de la PR #173.
   const act=g.querySelector('.jact'); if(act){ act.textContent=''; act.classList.remove('jact-in'); }
   paintGenParts(g.querySelector('.gtxt'), items);
-  GENEL=null; if(!CHAT_TARGET) JeanAvatar&&JeanAvatar.detach();
+  GENEL=null;
   scrollMaybe(true); // révèle la fin (et cette ligne) même sur un fil à peine défilable
 }
 function removeTyping(){ if(T.typingEl){ T.typingEl.remove(); T.typingEl=null; } }
@@ -584,7 +578,6 @@ function handleDelta(d){
     // (génération coupée → pas de turn_done), on décolle le voile resté bloqué.
     reconcileBusy(true);
     // Fil reconstruit : l'avatar de Jean reprend sa place sur la dernière ligne.
-    JeanAvatar&&JeanAvatar.detach();
     // Fil vide : aucune bulle n'a été rejouée, donc aucune mutation ne viendra
     // déclencher la synchro — c'est ici qu'on décide d'afficher l'accueil.
     syncChatEmpty();
@@ -619,7 +612,6 @@ function handleDelta(d){
     if(d.files && !hasMsgFiles(el)) addMsgFiles(el, d.files);
     TURN_ENDED=false; setBusy(true); T.typingEl=addTyping(); elapsedStart(); return; }
   if(d.turn_done){ TURN_ENDED=true; hideCuShot(); smoothSnap(); flushRender();
-    if(MODE==='jean' && !REPLAYING) JeanAvatar&&JeanAvatar.done();
     // MÊME ligne en direct et au replay : durée serveur (elapsed_ms, rejouée) +
     // mesures serveur. removeTyping AVANT finalize pour que la ligne soit bien le
     // dernier enfant du fil (donc sous le message).
@@ -630,7 +622,7 @@ function handleDelta(d){
   if(d.jean_task){ showJeanTask(d.jean_task); return; }
   // Message que Jean envoie de lui-même (tâche, rappel) : une bulle de réponse
   // ordinaire, hors de tout tour.
-  if(d.jean_post){ removeTyping(); renderBody(addMsg('assistant',''), d.jean_post); if(!REPLAYING) JeanAvatar&&JeanAvatar.done(); return; }
+  if(d.jean_post){ removeTyping(); renderBody(addMsg('assistant',''), d.jean_post); return; }
   if(d.compacting!==undefined){ setCompacting(d.compacting); return; }
   if(d.compacted){ setCompacting(false); addCompactMark(); return; }
   if(d.ctx_cleared){ addCompactMark(t('jean.ctx_cleared_mark')); return; }
@@ -705,7 +697,6 @@ function handleDelta(d){
     return; }
   if(d.content){
     removeTyping(); setJeanAct('');
-    if(MODE==='jean' && !REPLAYING) JeanAvatar&&JeanAvatar.speak(d.toks||1);
     if(!T.contentEl){ setActive(null); collapseAll(T.turnCollapsibles); T.contentEl=addMsg('assistant',''); T.fullContent=''; }
     if(d.replace){ smoothSnap(); T.fullContent=''; T.contentTok=0; T.contentFirstTs=0; }
     T.fullContent+=d.content; feedBlock(T.contentEl, T.fullContent);
@@ -1005,8 +996,6 @@ async function send(){
   // Garde-fou : le bouton est déjà désactivé, mais l'Entrée passe aussi par ici.
   if(STATUS_SEEN && !MODEL_READY){ toast(t('chat.model_not_ready')); return; }
   const ta=document.getElementById('input'); const text=ta.value.trim();
-  // Message dicté par le mode vocal (24-jean-voice.js) : réponse à l'oral côté serveur.
-  const voiceTurn=!!window.VOICE_SEND; window.VOICE_SEND=false;
   // Un envoi sans texte est légitime s'il porte une pièce jointe (« tiens, regarde »).
   if(!text && !ATTACH.length) return;
   ta.value=''; autoGrow(ta); syncSendBtn();
@@ -1024,7 +1013,7 @@ async function send(){
   if(entry) addMsgFiles(entry.el, attachSent());
   for(let attempt=0; attempt<3; attempt++){
     try{
-      const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,files:files,ctx_used:CTX_USED,mode:MODE,tz:USER_TZ,voice:voiceTurn})});
+      const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,files:files,ctx_used:CTX_USED,mode:MODE,tz:USER_TZ})});
       if(r.status===409 || r.ok) clearAttach();
       if(r.status===409) return;               // déjà en cours (notre envoi a abouti) → OK
       if(r.ok) return;                          // la bulle + les tokens arrivent par le flux
@@ -1057,14 +1046,16 @@ setInterval(loadTelemetry, 3000);
 //             fiches, journal), hors projets.
 // Projet et Rapide exigent l'agent de la MACHINE : s'il est coupé, les choisir
 // demande confirmation puis l'active (voir enableAgent).
-// Mode par défaut : Rapide (ordre du menu : Rapide, Projet, Jean, Modèle de base).
-let MODE='fast', AGENT_ON=false;
+// Deux modes : Projet (par défaut) et Jean. Les modes Rapide et Modèle de base
+// ont été retirés en 0.20 : un appareil qui y était réglé passe en Projet, et
+// leurs anciennes conversations restent dans l'historique.
+let MODE='project', AGENT_ON=false;
 // Fuseau du navigateur, envoyé avec chaque message : le serveur (souvent en UTC)
 // date ainsi tâches et notes à l'heure de l'utilisateur.
 const USER_TZ=(()=>{ try{ return Intl.DateTimeFormat().resolvedOptions().timeZone||''; }catch(_){ return ''; } })();
-try{ MODE=localStorage.getItem('ajean-mode') || 'fast'; }catch(e){}
-if(!['project','fast','base','jean'].includes(MODE)) MODE='fast';
-const MODE_KEYS={project:'chat.mode_project',fast:'chat.mode_fast',base:'chat.mode_base',jean:'chat.mode_jean'};
+try{ MODE=localStorage.getItem('ajean-mode') || 'project'; }catch(e){}
+if(!['project','jean'].includes(MODE)) MODE='project';
+const MODE_KEYS={project:'chat.mode_project',jean:'chat.mode_jean'};
 function saveMode(){ try{ localStorage.setItem('ajean-mode',MODE); }catch(e){} }
 function applyFastBtn(){
   const l=document.getElementById('mode-btn-label'); if(!l) return;
@@ -1073,10 +1064,10 @@ function applyFastBtn(){
   // Icône du mode (reprise du menu des modes).
   const ic=document.getElementById('mode-btn-ic'), src=document.querySelector('#mode-menu button[data-mode="'+MODE+'"] .mm-ic');
   if(ic && src) ic.innerHTML=src.outerHTML;
-  // Rapide et Modèle de base ignorent les projets : la bulle projet se replie.
+  // Jean ignore les projets : la bulle projet se replie.
   document.body.classList.toggle('fast-mode',MODE!=='project');
   document.body.classList.toggle('jean-mode',MODE==='jean');
-  // L'historique suit le mode : conversations rapides en Rapide / base, sinon le projet.
+  // L'historique suit le mode : la conversation de Jean, sinon le projet.
   histHeadLabel();
   if(typeof loadHistory==='function' && APPLIED_MODE!==MODE){ APPLIED_MODE=MODE; loadHistory(); }
 }
@@ -1087,8 +1078,8 @@ function histHeadLabel(){
   if(ic && !ic._folder) ic._folder=ic.innerHTML;
   const jean=MODE==='jean';
   document.body.classList.toggle('hist-jean', jean);
-  if(jean||MODE==='fast'||MODE==='base'){
-    // Rapide : l'éclair ; Jean : son icône (reprises du menu des modes).
+  if(jean){
+    // Jean : son icône (reprise du menu des modes).
     hl.textContent=t(MODE_KEYS[MODE]);
     const src=document.querySelector('#mode-menu button[data-mode="'+MODE+'"] svg.mm-ic');
     if(ic && src){ const s=src.cloneNode(true); s.removeAttribute('class'); s.setAttribute('width','13'); s.setAttribute('height','13'); ic.replaceChildren(s); }
@@ -1098,12 +1089,9 @@ function histHeadLabel(){
   const p=(typeof PROJECTS!=='undefined'?PROJECTS:[]).find(x=>x.slug===ACTIVE_PROJECT);
   hl.textContent=p?p.name:t('projects.projects');
 }
-// Agent de la machine coupé : Projet / Rapide ne peuvent pas tourner, l'appareil
-// affiche donc ce qui se passe réellement (Modèle de base).
-function syncModeWithAgent(){
-  if(!AGENT_ON && MODE!=='base'){ MODE='base'; saveMode(); }
-  applyFastBtn();
-}
+// L'agent est actif d'office (voir agentEnabled côté serveur) : le mode affiché
+// ne dépend plus de lui. Gardé pour les appelants qui rafraîchissent le sélecteur.
+function syncModeWithAgent(){ applyFastBtn(); }
 // Changement de mode animé : le libellé s'efface, la bulle glisse vers sa
 // nouvelle largeur, le nouveau libellé réapparaît.
 function swapModeLabel(){
@@ -1124,7 +1112,7 @@ function swapModeLabel(){
 async function pickMode(m){
   closeModeMenu();
   if(m===MODE || !MODE_KEYS[m]) return;
-  if(m!=='base' && !AGENT_ON && !await enableAgent()) return;
+  if(!AGENT_ON && !await enableAgent()) return; // coupé à la main (ajean agent off) : on le rallume
   const prev=MODE;
   MODE=m; saveMode();
   swapModeLabel();

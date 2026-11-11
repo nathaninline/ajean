@@ -4,11 +4,12 @@ package ajean
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -101,19 +102,17 @@ func totalRAMGB() float64 {
 	return 0
 }
 
-// setLibraryPath ensures llama-server can load shared libs bundled next to the
-// binary by prepending dir to LD_LIBRARY_PATH. It also appends the CUDA runtime
-// lib directories: a CUDA-enabled build links against libcudart/libcublas, which
-// live under /usr/local/cuda*/lib64 and are often absent from the global ld
-// cache — without them llama-server fails to load the GPU backend (or runs
-// degraded), costing a large chunk of throughput.
+// setLibraryPath permet à llama-server de charger ses bibliothèques partagées :
+// celles livrées à côté du binaire, celles de la variante GPU livrées avec le
+// moteur (cudart, cublas), puis celles d'un toolkit CUDA/ROCm de la machine s'il
+// y en a un.
 // Sur macOS, dyld IGNORE LD_LIBRARY_PATH : la variable équivalente est
 // DYLD_LIBRARY_PATH. Les binaires macOS des releases llama.cpp sont livrés avec
 // leurs libllama/libggml*.dylib À CÔTÉ de l'exécutable — sans cette variable,
 // llama-server meurt instantanément sur « Library not loaded », donc sans le
 // moindre message dans l'UI.
 func setLibraryPath(dir string) {
-	envVar, joined := libraryPathValue(dir)
+	envVar, joined := libraryPathValue(dir, engineLibDirsFor(dir))
 	_ = os.Setenv(envVar, joined)
 	if runtime.GOOS == "darwin" {
 		// Filet de sécurité : DYLD_FALLBACK_LIBRARY_PATH est consulté en dernier
@@ -126,9 +125,9 @@ func setLibraryPath(dir string) {
 // l'environnement du process : utilisé pour lancer un llama-server ÉPHÉMÈRE
 // (ex. `--list-devices` depuis l'UI) sans polluer — ni faire grossir à chaque
 // appel — le LD_LIBRARY_PATH du serveur web lui-même.
-func libraryPathValue(dir string) (string, string) {
-	parts := []string{dir}
-	parts = append(parts, cudaLibDirs()...)
+func libraryPathValue(dir string, extra []string) (string, string) {
+	parts := append([]string{dir}, extra...)
+	parts = append(parts, gpuToolkitLibDirs()...)
 	envVar := "LD_LIBRARY_PATH"
 	if runtime.GOOS == "darwin" {
 		envVar = "DYLD_LIBRARY_PATH"
@@ -142,13 +141,21 @@ func libraryPathValue(dir string) (string, string) {
 // libraryPathEnv renvoie un environnement complet (os.Environ + la variable de
 // recherche de bibliothèques) pour une commande ponctuelle.
 func libraryPathEnv(dir string) []string {
-	k, v := libraryPathValue(dir)
+	return libraryPathEnvWith(dir, engineLibDirsFor(dir))
+}
+
+// libraryPathEnvWith : variante qui reçoit les dossiers de bibliothèques, pour
+// sonder un moteur pas encore installé (voir engineProbe).
+func libraryPathEnvWith(dir string, extra []string) []string {
+	k, v := libraryPathValue(dir, extra)
 	return append(os.Environ(), k+"="+v)
 }
 
-// cudaLibDirs returns the CUDA runtime lib directories present on the machine,
-// preferring the highest-versioned install. Empty when no CUDA toolkit is found.
-func cudaLibDirs() []string {
+// gpuToolkitLibDirs : dossiers de bibliothèques d'un toolkit CUDA ou ROCm
+// installé sur la machine, souvent absents du cache du linker. Placés APRÈS les
+// bibliothèques livrées avec le moteur : ils ne servent que de complément (la
+// variante ROCm s'appuie sur le ROCm du système).
+func gpuToolkitLibDirs() []string {
 	var dirs []string
 	seen := map[string]bool{}
 	add := func(d string) {
@@ -157,104 +164,24 @@ func cudaLibDirs() []string {
 			dirs = append(dirs, d)
 		}
 	}
-	// Default symlink first (usually points at the active toolkit).
 	add("/usr/local/cuda/lib64")
 	add("/usr/local/cuda/targets/x86_64-linux/lib")
-	// Installs versionnés, du plus récent au plus ancien (tri sémantique : le plus
-	// récent doit primer, et cuda-12.10 > cuda-12.4, ce qu'un tri de chaînes rate).
+	// Installs versionnés, du plus récent au plus ancien (tri sémantique :
+	// cuda-12.10 > cuda-12.4, ce qu'un tri de chaînes rate).
 	versioned, _ := filepath.Glob("/usr/local/cuda-*/lib64")
 	sortByVersionDesc(versioned)
 	for _, d := range versioned {
 		add(d)
 	}
 	// Toolkit hors /usr/local (Arch : /opt/cuda, ou CUDA_PATH / CUDA_HOME).
-	if nvcc := unixCudaToolkitNvcc(); nvcc != "" {
-		root := filepath.Dir(filepath.Dir(nvcc))
-		add(filepath.Join(root, "lib64"))
-		add(filepath.Join(root, "targets", "x86_64-linux", "lib"))
+	for _, root := range []string{os.Getenv("CUDA_PATH"), os.Getenv("CUDA_HOME"), "/opt/cuda"} {
+		if root != "" {
+			add(filepath.Join(root, "lib64"))
+		}
 	}
+	add("/opt/rocm/lib")
 	return dirs
 }
-
-// autoInstallTool installs a missing build tool with the system package manager
-// (apt/dnf/pacman on Linux, brew on macOS). Best-effort: returns an error when no
-// known manager is available or the install fails. Uses sudo on Linux when not
-// already root (brew refuses to run as root).
-func autoInstallTool(name string) error {
-	managers := []struct {
-		bin     string
-		install []string // args before the package name
-	}{
-		{"apt-get", []string{"install", "-y"}},
-		{"dnf", []string{"install", "-y"}},
-		{"pacman", []string{"-S", "--noconfirm"}},
-		{"brew", []string{"install"}},
-	}
-	for _, m := range managers {
-		if _, err := exec.LookPath(m.bin); err != nil {
-			continue
-		}
-		argv := append(append([]string{m.bin}, m.install...), name)
-		if m.bin != "brew" && os.Geteuid() != 0 {
-			if _, err := exec.LookPath("sudo"); err != nil {
-				return fmt.Errorf("%s requiert root (ni root ni sudo disponibles)", m.bin)
-			}
-			argv = append([]string{"sudo"}, argv...)
-		}
-		cmd := exec.Command(argv[0], argv[1:]...)
-		cmd.Stdout, cmd.Stderr, cmd.Stdin = os.Stdout, os.Stderr, os.Stdin
-		return cmd.Run()
-	}
-	return fmt.Errorf("aucun gestionnaire de paquets connu — installe %s manuellement", name)
-}
-
-// ensureCompiler makes sure a C/C++ toolchain (cc + c++ + make) is present,
-// installing it via the system package manager when missing. build-essential on
-// Debian/Ubuntu pulls the lot; elsewhere we fall back to individual packages.
-func ensureCompiler() error {
-	haveCC := hasTool("cc") || hasTool("gcc") || hasTool("clang")
-	haveCXX := hasTool("c++") || hasTool("g++") || hasTool("clang++")
-	if haveCC && haveCXX && hasTool("make") {
-		return nil
-	}
-	candidates := []string{"build-essential", "gcc", "g++", "make"}
-	if _, err := exec.LookPath("apt-get"); err != nil {
-		// Non-Debian: build-essential n'existe pas, on vise les paquets directs.
-		candidates = []string{"gcc", "gcc-c++", "make"}
-	}
-	fmt.Println(yellow("[info]") + " compilateur C/C++ absent — installation via le gestionnaire de paquets…")
-	for _, pkg := range candidates {
-		_ = autoInstallTool(pkg) // best-effort, paquets variables selon la distro
-	}
-	if (hasTool("cc") || hasTool("gcc")) && (hasTool("c++") || hasTool("g++")) && hasTool("make") {
-		fmt.Println(green("✓") + " compilateur C/C++ prêt.")
-		return nil
-	}
-	return fmt.Errorf("compilateur C/C++ introuvable — installe gcc/g++/make (ou build-essential) manuellement")
-}
-
-// cudaPathEnv is Windows-specific (the MSBuild CUDA integration needs CUDA_PATH);
-// on Unix the Makefiles/Ninja generators find nvcc via PATH/CUDACXX, so there's
-// nothing extra to inject.
-func cudaPathEnv(toolkitDir string) []string { return nil }
-
-// ensureCudaVSIntegration is Windows-specific (MSBuild CUDA integration check);
-// no-op on Unix.
-func ensureCudaVSIntegration(toolkitDir string) error { return nil }
-
-// msvcDevEnv is Windows-specific (the Ninja generator needs the MSVC environment
-// from vcvars). On Unix the toolchain is already on PATH, so there's nothing to
-// inject. Present only so the shared build code compiles.
-func msvcDevEnv() ([]string, error) { return nil, nil }
-
-// ensureAccelerator is a no-op on Unix: CUDA/ROCm toolkits are installed through
-// the distro (their layout is already probed by findNvcc / detectBuildPlan), and
-// auto-installing multi-GB GPU toolkits across distros is too varied to do safely.
-func ensureAccelerator() {}
-
-// refreshToolPath is a no-op on Unix: package managers install into directories
-// already on PATH (/usr/bin, /usr/local/bin), unlike Windows.
-func refreshToolPath() {}
 
 // execServer replaces the current process with llama-server (so systemd
 // supervises llama-server directly, as the old start.sh did with `exec`).
@@ -371,4 +298,47 @@ func killTree(pid int) {
 	if pidAlive(pid) {
 		_ = syscall.Kill(-pid, syscall.SIGKILL)
 	}
+}
+
+// reVerNum capture le premier numéro de version pointé d'un chemin
+// (« /usr/local/cuda-12.8/lib64 » → « 12.8 »).
+var reVerNum = regexp.MustCompile(`\d+(?:\.\d+)+`)
+
+func pathVersion(s string) string { return reVerNum.FindString(filepath.ToSlash(s)) }
+
+// cmpVersion compare deux versions pointées NUMÉRIQUEMENT (« 12.10 » > « 12.4 »)
+// là où un tri de chaînes se tromperait. Renvoie -1, 0 ou 1. Une chaîne vide est
+// plus petite que toute version.
+func cmpVersion(a, b string) int {
+	if a == b {
+		return 0
+	}
+	as, bs := strings.Split(a, "."), strings.Split(b, ".")
+	n := len(as)
+	if len(bs) > n {
+		n = len(bs)
+	}
+	for i := 0; i < n; i++ {
+		var x, y int
+		if i < len(as) {
+			x, _ = strconv.Atoi(as[i])
+		}
+		if i < len(bs) {
+			y, _ = strconv.Atoi(bs[i])
+		}
+		if x != y {
+			if x < y {
+				return -1
+			}
+			return 1
+		}
+	}
+	return 0
+}
+
+// sortByVersionDesc trie des chemins par version décroissante (sémantique).
+func sortByVersionDesc(paths []string) {
+	sort.SliceStable(paths, func(i, j int) bool {
+		return cmpVersion(pathVersion(paths[i]), pathVersion(paths[j])) > 0
+	})
 }

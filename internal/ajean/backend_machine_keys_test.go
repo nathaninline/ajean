@@ -6,12 +6,11 @@ import (
 )
 
 // issue #95, dernière partie : un preset distant reste une config COMPLÈTE.
-// externalPresetContent ne produit ni BIN, ni HOST, ni PORT — contrairement à un
-// preset normal (newPresetSeed). Comme applyPresetFile remplace TOUTE la config et
-// que preservedKeys ne contient ni BIN ni PORT, basculer sur un preset distant
-// effaçait BIN ; sur une installation neuve presets/ est vide (sys_datadir.go), donc
-// plus rien sur le disque ne le contenait et la seule issue était de réinstaller
-// llama.cpp.
+// externalPresetContent ne produit ni HOST ni PORT — contrairement à un preset
+// normal (newPresetSeed). Comme applyPresetFile remplace TOUTE la config et que
+// preservedKeys ne contient pas PORT, basculer sur un preset distant effaçait le
+// port du moteur. (Depuis la 0.20 le moteur lui-même n'est plus un réglage : BIN
+// n'existe plus, c'est le llama.cpp livré avec AJEAN.)
 
 // saveExternalPreset enregistre un preset externe comme le fait
 // handlePresetExternalSave à la création.
@@ -27,10 +26,10 @@ func saveExternalPreset(t *testing.T, name string) string {
 }
 
 // 1) La bascule vers un preset distant ne doit plus emporter les réglages de
-// MACHINE : sans BIN sur le disque, il fallait réinstaller llama.cpp.
+// MACHINE (où le moteur écoute).
 func TestExternalPresetSwitchKeepsMachineKeys(t *testing.T) {
 	testHome(t)
-	setConfig(t, "BIN=/opt/llama/llama-server\nMODEL=Qwen3.gguf\nHOST=0.0.0.0\nPORT=8080\n")
+	setConfig(t, "MODEL=Qwen3.gguf\nHOST=0.0.0.0\nPORT=8080\n")
 
 	p, err := safePresetPath(saveExternalPreset(t, "nanogpt"))
 	if err != nil {
@@ -44,7 +43,7 @@ func TestExternalPresetSwitchKeepsMachineKeys(t *testing.T) {
 	if !isExternalConfig(cfg) {
 		t.Fatal("le preset externe devrait être actif")
 	}
-	for k, want := range map[string]string{"BIN": "/opt/llama/llama-server", "HOST": "0.0.0.0", "PORT": "8080"} {
+	for k, want := range map[string]string{"HOST": "0.0.0.0", "PORT": "8080"} {
 		if cfg[k] != want {
 			t.Errorf("%s = %q après bascule, attendu %q (réglage machine perdu)", k, cfg[k], want)
 		}
@@ -62,8 +61,8 @@ func TestExternalPresetSwitchKeepsMachineKeys(t *testing.T) {
 func TestExternalPresetWithMachineMergesCleanly(t *testing.T) {
 	base := externalPresetContent("https://api.x/v1", "m", "sk", "32768", false)
 
-	got := externalPresetWithMachine(base, map[string]string{"BIN": "   ", "PORT": "9090"})
-	if strings.Contains(got, "BIN=") {
+	got := externalPresetWithMachine(base, map[string]string{"HOST": "   ", "PORT": "9090"})
+	if strings.Contains(got, "HOST=") {
 		t.Errorf("une valeur vide ne doit rien écrire :\n%s", got)
 	}
 	if !strings.Contains(got, "PORT=9090") {
@@ -84,26 +83,30 @@ func TestExternalPresetWithMachineMergesCleanly(t *testing.T) {
 	}
 }
 
-// 3) Une ÉDITION reprend le BIN DU PRESET, pas celui d'un autre preset actif :
+// 3) Une ÉDITION reprend le PORT DU PRESET, pas celui d'un autre preset actif :
 // changer l'URL d'un preset existant ne doit pas l'amputer.
-func TestExternalPresetEditKeepsOwnBin(t *testing.T) {
+func TestExternalPresetEditKeepsOwnPort(t *testing.T) {
 	testHome(t)
-	setConfig(t, "BIN=/opt/llama/llama-server\nHOST=0.0.0.0\nPORT=8080\n")
+	setConfig(t, "HOST=0.0.0.0\nPORT=8080\n")
 	id := saveExternalPreset(t, "nanogpt")
-	if old, err := ReadPreset(id); err != nil || !strings.Contains(old, "BIN=/opt/llama/llama-server") {
-		t.Fatalf("le preset créé devrait porter BIN (err=%v)", err)
+	if old, err := ReadPreset(id); err != nil || !strings.Contains(old, "PORT=8080") {
+		t.Fatalf("le preset créé devrait porter PORT (err=%v)", err)
 	}
 
-	// La config vive bascule sur un AUTRE moteur : l'édition ne doit pas l'importer.
-	setConfig(t, "BIN=/ailleurs/llama-server\nMODEL=Autre.gguf\n")
+	// La config vive bascule sur un AUTRE port : l'édition ne doit pas l'importer.
+	setConfig(t, "PORT=9999\nMODEL=Autre.gguf\n")
 	edited := externalPresetWithMachine(
 		externalPresetContent("https://api.nanogpt.com/v2", "gpt-4o", "sk-new", "", false),
 		externalMachineKeys(id))
 
-	if !strings.Contains(edited, "BIN=/opt/llama/llama-server") {
-		t.Errorf("l'édition doit conserver le BIN du preset :\n%s", edited)
+	if !strings.Contains(edited, "PORT=8080") {
+		t.Errorf("l'édition doit conserver le PORT du preset :\n%s", edited)
 	}
-	if strings.Contains(edited, "/ailleurs/") {
-		t.Errorf("l'édition ne doit pas importer le BIN d'un autre preset :\n%s", edited)
+	if strings.Contains(edited, "9999") {
+		t.Errorf("l'édition ne doit pas importer le PORT d'un autre preset :\n%s", edited)
+	}
+	// Un BIN laissé par une version d'avant la 0.20 ne se propage plus.
+	if strings.Contains(edited, "BIN=") {
+		t.Errorf("BIN ne doit plus être repris dans un preset :\n%s", edited)
 	}
 }

@@ -259,8 +259,11 @@ func applySamplingFrom(payload map[string]any, cfg map[string]string) {
 		if isExternalConfig(cfg) {
 			// API distante (preset EXTERNAL=1) : chat_template_kwargs n'existe que chez
 			// llama.cpp ; les API qui valident le schéma (OpenAI, Mistral, Groq…) le
-			// rejetaient et les autres l'ignoraient (issue #178). Champ natif à la place.
-			payload["reasoning_effort"] = eff
+			// rejetaient et les autres l'ignoraient (issue #178). À la place, le
+			// champ propre au fournisseur (llm_reasoning.go).
+			for k, v := range reasoningParams(extBaseURL(cfg), eff) {
+				payload[k] = v
+			}
 		} else {
 			payload["chat_template_kwargs"] = map[string]any{"reasoning_effort": eff}
 		}

@@ -850,54 +850,49 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 }
 /* --- Backend llama.cpp (2 modes : rapide / optimisée) --------------------- */
 .lc-head{font-size:12px;line-height:1.5}
-/* Les trois modes sont des LIGNES de la carte d'installation (elles étaient des
-   cartes dans une carte) : pas de cadre propre, un filet entre elles, comme
-   n'importe quelle ligne de réglage du menu. */
-.lc-modes{display:flex;flex-direction:column}
-.slist:has(>.lc-modes){overflow:hidden}
-.lc-modes.busy{opacity:.5;pointer-events:none}
-.slist>.lc-modes:not(:first-child){border-top:1px solid var(--border)}
-.lc-mode{padding:10px;cursor:pointer;transition:background .12s}
-.lc-mode:not(:last-child){border-bottom:1px solid var(--border)}
-.lc-mode:hover{background:var(--accent-bg)}
-.lc-mode-t{font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px}
-/* « conseillé » : pilule PLEINE (texte inversé). En contour, elle héritait du
-   gris atténué du thème monochrome et devenait illisible en mode sombre. */
-.lc-reco{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;background:var(--text);color:var(--bg);border:1px solid var(--text);border-radius:8px;padding:1px 6px}
-.lc-mode-d{font-size:11px;color:var(--dim);margin-top:3px}
-#moe-quants .lc-mode.moe-sel{background:var(--accent-bg)}
-#moe-quants{overflow:hidden}
-#moe-quants .lc-mode.moe-sel .lc-mode-t{color:var(--accent)}
-#moe-quants .lc-mode.moe-off{cursor:default}
-#moe-quants .lc-mode.moe-off:hover{background:none}
-#moe-quants .lc-mode.moe-off .lc-mode-t{color:var(--dim)}
-.moe-details{padding:4px 10px}
-.moe-details .moe-kv{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;padding:5px 0}
-.moe-details .moe-kv .switch{display:block}
-.moe-details .moe-kv:not(:last-child){border-bottom:1px solid var(--border)}
-.moe-details .moe-kv span:first-child{color:var(--dim)}
-.moe-ctx{display:flex;align-items:center;gap:10px}
-.moe-ctx input[type=range]{width:160px;height:16px;margin:0;padding:0;background:transparent;border:none;-webkit-appearance:none;appearance:none;cursor:ew-resize}
-.moe-ctx input[type=range]:focus{outline:none}
-.moe-ctx input[type=range]::-webkit-slider-runnable-track{height:4px;border:none;border-radius:999px;background:linear-gradient(to right,var(--accent) var(--p,50%),color-mix(in srgb,var(--dim) 25%,transparent) var(--p,50%))}
-.moe-ctx input[type=range]::-moz-range-track{height:4px;border:none;border-radius:999px;background:color-mix(in srgb,var(--dim) 25%,transparent)}
-.moe-ctx input[type=range]::-moz-range-progress{height:4px;border-radius:999px;background:var(--accent)}
-.moe-ctx input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;margin-top:-5px;border:none;border-radius:50%;background:var(--accent)}
-.moe-ctx input[type=range]::-moz-range-thumb{width:14px;height:14px;border:none;border-radius:50%;background:var(--accent)}
-.moe-ctx span{min-width:62px;text-align:right;font-variant-numeric:tabular-nums}
-.moe-details .moe-kv span:last-child{text-align:right}
-/* Hauteur réservée : la ligne d'état arrive après l'appel réseau, sans elle
-   les trois cartes grandissaient d'un cran une fois l'état connu. */
-.lc-mode-state{font-size:11px;min-height:16px;margin-top:7px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.lc-mode-go{color:var(--accent)}
-.lc-mode-active-tag{color:var(--accent);font-weight:600}
+/* Carte du moteur : llama.cpp est livré avec AJEAN, il n'y a rien à choisir.
+   Une ligne nom + état, une phrase, et les deux seuls gestes (variante, réparer). */
+.eng-card{display:flex;flex-direction:column;gap:6px}
+.eng-card.busy .eng-actions{opacity:.5;pointer-events:none}
+.eng-line{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.eng-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap}
+.eng-name span{font-weight:400;color:var(--dim);font-variant-numeric:tabular-nums}
+.eng-state{font-size:11px;color:var(--dim);text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.eng-state.ok{color:var(--accent);font-weight:600}
+.eng-state.warn{color:var(--warn)}
+.eng-sub{font-size:11px;line-height:1.45;color:var(--dim)}
+.eng-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:11px;min-height:22px}
+.eng-actions button{background:none;border:0;padding:0;font:inherit}
+.eng-variant{display:flex;align-items:center;gap:6px;color:var(--dim)}
+.eng-variant select{font:inherit;color:var(--text);background:transparent;border:1px solid var(--border);border-radius:6px;padding:2px 4px;max-width:120px}
+.eng-legacy{font-size:11px;line-height:1.45;color:var(--dim);border-top:1px solid var(--border);padding-top:6px}
+.eng-legacy-p{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
+/* Résultats de la recherche Hugging Face, sous le champ de téléchargement :
+   une liste de lignes cliquables (dépôts, puis quantifications d'un dépôt). */
+.hf-list{display:flex;flex-direction:column;max-height:260px;overflow:hidden auto;border:1px solid var(--border);border-radius:10px;margin-top:2px;background:transparent}
+/* Les lignes sont des boutons : on annule le fond et l'arrondi des boutons du
+   thème, et la liste rogne ses enfants, sinon on voit un rectangle à angles
+   droits dans un cadre arrondi. */
+#m-hf-results .hf-row{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;flex:none;margin:0;padding:8px 10px;background:transparent;border:0;border-radius:0;box-shadow:none;font:inherit;font-size:12px;color:var(--text);text-align:left;cursor:pointer}
+#m-hf-results .hf-row:not(:last-child){border-bottom:1px solid var(--border)}
+#m-hf-results .hf-row:hover{background:var(--accent-bg)}
+.hf-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hf-meta{flex-shrink:0;color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
+.hf-back .hf-name{color:var(--dim)}
+.hf-note{padding:8px 10px;font-size:12px;color:var(--dim)}
+#s-svc-cmd{resize:vertical;min-height:58px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.45}
+/* Preset API ou Service : toutes ses clés ont un champ dans le formulaire, le
+   fichier de configuration brut n'apporte rien ; l'échantillonnage est l'affaire
+   du serveur d'en face. */
+#modal.run-external #m-raw,#modal.run-external #m-sampling-row{display:none!important}
+/* Preset choisi mais moteur arrêté : repéré par un trait estompé, sans le fond ni
+   le gras du preset qui tourne. */
+.rowlist>.preset.chosen{position:relative}
+.rowlist>.preset.chosen::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--dim);opacity:.45}
+/* Preset d'un moteur retiré en 0.20 (MoE, ExLlama) : grisé, la raison au survol. */
+.preset.preset-removed{opacity:.45}
 .lc-update-link{color:var(--dim);text-decoration:none;cursor:pointer}
 .lc-update-link:hover{color:var(--accent)}
-/* Choix du moteur dans l'éditeur de modèle (3 options : rapide/optimisé/perso) */
-.be-opts{display:flex;flex-direction:column;gap:7px;margin:6px 0 8px}
-.be-opt{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer}
-.be-opt input{margin:0;flex-shrink:0}
-.be-note{font-size:11px;color:var(--dim);margin-left:auto}
 
 /* ===== Éditeur de preset — listes groupées façon Réglages iOS ======== */
 #modal .modal-card{max-width:520px;overflow:hidden}
@@ -1001,16 +996,6 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-seg>label{flex:1;text-align:center;font-size:13px;font-weight:500;padding:7px 4px;border-radius:7px;cursor:pointer;color:var(--dim);transition:background .12s,color .12s}
 .pe-seg>label:has(input:checked){background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.22)}
 .pe-seg input{display:none}
-.pe-seg .be-note{display:none}
-/* Disponibilité des moteurs : une SEULE ligne discrète sous le sélecteur (au lieu
-   d'un badge qui cassait chaque pastille sur deux lignes). Colorée en warn. */
-.be-avail-note{font-size:11px;color:var(--warn);margin-top:6px;line-height:1.4}
-/* Avertissement moteur non installé : encart franc (pas une notif fugace) avec le
-   texte d'explication et le bouton d'installation. */
-.be-warn{margin-top:8px;padding:9px 11px;border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);background:var(--warn-bg);border-radius:8px;display:flex;flex-direction:column;gap:8px}
-.be-warn-t{font-size:12px;line-height:1.45;color:var(--text)}
-.be-warn-btn{align-self:flex-start;font-size:12px;padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:var(--accent-bg);color:var(--text);cursor:pointer}
-.be-warn-btn:hover{background:color-mix(in srgb,var(--accent) 12%,transparent)}
 .pe-seg-note{font-size:11px;color:var(--dim);padding:0 2px;min-height:14px}
 .pe-note{font-size:11px;color:var(--dim);line-height:1.45}
 /* Barre de progression (téléchargement de modèle). Sans total connu, elle
@@ -1204,7 +1189,6 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .seg>label:hover{border-color:var(--accent)}
 .seg>label:has(input:checked){border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
 .seg input{display:none}
-.seg .be-note{font-size:10px;color:var(--dim);margin:0}
 .btn-danger{background:var(--danger-bg);border-color:var(--err);color:var(--err);margin:0}
 .btn-save{border-color:var(--accent);color:var(--accent);margin:0}
 .del-model{align-items:center;gap:5px;font-size:11px;color:var(--dim)}
@@ -1832,7 +1816,7 @@ button,.mem-search{border-radius:10px}
 .preset{background:var(--panel);border-color:var(--border)}
 .preset:hover{background:var(--accent-bg);border-color:var(--dim)}
 .preset.active{background:var(--panel);border-color:var(--text);color:var(--text)}
-.subhead,.lc-mode-go,.lc-mode-active-tag{color:var(--dim)}
+.subhead{color:var(--dim)}
 button:hover{border-color:var(--dim);color:var(--text)}
 
 /* Encart de garde-fou : c'est le serveur qui parle (limite d'appels d'outils,
@@ -1895,33 +1879,8 @@ button:hover{border-color:var(--dim);color:var(--text)}
    rejouée EN ENTIER d'un coup, où il évite de tout mettre en page. */
 #chat.reading > .msg, #chat.reading > .msg-files{content-visibility:auto;contain-intrinsic-size:auto 120px}
 
-/* Preset GPU cloud : pas de moteur, de fichier ni de cartes locales. */
-#modal.run-cloud #m-engine-row,#modal.run-cloud #m-model-row,#modal.run-cloud #m-gpu-group{display:none!important}
 /* Preset API externe : ni moteur local ni réglages llama-server. */
-#modal.run-external #m-engine-row,#modal.run-external #m-model-row,#modal.run-external #m-gpu-group,#modal.run-external #m-settings-row{display:none!important}
-/* Moteur ExLlama (ENGINE=exl3) : ses blocs remplacent ceux de llama.cpp, et
-   disparaissent hors de ce moteur ou pour un preset distant. */
-#m-exl3-row,#m-exl3-set,#m-exl3-gpu{display:none}
-#modal.eng-exl3 #m-exl3-row,#modal.eng-exl3 #m-exl3-set{display:flex}
-#modal.eng-exl3 #m-exl3-gpu:not([hidden]){display:flex}
-#modal.eng-exl3 #m-model-row,#modal.eng-exl3 #m-settings-row,#modal.eng-exl3 #m-gpu-group,
-#modal.eng-exl3 #m-backend-custom,#modal.eng-exl3 #be-avail-note{display:none!important}
-#modal.run-cloud #m-exl3-row,#modal.run-cloud #m-exl3-set,#modal.run-cloud #m-exl3-gpu,
-#modal.run-external #m-exl3-row,#modal.run-external #m-exl3-set,#modal.run-external #m-exl3-gpu{display:none!important}
-#m-exl3-row .pe-row[hidden],#m-exl3-set .pe-row[hidden],#m-exl3-gpu .pe-row[hidden]{display:none}
-#s-exl3-gpus .pe-row-c{gap:10px}
-/* Section GPU Cloud selon l'état (voir #m-cloud-body[data-state]). */
-.cloud-spin{flex:none;width:16px;height:16px}
-#m-cloud-body:not([data-state=setup]) #m-cloud-setup,
-#m-cloud-body:not([data-state=none]) #m-cloud-connect-head{display:none}
-#m-cloud-body[data-state=setup] #m-cloud-acct-row,
-#m-cloud-body[data-state=setup] #m-cloud-credit-row,
-#m-cloud-body[data-state=setup] #m-cloud-add-toggle,
-#m-cloud-body[data-state=setup] #m-cloud-add,
-#m-cloud-body[data-state=none] #m-cloud-acct-row,
-#m-cloud-body[data-state=none] #m-cloud-credit-row,
-#m-cloud-body[data-state=none] #m-cloud-add-toggle{display:none!important}
-#m-cloud-body[data-state=none] #m-cloud-add{display:flex!important}
+#modal.run-external #m-model-row,#modal.run-external #m-gpu-group,#modal.run-external #m-settings-row{display:none!important}
 
 /* ==========================================================================
    Refonte 0.16.7 : un seul langage visuel pour toute l'app.
@@ -1968,7 +1927,7 @@ button,input,select,textarea{font-family:inherit;font-feature-settings:inherit}
   transition:opacity .16s ease,transform .2s var(--ease)}
 .menu::-webkit-scrollbar{width:0;height:0}
 .menu.open{opacity:1;transform:none}
-.menu button{position:relative;display:flex;align-items:center;gap:10px;width:100%;min-height:0;margin:0;padding:8px 10px;
+.menu button{position:relative;display:flex;align-items:center;gap:10px;width:100%;flex:none;margin:0;padding:8px 10px;
   border:none;border-radius:9px;background:transparent;color:var(--text);font-size:12.5px;font-weight:400;
   text-align:left;white-space:nowrap;cursor:pointer;transition:background .14s ease}
 .menu button:hover,.menu button.kbd,.menu button.on{background:var(--t2)}
@@ -1992,8 +1951,11 @@ button,input,select,textarea{font-family:inherit;font-feature-settings:inherit}
 .mm-t{display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0}
 /* Projets : seule la liste défile (fondu en bas), ⋮ par ligne */
 #proj-menu{min-width:220px;overflow:hidden;padding:6px}
-#proj-menu .pm-list{flex:1 1 auto;min-height:0;overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain;
-  -webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 14px),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 14px),transparent)}
+#proj-menu .pm-list{flex:1 1 auto;min-height:0;overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain}
+/* Fondu du bas : seulement quand la liste DÉFILE (classe posée par pmFade). Posé
+   en permanence, il effaçait le bas de la ligne sélectionnée dès qu'il n'y avait
+   qu'un ou deux projets. */
+#proj-menu .pm-list.fade{-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 14px),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 14px),transparent)}
 #proj-menu .pm-list::-webkit-scrollbar{width:0;height:0}
 .pm-row{position:relative;display:flex;align-items:center}
 .pm-row+.pm-row{margin-top:1px}
@@ -2171,7 +2133,6 @@ details>summary .stitle,.hist-head .stitle{font-size:11.5px;font-weight:500;colo
   border:none;border-radius:999px;background:transparent;box-shadow:none;font-size:12.5px;font-weight:500;color:var(--dim);transition:color .22s ease}
 :is(.pe-seg,.seg)>label:hover{color:var(--text)}
 :is(.pe-seg,.seg)>label:has(input:checked){color:var(--bg)}
-.seg>label:has(input:checked) .be-note{color:color-mix(in srgb,var(--bg) 75%,transparent)}
 .seg-thumb{position:absolute;left:0;top:0;z-index:0;border-radius:999px;background:var(--text);pointer-events:none;
   box-shadow:0 1px 3px rgba(0,0,0,.18);transition:transform .3s var(--ease),width .3s var(--ease),opacity .15s ease}
 /* Interrupteurs activés en sombre : rond presque noir, pas noir pur */
@@ -2236,13 +2197,13 @@ button:hover{border-color:transparent;background:var(--t3);color:var(--text)}
 /* Cartes du menu latéral et blocs de contenu */
 .slist,.pe-adv,.card,.task-report,#lc-log,.mcp-tools-list,.app-update{border:none;background:var(--t1);border-radius:12px}
 :is(.slist>.rowbody:not(:first-child),.slist>.pages-bar:not(:first-child),.slist>.switchrow:not(:last-child),.slist>.switchrow.septop,
-  .stat:not(:last-child),#ram-details,.slist>.lc-modes:not(:first-child),.lc-mode:not(:last-child),.rowlist>.preset:not(:last-child),.kv,.pe-adv[open]>summary){border-color:var(--t2)}
+  .stat:not(:last-child),#ram-details,.rowlist>.preset:not(:last-child),.kv,.pe-adv[open]>summary){border-color:var(--t2)}
 .rowlist>.preset.active,.rowlist>.preset.pending{background:var(--t2)}
 .rowlist>.preset:hover{background:var(--t1)}
 /* Petits boutons d'action : + des presets, « + ajouter… », icônes, « ? » */
-.preset-add,.addbtn,.iconbtn,.pe-icon,.copybtn,.tool-more,.be-warn-btn,#ctx-compact,#chat .history-more button{
+.preset-add,.addbtn,.iconbtn,.pe-icon,.copybtn,.tool-more,#ctx-compact,#chat .history-more button{
   border:none;background:var(--t2);color:var(--text)}
-.preset-add:hover,.addbtn:hover,.iconbtn:hover,.pe-icon:hover,.copybtn:hover,.tool-more:hover,.be-warn-btn:hover,#ctx-compact:hover,#chat .history-more button:hover{
+.preset-add:hover,.addbtn:hover,.iconbtn:hover,.pe-icon:hover,.copybtn:hover,.tool-more:hover,#ctx-compact:hover,#chat .history-more button:hover{
   border:none;background:var(--t3);color:var(--text)}
 .preset-add,.addbtn{border-radius:999px}
 .addbtn{padding:5px 12px}
@@ -2458,126 +2419,12 @@ body.jean-mode .genstatus .jact.jact-in{animation:jactin .3s cubic-bezier(.2,.7,
   opacity:0;transition:opacity .45s ease;cursor:zoom-in}
 .cu-shot-img img.cu-frame.in{opacity:1}
 @media (prefers-reduced-motion:reduce){.cu-shot,.cu-shot-img img.cu-frame{transition:none;animation:none}}
-
-/* ===== Avatar de Jean (20-jean-avatar.js) : un rond, des lunettes rondes et une
-   fine moustache. Monochrome
-   comme l'app (rond = couleur du texte, yeux = couleur du fond, donc inversé en
-   thème sombre). Mode Jean uniquement. Il remplace le logo « J » de la dernière
-   ligne d'activité du fil (.jav-inline) ; fil vide, il trône au centre (.jav-hero). */
-#jean-avatar{display:none}
-#jean-avatar.jav-hero{display:block;position:absolute;left:0;top:0;z-index:3;width:var(--jav-size,96px);height:var(--jav-size,96px);
-  pointer-events:none;animation:javin .5s ease backwards}
-#jean-avatar.jav-inline{display:inline-block;flex:none;width:26px;height:26px;margin:-6px 2px -6px -2px;animation:javin .3s ease backwards}
-@keyframes javin{from{opacity:0;transform-origin:center}to{opacity:1}}
-#jean-avatar .jav-svg{width:100%;height:100%;overflow:visible;display:block;pointer-events:auto;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.genstatus.jav-host .jlogo{display:none}
-/* Copie de Jean qui vole entre la scène et sa ligne du fil (glide). */
-.jav-ghost{position:fixed;z-index:60;pointer-events:none;transform-origin:0 0;
-  transition:transform .75s cubic-bezier(.22,.9,.24,1)}
-.jav-ghost .jav-svg{width:100%;height:100%;overflow:visible;display:block}
-.jav-body{fill:var(--text)}
-.jav-eye{fill:var(--bg)}
-.jav-line{fill:none;stroke:var(--bg);stroke-width:2.4;stroke-linecap:round}
-.jav-frame{fill:none;stroke:var(--bg);stroke-width:2.2;stroke-linecap:round}
-.jav-stache{fill:var(--bg)}
 /* Fil vide : il remplace le logo de l'accueil, la phrase passe sous lui. */
-body.jean-mode #ce-logo{display:none}
-body.jean-mode #ce-title{margin-top:150px}
-@media (prefers-reduced-motion:reduce){#jean-avatar.jav-hero,#jean-avatar.jav-inline{animation:none}}
-
-/* ===== Scène du mode Jean (21-jean-stage.js) : Jean en grand au centre, la
-   réponse dans une bulle au-dessus de lui, la saisie dans une bulle qui sort de
-   lui et qu'il avale à l'envoi. Couche posée PAR-DESSUS le fil et le composeur,
-   qui continuent de tourner dessous (envoi, flux, file d'attente). Le bouton en
-   haut à droite bascule sur le fil complet (body.jean-history). Sans cadre,
-   monochrome : bulles en fond doux, ombres légères, mouvements à ressort. */
-#jean-stage{display:none;position:absolute;inset:0;z-index:6;background:var(--bg);flex-direction:column;
-  transition:opacity .45s ease,visibility 0s linear 0s}
-body.jean-mode #jean-stage{display:flex;animation:jstin .45s ease backwards}
-/* Fil complet : la scène s'efface en fondu (puis devient inerte), Jean glisse
-   jusqu'à sa place en bas du fil (voir place() dans 20-jean-avatar.js). */
-body.jean-mode.jean-history #jean-stage{opacity:0;visibility:hidden;pointer-events:none;
-  transition:opacity .45s ease,visibility 0s linear .45s}
-/* Le reste suit le mouvement : le fil et la saisie apparaissent en fondu quand on
-   ouvre le fil complet ; au retour, la scène revient en fondu. Fondu SEUL, sans
-   glissement : Jean vole vers une place mesurée au départ, et un fil qui glissait
-   le faisait atterrir à côté puis sauter à sa vraie place. */
-body.jean-mode.jean-history #chat,body.jean-mode.jean-history #composer{animation:jhistin .55s cubic-bezier(.2,.8,.2,1) backwards}
-@keyframes jhistin{from{opacity:0}to{opacity:1}}
-.jst-scene{transition:opacity .45s ease}
-body.jean-mode.jean-history .jst-scene{opacity:0}
-@keyframes jstin{from{opacity:0}to{opacity:1}}
-.jst-hist{display:none;position:absolute;top:14px;right:16px;z-index:7;width:38px;height:38px;border:none;border-radius:50%;
-  background:var(--row-bg);color:var(--dim);cursor:pointer;align-items:center;justify-content:center;transition:background .2s,color .2s}
-.jst-hist:hover{background:var(--row-bg-on);color:var(--text)}
-body.jean-mode .jst-hist{display:flex}
-.jst-scene{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 16px 24px;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.jst-bubble,.jst-screen{cursor:auto}
-/* Bulle de réponse : repliée tant qu'il n'y a rien à dire, puis elle sort de Jean
-   (origine en bas) et pousse le personnage vers le bas en douceur. */
-.jst-bubble{position:relative;width:min(640px,94%);max-height:0;opacity:0;margin-bottom:0;
-  transform:translateY(16px) scale(.92);transform-origin:50% 100%;background:var(--bubble);border-radius:24px;
-  transition:max-height .6s cubic-bezier(.2,.9,.25,1),opacity .35s ease,transform .55s cubic-bezier(.2,.9,.25,1.15),margin .6s cubic-bezier(.2,.9,.25,1)}
-#jean-stage.has-answer .jst-bubble{max-height:52vh;opacity:1;transform:none;margin-bottom:22px}
-.jst-bubble-body{max-height:52vh;overflow-y:auto;overscroll-behavior:contain;padding:18px 22px;font-size:15px;line-height:1.6;
-  color:var(--text);position:relative;z-index:1;border-radius:24px;scrollbar-width:thin}
-/* Images de la bulle : emplacement animé tant qu'elles arrivent, puis fondu. */
-.jst-bubble-body img.jimg{opacity:0;transform:scale(.98);transition:opacity .35s ease,transform .35s ease}
-.jst-bubble-body img.jimg.jimg-in{opacity:1;transform:none}
 .jimg-ph{display:block;position:relative;overflow:hidden;width:min(320px,100%);aspect-ratio:4/3;margin:8px 0;border-radius:8px;background:var(--row-bg)}
 .jimg-ph::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--text) 7%,transparent),transparent);
   transform:translateX(-100%);animation:jimgsh 1.3s ease-in-out infinite}
 @keyframes jimgsh{to{transform:translateX(100%)}}
-@media (prefers-reduced-motion:reduce){.jimg-ph::after{animation:none}.jst-bubble-body img.jimg{transition:none}}
-.jst-bubble-body>:first-child{margin-top:0}.jst-bubble-body>:last-child{margin-bottom:0}
-/* Mise en forme des réponses : la même que dans le fil (dont les règles visent
-   .msg.assistant .body, que la bulle n'est pas). Tableaux larges : défilement
-   horizontal dans la bulle plutôt qu'un débordement. */
-.jst-bubble-body h1,.jst-bubble-body h2,.jst-bubble-body h3,.jst-bubble-body h4{font-weight:600;line-height:1.25;margin:1.2em 0 .5em}
-.jst-bubble-body h1{font-size:1.3em}.jst-bubble-body h2{font-size:1.15em}.jst-bubble-body h3{font-size:1em}.jst-bubble-body h4{font-size:.95em}
-.jst-bubble-body ul,.jst-bubble-body ol{padding-left:1.4em}
-.jst-bubble-body li{margin:.15em 0}
-.jst-bubble-body li>p{margin:0}
-.jst-bubble-body code{background:var(--code-bg);padding:1px 5px;border-radius:3px;font-size:.9em;overflow-wrap:anywhere;word-break:break-word}
-.jst-bubble-body pre{position:relative;background:var(--code-bg);border-radius:12px;padding:12px 14px;overflow-x:auto;max-width:100%;margin:.5em 0}
-.jst-bubble-body pre code{background:transparent;padding:0;font-size:.85em;line-height:1.4}
-.jst-bubble-body blockquote{border-left:3px solid var(--border);padding:0 0 0 10px;margin:.4em 0;color:var(--dim)}
-.jst-bubble-body a{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
-.jst-bubble-body table{display:block;max-width:100%;overflow-x:auto;border-collapse:collapse;margin:.6em 0;font-size:.93em}
-.jst-bubble-body th,.jst-bubble-body td{border:1px solid var(--border);padding:5px 10px;text-align:left;vertical-align:top}
-.jst-bubble-body th{font-weight:600;background:var(--row-bg)}
-.jst-bubble-body hr{border:none;border-top:1px solid var(--border);margin:.6em 0}
-/* Écran du navigateur piloté : un petit moniteur au-dessus de Jean, qui sort
-   comme la bulle (origine en bas) et montre la page en direct (captures en fondu
-   enchaîné). Pendant la navigation, il remplace la bulle de réponse. */
-.jst-screen{position:relative;width:min(560px,92%);max-height:0;opacity:0;margin-bottom:0;transform:translateY(16px) scale(.9);
-  transform-origin:50% 100%;transition:max-height .6s cubic-bezier(.2,.9,.25,1),opacity .35s ease,transform .55s cubic-bezier(.2,.9,.25,1.15),margin .6s cubic-bezier(.2,.9,.25,1)}
-#jean-stage.browsing .jst-screen{max-height:60vh;opacity:1;transform:none;margin-bottom:24px;pointer-events:auto}
-/* ⚠️ Repliés, la bulle et l'écran COUPENT leur contenu et ignorent le toucher :
-   sinon leur contenu (invisible mais à sa vraie taille) débordait par-dessus la
-   bulle de saisie et volait les touchers (« impossible de cliquer pour écrire »). */
-.jst-bubble,.jst-screen{overflow:hidden;pointer-events:none}
-#jean-stage.has-answer:not(.browsing) .jst-bubble{pointer-events:auto}
-#jean-stage.browsing .jst-bubble{max-height:0;opacity:0;margin-bottom:0;transform:translateY(16px) scale(.92)}
-.jst-screen-url{font-size:11.5px;color:var(--dim);text-align:center;margin:0 0 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.jst-screen-view{position:relative;aspect-ratio:16 / 10;border-radius:14px;overflow:hidden;background:var(--row-bg);
-  border:7px solid var(--text);box-shadow:0 12px 34px rgba(0,0,0,.14)}
-.jst-screen-view img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top;opacity:0;transition:opacity .45s ease}
-.jst-screen-view img.in{opacity:1}
-/* Terminal : sort au-dessus de Jean comme l'écran du navigateur, quand il lance
-   une commande. Fenêtre sombre dans les deux thèmes, monochrome (pas de vert). */
-.jst-term{position:relative;width:min(560px,92%);max-height:0;opacity:0;margin-bottom:0;transform:translateY(16px) scale(.9);
-  transform-origin:50% 100%;overflow:hidden;pointer-events:none;border-radius:14px;background:#111114;
-  box-shadow:0 14px 40px rgba(0,0,0,.28),0 0 0 1px rgba(255,255,255,.06) inset;
-  transition:max-height .6s cubic-bezier(.2,.9,.25,1),opacity .35s ease,transform .55s cubic-bezier(.2,.9,.25,1.15),margin .6s cubic-bezier(.2,.9,.25,1)}
-#jean-stage.terminal .jst-term{max-height:46vh;opacity:1;transform:none;margin-bottom:24px;pointer-events:auto}
-#jean-stage.terminal .jst-bubble{max-height:0;opacity:0;margin-bottom:0;transform:translateY(16px) scale(.92);pointer-events:none}
-.jst-term-bar{display:flex;align-items:center;gap:6px;height:30px;padding:0 12px;background:rgba(255,255,255,.04)}
-.jst-term-bar span{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.18)}
-.jst-term-title{flex:1;text-align:center;margin-right:42px;font:500 11px var(--font,system-ui);color:rgba(255,255,255,.38);letter-spacing:.04em}
-.jst-term-view{margin:0;padding:12px 14px 14px;height:min(260px,34vh);overflow:hidden;
-  font:12.5px/1.55 var(--mono,ui-monospace,Menlo,monospace);color:rgba(255,255,255,.86);white-space:pre-wrap;word-break:break-word;
-  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 22px);mask-image:linear-gradient(to bottom,transparent 0,#000 22px)}
+@media (prefers-reduced-motion:reduce){.jimg-ph::after{animation:none}}
 .jt-cmd{color:#fff}
 .jt-cmd + .jt-cmd,.jt-out + .jt-cmd{margin-top:8px}
 .jt-ps{color:rgba(255,255,255,.4)}
@@ -2587,108 +2434,13 @@ body.jean-mode .jst-hist{display:flex}
 .jt-caret{display:inline-block;width:.55em;height:1.05em;margin-left:1px;vertical-align:-.18em;background:rgba(255,255,255,.85);animation:jtcaret 1.4s ease-in-out infinite}
 @keyframes jtcaret{50%{opacity:.25}}
 @media (prefers-reduced-motion:reduce){.jt-caret,.jt-out.in{animation:none}}
-/* Recherche web : sort au-dessus de Jean comme le terminal. Carte claire du
-   thème, requête dans une pastille, résultats qui arrivent en cascade. */
-.jst-srch{position:relative;width:min(560px,92%);max-height:0;opacity:0;margin-bottom:0;transform:translateY(16px) scale(.9);
-  transform-origin:50% 100%;overflow:hidden;pointer-events:none;border-radius:16px;background:var(--row-bg);
-  box-shadow:0 14px 40px rgba(0,0,0,.18);
-  transition:max-height .6s cubic-bezier(.2,.9,.25,1),opacity .35s ease,transform .55s cubic-bezier(.2,.9,.25,1.15),margin .6s cubic-bezier(.2,.9,.25,1)}
-#jean-stage.searching .jst-srch{max-height:52vh;opacity:1;transform:none;margin-bottom:24px;pointer-events:auto}
-#jean-stage.searching .jst-bubble{max-height:0;opacity:0;margin-bottom:0;transform:translateY(16px) scale(.92);pointer-events:none}
-.jst-srch-bar{display:flex;align-items:center;gap:9px;margin:12px 12px 4px;padding:9px 14px;border-radius:999px;
-  background:var(--bg);color:var(--dim);font-size:13.5px}
-.jst-srch-bar svg{flex:none}
-.jst-srch-q{flex:1;min-width:0;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.jst-srch-list{max-height:min(320px,40vh);overflow-y:auto;padding:4px 16px 14px;scrollbar-width:none}
-.jst-srch-list::-webkit-scrollbar{display:none}
-.jst-srch-item{padding:10px 0}
-.jst-srch-item + .jst-srch-item{border-top:1px solid color-mix(in srgb,var(--text) 6%,transparent)}
-.jst-srch-item.in{animation:jsrin .45s cubic-bezier(.2,.7,.3,1) both;animation-delay:calc(var(--i) * 70ms)}
 @keyframes jsrin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-.jst-srch-src{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--dim);margin-bottom:3px}
-.jst-srch-ic{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;
-  background:color-mix(in srgb,var(--text) 10%,transparent);color:var(--text);font-size:10px;font-weight:600}
-.jst-srch-t{font-size:14px;font-weight:500;line-height:1.35;color:var(--text);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-.jst-srch-s{margin-top:3px;font-size:12.5px;line-height:1.45;color:var(--dim);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-.jst-srch-none{padding:18px 0;text-align:center;font-size:13px;color:var(--dim)}
-.jst-srch-sk{padding:12px 0}
-.jst-srch-sk i{display:block;height:9px;border-radius:5px;margin:7px 0;background:color-mix(in srgb,var(--text) 9%,transparent);animation:jsrsk 1.6s ease-in-out infinite}
-.jst-srch-sk i:nth-child(1){width:34%;height:8px}
-.jst-srch-sk i:nth-child(2){width:78%;height:11px}
-.jst-srch-sk i:nth-child(3){width:92%}
 @keyframes jsrsk{50%{opacity:.45}}
-@media (prefers-reduced-motion:reduce){.jst-srch-item.in,.jst-srch-sk i{animation:none}}
-/* Sommeil (consolidation de la mémoire) : Jean respire lentement, des « z » montent. */
-.jst-zzz{position:absolute;left:68%;top:2%;width:0;height:0;pointer-events:none;opacity:0;transition:opacity .6s ease}
-#jean-stage.sleeping .jst-zzz{opacity:1}
-.jst-zzz span{position:absolute;left:0;top:0;font-weight:700;font-size:calc(15px + var(--i) * 6px);line-height:1;color:var(--dim);opacity:0;
-  animation:jzzz 3.6s ease-in-out infinite;animation-delay:calc(var(--i) * 1.2s)}
 @keyframes jzzz{0%{opacity:0;transform:translate(0,6px) rotate(-8deg) scale(.6)}18%{opacity:.85}
   70%{opacity:.5}100%{opacity:0;transform:translate(34px,-58px) rotate(12deg) scale(1.15)}}
-#jean-stage.sleeping .jst-char{animation:jsleep 4.2s ease-in-out infinite}
 @keyframes jsleep{0%,100%{transform:scale(1) rotate(3deg)}50%{transform:scale(1.035,.975) rotate(4.5deg)}}
-#jean-stage.sleeping .jst-bubble{max-height:0;opacity:0;margin-bottom:0;transform:translateY(16px) scale(.92);pointer-events:none}
-@media (prefers-reduced-motion:reduce){.jst-zzz span{animation:none;opacity:.6}#jean-stage.sleeping .jst-char{animation:none}}
-/* Jean et les points qui tournent autour de lui quand il travaille. */
-.jst-char{position:relative;flex:none;width:150px;height:150px;--orbit:94px;transition:transform .6s cubic-bezier(.2,.9,.25,1.15)}
-.jst-char-host{width:100%;height:100%}
-#jean-avatar.jav-stage{display:block;width:100%;height:100%}
-.jst-orbit{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .5s ease}
-#jean-stage.busy .jst-orbit{opacity:1}
-.jst-orbit span{position:absolute;left:50%;top:50%;width:7px;height:7px;margin:-3.5px;border-radius:50%;background:var(--text);opacity:.45;
-  animation:jorbit 2.6s cubic-bezier(.45,.05,.55,.95) infinite;animation-delay:calc(var(--i) * -0.87s)}
 @keyframes jorbit{0%{transform:rotate(0deg) translateX(var(--orbit)) scale(1)}50%{transform:rotate(180deg) translateX(var(--orbit)) scale(.55)}100%{transform:rotate(360deg) translateX(var(--orbit)) scale(1)}}
-/* Ce qu'il fait, sous lui. */
-.jst-caption{min-height:22px;margin-top:18px;display:flex;flex-direction:column;align-items:center;gap:4px;
-  width:min(340px,86vw);text-align:center;font-size:14px;line-height:1.45;color:var(--dim)}
-.jst-cap-past{font-size:12px;opacity:.5;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.jst-cap-past:empty{display:none}
-.jst-cap-past.in{animation:jcapin .35s cubic-bezier(.2,.7,.3,1) both}
-.jst-cap-text{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;color:color-mix(in srgb,var(--text) 78%,transparent)}
-.jst-cap-stop{margin-top:10px}
-.jst-cap-text.in{animation:jcapin .35s cubic-bezier(.2,.7,.3,1) both}
-#jean-stage.idle-hint .jst-cap-text{cursor:pointer;transition:color .2s}
-#jean-stage.idle-hint .jst-cap-text:hover{color:var(--text)}
-#jean-stage.typing .jst-caption{opacity:0}
-.jst-caption{transition:opacity .25s ease}
 @keyframes jcapin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-.jst-cap-stop{border:none;background:var(--row-bg);color:var(--dim);font:inherit;font-size:12px;cursor:pointer;padding:5px 14px;border-radius:999px;opacity:.85}
-.jst-cap-stop:hover{opacity:1;color:var(--text);background:var(--row-bg)}
-.jst-cap-stop[hidden]{display:none}
-/* Bulle de saisie : sort de Jean (origine en haut) quand on clique sur lui ou
-   qu'on tape, puis file vers lui en rétrécissant à l'envoi (.gulp). */
-.jst-input{width:min(560px,94%);display:flex;align-items:flex-end;gap:8px;max-height:0;opacity:0;margin-top:0;pointer-events:none;
-  padding:0 8px 0 18px;background:var(--panel);border-radius:24px;box-shadow:0 10px 34px rgba(0,0,0,.09);overflow:hidden;
-  transform:translateY(-18px);transform-origin:50% 0;
-  transition:max-height .5s cubic-bezier(.2,.9,.25,1),opacity .3s ease,transform .5s cubic-bezier(.2,.9,.25,1.2),margin .5s cubic-bezier(.2,.9,.25,1),padding .5s}
-#jean-stage.typing .jst-input{max-height:200px;opacity:1;margin-top:18px;padding:0 9px 0 0;pointer-events:auto;transform:none}
-.jst-input textarea{flex:1 1 auto;width:100%;min-width:0;border:none;outline:none;background:transparent;resize:none;font:inherit;font-size:16px;line-height:1.5;color:var(--text);
-  padding:15px 8px 15px 18px;max-height:180px;min-height:54px;align-self:stretch;box-sizing:border-box}
-/* Le champ couvre TOUTE la bulle (les marges sont dedans, pas autour) : toucher
-   n'importe où dans la bulle tombe dans le champ. cursor:pointer pour que Safari
-   iOS traite aussi le reste de la bulle comme cliquable. */
-.jst-input{cursor:pointer}
-.jst-input textarea::placeholder{color:var(--dim)}
-.jst-send{flex:none;align-self:flex-end;margin-bottom:9px;width:36px;height:36px;border:none;border-radius:50%;background:var(--accent);color:var(--bg);cursor:pointer;display:flex;align-items:center;justify-content:center}
-#jean-stage .jst-input.gulp{transition:transform .42s cubic-bezier(.55,0,.85,.35),opacity .42s ease-in;opacity:0;
-  transform:translate(var(--gx),var(--gy)) scale(.04)}
-@media (max-width:720px){.jst-char{width:116px;height:116px;--orbit:74px}.jst-bubble-body{font-size:14.5px;padding:16px 18px}}
-/* Clavier ouvert : la scène occupe juste la zone visible au-dessus du clavier,
-   tout est tassé vers le bas (saisie collée au clavier), Jean rapetisse et la
-   bulle de réponse se raccourcit pour que tout tienne. */
-#jean-stage.kb{position:fixed;inset:auto 0 auto 0;top:var(--vv-top,0);height:var(--vv-h,100%);z-index:30}
-#jean-stage.kb::after{content:"";position:absolute;left:0;right:0;top:100%;height:100vh;background:var(--bg)}
-/* Sous la scène, le fil et le composeur restent actifs (envoi, flux) mais sont
-   masqués : sinon ils transparaissaient là où la scène ne couvre pas (bande au-
-   dessus du clavier iPhone). Ils réapparaissent dès qu'on ouvre le fil complet. */
-body.jean-mode:not(.jean-history) #chat,body.jean-mode:not(.jean-history) #composer{visibility:hidden}
-#jean-stage.kb .jst-scene{justify-content:flex-end;padding:12px 12px 10px}
-#jean-stage.kb .jst-char{width:72px;height:72px;--orbit:46px}
-#jean-stage.kb.has-answer .jst-bubble,#jean-stage.kb .jst-bubble-body{max-height:calc(var(--vv-h,60vh) - 210px)}
-#jean-stage.kb.has-answer .jst-bubble{margin-bottom:14px}
-#jean-stage.kb .jst-input{margin-top:12px}
-@media (prefers-reduced-motion:reduce){#jean-stage *{transition:none!important;animation:none!important}
-  body.jean-mode.jean-history #chat,body.jean-mode.jean-history #composer{animation:none}}
 #hist-proj-name{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hist-proj-ic{display:inline-flex}
 body.hist-jean #side-hist .hist-search,body.hist-jean #sess-count,body.hist-jean #history-clear-all{display:none}
@@ -2912,28 +2664,6 @@ button.th-head:hover{background:var(--t1)}
 .body .wi{animation:aj-word-in 450ms cubic-bezier(.33,.1,.45,1) both}
 .body li.li-wait::marker{color:transparent}
 @media (prefers-reduced-motion: reduce){.body .wi{animation:none}}
-/* ===== Fichiers de Jean (23-jean-files.js) ===================================
-   Le dossier de travail de Jean, comme un gestionnaire de fichiers : une liste
-   sur téléphone, un tableau à colonnes sur ordinateur, une grille de vignettes au
-   choix. Fonds teintés, pas de bordures. */
-.jst-files{display:none;position:absolute;top:14px;right:62px;z-index:7;width:38px;height:38px;border:none;border-radius:50%;margin:0;padding:0;
-  background:var(--row-bg);color:var(--dim);cursor:pointer;align-items:center;justify-content:center;transition:background .2s,color .2s}
-.jst-files:hover{background:var(--row-bg-on);color:var(--text)}
-body.jean-mode:not(.jean-history) .jst-files{display:flex}
-/* Mode vocal de Jean (24-jean-voice.js) : micro à côté des fichiers, pastille d'état en bas. */
-.jst-voice{display:none;position:absolute;top:14px;right:108px;z-index:7;width:38px;height:38px;border:none;border-radius:50%;margin:0;padding:0;
-  background:var(--row-bg);color:var(--dim);cursor:pointer;align-items:center;justify-content:center;transition:background .2s,color .2s,transform .2s}
-.jst-voice:hover{background:var(--row-bg-on);color:var(--text)}
-body.voice-ready.jean-mode:not(.jean-history) .jst-voice{display:flex}
-.jst-voice.on{background:var(--accent);color:var(--accent-fg,var(--bg))}
-.jst-voice.on[data-st="rec"]{transform:scale(1.12)}
-.jst-voice.on[data-st="listen"]{animation:jvPulse 2.4s ease-in-out infinite}
-@keyframes jvPulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 35%,transparent)}50%{box-shadow:0 0 0 8px color-mix(in srgb,var(--accent) 0%,transparent)}}
-.jst-voice-st{position:absolute;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translate(-50%,6px);z-index:7;
-  padding:6px 14px;border-radius:999px;background:var(--row-bg);color:var(--dim);font-size:13px;pointer-events:none;cursor:pointer;opacity:0;transition:opacity .25s,transform .25s}
-.jst-voice-st.in{opacity:1;transform:translate(-50%,0);pointer-events:auto}
-body:not(.jean-mode) .jst-voice-st,body.jean-history .jst-voice-st{display:none}
-body.jean-voice #jean-stage .jst-input{display:none}
 
 
 .jf-card{max-width:1040px;height:min(820px,88vh);overflow:hidden}
@@ -3075,10 +2805,37 @@ audio.jf-media{width:min(520px,100%);margin-top:18vh}
   #jf-sel>button:not(.jf-ic){padding:7px 8px;font-size:12px}
 }
 
-/* Réglages voix : liste des voix + bouton écouter, à droite de la ligne. */
-.voice-pick{margin-left:auto;order:2;display:flex;align-items:center;gap:6px;max-width:62%}
-.voice-pick .sctl{width:auto;min-width:0}
-.voice-play{flex:none;width:30px;height:30px;border:none;border-radius:50%;background:var(--t1);color:var(--text);
-  display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
-.voice-play:disabled{opacity:.4}
-#voice-url{min-width:0;flex:1 1 auto;max-width:62%}
+/* Dictée vocale : pastille ronde à droite du sélecteur de mode. */
+#mic-btn{flex:none;width:26px;height:26px;min-height:26px;padding:0;margin:0 0 0 -6px;display:flex;align-items:center;justify-content:center;
+  border:none;border-radius:999px;background:var(--t2);color:var(--dim);transition:color .16s ease,background .16s ease}
+#mic-btn:hover{color:var(--text)}
+.mic-btn svg{display:block}
+.mic-btn.rec{background:var(--text);color:var(--bg);animation:mic-pulse 1.2s ease-in-out infinite}
+.mic-btn.busy{color:var(--text);opacity:.6;pointer-events:none}
+@keyframes mic-pulse{50%{box-shadow:0 0 0 4px color-mix(in srgb,var(--text) 22%,transparent)}}
+@media (prefers-reduced-motion:reduce){.mic-btn.rec{animation:none}}
+:root:not([data-theme="dark"]) #mic-btn:not(.rec){background:color-mix(in srgb,var(--text) 6%,transparent)}
+/* Champ texte dans une ligne de réglage (Dictée vocale). */
+.sw-txtin{order:2;margin-left:auto;display:flex;min-width:0;flex:0 1 220px}
+.side .sw-txtin :is(input,select){width:100%;height:26px;margin:0;padding:0 8px;border:none;border-radius:8px;background:var(--t2);color:var(--text);font-size:12px}
+.side .sw-txtin :is(input,select):focus{box-shadow:0 0 0 2px var(--t3);outline:none}
+/* Enregistrement via l'API : le micro s'élargit en onde + compteur. */
+.mic-rec{display:none;align-items:center;gap:6px}
+.mic-btn.wave{gap:6px;animation:none}
+/* Élargissement animé comme la bulle du sélecteur de mode (largeur bornée qui
+   glisse) ; la largeur fixe sur #id l'emportait sur la classe .wave. */
+#mic-btn{width:auto;overflow:hidden;white-space:nowrap;
+  transition:max-width .32s var(--ease),padding .32s var(--ease),background .16s ease,color .16s ease}
+#mic-btn{min-width:26px;max-width:26px}
+#mic-btn.wave{max-width:190px;padding:0 10px}
+.mic-btn.wave .mic-rec{animation:mic-fade .24s ease .08s both}
+@keyframes mic-fade{from{opacity:0}to{opacity:1}}
+.mic-btn.wave>svg:not(.mic-stop){display:none}
+.mic-btn.wave .mic-rec{display:inline-flex}
+.mic-rec canvas{display:block}
+.mic-rec .mic-time{font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sw-txtin{gap:6px}
+/* Pendant l'enregistrement, le micro devient un carré « stop ». */
+.mic-btn>.mic-stop{display:none}
+.mic-btn.rec>svg:not(.mic-stop){display:none}
+.mic-btn.rec>.mic-stop{display:block;flex:none}

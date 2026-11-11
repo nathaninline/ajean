@@ -45,12 +45,12 @@ Double-cliquez sur `ajean-windows.exe`. AJEAN s'installe, crée ses raccourcis e
 
 Ensuite, dans l'interface :
 
-1. Section **Moteur** : installez llama.cpp. La version précompilée est prête en deux minutes environ ; la version compilée est optimisée pour votre machine mais plus longue à préparer.
+1. Le moteur llama.cpp s'installe tout seul au premier lancement (une à deux minutes selon la carte graphique) : il n'y a rien à choisir.
 2. Section **Presets** : créez un preset, choisissez ou téléchargez un modèle (n'importe quel lien direct vers un `.gguf`, par exemple sur Hugging Face).
 
 ### macOS
 
-Décompressez, glissez **AJEAN.app** dans *Applications*, puis faites **clic droit, Ouvrir** la première fois (l'application n'a qu'une signature ad hoc). AJEAN s'ouvre dans sa propre fenêtre et vit dans la barre de menus. Installez ensuite le moteur et ajoutez un modèle comme sous Windows.
+Décompressez, glissez **AJEAN.app** dans *Applications*, puis faites **clic droit, Ouvrir** la première fois (l'application n'a qu'une signature ad hoc). AJEAN s'ouvre dans sa propre fenêtre et vit dans la barre de menus. Le moteur s'installe tout seul ; ajoutez ensuite un modèle comme sous Windows.
 
 Pour la ligne de commande, prenez plutôt le binaire nu `ajean-macos-arm` / `ajean-macos`.
 
@@ -61,13 +61,12 @@ curl -L -o ajean https://github.com/nathaninline/ajean/releases/latest/download/
 chmod +x ajean && sudo mv ajean /usr/local/bin/ajean
 
 sudo ajean install        # services, droits, dossiers
-ajean llamacpp install    # compile llama.cpp pour le GPU présent
 ajean edit                # renseigner MODEL=/chemin/vers/modele.gguf
 ajean start               # démarre le modèle
 ajean ui start            # interface sur http://<hôte>:8090
 ```
 
-La compilation de llama.cpp demande `git`, `cmake` et la boîte à outils de votre GPU (CUDA pour NVIDIA, ROCm ou le SDK Vulkan pour AMD, le SDK Vulkan pour Intel). AJEAN installe ce qu'il peut tout seul et explique quoi faire quand il ne peut pas. Pour imposer un backend : `ajean llamacpp install --backend=vulkan` (ou `cuda`, `hip`, `cpu`).
+Le moteur llama.cpp est téléchargé au premier démarrage, dans la variante adaptée à la machine : seul le pilote de la carte graphique est requis (ni `git`, ni `cmake`, ni toolkit CUDA). `ajean engine` montre ce qui est installé ; pour imposer une variante : `ajean engine repair --variant=vulkan` (ou `cuda`, `rocm`, `cpu`, `auto`).
 
 Sous Linux, AJEAN tourne en **deux services** : `ajean-engine` fait tourner le modèle, `ajean-ui` sert l'interface, l'accès à distance et le point d'accès OpenAI. Redémarrer l'interface est instantané et ne recharge jamais le modèle.
 
@@ -83,18 +82,18 @@ Ou le bouton de mise à jour dans l'interface. Chaque version est vérifiée ave
 
 ## Utiliser AJEAN
 
-### Quatre modes de discussion
+### Deux modes de discussion
 
 Choisissez le mode avec le bouton à gauche de la zone de saisie.
 
 | Mode | Pour | Ce dont l'IA dispose |
 |---|---|---|
-| **Rapide** | questions rapides, petites tâches | terminal et fichiers, sans mémoire |
 | **Projet** | un vrai travail qui s'étale sur plusieurs conversations | mémoire, trackers, web, navigateur, MCP, tâches |
 | **Jean** | un assistant personnel qui vous connaît | sa propre mémoire, des rappels, une conversation unique et continue |
-| **Modèle de base** | parler au modèle brut | rien : ni outils, ni prompt système |
 
-Une conversation garde le mode dans lequel elle a commencé. Les outils n'existent que si le **mode agent** est activé (`ajean agent on`, ou l'interrupteur de l'interface) ; sans lui, tous les modes se comportent comme Modèle de base.
+Une conversation garde le mode dans lequel elle a commencé. Les outils reposent sur le **mode agent**, actif d'office ; `ajean agent off` le coupe (le modèle répond alors sans outils).
+
+**Dictée vocale.** Le bouton micro à droite du sélecteur de mode enregistre la voix et insère le texte dans le champ. La transcription passe par une API Whisper compatible OpenAI (Groq par défaut), à régler dans Paramètres > Dictée vocale ; sans clé, la dictée du navigateur est utilisée.
 
 ### Projets
 
@@ -118,7 +117,7 @@ Jean est un assistant qui se souvient de **vous** au fil du temps, dans une seul
 
 ### Historique
 
-L'icône horloge en haut du menu latéral affiche l'historique. Il suit ce que vous faites : les conversations du projet actif en mode Projet, les conversations rapides en mode Rapide, celles du modèle de base en mode Modèle de base. La recherche couvre toutes les conversations. Une conversation peut être renommée, mise en favori, déplacée vers un autre projet et exportée en Markdown ou en JSON.
+L'icône horloge en haut du menu latéral affiche l'historique. Il suit ce que vous faites : les conversations du projet actif en mode Projet, celle de Jean en mode Jean. La recherche couvre toutes les conversations. Une conversation peut être renommée, mise en favori, déplacée vers un autre projet et exportée en Markdown ou en JSON.
 
 Les conversations vivent sur le serveur : elles sont **les mêmes sur tous les appareils**, en direct. Posez une question sur l'ordinateur, lisez la réponse sur le téléphone. Fermer le navigateur n'arrête jamais une réponse.
 
@@ -134,7 +133,7 @@ Une discussion légère dans le terminal, indépendante de l'interface web, avec
 
 ## Ce que l'IA sait faire
 
-Ces outils ne sont fournis au modèle que lorsque le mode agent est activé.
+Ces outils sont fournis au modèle tant que le mode agent est actif (il l'est d'office).
 
 **Terminal et fichiers.** L'IA exécute des commandes (bash, ou `cmd.exe` sous Windows) et écrit ou modifie des fichiers. Elle travaille dans un **dossier de travail** jetable ; les scripts à conserver vont dans un dossier **scripts** séparé qu'aucun nettoyage ne touche.
 
@@ -168,21 +167,26 @@ ajean internet on
 
 Un preset est une configuration complète de modèle : fichier du modèle, taille du contexte, couches sur le GPU, cache KV, échantillonnage, raisonnement, décodage spéculatif, vision. Changer de preset recharge le modèle, depuis l'interface ou avec `ajean switch`. Les presets se règlent dans l'interface ; les fichiers `.gguf` peuvent être sur n'importe quel disque.
 
-Un preset ne tourne pas forcément sur cette machine :
+Un preset tourne de l'une de ces trois façons :
 
 | Exécution | Fonctionnement |
 |---|---|
-| **Cette machine** | llama.cpp sur vos GPU (au choix, par preset) |
-| **API externe** | n'importe quel point d'accès compatible OpenAI |
-| **GPU Cloud** | un GPU loué sur [Modal](https://modal.com) (du T4 au B200), déployé par AJEAN, facturé à l'usage, mis en veille quand il ne sert pas |
+| **Local** | le llama.cpp livré avec AJEAN charge un `.gguf` sur vos GPU (au choix, par preset) |
+| **API** | n'importe quel point d'accès compatible OpenAI |
+| **Service** | une commande de votre choix (vLLM, un autre `llama-server`, TabbyAPI, un script…) qui expose une API OpenAI sur cette machine. AJEAN la lance dans son service moteur, à la place de llama.cpp (démarrage, arrêt, journal, relance en cas d'échec), et utilise son API. L'adresse est déduite du `--port` de la commande, le modèle est le premier annoncé par l'API. |
+
+**Télécharger un modèle.** Dans l'éditeur de preset, le champ « Télécharger un modèle » cherche directement sur Hugging Face : tapez un nom (« qwen », « gemma »…), choisissez un dépôt puis une quantification, AJEAN la télécharge. Un lien direct vers un `.gguf` fonctionne toujours.
 
 ### Moteur
 
-La section **Moteur** installe et met à jour llama.cpp en trois variantes, choisies par preset :
+AJEAN fait tourner **llama.cpp**, et fonctionne comme Ollama : chaque version d'AJEAN livre **une version précise de llama.cpp**, testée avec elle. Il n'y a ni moteur à choisir, ni mise à jour du moteur à lancer.
 
-- **précompilé** : les binaires officiels de llama.cpp, prêts en quelques minutes ;
-- **compilé** : construit pour cette machine (CUDA avec la bonne architecture pour chaque GPU, ROCm, Metal, Vulkan ou CPU) ;
-- **personnalisé** : n'importe quel fork, depuis une URL Git, pour les modèles qui exigent un moteur particulier.
+- **Installation automatique** : le `llama-server` officiel de cette version est téléchargé au premier lancement, et vérifié par son empreinte SHA-256 inscrite dans AJEAN.
+- **Variante choisie pour la machine** : CUDA (NVIDIA), ROCm (AMD sous Linux), Vulkan (AMD, Intel), Metal (Mac) ou CPU. Chaque variante est essayée dans un processus à part ; si elle ne démarre pas ou ne voit aucune carte, AJEAN passe à la suivante, jusqu'au CPU. Les bibliothèques CUDA sont livrées avec le moteur : seul le pilote est requis.
+- **Mise à jour avec AJEAN** : le moteur ne change que lorsqu'une mise à jour d'AJEAN apporte une nouvelle version de llama.cpp ; il est alors remplacé au démarrage suivant.
+- **Dépannage** : la section **Moteur** montre la version et la variante, et propose de le réparer (le retélécharger) ou d'imposer une variante.
+
+Les moteurs des versions précédentes (compilation locale, forks personnalisés, ExLlamaV3, AJEAN MoE) ont été retirés en 0.20. Voir [docs/moteur.md](docs/moteur.md).
 
 **Moteur tiers (Linux).** Un preset API externe peut nommer une unité systemd avec `EXTERNAL_SERVICE=ajean-<nom>`. AJEAN la démarre quand on bascule sur ce preset, l'arrête quand on en change, et attend que les GPU soient libérés avant de charger le modèle suivant. Donnez à l'unité `Conflicts=ajean-engine.service`.
 
@@ -226,7 +230,7 @@ Tout se trouve sous **`$AJEAN_HOME`** : `/etc/ajean` sous Linux, `%ProgramData%\
 | `presets/` | un fichier `.env` par preset |
 | `memory/` | les pages de mémoire, un dossier par projet |
 | `models/` | les fichiers `.gguf` |
-| `backends/` | les moteurs llama.cpp |
+| `backends/` | le moteur llama.cpp (`backends/engine/`) |
 | `workspace/` | le dossier de travail jetable de l'IA |
 | `scripts/` | les scripts que l'IA conserve |
 
@@ -266,9 +270,9 @@ IA
 Accès distant (ajean.link)
   link <jeton> | link code | link status | link logout | link newid
 
-Moteur llama.cpp
-  llamacpp install [--backend=vulkan|cuda|hip|cpu]
-  llamacpp update | status | uninstall <compiled|prebuilt|custom <nom>>
+Moteur llama.cpp (livré avec AJEAN)
+  engine                  version livrée, variante installée
+  engine install | repair [--variant=auto|cuda|rocm|vulkan|cpu]
 
 Installation
   install | uninstall | update [--check] | where | version
@@ -280,7 +284,6 @@ Installation
 
 | Clé | Rôle | Défaut |
 |---|---|---|
-| `BIN` | chemin de `llama-server` | réglé par l'installation du moteur |
 | `MODEL` | nom ou chemin du `.gguf` | aucun |
 | `HOST` / `PORT` | adresse et port du moteur | `0.0.0.0` / `8080` |
 | `CTX` | taille du contexte | `32768` |

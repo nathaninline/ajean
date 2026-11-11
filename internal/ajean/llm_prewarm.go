@@ -326,7 +326,7 @@ func LLMPrewarm(healthy bool) {
 	// serveurs MCP se connectent, Crawl4AI est sondé) et ne doit jamais retarder
 	// cancelLLMPrewarmForTurn, appelé au démarrage d'un tour utilisateur.
 	cfg := ReadConfig()
-	if isExternalConfig(cfg) || isCloudConfig(cfg) {
+	if isExternalConfig(cfg) {
 		return
 	}
 	ep := resolveChatEndpoint()
@@ -441,4 +441,13 @@ func sendLLMPrewarm(ctx context.Context, ep chatEndpoint, payload map[string]any
 		return fmt.Errorf("pré-chauffage : HTTP %d", resp.StatusCode)
 	}
 	return nil
+}
+
+// doLLM envoie une requête de complétion en la comptant dans llmInFlight : vu
+// par le pré-chauffage de prompt, une génération occupe le moteur et il ne faut
+// pas s'insérer devant elle.
+func doLLM(req *http.Request) (*http.Response, error) {
+	llmInFlight.Add(1)
+	defer llmInFlight.Add(-1)
+	return http.DefaultClient.Do(req)
 }

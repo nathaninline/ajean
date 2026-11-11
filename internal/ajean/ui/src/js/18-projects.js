@@ -254,6 +254,7 @@ async function toggleProjMenu(ev){
   const menu=document.getElementById('proj-menu'), b=document.getElementById('project-btn');
   renderProjMenu();
   if(!toggleMenu(menu, b, PM_OPTS)) return;
+  pmFade();
   // Liste fraîche (projets créés ailleurs, génération en cours) sans bloquer l'ouverture.
   let s=null, r=null;
   try{ [s, r] = await Promise.all([ jget('/api/chat/state').catch(()=>null), jget('/api/projects').catch(()=>null) ]); }catch(_){}
@@ -264,7 +265,15 @@ async function toggleProjMenu(ev){
 // Liste rapide ouverte (création, renommage…) : on la reconstruit et la recale.
 function refreshProjMenu(){
   const b=document.getElementById('project-btn');
-  if(menuOpenFor(b)){ renderProjMenu(); placeMenu(document.getElementById('proj-menu'), b, PM_OPTS); }
+  if(menuOpenFor(b)){ renderProjMenu(); placeMenu(document.getElementById('proj-menu'), b, PM_OPTS); pmFade(); }
+}
+// Fondu du bas de la liste : seulement si elle défile vraiment (voir .pm-list.fade).
+// Mesuré une fois le menu placé, donc au prochain rendu.
+function pmFade(){
+  requestAnimationFrame(()=>{
+    const list=document.querySelector('#proj-menu .pm-list');
+    if(list) list.classList.toggle('fade', list.scrollHeight > list.clientHeight + 1);
+  });
 }
 async function pickProjFromMenu(slug){
   closeMenu();

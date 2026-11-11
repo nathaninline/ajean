@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// issue #95, suite : un preset distant (API externe ou GPU cloud) n'a aucun
+// issue #95, suite : un preset distant (API externe) n'a aucun
 // moteur LOCAL. La v0.16.4 a corrigé le chemin du service (cmdServe sort
 // proprement, plus de boucle systemd au boot) mais pas preflightEngine, qui
 // garde `ajean start` et `ajean restart`.
@@ -14,7 +14,6 @@ import (
 func TestPreflightAcceptsRemotePresets(t *testing.T) {
 	for _, tc := range []struct{ name, body string }{
 		{"externe (nanogpt)", "EXTERNAL=1\nEXTERNAL_URL=https://api.nanogpt.com/v1\nEXTERNAL_MODEL=gpt-4o-mini\n"},
-		{"cloud (modal)", "CLOUD=modal\nCLOUD_MODEL=https://huggingface.co/a/b/resolve/main/m.gguf\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			testHome(t)
@@ -31,10 +30,16 @@ func TestPreflightAcceptsRemotePresets(t *testing.T) {
 // relance en boucle — cf. le commentaire de preflightEngine).
 func TestPreflightStillGuardsLocalPresets(t *testing.T) {
 	testHome(t)
-	setConfig(t, "MODEL=Qwen3.gguf\n")
+	setConfig(t, "CTX=4096\n")
 	err := preflightEngine()
-	if err == nil || !strings.Contains(err.Error(), "BIN non défini") {
-		t.Fatalf("un preset local sans BIN doit rester refusé, obtenu %v", err)
+	if err == nil || !strings.Contains(err.Error(), "MODEL non défini") {
+		t.Fatalf("un preset local sans MODEL doit rester refusé, obtenu %v", err)
+	}
+	// Le moteur, lui, n'est plus exigé par le pré-vol : il est livré avec AJEAN
+	// et le service l'installe s'il manque. Seul le modèle reste à vérifier.
+	setConfig(t, "MODEL=Qwen3.gguf\n")
+	if err := preflightEngine(); err == nil || !strings.Contains(err.Error(), "modèle introuvable") {
+		t.Fatalf("un modèle absent doit être refusé, obtenu %v", err)
 	}
 }
 
@@ -48,12 +53,16 @@ func TestServeExitsCleanlyForExternalPreset(t *testing.T) {
 	}
 }
 
-// 4) Garde-fou inverse du précédent : le moteur local exige toujours BIN.
-func TestServeStillNeedsBinForLocalPreset(t *testing.T) {
+// 4) Garde-fou inverse du précédent : le moteur local exige toujours un modèle,
+// et le dit AVANT de chercher à installer le moteur.
+func TestServeStillNeedsModelForLocalPreset(t *testing.T) {
 	testHome(t)
-	setConfig(t, "MODEL=Qwen3.gguf\n")
-	if err := cmdServe(nil); err == nil || !strings.Contains(err.Error(), "BIN non défini") {
-		t.Fatalf("un preset local sans BIN doit toujours échouer, obtenu %v", err)
+	setConfig(t, "CTX=4096\n")
+	if err := cmdServe(nil); err == nil || !strings.Contains(err.Error(), "MODEL non défini") {
+		t.Fatalf("un preset local sans MODEL doit toujours échouer, obtenu %v", err)
+	}
+	if isDir(engineRoot()) {
+		t.Fatal("aucune installation du moteur ne doit démarrer pour un preset sans modèle")
 	}
 }
 

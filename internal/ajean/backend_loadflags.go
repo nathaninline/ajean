@@ -23,7 +23,7 @@ func loadFlagsNeedMigration() bool {
 	if !containsAny(splitArgs(cfg["EXTRA_ARGS"]), "--mlock", "--no-mmap") {
 		return false
 	}
-	return backendUsesLoadMode(cfg["BIN"])
+	return backendUsesLoadMode()
 }
 
 // migrateLoadFlags réécrit --mlock / --no-mmap en --load-mode dans la config

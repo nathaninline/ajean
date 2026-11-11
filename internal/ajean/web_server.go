@@ -32,6 +32,7 @@ func cmdWeb(args []string) error {
 		}
 		port = n
 	}
+	migrateFrom019() // installation passée par la 0.19 : presets et unités (migrate_019.go)
 	mux := newWebMux()
 	addr := fmt.Sprintf("0.0.0.0:%d", port)
 
@@ -121,6 +122,10 @@ func newWebMux() *http.ServeMux {
 	// recharge son état pour l'annoncer « interrompue » au lieu de n'afficher
 	// plus rien du tout.
 	lcRestoreOnce.Do(lcRestore)
+	// Le moteur llama.cpp est livré avec AJEAN : s'il manque (première
+	// installation, ou mise à jour qui change la version épinglée), on l'installe
+	// maintenant, en tâche de fond, sans que l'utilisateur ait à le demander.
+	engineAutoInstall()
 	// Reprend une migration de chiffrement mémoire interrompue (crash/coupure).
 	// Sans DEK en RAM (démarrage à froid), laisse le journal en place : un
 	// déverrouillage ultérieur la reprendra. Ne perd jamais de données.
@@ -175,6 +180,18 @@ func newWebMux() *http.ServeMux {
 		w.Header().Set("Service-Worker-Allowed", "/")
 		w.Write(b)
 	})
+	// Icône de marque en PNG, à la taille demandée (/icon-48.png…). La fenêtre
+	// d'application (Edge/Chrome --app) prend son icône de barre des tâches dans
+	// le favicon : un favicon SVG y était rendu en 16 px puis agrandi, donc flou.
+	// Des PNG nets à chaque taille règlent ça, et servent aussi au manifeste PWA.
+	for size := range brandIconSizes {
+		png := BrandIconPNG(size) // rendu une fois, au démarrage
+		mux.HandleFunc("/icon-"+strconv.Itoa(size)+".png", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "image/png")
+			w.Header().Set("Cache-Control", "public, max-age=86400")
+			_, _ = w.Write(png)
+		})
+	}
 	mux.HandleFunc("/manifest.webmanifest", func(w http.ResponseWriter, r *http.Request) {
 		b, _ := uiFS.ReadFile("ui/manifest.webmanifest")
 		w.Header().Set("Content-Type", "application/manifest+json")
@@ -206,40 +223,24 @@ func newWebMux() *http.ServeMux {
 	api("/api/models/download/status", handleModelDownloadStatus)
 	api("/api/models/download/cancel", handleModelDownloadCancel)
 	api("/api/models/download/pause", handleModelDownloadPause)
-	api("/api/backends", handleBackends)
-	api("/api/backends/custom", handleBackendsCustom)                    // backends custom uniquement (hors ⚡/🔧)
-	api("/api/backends/devices", handleBackendDevices)                   // GPU vus par CE moteur (noms/ordre propres au backend)
-	api("/api/llamacpp", handleLlamacpp)                                 // statut du backend llama.cpp
-	api("/api/llamacpp/check", handleLlamacppCheck)                      // git fetch + retard sur origin
-	api("/api/llamacpp/install", handleLlamacppInstall)                  // job : clone + build + BIN
-	api("/api/llamacpp/install-custom", handleLlamacppInstallCustom)     // job : clone d'un fork depuis une URL Git (par preset, sans BIN global)
-	api("/api/llamacpp/uninstall-custom", handleLlamacppUninstallCustom) // supprime un backend custom (backends/<name>)
-	api("/api/llamacpp/update", handleLlamacppUpdate)                    // job : pull + rebuild + restart
-	api("/api/llamacpp/job", handleLlamacppJob)                          // progression + logs du job
-	api("/api/llamacpp/job/dismiss", handleLlamacppJobDismiss)           // masque un job terminé (l'erreur ne revient plus au démarrage)
-	api("/api/llamacpp/job/cancel", handleLlamacppJobCancel)             // arrête un job en cours (tue cmake/ninja/compilateur)
-	api("/api/llamacpp/prebuilt", handleLlamacppPrebuilt)                // job : binaires officiels précompilés
-	api("/api/llamacpp/prebuilt/check", handleLlamacppPrebuiltCheck)     // dernière release officielle vs installée
-	api("/api/llamacpp/use", handleLlamacppUse)                          // bascule BIN entre versions déjà installées
-	api("/api/moe", handleMoe)                                           // moteur MoE : machine, catalogue figé, recommandation, modèles installés
-	api("/api/moe/install", handleMoeInstall)                            // job : paquet figé + installeur du moteur + preset (suivi par /api/llamacpp/job)
-	api("/api/moe/settings", handleMoeSettings)
-	api("/api/exl3", handleExl3)                    // moteur ExLlama : machine, version installée (?check=1 : dernière version), modèles EXL3
-	api("/api/exl3/install", handleExl3Install)     // job : installation ({latest:false}, commit validé) ou mise à jour ({latest:true})
-	api("/api/exl3/uninstall", handleExl3Uninstall) // retire le moteur (garde les modèles)
-	api("/api/exl3/download", handleExl3Download)   // job : télécharge une branche d'un dépôt EXL3 Hugging Face dans models/exl3                          // réglages d'un modèle MoE installé (relance s'il est actif)
+	api("/api/hf/search", handleHFSearch)                  // recherche de dépôts GGUF sur Hugging Face
+	api("/api/hf/files", handleHFFiles)                    // fichiers .gguf d'un dépôt (quantifications, tailles)
+	api("/api/engine", handleEngine)                       // moteur llama.cpp livré avec AJEAN : version épinglée, variante installée
+	api("/api/engine/repair", handleEngineRepair)          // job : retélécharge le moteur ({variant} impose une variante)
+	api("/api/engine/job", handleEngineJob)                // progression + logs de l'installation
+	api("/api/engine/job/dismiss", handleEngineJobDismiss) // masque un job terminé (l'erreur ne revient plus au démarrage)
+	api("/api/engine/job/cancel", handleEngineJobCancel)   // arrête l'installation en cours
+	api("/api/engine/devices", handleBackendDevices)       // GPU vus par le moteur (noms/ordre propres à la variante)
 	api("/api/presets", handlePresets)
 	api("/api/presets/order", handlePresetsOrder)
 	api("/api/preset", handlePreset)
 	api("/api/preset/save", handlePresetSave)
 	api("/api/preset/delete", handlePresetDelete)
-	api("/api/preset/external", handlePresetExternal)          // lire un preset externe (préremplissage modale)
-	api("/api/preset/external/save", handlePresetExternalSave) // créer/éditer un preset externe
-	api("/api/preset/external/test", handlePresetExternalTest) // tester la connexion à l'API distante
-	api("/api/cloud/accounts", handleCloudAccounts)            // comptes Modal (profils CLI) pour les presets GPU cloud
-	api("/api/cloud/accounts/add", handleCloudAccountAdd)      // connecter un compte Modal (flux web, renvoie le lien)
-	api("/api/cloud/runtime", handleCloudRuntime)              // composant GPU cloud (Python + client Modal privés)
-	api("/api/cloud/billing", handleCloudBilling)              // crédit / conso du mois d'un compte Modal
+	api("/api/preset/external", handlePresetExternal)              // lire un preset externe (préremplissage modale)
+	api("/api/preset/external/save", handlePresetExternalSave)     // créer/éditer un preset externe
+	api("/api/preset/external/models", handlePresetExternalModels) // modèles annoncés par l'API
+	api("/api/preset/external/test", handlePresetExternalTest)     // tester la connexion à l'API distante
+
 	api("/api/agent", handleAgent)
 	api("/api/agent/toggle", handleAgentToggle)
 	api("/api/agent/compact", handleCompactToggle)
@@ -309,14 +310,12 @@ func newWebMux() *http.ServeMux {
 	api("/api/restart", svcHandler("restart"))
 	api("/api/bench", handleBench)
 	api("/api/bench/last", handleBenchLast)
+	api("/api/bench/progress", handleBenchProgress)            // avancement du test en cours (prefill, tokens générés)
 	api("/api/chat", handleChat)                               // flux d'ABONNEMENT (SSE) : rejoue + suit le fil
 	api("/api/chat/send", handleChatSend)                      // envoie un message (lance la génération détachée)
-	api("/api/voice/status", handleVoiceStatus)                // voix du mode Jean réglée ? (voice.go)
-	api("/api/voice/stt", handleVoiceSTT)                      // audio dicté -> texte (relais audio.cpp)
-	api("/api/voice/tts", handleVoiceTTS)                      // texte -> audio de la voix de Jean
-	api("/api/voice/settings", handleVoiceSettings)            // réglages voix (GET / POST)
-	api("/api/voice/design", handleVoiceDesign)                // crée une voix à partir d'une description
-	api("/api/voice/delete", handleVoiceDelete)                // retire une voix de la bibliothèque
+	api("/api/stt", handleSTT)                                 // dictée vocale : audio -> texte (API Whisper compatible OpenAI, dictation.go)
+	api("/api/stt/settings", handleSTTSettings)                // réglages de la dictée (GET / POST)
+	api("/api/stt/models", handleSTTModels)                    // modèles de transcription proposés par l'API
 	api("/api/chat/upload", handleChatUpload)                  // dépose un fichier dans le workspace agent (joint au message suivant)
 	api("/api/chat/file", handleChatFile)                      // télécharge un fichier produit par l'agent (dossier de travail only)
 	api("/api/chat/stop", handleChatStop)                      // interrompt la génération en cours

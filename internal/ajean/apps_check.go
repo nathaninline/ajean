@@ -261,10 +261,11 @@ type AppCheckResult struct {
 	Text     string
 	Overflow int // largeur en trop sur téléphone (px), 0 = rien
 	PNG      []byte
+	Steps    []string // résultat de chaque étape d'interaction (check avec steps)
 }
 
 // appRender fait tourner l'app dans un Chrome headless dédié (fermé à la fin).
-func appRender(ctx context.Context, id string, n int, shot bool) (*AppCheckResult, error) {
+func appRender(ctx context.Context, id string, n int, shot bool, steps ...[]any) (*AppCheckResult, error) {
 	m, err := readAppMeta(id)
 	if err != nil {
 		return nil, err
@@ -328,20 +329,35 @@ func appRender(ctx context.Context, id string, n int, shot bool) (*AppCheckResul
 	}
 	// Attend que les appels du pont (scripts lancés au chargement) soient finis,
 	// plus un court calme pour le rendu qui suit.
-	deadline := time.Now().Add(appScriptTO + 5*time.Second)
-	quiet := 0
-	for time.Now().Before(deadline) && ctx.Err() == nil {
-		if log.busy() == 0 {
-			quiet++
-			if quiet >= 4 {
+	settle := func(max time.Duration) {
+		deadline := time.Now().Add(max)
+		quiet := 0
+		for time.Now().Before(deadline) && ctx.Err() == nil {
+			if log.busy() == 0 {
+				quiet++
+				if quiet >= 4 {
+					break
+				}
+			} else {
+				quiet = 0
+			}
+			time.Sleep(250 * time.Millisecond)
+		}
+	}
+	settle(appScriptTO + 5*time.Second)
+	res := &AppCheckResult{}
+	// Interactions demandées par l'IA (cliquer, taper…), comme un utilisateur :
+	// le texte visible, les erreurs et la capture sont relevés APRÈS.
+	if len(steps) > 0 {
+		for i, st := range steps[0] {
+			if i >= appMaxSteps {
+				res.Steps = append(res.Steps, fmt.Sprintf("%d. ignorée (au plus %d étapes)", i+1, appMaxSteps))
 				break
 			}
-		} else {
-			quiet = 0
+			res.Steps = append(res.Steps, fmt.Sprintf("%d. %s", i+1, appRunStep(s, st)))
+			settle(appScriptTO + 2*time.Second)
 		}
-		time.Sleep(250 * time.Millisecond)
 	}
-	res := &AppCheckResult{}
 	if raw, err := s.eval(`JSON.stringify(window.__errs||[])`); err == nil {
 		var sj string
 		_ = json.Unmarshal(raw, &sj)
@@ -381,8 +397,14 @@ func appCheckReport(r *AppCheckResult) string {
 			fmt.Fprintf(&b, "- %v%s : %v\n", e["kind"], line, e["message"])
 		}
 	}
+	if len(r.Steps) > 0 {
+		b.WriteString("Étapes jouées :\n")
+		for _, st := range r.Steps {
+			b.WriteString("- " + st + "\n")
+		}
+	}
 	if len(r.Calls) > 0 {
-		b.WriteString("Appels du pont au chargement :\n")
+		b.WriteString("Appels du pont (chargement et étapes) :\n")
 		for _, c := range r.Calls {
 			b.WriteString("- " + c + "\n")
 		}
@@ -415,7 +437,8 @@ func toolAppCheck(ctx context.Context, args map[string]any) (string, map[string]
 	id := strings.TrimSpace(str(args["id"]))
 	n, _ := intArg(args, "version")
 	shot := visionEnabled()
-	r, err := appRender(ctx, id, n, shot)
+	steps, _ := args["steps"].([]any)
+	r, err := appRender(ctx, id, n, shot, steps)
 	if err != nil {
 		return "[erreur] " + err.Error(), nil
 	}
@@ -432,4 +455,57 @@ func toolAppCheck(ctx context.Context, args map[string]any) (string, map[string]
 	}
 	b, mime := prepareImageForModel(r.PNG, "image/png")
 	return msg, imageURLPart(b, mime)
+}
+
+// appMaxSteps borne les interactions d'un check.
+const appMaxSteps = 25
+
+// appRunStep joue une étape d'interaction dans l'app et rend un compte rendu
+// court. Formes acceptées : {click: "css"}, {type: "css", text: "…"},
+// {select: "css", value: "…"}, {key: "Enter"}, {wait: ms}.
+func appRunStep(s *cdpSession, raw any) string {
+	st, ok := raw.(map[string]any)
+	if !ok {
+		return "étape illisible (objet attendu)"
+	}
+	q := func(v any) string { b, _ := json.Marshal(str(v)); return string(b) }
+	run := func(desc, js string) string {
+		out, err := s.eval(js)
+		if err != nil {
+			return desc + " : erreur " + err.Error()
+		}
+		var r string
+		_ = json.Unmarshal(out, &r)
+		if r != "" && r != "ok" {
+			return desc + " : " + r
+		}
+		return desc + " : ok"
+	}
+	find := func(sel string) string {
+		return `var el=document.querySelector(` + sel + `);if(!el)return 'introuvable';el.scrollIntoView({block:'center'});`
+	}
+	switch {
+	case st["click"] != nil:
+		return run("clic "+str(st["click"]), `(function(){`+find(q(st["click"]))+`if(el.disabled)return 'désactivé';el.click();return 'ok'})()`)
+	case st["type"] != nil:
+		return run("saisie dans "+str(st["type"]), `(function(){`+find(q(st["type"]))+`el.focus();var t=`+q(st["text"])+`;`+
+			`var d=Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value');if(d&&d.set)d.set.call(el,t);else el.value=t;`+
+			`el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));return 'ok'})()`)
+	case st["select"] != nil:
+		return run("choix dans "+str(st["select"]), `(function(){`+find(q(st["select"]))+`el.value=`+q(st["value"])+`;`+
+			`if(el.value!==`+q(st["value"])+`)return 'valeur absente de la liste';`+
+			`el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));return 'ok'})()`)
+	case st["key"] != nil:
+		return run("touche "+str(st["key"]), `(function(){var el=document.activeElement||document.body,k=`+q(st["key"])+`,o={key:k,code:k,bubbles:true,cancelable:true};`+
+			`el.dispatchEvent(new KeyboardEvent('keydown',o));el.dispatchEvent(new KeyboardEvent('keypress',o));el.dispatchEvent(new KeyboardEvent('keyup',o));`+
+			`if(k==='Enter'&&el.form&&el.tagName==='INPUT'){if(el.form.requestSubmit)el.form.requestSubmit();else el.form.submit();}return 'ok'})()`)
+	case st["wait"] != nil:
+		ms, _ := st["wait"].(float64)
+		if ms <= 0 || ms > 5000 {
+			ms = 500
+		}
+		time.Sleep(time.Duration(ms) * time.Millisecond)
+		return fmt.Sprintf("attente %d ms : ok", int(ms))
+	}
+	return "étape inconnue (click, type+text, select+value, key, wait)"
 }

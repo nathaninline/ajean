@@ -62,8 +62,12 @@ func TestConfigEditorText(t *testing.T) {
 	if len(round) != 2 {
 		t.Fatalf("les clés non renseignées doivent rester commentées : %v", round)
 	}
-	if !contains(txt, "#BIN=") {
-		t.Fatal("le squelette doit documenter BIN")
+	if !contains(txt, "#CTX=") {
+		t.Fatal("le squelette doit documenter CTX")
+	}
+	// Le moteur est livré avec AJEAN : plus de clé BIN à renseigner.
+	if contains(txt, "BIN=") {
+		t.Fatal("le squelette ne doit plus proposer BIN")
 	}
 }
 

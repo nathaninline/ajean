@@ -406,9 +406,6 @@ func jeanFilesLocalVision() bool {
 		return false
 	}
 	ep := resolveChatEndpoint()
-	if ep.Cloud {
-		return false
-	}
 	if !ep.External {
 		return true
 	}

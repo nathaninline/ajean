@@ -72,6 +72,17 @@ func devCacheGet(bin string) ([]map[string]any, bool) {
 	return e.devices, true
 }
 
+// devCacheReset oublie les énumérations en mémoire : après une réinstallation
+// du moteur, la variante (donc les cartes vues) a pu changer.
+func devCacheReset() {
+	devCacheMu.Lock()
+	devCache = map[string]devCacheEntry{}
+	devCacheMu.Unlock()
+	listDevMu.Lock()
+	listDevBin, listDevOut = "", nil
+	listDevMu.Unlock()
+}
+
 func devCachePut(bin string, devs []map[string]any) {
 	devCacheMu.Lock()
 	devCache[bin] = devCacheEntry{devices: devs, at: time.Now()}
@@ -175,27 +186,13 @@ func hasZeroMemory(devs []map[string]any) bool {
 	return false
 }
 
-// handleBackendDevices renvoie les devices vus par le moteur passé en `bin`
-// (celui du preset en cours d'édition). Sans `bin`, on prend celui de la config
-// active.
+// handleBackendDevices renvoie les cartes vues par le moteur d'AJEAN. Le
+// binaire n'est jamais fourni par la requête : c'est toujours celui du moteur
+// installé.
 func handleBackendDevices(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Bin string `json:"bin"`
-	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
-	bin := strings.TrimSpace(req.Bin)
+	bin := engineBin()
 	if bin == "" {
-		bin = ReadConfig()["BIN"]
-	}
-	bin = prebuiltResolveBin(bin)
-	if bin == "" || !isFile(bin) {
-		sendJSON(w, 200, map[string]any{"ok": false, "error": "moteur introuvable — choisissez d'abord un moteur"})
-		return
-	}
-	// Garde-fou : on n'exécute que le serveur llama.cpp, pas n'importe quel
-	// chemin qui passerait par cette requête.
-	if base := strings.ToLower(filepath.Base(bin)); base != "llama-server" && base != "llama-server.exe" {
-		sendJSON(w, 400, map[string]any{"ok": false, "error": "ce chemin n'est pas un llama-server"})
+		sendJSON(w, 200, map[string]any{"ok": false, "error": "moteur en cours d'installation — réessaie dans un instant"})
 		return
 	}
 	// L'ordre d'énumération DOIT être celui du serveur en marche, sinon la liste
@@ -303,8 +300,8 @@ func listDevicesCached(bin string) []map[string]any {
 }
 
 func vulkanVramGPUs() []map[string]any {
-	bin := prebuiltResolveBin(ReadConfig()["BIN"])
-	if bin == "" || !isFile(bin) {
+	bin := engineBin()
+	if bin == "" {
 		return nil
 	}
 	devs := listDevicesCached(bin)
@@ -346,9 +343,13 @@ func vulkanVramGPUs() []map[string]any {
 // usage dans "Shared Usage" (RAM système), "Dedicated Usage" y reste ~0 en
 // permanence. Un GPU DISCRET (carte dédiée) a de la vraie VRAM : c'est lui qui
 // concentre le "Dedicated Usage". On assigne donc les cartes qui ne sont pas
-// intégrées (integratedGPUName) aux LUID triés par Dedicated Usage décroissant ; les
-// cartes intégrées gardent la valeur (proche de 0, donc déjà correcte) issue de
-// --list-devices. Best-effort : une erreur PowerShell laisse "used"/"util" tels quels.
+// intégrées (integratedGPUName) aux LUID triés par Dedicated Usage décroissant.
+// Les cartes INTÉGRÉES reçoivent ensuite, parmi les LUID restants, celui dont le
+// "Shared Usage" est le plus élevé : c'est là qu'est le modèle. Elles gardaient
+// auparavant la valeur de --list-devices, qui ne compte pas la mémoire partagée —
+// la jauge restait presque vide pendant qu'un modèle de 15 Go tournait sur la
+// puce Intel (et remplissait la RAM, puisque c'est la même mémoire).
+// Best-effort : une erreur PowerShell laisse "used"/"util" tels quels.
 func applyWindowsDedicatedUsage(gpus []map[string]any) {
 	if runtime.GOOS != "windows" || len(gpus) == 0 {
 		return
@@ -384,6 +385,28 @@ func applyWindowsDedicatedUsage(gpus []map[string]any) {
 		g["util"] = adapters[ai].UtilPct
 		ai++
 	}
+	assignIntegratedUsage(gpus, adapters[min(ai, len(adapters)):])
+}
+
+// assignIntegratedUsage donne aux cartes intégrées la mémoire PARTAGÉE (plus la
+// dédiée, quelques centaines de Mio réservés par le BIOS) et l'utilisation des
+// adaptateurs restants, le plus chargé d'abord.
+func assignIntegratedUsage(gpus []map[string]any, rest []windowsAdapterStat) {
+	sort.SliceStable(rest, func(i, j int) bool { return rest[i].SharedMiB > rest[j].SharedMiB })
+	ri := 0
+	for _, g := range gpus {
+		name, _ := g["name"].(string)
+		if !integratedGPUName(name) || ri >= len(rest) {
+			continue
+		}
+		used := rest[ri].SharedMiB + rest[ri].DedicatedMiB
+		if total, _ := g["total"].(int); total > 0 && used > total {
+			used = total
+		}
+		g["used"] = used
+		g["util"] = rest[ri].UtilPct
+		ri++
+	}
 }
 
 // integratedGPUName : le nom désigne-t-il un GPU intégré au processeur ? Intel
@@ -413,6 +436,7 @@ func integratedGPUName(name string) bool {
 // — les deux mesures viennent du même appel PowerShell pour rester appariées.
 type windowsAdapterStat struct {
 	DedicatedMiB int
+	SharedMiB    int // mémoire système utilisée par la carte (tout, pour une puce intégrée)
 	UtilPct      int
 }
 
@@ -425,13 +449,13 @@ type windowsAdapterStat struct {
 // fausserait l'appariement.
 func windowsAdapterStats() []windowsAdapterStat {
 	const script = `$mem = Get-CimInstance Win32_PerfFormattedData_GPUPerformanceCounters_GPUAdapterMemory -ErrorAction Stop | ` +
-		`Where-Object { $_.TotalCommitted -gt 5MB } | Select-Object Name, DedicatedUsage; ` +
+		`Where-Object { $_.TotalCommitted -gt 5MB } | Select-Object Name, DedicatedUsage, SharedUsage; ` +
 		`$eng = Get-CimInstance Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine -ErrorAction SilentlyContinue; ` +
 		`$r = @(foreach ($m in $mem) { ` +
 		`  $u = 0; ` +
 		`  if ($eng) { $hit = $eng | Where-Object { $_.Name -like "*$($m.Name)*" }; if ($hit) { $mx = ($hit | Measure-Object -Property UtilizationPercentage -Maximum).Maximum; if ($mx -gt $u) { $u = $mx } } }; ` +
 		`  if ($u -gt 100) { $u = 100 }; ` +
-		`  [PSCustomObject]@{dedicated=$m.DedicatedUsage; util=[int]$u} ` +
+		`  [PSCustomObject]@{dedicated=$m.DedicatedUsage; shared=$m.SharedUsage; util=[int]$u} ` +
 		`}); ` +
 		`[PSCustomObject]@{items=$r} | ConvertTo-Json -Compress -Depth 3`
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
@@ -443,6 +467,7 @@ func windowsAdapterStats() []windowsAdapterStat {
 	var parsed struct {
 		Items []struct {
 			Dedicated int64 `json:"dedicated"`
+			Shared    int64 `json:"shared"`
 			Util      int   `json:"util"`
 		} `json:"items"`
 	}
@@ -451,7 +476,7 @@ func windowsAdapterStats() []windowsAdapterStat {
 	}
 	stats := make([]windowsAdapterStat, 0, len(parsed.Items))
 	for _, it := range parsed.Items {
-		stats = append(stats, windowsAdapterStat{DedicatedMiB: int(it.Dedicated / (1024 * 1024)), UtilPct: it.Util})
+		stats = append(stats, windowsAdapterStat{DedicatedMiB: int(it.Dedicated / (1024 * 1024)), SharedMiB: int(it.Shared / (1024 * 1024)), UtilPct: it.Util})
 	}
 	return stats
 }

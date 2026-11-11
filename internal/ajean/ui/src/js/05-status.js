@@ -1,6 +1,34 @@
-// Étape du GPU Cloud du preset actif (voir cloudPhase côté serveur), "" sinon.
-let CLOUD_PHASE = '';
 let LAST_BOOT=null; // empreinte de démarrage du serveur vue au dernier poll
+let SEEN_VERSION=null; // version du serveur qui a servi cette page
+let SEEN_UI=null;      // empreinte de l'interface qui a servi cette page
+// ENGINE_ON : le moteur (ou l'API du preset) est-il en service ? null tant que
+// /api/status n'a pas répondu. La liste des presets s'en sert pour ne pas montrer
+// comme « actif » un preset dont le moteur est arrêté.
+let ENGINE_ON=null;
+// Recharge la page pour charger l'interface de la nouvelle version. Si un message
+// est en cours de saisie, on ne le fait pas perdre : le bandeau du bas propose le
+// rechargement, et il se fera au prochain passage sans texte dans le champ.
+function reloadForNewVersion(v){
+  const ta=document.getElementById('input');
+  if(ta && ta.value.trim()){
+    const box=document.getElementById('app-update');
+    if(box){
+      box.innerHTML='<span class="au-dot"></span><span>'+t('update.reload_prefix')+' <b>v'+escHtml(v)+'</b> '+t('update.reload_suffix')+'</span>';
+      box.hidden=false; box.onclick=(e)=>{ e.stopPropagation(); location.reload(); };
+    }
+    return;
+  }
+  location.reload();
+}
+// Après une mise à jour lancée d'ici : attend que le serveur relancé réponde dans
+// sa nouvelle version, puis recharge la page. Sans réponse en 2 minutes, on rend
+// la main au sondage habituel (qui rechargera dès que la version change).
+async function waitNewVersionThenReload(v){
+  for(let i=0;i<120;i++){
+    await new Promise(r=>setTimeout(r,1000));
+    try{ const s=await jget('/api/status'); if(s && s.version===v){ location.reload(); return; } }catch(_){}
+  }
+}
 let LAST_PRESET=null; // id du preset actif vu au dernier poll (détecte une bascule faite ailleurs)
 async function loadStatus(){
   if(document.hidden) return; // onglet en arrière-plan : on met le sondage en pause (palier 1)
@@ -25,6 +53,13 @@ async function loadStatus(){
     }
     LAST_BOOT=s.boot;
   }
+  const engineOn=!!s.active;
+  if(engineOn!==ENGINE_ON){
+    const first=ENGINE_ON===null;
+    ENGINE_ON=engineOn;
+    // Démarrage ou arrêt du moteur : la liste des presets change d'aspect.
+    if((!first || !engineOn) && typeof loadPresets==='function') loadPresets();
+  }
   const el=document.getElementById('status-svc');
   // Trois états : service coupé (err) · service actif mais modèle pas encore
   // chargé (loading, llama-server renvoie 503) · modèle prêt (ok).
@@ -35,13 +70,7 @@ async function loadStatus(){
   if(s.active && s.health){ cls='ok'; txt=t('status.ready'); }
   else if(s.load_error){ cls='err'; txt=t('status.error'); }
   else if(s.active){ cls='loading'; txt=t('status.loading'); }
-  // GPU Cloud : « prêt » voulait seulement dire « déployé ». On affiche l'étape
-  // réelle (en veille, téléchargement du modèle, chargement…). L'envoi reste
-  // possible en veille : c'est le message qui réveille le GPU.
-  CLOUD_PHASE = s.cloud_phase || '';
-  const cloudPill = {checking:['loading','status.cloud_checking'], sleeping:['ok','status.cloud_sleeping'], deploying:['loading','status.cloud_deploying'],
-                     downloading:['loading','status.cloud_downloading'], loading:['loading','status.cloud_loading']}[CLOUD_PHASE];
-  if(cloudPill && s.active && !s.load_error){ cls=cloudPill[0]; txt=t(cloudPill[1]); }
+
   // Fondu au premier vrai statut (le skeleton du chargement est encore là), comme
   // les jauges — voir swapContent. className est réécrit juste après, on repose donc
   // 'fadein' une fois le contenu remplacé.
@@ -58,6 +87,20 @@ async function loadStatus(){
   STATUS_SEEN = true;
   if(typeof syncSendBtn==='function') syncSendBtn();
   if(s.ctx){ CTX_MAX=s.ctx; updateCtxMeter(); }
+  // Le serveur n'est plus à la version qui a servi cette page (mise à jour
+  // d'AJEAN, puis redémarrage) : l'interface affichée est l'ANCIENNE, et ses
+  // appels ne correspondent plus au nouveau serveur. On recharge la page pour
+  // prendre la nouvelle interface — sauf pendant une saisie, où l'on prévient.
+  if(s.version){
+    if(SEEN_VERSION && s.version!==SEEN_VERSION){ reloadForNewVersion(s.version); return; }
+    SEEN_VERSION=s.version;
+  }
+  // Même numéro de version mais interface différente (AJEAN remplacé par un autre
+  // build) : l'empreinte de l'interface servie le révèle.
+  if(s.ui){
+    if(SEEN_UI && s.ui!==SEEN_UI){ reloadForNewVersion(s.version||''); return; }
+    SEEN_UI=s.ui;
+  }
   if(s.version){
     document.getElementById('ver').textContent='v'+s.version;
   }
@@ -138,10 +181,23 @@ async function checkAppUpdate(){
   if(!box) return;
   let r;
   try{ r=await jget('/api/update'); }catch(e){ return; } // hors-ligne / GitHub injoignable
+  if(_updBusy) return; // une mise à jour est en cours : le bandeau montre sa progression
   if(!r || r.error || !r.available || !r.latest){ box.hidden=true; return; }
   box.innerHTML='<span class="au-dot"></span><span>'+t('update.banner_prefix')+' <b>v'+escHtml(r.latest)+'</b> '+t('update.banner_suffix')+'</span>';
   box.hidden=false;
 }
+// La vérification ne se faisait qu'au chargement de la page : une fenêtre AJEAN
+// laissée ouverte plusieurs jours ne voyait jamais passer une nouvelle version.
+// On revérifie toutes les trois heures, et au retour sur la fenêtre après une
+// longue absence (le serveur garde la réponse de GitHub 30 minutes).
+let _updCheckedAt=Date.now();
+function recheckUpdates(){
+  if(document.hidden || Date.now()-_updCheckedAt < 3*60*60*1000) return;
+  _updCheckedAt=Date.now();
+  checkServerFreshness(); checkAppUpdate();
+}
+setInterval(recheckUpdates, 10*60*1000);
+document.addEventListener('visibilitychange', recheckUpdates);
 
 // Clic sur le bandeau de MAJ (bas du menu) : on lance l'installation, après
 // confirmation (elle redémarre le service). La progression s'affiche dans le
@@ -232,7 +288,7 @@ async function applyUpdate(boxId){
       if(msg) msg.innerHTML='✓ '+t('status.installed_prefix')+' <b>v'+escHtml(r.version)+'</b>.<br>'+(r.restart||'');
       // Redémarrage auto du service côté serveur : le flux va se couper puis
       // reconnecter tout seul (connectStream boucle). On rafraîchit l'état après.
-      if(r.restarting){ toast(t('status.update_applied_toast')); setTimeout(loadAll, 6000); }
+      if(r.restarting){ toast(t('status.update_applied_toast')); waitNewVersionThenReload(r.version); }
     }
     else if(msg){ msg.textContent=t('status.failed_prefix')+' '+(r.error||t('status.unknown')); }
   }catch(e){ if(msg) msg.textContent=t('status.update_error'); }
@@ -300,17 +356,10 @@ function fmtCtxTokens(n){
 // n'apparaît que si un effort est défini — c'est le sens de « quand on a défini un
 // niveau sur un preset » : on ne propose de le changer que là où il compte.
 let REASON_EFFORT = null; // null = pas encore chargé
-// Moteur MoE (Qwen3.8 Flash Next) : il prend toujours le niveau en compte, le
-// raccourci est donc toujours là. Son gabarit connaît low, medium et xhigh (son
-// défaut) ; « high » y vaut xhigh.
-let REASON_MOE = false;
-function reasonLevel(){
-  const e=(REASON_EFFORT||'').trim();
-  return REASON_MOE ? ((!e || e==='high') ? 'xhigh' : e) : e;
-}
-function updateReasonBtn(eff, moe){
+let REASON_EXT = false;   // preset actif = API ou Service (niveaux off/low/medium/high)
+function reasonLevel(){ return (REASON_EFFORT||'').trim(); }
+function updateReasonBtn(eff){
   REASON_EFFORT = eff==null ? REASON_EFFORT : eff;
-  if(moe!=null) REASON_MOE = !!moe;
   const btn=document.getElementById('reason-btn');
   if(!btn) return;
   const e=reasonLevel();
@@ -320,7 +369,7 @@ function updateReasonBtn(eff, moe){
   btn.style.display='flex';
   // Jauge de signal : on allume autant de barres que le niveau (low=1 … xhigh=4),
   // les autres restent estompées. On lit le mode d'un coup d'œil, sans cliquer.
-  const n={low:1, medium:2, high:3, xhigh:4}[e] || 0;
+  const n={off:0, low:1, medium:2, high:3, xhigh:4}[e] || 0;
   btn.querySelectorAll('.rb').forEach(p=>{ p.style.opacity = (Number(p.dataset.l)<=n) ? '1' : '.28'; });
   btn.title = t('status.reason_level_prefix')+' '+e+' '+t('status.reason_level_suffix');
 }
@@ -329,7 +378,9 @@ function toggleReasonMenu(ev){
   const menu=document.getElementById('reason-menu'), cur=reasonLevel();
   menu.querySelectorAll('button').forEach(b=>{
     b.classList.toggle('on', b.dataset.eff===cur); // niveau courant
-    b.style.display = (REASON_MOE && b.dataset.eff==='high') ? 'none' : '';
+    // API et Service : « désactivée » en plus, pas de xhigh (sauf s'il est en place).
+    const e=b.dataset.eff;
+    b.style.display = (e==='off' && !REASON_EXT) || (e==='xhigh' && REASON_EXT && cur!=='xhigh') ? 'none' : '';
   });
   toggleMenu(menu, document.getElementById('reason-btn'), {side:'above', align:'right'});
 }
@@ -359,46 +410,11 @@ function swapContent(el, html){
 }
 // Rend le bloc VRAM depuis une liste de GPU. Séparé du fetch pour être partagé par
 // loadVram (endpoint séparé, repli) ET loadTelemetry (appel groupé).
-// Libellé d'état d'une carte GPU Cloud : compte à rebours avant la mise en veille
-// (mis à jour chaque seconde par tickCloudCountdown), ou génération en cours.
-function cloudCardStatus(g){
-  if(g.busy) return escHtml(t('status.cloud_busy'));
-  if(g.off_at){
-    const pre = g.phase==='leaving' ? t('status.cloud_leaving_in') : t('status.cloud_off_in');
-    return '<span class="cloud-cd" data-off="'+Number(g.off_at)+'" data-pre="'+escHtml(pre)+'">'+escHtml(cloudCountdownText(pre, g.off_at))+'</span>';
-  }
-  return escHtml(g.status||'');
-}
-function fmtCountdown(ms){
-  const s = Math.max(0, Math.round(ms/1000));
-  return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
-}
-// « s'éteint dans 4:09 », puis « arrêt en cours… » une fois le délai écoulé.
-function cloudCountdownText(pre, offAt){
-  const left = Number(offAt) - Date.now();
-  return left > 0 ? pre+' '+fmtCountdown(left) : t('status.cloud_stopping');
-}
-function tickCloudCountdown(){
-  document.querySelectorAll('.cloud-cd').forEach(el=>{ el.textContent = cloudCountdownText(el.dataset.pre, el.dataset.off); });
-}
-setInterval(tickCloudCountdown, 1000);
 function renderVram(gpus){
   // Bloc de statistique : intitulé + valeur sur une ligne, jauge, détail dessous.
   // Même gabarit que la RAM (voir .stat dans le CSS) — le HTML libre d'avant
   // collait aux bords de la carte.
   swapContent(document.getElementById('vram'), (gpus||[]).map(g=>{
-    // GPU cloud (Modal) : pas de mesure en direct, on montre la capacité et l'état.
-    if(g.cloud && g.phase==='downloading'){
-      const pct = g.total ? Math.min(100, Math.round(g.used*100/g.total)) : 0;
-      const go = v => (v/1024).toFixed(1).replace('.', ',');
-      return '<div class="stat"><div class="stat-h"><span class="stat-n">'+escHtml(g.name)+'</span>'+
-        '<span class="stat-v">'+go(g.used)+(g.total ? ' / '+go(g.total) : '')+' Go</span></div>'+
-        '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
-        '<div class="stat-s">'+escHtml(g.status||'')+'</div></div>';
-    }
-    if(g.cloud && !g.awake) return '<div class="stat"><div class="stat-h"><span class="stat-n">'+escHtml(g.name)+'</span>'+
-      '<span class="stat-v">'+(g.total? (g.total/1024).toFixed(0)+' GiB' : '')+'</span></div>'+
-      '<div class="stat-s">'+cloudCardStatus(g)+(g.billing? ' · '+escHtml(cloudCreditText(g.billing)) : '')+'</div></div>';
     const pct=Math.round(g.used*100/g.total);
     // Température : 0 = inconnue (Apple Silicon, Vulkan, AMD/Intel sous Windows),
     // on la tait plutôt que d'afficher « 0 °C ». Mémoire unifiée (Mac) : le total
@@ -408,7 +424,7 @@ function renderVram(gpus){
     return '<div class="stat"><div class="stat-h"><span class="stat-n">'+g.name+'</span>'+
       '<span class="stat-v">'+(g.used/1024).toFixed(1)+' / '+(g.total/1024).toFixed(1)+' GiB</span></div>'+
       '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
-      '<div class="stat-s">GPU '+g.util+' %'+temp+unified+(g.cloud?' · '+cloudCardStatus(g):'')+(g.billing? ' · '+escHtml(cloudCreditText(g.billing)) : '')+'</div></div>';
+      '<div class="stat-s">GPU '+g.util+' %'+temp+unified+'</div></div>';
   }).join('')); // pas de GPU : rien du tout, la carte RAM suffit
 }
 // Rend le bloc RAM depuis {used,total}. Séparé du fetch (voir renderVram).
@@ -451,116 +467,13 @@ async function loadTelemetry(){
   renderVram(d.vram||[]);
   renderRam(d.ram||null);
 }
-let ENGINE_CMDLINE='';
+// loadCfg : la section « Configuration » du menu a disparu (tout se lit sur le
+// preset). Il ne reste ici que le raccourci « niveau de réflexion » du composeur,
+// présent seulement si le preset actif définit un niveau de réflexion. Rafraîchi
+// après une bascule de preset ou une édition.
 async function loadCfg(){
-  // /api/llamacpp en parallèle : il indique si le BIN de la config correspond au
-  // précompilé (prebuilt.in_use) ou compilé ici (in_use) — sinon c'est un fork perso.
-  const [c, lc] = await Promise.all([jget('/api/config'), jget('/api/llamacpp').catch(()=>null)]);
-  const row=(k,v,title)=>'<div class="kv"><span>'+k+'</span><span title="'+String(title!=null?title:v).replace(/"/g,'&quot;')+'">'+String(v)+'</span></div>';
-  const rows=[];
-  // Preset externe (API distante) : pas de moteur/modèle local à montrer. On
-  // affiche à la place les infos du preset — type, modèle, URL, clé masquée.
-  // GPU cloud (Modal) : le moteur tourne là-bas, on montre ce qui y est envoyé.
-  if(/^modal$/i.test(c.CLOUD||'')){
-    rows.push(row(t('status.cfg_engine'), 'GPU Cloud (Modal)'));
-    rows.push(row('GPU', c.CLOUD_GPU||'A10G'));
-    if(c.CLOUD_MODEL) rows.push(row('MODEL', c.CLOUD_MODEL.split('?')[0].split('/').pop(), c.CLOUD_MODEL));
-    if(c.CLOUD_DRAFT) rows.push(row('DRAFT', c.CLOUD_DRAFT.split('?')[0].split('/').pop(), c.CLOUD_DRAFT));
-    if(c.CLOUD_N_PREDICT) rows.push(row('N_PREDICT', c.CLOUD_N_PREDICT));
-    ['CTX','KV_TYPE','BATCH','UBATCH','NGL'].filter(k=>c[k]).forEach(k=>rows.push(row(k, c[k])));
-    const sp=(c.EXTRA_ARGS||'').match(/--spec-type\s+(\S+)/);
-    if(sp) rows.push(row('SPEC', sp[1]));
-    swapContent(document.getElementById('cfg'), rows.join(''));
-    updateReasonBtn(c.REASONING_EFFORT || '', false);
-    return;
-  }
-  if(c.EXTERNAL==='1'){
-    rows.push(row(t('external.cfg_type_label'), t('external.title')));
-    if(c.EXTERNAL_MODEL) rows.push(row(t('external.model_label'), c.EXTERNAL_MODEL));
-    if(c.CTX) rows.push(row('CTX', c.CTX));
-    if(c.EXTERNAL_URL){
-      let host=c.EXTERNAL_URL;
-      try{ host=new URL(c.EXTERNAL_URL).host; }catch(e){}
-      rows.push(row(t('external.url_label'), host, c.EXTERNAL_URL));
-    }
-    if(c.EXTERNAL_KEY){
-      const k=c.EXTERNAL_KEY;
-      const mask=k.length>8 ? k.slice(0,4)+'…'+k.slice(-4) : '••••';
-      rows.push(row(t('external.key_label'), mask, ''));
-    }
-    swapContent(document.getElementById('cfg'), rows.join(''));
-    updateReasonBtn('', false);
-    return;
-  }
-  // Moteur optimisé (Qwen3.8 Flash Next) : la config réelle de lancement,
-  // calculée par le serveur comme au démarrage (/api/moe → details).
-  if(c.ENGINE==='moe'){
-    const [s, cl] = await Promise.all([jget('/api/moe').catch(()=>null), jget('/api/engine/cmdline').catch(()=>null)]);
-    let fam=null, fit=null;
-    for(const f of (s&&s.families)||[]){ const x=f.fits.find(x=>x.active); if(x){ fam=f; fit=x; } }
-    const d=fit&&fit.details;
-    ENGINE_CMDLINE=(cl&&cl.cmdline)||'';
-    const cp=ENGINE_CMDLINE ? '<button class="cfg-copy" onclick="copyText(ENGINE_CMDLINE, t(\'status.cmdline_copied\'))" title="'+escHtml(t('status.cmdline_copy')+' : '+ENGINE_CMDLINE)+'"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>' : '';
-    rows.push(row(t('status.cfg_engine')+cp, t('status.engine_moe')));
-    if(fam) rows.push(row('MODEL', fam.label+' '+fit.quant.id));
-    if(d){
-      const k=n=>(+n>=1024 ? Math.round(+n/1024)+'K' : n);
-      rows.push(row('CTX', d.ctx));
-      rows.push(row('KV', d.kv+(d.kv_resident ? ' · '+k(d.kv_resident)+' VRAM' : '')));
-      rows.push(row('MTP', d.spec));
-      rows.push(row('PREFILL', d.prefill ? k(d.prefill) : 'auto'));
-      rows.push(row('EXPERTS', d.drop ? 'mlock' : d.mmap ? 'mmap' : 'RAM', d.drop ? t('moe.d_drop') : d.mmap ? t('moe.d_mmap') : t('moe.d_inram')));
-      // la vision est déjà signalée par l'œil du preset
-    }else if(c.CTX) rows.push(row('CTX', c.CTX));
-    swapContent(document.getElementById('cfg'), rows.join(''));
-    updateReasonBtn(c.REASONING_EFFORT || '', true);
-    return;
-  }
-  // Moteur ExLlama : réglages du preset (la config TabbyAPI en découle).
-  if(c.ENGINE==='exl3'){
-    const [s, cl] = await Promise.all([jget('/api/exl3').catch(()=>null), jget('/api/engine/cmdline').catch(()=>null)]);
-    ENGINE_CMDLINE=(cl&&cl.cmdline)||'';
-    const cp=ENGINE_CMDLINE ? '<button class="cfg-copy" onclick="copyText(ENGINE_CMDLINE, t(\'status.cmdline_copied\'))" title="'+escHtml(t('status.cmdline_copy')+' : '+ENGINE_CMDLINE)+'"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>' : '';
-    const ins=s&&s.installed;
-    rows.push(row(t('status.cfg_engine')+cp, 'ExLlama'+(ins&&ins.exllamav3 ? ' '+ins.exllamav3 : '')));
-    if(c.EXL3_MODEL) rows.push(row('MODEL', c.EXL3_MODEL.split(/[\\/]/).pop(), c.EXL3_MODEL));
-    if(c.CTX) rows.push(row('CTX', c.CTX));
-    rows.push(row('CACHE', (c.EXL3_CACHE_MODE||'FP16')+(c.EXL3_CACHE ? ' · '+c.EXL3_CACHE : '')));
-    if(c.EXL3_DRAFT) rows.push(row('SPEC', c.EXL3_DRAFT+(c.EXL3_DRAFT_TOKENS ? ' · '+c.EXL3_DRAFT_TOKENS : '')));
-    if(c.EXL3_TP==='1') rows.push(row('TP', c.EXL3_GPU_SPLIT || 'auto'));
-    else if(c.EXL3_GPU_SPLIT) rows.push(row('SPLIT', c.EXL3_GPU_SPLIT));
-    swapContent(document.getElementById('cfg'), rows.join(''));
-    updateReasonBtn(c.REASONING_EFFORT || '', false);
-    return;
-  }
-  if(c.BIN){
-    // Moteur : précompilé / compilé / personnalisé (avec le chemin). Le title garde
-    // toujours le chemin complet, quel que soit le libellé.
-    let v;
-    if(lc && lc.prebuilt && lc.prebuilt.in_use) v=t('status.engine_prebuilt');
-    else if(lc && lc.in_use) v=t('status.engine_compiled');
-    else v=t('status.engine_custom_prefix')+' '+c.BIN;
-    // Commande exacte du dernier lancement (#108) : petite icône de copie
-    // accolée au libellé MOTEUR, le détail au survol.
-    const cl=await jget('/api/engine/cmdline').catch(()=>null);
-    ENGINE_CMDLINE=(cl&&cl.cmdline)||'';
-    const cp=ENGINE_CMDLINE ? '<button class="cfg-copy" onclick="copyText(ENGINE_CMDLINE, t(\'status.cmdline_copied\'))" title="'+escHtml(t('status.cmdline_copy')+' : '+ENGINE_CMDLINE)+'"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>' : '';
-    rows.push(row(t('status.cfg_engine')+cp, v, c.BIN));
-  }
-  // Nombre de couches du modèle (#43) : NGL au-delà de ngl_max ne change rien,
-  // en dessous on libère de la VRAM pour le contexte et le cache KV.
-  const ly=c.MODEL ? await jget('/api/model/layers').catch(()=>null) : null;
-  ['MODEL','CTX','BATCH','UBATCH','NGL'].filter(k=>c[k]).forEach(k=>{
-    let v=c[k]; if(k==='MODEL') v=v.split(/[\\/]/).pop();
-    if(k==='NGL' && ly && ly.ok){ rows.push(row(k, v+' / '+ly.ngl_max, t('status.ngl_max_title').replace('{n}', ly.ngl_max).replace('{l}', ly.layers))); return; }
-    rows.push(row(k, v));
-  });
-  // n-cpu-moe : affiché seulement s'il est réellement présent dans EXTRA_ARGS.
-  const m=(c.EXTRA_ARGS||'').match(/--n-cpu-moe\s+(\d+)/);
-  if(m) rows.push(row('N-CPU-MOE', m[1]));
-  swapContent(document.getElementById('cfg'), rows.join(''));
-  // Raccourci « niveau de réflexion » du composeur : présent seulement si le preset
-  // actif définit un effort. Rafraîchi à chaque loadCfg (donc après une bascule de
-  // preset ou une édition).
-  updateReasonBtn(c.REASONING_EFFORT || '', false);
+  const c=await jget('/api/config');
+  const usable = c.ENGINE!=='moe' && c.ENGINE!=='exl3';
+  REASON_EXT = c.EXTERNAL==='1';
+  updateReasonBtn(usable ? (c.REASONING_EFFORT || '') : '');
 }

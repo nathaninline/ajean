@@ -1,21 +1,55 @@
-function openBenchModal(){ showModal('bench-modal'); }
+// Benchmark du modèle actif : tailles du test au choix (tokens lus et générés),
+// avancement en direct, résultat en tokens par seconde.
+// Tailles du test au choix : mémorisées dans le navigateur.
+const BENCH_PROMPTS = [2000, 10000, 25000, 50000, 100000], BENCH_OUTPUTS = [100, 300, 1000, 3000];
+let benchCfg = { prompt: 2000, output: 300 };
+try{ benchCfg = { ...benchCfg, ...JSON.parse(localStorage.getItem('ajean-bench') || '{}') }; }catch(e){}
+const benchK = n => n >= 1000 ? (n / 1000).toFixed(n % 1000 ? 1 : 0) + 'k' : String(n);
+function benchSeg(id, key, list){
+  const el = document.getElementById(id);
+  el.innerHTML = list.map(v => '<label><input type="radio" name="'+id+'" value="'+v+'"><span>'+benchK(v)+'</span></label>').join('');
+  el.querySelectorAll('input').forEach(i => {
+    i.checked = +i.value === benchCfg[key];
+    i.onchange = () => { benchCfg[key] = +i.value; try{ localStorage.setItem('ajean-bench', JSON.stringify(benchCfg)); }catch(e){} };
+  });
+}
+// Ouvre la fenêtre sur les réglages ; le test part avec « lancer ».
+function openBenchModal(){
+  benchSeg('bench-seg-prompt', 'prompt', BENCH_PROMPTS);
+  benchSeg('bench-seg-output', 'output', BENCH_OUTPUTS);
+  const body = document.getElementById('bench-body');
+  if(body) body.innerHTML = '<div class="muted" style="text-align:center">'+t('bench.pick')+'</div>';
+  showModal('bench-modal');
+}
 function closeBenchModal(){ hideModal('bench-modal'); }
 async function runBenchUI(){
-  const btn = document.getElementById('btn-bench');
   const rerun = document.getElementById('bench-rerun');
   const body = document.getElementById('bench-body');
-  openBenchModal();
-  // btn est désormais une ICÔNE : on ne touche PAS à son contenu (ça effacerait le
-  // SVG). On le désactive seulement ; l'état « en cours » est montré par le modal.
-  if(btn) btn.disabled = true;
   if(rerun) rerun.disabled = true;
   body.innerHTML =
     '<div style="text-align:center;padding:20px 0">' +
     '<div class="spinner" style="margin:0 auto"></div>' +
-    '<div class="muted" style="margin-top:8px">'+t('models.bench.desc')+'</div>' +
+    '<div class="muted" style="margin-top:8px">'+t('models.bench.desc').replace('{p}', benchK(benchCfg.prompt)).replace('{n}', benchK(benchCfg.output))+'</div>' +
     '</div>';
+  // Avancement : « Prefill 42 % » puis « Génération 120 / 300 ».
+  const info = body.querySelector('.muted');
+  const t0 = Date.now();
+  let polling = true;
+  (async () => {
+    while(polling){
+      await new Promise(res => setTimeout(res, 1000));
+      if(!polling) break;
+      let p; try{ p = await jget('/api/bench/progress'); }catch(e){ continue; }
+      if(!polling || !p || !p.running) continue;
+      const s = Math.round((Date.now() - t0) / 1000) + ' s';
+      if(p.generated > 0) info.textContent = tf('bench.gen', 'Génération') + ' ' + p.generated + ' / ' + p.output + ' · ' + s;
+      else if(p.prefill_done > 0 && p.prompt > 0) info.textContent = 'Prefill ' + Math.min(100, Math.round(100 * p.prefill_done / p.prompt)) + ' % · ' + s;
+      else info.textContent = 'Prefill… · ' + s;
+    }
+  })();
   try{
-    const r = await jget('/api/bench');
+    const r = await jget('/api/bench?prompt=' + benchCfg.prompt + '&n=' + benchCfg.output);
+    polling = false;
     if(!r.ok){
       body.innerHTML = '<div style="color:var(--err);text-align:center">'+t('models.bench.error')+r.error+'</div>';
       return;
@@ -38,7 +72,7 @@ async function runBenchUI(){
       '</div>' +
       '<div class="muted" style="text-align:center;font-size:11px">'+t('models.bench.total')+' '+x.elapsed_sec.toFixed(2)+'s</div>';
   } finally {
-    if(btn) btn.disabled = false;   // icône : pas de textContent (voir plus haut)
+    polling = false;
     if(rerun) rerun.disabled = false;
     loadPresets();
   }
@@ -111,9 +145,12 @@ async function openItem(kind, key){
   // Bench : visible seulement pour le preset ACTIF (il mesure le modèle chargé).
   const benchBtn = document.getElementById('btn-bench');
   if(benchBtn) benchBtn.style.display = (kind === 'preset' && key && key === ACTIVE_PRESET_ID) ? 'inline-flex' : 'none';
+  // Moteur (arrêter / redémarrer) : pour le preset actif seulement, lui aussi.
+  const powerBtn = document.getElementById('btn-power');
+  if(powerBtn) powerBtn.style.display = (kind === 'preset' && key && key === ACTIVE_PRESET_ID) ? 'inline-flex' : 'none';
   // Model picker is preset-only: it edits the MODEL= line of the preset.
   const modelRow = document.getElementById('m-model-row');
-  const engineRow = document.getElementById('m-engine-row'); // Moteur, en haut du modal
+
   const settingsRow = document.getElementById('m-settings-row');
   const samplingRow = document.getElementById('m-sampling-row');
   const rawHead = document.getElementById('m-raw-head');
@@ -123,18 +160,9 @@ async function openItem(kind, key){
   // Marque le type sur la modale : le CSS s'en sert pour retirer la carte autour
   // du contenu d'une page mémoire (le textarea a déjà sa propre bordure).
   document.getElementById('modal').classList.toggle('kind-mem', kind === 'mem');
-  // Prompt système : propre au preset, replié par défaut, masqué pour la mémoire.
-  const sysRow = document.getElementById('m-sys-row');
-  if(sysRow){
-    sysRow.style.display = kind === 'preset' ? '' : 'none';
-    document.getElementById('m-sysprompt').value = '';
-    document.getElementById('m-sys-body').style.display = 'none';
-    document.getElementById('m-sys-caret').classList.remove('open');
-  }
-  if(engineRow) engineRow.style.display = kind === 'preset' ? '' : 'none';
   const runRow = document.getElementById('m-run-row');
   if(runRow) runRow.style.display = kind === 'preset' ? '' : 'none';
-  document.getElementById('modal').classList.remove('run-cloud', 'eng-exl3');
+  document.getElementById('modal').classList.remove('run-external'); svcModePending = false;
   if(kind === 'preset'){
     modelRow.style.display = 'flex';
     settingsRow.style.display = 'flex';
@@ -188,14 +216,16 @@ async function openItem(kind, key){
   document.getElementById('m-content').value = d.content || '';
   if(kind === 'preset'){
     // Prompt système du preset (peut être vide).
-    const sp = document.getElementById('m-sysprompt'); if(sp) sp.value = d.sysprompt || '';
     // Ces deux-là LISENT le contenu : elles doivent passer après son arrivée.
     document.getElementById('m-quant').value = currentQuantInTextarea();
     populateSettings();
     syncRunMode();
     attachDownload();                      // téléchargement encore en cours côté serveur ?
-    await Promise.all([loadExl3(), populateModelPicker(), populateMmproj(), populateSpecDraft(), populateDlDirs()]);
-    await populateBackend();
+    await Promise.all([populateModelPicker(), populateMmproj(), populateSpecDraft(), populateDlDirs()]);
+    // Attendu (et non lancé dans le vide) : la liste des GPU change la hauteur
+    // du modal. Sans ce await, elle arrivait APRÈS la levée du voile de
+    // chargement et on voyait le bloc bouger tout seul.
+    await loadGpuDevices();
     if(seq !== openSeq) return;
   }
   // On lève le voile SANS transition (voir la note dans styles.css), puis on rend
@@ -419,160 +449,6 @@ async function populateMmproj(){
   sel.innerHTML = html;
 }
 
-// Choix du moteur PAR MODÈLE : 3 options (précompilé / compilé / personnalisé)
-// qui réécrivent la ligne BIN= du preset. C'est LE point où on décide quel
-// backend fait tourner ce modèle — la barre latérale ne fait qu'installer.
-function currentBinInTextarea(){
-  return readEnvKey(document.getElementById('m-content').value, 'BIN');
-}
-// Compare deux chemins de binaire en neutralisant séparateurs et casse (Windows).
-function sameBinPath(a, b){
-  const n = x => String(x||'').replace(/\\/g,'/').replace(/\/+$/,'').toLowerCase();
-  return !!a && !!b && n(a) === n(b);
-}
-// Écrit (ou remplace) la ligne BIN= dans le contenu du preset.
-function setBinInTextarea(val){
-  const ta = document.getElementById('m-content');
-  if(/^\s*BIN\s*=.*$/m.test(ta.value)) ta.value = ta.value.replace(/^\s*BIN\s*=.*$/m, 'BIN="'+val+'"');
-  else ta.value = 'BIN="'+val+'"\n' + ta.value;
-}
-// Le moteur précompilé s'installe dans un dossier versionné (…/llama-b10280/) :
-// le BIN d'un preset écrit avant une mise à jour ne vaut plus le chemin courant,
-// alors qu'il désigne bien ce moteur. On reconnaît donc l'appartenance au
-// dossier, sinon tous les presets retombaient en « personnalisé » à chaque MAJ.
-function underDir(p, dir){
-  const n = x => String(x||'').replace(/\\/g,'/').replace(/\/+$/,'').toLowerCase();
-  return !!p && !!dir && n(p).startsWith(n(dir)+'/');
-}
-let beFastPath = '', beOptPath = '', beFastDir = '';
-// Mode moteur RÉELLEMENT sélectionné (celui écrit dans BIN). Sert à revenir dessus
-// quand l'utilisateur clique un moteur non installé : on n'écrit pas un BIN vers un
-// binaire absent, on montre l'avertissement et on remet le curseur où il était.
-let beCurrentMode = 'custom';
-// renderBackendAvailability affiche, en UNE ligne discrète sous le sélecteur, les
-// moteurs non installés sur la machine (au lieu d'un badge qui cassait chaque pastille
-// sur deux lignes). On voit d'un coup ce qui n'est pas encore utilisable.
-function renderBackendAvailability(){
-  const note = document.getElementById('be-avail-note');
-  if(!note) return;
-  const miss = [];
-  if(!beFastPath) miss.push(t('preset.engine_fast'));
-  if(!beOptPath)  miss.push(t('preset.engine_opt'));
-  if(miss.length){
-    note.textContent = miss.join(', ') + ' : ' + t('preset.engine_not_installed_badge');
-    note.style.display = '';
-  } else {
-    note.textContent = '';
-    note.style.display = 'none';
-  }
-}
-// Affiche l'encart d'avertissement (moteur non installé) avec la marche à suivre.
-function showBackendWarn(mode){
-  const warn = document.getElementById('be-warn'); if(!warn) return;
-  document.getElementById('be-warn-text').textContent =
-    t(mode === 'fast' ? 'preset.engine_warn_fast' : mode === 'exl3' ? 'preset.engine_warn_exl3' : 'preset.engine_warn_opt');
-  warn.dataset.mode = mode;
-  warn.style.display = '';
-}
-function hideBackendWarn(){
-  const warn = document.getElementById('be-warn'); if(warn) warn.style.display = 'none';
-}
-// Bouton « Installer le moteur » de l'encart : ferme l'éditeur, ouvre la section
-// Moteur du panneau et lance l'installation guidée (lcPick demande confirmation puis
-// suit la progression). L'utilisateur reviendra choisir le moteur une fois installé.
-function beWarnInstall(){
-  const warn = document.getElementById('be-warn');
-  const mode = (warn && warn.dataset.mode) || 'fast';
-  if(typeof closeModal === 'function') closeModal();
-  if(mode === 'exl3'){ openExl3(); return; }
-  const side = document.getElementById('side');
-  if(side && !side.classList.contains('open') && typeof toggleSide === 'function') toggleSide();
-  const det = document.getElementById('lc-details');
-  if(det){ det.open = true; det.scrollIntoView({block:'center'}); }
-  if(typeof lcPick === 'function') lcPick(mode);
-}
-async function populateBackend(){
-  // Chemins des deux moteurs gérés + liste des backends détectés (dossier ajean).
-  let lc = {}; try{ lc = await jget('/api/llamacpp'); }catch(_){}
-  beFastPath = (lc.prebuilt && lc.prebuilt.bin) || '';
-  beFastDir  = (lc.prebuilt && lc.prebuilt.dir) || '';
-  beOptPath  = lc.bin || '';
-  // Menu « backend détecté » du mode personnalisé : tout ce qu'on trouve dans
-  // le dossier backends de ajean (l'utilisateur peut y déposer son propre build).
-  const detected = await jget('/api/backends');
-  const sel = document.getElementById('m-backend-detected');
-  let html = '<option value="">'+t('models.backend.or_choose_detected')+'</option>';
-  for(const b of (detected||[])) html += '<option value="'+b.path+'">'+b.name+'</option>';
-  sel.innerHTML = html;
-  document.getElementById('be-drop-hint').textContent = lc.backends_dir
-    ? (t('models.backend.drop_hint_prefix')+lc.backends_dir+t('models.backend.drop_hint_suffix')) : '';
-  // Sélectionne l'option correspondant au BIN actuel du preset.
-  const cur = currentBinInTextarea();
-  let mode = 'custom';
-  if(cfgReadKey('ENGINE') === 'exl3') mode = 'exl3';
-  else if(sameBinPath(cur, beFastPath) || underDir(cur, beFastDir)) mode = 'fast';
-  else if(sameBinPath(cur, beOptPath)) mode = 'opt';
-  const radio = document.querySelector('input[name=m-be][value='+mode+']');
-  if(radio) radio.checked = true;
-  beCurrentMode = mode;
-  renderBackendAvailability();
-  hideBackendWarn();
-  toggleBackendCustom(mode);
-  if(mode === 'custom') document.getElementById('m-backend-path').value = cur;
-  syncEngineView();
-  // Attendu (et non lancé dans le vide) : la liste des GPU change la hauteur du
-  // bloc « moteur ». Sans ce await, elle arrivait APRÈS la levée du voile de
-  // chargement et on voyait le bloc bouger tout seul.
-  await loadGpuDevices();
-}
-function toggleBackendCustom(mode){
-  document.getElementById('m-backend-custom').style.display = (mode==='custom') ? 'block' : 'none';
-}
-function onBackendMode(mode){
-  // Moteur non installé : au lieu d'écrire un BIN vers un binaire absent (le modèle
-  // ne démarrerait pas) et de le signaler par une notif fugace, on montre un
-  // avertissement franc avec la marche à suivre, et on remet le curseur sur le
-  // moteur réellement en place.
-  if((mode === 'fast' && !beFastPath) || (mode === 'opt' && !beOptPath) || (mode === 'exl3' && !exl3Installed())){
-    showBackendWarn(mode);
-    const back = document.querySelector('input[name=m-be][value='+beCurrentMode+']');
-    if(back) back.checked = true;
-    toggleBackendCustom(beCurrentMode);
-    return;
-  }
-  hideBackendWarn();
-  toggleBackendCustom(mode);
-  if(mode === 'exl3'){
-    beCurrentMode = 'exl3';
-    exl3Select();
-    toast(t('preset.engine_exl3_selected'));
-    return;
-  }
-  // retour vers llama.cpp : le preset ne désigne plus ExLlama
-  if(cfgReadKey('ENGINE') === 'exl3'){ cfgWriteKey('ENGINE', ''); syncEngineView(); }
-  if(mode === 'fast'){
-    setBinInTextarea(beFastPath); beCurrentMode = 'fast'; toast(t('models.backend.engine_precompiled'));
-    loadGpuDevices();
-  } else if(mode === 'opt'){
-    setBinInTextarea(beOptPath); beCurrentMode = 'opt'; toast(t('models.backend.engine_compiled'));
-    loadGpuDevices();
-  } else {
-    beCurrentMode = 'custom';
-  }
-  // custom : on attend que l'utilisateur saisisse un chemin / choisisse un backend
-}
-function onCustomPath(){
-  const v = document.getElementById('m-backend-path').value.trim();
-  if(v){ setBinInTextarea(v); loadGpuDevices(); }
-}
-function onPickDetected(){
-  const v = document.getElementById('m-backend-detected').value;
-  if(!v) return;
-  document.getElementById('m-backend-path').value = v;
-  setBinInTextarea(v); toast(t('models.backend.engine_custom'));
-  loadGpuDevices();
-}
-
 // --- Cartes graphiques (--device / --tensor-split) --------------------------
 // Ces réglages vivent dans le PRESET, pas dans une variable d'environnement :
 // --device est compris par TOUS les backends (CUDA, Vulkan, ROCm), alors que
@@ -585,35 +461,29 @@ function onPickDetected(){
 // .gpu-range::-webkit-slider-thumb / ::-moz-range-thumb dans styles.css.
 const GPU_THUMB = 16;
 let gpuDevices = [];
-const gpuCache = {}; // bin -> devices : évite de relancer le moteur à chaque ouverture
+let gpuCache = null; // cartes vues par le moteur : évite de le relancer à chaque ouverture
 
-// Interroge le moteur du preset (--list-devices) : les noms de device et leur
+// Interroge le moteur d'AJEAN (--list-devices) : les noms de device et leur
 // ordre lui appartiennent, une liste issue de nvidia-smi désignerait la mauvaise
-// carte sur un backend Vulkan. Le groupe reste MASQUÉ tant que la réponse n'est
+// carte sur une variante Vulkan. Le groupe reste MASQUÉ tant que la réponse n'est
 // pas là, et le reste s'il y a moins de deux cartes : rien à arbitrer, et ça
 // évite un encart qui surgit après coup.
-// Remplit le cache sans rien peindre (appelé au chargement de la page pour le
-// moteur actif) : à l'ouverture de l'éditeur, l'encart est déjà prêt.
-async function prefetchGpuDevices(bin){
-  if(!bin || gpuCache[bin]) return;
+// Remplit le cache sans rien peindre (appelé au chargement de la page) : à
+// l'ouverture de l'éditeur, l'encart est déjà prêt.
+async function prefetchGpuDevices(){
+  if(gpuCache) return;
   try{
-    const r = await jpost('/api/backends/devices', {bin});
-    if(r && r.ok) gpuCache[bin] = r.devices || [];
+    const r = await jpost('/api/engine/devices', {});
+    if(r && r.ok) gpuCache = r.devices || [];
   }catch(_){}
 }
 
 async function loadGpuDevices(){
-  const group = document.getElementById('m-gpu-group');
-  const bin = currentBinInTextarea();
-  if(!bin){ group.hidden = true; gpuDevices = []; return; }
-  if(gpuCache[bin]){ gpuDevices = gpuCache[bin]; renderGpu(); return; }
+  if(gpuCache){ gpuDevices = gpuCache; renderGpu(); return; }
   let r = {};
-  try{ r = await jpost('/api/backends/devices', {bin}); }catch(_){ r = {ok:false}; }
-  // Le moteur a pu changer pendant l'appel (clic rapide) : on ne peint que si la
-  // réponse concerne toujours le moteur affiché.
-  if(currentBinInTextarea() !== bin) return;
+  try{ r = await jpost('/api/engine/devices', {}); }catch(_){ r = {ok:false}; }
   gpuDevices = (r.ok && r.devices) ? r.devices : [];
-  if(r.ok) gpuCache[bin] = gpuDevices;
+  if(r.ok) gpuCache = gpuDevices;
   renderGpu();
 }
 
@@ -1014,172 +884,176 @@ function populateSettings(){
                            : t('models.settings.reasoning_sub_unset');
   }
   chk('s-kvunified', eaHasFlag('--kv-unified'));
-  chk('s-flash', eaHasFlag('--flash-attn') && !/^off$/i.test(eaGetValued('--flash-attn')));
+  { const fa = eaHasFlag('--flash-attn') ? eaGetValued('--flash-attn').toLowerCase() : ''; set('s-flash', fa === 'on' || fa === 'off' ? fa : ''); }
   set('s-loadmode', eaLoadMode());
   syncLoadModeSub(eaLoadMode());
   chk('s-mmproj-cpu', eaHasFlag('--no-mmproj-offload'));
   syncMmprojCpuRow();
 }
-// --- Exécution : cette machine ou GPU cloud Modal (clé CLOUD) ----------------
-// Fournisseurs de GPU cloud connus (valeur de la clé CLOUD).
-const CLOUD_PROVIDERS = ['modal'];
+// --- Exécution : Local, API ou Service système -------------------------------
+//   local    : llama.cpp livré avec AJEAN charge un .gguf
+//   external : une API OpenAI-compatible distante (EXTERNAL=1)
+//   service  : une commande lancée par AJEAN, qui expose l'API sur cette machine
+//              (EXTERNAL=1 + SERVICE_CMD)
+// svcModePending : « Service système » vient d'être choisi mais la commande est
+// encore vide (rien dans le contenu ne le dit) ; remis à zéro à l'ouverture.
+let svcModePending = false;
 function runMode(){
-  if(CLOUD_PROVIDERS.includes(cfgReadKey('CLOUD').toLowerCase())) return 'modal';
-  if(cfgReadKey('EXTERNAL') === '1') return 'external';
+  if(cfgReadKey('EXTERNAL') === '1') return (cfgReadKey('SERVICE_CMD') || svcModePending) ? 'service' : 'external';
   return 'local';
 }
 function syncRunMode(){
   const mode = runMode();
   document.querySelectorAll('input[name="m-run"]').forEach(r=>{ r.checked = r.value === mode; });
-  document.getElementById('m-cloud-body').style.display = mode === 'modal' ? '' : 'none';
-  document.getElementById('m-ext-body').style.display = mode === 'external' ? '' : 'none';
+  document.getElementById('m-svc-body').style.display = mode === 'service' ? '' : 'none';
+  document.getElementById('m-ext-body').style.display = mode === 'local' ? 'none' : '';
   const md = document.getElementById('modal');
   requestAnimationFrame(fitSelects);
-  md.classList.toggle('run-cloud', mode === 'modal');
-  md.classList.toggle('run-external', mode === 'external');
-  // Le bench mesure le moteur local : sans objet pour un preset distant, sauf un
-  // moteur tiers lancé par ajean (EXTERNAL_SERVICE, ex. moteur MoE), mesuré en streaming.
+  // Hors « Local » : pas de fichier de modèle, de cartes ni de réglages llama.cpp.
+  md.classList.toggle('run-external', mode !== 'local');
+  // Le bench mesure un modèle qui tourne ici : sans objet pour une API distante.
   const bench = document.getElementById('btn-bench');
-  if(bench && mode !== 'local' && !(mode === 'external' && cfgReadKey('EXTERNAL_SERVICE'))) bench.style.display = 'none';
-  if(mode === 'modal'){
-    document.getElementById('s-cloud-provider').value = cfgReadKey('CLOUD').toLowerCase() || 'modal';
-    document.getElementById('s-cloud-gpu').value = cfgReadKey('CLOUD_GPU') || 'A10G';
-    document.getElementById('s-cloud-model').value = cfgReadKey('CLOUD_MODEL');
-    document.getElementById('s-cloud-draft').value = cfgReadKey('CLOUD_DRAFT');
-    document.getElementById('s-cloud-predict').value = cfgReadKey('CLOUD_N_PREDICT');
-    document.getElementById('s-cloud-idle').value = cfgReadKey('CLOUD_IDLE');
-    document.getElementById('s-cloud-mmproj').value = cfgReadKey('CLOUD_MMPROJ');
-    setCloudAddOpen(false);
-    loadCloudAccounts();
-  } else if(mode === 'external'){
+  if(bench && mode === 'external' && !cfgReadKey('EXTERNAL_SERVICE')) bench.style.display = 'none';
+  // Une API distante n'a rien à arrêter ni à redémarrer ici.
+  const power = document.getElementById('btn-power');
+  if(power && mode === 'external' && !cfgReadKey('EXTERNAL_SERVICE')) power.style.display = 'none';
+  if(mode !== 'local'){
     document.getElementById('s-ext-url').value = cfgReadKey('EXTERNAL_URL');
     document.getElementById('s-ext-model').value = cfgReadKey('EXTERNAL_MODEL');
     document.getElementById('s-ext-key').value = cfgReadKey('EXTERNAL_KEY');
     document.getElementById('s-ext-ctx').value = cfgReadKey('CTX');
     document.getElementById('s-ext-vision').checked = cfgReadKey('EXTERNAL_VISION') === '1';
     document.getElementById('s-ext-status').textContent = '';
+    {
+      // Niveau écrit par une version précédente (xhigh) : on le garde dans la liste.
+      const sel = document.getElementById('s-ext-effort'), eff = cfgReadKey('REASONING_EFFORT');
+      sel.querySelectorAll('option[data-extra]').forEach(o => o.remove());
+      if(eff && ![...sel.options].some(o => o.value === eff)){
+        const o = document.createElement('option'); o.value = eff; o.textContent = eff; o.dataset.extra = '1'; sel.appendChild(o);
+      }
+      sel.value = eff;
+    }
+    // Service système : l'adresse et le modèle sont facultatifs.
+    const svc = mode === 'service';
+    document.getElementById('s-ext-url').placeholder = svc ? (svcUrlFromCmd(cfgReadKey('SERVICE_CMD')) || 'http://127.0.0.1:8000/v1') : 'https://api.openai.com/v1';
+    document.getElementById('s-ext-model').placeholder = svc ? t('service.model_placeholder') : 'gpt-4o-mini';
+    extModelManual = false;
+    extModelsLoad();
   }
+  if(mode === 'service'){
+    document.getElementById('s-svc-cmd').value = cfgReadKey('SERVICE_CMD');
+    document.getElementById('s-svc-workdir').value = cfgReadKey('SERVICE_WORKDIR');
+    document.getElementById('s-svc-env').value = cfgReadKey('SERVICE_ENV');
+  }
+}
+// Adresse de l'API déduite du port de la commande (même règle que le serveur).
+function svcUrlFromCmd(cmd){
+  const m = String(cmd||'').match(/(?:^|\s)(?:--port|-p)(?:=|\s+)(\d+)(?=\s|$)/);
+  return m ? 'http://127.0.0.1:'+m[1]+'/v1' : '';
+}
+function onSvcCmd(v){
+  // Une commande collée sur plusieurs lignes n'en fait qu'une.
+  cfgWriteKey('SERVICE_CMD', String(v).replace(/[ \t]*\r?\n[ \t]*/g, ' ').trim());
+  document.getElementById('s-ext-url').placeholder = svcUrlFromCmd(v) || 'http://127.0.0.1:8000/v1';
+  extModelsSchedule();
+}
+function onRunMode(mode){
+  svcModePending = mode === 'service';
+  cfgWriteKey('EXTERNAL', mode === 'local' ? '' : '1');
+  if(mode !== 'service'){ ['SERVICE_CMD','SERVICE_WORKDIR','SERVICE_ENV'].forEach(k=>cfgWriteKey(k, '')); }
+  syncRunMode();
+}
+// --- Modèles annoncés par le fournisseur (API et Service) --------------------
+// Dès que l'URL (et la clé) sont saisies, on demande au serveur la liste
+// <base>/models : le champ Modèle devient une liste. Sans liste (fournisseur qui
+// n'en publie pas, clé refusée, service pas encore lancé), la saisie libre reste.
+let extModels = null;        // liste obtenue pour extModelsFor, ou null
+let extModelsFor = null;     // « url\nclé » de la dernière demande aboutie
+let extModelsErr = '';
+let extModelsTimer = 0, extModelsSeq = 0;
+let extModelManual = false;  // « autre identifiant » choisi : champ libre affiché
+function extModelsSchedule(){ clearTimeout(extModelsTimer); extModelsTimer = setTimeout(extModelsLoad, 700); }
+async function extModelsLoad(){
+  clearTimeout(extModelsTimer);
+  const svc = runMode() === 'service';
+  const cmd = cfgReadKey('SERVICE_CMD');
+  const url = cfgReadKey('EXTERNAL_URL') || (svc ? svcUrlFromCmd(cmd) : '');
+  const key = cfgReadKey('EXTERNAL_KEY');
+  const sig = url + '\n' + key;
+  if(!url){ extModelsSeq++; extModels = null; extModelsFor = null; extModelsErr = ''; extModelsRender(); return; }
+  if(sig === extModelsFor){ extModelsRender(); return; }
+  const seq = ++extModelsSeq;
+  extModelsRender(true);
+  let list = null, err = '';
+  try{
+    const r = await jpost('/api/preset/external/models', {url, key, service: svc, cmd});
+    if(r.ok) list = r.models || []; else err = r.error || '';
+  }catch(e){}
+  if(seq !== extModelsSeq) return;
+  extModels = list && list.length ? list : null;
+  extModelsErr = err;
+  extModelsFor = sig;
+  extModelsRender();
+}
+function extModelsRender(loading){
+  const selc = document.getElementById('s-ext-model-selc');
+  const sel = document.getElementById('s-ext-model-sel');
+  const inp = document.getElementById('s-ext-model');
+  const hint = document.getElementById('s-ext-model-hint');
+  if(!selc) return;
+  const svc = runMode() === 'service';
+  const cur = cfgReadKey('EXTERNAL_MODEL');
+  if(loading || !extModels){
+    selc.style.display = 'none';
+    inp.style.display = '';
+    hint.title = '';
+    if(loading) hint.textContent = t('external.models_searching');
+    else if(extModelsFor !== null){ hint.textContent = t('external.models_unavailable'); hint.title = extModelsErr; }
+    else hint.textContent = t('external.model_hint');
+    return;
+  }
+  const opt = (v, label) => { const o = document.createElement('option'); o.value = v; o.textContent = label; return o; };
+  sel.textContent = '';
+  // Sans modèle : un Service prend le premier annoncé, une API attend un choix.
+  if(svc || !cur) sel.appendChild(opt('', svc ? t('service.model_placeholder') : t('external.model_choose')));
+  if(cur && !extModels.includes(cur)) sel.appendChild(opt(cur, cur));
+  extModels.forEach(m => sel.appendChild(opt(m, m)));
+  sel.appendChild(opt('\u0000other', t('external.model_other')));
+  sel.value = extModelManual ? '\u0000other' : cur;
+  selc.style.display = '';
+  inp.style.display = extModelManual ? '' : 'none';
+  hint.title = '';
+  hint.textContent = t('external.models_count').replace('{n}', extModels.length);
+}
+function extModelPick(v){
+  const inp = document.getElementById('s-ext-model');
+  if(v === '\u0000other'){
+    extModelManual = true;
+    extModelsRender();
+    inp.focus();
+    return;
+  }
+  extModelManual = false;
+  cfgWriteKey('EXTERNAL_MODEL', v);
+  inp.value = v;
+  extModelsRender();
 }
 // Test d'un preset API externe : une complétion d'un jeton vers l'API saisie.
 async function testExternalPreset(){
   const st = document.getElementById('s-ext-status');
+  const svc = runMode() === 'service';
   const b = {id: editingKey || '', url: cfgReadKey('EXTERNAL_URL'), model: cfgReadKey('EXTERNAL_MODEL'),
-             key: cfgReadKey('EXTERNAL_KEY'), keyTouched: true};
-  if(!b.url || !b.model){ st.textContent = t('external.url_model_required'); return; }
+             key: cfgReadKey('EXTERNAL_KEY'), keyTouched: true, service: svc, cmd: cfgReadKey('SERVICE_CMD'),
+             effort: cfgReadKey('REASONING_EFFORT')};
+  // Service système : adresse déduite de la commande, modèle = le premier annoncé.
+  if(svc ? !(b.url || svcUrlFromCmd(b.cmd)) : (!b.url || !b.model)){ st.textContent = t(svc ? 'service.url_required' : 'external.url_model_required'); return; }
   st.textContent = t('external.testing');
   try{
     const r = await jpost('/api/preset/external/test', b);
-    st.textContent = r.ok ? '✓ '+t('external.test_ok') : '⚠ '+(r.error || t('external.test_failed'));
+    st.title = '';
+    if(r.ok && r.reasoningIgnored){ st.textContent = '⚠ '+t('external.test_ok_reason_ignored'); st.title = r.reasoningError || ''; }
+    else st.textContent = r.ok ? '✓ '+t('external.test_ok') : '⚠ '+(r.error || t('external.test_failed'));
   }catch(e){ st.textContent = '⚠ '+t('external.test_failed'); }
-}
-// Comptes Modal = profils de la CLI sur la machine AJEAN. Vide = profil actif.
-function setCloudState(state){ document.getElementById('m-cloud-body').dataset.state = state; }
-async function loadCloudAccounts(){
-  const sel = document.getElementById('s-cloud-prof');
-  const cur = cfgReadKey('CLOUD_PROFILE');
-  let d = {accounts:[]};
-  try{ d = await jget('/api/cloud/accounts'); }catch(e){}
-  // Premier usage : AJEAN installe son composant GPU Cloud (Python + client Modal
-  // privés). Bloc dédié avec l'étape en cours, relu jusqu'à ce que ce soit prêt.
-  if(d.installed === false){
-    setCloudState('setup');
-    const failed = d.runtime === 'error';
-    document.getElementById('m-cloud-setup-spin').style.display = failed ? 'none' : '';
-    document.getElementById('m-cloud-setup-retry').style.display = failed ? '' : 'none';
-    document.getElementById('m-cloud-setup-title').textContent = t(failed ? 'preset.cloud_setup_error' : 'preset.cloud_setup_title');
-    document.getElementById('m-cloud-setup-sub').textContent = failed ? (d.error || '') : (d.step ? d.step+'…' : t('preset.cloud_setup_sub'));
-    if(!failed) setTimeout(()=>{ if(runMode() === 'modal' && document.getElementById('modal').classList.contains('show')) loadCloudAccounts(); }, 2000);
-    return;
-  }
-  const list = d.accounts || [];
-  // Aucun compte : on propose directement la connexion, sans liste vide.
-  if(!list.length){ setCloudState('none'); return; }
-  setCloudState('ready');
-  const act = list.find(a=>a.active);
-  const opts = list.filter(a=>!a.active).map(a=>'<option value="'+escHtml(a.name)+'">'+escHtml(a.name)+'</option>');
-  // Option vide = profil actif de la CLI ; on affiche simplement son nom.
-  sel.innerHTML = '<option value="">'+escHtml(act ? act.name : t('preset.cloud_account_default'))+'</option>' + opts.join('');
-  if(cur && !list.some(a=>a.name===cur)) sel.insertAdjacentHTML('beforeend','<option value="'+escHtml(cur)+'">'+escHtml(cur)+'</option>');
-  sel.value = (act && cur === act.name) ? '' : cur;
-  fitSelect(sel);
-  loadCloudCredit();
-}
-async function retryCloudRuntime(){
-  try{ await jpost('/api/cloud/runtime', {}); }catch(e){}
-  loadCloudAccounts();
-}
-async function loadCloudCredit(){
-  const val = document.getElementById('s-cloud-credit');
-  const sub = document.getElementById('s-cloud-credit-sub');
-  const p = cfgReadKey('CLOUD_PROFILE');
-  val.textContent = '…'; sub.textContent = '';
-  let d = null;
-  try{ d = await jget('/api/cloud/billing?profile='+encodeURIComponent(p)); }catch(e){}
-  if(cfgReadKey('CLOUD_PROFILE') !== p) return; // compte changé entre-temps
-  if(!d || d.error || d.month_cost == null){ val.textContent = '—'; sub.textContent = (d && d.error) || t('preset.cloud_credit_na'); return; }
-  const usd = v => Number(v).toFixed(2).replace('.', ',')+' $';
-  if(d.credit_left != null){
-    val.textContent = usd(d.credit_left);
-    sub.textContent = t('preset.cloud_credit_sub').replace('{used}', usd(d.month_cost)).replace('{month}', usd(d.credit_month));
-  } else {
-    val.textContent = usd(d.month_cost);
-    sub.textContent = t('preset.cloud_credit_sub_paid');
-  }
-  if(d.billed > 0) sub.textContent += ' · '+t('preset.cloud_credit_billed')+' '+usd(d.billed);
-}
-// Texte court pour la carte « Appareil ».
-function cloudCreditText(d){
-  if(!d || d.error || d.month_cost == null) return '';
-  const usd = v => Number(v).toFixed(2).replace('.', ',')+' $';
-  return d.credit_left != null ? t('preset.cloud_credit_left_short').replace('{left}', usd(d.credit_left))
-                               : t('preset.cloud_credit_month')+' '+usd(d.month_cost);
-}
-function onCloudProfile(){
-  cfgWriteKey('CLOUD_PROFILE', document.getElementById('s-cloud-prof').value);
-  loadCloudCredit();
-}
-function onCloudProvider(p){ cfgWriteKey('CLOUD', p); syncRunMode(); }
-function onRunMode(mode){
-  cfgWriteKey('CLOUD', mode === 'modal' ? 'modal' : '');
-  cfgWriteKey('EXTERNAL', mode === 'external' ? '1' : '');
-  if(mode === 'modal' && !cfgReadKey('CLOUD_GPU')) cfgWriteKey('CLOUD_GPU', 'A10G');
-  syncRunMode();
-}
-function setCloudAddOpen(open){
-  document.getElementById('m-cloud-add').style.display = open ? '' : 'none';
-  document.getElementById('m-cloud-add-caret').classList.toggle('open', open);
-  if(open) document.getElementById('m-cloud-add-name').focus();
-}
-function cloudAddNote(txt){ document.getElementById('m-cloud-add-note').textContent = txt; }
-async function addCloudAccount(){
-  const inp = document.getElementById('m-cloud-add-name');
-  const btn = document.getElementById('m-cloud-add-btn');
-  const name = inp.value.trim();
-  if(!/^[A-Za-z0-9_-]{1,40}$/.test(name)){ cloudAddNote(t('preset.cloud_account_name_invalid')); inp.focus(); return; }
-  // Onglet ouvert AVANT l'appel réseau : après un await, le navigateur le bloque.
-  const win = window.open('', '_blank');
-  btn.disabled = true; inp.disabled = true;
-  cloudAddNote(t('preset.cloud_account_starting'));
-  const done = (msg)=>{ btn.disabled = false; inp.disabled = false; cloudAddNote(msg); };
-  let r;
-  try{ r = await jpost('/api/cloud/accounts/add', {name}); }catch(e){ r = {error: String(e)}; }
-  if(!r || !r.url){ if(win) win.close(); done((r && r.error) || t('preset.cloud_account_fail')); return; }
-  if(win) win.location = r.url; else window.open(r.url, '_blank');
-  cloudAddNote(t('preset.cloud_account_wait'));
-  for(let i=0; i<450; i++){
-    await new Promise(res=>setTimeout(res, 2000));
-    let st; try{ st = await jget('/api/cloud/accounts/add?name='+encodeURIComponent(name)); }catch(e){ continue; }
-    if(st.state === 'ok'){
-      cfgWriteKey('CLOUD_PROFILE', name);
-      inp.value = '';
-      await loadCloudAccounts();
-      done(t('preset.cloud_account_ok'));
-      setTimeout(()=>{ setCloudAddOpen(false); cloudAddNote(t('preset.cloud_account_add_note')); }, 2500);
-      return;
-    }
-    if(st.state === 'error'){ done(st.error || t('preset.cloud_account_fail')); return; }
-  }
-  done(t('preset.cloud_account_fail'));
 }
 // --- Décodage spéculatif (--spec-type / --spec-draft-n-max) ----------------
 // Sélectionne le type courant. --spec-type accepte en réalité une LISTE séparée
@@ -1264,16 +1138,10 @@ async function populateSpecDraft(){
   }
   sel.innerHTML = html;
 }
-// Effort de réflexion : REASONING_EFFORT part dans la requête (chat_template_kwargs)
-// mais n'a d'effet que si le moteur tourne avec --jinja. Comme éditer le preset
-// impose déjà un switch (= redémarrage du moteur), autant ajouter --jinja tout de
-// suite quand on choisit un effort. On ne le RETIRE pas en repassant sur « défaut » :
-// il a pu être posé à la main pour les appels d'outils, et le laisser est sans
-// risque.
-function onEffort(val){
-  cfgWriteKey('REASONING_EFFORT', val);
-  if(val) eaToggleFlag('--jinja', true);
-}
+// Effort de réflexion : REASONING_EFFORT part dans la requête (chat_template_kwargs).
+// Le moteur d'AJEAN utilise les gabarits jinja par défaut : plus besoin d'ajouter
+// --jinja au preset comme avant.
+function onEffort(val){ cfgWriteKey('REASONING_EFFORT', val); }
 // Le nombre de jetons anticipés ne veut rien dire sans type : ligne masquée, et
 // flag retiré pour ne pas laisser un réglage orphelin dans le preset.
 function syncSpecRow(){
@@ -1306,13 +1174,6 @@ function onSpecType(){
 function toggleRaw(){
   const b = document.getElementById('m-raw-body');
   const c = document.getElementById('m-raw-caret');
-  const show = b.style.display === 'none';
-  b.style.display = show ? '' : 'none';
-  if(c) c.classList.toggle('open', show);
-}
-function toggleSysPrompt(){
-  const b = document.getElementById('m-sys-body');
-  const c = document.getElementById('m-sys-caret');
   const show = b.style.display === 'none';
   b.style.display = show ? '' : 'none';
   if(c) c.classList.toggle('open', show);
@@ -1352,7 +1213,7 @@ async function saveItem(){
   // Presets: keyed by id (filename); duplicate display names are allowed.
   // Skills: keyed by name, rename via `old`.
   const payload = editingKind==='preset'
-    ? {id: editingKey, name, content, sysprompt: (document.getElementById('m-sysprompt')||{}).value || ''}
+    ? {id: editingKey, name, content}
     : {name, old: editingKey, content};
   // Page mémoire consultée dans un autre projet : enregistrer LÀ, pas dans l'actif.
   if(editingKind==='mem' && typeof MEM_VIEW_PROJECT!=='undefined' && MEM_VIEW_PROJECT) payload.project = MEM_VIEW_PROJECT;
@@ -1411,6 +1272,7 @@ function resetDlUI(){
   stopDlPoll(); dlName='';
   e.prog.style.display='none'; e.bar.style.display='none';
   e.cancel.style.display='none'; e.pause.style.display='none'; e.btn.disabled=false;
+  clearTimeout(hfTimer); hfHide(); document.getElementById('m-hf-url').value='';
 }
 // Remplit le sélecteur de destination avec les dossiers de modèles connus.
 // L'espace libre est dans le libellé de l'option : c'est l'info utile au moment
@@ -1434,7 +1296,75 @@ async function populateDlDirs(){
   }
   if(prev && dlDirList.some(x => samePath(x.path, prev))) sel.value = prev;
 }
-async function startDownload(){
+// --- Recherche Hugging Face --------------------------------------------------
+// Le champ de téléchargement sert à deux choses : un lien (https://…) est
+// téléchargé tel quel ; tout autre texte cherche des dépôts GGUF sur Hugging
+// Face. On choisit un dépôt, puis une quantification : AJEAN la télécharge avec
+// le téléchargeur habituel, sans quitter l'éditeur.
+let hfTimer = null, hfSeq = 0;
+const hfIsLink = v => /^https?:\/\//i.test(v) || /^hf\.co\//i.test(v) || /^huggingface\.co\//i.test(v);
+function hfBox(){ return document.getElementById('m-hf-results'); }
+function hfHide(){ hfSeq++; const b = hfBox(); b.style.display = 'none'; b.innerHTML = ''; }
+function hfNote(msg, err){ const b = hfBox(); b.style.display = ''; b.innerHTML = '<div class="hf-note"'+(err?' style="color:var(--err)"':'')+'>'+escHtml(msg)+'</div>'; }
+function hfOnInput(){
+  const v = document.getElementById('m-hf-url').value.trim();
+  clearTimeout(hfTimer);
+  if(v.length < 2 || hfIsLink(v)){ hfHide(); return; }
+  hfTimer = setTimeout(()=>hfSearch(v), 400); // on attend la fin de la frappe
+}
+// Bouton ↓ ou touche Entrée : télécharger un lien, sinon chercher.
+function hfGo(){
+  const v = document.getElementById('m-hf-url').value.trim();
+  clearTimeout(hfTimer);
+  if(!v || hfIsLink(v)){ hfHide(); startDownload(); return; }
+  hfSearch(v);
+}
+const hfCount = n => n >= 1e6 ? (n/1e6).toFixed(1).replace('.0','')+' M' : n >= 1e3 ? Math.round(n/1e3)+' k' : String(n||0);
+async function hfSearch(q){
+  const seq = ++hfSeq;
+  hfNote(t('hf.searching'));
+  let r; try{ r = await jget('/api/hf/search?q='+encodeURIComponent(q)); }catch(_){ r = {ok:false}; }
+  if(seq !== hfSeq) return; // une recherche plus récente est partie entre-temps
+  if(!r.ok){ hfNote(r.error || t('hf.error'), true); return; }
+  if(!(r.repos||[]).length){ hfNote(t('hf.none')); return; }
+  const b = hfBox(); b.style.display = ''; b.innerHTML = '';
+  for(const m of r.repos){
+    const row = document.createElement('button'); row.type = 'button'; row.className = 'hf-row';
+    row.innerHTML = '<span class="hf-name"></span><span class="hf-meta"></span>';
+    row.firstChild.textContent = m.id;
+    row.lastChild.textContent = '↓ '+hfCount(m.downloads);
+    row.lastChild.title = t('hf.downloads_title');
+    row.onclick = ()=>hfOpenRepo(m.id, q);
+    b.append(row);
+  }
+}
+// Les quantifications d'un dépôt, de la plus légère à la plus lourde.
+async function hfOpenRepo(repo, q){
+  const seq = ++hfSeq;
+  hfNote(t('hf.loading_files'));
+  let r; try{ r = await jget('/api/hf/files?repo='+encodeURIComponent(repo)); }catch(_){ r = {ok:false}; }
+  if(seq !== hfSeq) return;
+  const b = hfBox(); b.style.display = ''; b.innerHTML = '';
+  const back = document.createElement('button'); back.type = 'button'; back.className = 'hf-row hf-back';
+  back.innerHTML = '<span class="hf-name"></span>';
+  back.firstChild.textContent = '← '+repo;
+  back.onclick = ()=>hfSearch(q);
+  b.append(back);
+  if(!r.ok || !(r.files||[]).length){
+    const n = document.createElement('div'); n.className = 'hf-note';
+    if(!r.ok) n.style.color = 'var(--err)';
+    n.textContent = r.ok ? t('hf.no_files') : (r.error || t('hf.error'));
+    b.append(n); return;
+  }
+  for(const f of r.files){
+    const row = document.createElement('button'); row.type = 'button'; row.className = 'hf-row';
+    row.innerHTML = '<span class="hf-name"></span><span class="hf-meta"></span>';
+    row.firstChild.textContent = f.name;
+    row.lastChild.textContent = (f.mmproj ? t('hf.vision_tag')+' · ' : '') + fmtSize(f.size) + (f.parts ? ' · '+f.parts+' '+t('hf.parts') : '');
+    row.onclick = ()=>{ document.getElementById('m-hf-url').value = f.url; hfHide(); startDownload(); };
+    b.append(row);
+  }
+}async function startDownload(){
   const url = document.getElementById('m-hf-url').value.trim();
   if(!url){ toast(t('models.dl.paste_link')); return; }
   const dir = (document.getElementById('m-hf-dir')||{}).value || '';

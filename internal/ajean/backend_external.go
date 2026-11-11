@@ -28,8 +28,7 @@ type chatEndpoint struct {
 	URL      string // URL complète des complétions
 	Model    string // nom de modèle envoyé dans le payload
 	Key      string // Bearer ("" = aucun)
-	External bool   // true = API distante (pas le llama-server local)
-	Cloud    bool   // true = GPU cloud Modal (attente du réveil sur 503)
+	External bool   // true = API OpenAI-compatible (distante, ou service système local)
 }
 
 // isExternalConfig indique si une configuration décrit un endpoint externe.
@@ -74,13 +73,14 @@ func completionsURL(raw string) string {
 // externe si le preset actif en est un, sinon le llama-server local.
 func resolveChatEndpoint() chatEndpoint {
 	cfg := ReadConfig()
-	if isCloudConfig(cfg) {
-		return cloudEndpoint(cfg)
-	}
 	if isExternalConfig(cfg) {
+		model := strings.TrimSpace(cfg[extKeyModel])
+		if model == "" && serviceCmdOf(cfg) != "" {
+			model = serviceFirstModel(cfg) // service système sans modèle nommé
+		}
 		return chatEndpoint{
-			URL:      completionsURL(cfg[extKeyURL]),
-			Model:    strings.TrimSpace(cfg[extKeyModel]),
+			URL:      completionsURL(extBaseURL(cfg)),
+			Model:    model,
 			Key:      strings.TrimSpace(cfg[extKeyToken]),
 			External: true,
 		}
@@ -116,12 +116,9 @@ func externalPresetContent(url, model, key, ctx string, vision bool) string {
 }
 
 // externalPresetWithMachine ajoute au corps d'un preset externe les réglages de
-// MACHINE (BIN, HOST, PORT), que porte un preset normal (newPresetSeed) mais pas
-// un preset externe. Sans eux, basculer vers un preset distant écrasait la config
-// vive — applyPresetFile remplace TOUT, et preservedKeys ne contient ni BIN ni
-// PORT. Sur une installation neuve, où presets/ est créé vide (sys_datadir.go),
-// plus rien sur le disque ne contenait BIN : la seule issue était de réinstaller
-// llama.cpp.
+// MACHINE (HOST, PORT), que porte un preset normal (newPresetSeed) mais pas un
+// preset externe. Sans eux, basculer vers un preset distant écrasait la config
+// vive — applyPresetFile remplace TOUT, et preservedKeys ne contient pas PORT.
 //
 // Le détour par parseEnv/formatEnv évite le doublon quand la clé est déjà
 // présente (ré-édition d'un preset existant). Une valeur vide n'écrase rien.
@@ -141,7 +138,7 @@ func externalPresetWithMachine(content string, machine map[string]string) string
 // externalMachineKeys renvoie les réglages de machine à reprendre dans un preset
 // externe. À la CRÉATION (id vide) : ceux de la config vive, comme le formulaire
 // de preset normal. À l'ÉDITION : ceux que le preset porte DÉJÀ, complétés par la
-// config vive — sinon changer l'URL d'un preset existant effacerait le BIN qu'il
+// config vive — sinon changer l'URL d'un preset existant effacerait le PORT qu'il
 // vient d'apprendre à conserver.
 func externalMachineKeys(id string) map[string]string {
 	m := newPresetSeed()

@@ -12,7 +12,16 @@
 <!-- Favicon (même marque « ajean » que la landing/portail) + icône PWA (écran d'accueil
      iOS). SVG inline pour le favicon, PNG 180×180 en data-URI pour apple-touch-icon
      (iOS n'accepte pas le SVG pour l'icône d'accueil). Aucun fichier externe requis. -->
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect width='12' height='12' rx='2' ry='2' fill='%23000'/><rect x='6' y='3' width='2' height='2' fill='%23fff'/><rect x='6' y='5' width='2' height='2' fill='%23fff'/><rect x='4' y='7' width='2' height='2' fill='%23fff'/></svg>">
+<!-- PNG nets à chaque taille : la fenêtre d'application (Edge/Chrome --app) y prend son
+     icône de barre des tâches ; le SVG seul y était rendu en petit puis agrandi (flou). -->
+<link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png">
+<link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
+<link rel="icon" type="image/png" sizes="64x64" href="/icon-64.png">
+<link rel="icon" type="image/png" sizes="96x96" href="/icon-96.png">
+<link rel="icon" type="image/png" sizes="128x128" href="/icon-128.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="icon" type="image/png" sizes="256x256" href="/icon-256.png">
+<link rel="icon" type="image/svg+xml" sizes="16x16" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect width='12' height='12' rx='2' ry='2' fill='%23000'/><rect x='6' y='3' width='2' height='2' fill='%23fff'/><rect x='6' y='5' width='2' height='2' fill='%23fff'/><rect x='4' y='7' width='2' height='2' fill='%23fff'/></svg>">
 <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAABBUlEQVR42u3SAQkAAAwCQfuX3lI4GNxF0E8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIArU2NbcYhDHOIQhzgQB+JAHIgDcSAOxIE4xCEOcYhDHIgDcSAOxIE4EAfiQBziEIc4xCEOcYgDcSAOxIE4EAfiQBziEIc4xCEOcYgDcSAOxIE4EAfiQByIQxziEIc4xIE4EAfiQByIA3EgDsQhDnGIQxziEIc4EAfiQByIAxciDsSBOBAH4kAc4hCHOMQhDnGIA3EgDsSBOBAH4kAc4hCHOMQhDnGIA3EgDsSBOBAH4kAciEMc4hCHOMQBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADfLBHMhi4TnG6EAAAAAElFTkSuQmCC">
 <!-- Manifeste PWA (installabilité Android/desktop + Web Push). iOS s'appuie sur
      les métas apple-* ci-dessus ; le manifeste ne le gêne pas. Servi à la racine
@@ -67,7 +76,7 @@
   <!-- Accès distant (app.ajean.link / *.ajean.link) : le front est toujours à jour
        mais le serveur local peut être ancien. Bandeau passif si une mise à jour existe. -->
   <div id="server-stale" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:10px;color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent)"></div>
-  <div id="model-err" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:10px;color:var(--err);background:color-mix(in srgb,var(--err) 12%,transparent)"></div>
+  <div id="model-err" style="display:none;overflow-wrap:anywhere;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:10px;color:var(--err);background:color-mix(in srgb,var(--err) 12%,transparent)"></div>
   <!-- Anciens flags mémoire (--mlock/--no-mmap) sur un moteur llama.cpp récent qui attend --load-mode : le serveur démarre quand même (traduits au lancement), ce bandeau propose de nettoyer la config. -->
   <div id="loadflags-fix" style="display:none;font-size:11px;line-height:1.5;margin:0 0 10px;padding:8px 10px;border-radius:10px;color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent)">
     <span data-i18n="loadflags.notice">La nouvelle version de llama.cpp a changé les options mémoire : <code>--mlock</code> / <code>--no-mmap</code> sont remplacés par <code>--load-mode</code>. D'anciens flags ont été détectés dans ta configuration.</span>
@@ -98,9 +107,6 @@
       <div id="vram"><div class="stat"><div class="stat-h"><span class="skel skel-line" style="width:46%"></span><span class="skel skel-line" style="width:30%"></span></div><div class="skel skel-bar"></div><span class="skel skel-line" style="width:54%;height:9px"></span></div></div>
       <div id="ram-details"><div id="ram"><div class="stat"><div class="stat-h"><span class="skel skel-line" style="width:30%"></span><span class="skel skel-line" style="width:34%"></span></div><div class="skel skel-bar"></div><span class="skel skel-line" style="width:38%;height:9px"></span></div></div></div>
     </div>
-  </details>
-  <details open id="cfg-details"><summary><span class="stitle" data-i18n="config.title">Configuration</span></summary>
-    <div id="cfg" class="slist"><div class="kv"><span class="skel skel-line" style="width:30%"></span><span class="skel skel-line" style="width:44%"></span></div><div class="kv"><span class="skel skel-line" style="width:24%"></span><span class="skel skel-line" style="width:52%"></span></div><div class="kv"><span class="skel skel-line" style="width:34%"></span><span class="skel skel-line" style="width:38%"></span></div><div class="kv"><span class="skel skel-line" style="width:28%"></span><span class="skel skel-line" style="width:30%"></span></div></div>
   </details>
   <details><summary><span class="stitle" data-i18n="presets.title">Presets</span><button class="preset-add" onclick="event.preventDefault();event.stopPropagation();openPreset('')" title="ajouter" data-i18n="presets.add_button" data-i18n-attr="title">+</button></summary>
     <div class="slist"><div id="presets" class="rowlist"></div></div>
@@ -229,66 +235,6 @@
          section AJEAN LINK, pas coincé entre deux cartes : piloté par renderRemote. -->
     <div id="remote-perks-mini" class="link-perks-mini" style="display:none" data-i18n="link.perks_mini" data-i18n-html>Inclus dans <b>AJEAN LINK</b> : accès distant chiffré de bout en bout · sauvegarde de vos réglages, presets, historique et mémoire.</div>
   </details>
-  <details id="lc-details"><summary><span class="stitle" data-i18n="engine.title">Engine</span></summary>
-    <!-- Une seule carte : état, choix du mode et journal d'installation sont le
-         même sujet. Les trois modes sont des LIGNES de cette carte (elles
-         étaient des cartes dans une carte). -->
-    <div class="slist">
-    <!-- La pastille « conseillé » n'est PAS écrite ici : le bon choix dépend de
-         la machine (voir lcRenderReco). Sur Linux + NVIDIA le précompilé ne
-         donne que du Vulkan — llama.cpp ne publie aucun binaire CUDA Linux —
-         alors que compiler donne du CUDA natif. -->
-    <div class="lc-modes">
-      <div class="lc-mode" id="lc-mode-fast" onclick="lcPick('fast')">
-        <div class="lc-mode-t"><span data-i18n="engine.mode_fast_title">llama.cpp précompilé</span> <span class="lc-reco" id="lc-reco-fast" hidden data-i18n="engine.mode_recommended">conseillé</span></div>
-        <div class="lc-mode-d" id="lc-desc-fast" data-i18n="engine.mode_fast_desc">binaire officiel téléchargé tel quel, prêt en ~2 min</div>
-        <div class="lc-mode-state" id="lc-fast-state"></div>
-      </div>
-      <div class="lc-mode" id="lc-mode-opt" onclick="lcPick('opt')">
-        <div class="lc-mode-t"><span data-i18n="engine.mode_opt_title">llama.cpp compilé</span> <span class="lc-reco" id="lc-reco-opt" hidden data-i18n="engine.mode_recommended">conseillé</span></div>
-        <div class="lc-mode-d" id="lc-desc-opt" data-i18n="engine.mode_opt_desc">compilé ici pour votre machine — plus rapide, plus long à installer</div>
-        <div class="lc-mode-state" id="lc-opt-state"></div>
-      </div>
-      <div class="lc-mode" id="lc-mode-custom" onclick="openCustomBackends()">
-        <div class="lc-mode-t" data-i18n="engine.mode_custom_title">llama.cpp personnalisé</div>
-        <div class="lc-mode-d" data-i18n="engine.mode_custom_desc">un fork de llama.cpp pour modèles spéciaux (quant ternaire…)</div>
-        <div class="lc-mode-state" id="lc-custom-state"></div>
-      </div>
-      <!-- Moteur MoE spécialisé Qwen3.8 Flash Next, installé en un clic (version
-           figée par ajean). Affiché seulement là où il tourne (Linux + NVIDIA). -->
-      <div class="lc-mode" id="lc-mode-exl3" hidden onclick="openExl3()">
-        <div class="lc-mode-t" data-i18n="exl3.mode_title">ExLlama</div>
-        <div class="lc-mode-d" data-i18n="exl3.mode_desc">modèles EXL3 sur carte NVIDIA, très rapide en génération</div>
-        <div class="lc-mode-state" id="lc-exl3-state"></div>
-      </div>
-      <div class="lc-mode" id="lc-mode-moe" hidden onclick="openMoe()">
-        <div class="lc-mode-t" data-i18n="moe.mode_title">Qwen3.8 Flash Next</div>
-        <div class="lc-mode-d" data-i18n="moe.mode_desc">le plus rapide pour ce modèle, installation en un clic</div>
-        <div class="lc-mode-state" id="lc-moe-state"></div>
-      </div>
-    </div>
-    <div id="lc-job" class="rowbody" style="display:none">
-      <div style="display:flex;align-items:center;gap:8px">
-        <div id="lc-job-phase" style="font-size:12px;display:flex;align-items:center;gap:6px;flex:1;min-width:0"></div>
-        <button id="lc-job-cancel" type="button" class="lc-update-link" hidden onclick="lcCancelJob()" data-i18n="engine.job_cancel">arrêter</button>
-        <button id="lc-job-dismiss" type="button" class="lc-update-link" hidden onclick="lcDismissJob()" data-i18n="engine.job_dismiss">masquer</button>
-      </div>
-      <div class="lc-logbar" onclick="lcToggleLog()"><span id="lc-log-caret">▸</span> <span data-i18n="engine.job_details">détails</span></div>
-      <pre id="lc-log" hidden></pre>
-    </div>
-    </div>
-    <!-- Ces trois boutons pilotent le service qui fait tourner llama-server :
-         leur place est ici, avec le moteur, et pas dans une section « Service »
-         à part qui ne contenait qu'eux. -->
-    <div class="subhead"><span data-i18n="engine.service_subhead">Service du moteur</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="engine.service_help" data-i18n-html>Démarre, redémarre ou arrête <b>llama-server</b> — le processus qui charge le modèle et répond. Un redémarrage recharge le modèle du preset actif (quelques secondes à quelques minutes selon sa taille).</span></span></div>
-    <div class="slist"><div class="rowbody">
-      <div class="row" style="margin:0">
-        <button onclick="act('start')" data-i18n="engine.service_start">démarrer</button>
-        <button onclick="act('restart')" data-i18n="engine.service_restart">redémarrer</button>
-        <button onclick="act('stop')" data-i18n="engine.service_stop">arrêter</button>
-      </div>
-    </div></div>
-  </details>
   <!-- Paramètres : l'ancien interrupteur « mode agent » a disparu, remplacé par le
        sélecteur de mode du composeur (Projet / Rapide / Modèle de base). Il reste
        ici tout ce qui règle les outils et le comportement de l'IA. -->
@@ -296,12 +242,6 @@
     <!-- Sous-réglages du mode agent. MÊME gabarit que « Machine » / « Apparence » :
          étiquette de groupe nue, puis UNE carte de lignes (.slist). Le groupe
          entier est grisé/inerte quand l'agent est off (voir setAgentGate). -->
-    <div id="net-block" class="gated-group">
-      <div class="subhead"><span data-i18n="internet.title">Accès internet</span><span id="internet-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="internet.help" data-i18n-html>Ajoute les outils <b>web_search / web_open / web_read / web_grep</b>, avec le moteur web intégré : aucune installation. Il lit les pages servies en HTML, sans exécuter leur JavaScript. Actifs seulement si le <b>mode agent</b> est actif.</span></span></div>
-      <div class="slist">
-        <label class="switchrow"><span class="switch"><input type="checkbox" id="internet-toggle" onchange="toggleInternet()"><span class="slider"></span></span> <span class="sw-txt"><span data-i18n="internet.toggle_label">donner internet à l'IA</span><span id="internet-status" class="sw-sub"></span></span></label>
-      </div>
-    </div>
     <div id="cu-block" class="gated-group">
       <div class="subhead"><span data-i18n="computer.title">Contrôle du navigateur</span><span id="cu-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="computer.help" data-i18n-html>Donne à l'IA le contrôle d'un <b>navigateur</b> sur cette machine (outils <b>browser_open / browser_click / browser_type / browser_key / browser_scroll</b>). L'IA lit les éléments <b>numérotés</b> de la page et agit par numéro — aucune vision requise, ça marche avec de petits modèles. <code>browser_screenshot</code> s'ajoute si la vision est active. Nécessite Chrome/Chromium/Edge installé. Actif seulement si le <b>mode agent</b> est actif.</span></span></div>
       <div class="slist">
@@ -330,18 +270,15 @@
          donc n'est PAS gatée — mais elle vit dans la MÊME carte, collée aux deux autres.
          Le gate est par ligne et non sur un wrapper car les séparateurs/rembourrages
          exigent que les .switchrow soient enfants DIRECTS de .slist. -->
-    <!-- Voix de Jean (voice.go, 25-voice-settings.js) : conversation à voix haute du
-         mode Jean, via un serveur audio.cpp. Réglages rangés côté serveur. -->
-    <div id="voice-block">
-      <div class="subhead"><span data-i18n="voice.title">Voix de Jean</span><span id="voice-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="voice.help" data-i18n-html>Conversation à voix haute en mode Jean : bouton micro sur sa scène. La transcription et la voix passent par un <b>serveur audio.cpp</b> (Qwen3-ASR et VoxCPM2). Les voix sont enregistrées dans AJEAN.</span></span></div>
+    <div id="stt-block">
+      <div class="subhead"><span data-i18n="stt.title">Dictée vocale</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="stt.help" data-i18n-html>Le bouton <b>micro</b> du composeur enregistre la voix et l'envoie à une API de transcription compatible OpenAI (<code>/audio/transcriptions</code>). Par défaut : <b>Whisper chez Groq</b>, clé à créer sur console.groq.com. Un serveur Whisper local fonctionne aussi. Sans clé, la dictée intégrée au navigateur est utilisée.</span></span></div>
       <div class="slist">
-        <label class="switchrow"><span class="switch"><input type="checkbox" id="voice-toggle" onchange="voiceSave({on:this.checked})"><span class="slider"></span></span> <span data-i18n="voice.toggle">conversation vocale</span></label>
-        <label class="switchrow"><span data-i18n="voice.server">serveur audio</span><input id="voice-url" class="sctl" type="text" spellcheck="false" autocomplete="off" placeholder="http://127.0.0.1:8095" onchange="voiceSave({url:this.value})"></label>
-        <div class="switchrow"><span data-i18n="voice.voice">voix</span><span class="voice-pick"><select id="voice-name" class="sctl" onchange="voiceSave({voice:this.value})"></select><button type="button" class="voice-play" onclick="voiceTest()" data-i18n="voice.test" data-i18n-attr="title" title="Écouter"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg></button></span></div>
-        <label class="switchrow"><span data-i18n="voice.sens">sensibilité du micro</span><select id="voice-sens" class="sctl" onchange="voiceSave({sens:+this.value})"><option value="1" data-i18n="voice.sens_low">faible</option><option value="2" data-i18n="voice.sens_mid">normale</option><option value="3" data-i18n="voice.sens_high">élevée</option></select></label>
-        <label class="switchrow"><span data-i18n="voice.silence">pause avant envoi</span><select id="voice-silence" class="sctl" onchange="voiceSave({silence_ms:+this.value})"><option value="500">0,5 s</option><option value="800">0,8 s</option><option value="1200">1,2 s</option><option value="1800">1,8 s</option><option value="2500">2,5 s</option></select></label>
-        <button type="button" class="switchrow sw-action" onclick="voiceCreate()"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="voice.create">Créer une voix</span></button>
-        <button type="button" class="switchrow sw-action" id="voice-del" onclick="voiceDelete()"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span data-i18n="voice.delete">Supprimer la voix choisie</span></button>
+        <label class="switchrow"><span data-i18n="stt.provider_label">Fournisseur</span><span class="sw-txtin"><select id="stt-provider" onchange="sttProviderPick()"></select></span></label>
+        <label class="switchrow" id="stt-url-row"><span data-i18n="stt.url_label">Adresse de l'API</span><span class="sw-txtin"><input id="stt-url" type="text" spellcheck="false" placeholder="https://…/v1" onchange="sttLoadModels()"></span></label>
+        <label class="switchrow"><span data-i18n="stt.key_label">Clé API</span><span class="sw-txtin"><input id="stt-key" type="password" autocomplete="off" spellcheck="false" placeholder="gsk_…" onchange="sttLoadModels()"></span></label>
+        <label class="switchrow"><span data-i18n="stt.model_label">Modèle</span><span class="sw-txtin"><select id="stt-model-sel" style="display:none" onchange="sttModelPick()"></select><input id="stt-model" type="text" spellcheck="false" placeholder="whisper-large-v3-turbo"></span></label>
+        <label class="switchrow"><span data-i18n="stt.lang_label">Langue</span><span class="sw-txtin"><input id="stt-lang" type="text" spellcheck="false" placeholder="auto (fr, en…)"></span></label>
+        <button type="button" class="switchrow sw-action" onclick="saveSTT()"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span data-i18n="stt.save_button">Enregistrer</span></button>
       </div>
     </div>
     <div class="subhead" data-i18n="settings.general_subhead">Général</div>
@@ -487,6 +424,10 @@
           <svg class="pill-chev" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
         </button>
       </div>
+      <!-- Dictée vocale : à droite du sélecteur de mode. Un clic lance
+           l'enregistrement, un second l'arrête ; le texte transcrit (API Whisper
+           réglée dans Paramètres > Dictée vocale) s'insère dans le champ. -->
+      <button id="mic-btn" class="mic-btn" onpointerdown="dictWarm()" onclick="toggleDictation(this)" title="Dicter un message" aria-label="Dicter un message" data-i18n="stt.mic_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg></button>
       <!-- Pied de carte, à droite : le décompte de contexte, compacter, puis le
            trombone — tous à la même échelle, c'est une seule ligne d'outils. -->
       <span style="display:flex;align-items:center;gap:8px;margin-left:auto;min-width:0">
@@ -535,16 +476,62 @@
 <!-- Menu des listes déroulantes (voir 03b-select.js) : remplace la liste native. -->
 <div id="csel-menu" class="menu" style="display:none" role="listbox"></div>
 <div id="mode-menu" class="menu" style="display:none">
-  <button data-mode="fast" onclick="pickMode('fast')"><svg class="mm-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 3L5 13.5h6L10 21l8-10.5h-6z"/></svg><span class="mm-t"><span data-i18n="chat.mode_fast">Rapide</span><span class="rm-h" data-i18n="chat.mode_fast_hint">bash, write, edit</span></span></button>
   <button data-mode="project" onclick="pickMode('project')"><svg class="mm-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="mm-t"><span data-i18n="chat.mode_project">Projet</span><span class="rm-h" data-i18n="chat.mode_project_hint">mémoire, projets, web</span></span></button>
   <button data-mode="jean" onclick="pickMode('jean')"><svg class="mm-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span class="mm-t"><span><span data-i18n="chat.mode_jean">Jean</span></span><span class="rm-h" data-i18n="chat.mode_jean_hint">assistant personnel, se souvient de tout</span></span></button>
-  <button data-mode="base" onclick="pickMode('base')"><svg class="mm-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg><span class="mm-t"><span data-i18n="chat.mode_base">Modèle de base</span><span class="rm-h" data-i18n="chat.mode_base_hint">sans agent ni outils</span></span></button>
 </div>
 <div id="reason-menu" class="menu" style="display:none">
+  <button data-eff="off" onclick="pickReason('off')" data-i18n="reason.off">désactivée</button>
   <button data-eff="low" onclick="pickReason('low')">low <span class="rm-h" data-i18n="reason.hint_fast">rapide</span></button>
   <button data-eff="medium" onclick="pickReason('medium')">medium</button>
   <button data-eff="high" onclick="pickReason('high')">high</button>
   <button data-eff="xhigh" onclick="pickReason('xhigh')">xhigh <span class="rm-h" data-i18n="reason.hint_max">max</span></button>
+</div>
+<!-- Moteur llama.cpp : il est livré avec AJEAN et s'installe seul, il n'a donc
+     plus de section dans le menu. Cette fenêtre ne s'ouvre que depuis la pastille
+     d'installation (#lc-chip) : elle montre la version en place, le journal de
+     l'installation, et permet de la relancer (voir 10-engine.js). -->
+<div id="eng-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeEngine()">
+  <div class="modal-card" style="max-width:520px">
+    <div class="modal-head">
+      <strong data-i18n="engine.title">Moteur</strong>
+      <button class="modal-x" onclick="closeEngine()" aria-label="Fermer" data-i18n="mcpmodal.close_aria" data-i18n-attr="aria-label">×</button>
+    </div>
+    <div class="modal-body mform">
+    <div class="slist">
+    <div class="rowbody eng-card">
+      <div class="eng-line">
+        <span class="eng-name">llama.cpp <span id="eng-version"></span></span>
+        <span class="eng-state" id="eng-state"></span>
+      </div>
+      <div class="eng-sub" data-i18n="engine.bundled_desc">Livré avec AJEAN et installé automatiquement. Il change avec les mises à jour d'AJEAN.</div>
+      <div class="eng-actions">
+        <label class="eng-variant" id="eng-variant-wrap" hidden>
+          <span data-i18n="engine.variant_label">accélération</span>
+          <select id="eng-variant" onchange="engSetVariant(this.value)"></select>
+        </label>
+        <button type="button" class="lc-update-link" id="eng-repair" onclick="engRepair()" data-i18n="engine.repair">réparer</button>
+      </div>
+      <div class="eng-legacy" id="eng-legacy" hidden></div>
+    </div>
+    <div id="lc-job" class="rowbody" style="display:none">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div id="lc-job-phase" style="font-size:12px;display:flex;align-items:center;gap:6px;flex:1;min-width:0"></div>
+        <button id="lc-job-cancel" type="button" class="lc-update-link" hidden onclick="lcCancelJob()" data-i18n="engine.job_cancel">arrêter</button>
+        <button id="lc-job-dismiss" type="button" class="lc-update-link" hidden onclick="lcDismissJob()" data-i18n="engine.job_dismiss">masquer</button>
+      </div>
+      <div class="lc-logbar" onclick="lcToggleLog()"><span id="lc-log-caret">▸</span> <span data-i18n="engine.job_details">détails</span></div>
+      <pre id="lc-log" hidden></pre>
+    </div>
+    </div>
+    </div>
+  </div>
+</div>
+<!-- Menu du bouton « moteur » de l'éditeur du preset actif (pied de la fenêtre). -->
+<div id="power-menu" class="menu" style="display:none">
+  <button id="pw-start" onclick="powerAct('start')" data-i18n="engine.service_start">démarrer</button>
+  <button id="pw-restart" onclick="powerAct('restart')" data-i18n="engine.service_restart">redémarrer</button>
+  <button id="pw-stop" onclick="powerAct('stop')" data-i18n="engine.service_stop">arrêter</button>
+  <button id="pw-cmd" onclick="powerCopyCmd()" data-i18n="preset.power_copy_cmd">copier la commande</button>
 </div>
 <div id="toast"></div>
 <!-- Modal de bench : structure standard (.modal-ov) pour l'animation d'ouverture/
@@ -586,10 +573,14 @@
       <strong data-i18n="bench.title">Benchmark</strong>
       <button class="modal-x" onclick="closeBenchModal()" aria-label="Fermer" data-i18n="bench.close_aria" data-i18n-attr="aria-label">×</button>
     </div>
-    <div id="bench-body" class="modal-body" style="display:flex;flex-direction:column;gap:12px"></div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:12px">
+      <div class="fld"><label class="fld-l" data-i18n="bench.prompt">Tokens lus (prefill)</label><div class="seg" id="bench-seg-prompt"></div></div>
+      <div class="fld"><label class="fld-l" data-i18n="bench.output">Tokens générés (decode)</label><div class="seg" id="bench-seg-output"></div></div>
+      <div id="bench-body" style="display:flex;flex-direction:column;gap:12px"></div>
+    </div>
     <div class="modal-foot" style="justify-content:flex-end">
       <button class="pe-btn" onclick="closeBenchModal()" data-i18n="bench.close">fermer</button>
-      <button id="bench-rerun" class="pe-btn primary" onclick="runBenchUI()" data-i18n="bench.rerun">relancer</button>
+      <button id="bench-rerun" class="pe-btn primary" onclick="runBenchUI()" data-i18n="bench.rerun">lancer</button>
     </div>
   </div>
 </div>
@@ -612,119 +603,6 @@
     </div>
   </div>
 </div>
-<div id="moe-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeMoe()">
-  <div class="modal-card" style="max-width:520px">
-    <div class="modal-head">
-      <strong data-i18n="moe.modal_title">Qwen3.8 Flash Next</strong>
-      <button class="modal-x" onclick="closeMoe()" aria-label="Fermer" data-i18n="moe.close_aria" data-i18n-attr="aria-label">×</button>
-    </div>
-    <div class="modal-body mform">
-      <div id="moe-machine" class="muted" style="font-size:12px;line-height:1.5"></div>
-      <div class="fld">
-        <label class="fld-l" data-i18n="moe.version_label">Version</label>
-        <div class="seg" id="moe-fams"></div>
-      </div>
-      <div class="fld">
-        <label class="fld-l" data-i18n="moe.quality_label">Qualité</label>
-        <div class="slist" id="moe-quants"></div>
-      </div>
-      <div id="moe-disk" class="muted" style="font-size:12px;line-height:1.5"></div>
-      <div class="fld" id="moe-settings-fld" hidden>
-        <label class="fld-l" data-i18n="moe.settings_label">Réglages</label>
-        <div class="slist moe-details" id="moe-settings"></div>
-      </div>
-      <div class="fld" id="moe-details-fld" hidden>
-        <label class="fld-l" data-i18n="moe.details_label">Configuration</label>
-        <div class="slist moe-details" id="moe-details"></div>
-      </div>
-      <div id="moe-note" class="muted" style="font-size:11px;line-height:1.5"></div>
-    </div>
-    <div class="modal-foot">
-      <div class="foot-l">
-        <!-- Bench : seulement pour le modèle qui tourne (moeRenderQuants) -->
-        <button id="moe-bench" class="pe-icon" onclick="runBenchUI()" hidden title="Benchmark" aria-label="Benchmark" data-i18n="bench.title" data-i18n-attr="title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 13.5l3.6-3.6"/><path d="M4.6 19a9 9 0 1 1 14.8 0"/><circle cx="12" cy="13.5" r="1.3" fill="currentColor" stroke="none"/></svg></button>
-      </div>
-      <div class="foot-r">
-        <button onclick="closeMoe()" data-i18n="moe.close">fermer</button>
-        <button id="moe-save" hidden onclick="moeSaveSettings()" data-i18n="moe.save">Enregistrer</button>
-        <button class="btn-save" id="moe-go" onclick="moeInstall()" data-i18n="moe.install">Installer</button>
-      </div>
-    </div>
-  </div>
-</div>
-<div id="exl3-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeExl3()">
-  <div class="modal-card" style="max-width:520px">
-    <div class="modal-head">
-      <strong data-i18n="exl3.modal_title">ExLlama</strong>
-      <button class="modal-x" onclick="closeExl3()" aria-label="Fermer" data-i18n="moe.close_aria" data-i18n-attr="aria-label">×</button>
-    </div>
-    <div class="modal-body mform">
-      <div id="exl3-machine" class="muted" style="font-size:12px;line-height:1.5"></div>
-      <div class="fld">
-        <label class="fld-l" data-i18n="exl3.engine_label">Moteur</label>
-        <div class="slist moe-details" id="exl3-engine"></div>
-      </div>
-      <div class="fld">
-        <label class="fld-l" data-i18n="exl3.models_label">Modèles EXL3</label>
-        <div class="slist moe-details" id="exl3-models"></div>
-      </div>
-      <div class="fld">
-        <label class="fld-l" for="exl3-dl-url" data-i18n="exl3.download_label">Télécharger un modèle</label>
-        <div class="pe-inpbtn">
-          <input id="exl3-dl-url" class="ctl" spellcheck="false" placeholder="https://huggingface.co/turboderp/…/tree/4.0bpw" onkeydown="if(event.key==='Enter')exl3Download()">
-          <button onclick="exl3Download()" title="Télécharger" data-i18n="preset.download_button_title" data-i18n-attr="title">↓</button>
-        </div>
-        <div class="muted" style="font-size:11px;line-height:1.5" data-i18n="exl3.download_hint">Lien d'une branche d'un dépôt Hugging Face EXL3 (onglet « Files », menu des branches).</div>
-      </div>
-      <div id="exl3-note" class="muted" style="font-size:11px;line-height:1.5"></div>
-    </div>
-    <div class="modal-foot">
-      <div class="foot-l">
-        <button id="exl3-remove" hidden onclick="exl3Uninstall()" data-i18n="exl3.uninstall">Désinstaller</button>
-      </div>
-      <div class="foot-r">
-        <button onclick="closeExl3()" data-i18n="moe.close">Fermer</button>
-        <button id="exl3-update" hidden onclick="exl3Install(true)" data-i18n="exl3.update">Mettre à jour</button>
-        <button class="btn-save" id="exl3-go" onclick="exl3Install(false)" data-i18n="exl3.install">Installer</button>
-      </div>
-    </div>
-  </div>
-</div>
-<div id="lc-custom-modal" class="modal-ov" style="display:none" onclick="if(event.target===this)closeCustomBackends()">
-  <div class="modal-card" style="max-width:560px">
-    <div class="modal-head">
-      <strong data-i18n="backends.title">Backends personnalisés</strong>
-      <button class="modal-x" onclick="closeCustomBackends()" aria-label="Fermer" data-i18n="backends.close_aria" data-i18n-attr="aria-label">×</button>
-    </div>
-    <div class="modal-body mform">
-      <div class="muted" style="font-size:12px;line-height:1.5" data-i18n="backends.desc" data-i18n-html>Compile un fork de llama.cpp depuis un dépôt Git — pour les modèles qui exigent un moteur spécial (quant ternaire, etc.). Un backend personnalisé <b>ne remplace pas</b> le moteur : vous le choisissez ensuite <b>par modèle</b> (bouton ✎ → section Moteur → « backend détecté »).</div>
-      <div class="fld">
-        <label class="fld-l" data-i18n="backends.installed_label">Installés</label>
-        <div id="lc-custom-list" class="mcp-list"></div>
-      </div>
-      <div class="fld">
-        <label class="fld-l" for="lc-custom-url" data-i18n="backends.install_url_label">Installer depuis un dépôt Git</label>
-        <input id="lc-custom-url" class="ctl" placeholder="https://github.com/owner/llama.cpp-fork">
-      </div>
-      <div class="fld">
-        <label class="fld-l" for="lc-custom-name"><span data-i18n="backends.name_label">Nom</span> <span class="opt" data-i18n="backends.name_optional_hint">(optionnel — déduit de l'URL sinon)</span></label>
-        <input id="lc-custom-name" class="ctl" placeholder="llama.cpp-prism">
-      </div>
-      <div class="fld">
-        <label class="fld-l" for="lc-custom-ref"><span data-i18n="backends.ref_label">Branche, tag ou commit</span> <span class="opt" data-i18n="backends.ref_optional_hint">(optionnel, branche par défaut sinon)</span></label>
-        <input id="lc-custom-ref" class="ctl" placeholder="model/K2Horizon">
-      </div>
-    </div>
-    <div class="modal-foot">
-      <div class="foot-l"></div>
-      <div class="foot-r">
-        <button onclick="closeCustomBackends()" data-i18n="backends.close">fermer</button>
-        <button class="btn-save" onclick="lcInstallCustom()" data-i18n="backends.install_compile">Installer &amp; compiler</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- Sessions : chaque conversation est une session persistante à id stable. En
      ouvrir une la garde dans la liste (la courante est sauvegardée d'abord dans
      SA session). « nouvelle session » démarre un fil vierge. -->
@@ -1150,24 +1028,64 @@
       <div id="m-run-row" class="pe-group" style="display:none">
         <div class="pe-gh" data-i18n="preset.run_heading">Exécution</div>
         <div class="pe-seg">
-          <label><input type="radio" name="m-run" value="local" onchange="onRunMode('local')"><span data-i18n="preset.run_local">Cette machine</span></label>
-          <label><input type="radio" name="m-run" value="external" onchange="onRunMode('external')"><span data-i18n="preset.run_external">API Externe</span></label>
-          <label><input type="radio" name="m-run" value="modal" onchange="onRunMode('modal')"><span data-i18n="preset.run_modal">GPU Cloud</span></label>
+          <label><input type="radio" name="m-run" value="local" onchange="onRunMode('local')"><span data-i18n="preset.run_local">Local</span></label>
+          <label><input type="radio" name="m-run" value="external" onchange="onRunMode('external')"><span data-i18n="preset.run_external">API</span></label>
+          <label><input type="radio" name="m-run" value="service" onchange="onRunMode('service')"><span data-i18n="preset.run_service">Service</span></label>
         </div>
-        <!-- API externe : tout modèle compatible OpenAI Chat Completions (OpenAI,
-             Claude, Groq, OpenRouter, un autre serveur…). Pas de moteur local. -->
+        <!-- Service système : une commande au choix (vLLM, un autre llama-server,
+             TabbyAPI, un script…) qui expose une API OpenAI sur cette machine.
+             AJEAN la lance dans son service moteur, à la place de llama.cpp, et
+             parle à son API : les champs de l'API ci-dessous servent aussi ici. -->
+        <div id="m-svc-body" class="pe-list" style="display:none;margin-top:8px">
+          <div class="pe-row stack">
+            <span class="pe-row-l"><span data-i18n="service.cmd_label">Commande</span> <span class="pe-sub" data-i18n="service.cmd_hint">ligne de lancement du service, comme dans un terminal</span></span>
+            <textarea id="s-svc-cmd" class="pe-inp" rows="3" spellcheck="false" placeholder="python -m vllm.entrypoints.openai.api_server --model … --port 8000" oninput="onSvcCmd(this.value)"></textarea>
+          </div>
+          <div class="pe-row stack">
+            <span class="pe-row-l"><span data-i18n="service.workdir_label">Dossier de travail</span> <span class="pe-sub" data-i18n="service.optional">(facultatif)</span></span>
+            <input id="s-svc-workdir" class="pe-inp" spellcheck="false" oninput="cfgWriteKey('SERVICE_WORKDIR', this.value)">
+          </div>
+          <div class="pe-row stack">
+            <span class="pe-row-l"><span data-i18n="service.env_label">Variables d'environnement</span> <span class="pe-sub" data-i18n="service.env_hint">(facultatif, CLE=valeur séparées par des espaces)</span></span>
+            <input id="s-svc-env" class="pe-inp" spellcheck="false" placeholder="HF_HOME=/data CUDA_VISIBLE_DEVICES=0" oninput="cfgWriteKey('SERVICE_ENV', this.value)">
+          </div>
+          <div class="pe-row stack">
+            <div class="pe-note" data-i18n="service.note">AJEAN lance cette commande dans son service moteur (démarrage, arrêt, journal, relance en cas d'échec) et utilise son API. Adresse vide = déduite du --port de la commande ; modèle vide = le premier annoncé par l'API.</div>
+          </div>
+        </div>
+        <!-- API : tout modèle compatible OpenAI Chat Completions (OpenAI, Claude,
+             Groq, OpenRouter, un autre serveur…). Pas de moteur local. Ces champs
+             décrivent aussi l'API d'un Service système. -->
         <div id="m-ext-body" class="pe-list" style="display:none;margin-top:8px">
           <div class="pe-row stack">
             <span class="pe-row-l"><span data-i18n="external.url_label">URL de l'API</span> <span class="pe-sub" data-i18n="external.url_hint">(base OpenAI, ex: https://api.openai.com/v1)</span></span>
-            <input id="s-ext-url" class="pe-inp" spellcheck="false" placeholder="https://api.openai.com/v1" oninput="cfgWriteKey('EXTERNAL_URL', this.value)">
-          </div>
-          <div class="pe-row stack">
-            <span class="pe-row-l"><span data-i18n="external.model_label">Modèle</span> <span class="pe-sub" data-i18n="external.model_hint">(identifiant exact, ex: gpt-4o-mini)</span></span>
-            <input id="s-ext-model" class="pe-inp" spellcheck="false" placeholder="gpt-4o-mini" oninput="cfgWriteKey('EXTERNAL_MODEL', this.value)">
+            <input id="s-ext-url" class="pe-inp" spellcheck="false" placeholder="https://api.openai.com/v1" oninput="cfgWriteKey('EXTERNAL_URL', this.value);extModelsSchedule()">
           </div>
           <div class="pe-row stack">
             <span class="pe-row-l"><span data-i18n="external.key_label">Clé API</span> <span class="pe-sub" data-i18n="external.key_hint">(optionnelle pour un serveur local)</span></span>
-            <input id="s-ext-key" class="pe-inp" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" oninput="cfgWriteKey('EXTERNAL_KEY', this.value)">
+            <input id="s-ext-key" class="pe-inp" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" oninput="cfgWriteKey('EXTERNAL_KEY', this.value);extModelsSchedule()">
+          </div>
+          <!-- Modèle : la liste annoncée par le fournisseur (GET <base>/models) dès que
+               l'URL et la clé le permettent ; sinon, ou via « autre identifiant », la
+               saisie libre. Voir extModelsLoad dans 07-models.js. -->
+          <div class="pe-row stack">
+            <span class="pe-row-l"><span data-i18n="external.model_label">Modèle</span> <span class="pe-sub" id="s-ext-model-hint"></span></span>
+            <span class="pe-selc wide" id="s-ext-model-selc" style="display:none"><select id="s-ext-model-sel" onchange="extModelPick(this.value)"></select></span>
+            <input id="s-ext-model" class="pe-inp" spellcheck="false" placeholder="gpt-4o-mini" oninput="cfgWriteKey('EXTERNAL_MODEL', this.value)">
+          </div>
+          <!-- Niveau de réflexion : traduit vers le paramètre du fournisseur
+               (llm_reasoning.go). « défaut » n'envoie rien. Refusé par le
+               fournisseur : la requête repart sans lui, et c'est dit sous la réponse
+               et par « tester la connexion ». -->
+          <div class="pe-row">
+            <span class="pe-row-l"><span data-i18n="external.effort_label">Réflexion</span><span class="pe-sub" data-i18n="external.effort_sub">ignorée si le fournisseur ne la règle pas</span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="s-ext-effort" onchange="cfgWriteKey('REASONING_EFFORT', this.value)">
+              <option value="" data-i18n="external.effort_default">défaut du fournisseur</option>
+              <option value="off" data-i18n="external.effort_off">désactivée</option>
+              <option value="low" data-i18n="external.effort_low">faible</option>
+              <option value="medium" data-i18n="external.effort_medium">moyenne</option>
+              <option value="high" data-i18n="external.effort_high">élevée</option>
+            </select></span></span>
           </div>
           <div class="pe-row">
             <span class="pe-row-l" data-i18n="preset.ctx_label">Contexte</span>
@@ -1182,234 +1100,6 @@
             <span class="pe-row-c"><span class="pe-unit">→</span></span>
           </div>
         </div>
-        <div id="m-cloud-body" class="pe-list" style="display:none;margin-top:8px">
-          <!-- Fournisseur de GPU : clé CLOUD. Modal seul pour l'instant, la liste
-               est là pour en accueillir d'autres. -->
-          <div class="pe-row">
-            <span class="pe-row-l" data-i18n="preset.cloud_provider_label">Fournisseur</span>
-            <span class="pe-row-c"><span class="pe-selc"><select id="s-cloud-provider" onchange="onCloudProvider(this.value)">
-              <option value="modal">Modal</option>
-            </select></span></span>
-          </div>
-          <!-- Trois états (data-state sur #m-cloud-body) : « setup » = AJEAN installe
-               son composant GPU Cloud au premier usage ; « none » = aucun compte
-               Modal, on propose directement la connexion ; « ready » = normal. -->
-          <div id="m-cloud-setup" class="pe-row">
-            <span id="m-cloud-setup-spin" class="spinner cloud-spin"></span>
-            <span class="pe-row-l"><span id="m-cloud-setup-title" data-i18n="preset.cloud_setup_title">Préparation du GPU Cloud</span><span class="pe-sub" id="m-cloud-setup-sub"></span></span>
-            <span class="pe-row-c"><button type="button" id="m-cloud-setup-retry" class="pe-link" onclick="retryCloudRuntime()" style="display:none" data-i18n="preset.cloud_setup_retry">Réessayer</button></span>
-          </div>
-          <div id="m-cloud-connect-head" class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.cloud_connect_title">Connecter un compte Modal</span><span class="pe-sub" data-i18n="preset.cloud_connect_sub">connexion sur modal.com, aucune clé à copier</span></span>
-          </div>
-          <div id="m-cloud-acct-row" class="pe-row">
-            <span class="pe-row-l" data-i18n="preset.cloud_account_label">Compte</span>
-            <span class="pe-row-c"><span class="pe-selc"><select id="s-cloud-prof" onchange="onCloudProfile()"></select></span></span>
-          </div>
-          <div id="m-cloud-credit-row" class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.cloud_credit_label">Crédit</span><span class="pe-sub" id="s-cloud-credit-sub"></span></span>
-            <span class="pe-row-c"><span class="pe-unit" id="s-cloud-credit"></span></span>
-          </div>
-          <!-- Ajout d'un compte : replié, comme « Dossiers de modèles ». La
-               connexion se fait sur modal.com (flux web de la CLI), aucune clé ici. -->
-          <div id="m-cloud-add-toggle" class="pe-row" style="cursor:pointer" onclick="setCloudAddOpen(document.getElementById('m-cloud-add').style.display==='none')">
-            <span class="pe-row-l"><span data-i18n="preset.cloud_account_add_title">Connecter un autre compte</span><span class="pe-sub" data-i18n="preset.cloud_account_add_sub">un compte par preset</span></span>
-            <span class="pe-row-c"><span id="m-cloud-add-caret" class="pe-caret"></span></span>
-          </div>
-          <div id="m-cloud-add" class="pe-row stack" style="display:none">
-            <div class="pe-inpbtn">
-              <input id="m-cloud-add-name" class="pe-inp" placeholder="nom du compte (ex. perso)" data-i18n="preset.cloud_account_name_placeholder" data-i18n-attr="placeholder" onkeydown="if(event.key==='Enter')addCloudAccount()">
-              <button id="m-cloud-add-btn" onclick="addCloudAccount()" title="Se connecter sur modal.com" data-i18n="preset.cloud_account_connect_title" data-i18n-attr="title">→</button>
-            </div>
-            <div id="m-cloud-add-note" class="pe-note" data-i18n="preset.cloud_account_add_note">Connecte-toi dans l'onglet modal.com qui s'ouvre.</div>
-          </div>
-          <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.cloud_gpu_label">GPU</span><span class="pe-sub" data-i18n="preset.cloud_gpu_sub">facturé à la seconde</span></span>
-            <span class="pe-row-c"><span class="pe-selc"><select id="s-cloud-gpu" onchange="cfgWriteKey('CLOUD_GPU', this.value)">
-              <option value="T4">T4 · 16 Go</option>
-              <option value="L4">L4 · 24 Go</option>
-              <option value="A10G">A10G · 24 Go</option>
-              <option value="L40S">L40S · 48 Go</option>
-              <option value="A100-40GB">A100 · 40 Go</option>
-              <option value="A100-80GB">A100 · 80 Go</option>
-              <option value="H100">H100 · 80 Go</option>
-              <option value="H200">H200 · 141 Go</option>
-              <option value="B200">B200 · 192 Go</option>
-            </select></span></span>
-          </div>
-          <div class="pe-row stack">
-            <span class="pe-row-l"><span data-i18n="preset.cloud_model_label">Modèle</span> <span class="pe-sub" data-i18n="preset.cloud_model_sub">lien direct vers le .gguf</span></span>
-            <input id="s-cloud-model" class="pe-inp" placeholder="https://huggingface.co/…/resolve/main/model.gguf" oninput="cfgWriteKey('CLOUD_MODEL', this.value)">
-          </div>
-          <div class="pe-row stack">
-            <span class="pe-row-l"><span data-i18n="preset.cloud_draft_label">Modèle draft</span> <span class="pe-sub" data-i18n="preset.cloud_draft_sub">GGUF pour le décodage spéculatif (facultatif)</span></span>
-            <input id="s-cloud-draft" class="pe-inp" placeholder="https://huggingface.co/…/resolve/main/draft.gguf" oninput="cfgWriteKey('CLOUD_DRAFT', this.value)">
-          </div>
-          <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.cloud_predict_label">Budget de sortie</span><span class="pe-sub" data-i18n="preset.cloud_predict_sub">tokens par défaut, modifiable par requête</span></span>
-            <span class="pe-row-c"><input id="s-cloud-predict" class="pe-val" type="number" min="1" step="256" placeholder="4800" oninput="cfgWriteKey('CLOUD_N_PREDICT', this.value)"><span class="pe-unit">tok</span></span>
-          </div>
-          <div class="pe-row stack">
-            <span class="pe-row-l"><span data-i18n="preset.cloud_vision_label">Vision</span> <span class="pe-sub" data-i18n="preset.cloud_vision_sub">lien direct vers le mmproj .gguf (facultatif)</span></span>
-            <input id="s-cloud-mmproj" class="pe-inp" placeholder="https://huggingface.co/…/mmproj-….gguf" oninput="cfgWriteKey('CLOUD_MMPROJ', this.value)">
-          </div>
-          <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.cloud_idle_label">Mise en veille</span><span class="pe-sub" data-i18n="preset.cloud_idle_sub">arrêt après inactivité</span></span>
-            <span class="pe-row-c"><input id="s-cloud-idle" class="pe-val" type="number" min="60" step="60" placeholder="300" oninput="cfgWriteKey('CLOUD_IDLE', this.value)"><span class="pe-unit">s</span></span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Moteur (backend llama-server) : tout en haut du modal, juste après le nom. -->
-      <div id="m-engine-row" class="pe-group" style="display:none">
-        <div class="pe-gh" data-i18n="preset.engine_heading">Moteur</div>
-        <div class="pe-seg">
-          <label><input type="radio" name="m-be" value="fast" onchange="onBackendMode('fast')"><span data-i18n="preset.engine_fast">Précompilé</span><span class="be-note" id="be-fast-note"></span></label>
-          <label><input type="radio" name="m-be" value="opt" onchange="onBackendMode('opt')"><span data-i18n="preset.engine_opt">Compilé</span><span class="be-note" id="be-opt-note"></span></label>
-          <label><input type="radio" name="m-be" value="custom" onchange="onBackendMode('custom')"><span data-i18n="preset.engine_custom">Personnalisé</span></label>
-          <label id="m-be-exl3" hidden><input type="radio" name="m-be" value="exl3" onchange="onBackendMode('exl3')"><span data-i18n="preset.engine_exl3">ExLlama</span></label>
-        </div>
-        <div id="be-avail-note" class="be-avail-note" style="display:none"></div>
-        <!-- Avertissement moteur non installé : visible et explicite (au lieu d'une
-             simple notif fugace), avec un bouton qui ouvre la section Moteur et lance
-             l'installation guidée. -->
-        <div id="be-warn" class="be-warn" style="display:none">
-          <div id="be-warn-text" class="be-warn-t"></div>
-          <button type="button" class="be-warn-btn" onclick="beWarnInstall()" data-i18n="preset.engine_warn_install_btn">Installer le moteur</button>
-        </div>
-        <div id="m-backend-custom" class="pe-list" style="display:none;margin-top:8px">
-          <div class="pe-row">
-            <span class="pe-row-l" data-i18n="preset.backend_label">Backend</span>
-            <span class="pe-row-c"><span class="pe-selc"><select id="m-backend-detected" onchange="onPickDetected()"></select></span></span>
-          </div>
-          <div class="pe-row stack">
-            <input id="m-backend-path" class="pe-inp" oninput="onCustomPath()" placeholder="ou un chemin vers llama-server(.exe)" data-i18n="preset.backend_path_placeholder" data-i18n-attr="placeholder">
-            <div class="pe-note" id="be-drop-hint"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ExLlama (ENGINE=exl3) : remplace les blocs Modèle et Réglages de llama.cpp,
-           masqués par la classe eng-exl3 du modal (voir syncEngineView). -->
-      <div id="m-exl3-row" class="pe-group">
-        <div class="pe-gh" data-i18n="preset.exl3_model_heading">Modèle EXL3</div>
-        <div class="pe-list">
-          <div class="pe-row stack">
-            <span class="pe-row-l" data-i18n="preset.exl3_model_label">Dossier du modèle</span>
-            <span class="pe-selc wide"><select id="s-exl3-model" onchange="onExl3Model()"></select></span>
-          </div>
-          <div class="pe-row stack">
-            <span class="pe-row-l"><span data-i18n="exl3.download_label">Télécharger un modèle</span> <span class="pe-sub" data-i18n="preset.exl3_download_sub">branche d'un dépôt Hugging Face EXL3</span></span>
-            <div class="pe-inpbtn">
-              <input id="s-exl3-dl" class="pe-inp" spellcheck="false" placeholder="https://huggingface.co/turboderp/…/tree/4.0bpw" onkeydown="if(event.key==='Enter')exl3PresetDownload()">
-              <button onclick="exl3PresetDownload()" title="Télécharger" data-i18n="preset.download_button_title" data-i18n-attr="title">↓</button>
-            </div>
-            <div id="s-exl3-dl-note" class="pe-note" style="display:none"></div>
-          </div>
-        </div>
-      </div>
-      <div id="m-exl3-set" class="pe-group">
-        <div class="pe-gh" data-i18n="preset.settings_heading">Réglages</div>
-        <div class="pe-list">
-          <div class="pe-row">
-            <span class="pe-row-l" data-i18n="preset.ctx_label">Contexte</span>
-            <span class="pe-row-c"><input id="s-exl3-ctx" class="pe-val" type="number" min="0" step="1024" placeholder="32768" oninput="cfgWriteKey('CTX', this.value)"><span class="pe-unit">tok</span></span>
-          </div>
-          <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.exl3_cache_label">Taille du cache</span><span class="pe-sub" data-i18n="preset.exl3_cache_sub">vide = le contexte ; plus grand pour plusieurs utilisateurs</span></span>
-            <span class="pe-row-c"><input id="s-exl3-cache" class="pe-val" type="number" min="0" step="1024" placeholder="—" oninput="cfgWriteKey('EXL3_CACHE', this.value)"><span class="pe-unit">tok</span></span>
-          </div>
-          <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.exl3_cache_mode_label">Précision du cache</span><span class="pe-sub" data-i18n="preset.kv_sub">compresse le contexte</span></span>
-            <span class="pe-row-c"><span class="pe-selc"><select id="s-exl3-cache-mode" onchange="cfgWriteKey('EXL3_CACHE_MODE', this.value)">
-              <option value="FP16">FP16</option>
-              <option value="8,8">8 bits</option>
-              <option value="6,6">6 bits</option>
-              <option value="4,4">4 bits</option>
-            </select></span></span>
-          </div>
-          <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.exl3_batch_label">Utilisateurs simultanés</span><span class="pe-sub" data-i18n="preset.exl3_batch_sub">requêtes traitées en même temps</span></span>
-            <span class="pe-row-c"><input id="s-exl3-batch" class="pe-val" type="number" min="1" step="1" placeholder="1" oninput="cfgWriteKey('EXL3_BATCH', this.value)"></span>
-          </div>
-          <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.exl3_chunk_label">Lecture du prompt par blocs</span><span class="pe-sub" data-i18n="preset.exl3_chunk_sub">plus grand = lecture plus rapide, plus de VRAM</span></span>
-            <span class="pe-row-c"><span class="pe-selc"><select id="s-exl3-chunk" onchange="cfgWriteKey('EXL3_CHUNK', this.value)">
-              <option value="512">512</option>
-              <option value="1024">1024</option>
-              <option value="2048">2048</option>
-              <option value="4096">4096</option>
-              <option value="8192">8192</option>
-            </select></span><span class="pe-unit">tok</span></span>
-          </div>
-          <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.exl3_draft_label">Décodage spéculatif</span><span class="pe-sub" data-i18n="preset.exl3_draft_sub">MTP si le modèle en a une tête</span></span>
-            <span class="pe-row-c"><span class="pe-selc"><select id="s-exl3-draft" onchange="onExl3Draft()">
-              <option value="disabled" data-i18n="preset.exl3_draft_off">désactivé</option>
-              <option value="mtp">MTP</option>
-              <option value="ngram">n-gram</option>
-              <option value="model" data-i18n="preset.exl3_draft_model">modèle brouillon</option>
-            </select></span></span>
-          </div>
-          <div class="pe-row" id="s-exl3-dtok-row">
-            <span class="pe-row-l"><span data-i18n="preset.exl3_dtok_label">Jetons anticipés</span><span class="pe-sub" data-i18n="preset.exl3_dtok_sub">3 mesuré le meilleur en MTP</span></span>
-            <span class="pe-row-c"><input id="s-exl3-dtok" class="pe-val" type="number" min="1" max="8" step="1" placeholder="3" oninput="cfgWriteKey('EXL3_DRAFT_TOKENS', this.value)"></span>
-          </div>
-          <div class="pe-row" id="s-exl3-dyn-row">
-            <span class="pe-row-l"><span data-i18n="preset.exl3_dyn_label">MTP adaptatif</span><span class="pe-sub" data-i18n="preset.exl3_dyn_sub">longueur selon le taux d'acceptation, plafond ci-dessus</span></span>
-            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-exl3-dyn" onchange="cfgWriteKey('EXL3_DRAFT_DYNAMIC', this.checked ? '1' : ''); syncExl3Rows()"><span class="pe-sl"></span></label></span>
-          </div>
-          <div class="pe-row" id="s-exl3-conf-row">
-            <span class="pe-row-l"><span data-i18n="preset.exl3_conf_label">Seuil d'acceptation</span><span class="pe-sub" data-i18n="preset.exl3_conf_sub">0,4 par défaut ; plus bas = brouillons plus longs</span></span>
-            <span class="pe-row-c"><input id="s-exl3-conf" class="pe-val" type="number" min="0.05" max="0.95" step="0.05" placeholder="0.4" oninput="cfgWriteKey('EXL3_DRAFT_CONFIDENCE', this.value)"></span>
-          </div>
-          <div class="pe-row" id="s-exl3-hybrid-row">
-            <span class="pe-row-l"><span data-i18n="preset.exl3_hybrid_label">Accélération des recopies</span><span class="pe-sub" data-i18n="preset.exl3_hybrid_sub">jetons avancés d'un coup sur un passage répété ; vide = non</span></span>
-            <span class="pe-row-c"><input id="s-exl3-hybrid" class="pe-val" type="number" min="0" step="4" placeholder="—" oninput="cfgWriteKey('EXL3_HYBRID', this.value)"><span class="pe-unit">tok</span></span>
-          </div>
-          <div class="pe-row stack" id="s-exl3-dmodel-row">
-            <span class="pe-row-l" data-i18n="preset.exl3_draft_model_label">Modèle brouillon</span>
-            <span class="pe-selc wide"><select id="s-exl3-dmodel" onchange="cfgWriteKey('EXL3_DRAFT_MODEL', this.value)"></select></span>
-          </div>
-          <div class="pe-row">
-            <span class="pe-row-l"><span data-i18n="preset.reasoning_label">Raisonnement</span><span class="pe-sub" data-i18n="preset.reasoning_sub">réflexion étape par étape</span></span>
-            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-exl3-reasoning" onchange="onExl3Reasoning(this.checked)"><span class="pe-sl"></span></label></span>
-          </div>
-          <div class="pe-row" id="s-exl3-rbudget-row">
-            <span class="pe-row-l"><span data-i18n="preset.exl3_rbudget_label">Budget de réflexion</span><span class="pe-sub" data-i18n="preset.exl3_rbudget_sub">vide = illimité</span></span>
-            <span class="pe-row-c"><input id="s-exl3-rbudget" class="pe-val" type="number" min="0" step="256" placeholder="—" oninput="cfgWriteKey('REASONING_BUDGET', this.value)"><span class="pe-unit">tok</span></span>
-          </div>
-          <div class="pe-row" id="s-exl3-vision-row">
-            <span class="pe-row-l"><span data-i18n="preset.vision_label">Vision</span><span class="pe-sub" id="s-exl3-vision-sub" data-i18n="preset.exl3_vision_sub">lecture des images</span></span>
-            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-exl3-vision" onchange="cfgWriteKey('EXL3_VISION', this.checked ? '1' : ''); syncExl3Rows()"><span class="pe-sl"></span></label></span>
-          </div>
-          <div class="pe-row" id="s-exl3-vdev-row">
-            <span class="pe-row-l"><span data-i18n="preset.exl3_vdev_label">Encodeur d'images sur</span><span class="pe-sub" data-i18n="preset.exl3_vdev_sub">une carte libre évite de saturer la principale</span></span>
-            <span class="pe-row-c"><span class="pe-selc"><select id="s-exl3-vdev" onchange="cfgWriteKey('EXL3_VISION_DEVICE', this.value)"></select></span></span>
-          </div>
-        </div>
-      </div>
-      <div id="m-exl3-gpu" class="pe-group" hidden>
-        <div class="pe-gh" data-i18n="preset.gpu_heading">Cartes graphiques</div>
-        <div class="pe-list" id="s-exl3-gpus"></div>
-        <div class="pe-list" style="margin-top:8px">
-          <div class="pe-row" id="s-exl3-tp-row">
-            <span class="pe-row-l"><span data-i18n="preset.exl3_tp_label">Parallélisme de tenseurs</span><span class="pe-sub" data-i18n="preset.exl3_tp_sub">les cartes calculent chaque couche ensemble : plus rapide</span></span>
-            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-exl3-tp" onchange="cfgWriteKey('EXL3_TP', this.checked ? '1' : ''); syncExl3Rows()"><span class="pe-sl"></span></label></span>
-          </div>
-          <div class="pe-row" id="s-exl3-tpb-row">
-            <span class="pe-row-l"><span data-i18n="preset.exl3_tpb_label">Échanges entre cartes</span><span class="pe-sub" data-i18n="preset.exl3_tpb_sub">NCCL demande le P2P entre les cartes</span></span>
-            <span class="pe-row-c"><span class="pe-selc"><select id="s-exl3-tpb" onchange="cfgWriteKey('EXL3_TP_BACKEND', this.value)">
-              <option value="" data-i18n="preset.exl3_tpb_native">natif</option>
-              <option value="nccl">NCCL</option>
-            </select></span></span>
-          </div>
-          <div class="pe-row" id="s-exl3-reserve-row">
-            <span class="pe-row-l"><span data-i18n="preset.exl3_reserve_label">VRAM laissée libre</span><span class="pe-sub" data-i18n="preset.exl3_reserve_sub">par carte, en répartition automatique</span></span>
-            <span class="pe-row-c"><input id="s-exl3-reserve" class="pe-val" type="number" min="0" step="128" placeholder="96" oninput="cfgWriteKey('EXL3_RESERVE', this.value)"><span class="pe-unit" data-i18n="exl3.unit_mb">Mo</span></span>
-          </div>
-        </div>
-        <div class="pe-note" data-i18n="preset.exl3_split_note">Répartition vide = automatique. Sinon, Go de poids par carte : charger la plus petite au maximum sans la saturer.</div>
       </div>
 
       <div id="m-model-row" style="display:none;flex-direction:column;gap:26px">
@@ -1433,11 +1123,15 @@
               <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-mmproj-cpu" onchange="eaToggleFlag('--no-mmproj-offload', this.checked)"><span class="pe-sl"></span></label></span>
             </div>
             <div class="pe-row stack">
-              <span class="pe-row-l"><span data-i18n="preset.download_model_label">Télécharger un modèle</span> <span class="pe-sub" data-i18n="preset.download_model_sub">lien direct vers un .gguf</span></span>
+              <span class="pe-row-l"><span data-i18n="preset.download_model_label">Télécharger un modèle</span> <span class="pe-sub" data-i18n="preset.download_model_sub">recherche sur Hugging Face, ou lien direct vers un .gguf</span></span>
+              <!-- Un seul champ : un lien lance le téléchargement, tout autre texte
+                   cherche sur Hugging Face (dépôts GGUF, puis leurs quantifications).
+                   Voir hfOnInput / hfSearch dans 07-models.js. -->
               <div class="pe-inpbtn">
-                <input id="m-hf-url" class="pe-inp" placeholder="https://…/model.gguf">
-                <button id="m-hf-btn" onclick="startDownload()" title="Télécharger" data-i18n="preset.download_button_title" data-i18n-attr="title">↓</button>
+                <input id="m-hf-url" class="pe-inp" spellcheck="false" autocomplete="off" placeholder="qwen, gemma, mistral… ou https://…/model.gguf" data-i18n="hf.placeholder" data-i18n-attr="placeholder" oninput="hfOnInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();hfGo()}">
+                <button id="m-hf-btn" onclick="hfGo()" title="Télécharger" data-i18n="preset.download_button_title" data-i18n-attr="title">↓</button>
               </div>
+              <div id="m-hf-results" class="hf-list" style="display:none"></div>
               <div id="m-hf-bar" class="pe-bar" style="display:none"><i></i></div>
               <div id="m-hf-progress" class="pe-note" style="display:none"></div>
               <button id="m-hf-pause" class="pe-link" onclick="togglePauseDownload()" style="display:none" data-i18n="preset.download_pause">Mettre en pause</button>
@@ -1462,8 +1156,8 @@
           </div>
         </div>
 
-        <!-- Cartes graphiques : la liste vient du moteur (déplacé tout en haut du modal),
-             car les noms ET l'ordre dépendent du backend compilé dedans. Le
+        <!-- Cartes graphiques : la liste vient du moteur lui-même, car les noms ET
+             l'ordre dépendent de sa variante (CUDA, Vulkan…). Le
              groupe reste masqué tant qu'on n'a pas AU MOINS DEUX cartes : avec
              une seule, il n'y a rien à arbitrer. -->
         <div class="pe-group" id="m-gpu-group" hidden>
@@ -1581,7 +1275,14 @@
           </div>
           <div class="pe-row">
             <span class="pe-row-l"><span data-i18n="preset.flash_label">Flash attention</span><span class="pe-sub" data-i18n="preset.flash_sub">plus rapide, moins de VRAM</span></span>
-            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-flash" onchange="eaSetValued('--flash-attn', this.checked?'on':'')"><span class="pe-sl"></span></label></span>
+            <!-- Trois états, comme llama-server (--flash-attn on|off|auto) : sans
+                 l'argument il est en « auto », activé dès que le moteur le peut. Un
+                 interrupteur éteint laissait croire qu'il était coupé. -->
+            <span class="pe-row-c"><span class="pe-selc"><select id="s-flash" onchange="eaSetValued('--flash-attn', this.value)">
+              <option value="">auto</option>
+              <option value="on">on</option>
+              <option value="off">off</option>
+            </select></span></span>
           </div>
           <div class="pe-row">
             <span class="pe-row-l"><span data-i18n="preset.kvunified_label">Cache KV unifié</span><span class="pe-sub" data-i18n="preset.kvunified_sub">un seul cache partagé</span></span>
@@ -1641,21 +1342,6 @@
         </div>
       </div>
 
-      <!-- Prompt système PROPRE À CE PRESET (optionnel). Replié par défaut. Injecté
-           en tête du contexte quand ce preset est actif. -->
-      <div id="m-sys-row" class="pe-group" style="display:none">
-        <div class="pe-gh" data-i18n="preset.sysprompt_heading">System prompt</div>
-        <div class="pe-list">
-          <div id="m-sys-toggle" class="pe-row" style="cursor:pointer" onclick="toggleSysPrompt()">
-            <span class="pe-row-l"><span data-i18n="preset.sysprompt_toggle_label">Prompt système du preset</span><span class="pe-sub" data-i18n="preset.sysprompt_toggle_sub">optionnel, propre à ce preset</span></span>
-            <span class="pe-row-c"><span id="m-sys-caret" class="pe-caret"></span></span>
-          </div>
-          <div id="m-sys-body" class="pe-row stack" style="display:none">
-            <textarea id="m-sysprompt" class="pe-inp" spellcheck="false" placeholder="(optionnel) ex : tu es un assistant concis en français" data-i18n="preset.sysprompt_placeholder" data-i18n-attr="placeholder"></textarea>
-          </div>
-        </div>
-      </div>
-
       <div id="m-raw" class="pe-group">
         <div class="pe-gh" id="m-raw-head" data-i18n="preset.raw_heading">Configuration</div>
         <div class="pe-list">
@@ -1678,7 +1364,10 @@
         <button id="m-del" class="pe-del" onclick="delItem()" title="supprimer" aria-label="supprimer" data-i18n="preset.delete_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
         <!-- Bench : mesure le modèle CHARGÉ, n'a donc de sens que pour le preset
              actif. openItem l'affiche seulement dans ce cas (voir 07-models.js). -->
-        <button id="btn-bench" class="pe-icon" onclick="runBenchUI()" style="display:none" title="Benchmark" aria-label="Benchmark" data-i18n="bench.title" data-i18n-attr="title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 13.5l3.6-3.6"/><path d="M4.6 19a9 9 0 1 1 14.8 0"/><circle cx="12" cy="13.5" r="1.3" fill="currentColor" stroke="none"/></svg></button>
+        <button id="btn-bench" class="pe-icon" onclick="openBenchModal()" style="display:none" title="Benchmark" aria-label="Benchmark" data-i18n="bench.title" data-i18n-attr="title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 13.5l3.6-3.6"/><path d="M4.6 19a9 9 0 1 1 14.8 0"/><circle cx="12" cy="13.5" r="1.3" fill="currentColor" stroke="none"/></svg></button>
+        <!-- Moteur du preset ACTIF : arrêter, redémarrer (ou démarrer s'il est arrêté).
+             Remplace la section « Moteur » du menu. Affiché comme le bench. -->
+        <button id="btn-power" class="pe-icon" onclick="togglePowerMenu(event)" style="display:none" title="Moteur" aria-label="Moteur" data-i18n="preset.power_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9"/><path d="M6.4 6.6a8 8 0 1 0 11.2 0"/></svg></button>
       </div>
       <div class="foot-r">
         <button class="pe-btn" onclick="closeModal()" data-i18n="preset.cancel">annuler</button>

@@ -99,32 +99,3 @@ func TestSwitchToPresetLaisseLePresetImposerSesGPU(t *testing.T) {
 		t.Errorf("CUDA_VISIBLE_DEVICES = %q, attendu 1,0 conservé", cfg["CUDA_VISIBLE_DEVICES"])
 	}
 }
-
-// Un preset ExLlama ne touche pas à la sélection de cartes de la machine : la
-// 0.18.13 y écrivait « 0,1 », reporté ensuite sur un preset llama.cpp réglé pour
-// « 1,0 » (répartition inversée, plantage au chargement).
-func TestPresetExl3NeTouchePasAuxCartesMachine(t *testing.T) {
-	home := testHome(t)
-	setConfig(t, "MODEL=ancien.gguf\nCUDA_VISIBLE_DEVICES=1,0\n")
-	exl3 := filepath.Join(home, "exl3.env")
-	if err := os.WriteFile(exl3, []byte("ENGINE=exl3\nEXL3_MODEL=/m/x\nCUDA_VISIBLE_DEVICES=0,1\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := applyPresetFile(exl3); err != nil {
-		t.Fatal(err)
-	}
-	cfg := ReadConfig()
-	if cfg["CUDA_VISIBLE_DEVICES"] != "1,0" || cfg["EXL3_GPUS"] != "0,1" {
-		t.Errorf("CUDA_VISIBLE_DEVICES=%q EXL3_GPUS=%q, attendu 1,0 et 0,1", cfg["CUDA_VISIBLE_DEVICES"], cfg["EXL3_GPUS"])
-	}
-	llama := filepath.Join(home, "llama.env")
-	if err := os.WriteFile(llama, []byte("MODEL=swift.gguf\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := applyPresetFile(llama); err != nil {
-		t.Fatal(err)
-	}
-	if got := ReadConfig()["CUDA_VISIBLE_DEVICES"]; got != "1,0" {
-		t.Errorf("après retour sur llama.cpp : CUDA_VISIBLE_DEVICES = %q, attendu 1,0", got)
-	}
-}

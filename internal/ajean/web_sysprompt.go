@@ -13,15 +13,10 @@ import (
 	"strings"
 )
 
-// Le prompt système est désormais rattaché au PRESET actif (un prompt par preset,
-// réglé dans le modal de preset). readSysPrompt renvoie celui du preset actif ; à
-// défaut, l'ancien prompt global (compat) sert de repli.
+// readSysPrompt : le prompt système global, posé par /api/sysprompt (aucun réglage
+// dans l'interface). Jusqu'à la 0.19 chaque preset pouvait porter le sien ; ce
+// réglage est retiré : un projet a sa description, et Jean apprend seul.
 func readSysPrompt() string {
-	if id := activePresetID(); id != "" {
-		if sp := presetSysPrompt(id); sp != "" {
-			return sp
-		}
-	}
 	return getStr(bkState, "sysprompt")
 }
 
@@ -55,22 +50,8 @@ func activePresetName() string {
 	return ""
 }
 
-// presetSysPrompt / setPresetSysPrompt : prompt système propre à un preset, stocké
-// en base (clé sysprompt/<id>), hors du fichier .env (qui ne gère pas le multi-ligne).
-func presetSysPrompt(id string) string {
-	if id == "" {
-		return ""
-	}
-	return getStr(bkState, "sysprompt/"+id)
-}
-
-func setPresetSysPrompt(id, text string) error {
-	if id == "" {
-		return nil
-	}
-	return putStr(bkState, "sysprompt/"+id, strings.TrimSpace(text))
-}
-
+// deletePresetSysPrompt efface le prompt système qu'un preset portait avant la
+// 0.20 (clé sysprompt/<id>).
 func deletePresetSysPrompt(id string) {
 	if id != "" {
 		_ = putStr(bkState, "sysprompt/"+id, "")

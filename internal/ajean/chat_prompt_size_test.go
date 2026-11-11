@@ -40,7 +40,9 @@ import (
 // toute sa navigation par niveaux vit dans SES RÉPONSES, pas dans le prompt (une
 // seule ligne de consigne : « ça va dans suivi, pas dans une note »). Ajout demandé
 // et accepté ; il sort au contraire le suivi des notes .md, qui restent petites.
-const promptCharBudget = 12000 // ~3000 tokens, tout allumé (agent+web+mémoire+suivi+apps), outils séparés (regroupés en 0.18.2 puis abandonnés : plus d'appels mal formés)
+// Relèvement (12000 → 12400) en 0.20 : les outils d'apps repris de la 0.19 (tester
+// une app comme un utilisateur) laissaient 3 caractères de marge.
+const promptCharBudget = 12400 // ~3100 tokens, tout allumé (agent+web+mémoire+suivi+apps), outils séparés (regroupés en 0.18.2 puis abandonnés : plus d'appels mal formés)
 
 func TestSystemPromptStaysLean(t *testing.T) {
 	caps := Caps{Agent: true, Internet: true, Mem: MemAlways}

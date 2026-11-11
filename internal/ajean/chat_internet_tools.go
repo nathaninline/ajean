@@ -281,16 +281,8 @@ func cmdInternet(args []string) error {
 		sub = args[0]
 	}
 	switch sub {
-	case "on":
-		if err := setInternetEnabled(true); err != nil {
-			return err
-		}
-		fmt.Println(green("[ok]") + " accès internet activé — l'IA dispose de web_search/web_open/web_read/web_grep (si le mode agent est actif)")
-	case "off":
-		if err := setInternetEnabled(false); err != nil {
-			return err
-		}
-		fmt.Println(green("[ok]") + " accès internet désactivé")
+	case "on", "off":
+		fmt.Println(yellow("[info]") + " l'accès internet est toujours actif depuis la 0.20 : il n'y a plus d'interrupteur")
 	case "", "status", "list":
 		state := dim("off")
 		if internetEnabled() {

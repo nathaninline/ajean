@@ -32,7 +32,10 @@ func runTray(url string) {
 			for {
 				select {
 				case <-mOpen.ClickedCh:
-					_ = openAppWindow(url)
+					// Fenêtre déjà ouverte : on la ramène, on n'en ouvre pas une seconde.
+					if !focusAppWindow() {
+						_ = openAppWindow(url)
+					}
 				case <-mQuit.ClickedCh:
 					systray.Quit()
 					return
@@ -60,4 +63,4 @@ func runTray(url string) {
 // trayIcon : l'icône de marque en .ico, deux tailles pour rester nette selon
 // l'échelle d'affichage. Le rendu vit dans sys_brand_icon.go, partagé avec
 // l'icône du .exe.
-func trayIcon() []byte { return BrandICO(16, trayIconSize) }
+func trayIcon() []byte { return BrandICO(16, 20, 24, trayIconSize, 40, 48) }

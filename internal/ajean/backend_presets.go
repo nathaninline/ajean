@@ -297,18 +297,6 @@ func applyPresetFile(target string) error {
 		return err
 	}
 	next := parseEnv(string(src))
-	// Un preset ExLlama choisit ses cartes par EXL3_GPUS. Une valeur
-	// CUDA_VISIBLE_DEVICES laissée par la 0.18.13 y est reprise, mais ne doit pas
-	// remplacer le réglage machine : il serait ensuite reporté sur les presets
-	// llama.cpp, avec un ordre de cartes qui n'est pas le leur.
-	if isExl3Config(next) {
-		if v, ok := next["CUDA_VISIBLE_DEVICES"]; ok {
-			if strings.TrimSpace(next["EXL3_GPUS"]) == "" {
-				next["EXL3_GPUS"] = v
-			}
-			delete(next, "CUDA_VISIBLE_DEVICES")
-		}
-	}
 	// Ré-applique les réglages appareil par-dessus le preset — sauf ceux que le
 	// preset revendique explicitement (softPreservedKeys).
 	cur := ReadConfig()
@@ -345,8 +333,9 @@ func SwitchToPreset(target string) error {
 	fmt.Printf("%s configuration <- %s\n", green("[ok]"), filepath.Base(target))
 	fmt.Println(dim("[info] redémarrage du service..."))
 	cfg := ReadConfig()
-	if !isExternalConfig(cfg) {
-		// vers un moteur local : on arrête d'abord le moteur tiers précédent
+	if !usesRemoteEndpoint(cfg) {
+		// vers un moteur local (llama.cpp ou service système) : on arrête d'abord
+		// le moteur tiers précédent
 		if err := syncExternalService(cfg); err != nil {
 			return err
 		}
@@ -405,8 +394,9 @@ func cmdSwitch(args []string) error {
 }
 
 // newPresetSeedKeys : les SEULES clés reprises de la configuration active quand
-// on crée un preset. Ce sont des réglages de MACHINE (quel moteur, où il écoute),
-// pas des réglages de modèle.
+// on crée un preset. Ce sont des réglages de MACHINE (où le moteur écoute), pas
+// des réglages de modèle. Le moteur lui-même n'en fait plus partie : c'est
+// celui livré avec AJEAN (voir engine.go).
 //
 // Issue #17 : le nouveau preset repartait d'une copie COMPLÈTE de la config
 // active. Les réglages du modèle précédent (EXTRA_ARGS — --n-cpu-moe,
@@ -414,7 +404,7 @@ func cmdSwitch(args []string) error {
 // mélangeaient donc aux options cochées pour le nouveau, et il fallait penser à
 // tout nettoyer à la main. On repart d'une base vide : les valeurs non
 // renseignées sont les défauts documentés (CTX 32768, NGL 999, BATCH 2048…).
-var newPresetSeedKeys = []string{"BIN", "HOST", "PORT"}
+var newPresetSeedKeys = []string{"HOST", "PORT"}
 
 // newPresetSeed renvoie la configuration de départ d'un preset créé depuis l'UI.
 func newPresetSeed() map[string]string {
@@ -473,7 +463,18 @@ func SavePreset(id, name, content string) (string, error) {
 	return id, nil
 }
 
-// DeletePreset removes a preset by id; refuses if it is the active config.
+// presetStopEngine arrête le moteur du preset qu'on supprime. Variable : les
+// tests la remplacent pour ne toucher à aucun service.
+var presetStopEngine = func() {
+	if serviceIsActive() {
+		_ = serviceAction("stop")
+	}
+}
+
+// DeletePreset supprime un preset par son id. Le preset ACTIF se supprime aussi :
+// on arrête d'abord son moteur et on vide la configuration qu'il avait posée
+// (seuls les réglages de l'appareil restent). Le refuser obligeait à créer un
+// second preset rien que pour pouvoir supprimer le premier.
 func DeletePreset(id string) error {
 	p, err := safePresetPath(id)
 	if err != nil {
@@ -483,8 +484,19 @@ func DeletePreset(id string) error {
 	if err != nil {
 		return fmt.Errorf("introuvable")
 	}
-	if presetFingerprint(target) == configFingerprint(ReadConfig()) {
-		return fmt.Errorf("preset actif, switche d'abord")
+	cur := ReadConfig()
+	if presetFingerprint(target) == configFingerprint(cur) || getStr(bkState, "active_preset") == id {
+		presetStopEngine()
+		keep := map[string]string{}
+		for _, k := range preservedKeys {
+			if v, ok := cur[k]; ok {
+				keep[k] = v
+			}
+		}
+		if err := WriteConfig(keep); err != nil {
+			return err
+		}
+		_ = putStr(bkState, "active_preset", "")
 	}
 	if err := os.Remove(p); err != nil {
 		return err

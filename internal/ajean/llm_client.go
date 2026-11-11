@@ -288,8 +288,6 @@ type Caps struct {
 	// projets (profil toujours injecté, fiches, journal cherchable). Voir
 	// jean_memory.go.
 	Jean bool
-	// Voice = message dicté (mode vocal) : la réponse sera lue à voix haute. Voir voice.go.
-	Voice bool
 }
 
 // globalCaps reads the machine-wide config — the default when a request doesn't
@@ -800,6 +798,9 @@ type StatsEvent struct {
 	// Taille TOTALE du prompt traité ce tour (préfixe caché compris), issue de
 	// `usage.prompt_tokens`. 0 si le backend ne renvoie pas d'usage.
 	PromptTokensTotal int `json:"prompt_tokens_total,omitempty"`
+	// Le fournisseur a refusé le niveau de réflexion du preset : la requête est
+	// repartie sans lui (llm_reasoning.go). L'interface le signale sous la réponse.
+	ReasoningIgnored bool `json:"reasoning_ignored,omitempty"`
 }
 
 // ChatCallback receives stream events. Return false to abort the stream.
@@ -906,7 +907,7 @@ func streamCutError(err error) error {
 // streamRetryable : la reprise automatique ne vaut que pour une API distante
 // (réseau, tunnel). Un llama-server local coupé a planté : rejouer ne ferait
 // que retarder le message d'erreur.
-func streamRetryable(ep chatEndpoint) bool { return ep.External || ep.Cloud }
+func streamRetryable(ep chatEndpoint) bool { return ep.External }
 
 // gatewayStatus : réponses d'un relais/proxy qui n'atteint pas la machine pour
 // l'instant (tunnel en reconnexion), à rejouer plutôt qu'à remonter.
@@ -992,6 +993,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 	// retry the same turn once with tools removed so the model answers in plain
 	// text from the tool results already gathered, instead of dying mid-chat.
 	disableTools := false
+	dropReasoning := false // le fournisseur a refusé le niveau de réflexion ce tour
 	// Filet réactif (façon Hermes) : si llama-server refuse le prompt (souvent un
 	// dépassement de la fenêtre de contexte après de gros résultats d'outils), on
 	// compacte l'historique en vol et on rejoue le tour — une seule fois.
@@ -1059,6 +1061,16 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		// à chaque itération : une bascule de preset en cours de tour est ainsi prise
 		// en compte, comme le reste de la config relue par ReadConfig().
 		applySampling(payload)
+		// Niveau de réflexion refusé par ce fournisseur (maintenant ou plus tôt) :
+		// la requête part sans lui.
+		reasonLevel := ""
+		reasonIgnored := false
+		if ep.External {
+			reasonLevel = strings.ToLower(strings.TrimSpace(ReadConfig()["REASONING_EFFORT"]))
+			if dropReasoning || reasoningRejected(ep, reasonLevel) {
+				reasonIgnored = stripReasoning(payload)
+			}
+		}
 		if len(tools) > 0 && !disableTools {
 			payload["tools"] = tools
 			// The model sometimes emits parallel tool calls, which this llama.cpp
@@ -1083,7 +1095,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			authHeader(req)
 		}
 		tReq := time.Now() // secours des stats quand le serveur n'envoie pas de timings
-		resp, err := doLLM(ctx, req, body, ep)
+		resp, err := doLLM(req)
 		if err != nil && ctx.Err() == nil && streamRetryable(ep) && transientNetErr(err) && streamRetries < maxStreamRetries {
 			// Tunnel en pleine reconnexion : même reprise qu'un flux coupé.
 			streamRetries++
@@ -1150,6 +1162,13 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					continue
 				}
 			}
+			// Requête refusée alors qu'elle portait un niveau de réflexion : ce
+			// fournisseur n'accepte peut-être pas ce champ. On rejoue une fois sans.
+			// Si la requête passe alors, le refus est retenu (voir plus bas).
+			if ep.External && reasoningRefusal(resp.StatusCode) && !dropReasoning && !reasonIgnored && stripReasoning(payload) {
+				dropReasoning = true
+				continue
+			}
 			// Most common 500 here: llama.cpp couldn't parse a malformed tool call
 			// the model emitted. Retry the turn once without tools so it answers
 			// in plain text rather than leaving the chat dead.
@@ -1174,6 +1193,12 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 		// arrivent sur des chunks séparés ; on émet une copie complète à chaque MAJ
 		// pour que les consommateurs (terminal, web) aient toujours tout.
 		var stats StatsEvent
+		stats.ReasoningIgnored = reasonIgnored
+		if dropReasoning && reasonIgnored {
+			// La même requête est passée sans le niveau de réflexion : c'est bien
+			// lui que le fournisseur refusait. On ne le lui renvoie plus.
+			markReasoningRejected(ep, reasonLevel)
+		}
 		// Serveur sans `timings` (moteurs MoE, API tierces) : on mesure nous-mêmes le
 		// décodage entre le premier et le dernier token (voir après la boucle).
 		sawTimings := false
@@ -1495,9 +1520,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			stats.PromptMs = float64(tFirst.Sub(tReq).Milliseconds())
 			stats.GenTokens = gen
 			stats.GenMs = float64(tLast.Sub(tFirst).Milliseconds())
-			if sec := tLast.Sub(tFirst).Seconds(); sec > 0 && gen > 1 {
-				stats.GenPerSecond = float64(gen-1) / sec
-			}
+			stats.GenPerSecond = measuredGenRate(ep.URL, gen, tReq, tFirst, tLast)
 			s := stats
 			cb(StreamEvent{Stats: &s})
 		}
@@ -2025,18 +2048,14 @@ func healthCheck() bool {
 	// de complétion, avec un message d'erreur clair si elle échoue. Sans ce
 	// court-circuit, StartTurn refuserait tout tour (aucun /health local).
 	cfg := ReadConfig()
-	if isCloudConfig(cfg) {
-		return cloudReady(cfg)
+	if serviceCmdOf(cfg) != "" {
+		// Service système : une API locale, prête quand elle répond.
+		return serviceCmdReady(cfg)
 	} else if isExternalConfig(cfg) {
 		return true
 	}
 	resp, err := healthClient.Get(fmt.Sprintf("http://localhost:%d/health", LLMPort()))
 	if err != nil {
-		// ExLlama (TabbyAPI) ne répond plus à /health pendant une longue lecture
-		// de prompt : ce n'est pas un chargement. Un succès récent fait foi.
-		if isExl3Config(cfg) && time.Since(time.Unix(0, healthLastOK.Load())) < 2*time.Minute {
-			return true
-		}
 		return false
 	}
 	defer resp.Body.Close()

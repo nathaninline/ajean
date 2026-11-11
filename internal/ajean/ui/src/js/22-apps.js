@@ -39,7 +39,6 @@ function at(k, vars){
   if(vars) for(const v in vars) s = s.split('{'+v+'}').join(vars[v]);
   return s;
 }
-function appEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 let APPS = [], APPS_Q = '';
 
@@ -95,7 +94,7 @@ async function newAppPrompt(){
   // L'outil app n'existe qu'en Projet et en Jean : Rapide n'a que le terminal,
   // Modèle de base aucun outil. Sans bascule, la demande partait dans un mode
   // où elle ne pouvait pas aboutir.
-  if(MODE === 'fast' || MODE === 'base'){
+  if(MODE !== 'project' && MODE !== 'jean'){
     await pickMode('project');
     if(MODE !== 'project') return; // mode agent refusé
   }
@@ -157,7 +156,12 @@ const APP_BRIDGE_JS = `(function(){
   function report(kind, msg, line){ send({v:1, err:{kind:kind, message:String(msg||'').slice(0,300), line:line||0}}); }
   window.addEventListener('error', function(e){ report(e.error&&e.error.name||'Error', e.message, e.lineno); });
   window.addEventListener('unhandledrejection', function(e){ var r=e.reason; report(r&&r.name||'Error', r&&r.message||r, 0); });
-  document.addEventListener('securitypolicyviolation', function(e){ report('Sandbox', 'bloqué par le bac à sable : '+e.violatedDirective+' '+(e.blockedURI||''), e.lineNumber); });
+  // Certains navigateurs (Safari) posent des styles internes sur les contrôles
+  // natifs (select, input…) : ce n'est pas une faute de l'app, on ne le signale pas.
+  document.addEventListener('securitypolicyviolation', function(e){
+    var t=e.target, tag=t&&t.tagName||'';
+    if(/^style-src/.test(e.violatedDirective) && /^(SELECT|OPTION|INPUT|TEXTAREA|BUTTON|VIDEO|AUDIO|DETAILS|PROGRESS|METER)$/.test(tag)) return;
+    report('Sandbox', 'bloqué par le bac à sable : '+e.violatedDirective+' '+(e.blockedURI||''), e.lineNumber); });
   function toBytes(d){
     if(d instanceof Blob) return d.arrayBuffer();
     if(d instanceof ArrayBuffer) return Promise.resolve(d);
@@ -204,7 +208,7 @@ async function openApp(id, version){
   document.getElementById('app-err').hidden = true;
   const nonce = appNonce();
   const meta = JSON.stringify({id: a.id, name: a.name, version: n}).replace(/</g,'\\u003c');
-  const csp = "default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'nonce-"+nonce+"'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'none'";
+  const csp = "default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'nonce-"+nonce+"'; style-src-attr 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'none'";
   const dark = document.documentElement.getAttribute('data-theme') === 'dark';
   const doc = '<!doctype html><html data-theme="'+(dark?'dark':'light')+'"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="'+csp+'">'
     + '<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -387,9 +391,9 @@ function appAskFix(){
 // suivi de la cible : « Création de l'app · Stats », « Test du script · fetch.py ».
 const APP_ACT = {
   fr: {guide:'Lecture du guide des apps', list:'Liste des apps', read:"Lecture de l'app", create:"Création de l'app", update:"Modification de l'app",
-       script_write:'Écriture du script', script_read:'Lecture du script', script_delete:'Suppression du script', script_test:'Test du script', '':'App'},
+       script_write:'Écriture du script', script_read:'Lecture du script', script_delete:'Suppression du script', script_test:'Test du script', check:"Test de l'app", export:"Export de l'app", data_get:"Lecture des données de l'app", data_set:"Mise à jour des données de l'app", '':'App'},
   en: {guide:'Reading the apps guide', list:'Listing apps', read:'Reading the app', create:'Creating the app', update:'Updating the app',
-       script_write:'Writing script', script_read:'Reading script', script_delete:'Deleting script', script_test:'Testing script', '':'App'},
+       script_write:'Writing script', script_read:'Reading script', script_delete:'Deleting script', script_test:'Testing script', check:'Testing the app', export:'Exporting the app', data_get:'Reading the app data', data_set:'Updating the app data', '':'App'},
 };
 function appToolActLabel(label){
   const s = String(label||'').trim(), i = s.indexOf(' ');

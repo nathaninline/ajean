@@ -76,8 +76,8 @@ var svcMu sync.Mutex
 func serviceAction(action string) error {
 	svcMu.Lock()
 	defer svcMu.Unlock()
-	// API Externe : aucun moteur local (arrêt). GPU Cloud : relais local vers le GPU.
-	action = cloudServiceAction(action)
+	// Preset API : aucun processus local, démarrer revient à arrêter.
+	action = presetServiceAction(action)
 	switch action {
 	case "start":
 		return svcStart()

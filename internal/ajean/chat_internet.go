@@ -24,11 +24,10 @@ import (
 
 // ─── configuration & état ───────────────────────────────────────────────────
 
-// internetEnabled : l'interrupteur de l'accès web. Le moteur intégré ne demande
-// aucun réglage.
-func internetEnabled() bool { return getBool(bkState, "internet") }
-
-func setInternetEnabled(on bool) error { return putBool(bkState, "internet", on) }
+// internetEnabled : l'accès web fait partie des outils de l'IA, toujours
+// disponible (il n'y a plus d'interrupteur depuis la 0.20). Le moteur intégré
+// ne demande aucun réglage. Les outils restent liés au mode agent.
+func internetEnabled() bool { return true }
 
 // ─── URL & normalisation ────────────────────────────────────────────────────
 

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -49,19 +50,18 @@ Le cuisinier ferme les yeux pour goûter la sauce. Trop salée. Il ajoute une po
 func runBench(nPrompt, nPredict int) (*benchResult, error) {
 	// Moteur tiers lancé par ajean (EXTERNAL_SERVICE, ex. moteur MoE) : il ne renvoie
 	// pas les `timings` de llama.cpp, on mesure en streaming (voir runBenchStream).
-	if cfg := ReadConfig(); externalServiceOf(cfg) != "" {
+	if cfg := ReadConfig(); serviceCmdOf(cfg) != "" {
+		// Service système : un serveur quelconque, mesuré en streaming lui aussi.
+		if !serviceCmdReady(cfg) {
+			return nil, fmt.Errorf("le service charge encore le modèle")
+		}
+		return runBenchStream(nPrompt, nPredict)
+	} else if externalServiceOf(cfg) != "" {
 		if ok, why := externalServiceReady(cfg); !ok {
 			if why == "" {
 				why = "le moteur charge encore le modèle"
 			}
 			return nil, fmt.Errorf("%s", why)
-		}
-		return runBenchStream(nPrompt, nPredict)
-	} else if isMoeConfig(cfg) || isExl3Config(cfg) {
-		// moteur MoE intégré : il garde la conversation en cache malgré
-		// cache_prompt:false, la marque unique en tête (runBenchStream) l'en empêche
-		if !healthCheck() {
-			return nil, fmt.Errorf("le moteur charge encore le modèle")
 		}
 		return runBenchStream(nPrompt, nPredict)
 	}
@@ -72,6 +72,12 @@ func runBench(nPrompt, nPredict int) (*benchResult, error) {
 	if nPrompt <= 0 {
 		nPrompt = 2000
 	}
+	// Avancement pour la fenêtre Benchmark : la requête est d'un seul bloc (ses
+	// mesures sont exactes), on suit donc la génération sur /slots du moteur.
+	benchProgressStart(nPrompt, nPredict)
+	defer benchProgressSet(func(p *benchProgress) { p.Running = false })
+	stopSlots := benchWatchSlots(fmt.Sprintf("http://localhost:%d/v1/chat/completions", port), readAPIKey(), true)
+	defer stopSlots()
 	prompt := benchPrompt(nPrompt)
 	// Use the same endpoint your real chat hits, so the comparison is honest
 	// (chat template, reasoning, OpenAI-compat layer all included).
@@ -205,18 +211,8 @@ func benchModelKey(cfg map[string]string) string {
 	if externalServiceOf(cfg) != "" {
 		return "ext:" + strings.TrimSpace(cfg[extKeyModel])
 	}
-	// moteur MoE intégré : sa config d'installation désigne le modèle
-	if isMoeConfig(cfg) {
-		if c := strings.TrimSpace(cfg["MOE_CONFIG"]); c != "" {
-			return "moe:" + filepath.Base(c)
-		}
-		return ""
-	}
-	if isExl3Config(cfg) {
-		if m := strings.TrimSpace(cfg["EXL3_MODEL"]); m != "" {
-			return "exl3:" + filepath.Base(m)
-		}
-		return ""
+	if serviceCmdOf(cfg) != "" {
+		return "svc:" + strings.TrimSpace(cfg[extKeyModel]) + "|" + strings.TrimSpace(cfg[svcKeyCmd])
 	}
 	if usesRemoteEndpoint(cfg) {
 		return ""
@@ -334,6 +330,10 @@ func runBenchStream(nPrompt, nPredict int) (*benchResult, error) {
 	if ep.Key != "" {
 		req.Header.Set("Authorization", "Bearer "+ep.Key)
 	}
+	benchProgressStart(nPrompt, nPredict)
+	defer benchProgressSet(func(p *benchProgress) { p.Running = false })
+	stopSlots := benchWatchSlots(ep.URL, ep.Key, false)
+	defer stopSlots()
 	t0 := time.Now()
 	resp, err := (&http.Client{Timeout: 10 * time.Minute}).Do(req)
 	if err != nil {
@@ -387,6 +387,8 @@ func runBenchStream(nPrompt, nPredict int) (*benchResult, error) {
 				}
 				last = now
 				chunks++
+				n := chunks
+				benchProgressSet(func(p *benchProgress) { p.Generated = n; p.PrefillDone = p.Prompt })
 			}
 		}
 	}
@@ -417,4 +419,127 @@ func runBenchStream(nPrompt, nPredict int) (*benchResult, error) {
 	saveLastBench(res)
 	saveBenchForActivePreset(res)
 	return res, nil
+}
+
+// benchProgress : où en est le test en cours (fenêtre Benchmark). Generated
+// vient du flux (ou de /slots) ; PrefillDone de /slots quand le moteur le donne.
+type benchProgress struct {
+	Running     bool  `json:"running"`
+	Prompt      int   `json:"prompt"`
+	PrefillDone int   `json:"prefill_done"`
+	Generated   int   `json:"generated"`
+	Output      int   `json:"output"`
+	Started     int64 `json:"started"`
+}
+
+var (
+	benchProgMu sync.Mutex
+	benchProg   benchProgress
+)
+
+func benchProgressStart(prompt, output int) {
+	benchProgMu.Lock()
+	benchProg = benchProgress{Running: true, Prompt: prompt, Output: output, Started: time.Now().UnixMilli()}
+	benchProgMu.Unlock()
+}
+
+func benchProgressSet(f func(*benchProgress)) {
+	benchProgMu.Lock()
+	f(&benchProg)
+	benchProgMu.Unlock()
+}
+
+func benchProgressGet() benchProgress {
+	benchProgMu.Lock()
+	defer benchProgMu.Unlock()
+	return benchProg
+}
+
+// benchWatchSlots relève l'avancement sur /slots du moteur, toutes les 500 ms.
+// decoded=false (test en streaming) : seulement le prefill, jusqu'au premier
+// token (le flux compte ensuite les tokens générés). decoded=true (requête d'un
+// bloc, llama.cpp) : aussi les tokens déjà générés, jusqu'à la fin du test.
+// Un moteur sans /slots : rien, la fenêtre affiche seulement le temps écoulé.
+func benchWatchSlots(chatURL, key string, decoded bool) func() {
+	root := chatURL
+	if i := strings.Index(root, "/v1"); i > 0 {
+		root = root[:i]
+	}
+	done := make(chan struct{})
+	go func() {
+		cl := &http.Client{Timeout: 800 * time.Millisecond}
+		for {
+			select {
+			case <-done:
+				return
+			case <-time.After(500 * time.Millisecond):
+			}
+			if !decoded && benchProgressGet().Generated > 0 {
+				return
+			}
+			req, err := http.NewRequest("GET", root+"/slots", nil)
+			if err != nil {
+				return
+			}
+			if key != "" {
+				req.Header.Set("Authorization", "Bearer "+key)
+			}
+			resp, err := cl.Do(req)
+			if err != nil {
+				continue
+			}
+			var slots []struct {
+				Busy        bool `json:"is_processing"`
+				Prompt      int  `json:"prompt_tokens"`
+				PrefillDone int  `json:"prefill_done"`
+				NextToken   []struct {
+					NDecoded int `json:"n_decoded"`
+				} `json:"next_token"`
+			}
+			raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+			resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				return // pas de /slots : on n'insiste pas
+			}
+			if json.Unmarshal(raw, &slots) != nil {
+				// llama.cpp range next_token en objet, pas en liste : second essai.
+				var alt []struct {
+					Busy      bool `json:"is_processing"`
+					NextToken struct {
+						NDecoded int `json:"n_decoded"`
+					} `json:"next_token"`
+				}
+				if json.Unmarshal(raw, &alt) != nil {
+					return
+				}
+				for _, sl := range alt {
+					if sl.Busy && decoded && sl.NextToken.NDecoded > 0 {
+						n := sl.NextToken.NDecoded
+						benchProgressSet(func(p *benchProgress) { p.Generated, p.PrefillDone = n, p.Prompt })
+						break
+					}
+				}
+				continue
+			}
+			for _, sl := range slots {
+				if !sl.Busy {
+					continue
+				}
+				if decoded && len(sl.NextToken) > 0 && sl.NextToken[0].NDecoded > 0 {
+					n := sl.NextToken[0].NDecoded
+					benchProgressSet(func(p *benchProgress) { p.Generated, p.PrefillDone = n, p.Prompt })
+					break
+				}
+				if sl.Prompt > 0 {
+					benchProgressSet(func(p *benchProgress) {
+						if p.Generated == 0 {
+							p.Prompt, p.PrefillDone = sl.Prompt, sl.PrefillDone
+						}
+					})
+					break
+				}
+			}
+		}
+	}()
+	return func() { close(done) }
 }

@@ -100,30 +100,9 @@ var jeanEmbedEngine jeanEmbedProc
 // jeanEmbedTestPort : tests seulement, un faux moteur d'embeddings déjà prêt.
 var jeanEmbedTestPort int
 
-// jeanEmbedBin : un llama-server récent sait servir EmbeddingGemma. On prend le
-// plus récent des précompilés, sinon celui de la config.
-func jeanEmbedBin() string {
-	exe := "llama-server"
-	if runtime.GOOS == "windows" {
-		exe += ".exe"
-	}
-	if ents, err := os.ReadDir(prebuiltDir()); err == nil {
-		var dirs []string
-		for _, e := range ents {
-			if e.IsDir() && isFile(filepath.Join(prebuiltDir(), e.Name(), exe)) {
-				dirs = append(dirs, e.Name())
-			}
-		}
-		sort.Strings(dirs)
-		if len(dirs) > 0 {
-			return filepath.Join(prebuiltDir(), dirs[len(dirs)-1], exe)
-		}
-	}
-	if b := strings.TrimSpace(ReadConfig()["BIN"]); b != "" && strings.Contains(filepath.Base(b), "llama-server") && isFile(b) {
-		return b
-	}
-	return ""
-}
+// jeanEmbedBin : le llama-server du moteur d'AJEAN sait servir EmbeddingGemma.
+// "" tant que le moteur n'est pas installé.
+func jeanEmbedBin() string { return engineBin() }
 
 func availRAMMB() int {
 	used, total := ramUsageMB()
@@ -712,7 +691,7 @@ func jeanEmbedDownload() {
 		}
 		_ = os.MkdirAll(filepath.Dir(dst), 0o755)
 		tmp := dst + ".part"
-		err := downloadWithProgress(jeanEmbedModelURL, tmp, jeanEmbedModelSize, func(string) {})
+		err := engineFetchOnce(context.Background(), jeanEmbedModelURL, tmp, jeanEmbedModelSize, func(string) {})
 		if err == nil {
 			if fi, e := os.Stat(tmp); e != nil || fi.Size() != jeanEmbedModelSize {
 				err = fmt.Errorf("téléchargement incomplet")

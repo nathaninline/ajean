@@ -46,8 +46,14 @@ func cmdApp(args []string) error {
 		// usage réel le 2026-10-16 : un `python -m http.server` laissé par
 		// l'aperçu d'un IDE ; la fenêtre montrait un listing de dossier).
 		if ajeanAnswersOn(appPort) {
-			// Une autre instance d'AJEAN sert déjà : on ouvre sa fenêtre. Pas
-			// d'icône ici, la sienne existe déjà.
+			// Une autre instance d'AJEAN sert déjà. Si sa fenêtre est ouverte, on
+			// la ramène au premier plan : en ouvrir une autre donnait deux
+			// fenêtres AJEAN côte à côte. Sinon on ouvre la sienne. Pas d'icône
+			// de zone de notification ici, la sienne existe déjà.
+			if focusAppWindow() {
+				fmt.Println("AJEAN est déjà lancé — fenêtre ramenée au premier plan")
+				return nil
+			}
 			fmt.Printf("AJEAN est déjà lancé — ouverture de %s\n", url)
 			return openAppWindow(url)
 		}
@@ -86,7 +92,8 @@ func cmdApp(args []string) error {
 	// Si l'utilisateur l'a fermée entre-temps, on l'ouvre comme d'habitude.
 	restarted := os.Getenv(envRestarted) == "1"
 	os.Unsetenv(envRestarted)
-	if restarted && appWindowAlive() {
+	if (restarted && appWindowAlive()) || focusAppWindow() {
+		// (ou une fenêtre AJEAN est restée ouverte après un arrêt : on la reprend)
 		waitServerReady(url)
 	} else {
 		sp := showSplash("Lancement d'AJEAN en cours…")
@@ -96,7 +103,8 @@ func cmdApp(args []string) error {
 		sp.close()
 	}
 
-	runTray(url) // icône zone de notification ; bloque jusqu'à « Quitter »
+	go keepAppWindowIcon() // icône nette dans la barre des tâches (Windows)
+	runTray(url)           // icône zone de notification ; bloque jusqu'à « Quitter »
 	return nil
 }
 

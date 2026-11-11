@@ -11,8 +11,11 @@
 //	chat_*        chat CLI + conversation serveur partagée, compaction, mémoire,
 //	              outils de l'agent (dont accès internet)
 //	llm_*         client llama-server (complétions, endpoint OpenAI, bench, test)
-//	backend_*     gestion llama.cpp : build, GPU, serve (ExecStart), modèles et
-//	              téléchargements, catalogue, presets, configuration
+//	engine_*      le moteur llama.cpp livré avec AJEAN : version épinglée
+//	              (LLAMA_CPP_VERSION + llama_cpp_assets.json), installation
+//	              vérifiée, sonde des variantes, erreurs du journal
+//	backend_*     GPU, serve (ExecStart), modèles et téléchargements, catalogue,
+//	              presets, configuration
 //	relay_*       accès distant ajean.link : tunnel, chiffrement E2E, appairage
 //	sys_*         intégration OS : install, services, plateforme, process, tray,
 //	              splash, tty, auto-update

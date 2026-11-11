@@ -404,6 +404,53 @@ func normalizeHFURL(raw string) (string, string, error) {
 	return u.String(), name, nil
 }
 
+// altModelName propose un nom de fichier pour un modèle dont le nom est déjà
+// pris par un AUTRE modèle dans dir. Il ajoute ce qui distingue le dépôt Hugging
+// Face d'origine (les mots de son nom absents du fichier : « MTP » pour
+// …-A3B-MTP-GGUF), à défaut son auteur, à défaut un numéro.
+func altModelName(name, dlURL, dir string) string {
+	stem := strings.TrimSuffix(name, filepath.Ext(name))
+	ext := filepath.Ext(name)
+	free := func(n string) bool { _, err := os.Stat(filepath.Join(dir, n)); return err != nil }
+	owner, repo := "", ""
+	if u, err := url.Parse(dlURL); err == nil && strings.Contains(u.Host, "huggingface.co") {
+		if p := strings.Split(strings.Trim(u.Path, "/"), "/"); len(p) >= 2 {
+			owner, repo = p[0], p[1]
+		}
+	}
+	have := map[string]bool{}
+	for _, tok := range strings.FieldsFunc(strings.ToLower(stem), func(r rune) bool { return r == '-' || r == '_' || r == '.' }) {
+		have[tok] = true
+	}
+	var extra []string
+	for _, tok := range strings.Split(repo, "-") {
+		low := strings.ToLower(tok)
+		if tok == "" || low == "gguf" || have[low] || have[strings.ReplaceAll(low, ".", "")] {
+			continue
+		}
+		// « Qwen3.6 » du dépôt est déjà dans « qwen3.6-35b… » découpé sur le point.
+		if parts := strings.Split(low, "."); len(parts) > 1 && have[parts[0]] {
+			continue
+		}
+		extra = append(extra, tok)
+	}
+	if len(extra) > 0 {
+		if n := stem + "-" + strings.Join(extra, "-") + ext; free(n) {
+			return n
+		}
+	}
+	if owner != "" {
+		if n := stem + "-" + owner + ext; free(n) {
+			return n
+		}
+	}
+	for i := 2; ; i++ {
+		if n := fmt.Sprintf("%s-%d%s", stem, i, ext); free(n) {
+			return n
+		}
+	}
+}
+
 // handleModelDownload kicks off a background download of a .gguf from a URL
 // (typically Hugging Face) into AJEAN_HOME. Progress is polled via
 // /api/models/download/status.
@@ -437,6 +484,24 @@ func handleModelDownload(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "dossier de destination inaccessible : " + err.Error()})
 		return
 	}
+	// Un fichier du même nom est déjà là, mais ce n'est pas forcément le même
+	// modèle : deux dépôts publient souvent leurs quantifications sous des noms
+	// identiques (Qwen…-UD-IQ3_XXS.gguf existe dans le dépôt de base ET dans sa
+	// variante MTP). Si la taille distante diffère, c'est un AUTRE modèle : on le
+	// range sous un nom qui le distingue au lieu de le refuser.
+	if len(names) == 1 {
+		if st, err := os.Stat(dests[0]); err == nil && !st.IsDir() {
+			pctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+			total, _, perr := dlProbe(pctx, urls[0])
+			cancel()
+			if perr == nil && total > 0 && total != st.Size() {
+				alt := altModelName(names[0], dlURL, filepath.Dir(dests[0]))
+				if d, err := downloadDestPath(alt, req.Dir); err == nil {
+					names[0], name, dests[0] = alt, alt, d
+				}
+			}
+		}
+	}
 
 	// Tranches déjà là : on ne les retélécharge pas. C'est aussi ce qui permet de
 	// relancer un téléchargement en plusieurs fichiers interrompu à la deuxième
@@ -458,7 +523,7 @@ func handleModelDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(todoURLs) == 0 {
 		dlMu.Unlock()
-		sendJSON(w, 409, map[string]any{"ok": false, "error": "le modèle existe déjà: " + name})
+		sendJSON(w, 409, map[string]any{"ok": false, "error": "ce modèle est déjà téléchargé : " + name + " (dossier " + filepath.Dir(dests[0]) + ")"})
 		return
 	}
 	ctx, cancel := context.WithCancel(context.Background())

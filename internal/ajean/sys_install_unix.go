@@ -26,6 +26,8 @@ func cmdInstall(args []string) error {
 	if os.Geteuid() != 0 {
 		return fmt.Errorf("ajean install doit être exécuté en root (sudo ajean install)")
 	}
+	// Unités des modèles laissées par la 0.19 : on a ici les droits pour les arrêter.
+	retire019Units()
 	targetUser := os.Getenv("SUDO_USER")
 	if targetUser == "" {
 		targetUser = "root"

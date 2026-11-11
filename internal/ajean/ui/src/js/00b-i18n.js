@@ -98,3 +98,6 @@ document.addEventListener('DOMContentLoaded', function () {
 	}
 	applyI18n();
 });
+// tf : traduction avec repli. Rend le texte fourni si la clé n'existe pas (une
+// clé absente est renvoyée telle quelle par t()).
+function tf(key, fr){ const v = t(key); return v === key ? fr : v; }

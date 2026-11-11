@@ -1,0 +1,115 @@
+{
+  "tag": "b12257",
+  "assets": [
+    {
+      "name": "cudart-llama-b12257-bin-ubuntu-cuda-12.8-x64.tar.gz",
+      "size": 594370441,
+      "sha256": "a13d1069bde5ca94fce903be5bb345f364c932bdf271b4a269edf70ddcd9dc22"
+    },
+    {
+      "name": "cudart-llama-b12257-bin-ubuntu-cuda-13.5-arm64.tar.gz",
+      "size": 559874055,
+      "sha256": "6aadd05ac13ac132dc7d702ccd07b594db287ec6ddd7ae727a350f7720841aad"
+    },
+    {
+      "name": "cudart-llama-b12257-bin-ubuntu-cuda-13.5-x64.tar.gz",
+      "size": 444079112,
+      "sha256": "be85a6eaf846b763c0feb513813472f30eb8d71b69eadfb4433ba064859d8505"
+    },
+    {
+      "name": "cudart-llama-bin-win-cuda-12.4-x64.zip",
+      "size": 391443627,
+      "sha256": "8c79a9b226de4b3cacfd1f83d24f962d0773be79f1e7b75c6af4ded7e32ae1d6"
+    },
+    {
+      "name": "cudart-llama-bin-win-cuda-13.5-arm64.zip",
+      "size": 278821062,
+      "sha256": "f89e7b2457f627d052dd99f42205ddfd01964454809754cdc649cffc74320dca"
+    },
+    {
+      "name": "cudart-llama-bin-win-cuda-13.5-x64.zip",
+      "size": 426314199,
+      "sha256": "c2bf4cc202bfbaaa7a0b75f5082457c3811326947bb216059b72839d844e9cba"
+    },
+    {
+      "name": "llama-b12257-bin-macos-arm64.tar.gz",
+      "size": 16850701,
+      "sha256": "e77905e5c5393414e0d0345d5921ed5d8836a2d9fe1ad3dd38d57e8d1ea292e2"
+    },
+    {
+      "name": "llama-b12257-bin-macos-x64.tar.gz",
+      "size": 12593777,
+      "sha256": "b91196a0687be92041d580e0ee3d57b05c58576587557b6ac7d2f21f57608e34"
+    },
+    {
+      "name": "llama-b12257-bin-ubuntu-arm64.tar.gz",
+      "size": 18909286,
+      "sha256": "8fc0879acbd5a312d3c2abe98a99311c9f8facf68ed4335da901138d4dfd873c"
+    },
+    {
+      "name": "llama-b12257-bin-ubuntu-cuda-12.8-x64.tar.gz",
+      "size": 188337800,
+      "sha256": "5f9d002dac03058678754a7c1af05e4f728d06395341b80f5b797ecf60c74dc7"
+    },
+    {
+      "name": "llama-b12257-bin-ubuntu-cuda-13.5-arm64.tar.gz",
+      "size": 164930923,
+      "sha256": "905e5c6bffbd3edb5c91eff4665c1196f87aa4a02fc9ab6a1e9199a41553b904"
+    },
+    {
+      "name": "llama-b12257-bin-ubuntu-cuda-13.5-x64.tar.gz",
+      "size": 169818828,
+      "sha256": "c7f0d40ee3c4b10ef69ce079a4d4c9c6544123a5ea5d62a1d2b103b26386fd37"
+    },
+    {
+      "name": "llama-b12257-bin-ubuntu-rocm-10.0-x64.tar.gz",
+      "size": 255755041,
+      "sha256": "e1b6688bb4b7ded808b0b4cd25a0d056a0e19836f29bae1987c838d6aa10ba1f"
+    },
+    {
+      "name": "llama-b12257-bin-ubuntu-vulkan-arm64.tar.gz",
+      "size": 29367822,
+      "sha256": "63d2228b76fbb96b94c6c3a847790bf1d7da7582ee9a268f5058542475202545"
+    },
+    {
+      "name": "llama-b12257-bin-ubuntu-vulkan-x64.tar.gz",
+      "size": 36087062,
+      "sha256": "90dbc473de1ae634fe40d16366ee3e975cb61ba5d8afcc7d2fa68350250a2a25"
+    },
+    {
+      "name": "llama-b12257-bin-ubuntu-x64.tar.gz",
+      "size": 23262474,
+      "sha256": "75c55c9d5c4b620cf305c034149ea2ed33832542af78b719f3888af1d1359996"
+    },
+    {
+      "name": "llama-b12257-bin-win-cpu-arm64.zip",
+      "size": 13388253,
+      "sha256": "edbb41974209eaba92852fe242e9a026e17de900ab0d161a321f6f0526a9482c"
+    },
+    {
+      "name": "llama-b12257-bin-win-cpu-x64.zip",
+      "size": 25037286,
+      "sha256": "9dbb472a6a47cba710bc8a84df921312720e84d08af870df4398884f3d022aef"
+    },
+    {
+      "name": "llama-b12257-bin-win-cuda-12.4-x64.zip",
+      "size": 288956232,
+      "sha256": "a23ae4521b32805455d2e78555e9fe7743e0390ba754c3541d253626aa826aa1"
+    },
+    {
+      "name": "llama-b12257-bin-win-cuda-13.5-arm64.zip",
+      "size": 158619245,
+      "sha256": "453020bb0c232f73ff990006f79e2ba9ef9451b8703e180a4447be72be4793b5"
+    },
+    {
+      "name": "llama-b12257-bin-win-cuda-13.5-x64.zip",
+      "size": 171010879,
+      "sha256": "63922b8b4f380a16e6d7e21a22f3e70a8a3a923a353f6a325cc5aa25d7c29cdd"
+    },
+    {
+      "name": "llama-b12257-bin-win-vulkan-x64.zip",
+      "size": 38002784,
+      "sha256": "7c9f49b514a7f8bf97327076766d2ce316a346af744a43a969b89c0977fd5b51"
+    }
+  ]
+}

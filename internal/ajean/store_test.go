@@ -64,8 +64,16 @@ func TestLecturesSurBaseVide(t *testing.T) {
 	if len(ReadConfig()) != 0 {
 		t.Error("configuration non vide sur une base neuve")
 	}
-	if agentEnabled() || internetEnabled() {
-		t.Error("interrupteurs actifs sur une base neuve")
+	// L'agent est actif d'office (tous les modes reposent sur ses outils), l'accès
+	// internet aussi. Un arrêt explicite de l'agent doit tenir.
+	if !agentEnabled() || !internetEnabled() {
+		t.Error("base neuve : agent et internet actifs attendus")
+	}
+	if err := setAgentEnabled(false); err != nil || agentEnabled() {
+		t.Errorf("l'arrêt de l'agent ne tient pas (err=%v)", err)
+	}
+	if err := setAgentEnabled(true); err != nil || !agentEnabled() {
+		t.Errorf("la réactivation de l'agent ne tient pas (err=%v)", err)
 	}
 	wk, _ := webKeyHashErr()
 	if readAPIKey() != "" || wk != "" || readLinkToken() != "" {

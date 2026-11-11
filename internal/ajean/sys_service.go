@@ -35,27 +35,22 @@ func preflightEngine() error {
 	if usesRemoteEndpoint(cfg) {
 		return nil
 	}
-	// Moteur MoE : ni BIN ni MODEL, il lance son propre serveur (serveMoe).
-	if isMoeConfig(cfg) {
-		_, _, err := moePreflight(cfg)
-		return err
+	// Service système : on vérifie que le programme de la commande existe.
+	if cmd := serviceCmdOf(cfg); cmd != "" {
+		if _, _, err := serviceProgram(cmd); err != nil {
+			return err
+		}
+		if extBaseURL(cfg) == "" {
+			return fmt.Errorf("adresse de l'API du service inconnue : la commande n'indique pas de port (--port), renseigne l'adresse dans le preset")
+		}
+		return nil
 	}
-	// ExLlama : un dossier de modèle EXL3 et TabbyAPI, ni BIN ni .gguf.
-	if isExl3Config(cfg) {
-		_, _, err := exl3Preflight(cfg)
-		return err
+	// Preset d'un moteur retiré en 0.20 (MoE, ExLlama) : il ne peut plus démarrer.
+	if name := removedEngine(cfg); name != "" {
+		return removedEngineError(name)
 	}
-	bin := strings.TrimSpace(cfg["BIN"])
-	if bin == "" {
-		return fmt.Errorf("BIN non défini — installe un moteur : %s (ou renseigne BIN avec %s)",
-			bold("ajean llamacpp install"), bold("ajean edit"))
-	}
-	if !filepath.IsAbs(bin) {
-		bin = filepath.Join(AjeanHome(), bin)
-	}
-	if _, err := os.Stat(prebuiltResolveBin(bin)); err != nil {
-		return fmt.Errorf("moteur introuvable : %s — relance %s", bin, bold("ajean llamacpp install"))
-	}
+	// Le moteur n'est pas vérifié ici : c'est celui livré avec AJEAN, et le
+	// service l'installe lui-même s'il manque (engineEnsure, backend_serve.go).
 	model := strings.TrimSpace(cfg["MODEL"])
 	if model == "" {
 		return fmt.Errorf("MODEL non défini — indique un .gguf avec %s (dossier des modèles : %s)",
@@ -83,7 +78,6 @@ func preflightEngine() error {
 // donc les clés utiles avec leur rôle, les valeurs déjà définies telles quelles,
 // les autres commentées.
 var configTemplate = []struct{ key, help string }{
-	{"BIN", "chemin de llama-server (posé par « ajean llamacpp install »)"},
 	{"MODEL", "nom de fichier .gguf ou chemin complet"},
 	{"HOST", "adresse d'écoute du moteur (défaut 0.0.0.0)"},
 	{"PORT", "port du moteur (défaut 8080)"},
@@ -91,10 +85,10 @@ var configTemplate = []struct{ key, help string }{
 	{"NGL", "couches déportées sur le GPU (défaut 999 = tout)"},
 	{"BATCH", "batch (défaut 2048)"},
 	{"UBATCH", "micro-batch (défaut 512)"},
-	{"THREADS", "threads CPU, 0 = auto"},
-	{"THREADS_BATCH", "threads CPU du prefill, 0 = auto"},
+	{"THREADS", "threads CPU, 0 ou vide = choisis par llama.cpp"},
+	{"THREADS_BATCH", "threads CPU du prefill, 0 ou vide = comme THREADS"},
 	{"KV_TYPE", "quantization du cache KV (q8_0, q4_0…) ; KV_TYPE_K / KV_TYPE_V pour les séparer"},
-	{"REASONING", "passthrough du mode raisonnement (on/auto/deepseek)"},
+	{"REASONING", "raisonnement du modèle : on, off ou auto (vide = le moteur décide)"},
 	{"REASONING_BUDGET", "plafond de tokens de réflexion ; -1 = illimité"},
 	{"COMPACT", "compactage automatique du contexte (off pour couper)"},
 	{"COMPACT_MAX", "compacter au plus tard à ce nombre de jetons, quelle que soit la fenêtre (0 = 75 % de la fenêtre)"},

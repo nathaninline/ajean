@@ -53,14 +53,7 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 		active = true
 		state = "active"
 		health = true
-		// GPU cloud : « prêt » seulement une fois déployé (sinon on déploie).
-		if cfg := ReadConfig(); isCloudConfig(cfg) {
-			health = cloudReady(cfg)
-			if !health {
-				cloudDeploy() // sans effet si déjà en cours ou déjà échoué
-				_, cloudErr = cloudStatus()
-			}
-		}
+
 		// Moteur tiers lancé par ajean (EXTERNAL_SERVICE) : « prêt » seulement
 		// quand son API répond, sinon l'UI annonçait prêt pendant les 1-2 min de
 		// chargement du modèle.
@@ -78,18 +71,19 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 		loadErr = modelLoadError()
 	}
 	sendJSON(w, 200, map[string]any{
-		"state":       state,
-		"active":      active,
-		"health":      health,
-		"port":        LLMPort(),
-		"ctx":         ctx,
-		"version":     Version,
-		"warn":        appWarning(),       // ex. App Translocation macOS — vide si tout va bien
-		"load_error":  loadErr,            // modèle qui ne charge pas (incompat moteur…) — vide sinon
-		"boot":        procBoot,           // empreinte de démarrage du process (détecte un redémarrage côté UI)
-		"preset":      activePresetID(),   // id du preset actif : un autre appareil a pu basculer, l'UI se resynchronise sans reload (voir loadStatus)
-		"external":    external,           // preset actif = API OpenAI-compatible distante (pas de moteur local)
-		"cloud_phase": cloudPhaseActive(), // GPU Cloud : deploying|sleeping|downloading|loading|ready|error ("" hors cloud)
+		"state":      state,
+		"active":     active,
+		"health":     health,
+		"port":       LLMPort(),
+		"ctx":        ctx,
+		"version":    Version,
+		"warn":       appWarning(),                     // ex. App Translocation macOS — vide si tout va bien
+		"load_error": loadErr,                          // modèle qui ne charge pas (incompat moteur…) — vide sinon
+		"boot":       procBoot,                         // empreinte de démarrage du process (détecte un redémarrage côté UI)
+		"preset":     activePresetID(),                 // id du preset actif : un autre appareil a pu basculer, l'UI se resynchronise sans reload (voir loadStatus)
+		"external":   external,                         // preset actif = API OpenAI-compatible distante (pas de moteur local)
+		"service":    serviceCmdOf(ReadConfig()) != "", // preset actif = « Service système » (commande lancée par AJEAN)
+		"ui":         uiBuildID(),                      // empreinte de l'interface servie : si elle change, la page ouverte est périmée et se recharge
 		// Anciens drapeaux --mlock/--no-mmap présents alors que le moteur attend
 		// --load-mode (llama.cpp récent) : l'UI propose un bouton de mise à jour.
 		// Le serveur démarre quand même (traduits au lancement) — c'est un nettoyage.
@@ -144,8 +138,18 @@ func modelLoadError() string {
 			}
 		}
 	}
-	if loaded || reason == "" {
+	if loaded {
 		return ""
+	}
+	// La ligne d'erreur du moteur lui-même (mémoire insuffisante, argument
+	// inconnu, bibliothèque manquante, moteur impossible à installer…) : on la
+	// montre telle quelle plutôt qu'un « chargement… » sans fin.
+	detail := engineErrorFromLog(strings.Join(lines[start:], "\n"))
+	if reason == "" {
+		if detail == "" {
+			return ""
+		}
+		return "Le moteur s'est arrêté : " + detail
 	}
 	// Message PRÉCIS selon la cause : n'affirmer l'incompatibilité que quand le
 	// journal la montre vraiment (quant/architecture). Un échec générique de
@@ -158,9 +162,12 @@ func modelLoadError() string {
 			"Clique sur « Mettre à jour les flags » pour corriger."
 	case "format de quantification non reconnu par ce moteur",
 		"type/architecture de modèle inconnu de ce moteur":
-		return "Modèle incompatible avec le moteur : " + reason +
-			". Choisis un autre backend (édite le modèle → Moteur)."
+		return "Modèle incompatible avec le moteur llama.cpp " + enginePin() + " livré avec AJEAN : " + reason +
+			". Un modèle qui exige un fork de llama.cpp n'est pas pris en charge."
 	default:
+		if detail != "" {
+			return "Le modèle n'a pas pu être chargé : " + detail
+		}
 		return "Le modèle n'a pas pu être chargé (" + reason +
 			"). Ouvre le journal du moteur pour le détail."
 	}
@@ -178,10 +185,9 @@ func handleServiceLog(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	log := serviceLogTail(n)
-	if isMoeConfig(ReadConfig()) {
-		log = moeNeutral(log) // les lignes du moteur MoE ne nomment pas l'amont
-	}
-	sendJSON(w, 200, map[string]any{"log": log})
+	// "error" : les lignes d'erreur du moteur relevées dans ce journal, pour que
+	// l'UI affiche la cause sans obliger à lire les 80 lignes (voir engine_status.go).
+	sendJSON(w, 200, map[string]any{"log": log, "error": engineErrorFromLog(log)})
 }
 
 // vramGPUs échantillonne les GPU (VRAM utilisée/totale, util, température). Extrait
@@ -279,13 +285,7 @@ func handleVram(w http.ResponseWriter, r *http.Request) {
 // anciens et le repli côté UI) : {vram: [...], ram: {used, total}}.
 func handleTelemetry(w http.ResponseWriter, r *http.Request) {
 	used, total := ramUsageMB()
-	var gpus any = vramGPUs()
-	if c := cloudGPUInfo(); c != nil {
-		b, _ := json.Marshal(gpus)
-		var list []any
-		_ = json.Unmarshal(b, &list)
-		gpus = append([]any{c}, list...)
-	}
+	gpus := vramGPUs()
 	sendJSON(w, 200, map[string]any{
 		"vram": gpus,
 		"ram":  map[string]any{"used": used, "total": total},
@@ -316,7 +316,8 @@ func handleConfigEnv(w http.ResponseWriter, r *http.Request) {
 // posé), et on n'ajoute rien ici — écrire --jinja imposerait un redémarrage, tout
 // l'intérêt du raccourci étant justement de l'éviter.
 //
-// Effort accepté : "" (défaut du modèle), low, medium, high, xhigh. Une valeur
+// Effort accepté : "" (défaut du modèle), off (preset API ou Service), low,
+// medium, high, xhigh. Une valeur
 // inconnue est refusée pour ne pas glisser n'importe quoi dans chat_template_kwargs.
 func handleReasoning(w http.ResponseWriter, r *http.Request) {
 	var req struct {
@@ -328,7 +329,7 @@ func handleReasoning(w http.ResponseWriter, r *http.Request) {
 	}
 	eff := strings.TrimSpace(req.Effort)
 	switch eff {
-	case "", "low", "medium", "high", "xhigh":
+	case "", "off", "low", "medium", "high", "xhigh":
 	default:
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "effort inconnu"})
 		return
@@ -337,111 +338,7 @@ func handleReasoning(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	moePersistEffort(eff)
 	sendJSON(w, 200, map[string]any{"ok": true, "effort": eff})
-}
-
-// handleBackends scans AJEAN_HOME/backends/<name>/ for a llama-server binary,
-// trying common build subpaths (build/bin, build-sm120/bin, bin, .).
-// Returns [{name, path}].
-func handleBackends(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, 200, listBackendBins())
-}
-
-// listBackendBins scanne AJEAN_HOME/backends/<name>/ pour un binaire llama-server
-// (essaie les sous-chemins des différents générateurs CMake). Renvoie
-// [{name, path}] — un par dossier de backend contenant un binaire.
-func listBackendBins() []map[string]any {
-	root := AjeanHome() + "/backends"
-	entries, err := os.ReadDir(root)
-	if err != nil {
-		return []map[string]any{}
-	}
-	subpaths := []string{
-		"build/bin/llama-server", "build-sm120/bin/llama-server",
-		"build/llama-server", "bin/llama-server", "llama-server",
-		// Layout du générateur Visual Studio (multi-config) + suffixe .exe Windows.
-		"build/bin/Release/llama-server.exe", "build/bin/llama-server.exe",
-		"build/bin/Release/llama-server", "llama-server.exe",
-	}
-	out := []map[string]any{}
-	for _, e := range entries {
-		// e can be a directory or a symlink to one; either is fine.
-		name := e.Name()
-		if strings.HasPrefix(name, ".") {
-			continue
-		}
-		for _, sp := range subpaths {
-			p := root + "/" + name + "/" + sp
-			if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
-				out = append(out, map[string]any{"name": name, "path": p})
-				break
-			}
-		}
-	}
-	return out
-}
-
-// handleBackendsCustom liste les seuls backends CUSTOM : les dossiers de
-// backends/ hors moteurs gérés par les cartes ⚡ (prebuilt) et 🔧 (build
-// canonique). Marque celui qui sert de moteur au modèle actif (in_use).
-func handleBackendsCustom(w http.ResponseWriter, r *http.Request) {
-	canonical := filepath.Base(defaultRepoDir()) // "llama.cpp"
-	prebuilt := filepath.Base(prebuiltDir())     // "llama.cpp-prebuilt"
-	cfgBin := ReadConfig()["BIN"]
-	out := []map[string]any{}
-	for _, b := range listBackendBins() {
-		name, _ := b["name"].(string)
-		if name == canonical || name == prebuilt {
-			continue
-		}
-		path, _ := b["path"].(string)
-		out = append(out, map[string]any{"name": name, "path": path, "in_use": samePath(path, cfgBin)})
-	}
-	sendJSON(w, 200, out)
-}
-
-// handleLlamacppUninstallCustom supprime le dossier d'un backend custom
-// (backends/<name>). Refuse les moteurs gérés (canonique / prebuilt) et un
-// backend actuellement utilisé par le modèle actif (il faut d'abord basculer de
-// moteur pour ce modèle).
-func handleLlamacppUninstallCustom(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Name string `json:"name"`
-	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
-	name := sanitizeBackendName(req.Name)
-	if name == "" {
-		sendJSON(w, 400, map[string]any{"ok": false, "error": "nom requis"})
-		return
-	}
-	if name == filepath.Base(defaultRepoDir()) || name == filepath.Base(prebuiltDir()) {
-		sendJSON(w, 400, map[string]any{"ok": false, "error": "ce moteur se gère depuis les cartes ⚡ / 🔧"})
-		return
-	}
-	dir, err := backendDir(name)
-	if err != nil {
-		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
-		return
-	}
-	if !isDir(dir) {
-		sendJSON(w, 404, map[string]any{"ok": false, "error": "backend introuvable"})
-		return
-	}
-	cfgBin := ReadConfig()["BIN"]
-	for _, b := range listBackendBins() {
-		if b["name"] == name {
-			if p, _ := b["path"].(string); samePath(p, cfgBin) {
-				sendJSON(w, 409, map[string]any{"ok": false, "error": "backend utilisé par le modèle actif — bascule d'abord ce modèle sur un autre moteur"})
-				return
-			}
-		}
-	}
-	if err := os.RemoveAll(dir); err != nil {
-		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
-		return
-	}
-	sendJSON(w, 200, map[string]any{"ok": true})
 }
 
 // handleModels lists *.gguf files (size in bytes) for the preset editor's model
@@ -524,23 +421,13 @@ func handlePresets(w http.ResponseWriter, r *http.Request) {
 				if strings.TrimSpace(cfg[extKeyVision]) == "1" {
 					item["vision"] = true
 				}
-			} else if cfg := parseEnv(content); isMoeConfig(cfg) {
-				// moteur MoE : réglages dans sa propre fenêtre, pas l'éditeur llama.cpp
-				item["moe"] = true
-				if cfg["MOE_VISION"] != "0" {
-					item["vision"] = true
+				if serviceCmdOf(cfg) != "" {
+					item["service"] = true // « Service système » : une commande locale
 				}
-			} else if cfg := parseEnv(content); isExl3Config(cfg) {
-				item["engine"] = "exl3"
-				item["quant"] = exl3QuantLabel(cfg)
-				if cfg["EXL3_VISION"] == "1" {
-					item["vision"] = true
-				}
-			} else if cfg := parseEnv(content); isCloudConfig(cfg) {
-				item["cloud"] = cloudGPU(cfg)
-				if strings.TrimSpace(cfg[cloudKeyMM]) != "" {
-					item["vision"] = true
-				}
+			} else if name := removedEngine(parseEnv(content)); name != "" {
+				// Preset d'un moteur retiré en 0.20 : l'UI le montre grisé, avec
+				// la raison, au lieu de le laisser échouer au lancement.
+				item["removed_engine"] = name
 			}
 			ext := isExternalConfig(parseEnv(content))
 			if q := detectQuant(content); q != "" && !ext && item["engine"] == nil {
@@ -599,7 +486,7 @@ func handlePreset(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 404, map[string]any{"error": "not found"})
 		return
 	}
-	sendJSON(w, 200, map[string]any{"id": id, "name": presetDisplayName(content, id), "content": content, "sysprompt": presetSysPrompt(id)})
+	sendJSON(w, 200, map[string]any{"id": id, "name": presetDisplayName(content, id), "content": content})
 }
 
 // presetSaveReq is the preset editor payload. `id` identifies an existing
@@ -608,7 +495,6 @@ type presetSaveReq struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Content     string `json:"content"`
-	SysPrompt   string `json:"sysprompt"` // prompt système propre au preset (peut être vide)
 	DeleteModel bool   `json:"deleteModel"`
 }
 
@@ -645,8 +531,6 @@ func handlePresetSave(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	// Prompt système propre au preset (stocké en base, sous l'id retourné).
-	_ = setPresetSysPrompt(newID, req.SysPrompt)
 	reload := false
 	if wasActive {
 		if list, err := ListPresets(); err == nil {
@@ -681,7 +565,16 @@ func handlePresetDelete(w http.ResponseWriter, r *http.Request) {
 	deletePresetSysPrompt(req.ID) // nettoie le prompt système associé
 	modelDeleted, modelErr := "", ""
 	if req.DeleteModel && model != "" {
-		if err := deleteModelFile(model); err != nil {
+		// Le moteur vient peut-être d'être arrêté (preset actif) : Windows garde le
+		// fichier verrouillé un instant après la fin du processus, on réessaie.
+		var err error
+		for i := 0; i < 8; i++ {
+			if err = deleteModelFile(model); err == nil {
+				break
+			}
+			time.Sleep(400 * time.Millisecond)
+		}
+		if err != nil {
 			modelErr = err.Error()
 		} else {
 			modelDeleted = model
@@ -939,18 +832,7 @@ func localIP() string {
 //	GET  → {enabled}
 //	POST {enabled} → l'interrupteur.
 func handleInternet(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodPost {
-		var req struct {
-			Enabled *bool `json:"enabled"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&req)
-		if req.Enabled != nil {
-			if err := setInternetEnabled(*req.Enabled); err != nil {
-				sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
-				return
-			}
-		}
-	}
+	// Toujours actif depuis la 0.20 : un POST (ancienne interface) est sans effet.
 	sendJSON(w, 200, map[string]any{"ok": true, "enabled": internetEnabled()})
 }
 
@@ -1446,12 +1328,9 @@ func handleSwitch(w http.ResponseWriter, r *http.Request) {
 	// Preset externe : aucun moteur local à (re)démarrer — il n'a pas de MODEL et
 	// crash-looperait. On ARRÊTE plutôt le llama-server encore en vie pour libérer
 	// la VRAM, puisque le chat part désormais vers l'API distante.
-	if isCloudConfig(ReadConfig()) {
-		cloudDeployOpt(true) // bascule explicite : retente même après un échec
-	}
-	// API Externe : aucun moteur local, on l'arrête. (Le GPU Cloud, lui, passe par
-	// le redémarrage normal : le service moteur y lance le relais local.)
-	if isExternalConfig(ReadConfig()) {
+	// Preset API : aucun processus local, on arrête le moteur. (Un preset Service
+	// système passe par le redémarrage normal : le service moteur lance sa commande.)
+	if usesRemoteEndpoint(ReadConfig()) {
 		go func() {
 			if serviceIsActive() {
 				if err := serviceAction("stop"); err != nil {
@@ -1520,6 +1399,11 @@ func handleBench(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true, "result": res})
 }
 
+// handleBenchProgress : avancement du test en cours (prefill, tokens générés).
+func handleBenchProgress(w http.ResponseWriter, r *http.Request) {
+	sendJSON(w, 200, benchProgressGet())
+}
+
 // handleBenchLast returns the most recent persisted benchmark, or {ok:false}
 // when none has been run yet.
 func handleBenchLast(w http.ResponseWriter, r *http.Request) {
@@ -1582,8 +1466,6 @@ type chatReq struct {
 	// tête du message (voir attachNote) ; le contenu, lui, reste sur le disque et
 	// n'entre dans le contexte que si le modèle décide de le lire.
 	Files []string `json:"files"`
-	// Voice = message dicté depuis le mode vocal : réponse à l'oral (voir voice.go).
-	Voice bool `json:"voice"`
 }
 
 // presetContentOrEmpty : contenu d'un preset, "" s'il est illisible.

@@ -8,9 +8,18 @@ import (
 // outils : le shell (run_shell), l'écriture de fichiers et sa mémoire
 // (mem_search/mem_read/mem_add/mem_edit).
 
-func agentEnabled() bool { return getBool(bkState, "agent") }
+// Il est ACTIF D'OFFICE : tous les modes d'AJEAN (Projet, Jean) reposent sur ces
+// outils, et sans eux le modèle ne peut rien faire d'utile ici. Seul un arrêt
+// explicite (« ajean agent off ») le coupe ; il est noté "0", l'absence de
+// réglage valant « actif ».
+func agentEnabled() bool { return getStr(bkState, "agent") != "0" }
 
-func setAgentEnabled(on bool) error { return putBool(bkState, "agent", on) }
+func setAgentEnabled(on bool) error {
+	if on {
+		return putStr(bkState, "agent", "1")
+	}
+	return putStr(bkState, "agent", "0")
+}
 
 func cmdAgent(args []string) error {
 	sub := ""

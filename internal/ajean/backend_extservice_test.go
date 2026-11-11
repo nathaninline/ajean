@@ -180,7 +180,7 @@ func TestBenchExternalService(t *testing.T) {
 func TestExternalPresetEditKeepsServiceAndMachine(t *testing.T) {
 	testHome(t)
 	body := externalPresetContent("http://127.0.0.1:8080/v1", "swift", "", "131072", true) +
-		"BIN=/opt/llama/llama-server\n" + extKeyService + "=ajean-moe\n"
+		"PORT=9090\n" + extKeyService + "=ajean-moe\n"
 	id, err := SavePreset("", "MOE", body)
 	if err != nil {
 		t.Fatal(err)
@@ -197,7 +197,7 @@ func TestExternalPresetEditKeepsServiceAndMachine(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, k := range []string{extKeyService + "=", "BIN="} {
+		for _, k := range []string{extKeyService + "=", "PORT="} {
 			if n := strings.Count(c, "\n"+k) + map[bool]int{true: 1}[strings.HasPrefix(c, k)]; n != 1 {
 				t.Fatalf("%s présent %d fois après édition :\n%s", k, n, c)
 			}
@@ -206,7 +206,7 @@ func TestExternalPresetEditKeepsServiceAndMachine(t *testing.T) {
 	}
 	for _, ctx := range []string{"200000", "131072"} { // deux éditions successives
 		cfg := save(ctx)
-		if cfg[extKeyService] != "ajean-moe" || cfg["BIN"] != "/opt/llama/llama-server" || cfg["CTX"] != ctx {
+		if cfg[extKeyService] != "ajean-moe" || cfg["PORT"] != "9090" || cfg["CTX"] != ctx {
 			t.Fatalf("édition (CTX=%s) : %v", ctx, cfg)
 		}
 	}
