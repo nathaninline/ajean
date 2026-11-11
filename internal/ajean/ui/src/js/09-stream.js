@@ -150,13 +150,13 @@ function ensureGenEl(){
     // Le J du favicon AJEAN : deux carrés empilés (la barre) + un carré décalé à
     // gauche en bas (le pied du J). Statique, en accent. Classe (pas id) : plusieurs
     // lignes figées coexistent dans le fil, une par tour terminé.
-    GENEL.innerHTML='<svg class="jlogo" viewBox="0 0 12 12" aria-hidden="true"><rect x="6" y="3" width="2" height="2"/><rect x="6" y="5" width="2" height="2"/><rect x="4" y="7" width="2" height="2"/></svg><span class="jact"></span><span class="gtxt"></span>'; }
+    GENEL.innerHTML='<svg class="jlogo" viewBox="0 0 12 12" aria-hidden="true"><rect x="5" y="1" width="2" height="10" opacity=".3"/><rect x="1" y="5" width="10" height="2" opacity=".3"/><rect x="5" y="3" width="2" height="6" opacity=".7"/><rect x="3" y="5" width="6" height="2" opacity=".7"/><rect x="4" y="4" width="4" height="4" opacity=".35"/><rect x="5" y="5" width="2" height="2"/></svg><span class="jact"></span><span class="gtxt"></span>'; }
   if(GENEL.parentNode!==chat || chat.lastElementChild!==GENEL) chat.appendChild(GENEL); // toujours en dernier
   // Mode Jean : son avatar prend la place du logo, à gauche de ce qu'il fait.
-  if(MODE==='jean' && !REPLAYING && !CHAT_TARGET) JeanAvatar&&JeanAvatar.attach(GENEL);
+  if(MODE==='jean' && !REPLAYING && !CHAT_TARGET) Spirit&&Spirit.wake();
   return GENEL;
 }
-function removeGenEl(){ if(GENEL&&GENEL.parentNode) GENEL.parentNode.removeChild(GENEL); GENEL=null; if(!CHAT_TARGET) JeanAvatar&&JeanAvatar.detach(); }
+function removeGenEl(){ if(GENEL&&GENEL.parentNode) GENEL.parentNode.removeChild(GENEL); GENEL=null; if(!CHAT_TARGET) Spirit&&Spirit.wake(); }
 // Vitesse decode STABLE en direct, basée sur les HORODATAGES SERVEUR des tokens
 // (d.ts), pas l'heure d'arrivée côté client : les ts serveur reflètent le vrai
 // rythme de génération et ignorent la bufferisation réseau/MTP (qui rendait la
@@ -232,7 +232,7 @@ function jeanActFor(name){
 function setJeanAct(k, txt){
   const id=k+' '+(txt||'');
   if(MODE!=='jean' || REPLAYING || id===JACT) return;
-  JACT=id; JeanAvatar&&JeanAvatar.act(k);
+  JACT=id; Spirit&&Spirit.wake();
   const a=GENEL && GENEL.querySelector('.jact'); if(!a) return;
   a.textContent=txt || (k ? t(k) : '');
   a.classList.remove('jact-in'); void a.offsetWidth; if(k) a.classList.add('jact-in'); // fondu à chaque changement d'activité
@@ -240,7 +240,7 @@ function setJeanAct(k, txt){
 // Tâche de Jean en cours : même ligne animée, dans le fil Jean, hors de tout tour.
 // Le serveur publie {name, tool} à chaque étape puis {done}.
 function showJeanTask(j){
-  if(!REPLAYING) j.done ? JeanAvatar&&JeanAvatar.done() : JeanAvatar&&JeanAvatar.act(j.tool ? jeanActFor(j.tool) : 'jean.act_work');
+  if(!REPLAYING) j.done ? Spirit&&Spirit.wake() : Spirit&&Spirit.wake();
   if(j.done){ if(!ELAPSED) removeGenEl(); return; }
   const g=ensureGenEl(), a=g.querySelector('.jact'), x=g.querySelector('.gtxt');
   const txt=j.tool ? t(jeanActFor(j.tool)) : t('jean.act_task_run').replace('{name}', j.name||'');
@@ -340,7 +340,7 @@ function finalizeTurn(elapsedMs, preset){
   // cachait la ligne de métriques (durée · tokens · t/s). Correctif de la PR #173.
   const act=g.querySelector('.jact'); if(act){ act.textContent=''; act.classList.remove('jact-in'); }
   paintGenParts(g.querySelector('.gtxt'), items);
-  GENEL=null; if(!CHAT_TARGET) JeanAvatar&&JeanAvatar.detach();
+  GENEL=null; if(!CHAT_TARGET) Spirit&&Spirit.wake();
   scrollMaybe(true); // révèle la fin (et cette ligne) même sur un fil à peine défilable
 }
 function removeTyping(){ if(T.typingEl){ T.typingEl.remove(); T.typingEl=null; } }
@@ -579,7 +579,7 @@ function handleDelta(d){
     // (génération coupée → pas de turn_done), on décolle le voile resté bloqué.
     reconcileBusy(true);
     // Fil reconstruit : l'avatar de Jean reprend sa place sur la dernière ligne.
-    JeanAvatar&&JeanAvatar.detach();
+    Spirit&&Spirit.wake();
     // Fil vide : aucune bulle n'a été rejouée, donc aucune mutation ne viendra
     // déclencher la synchro — c'est ici qu'on décide d'afficher l'accueil.
     syncChatEmpty();
@@ -614,7 +614,7 @@ function handleDelta(d){
     if(d.files && !hasMsgFiles(el)) addMsgFiles(el, d.files);
     TURN_ENDED=false; setBusy(true); T.typingEl=addTyping(); elapsedStart(); return; }
   if(d.turn_done){ TURN_ENDED=true; hideCuShot(); smoothSnap(); flushRender();
-    if(MODE==='jean' && !REPLAYING) JeanAvatar&&JeanAvatar.done();
+    if(MODE==='jean' && !REPLAYING) Spirit&&Spirit.wake();
     // MÊME ligne en direct et au replay : durée serveur (elapsed_ms, rejouée) +
     // mesures serveur. removeTyping AVANT finalize pour que la ligne soit bien le
     // dernier enfant du fil (donc sous le message).
@@ -625,7 +625,7 @@ function handleDelta(d){
   if(d.jean_task){ showJeanTask(d.jean_task); return; }
   // Message que Jean envoie de lui-même (tâche, rappel) : une bulle de réponse
   // ordinaire, hors de tout tour.
-  if(d.jean_post){ removeTyping(); renderBody(addMsg('assistant',''), d.jean_post); if(!REPLAYING) JeanAvatar&&JeanAvatar.done(); return; }
+  if(d.jean_post){ removeTyping(); renderBody(addMsg('assistant',''), d.jean_post); if(!REPLAYING) Spirit&&Spirit.wake(); return; }
   if(d.compacting!==undefined){ setCompacting(d.compacting); return; }
   if(d.compacted){ setCompacting(false); addCompactMark(); return; }
   if(d.ctx_cleared){ addCompactMark(t('jean.ctx_cleared_mark')); return; }
@@ -700,7 +700,7 @@ function handleDelta(d){
     return; }
   if(d.content){
     removeTyping(); setJeanAct('');
-    if(MODE==='jean' && !REPLAYING) JeanAvatar&&JeanAvatar.speak(d.toks||1);
+    if(MODE==='jean' && !REPLAYING) Spirit&&Spirit.wake();
     if(!T.contentEl){ setActive(null); collapseAll(T.turnCollapsibles); T.contentEl=addMsg('assistant',''); T.fullContent=''; }
     if(d.replace){ smoothSnap(); T.fullContent=''; T.contentTok=0; T.contentFirstTs=0; }
     T.fullContent+=d.content; feedBlock(T.contentEl, T.fullContent);

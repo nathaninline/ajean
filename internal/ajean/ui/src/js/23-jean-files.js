@@ -321,10 +321,6 @@ function jfAsk(entries){
   }
   renderAttach();
   closeJeanFiles();
-  // Dans la scène, les pièces jointes ne se voient pas : on passe au fil complet,
-  // où le composeur les montre.
-  const b=document.body;
-  if(b.classList.contains('jean-mode') && !b.classList.contains('jean-history')){ const h=document.querySelector('.jst-hist'); if(h) h.click(); }
   setTimeout(()=>{ const i=jfEl('input'); if(i) i.focus(); }, 380);
   toast(t('jean.files_attached'));
 }
