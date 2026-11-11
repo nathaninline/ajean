@@ -42,3 +42,17 @@ func TestTaskHistory(t *testing.T) {
 		t.Fatalf("le plus récent doit être en tête : %q", got.History[0].Report)
 	}
 }
+
+// Tâche script : seule la sortie standard part chez l'utilisateur.
+func TestScriptStdout(t *testing.T) {
+	for out, want := range map[string]string{
+		"exit: 0": "",
+		"exit: 0\n\nstdout:\nPerla a repondu.\nSujet : Re\n": "Perla a repondu.\nSujet : Re",
+		"exit: 0\n\nstdout:\nalerte\n\nstderr:\nwarning":     "alerte",
+		"exit: 0\n\nstderr:\nseulement stderr":               "",
+	} {
+		if got := scriptStdout(out); got != want {
+			t.Fatalf("scriptStdout(%q) = %q, attendu %q", out, got, want)
+		}
+	}
+}

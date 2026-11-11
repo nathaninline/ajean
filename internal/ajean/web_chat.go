@@ -55,7 +55,6 @@ func capsFromBody(body chatReq) Caps {
 		caps.Mem = MemOff
 		caps.Jean = true
 	}
-	caps.Voice = body.Voice
 	// Les outils dépendent du mode agent : agent coupé, tout est coupé.
 	if !caps.Agent {
 		caps.Internet = false

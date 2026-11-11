@@ -15,6 +15,9 @@ func TestBackupBlobRoundTrip(t *testing.T) {
 	os.MkdirAll(presetsDir(), 0o755)
 	os.WriteFile(presetsDir()+"/p1.env", []byte("# NAME=Test\nMODEL=x.gguf\n"), 0o600)
 	SetConfigKey("CTX", "4096")
+	if err := PutService(Service{ID: "sauve", Name: "Sauvé", URL: "http://127.0.0.1:9999/v1"}); err != nil {
+		t.Fatal(err)
+	}
 
 	// Le chiffrement fournit la DEK + le keyvault (ouvrable par "cle").
 	if _, err := EnableMemEncryption("cle"); err != nil {
@@ -50,6 +53,11 @@ func TestBackupBlobRoundTrip(t *testing.T) {
 	}
 	os.Remove(presetsDir() + "/p1.env")
 	SetConfigKey("CTX", "")
+	// Le modèle sauvegardé disparaît, un autre est né entre-temps sur la machine.
+	os.Remove(servicesPath())
+	if err := PutService(Service{ID: "local", Name: "Local", URL: "http://127.0.0.1:9998/v1"}); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := restoreBundleTar(back); err != nil {
 		t.Fatalf("restoreBundleTar: %v", err)
@@ -65,6 +73,12 @@ func TestBackupBlobRoundTrip(t *testing.T) {
 	}
 	if ReadConfig()["CTX"] != "4096" {
 		t.Fatal("réglage non restauré")
+	}
+	if s, err := GetService("sauve"); err != nil || s.URL != "http://127.0.0.1:9999/v1" {
+		t.Fatalf("modèle non restauré : %+v, %v", s, err)
+	}
+	if _, err := GetService("local"); err != nil {
+		t.Fatal("la restauration a effacé un modèle de la machine")
 	}
 }
 

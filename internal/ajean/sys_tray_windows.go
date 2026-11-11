@@ -40,18 +40,11 @@ func runTray(url string) {
 			}
 		}()
 	}, func() {
-		// « Quitter » doit tout arrêter, moteur compris.
-		//
-		// Le moteur tourne dans un process DÉTACHÉ (voir svcStart) : il survit
-		// délibérément à la fermeture de l'app pour que le modèle reste chargé
-		// entre deux ouvertures de l'interface. Mais quand on quitte pour de
-		// bon, il n'a plus rien pour le piloter et garde des dizaines de Go de
-		// RAM, sans la moindre fenêtre pour l'expliquer. svcStop tue l'arbre
-		// (taskkill /T), donc llama-server avec lui.
-		//
-		// Windows seulement : ici l'app EST le propriétaire du moteur. Sous
-		// Linux et macOS c'est systemd ou launchd, et fermer une interface n'a
-		// pas à arrêter un service système.
+		// « Quitter » arrête aussi l'ancien moteur (0.18 et avant), s'il tourne
+		// encore : il vivait dans un process DÉTACHÉ dont l'app était
+		// propriétaire, et plus rien d'autre ne l'arrêterait. Les modèles
+		// d'aujourd'hui sont des services Windows : fermer l'interface ne les
+		// touche pas, comme sous Linux et macOS.
 		_ = svcStop(false)
 		os.Exit(0)
 	})

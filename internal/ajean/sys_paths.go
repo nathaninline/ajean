@@ -23,9 +23,19 @@ type ajeanPaths struct {
 	Workspace string `json:"workspace"` // dossier de travail du mode agent (jetable)
 	Scripts   string `json:"scripts"`   // dossier des scripts de l'agent (protégé)
 	Memory    string `json:"memory"`
-	Presets   string `json:"presets"`
-	Models    string `json:"models"`
-	Backends  string `json:"backends"`
+	Services  string `json:"services"` // services.json : définitions des modèles
+	Models    string `json:"models"`   // dossier par défaut des fichiers de modèles
+	Presets   string `json:"presets"`  // presets d'une 0.18 ("" s'il n'y en a pas)
+	Backends  string `json:"backends"` // moteurs d'une 0.18 ("" s'il n'y en a pas)
+}
+
+// legacyDir renvoie dir s'il contient quelque chose, "" sinon : les dossiers
+// d'une 0.18 (presets, moteurs) ne sont montrés que sur une machine qui en vient.
+func legacyDir(dir string) string {
+	if entries, err := os.ReadDir(dir); err == nil && len(entries) > 0 {
+		return dir
+	}
+	return ""
 }
 
 // installedExePath est l'emplacement canonique du binaire après installation.
@@ -52,9 +62,10 @@ func currentPaths() ajeanPaths {
 		Workspace: agentWorkspace(),
 		Scripts:   scriptsDir(),
 		Memory:    memoryDir(),
-		Presets:   presetsDir(),
+		Services:  servicesPath(),
 		Models:    modelsDir(),
-		Backends:  backendsDir(),
+		Presets:   legacyDir(presetsDir()),
+		Backends:  legacyDir(backendsDir()),
 	}
 }
 
@@ -64,19 +75,23 @@ func cmdWhere(args []string) error {
 	for _, row := range [][2]string{
 		{"données (AJEAN_HOME)", p.Home},
 		{"base", p.Database},
+		{"modèles (définitions)", p.Services},
 		{"binaire en cours", p.Exe},
 		{"binaire installé", p.Installed},
 		{"travail de l'agent", p.Workspace},
 		{"scripts", p.Scripts},
 		{"mémoire", p.Memory},
-		{"presets", p.Presets},
-		{"modèles", p.Models},
-		{"backends", p.Backends},
+		{"fichiers de modèles", p.Models},
+		{"anciens presets", p.Presets},
+		{"anciens moteurs", p.Backends},
 	} {
-		fmt.Printf("  %-20s %s\n", row[0], row[1])
+		if row[1] == "" {
+			continue
+		}
+		fmt.Printf("  %-22s %s\n", row[0], row[1])
 	}
 	if p.Exe != p.Installed {
-		fmt.Printf("\n%s tu exécutes une copie qui n'est PAS le binaire installé.\n", dim("[info]"))
+		fmt.Printf("\n%s cette copie n'est PAS le binaire installé.\n", dim("[info]"))
 		fmt.Printf("  Les mises à jour depuis l'application ne modifient que la copie lancée.\n")
 	}
 	return nil

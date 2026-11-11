@@ -620,9 +620,6 @@ func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, tem
 		}
 		prompt = "[" + jeanNow() + "] " + jeanTakeNotes(len(c.Messages) <= 1) + prompt + recall
 	}
-	if caps.Voice {
-		prompt += voiceTurnNote
-	}
 	c.Messages = append(c.Messages, Message{Role: "user", Content: userMessageContent(files, prompt)})
 	epoch := c.epoch
 	c.mu.Unlock()

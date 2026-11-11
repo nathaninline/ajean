@@ -293,6 +293,8 @@ func jeanSilentRun(ctx context.Context, cancel context.CancelFunc, msgs []Messag
 	var r jeanSilent
 	var said strings.Builder
 	debug := os.Getenv("AJEAN_JEAN_REFLECT_DEBUG") != ""
+	jeanActivityStart(tag)
+	defer jeanActivityEnd()
 	_, r.err = runChat(ctx, msgs, temp, caps, func(ev StreamEvent) bool {
 		if ev.Stats != nil {
 			// Tokens réellement calculés (hors cache) : quelques centaines si le
@@ -316,6 +318,7 @@ func jeanSilentRun(ctx context.Context, cancel context.CancelFunc, msgs []Messag
 			if (jeanReflectAllowed(ev.ToolUsed.Name) || ev.ToolUsed.Name == "write" || ev.ToolUsed.Name == "edit") && ev.ToolUsed.Name != "jean_search" && ev.ToolUsed.Name != "jean_read" &&
 				strings.HasPrefix(ev.ToolUsed.Result, "[ok]") {
 				r.used = append(r.used, ev.ToolUsed.Name+" "+ev.ToolUsed.Label)
+				jeanActivityChange(ev.ToolUsed.Name, ev.ToolUsed.Label)
 				if n := jeanNoteFor(ev.ToolUsed.Name, ev.ToolUsed.Label); n != "" {
 					r.notes = append(r.notes, n)
 				}

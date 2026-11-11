@@ -1,10 +1,10 @@
 package ajean
 
 // backup_bundle.go — construit et restaure un paquet de sauvegarde
-// {mémoire, presets, réglages}, CHIFFRÉ côté agent avant de quitter la machine.
+// {mémoire, modèles, réglages}, CHIFFRÉ côté agent avant de quitter la machine.
 //
 // Le relais ne voit qu'un blob opaque (voir jean-relay/backup.go). Comme le tar
-// entier est chiffré, même les noms de fichiers et de presets sont cachés.
+// entier est chiffré, même les noms de fichiers et de modèles sont cachés.
 //
 // Format du blob :
 //   magic "AJBK1" || uint32(len entête) || entête JSON || corps
@@ -33,7 +33,8 @@ var backupMagic = []byte("AJBK2") // v2 : entête = keyvault, corps chiffré par
 
 const backupBodyAAD = "ajean-backup-body"
 
-// buildBundleTar empaquète mémoire + presets + réglages en un tar.gz.
+// buildBundleTar empaquète mémoire + modèles + réglages en un tar.gz. Les
+// anciens presets (0.18) suivent encore tant que leur dossier existe.
 // Les fichiers mémoire sont pris TELS QUELS (chiffrés si le chiffrement est
 // actif) : le bundle reste donc chiffré même avant l'enveloppe de sauvegarde.
 func buildBundleTar() ([]byte, error) {
@@ -78,6 +79,16 @@ func buildBundleTar() ([]byte, error) {
 	}
 	if err := addDir("presets", presetsDir()); err != nil {
 		return nil, err
+	}
+	// Définitions des modèles (services.json) : sans elles, une machine
+	// restaurée n'aurait plus aucun modèle à démarrer.
+	if b, err := os.ReadFile(servicesPath()); err == nil {
+		if err := tw.WriteHeader(&tar.Header{Name: "services.json", Mode: 0o600, Size: int64(len(b))}); err != nil {
+			return nil, err
+		}
+		if _, err := tw.Write(b); err != nil {
+			return nil, err
+		}
 	}
 	// Réglages (bucket config) sérialisés en JSON.
 	cfg, _ := json.Marshal(ReadConfig())
@@ -152,7 +163,7 @@ func openBackupBlob(blob []byte, secret string) ([]byte, error) {
 	return gcmOpen(dek, body, []byte(backupBodyAAD))
 }
 
-// restoreBundleTar réécrit mémoire + presets + réglages depuis un tar.gz. Prend
+// restoreBundleTar réécrit mémoire + modèles + réglages depuis un tar.gz. Prend
 // D'ABORD un snapshot de sécurité de la mémoire, puis écrit de façon vérifiée.
 func restoreBundleTar(tarData []byte) error {
 	if _, err := snapshotMemory("avant-restauration-relais"); err != nil {
@@ -163,7 +174,7 @@ func restoreBundleTar(tarData []byte) error {
 		return err
 	}
 	tr := tar.NewReader(gz)
-	var cfgJSON []byte
+	var cfgJSON, svcData []byte
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
@@ -186,6 +197,8 @@ func restoreBundleTar(tarData []byte) error {
 		switch {
 		case name == "config.json":
 			cfgJSON = b
+		case name == "services.json":
+			svcData = b
 		case strings.HasPrefix(name, "memory/"):
 			// Chemin relatif SOUS memory/ (memory/<slug>/page.md). Les sauvegardes
 			// d'avant les projets stockaient les pages à plat (memory/page.md) : on
@@ -210,6 +223,13 @@ func restoreBundleTar(tarData []byte) error {
 			}
 		}
 	}
+	// Les modèles AVANT les réglages : le modèle du chat que nomment les
+	// réglages doit exister quand ils reviennent.
+	if len(svcData) > 0 {
+		if err := restoreServices(svcData); err != nil {
+			return err
+		}
+	}
 	if len(cfgJSON) > 0 {
 		var cfg map[string]string
 		if json.Unmarshal(cfgJSON, &cfg) == nil {
@@ -217,4 +237,38 @@ func restoreBundleTar(tarData []byte) error {
 		}
 	}
 	return nil
+}
+
+// restoreServices remet les définitions de modèles d'une sauvegarde. Celles de
+// la sauvegarde remplacent les définitions locales de même identifiant ; les
+// autres modèles de la machine restent. Aucune unité n'est touchée ici : elle
+// est écrite au prochain démarrage du modèle.
+func restoreServices(b []byte) error {
+	var saved []Service
+	if err := json.Unmarshal(b, &saved); err != nil {
+		fmt.Fprintf(os.Stderr, "[ajean] sauvegarde : services.json illisible, modèles non restaurés (%v)\n", err)
+		return nil
+	}
+	servicesMu.Lock()
+	defer servicesMu.Unlock()
+	list, err := LoadServices()
+	if err != nil {
+		return err
+	}
+	at := make(map[string]int, len(list))
+	for i := range list {
+		at[list[i].ID] = i
+	}
+	for _, s := range saved {
+		if s.Validate() != nil {
+			continue
+		}
+		if i, ok := at[s.ID]; ok {
+			list[i] = s
+			continue
+		}
+		at[s.ID] = len(list)
+		list = append(list, s)
+	}
+	return saveServices(list)
 }

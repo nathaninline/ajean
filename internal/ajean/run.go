@@ -1,4 +1,4 @@
-// ajean — single-binary LLM server manager + web UI for llama.cpp deployments.
+// ajean : assistant AJEAN (interface web, mémoire, outils) ; les modèles sont des services système.
 // Point d'entrée réel : Main(), appelé par cmd/ajean (les métadonnées Windows
 // .syso/go:generate vivent là-bas, dans le dossier du package main).
 package ajean
@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const Version = "0.18.17"
+const Version = "0.19.0"
 
 // Main est le vrai main() du binaire (cmd/ajean ne fait que l'appeler).
 func Main() {
@@ -42,30 +42,15 @@ func Main() {
 	switch cmd {
 	case "app":
 		mustExit(cmdApp(args))
-	case "start", "restart":
-		// Un moteur sans BIN ni MODEL démarre, meurt, et systemd le relance en
-		// boucle : l'utilisateur ne voyait qu'un « activating » rassurant et un
-		// /health muet. On le dit AVANT de lancer le service.
-		mustExit(preflightEngine())
-		mustExit(serviceAction(cmd))
-	case "stop", "status", "enable", "disable":
-		mustExit(serviceAction(cmd))
-	case "logs":
-		mustExit(serviceLogs())
-	case "edit":
-		mustExit(editConfig())
-	case "set-api-key":
-		mustExit(cmdSetAPIKey(args))
+	case "start", "restart", "stop", "logs":
+		// Raccourcis vers les modèles : sans id, le modèle du chat.
+		mustExit(cmdService(append([]string{cmd}, defaultServiceArg(args)...)))
+	case "status":
+		mustExit(cmdService([]string{"list"}))
 	case "set-web-key":
 		mustExit(cmdSetWebKey(args))
 	case "vram":
 		mustExit(showVram())
-	case "gpu":
-		mustExit(cmdGPU(args))
-	case "network":
-		mustExit(cmdNetwork(args))
-	case "switch":
-		mustExit(cmdSwitch(args))
 	case "chat":
 		mustExit(cmdChat(args))
 	case "export":
@@ -90,16 +75,18 @@ func Main() {
 		mustExit(cmdComputer(args))
 	case "memory":
 		mustExit(cmdMemory(args))
-	case "serve":
-		mustExit(cmdServe(args))
 	case "test":
 		mustExit(cmdTest(args))
 	case "bench":
 		mustExit(cmdBench(args))
-	case "llamacpp":
-		mustExit(cmdLlamacpp(args))
-	case "exl3":
-		mustExit(cmdExl3(args))
+	case "svc-root": // interne : assistant root (via sudo)
+		mustExit(cmdSvcRoot(args))
+	case "install-helper":
+		mustExit(cmdInstallHelper(args))
+	case "guard": // interne : gardien RAM (root, ajean-guard.service)
+		mustExit(cmdGuard(args))
+	case "service", "services":
+		mustExit(cmdService(args))
 	case "update":
 		mustExit(cmdUpdate(args))
 	case "where":
@@ -124,33 +111,35 @@ func Main() {
 }
 
 func printHelp() {
-	fmt.Printf(`ajean %s — manager llama.cpp + UI web (single binary)
+	fmt.Printf(`ajean %s : l'assistant AJEAN (interface web, mémoire, outils)
 
 Usage: ajean <commande> [args]
 
-AJEAN tourne en deux services : ajean-engine (le modèle) et ajean-ui
-(l'interface web, le tunnel d'accès distant et l'endpoint OpenAI).
+AJEAN tourne comme un service (ajean-ui : interface web, tunnel d'accès
+distant, endpoint OpenAI). Les modèles sont des services système qu'AJEAN
+démarre et surveille (voir docs/moteurs.md).
 
-Moteur (ajean-engine) :
-  start | stop | restart        gérer le service
-  status | logs                 état / logs en direct
-  enable | disable              auto-démarrage au boot
-  edit                          éditer la configuration dans $EDITOR
-  switch [N]                    activer un preset de presets/ (interactif ou par numéro)
+Modèles :
+  service list | show <id>      liste des modèles / définition d'un modèle
+  service add <fichier.json>    ajouter ou remplacer un modèle
+  service rm <id>               supprimer un modèle (il est arrêté)
+  service use <id>              démarrer si besoin et brancher le chat dessus
+  service autostart <id> on|off démarrage avec la machine
+  service why <id>              raison du dernier arrêt
+  service convert [--dry-run]   créer un modèle par ancien preset
+  start | stop | restart [id]   piloter un modèle (sans id : celui du chat)
+  status                        état des modèles
+  logs [id] [n]                 journal d'un modèle
   test | bench [N]              vérifier que l'IA répond / mesurer prefill + decode tok/s
   vram                          utilisation GPU/VRAM (nvidia-smi)
-  gpu [index…]                  liste les GPU / choisit le(s)quel(s) utiliser (gpu all = tous)
-  set-api-key [clé]             protéger llama-server (clé Bearer); vide = générer, "" = retirer
-  network [on|off|status]       rendre l'endpoint OpenAI joignable depuis le réseau local
-                                (HOST + règle de pare-feu sous Windows)
 
 Interface (ajean-ui) :
   ui [start|stop|restart|status]  pilote le service d'interface
-  web [PORT]                    sert l'interface au premier plan (défaut :8090) —
+  web [PORT]                    sert l'interface au premier plan (défaut :8090) ;
                                 ouvre aussi le tunnel si un jeton est enregistré
   set-web-key [clé]             protéger l'API de pilotage; vide = générer, "" = retirer
 
-Interaction:
+Interaction :
   chat [system-prompt]          chat terminal streamé
   export [options] [fichier]    exporte la conversation de l'interface web
                                 (Markdown par défaut, « - » = sortie standard)
@@ -159,8 +148,7 @@ Interaction:
   agent [on|off|status]         donne à l'IA ses outils (shell, fichiers, mémoire)
   computer [on|off|status]      contrôle du navigateur (l'IA pilote un Chrome local)
   memory [off|ondemand|always|search|status]  mode mémoire de l'IA
-  internet [on|off|status]
-                                accès web de l'IA (moteur intégré)
+  internet [on|off|status]      accès web de l'IA (moteur intégré)
 
 Accès distant (ajean.link) :
   link <token>                  enregistre le jeton et ouvre le tunnel
@@ -168,29 +156,27 @@ Accès distant (ajean.link) :
   link newid                    change l'identifiant de la machine (si l'ancien a fuité)
   link status | logout          état du jeton / l'oublier
 
-Backend llama.cpp :
-  llamacpp install              clone + compile llama.cpp (CUDA/ROCm/Vulkan/Metal/CPU), pointe BIN dessus
-    --backend=vulkan|cuda|hip|cpu  imposer le backend au lieu de la détection auto
-  llamacpp update               git pull + recompile le backend existant
-  llamacpp uninstall <cible>    supprime un moteur (compiled | prebuilt | custom <nom>) ; --force si actif
-  llamacpp status               commit courant, backend détecté, retard sur origin
-
-Moteur ExLlama (modèles EXL3, NVIDIA) :
-  exl3 install                  installe TabbyAPI + ExLlamaV3 (version validée, sans prérequis)
-  exl3 update                   installe la dernière version de TabbyAPI et d'ExLlamaV3
-  exl3 download <lien HF>       télécharge une branche d'un dépôt EXL3 dans models/exl3
-  exl3 status | uninstall       version installée, modèles / retirer le moteur (garde les modèles)
-
-Installation:
+Installation :
   where                         affiche l'emplacement du binaire, de la base et des dossiers
   install | uninstall           installer / désinstaller
+  install-helper [utilisateur]  Linux : assistant root des modèles et gardien RAM
   update [--check]              mettre à jour depuis les releases GitHub
-  serve                         entrypoint du service : exec llama-server (usage interne)
 
-Env:
-  AJEAN_HOME   racine des données (défaut : /etc/ajean, %%ProgramData%%\ajean sous Windows)
-  EDITOR       éditeur pour 'ajean edit' (défaut : nano, notepad sous Windows)
+Env :
+  AJEAN_HOME          racine des données (défaut : /etc/ajean, %%ProgramData%%\ajean sous Windows)
+  AJEAN_RAM_FLOOR_MB  RAM libre minimale avant l'arrêt d'un modèle par le garde-fou
 `, Version)
+}
+
+// defaultServiceArg : sans id, le modèle du chat.
+func defaultServiceArg(args []string) []string {
+	if len(args) > 0 {
+		return args
+	}
+	if id := ChatServiceID(); id != "" {
+		return []string{id}
+	}
+	return args
 }
 
 func mustExit(err error) {
@@ -250,8 +236,8 @@ func workspaceDir() string { return filepath.Join(AjeanHome(), "workspace") }
 // guardDestructive (voir chat_scripts.go) contre toute suppression récursive.
 func scriptsDir() string { return filepath.Join(AjeanHome(), "scripts") }
 
-// serviceName est le nom de l'unité qui exécute llama-server. Son pendant est
-// uiUnitName (« ajean-ui »), qui sert l'interface et le tunnel.
+// serviceName est le nom de l'unité de l'ancien moteur (0.18 et avant). AJEAN ne
+// la lance plus : il ne sert qu'à l'arrêter et à la retirer (désinstallation).
 func serviceName() string {
 	if n := os.Getenv("AJEAN_SERVICE"); n != "" {
 		return n

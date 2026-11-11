@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -47,21 +48,9 @@ Le cuisinier ferme les yeux pour goûter la sauce. Trop salée. Il ajoute une po
 // inflating decode numbers — what you measure here is close to what you'll
 // see in real chat at the same context length.
 func runBench(nPrompt, nPredict int) (*benchResult, error) {
-	// Moteur tiers lancé par ajean (EXTERNAL_SERVICE, ex. moteur MoE) : il ne renvoie
-	// pas les `timings` de llama.cpp, on mesure en streaming (voir runBenchStream).
-	if cfg := ReadConfig(); externalServiceOf(cfg) != "" {
-		if ok, why := externalServiceReady(cfg); !ok {
-			if why == "" {
-				why = "le moteur charge encore le modèle"
-			}
-			return nil, fmt.Errorf("%s", why)
-		}
-		return runBenchStream(nPrompt, nPredict)
-	} else if isMoeConfig(cfg) || isExl3Config(cfg) {
-		// moteur MoE intégré : il garde la conversation en cache malgré
-		// cache_prompt:false, la marque unique en tête (runBenchStream) l'en empêche
-		if !healthCheck() {
-			return nil, fmt.Errorf("le moteur charge encore le modèle")
+	if s := explicitChatService(); s != nil {
+		if err := probeReady(s, 5*time.Second); err != nil {
+			return nil, fmt.Errorf("le modèle ne répond pas : %v", err)
 		}
 		return runBenchStream(nPrompt, nPredict)
 	}
@@ -188,15 +177,6 @@ func loadLastBench() *savedBench {
 	return &sb
 }
 
-// benchMatchesPreset : le bench a-t-il été mesuré sur le modèle ACTUEL du
-// preset ? Les benchs sont rangés par nom de preset : sans ce contrôle, un
-// preset recréé sous un ancien nom (ou dont le modèle a changé) affichait les
-// mesures d'un autre modèle.
-func benchMatchesPreset(sb savedBench, cfg map[string]string) bool {
-	k := benchModelKey(cfg)
-	return k != "" && sb.Model == k
-}
-
 // benchModelKey : sous quel modèle ranger le bench de cette config. Un moteur
 // local : son GGUF. Un moteur tiers lancé par ajean (EXTERNAL_SERVICE) : son
 // modèle déclaré, préfixé pour ne jamais coïncider avec un GGUF. Une API
@@ -250,6 +230,10 @@ func loadBenchStore() map[string]savedBench {
 // preset (celui qui correspond à la configuration active). Sans effet si aucun
 // preset ne correspond — le benchmark reste enregistré par saveLastBench.
 func saveBenchForActivePreset(res *benchResult) {
+	if s := explicitChatService(); s != nil {
+		saveServiceBench(s, res)
+		return
+	}
 	list, err := ListPresets()
 	if err != nil {
 		return
@@ -334,6 +318,10 @@ func runBenchStream(nPrompt, nPredict int) (*benchResult, error) {
 	if ep.Key != "" {
 		req.Header.Set("Authorization", "Bearer "+ep.Key)
 	}
+	benchProgressStart(nPrompt, nPredict)
+	defer benchProgressSet(func(p *benchProgress) { p.Running = false })
+	stopSlots := benchWatchSlots(ep.URL, ep.Key)
+	defer stopSlots()
 	t0 := time.Now()
 	resp, err := (&http.Client{Timeout: 10 * time.Minute}).Do(req)
 	if err != nil {
@@ -387,6 +375,8 @@ func runBenchStream(nPrompt, nPredict int) (*benchResult, error) {
 				}
 				last = now
 				chunks++
+				n := chunks
+				benchProgressSet(func(p *benchProgress) { p.Generated = n; p.PrefillDone = p.Prompt })
 			}
 		}
 	}
@@ -417,4 +407,93 @@ func runBenchStream(nPrompt, nPredict int) (*benchResult, error) {
 	saveLastBench(res)
 	saveBenchForActivePreset(res)
 	return res, nil
+}
+
+// benchProgress : où en est le test en cours (fenêtre Benchmark).
+// Generated vient du flux ; PrefillDone du /slots du moteur s'il en a un.
+type benchProgress struct {
+	Running     bool  `json:"running"`
+	Prompt      int   `json:"prompt"`
+	PrefillDone int   `json:"prefill_done"`
+	Generated   int   `json:"generated"`
+	Output      int   `json:"output"`
+	Started     int64 `json:"started"`
+}
+
+var (
+	benchProgMu sync.Mutex
+	benchProg   benchProgress
+)
+
+func benchProgressStart(prompt, output int) {
+	benchProgMu.Lock()
+	benchProg = benchProgress{Running: true, Prompt: prompt, Output: output, Started: time.Now().UnixMilli()}
+	benchProgMu.Unlock()
+}
+
+func benchProgressSet(f func(*benchProgress)) {
+	benchProgMu.Lock()
+	f(&benchProg)
+	benchProgMu.Unlock()
+}
+
+func benchProgressGet() benchProgress {
+	benchProgMu.Lock()
+	defer benchProgMu.Unlock()
+	return benchProg
+}
+
+// benchWatchSlots relève l'avancement du prefill sur /slots (Basalt, llama.cpp)
+// tant que le premier token n'est pas arrivé. Un moteur sans /slots : rien.
+func benchWatchSlots(chatURL, key string) func() {
+	root := chatURL
+	if i := strings.Index(root, "/v1"); i > 0 {
+		root = root[:i]
+	}
+	done := make(chan struct{})
+	go func() {
+		cl := &http.Client{Timeout: 800 * time.Millisecond}
+		for {
+			select {
+			case <-done:
+				return
+			case <-time.After(500 * time.Millisecond):
+			}
+			if benchProgressGet().Generated > 0 {
+				return
+			}
+			req, err := http.NewRequest("GET", root+"/slots", nil)
+			if err != nil {
+				return
+			}
+			if key != "" {
+				req.Header.Set("Authorization", "Bearer "+key)
+			}
+			resp, err := cl.Do(req)
+			if err != nil {
+				continue
+			}
+			var slots []struct {
+				Busy        bool `json:"is_processing"`
+				Prompt      int  `json:"prompt_tokens"`
+				PrefillDone int  `json:"prefill_done"`
+			}
+			ok := resp.StatusCode == http.StatusOK && json.NewDecoder(resp.Body).Decode(&slots) == nil
+			resp.Body.Close()
+			if !ok {
+				return // pas de /slots : on n'insiste pas
+			}
+			for _, sl := range slots {
+				if sl.Busy && sl.Prompt > 0 {
+					benchProgressSet(func(p *benchProgress) {
+						if p.Generated == 0 {
+							p.Prompt, p.PrefillDone = sl.Prompt, sl.PrefillDone
+						}
+					})
+					break
+				}
+			}
+		}
+	}()
+	return func() { close(done) }
 }

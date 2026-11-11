@@ -31,6 +31,7 @@ const VIEW_OPTS=[
   {id:'hide-side',      label:'barre latérale escamotable'},
   {id:'enter-newline',  label:'Entrée = retour à la ligne'},
   {id:'hide-preset',    label:'masquer le nom du preset'},
+  {id:'hide-term',      label:'masquer le terminal du plein écran'},
 ];
 function viewOn(id){ return document.documentElement.getAttribute('data-'+id)==='1'; }
 function applyView(id, on){

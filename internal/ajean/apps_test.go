@@ -296,3 +296,71 @@ func TestAppExportFromDirAndScriptEdit(t *testing.T) {
 		t.Fatalf("pas de rappel : %s", last)
 	}
 }
+
+// check avec steps : l'IA clique, tape et choisit dans l'app comme un
+// utilisateur, puis lit le texte visible APRÈS ces actions.
+func TestAppCheckSteps(t *testing.T) {
+	t.Setenv("AJEAN_HOME", t.TempDir())
+	if chromePath() == "" {
+		t.Skip("Chrome absent")
+	}
+	out := toolApp(context.Background(), map[string]any{"action": "create", "name": "Liste",
+		"html": `<form id="f"><input id="name"><select id="cat"><option value="a">A</option><option value="b">B</option></select><button id="add">Ajouter</button></form><ul id="l"></ul>`,
+		"js":   `document.getElementById('f').addEventListener('submit',function(e){e.preventDefault();var li=document.createElement('li');li.textContent='Nom '+document.getElementById('name').value+' cat '+document.getElementById('cat').value;document.getElementById('l').appendChild(li);});`,
+	})
+	if !strings.Contains(out, "[app:liste:1]") {
+		t.Fatalf("création :\n%s", out)
+	}
+	out, _ = toolAppCheck(context.Background(), map[string]any{"action": "check", "id": "liste", "steps": []any{
+		map[string]any{"type": "#name", "text": "Ana"},
+		map[string]any{"select": "#cat", "value": "b"},
+		map[string]any{"click": "#add"},
+		map[string]any{"click": "#absent"},
+		map[string]any{"select": "#cat", "value": "zz"},
+		map[string]any{"wait": float64(100)},
+	}})
+	for _, want := range []string{"saisie dans #name : ok", "choix dans #cat : ok", "clic #add : ok", "clic #absent : introuvable", "valeur absente de la liste", "attente 100 ms : ok", "Nom Ana cat b"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("rapport sans %q :\n%s", want, out)
+		}
+	}
+}
+
+// data_get / data_set : l'IA lit et remplit les données de l'app sans toucher
+// à son code (ajean.storage).
+func TestAppDataGetSet(t *testing.T) {
+	t.Setenv("AJEAN_HOME", t.TempDir())
+	m, err := createApp("Agenda", "", "", &AppCode{HTML: "<p>x</p>"}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	call := func(a map[string]any) string { a["id"] = m.ID; return toolApp(ctx, a) }
+	if out := call(map[string]any{"action": "data_get"}); !strings.Contains(out, "aucune donnée") {
+		t.Fatalf("vide : %s", out)
+	}
+	// Valeur en objet, puis en texte JSON (le modèle passe souvent une chaîne).
+	if out := call(map[string]any{"action": "data_set", "key": "state", "input": map[string]any{"events": []any{map[string]any{"date": "2026-11-16", "titre": "Tournage"}}}}); !strings.HasPrefix(out, "[ok]") {
+		t.Fatalf("set objet : %s", out)
+	}
+	if out := call(map[string]any{"action": "data_set", "key": "liste", "input": `["a","b"]`}); !strings.HasPrefix(out, "[ok]") {
+		t.Fatalf("set texte : %s", out)
+	}
+	out := call(map[string]any{"action": "data_get"})
+	for _, want := range []string{`"titre":"Tournage"`, `"liste":["a","b"]`} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("get sans %s : %s", want, out)
+		}
+	}
+	// L'app lit bien la même chose par son pont.
+	v, err := appStorageOp(m.ID, "get", "liste", nil, "")
+	if err != nil || string(v.(json.RawMessage)) != `["a","b"]` {
+		t.Fatalf("pont : %v %v", v, err)
+	}
+	if out := call(map[string]any{"action": "data_set", "key": "liste", "input": nil}); !strings.Contains(out, "supprimée") {
+		t.Fatalf("suppression : %s", out)
+	}
+	if out := call(map[string]any{"action": "data_get", "key": "liste"}); !strings.Contains(out, "absente") {
+		t.Fatalf("après suppression : %s", out)
+	}
+}

@@ -326,7 +326,7 @@ func LLMPrewarm(healthy bool) {
 	// serveurs MCP se connectent, Crawl4AI est sondé) et ne doit jamais retarder
 	// cancelLLMPrewarmForTurn, appelé au démarrage d'un tour utilisateur.
 	cfg := ReadConfig()
-	if isExternalConfig(cfg) || isCloudConfig(cfg) {
+	if (isExternalConfig(cfg) && cfg[cfgKeyServiceLocal] != "1") || isCloudConfig(cfg) {
 		return
 	}
 	ep := resolveChatEndpoint()

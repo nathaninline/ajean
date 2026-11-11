@@ -81,10 +81,7 @@ func ctxWindow() int {
 			n = c
 		}
 	}
-	// Le moteur MoE en mode hors RAM plafonne lui-même le contexte (moeDropMaxCtx) :
-	// lire le CTX brut faisait afficher 168K et compacter trop tard, alors que le
-	// moteur refusait tout prompt au-delà de 131K.
-	return moeEffectiveCtx(cfg, n)
+	return n
 }
 
 // compactMaxTokens : plafond absolu du seuil de compactage (clé appareil
@@ -747,7 +744,7 @@ Write the summary in the SAME language as the conversation.`
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 500))
-		return "", fmt.Errorf("résumé: llama-server %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
+		return "", fmt.Errorf("résumé : le modèle a renvoyé %d : %s", resp.StatusCode, strings.TrimSpace(string(b)))
 	}
 	var out summarizeResp
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {

@@ -107,20 +107,28 @@ func jeanEmbedBin() string {
 	if runtime.GOOS == "windows" {
 		exe += ".exe"
 	}
-	if ents, err := os.ReadDir(prebuiltDir()); err == nil {
+	if b := strings.TrimSpace(os.Getenv("AJEAN_LLAMA_SERVER")); b != "" && isFile(b) {
+		return b
+	}
+	prebuilt := filepath.Join(AjeanHome(), "backends", "llama.cpp-prebuilt")
+	if ents, err := os.ReadDir(prebuilt); err == nil {
 		var dirs []string
 		for _, e := range ents {
-			if e.IsDir() && isFile(filepath.Join(prebuiltDir(), e.Name(), exe)) {
+			if e.IsDir() && isFile(filepath.Join(prebuilt, e.Name(), exe)) {
 				dirs = append(dirs, e.Name())
 			}
 		}
 		sort.Strings(dirs)
 		if len(dirs) > 0 {
-			return filepath.Join(prebuiltDir(), dirs[len(dirs)-1], exe)
+			return filepath.Join(prebuilt, dirs[len(dirs)-1], exe)
 		}
 	}
-	if b := strings.TrimSpace(ReadConfig()["BIN"]); b != "" && strings.Contains(filepath.Base(b), "llama-server") && isFile(b) {
-		return b
+	if list, err := LoadServices(); err == nil {
+		for i := range list {
+			if b := serviceLlamaServer(&list[i]); b != "" && isFile(b) {
+				return b
+			}
+		}
 	}
 	return ""
 }

@@ -211,7 +211,7 @@ func runJeanConsolidate() {
 		}
 	}
 	// Occupé ou mémoire verrouillée : on repasse plus tard SANS rien basculer. La
-	// bascule vers le preset du sommeil redémarre le moteur ; faite avant ce
+	// bascule vers le modèle du sommeil change le modèle chargé ; faite avant ce
 	// contrôle, elle coupait une réponse en cours pour rien (#162).
 	busy := conv.isGenerating()
 	jeanReflect.mu.Lock()
@@ -604,11 +604,7 @@ func handleJeanSleep(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 200, map[string]any{"ok": true, "hour": jeanSleepHour()})
 		return
 	}
-	list, _ := ListPresets()
-	ps := make([]map[string]string, 0, len(list))
-	for _, p := range list {
-		ps = append(ps, map[string]string{"id": p.ID, "name": p.Name})
-	}
+	ps := modelChoices()
 	jeanReflect.mu.Lock()
 	sleeping := jeanReflect.cancel != nil && jeanSleepForce.Load()
 	jeanReflect.mu.Unlock()

@@ -292,12 +292,12 @@ func antError(w http.ResponseWriter, code int, kind, msg string) {
 }
 
 // antKeyOK : la clé du client (x-api-key ou Bearer, Claude Code envoie l'une ou
-// l'autre selon ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN) contre la clé API de
-// la machine. Sans clé configurée, seule la boucle locale est admise, et sur un
+// l'autre selon ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN) contre la clé du
+// modèle du chat. Sans clé configurée, seule la boucle locale est admise, et sur un
 // nom local : une requête du tunnel ou de <machine>.oai.ajean.link peut arriver
 // d'une adresse locale, son Host la trahit.
 func antKeyOK(r *http.Request) bool {
-	want := readAPIKey()
+	want := chatModelKey()
 	if want == "" {
 		host, _, _ := net.SplitHostPort(r.RemoteAddr)
 		ip := net.ParseIP(host)
@@ -414,7 +414,7 @@ func antWhole(w http.ResponseWriter, body io.Reader, model string) {
 		Usage oaUsage `json:"usage"`
 	}
 	if err := json.NewDecoder(body).Decode(&out); err != nil || len(out.Choices) == 0 {
-		antError(w, http.StatusBadGateway, "api_error", "réponse du moteur illisible")
+		antError(w, http.StatusBadGateway, "api_error", "réponse du modèle illisible")
 		return
 	}
 	c := out.Choices[0]

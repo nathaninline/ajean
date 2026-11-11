@@ -23,7 +23,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"os"
 	"os/exec"
@@ -488,8 +487,8 @@ func uiUserSvcCtl(action string) error {
 }
 
 // newLinkHandler construit le handler servi à travers le tunnel :
-//   - /v1/*, /health, /props, /metrics, /slots → llama-server local (endpoint
-//     compatible OpenAI, avec injection de la clé API locale) → permet de
+//   - /v1/*, /health, /props, /metrics, /slots → modèle du chat (endpoint
+//     compatible OpenAI, avec injection de la clé du modèle) → permet de
 //     brancher OpenCode, Hermes, etc. sur ajean.link/oai/<machine>/v1
 //   - tout le reste → l'UI web de AJEAN (avec injection de la clé de pilotage)
 func newLinkHandler(mux *http.ServeMux) http.Handler {
@@ -499,25 +498,9 @@ func newLinkHandler(mux *http.ServeMux) http.Handler {
 	// détenir la clé de pilotage en clair — ce qui permet à cette clé de servir de
 	// clé de chiffrement sans que le serveur puisse ouvrir le coffre.
 	web := http.Handler(mux)
-	llama := &url.URL{Scheme: "http", Host: fmt.Sprintf("127.0.0.1:%d", LLMPort())}
-	lp := httputil.NewSingleHostReverseProxy(llama)
-	lp.FlushInterval = -1 // streaming SSE des complétions
-	apiKey := readAPIKey()
-	base := lp.Director
-	lp.Director = func(req *http.Request) {
-		base(req)
-		// Le moteur se voit appelé sous son propre nom, pas sous celui du relais :
-		// certains moteurs refusent (403) un Host inconnu (protection DNS rebinding).
-		req.Host = llama.Host
-		// Le client distant n'a pas la clé API de llama-server ; on l'injecte ici
-		// (l'auth réelle est faite par le relais via la clé de liaison du compte).
-		if apiKey != "" {
-			req.Header.Set("Authorization", "Bearer "+apiKey)
-		}
-	}
-	lp.ErrorHandler = func(w http.ResponseWriter, r *http.Request, e error) {
-		http.Error(w, "llama-server injoignable: "+e.Error(), http.StatusBadGateway)
-	}
+	// Le client distant n'a pas la clé du modèle : le proxy l'injecte (l'auth
+	// réelle est faite par le relais via la clé de liaison du compte).
+	lp := localModelProxy(true)
 	// Boîte noire « zéro exception » : TOUTE l'API (chat ET contrôle) ne transite
 	// que chiffrée de bout en bout. Le relais ne voit jamais de clair.
 	//   - /api/e2e/chat : chat chiffré (streaming SSE chiffré).

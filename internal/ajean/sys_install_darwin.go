@@ -45,7 +45,7 @@ const launchdPlistTemplate = `<?xml version="1.0" encoding="UTF-8"?>
 
 // unitArgs associe chaque service à la sous-commande qu'il exécute.
 func unitArgs() map[string]string {
-	return map[string]string{serviceName(): "serve", uiUnitName: "web"}
+	return map[string]string{uiUnitName: "web"}
 }
 
 func installServices(targetUser, ajeanHome string) error {
@@ -63,9 +63,10 @@ func installServices(targetUser, ajeanHome string) error {
 	return nil
 }
 
-// uninstallServices décharge et efface les deux daemons. L'interface passe
-// AVANT le moteur : elle sait le redémarrer, l'ordre inverse pourrait le
-// relancer sous nos pieds.
+// uninstallServices décharge et efface le daemon de l'interface, et celui de
+// l'ancien moteur (0.18 et avant) s'il est encore là. L'interface passe en
+// premier : elle savait relancer ce moteur, l'ordre inverse pouvait le
+// redémarrer sous nos pieds.
 func uninstallServices() {
 	for _, name := range []string{uiUnitName, serviceName()} {
 		_ = exec.Command("launchctl", "unload", "-w", launchdPlistPath(name)).Run()

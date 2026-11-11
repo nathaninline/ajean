@@ -2,21 +2,17 @@ package ajean
 
 import "testing"
 
-// testHome donne au test un $AJEAN_HOME à lui, et neutralise le pare-feu : un
-// test ne doit jamais poser (ni retirer) une règle entrante sur la machine qui
-// le fait tourner.
+// testHome donne au test un $AJEAN_HOME à lui.
 func testHome(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("AJEAN_HOME", home)
-	firewallInert = true
 	// Le projet actif est mis en cache au niveau du process : on le réinitialise pour
 	// que chaque test parte du défaut (le AJEAN_HOME change à chaque test).
 	activeProjMu.Lock()
 	activeProjCache = ""
 	activeProjMu.Unlock()
 	setProjectOverride("")
-	t.Cleanup(func() { firewallInert = false })
 	return home
 }
 

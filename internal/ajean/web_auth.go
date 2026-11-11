@@ -128,8 +128,8 @@ func isE2EAuthed(r *http.Request) bool {
 // internet — c.-à-d. l'API que tout client (navigateur, app mobile, script…)
 // utilise pour switcher de preset, redémarrer le service, lire le status, etc.
 //
-// La clé de pilotage est volontairement DISTINCTE de .api_key (qui, elle,
-// protège llama-server / les complétions). On veut pouvoir donner à un client
+// La clé de pilotage est volontairement DISTINCTE de la clé du modèle (qui,
+// elle, protège les complétions). On veut pouvoir donner à un client
 // un accès aux complétions sans lui donner le droit de redémarrer la machine,
 // et inversement. Elle est relue à chaque requête (pas de cache) pour qu'un
 // changement de clé prenne effet sans redémarrer le serveur web.

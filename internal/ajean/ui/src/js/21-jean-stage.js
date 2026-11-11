@@ -17,7 +17,7 @@
   const srchSeen=new WeakSet();
   let term, termView, termKey='', termTyped=0, termTimer=0, termSig='', avatarLooking=false, termRuns=[], termCmd='';
   const termSeen=new WeakSet(); // résultats déjà apparus (leur fondu ne se rejoue pas)
-  let stage, scene, bubble, bubbleBody, caption, capPast, capText, capStop, inputBox, ta, sendBtn, histBtn, filesBtn;
+  let stage, scene, bubble, bubbleBody, caption, capPast, capText, capStop, inputBox, ta, sendBtn, micBtn, histBtn, filesBtn;
   let screen, screenView, screenUrl, screenSrc='';
   let jeanWasOn=false;
   let inputOpen=false, syncTimer=0, lastHTML='', userScrolled=false;
@@ -25,6 +25,17 @@
   const $=(tag, cls, parent)=>{ const n=document.createElement(tag); if(cls) n.className=cls; if(parent) parent.appendChild(n); return n; };
   const inStage=()=>document.body.classList.contains('jean-mode') && !document.body.classList.contains('jean-history');
 
+  // Début du travail en cours (0 = au repos) : ELAPSED.start quand le flux est
+  // là, sinon l'instant où la scène a vu Jean se mettre au travail.
+  let workStart=0;
+  function paintWorkTime(){
+    if(!capStop) return;
+    const el=capStop.querySelector('.cs-t'); if(!el) return;
+    if(!workStart || capStop.hidden){ el.textContent=''; return; }
+    if(ELAPSED && ELAPSED.start && ELAPSED.start<workStart) workStart=ELAPSED.start;
+    const s=Math.max(0, Math.floor((Date.now()-workStart)/1000));
+    el.textContent=' · '+(s<60 ? s+' s' : Math.floor(s/60)+' min '+String(s%60).padStart(2,'0')+' s');
+  }
   function build(){
     const main=document.querySelector('.main'); if(!main) return false;
     stage=$('div','', main); stage.id='jean-stage';
@@ -64,10 +75,19 @@
     capPast=$('div','jst-cap-past', caption);
     capText=$('div','jst-cap-text', caption);
     capStop=$('button','jst-cap-stop', caption); capStop.type='button'; capStop.hidden=true; capStop.onclick=()=>stopGen();
+    // Temps de travail du tour, dans le bouton : « Arrêter · 1 min 12 s ».
+    capStop.innerHTML='<span class="cs-l"></span><span class="cs-t"></span>';
+    setInterval(paintWorkTime, 1000);
     inputBox=$('div','jst-input', scene);
     ta=$('textarea','', inputBox); ta.rows=1;
     ta.setAttribute('autocomplete','off'); ta.setAttribute('name','jean-message');
     ta.setAttribute('enterkeyhint','send'); ta.setAttribute('aria-label','message');
+    // Dictée vocale (24-dictation.js) : écrit dans ce champ.
+    micBtn=$('button','jst-mic mic-btn', inputBox); micBtn.type='button';
+    micBtn.innerHTML='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>';
+    micBtn.onmousedown=e=>e.preventDefault(); // garde le focus du champ (sinon il se referme)
+    micBtn.onpointerdown=()=>{ if(typeof dictWarm==='function') dictWarm(); };
+    micBtn.onclick=()=>{ if(typeof toggleDictation==='function') toggleDictation(micBtn, ta); };
     sendBtn=$('button','jst-send', inputBox); sendBtn.type='button';
     sendBtn.innerHTML='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
     sendBtn.onclick=submit;
@@ -75,13 +95,13 @@
     // dans le geste, voir openInput). Sauf la bulle de réponse (on doit pouvoir la
     // faire défiler ou y sélectionner du texte) et l'écran du navigateur.
     scene.addEventListener('click', e=>{
-      if(sendBtn.contains(e.target) || bubble.contains(e.target) || screen.contains(e.target) || capStop.contains(e.target)) return;
+      if(sendBtn.contains(e.target) || micBtn.contains(e.target) || bubble.contains(e.target) || screen.contains(e.target) || capStop.contains(e.target)) return;
       if(document.activeElement===ta) return;
       openInput();
     });
     // Clavier refermé sans rien écrit : la bulle de saisie se replie aussi, plutôt
     // que de rester affichée à attendre un toucher précis.
-    ta.addEventListener('blur', ()=>setTimeout(()=>{ if(document.activeElement!==ta && !ta.value.trim() && inputOpen && !inputBox.classList.contains('gulp')) closeInput(); }, 200));
+    ta.addEventListener('blur', ()=>setTimeout(()=>{ if(document.activeElement!==ta && !micBtn.classList.contains('rec') && !micBtn.classList.contains('busy') && !ta.value.trim() && inputOpen && !inputBox.classList.contains('gulp')) closeInput(); }, 200));
     ta.addEventListener('input', ()=>{ grow(); JeanAvatar&&JeanAvatar.listen(); });
     ta.addEventListener('keydown', e=>{
       if(e.key==='Escape'){ e.preventDefault(); closeInput(); return; }
@@ -97,8 +117,9 @@
   function applyTexts(){
     ta.placeholder=t('jean.stage_placeholder');
     sendBtn.title=t('chat.send_button_title');
+    micBtn.title=micBtn.ariaLabel=t('stt.mic_title');
     filesBtn.title=filesBtn.ariaLabel=t('jean.files_title');
-    capStop.textContent=t('jean.stage_stop');
+    capStop.querySelector('.cs-l').textContent=t('jean.stage_stop');
     const hist=document.body.classList.contains('jean-history');
     histBtn.title=hist ? t('jean.stage_back') : t('jean.stage_history');
     histBtn.innerHTML = hist
@@ -212,6 +233,9 @@
     }
     stage.classList.toggle('busy', working || loading);
     capStop.hidden=!working;
+    if(working && !workStart) workStart=(ELAPSED && ELAPSED.start) || Date.now();
+    if(!working) workStart=0;
+    paintWorkTime();
   }
   // Écran : reflète la carte « aperçu du navigateur » du fil (09-stream.js), qui
   // n'existe que pendant la navigation ; nouvelle capture = fondu enchaîné. Il
@@ -253,7 +277,7 @@
     syncSearch(lastPanel && lastPanel.dataset.tool==='web_search' ? lastPanel : null, answer);
     if(lastPanel && lastPanel!==last){ stage.classList.remove('terminal'); return; }
     const answerAfter=!!(last && answer && (last.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING));
-    const on=!!last && !answerAfter && !stage.classList.contains('browsing') && busy && !!(ELAPSED || RUNNING_TASK);
+    const on=!!last && !answerAfter && !stage.classList.contains('browsing') && busy && !!(ELAPSED || RUNNING_TASK) && !viewOn('hide-term');
     stage.classList.toggle('terminal', on);
     if(!on){ return; }
     const cur=runs[runs.length-1]._tu;

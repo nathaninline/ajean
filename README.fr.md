@@ -6,7 +6,7 @@
 
 **Votre propre IA, chez vous.** AJEAN est un programme unique qui transforme un ordinateur équipé d'une carte graphique (ou d'un simple processeur) en assistant IA complet : une interface de discussion, une mémoire, des outils, l'accès au web, des tâches planifiées et l'accès depuis votre téléphone, sans que rien ne quitte votre machine.
 
-AJEAN s'occupe de tout ce qui entoure le modèle. Le modèle lui-même tourne sur [llama.cpp](https://github.com/ggml-org/llama.cpp), qu'AJEAN installe et tient à jour pour vous.
+AJEAN s'occupe de tout ce qui entoure le modèle. Le modèle tourne sur le moteur de votre choix (llama.cpp, ExLlama, vLLM, etc.) ou sur une API distante compatible OpenAI. AJEAN le démarre, l'arrête et le surveille.
 
 - **Un seul fichier, aucune dépendance.** Ni Docker, ni Python, ni environnement à installer. Linux, Windows et macOS.
 - **Un assistant, pas seulement un modèle.** Il se souvient, range le travail en projets, exécute des commandes, lit le web, pilote un navigateur et travaille seul selon un planning.
@@ -21,7 +21,7 @@ AJEAN s'occupe de tout ce qui entoure le modèle. Le modèle lui-même tourne su
 - [Installation](#installation)
 - [Utiliser AJEAN](#utiliser-ajean)
 - [Ce que l'IA sait faire](#ce-que-lia-sait-faire)
-- [Modèles et moteur](#modèles-et-moteur)
+- [Modèles](#modèles)
 - [Accès de partout](#accès-de-partout)
 - [Vos données](#vos-données)
 - [Référence](#référence)
@@ -43,14 +43,11 @@ Téléchargez le fichier de votre système depuis la [dernière version](https:/
 
 Double-cliquez sur `ajean-windows.exe`. AJEAN s'installe, crée ses raccourcis et s'ouvre dans sa propre fenêtre, avec une icône dans la zone de notification (*Ouvrir AJEAN* / *Quitter*). Lancer plus tard un fichier plus récent met à jour la copie installée.
 
-Ensuite, dans l'interface :
-
-1. Section **Moteur** : installez llama.cpp. La version précompilée est prête en deux minutes environ ; la version compilée est optimisée pour votre machine mais plus longue à préparer.
-2. Section **Presets** : créez un preset, choisissez ou téléchargez un modèle (n'importe quel lien direct vers un `.gguf`, par exemple sur Hugging Face).
+Ajoutez ensuite un modèle dans la section **Presets** du menu (voir [Modèles](#modèles)). Le moteur s'installe à part : voir [docs/moteurs.md](docs/moteurs.md). La création du service Windows demande une fois les droits administrateur.
 
 ### macOS
 
-Décompressez, glissez **AJEAN.app** dans *Applications*, puis faites **clic droit, Ouvrir** la première fois (l'application n'a qu'une signature ad hoc). AJEAN s'ouvre dans sa propre fenêtre et vit dans la barre de menus. Installez ensuite le moteur et ajoutez un modèle comme sous Windows.
+Décompressez, glissez **AJEAN.app** dans *Applications*, puis faites **clic droit, Ouvrir** la première fois (l'application n'a qu'une signature ad hoc). AJEAN s'ouvre dans sa propre fenêtre et vit dans la barre de menus. Ajoutez ensuite un modèle comme sous Windows.
 
 Pour la ligne de commande, prenez plutôt le binaire nu `ajean-macos-arm` / `ajean-macos`.
 
@@ -60,16 +57,18 @@ Pour la ligne de commande, prenez plutôt le binaire nu `ajean-macos-arm` / `aje
 curl -L -o ajean https://github.com/nathaninline/ajean/releases/latest/download/ajean-linux
 chmod +x ajean && sudo mv ajean /usr/local/bin/ajean
 
-sudo ajean install        # services, droits, dossiers
-ajean llamacpp install    # compile llama.cpp pour le GPU présent
-ajean edit                # renseigner MODEL=/chemin/vers/modele.gguf
-ajean start               # démarre le modèle
-ajean ui start            # interface sur http://<hôte>:8090
+sudo ajean install              # interface, assistant des services, gardien RAM, dossiers
+sudo ajean ui start             # interface sur http://<hôte>:8090
 ```
 
-La compilation de llama.cpp demande `git`, `cmake` et la boîte à outils de votre GPU (CUDA pour NVIDIA, ROCm ou le SDK Vulkan pour AMD, le SDK Vulkan pour Intel). AJEAN installe ce qu'il peut tout seul et explique quoi faire quand il ne peut pas. Pour imposer un backend : `ajean llamacpp install --backend=vulkan` (ou `cuda`, `hip`, `cpu`).
+Ajoutez ensuite un modèle depuis l'interface (section **Presets**, bouton +) ou en ligne de commande :
 
-Sous Linux, AJEAN tourne en **deux services** : `ajean-engine` fait tourner le modèle, `ajean-ui` sert l'interface, l'accès à distance et le point d'accès OpenAI. Redémarrer l'interface est instantané et ne recharge jamais le modèle.
+```bash
+ajean service add modele.json   # déclarer un modèle (voir docs/moteurs.md)
+ajean service use <id>          # le démarrer et brancher le chat dessus
+```
+
+`ajean install` installe trois choses : le service `ajean-ui` (interface, accès à distance, point d'accès OpenAI), un assistant root (`/usr/local/sbin/ajean-svc`, avec une règle sudoers) qui n'agit que sur les services gérés par AJEAN, et le gardien RAM `ajean-guard`. Les modèles sont des unités systemd système : ils tournent sans session ouverte, et redémarrer l'interface ne recharge jamais le modèle.
 
 ### Mettre à jour
 
@@ -114,7 +113,7 @@ Jean est un assistant qui se souvient de **vous** au fil du temps, dans une seul
 - **Sa propre mémoire** : un profil court (prénom, proches, préférences, habitudes), des *fiches* (procédures, recettes, guides gardés en entier) et un journal où chaque échange est consigné et peut être recherché. La fenêtre *Mémoire de Jean* permet de tout consulter, corriger ou supprimer.
 - **Rappels et tâches** : demandez à Jean de vous rappeler quelque chose, et le rappel arrive comme un message de sa part, avec une notification.
 - **Un espace de travail séparé** : Jean ne peut pas modifier les scripts, fichiers ni la mémoire de vos projets. Il peut les lire, pour voir comment une chose a été faite, et refaire ce dont il a besoin dans son propre espace.
-- **Un nouveau départ après une pause** : après 3 heures sans message, le contexte du modèle repart à vide. Le fil affiché et le journal restent. La clé `JEAN_IDLE_HOURS` règle ce délai (`0` = jamais).
+- **Un nouveau départ après une pause** : après 3 heures sans message, le contexte du modèle repart à vide. Le fil affiché et le journal restent.
 
 ### Historique
 
@@ -154,7 +153,7 @@ ajean internet on
 
 **Serveurs MCP.** Branchez n'importe quel serveur [Model Context Protocol](https://modelcontextprotocol.io) (fichiers, bases de données, mail, API) depuis l'interface, en stdio ou en HTTP. Le format est celui de Claude Desktop : une configuration existante se copie telle quelle. Serveurs et outils s'activent un par un.
 
-**Tâches planifiées.** L'IA travaille seule, à la fréquence choisie (toutes les N minutes, heures ou jours, ou une expression cron) : surveiller une boîte mail, résumer l'actualité, suivre un chiffre. Une tâche peut aussi être un **script seul**, lancé sans charger le modèle. Chaque tâche choisit son projet, son preset, et si elle a droit à la mémoire et au web. Un interrupteur général met tout en pause.
+**Tâches planifiées.** L'IA travaille seule, à la fréquence choisie (toutes les N minutes, heures ou jours, ou une expression cron) : surveiller une boîte mail, résumer l'actualité, suivre un chiffre. Une tâche peut aussi être un **script seul**, lancé sans charger le modèle. Chaque tâche choisit son projet, son modèle, et si elle a droit à la mémoire et au web. Un interrupteur général met tout en pause.
 
 **Notifications.** Soyez prévenu quand une réponse est prête, même application fermée ou téléphone verrouillé. Sur iPhone, ajoutez d'abord AJEAN à l'écran d'accueil.
 
@@ -162,29 +161,22 @@ ajean internet on
 
 ---
 
-## Modèles et moteur
+## Modèles
 
-### Presets
-
-Un preset est une configuration complète de modèle : fichier du modèle, taille du contexte, couches sur le GPU, cache KV, échantillonnage, raisonnement, décodage spéculatif, vision. Changer de preset recharge le modèle, depuis l'interface ou avec `ajean switch`. Les presets se règlent dans l'interface ; les fichiers `.gguf` peuvent être sur n'importe quel disque.
-
-Un preset ne tourne pas forcément sur cette machine :
+AJEAN ne gère aucun moteur. Il n'installe ni ne compile rien et ne télécharge aucun modèle. Un **modèle** est un **service système** qu'AJEAN démarre, arrête et surveille :
 
 | Exécution | Fonctionnement |
 |---|---|
-| **Cette machine** | llama.cpp sur vos GPU (au choix, par preset) |
-| **API externe** | n'importe quel point d'accès compatible OpenAI |
-| **GPU Cloud** | un GPU loué sur [Modal](https://modal.com) (du T4 au B200), déployé par AJEAN, facturé à l'usage, mis en veille quand il ne sert pas |
+| **Cette machine** | une commande, écrite comme dans un terminal, qui sert une API compatible OpenAI |
+| **API distante** | n'importe quel point d'accès compatible OpenAI |
 
-### Moteur
+Selon le système, le service est une unité systemd système (Linux, écrite par l'assistant root), un service Windows (droits administrateur une fois) ou un agent launchd (macOS, non testé). AJEAN ne pilote que les services qu'il écrit lui-même.
 
-La section **Moteur** installe et met à jour llama.cpp en trois variantes, choisies par preset :
+**Le garde-fou.** Avant le démarrage, AJEAN vérifie que le programme existe, que le port est libre et que la RAM et la VRAM suffisent. Il attend ensuite que l'API réponde, dans un délai réglable, et un modèle qui plante en boucle est arrêté. En marche, si la RAM libre devient trop faible, le modèle est arrêté avant que la machine ne fige. Sous Linux, c'est le gardien `ajean-guard` qui s'en charge : il tourne en root, à part de l'interface, et arrête le modèle le plus gourmand.
 
-- **précompilé** : les binaires officiels de llama.cpp, prêts en quelques minutes ;
-- **compilé** : construit pour cette machine (CUDA avec la bonne architecture pour chaque GPU, ROCm, Metal, Vulkan ou CPU) ;
-- **personnalisé** : n'importe quel fork, depuis une URL Git, pour les modèles qui exigent un moteur particulier.
+**Dans l'interface.** La liste **Presets** du menu montre les modèles. Un clic branche le chat sur un modèle, démarré si besoin. L'engrenage ouvre sa fenêtre : commande, adresse de l'API (déduite de la commande), contexte, vision, prompt système, échantillonnage, effort de réflexion, garde-fou, journal et benchmark. La section **Appareil** affiche l'état de la machine (cartes graphiques et mémoire).
 
-**Moteur tiers (Linux).** Un preset API externe peut nommer une unité systemd avec `EXTERNAL_SERVICE=ajean-<nom>`. AJEAN la démarre quand on bascule sur ce preset, l'arrête quand on en change, et attend que les GPU soient libérés avant de charger le modèle suivant. Donnez à l'unité `Conflicts=ajean-engine.service`.
+Le guide [docs/moteurs.md](docs/moteurs.md) explique comment brancher un moteur. Les presets d'une 0.18 (llama.cpp et ExLlama) sont convertis automatiquement au premier démarrage. Le moteur MoE intégré est à recréer à la main.
 
 ---
 
@@ -205,14 +197,14 @@ C'est un service optionnel et payant (4,80 EUR/mois). Tout le reste d'AJEAN est 
 
 Le relais ne voit que des métadonnées techniques (machine en ligne, modèle chargé, VRAM), jamais vos conversations.
 
-**Sauvegardes (abonnés).** La mémoire, les presets et les réglages peuvent être sauvegardés sur ajean.link, à la main ou chaque jour. Ils sont d'abord chiffrés sur votre serveur : le relais ne stocke qu'un bloc illisible.
+**Sauvegardes (abonnés).** La mémoire, les modèles (leurs définitions) et les réglages peuvent être sauvegardés sur ajean.link, à la main ou chaque jour. Ils sont d'abord chiffrés sur votre serveur : le relais ne stocke qu'un bloc illisible.
 
 ### Point d'accès compatible OpenAI
 
-Tout outil qui parle l'API OpenAI peut utiliser votre modèle :
+Tout outil qui parle l'API OpenAI peut utiliser votre modèle. Le panneau **API** de l'interface affiche l'adresse, le nom et la clé du modèle du chat.
 
-- **sur votre réseau** : `ajean network on` rend le point d'accès joignable sur le réseau local ;
-- **sur internet** : une adresse publique optionnelle `https://<machine>.oai.ajean.link/v1`, protégée par votre clé d'API. Le TLS se termine sur votre machine ; le relais ne fait passer que du trafic chiffré.
+- **sur votre réseau** : le modèle doit écouter sur toutes les interfaces (`--host 0.0.0.0` dans sa commande pour llama.cpp). S'il n'écoute que sur `127.0.0.1`, le panneau le signale ;
+- **sur internet** : une adresse publique optionnelle `https://<machine>.oai.ajean.link/v1`, protégée par la clé API du modèle. Le TLS se termine sur votre machine ; le relais ne fait passer que du trafic chiffré.
 
 ---
 
@@ -223,10 +215,9 @@ Tout se trouve sous **`$AJEAN_HOME`** : `/etc/ajean` sous Linux, `%ProgramData%\
 | | |
 |---|---|
 | `ajean.db` | réglages, conversations, clés (une seule base [bbolt](https://github.com/etcd-io/bbolt)) |
-| `presets/` | un fichier `.env` par preset |
+| `services.json` | les définitions des modèles |
 | `memory/` | les pages de mémoire, un dossier par projet |
-| `models/` | les fichiers `.gguf` |
-| `backends/` | les moteurs llama.cpp |
+| `models/` | des fichiers de modèles, si vous les rangez ici (un modèle peut se trouver n'importe où) |
 | `workspace/` | le dossier de travail jetable de l'IA |
 | `scripts/` | les scripts que l'IA conserve |
 
@@ -239,16 +230,21 @@ Tout se trouve sous **`$AJEAN_HOME`** : `/etc/ajean` sous Linux, `%ProgramData%\
 ### Commandes
 
 ```
-Moteur (ajean-engine)
-  start | stop | restart        gérer le service
-  status | logs                 état / journal en direct
-  enable | disable              démarrage au boot
-  edit                          éditer la configuration dans $EDITOR
-  switch [N]                    changer de preset
-  test | bench [N]              vérifier que le modèle répond / mesurer la vitesse
-  vram | gpu [index...]         mémoire GPU / choisir les GPU (gpu all = tous)
-  set-api-key [clé]             protéger l'API du modèle
-  network [on|off|status]       point d'accès OpenAI sur le réseau local
+Modèles
+  service list | show <id>      liste des modèles / définition d'un modèle
+  service add <fichier.json>    ajouter ou remplacer un modèle
+  service rm <id>               supprimer un modèle (il est arrêté)
+  service start <id> [--force]  démarrer avec le garde-fou (--force : sans vérifier RAM et VRAM)
+  service stop | restart <id>   arrêter / redémarrer
+  service logs <id> [n]         journal d'un modèle
+  service use <id>              démarrer si besoin et brancher le chat dessus
+  service autostart <id> on|off démarrage avec la machine
+  service why <id>              raison du dernier arrêt
+  service convert [--dry-run]   créer un modèle par ancien preset
+  start | stop | restart [id]   piloter un modèle (sans id : celui du chat)
+  status | logs [id] [n]        état des modèles / journal
+  test | bench [N]              vérifier que l'IA répond / mesurer la vitesse
+  vram                          mémoire GPU
 
 Interface (ajean-ui)
   ui [start|stop|restart|status]
@@ -266,48 +262,23 @@ IA
 Accès distant (ajean.link)
   link <jeton> | link code | link status | link logout | link newid
 
-Moteur llama.cpp
-  llamacpp install [--backend=vulkan|cuda|hip|cpu]
-  llamacpp update | status | uninstall <compiled|prebuilt|custom <nom>>
-
 Installation
   install | uninstall | update [--check] | where | version
+  install-helper [utilisateur]  Linux : assistant root des modèles et gardien RAM
 ```
 
-### Clés de configuration
+### Réglages
 
-`ajean edit` ouvre la configuration active au format `clé=valeur` :
-
-| Clé | Rôle | Défaut |
-|---|---|---|
-| `BIN` | chemin de `llama-server` | réglé par l'installation du moteur |
-| `MODEL` | nom ou chemin du `.gguf` | aucun |
-| `HOST` / `PORT` | adresse et port du moteur | `0.0.0.0` / `8080` |
-| `CTX` | taille du contexte | `32768` |
-| `NGL` | couches sur le GPU | `999` |
-| `BATCH` / `UBATCH` | tailles de lot | `2048` / `512` |
-| `THREADS` / `THREADS_BATCH` | threads CPU | auto |
-| `KV_TYPE` (`_K` / `_V`) | quantification du cache KV | aucune |
-| `CUDA_VISIBLE_DEVICES` | GPU utilisés | tous |
-| `REASONING` | `on` / `off` / `auto` / `deepseek` | aucun |
-| `REASONING_BUDGET` | plafond de tokens de réflexion (`-1` = illimité) | `-1` |
-| `REASONING_EFFORT` | `low` / `medium` / `high`, selon le modèle | aucun |
-| `COMPACT` | compactage automatique du contexte (`off` pour le couper) | actif |
-| `MEM_MODE` | mode mémoire par défaut (chaque projet peut le changer) | `always` |
-| `JEAN_IDLE_HOURS` | heures de silence avant que Jean reparte d'un contexte vide (`0` = jamais) | `3` |
-| `EXTRA_ARGS` | ajouté tel quel à la ligne de commande de llama-server | aucun |
+Les réglages de la machine se font dans l'interface, section **Paramètres** : accès internet, contrôle du navigateur, serveurs MCP, compactage du contexte, chiffrement, notifications. Le mode mémoire se règle par projet ; `ajean memory` fixe celui par défaut. Les réglages du moteur (fichier du modèle, couches GPU, cache KV, etc.) font partie de la commande du modèle.
 
 ### Variables d'environnement
 
 | Variable | Rôle | Défaut |
 |---|---|---|
 | `AJEAN_HOME` | dossier des données | voir [Vos données](#vos-données) |
-| `AJEAN_MODEL_DIRS` | dossiers de modèles en plus (séparés par `:`, `;` sous Windows) | aucun |
-| `AJEAN_SERVICE` | nom de l'unité du moteur | `ajean-engine` |
 | `AJEAN_CHROME` | navigateur utilisé pour le pilotage | détecté |
-| `AJEAN_DL_CONNS` | connexions parallèles pour télécharger un modèle (16 au plus) | `8` |
-| `HF_TOKEN` | jeton Hugging Face pour les modèles privés | aucun |
-| `EDITOR` | éditeur pour `ajean edit` | `nano` / `notepad` |
+| `AJEAN_RAM_FLOOR_MB` | RAM libre minimale (Mo) avant l'arrêt d'un modèle, hors gardien Linux | 3 % de la RAM, 1024 au moins |
+| `AJEAN_GUARD_MIB` | Linux : seuil du gardien RAM (Mio), à poser dans l'unité `ajean-guard` par un drop-in systemd | `2048` |
 
 ### API de pilotage
 
@@ -316,9 +287,11 @@ Le service d'interface expose une API HTTP. Protégez-la avec `ajean set-web-key
 | Méthode | Point d'accès | Rôle |
 |---|---|---|
 | GET | `/api/ping` | connexion et vérification de la clé |
-| GET | `/api/status` · `/api/vram` | état du service · GPU |
-| GET | `/api/presets` | presets, avec l'actif |
-| POST | `/api/start` · `/api/stop` · `/api/restart` | piloter le moteur |
+| GET | `/api/status` · `/api/vram` | état du modèle du chat · GPU |
+| GET | `/api/services` | modèles et leur état |
+| POST | `/api/services/start` · `/api/services/stop` | démarrer · arrêter un modèle |
+| POST | `/api/services/use` | brancher le chat sur un modèle |
+| GET | `/api/services/logs` | journal d'un modèle |
 | POST | `/api/chat` `{"messages":[...]}` | discussion (flux SSE) |
 
 La clé circule en clair en HTTP : pour une exposition publique, placez un HTTPS devant ou passez par ajean.link.
@@ -339,7 +312,7 @@ go build -o ajean ./cmd/ajean                 # macOS (l'icône de la barre de m
 **Organisation**
 
 - `cmd/ajean/` : point d'entrée et ressources Windows.
-- `internal/ajean/` : tout le code, fichiers regroupés par préfixe (`web_*`, `chat_*`, `llm_*`, `backend_*`, `relay_*`, `sys_*`, `mcp_*`, `jean_*`) ; une carte dans `doc.go`.
+- `internal/ajean/` : tout le code, fichiers regroupés par préfixe (`web_*`, `chat_*`, `llm_*`, `services_*`, `backend_*`, `relay_*`, `sys_*`, `mcp_*`, `jean_*`) ; une carte dans `doc.go`.
 - `internal/ajean/ui/` : l'interface web. `index.html` est **généré** : modifiez `ui/src/`, puis lancez `go generate ./internal/ajean`.
 - `tools/` : outils de construction (`assemble-ui`, `gen-icon`, `verify-i18n`).
 

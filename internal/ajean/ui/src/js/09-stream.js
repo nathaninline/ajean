@@ -207,12 +207,7 @@ function paintGenStatus(){
   const g=ensureGenEl(); const txt=g.querySelector('.gtxt');
   const secs=(Date.now()-ELAPSED.start)/1000;
   const tok=genTokCount();
-  // GPU Cloud pas encore prêt : on dit ce qui se passe au lieu d'un silence.
-  let extra='';
-  if(tok===0 && CLOUD_PHASE && CLOUD_PHASE!=='ready'){
-    extra=t(CLOUD_PHASE==='downloading' ? 'chat.cloud_downloading' : CLOUD_PHASE==='loading' ? 'chat.cloud_loading' : 'chat.cloud_waking');
-  }
-  paintGenParts(txt, genItems(secs, tok, tok>0?genRate():null, activePresetName(), extra));
+  paintGenParts(txt, genItems(secs, tok, tok>0?genRate():null, activePresetName(), ''));
   scrollMaybe();
 }
 // Mode Jean : pas de bulles de raisonnement ni d'outils (masquées en CSS), juste
@@ -401,7 +396,7 @@ function renderStats(el, s){
   if(!el||!s) return;
   const parts=[];
   const pt=s.prompt_tokens||s.prompt_tokens_total;
-  // Débit de lecture inconnu (serveur sans timings, ex. moteur MoE) : on n'affiche que la taille.
+  // Débit de lecture inconnu (serveur sans timings) : on n'affiche que la taille.
   if(pt) parts.push(t('chat.prefill')+' '+pt+' '+t('chat.tok_unit')+(s.prompt_per_second ? ' · '+s.prompt_per_second.toFixed(0)+' tok/s' : ''));
   if(s.gen_tokens) parts.push(t('chat.decode')+' '+s.gen_tokens+' '+t('chat.tok_unit')+' · '+(s.gen_per_second||0).toFixed(1)+' tok/s');
   if(!parts.length) return;
@@ -1005,8 +1000,6 @@ async function send(){
   // Garde-fou : le bouton est déjà désactivé, mais l'Entrée passe aussi par ici.
   if(STATUS_SEEN && !MODEL_READY){ toast(t('chat.model_not_ready')); return; }
   const ta=document.getElementById('input'); const text=ta.value.trim();
-  // Message dicté par le mode vocal (24-jean-voice.js) : réponse à l'oral côté serveur.
-  const voiceTurn=!!window.VOICE_SEND; window.VOICE_SEND=false;
   // Un envoi sans texte est légitime s'il porte une pièce jointe (« tiens, regarde »).
   if(!text && !ATTACH.length) return;
   ta.value=''; autoGrow(ta); syncSendBtn();
@@ -1024,7 +1017,7 @@ async function send(){
   if(entry) addMsgFiles(entry.el, attachSent());
   for(let attempt=0; attempt<3; attempt++){
     try{
-      const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,files:files,ctx_used:CTX_USED,mode:MODE,tz:USER_TZ,voice:voiceTurn})});
+      const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,files:files,ctx_used:CTX_USED,mode:MODE,tz:USER_TZ})});
       if(r.status===409 || r.ok) clearAttach();
       if(r.status===409) return;               // déjà en cours (notre envoi a abouti) → OK
       if(r.ok) return;                          // la bulle + les tokens arrivent par le flux

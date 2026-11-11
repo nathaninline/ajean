@@ -70,17 +70,6 @@ func cmdWeb(args []string) error {
 		fmt.Printf("%s front OpenAI public prêt (activation en direct via l'UI ; état: %v)\n", green("[oai]"), oaiPublicEnabled())
 		startAppLink(mux)
 	}
-	// Au démarrage de la machine : le moteur tiers du preset actif
-	// (EXTERNAL_SERVICE) n'est pas « enabled », c'est ajean qui le relance.
-	if s := externalServiceOf(ReadConfig()); s != "" {
-		go func() {
-			if err := syncExternalService(ReadConfig()); err != nil {
-				fmt.Printf("%s service externe: %v\n", red("[ERREUR]"), err)
-			} else {
-				fmt.Printf("%s %s démarré (preset actif)\n", green("[ok]"), s)
-			}
-		}()
-	}
 	// ReadHeaderTimeout : sans lui, une connexion qui n'envoie jamais sa requête
 	// immobilise une goroutine pour toujours — et ce port écoute sur 0.0.0.0.
 	// Surtout PAS de WriteTimeout ici : il couperait les flux SSE du chat, qui
@@ -111,16 +100,9 @@ func newWebMux() *http.ServeMux {
 	// Pré-chauffe les serveurs MCP en tâche de fond : sinon le handshake (plusieurs
 	// secondes pour un serveur lancé via npx) est payé par le premier message.
 	MCPPrewarm()
-	// Un téléchargement de modèle coupé net (crash, restart du service) laisse un
-	// .part orphelin non reprenable : on nettoie au démarrage.
-	cleanStalePartFiles()
 	// Idem pour un envoi de fichier coupé en plein transfert : les sessions vivent
 	// en mémoire, aucun .part ne survit utilement à l'arrêt du process.
 	cleanStaleUploadParts()
-	// Idem pour une installation de moteur : elle meurt avec le process. On
-	// recharge son état pour l'annoncer « interrompue » au lieu de n'afficher
-	// plus rien du tout.
-	lcRestoreOnce.Do(lcRestore)
 	// Reprend une migration de chiffrement mémoire interrompue (crash/coupure).
 	// Sans DEK en RAM (démarrage à froid), laisse le journal en place : un
 	// déverrouillage ultérieur la reprendra. Ne perd jamais de données.
@@ -184,62 +166,17 @@ func newWebMux() *http.ServeMux {
 	// api enregistre une route /api/* protégée par la clé de pilotage (web_auth.go).
 	api := func(path string, h http.HandlerFunc) { mux.HandleFunc(path, requireWebAuth(h)) }
 	api("/api/ping", handlePing)
-	registerAppRoutes(api) // apps créées par l'IA (apps_web.go)
+	registerAppRoutes(api)     // apps créées par l'IA (apps_web.go)
+	registerServiceRoutes(api) // services système (services_cli.go)
 	api("/api/status", handleStatus)
-	api("/api/service/log", handleServiceLog) // journal du service pour diagnostiquer un modèle qui ne charge pas
 	api("/api/vram", handleVram)
 	api("/api/ram", handleRam)
 	api("/api/telemetry", handleTelemetry) // VRAM+RAM en un seul appel (réduit le polling de l'UI)
 	api("/api/config", handleConfigEnv)
-	api("/api/engine/cmdline", handleEngineCmdline) // commande llama-server du dernier lancement (#108)
-	api("/api/model/layers", handleModelLayers)     // nombre de couches du modèle (#43)
-	api("/api/reasoning", handleReasoning)          // change l'effort de réflexion à chaud (raccourci composeur)
-	api("/api/catalog", handleCatalog)
+	api("/api/reasoning", handleReasoning) // change l'effort de réflexion à chaud (raccourci composeur)
 	api("/api/paths", handlePaths)
 	api("/api/update", handleUpdateCheck)
 	api("/api/update/apply", handleUpdateApply)
-	api("/api/models", handleModels)
-	api("/api/models/delete", handleModelDelete)
-	api("/api/models/dirs", handleModelDirs) // dossiers de modèles (disque externe…)
-	api("/api/models/download", handleModelDownload)
-	api("/api/models/download/probe", handleModelDownloadProbe) // taille + espace libre avant de lancer
-	api("/api/models/download/status", handleModelDownloadStatus)
-	api("/api/models/download/cancel", handleModelDownloadCancel)
-	api("/api/models/download/pause", handleModelDownloadPause)
-	api("/api/backends", handleBackends)
-	api("/api/backends/custom", handleBackendsCustom)                    // backends custom uniquement (hors ⚡/🔧)
-	api("/api/backends/devices", handleBackendDevices)                   // GPU vus par CE moteur (noms/ordre propres au backend)
-	api("/api/llamacpp", handleLlamacpp)                                 // statut du backend llama.cpp
-	api("/api/llamacpp/check", handleLlamacppCheck)                      // git fetch + retard sur origin
-	api("/api/llamacpp/install", handleLlamacppInstall)                  // job : clone + build + BIN
-	api("/api/llamacpp/install-custom", handleLlamacppInstallCustom)     // job : clone d'un fork depuis une URL Git (par preset, sans BIN global)
-	api("/api/llamacpp/uninstall-custom", handleLlamacppUninstallCustom) // supprime un backend custom (backends/<name>)
-	api("/api/llamacpp/update", handleLlamacppUpdate)                    // job : pull + rebuild + restart
-	api("/api/llamacpp/job", handleLlamacppJob)                          // progression + logs du job
-	api("/api/llamacpp/job/dismiss", handleLlamacppJobDismiss)           // masque un job terminé (l'erreur ne revient plus au démarrage)
-	api("/api/llamacpp/job/cancel", handleLlamacppJobCancel)             // arrête un job en cours (tue cmake/ninja/compilateur)
-	api("/api/llamacpp/prebuilt", handleLlamacppPrebuilt)                // job : binaires officiels précompilés
-	api("/api/llamacpp/prebuilt/check", handleLlamacppPrebuiltCheck)     // dernière release officielle vs installée
-	api("/api/llamacpp/use", handleLlamacppUse)                          // bascule BIN entre versions déjà installées
-	api("/api/moe", handleMoe)                                           // moteur MoE : machine, catalogue figé, recommandation, modèles installés
-	api("/api/moe/install", handleMoeInstall)                            // job : paquet figé + installeur du moteur + preset (suivi par /api/llamacpp/job)
-	api("/api/moe/settings", handleMoeSettings)
-	api("/api/exl3", handleExl3)                    // moteur ExLlama : machine, version installée (?check=1 : dernière version), modèles EXL3
-	api("/api/exl3/install", handleExl3Install)     // job : installation ({latest:false}, commit validé) ou mise à jour ({latest:true})
-	api("/api/exl3/uninstall", handleExl3Uninstall) // retire le moteur (garde les modèles)
-	api("/api/exl3/download", handleExl3Download)   // job : télécharge une branche d'un dépôt EXL3 Hugging Face dans models/exl3                          // réglages d'un modèle MoE installé (relance s'il est actif)
-	api("/api/presets", handlePresets)
-	api("/api/presets/order", handlePresetsOrder)
-	api("/api/preset", handlePreset)
-	api("/api/preset/save", handlePresetSave)
-	api("/api/preset/delete", handlePresetDelete)
-	api("/api/preset/external", handlePresetExternal)          // lire un preset externe (préremplissage modale)
-	api("/api/preset/external/save", handlePresetExternalSave) // créer/éditer un preset externe
-	api("/api/preset/external/test", handlePresetExternalTest) // tester la connexion à l'API distante
-	api("/api/cloud/accounts", handleCloudAccounts)            // comptes Modal (profils CLI) pour les presets GPU cloud
-	api("/api/cloud/accounts/add", handleCloudAccountAdd)      // connecter un compte Modal (flux web, renvoie le lien)
-	api("/api/cloud/runtime", handleCloudRuntime)              // composant GPU cloud (Python + client Modal privés)
-	api("/api/cloud/billing", handleCloudBilling)              // crédit / conso du mois d'un compte Modal
 	api("/api/agent", handleAgent)
 	api("/api/agent/toggle", handleAgentToggle)
 	api("/api/agent/compact", handleCompactToggle)
@@ -262,8 +199,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/mcp/timeouts", handleMCPTimeouts)
 	api("/api/mcp/timeouts/save", handleMCPTimeoutsSave)
 	api("/api/memory", handleMemoryMode)
-	api("/api/network", handleNetwork) // écoute LAN du moteur + pare-feu (Windows)
-	api("/api/open", handleOpenURL)    // ouvre un lien externe dans le navigateur choisi (la fenêtre AJEAN ne bouge pas)
+	api("/api/open", handleOpenURL) // ouvre un lien externe dans le navigateur choisi (la fenêtre AJEAN ne bouge pas)
 	api("/api/prefs", handleWebPrefs)
 	api("/api/sysprompt", handleSysPrompt)
 	// Alias rétro-compat : l'ancien portail ajean.link (dépôt ajean-relay) pilote
@@ -302,21 +238,14 @@ func newWebMux() *http.ServeMux {
 	api("/api/backup/now", handleBackupNow)         // sauvegarde immédiate (abonné)
 	api("/api/backup/restore", handleBackupRestore) // restauration depuis le relais
 	api("/api/backup/auto", handleBackupAuto)       // active/désactive l'auto
-	api("/api/switch", handleSwitch)
-	api("/api/loadflags/migrate", handleLoadFlagsMigrate) // nettoie --mlock/--no-mmap → --load-mode (llama.cpp récent)
-	api("/api/start", svcHandler("start"))
-	api("/api/stop", svcHandler("stop"))
-	api("/api/restart", svcHandler("restart"))
 	api("/api/bench", handleBench)
 	api("/api/bench/last", handleBenchLast)
+	api("/api/bench/progress", handleBenchProgress)
+	api("/api/stt", handleSTT)
+	api("/api/stt/settings", handleSTTSettings)
+	api("/api/stt/models", handleSTTModels)
 	api("/api/chat", handleChat)                               // flux d'ABONNEMENT (SSE) : rejoue + suit le fil
 	api("/api/chat/send", handleChatSend)                      // envoie un message (lance la génération détachée)
-	api("/api/voice/status", handleVoiceStatus)                // voix du mode Jean réglée ? (voice.go)
-	api("/api/voice/stt", handleVoiceSTT)                      // audio dicté -> texte (relais audio.cpp)
-	api("/api/voice/tts", handleVoiceTTS)                      // texte -> audio de la voix de Jean
-	api("/api/voice/settings", handleVoiceSettings)            // réglages voix (GET / POST)
-	api("/api/voice/design", handleVoiceDesign)                // crée une voix à partir d'une description
-	api("/api/voice/delete", handleVoiceDelete)                // retire une voix de la bibliothèque
 	api("/api/chat/upload", handleChatUpload)                  // dépose un fichier dans le workspace agent (joint au message suivant)
 	api("/api/chat/file", handleChatFile)                      // télécharge un fichier produit par l'agent (dossier de travail only)
 	api("/api/chat/stop", handleChatStop)                      // interrompt la génération en cours

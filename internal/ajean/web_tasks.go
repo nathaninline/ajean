@@ -36,13 +36,8 @@ func handleTasks(w http.ResponseWriter, r *http.Request) {
 			runningID = sid
 		}
 	}
-	// Presets (id + nom + actif) pour peupler le sélecteur du formulaire de tâche.
-	presets := []map[string]any{}
-	if list, err := ListPresets(); err == nil {
-		for _, p := range list {
-			presets = append(presets, map[string]any{"id": p.ID, "name": p.Name, "active": p.Active})
-		}
-	}
+	// Modèles (id + nom + actif) pour peupler le sélecteur du formulaire de tâche.
+	presets := modelChoices()
 	// Scripts durables disponibles, pour le sélecteur d'une tâche « script seul ».
 	scripts, _ := listScripts()
 	if scripts == nil {

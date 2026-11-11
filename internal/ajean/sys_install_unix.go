@@ -46,7 +46,7 @@ func cmdInstall(args []string) error {
 
 	fmt.Printf("Installation pour utilisateur %s\n", cyan(targetUser))
 	fmt.Printf("  AJEAN_HOME = %s\n", ajeanHome)
-	fmt.Printf("  services   = %s + %s\n", serviceName(), uiUnitName)
+	fmt.Printf("  service    = %s\n", uiUnitName)
 
 	// 1. Arborescence + configuration de départ.
 	if err := provisionDataDir(); err != nil {
@@ -80,18 +80,15 @@ func cmdInstall(args []string) error {
 		return err
 	}
 
-	// 5. AJEAN_HOME appartient à l'utilisateur cible : les deux services et les
+	// 5. AJEAN_HOME appartient à l'utilisateur cible : l'interface, les modèles et les
 	//    commandes qu'il tape doivent pouvoir écrire dans la base.
 	chown(ajeanHome, u)
 
 	fmt.Println()
 	fmt.Printf("%s installation terminée.\n", green("[ok]"))
 	fmt.Printf("\nProchaines étapes :\n")
-	fmt.Printf("  1. installe le moteur :  %s   (compile llama.cpp, renseigne BIN)\n", bold("sudo -u "+targetUser+" ajean llamacpp install"))
-	fmt.Printf("  2. choisis le modèle :   %s   (renseigne MODEL, un fichier .gguf)\n", bold("sudo -u "+targetUser+" ajean edit"))
-	fmt.Printf("  3. démarre le moteur :   %s\n", bold("sudo ajean start"))
-	fmt.Printf("  4. vérifie :             %s\n", bold("ajean test"))
-	fmt.Printf("  5. démarre l'interface : %s   (http://localhost:8090)\n", bold("sudo ajean ui start"))
+	fmt.Printf("  1. démarrer l'interface : %s   (http://localhost:8090)\n", bold("sudo ajean ui start"))
+	fmt.Printf("  2. ajouter un modèle :    section Presets, bouton +  (voir docs/moteurs.md)\n")
 	return nil
 }
 
@@ -168,7 +165,7 @@ func cmdUninstall(args []string) error {
 			fmt.Printf("  %s %s\n", green("✓"), p)
 		}
 	}
-	fmt.Println(dim("(données utilisateur conservées — supprime $AJEAN_HOME manuellement si tu veux purger)"))
+	fmt.Println(dim("(données et services des modèles conservés ; supprimer $AJEAN_HOME à la main pour tout effacer)"))
 	fmt.Println(green("[ok]") + " désinstallé")
 	return nil
 }

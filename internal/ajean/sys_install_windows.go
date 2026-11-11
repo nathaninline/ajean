@@ -12,16 +12,14 @@ import (
 )
 
 // On Windows there's no systemd unit, sudoers, or /usr/local/bin to populate.
-// `ajean install` simply provisions the data directory and a starter config; the
-// service itself is managed by the PID-file supervisor in sys_service_windows.go
-// (ajean start / stop / status), which needs no admin rights.
+// `ajean install` provisions the data directory and puts the binary on the PATH.
+// Models are Windows services created on demand (services_windows.go).
 
 func cmdInstall(args []string) error {
 	ajeanHome := AjeanHome()
 
 	fmt.Printf("Installation (Windows)\n")
 	fmt.Printf("  AJEAN_HOME = %s\n", ajeanHome)
-	fmt.Printf("  service   = %s\n", serviceName())
 
 	// 1. Arborescence + configuration de départ (partagé avec le premier
 	//    lancement de l'app, voir sys_datadir.go).
@@ -55,9 +53,8 @@ func cmdInstall(args []string) error {
 	fmt.Println()
 	fmt.Printf("%s installation terminée.\n", green("[ok]"))
 	fmt.Printf("\nProchaines étapes :\n")
-	fmt.Printf("  1. édite la config :   %s   (renseigne BIN, MODEL)\n", bold("ajean edit"))
-	fmt.Printf("  2. démarre le service: %s\n", bold("ajean start"))
-	fmt.Printf("  3. UI web :            %s\n", bold("ajean web"))
+	fmt.Printf("  1. UI web :            %s\n", bold("ajean web"))
+	fmt.Printf("  2. ajouter un modèle : section Presets, bouton +  (voir docs/moteurs.md)\n")
 	if onPath {
 		fmt.Printf("\n%s ouvre un NOUVEAU terminal pour que 'ajean' soit reconnu (le PATH n'est lu qu'au démarrage du shell).\n", dim("[info]"))
 	} else {

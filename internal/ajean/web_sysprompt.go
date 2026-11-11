@@ -27,6 +27,9 @@ func readSysPrompt() string {
 
 // activePresetID renvoie l'id du preset actif ("" si aucun / indéterminé).
 func activePresetID() string {
+	if s := explicitChatService(); s != nil {
+		return s.promptKey()
+	}
 	list, err := ListPresets()
 	if err != nil {
 		return ""
@@ -43,6 +46,9 @@ func activePresetID() string {
 // par tour (turn_done) pour que la ligne d'état sous chaque réponse indique le preset
 // qui a RÉELLEMENT répondu, même après un changement de preset ou au rechargement.
 func activePresetName() string {
+	if s := explicitChatService(); s != nil {
+		return s.Name
+	}
 	list, err := ListPresets()
 	if err != nil {
 		return ""

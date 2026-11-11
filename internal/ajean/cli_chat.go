@@ -188,10 +188,10 @@ func waitEngineQuiet() error {
 	if healthCheck() {
 		return nil
 	}
-	if msg := modelLoadError(); msg != "" {
+	if msg := chatModelLoadError(); msg != "" {
 		return errors.New(msg)
 	}
-	return fmt.Errorf("moteur injoignable sur :%d (ajean start pour le lancer)", LLMPort())
+	return fmt.Errorf("modèle injoignable sur :%d (ajean start pour le lancer)", LLMPort())
 }
 
 func (s *chatSession) interactive(first string) error {
@@ -298,22 +298,14 @@ func (s *chatSession) banner() {
 }
 
 func chatModelName() string {
+	if sv := explicitChatService(); sv != nil {
+		return sv.Name
+	}
 	cfg := ReadConfig()
-	if isExternalConfig(cfg) {
-		if m := cfg["EXTERNAL_MODEL"]; m != "" {
-			return m
-		}
+	if m := cfg["EXTERNAL_MODEL"]; m != "" {
+		return m
 	}
-	if id := activePresetID(); id != "" {
-		if list, err := ListPresets(); err == nil {
-			for _, p := range list {
-				if p.ID == id {
-					return p.Name
-				}
-			}
-		}
-	}
-	return strings.TrimSuffix(filepath.Base(cfg["MODEL"]), ".gguf")
+	return "?"
 }
 
 // ensureEngine : attend que le modèle réponde, en proposant de démarrer le
@@ -323,8 +315,13 @@ func (s *chatSession) ensureEngine() bool {
 		return true
 	}
 	ui := s.ui
-	if !serviceIsActive() {
-		fmt.Fprint(ui.out, "\n"+yellow("●")+" Le moteur est arrêté. Le démarrer ? "+dim("[O/n] "))
+	sv := explicitChatService()
+	if sv == nil {
+		fmt.Fprint(ui.out, dim("Aucun modèle choisi : « ajean service use <id> », puis relancer « ajean chat ».")+"\n")
+		return false
+	}
+	if st := osSvcStateOf(sv); st != "active" && st != "activating" {
+		fmt.Fprint(ui.out, "\n"+yellow("●")+" "+sv.Name+" est arrêté. Le démarrer ? "+dim("[O/n] "))
 		k, ok := <-ui.keys
 		if !ok {
 			return false
@@ -332,11 +329,11 @@ func (s *chatSession) ensureEngine() bool {
 		yes := k.kind == keyEnter || (k.kind == keyRune && strings.ContainsRune("oOyY", k.r))
 		fmt.Fprint(ui.out, "\n")
 		if !yes {
-			fmt.Fprint(ui.out, dim("Lance-le avec « ajean start », puis relance « ajean chat ».")+"\n")
+			fmt.Fprint(ui.out, dim("Le démarrer avec « ajean start », puis relancer « ajean chat ».")+"\n")
 			return false
 		}
 		var err error
-		ui.cooked(func() { err = serviceAction("start") })
+		ui.cooked(func() { err = StartService(sv.ID, StartOptions{}) })
 		if err != nil {
 			fmt.Fprint(ui.out, red("✗ "+err.Error())+"\n")
 			return false
@@ -364,7 +361,7 @@ func (s *chatSession) waitReady(label string) bool {
 			if healthCheck() {
 				return true
 			}
-			if msg := modelLoadError(); msg != "" {
+			if msg := chatModelLoadError(); msg != "" {
 				ui.spinStop()
 				fmt.Fprint(ui.out, red("✗ "+msg)+"\n")
 				return false
@@ -690,9 +687,9 @@ func (s *chatSession) transcript() string {
 
 func (s *chatSession) modelCommand(arg string) {
 	ui := s.ui
-	list, err := ListPresets()
+	list, err := ListServiceStatus()
 	if err != nil || len(list) == 0 {
-		ui.note("aucun preset trouvé")
+		ui.note("aucun modèle (ajean service add)")
 		return
 	}
 	if arg == "" {
@@ -700,12 +697,12 @@ func (s *chatSession) modelCommand(arg string) {
 		for i, p := range list {
 			mark := "  "
 			name := p.Name
-			if p.Active {
+			if p.Chat {
 				mark, name = accent("● "), bold(p.Name)
 			}
 			b.WriteString(fmt.Sprintf("  %s%s %s\n", mark, dim(fmt.Sprintf("%2d", i+1)), name))
 		}
-		b.WriteString(dim("  /model <n°> pour basculer (le modèle est rechargé)") + "\n")
+		b.WriteString(dim("  /model <n°> pour basculer (le modèle est démarré si besoin)") + "\n")
 		fmt.Fprint(ui.out, b.String())
 		return
 	}
@@ -714,32 +711,13 @@ func (s *chatSession) modelCommand(arg string) {
 		ui.note("numéro invalide (/model pour la liste)")
 		return
 	}
-	if list[n-1].Active {
-		ui.note(list[n-1].Name + " est déjà actif")
+	target := list[n-1]
+	if target.Chat && target.Ready {
+		ui.note(target.Name + " est déjà actif")
 		return
 	}
-	ui.spinStart("Bascule sur " + list[n-1].Name)
-	// Même logique que l'UI web (handleSwitch) : preset externe = on arrête le
-	// moteur local au lieu de le redémarrer (il n'a pas de modèle à charger).
-	ui.cooked(func() {
-		devnull, _ := os.Open(os.DevNull)
-		old := os.Stdout
-		if devnull != nil {
-			os.Stdout = devnull
-			defer devnull.Close()
-		}
-		defer func() { os.Stdout = old }()
-		if err = applyPresetFile(list[n-1].Path); err != nil {
-			return
-		}
-		if isExternalConfig(ReadConfig()) {
-			if serviceIsActive() {
-				err = serviceAction("stop")
-			}
-			return
-		}
-		err = serviceAction("restart")
-	})
+	ui.spinStart("Bascule sur " + target.Name)
+	ui.cooked(func() { err = StartAndUse(target.ID, StartOptions{}) })
 	ui.spinStop()
 	if err != nil {
 		ui.errorLine(err.Error())
@@ -749,11 +727,7 @@ func (s *chatSession) modelCommand(arg string) {
 		s.ctxMax = v
 	}
 	s.ctxUsed = 0
-	// API externe : rien à attendre. GPU cloud : on attend le déploiement
-	// (healthCheck suit cloudReady), comme un modèle local qui charge.
-	if isExternalConfig(ReadConfig()) || s.waitReady("Chargement de "+list[n-1].Name) {
-		ui.note("modèle actif : " + chatModelName())
-	}
+	ui.note("modèle actif : " + chatModelName())
 }
 
 // ─── rendu ─────────────────────────────────────────────────────────────────

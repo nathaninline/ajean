@@ -13,8 +13,6 @@ import (
 	"math/big"
 	"net"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -29,8 +27,8 @@ import (
 // Principe : le SaaS parle HTTPS OpenAI standard vers <machine>.oai.ajean.link.
 // Le VPS relais ne fait que recopier les octets TLS bruts (routage par SNI, sans
 // déchiffrer). C'est ICI, sur l'agent, que le TLS est terminé — avec un cert dont
-// la clé privée ne quitte JAMAIS cette machine — puis proxifié vers llama-server
-// local (/v1). Un attaquant qui possède le VPS ne voit donc que du chiffré.
+// la clé privée ne quitte JAMAIS cette machine, puis proxifié vers le modèle du
+// chat (/v1). Un attaquant qui possède le VPS ne voit donc que du chiffré.
 //
 // Certificat : Let's Encrypt via challenge TLS-ALPN-01 servi À TRAVERS LE TUNNEL
 // (l'agent est derrière CGNAT, mais le VPS forwarde la validation jusqu'à lui).
@@ -40,27 +38,15 @@ import (
 // oaiSuffix est le domaine sous lequel on autorise l'émission de certificats.
 const oaiSuffix = ".oai.ajean.link"
 
-// oaiHandler construit le reverse-proxy vers llama-server, restreint à la surface
-// compatible OpenAI. On NE touche PAS à l'en-tête Authorization : le SaaS envoie
-// la vraie clé (.api_key), que llama-server valide lui-même (--api-key).
+// oaiHandler construit le reverse-proxy vers le modèle du chat, restreint à la
+// surface compatible OpenAI. On NE touche PAS à l'en-tête Authorization : le SaaS
+// envoie la clé du modèle, que le modèle valide lui-même.
 func oaiHandler() http.Handler {
-	llama := &url.URL{Scheme: "http", Host: fmt.Sprintf("127.0.0.1:%d", LLMPort())}
-	lp := httputil.NewSingleHostReverseProxy(llama)
-	lp.FlushInterval = -1 // streaming SSE des complétions
-	base := lp.Director
-	lp.Director = func(req *http.Request) {
-		base(req)
-		// Host local : certains moteurs refusent (403) <machine>.oai.ajean.link, un nom qu'ils ne
-		// connaissent pas (protection DNS rebinding).
-		req.Host = llama.Host
-	}
-	lp.ErrorHandler = func(w http.ResponseWriter, r *http.Request, e error) {
-		http.Error(w, "llama-server injoignable: "+e.Error(), http.StatusBadGateway)
-	}
+	lp := localModelProxy(false)
 	ant := anthropicHandler()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := r.URL.Path
-		if isAnthropicPath(p) { // Claude Code : traduit vers le preset actif
+		if isAnthropicPath(p) { // Claude Code : traduit vers le modèle du chat
 			ant.ServeHTTP(w, r)
 			return
 		}
@@ -260,10 +246,10 @@ func cmdOAI(args []string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("[ajean oai] front TLS (test, auto-signé) https://%s:%d/v1 → llama :%d\n", host, port, LLMPort())
+		fmt.Printf("[ajean oai] front TLS (test, auto-signé) https://%s:%d/v1 → modèle :%d\n", host, port, LLMPort())
 		return runOAIFront(ln, tlsCfg)
 	default:
-		fmt.Println("usage: ajean oai serve [port] [host]   (front TLS de test → llama /v1)")
+		fmt.Println("usage: ajean oai serve [port] [host]   (front TLS de test → modèle /v1)")
 		fmt.Println("  en prod, le front TLS est servi automatiquement dans le tunnel (ajean link)")
 		fmt.Println("  quand AJEAN_LINK_ALLOW_OAI=1 ; cert Let's Encrypt via TLS-ALPN-01.")
 		return nil

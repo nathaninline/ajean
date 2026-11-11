@@ -203,24 +203,20 @@ func expandVideoRefs(msgs []Message) []Message {
 	return out
 }
 
-// videoInputSupported : le moteur actif sait-il lire une partie input_video ?
+// videoInputSupported : le modèle du chat sait-il lire une partie input_video ?
 // Seul un llama.cpp local récent (option --video-fps, décodage par ffmpeg) le
-// fait. Une API externe ou un moteur MoE IGNORE la partie sans erreur : le modèle ne
-// recevait que le texte et cherchait à voir la vidéo avec see_image. Résultat
-// mémoïsé par binaire (le --help coûte un lancement de processus).
+// fait. Une API externe ou un autre serveur IGNORE la partie sans erreur : le
+// modèle ne recevait que le texte et cherchait à voir la vidéo avec see_image.
+// Résultat mémoïsé par binaire (le --help coûte un lancement de processus).
 var videoInputSupported = func() bool {
-	cfg := ReadConfig()
-	if isExternalConfig(cfg) || isCloudConfig(cfg) || strings.TrimSpace(cfg["MMPROJ"]) == "" {
+	sv := explicitChatService()
+	if sv == nil || !sv.Local() || !sv.Vision {
 		return false
 	}
-	bin := strings.TrimSpace(cfg["BIN"])
+	bin := serviceLlamaServer(sv)
 	if bin == "" {
 		return false
 	}
-	if !filepath.IsAbs(bin) {
-		bin = filepath.Join(AjeanHome(), bin)
-	}
-	bin = prebuiltResolveBin(bin)
 	key := bin
 	if st, err := os.Stat(bin); err == nil {
 		key += "\x00" + st.ModTime().String()

@@ -288,8 +288,6 @@ type Caps struct {
 	// projets (profil toujours injecté, fiches, journal cherchable). Voir
 	// jean_memory.go.
 	Jean bool
-	// Voice = message dicté (mode vocal) : la réponse sera lue à voix haute. Voir voice.go.
-	Voice bool
 }
 
 // globalCaps reads the machine-wide config — the default when a request doesn't
@@ -845,7 +843,7 @@ const thinkClose = "</think>"
 // keeps the trace of what it already read/ran across user turns — otherwise it
 // re-invokes the same skill/command every turn (it has no memory of having done
 // it) and can confabulate paths/results it can no longer see.
-// friendlyLLMError transforme une erreur de transport vers llama-server en un
+// friendlyLLMError transforme une erreur de transport vers le modèle en un
 // message clair. Le cas le plus fréquent — « connection refused » (Linux) /
 // « actively refused » (Windows) — arrive quand le moteur redémarre ou charge
 // encore le modèle ; l'erreur brute (« dial tcp 127.0.0.1:8080… ») ne dit rien à
@@ -866,7 +864,7 @@ func friendlyLLMError(err error) error {
 	case errors.Is(err, syscall.ECONNREFUSED):
 		return errEngineDown()
 	case errors.Is(err, context.DeadlineExceeded), isNetTimeout(err):
-		return fmt.Errorf("⚠️ Le moteur (llama-server) met trop de temps à répondre (port %d) — il est peut-être surchargé ou en plein chargement. Réessaie dans un instant.", LLMPort())
+		return errEngineSlow()
 	case errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, syscall.ECONNRESET):
 		return errEngineReset()
 	}
@@ -877,19 +875,43 @@ func friendlyLLMError(err error) error {
 	case strings.Contains(low, "connection refused"), strings.Contains(low, "actively refused"), strings.Contains(low, "connectex"), strings.Contains(low, "no connection could be made"):
 		return errEngineDown()
 	case strings.Contains(low, "timeout"), strings.Contains(low, "deadline exceeded"):
-		return fmt.Errorf("⚠️ Le moteur (llama-server) met trop de temps à répondre (port %d) — il est peut-être surchargé ou en plein chargement. Réessaie dans un instant.", LLMPort())
+		return errEngineSlow()
 	case strings.Contains(low, "eof"), strings.Contains(low, "connection reset"):
 		return errEngineReset()
 	}
 	return err
 }
 
+// chatModelDesc : « le modèle « Nom » (adresse) » pour les messages d'erreur.
+// Depuis la 0.19 le chat parle à un service (local ou distant), plus à un
+// llama-server qu'AJEAN aurait lancé : le message nomme le service choisi.
+func chatModelDesc() string {
+	sv := explicitChatService()
+	if sv == nil {
+		return fmt.Sprintf("le modèle (port %d)", LLMPort())
+	}
+	where := strings.TrimSpace(sv.URL)
+	if p := localPort(sv); p != "" {
+		where = "port " + p
+	}
+	if where == "" {
+		return fmt.Sprintf("le modèle « %s »", sv.Name)
+	}
+	return fmt.Sprintf("le modèle « %s » (%s)", sv.Name, where)
+}
+
 func errEngineDown() error {
-	return fmt.Errorf("⚠️ Le moteur (llama-server) ne répond pas sur le port %d. Il est probablement en train de démarrer ou de charger le modèle — réessaie dans quelques secondes.", LLMPort())
+	d := chatModelDesc()
+	return fmt.Errorf("⚠️ %s ne répond pas. Il est probablement en train de démarrer ou de charger : réessayer dans quelques secondes, ou le démarrer depuis la liste des modèles.", strings.ToUpper(d[:1])+d[1:])
+}
+
+func errEngineSlow() error {
+	d := chatModelDesc()
+	return fmt.Errorf("⚠️ %s met trop de temps à répondre : il est peut-être surchargé ou en plein chargement. Réessayer dans un instant.", strings.ToUpper(d[:1])+d[1:])
 }
 
 func errEngineReset() error {
-	return fmt.Errorf("⚠️ Connexion au moteur (llama-server, port %d) interrompue — il a peut-être redémarré. Réessaie.", LLMPort())
+	return fmt.Errorf("⚠️ Connexion interrompue avec %s : il a peut-être redémarré. Réessayer.", chatModelDesc())
 }
 
 // streamCutError explique un flux de complétion coupé en cours de route. Cas à
@@ -898,9 +920,9 @@ func errEngineReset() error {
 // répond pas » évite d'envoyer l'utilisateur vérifier un moteur qui va bien.
 func streamCutError(err error) error {
 	if errors.Is(err, bufio.ErrTooLong) {
-		return fmt.Errorf("⚠️ Réponse du moteur illisible : une ligne du flux dépasse la taille maximale (%d Mio). C'est presque toujours un appel d'outil démesuré (écriture d'un très gros fichier). Le tour est abandonné pour ne pas exécuter un appel tronqué.", 8)
+		return fmt.Errorf("⚠️ Réponse du modèle illisible : une ligne du flux dépasse la taille maximale (%d Mio). C'est presque toujours un appel d'outil démesuré (écriture d'un très gros fichier). Le tour est abandonné pour ne pas exécuter un appel tronqué.", 8)
 	}
-	return fmt.Errorf("⚠️ Le flux de réponse du moteur (llama-server, port %d) a été coupé en cours de route : %v. La réponse est incomplète et le tour est abandonné — réessaie.", LLMPort(), err)
+	return fmt.Errorf("⚠️ Le flux de réponse du modèle a été coupé en cours de route : %v. La réponse est incomplète et le tour est abandonné. Réessayer.", err)
 }
 
 // streamRetryable : la reprise automatique ne vaut que pour une API distante
@@ -1073,8 +1095,8 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 			return extra, err
 		}
 		req.Header.Set("Content-Type", "application/json")
-		// Local : clé Bearer de llama-server (authHeader). Externe : clé de l'API
-		// distante portée par le preset.
+		// Local : clé du modèle du chat (authHeader). Externe : clé de l'API
+		// distante portée par le modèle.
 		if ep.External {
 			if ep.Key != "" {
 				req.Header.Set("Authorization", "Bearer "+ep.Key)
@@ -1163,7 +1185,7 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				messages = append(messages, Message{Role: "user", Content: "Do not call any more tools. Answer now, directly, in the user's language, using only the information already gathered."})
 				continue
 			}
-			err := fmt.Errorf("llama-server a renvoyé %d : %s", resp.StatusCode, msg)
+			err := fmt.Errorf("le modèle a renvoyé %d : %s", resp.StatusCode, msg)
 			cb(StreamEvent{Err: err})
 			return extra, err
 		}
@@ -2025,9 +2047,7 @@ func healthCheck() bool {
 	// de complétion, avec un message d'erreur clair si elle échoue. Sans ce
 	// court-circuit, StartTurn refuserait tout tour (aucun /health local).
 	cfg := ReadConfig()
-	if isCloudConfig(cfg) {
-		return cloudReady(cfg)
-	} else if isExternalConfig(cfg) {
+	if isExternalConfig(cfg) {
 		return true
 	}
 	resp, err := healthClient.Get(fmt.Sprintf("http://localhost:%d/health", LLMPort()))

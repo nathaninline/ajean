@@ -2,7 +2,6 @@ package ajean
 
 import (
 	"os"
-	"runtime"
 )
 
 // sys_datadir.go — création du dossier de données, identique sur les trois
@@ -11,27 +10,20 @@ import (
 // modèle de config.env : quatre copies qui divergeaient à la première
 // modification. Il n'y en a plus qu'une.
 
-// dataDirs est l'arborescence complète de $AJEAN_HOME. Rien d'autre n'y est
-// créé : tout le reste vit dans ajean.db.
+// dataDirs est l'arborescence de $AJEAN_HOME. Rien d'autre n'y est créé : les
+// réglages vivent dans ajean.db, les modèles dans services.json. Les dossiers
+// presets/ et backends/ d'une 0.18 restent en place s'ils existent, mais une
+// installation neuve ne les reçoit plus.
 func dataDirs() []string {
-	return []string{AjeanHome(), backendsDir(), binDir(), presetsDir(), memoryDir(), modelsDir(), workspaceDir(), scriptsDir()}
+	return []string{AjeanHome(), binDir(), memoryDir(), modelsDir(), workspaceDir(), scriptsDir()}
 }
 
-// defaultConfig est la configuration de départ d'une installation neuve. Les
-// valeurs sont volontairement incomplètes (BIN et MODEL sont vides) : c'est
-// l'écran d'accueil, ou « ajean llamacpp install », qui les renseigne.
+// defaultConfig est la configuration de départ d'une installation neuve. Elle
+// reste minimale : le modèle du chat se choisit dans l'interface (Modèles).
 func defaultConfig() map[string]string {
-	host := "0.0.0.0"
-	if runtime.GOOS == "windows" {
-		host = "127.0.0.1"
-	}
 	return map[string]string{
-		"PORT":   "8080",
-		"HOST":   host,
-		"CTX":    "32768",
-		"BATCH":  "2048",
-		"UBATCH": "512",
-		"NGL":    "999",
+		"PORT": "8080",
+		"CTX":  "32768",
 	}
 }
 

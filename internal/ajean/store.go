@@ -29,7 +29,7 @@ import (
 // Buckets. Un par nature de donnée : ça garde les itérations bornées et rend le
 // contenu de la base lisible au débogage.
 const (
-	bkConfig   = "config"   // configuration de llama-server (ex-config.env)
+	bkConfig   = "config"   // réglages généraux (ex-config.env) : modèle du chat, contexte…
 	bkPrefs    = "prefs"    // préférences de l'UI web
 	bkState    = "state"    // clés, jetons, drapeaux, listes de dossiers, MCP
 	bkChat     = "chat"     // conversation partagée
@@ -48,7 +48,7 @@ const (
 // bbolt pose un verrou EXCLUSIF sur son fichier tant qu'il est ouvert. Or une
 // machine installée fait tourner en permanence le service de lien, qui sert le
 // tunnel et l'UI : s'il gardait la base ouverte, plus une seule commande ne
-// fonctionnerait à côté — « ajean status », « ajean switch », « ajean edit »
+// fonctionnerait à côté — « ajean status », « ajean start », « ajean services »
 // échoueraient toutes sur un délai d'attente, sur la machine même où tout est
 // censé marcher. On ouvre donc pour la durée d'une opération, puis on referme.
 //

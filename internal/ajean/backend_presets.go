@@ -1,15 +1,13 @@
 package ajean
 
 import (
-	"bufio"
 	"crypto/sha1"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 )
 
@@ -24,8 +22,6 @@ type Preset struct {
 	Active bool
 }
 
-var nameLineRe = regexp.MustCompile(`(?mi)^[ \t]*#?[ \t]*NAME[ \t]*=.*$`)
-
 // presetDisplayName extracts the `# NAME=` value from a preset body, falling
 // back to `fallback` (the filename id) when absent — keeps old presets working.
 func presetDisplayName(content, fallback string) string {
@@ -39,16 +35,6 @@ func presetDisplayName(content, fallback string) string {
 		}
 	}
 	return fallback
-}
-
-// withDisplayName ensures the body carries a `# NAME=<name>` line (replacing an
-// existing one, or prepended otherwise).
-func withDisplayName(content, name string) string {
-	line := "# NAME=" + name
-	if nameLineRe.MatchString(content) {
-		return nameLineRe.ReplaceAllString(content, line)
-	}
-	return line + "\n" + content
 }
 
 // configFingerprint réduit une configuration à l'ENSEMBLE TRIÉ de ses
@@ -88,7 +74,6 @@ func isPreservedKey(key string) bool {
 // à la configuration active (clés « appareil » ignorées), triés par nom.
 func ListPresets() ([]Preset, error) {
 	dir := presetsDir()
-	_ = os.MkdirAll(dir, 0o755)
 	cur := configFingerprint(ReadConfig())
 	// Preset explicitement chargé au dernier switch (voir applyPresetFile). Quand il
 	// est renseigné et existe encore, IL décide de l'actif — insensible aux retouches
@@ -96,6 +81,9 @@ func ListPresets() ([]Preset, error) {
 	// version, ou config posée hors switch).
 	activeID := getStr(bkState, "active_preset")
 	entries, err := os.ReadDir(dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return []Preset{}, nil // installation sans ancien preset
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -156,8 +144,6 @@ func loadPresetOrder() []string {
 	return ids
 }
 
-func savePresetOrder(ids []string) error { return putJSON(bkState, "preset_order", ids) }
-
 // applyPresetOrder réordonne `list` (déjà trié par nom) selon l'ordre stocké :
 // d'abord les presets classés dans l'ordre choisi, puis les non classés dans leur
 // ordre alphabétique. Tri STABLE pour préserver l'alphabétique des non classés.
@@ -182,27 +168,6 @@ func applyPresetOrder(list []Preset) []Preset {
 		return false // deux non classés : on garde l'ordre alphabétique
 	})
 	return list
-}
-
-// uniquePresetID derives a unique filename id from a display name, appending
-// " (2)", " (3)"… on collision so duplicate names never overwrite.
-func uniquePresetID(name string) (string, error) {
-	base := strings.TrimSpace(strings.NewReplacer("/", "-", "\\", "-").Replace(name))
-	if base == "" {
-		base = "preset"
-	}
-	cand := base
-	for n := 2; n < 10000; n++ {
-		p, err := safePresetPath(cand)
-		if err != nil {
-			return "", err
-		}
-		if _, err := os.Stat(p); os.IsNotExist(err) {
-			return cand, nil
-		}
-		cand = fmt.Sprintf("%s (%d)", base, n)
-	}
-	return "", fmt.Errorf("impossible de générer un nom de fichier unique")
 }
 
 // validPresetName accepts any name (spaces, accents, parentheses…) as long as it
@@ -288,15 +253,10 @@ var preservedKeys = []string{
 // « cudaMalloc failed: out of memory ». Le preset explicite gagne.
 var softPreservedKeys = map[string]bool{"CUDA_VISIBLE_DEVICES": true, "HOST": true}
 
-// applyPresetFile installe le preset comme configuration active, en réinjectant
-// les réglages « appareil » par-dessus. Séparé de SwitchToPreset pour être
-// testable sans redémarrer le service (donc sans lancer un vrai llama-server).
-func applyPresetFile(target string) error {
-	src, err := os.ReadFile(target)
-	if err != nil {
-		return err
-	}
-	next := parseEnv(string(src))
+// presetEffectiveConfig : la config qu'un preset donne une fois chargé (le
+// preset + les réglages « appareil » de la config courante).
+func presetEffectiveConfig(src string) map[string]string {
+	next := parseEnv(src)
 	// Un preset ExLlama choisit ses cartes par EXL3_GPUS. Une valeur
 	// CUDA_VISIBLE_DEVICES laissée par la 0.18.13 y est reprise, mais ne doit pas
 	// remplacer le réglage machine : il serait ensuite reporté sur les presets
@@ -324,173 +284,7 @@ func applyPresetFile(target string) error {
 		}
 		next[k] = v
 	}
-	if err := WriteConfig(next); err != nil {
-		return err
-	}
-	// Mémorise QUEL preset a été chargé. Le marqueur « actif » se base dessus
-	// (ListPresets), et non plus seulement sur une empreinte de la config vivante :
-	// un réglage à chaud (ex. le raccourci « niveau de réflexion » qui écrit
-	// REASONING_EFFORT) fait diverger la config du fichier preset, ce qui
-	// désélectionnait le preset à tort. L'id explicite survit à ces retouches.
-	_ = putStr(bkState, "active_preset", strings.TrimSuffix(filepath.Base(target), ".env"))
-	return nil
-}
-
-// SwitchToPreset installe le preset et redémarre le service. Les réglages
-// « appareil » (preservedKeys) sont conservés à travers la bascule.
-func SwitchToPreset(target string) error {
-	if err := applyPresetFile(target); err != nil {
-		return err
-	}
-	fmt.Printf("%s configuration <- %s\n", green("[ok]"), filepath.Base(target))
-	fmt.Println(dim("[info] redémarrage du service..."))
-	cfg := ReadConfig()
-	if !isExternalConfig(cfg) {
-		// vers un moteur local : on arrête d'abord le moteur tiers précédent
-		if err := syncExternalService(cfg); err != nil {
-			return err
-		}
-		return serviceAction("restart")
-	}
-	// vers un preset externe : le moteur local s'arrête (restart → stop), puis
-	// son moteur tiers éventuel démarre sur les GPU libérés
-	if err := serviceAction("restart"); err != nil {
-		return err
-	}
-	if err := syncExternalService(cfg); err != nil {
-		return err
-	}
-	if s := externalServiceOf(cfg); s != "" {
-		fmt.Printf("%s %s démarré (chargement du modèle en cours)\n", green("[ok]"), s)
-	}
-	return nil
-}
-
-func cmdSwitch(args []string) error {
-	list, err := ListPresets()
-	if err != nil {
-		return err
-	}
-	if len(list) == 0 {
-		return fmt.Errorf("aucun preset dans %s", presetsDir())
-	}
-	fmt.Printf("\n  %s  (%s)\n\n", cyan("Presets disponibles"), presetsDir())
-	for i, p := range list {
-		mark := " "
-		if p.Active {
-			mark = green("●") + " actif"
-		}
-		fmt.Printf("  %2d) %-30s %s\n", i+1, p.Name, mark)
-	}
-	fmt.Println()
-	choice := ""
-	if len(args) > 0 {
-		choice = args[0]
-	} else {
-		fmt.Print("Numéro à activer (vide = annuler) : ")
-		sc := bufio.NewScanner(os.Stdin)
-		if sc.Scan() {
-			choice = strings.TrimSpace(sc.Text())
-		}
-	}
-	if choice == "" {
-		fmt.Println(dim("[info] annulé"))
-		return nil
-	}
-	n, err := strconv.Atoi(choice)
-	if err != nil || n < 1 || n > len(list) {
-		return fmt.Errorf("choix invalide")
-	}
-	return SwitchToPreset(list[n-1].Path)
-}
-
-// newPresetSeedKeys : les SEULES clés reprises de la configuration active quand
-// on crée un preset. Ce sont des réglages de MACHINE (quel moteur, où il écoute),
-// pas des réglages de modèle.
-//
-// Issue #17 : le nouveau preset repartait d'une copie COMPLÈTE de la config
-// active. Les réglages du modèle précédent (EXTRA_ARGS — --n-cpu-moe,
-// --tensor-split, --flash-attn… — mais aussi CTX, NGL, KV_TYPE, MODEL) se
-// mélangeaient donc aux options cochées pour le nouveau, et il fallait penser à
-// tout nettoyer à la main. On repart d'une base vide : les valeurs non
-// renseignées sont les défauts documentés (CTX 32768, NGL 999, BATCH 2048…).
-var newPresetSeedKeys = []string{"BIN", "HOST", "PORT"}
-
-// newPresetSeed renvoie la configuration de départ d'un preset créé depuis l'UI.
-func newPresetSeed() map[string]string {
-	cur := ReadConfig()
-	seed := map[string]string{}
-	for _, k := range newPresetSeedKeys {
-		if v := cur[k]; v != "" {
-			seed[k] = v
-		}
-	}
-	return seed
-}
-
-// SavePreset writes a preset. When id == "" it creates a NEW preset under a
-// freshly-generated unique filename (so duplicate display names never clash).
-// When id != "" it updates that existing preset in place (filename unchanged —
-// only the body and its `# NAME=` line change). Returns the resulting id.
-func SavePreset(id, name, content string) (string, error) {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return "", fmt.Errorf("nom requis")
-	}
-	content = withDisplayName(content, name)
-	if id == "" {
-		newID, err := uniquePresetID(name)
-		if err != nil {
-			return "", err
-		}
-		p, err := safePresetPath(newID)
-		if err != nil {
-			return "", err
-		}
-		_ = os.MkdirAll(filepath.Dir(p), 0o755)
-		return newID, os.WriteFile(p, []byte(content), 0o644)
-	}
-	p, err := safePresetPath(id)
-	if err != nil {
-		return "", err
-	}
-	_ = os.MkdirAll(filepath.Dir(p), 0o755)
-	old, _ := os.ReadFile(p)
-	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
-		return "", err
-	}
-	// Modifier le preset ACTIF le désélectionne : le fichier enregistré diverge
-	// alors de la config vivante (qui tourne encore l'ancienne définition), il faut
-	// « switcher » pour l'appliquer. On efface l'id d'actif explicite pour que
-	// ListPresets retombe sur l'empreinte, qui verra la divergence. On ne le fait
-	// que sur un vrai changement de config : un simple renommage (seule la ligne
-	// # NAME= bouge, ignorée par l'empreinte) ou un enregistrement à blanc ne
-	// désélectionne pas. Le raccourci « niveau de réflexion » (REASONING_EFFORT)
-	// ne passe pas par ici : il écrit la config vivante, donc reste sélectionné.
-	if id == getStr(bkState, "active_preset") && presetFingerprint(old) != presetFingerprint([]byte(content)) {
-		_ = putStr(bkState, "active_preset", "")
-	}
-	return id, nil
-}
-
-// DeletePreset removes a preset by id; refuses if it is the active config.
-func DeletePreset(id string) error {
-	p, err := safePresetPath(id)
-	if err != nil {
-		return err
-	}
-	target, err := os.ReadFile(p)
-	if err != nil {
-		return fmt.Errorf("introuvable")
-	}
-	if presetFingerprint(target) == configFingerprint(ReadConfig()) {
-		return fmt.Errorf("preset actif, switche d'abord")
-	}
-	if err := os.Remove(p); err != nil {
-		return err
-	}
-	deletePresetBench(id)
-	return nil
+	return next
 }
 
 // ReadPreset returns the contents of a preset by id (filename).

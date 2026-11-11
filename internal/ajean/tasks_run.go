@@ -158,8 +158,8 @@ func runTask(t Task) {
 		return
 	}
 
-	// Preset épinglé : on bascule le moteur dessus AVANT d'exécuter (rechargement du
-	// modèle). Vide = on garde le preset actif. Un échec de bascule est un vrai échec
+	// Modèle épinglé : on bascule le chat dessus AVANT d'exécuter (démarrage du
+	// modèle). Vide = on garde le modèle du chat. Un échec de bascule est un vrai échec
 	// de la tâche (on ne veut pas la faire tourner sur le mauvais modèle).
 	prev := activePresetID()
 	if err := ensureTaskPreset(t.Preset); err != nil {
@@ -239,47 +239,33 @@ func taskCaps(t Task) Caps {
 	return c
 }
 
-// ensureTaskPreset bascule le moteur sur le preset d'id `id` s'il n'est pas déjà
-// actif, puis attend que le modèle ait rechargé. Vide = rien à faire.
+// ensureTaskPreset bascule le chat sur le modèle de référence `id` s'il n'est pas
+// déjà celui du chat, puis attend qu'il soit prêt. Vide = rien à faire.
 func ensureTaskPreset(id string) error {
 	return ensurePreset(id, 4*time.Minute)
 }
 
-// ensurePreset : ensureTaskPreset avec un délai de chargement au choix.
-func ensurePreset(id string, wait time.Duration) error {
-	if id == "" {
+// ensurePreset : ensureTaskPreset avec un délai de chargement au choix. `ref` est
+// la référence d'un modèle (promptKey : id de son ancien preset, ou svc-<id>).
+func ensurePreset(ref string, wait time.Duration) error {
+	if ref == "" {
 		return nil
 	}
-	list, err := ListPresets()
-	if err != nil {
-		return err
+	s := serviceByRef(ref)
+	if s == nil {
+		return fmt.Errorf("modèle introuvable : %s", ref)
 	}
-	var target *Preset
-	for i := range list {
-		if list[i].ID == id {
-			target = &list[i]
-			break
-		}
-	}
-	if target == nil {
-		return fmt.Errorf("preset introuvable : %s", id)
-	}
-	if target.Active {
+	if cur := explicitChatService(); cur != nil && cur.ID == s.ID && probeReady(s, 3*time.Second) == nil {
 		return nil
 	}
-	if err := SwitchToPreset(target.Path); err != nil {
+	done := make(chan error, 1)
+	go func() { done <- StartAndUse(s.ID, StartOptions{}) }()
+	select {
+	case err := <-done:
 		return err
+	case <-time.After(wait):
+		return fmt.Errorf("le modèle %s n'a pas fini de charger", s.Name)
 	}
-	// Le service redémarre : on attend que le modèle réponde à nouveau (le
-	// chargement d'un gros modèle peut prendre un moment).
-	deadline := time.Now().Add(wait)
-	for time.Now().Before(deadline) {
-		if healthCheck() {
-			return nil
-		}
-		time.Sleep(3 * time.Second)
-	}
-	return fmt.Errorf("le modèle n'a pas fini de charger après le changement de preset")
 }
 
 // recordTaskEnd met à jour l'état persisté d'une tâche après une exécution :

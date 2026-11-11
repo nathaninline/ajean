@@ -25,8 +25,7 @@ import (
 const maxOpenURLLen = 4096
 
 // openURLExternally lance le navigateur et dit lequel a servi. Variable de paquet
-// pour que les tests n'ouvrent jamais de vraie fenêtre (même motif que
-// firewallInert dans store_test.go).
+// pour que les tests n'ouvrent jamais de vraie fenêtre.
 var openURLExternally = launchExternalBrowser
 
 // linkBrowserPref renvoie le navigateur choisi pour les liens. « auto » par

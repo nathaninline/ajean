@@ -1,44 +1,23 @@
 package ajean
 
 import (
-	"bufio"
-	"crypto/rand"
-	"encoding/hex"
-	"fmt"
 	"net/http"
-	"os"
-	"sort"
 	"strconv"
 	"strings"
 )
 
-// readAPIKey renvoie la clé Bearer de llama-server, ou "" si aucune n'est
-// définie. Elle est rangée hors de la configuration pour survivre aux
-// changements de preset, qui remplacent la configuration en bloc.
+// readAPIKey renvoie la clé Bearer de l'ancien moteur (0.18 et avant), ou "" si
+// aucune n'est définie. Elle sert à la conversion des presets, et de repli tant
+// qu'aucun modèle n'est choisi pour le chat (voir chatModelKey).
 func readAPIKey() string { return getStr(bkState, "api_key") }
 
-// authHeader sets the Authorization: Bearer header on req when an API key is
-// configured, so AJEAN's own internal calls (chat/web/bench/test) authenticate
-// against a protected llama-server. No-op when no key is set.
+// authHeader pose « Authorization: Bearer » avec la clé du modèle du chat, pour
+// les appels internes d'AJEAN (chat, compactage, préchauffage, bench) vers un
+// modèle local protégé. Sans effet quand le modèle n'a pas de clé.
 func authHeader(req *http.Request) {
-	if k := readAPIKey(); k != "" {
+	if k := chatModelKey(); k != "" {
 		req.Header.Set("Authorization", "Bearer "+k)
 	}
-}
-
-// genAPIKey returns a fresh random OpenAI-style completion key.
-func genAPIKey() string {
-	buf := make([]byte, 24)
-	_, _ = rand.Read(buf)
-	return "sk-ajean-" + hex.EncodeToString(buf)
-}
-
-// writeAPIKey enregistre (key != "") ou supprime (key == "") la clé Bearer.
-// Ne redémarre PAS le service : llama-server ne lit --api-key qu'au lancement,
-// c'est à l'appelant de choisir quand appliquer.
-func writeAPIKey(key string) error {
-	_ = SetConfigKey("API_KEY", "") // aucune ambiguïté avec une valeur résiduelle
-	return putStr(bkState, "api_key", key)
 }
 
 // maskAPIKey renders a key for display: keep the "sk-ajean-" prefix and last 4
@@ -53,43 +32,8 @@ func maskAPIKey(k string) string {
 	return k[:9] + "…" + k[len(k)-4:]
 }
 
-// cmdSetAPIKey définit (ou supprime) la clé Bearer de llama-server. Exposé sur
-// internet, le serveur exige alors « Authorization: Bearer <clé> » à chaque
-// appel.
-//
-//	ajean set-api-key <clé>     définit la clé
-//	ajean set-api-key           génère une clé aléatoire
-//	ajean set-api-key ""        supprime la protection
-func cmdSetAPIKey(args []string) error {
-	var key string
-	switch {
-	case len(args) == 0:
-		key = genAPIKey()
-		fmt.Printf("%s clé générée : %s\n", green("[ok]"), bold(key))
-	case args[0] == "" || args[0] == "off" || args[0] == "none":
-		key = ""
-	default:
-		key = strings.TrimSpace(args[0])
-	}
-	if err := writeAPIKey(key); err != nil {
-		return err
-	}
-	if key == "" {
-		fmt.Printf("%s API_KEY supprimée — serveur ouvert (pas d'authentification)\n", yellow("[info]"))
-	} else {
-		fmt.Printf("%s API_KEY enregistrée\n", green("[ok]"))
-		fmt.Printf("       les clients doivent envoyer : %s\n", dim("Authorization: Bearer "+key))
-	}
-	fmt.Print(dim("[info] redémarrer le service pour appliquer ? [Y/n] "))
-	sc := bufio.NewScanner(os.Stdin)
-	if sc.Scan() && strings.HasPrefix(strings.ToLower(strings.TrimSpace(sc.Text())), "n") {
-		fmt.Println(dim("[info] pense à lancer 'ajean restart'"))
-		return nil
-	}
-	return serviceAction("restart")
-}
-
-// ReadConfig renvoie la configuration active de llama-server. Passe par le cache
+// ReadConfig renvoie la configuration active (réglages de la machine et modèle
+// du chat). Passe par le cache
 // de lecture (store.go) : elle est relue à chaque itération de la boucle
 // d'inférence et après chaque appel d'outil.
 func ReadConfig() map[string]string { return cachedKV(bkConfig) }
@@ -133,35 +77,6 @@ func parseEnv(text string) map[string]string {
 		m[strings.TrimSpace(k)] = unquoteValue(strings.TrimSpace(v))
 	}
 	return m
-}
-
-// quoteValue rend une valeur telle que parseEnv la relise à l'identique. On
-// n'entoure de guillemets que ce qui en a besoin (espaces), et jamais une valeur
-// qui contient déjà un guillemet : elle est écrite telle quelle, unquoteValue ne
-// touchant qu'à une paire entourante.
-func quoteValue(v string) string {
-	if v == "" || strings.ContainsRune(v, '"') {
-		return v
-	}
-	if strings.ContainsAny(v, " \t") || unquoteValue(v) != v {
-		return `"` + v + `"`
-	}
-	return v
-}
-
-// formatEnv rend une configuration au format des presets, clés triées pour que
-// deux écritures du même contenu donnent le même fichier.
-func formatEnv(m map[string]string) string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	var b strings.Builder
-	for _, k := range keys {
-		fmt.Fprintf(&b, "%s=%s\n", k, quoteValue(m[k]))
-	}
-	return b.String()
 }
 
 // splitArgs découpe EXTRA_ARGS comme le ferait un shell : sur les espaces, mais
@@ -256,7 +171,7 @@ func applySamplingFrom(payload map[string]any, cfg map[string]string) {
 		}
 	}
 	if eff := strings.TrimSpace(cfg["REASONING_EFFORT"]); eff != "" {
-		if isExternalConfig(cfg) {
+		if isExternalConfig(cfg) && cfg[cfgKeyServiceLocal] != "1" {
 			// API distante (preset EXTERNAL=1) : chat_template_kwargs n'existe que chez
 			// llama.cpp ; les API qui valident le schéma (OpenAI, Mistral, Groq…) le
 			// rejetaient et les autres l'ignoraient (issue #178). Champ natif à la place.
@@ -273,6 +188,11 @@ func applySamplingFrom(payload map[string]any, cfg map[string]string) {
 
 // LLMPort renvoie le port du serveur (clé PORT), 8080 par défaut.
 func LLMPort() int {
+	if sv := explicitChatService(); sv != nil {
+		if p, err := strconv.Atoi(localPort(sv)); err == nil && p > 0 {
+			return p
+		}
+	}
 	if p, ok := ReadConfig()["PORT"]; ok {
 		if n, err := strconv.Atoi(p); err == nil && n > 0 {
 			return n

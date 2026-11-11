@@ -23,29 +23,27 @@ function releaseHeights(){
   });
 }
 document.addEventListener('DOMContentLoaded', reserveHeights);
-// Numéro (1-based) du preset vers lequel on bascule, tant que le serveur n'a pas
-// fini de redémarrer le service. Basculer prend plusieurs secondes : sans ça, la
-// liste restait FIGÉE sur l'ancien actif et on ne savait pas si le clic avait pris.
-// Voir switchTo() dans 07-models.js.
-let pendingPreset = 0;
-// Id du preset actuellement chargé dans le moteur (rempli par loadPresets). Sert au
-// modal d'édition : le bouton « bench » n'apparaît que pour ce preset (le bench
-// mesure le modèle chargé, pas un preset quelconque).
-let ACTIVE_PRESET_ID = '';
 // Dernière sélection PEINTE. La liste est redessinée à chaque rafraîchissement
 // (et il y en a beaucoup : sondage de bascule, loadAll…) ; sans ce repère, les
 // animations d'entrée (barre qui glisse, puce qui apparaît) repartaient à chaque
 // redessin et la puce semblait clignoter en boucle. On ne les rejoue que quand la
 // sélection CHANGE vraiment.
 let paintedSel = '';
-async function loadPresets(){
-  const p=await jget('/api/presets');
-  // Bascule terminée : le preset visé est devenu l'actif, on éteint l'attente.
-  if(pendingPreset && p[pendingPreset-1] && p[pendingPreset-1].active) pendingPreset = 0;
+// Liste des modèles (refonte 0.19) : même rendu que l'ancienne liste des
+// presets, une ligne par service, dans l'ordre choisi par l'utilisateur.
+async function loadPresets(){ if(typeof loadServices === 'function') await loadServices(); }
+function svcCtxLabel(n){
+  if(!n) return '';
+  if(n >= 1e6) return (Math.round(n/1e5)/10).toString().replace(/\.0$/, '') + 'M';
+  return Math.round(n/1000) + 'K';
+}
+function paintPresets(){
+  const p = (typeof SERVICES !== 'undefined' ? SERVICES : []).map(sv => ({
+    id: sv.id, svc: sv, name: sv.name, active: sv.chat, quant: sv.quant || '',
+    ctx: svcCtxLabel(sv.context), bench: sv.bench, vision: sv.vision,
+    reasoning: sv.reasoning || '', external: sv.state === 'remote', model: sv.state === 'remote' ? sv.model : '',
+  }));
   const act = p.find(x=>x.active);
-  // Id du preset ACTIF (celui chargé dans le moteur) : le modal d'édition s'en sert
-  // pour n'afficher le bouton « bench » que là (le bench mesure le modèle chargé).
-  ACTIVE_PRESET_ID = act ? act.id : '';
   // Build via DOM (not string concat) so preset names can contain anything —
   // spaces, accents, quotes, < > & — without breaking markup or handlers.
   const sp = document.getElementById('status-preset');
@@ -53,19 +51,19 @@ async function loadPresets(){
   sp.title = act ? t('settings.presets.active_title') : '';
   const cont=document.getElementById('presets');
   cont.innerHTML='';
-  if(!p.length){ cont.innerHTML='<span class="muted">'+t('settings.presets.none')+'</span>'; return; }
-  // Signature de la sélection : quel preset est actif, et vers lequel on bascule.
-  const sel = (act?act.id:'')+'|'+pendingPreset;
+  if(!p.length){ cont.innerHTML='<span class="muted">'+tf('svc.none','Aucun modèle. Ajouter un service avec +.')+'</span>'; return; }
+  // Signature de la sélection : quel modèle est celui du chat.
+  const sel = act ? act.id : '';
   const moved = sel !== paintedSel; paintedSel = sel;
-  p.forEach((x,i)=>{
+  p.forEach(x=>{
     const row=document.createElement('div');
-    const pend = !x.active && pendingPreset===i+1;
+    const pend = !!SVC_JOBS[x.svc.id];
     row.className='preset'+(x.active?' active':'')+(pend?' pending':'')+(moved?' sel-anim':'');
     // Réordonnable à la souris (SortableJS, init plus bas). data-id sert à relire
     // l'ordre après un déplacement.
     row.dataset.id = x.id;
     // Guard : un glissement ne doit pas être pris pour un clic qui bascule le preset.
-    row.onclick=()=>{ if(presetJustDragged) return; switchTo(i+1, x.name, x.id); };
+    row.onclick=()=>{ if(presetJustDragged) return; useService(x.svc.id); };
     const info=document.createElement('div'); info.className='preset-info';
     const nm=document.createElement('div'); nm.className='preset-name';
     // Puce de l'actif : un ÉLÉMENT rond en CSS, pas le caractère « ● ». Le glyphe
@@ -74,11 +72,13 @@ async function loadPresets(){
     // partout.
     // Puce réservée à l'actif POUR DE BON : pendant la bascule, seule la barre
     // orange parle ; la puce apparaît quand la barre passe au blanc.
-    if(x.active){ const d=document.createElement('i'); d.className='preset-dot'; nm.appendChild(d); }
+    if(x.active && !pend){ const d=document.createElement('i'); d.className='preset-dot'; nm.appendChild(d); }
     nm.appendChild(document.createTextNode(x.name)); nm.title=x.name;
     // Second row: quant tag + bench perf, so the title row stays full-width.
     const meta=document.createElement('div'); meta.className='preset-meta';
-    // Preset externe : le modèle distant à la place des tags quant/ctx.
+    if(pend){ const j=document.createElement('span'); j.className='ctag'; j.textContent=SVC_JOBS[x.svc.id]; meta.appendChild(j); }
+    else if(x.svc.state==='failed'){ const j=document.createElement('span'); j.className='ctag'; j.textContent=tf('svc.state_failed','erreur'); j.title=x.svc.message||''; meta.appendChild(j); }
+    // API distante : le nom du modèle distant à la place des tags quant/ctx.
     if(x.external){
       if(x.model){
         const mt=document.createElement('span'); mt.className='ctag';
@@ -86,25 +86,21 @@ async function loadPresets(){
         meta.appendChild(mt);
       }
     } else {
-      if(x.cloud){
-        const c=document.createElement('span'); c.className='ctag';
-        c.title=t('settings.presets.cloud_title'); c.textContent='Modal '+x.cloud;
-        meta.appendChild(c);
-      }
       if(x.quant){
         const q=document.createElement('span'); q.className='qtag';
         q.textContent=x.quant; q.title=t('settings.presets.quant_title');
         meta.appendChild(q);
       }
-      if(x.ctx){
-        const c=document.createElement('span'); c.className='ctag';
-        c.title=t('settings.presets.context_size_title');
-        c.textContent=x.ctx;
-        meta.appendChild(c);
-      }
     }
-    // Bench : local, ou moteur tiers lancé par ajean (le serveur n'en renvoie
-    // pas pour une simple API distante).
+    // Contexte : toujours en bulle quand il est connu, même pour une API distante.
+    if(x.ctx){
+      const c=document.createElement('span'); c.className='ctag';
+      c.title=t('settings.presets.context_size_title');
+      c.textContent=x.ctx;
+      meta.appendChild(c);
+    }
+    // Bench : mesuré sur un modèle local (le serveur n'en renvoie pas pour une
+    // simple API distante).
     if(x.bench){
       const bt=document.createElement('span'); bt.className='btag';
       bt.title=t('settings.presets.bench_title');
@@ -139,17 +135,16 @@ async function loadPresets(){
     // lit comme centrée dans son coin, là où le crayon penché tirait de travers.
     edit.className='preset-edit'; edit.title=t('settings.presets.edit_title');
     edit.innerHTML='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>';
-    // modèle du moteur MoE : sa propre fenêtre (réglages qui le concernent), pas l'éditeur llama.cpp
-    edit.onclick=(e)=>{ e.stopPropagation(); x.moe ? openMoe(x.id) : openPreset(x.id); };
+    edit.onclick=(e)=>{ e.stopPropagation(); openService(x.svc.id); };
     // Pas de poignée : la ligne entière est déplaçable, on attrape où on veut.
     row.appendChild(info); row.appendChild(edit);
     cont.appendChild(row);
   });
   initPresetSortable(cont);
 }
-// ─── Réordonnancement des presets (SortableJS) ───────────────────────────────
+// ─── Réordonnancement des modèles (SortableJS) ───────────────────────────────
 // Glissement fluide (animation de poussée des voisins), ordre persisté côté
-// serveur (/api/presets/order). SortableJS est vendorisé dans l'UI (00-sortable).
+// serveur (/api/services/order). SortableJS est vendorisé dans l'UI (00-sortable).
 let presetJustDragged = false;
 let presetSortable = null;
 function initPresetSortable(cont){
@@ -181,13 +176,8 @@ function initPresetSortable(cont){
       // Un léger délai pour que le clic de fin de drag ne bascule pas le preset.
       setTimeout(()=>{ presetJustDragged = false; }, 60);
       const ids=[...cont.children].map(r=>r.dataset.id).filter(Boolean);
-      // switchTo() bascule par POSITION (1-based) : après un glissement, les
-      // handlers onclick des lignes gardent leur ancienne position, alors que
-      // l'ordre serveur a changé — cliquer une ligne déplacée basculait donc vers
-      // le preset qui occupe désormais cette ancienne position. On re-rend la liste
-      // une fois le nouvel ordre persisté, pour que les onclick reprennent les bonnes
-      // positions.
-      jpost('/api/presets/order', {ids}).then(()=>loadPresets()).catch(()=>{});
+      // On re-rend la liste une fois le nouvel ordre persisté.
+      jpost('/api/services/order', {ids}).then(()=>loadPresets()).catch(()=>{});
     },
   });
 }
@@ -518,12 +508,16 @@ function flashCopied(btn){
 function copyApiKey(){ copyText(OAI_KEY, OAI_KEY?t('settings.apikey.copied'):t('settings.apikey.none')); }
 function renderApiKey(d){
   OAI_KEY = d.key || '';
-  // URL de l'endpoint : llama-server tourne sur d.port (≠ port de l'UI web).
-  // On prend l'hôte annoncé par le serveur (IP LAN détectée côté Go) : dans le
-  // tunnel ajean.link, location.hostname serait le domaine du relais (faux) —
-  // l'accès OpenAI reste TOUJOURS l'adresse locale de la machine.
-  const host = d.host || location.hostname;
-  document.getElementById('oai-url').value = 'http://'+host+':'+d.port+'/v1';
+  // Adresse, nom et clé : ceux du modèle du chat, annoncés par le serveur. Dans
+  // le tunnel ajean.link, location.hostname serait le domaine du relais (faux) :
+  // l'adresse affichée reste TOUJOURS celle que le serveur connaît.
+  const url = d.url || ('http://'+(d.host || location.hostname)+':'+d.port+'/v1');
+  document.getElementById('oai-url').value = url;
+  document.getElementById('oai-model').value = d.model || 'ajean';
+  // Modèle qui n'écoute que sur cette machine : l'adresse ne répond pas depuis
+  // un autre ordinateur, et rien d'autre ne le dirait.
+  const note = document.getElementById('api-local-note');
+  if(note) note.style.display = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])[:\/]/i.test(url) ? '' : 'none';
   // Endpoint PUBLIC (ajean.link) : affiché seulement si l'accès public est activé.
   const tg = document.getElementById('oai-public-toggle');
   if(tg) tg.checked = !!d.oai_public;
@@ -539,17 +533,6 @@ function renderApiKey(d){
   else { inp.style.opacity=1; inp.value = OAI_REVEAL ? OAI_KEY : d.masked; }
   document.getElementById('oai-key-eye').style.display = d.set ? '' : 'none';
   document.getElementById('oai-key-copy').style.display = d.set ? '' : 'none';
-  OAI_SET = !!d.set;
-}
-// Menu ⋮ de la clé : générer, définir, et retirer quand une clé existe.
-let OAI_SET = false;
-function apiKeyMenu(anchor){
-  popMenu(anchor, [
-    {label: t('api.key_generate'), run: ()=>apiKeyAction('generate')},
-    {label: t('api.key_set'), run: ()=>apiKeySet()},
-    OAI_SET && '-',
-    OAI_SET && {label: t('api.key_clear'), danger: true, run: ()=>apiKeyAction('clear')},
-  ].filter(Boolean), {side:'below'});
 }
 async function loadApiKey(){ renderApiKey(await jget('/api/apikey')); }
 // --- Export de la conversation ---------------------------------------------
@@ -592,58 +575,7 @@ async function downloadExport(url){
     toast(t('settings.export.exported_prefix') + name);
   }catch(e){ toast(t('settings.error_prefix') + e.message); }
 }
-// --- Écoute réseau du moteur (HOST + pare-feu) ------------------------------
-// Le retour d'utilisateur qui a motivé ce réglage : « à part le chat dans le
-// navigateur, impossible d'utiliser ton URL dans les logiciels en local ». Le
-// moteur écoutait sur 127.0.0.1 et rien ne le disait nulle part.
-function renderNetwork(st){
-  if(!st) return;
-  const cb = document.getElementById('lan-toggle');
-  if(cb) cb.checked = !!st.exposed;
-  const warn = document.getElementById('lan-warn');
-  if(!warn) return;
-  if(!st.exposed){
-    warn.style.display = '';
-    warn.innerHTML = '<div class="muted" style="margin:0">'+t('settings.network.local_only_warning')+'</div>';
-    return;
-  }
-  // Exposé mais bloqué par le pare-feu : le cas le plus déroutant (« ça écoute
-  // partout » et pourtant rien ne passe). On donne la commande à coller.
-  if(st.hint){
-    warn.style.display = '';
-    // --err et non --warn : la palette est volontairement monochrome et --warn y
-    // est un gris, illisible comme alerte. Ici il y a une vraie action à faire.
-    warn.innerHTML = '<div style="margin:0;color:var(--err)">⚠ '
-      + escHtml(st.hint).replace(/\n/g,'<br>') + '</div>';
-    return;
-  }
-  warn.style.display = 'none';
-}
-async function loadNetwork(){
-  try{ const r = await jget('/api/network'); renderNetwork(r && r.status); }catch(e){}
-}
-async function toggleLAN(){
-  const cb = document.getElementById('lan-toggle');
-  const on = cb.checked;
-  const r = await jpost('/api/network', {exposed:on});
-  if(!r || !r.ok){ cb.checked = !on; toast(t('settings.error_prefix') + ((r&&r.error)||'')); return; }
-  renderNetwork(r.status);
-  // llama-server ne lit --host qu'au lancement : sans redémarrage, l'interrupteur
-  // affiche un état que le moteur en cours ne respecte pas encore.
-  if(await askConfirm(t('settings.network.restart_confirm_msg'),
-                      {title: on ? t('settings.network.open_title') : t('settings.network.close_title'), okText:t('settings.network.restart_ok')})){
-    await act('restart'); // même chemin que les boutons du panneau Moteur
-  }
-  loadApiKey();
-}
 function toggleKeyReveal(){ OAI_REVEAL=!OAI_REVEAL; const inp=document.getElementById('oai-key'); if(OAI_KEY) inp.value = OAI_REVEAL ? OAI_KEY : (OAI_KEY.slice(0,8)+'…'+OAI_KEY.slice(-4)); const eye=document.getElementById('oai-key-eye'); if(eye){ eye.title = OAI_REVEAL ? t('settings.apikey.hide') : t('settings.apikey.show'); eye.classList.toggle('on', OAI_REVEAL); } }
-async function apiKeyAction(action){
-  if(action==='clear' && !await askConfirm(t('settings.apikey.remove_confirm_msg'), {title:t('settings.apikey.remove_confirm_title'), okText:t('settings.apikey.remove_ok')})) return;
-  if(action==='generate' && OAI_KEY && !await askConfirm(t('settings.apikey.regenerate_confirm_msg'), {title:t('settings.apikey.regenerate_confirm_title'), okText:t('settings.apikey.regenerate_ok')})) return;
-  OAI_REVEAL=(action==='generate'); // révèle la clé fraîche pour qu'on puisse la copier
-  toast(t('settings.applying'));
-  renderApiKey(await jpost('/api/apikey', {action}));
-}
 async function toggleOAIPublic(){
   const cb = document.getElementById('oai-public-toggle');
   const on = cb.checked;
@@ -661,12 +593,6 @@ async function toggleOAIPublic(){
   await jpost('/api/oai/public', {enabled:on});
   toast(on ? t('settings.oai.public_on') : t('settings.oai.public_off'));
   loadApiKey();
-}
-async function apiKeySet(){
-  const k = await askPrompt(t('settings.apikey.set_prompt_msg'), {title:t('settings.apikey.set_prompt_title'), placeholder:'sk-…'});
-  if(!k || !k.trim()) return;
-  OAI_REVEAL=true; toast(t('settings.applying'));
-  renderApiKey(await jpost('/api/apikey', {action:'set', key:k.trim()}));
 }
 async function toggleInternet(){
   const on=document.getElementById('internet-toggle').checked;
@@ -709,21 +635,6 @@ async function loadAll(){
   // allSettled et pas all : un seul chargement en échec (accès distant coupé,
   // clé API absente…) ne doit pas empêcher la suite — et surtout pas laisser les
   // hauteurs réservées en place pour toujours.
-  await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadComputer(),loadMCP(),loadApiKey(),loadNetwork(),loadPrefs(),loadOpen(),loadLlamacpp(),loadMoe(),loadExl3(),loadRemote(),loadTasks()]);
+  await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadServices(),loadAgent(),loadInternet(),loadComputer(),loadMCP(),loadApiKey(),loadPrefs(),loadOpen(),loadRemote(),loadTasks(),loadSTT()]);
   releaseHeights(); // tout est en place : on rend la main et on mesure pour la prochaine fois
-}
-// Démarrer / arrêter / redémarrer le moteur. On REMONTE l'erreur si le serveur répond
-// {ok:false} (issue #88 : avant, l'échec — ex. « Accès refusé » sur le log — était avalé
-// et l'UI affichait juste « start… » sans jamais dire pourquoi le moteur ne chargeait pas).
-async function act(a){
-  toast(a+'…');
-  let r;
-  try{ r = await jpost('/api/'+a); }
-  catch(_){ toast(t('settings.engine_action_error') + ' ' + a); return; }
-  if(r && r.ok === false){
-    const detail = (r.out && r.out !== 'ok') ? r.out : (r.error || '');
-    askAlert(detail || (t('settings.engine_action_error') + ' ' + a),
-      {title: t('settings.engine_action_failed_title')});
-  }
-  setTimeout(loadAll,1500);
 }

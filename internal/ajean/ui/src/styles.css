@@ -75,18 +75,11 @@ option,optgroup{background:var(--panel);color:var(--text)}
 .main{flex:1;display:flex;flex-direction:column;min-width:0}
 #menubtn{display:none;position:fixed;top:calc(10px + env(safe-area-inset-top));left:calc(10px + env(safe-area-inset-left));z-index:20;background:var(--panel);border:1px solid var(--border);color:var(--text);width:40px;height:40px;border-radius:6px;font-size:18px;cursor:pointer;touch-action:manipulation}
 #backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10}
-/* Pastille « installation en cours » : suit exactement les règles d'affichage
-   du bouton ☰ (elle ne sert que quand le panneau est en tiroir, donc caché). */
-#lc-chip{display:none;align-items:center;gap:6px;position:fixed;top:calc(10px + env(safe-area-inset-top));left:calc(58px + env(safe-area-inset-left));z-index:20;max-width:60vw;background:var(--panel);border:1px solid var(--accent);color:var(--accent);height:40px;padding:0 12px;border-radius:6px;font-size:12px;cursor:pointer}
-#lc-chip .lc-chip-lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#lc-chip .lc-chip-x{flex:none;font-weight:700}
-#lc-chip.failed{border-color:var(--err);color:var(--err)}
 @media (max-width:720px){
   .side{position:fixed;inset:0 auto 0 0;width:80%;max-width:320px;z-index:15;transform:translateX(-100%);transition:transform .2s;background:var(--bg);padding-top:calc(16px + env(safe-area-inset-top));padding-left:calc(16px + env(safe-area-inset-left))}
   .side.open{transform:translateX(0)}
   #menubtn,#backdrop.open{display:block}
-  #lc-chip:not([hidden]){display:flex}
-  body.drawer-open #menubtn,body.drawer-open #lc-chip{display:none}
+  body.drawer-open #menubtn{display:none}
   .main{width:100%}
   #chat{padding:60px 8px 12px}
   .msg{max-width:92%}
@@ -376,9 +369,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .help.shut>.tip{display:none}
 .kv{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;border-bottom:1px solid var(--border);font-size:13px;min-height:38px;align-items:center}
 .kv span:first-child{color:var(--text);flex-shrink:0}
-/* Copie de la commande du moteur (#108) : icône discrète accolée au libellé. */
-.cfg-copy{border:0;background:none;padding:0 0 0 6px;margin:0;color:var(--dim);opacity:.5;cursor:pointer;vertical-align:middle;line-height:0}
-.cfg-copy:hover{opacity:1;color:var(--text)}
 .kv:last-child{border-bottom:0}
 /* direction:rtl tronque par la GAUCHE (on garde la fin d'un chemin long), mais
    inversait l'ordre des groupes : « 18,2 / 24 Go » s'affichait « Go 24 / 18,2 ».
@@ -776,9 +766,8 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 @media (min-width:721px){html[data-hide-side="1"] #chat{padding-top:28px}}
 [data-hide-side="1"] .side.open{transform:translateX(0)}
 [data-hide-side="1"] #menubtn{display:block}
-[data-hide-side="1"] #lc-chip:not([hidden]){display:flex}
 [data-hide-side="1"] #backdrop.open{display:block}
-[data-hide-side="1"] body.drawer-open #menubtn,[data-hide-side="1"] body.drawer-open #lc-chip{display:none}
+[data-hide-side="1"] body.drawer-open #menubtn{display:none}
 [data-hide-side="1"] .main{width:100%}
 /* Hauteur animée en JS (mesure scrollHeight → 0) plutôt que grid 1fr→0fr qui
    peut « dépasser ». overflow:hidden clippe le contenu pendant tout le repli.
@@ -804,7 +793,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 /* Astuce clavier sous la saisie (style repris du HTML : un thème doit pouvoir
    changer ses marges, ce qu'un style en ligne empêchait). */
 #sendhint{padding:0 12px 6px;font-size:10px;text-align:center;opacity:.7}
-/* Moteur pas encore prêt : l'aide clavier cède la place à l'état du chargement. */
+/* Modèle pas encore prêt : l'aide clavier cède la place à l'état du chargement. */
 #sendhint.waiting{opacity:1;color:var(--dim)}
 #input{flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;font:inherit;resize:none;min-height:56px;max-height:200px;overflow-y:hidden}
 #input:focus{outline:none;border-color:var(--accent)}
@@ -817,7 +806,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
    appareils tactiles uniquement (le desktop garde son rendu, le pinch-zoom
    manuel reste possible). */
 @media (hover:none) and (pointer:coarse){
-  #input,#sysprompt,#modal input,#modal textarea,#modal select{font-size:16px}
+  #input,#sysprompt,#mem-edit-modal input,#mem-edit-modal textarea{font-size:16px}
 }
 /* Appareil TACTILE en PAYSAGE : on réduit nettement tout pour gagner de la place
    (interface « un peu grosse » en horizontal, utile pour enregistrer des démos).
@@ -846,61 +835,10 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
   h1{font-size:15px}
   h2,details>summary{font-size:13px}
   #menubtn{width:32px;height:32px;font-size:15px;top:calc(6px + env(safe-area-inset-top))}
-  #lc-chip{height:32px;font-size:11px;left:calc(46px + env(safe-area-inset-left));top:calc(6px + env(safe-area-inset-top))}
 }
-/* --- Backend llama.cpp (2 modes : rapide / optimisée) --------------------- */
-.lc-head{font-size:12px;line-height:1.5}
-/* Les trois modes sont des LIGNES de la carte d'installation (elles étaient des
-   cartes dans une carte) : pas de cadre propre, un filet entre elles, comme
-   n'importe quelle ligne de réglage du menu. */
-.lc-modes{display:flex;flex-direction:column}
-.slist:has(>.lc-modes){overflow:hidden}
-.lc-modes.busy{opacity:.5;pointer-events:none}
-.slist>.lc-modes:not(:first-child){border-top:1px solid var(--border)}
-.lc-mode{padding:10px;cursor:pointer;transition:background .12s}
-.lc-mode:not(:last-child){border-bottom:1px solid var(--border)}
-.lc-mode:hover{background:var(--accent-bg)}
-.lc-mode-t{font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px}
-/* « conseillé » : pilule PLEINE (texte inversé). En contour, elle héritait du
-   gris atténué du thème monochrome et devenait illisible en mode sombre. */
-.lc-reco{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;background:var(--text);color:var(--bg);border:1px solid var(--text);border-radius:8px;padding:1px 6px}
-.lc-mode-d{font-size:11px;color:var(--dim);margin-top:3px}
-#moe-quants .lc-mode.moe-sel{background:var(--accent-bg)}
-#moe-quants{overflow:hidden}
-#moe-quants .lc-mode.moe-sel .lc-mode-t{color:var(--accent)}
-#moe-quants .lc-mode.moe-off{cursor:default}
-#moe-quants .lc-mode.moe-off:hover{background:none}
-#moe-quants .lc-mode.moe-off .lc-mode-t{color:var(--dim)}
-.moe-details{padding:4px 10px}
-.moe-details .moe-kv{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;padding:5px 0}
-.moe-details .moe-kv .switch{display:block}
-.moe-details .moe-kv:not(:last-child){border-bottom:1px solid var(--border)}
-.moe-details .moe-kv span:first-child{color:var(--dim)}
-.moe-ctx{display:flex;align-items:center;gap:10px}
-.moe-ctx input[type=range]{width:160px;height:16px;margin:0;padding:0;background:transparent;border:none;-webkit-appearance:none;appearance:none;cursor:ew-resize}
-.moe-ctx input[type=range]:focus{outline:none}
-.moe-ctx input[type=range]::-webkit-slider-runnable-track{height:4px;border:none;border-radius:999px;background:linear-gradient(to right,var(--accent) var(--p,50%),color-mix(in srgb,var(--dim) 25%,transparent) var(--p,50%))}
-.moe-ctx input[type=range]::-moz-range-track{height:4px;border:none;border-radius:999px;background:color-mix(in srgb,var(--dim) 25%,transparent)}
-.moe-ctx input[type=range]::-moz-range-progress{height:4px;border-radius:999px;background:var(--accent)}
-.moe-ctx input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;margin-top:-5px;border:none;border-radius:50%;background:var(--accent)}
-.moe-ctx input[type=range]::-moz-range-thumb{width:14px;height:14px;border:none;border-radius:50%;background:var(--accent)}
-.moe-ctx span{min-width:62px;text-align:right;font-variant-numeric:tabular-nums}
-.moe-details .moe-kv span:last-child{text-align:right}
-/* Hauteur réservée : la ligne d'état arrive après l'appel réseau, sans elle
-   les trois cartes grandissaient d'un cran une fois l'état connu. */
-.lc-mode-state{font-size:11px;min-height:16px;margin-top:7px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.lc-mode-go{color:var(--accent)}
-.lc-mode-active-tag{color:var(--accent);font-weight:600}
-.lc-update-link{color:var(--dim);text-decoration:none;cursor:pointer}
-.lc-update-link:hover{color:var(--accent)}
-/* Choix du moteur dans l'éditeur de modèle (3 options : rapide/optimisé/perso) */
-.be-opts{display:flex;flex-direction:column;gap:7px;margin:6px 0 8px}
-.be-opt{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer}
-.be-opt input{margin:0;flex-shrink:0}
-.be-note{font-size:11px;color:var(--dim);margin-left:auto}
 
-/* ===== Éditeur de preset — listes groupées façon Réglages iOS ======== */
-#modal .modal-card{max-width:520px;overflow:hidden}
+/* ===== Fenêtres d'édition (modèles, page mémoire) : listes groupées ===== */
+#mem-edit-modal .modal-card{max-width:520px;overflow:hidden}
 .pe-body{padding:18px 16px 24px;display:flex;flex-direction:column;gap:26px;overflow-y:auto;overflow-x:hidden;flex:1;background:var(--bg)}
 /* Nombres : pas de flèches natives (spinner), champ épuré. */
 .pe-val[type=number]{-moz-appearance:textfield}
@@ -952,31 +890,6 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-selc.wide::after{right:2px}
 /* Ligne « champ pleine largeur » (Nom, chemin, config brute…). */
 .pe-row.stack{flex-direction:column;align-items:stretch;gap:8px}
-/* Répartition entre cartes graphiques : UNE barre, sur laquelle on glisse
-   directement. Le <input type=range> est posé par-dessus, piste transparente :
-   sinon on voyait deux barres superposées (la barre de proportion + la piste
-   blanche native du navigateur). Deux teintes du MÊME accent, pas deux
-   couleurs — la barre exprime une proportion, pas deux catégories. */
-.gpu-split{position:relative;display:flex;align-items:center;height:22px}
-.gpu-bar{display:flex;width:100%;height:10px;border-radius:999px;overflow:hidden;background:color-mix(in srgb,var(--dim) 20%,transparent)}
-.gpu-bar>span{background:var(--accent);flex:none;min-width:0;transition:width .12s}
-.gpu-bar>span.alt{background:color-mix(in srgb,var(--accent) 42%,transparent)}
-.gpu-range{position:absolute;inset:0;width:100%;height:22px;margin:0;padding:0;background:transparent;-webkit-appearance:none;appearance:none;cursor:ew-resize}
-.gpu-range:focus{outline:none}
-.gpu-range::-webkit-slider-runnable-track{height:22px;background:transparent;border:none}
-.gpu-range::-moz-range-track{height:22px;background:transparent;border:none}
-.gpu-range::-moz-range-progress{background:transparent}
-.gpu-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;margin-top:3px;border-radius:50%;background:var(--bg);border:2px solid var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.3);cursor:ew-resize}
-.gpu-range::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--bg);border:2px solid var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.3);cursor:ew-resize}
-.gpu-range:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(--accent-bg)}
-.gpu-range:focus-visible::-moz-range-thumb{box-shadow:0 0 0 3px var(--accent-bg)}
-.gpu-legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11.5px;color:var(--dim)}
-.gpu-legend i{display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--accent);margin-right:5px}
-.gpu-legend i.alt{background:color-mix(in srgb,var(--accent) 42%,transparent)}
-.gpu-shares{display:flex;flex-wrap:wrap;gap:10px}
-.gpu-share{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--dim)}
-.gpu-share input{width:62px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:5px 7px;font:inherit;text-align:right}
-.gpu-share input:focus{outline:none;border-color:var(--accent)}
 .pe-inp{width:100%;box-sizing:border-box;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font:inherit;transition:border-color .12s,box-shadow .12s}
 /* Consigne d'une tâche : textarea posé DIRECTEMENT dans le groupe (pas de cadre
    .pe-list ni de .pe-row autour), donc à ras — on récupère le padding de carte
@@ -985,42 +898,14 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-inp:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
 .pe-row.stack.plain .pe-inp{border:none;background:transparent;padding:6px 0;font-size:15px}
 .pe-row.stack.plain .pe-inp:focus{box-shadow:none}
-/* Champ + bouton accolé (téléchargement) — même trait que les autres champs,
-   sans pastille colorée qui ressort. */
-.pe-inpbtn{display:flex;align-items:stretch}
-.pe-inpbtn .pe-inp{border-top-right-radius:0;border-bottom-right-radius:0;border-right:0}
-/* Le bouton reprend EXACTEMENT le cadre du champ (mêmes coins, même bordure) :
-   sans ça, un thème qui arrondit tous les boutons (ChatGPT) le détachait du
-   champ, avec un coin rond au milieu de la paire. */
-.pe-inpbtn button{flex:none;margin:0;border:1px solid var(--border);border-radius:0 8px 8px 0;background:var(--panel);color:var(--dim);padding:0 15px;cursor:pointer;font-size:15px;transition:color .12s,border-color .12s,background .12s}
-.pe-inpbtn button:hover:not(:disabled){color:var(--bg);background:var(--accent);border-color:var(--accent)}
-.pe-inpbtn:focus-within .pe-inp,.pe-inpbtn:focus-within button{border-color:var(--accent)}
-.pe-inpbtn button:disabled{opacity:.5;cursor:default}
-/* Contrôle segmenté (moteur) façon iOS. */
+/* Contrôle segmenté façon iOS. */
 .pe-seg{display:flex;gap:3px;background:color-mix(in srgb,var(--dim) 16%,transparent);border-radius:9px;padding:3px;width:100%}
 .pe-seg>label{flex:1;text-align:center;font-size:13px;font-weight:500;padding:7px 4px;border-radius:7px;cursor:pointer;color:var(--dim);transition:background .12s,color .12s}
 .pe-seg>label:has(input:checked){background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.22)}
 .pe-seg input{display:none}
-.pe-seg .be-note{display:none}
-/* Disponibilité des moteurs : une SEULE ligne discrète sous le sélecteur (au lieu
-   d'un badge qui cassait chaque pastille sur deux lignes). Colorée en warn. */
-.be-avail-note{font-size:11px;color:var(--warn);margin-top:6px;line-height:1.4}
-/* Avertissement moteur non installé : encart franc (pas une notif fugace) avec le
-   texte d'explication et le bouton d'installation. */
-.be-warn{margin-top:8px;padding:9px 11px;border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);background:var(--warn-bg);border-radius:8px;display:flex;flex-direction:column;gap:8px}
-.be-warn-t{font-size:12px;line-height:1.45;color:var(--text)}
-.be-warn-btn{align-self:flex-start;font-size:12px;padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:var(--accent-bg);color:var(--text);cursor:pointer}
-.be-warn-btn:hover{background:color-mix(in srgb,var(--accent) 12%,transparent)}
 .pe-seg-note{font-size:11px;color:var(--dim);padding:0 2px;min-height:14px}
 .pe-note{font-size:11px;color:var(--dim);line-height:1.45}
-/* Barre de progression (téléchargement de modèle). Sans total connu, elle
-   défile en boucle via .indet. */
-.pe-bar{height:4px;border-radius:999px;background:color-mix(in srgb,var(--dim) 26%,transparent);overflow:hidden}
-.pe-bar>i{display:block;height:100%;width:0;border-radius:999px;background:var(--accent);transition:width .35s linear}
-.pe-bar.indet>i{width:35%;animation:pe-bar-slide 1.2s ease-in-out infinite;transition:none}
-.pe-bar.done>i{width:100%}
-@keyframes pe-bar-slide{0%{margin-left:-35%}100%{margin-left:100%}}
-/* Action discrète en texte (annuler un téléchargement…). */
+/* Action discrète en texte. */
 .pe-link{align-self:flex-start;border:none;background:none;padding:0;font:inherit;font-size:11px;color:var(--dim);text-decoration:underline;cursor:pointer}
 .pe-link:hover{color:var(--text)}
 .pe-link:disabled{opacity:.5;cursor:default;text-decoration:none}
@@ -1032,38 +917,18 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-switch input:checked+.pe-sl{background:var(--accent)}
 .pe-switch input:checked+.pe-sl::before{transform:translateX(16px);background:var(--bg)}
 .pe-switch input:focus-visible+.pe-sl{box-shadow:0 0 0 3px var(--accent-bg)}
-/* Repli « avancé » / config brute : une ligne cliquable dans un groupe. */
-.pe-adv{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden}
-.pe-adv>summary{cursor:pointer;font-size:14px;color:var(--text);padding:13px 15px;list-style:none;display:flex;align-items:center;user-select:none}
-.pe-adv>summary::-webkit-details-marker{display:none}
-.pe-adv>summary::after{content:"";margin-left:auto;width:7px;height:7px;border-right:1.5px solid var(--dim);border-bottom:1.5px solid var(--dim);transform:translateY(-2px) rotate(45deg);transition:transform .15s}
-.pe-adv[open]>summary::after{transform:translateY(1px) rotate(-135deg)}
-.pe-adv[open]>summary{border-bottom:1px solid var(--border)}
-.pe-adv .pe-adv-body{padding:14px 15px;display:flex;flex-direction:column;gap:10px}
-.pe-adv textarea.pe-inp{min-height:210px;resize:vertical;line-height:1.5;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;overflow-x:hidden}
-/* Ligne « éditer le .env » : chevron de disclosure + textarea de config brute. */
-.pe-caret{display:inline-block;width:7px;height:7px;border-right:1.5px solid var(--dim);border-bottom:1.5px solid var(--dim);transform:rotate(-45deg);transition:transform .15s}
-.pe-caret.open{transform:rotate(45deg)}
-#m-content{min-height:220px;resize:vertical;line-height:1.5;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;overflow-x:hidden}
-/* Page mémoire : le contenu EST le champ principal. On retire la carte .pe-list
-   (bordure + fond) qui l'entourait — le textarea a déjà sa propre bordure, ce
-   double contour et son padding grignotaient la largeur pour rien. */
-#modal.kind-mem #m-raw .pe-list{background:none;border:none;border-radius:0;overflow:visible}
-/* padding:0 récupère la largeur ; border-top:none retire la « barre » que la règle
-   .pe-row + .pe-row posait au-dessus du textarea (son frère #m-raw-toggle, même
-   masqué, reste un .pe-row pour le sélecteur d'adjacence). */
-#modal.kind-mem #m-raw-body{padding:0;border-top:none}
-/* Nombres avancés : chaque paire label/valeur sur sa propre ligne (réutilise pe-row). */
-.pe-adv .pe-list{margin:0}
-/* Variante « champ en clair » : page mémoire → le contenu est le champ principal. */
-.pe-adv.pe-raw-plain{border:none;background:transparent}
-.pe-adv.pe-raw-plain>summary{display:none}
-.pe-adv.pe-raw-plain .pe-adv-body{padding:0}
+#mem-content{min-height:220px;resize:vertical;line-height:1.5;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;overflow-x:hidden}
+/* Page mémoire : le contenu EST le champ principal, en clair, sans carte autour. */
+#mem-raw-body{padding:0;border-top:none}
 /* Pied de modale. */
 .pe-foot{padding:9px 12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;
   align-items:center;gap:8px;flex-wrap:nowrap}
 .pe-foot .foot-l{display:flex;align-items:center;gap:8px;min-width:0}
 .pe-foot .foot-r{display:flex;gap:8px;flex:none}
+/* Boutons à taille fixe : le pied passe à la ligne plutôt que de les écraser. */
+.pe-foot{flex-wrap:wrap;row-gap:8px}
+.pe-foot button{flex:none}
+.pe-foot .foot-r{margin-left:auto}
 .pe-btn{margin:0;padding:7px 15px;font-size:12.5px;border-radius:8px;font-weight:600;cursor:pointer;
   border:1px solid var(--border);background:var(--panel);color:var(--text);white-space:nowrap}
 .pe-btn:hover{border-color:var(--dim)}
@@ -1126,7 +991,7 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
   .modal-ov{padding:16px;align-items:center;
     padding-top:max(16px,env(safe-area-inset-top));
     padding-bottom:max(16px,env(safe-area-inset-bottom))}
-  .modal-card,#modal .modal-card{max-width:none;width:100%;max-height:88vh;
+  .modal-card,#mem-edit-modal .modal-card{max-width:none;width:100%;max-height:88vh;
     border-radius:16px}
   .pe-body{padding:14px 12px 20px;gap:20px}
   .modal-body{padding:14px 12px}
@@ -1158,12 +1023,12 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
    voyait quand même les champs s'écrire un par un derrière le voile. */
 /* Voile OPAQUE, posé sous l'en-tête (le titre reste lisible) : `visibility:hidden`
    sur le formulaire suffirait en théorie, mais un fond plein garantit qu'aucun
-   reste du preset précédent (moteur coché, réglages) ne puisse apparaître une
+   reste du modèle précédent (réglages) ne puisse apparaître une
    fraction de seconde. --mh = hauteur mesurée de l'en-tête, posée à l'ouverture. */
 /* ⚠️ Aucune transition tant que le formulaire est caché, NI pendant la frame où
    il réapparaît : WebKit diffère les transitions des éléments non rendus et les
-   joue à leur retour à l'écran. Le sélecteur de moteur glissait donc de l'ancien
-   preset au nouveau SOUS LES YEUX, une fois le chargement terminé. */
+   joue à leur retour à l'écran. Un sélecteur segmenté glissait donc de l'ancienne
+   valeur à la nouvelle SOUS LES YEUX, une fois le chargement terminé. */
 .modal-ov.loading .pe-body *,.modal-ov.no-anim .pe-body *{transition:none!important}
 .modal-load{display:none;position:absolute;inset:var(--mh,52px) 0 0 0;z-index:2;
   align-items:center;justify-content:center;background:var(--bg);border-radius:0 0 12px 12px}
@@ -1194,25 +1059,13 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .card-h{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
 .row{display:flex;gap:6px}
 .row .ctl{flex:1;min-width:0}
-.btn-dl{flex-shrink:0;margin:0}
-.input-btn{display:flex}
-.input-btn .ctl{flex:1;min-width:0;border-top-right-radius:0;border-bottom-right-radius:0}
-.input-btn .btn-in{flex-shrink:0;margin:0;padding:9px 13px;border-left:0;border-top-left-radius:0;border-bottom-left-radius:0}
-.input-btn .btn-in:hover{border-left:0}
 .seg{display:flex;gap:6px}
 .seg>label{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center;min-height:46px;padding:6px 4px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:12px;background:var(--panel);transition:border-color .12s,background .12s,color .12s}
 .seg>label:hover{border-color:var(--accent)}
 .seg>label:has(input:checked){border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
 .seg input{display:none}
-.seg .be-note{font-size:10px;color:var(--dim);margin:0}
 .btn-danger{background:var(--danger-bg);border-color:var(--err);color:var(--err);margin:0}
 .btn-save{border-color:var(--accent);color:var(--accent);margin:0}
-.del-model{align-items:center;gap:5px;font-size:11px;color:var(--dim)}
-.del-model input{margin:0}
-.lc-logbar{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:12px;color:var(--dim);font-weight:600;padding:6px 0;margin-top:2px}
-.lc-logbar #lc-log-caret{font-size:9px;transition:transform .12s;display:inline-block}
-.lc-logbar.open #lc-log-caret{transform:rotate(90deg)}
-#lc-log{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:10px;line-height:1.45;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:0}
 /* Bandeau discret « nouvelle version disponible », collé en bas du menu latéral.
    Opaque (le contenu défile derrière sans transparence), bordure fine, accent
    sobre. Cliquable → ouvre la section Actions et lance la vérification. */
@@ -1227,16 +1080,6 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .app-update .au-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
 .app-update b{color:var(--text);font-weight:600}
 
-/* Petit anneau qui tourne (cohérent avec .spinner), à la place d'un emoji sablier
-   qui jurait avec le reste de l'app. Aligné sur la ligne de texte de la phase. */
-.lc-spin{display:inline-block;width:12px;height:12px;border-radius:50%;
-  border:2px solid var(--border);border-top-color:var(--text);
-  animation:spin .7s linear infinite;vertical-align:-2px;flex:none}
-@media (prefers-reduced-motion:reduce){.lc-spin{animation-duration:2s}}
-/* Ligne de phase : spinner fixe à gauche, texte qui se tronque au lieu de passer
-   à la ligne — évite tout saut vertical quand la phase change de longueur. */
-#lc-job-phase{display:flex;align-items:center;gap:6px;min-width:0}
-#lc-job-phase .lc-phase-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 /* Serveurs MCP */
 .mcp-list{display:flex;flex-direction:column;gap:4px}
 
@@ -1249,17 +1092,13 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .mcp-dot-off{background:var(--dim)}
 .mcp-info{flex:1;min-width:0}
 .mcp-name{font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* Méta d'une tâche = fréquence + preset + prochaine exécution, sur UNE SEULE
-   ligne. Dans le tiroir étroit du téléphone, empiler ces infos faisait exploser
-   la hauteur de chaque tâche (pastilles qui s'enroulaient sur 3 lignes). On force
-   donc une ligne unique (nowrap) qui déborde en douceur : le preset, plus long,
-   rétrécit et tronque à l'ellipse en premier ; la fréquence et la date restent
-   lisibles. Le détail complet reste dans l'éditeur et les title=. */
+/* Méta d'une tâche = fréquence + prochaine exécution, sur UNE SEULE ligne. Dans
+   le tiroir étroit du téléphone, empiler ces infos faisait exploser la hauteur
+   de chaque tâche (pastilles qui s'enroulaient sur 3 lignes). On force donc une
+   ligne unique (nowrap) qui déborde en douceur. Le détail complet reste dans
+   l'éditeur et les title=. */
 .mcp-meta{display:flex;align-items:center;flex-wrap:nowrap;gap:6px;margin-top:2px;min-width:0;overflow:hidden}
 .mcp-tag{font-size:10px;padding:1px 7px;border-radius:9px;border:1px solid var(--border);color:var(--dim);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;flex:0 0 auto;max-width:100%;overflow:hidden;text-overflow:ellipsis}
-/* Le preset est le maillon sacrifiable : il peut rétrécir (flex-shrink) jusqu'à
-   une petite ellipse pour laisser la place à la fréquence et à la date. */
-.mcp-tag.mcp-tag-preset{flex:0 1 auto;min-width:2.5em}
 .mcp-tools{font-size:10px;color:var(--accent);white-space:nowrap;flex:0 0 auto;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .mcp-err{font-size:10px;color:var(--err);white-space:nowrap;flex:none}
 .mcp-switch{flex:none}
@@ -1819,11 +1658,6 @@ html.lb-lock,html.lb-lock body{overflow:hidden}
   background:var(--panel);color:var(--text);font-size:14px;box-shadow:0 8px 30px rgba(0,0,0,.18)}
 /* Reste de l'UI : coins arrondis et contrastes doux, dans le même esprit. */
 button,.mem-search{border-radius:10px}
-/* Champ + bouton accolés : on ne garde l'arrondi que sur les coins extérieurs. */
-.pe-inpbtn .pe-inp{border-radius:10px 0 0 10px}
-.pe-inpbtn button{border-radius:0 10px 10px 0}
-.input-btn .ctl{border-radius:10px 0 0 10px}
-.input-btn .btn-in{border-radius:0 10px 10px 0}
 .preset{border-radius:12px}
 /* Les presets restent des cartes (fond + bordure) : à plat, sans fond ni
    cadre, la liste ne se lisait plus comme des lignes distinctes. L'actif se
@@ -1832,7 +1666,7 @@ button,.mem-search{border-radius:10px}
 .preset{background:var(--panel);border-color:var(--border)}
 .preset:hover{background:var(--accent-bg);border-color:var(--dim)}
 .preset.active{background:var(--panel);border-color:var(--text);color:var(--text)}
-.subhead,.lc-mode-go,.lc-mode-active-tag{color:var(--dim)}
+.subhead{color:var(--dim)}
 button:hover{border-color:var(--dim);color:var(--text)}
 
 /* Encart de garde-fou : c'est le serveur qui parle (limite d'appels d'outils,
@@ -1849,7 +1683,7 @@ button:hover{border-color:var(--dim);color:var(--text)}
 
 /* ===== Fenêtres et sélecteurs =====================================
    Coins arrondis et ombre douce plutôt qu'un cadre marqué. */
-.modal-card,.ask-box,.modal-box,.pe-list,.pe-adv{border-radius:12px}
+.modal-card,.ask-box,.modal-box,.pe-list{border-radius:12px}
 .modal-card,.ask-box{box-shadow:0 8px 30px rgba(0,0,0,.12)}
 /* Sélecteurs segmentés : noir plein quand c'est coché, pas de couleur. */
 .pe-seg>label:has(input:checked),.seg>label:has(input:checked){background:var(--text);border-color:var(--text);color:var(--bg)}
@@ -1895,33 +1729,6 @@ button:hover{border-color:var(--dim);color:var(--text)}
    rejouée EN ENTIER d'un coup, où il évite de tout mettre en page. */
 #chat.reading > .msg, #chat.reading > .msg-files{content-visibility:auto;contain-intrinsic-size:auto 120px}
 
-/* Preset GPU cloud : pas de moteur, de fichier ni de cartes locales. */
-#modal.run-cloud #m-engine-row,#modal.run-cloud #m-model-row,#modal.run-cloud #m-gpu-group{display:none!important}
-/* Preset API externe : ni moteur local ni réglages llama-server. */
-#modal.run-external #m-engine-row,#modal.run-external #m-model-row,#modal.run-external #m-gpu-group,#modal.run-external #m-settings-row{display:none!important}
-/* Moteur ExLlama (ENGINE=exl3) : ses blocs remplacent ceux de llama.cpp, et
-   disparaissent hors de ce moteur ou pour un preset distant. */
-#m-exl3-row,#m-exl3-set,#m-exl3-gpu{display:none}
-#modal.eng-exl3 #m-exl3-row,#modal.eng-exl3 #m-exl3-set{display:flex}
-#modal.eng-exl3 #m-exl3-gpu:not([hidden]){display:flex}
-#modal.eng-exl3 #m-model-row,#modal.eng-exl3 #m-settings-row,#modal.eng-exl3 #m-gpu-group,
-#modal.eng-exl3 #m-backend-custom,#modal.eng-exl3 #be-avail-note{display:none!important}
-#modal.run-cloud #m-exl3-row,#modal.run-cloud #m-exl3-set,#modal.run-cloud #m-exl3-gpu,
-#modal.run-external #m-exl3-row,#modal.run-external #m-exl3-set,#modal.run-external #m-exl3-gpu{display:none!important}
-#m-exl3-row .pe-row[hidden],#m-exl3-set .pe-row[hidden],#m-exl3-gpu .pe-row[hidden]{display:none}
-#s-exl3-gpus .pe-row-c{gap:10px}
-/* Section GPU Cloud selon l'état (voir #m-cloud-body[data-state]). */
-.cloud-spin{flex:none;width:16px;height:16px}
-#m-cloud-body:not([data-state=setup]) #m-cloud-setup,
-#m-cloud-body:not([data-state=none]) #m-cloud-connect-head{display:none}
-#m-cloud-body[data-state=setup] #m-cloud-acct-row,
-#m-cloud-body[data-state=setup] #m-cloud-credit-row,
-#m-cloud-body[data-state=setup] #m-cloud-add-toggle,
-#m-cloud-body[data-state=setup] #m-cloud-add,
-#m-cloud-body[data-state=none] #m-cloud-acct-row,
-#m-cloud-body[data-state=none] #m-cloud-credit-row,
-#m-cloud-body[data-state=none] #m-cloud-add-toggle{display:none!important}
-#m-cloud-body[data-state=none] #m-cloud-add{display:flex!important}
 
 /* ==========================================================================
    Refonte 0.16.7 : un seul langage visuel pour toute l'app.
@@ -2156,22 +1963,12 @@ details>summary .stitle,.hist-head .stitle{font-size:11.5px;font-weight:500;colo
 .pe-list :is(input,textarea)::placeholder{color:var(--dim);opacity:.8}
 .pe-row.stack.plain{justify-content:center}
 .pe-row.stack.plain .pe-inp{height:30px;line-height:30px;padding:0;font-size:14px}
-/* Champ + bouton (téléchargement) : une seule pastille, flèche pleine au bout */
-.pe-inpbtn{display:flex;align-items:center;gap:10px}
-.pe-inpbtn button{flex:none;width:34px;height:34px;min-height:34px;margin:0;padding:0;border:none!important;border-radius:999px;display:inline-flex;
-  align-items:center;justify-content:center;font-size:15px;font-weight:600;line-height:1;background:var(--text);color:var(--bg);transition:transform .15s ease,opacity .15s ease}
-.pe-inpbtn button:hover{opacity:.85}
-.pe-inpbtn button:active{transform:scale(.92)}
-.pe-list .pe-inpbtn{gap:6px;padding:4px 4px 4px 14px;border-radius:999px;background:var(--t2)}
-.pe-list .pe-inpbtn .pe-inp{padding:6px 0;min-width:0;flex:1}
-.pe-list .pe-inpbtn button{width:30px;height:30px;min-height:30px;font-size:14px}
 /* Sélecteurs segmentés : rail arrondi, pastille qui glisse (03e-seg.js) */
 .pe-seg,.seg{position:relative;display:flex;gap:2px;width:100%;box-sizing:border-box;padding:3px;border:none;border-radius:999px;background:var(--t2)}
 :is(.pe-seg,.seg)>label,:is(.pe-seg,.seg)>label:is(:hover,:has(input:checked)){position:relative;z-index:1;flex:1;min-height:0;padding:7px 6px;
   border:none;border-radius:999px;background:transparent;box-shadow:none;font-size:12.5px;font-weight:500;color:var(--dim);transition:color .22s ease}
 :is(.pe-seg,.seg)>label:hover{color:var(--text)}
 :is(.pe-seg,.seg)>label:has(input:checked){color:var(--bg)}
-.seg>label:has(input:checked) .be-note{color:color-mix(in srgb,var(--bg) 75%,transparent)}
 .seg-thumb{position:absolute;left:0;top:0;z-index:0;border-radius:999px;background:var(--text);pointer-events:none;
   box-shadow:0 1px 3px rgba(0,0,0,.18);transition:transform .3s var(--ease),width .3s var(--ease),opacity .15s ease}
 /* Interrupteurs activés en sombre : rond presque noir, pas noir pur */
@@ -2234,15 +2031,15 @@ details>summary .stitle,.hist-head .stitle{font-size:11.5px;font-weight:500;colo
 button{border-color:transparent;background:var(--t2);border-radius:999px}
 button:hover{border-color:transparent;background:var(--t3);color:var(--text)}
 /* Cartes du menu latéral et blocs de contenu */
-.slist,.pe-adv,.card,.task-report,#lc-log,.mcp-tools-list,.app-update{border:none;background:var(--t1);border-radius:12px}
+.slist,.card,.task-report,.mcp-tools-list,.app-update{border:none;background:var(--t1);border-radius:12px}
 :is(.slist>.rowbody:not(:first-child),.slist>.pages-bar:not(:first-child),.slist>.switchrow:not(:last-child),.slist>.switchrow.septop,
-  .stat:not(:last-child),#ram-details,.slist>.lc-modes:not(:first-child),.lc-mode:not(:last-child),.rowlist>.preset:not(:last-child),.kv,.pe-adv[open]>summary){border-color:var(--t2)}
+  .stat:not(:last-child),#ram-details,.rowlist>.preset:not(:last-child),.kv){border-color:var(--t2)}
 .rowlist>.preset.active,.rowlist>.preset.pending{background:var(--t2)}
 .rowlist>.preset:hover{background:var(--t1)}
 /* Petits boutons d'action : + des presets, « + ajouter… », icônes, « ? » */
-.preset-add,.addbtn,.iconbtn,.pe-icon,.copybtn,.tool-more,.be-warn-btn,#ctx-compact,#chat .history-more button{
+.preset-add,.addbtn,.iconbtn,.pe-icon,.copybtn,.tool-more,#ctx-compact,#chat .history-more button{
   border:none;background:var(--t2);color:var(--text)}
-.preset-add:hover,.addbtn:hover,.iconbtn:hover,.pe-icon:hover,.copybtn:hover,.tool-more:hover,.be-warn-btn:hover,#ctx-compact:hover,#chat .history-more button:hover{
+.preset-add:hover,.addbtn:hover,.iconbtn:hover,.pe-icon:hover,.copybtn:hover,.tool-more:hover,#ctx-compact:hover,#chat .history-more button:hover{
   border:none;background:var(--t3);color:var(--text)}
 .preset-add,.addbtn{border-radius:999px}
 .addbtn{padding:5px 12px}
@@ -2258,12 +2055,12 @@ button:hover{border-color:transparent;background:var(--t3);color:var(--text)}
 /* Lignes MCP, pièces jointes, vignettes */
 .mcp-row,#attach-list .chip-file,.img-tile{border:none;background:var(--t1)}
 /* Champs du menu latéral et autres champs hors fenêtres */
-.sctl,.io-input,.gpu-share input,.mem-search,.side select{border:none;border-radius:10px;background:var(--t1);color:var(--text)}
-:is(.sctl,.io-input,.gpu-share input,.mem-search,.side select):focus{outline:none;border:none;box-shadow:0 0 0 2px var(--t3)}
+.sctl,.io-input,.mem-search,.side select{border:none;border-radius:10px;background:var(--t1);color:var(--text)}
+:is(.sctl,.io-input,.mem-search,.side select):focus{outline:none;border:none;box-shadow:0 0 0 2px var(--t3)}
 /* Blocs de code : fond seul */
 .msg.assistant .body pre,.msg.reasoning .body pre,.msg.tool pre,.md-report pre{border:none}
 /* Éléments flottants : carte de menu */
-#scrollbtn,#toast,#lc-chip{border:none;background:var(--menu);box-shadow:var(--pop-shadow)}
+#scrollbtn,#toast{border:none;background:var(--menu);box-shadow:var(--pop-shadow)}
 #toast{border-radius:999px}
 
 /* Liste des presets : plus de filets entre les lignes (le preset actif gardait
@@ -2507,7 +2304,7 @@ body.jean-mode.jean-history #chat,body.jean-mode.jean-history #composer{animatio
 .jst-scene{transition:opacity .45s ease}
 body.jean-mode.jean-history .jst-scene{opacity:0}
 @keyframes jstin{from{opacity:0}to{opacity:1}}
-.jst-hist{display:none;position:absolute;top:14px;right:16px;z-index:7;width:38px;height:38px;border:none;border-radius:50%;
+.jst-hist{display:none;position:absolute;top:14px;right:16px;z-index:7;width:38px;height:38px;border:none;border-radius:50%;margin:0;padding:0;
   background:var(--row-bg);color:var(--dim);cursor:pointer;align-items:center;justify-content:center;transition:background .2s,color .2s}
 .jst-hist:hover{background:var(--row-bg-on);color:var(--text)}
 body.jean-mode .jst-hist{display:flex}
@@ -2875,7 +2672,7 @@ button.th-head:hover{background:var(--t1)}
 
 /* Mémoire de Jean en onglets : rail arrondi (.seg), un panneau à la fois. */
 .jm-tabs{margin:0 0 16px}
-.jm-tabs>label{padding:7px 2px;font-size:12px}
+.jm-tabs>label,.jm-tabs>label:is(:hover,:has(input:checked)){padding:7px 2px;font-size:12px}
 .jm-pane{display:none}
 .jm-pane.on{display:block;animation:jmpane .25s ease both}
 @keyframes jmpane{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
@@ -2920,20 +2717,6 @@ button.th-head:hover{background:var(--t1)}
   background:var(--row-bg);color:var(--dim);cursor:pointer;align-items:center;justify-content:center;transition:background .2s,color .2s}
 .jst-files:hover{background:var(--row-bg-on);color:var(--text)}
 body.jean-mode:not(.jean-history) .jst-files{display:flex}
-/* Mode vocal de Jean (24-jean-voice.js) : micro à côté des fichiers, pastille d'état en bas. */
-.jst-voice{display:none;position:absolute;top:14px;right:108px;z-index:7;width:38px;height:38px;border:none;border-radius:50%;margin:0;padding:0;
-  background:var(--row-bg);color:var(--dim);cursor:pointer;align-items:center;justify-content:center;transition:background .2s,color .2s,transform .2s}
-.jst-voice:hover{background:var(--row-bg-on);color:var(--text)}
-body.voice-ready.jean-mode:not(.jean-history) .jst-voice{display:flex}
-.jst-voice.on{background:var(--accent);color:var(--accent-fg,var(--bg))}
-.jst-voice.on[data-st="rec"]{transform:scale(1.12)}
-.jst-voice.on[data-st="listen"]{animation:jvPulse 2.4s ease-in-out infinite}
-@keyframes jvPulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 35%,transparent)}50%{box-shadow:0 0 0 8px color-mix(in srgb,var(--accent) 0%,transparent)}}
-.jst-voice-st{position:absolute;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translate(-50%,6px);z-index:7;
-  padding:6px 14px;border-radius:999px;background:var(--row-bg);color:var(--dim);font-size:13px;pointer-events:none;cursor:pointer;opacity:0;transition:opacity .25s,transform .25s}
-.jst-voice-st.in{opacity:1;transform:translate(-50%,0);pointer-events:auto}
-body:not(.jean-mode) .jst-voice-st,body.jean-history .jst-voice-st{display:none}
-body.jean-voice #jean-stage .jst-input{display:none}
 
 
 .jf-card{max-width:1040px;height:min(820px,88vh);overflow:hidden}
@@ -3075,10 +2858,64 @@ audio.jf-media{width:min(520px,100%);margin-top:18vh}
   #jf-sel>button:not(.jf-ic){padding:7px 8px;font-size:12px}
 }
 
-/* Réglages voix : liste des voix + bouton écouter, à droite de la ligne. */
-.voice-pick{margin-left:auto;order:2;display:flex;align-items:center;gap:6px;max-width:62%}
-.voice-pick .sctl{width:auto;min-width:0}
-.voice-play{flex:none;width:30px;height:30px;border:none;border-radius:50%;background:var(--t1);color:var(--text);
-  display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
-.voice-play:disabled{opacity:.4}
-#voice-url{min-width:0;flex:1 1 auto;max-width:62%}
+/* Section Modèles (services système, 07b-services.js) */
+.svc-msg{font-size:11px;line-height:1.4;color:var(--t3,var(--dim));margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.svc-empty{padding:8px 10px;font-size:12px}
+.svc-ta{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;resize:vertical}
+.svc-cmd{min-height:64px;max-height:60vh;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;overflow-y:auto}
+.svc-log{max-height:220px;overflow:auto;background:var(--bg);border-radius:8px;padding:10px;margin:0;font-size:11px;line-height:1.45;white-space:pre-wrap;word-break:break-all;color:var(--t2,var(--dim))}
+
+.svc-adv>summary{cursor:pointer;list-style:none}
+.svc-adv>summary::-webkit-details-marker{display:none}
+
+
+/* Dictée vocale : pastille ronde à droite du sélecteur de mode. */
+#mic-btn{flex:none;width:26px;height:26px;min-height:26px;padding:0;margin:0 0 0 -6px;display:flex;align-items:center;justify-content:center;
+  border:none;border-radius:999px;background:var(--t2);color:var(--dim);transition:color .16s ease,background .16s ease}
+#mic-btn:hover,.jst-mic:hover{color:var(--text)}
+.mic-btn svg{display:block}
+.mic-btn.rec{background:var(--text);color:var(--bg);animation:mic-pulse 1.2s ease-in-out infinite}
+.mic-btn.busy{color:var(--text);opacity:.6;pointer-events:none}
+@keyframes mic-pulse{50%{box-shadow:0 0 0 4px color-mix(in srgb,var(--text) 22%,transparent)}}
+@media (prefers-reduced-motion:reduce){.mic-btn.rec{animation:none}}
+:root:not([data-theme="dark"]) #mic-btn:not(.rec){background:color-mix(in srgb,var(--text) 6%,transparent)}
+/* Champ texte dans une ligne de réglage (Dictée vocale). */
+.sw-txtin{order:2;margin-left:auto;display:flex;min-width:0;flex:0 1 220px}
+.side .sw-txtin :is(input,select){width:100%;height:26px;margin:0;padding:0 8px;border:none;border-radius:8px;background:var(--t2);color:var(--text);font-size:12px}
+.side .sw-txtin :is(input,select):focus{box-shadow:0 0 0 2px var(--t3);outline:none}
+/* Enregistrement via l'API : le micro s'élargit en onde + compteur. */
+.mic-rec{display:none;align-items:center;gap:6px}
+.mic-btn.wave{gap:6px;animation:none}
+/* Élargissement animé comme la bulle du sélecteur de mode (largeur bornée qui
+   glisse) ; la largeur fixe sur #id l'emportait sur la classe .wave. */
+#mic-btn,.jst-mic{width:auto;overflow:hidden;white-space:nowrap;
+  transition:max-width .32s var(--ease),padding .32s var(--ease),background .16s ease,color .16s ease}
+#mic-btn{min-width:26px;max-width:26px}
+.jst-mic{min-width:36px;max-width:36px}
+#mic-btn.wave,.jst-mic.wave{max-width:190px;padding:0 10px}
+.mic-btn.wave .mic-rec{animation:mic-fade .24s ease .08s both}
+@keyframes mic-fade{from{opacity:0}to{opacity:1}}
+.mic-btn.wave>svg:not(.mic-stop){display:none}
+.mic-btn.wave .mic-rec{display:inline-flex}
+.mic-rec canvas{display:block}
+.mic-rec .mic-time{font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sw-txtin{gap:6px}
+/* Micro du plein écran du mode Jean, avant la flèche d'envoi. */
+.jst-mic{flex:none;align-self:flex-end;margin:0 0 9px;padding:0;height:36px;min-height:36px;border:none;border-radius:999px;
+  background:var(--t2);color:var(--dim);cursor:pointer;display:flex;align-items:center;justify-content:center}
+/* Pendant l'enregistrement, le micro devient un carré « stop ». */
+.mic-btn>.mic-stop{display:none}
+.mic-btn.rec>svg:not(.mic-stop){display:none}
+.mic-btn.rec>.mic-stop{display:block;flex:none}
+/* Mémoire de Jean rangée en arrière-plan (25-jean-memory-activity.js). */
+#jean-mem-pill{position:absolute;top:18px;left:50%;z-index:8;display:flex;align-items:center;gap:7px;max-width:min(560px,80%);
+  padding:6px 13px;border-radius:999px;background:var(--row-bg);color:var(--dim);font-size:12px;cursor:pointer;
+  opacity:0;pointer-events:none;transform:translate(-50%,-6px);transition:opacity .25s ease,transform .25s var(--ease)}
+#jean-mem-pill.show{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
+#jean-mem-pill svg{flex:none}
+#jean-mem-pill .jmp-txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#jean-mem-pill.working .jmp-txt{background:linear-gradient(90deg,var(--dim) 0%,var(--dim) 30%,var(--text) 50%,var(--dim) 70%,var(--dim) 100%);
+  background-size:300% 100%;background-repeat:no-repeat;-webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:transparent;animation:labelshimmer 2s linear infinite}
+@media (prefers-reduced-motion:reduce){#jean-mem-pill.working .jmp-txt{animation:none}}
+.jst-cap-stop .cs-t{font-variant-numeric:tabular-nums}

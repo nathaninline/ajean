@@ -10,9 +10,10 @@
 //	web_*         serveur HTTP :8090 (UI embarquée via go:embed ui/, auth, prefs)
 //	chat_*        chat CLI + conversation serveur partagée, compaction, mémoire,
 //	              outils de l'agent (dont accès internet)
-//	llm_*         client llama-server (complétions, endpoint OpenAI, bench, test)
-//	backend_*     gestion llama.cpp : build, GPU, serve (ExecStart), modèles et
-//	              téléchargements, catalogue, presets, configuration
+//	llm_*         client du modèle du chat (complétions, endpoint OpenAI, bench, test)
+//	services*     les modèles : des services système qu'AJEAN démarre, arrête et
+//	              surveille (définitions, unités par OS, garde-fou, CLI, API)
+//	backend_*     configuration, API externe, sondes GPU, anciens presets (conversion)
 //	relay_*       accès distant ajean.link : tunnel, chiffrement E2E, appairage
 //	sys_*         intégration OS : install, services, plateforme, process, tray,
 //	              splash, tty, auto-update
@@ -27,11 +28,11 @@
 // aucun avertissement local. Seul le job « macos » de la CI le détecte. Avant de
 // supprimer un symbole jugé inutilisé, vérifier `grep` sur les fichiers _darwin.
 //
-// DEUX SERVICES à l'exécution, un seul binaire :
-//   - ajean-engine (« ajean serve ») exec llama-server ;
-//   - ajean-ui (« ajean web ») sert l'UI locale, le tunnel du relais et
-//     l'endpoint OpenAI depuis un SEUL process — condition d'une conversation
-//     unique, celle-ci vivant en mémoire (voir chat_conversation.go).
+// UN SERVICE à l'exécution : ajean-ui (« ajean web ») sert l'UI locale, le
+// tunnel du relais et l'endpoint OpenAI depuis un SEUL process, condition d'une
+// conversation unique, celle-ci vivant en mémoire (voir chat_conversation.go).
+// Les modèles sont des services système à part, qu'AJEAN pilote sans les
+// exécuter lui-même (voir services.go et docs/moteurs.md).
 //
 // ui/index.html est GÉNÉRÉ depuis ui/src/ : éditer les sources puis
 // `go generate ./internal/ajean` (voir tools/assemble-ui).
