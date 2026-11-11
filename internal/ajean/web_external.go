@@ -169,6 +169,9 @@ func handlePresetExternalTest(w http.ResponseWriter, r *http.Request) {
 	if req.Service && strings.TrimSpace(req.URL) == "" {
 		req.URL = serviceURLFromCommand(req.Cmd)
 	}
+	if req.Service && strings.TrimSpace(req.Key) == "" {
+		req.Key = serviceKeyFromCommand(req.Cmd)
+	}
 	url := completionsURL(req.URL)
 	model := strings.TrimSpace(req.Model)
 	if model == "" && req.Service {
@@ -277,6 +280,9 @@ func handlePresetExternalModels(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Service && strings.TrimSpace(req.URL) == "" {
 		req.URL = serviceURLFromCommand(req.Cmd)
+	}
+	if req.Service && strings.TrimSpace(req.Key) == "" {
+		req.Key = serviceKeyFromCommand(req.Cmd)
 	}
 	models, err := externalModels(r.Context(), req.URL, req.Key)
 	if err != nil {

@@ -28,6 +28,7 @@ func cmdInstall(args []string) error {
 	}
 	// Unités des modèles laissées par la 0.19 : on a ici les droits pour les arrêter.
 	retire019Units()
+	purge019Root()
 	targetUser := os.Getenv("SUDO_USER")
 	if targetUser == "" {
 		targetUser = "root"
@@ -89,11 +90,9 @@ func cmdInstall(args []string) error {
 	fmt.Println()
 	fmt.Printf("%s installation terminée.\n", green("[ok]"))
 	fmt.Printf("\nProchaines étapes :\n")
-	fmt.Printf("  1. installe le moteur :  %s   (compile llama.cpp, renseigne BIN)\n", bold("sudo -u "+targetUser+" ajean llamacpp install"))
-	fmt.Printf("  2. choisis le modèle :   %s   (renseigne MODEL, un fichier .gguf)\n", bold("sudo -u "+targetUser+" ajean edit"))
-	fmt.Printf("  3. démarre le moteur :   %s\n", bold("sudo ajean start"))
-	fmt.Printf("  4. vérifie :             %s\n", bold("ajean test"))
-	fmt.Printf("  5. démarre l'interface : %s   (http://localhost:8090)\n", bold("sudo ajean ui start"))
+	fmt.Printf("  1. démarre l'interface : %s   (http://localhost:8090)\n", bold("sudo ajean ui start"))
+	fmt.Printf("  2. choisis un modèle dans l'interface (le moteur llama.cpp s'installe seul)\n")
+	fmt.Printf("  3. vérifie :             %s\n", bold("ajean test"))
 	return nil
 }
 

@@ -81,7 +81,7 @@ func resolveChatEndpoint() chatEndpoint {
 		return chatEndpoint{
 			URL:      completionsURL(extBaseURL(cfg)),
 			Model:    model,
-			Key:      strings.TrimSpace(cfg[extKeyToken]),
+			Key:      extAPIKey(cfg),
 			External: true,
 		}
 	}

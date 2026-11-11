@@ -156,6 +156,63 @@ var retire019Unit = func(id string) error {
 	return nil
 }
 
+// unitExists019 : l'unité système existe-t-elle encore ? Hors Linux, la clé
+// EXTERNAL_SERVICE n'existe pas : on répond oui pour ne rien réécrire.
+var unitExists019 = func(name string) bool {
+	if runtime.GOOS != "linux" {
+		return true
+	}
+	for _, d := range []string{"/etc/systemd/system", "/lib/systemd/system", "/usr/lib/systemd/system"} {
+		if _, err := os.Stat(filepath.Join(d, name+".service")); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// revive018Preset : un preset 0.18 qui démarrait son moteur par une unité
+// (EXTERNAL_SERVICE=ajean-…) pointe, après la 0.19, vers une unité disparue :
+// la 0.19 l'avait remplacée par le service s. Le preset devient un preset
+// Service avec la commande de s ; ses autres réglages sont gardés.
+func revive018Preset(s service019) error {
+	cmd := s.commandLine()
+	if cmd == "" {
+		return nil
+	}
+	path := filepath.Join(presetsDir(), s.Preset+".env")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	unit := strings.TrimSpace(parseEnv(string(b))[extKeyService])
+	if unit == "" || unitExists019(unit) {
+		return nil
+	}
+	var out []string
+	for _, l := range strings.Split(strings.TrimRight(string(b), "\n"), "\n") {
+		k, _, _ := strings.Cut(strings.TrimSpace(l), "=")
+		switch strings.TrimSpace(k) {
+		case extKeyService, "SERVICE_CMD", "SERVICE_WORKDIR", "SERVICE_ENV":
+			continue
+		}
+		out = append(out, l)
+	}
+	svc := presetContent019(service019{Command: cmd, Workdir: s.Workdir, Env: s.Env})
+	for _, l := range strings.Split(svc, "\n") {
+		if strings.HasPrefix(l, "SERVICE_") {
+			out = append(out, l)
+		}
+	}
+	if err := os.WriteFile(path, []byte(strings.Join(out, "\n")+"\n"), 0o600); err != nil {
+		return err
+	}
+	// Plus rien à arrêter sous ce nom à la prochaine bascule.
+	if getStr(bkState, stateExtService) == unit {
+		_ = putStr(bkState, stateExtService, "")
+	}
+	return nil
+}
+
 // read019Services relit services.json. nil = jamais passé par la 0.19.
 func read019Services() []service019 {
 	b, err := os.ReadFile(filepath.Join(AjeanHome(), "services.json"))
@@ -213,7 +270,12 @@ func migrateFrom019() {
 			continue
 		}
 		if s.Preset != "" && have[s.Preset] {
-			// Issu d'un preset 0.18 toujours présent : rien à recréer.
+			// Issu d'un preset 0.18 toujours présent : rien à recréer, sauf si
+			// ce preset lançait une unité (EXTERNAL_SERVICE) que la 0.19 a
+			// retirée au profit de son service.
+			if err := revive018Preset(s); err != nil {
+				fmt.Fprintf(os.Stderr, "[ajean] reprise du preset %s : %v\n", s.Preset, err)
+			}
 			if s.ID == chatID {
 				chatPreset = s.Preset
 			}
@@ -258,4 +320,38 @@ func migrateFrom019() {
 	}
 	_ = putStr(bkState, migrated019Key, "1")
 	fmt.Fprintf(os.Stderr, "[ajean] installation 0.19 reprise : %d service(s) converti(s) en preset\n", created)
+}
+
+// purge019Root retire, en administrateur sous Linux, ce que la 0.19 avait posé
+// en dehors d'AJEAN_HOME : les unités des modèles (ajean-svc-*), le gardien RAM
+// (ajean-guard) et l'assistant root avec sa règle sudoers. Rien de tout cela ne
+// sert à la 0.20, et l'assistant root garde des droits qu'elle n'utilise plus.
+// services.json reste en place.
+func purge019Root() {
+	if runtime.GOOS != "linux" || os.Geteuid() != 0 {
+		return
+	}
+	const dir = "/etc/systemd/system"
+	units, _ := filepath.Glob(filepath.Join(dir, "ajean-svc-*.service"))
+	if _, err := os.Stat(filepath.Join(dir, "ajean-guard.service")); err == nil {
+		units = append(units, filepath.Join(dir, "ajean-guard.service"))
+	}
+	removed := 0
+	for _, u := range units {
+		name := filepath.Base(u)
+		_ = exec.Command("systemctl", "disable", "--now", name).Run()
+		if os.Remove(u) == nil {
+			removed++
+			fmt.Printf("  %s %s retiré (0.19)\n", green("✓"), name)
+		}
+	}
+	for _, p := range []string{"/usr/local/sbin/ajean-svc", "/etc/sudoers.d/ajean-svc"} {
+		if os.Remove(p) == nil {
+			fmt.Printf("  %s %s retiré (0.19)\n", green("✓"), p)
+		}
+	}
+	_ = os.RemoveAll("/etc/ajean-svc")
+	if removed > 0 {
+		_ = exec.Command("systemctl", "daemon-reload").Run()
+	}
 }

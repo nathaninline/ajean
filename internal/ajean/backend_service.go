@@ -106,6 +106,33 @@ func extBaseURL(cfg map[string]string) string {
 	return ""
 }
 
+// serviceKeyFromCommand : la clé passée au serveur par --api-key (ou
+// --api-key=…) dans la commande. "" si elle n'en donne pas.
+func serviceKeyFromCommand(cmd string) string {
+	toks := splitArgs(cmd)
+	for i, a := range toks {
+		if v, ok := strings.CutPrefix(a, "--api-key="); ok {
+			return v
+		}
+		if a == "--api-key" && i+1 < len(toks) {
+			return toks[i+1]
+		}
+	}
+	return ""
+}
+
+// extAPIKey : la clé d'un preset externe. Pour un Service sans clé saisie, celle
+// de sa commande : l'éditeur ne demande ni adresse ni clé pour un Service.
+func extAPIKey(cfg map[string]string) string {
+	if k := strings.TrimSpace(cfg[extKeyToken]); k != "" {
+		return k
+	}
+	if cmd := serviceCmdOf(cfg); cmd != "" {
+		return serviceKeyFromCommand(cmd)
+	}
+	return ""
+}
+
 // parseServiceEnv découpe SERVICE_ENV en paires CLE=valeur.
 func parseServiceEnv(s string) ([]string, error) {
 	var out []string
@@ -181,7 +208,7 @@ func serviceAPIAnswers(cfg map[string]string) bool {
 		return false
 	}
 	root := strings.TrimSuffix(api, "/v1")
-	key := strings.TrimSpace(cfg[extKeyToken])
+	key := extAPIKey(cfg)
 	for _, u := range []string{root + "/health", api + "/models"} {
 		req, err := http.NewRequest("GET", u, nil)
 		if err != nil {
@@ -232,7 +259,7 @@ func serviceFirstModel(cfg map[string]string) string {
 	if err != nil {
 		return "default"
 	}
-	if key := strings.TrimSpace(cfg[extKeyToken]); key != "" {
+	if key := extAPIKey(cfg); key != "" {
 		req.Header.Set("Authorization", "Bearer "+key)
 	}
 	resp, err := extHealthClient.Do(req)

@@ -911,6 +911,7 @@ function syncRunMode(){
   requestAnimationFrame(fitSelects);
   // Hors « Local » : pas de fichier de modèle, de cartes ni de réglages llama.cpp.
   md.classList.toggle('run-external', mode !== 'local');
+  md.classList.toggle('run-service', mode === 'service');
   // Le bench mesure un modèle qui tourne ici : sans objet pour une API distante.
   const bench = document.getElementById('btn-bench');
   if(bench && mode === 'external' && !cfgReadKey('EXTERNAL_SERVICE')) bench.style.display = 'none';
@@ -944,7 +945,15 @@ function syncRunMode(){
     document.getElementById('s-svc-cmd').value = cfgReadKey('SERVICE_CMD');
     document.getElementById('s-svc-workdir').value = cfgReadKey('SERVICE_WORKDIR');
     document.getElementById('s-svc-env').value = cfgReadKey('SERVICE_ENV');
+    requestAnimationFrame(svcCmdFit);
   }
+}
+// La commande est affichée en entier : le champ prend la hauteur de son texte.
+function svcCmdFit(){
+  const el = document.getElementById('s-svc-cmd');
+  if(!el || !el.offsetParent) return;
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 2 + 'px';
 }
 // Adresse de l'API déduite du port de la commande (même règle que le serveur).
 function svcUrlFromCmd(cmd){

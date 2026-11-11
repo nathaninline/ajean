@@ -1035,11 +1035,12 @@
         <!-- Service système : une commande au choix (vLLM, un autre llama-server,
              TabbyAPI, un script…) qui expose une API OpenAI sur cette machine.
              AJEAN la lance dans son service moteur, à la place de llama.cpp, et
-             parle à son API : les champs de l'API ci-dessous servent aussi ici. -->
+             parle à son API : adresse et clé sont lues dans la commande (--port,
+             --api-key), seuls les réglages du modèle ci-dessous restent. -->
         <div id="m-svc-body" class="pe-list" style="display:none;margin-top:8px">
           <div class="pe-row stack">
             <span class="pe-row-l"><span data-i18n="service.cmd_label">Commande</span> <span class="pe-sub" data-i18n="service.cmd_hint">ligne de lancement du service, comme dans un terminal</span></span>
-            <textarea id="s-svc-cmd" class="pe-inp" rows="3" spellcheck="false" placeholder="python -m vllm.entrypoints.openai.api_server --model … --port 8000" oninput="onSvcCmd(this.value)"></textarea>
+            <textarea id="s-svc-cmd" class="pe-inp" rows="2" spellcheck="false" placeholder="python -m vllm.entrypoints.openai.api_server --model … --port 8000" oninput="onSvcCmd(this.value);svcCmdFit()"></textarea>
           </div>
           <div class="pe-row stack">
             <span class="pe-row-l"><span data-i18n="service.workdir_label">Dossier de travail</span> <span class="pe-sub" data-i18n="service.optional">(facultatif)</span></span>
@@ -1057,11 +1058,11 @@
              Groq, OpenRouter, un autre serveur…). Pas de moteur local. Ces champs
              décrivent aussi l'API d'un Service système. -->
         <div id="m-ext-body" class="pe-list" style="display:none;margin-top:8px">
-          <div class="pe-row stack">
+          <div class="pe-row stack ext-api-only">
             <span class="pe-row-l"><span data-i18n="external.url_label">URL de l'API</span> <span class="pe-sub" data-i18n="external.url_hint">(base OpenAI, ex: https://api.openai.com/v1)</span></span>
             <input id="s-ext-url" class="pe-inp" spellcheck="false" placeholder="https://api.openai.com/v1" oninput="cfgWriteKey('EXTERNAL_URL', this.value);extModelsSchedule()">
           </div>
-          <div class="pe-row stack">
+          <div class="pe-row stack ext-api-only">
             <span class="pe-row-l"><span data-i18n="external.key_label">Clé API</span> <span class="pe-sub" data-i18n="external.key_hint">(optionnelle pour un serveur local)</span></span>
             <input id="s-ext-key" class="pe-inp" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" oninput="cfgWriteKey('EXTERNAL_KEY', this.value);extModelsSchedule()">
           </div>

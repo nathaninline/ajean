@@ -101,3 +101,44 @@ func TestMigrateFrom019(t *testing.T) {
 		t.Errorf("reprise rejouée : %d presets", len(ps2))
 	}
 }
+
+// Un preset 0.18 qui lançait son moteur par une unité retirée par la 0.19
+// devient un preset Service avec la commande du service 0.19.
+func TestMigrateFrom019Revives018Unit(t *testing.T) {
+	home := testHome(t)
+	oldR, oldU := retire019Unit, unitExists019
+	retire019Unit = func(string) error { return nil }
+	unitExists019 = func(string) bool { return false }
+	defer func() { retire019Unit, unitExists019 = oldR, oldU }()
+
+	id, err := SavePreset("", "Basalt", "EXTERNAL=1\nEXTERNAL_URL=http://127.0.0.1:8080/v1\nEXTERNAL_SERVICE=ajean-basalt\nREASONING=off\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = putStr(bkState, stateExtService, "ajean-basalt")
+	services := `[{"id":"basalt","name":"Basalt","command":"/opt/basalt serve --port 8080","env":{"CUDA_VISIBLE_DEVICES":"1"},"url":"http://127.0.0.1:8080/v1","preset":"` + id + `"}]`
+	if err := os.WriteFile(filepath.Join(home, "services.json"), []byte(services), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteConfig(map[string]string{"AJEAN_SERVICE": "basalt"}); err != nil {
+		t.Fatal(err)
+	}
+	migrateFrom019()
+	c, err := ReadPreset(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := parseEnv(c)
+	if v["EXTERNAL_SERVICE"] != "" || v["SERVICE_CMD"] != "/opt/basalt serve --port 8080" || v["SERVICE_ENV"] != "CUDA_VISIBLE_DEVICES=1" || v["REASONING"] != "off" {
+		t.Errorf("preset repris = %v", v)
+	}
+	if ReadConfig()["SERVICE_CMD"] == "" {
+		t.Error("config active sans SERVICE_CMD")
+	}
+	if s := getStr(bkState, stateExtService); s != "" {
+		t.Errorf("ext_service = %q, attendu vide", s)
+	}
+	if !strings.Contains(c, "EXTERNAL_URL=") {
+		t.Error("réglages d'origine perdus")
+	}
+}
