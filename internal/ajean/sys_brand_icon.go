@@ -2,8 +2,9 @@ package ajean
 
 // sys_brand_icon.go — l'icône de la marque AJEAN, rendue à la volée.
 //
-// RÉPLIQUE EXACTE du favicon de l'UI web : carré à coins arrondis NOIR + « j »
-// blanc (rects (6,3) (6,5) (4,7) sur une grille 12x12). Une seule source pour
+// RÉPLIQUE EXACTE du favicon de l'UI web : carré à coins arrondis NOIR + l'étoile
+// de repos de l'orbe en blanc (grille 19x19, niveaux de gris tramés, même dessin
+// que drawStar dans ui/src/js/26-spirit.js et que le logo). Une seule source pour
 // tous les usages — zone de notification Windows, barre de menus macOS, icône du
 // .exe — pour qu'ils ne puissent plus diverger comme quand le favicon est passé
 // au noir en laissant les icônes système en bleu.
@@ -27,14 +28,37 @@ var (
 	brandClear = color.RGBA{0, 0, 0, 0}
 )
 
-// glyphRects : les trois rectangles blancs du « j », en unités de la grille 12.
-var glyphRects = [][4]float64{{6, 3, 2, 2}, {6, 5, 2, 2}, {4, 7, 2, 2}}
+// starGrid : l'étoile de repos de l'orbe, intensité 0-255 par pixel (19x19).
+var starGrid = [19][19]uint8{
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{0, 0, 0, 0, 0, 0, 23, 0, 23, 46, 23, 0, 23, 0, 0, 0, 0, 0, 0},
+	{0, 0, 0, 0, 0, 0, 0, 23, 23, 93, 23, 23, 0, 0, 0, 0, 0, 0, 0},
+	{0, 0, 0, 0, 23, 0, 23, 23, 46, 116, 70, 23, 23, 0, 23, 0, 0, 0, 0},
+	{0, 0, 0, 0, 0, 23, 23, 46, 46, 162, 70, 46, 23, 23, 0, 0, 0, 0, 0},
+	{0, 0, 0, 0, 23, 46, 93, 116, 185, 255, 232, 162, 139, 70, 46, 0, 0, 0, 0},
+	{0, 0, 0, 0, 0, 23, 23, 46, 46, 232, 209, 46, 23, 23, 0, 0, 0, 0, 0},
+	{0, 0, 0, 0, 23, 0, 23, 23, 46, 162, 93, 23, 23, 0, 23, 0, 0, 0, 0},
+	{0, 0, 0, 0, 0, 0, 0, 23, 23, 139, 46, 23, 0, 0, 0, 0, 0, 0, 0},
+	{0, 0, 0, 0, 0, 0, 23, 0, 23, 70, 46, 0, 23, 0, 0, 0, 0, 0, 0},
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 46, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+}
 
-// brandIconImage dessine l'icône à la taille n. bg peint le carré arrondi, fg le
-// « j ». Les deux peuvent être transparents : c'est ce qui produit l'icône
-// « template » de macOS.
+const starN = 19
+
+// brandIconImage dessine l'icône à la taille n. bg peint le carré arrondi, fg
+// l'étoile (mélangé selon son intensité). Les deux peuvent être transparents :
+// c'est ce qui produit l'icône « template » de macOS.
 func brandIconImage(n int, bg, fg color.RGBA) *image.RGBA {
-	const r = 2.0 // rayon des coins, en unités de la grille 12
+	const r = 3.0 // rayon des coins, en unités de la grille 19
+	const g = float64(starN)
 	outside := func(gx, gy float64) bool {
 		corner := func(cx, cy float64) bool {
 			dx, dy := gx-cx, gy-cy
@@ -43,17 +67,18 @@ func brandIconImage(n int, bg, fg color.RGBA) *image.RGBA {
 		switch {
 		case gx < r && gy < r:
 			return corner(r, r)
-		case gx > 12-r && gy < r:
-			return corner(12-r, r)
-		case gx < r && gy > 12-r:
-			return corner(r, 12-r)
-		case gx > 12-r && gy > 12-r:
-			return corner(12-r, 12-r)
+		case gx > g-r && gy < r:
+			return corner(g-r, r)
+		case gx < r && gy > g-r:
+			return corner(r, g-r)
+		case gx > g-r && gy > g-r:
+			return corner(g-r, g-r)
 		}
 		return false
 	}
+	mix := func(a, b uint8, t float64) uint8 { return uint8(float64(a) + (float64(b)-float64(a))*t + .5) }
 	img := image.NewRGBA(image.Rect(0, 0, n, n))
-	scale := float64(n) / 12
+	scale := float64(n) / g
 	for y := 0; y < n; y++ {
 		for x := 0; x < n; x++ {
 			gx := (float64(x) + 0.5) / scale
@@ -62,13 +87,8 @@ func brandIconImage(n int, bg, fg color.RGBA) *image.RGBA {
 				img.Set(x, y, brandClear)
 				continue
 			}
-			c := bg
-			for _, rc := range glyphRects {
-				if gx >= rc[0] && gx < rc[0]+rc[2] && gy >= rc[1] && gy < rc[1]+rc[3] {
-					c = fg
-				}
-			}
-			img.Set(x, y, c)
+			v := float64(starGrid[int(gy)][int(gx)]) / 255
+			img.Set(x, y, color.RGBA{mix(bg.R, fg.R, v), mix(bg.G, fg.G, v), mix(bg.B, fg.B, v), mix(bg.A, fg.A, v)})
 		}
 	}
 	return img
@@ -80,13 +100,13 @@ func encodePNG(img *image.RGBA) []byte {
 	return buf.Bytes()
 }
 
-// BrandIconPNG rend l'icône de marque (noir + « j » blanc) en PNG de n pixels.
+// BrandIconPNG rend l'icône de marque (noir + étoile blanche) en PNG de n pixels.
 // Exporté pour le générateur d'icône du .exe (tools/gen-icon).
 func BrandIconPNG(n int) []byte { return encodePNG(brandIconImage(n, brandBlack, brandWhite)) }
 
 // brandTemplatePNG rend la variante « template » attendue par macOS : seule la
 // couche alpha compte, le système colore la forme selon le thème de la barre de
-// menus. Le « j » est donc DÉCOUPÉ (transparent) dans un carré opaque, sans quoi
+// menus. L'étoile est donc DÉCOUPÉE (transparente) dans un carré opaque, sans quoi
 // une icône entièrement noire disparaît sur une barre de menus sombre.
 //
 // Utilisée par sys_tray_darwin.go — un fichier que seule une compilation avec
