@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -26,7 +27,12 @@ func remoteServerURL() string {
 // handleLinkStatus (GET /api/link/status) : état de l'accès distant pour l'UI.
 func handleLinkStatus(w http.ResponseWriter, r *http.Request) {
 	tok := readLinkToken()
+	// host + machine : le sélecteur d'appareils (13b-devices.js) nomme « ce PC »
+	// et le reconnaît dans la liste du compte pour ne pas l'afficher deux fois.
+	host, _ := os.Hostname()
 	sendJSON(w, http.StatusOK, map[string]any{
+		"host":        host,
+		"machine":     machineID(),
 		"linked":      tok != "",
 		"active":      uiServiceActive(),
 		"machineURL":  remoteServerURL(),

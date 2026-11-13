@@ -45,14 +45,13 @@ async function loadRemote(){
     if(st){ st.textContent=t('remote.online_status'); st.classList.add('on'); }
     const sb=document.getElementById('remote-start'); if(sb) sb.style.display='none';
     const fc=document.getElementById('remote-firstconn'); if(fc) fc.style.display='none';
-    const bk=document.getElementById('backup-block'); if(bk) bk.style.display='none';
-    const perks=document.getElementById('remote-perks-mini'); if(perks) perks.style.display='';
+    const bk=document.getElementById('backup-block'); if(bk) bk.style.display='none';    const perks=document.getElementById('remote-perks-mini'); if(perks) perks.style.display='';
     setBadge(document.getElementById('remote-badge'), true, t('remote.connected'));
     return;
   }
   // Local : statut injoignable → on retombe sur « non connecté » plutôt que de
   // garder l'affichage précédent, qui pourrait annoncer « connecté » à tort.
-  try{ renderRemote(await jget('/api/link/status')); }catch(e){ renderRemote(null); }
+  try{ const d = await jget('/api/link/status'); renderRemote(d); devSetLocal(d); }catch(e){ renderRemote(null); }
 }
 
 // Ouvre la popup de connexion et attend la clé renvoyée par postMessage.

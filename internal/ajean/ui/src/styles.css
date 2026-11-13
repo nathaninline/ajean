@@ -2842,3 +2842,30 @@ audio.jf-media{width:min(520px,100%);margin-top:18vh}
 
 /* Service : adresse et clé viennent de la commande, pas de champs API. */
 #modal.run-service .ext-api-only{display:none}
+
+/* Appareils (13b-devices.js) : puce d'en-tête nommant la machine pilotée, menu
+   de bascule, écran de reprise au lancement. La puce passe en plein (texte sur
+   fond inversé) dès qu'on pilote une machine distante : ça se voit d'un coup d'œil. */
+.devchip{display:inline-flex;align-items:center;gap:5px;max-width:150px;font:inherit;font-size:11px;font-weight:600;line-height:1;padding:3px 8px;border-radius:999px;border:none;background:var(--t2);color:var(--dim);cursor:pointer}
+.devchip[hidden]{display:none}
+.devchip svg{flex:none}
+.devchip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.devchip.remote{background:var(--text);color:var(--bg)}
+.devchip.static{cursor:default}
+.devchip.static .devchip-cv{display:none}
+.dev-menu{position:fixed;z-index:2500;width:260px;padding:6px;border-radius:14px;border:1px solid var(--border);background:var(--card,var(--bg));box-shadow:var(--card-shadow,0 8px 30px rgba(0,0,0,.18))}
+.dev-menu-h{padding:6px 8px 4px;font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--dim)}
+.dev-item{display:flex;align-items:center;gap:9px;width:100%;padding:7px 8px;border:none;border-radius:9px;background:none;font:inherit;font-size:13px;color:var(--text);text-align:left;cursor:pointer}
+.dev-item:hover{background:var(--t2)}
+.dev-item[disabled]{opacity:.45;cursor:default}
+.dev-item[disabled]:hover{background:none}
+.dev-item>svg{flex:none}
+.dev-item-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.dev-item-n{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dev-item-s{font-size:11px;color:var(--dim)}
+.dev-item-ck{opacity:0}
+.dev-item.cur .dev-item-ck{opacity:1}
+.dev-more{color:var(--dim)}
+.dev-sep{height:1px;margin:5px 4px;background:var(--border)}
+.dev-splash{position:fixed;inset:0;z-index:3000;display:grid;place-items:center;background:var(--bg)}
+.dev-splash-box{display:flex;flex-direction:column;align-items:center;gap:16px;padding:24px;font-size:14px;color:var(--text);text-align:center}
