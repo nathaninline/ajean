@@ -615,6 +615,33 @@ func handleModelDownloadProbe(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, out)
 }
 
+// hfTokenHost indique si u est une adresse Hugging Face en HTTPS (huggingface.co,
+// hf.co ou un de leurs sous-domaines) : les seules à qui HF_TOKEN peut être envoyé.
+func hfTokenHost(u *url.URL) bool {
+	if u == nil || u.Scheme != "https" {
+		return false
+	}
+	h := strings.ToLower(u.Hostname())
+	for _, d := range []string{"huggingface.co", "hf.co"} {
+		if h == d || strings.HasSuffix(h, "."+d) {
+			return true
+		}
+	}
+	return false
+}
+
+// sameURLHost indique si deux adresses visent le même schéma et le même hôte
+// (port compris). Sert à ne réutiliser une clé enregistrée que pour l'adresse
+// avec laquelle elle a été enregistrée.
+func sameURLHost(a, b string) bool {
+	ua, errA := url.Parse(strings.TrimSpace(a))
+	ub, errB := url.Parse(strings.TrimSpace(b))
+	if errA != nil || errB != nil || ua.Host == "" || ub.Host == "" {
+		return false
+	}
+	return strings.EqualFold(ua.Scheme, ub.Scheme) && strings.EqualFold(ua.Host, ub.Host)
+}
+
 // dlRequest builds a GET for the download URL, carrying the HF token when set
 // (gated/private repos) and an optional Range header.
 func dlRequest(ctx context.Context, dlURL, rng string) (*http.Request, error) {
@@ -623,7 +650,9 @@ func dlRequest(ctx context.Context, dlURL, rng string) (*http.Request, error) {
 		return nil, err
 	}
 	// HF gated/private repos may need a token; reuse the same key store if set.
-	if k := os.Getenv("HF_TOKEN"); k != "" {
+	// Le jeton ne part QUE vers Hugging Face, en HTTPS : une URL de modèle collée
+	// depuis ailleurs ne doit jamais le recevoir.
+	if k := os.Getenv("HF_TOKEN"); k != "" && hfTokenHost(req.URL) {
 		req.Header.Set("Authorization", "Bearer "+k)
 	}
 	req.Header.Set("User-Agent", "ajean/"+Version)

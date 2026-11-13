@@ -224,8 +224,11 @@ func amdNum(v any) int {
 		s := strings.TrimSpace(t)
 		s = strings.TrimRight(s, " %°CcF")
 		s = strings.TrimSpace(s)
-		if f, err := strconv.ParseFloat(strings.Fields(s + " ")[0], 64); err == nil {
-			return int(f)
+		// Chaîne vide (ou réduite à son unité) : Fields renvoie une tranche vide.
+		if fs := strings.Fields(s); len(fs) > 0 {
+			if f, err := strconv.ParseFloat(fs[0], 64); err == nil {
+				return int(f)
+			}
 		}
 	case map[string]any:
 		if inner, ok := t["value"]; ok {

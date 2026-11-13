@@ -93,10 +93,28 @@ func listSnapshots() []MemSnapshot {
 // l'état courant, puis on écrit chaque fichier de façon vérifiée avant de retirer
 // les fichiers surnuméraires.
 func restoreSnapshot(id string) error {
-	src := filepath.Join(snapshotsRoot(), filepath.Base(id))
+	// Un id vide, « . » ou « .. » désignerait la racine des snapshots (ou son
+	// parent) : aucun fichier à restaurer, puis toute la mémoire retirée comme
+	// « surnuméraire ».
+	id = strings.TrimSpace(id)
+	if id == "" || id == "." || id == ".." || filepath.Base(id) != id {
+		return fmt.Errorf("snapshot introuvable")
+	}
+	src := filepath.Join(snapshotsRoot(), id)
 	entries, err := os.ReadDir(src)
 	if err != nil {
 		return fmt.Errorf("snapshot introuvable : %w", err)
+	}
+	// Un snapshot sans aucun fichier ne peut que vider la mémoire : on refuse.
+	hasFile := false
+	for _, e := range entries {
+		if !e.IsDir() {
+			hasFile = true
+			break
+		}
+	}
+	if !hasFile {
+		return fmt.Errorf("snapshot vide, restauration annulée")
 	}
 	if _, err := snapshotMemory("avant-restauration"); err != nil {
 		return fmt.Errorf("snapshot de sécurité impossible, restauration annulée : %w", err)

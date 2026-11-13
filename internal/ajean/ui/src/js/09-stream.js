@@ -1014,9 +1014,10 @@ async function send(){
   for(let attempt=0; attempt<3; attempt++){
     try{
       const r=await jfetch('/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,files:files,ctx_used:CTX_USED,mode:MODE,tz:USER_TZ})});
-      if(r.status===409 || r.ok) clearAttach();
-      if(r.status===409) return;               // déjà en cours (notre envoi a abouti) → OK
-      if(r.ok) return;                          // la bulle + les tokens arrivent par le flux
+      // Un 409 est un REFUS (une autre conversation génère) : depuis la mise en file
+      // (#74) le serveur ne le renvoie plus pour « déjà en cours ». Il passe donc par
+      // la branche d'erreur ci-dessous, qui rend le texte et garde les pièces jointes.
+      if(r.ok){ clearAttach(); return; }        // la bulle + les tokens arrivent par le flux
       if(r.status<500){ let m=t('chat.error'); try{ m=(await r.json()).error||m; }catch(_){} fail(m); return; }
     }catch(e){ /* réseau : on retente */ }
     await new Promise(res=>setTimeout(res, 600));

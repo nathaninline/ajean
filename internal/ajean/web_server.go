@@ -404,7 +404,13 @@ func resolvePortConflict(port int) bool {
 	fmt.Printf("%s le port %d est déjà utilisé par %s (PID %d).\n", yellow("[!]"), port, bold(name), pid)
 	fmt.Print(dim("    terminer ce process et relancer ? [Y/n] "))
 	sc := bufio.NewScanner(os.Stdin)
-	if sc.Scan() && strings.HasPrefix(strings.ToLower(strings.TrimSpace(sc.Text())), "n") {
+	// Pas de réponse lisible (service, process détaché, stdin fermé) : ce n'est pas
+	// un « oui ». On ne tue jamais le process d'un autre sans accord explicite.
+	if !sc.Scan() {
+		fmt.Println(dim("    pas de terminal pour confirmer : rien n'est terminé."))
+		return false
+	}
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(sc.Text())), "n") {
 		fmt.Println(dim("    annulé."))
 		return false
 	}

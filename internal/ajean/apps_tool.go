@@ -578,7 +578,7 @@ func appDataSet(id, key string, args map[string]any) string {
 	}
 	// Valeur passée en texte JSON (« {"events":[…]} ») : on la prend telle quelle.
 	var raw json.RawMessage
-	if sv, ok := v.(string); ok && strings.ContainsAny(strings.TrimSpace(sv + " ")[:1], "{[") && json.Valid([]byte(sv)) {
+	if sv, ok := v.(string); ok && (strings.HasPrefix(strings.TrimSpace(sv), "{") || strings.HasPrefix(strings.TrimSpace(sv), "[")) && json.Valid([]byte(sv)) {
 		raw = json.RawMessage(sv)
 	} else {
 		raw, _ = json.Marshal(v)

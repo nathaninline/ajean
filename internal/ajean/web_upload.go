@@ -456,7 +456,14 @@ func handleChatFile(w http.ResponseWriter, r *http.Request) {
 	// s'il n'y en a qu'un.
 	if !localOK && inside && !strings.Contains(filepath.ToSlash(rel), "/") {
 		if found := findUniqueByName(roots, filepath.Base(rel)); found != "" {
-			abs, localOK = found, true
+			// Le fichier trouvé peut être un lien symbolique qui sort du dossier de
+			// travail : même contrôle que pour le chemin direct.
+			for _, root := range roots {
+				if _, ok := dirRel(root, found); ok {
+					abs, localOK = found, true
+					break
+				}
+			}
 		}
 	}
 	if !localOK {

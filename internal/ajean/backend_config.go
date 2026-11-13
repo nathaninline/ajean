@@ -47,6 +47,9 @@ func maskAPIKey(k string) string {
 	if k == "" {
 		return ""
 	}
+	if len(k) < 2 {
+		return "…" // clé d'un seul caractère : rien à montrer sans la révéler
+	}
 	if len(k) <= 13 {
 		return "…" + k[len(k)-2:]
 	}

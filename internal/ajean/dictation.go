@@ -195,7 +195,9 @@ func handleSTTModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	key := strings.TrimSpace(b.Key)
-	if key == "" {
+	// La clé enregistrée ne repart que vers l'hôte avec lequel elle a été
+	// enregistrée, jamais vers une adresse fournie par la requête.
+	if key == "" && sameURLHost(u, c.url) {
 		key = c.key
 	}
 	req, err := http.NewRequestWithContext(r.Context(), "GET", u+"/models", nil)

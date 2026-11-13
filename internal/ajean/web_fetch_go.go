@@ -44,13 +44,15 @@ const (
 // en mémoire : il disparaît à l'arrêt du process, on ne persiste rien.
 // On ne touche pas à http.DefaultClient (utilisé ailleurs).
 var goHTTPClient = &http.Client{
-	Timeout: goFetchTimeout,
-	Jar:     newCookieJar(),
+	Timeout:   goFetchTimeout,
+	Jar:       newCookieJar(),
+	Transport: newWebTransport(), // refuse les adresses locales et privées (web_fetch_guard.go)
 	CheckRedirect: func(req *http.Request, via []*http.Request) error {
 		if len(via) >= 10 {
 			return fmt.Errorf("trop de redirections")
 		}
-		return nil
+		// Une page publique peut rediriger vers une adresse locale.
+		return webDestCheck(req.Context(), req.URL)
 	},
 }
 
@@ -85,6 +87,9 @@ var consentCookies = []string{
 func goFetch(ctx context.Context, target string) (body []byte, contentType, finalURL string, err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
+		return nil, "", "", err
+	}
+	if err := webDestCheck(ctx, req.URL); err != nil {
 		return nil, "", "", err
 	}
 	req.Header.Set("User-Agent", goFetchUA)

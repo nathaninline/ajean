@@ -183,8 +183,12 @@ func handlePresetExternalTest(w http.ResponseWriter, r *http.Request) {
 	}
 	key := strings.TrimSpace(req.Key)
 	if key == "" && req.ID != "" && !req.KeyTouched {
+		// La clé enregistrée ne repart que vers l'hôte du preset : sinon une requête
+		// qui change l'URL la ferait envoyer à une adresse de son choix.
 		if content, err := ReadPreset(req.ID); err == nil {
-			key = strings.TrimSpace(parseEnv(content)[extKeyToken])
+			if stored := parseEnv(content); sameURLHost(stored[extKeyURL], req.URL) {
+				key = strings.TrimSpace(stored[extKeyToken])
+			}
 		}
 	}
 	payload := map[string]any{

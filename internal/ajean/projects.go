@@ -404,6 +404,11 @@ func moveMemPage(name, fromSlug, toSlug string) error {
 	if !projectExists(toSlug) {
 		return fmt.Errorf("projet cible introuvable")
 	}
+	// Le projet source vient de la requête : un slug comme « ../.. » ferait lire
+	// puis supprimer un fichier hors de la mémoire.
+	if !projectExists(fromSlug) {
+		return fmt.Errorf("projet source introuvable")
+	}
 	fn, err := memFileName(name)
 	if err != nil {
 		return err

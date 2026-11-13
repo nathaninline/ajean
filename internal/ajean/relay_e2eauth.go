@@ -295,6 +295,10 @@ func e2eAuthOpenReq(r *http.Request) (plain []byte, key []byte, err error) {
 	}
 	iv, _ := base64.StdEncoding.DecodeString(env.Iv)
 	ct, _ := base64.StdEncoding.DecodeString(env.Ct)
+	// gcm.Open panique sur un nonce de mauvaise longueur : on refuse avant.
+	if len(iv) != gcm.NonceSize() {
+		return nil, nil, fmt.Errorf("authentification échouée")
+	}
 	plain, err = gcm.Open(nil, iv, ct, e2eAuthAAD(env.UPub, env.Ts))
 	if err != nil {
 		return nil, nil, fmt.Errorf("authentification échouée")
