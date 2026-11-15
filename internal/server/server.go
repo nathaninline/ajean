@@ -1,6 +1,7 @@
 // Package server sert l'interface web d'AJEAN et son API HTTP locale.
 //
 //	server.go         routes, garde d'accès, flux d'événements, utilitaires JSON
+//	auth.go           connexion : mot de passe, sessions, qui a le droit d'entrer
 //	conversations.go  conversations : état, envoi, arrêt, pièces jointes
 //	settings.go       fournisseurs d'API, configurations, dictée
 //	embed.go          recherche par le sens : essai d'un modèle, moteur local
@@ -13,7 +14,6 @@
 package server
 
 import (
-	"crypto/subtle"
 	"embed"
 	"encoding/json"
 	"errors"
@@ -22,7 +22,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -44,6 +43,15 @@ func New() http.Handler {
 	mux.Handle("GET /", page(http.FileServerFS(ui)))
 
 	api := func(pattern string, h http.HandlerFunc) { mux.HandleFunc(pattern, guard(h)) }
+	// La porte : ces routes répondent avant toute connexion (sauf le changement
+	// de mot de passe, qui vérifie lui-même). Elles gardent le contrôle d'origine.
+	door := func(pattern string, h http.HandlerFunc) { mux.HandleFunc(pattern, sameSite(h)) }
+	door("GET /api/auth", handleAuth)
+	door("POST /api/auth/login", handleLogin)
+	door("POST /api/auth/logout", handleLogout)
+	door("POST /api/auth/password", handlePassword)
+	api("POST /api/auth/logout-others", handleLogoutOthers)
+
 	api("GET /api/events", handleEvents)
 
 	api("GET /api/state", handleState)
@@ -103,39 +111,56 @@ func New() http.Handler {
 	api("GET /api/apps/versions", handleAppVersions)
 	api("POST /api/apps/rollback", handleAppRollback)
 	api("POST /api/apps/bridge", handleAppBridge)
-	return mux
+	return headers(mux)
 }
 
-// page sert l'interface avec deux consignes pour le navigateur :
-//   - ne pas resservir une ancienne version (l'interface est embarquée dans le
-//     binaire et change avec lui) ;
-//   - interdire à tout cadre de la page de charger une adresse. Les apps
-//     s'affichent dans un cadre construit sur place, qui n'en a pas besoin ;
-//     sans cela, une app pourrait faire naviguer son cadre vers un site et y
-//     faire sortir des données dans l'adresse.
+// headers pose sur chaque réponse les consignes de sécurité du navigateur : ne
+// pas deviner les types, ne pas nous afficher dans le cadre d'un autre site, ne
+// pas donner notre adresse aux sites vers lesquels on part, ne pas laisser un
+// autre site lire nos réponses. En HTTPS, le navigateur retient de ne plus
+// jamais revenir en clair.
+func headers(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "no-referrer")
+		h.Set("Cross-Origin-Opener-Policy", "same-origin")
+		h.Set("Cross-Origin-Resource-Policy", "same-origin")
+		if isHTTPS(r) {
+			h.Set("Strict-Transport-Security", "max-age=31536000")
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// pagePolicy : ce que la page a le droit de faire.
+//   - frame-src 'none' : aucun cadre de la page ne charge une adresse. Les apps
+//     s'affichent dans un cadre construit sur place, qui n'en a pas besoin ; sans
+//     cela, une app pourrait faire naviguer son cadre vers un site et y faire
+//     sortir des données dans l'adresse ;
+//   - frame-ancestors 'none' : aucun site ne nous affiche dans un cadre ;
+//   - base-uri, form-action : la page ne peut être détournée vers un autre site.
+const pagePolicy = "frame-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+
+// page sert l'interface. Elle ne contient aucune donnée : c'est l'API qui est
+// gardée. Le navigateur ne doit pas resservir une ancienne version (l'interface
+// est embarquée dans le binaire et change avec lui).
 func page(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-cache")
-		w.Header().Set("Content-Security-Policy", "frame-src 'none'")
+		w.Header().Set("Content-Security-Policy", pagePolicy)
 		h.ServeHTTP(w, r)
 	})
 }
 
-// guard protège l'API contre une page d'un autre site ouverte dans le même
-// navigateur, qui ne doit pas pouvoir parler à l'assistant :
-//   - sans clé d'accès, la requête doit viser la machine elle-même par son nom
-//     local. Sinon un site pourrait faire pointer son propre nom vers 127.0.0.1
-//     (DNS rebinding) et passer pour nous ;
+// sameSite protège une route contre une page d'un autre site ouverte dans le
+// même navigateur, qui ne doit pas pouvoir parler à l'assistant :
 //   - l'origine, quand le navigateur la donne, doit être la nôtre ;
-//   - une écriture doit être en JSON, ou un envoi de fichier venant de notre page ;
-//   - si AJEAN_WEB_KEY est définie (accès depuis le réseau), elle est exigée.
-func guard(next http.HandlerFunc) http.HandlerFunc {
+//   - une écriture doit être en JSON, ou un envoi de fichier venant de notre page
+//     (un formulaire d'un autre site ne sait faire ni l'un ni l'autre).
+func sameSite(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		key := os.Getenv("AJEAN_WEB_KEY")
-		if key == "" && !localHost(r.Host) {
-			fail(w, http.StatusForbidden, errors.New("hôte refusé"))
-			return
-		}
 		origin := r.Header.Get("Origin")
 		if origin != "" {
 			if u, err := url.Parse(origin); err != nil || u.Host != r.Host {
@@ -152,20 +177,24 @@ func guard(next http.HandlerFunc) http.HandlerFunc {
 				return
 			}
 		}
-		if key != "" {
-			got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-			if got == "" {
-				got = r.URL.Query().Get("key") // EventSource ne sait pas poser d'en-tête
-			}
-			if subtle.ConstantTimeCompare([]byte(got), []byte(key)) != 1 {
-				fail(w, http.StatusUnauthorized, errors.New("clé d'accès requise"))
-				return
-			}
-		}
 		next(w, r)
 	}
 }
 
+// guard garde l'API : en plus du contrôle d'origine, il faut avoir le droit
+// d'entrer (voir allowed). Sans mot de passe défini, seule la machine elle-même
+// passe, par son nom local : un site ne peut pas faire pointer son propre nom
+// vers 127.0.0.1 (DNS rebinding) et passer pour nous. Avec un mot de passe, il
+// faut une session ouverte.
+func guard(next http.HandlerFunc) http.HandlerFunc {
+	return sameSite(func(w http.ResponseWriter, r *http.Request) {
+		if code, err := allowed(r); code != 0 {
+			fail(w, code, err)
+			return
+		}
+		next(w, r)
+	})
+}
 // localHost : l'en-tête Host désigne-t-il la machine elle-même ?
 func localHost(hostport string) bool {
 	host := hostport
@@ -195,15 +224,27 @@ func handleEvents(w http.ResponseWriter, r *http.Request) {
 	fl.Flush()
 	ping := time.NewTicker(25 * time.Second) // garde la connexion ouverte à travers les proxys
 	defer ping.Stop()
+	// Le flux reste ouvert des heures : le droit d'entrer est revérifié en route.
+	// Une session fermée (déconnexion, changement de mot de passe) cesse de
+	// recevoir, au plus tard une seconde après l'événement suivant.
+	checked := time.Now()
 	for {
+		var out string
 		select {
 		case <-r.Context().Done():
 			return
 		case ev := <-events:
-			fmt.Fprintf(w, "data: %s\n\n", ev)
+			out = fmt.Sprintf("data: %s\n\n", ev)
 		case <-ping.C:
-			fmt.Fprint(w, ": ping\n\n")
+			out = ": ping\n\n"
 		}
+		if time.Since(checked) > time.Second {
+			if code, _ := allowed(r); code != 0 {
+				return
+			}
+			checked = time.Now()
+		}
+		fmt.Fprint(w, out)
 		fl.Flush()
 	}
 }

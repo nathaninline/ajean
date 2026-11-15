@@ -527,6 +527,15 @@ select.ctl{appearance:none;-webkit-appearance:none;padding-right:34px;text-overf
 .ask-msg:empty{display:none}
 .ask-box .ctl{margin-top:12px}
 .ask-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+/* Écran de connexion : couvre toute la page, fenêtres comprises, tant que la session n'est pas ouverte. */
+#login{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--bg)}
+.login-box{width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px;text-align:center}
+.login-box .logo{width:120px;margin:0 auto 4px;color:var(--text)}
+.login-msg{margin:0 0 8px;font-size:13px;line-height:1.5;color:var(--dim)}
+.login-box .ctl{text-align:center}
+.login-box .btn{height:40px;justify-content:center}
+.login-box .status{margin:0}
+.login-warn{margin:6px 0 0;font-size:12px;line-height:1.5;color:var(--err)}
 
 /* Menus flottants : le ⋮ d'une conversation, le choix de la configuration, les
    modèles d'un fournisseur et toutes les listes déroulantes. Un seul modèle de
@@ -855,6 +864,16 @@ select.ctl{appearance:none;-webkit-appearance:none;padding-right:34px;text-overf
         <div><span data-i18n="set.notif"></span><button class="btn" id="s-notif" style="margin-left:auto"></button></div>
       </div>
 
+      <!-- Sécurité : le mot de passe de l'interface et les appareils connectés. Sans mot de passe, seule
+           cette machine ouvre l'interface ; les deux dernières lignes n'ont alors pas lieu d'être. -->
+      <span class="flabel" data-i18n="sec.title"></span>
+      <div class="kv">
+        <div><span id="sec-state"></span><button class="btn" id="sec-pw" style="margin-left:auto"></button></div>
+        <div id="sec-others-row"><span id="sec-sessions"></span><button class="btn" id="sec-others" style="margin-left:auto" data-i18n="sec.others"></button></div>
+        <div id="sec-out-row"><span data-i18n="sec.session"></span><button class="btn" id="sec-out" style="margin-left:auto" data-i18n="sec.logout"></button></div>
+      </div>
+      <p class="hint" id="sec-hint"></p>
+
       <span class="flabel" data-i18n="set.dirs"></span>
       <div class="kv">
         <div><span>MEMORY</span><span class="kv-v" id="d-memory"></span></div>
@@ -890,6 +909,29 @@ select.ctl{appearance:none;-webkit-appearance:none;padding-right:34px;text-overf
   </div>
   <div class="modal-foot"><div class="status" id="pr-status"></div><button class="btn" id="pr-test" data-i18n="test"></button><button class="btn primary" id="pr-save" data-i18n="save"></button></div>
 </div></div>
+
+<!-- Mot de passe de l'interface : le définir ou le changer (s'ouvre par-dessus les réglages) -->
+<div class="modal-ov" id="pw-modal"><div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="pw-title">
+  <div class="modal-head"><strong id="pw-title"></strong><button class="modal-x" data-close data-i18n-aria="close"></button></div>
+  <div class="modal-body">
+    <p class="hint" id="pw-hint"></p>
+    <label class="field" id="pw-cur-field"><span class="flabel" data-i18n="pw.current"></span><input class="ctl" id="pw-cur" type="password" autocomplete="current-password"></label>
+    <label class="field"><span class="flabel" data-i18n="pw.new"></span><input class="ctl" id="pw-new" type="password" autocomplete="new-password"></label>
+    <label class="field"><span class="flabel" data-i18n="pw.again"></span><input class="ctl" id="pw-again" type="password" autocomplete="new-password"></label>
+  </div>
+  <div class="modal-foot"><div class="status" id="pw-status"></div><button class="btn primary" id="pw-save" data-i18n="save"></button></div>
+</div></div>
+
+<!-- Écran de connexion. Un vrai formulaire, avec un nom d'utilisateur fixe : les gestionnaires de mots de passe s'y retrouvent. -->
+<div id="login" hidden><form class="login-box" id="login-form">
+  <svg class="logo" viewBox="0 0 22 5"><use href="#logo"/></svg>
+  <p class="login-msg" data-i18n="login.msg"></p>
+  <input type="text" name="username" value="AJEAN" autocomplete="username" hidden>
+  <input class="ctl" id="login-pw" type="password" name="password" autocomplete="current-password" data-i18n-ph="login.ph" data-i18n-aria="login.ph">
+  <button class="btn primary" id="login-ok" type="submit" data-i18n="login.ok"></button>
+  <div class="status" id="login-status" role="alert"></div>
+  <p class="login-warn" id="login-warn" hidden data-i18n="login.insecure"></p>
+</form></div>
 
 <!-- Boîte de confirmation / de saisie (remplace confirm() et prompt()) -->
 <div class="ask-overlay" id="ask"><div class="ask-box" role="alertdialog" aria-modal="true" aria-labelledby="ask-title">
@@ -995,8 +1037,29 @@ const I18N={
   // Accès au serveur, notifications
   'api.down':{fr:'Le serveur ne répond pas.',en:"The server isn't responding.",vi:'Máy chủ không phản hồi.'},
   'api.key_needed':{fr:"Clé d'accès requise.",en:'Access key required.',vi:'Cần có khóa truy cập.'},'api.error':{fr:'Erreur {0}',en:'Error {0}',vi:'Lỗi {0}'},
-  'key.title':{fr:"Clé d'accès",en:'Access key',vi:'Khóa truy cập'},'key.ok':{fr:'Valider',en:'Continue',vi:'Xác nhận'},
-  'key.msg':{fr:"Cet assistant est protégé. Saisissez sa clé d'accès.",en:'This assistant is protected. Enter its access key.',vi:'Trợ lý này được bảo vệ. Hãy nhập khóa truy cập.'},
+  'login.msg':{fr:'Cet assistant est protégé. Saisissez le mot de passe.',en:'This assistant is protected. Enter the password.',vi:'Trợ lý này được bảo vệ. Hãy nhập mật khẩu.'},
+  'login.ph':{fr:'Mot de passe',en:'Password',vi:'Mật khẩu'},'login.ok':{fr:'Se connecter',en:'Sign in',vi:'Đăng nhập'},
+  'login.wrong':{fr:'Mot de passe incorrect.',en:'Incorrect password.',vi:'Mật khẩu không đúng.'},
+  'login.wait':{fr:"Trop d'essais. Nouvel essai possible dans {0} s.",en:'Too many attempts. Try again in {0} s.',vi:'Quá nhiều lần thử. Thử lại sau {0} giây.'},
+  'login.insecure':{fr:'Liaison non chiffrée (HTTP) : le mot de passe circule en clair. Pour un accès par Internet, utilisez HTTPS.',en:'Unencrypted connection (HTTP): the password travels in clear text. For access over the Internet, use HTTPS.',vi:'Kết nối không được mã hóa (HTTP): mật khẩu được gửi ở dạng văn bản thuần. Khi truy cập qua Internet, hãy dùng HTTPS.'},
+  'sec.title':{fr:'Sécurité',en:'Security',vi:'Bảo mật'},
+  'sec.none':{fr:"Aucun mot de passe : seul cet ordinateur ouvre l'interface.",en:'No password: only this computer can open the interface.',vi:'Chưa có mật khẩu: chỉ máy tính này mở được giao diện.'},
+  'sec.on':{fr:'Interface protégée par mot de passe.',en:'Interface protected by a password.',vi:'Giao diện được bảo vệ bằng mật khẩu.'},
+  'sec.set':{fr:'Définir un mot de passe',en:'Set a password',vi:'Đặt mật khẩu'},'sec.change':{fr:'Changer',en:'Change',vi:'Đổi'},
+  'sec.sessions1':{fr:'Cet appareil est le seul connecté.',en:'This device is the only one signed in.',vi:'Chỉ thiết bị này đang đăng nhập.'},
+  'sec.sessions':{fr:'{0} appareils connectés.',en:'{0} devices signed in.',vi:'{0} thiết bị đang đăng nhập.'},
+  'sec.others':{fr:'Déconnecter les autres',en:'Sign out the others',vi:'Đăng xuất thiết bị khác'},
+  'sec.others_done':{fr:'Autres appareils déconnectés.',en:'Other devices signed out.',vi:'Đã đăng xuất các thiết bị khác.'},
+  'sec.session':{fr:'Cet appareil',en:'This device',vi:'Thiết bị này'},'sec.logout':{fr:'Se déconnecter',en:'Sign out',vi:'Đăng xuất'},
+  'sec.hint_none':{fr:"Un mot de passe est nécessaire avant d'ouvrir AJEAN au réseau ou à Internet. Une fois défini, il est demandé partout, y compris sur cet ordinateur.",en:'A password is required before opening AJEAN to the network or the Internet. Once set, it is asked everywhere, including on this computer.',vi:'Cần có mật khẩu trước khi mở AJEAN ra mạng nội bộ hoặc Internet. Khi đã đặt, mật khẩu được yêu cầu ở mọi nơi, kể cả trên máy tính này.'},
+  'sec.hint_on':{fr:"Mot de passe oublié : sur la machine d'AJEAN, lancer « ajean password ».",en:'Forgotten password: on the AJEAN machine, run “ajean password”.',vi:'Quên mật khẩu: trên máy chạy AJEAN, hãy chạy lệnh “ajean password”.'},
+  'sec.hint_env':{fr:"Le mot de passe actuel est celui de la variable AJEAN_WEB_KEY. Un mot de passe défini ici le remplace.",en:'The current password is the one in the AJEAN_WEB_KEY variable. A password set here replaces it.',vi:'Mật khẩu hiện tại là giá trị của biến AJEAN_WEB_KEY. Mật khẩu đặt tại đây sẽ thay thế nó.'},
+  'pw.change':{fr:'Changer le mot de passe',en:'Change the password',vi:'Đổi mật khẩu'},
+  'pw.current':{fr:'Mot de passe actuel',en:'Current password',vi:'Mật khẩu hiện tại'},'pw.new':{fr:'Nouveau mot de passe',en:'New password',vi:'Mật khẩu mới'},'pw.again':{fr:'Confirmation',en:'Confirmation',vi:'Xác nhận'},
+  'pw.hint':{fr:'{0} caractères au moins. Tous les appareils connectés devront se reconnecter.',en:'At least {0} characters. Every signed-in device will have to sign in again.',vi:'Ít nhất {0} ký tự. Mọi thiết bị đang đăng nhập sẽ phải đăng nhập lại.'},
+  'pw.short':{fr:'Mot de passe trop court : {0} caractères au moins.',en:'Password too short: at least {0} characters.',vi:'Mật khẩu quá ngắn: ít nhất {0} ký tự.'},
+  'pw.differ':{fr:'Les deux saisies diffèrent.',en:'The two entries differ.',vi:'Hai lần nhập không khớp.'},
+  'pw.done':{fr:'Mot de passe enregistré.',en:'Password saved.',vi:'Đã lưu mật khẩu.'},
   'notif.task':{fr:'AJEAN · tâche',en:'AJEAN · task',vi:'AJEAN · tác vụ'},'notif.on':{fr:'Activées',en:'On',vi:'Đang bật'},
   'notif.unsupported':{fr:'Non géré',en:'Not supported',vi:'Không hỗ trợ'},'notif.blocked':{fr:'Bloquées',en:'Blocked',vi:'Bị chặn'},'notif.enable':{fr:'Activer',en:'Turn on',vi:'Bật'},
   'notif.granted':{fr:"Notifications activées (tant que l'onglet reste ouvert).",en:'Notifications are on (as long as this tab stays open).',vi:'Đã bật thông báo (chừng nào thẻ này còn mở).'},
@@ -1650,25 +1713,43 @@ document.addEventListener('keydown',e=>{
 
 // ===== Accès au serveur ======================================================
 // JSON dans les deux sens (FormData pour l'envoi de fichier). Une erreur arrive en
-// {error} : un message du serveur, affiché tel quel. Sur 401, la clé d'accès est
-// demandée une fois puis gardée.
-let accessKey=store.get('ajean-key')||'',keyAsk=null;
-function askAccessKey(){
-  return keyAsk||(keyAsk=ask({title:t('key.title'),msg:t('key.msg'),ok:t('key.ok'),input:true,password:true})
-    .then(k=>{keyAsk=null;k=(k||'').trim();if(!k)return false;accessKey=k;store.set('ajean-key',k);return true}));
+// {error} : un message du serveur, affiché tel quel. Sur 401 (pas de session, ou
+// session éteinte), l'écran de connexion s'affiche et la requête est rejouée une
+// fois la session ouverte.
+//
+// La session vit dans un cookie que le script ne peut pas lire (HttpOnly) : rien
+// de secret n'est gardé par la page, et le navigateur le joint de lui-même à
+// chaque requête, flux d'événements compris.
+let loginWait=null,loginDone=null;
+function login(){
+  if(loginWait)return loginWait;                   // plusieurs requêtes refusées : un seul écran
+  store.set('ajean-key','');                       // l'ancienne clé d'accès gardée sur l'appareil n'a plus cours
+  setStatus('login-status','');$('login-pw').value='';
+  $('login-warn').hidden=location.protocol==='https:'||/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  $('login').hidden=false;$('login-pw').focus();
+  return loginWait=new Promise(res=>{loginDone=()=>{loginWait=loginDone=null;$('login').hidden=true;$('login-pw').value='';res()}});
 }
+$('login-form').onsubmit=async e=>{
+  e.preventDefault();
+  const b=$('login-ok');b.disabled=true;setStatus('login-status','');
+  try{
+    const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('login-pw').value})});
+    let j={};try{j=await r.json()}catch(err){}
+    if(r.ok){if(loginDone)loginDone()}
+    else{
+      setStatus('login-status',r.status===429?t('login.wait',j.wait||60):r.status===401?t('login.wrong'):j.error||t('api.error',r.status),'err');
+      $('login-pw').select();
+    }
+  }catch(err){setStatus('login-status',t('api.down'),'err')}
+  b.disabled=false;
+};
 async function api(path,body){
-  const opt={headers:{}},used=accessKey;
+  const opt={headers:{}};
   if(body instanceof FormData){opt.method='POST';opt.body=body}
   else if(body!==undefined){opt.method='POST';opt.headers['Content-Type']='application/json';opt.body=JSON.stringify(body)}
-  if(used)opt.headers.Authorization='Bearer '+used;
   let r;
   try{r=await fetch(path,opt)}catch(e){throw new Error(t('api.down'))}
-  if(r.status===401){
-    // Une autre requête a pu obtenir la clé entre-temps : on rejoue sans redemander.
-    if(accessKey!==used||await askAccessKey())return api(path,body);
-    throw new Error(t('api.key_needed'));
-  }
+  if(r.status===401){await login();return api(path,body)}
   let j={};try{j=await r.json()}catch(e){}
   if(!r.ok)throw new Error(j.error||t('api.error',r.status));
   return j;
@@ -2032,14 +2113,22 @@ function onEvent(ev){
   if(stick||ev.type==='user')toBottom();
 }
 function connect(){
-  const es=new EventSource('/api/events'+(accessKey?'?key='+encodeURIComponent(accessKey):''));
+  const es=new EventSource('/api/events');
   let first=true;
   es.onopen=()=>{
     offline=false;renderStatus();
     if(!first)loadState(S.conv).catch(()=>{});     // reconnexion : on a pu manquer des événements
     first=false;
   };
-  es.onerror=()=>{offline=true;renderStatus()};
+  es.onerror=()=>{
+    offline=true;renderStatus();
+    // Serveur injoignable : le navigateur réessaie de lui-même. Flux fermé pour de
+    // bon : le serveur a refusé (session éteinte ou fermée depuis un autre appareil).
+    // On relit l'état, ce qui amène l'écran de connexion, puis on rouvre le flux.
+    if(es.readyState!==EventSource.CLOSED)return;
+    const again=()=>loadState(S.conv).then(connect,()=>setTimeout(again,5000));
+    again();
+  };
   es.onmessage=e=>{let ev;try{ev=JSON.parse(e.data)}catch(err){return}onEvent(ev)};
 }
 
@@ -2430,7 +2519,7 @@ async function filesAct(path,body){
 }
 async function fileDownload(p){
   try{
-    const r=await fetch('/api/files/get?dl=1&path='+encodeURIComponent(p),{headers:accessKey?{Authorization:'Bearer '+accessKey}:{}});
+    const r=await fetch('/api/files/get?dl=1&path='+encodeURIComponent(p));
     if(!r.ok){let j={};try{j=await r.json()}catch(_){}throw new Error(j.error||t('api.error',r.status))}
     const u=URL.createObjectURL(await r.blob()),a=document.createElement('a');
     a.href=u;a.download=p.split('/').pop();document.body.appendChild(a);a.click();a.remove();
@@ -2773,7 +2862,45 @@ function renderSettings(){
   $('prov-list').innerHTML=listOf(cfg.providers.map((p,i)=>item(
     '<div class="k">'+esc(p.name)+(p.has_key?'<span class="badge">'+t('provider.key_saved')+'</span>':'')+'</div><div class="meta">'+esc(p.api_url)+'</div>',
     btn('fedit',i,'edit',t('edit'))+btn('fdel',i,'trash',t('delete'),true))),'');
+  renderDoor();
 }
+// ----- Sécurité : mot de passe de l'interface et appareils connectés ----------
+// door : ce que /api/auth dit de la porte (un mot de passe existe-t-il, combien
+// d'appareils sont connectés). Changer le mot de passe ferme toutes les sessions ;
+// le serveur en rouvre une pour cet appareil dans la même réponse.
+let door={};
+function renderDoor(){
+  const on=!!door.configured,many=door.sessions>1;
+  $('sec-state').textContent=t(on?'sec.on':'sec.none');
+  $('sec-pw').textContent=t(on?'sec.change':'sec.set');
+  $('sec-others-row').hidden=$('sec-out-row').hidden=!on;
+  $('sec-sessions').textContent=many?t('sec.sessions',door.sessions):t('sec.sessions1');
+  $('sec-others').hidden=!many;
+  $('sec-hint').textContent=t(!on?'sec.hint_none':door.env?'sec.hint_env':'sec.hint_on');
+}
+async function loadDoor(){door=await api('/api/auth');renderDoor()}
+$('sec-pw').onclick=()=>{
+  const on=!!door.configured;
+  $('pw-title').textContent=t(on?'pw.change':'sec.set');
+  $('pw-hint').textContent=t('pw.hint',door.min||10);
+  $('pw-cur-field').hidden=!on;
+  for(const id of ['pw-cur','pw-new','pw-again'])$(id).value='';
+  setStatus('pw-status','');showModal('pw-modal');$(on?'pw-cur':'pw-new').focus();
+};
+$('pw-save').onclick=e=>formAct(e.currentTarget,'pw-status',t('saving'),async()=>{
+  const min=door.min||10,next=$('pw-new').value;
+  if([...next].length<min)throw new Error(t('pw.short',min));
+  if(next!==$('pw-again').value)throw new Error(t('pw.differ'));
+  await api('/api/auth/password',{current:$('pw-cur').value,password:next});
+  hideModal('pw-modal');toast(t('pw.done'));await loadDoor();
+});
+$('sec-others').onclick=async()=>{
+  try{await api('/api/auth/logout-others',{});toast(t('sec.others_done'));await loadDoor()}catch(e){toast(e.message)}
+};
+$('sec-out').onclick=async()=>{
+  try{await api('/api/auth/logout',{})}catch(e){return toast(e.message)}
+  location.reload();                               // la page repart de zéro, devant l'écran de connexion
+};
 // La recherche par le sens se lit dans deux réponses : /api/config dit ce qui est en
 // service (un fournisseur, ou 'local'), /api/embed/local ce qui est installé sur
 // cette machine (embLocal). La tuile du haut dit toujours le premier ; celle du
@@ -2839,7 +2966,7 @@ async function openSettings(tab){
   toggleSide(false);setStatus('s-status','');syncNotifButton();
   if(tab)setTab=tab;
   showModal('set-modal');
-  try{await loadConfig();await loadEmbLocal()}catch(e){toast(e.message)}
+  try{await loadConfig();await loadDoor();await loadEmbLocal()}catch(e){toast(e.message)}
 }
 $('open-settings').onclick=()=>openSettings();
 $('set-tabs').onclick=e=>{

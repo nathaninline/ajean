@@ -2,7 +2,12 @@ module ajean
 
 go 1.26.0
 
-require github.com/dop251/goja v0.0.0-20261110204830-f493a2b600d6
+require (
+	github.com/dop251/goja v0.0.0-20261110204830-f493a2b600d6
+	golang.org/x/term v0.46.0
+)
+
+require golang.org/x/sys v0.48.0 // indirect
 
 require (
 	github.com/coder/websocket v1.8.15

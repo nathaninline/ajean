@@ -73,6 +73,16 @@ Sauvegarder AJEAN, c'est copier ce dossier.
 - **Navigateur** : profil dédié (jamais le vôtre), adresses `http(s)` uniquement, téléchargements dans `WORKSPACE/downloads`.
 - **Applications** : une app s'affiche dans un cadre sans origine et sans réseau. Elle ne peut joindre ni Internet ni AJEAN ; elle n'a que ses propres données, les outils que l'assistant lui a explicitement ouverts, et une question au modèle.
 
+## Qui peut ouvrir l'interface
+
+- **Sans mot de passe** (par défaut) : seule la machine elle-même ouvre l'interface. Une requête venue d'ailleurs, directement ou par un proxy installé sur la machine, est refusée.
+- **Avec un mot de passe** : tout le monde se connecte, la machine comprise. Il se définit dans les réglages (Général, Sécurité) ou avec `ajean password`. `AJEAN_HOST` refuse d'ouvrir l'interface au réseau tant qu'aucun mot de passe n'existe.
+- **Mot de passe oublié** : sur la machine, lancer `ajean password` (ou `ajean password --remove`). Un serveur en marche le prend en compte tout de suite.
+- **Ce qui est enregistré** : le mot de passe est dérivé (PBKDF2-SHA256, sel aléatoire), et une session est gardée sous la forme de l'empreinte de son jeton. Lire `.ajean/auth.json` ne permet pas d'entrer.
+- **Sessions** : un cookie que les scripts de la page ne peuvent pas lire (`HttpOnly`), jamais envoyé par un autre site (`SameSite=Strict`), réservé à HTTPS quand la page est servie en HTTPS. Une session s'éteint après 30 jours sans visite. Changer le mot de passe les ferme toutes ; les réglages permettent de déconnecter les autres appareils.
+- **Essais à la chaîne** : après 5 mots de passe faux, une adresse attend 30 secondes, puis deux fois plus à chaque nouvel échec, jusqu'à une heure. Un frein commun arrête les essais répartis sur de nombreuses adresses.
+- **Par Internet, utiliser HTTPS** : un proxy inverse devant (Caddy, nginx), ou `AJEAN_TLS_CERT` et `AJEAN_TLS_KEY`. En HTTP simple, le mot de passe circule en clair ; l'écran de connexion le signale.
+
 ## Les outils qu'il se fabrique
 
 Un outil est un fichier `TOOLS/<nom>.js` qui définit `function run(args)`. Ils ne sont pas envoyés au modèle à chaque message : un seul outil, `tools`, est toujours présent, et c'est par lui qu'il les liste, les charge et les lance à la demande. Mille outils ne coûtent rien au contexte.
@@ -96,7 +106,8 @@ Variables d'environnement, toutes facultatives :
 |---|---|---|
 | `AJEAN_HOME` | dossier des données | celui de l'exécutable |
 | `AJEAN_HOST`, `AJEAN_PORT` | adresse d'écoute | `127.0.0.1:8090` |
-| `AJEAN_WEB_KEY` | clé exigée par l'interface (obligatoire hors de `127.0.0.1`) | aucune |
+| `AJEAN_WEB_KEY` | mot de passe de l'interface, à défaut d'un mot de passe enregistré | aucun |
+| `AJEAN_TLS_CERT`, `AJEAN_TLS_KEY` | certificat et clé (fichiers PEM) : l'interface est servie en HTTPS | |
 | `AJEAN_API_URL`, `AJEAN_API_KEY`, `AJEAN_MODEL` | l'API, à la place des réglages | |
 | `AJEAN_NO_BROWSER` | ne pas ouvrir l'interface au démarrage | |
 | `AJEAN_BROWSER` | navigateur que l'assistant pilote (chemin complet) | détecté |
@@ -125,6 +136,7 @@ internal/
   apps/              applications créées par l'assistant : versions, document enfermé, pont
   browser/           pilotage du navigateur
   netguard/          refus des adresses locales
+  auth/              mot de passe de l'interface, sessions, frein aux essais
   agent/             conversations, boucle modèle ↔ outils, révision, sommeil
   server/            API HTTP et interface web (ui/)
 ```

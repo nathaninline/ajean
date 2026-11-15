@@ -73,6 +73,16 @@ Backing up AJEAN means copying this folder.
 - **Browser**: a dedicated profile (never yours), `http(s)` addresses only, downloads into `WORKSPACE/downloads`.
 - **Apps**: an app is shown in a frame with no origin and no network. It can reach neither the Internet nor AJEAN; it only has its own data, the tools the assistant explicitly opened to it, and a question to the model.
 
+## Who can open the interface
+
+- **No password** (the default): only the machine itself opens the interface. A request coming from elsewhere, directly or through a proxy installed on the machine, is refused.
+- **With a password**: everyone signs in, the machine included. Set it in the settings (General, Security) or with `ajean password`. `AJEAN_HOST` refuses to open the interface to the network until a password exists.
+- **Forgotten password**: on the machine, run `ajean password` (or `ajean password --remove`). A running server takes it into account at once.
+- **What is stored**: the password is derived (PBKDF2-SHA256, random salt), and a session is kept as the fingerprint of its token. Reading `.ajean/auth.json` lets nobody in.
+- **Sessions**: a cookie the page's scripts cannot read (`HttpOnly`), never sent by another site (`SameSite=Strict`), reserved to HTTPS when the page is served over HTTPS. A session ends after 30 days without a visit. Changing the password closes all of them; the settings can sign out the other devices.
+- **Guessing**: after 5 wrong passwords, an address waits 30 seconds, then twice as long after each new failure, up to an hour. A shared brake stops attempts spread over many addresses.
+- **Over the Internet, use HTTPS**: either a reverse proxy in front (Caddy, nginx), or `AJEAN_TLS_CERT` and `AJEAN_TLS_KEY`. Over plain HTTP the password travels in clear text; the sign-in screen says so.
+
 ## The tools it makes
 
 A tool is a `TOOLS/<name>.js` file that defines `function run(args)`. They are not sent to the model with every message: a single tool, `tools`, is always present, and that's how it lists, loads and runs them on demand. A thousand tools cost nothing in context.
@@ -96,7 +106,8 @@ Environment variables, all optional:
 |---|---|---|
 | `AJEAN_HOME` | data folder | the executable's folder |
 | `AJEAN_HOST`, `AJEAN_PORT` | listen address | `127.0.0.1:8090` |
-| `AJEAN_WEB_KEY` | key required by the interface (mandatory outside `127.0.0.1`) | none |
+| `AJEAN_WEB_KEY` | password of the interface, when none has been saved | none |
+| `AJEAN_TLS_CERT`, `AJEAN_TLS_KEY` | certificate and key (PEM files): the interface is served over HTTPS | |
 | `AJEAN_API_URL`, `AJEAN_API_KEY`, `AJEAN_MODEL` | the API, instead of the settings | |
 | `AJEAN_NO_BROWSER` | don't open the interface at startup | |
 | `AJEAN_BROWSER` | browser the assistant drives (full path) | detected |
@@ -125,6 +136,7 @@ internal/
   apps/              apps built by the assistant: versions, sandboxed page, bridge
   browser/           browser driving
   netguard/          refusal of local addresses
+  auth/              interface password, sessions, brake on guessing
   agent/             conversations, model ↔ tools loop, review, sleep
   server/            HTTP API and web interface (ui/)
 ```

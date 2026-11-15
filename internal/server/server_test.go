@@ -12,6 +12,7 @@ func do(t *testing.T, method, path, host, origin, body string) *httptest.Respons
 	t.Helper()
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Host = host
+	req.RemoteAddr = "127.0.0.1:50000" // un navigateur de la machine
 	if origin != "" {
 		req.Header.Set("Origin", origin)
 	}
@@ -46,7 +47,7 @@ func TestGuardOnlyServesTheLocalMachine(t *testing.T) {
 func TestGuardRejectsCrossSiteForms(t *testing.T) {
 	t.Setenv("AJEAN_HOME", t.TempDir())
 	req := httptest.NewRequest(http.MethodPost, "/api/convs/new", strings.NewReader("x=1"))
-	req.Host = "127.0.0.1:8090"
+	req.Host, req.RemoteAddr = "127.0.0.1:8090", "127.0.0.1:50000"
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded") // ce qu'envoie un formulaire d'un autre site
 	rec := httptest.NewRecorder()
 	New().ServeHTTP(rec, req)
@@ -55,14 +56,25 @@ func TestGuardRejectsCrossSiteForms(t *testing.T) {
 	}
 }
 
-func TestGuardRequiresTheAccessKey(t *testing.T) {
+// AJEAN_WEB_KEY tient lieu de mot de passe : elle ouvre une session par la page
+// de connexion, plus jamais dans l'adresse (où elle finissait dans les journaux).
+func TestEnvKeyIsThePassword(t *testing.T) {
 	t.Setenv("AJEAN_HOME", t.TempDir())
 	t.Setenv("AJEAN_WEB_KEY", "secret")
-	if got := do(t, http.MethodGet, "/api/state", "192.168.1.10:8090", "", "").Code; got != http.StatusUnauthorized {
-		t.Errorf("sans clé : statut %d, attendu 401", got)
+	const lan = "192.168.1.10:8090"
+	if got := do(t, http.MethodGet, "/api/state", lan, "", "").Code; got != http.StatusUnauthorized {
+		t.Errorf("sans session : statut %d, attendu 401", got)
 	}
-	if got := do(t, http.MethodGet, "/api/state?key=secret", "192.168.1.10:8090", "", "").Code; got != http.StatusOK {
-		t.Errorf("avec clé : statut %d, attendu 200", got)
+	if got := do(t, http.MethodGet, "/api/state?key=secret", lan, "", "").Code; got != http.StatusUnauthorized {
+		t.Errorf("clé dans l'adresse : statut %d, attendu 401", got)
+	}
+	in := do(t, http.MethodPost, "/api/auth/login", lan, "", `{"password":"secret"}`)
+	c := cookieOf(in)
+	if in.Code != http.StatusOK || c == nil {
+		t.Fatalf("connexion avec la clé : statut %d", in.Code)
+	}
+	if got := call(t, http.MethodGet, "/api/state", "192.168.1.20:50000", lan, c.Value, "").Code; got != http.StatusOK {
+		t.Errorf("avec session : statut %d, attendu 200", got)
 	}
 }
 
@@ -88,7 +100,7 @@ func TestSafeName(t *testing.T) {
 func TestAppsCannotReachOut(t *testing.T) {
 	t.Setenv("AJEAN_HOME", t.TempDir())
 	page := do(t, http.MethodGet, "/", "127.0.0.1:8090", "", "")
-	if got := page.Header().Get("Content-Security-Policy"); got != "frame-src 'none'" {
+	if got := page.Header().Get("Content-Security-Policy"); !strings.Contains(got, "frame-src 'none'") || !strings.Contains(got, "frame-ancestors 'none'") {
 		t.Errorf("politique de la page = %q", got)
 	}
 	if got := do(t, http.MethodGet, "/api/memory", "127.0.0.1:8090", "null", "").Code; got != http.StatusForbidden {

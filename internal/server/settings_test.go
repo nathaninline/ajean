@@ -133,7 +133,7 @@ func TestTranscribeAndEmbedSettings(t *testing.T) {
 		_, _ = part.Write([]byte("son"))
 		_ = w.Close()
 		req := httptest.NewRequest(http.MethodPost, "/api/transcribe", &form)
-		req.Host = local
+		req.Host, req.RemoteAddr = local, "127.0.0.1:50000"
 		req.Header.Set("Origin", "http://"+local)
 		req.Header.Set("Content-Type", w.FormDataContentType())
 		rec := httptest.NewRecorder()
