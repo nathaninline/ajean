@@ -1,0 +1,43 @@
+# Publication : pousser un tag vX.Y.Z compile AJEAN pour Windows, Linux et macOS
+# (x64 et ARM) et publie une release GitHub avec les binaires et SHA256SUMS.
+#
+# Les noms des fichiers ne changent jamais d'une version à l'autre : le site
+# (ajean.app) prend toujours ceux de la release la plus récente.
+#
+# La release n'est PAS marquée « latest » : les anciennes installations
+# (branche ajean-v0.18.17) se mettent à jour en lisant /releases/latest et
+# doivent rester sur leur version.
+name: release
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: tests
+        run: go test ./...
+      - name: binaires
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          mkdir dist
+          build() { CGO_ENABLED=0 GOOS=$1 GOARCH=$2 go build -trimpath -ldflags="-s -w -X main.version=$v" -o "dist/$3" ./cmd/ajean; }
+          build windows amd64 ajean-windows.exe
+          build windows arm64 ajean-windows-arm64.exe
+          build linux   amd64 ajean-linux
+          build linux   arm64 ajean-linux-arm64
+          build darwin  amd64 ajean-macos
+          build darwin  arm64 ajean-macos-arm64
+          (cd dist && sha256sum * > SHA256SUMS)
+      - name: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "AJEAN $GITHUB_REF_NAME" --generate-notes --latest=false

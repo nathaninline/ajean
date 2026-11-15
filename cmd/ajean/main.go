@@ -37,6 +37,9 @@ import (
 	"ajean/internal/workspace"
 )
 
+// version : posée à la publication (-ldflags "-X main.version=1.2.3"), « dev » sinon.
+var version = "dev"
+
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "AJEAN :", err)
@@ -83,7 +86,7 @@ func run() error {
 	if host == "0.0.0.0" || host == "::" {
 		url = "http://" + net.JoinHostPort("localhost", port)
 	}
-	fmt.Println("AJEAN est prêt :", url)
+	fmt.Println("AJEAN", version, "est prêt :", url)
 	if !config.Get().Chat().Ready() {
 		fmt.Println("Aucune API configurée : ouvre l'interface, les réglages s'affichent.")
 	}

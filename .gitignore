@@ -10,3 +10,6 @@
 *.exe
 /ajean
 *.tmp
+
+# Site vitrine (publié sur ajean.app, pas dans le dépôt)
+/site/

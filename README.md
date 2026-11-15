@@ -8,6 +8,8 @@ AJEAN reprend l'idée de l'assistant personnel du projet [AJEAN](https://github.
 
 ## Démarrer
 
+Téléchargez le fichier de votre système sur [ajean.app](https://ajean.app) ou dans les [releases](https://github.com/nathaninline/ajean/releases) (Windows, macOS, Linux), puis lancez-le. Ou compilez-le vous-même :
+
 ```bash
 go build -o ajean.exe ./cmd/ajean
 ```
