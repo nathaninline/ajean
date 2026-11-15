@@ -1,5 +1,10 @@
 <p align="center"><img src="docs/banner.svg" alt="AJEAN" width="100%"></p>
 
+> [!IMPORTANT]
+> **AJEAN a changé.** Ce n'est plus un gestionnaire de moteurs d'IA locaux : c'est désormais un **vrai assistant personnel**, auquel vous connectez l'API de votre choix (OpenAI, Anthropic, Mistral, Ollama, LM Studio ou toute API compatible). Il se souvient de vous, programme des tâches, crée des applications et se fabrique ses propres outils.
+>
+> L'ancienne version reste disponible, figée, sur la branche [`ajean-v0.18.17`](https://github.com/nathaninline/ajean/tree/ajean-v0.18.17).
+
 # AJEAN
 
 **Un assistant personnel qui se souvient de vous.** Un seul fichier exécutable : on le branche sur une API compatible OpenAI et c'est parti. Ni Docker, ni Python, ni Node à installer.
