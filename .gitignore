@@ -1,0 +1,12 @@
+# Données locales (créées à côté de l'exécutable)
+/MEMORY/
+/WORKSPACE/
+/TOOLS/
+/APPS/
+/.ajean/
+/config.json
+
+# Binaires
+*.exe
+/ajean
+*.tmp
