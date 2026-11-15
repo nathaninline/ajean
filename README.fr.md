@@ -15,6 +15,9 @@
 
 Téléchargez le fichier de votre système sur [ajean.app](https://ajean.app) ou dans les [releases](https://github.com/nathaninline/ajean/releases) (Windows, macOS, Linux), puis lancez-le. Ou compilez-le vous-même :
 
+> [!TIP]
+> **Choisissez sa place d'abord.** AJEAN range toutes ses données **à côté de l'exécutable**. Avant de le lancer, créez-lui un dossier (par exemple `Documents/AJEAN`), déplacez-y le fichier téléchargé et lancez-le depuis ce dossier : sa mémoire, ses fichiers et ses réglages s'y créeront. Ne le lancez pas directement depuis *Téléchargements*, sinon vos données s'y retrouveraient. Pour sauvegarder ou déplacer AJEAN plus tard, copiez simplement tout son dossier.
+
 ```bash
 go build -o ajean.exe ./cmd/ajean
 ```

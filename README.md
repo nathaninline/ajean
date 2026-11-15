@@ -15,6 +15,9 @@
 
 Download the file for your system from [ajean.app](https://ajean.app) or from the [releases](https://github.com/nathaninline/ajean/releases) (Windows, macOS, Linux), then run it. Or build it yourself:
 
+> [!TIP]
+> **Choose its place first.** AJEAN stores all its data **next to the executable**. Before running it, create a folder for it (for example `Documents/AJEAN`), move the downloaded file there and run it from that folder: its memory, files and settings will be created there. Don't run it straight from your *Downloads* folder, or your data will end up there. To back up or move AJEAN later, just copy its whole folder.
+
 ```bash
 go build -o ajean.exe ./cmd/ajean
 ```
