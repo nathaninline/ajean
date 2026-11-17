@@ -36,7 +36,7 @@ func run(s Script, args map[string]any) (string, error) {
 	defer watchdog.Stop()
 
 	var logs strings.Builder
-	if err := provide(ctx, vm, &logs); err != nil {
+	if err := provide(ctx, vm, &logs, args); err != nil {
 		return "", err
 	}
 	if _, err := vm.RunScript(s.Name+".js", s.Code); err != nil {
@@ -64,7 +64,7 @@ func run(s Script, args map[string]any) (string, error) {
 
 // provide installe dans l'interpréteur tout ce qu'un script a le droit
 // d'utiliser. Ce qui n'est pas ici n'existe pas pour lui.
-func provide(ctx context.Context, vm *goja.Runtime, logs *strings.Builder) error {
+func provide(ctx context.Context, vm *goja.Runtime, logs *strings.Builder, args map[string]any) error {
 	log := func(call goja.FunctionCall) goja.Value {
 		if logs.Len() < maxOutput {
 			parts := make([]string, len(call.Arguments))
@@ -98,6 +98,19 @@ func provide(ctx context.Context, vm *goja.Runtime, logs *strings.Builder) error
 			"exists": workspace.Exists,
 			"remove": workspace.Delete,
 			"move":   workspace.Move,
+		},
+		"sh": {
+			"run": func(c goja.FunctionCall) goja.Value {
+				secs := 0
+				if !absent(c.Argument(1)) {
+					secs = int(c.Argument(1).ToInteger())
+				}
+				command := text(c.Argument(0))
+				if err := checkArgs(command, args); err != nil {
+					panic(vm.NewGoError(err))
+				}
+				return reply(shell(ctx, command, secs))
+			},
 		},
 		"http": {
 			"get": func(c goja.FunctionCall) goja.Value {

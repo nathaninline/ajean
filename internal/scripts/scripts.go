@@ -142,6 +142,9 @@ func save(s Script) (string, error) {
 		return "", errors.New("'description' obligatoire : une ligne qui dit ce que fait l'outil et quand s'en servir")
 	}
 	for k, v := range s.Params {
+		if commandParam(k) {
+			return "", fmt.Errorf("paramètre « %s » refusé : un outil lance des commandes écrites dans son code, jamais une commande reçue en paramètre. Fais un outil par tâche précise", k)
+		}
 		m.Params[k] = oneLine(v)
 	}
 	code := strings.TrimSpace(strings.ReplaceAll(s.Code, "\r\n", "\n"))
@@ -156,6 +159,13 @@ func save(s Script) (string, error) {
 	}
 	if !runRe.MatchString(code) {
 		return "", errors.New("le script doit définir function run(args) { … return résultat }")
+	}
+	// Le même code sous un autre nom : un doublon, qui encombrerait la liste. On
+	// renvoie vers l'outil existant (à modifier avec save sous son nom).
+	for _, other := range List() {
+		if other.Name != name && strings.TrimSpace(strings.ReplaceAll(other.Code, "\r\n", "\n")) == code {
+			return "", fmt.Errorf("cet outil existe déjà sous le nom « %s » : modifie celui-là (même nom) au lieu d'en créer un second", other.Name)
+		}
 	}
 	head, err := json.Marshal(m)
 	if err != nil {

@@ -159,7 +159,7 @@ func (b *instance) launch(profile string) error {
 		// WebRTC ouvrirait sinon des connexions UDP directes, hors du proxy.
 		"--webrtc-ip-handling-policy=disable_non_proxied_udp",
 	}
-	if os.Getenv("AJEAN_BROWSER_HEADLESS") != "" {
+	if headless() {
 		args = append(args, "--headless=new")
 	}
 	b.cmd, b.exited = exec.Command(bin, append(args, blank)...), make(chan struct{})
@@ -171,11 +171,26 @@ func (b *instance) launch(profile string) error {
 		if b.conn, err = attach(profile, b.onEvent); err == nil {
 			return nil
 		}
+		select {
+		case <-b.exited:
+			// Fermé aussitôt lancé : inutile d'attendre la fin du délai à chaque appel.
+			return errors.New("le navigateur s'est fermé dès son lancement (sur un serveur sans écran : AJEAN_BROWSER_HEADLESS=1)")
+		default:
+		}
 		if time.Now().After(deadline) {
 			_ = b.cmd.Process.Kill()
 			return errors.New("le navigateur n'a pas ouvert son port de pilotage à temps")
 		}
 	}
+}
+
+// headless : navigateur sans fenêtre si on le demande, ou d'office sur Linux
+// quand il n'y a aucun écran (serveur) : une fenêtre ne pourrait pas s'ouvrir.
+func headless() bool {
+	if os.Getenv("AJEAN_BROWSER_HEADLESS") != "" {
+		return true
+	}
+	return runtime.GOOS == "linux" && os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == ""
 }
 
 // attach se branche sur le navigateur qui a écrit son port dans le profil. La

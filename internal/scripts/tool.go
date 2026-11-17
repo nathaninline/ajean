@@ -15,7 +15,9 @@ func Tools() []tool.Def {
 		Description: "Your own tools: scripts you write once and reuse. action=list (names and what they do), load (description, params and code of one), run (execute it with args), save (create or replace), delete. " +
 			"A tool is JavaScript defining function run(args) that returns a string or an object. Synchronous code only: no require, import, fetch, async or setTimeout. " +
 			"Available inside: ws.read(path), ws.write(path, text), ws.list(path), ws.exists(path), ws.remove(path), ws.move(from, to) (your workspace only); " +
-			"http.get(url, headers), http.post(url, body, headers), http.request({method, url, headers, body}), each returning {status, body, type}; JSON, Math, Date; console.log.",
+			"http.get(url, headers), http.post(url, body, headers), http.request({method, url, headers, body}), each returning {status, body, type}; " +
+			"sh.run(command, seconds) runs a real shell command (sh -c, PowerShell on Windows) starting in your workspace and returns {code, out} (stdout and stderr together): the command must be written in the tool's code: parameters may only insert simple values (no spaces or shell characters), and a parameter named cmd/command/shell is refused; JSON, Math, Date; console.log. " +
+			"When a task needs commands, make one tool per domain (e.g. nas with action=disk|status|…, each action mapped to a command written in the code) and extend it with new actions, rather than improvising.",
 		Params: tool.Params(map[string]any{
 			"action":      tool.Enum("What to do", "list", "load", "run", "save", "delete"),
 			"name":        tool.String("Tool name, e.g. meteo_ville (all actions except list)"),

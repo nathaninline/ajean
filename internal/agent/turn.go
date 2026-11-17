@@ -65,6 +65,7 @@ func (c *conversation) begin() bool {
 		return false
 	}
 	c.busy = true
+	c.started = time.Now().UnixMilli()
 	return true
 }
 
@@ -145,7 +146,20 @@ func (c *conversation) turn(text string, files []string) {
 	c.closeDone(out, lead, base, answer, done)
 	memory.LogExchange(text, answer)
 	c.noteTurn(text, calls, saved)
-	emit(event{Type: "done", Conv: c.id, Text: answer, TS: done.UnixMilli()})
+	WakeSearchIndex()
+	emit(event{Type: "done", Conv: c.id, Text: answer, TS: done.UnixMilli(), Model: modelName()})
+}
+
+// modelName : le nom de la configuration active (sinon le modèle), affiché sous
+// chaque réponse pour savoir qui l'a écrite.
+func modelName() string {
+	if p, ok := config.Get().Preset(); ok {
+		if p.Name != "" {
+			return p.Name
+		}
+		return p.Model
+	}
+	return ""
 }
 
 // open inscrit le message dans le fil et l'annonce aux interfaces. Renvoie une
@@ -214,7 +228,7 @@ func (c *conversation) closeDone(out []llm.Message, lead, base int, answer strin
 	c.mu.Lock()
 	c.cancel, c.busy = nil, false
 	c.msgs = out[lead:] // sans le résumé placé en tête pour ce tour
-	c.log = append(c.log, Item{Role: "assistant", Text: answer, TS: at.UnixMilli()})
+	c.log = append(c.log, Item{Role: "assistant", Text: answer, TS: at.UnixMilli(), Model: modelName()})
 	dropped := c.trimLocked()
 	c.saveLocked()
 	c.mu.Unlock()

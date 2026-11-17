@@ -84,57 +84,55 @@ option{background:var(--menu);color:var(--text)}
 @supports not selector(::-webkit-scrollbar){*{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--text) 22%,transparent) transparent}}
 
 /* ===== Barre latérale ===================================================
-   De haut en bas : le logo et « nouvelle conversation », les écrans d'AJEAN,
-   un filet, les conversations (la seule partie qui défile), puis les réglages. */
-.side{position:relative;width:clamp(200px,var(--side-w,264px),max(200px,40vw));flex:none;display:flex;flex-direction:column;padding:12px 10px calc(10px + env(safe-area-inset-bottom));background:var(--panel)}
-.sidehead{display:flex;align-items:center;justify-content:space-between;height:34px;margin-bottom:10px;padding:0 0 0 10px}
+   En haut, le logo et deux actions discrètes (rechercher, nouvelle conversation) ;
+   puis les conversations, qui prennent toute la place ; en bas, les écrans
+   d'AJEAN sur une seule rangée d'icônes. */
+.side{position:relative;width:clamp(220px,var(--side-w,264px),max(220px,40vw));flex:none;display:flex;flex-direction:column;padding:12px 10px calc(10px + env(safe-area-inset-bottom));background:var(--panel)}
+.sidehead{flex:none;display:flex;align-items:center;gap:0;height:36px;margin-bottom:12px;padding:0 1px 0 10px}
 /* Logo : « AJEAN » dessiné en pixels (4×5 par lettre, trait d'un module). */
-#brand{margin:0;line-height:1;color:var(--text)}
-#brand svg{display:block;height:10px;width:auto}
+#brand{margin:0 auto 0 0;line-height:1;color:var(--text)}
+#brand svg{display:block;height:11px;width:auto}
 .logo{shape-rendering:crispEdges;fill:currentColor}
-.side-act{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:10px;color:var(--dim);
-  transition:color .16s ease,background .16s ease,transform .16s var(--ease)}
-.side-act:hover{color:var(--text);background:var(--t1)}
-.side-act:active{transform:scale(.9)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-
-/* Une ligne du menu : icône et libellé. */
-.side-link{display:flex;align-items:center;gap:11px;width:100%;height:36px;padding:0 10px;border-radius:10px;font-size:13.5px;text-align:left;
-  transition:background .15s ease}
-.side-link svg{flex:none;color:var(--dim);transition:color .15s ease}
-.side-link:hover{background:var(--t1)}
-.side-link:hover svg{color:var(--text)}
-.side-nav{display:flex;flex-direction:column;gap:1px;margin-bottom:8px}
-
-/* Conversations : une ligne chacune, le titre seul, alignée sur celles du menu.
-   Un fond seulement au survol et pour l'ouverte ; les groupes disent la date. */
-.sess-list{flex:1;min-height:0;display:flex;flex-direction:column;gap:1px;padding-top:8px;border-top:1px solid var(--border);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}
-.sess-list::-webkit-scrollbar{width:0}
-.sess-list>*{flex:none}
-.sess-head{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);padding:10px 10px 4px}
-.sess-head:first-child{padding-top:2px}
-.sess-empty{padding:4px 10px;font-size:12.5px;line-height:1.5;color:var(--dim)}
-.sess-row{display:flex;align-items:center;gap:8px;height:34px;padding:0 4px 0 10px;border-radius:10px;cursor:pointer;transition:background .15s ease}
-.sess-row:hover{background:var(--t1)}
-.sess-row.active{background:var(--t2);cursor:default}
-.sess-name{flex:1;min-width:0;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* Réponse en cours : point qui pulse. Réponse arrivée ailleurs, pas encore lue : point plein. */
-.sess-dot{width:6px;height:6px;flex:none;border-radius:50%;background:var(--text);animation:pulse 1.1s ease-in-out infinite}
-.sess-unseen{width:8px;height:8px;flex:none;border-radius:50%;background:var(--text)}
-.sess-menu-btn{width:26px;height:26px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:7px;color:var(--dim);
-  opacity:0;transition:opacity .12s,background .12s,color .12s}
-.sess-row:focus-within .sess-menu-btn,.sess-row.active .sess-menu-btn{opacity:1}
-@media (hover:hover){.sess-row:hover .sess-menu-btn{opacity:1}}
-@media (hover:none){.sess-menu-btn{opacity:.6}}
-.sess-menu-btn:hover{background:var(--t3);color:var(--text)}
-
-/* Pied : les réglages, et l'état d'AJEAN quand il sort de l'ordinaire (hors
-   ligne, API à configurer, sommeil). En temps normal il n'y a rien à dire. */
-.side-foot{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
-.side-foot .side-link{flex:1;min-width:0}
-#status{flex:none;margin-right:6px;padding:3px 9px;border-radius:999px;background:var(--t2);font-size:10.5px;font-weight:500;line-height:1.3;color:var(--dim);white-space:nowrap}
+#status{flex:none;margin-right:4px;padding:2px 8px;border-radius:999px;background:var(--t2);font-size:10px;font-weight:500;line-height:1.4;color:var(--dim);white-space:nowrap}
 #status.live{animation:pulse 1.6s ease-in-out infinite}
 #status.err{color:var(--err)}
+.side-act{width:34px;height:34px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:9px;color:var(--dim);
+  transition:color .15s ease,background .15s ease,transform .15s var(--ease)}
+.side-act:hover,.side-act.on{color:var(--text);background:var(--t1)}
+.side-act:active{transform:scale(.92)}
+
+
+/* Conversations : une ligne chacune, groupées par date. Un fond léger au survol
+   et pour l'ouverte ; le bouton d'options n'apparaît que sur l'ouverte (ou au survol). */
+.sess-list{flex:1;min-height:0;display:flex;flex-direction:column;gap:2px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}
+.sess-list::-webkit-scrollbar{width:0}
+.sess-list>*{flex:none}
+/* Titre d'un groupe de dates : collé en haut pendant qu'on fait défiler ses conversations. */
+.sess-head{position:sticky;top:0;z-index:1;margin-top:16px;padding:6px 10px;background:var(--panel);
+  font-size:12.5px;font-weight:600;line-height:20px;color:color-mix(in srgb,var(--text) 55%,transparent)}
+.sess-head:first-child{margin-top:0}
+.sess-empty{padding:8px 10px;font-size:12.5px;line-height:1.5;color:var(--dim)}
+.sess-row{display:flex;align-items:center;gap:6px;height:34px;padding:0 4px 0 10px;border-radius:9px;cursor:pointer;transition:background .12s ease}
+.sess-row:hover{background:var(--t1)}
+.sess-row.active{background:var(--t1);cursor:default}
+.sess-name{flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:color-mix(in srgb,var(--text) 78%,transparent)}
+.sess-row.active .sess-name{color:var(--text)}
+/* Réponse en cours : point qui pulse. Réponse arrivée ailleurs, pas encore lue : point plein. */
+.sess-dot{width:6px;height:6px;flex:none;border-radius:50%;background:var(--text);animation:pulse 1.1s ease-in-out infinite}
+.sess-unseen{width:7px;height:7px;flex:none;border-radius:50%;background:var(--text)}
+.sess-menu-btn{width:26px;height:26px;flex:none;display:none;align-items:center;justify-content:center;border-radius:7px;color:var(--dim);transition:background .12s,color .12s}
+.sess-row.active .sess-menu-btn,.sess-row:focus-within .sess-menu-btn{display:flex}
+@media (hover:hover){.sess-row:hover .sess-menu-btn{display:flex}}
+.sess-menu-btn:hover{background:var(--t2);color:var(--text)}
+
+/* Les écrans d'AJEAN : une barre d'icônes en bas, dans une pilule teintée.
+   Le nom de chaque écran est dans son info-bulle et son libellé d'accessibilité. */
+.side-dock{flex:none;display:flex;justify-content:space-around;align-items:center;height:44px;margin-top:8px;padding:0 4px;border-radius:14px;background:var(--t1)}
+.dock-btn{width:38px;height:34px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:10px;color:var(--dim);transition:background .12s ease,color .12s ease}
+.dock-btn svg{width:17px;height:17px}
+.dock-btn span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.dock-btn:hover,.dock-btn:active{background:var(--t2);color:var(--text)}
 
 /* Poignée du bord droit : glisser règle la largeur de la barre (--side-w, gardée sur
    l'appareil), entre 200 px et 40 % de la fenêtre. Invisible ; un trait fin la
@@ -161,7 +159,8 @@ body.resizing{cursor:col-resize;user-select:none;-webkit-user-select:none}
 #chat::after{content:"";display:block;flex:none;height:calc(var(--composer-h,150px) + 6px)}
 #chat>*{flex:none}
 
-.daysep{align-self:center;font-size:11px;letter-spacing:.04em;color:var(--dim)}
+/* Séparateur de jour : une pastille discrète. */
+.daysep{align-self:center;padding:4px 12px;border-radius:999px;background:var(--t1);font-size:11.5px;font-weight:500;letter-spacing:.02em;line-height:16px;color:var(--dim)}
 .msg{overflow-wrap:anywhere;word-break:break-word}
 /* Question : pastille arrondie à droite. Réponse : du texte, sans cadre ni fond. */
 .msg.user{align-self:flex-end;max-width:75%;padding:11px 18px;border-radius:20px;background:var(--bubble);line-height:1.6;white-space:pre-wrap;
@@ -212,7 +211,10 @@ body.resizing{cursor:col-resize;user-select:none;-webkit-user-select:none}
 
 /* Ligne d'activité : la marque d'AJEAN qui pulse + un libellé parcouru d'un reflet. */
 .genstatus{align-self:flex-start;display:flex;align-items:center;gap:8px;min-height:20px;font-size:13px;color:var(--dim);animation:fadein .3s ease both}
-.jlogo{width:16px;height:16px;color:var(--text)}
+.msig{display:flex;align-items:center;gap:7px;margin-top:12px;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
+.msig .jlogo{width:17px;height:17px;color:var(--dim)}
+.msig .sep{opacity:.6}
+.jlogo{width:20px;height:20px;color:var(--text)}
 .gtime{font-variant-numeric:tabular-nums;color:var(--dim)}
 .gtxt{background:linear-gradient(90deg,var(--dim) 0%,var(--dim) 30%,var(--text) 50%,var(--dim) 70%,var(--dim) 100%) no-repeat;
   background-size:300% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
@@ -438,6 +440,47 @@ select.ctl{appearance:none;-webkit-appearance:none;padding-right:34px;text-overf
 .item pre{margin:6px 0 0;padding:10px 12px;border-radius:10px;background:var(--code-bg);font-family:var(--mono);font-size:11.5px;line-height:1.45;overflow:auto;max-height:280px}
 .badge{display:inline-block;flex:none;margin-left:6px;padding:0 7px;border-radius:999px;background:var(--t3);font-size:10.5px;font-weight:500;line-height:17px;color:var(--dim);vertical-align:1px}
 .badge.err{background:color-mix(in srgb,var(--err) 12%,transparent);color:var(--err)}
+/* Fenêtre de recherche : un champ, une ligne qui dit comment on cherche, les résultats. */
+.modal-card.search-card{max-width:620px;height:min(640px,86vh);padding:0}
+.search-top{flex:none;display:flex;align-items:center;gap:10px;padding:12px 12px 10px 18px;color:var(--dim)}
+.search-top input{flex:1;min-width:0;height:36px;border:0;outline:0;background:none;color:var(--text);font:inherit;font-size:16px}
+.search-top input::-webkit-search-cancel-button{display:none}
+.search-mode{flex:none;padding:0 18px 8px;font-size:11.5px;color:var(--dim);border-bottom:1px solid var(--border)}
+.search-res{flex:1;min-height:0;overflow-y:auto;padding:6px 8px 10px}
+.sres{display:block;width:100%;padding:10px 12px;border-radius:10px;text-align:left;cursor:pointer;transition:background .12s ease}
+.sres:hover,.sres.sel{background:var(--t1)}
+.sres .st{display:flex;align-items:baseline;gap:10px}
+.sres .st b{flex:1;min-width:0;font-size:13.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sres .st small{flex:none;font-size:11px;color:var(--dim)}
+.sres .sx{margin-top:3px;font-size:12.5px;line-height:1.5;color:var(--dim);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden}
+.sres .sx mark{background:none;color:var(--text);font-weight:500}
+.sres .sx .who{color:var(--text);opacity:.7}
+.msg.flash{animation:flash 1.6s ease}
+@keyframes flash{0%,40%{background:var(--t2);box-shadow:0 0 0 8px var(--t2);border-radius:6px}100%{background:transparent;box-shadow:0 0 0 8px transparent}}
+
+/* Écran Machine : une jauge par ressource, puis les services. */
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px;margin:10px 0 18px}
+.mcell{padding:11px 12px;border-radius:12px;background:var(--t1)}
+.mcell .k{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--dim)}
+.mcell .v{margin-top:3px;font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.mcell .v small{font-size:11.5px;font-weight:400;color:var(--dim)}
+.mcell .bar{margin-top:7px}
+.mcell .sub{margin-top:5px;font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+.mach-head{margin-top:4px}
+.mach-head strong{flex:1;font-size:13.5px;font-weight:600}
+.sdot{display:inline-block;width:7px;height:7px;margin-right:7px;border-radius:50%;background:var(--dim);vertical-align:1px}
+.sdot.on{background:var(--text)}
+.sdot.err{background:var(--err)}
+.item.svc{padding:12px 12px 12px 14px}
+.svc-top{display:flex;align-items:center;flex-wrap:wrap;gap:0 6px}
+.svc-top .k{font-size:14px;font-weight:600}
+.svc-st{margin-left:auto;font-size:11.5px;color:var(--dim)}
+.item.svc .meta{margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.chip{padding:2px 8px;border-radius:999px;background:var(--t2);font-size:11px;font-variant-numeric:tabular-nums}
+.svc-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.svc-logs{margin:10px 0 0;padding:10px 12px;border-radius:10px;background:var(--code-bg);font-family:var(--mono);font-size:10.5px;line-height:1.5;white-space:pre;overflow:auto;max-height:340px}
+.ctl.mono{font-family:var(--mono);font-size:12px}
 .none{padding:26px 10px;font-size:12.5px;line-height:1.5;text-align:center;color:var(--dim)}
 .none strong{display:block;margin-bottom:4px;font-size:13px;font-weight:500;color:var(--text)}
 .toolbar{display:flex;align-items:center;gap:8px;margin-bottom:10px}
@@ -500,6 +543,19 @@ select.ctl{appearance:none;-webkit-appearance:none;padding-right:34px;text-overf
 /* ===== Fenêtres modales, confirmations, menus, toast ================== */
 .modal-ov,.ask-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.45);opacity:0;transition:opacity .16s ease}
 .modal-ov{z-index:30}
+/* Les écrans d'AJEAN (Mémoire, Tâches, Fichiers, Apps, Machine, Réglages) ne sont
+   pas des fenêtres par-dessus : ils prennent la place du fil, à côté du menu.
+   Les fenêtres qu'ils ouvrent (une fiche, un service…) restent des fenêtres. */
+.modal-ov.screen{position:absolute;inset:0;z-index:6;padding:0;background:var(--bg);align-items:stretch;justify-content:center}
+.modal-ov.screen>.modal-card{max-width:880px;height:100%;max-height:none;border-radius:0;background:var(--bg);box-shadow:none}
+.modal-ov.screen .modal-head{padding:18px 20px 10px 28px}
+.modal-ov.screen .modal-head strong{font-size:18px;font-weight:600}
+.modal-ov.screen .modal-body{padding:6px 28px 28px}
+.modal-ov.screen .modal-foot{padding:14px 28px}
+.dock-btn.on{background:var(--t2);color:var(--text)}
+/* Un écran n'a pas de croix : on en sort par le menu (une conversation, le crayon ou le logo). */
+.modal-ov.screen .modal-head>.modal-x{display:none}
+#brand{cursor:pointer}
 .ask-overlay{z-index:60}
 [data-theme="dark"] :is(.modal-ov,.ask-overlay){background:rgba(0,0,0,.66)}
 :is(.modal-ov,.ask-overlay).show{opacity:1}
@@ -592,14 +648,25 @@ select.ctl{appearance:none;-webkit-appearance:none;padding-right:34px;text-overf
 
 /* ===== Téléphone ===================================================== */
 @media (max-width:720px){
-  .side{position:fixed;inset:0 auto 0 0;z-index:15;width:80%;max-width:320px;padding-top:calc(16px + env(safe-area-inset-top));padding-left:calc(16px + env(safe-area-inset-left));
+  .side{position:fixed;inset:0 auto 0 0;z-index:15;width:82%;max-width:310px;padding:calc(14px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
     transform:translateX(-100%);transition:transform .2s}
   .side.open{transform:none}
   #menubtn{display:flex}
+  /* Titre dans l'axe du bouton ☰ (40 px de haut, à 10 px du bord) : même hauteur, même centre. */
+  .modal-ov.screen .modal-head{box-sizing:content-box;height:40px;padding:calc(10px + env(safe-area-inset-top)) 10px 10px 64px}
+  .modal-ov.screen .modal-head strong{font-size:17px}
+  .modal-ov.screen .modal-body{padding:6px 16px calc(20px + env(safe-area-inset-bottom))}
+  .modal-ov.screen .modal-foot{padding:12px 16px calc(12px + env(safe-area-inset-bottom))}
   #side-grip{display:none}
+  .sess-row{height:40px}
+  .sess-head{font-size:13.5px}
+  .side-dock{height:48px}
+  .dock-btn{width:42px;height:38px}
+  .sess-name{font-size:14px}
   body.drawer-open #menubtn{display:none}
   body.drawer-open #backdrop{display:block}
-  #chat{padding:60px max(20px,env(safe-area-inset-right)) 12px max(20px,env(safe-area-inset-left));scrollbar-gutter:auto}
+  /* La première pastille de date dans l'axe du bouton ☰ (centre à 30 px du haut). */
+  #chat{padding:calc(18px + env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) 12px max(20px,env(safe-area-inset-left));scrollbar-gutter:auto}
   #composer{--ccol:8px}
   .msg.user{max-width:92%}
   #sendhint{display:none}
@@ -649,20 +716,20 @@ select.ctl{appearance:none;-webkit-appearance:none;padding-right:34px;text-overf
 <aside class="side" id="side">
   <div class="sidehead">
     <h1 id="brand" aria-label="AJEAN"><svg class="logo" viewBox="0 0 22 5"><use href="#logo"/></svg></h1>
-    <button class="side-act" id="new-conv" data-i18n-title="side.new" data-i18n-aria="side.new"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/><path d="M18.4 2.6a2 2 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
+    <span id="status" role="status" hidden></span>
+    <button class="side-act" id="search-toggle" data-i18n-title="side.search" data-i18n-aria="side.search"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg></button>
+    <button class="side-act" id="new-conv" data-i18n-title="side.new" data-i18n-aria="side.new"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/><path d="M18.4 2.6a2 2 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
   </div>
-  <nav class="side-nav" data-i18n-aria="side.screens">
-    <button class="side-link" id="open-apps"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></svg><span data-i18n="apps"></span></button>
-    <button class="side-link" id="open-tasks"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span data-i18n="tasks"></span></button>
-    <button class="side-link" id="open-files"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg><span data-i18n="files"></span></button>
-    <button class="side-link" id="open-memory"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-6 .1 4 4 0 0 0-2.5 5.8 4 4 0 0 0 .5 6.6A4 4 0 1 0 12 18z"/><path d="M12 5a3 3 0 1 1 6 .1 4 4 0 0 1 2.5 5.8 4 4 0 0 1-.5 6.6A4 4 0 1 1 12 18z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/></svg><span data-i18n="memory"></span></button>
-  </nav>
   <div class="sess-list" id="conv-list"></div>
   <div id="side-grip" role="separator" aria-orientation="vertical" tabindex="0" data-i18n-aria="side.resize"></div>
-  <div class="side-foot">
-    <button class="side-link" id="open-settings"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span data-i18n="settings"></span></button>
-    <span id="status" role="status" hidden></span>
-  </div>
+  <nav class="side-dock" data-i18n-aria="side.screens">
+    <button class="dock-btn" id="open-apps" data-i18n-title="apps"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></svg><span data-i18n="apps.short"></span></button>
+    <button class="dock-btn" id="open-tasks" data-i18n-title="tasks"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span data-i18n="tasks"></span></button>
+    <button class="dock-btn" id="open-files" data-i18n-title="files"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg><span data-i18n="files"></span></button>
+    <button class="dock-btn" id="open-memory" data-i18n-title="memory"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-6 .1 4 4 0 0 0-2.5 5.8 4 4 0 0 0 .5 6.6A4 4 0 1 0 12 18z"/><path d="M12 5a3 3 0 1 1 6 .1 4 4 0 0 1 2.5 5.8 4 4 0 0 1-.5 6.6A4 4 0 1 1 12 18z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/></svg><span data-i18n="memory"></span></button>
+    <button class="dock-btn" id="open-machine" data-i18n-title="machine"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M8 15l2.5-3 2.5 2 3-4.5"/></svg><span data-i18n="machine"></span></button>
+    <button class="dock-btn" id="open-settings" data-i18n-title="settings"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span data-i18n="settings"></span></button>
+  </nav>
 </aside>
 
 <!-- ===== Fil et zone de saisie ===== -->
@@ -734,6 +801,48 @@ select.ctl{appearance:none;-webkit-appearance:none;padding-right:34px;text-overf
     <div class="kv"><label class="switchrow"><span data-i18n="tasks.pause"></span><span class="switch"><input type="checkbox" id="tasks-pause"><span class="slider"></span></span></label></div>
     <div id="tasks-list"></div>
   </div>
+</div></div>
+
+<!-- ===== Fenêtre Machine ===== -->
+<div class="modal-ov" id="machine-modal"><div class="modal-card wide" role="dialog" aria-modal="true" data-i18n-aria="machine">
+  <div class="modal-head"><strong data-i18n="machine"></strong><button class="modal-x" data-close data-i18n-aria="close"></button></div>
+  <div class="modal-body">
+    <p class="hint" data-i18n="machine.hint"></p>
+    <div id="machine-stats"></div>
+    <div class="toolbar mach-head"><strong data-i18n="services"></strong><button class="btn sm primary" id="svc-new" hidden data-i18n="svc.new"></button></div>
+    <div id="machine-svcs"></div>
+  </div>
+</div></div>
+
+<!-- ===== Fenêtre Service (création, modification) ===== -->
+<div class="modal-ov" id="svc-modal"><div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="svc-title">
+  <div class="modal-head"><strong id="svc-title"></strong><button class="modal-x" data-close data-i18n-aria="close"></button></div>
+  <div class="modal-body">
+    <label class="field" id="svc-pick-f"><span class="flabel" data-i18n="svc.pick"></span><select class="ctl" id="svc-pick"></select></label>
+    <label class="field" id="svc-name-f"><span class="flabel" data-i18n="name"></span><input class="ctl mono" id="svc-name" autocomplete="off" spellcheck="false" data-i18n-ph="svc.name_ph"></label>
+    <label class="field"><span class="flabel" data-i18n="svc.desc"></span><input class="ctl" id="svc-desc" autocomplete="off" data-i18n-ph="svc.desc_ph"></label>
+    <label class="field"><span class="flabel" data-i18n="svc.cmd"></span><textarea class="ctl mono" id="svc-cmd" rows="5" spellcheck="false" data-i18n-ph="svc.cmd_ph"></textarea></label>
+    <label class="field"><span class="flabel" data-i18n="svc.dir"></span><input class="ctl mono" id="svc-dir" autocomplete="off" spellcheck="false" data-i18n-ph="svc.dir_ph"></label>
+    <label class="field"><span class="flabel" data-i18n="svc.env"></span><textarea class="ctl mono" id="svc-env" rows="4" spellcheck="false" data-i18n-ph="svc.env_ph"></textarea></label>
+    <div class="kv">
+      <label class="switchrow" for="svc-restart"><span data-i18n="svc.opt_restart"></span><span class="switch"><input type="checkbox" id="svc-restart"><span class="slider"></span></span></label>
+      <label class="switchrow" for="svc-boot"><span data-i18n="svc.opt_boot"></span><span class="switch"><input type="checkbox" id="svc-boot"><span class="slider"></span></span></label>
+    </div>
+    <p class="hint" id="svc-note"></p>
+  </div>
+  <div class="modal-foot"><button class="btn danger foot-l" id="svc-del" data-i18n="svc.delete"></button><div class="status" id="svc-status"></div>
+    <button class="btn" id="svc-save" data-i18n="save"></button><button class="btn primary" id="svc-apply"></button></div>
+</div></div>
+
+<!-- ===== Fenêtre Recherche ===== -->
+<div class="modal-ov" id="search-modal"><div class="modal-card search-card" role="dialog" aria-modal="true" data-i18n-aria="search.title">
+  <div class="search-top">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg>
+    <input id="search-q" type="search" autocomplete="off" spellcheck="false" data-i18n-ph="search.ph" data-i18n-aria="search.title">
+    <button class="modal-x" data-close data-i18n-aria="close"></button>
+  </div>
+  <div class="search-mode" id="search-mode"></div>
+  <div class="search-res" id="search-res"></div>
 </div></div>
 
 <!-- ===== Fenêtre Fichiers ===== -->
@@ -991,6 +1100,33 @@ const store={
 // tout ce qu'AJEAN écrit) n'est pas traduit ici.
 const I18N={
   // Mots communs
+  'machine':{fr:'Machine',en:'Machine',vi:'Máy'},'services':{fr:'Services',en:'Services',vi:'Dịch vụ'},
+  'machine.hint':{fr:'La machine qui fait tourner AJEAN, en direct, et les services choisis. Seule cette fenêtre les démarre ou les arrête.',en:'The machine running AJEAN, live, and the chosen services. Only this window starts or stops them.',vi:'Máy đang chạy AJEAN, trực tiếp, và các dịch vụ đã chọn. Chỉ cửa sổ này mới khởi động hoặc dừng chúng.'},
+  'machine.unsupported':{fr:'Mesures et services disponibles sur Linux uniquement.',en:'Measurements and services are available on Linux only.',vi:'Chỉ đo và quản lý dịch vụ trên Linux.'},
+  'm.cpu':{fr:'Processeur',en:'CPU',vi:'CPU'},'m.ram':{fr:'Mémoire vive',en:'RAM',vi:'RAM'},'m.swap':{fr:"Mémoire d'échange",en:'Swap',vi:'Bộ nhớ hoán đổi'},
+  'm.cores':{fr:'{0} cœurs · charge {1}',en:'{0} cores · load {1}',vi:'{0} lõi · tải {1}'},'m.up':{fr:'allumée depuis {0}',en:'up for {0}',vi:'đã chạy {0}'},
+  'm.vram':{fr:'VRAM',en:'VRAM',vi:'VRAM'},'m.gpu':{fr:'{0} % · {1} °C · {2} W',en:'{0}% · {1} °C · {2} W',vi:'{0}% · {1} °C · {2} W'},
+  'svc.new':{fr:'Nouveau service',en:'New service',vi:'Dịch vụ mới'},'svc.edit':{fr:'Modifier',en:'Edit',vi:'Sửa'},
+  'svc.logs_hide':{fr:'Masquer le journal',en:'Hide log',vi:'Ẩn nhật ký'},'svc.logs_empty':{fr:'Journal vide.',en:'Empty log.',vi:'Nhật ký trống.'},
+  'svc.pick':{fr:'Reprendre un service existant',en:'Take over an existing service',vi:'Dùng một dịch vụ có sẵn'},'svc.pick_none':{fr:'Aucun : en créer un',en:'None: create one',vi:'Không: tạo mới'},
+  'svc.name_ph':{fr:'ex. mon-modele',en:'e.g. my-model',vi:'vd. my-model'},'svc.name_needed':{fr:'Un nom est nécessaire.',en:'A name is needed.',vi:'Cần có tên.'},
+  'svc.desc':{fr:'Description',en:'Description',vi:'Mô tả'},'svc.desc_ph':{fr:'ex. Qwen 3.8 sur le port 8080',en:'e.g. Qwen 3.8 on port 8080',vi:'vd. Qwen 3.8 trên cổng 8080'},
+  'svc.cmd':{fr:'Commande de lancement',en:'Start command',vi:'Lệnh khởi động'},'svc.cmd_ph':{fr:'/chemin/complet/programme --option valeur',en:'/full/path/program --option value',vi:'/đường/dẫn/chương-trình --tùy-chọn giá-trị'},
+  'svc.dir':{fr:'Dossier de travail',en:'Working directory',vi:'Thư mục làm việc'},'svc.dir_ph':{fr:'facultatif',en:'optional',vi:'không bắt buộc'},
+  'svc.env':{fr:"Variables d'environnement",en:'Environment variables',vi:'Biến môi trường'},'svc.env_ph':{fr:'NOM=valeur, une par ligne',en:'NAME=value, one per line',vi:'TÊN=giá trị, mỗi dòng một biến'},
+  'svc.opt_restart':{fr:'Relancer en cas de plantage',en:'Restart if it crashes',vi:'Khởi động lại khi bị lỗi'},'svc.opt_boot':{fr:'Démarrer avec la machine',en:'Start with the machine',vi:'Khởi động cùng máy'},
+  'svc.save_start':{fr:'Enregistrer et démarrer',en:'Save and start',vi:'Lưu và khởi động'},'svc.save_restart':{fr:'Enregistrer et redémarrer',en:'Save and restart',vi:'Lưu và khởi động lại'},
+  'svc.saving':{fr:'Enregistrement…',en:'Saving…',vi:'Đang lưu…'},'svc.applying':{fr:'Enregistrement et lancement…',en:'Saving and starting…',vi:'Đang lưu và khởi động…'},
+  'svc.saved':{fr:'Service enregistré.',en:'Service saved.',vi:'Đã lưu dịch vụ.'},'svc.applied':{fr:'Service enregistré et relancé.',en:'Service saved and restarted.',vi:'Đã lưu và khởi động lại dịch vụ.'},
+  'svc.delete':{fr:'Supprimer',en:'Delete',vi:'Xóa'},'svc.del_confirm':{fr:'Supprimer le service {0} ? Il sera arrêté et son fichier effacé.',en:'Delete the service {0}? It will be stopped and its file erased.',vi:'Xóa dịch vụ {0}? Dịch vụ sẽ dừng và tệp bị xóa.'},
+  'svc.note_copy':{fr:"Ce service n'a pas encore de fichier à lui : ses réglages actuels sont repris ci-dessus, et l'enregistrement en crée un.",en:'This service has no file of its own yet: its current settings are shown above, and saving creates one.',vi:'Dịch vụ này chưa có tệp riêng: cấu hình hiện tại hiển thị ở trên, và khi lưu sẽ tạo tệp.'},'svc.none':{fr:'Aucun service. « Nouveau service » en crée un ou reprend un service existant.',en:'No service. “New service” creates one or takes over an existing one.',vi:'Chưa có dịch vụ. « Dịch vụ mới » tạo mới hoặc dùng dịch vụ có sẵn.'},
+  'svc.start':{fr:'Démarrer',en:'Start',vi:'Khởi động'},'svc.stop':{fr:'Arrêter',en:'Stop',vi:'Dừng'},'svc.restart':{fr:'Redémarrer',en:'Restart',vi:'Khởi động lại'},
+  'svc.logs':{fr:'Journal',en:'Log',vi:'Nhật ký'},'svc.untrack':{fr:'Ne plus suivre',en:'Stop following',vi:'Bỏ theo dõi'},
+  'svc.untrack_confirm':{fr:'Ne plus suivre {0} ? Le service lui-même reste tel quel.',en:'Stop following {0}? The service itself is left as it is.',vi:'Bỏ theo dõi {0}? Bản thân dịch vụ vẫn giữ nguyên.'},
+  'svc.stop_confirm':{fr:'Arrêter {0} ?',en:'Stop {0}?',vi:'Dừng {0}?'},'svc.self':{fr:'AJEAN',en:'AJEAN',vi:'AJEAN'},
+  'svc.since':{fr:'depuis {0}',en:'for {0}',vi:'từ {0}'},
+  'svc.st.active':{fr:'En marche',en:'Running',vi:'Đang chạy'},'svc.st.inactive':{fr:'Arrêté',en:'Stopped',vi:'Đã dừng'},'svc.st.failed':{fr:'En échec',en:'Failed',vi:'Lỗi'},
+  'svc.st.activating':{fr:'Démarrage…',en:'Starting…',vi:'Đang khởi động…'},'svc.st.deactivating':{fr:'Arrêt…',en:'Stopping…',vi:'Đang dừng…'},'svc.st.unknown':{fr:'Inconnu',en:'Unknown',vi:'Không rõ'},
   'close':{fr:'Fermer',en:'Close',vi:'Đóng'},'cancel':{fr:'Annuler',en:'Cancel',vi:'Hủy'},'save':{fr:'Enregistrer',en:'Save',vi:'Lưu'},
   'delete':{fr:'Supprimer',en:'Delete',vi:'Xóa'},'edit':{fr:'Modifier',en:'Edit',vi:'Sửa'},'remove':{fr:'Retirer',en:'Remove',vi:'Gỡ bỏ'},
   'rename':{fr:'Renommer',en:'Rename',vi:'Đổi tên'},'add':{fr:'Ajouter',en:'Add',vi:'Thêm'},'restore':{fr:'Restaurer',en:'Restore',vi:'Khôi phục'},
@@ -1022,7 +1158,7 @@ const I18N={
   'next.h':{fr:'dans {0} h',en:'in {0} h',vi:'sau {0} giờ'},'next.at':{fr:'{0} à {1}',en:'{0} at {1}',vi:'{0} lúc {1}'},
 
   // Barre latérale
-  'side.convs':{fr:'Conversations',en:'Chats',vi:'Cuộc trò chuyện'},'side.new':{fr:'Nouvelle conversation',en:'New chat',vi:'Cuộc trò chuyện mới'},
+  'side.convs':{fr:'Conversations',en:'Chats',vi:'Cuộc trò chuyện'},'side.new':{fr:'Nouvelle conversation',en:'New chat',vi:'Cuộc trò chuyện mới'},'side.search':{fr:'Rechercher',en:'Search',vi:'Tìm kiếm'},'search.title':{fr:'Rechercher dans les conversations',en:'Search chats',vi:'Tìm trong các cuộc trò chuyện'},'search.ph':{fr:'Rechercher dans les conversations…',en:'Search your chats…',vi:'Tìm trong các cuộc trò chuyện…'},'search.sem':{fr:'Recherche par le sens et par les mots.',en:'Searching by meaning and by words.',vi:'Tìm theo nghĩa và theo từ.'},'search.words':{fr:'Recherche par les mots seulement. Pour chercher aussi par le sens, réglez un modèle d’embeddings dans Réglages.',en:'Searching by words only. To also search by meaning, set an embeddings model in Settings.',vi:'Chỉ tìm theo từ. Để tìm theo nghĩa, hãy đặt mô hình embeddings trong Cài đặt.'},'search.none':{fr:'Aucun résultat.',en:'No results.',vi:'Không có kết quả.'},'search.you':{fr:'Vous',en:'You',vi:'Bạn'},'search.hint':{fr:'Tapez quelques mots, ou une question.',en:'Type a few words, or a question.',vi:'Nhập vài từ hoặc một câu hỏi.'},'apps.short':{fr:'Apps',en:'Apps',vi:'Ứng dụng'},'side.more':{fr:'Applications, fichiers, réglages…',en:'Apps, files, settings…',vi:'Ứng dụng, tệp, cài đặt…'},'side.no_match':{fr:'Aucune conversation trouvée.',en:'No chat found.',vi:'Không tìm thấy cuộc trò chuyện.'},
   'side.screens':{fr:'Écrans',en:'Screens',vi:'Màn hình'},'side.resize':{fr:'Largeur de la barre latérale',en:'Sidebar width',vi:'Độ rộng thanh bên'},
   'side.empty':{fr:"Aucune conversation pour l'instant. Écrivez un message pour commencer.",en:'No chats yet. Type a message to get started.',vi:'Chưa có cuộc trò chuyện nào. Hãy viết một tin nhắn để bắt đầu.'},
   'group.week':{fr:'Cette semaine',en:'This week',vi:'Tuần này'},'group.older':{fr:'Plus ancien',en:'Older',vi:'Cũ hơn'},
@@ -1423,6 +1559,14 @@ const ICON={
   copy:svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/>',14),
   done:svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>',14),
   play:svg('<path d="M8 5.5v13l10-6.5z"/>'),
+  restart:svg('<path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4.5h-4.5"/>'),
+  apps:svg('<rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/>'),
+  tasks:svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
+  folder:svg('<path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>'),
+  machine:svg('<rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M8 15l2.5-3 2.5 2 3-4.5"/>'),
+  brain:svg('<path d="M12 5a3 3 0 1 0-6 .1 4 4 0 0 0-2.5 5.8 4 4 0 0 0 .5 6.6A4 4 0 1 0 12 18z"/><path d="M12 5a3 3 0 1 1 6 .1 4 4 0 0 1 2.5 5.8 4 4 0 0 1-.5 6.6A4 4 0 1 1 12 18z"/>'),
+  sliders:svg('<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>'),
+  logs:svg('<path d="M5 6h14M5 10h14M5 14h9M5 18h6"/>'),
   stop:svg('<rect x="6.5" y="6.5" width="11" height="11" rx="2"/>'),
 };
 // Icônes des apps et des tâches. AJEAN en choisit une par son NOM, dans cette liste,
@@ -2008,10 +2152,17 @@ function addMsg(m){
       return '<div class="chip-file">'+fileChip(name,/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name)?'image':'file')+'</div>';
     }).join(''));
     el=add('msg user',esc(m.text));
+    lastUserTs=m.ts||0;
   }else if(m.role==='error'){
     el=add('msg assistant errmsg',esc(m.text));
   }else{
-    el=add('msg assistant'+(m.kind==='failed'?' failed':''),(m.kind==='task'?'<div class="task-tag">'+ICON.clock+esc(t('chat.task'))+'</div>':'')+'<div class="body">'+md(m.text)+'</div>');
+    // Signature sous la réponse : le J, le temps mis (depuis la question, donc
+    // aussi après un rechargement) et le modèle qui a répondu.
+    const took=m.kind!=='task'&&m.ts&&lastUserTs&&m.ts>=lastUserTs?fmtElapsed(m.ts-lastUserTs):'';
+    lastUserTs=0;
+    const sig=took||m.model?'<div class="msig"><svg class="jlogo logo" viewBox="0 0 12 12"><use href="#mark"/></svg>'+
+      [took,m.model].filter(Boolean).map(x=>'<span>'+esc(x)+'</span>').join('<span class="sep">·</span>')+'</div>':'';
+    el=add('msg assistant'+(m.kind==='failed'?' failed':''),(m.kind==='task'?'<div class="task-tag">'+ICON.clock+esc(t('chat.task'))+'</div>':'')+'<div class="body">'+md(m.text)+'</div>'+sig);
   }
   // Pied montré au survol : l'heure, puis le bouton copier juste à côté.
   if(m.ts)el.dataset.time=fmtTime(m.ts);
@@ -2084,8 +2235,12 @@ function setActivity(label){
 let actStart=0,actTimer=0;
 function tickActivity(){
   const el=activity&&activity.querySelector('.gtime');if(!el)return;
-  const s=Math.floor((Date.now()-actStart)/1000);
-  el.textContent=s<60?s+' s':Math.floor(s/60)+' min '+String(s%60).padStart(2,'0')+' s';
+  el.textContent=fmtElapsed(Date.now()-actStart);
+}
+let lastUserTs=0;
+function fmtElapsed(ms){
+  const s=Math.max(0,Math.floor(ms/1000));
+  return s<60?s+' s':Math.floor(s/60)+' min '+String(s%60).padStart(2,'0')+' s';
 }
 function clearLive(){
   const d=rv.done;revealReset();
@@ -2143,8 +2298,9 @@ function toolLabel(ev){
 const convTitle=c=>c.title||t('side.new');
 function renderConvs(){
   const list=$('conv-list'),now=new Date();
-  const convs=[...S.convs].sort((a,b)=>b.ts-a.ts);
-  list.innerHTML=convs.length?'':'<div class="sess-empty">'+esc(t('side.empty'))+'</div>';
+  const q='';
+  const convs=[...S.convs].sort((a,b)=>b.ts-a.ts).filter(c=>!q||convTitle(c).toLowerCase().includes(q));
+  list.innerHTML=convs.length?'':'<div class="sess-empty">'+esc(t(q?'side.no_match':'side.empty'))+'</div>';
   const dayStart=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
   const groupOf=ts=>t(ts>=dayStart?'today':ts>=dayStart-864e5?'yesterday':ts>=dayStart-6*864e5?'group.week':'group.older');
   let group='';
@@ -2168,6 +2324,69 @@ function renderConvs(){
   }
   renderStatus();
 }
+// ===== Recherche dans les conversations =======================================
+// Par le sens (modèle d'embeddings) et par les mots, côté serveur. Flèches pour
+// choisir, Entrée pour ouvrir ; la conversation s'ouvre sur le message trouvé.
+let srch={hits:[],sel:0,timer:0,seq:0};
+function openSearch(){
+  toggleSide(false);
+  $('search-q').value='';srch={hits:[],sel:0,timer:0,seq:0};
+  $('search-res').innerHTML='<div class="none">'+esc(t('search.hint'))+'</div>';$('search-mode').textContent='';
+  showModal('search-modal');setTimeout(()=>$('search-q').focus(),30);
+}
+function markTerms(text,q){
+  const terms=q.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').split(/[^\p{L}\p{N}]+/u).filter(w=>w.length>1);
+  let out=esc(text);
+  if(!terms.length)return out;
+  const plain=s=>s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  return out.replace(/[\p{L}\p{N}]+/gu,w=>terms.some(x=>plain(w).includes(x))?'<mark>'+w+'</mark>':w);
+}
+function renderSearch(q){
+  const res=$('search-res');
+  if(!srch.hits.length){res.innerHTML='<div class="none">'+esc(t(q?'search.none':'search.hint'))+'</div>';return}
+  res.innerHTML=srch.hits.map((h,i)=>'<button class="sres'+(i===srch.sel?' sel':'')+'" data-i="'+i+'"><div class="st"><b>'+esc(h.title||t('side.new'))+'</b><small>'+esc(fmtDate(h.ts))+'</small></div>'+
+    '<div class="sx">'+(h.role==='user'?'<span class="who">'+esc(t('search.you'))+' : </span>':'')+markTerms(h.snippet,q)+'</div></button>').join('');
+}
+async function runSearch(){
+  const q=$('search-q').value.trim(),seq=++srch.seq;
+  if(!q){srch.hits=[];$('search-mode').textContent='';return renderSearch('')}
+  try{
+    const r=await api('/api/search?q='+encodeURIComponent(q));
+    if(seq!==srch.seq)return;   // une frappe plus récente a déjà relancé la recherche
+    srch.hits=r.hits||[];srch.sel=0;
+    $('search-mode').textContent=t(r.semantic?'search.sem':'search.words');
+    renderSearch(q);
+  }catch(e){$('search-res').innerHTML='<div class="none">'+esc(e.message)+'</div>'}
+}
+async function openHit(h){
+  hideModal('search-modal');
+  if(h.conv!==S.conv){try{await loadState(h.conv)}catch(e){return toast(e.message)}}
+  const el=chat.querySelector('.msg[data-i="'+h.index+'"]');
+  if(el){el.scrollIntoView({block:'center'});el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash')}
+}
+$('search-toggle').onclick=openSearch;
+$('search-q').oninput=()=>{clearTimeout(srch.timer);srch.timer=setTimeout(runSearch,220)};
+$('search-q').onkeydown=e=>{
+  const n=srch.hits.length;
+  if(e.key==='ArrowDown'&&n){e.preventDefault();srch.sel=(srch.sel+1)%n;renderSearch($('search-q').value.trim());$('search-res').querySelector('.sel')?.scrollIntoView({block:'nearest'})}
+  else if(e.key==='ArrowUp'&&n){e.preventDefault();srch.sel=(srch.sel-1+n)%n;renderSearch($('search-q').value.trim());$('search-res').querySelector('.sel')?.scrollIntoView({block:'nearest'})}
+  else if(e.key==='Enter'){e.preventDefault();clearTimeout(srch.timer);if(n)openHit(srch.hits[srch.sel]);else runSearch()}
+};
+$('search-res').onclick=e=>{const b=e.target.closest('.sres');if(b)openHit(srch.hits[+b.dataset.i])};
+// Ctrl+K (ou ⌘K) ouvre la recherche de partout.
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openSearch()}});
+// ===== Écrans à la place du fil ===============================================
+// Un écran s'ouvre dans la zone du fil (un seul à la fois) ; sa croix, une
+// conversation ou « nouvelle conversation » ramènent au fil.
+const SCREENS={'apps-modal':'open-apps','tasks-modal':'open-tasks','files-modal':'open-files','mem-modal':'open-memory','machine-modal':'open-machine','set-modal':'open-settings'};
+for(const id in SCREENS){const el=$(id);el.classList.add('screen');$('main').appendChild(el)}
+function closeScreens(except){for(const id in SCREENS)if(id!==except&&modalOpen(id))hideModal(id)}
+function markScreen(){for(const id in SCREENS)$(SCREENS[id]).classList.toggle('on',modalOpen(id))}
+{
+  const show=showModal,hide=hideModal;
+  showModal=function(id){if(SCREENS[id])closeScreens(id);show(id);if(SCREENS[id])markScreen()};
+  hideModal=function(id){hide(id);if(SCREENS[id])markScreen()};
+}
 async function renameConv(c){
   const title=await ask({title:t('conv.rename'),ok:t('rename'),input:true,value:convTitle(c)});
   if(!title||!title.trim()||title.trim()===c.title)return;
@@ -2182,15 +2401,17 @@ async function deleteConv(c){
   }catch(e){toast(e.message)}
 }
 function switchConv(id){
-  toggleSide(false);
+  toggleSide(false);closeScreens();
   if(id!==S.conv)loadState(id).catch(e=>toast(e.message));
 }
+// Le logo AJEAN fait comme le crayon : une nouvelle conversation.
+$('brand').onclick=()=>$('new-conv').click();
 $('new-conv').onclick=async()=>{
-  toggleSide(false);
-  // Déjà sur une conversation vierge : inutile d'en empiler une autre.
-  if(S.conv&&(chat.firstElementChild||S.busy)){
-    try{const r=await api('/api/convs/new',{});await loadState(r.conv)}catch(e){toast(e.message)}
-  }
+  toggleSide(false);closeScreens();
+  // Un brouillon : rien n'est créé sur le serveur tant qu'aucun message n'est
+  // parti (l'envoi crée la conversation, voir plus bas).
+  ++stateSeq;
+  drawState({...S.last,conv:'',log:[],busy:false,used:0,since:0});
   input.focus();
 };
 
@@ -2231,12 +2452,15 @@ grip.onkeydown=e=>{
 let stateSeq=0;
 const fetchState=id=>api('/api/state'+(id?'?conv='+encodeURIComponent(id):''));
 function applyMeta(s){
+  S.last=s;   // les réglages reçus, réutilisés pour dessiner un brouillon
   setLang(s.language||'');
   S.configured=s.configured;S.presets=s.presets||[];S.transcribe=!!s.transcribe;S.convs=s.convs||[];
   if(s.preset)S.preset=s.preset;
   // Le modèle n'est rappelé à côté du nom que s'il dit autre chose (une configuration porte souvent le nom de son modèle).
   $('preset-name').textContent=S.preset.name||S.preset.model;
-  $('preset-model').textContent=S.preset.name&&S.preset.model!==S.preset.name?S.preset.model:'';
+  // Le nom seul : l'identifiant du modèle répète souvent le nom ; il reste dans l'info-bulle.
+  $('preset-model').textContent='';
+  $('preset-btn').title=S.preset.model||'';
   $('preset-btn').hidden=$('effort-btn').hidden=!S.configured;
   $('effort-name').textContent=effortLabel(S.preset.effort);
   syncMic();syncSend();
@@ -2245,9 +2469,9 @@ function drawState(s){
   applyMeta(s);
   S.conv=s.conv||'';store.set('ajean-conv',S.conv);unseen.delete(S.conv);
   chat.innerHTML='';lastDay=null;live=activity=null;liveText='';clearInterval(actTimer);actStart=actTimer=0;
-  for(const m of s.log||[])addMsg(m);
+  (s.log||[]).forEach((m,i)=>{const el=addMsg(m);if(el)el.dataset.i=i});
   chat.querySelectorAll('.msg.user').forEach(e=>e.style.animation='none');   // pas d'effet d'arrivée sur l'historique
-  setBusy(!!s.busy);if(s.busy)setActivity('');
+  setBusy(!!s.busy);if(s.busy){if(s.since)actStart=s.since;setActivity('')}
   renderCtx(s.used,s.max);
   syncEmpty();renderConvs();toBottom();
 }
@@ -2258,6 +2482,7 @@ async function loadState(id){
 async function refresh(){
   const seq=stateSeq,s=await fetchState(S.conv);
   if(seq!==stateSeq)return;
+  if(!S.conv){S.convs=s.convs||S.convs;applyMeta({...s,conv:''});return renderConvs()}   // brouillon : on reste dessus
   if((s.conv||'')!==S.conv)return loadState(s.conv);
   // La langue a changé : le fil porte des textes de l'interface (dates, étiquettes), il est redessiné lui aussi.
   if(langOf(s.language||'')!==LANG)return drawState(s);
@@ -2298,13 +2523,20 @@ function onEvent(ev){
       break;
     case 'tool':setActivity(toolLabel(ev));break;
     case 'usage':renderCtx(ev.used,ev.max,ev.out);break;
-    case 'phase':if(I18N['phase.'+ev.text])setActivity(t('phase.'+ev.text));break;   // lecture du contexte, réflexion, préparation d'une action
+    case 'phase':{
+      // « tool:nom:phrase » : l'appel d'outil qui s'écrit. La phrase du modèle dès
+      // qu'elle commence, sinon le nom de l'outil ; jamais « préparation » seule.
+      const [ph,name,...rest]=String(ev.text).split(':'),desc=rest.join(':').trim();
+      if(ph==='tool'&&name){setActivity(desc||toolLabel({name}));break}
+      if(I18N['phase.'+ev.text])setActivity(t('phase.'+ev.text));
+      break;
+    }
     case 'done':
       // La fin du texte s'écrit encore : le message définitif remplace le direct
       // une fois le dernier mot apparu, pour qu'il ne saute pas d'un coup.
       setBusy(false);
-      if(live&&ev.text&&(rv.raf||rv.shown<liveText.length)){rv.done=()=>{clearLive();addMsg({role:'assistant',text:ev.text,ts:ev.ts,kind:ev.kind})};revealFeed();break}
-      clearLive();addMsg({role:'assistant',text:ev.text,ts:ev.ts,kind:ev.kind});break;
+      if(live&&ev.text&&(rv.raf||rv.shown<liveText.length)){rv.done=()=>{clearLive();addMsg({role:'assistant',text:ev.text,ts:ev.ts,kind:ev.kind,model:ev.model})};revealFeed();break}
+      clearLive();addMsg({role:'assistant',text:ev.text,ts:ev.ts,kind:ev.kind,model:ev.model});break;
     case 'stopped':clearLive();setBusy(false);add('daysep',esc(t('chat.stopped')));break;
     case 'error':clearLive();setBusy(false);addMsg({role:'error',text:ev.error||t('chat.error')});break;
   }
@@ -2682,6 +2914,157 @@ function openTasks(){
   $('tasks-list').innerHTML='';showModal('tasks-modal');loadTasks();
 }
 $('open-tasks').onclick=openTasks;
+
+// ===== Écran Machine =========================================================
+// Mesures en direct (toutes les 2 s tant que la fenêtre est ouverte) et services
+// systemd de l'utilisateur. Les démarrer, les arrêter ou les modifier ne se fait qu'ici.
+let mach={services:[]},machTimer=0,machLogs={};
+const fmtBytes=b=>{const g=b/1073741824;return g>=10?g.toFixed(0)+' Go':g>=1?g.toFixed(1)+' Go':Math.round(b/1048576)+' Mo'};
+const fmtUp=s=>{const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);return d?d+' j '+h+' h':h?h+' h '+m+' min':m+' min'};
+const gauge=f=>'<div class="bar"><span style="width:'+Math.round(Math.min(Math.max(f||0,0),1)*100)+'%"></span></div>';
+const cell=(k,right,v,frac,sub)=>'<div class="mcell"><div class="k"><span>'+esc(k)+'</span><span>'+esc(right||'')+'</span></div><div class="v">'+v+'</div>'+
+  (frac!=null?gauge(frac):'')+(sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div>';
+const sbtn=(a,i,label,cls)=>'<button class="btn sm'+(cls?' '+cls:'')+'" data-a="'+a+'" data-i="'+i+'">'+esc(label)+'</button>';
+function renderMachine(){
+  const st=mach.stats;
+  if(!st)return;
+  if(!st.supported){
+    $('machine-stats').innerHTML='<div class="none">'+esc(t('machine.unsupported'))+'</div>';
+    $('machine-svcs').innerHTML='';$('svc-new').hidden=true;return;
+  }
+  $('svc-new').hidden=false;
+  const pct=x=>Math.round(x)+' %';
+  let h=cell(t('m.cpu'),'',pct(st.cpu),st.cpu/100,t('m.cores',st.cores,st.load.toFixed(2))+' · '+t('m.up',fmtUp(st.uptime)));
+  h+=cell(t('m.ram'),pct(st.mem_used/st.mem_total*100),fmtBytes(st.mem_used)+' <small>/ '+fmtBytes(st.mem_total)+'</small>',st.mem_used/st.mem_total,
+    st.swap_total?t('m.swap')+' : '+fmtBytes(st.swap_used)+' / '+fmtBytes(st.swap_total):'');
+  for(const g of st.gpus)h+=cell(g.name.replace(/^NVIDIA (GeForce )?/,''),pct(g.mem_used/g.mem_total*100),
+    fmtBytes(g.mem_used)+' <small>/ '+fmtBytes(g.mem_total)+'</small>',g.mem_used/g.mem_total,
+    t('m.vram')+' · '+t('m.gpu',Math.round(g.util),Math.round(g.temp),Math.round(g.power)));
+  $('machine-stats').innerHTML='<div class="mgrid">'+h+'</div>';
+  const rows=mach.services.map((s,i)=>{
+    const on=s.active==='active',busy=/ing$/.test(s.active),cls=on?'on':s.active==='failed'?'err':'';
+    const label=I18N['svc.st.'+s.active]?t('svc.st.'+s.active):s.active;
+    const since=s.since?t('svc.since',fmtUp((Date.now()-s.since)/1000)):'';
+    const chips=[s.mem?'<span class="chip">RAM '+fmtBytes(s.mem)+'</span>':'',s.vram?'<span class="chip">VRAM '+fmtBytes(s.vram)+'</span>':''].join('');
+    const acts=(busy?'':on?(s.self?'':sbtn('svc-stop',i,t('svc.stop')))+sbtn('svc-restart',i,t('svc.restart')):sbtn('svc-start',i,t('svc.start'),'primary'))+
+      sbtn('svc-edit',i,t('svc.edit'))+sbtn('svc-logs',i,t(machLogs[s.unit]!=null?'svc.logs_hide':'svc.logs'));
+    const logs=machLogs[s.unit]!=null?'<pre class="svc-logs">'+esc(machLogs[s.unit]||t('svc.logs_empty'))+'</pre>':'';
+    return '<div class="item svc"><div class="grow">'+
+      '<div class="svc-top"><span class="sdot '+cls+'"></span><span class="k">'+esc(s.unit.replace(/\.service$/,''))+'</span>'+
+        (s.self?'<span class="badge">'+esc(t('svc.self'))+'</span>':'')+'<span class="svc-st">'+esc(label+(since?' · '+since:''))+'</span></div>'+
+      (s.description?'<div class="meta">'+esc(s.description)+'</div>':'')+(chips?'<div class="chips">'+chips+'</div>':'')+
+      '<div class="svc-acts">'+acts+'</div>'+logs+'</div></div>';
+  });
+  // Le journal ouvert garde sa position de lecture d'une mise à jour à l'autre.
+  const pre=$('machine-svcs').querySelector('.svc-logs'),top=pre?pre.scrollTop:0,left=pre?pre.scrollLeft:0;
+  $('machine-svcs').innerHTML=listOf(rows,esc(t('svc.none')));
+  const pre2=$('machine-svcs').querySelector('.svc-logs');
+  if(pre2){pre2.scrollTop=pre?top:pre2.scrollHeight;pre2.scrollLeft=left}
+}
+async function loadMachine(){
+  try{mach=await api('/api/machine');renderMachine()}
+  catch(e){$('machine-stats').innerHTML='<div class="none">'+esc(e.message)+'</div>'}
+}
+function machTick(){
+  if(!modalOpen('machine-modal')){clearInterval(machTimer);machTimer=0;return}
+  if(!document.hidden&&!modalOpen('svc-modal'))loadMachine();
+}
+async function openMachine(){
+  toggleSide(false);machLogs={};
+  $('machine-stats').innerHTML=$('machine-svcs').innerHTML='';
+  showModal('machine-modal');
+  await loadMachine();
+  clearInterval(machTimer);machTimer=setInterval(machTick,2000);
+}
+$('open-machine').onclick=openMachine;
+$('machine-svcs').onclick=async e=>{
+  const b=e.target.closest('[data-a]');if(!b)return;
+  const s=mach.services[+b.dataset.i];if(!s)return;
+  const name=s.unit.replace(/\.service$/,'');
+  const act=async a=>{
+    b.disabled=true;
+    try{await api('/api/services/act',{unit:s.unit,action:a})}catch(err){toast(err.message)}
+    finally{loadMachine()}
+  };
+  switch(b.dataset.a){
+    case 'svc-start':return act('start');
+    case 'svc-restart':return act('restart');
+    case 'svc-stop':if(confirm(t('svc.stop_confirm',name)))act('stop');return;
+    case 'svc-edit':return openService(s);
+    case 'svc-logs':
+      if(machLogs[s.unit]!=null){delete machLogs[s.unit];return renderMachine()}
+      b.disabled=true;
+      try{machLogs={[s.unit]:(await api('/api/services/logs?n=150&unit='+encodeURIComponent(s.unit))).text};renderMachine()}
+      catch(err){toast(err.message);b.disabled=false}
+      return;
+  }
+};
+
+// ----- Éditeur d'un service ------------------------------------------------------
+// Ce qu'on règle ici devient le fichier ~/.config/systemd/user/<nom>.service.
+let svcEdit=null;
+function fillService(d){
+  $('svc-desc').value=d.description||'';
+  $('svc-cmd').value=d.command||'';
+  $('svc-dir').value=d.workdir||'';
+  $('svc-env').value=(d.env||[]).join('\n');
+  $('svc-restart').checked=d.restart!==false;
+  $('svc-boot').checked=!!d.boot;
+  $('svc-note').textContent=d.unit&&!d.editable&&d.command?t('svc.note_copy'):'';
+}
+async function openService(s){
+  svcEdit=s?{unit:s.unit,self:s.self,active:s.active}:null;
+  const isNew=!s;
+  $('svc-title').textContent=isNew?t('svc.new'):s.unit.replace(/\.service$/,'');
+  $('svc-name-f').hidden=!isNew;$('svc-pick-f').hidden=true;
+  $('svc-name').value='';
+  $('svc-del').hidden=isNew||s.self;
+  $('svc-apply').textContent=t(isNew||s.active!=='active'?'svc.save_start':'svc.save_restart');
+  setStatus('svc-status','');
+  fillService({restart:true});
+  showModal('svc-modal');
+  if(isNew){
+    // Les services déjà écrits sur la machine mais pas encore suivis : on peut en reprendre un.
+    try{
+      const {units}=await api('/api/services/available'),known=new Set(mach.services.map(x=>x.unit));
+      const free=units.filter(u=>!known.has(u));
+      $('svc-pick').innerHTML='<option value="">'+esc(t('svc.pick_none'))+'</option>'+free.map(u=>'<option>'+esc(u)+'</option>').join('');
+      $('svc-pick-f').hidden=!free.length;
+    }catch(e){}
+    $('svc-name').focus();
+    return;
+  }
+  try{fillService(await api('/api/services/unit?unit='+encodeURIComponent(s.unit)))}catch(e){setStatus('svc-status',e.message,'err')}
+}
+$('svc-new').onclick=()=>openService(null);
+$('svc-pick').onchange=async e=>{
+  const u=e.target.value;if(!u)return;
+  $('svc-name').value=u.replace(/\.service$/,'');
+  try{fillService(await api('/api/services/unit?unit='+encodeURIComponent(u)))}catch(err){setStatus('svc-status',err.message,'err')}
+};
+async function saveService(apply){
+  const unit=svcEdit?svcEdit.unit:$('svc-name').value.trim();
+  if(!unit){setStatus('svc-status',t('svc.name_needed'),'err');return $('svc-name').focus()}
+  const body={unit,description:$('svc-desc').value,command:$('svc-cmd').value,workdir:$('svc-dir').value,
+    env:$('svc-env').value.split('\n'),restart:$('svc-restart').checked,boot:$('svc-boot').checked,apply};
+  for(const b of [$('svc-save'),$('svc-apply')])b.disabled=true;
+  setStatus('svc-status',t(apply?'svc.applying':'svc.saving'));
+  try{
+    await api('/api/services/save',body);
+    hideModal('svc-modal');toast(t(apply?'svc.applied':'svc.saved'));
+    loadMachine();
+  }catch(e){setStatus('svc-status',e.message,'err')}
+  finally{for(const b of [$('svc-save'),$('svc-apply')])b.disabled=false}
+}
+$('svc-save').onclick=()=>saveService(false);
+$('svc-apply').onclick=()=>saveService(true);
+$('svc-del').onclick=async()=>{
+  if(!svcEdit)return;
+  const name=svcEdit.unit.replace(/\.service$/,'');
+  if(!confirm(t('svc.del_confirm',name)))return;
+  try{await api('/api/services/remove',{unit:svcEdit.unit});hideModal('svc-modal');delete machLogs[svcEdit.unit];loadMachine()}
+  catch(e){setStatus('svc-status',e.message,'err')}
+};
 
 // ===== Écran Fichiers ========================================================
 // Le WORKSPACE seulement : le serveur refuse tout chemin qui en sortirait.

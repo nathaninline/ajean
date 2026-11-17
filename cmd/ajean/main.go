@@ -103,6 +103,7 @@ func run() error {
 	go tasks.Start(ctx, tasks.Hooks{Run: agent.RunTask, Deliver: agent.DeliverTask, Changed: agent.TasksChanged})
 	go agent.RunSleepSchedule(ctx)
 	memory.StartIndexer(ctx)
+	agent.StartSearchIndex(ctx)
 
 	host, port := envOr("AJEAN_HOST", "127.0.0.1"), envOr("AJEAN_PORT", "8090")
 	local := host == "127.0.0.1" || host == "localhost" || host == "::1"

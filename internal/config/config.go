@@ -72,6 +72,7 @@ type Config struct {
 	MaxContextChars int        `json:"max_context_chars"` // au-delà, les plus vieux messages sortent du contexte
 	ReviewOff       bool       `json:"review_off"`        // couper la révision automatique de la mémoire
 	SleepOff        bool       `json:"sleep_off"`         // couper le sommeil nocturne (consolidation)
+	Services        []string   `json:"services,omitempty"` // services systemd (utilisateur) suivis dans l'écran Machine
 }
 
 var (
@@ -131,7 +132,7 @@ func (c *Config) adopt(old legacy) {
 
 // clone : une copie dont les listes sont indépendantes de l'original.
 func (c Config) clone() Config {
-	c.Providers, c.Presets = slices.Clone(c.Providers), slices.Clone(c.Presets)
+	c.Providers, c.Presets, c.Services = slices.Clone(c.Providers), slices.Clone(c.Presets), slices.Clone(c.Services)
 	return c
 }
 

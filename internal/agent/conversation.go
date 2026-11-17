@@ -41,7 +41,7 @@ var (
 	ErrBusy     = errors.New("une réponse est déjà en cours")
 
 	idRe   = regexp.MustCompile(`^[0-9]{8}-[0-9]{6}(-[0-9]+)?$`)
-	headRe = regexp.MustCompile(`^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [+-]\d{4}) · (user|assistant)(?: · (\w+))?$`)
+	headRe = regexp.MustCompile(`^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [+-]\d{4}) · (user|assistant)(?: · (\w+))?(?: · modèle (.+))?$`)
 )
 
 // Item : un message du fil affiché.
@@ -51,6 +51,7 @@ type Item struct {
 	TS    int64    `json:"ts"`              // epoch ms
 	Kind  string   `json:"kind,omitempty"`  // task (compte rendu d'une tâche) ou failed (réponse interrompue)
 	Files []string `json:"files,omitempty"` // fichiers joints (chemins dans le WORKSPACE)
+	Model string   `json:"model,omitempty"` // le modèle qui a répondu (nom de sa configuration)
 }
 
 type conversation struct {
@@ -65,7 +66,8 @@ type conversation struct {
 	deleted bool               // supprimée : plus aucun tour ne doit y écrire
 	cancel  context.CancelFunc // arrête la réponse en cours
 	review  reviewState
-	used    int // tokens du contexte à la dernière réponse (0 : inconnu), non conservé sur disque
+	started int64 // début de la réponse en cours (epoch ms), pour que le chrono survive à un rechargement
+	used    int   // tokens du contexte à la dernière réponse (0 : inconnu), non conservé sur disque
 }
 
 var convs = struct {
@@ -89,6 +91,9 @@ func (c *conversation) render() string {
 		b.WriteString("\n## " + time.UnixMilli(it.TS).In(loc).Format(stampLayout) + " · " + it.Role)
 		if it.Kind != "" {
 			b.WriteString(" · " + it.Kind)
+		}
+		if it.Model != "" {
+			b.WriteString(" · modèle " + strings.ReplaceAll(it.Model, "\n", " "))
 		}
 		b.WriteString("\n" + escapeHeads(strings.TrimSpace(it.Text)) + "\n")
 		if len(it.Files) > 0 {
@@ -126,7 +131,7 @@ func parse(id, s string) *conversation {
 		if m := headRe.FindStringSubmatch(l); m != nil {
 			flush()
 			t, _ := time.Parse(stampLayout, m[1])
-			cur, body = &Item{Role: m[2], Kind: m[3], TS: t.UnixMilli()}, nil
+			cur, body = &Item{Role: m[2], Kind: m[3], Model: m[4], TS: t.UnixMilli()}, nil
 			continue
 		}
 		if cur != nil {
@@ -292,6 +297,7 @@ func Delete(id string) error {
 	c.cancelReview()
 	delete(convs.byID, id)
 	forgetSummary(id)
+	forgetSearch(id)
 	if err := os.Remove(filepath.Join(convDir(), id+".md")); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
@@ -323,7 +329,8 @@ type Info struct {
 	Title string `json:"title"`
 	TS    int64  `json:"ts"` // dernier message (ou création), epoch ms
 	Busy  bool   `json:"busy"`
-	Used  int    `json:"used,omitempty"` // tokens du contexte à la dernière réponse
+	Used  int    `json:"used,omitempty"`  // tokens du contexte à la dernière réponse
+	Since int64  `json:"since,omitempty"` // réponse en cours : son début (epoch ms)
 }
 
 // List : les conversations, la plus récemment active d'abord.
@@ -363,7 +370,11 @@ func Thread(id string) (info Info, log []Item, ok bool) {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return Info{ID: c.id, Title: c.title, Busy: c.busy, Used: c.used}, append([]Item(nil), c.log...), true
+	in := Info{ID: c.id, Title: c.title, Busy: c.busy, Used: c.used}
+	if c.busy {
+		in.Since = c.started
+	}
+	return in, append([]Item(nil), c.log...), true
 }
 
 // busyAnywhere : une réponse est-elle en cours dans une conversation ?

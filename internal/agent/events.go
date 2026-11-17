@@ -17,6 +17,7 @@ type event struct {
 	Name  string   `json:"name,omitempty"`  // outil en cours
 	Label string   `json:"label,omitempty"` // cible de l'outil
 	Desc  string   `json:"desc,omitempty"`  // ce que fait l'appel, écrit par le modèle
+	Model string   `json:"model,omitempty"` // done : le modèle qui a répondu
 	Used  int      `json:"used,omitempty"`  // usage : tokens du contexte
 	Max   int      `json:"max,omitempty"`   // usage : taille de la fenêtre (0 : inconnue)
 	Out   int      `json:"out,omitempty"`   // usage : tokens écrits par le modèle
@@ -64,4 +65,4 @@ func emit(ev event) {
 // au démarrage, pour ne pas avoir à connaître celui-ci.
 func TasksChanged() { emit(event{Type: "tasks"}) }
 func AppsChanged()  { emit(event{Type: "apps"}) }
-func EmbedChanged() { emit(event{Type: "embed"}) }
+func EmbedChanged() { emit(event{Type: "embed"}); WakeSearchIndex() }

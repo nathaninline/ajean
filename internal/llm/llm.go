@@ -191,7 +191,7 @@ type chunk struct {
 	Usage   *Usage `json:"usage"`
 	Choices []struct {
 		Delta struct {
-			Content   string `json:"content"`
+			Content    string `json:"content"`
 			Reasoning  string `json:"reasoning_content"`
 			Reasoning2 string `json:"reasoning"` // autre nom employé par certains serveurs
 			ToolCalls  []struct {
@@ -332,6 +332,12 @@ func Chat(ctx context.Context, ep Endpoint, msgs []Message, tools []Tool, onDelt
 				}
 				cur.Function.Name += tc.Function.Name
 				cur.Function.Arguments += tc.Function.Arguments
+				// Dès que le nom de l'outil (puis la phrase « description » que le
+				// modèle écrit en premier) est connu, on le dit : « préparation d'une
+				// action » seul ne dit pas ce qui se prépare.
+				if cur.Function.Name != "" {
+					setPhase(PhaseTool + ":" + cur.Function.Name + ":" + partialDesc(cur.Function.Arguments))
+				}
 			}
 		}
 	}

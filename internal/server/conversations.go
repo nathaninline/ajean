@@ -12,6 +12,7 @@ import (
 
 	"ajean/internal/agent"
 	"ajean/internal/config"
+	"ajean/internal/embedder"
 	"ajean/internal/llm"
 	"ajean/internal/workspace"
 )
@@ -46,7 +47,7 @@ func handleState(w http.ResponseWriter, r *http.Request) {
 	}
 	state := chatState(c)
 	state["convs"], state["conv"], state["title"] = agent.List(), info.ID, info.Title
-	state["busy"], state["log"] = info.Busy, log
+	state["busy"], state["log"], state["since"] = info.Busy, log, info.Since
 	state["used"], state["max"] = info.Used, agent.ContextWindow()
 	reply(w, state)
 }
@@ -148,4 +149,12 @@ func safeName(name string) string {
 		name = "fichier"
 	}
 	return name
+}
+
+// handleSearch : la recherche dans les conversations (par le sens si une source
+// de vecteurs est réglée, toujours aussi par les mots).
+func handleSearch(w http.ResponseWriter, r *http.Request) {
+	hits, semantic := agent.Search(r.Context(), r.URL.Query().Get("q"), 30)
+	_, available := embedder.Active()
+	reply(w, map[string]any{"hits": hits, "semantic": semantic, "available": available})
 }

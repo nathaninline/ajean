@@ -55,6 +55,7 @@ func New() http.Handler {
 	api("GET /api/events", handleEvents)
 
 	api("GET /api/state", handleState)
+	api("GET /api/search", handleSearch)
 	api("POST /api/convs/new", handleConvNew)
 	api("POST /api/convs/delete", handleConvDelete)
 	api("POST /api/convs/rename", handleConvRename)
@@ -104,6 +105,15 @@ func New() http.Handler {
 	api("POST /api/files/mkdir", handleFilesMkdir)
 	api("POST /api/files/rename", handleFilesRename)
 	api("POST /api/files/delete", handleFilesDelete)
+
+	api("GET /api/machine", handleMachine)
+	api("GET /api/services/available", handleServicesAvailable)
+	api("POST /api/services/track", handleServiceTrack)
+	api("POST /api/services/act", handleServiceAct)
+	api("GET /api/services/logs", handleServiceLogs)
+	api("GET /api/services/unit", handleServiceGet)
+	api("POST /api/services/save", handleServiceSave)
+	api("POST /api/services/remove", handleServiceRemove)
 
 	api("GET /api/apps", handleApps)
 	api("GET /api/apps/page", handleAppPage)
