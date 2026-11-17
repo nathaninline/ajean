@@ -418,7 +418,10 @@ func patchFiche(name, old, repl string) error {
 		return errors.New("la fiche serait vide : pour la retirer, memory_forget")
 	}
 	if n := runeLen(f.Content); n > limit {
-		return fmt.Errorf("fiche trop longue après modification (%d car., max %d)", n, limit)
+		// Sans piste, le modèle raccourcit et rallonge la même fiche en boucle :
+		// on lui dit de combien elle déborde et quoi faire à la place.
+		return fmt.Errorf("fiche trop longue après modification (%d car., max %d, %d de trop) : n'essaie pas de la raccourcir pour faire de la place ; "+
+			"mets ce nouveau contenu dans une fiche à part (fiche_save) et ajoute ici une ligne qui y renvoie", n, limit, n-limit)
 	}
 	if err := writeFicheLocked(f); err != nil {
 		return err
