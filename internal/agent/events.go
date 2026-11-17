@@ -16,6 +16,10 @@ type event struct {
 	Files []string `json:"files,omitempty"` // fichiers joints au message de l'utilisateur
 	Name  string   `json:"name,omitempty"`  // outil en cours
 	Label string   `json:"label,omitempty"` // cible de l'outil
+	Desc  string   `json:"desc,omitempty"`  // ce que fait l'appel, écrit par le modèle
+	Used  int      `json:"used,omitempty"`  // usage : tokens du contexte
+	Max   int      `json:"max,omitempty"`   // usage : taille de la fenêtre (0 : inconnue)
+	Out   int      `json:"out,omitempty"`   // usage : tokens écrits par le modèle
 	Error string   `json:"error,omitempty"`
 	State string   `json:"state,omitempty"` // sommeil : start, end
 }

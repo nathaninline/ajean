@@ -18,6 +18,7 @@
 //	ajean                     lance l'assistant
 //	ajean password            définit ou remplace le mot de passe de l'interface
 //	ajean password --remove   le retire (l'interface redevient réservée à la machine)
+//	ajean import <dossier>    reprend la mémoire et les fichiers de l'ancien AJEAN (0.x)
 //
 // L'accès à l'interface : sans mot de passe, seule la machine elle-même l'ouvre.
 // Avec un mot de passe, tout le monde se connecte. Pour l'ouvrir au réseau
@@ -68,11 +69,13 @@ func run() error {
 		switch os.Args[1] {
 		case "password":
 			return passwordCommand(os.Args[2:])
+		case "import":
+			return importCommand(os.Args[2:])
 		case "version", "--version", "-v":
 			fmt.Println("AJEAN", version)
 			return nil
 		default:
-			return fmt.Errorf("commande inconnue : %s (commandes : password, version)", os.Args[1])
+			return fmt.Errorf("commande inconnue : %s (commandes : password, import, version)", os.Args[1])
 		}
 	}
 	for _, dir := range []string{home.Memory(), home.Tools(), home.Apps()} {

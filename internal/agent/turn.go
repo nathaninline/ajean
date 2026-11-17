@@ -74,6 +74,14 @@ func (c *conversation) begin() bool {
 func (c *conversation) turn(text string, files []string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	ctx = llm.WithPhase(ctx, func(p string) { emit(event{Type: "phase", Conv: c.id, Text: p}) })
+	ctx = llm.WithUsage(ctx, func(u llm.Usage) {
+		used := u.Prompt + u.Completion
+		c.mu.Lock()
+		c.used = used
+		c.mu.Unlock()
+		emit(event{Type: "usage", Conv: c.id, Used: used, Max: ContextWindow(), Out: u.Completion})
+	})
 	c.cancelReview() // l'utilisateur reprend la main : la révision attendra
 	now := time.Now()
 
@@ -83,9 +91,11 @@ func (c *conversation) turn(text string, files []string) {
 	msgs = append(msgs, user)
 
 	calls, saved := 0, false
+	specs, described := withToolDesc(allTools.specs)
 	exec := func(tc llm.ToolCall) string {
 		cl, ok := decode(tc)
-		emit(event{Type: "tool", Conv: c.id, Name: cl.name, Label: cl.label()})
+		desc := takeToolDesc(described, &cl)
+		emit(event{Type: "tool", Conv: c.id, Name: cl.name, Label: cl.label(), Desc: desc})
 		if !ok {
 			return tool.Err("arguments illisibles (JSON invalide)")
 		}
@@ -104,7 +114,7 @@ func (c *conversation) turn(text string, files []string) {
 			emit(event{Type: "delta", Conv: c.id, Text: delta})
 		}
 	}
-	out, texts, err := loop(ctx, msgs, allTools.specs, maxTurnIterations, onText, exec)
+	out, texts, err := loop(ctx, msgs, specs, maxTurnIterations, onText, exec)
 	if llm.Rejected(err) && len(user.Images) > 0 && len(out) == base+1 {
 		// La requête elle-même est refusée dès le premier appel : le modèle
 		// n'accepte sans doute pas les images. On recommence sans elles.

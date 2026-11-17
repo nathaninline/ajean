@@ -65,6 +65,7 @@ type conversation struct {
 	deleted bool               // supprimée : plus aucun tour ne doit y écrire
 	cancel  context.CancelFunc // arrête la réponse en cours
 	review  reviewState
+	used    int // tokens du contexte à la dernière réponse (0 : inconnu), non conservé sur disque
 }
 
 var convs = struct {
@@ -322,6 +323,7 @@ type Info struct {
 	Title string `json:"title"`
 	TS    int64  `json:"ts"` // dernier message (ou création), epoch ms
 	Busy  bool   `json:"busy"`
+	Used  int    `json:"used,omitempty"` // tokens du contexte à la dernière réponse
 }
 
 // List : les conversations, la plus récemment active d'abord.
@@ -361,7 +363,7 @@ func Thread(id string) (info Info, log []Item, ok bool) {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return Info{ID: c.id, Title: c.title, Busy: c.busy}, append([]Item(nil), c.log...), true
+	return Info{ID: c.id, Title: c.title, Busy: c.busy, Used: c.used}, append([]Item(nil), c.log...), true
 }
 
 // busyAnywhere : une réponse est-elle en cours dans une conversation ?

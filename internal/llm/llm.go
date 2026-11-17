@@ -187,18 +187,36 @@ func silent(ctx context.Context, silence *time.Timer) bool {
 
 // chunk : un morceau du flux de /chat/completions.
 type chunk struct {
-	Error   any `json:"error"`
+	Error   any    `json:"error"`
+	Usage   *Usage `json:"usage"`
 	Choices []struct {
 		Delta struct {
 			Content   string `json:"content"`
-			Reasoning string `json:"reasoning_content"`
-			ToolCalls []struct {
+			Reasoning  string `json:"reasoning_content"`
+			Reasoning2 string `json:"reasoning"` // autre nom employé par certains serveurs
+			ToolCalls  []struct {
 				Index    *int         `json:"index"`
 				ID       string       `json:"id"`
 				Function FunctionCall `json:"function"`
 			} `json:"tool_calls"`
 		} `json:"delta"`
 	} `json:"choices"`
+}
+
+// Phases d'une réponse, signalées à qui l'a demandé (WithPhase) : le modèle lit
+// d'abord tout le contexte (prefill), puis réfléchit, prépare un appel d'outil
+// ou écrit. Sans ça, l'interface affichait « réfléchit » pendant la lecture.
+const (
+	PhaseReading  = "reading"
+	PhaseThinking = "thinking"
+	PhaseTool     = "tool"
+)
+
+type phaseKey struct{}
+
+// WithPhase renvoie un contexte dont les appels à Chat signalent leurs phases à f.
+func WithPhase(ctx context.Context, f func(string)) context.Context {
+	return context.WithValue(ctx, phaseKey{}, f)
 }
 
 // Chat envoie la conversation et lit la réponse en flux. onDelta (facultatif)
@@ -222,7 +240,26 @@ func Chat(ctx context.Context, ep Endpoint, msgs []Message, tools []Tool, onDelt
 	defer cancel()
 	silence := time.AfterFunc(silenceTimeout, cancel)
 	defer silence.Stop()
+	onPhase, _ := ctx.Value(phaseKey{}).(func(string))
+	phase := ""
+	setPhase := func(p string) {
+		if onPhase != nil && p != phase {
+			phase = p
+			onPhase(p)
+		}
+	}
+	setPhase(PhaseReading)
+	onUsage, _ := ctx.Value(usageKey{}).(func(Usage))
+	if _, refused := noUsage.Load(base(ep.URL)); onUsage != nil && !refused {
+		body["stream_options"] = map[string]any{"include_usage": true}
+	}
 	resp, err := request(ctx, http.MethodPost, base(ep.URL)+"/chat/completions", ep.Key, body)
+	if err != nil && body["stream_options"] != nil && Rejected(err) {
+		// Une API qui ne connaît pas stream_options : sans, et plus jamais avec.
+		noUsage.Store(base(ep.URL), true)
+		delete(body, "stream_options")
+		resp, err = request(ctx, http.MethodPost, base(ep.URL)+"/chat/completions", ep.Key, body)
+	}
 	if err != nil {
 		if silent(ctx, silence) {
 			err = errSilent
@@ -257,9 +294,19 @@ func Chat(ctx context.Context, ep Endpoint, msgs []Message, tools []Tool, onDelt
 		if c.Error != nil {
 			return out, fmt.Errorf("erreur de l'API : %s", apiError([]byte(data)))
 		}
+		if c.Usage != nil && c.Usage.Prompt > 0 && onUsage != nil {
+			onUsage(*c.Usage)
+		}
 		for _, ch := range c.Choices {
-			reasoning.WriteString(ch.Delta.Reasoning)
+			if r := ch.Delta.Reasoning + ch.Delta.Reasoning2; r != "" {
+				reasoning.WriteString(r)
+				setPhase(PhaseThinking)
+			}
+			if len(ch.Delta.ToolCalls) > 0 {
+				setPhase(PhaseTool)
+			}
 			if ch.Delta.Content != "" {
+				phase = "" // l'écriture se voit d'elle-même ; une phase suivante sera de nouveau signalée
 				text.WriteString(ch.Delta.Content)
 				if onDelta != nil {
 					onDelta(ch.Delta.Content)
