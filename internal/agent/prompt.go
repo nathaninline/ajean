@@ -1,6 +1,9 @@
 package agent
 
-import "ajean/internal/memory"
+import (
+	"ajean/internal/llm"
+	"ajean/internal/memory"
+)
 
 // instructions : qui est l'assistant et comment il travaille. Courtes à
 // dessein : chaque ligne est relue à chaque appel.
@@ -33,5 +36,30 @@ How you work:
 // chaque appel : ce que la mémoire vient d'apprendre (dans cette conversation,
 // une autre, une révision ou un sommeil) est toujours sous les yeux du modèle.
 func systemPrompt() string {
-	return instructions + "\n\n" + memory.ContextBlock()
+	return instructions
 }
+
+// La mémoire n'est PAS dans le prompt système : elle change dès que l'assistant
+// note quelque chose, et tout ce qui la suit dans la requête (l'historique
+// entier) perdait alors le cache du serveur du modèle, relu en entier (jusqu'à
+// 25 s). Elle va dans le dernier message de l'utilisateur, lue une fois par tour.
+
+// withMemory : une copie de la requête où le dernier message de l'utilisateur
+// (celui du tour) porte l'état de la mémoire. Le fil gardé ne la contient pas :
+// l'historique reste identique d'un appel à l'autre, donc en cache.
+func withMemory(msgs []llm.Message, block string) []llm.Message {
+	out := append([]llm.Message(nil), msgs...)
+	if block == "" {
+		return out
+	}
+	for i := len(out) - 1; i >= 0; i-- {
+		if out[i].Role == "user" {
+			out[i].Content = "[Your memory right now (context, not written by the user):\n" + block + "]\n\n" + out[i].Content
+			break
+		}
+	}
+	return out
+}
+
+// memoryBlock : l'état de la mémoire à montrer au modèle pour ce tour.
+func memoryBlock() string { return memory.ContextBlock() }

@@ -129,10 +129,14 @@ func TestTurnUsesToolsAndRemembers(t *testing.T) {
 	if err != nil || len(facts) != 1 || facts[0].Key != "prenom" || facts[0].Value != "Alice" {
 		t.Fatalf("profil = %+v, %v", facts, err)
 	}
-	// Le second appel au modèle voit le résultat de l'outil et le profil à jour.
+	// Le second appel voit le résultat de l'outil. Le prompt système ne bouge pas
+	// (cache du serveur) : la mémoire est dans le message du tour, lue au début.
 	req := api.lastRequest()
-	if !strings.Contains(req[0].Content, "prenom: Alice") {
-		t.Error("le message système ne contient pas le profil mis à jour")
+	if req[0].Content != systemPrompt() || strings.Contains(req[0].Content, "Alice") {
+		t.Error("le prompt système a changé pendant le tour")
+	}
+	if user := req[1]; user.Role != "user" || !strings.Contains(user.Content, "Your memory right now") || !strings.HasSuffix(user.Content, "je m'appelle Alice") {
+		t.Errorf("message du tour = %q", user.Content)
 	}
 	if last := req[len(req)-1]; last.Role != "tool" || !strings.HasPrefix(last.Content, "[ok]") {
 		t.Errorf("dernier message envoyé = %+v", last)

@@ -113,12 +113,13 @@ func loop(ctx context.Context, msgs []llm.Message, specs []llm.Tool, maxIter int
 	conf := config.Get()
 	ep, budget := conf.Chat(), conf.MaxContextChars
 	var texts []string
+	mem := memoryBlock() // une fois par tour : la relire changerait la requête et viderait le cache
 	for i := 0; i < maxIter; i++ {
 		if size(msgs) > budget {
-			lighten(msgs, budget*3/4) // un tour qui s'allonge : les vieux résultats d'outils laissent la place
+			lighten(msgs, budget/2) // un tour qui s'allonge : les vieux résultats d'outils laissent la place ; franchement, car chaque allègement vide le cache du serveur
 		}
 		filter := memory.NewRuleFilter()
-		req := append([]llm.Message{{Role: "system", Content: systemPrompt()}}, msgs...)
+		req := append([]llm.Message{{Role: "system", Content: systemPrompt()}}, withMemory(msgs, mem)...)
 		stream := func(d string) {
 			if onText != nil {
 				if s := filter.Push(d); s != "" {
@@ -130,7 +131,7 @@ func loop(ctx context.Context, msgs []llm.Message, specs []llm.Tool, maxIter int
 		if tooLong(err) {
 			// Le modèle a un contexte plus petit que prévu : on allège franchement et on redemande, une fois.
 			lighten(msgs, size(msgs)/2)
-			req = append(req[:1], msgs...)
+			req = append(req[:1], withMemory(msgs, mem)...)
 			m, err = llm.Chat(ctx, ep, req, specs, stream)
 			if tooLong(err) {
 				err = fmt.Errorf("%w (%s)", err, shrinkBudget(size(msgs)))
@@ -162,7 +163,7 @@ func loop(ctx context.Context, msgs []llm.Message, specs []llm.Tool, maxIter int
 	// le fil : seule la réponse y entre.
 	note := llm.Message{Role: "user", Content: "[System: you have used all your tool steps for this request. Do not call any tool. " +
 		"Answer the user now, in their language: what you found or did, what is still blocking and why, and what you would need or try next.]"}
-	req := append([]llm.Message{{Role: "system", Content: systemPrompt()}}, append(msgs, note)...)
+	req := append([]llm.Message{{Role: "system", Content: systemPrompt()}}, append(withMemory(msgs, mem), note)...)
 	filter := memory.NewRuleFilter()
 	m, err := llm.Chat(ctx, ep, req, nil, func(d string) {
 		if onText != nil {
