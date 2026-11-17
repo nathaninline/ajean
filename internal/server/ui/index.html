@@ -181,6 +181,10 @@ body.resizing{cursor:col-resize;user-select:none;-webkit-user-select:none}
 .mcopy{display:flex;align-items:center;justify-content:center;width:22px;height:20px;padding:0;
   border:0;border-radius:6px;background:none;color:var(--dim);cursor:pointer;transition:color .15s ease}
 .mcopy:hover{color:var(--text)}
+/* Réponse en direct : chaque mot arrive en fondu, l'animation reprend où elle en
+   était quand le texte est reconstruit (délai négatif posé par le script). */
+.wi{animation:wordin var(--word-ms,420ms) cubic-bezier(.33,.1,.45,1) both}
+@keyframes wordin{from{opacity:0}to{opacity:1}}
 @keyframes msgin{from{opacity:0;transform:translateY(18px) scale(.96)}to{opacity:1;transform:none}}
 @keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
@@ -595,7 +599,7 @@ select.ctl{appearance:none;-webkit-appearance:none;padding-right:34px;text-overf
   #side-grip{display:none}
   body.drawer-open #menubtn{display:none}
   body.drawer-open #backdrop{display:block}
-  #chat{padding:60px 8px 12px;scrollbar-gutter:auto}
+  #chat{padding:60px max(20px,env(safe-area-inset-right)) 12px max(20px,env(safe-area-inset-left));scrollbar-gutter:auto}
   #composer{--ccol:8px}
   .msg.user{max-width:92%}
   #sendhint{display:none}
@@ -1888,6 +1892,89 @@ const chat=$('chat');
 let live=null,liveText='',activity=null,lastDay=null;
 const nearBottom=()=>chat.scrollHeight-chat.scrollTop-chat.clientHeight<140;
 const toBottom=()=>{chat.scrollTop=chat.scrollHeight};
+// ===== Apparition du texte en direct ==========================================
+// Les tokens arrivent par rafales : afficher chaque rafale d'un coup fait sauter le
+// texte. On sépare donc l'arrivée de l'affichage : le texte reçu s'écoule mot par
+// mot, d'autant plus vite que le retard est grand (il suit tout seul un modèle
+// rapide comme un lent), et chaque mot apparaît en fondu. Le fondu est piloté par
+// CSS ; quand le Markdown est reconstruit, chaque mot reprend son animation où
+// elle en était (délai négatif), rien ne clignote.
+const WORD_MS=420,REVEAL_TAU=280,REVEAL_MIN=.03,REVEAL_IDLE=180;
+const rv={shown:0,pos:0,len:0,marks:[],raf:0,prev:0,lastIn:0,done:null};
+function revealReset(){
+  cancelAnimationFrame(rv.raf);
+  Object.assign(rv,{shown:0,pos:0,len:0,marks:[],raf:0,prev:0,lastIn:0,done:null});
+}
+function revealFeed(){
+  rv.lastIn=performance.now();
+  if(!rv.raf)rv.raf=requestAnimationFrame(revealStep);
+}
+function revealStep(now){
+  rv.raf=0;
+  if(!live)return;
+  const dt=rv.prev?Math.min(now-rv.prev,100):16;rv.prev=now;
+  const total=liveText.length,lag=total-rv.pos;
+  if(lag>0){
+    rv.pos=Math.min(total,rv.pos+Math.max(lag/REVEAL_TAU,REVEAL_MIN)*dt);
+    // On s'arrête à la fin d'un mot ; le mot en cours d'arrivée attend la suite,
+    // sauf si le flux est fini ou s'est tu un instant.
+    let end=Math.floor(rv.pos);
+    if(end<total){
+      const cut=liveText.slice(0,end+1).search(/\s\S*$/);
+      end=cut>rv.shown?cut:(rv.done||now-rv.lastIn>REVEAL_IDLE?end:rv.shown);
+    }
+    if(end>rv.shown){rv.shown=end;revealRender(now)}
+  }
+  const fading=rv.marks.length&&now-rv.marks[rv.marks.length-1].t<WORD_MS;
+  if(rv.shown<total||fading||(rv.pos<total)){rv.raf=requestAnimationFrame(revealStep);return}
+  rv.prev=0;
+  if(rv.done)clearLive();   // tout est apparu : le message définitif prend la place
+}
+function revealRender(now){
+  const stick=nearBottom(),body=live.firstChild;
+  body.innerHTML=md(streamSafe(liveText.slice(0,rv.shown)));
+  const len=body.textContent.length;
+  if(len>rv.len){rv.marks.push({from:rv.len,t:now});rv.len=len}
+  while(rv.marks.length>1&&now-rv.marks[1].t>=WORD_MS)rv.marks.shift();
+  const m0=rv.marks[0];
+  if(m0&&now-m0.t<WORD_MS)wrapWords(body,m0.from,now);
+  if(stick)toBottom();
+}
+// Markdown encore incomplet : sans ça, « **mot » s'afficherait avec ses astérisques
+// puis sauterait en gras. Gras et code ouverts sont refermés provisoirement ; un
+// tableau n'apparaît qu'avec sa ligne de séparation, et ses lignes que complètes.
+function streamSafe(s){
+  const lines=s.split('\n');
+  if(/^\s*\|/.test(lines[lines.length-1]))lines.pop();   // ligne de tableau pas encore terminée par son retour à la ligne
+  const tbl=lines.findIndex(l=>/^\s*\|/.test(l));
+  if(tbl>=0&&!lines.slice(tbl).some(l=>/^\s*\|?\s*:?-{3,}/.test(l)))lines.length=tbl;
+  s=lines.join('\n');
+  if(/(^|\n)\s*(```|~~~)/.test(s)&&(s.match(/(^|\n)\s*```/g)||[]).length%2)return s;   // bloc de code ouvert : laissé tel quel
+  const trail=s.match(/\s*$/)[0];s=s.slice(0,s.length-trail.length);
+  if((s.match(/\*\*/g)||[]).length%2)s+='**';
+  if((s.replace(/```/g,'').match(/`/g)||[]).length%2)s+='`';
+  return s+trail;
+}
+// Entoure d'un <span class="wi"> chaque mot affiché depuis moins de WORD_MS.
+function wrapWords(body,from,now){
+  const w=document.createTreeWalker(body,NodeFilter.SHOW_TEXT),nodes=[];
+  let off=0;
+  for(let n=w.nextNode();n;n=w.nextNode()){const l=n.data.length;if(off+l>from)nodes.push([n,off]);off+=l}
+  for(const [n,start] of nodes){
+    const frag=document.createDocumentFragment();let o=start;
+    for(const part of n.data.split(/(\s+)/)){
+      if(!part)continue;
+      let t=null;
+      if(o>=from&&!/^\s/.test(part))for(const m of rv.marks)if(m.from<=o)t=m.t;
+      if(t!=null&&now-t<WORD_MS){
+        const s=document.createElement('span');s.className='wi';s.textContent=part;
+        s.style.animationDelay=-(now-t)+'ms';frag.appendChild(s);
+      }else frag.appendChild(document.createTextNode(part));
+      o+=part.length;
+    }
+    n.replaceWith(frag);
+  }
+}
 chat.addEventListener('scroll',()=>$('scrollbtn').classList.toggle('show',!nearBottom()),{passive:true});
 $('scrollbtn').onclick=()=>chat.scrollTo({top:chat.scrollHeight,behavior:'smooth'});
 // Le fil réserve sous lui la hauteur réelle de la zone de saisie (elle grandit avec le texte).
@@ -2001,6 +2088,8 @@ function tickActivity(){
   el.textContent=s<60?s+' s':Math.floor(s/60)+' min '+String(s%60).padStart(2,'0')+' s';
 }
 function clearLive(){
+  const d=rv.done;revealReset();
+  if(d&&live){live.remove();live=null;d()}   // un message terminé attendait la fin de son apparition
   if(live)live.remove();
   if(activity)activity.remove();
   clearInterval(actTimer);actStart=actTimer=0;
@@ -2205,12 +2294,17 @@ function onEvent(ev){
     case 'start':clearLive();setBusy(true);setActivity('');break;
     case 'delta':
       if(!live){live=add('msg assistant','<div class="body"></div>');setActivity(t('chat.writing'))}
-      liveText+=ev.text;live.firstChild.innerHTML=md(liveText);
+      liveText+=ev.text;revealFeed();
       break;
     case 'tool':setActivity(toolLabel(ev));break;
     case 'usage':renderCtx(ev.used,ev.max,ev.out);break;
     case 'phase':if(I18N['phase.'+ev.text])setActivity(t('phase.'+ev.text));break;   // lecture du contexte, réflexion, préparation d'une action
-    case 'done':clearLive();setBusy(false);addMsg({role:'assistant',text:ev.text,ts:ev.ts,kind:ev.kind});break;
+    case 'done':
+      // La fin du texte s'écrit encore : le message définitif remplace le direct
+      // une fois le dernier mot apparu, pour qu'il ne saute pas d'un coup.
+      setBusy(false);
+      if(live&&ev.text&&(rv.raf||rv.shown<liveText.length)){rv.done=()=>{clearLive();addMsg({role:'assistant',text:ev.text,ts:ev.ts,kind:ev.kind})};revealFeed();break}
+      clearLive();addMsg({role:'assistant',text:ev.text,ts:ev.ts,kind:ev.kind});break;
     case 'stopped':clearLive();setBusy(false);add('daysep',esc(t('chat.stopped')));break;
     case 'error':clearLive();setBusy(false);addMsg({role:'error',text:ev.error||t('chat.error')});break;
   }
