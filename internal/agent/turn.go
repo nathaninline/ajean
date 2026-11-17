@@ -66,6 +66,7 @@ func (c *conversation) begin() bool {
 	}
 	c.busy = true
 	c.started = time.Now().UnixMilli()
+	c.steps = nil
 	return true
 }
 
@@ -96,7 +97,11 @@ func (c *conversation) turn(text string, files []string) {
 	exec := func(tc llm.ToolCall) string {
 		cl, ok := decode(tc)
 		desc := takeToolDesc(described, &cl)
-		emit(event{Type: "tool", Conv: c.id, Name: cl.name, Label: cl.label(), Desc: desc})
+		st := Step{Name: cl.name, Label: cl.label(), Desc: desc}
+		c.mu.Lock()
+		c.steps = append(c.steps, st)
+		c.mu.Unlock()
+		emit(event{Type: "tool", Conv: c.id, Name: st.Name, Label: st.Label, Desc: st.Desc})
 		if !ok {
 			return tool.Err("arguments illisibles (JSON invalide)")
 		}
@@ -147,7 +152,7 @@ func (c *conversation) turn(text string, files []string) {
 	memory.LogExchange(text, answer)
 	c.noteTurn(text, calls, saved)
 	WakeSearchIndex()
-	emit(event{Type: "done", Conv: c.id, Text: answer, TS: done.UnixMilli(), Model: modelName()})
+	emit(event{Type: "done", Conv: c.id, Text: answer, TS: done.UnixMilli(), Model: modelName(), Steps: c.lastSteps()})
 }
 
 // modelName : le nom de la configuration active (sinon le modèle), affiché sous
@@ -228,7 +233,8 @@ func (c *conversation) closeDone(out []llm.Message, lead, base int, answer strin
 	c.mu.Lock()
 	c.cancel, c.busy = nil, false
 	c.msgs = out[lead:] // sans le résumé placé en tête pour ce tour
-	c.log = append(c.log, Item{Role: "assistant", Text: answer, TS: at.UnixMilli(), Model: modelName()})
+	c.log = append(c.log, Item{Role: "assistant", Text: answer, TS: at.UnixMilli(), Model: modelName(), Steps: c.steps})
+	c.steps = nil
 	dropped := c.trimLocked()
 	c.saveLocked()
 	c.mu.Unlock()
@@ -242,6 +248,8 @@ func (c *conversation) closeDone(out []llm.Message, lead, base int, answer strin
 func (c *conversation) closeFailed(user llm.Message, partial string, err error, stopped bool, at time.Time) {
 	note := partial
 	switch {
+	case note != "" && !stopped:
+		note += "\n\n_(Réponse impossible : " + err.Error() + ")_"
 	case note != "":
 	case stopped:
 		note = "Réponse interrompue."
@@ -252,7 +260,8 @@ func (c *conversation) closeFailed(user llm.Message, partial string, err error, 
 	c.mu.Lock()
 	c.cancel, c.busy = nil, false
 	c.msgs = append(c.msgs, user, llm.Message{Role: "assistant", Content: note})
-	c.log = append(c.log, Item{Role: "assistant", Text: note, TS: at.UnixMilli(), Kind: kindFailed})
+	c.log = append(c.log, Item{Role: "assistant", Text: note, TS: at.UnixMilli(), Kind: kindFailed, Model: modelName(), Steps: c.steps})
+	c.steps = nil
 	dropped := c.trimLocked()
 	c.saveLocked()
 	c.mu.Unlock()
@@ -284,4 +293,22 @@ func visibleAnswer(texts []string) string {
 		return last
 	}
 	return longest + "\n\n" + last
+}
+
+// Step : une étape d'un tour (un appel d'outil), gardée dans le fil pour savoir
+// ce que l'assistant a fait. L'interface en tire le libellé.
+type Step struct {
+	Name  string `json:"name"`
+	Label string `json:"label,omitempty"`
+	Desc  string `json:"desc,omitempty"`
+}
+
+// lastSteps : les étapes de la dernière réponse enregistrée.
+func (c *conversation) lastSteps() []Step {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if n := len(c.log); n > 0 {
+		return c.log[n-1].Steps
+	}
+	return nil
 }

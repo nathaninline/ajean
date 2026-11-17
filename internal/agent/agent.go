@@ -157,7 +157,30 @@ func loop(ctx context.Context, msgs []llm.Message, specs []llm.Tool, maxIter int
 			return msgs, texts, err
 		}
 	}
-	return msgs, texts, errTooManySteps
+	// Limite atteinte : plutôt que de couper sans un mot, on demande une dernière
+	// réponse, sans outils, qui dit où on en est. La consigne ne reste pas dans
+	// le fil : seule la réponse y entre.
+	note := llm.Message{Role: "user", Content: "[System: you have used all your tool steps for this request. Do not call any tool. " +
+		"Answer the user now, in their language: what you found or did, what is still blocking and why, and what you would need or try next.]"}
+	req := append([]llm.Message{{Role: "system", Content: systemPrompt()}}, append(msgs, note)...)
+	filter := memory.NewRuleFilter()
+	m, err := llm.Chat(ctx, ep, req, nil, func(d string) {
+		if onText != nil {
+			if s := filter.Push(d); s != "" {
+				onText(s, false)
+			}
+		}
+	})
+	if err != nil || strings.TrimSpace(m.Content) == "" || len(m.ToolCalls) > 0 {
+		return msgs, texts, errTooManySteps
+	}
+	if onText != nil {
+		onText(filter.Flush(), true)
+	}
+	m.Content = memory.ApplyRules(m.Content)
+	msgs = append(msgs, m)
+	texts = append(texts, strings.TrimSpace(m.Content))
+	return msgs, texts, nil
 }
 
 // errTooManySteps : le modèle enchaîne les outils sans jamais conclure.

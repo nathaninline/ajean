@@ -18,6 +18,7 @@ type event struct {
 	Label string   `json:"label,omitempty"` // cible de l'outil
 	Desc  string   `json:"desc,omitempty"`  // ce que fait l'appel, écrit par le modèle
 	Model string   `json:"model,omitempty"` // done : le modèle qui a répondu
+	Steps []Step   `json:"steps,omitempty"` // done : les étapes du tour
 	Used  int      `json:"used,omitempty"`  // usage : tokens du contexte
 	Max   int      `json:"max,omitempty"`   // usage : taille de la fenêtre (0 : inconnue)
 	Out   int      `json:"out,omitempty"`   // usage : tokens écrits par le modèle

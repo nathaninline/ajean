@@ -47,7 +47,7 @@ func handleState(w http.ResponseWriter, r *http.Request) {
 	}
 	state := chatState(c)
 	state["convs"], state["conv"], state["title"] = agent.List(), info.ID, info.Title
-	state["busy"], state["log"], state["since"] = info.Busy, log, info.Since
+	state["busy"], state["log"], state["since"], state["steps"] = info.Busy, log, info.Since, info.Steps
 	state["used"], state["max"] = info.Used, agent.ContextWindow()
 	reply(w, state)
 }

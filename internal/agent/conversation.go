@@ -10,6 +10,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -31,6 +32,7 @@ const (
 	untitled    = "Nouvelle conversation"
 	stampLayout = "2006-01-02 15:04:05 -0700" // en-tête d'un message dans le fichier
 	filesPrefix = "_Fichiers joints : "       // dernière ligne d'un message avec pièces jointes
+	stepPrefix  = "_étape : "                 // en tête d'une réponse : une étape (JSON) par ligne
 	filesSep    = " | "                       // sépare deux noms : ce caractère est interdit dans un nom de fichier déposé
 	kindTask    = "task"                      // compte rendu d'une tâche, écrit par l'assistant de lui-même
 	kindFailed  = "failed"                    // réponse interrompue ou impossible : ce qui en reste
@@ -52,6 +54,7 @@ type Item struct {
 	Kind  string   `json:"kind,omitempty"`  // task (compte rendu d'une tâche) ou failed (réponse interrompue)
 	Files []string `json:"files,omitempty"` // fichiers joints (chemins dans le WORKSPACE)
 	Model string   `json:"model,omitempty"` // le modèle qui a répondu (nom de sa configuration)
+	Steps []Step   `json:"steps,omitempty"` // les étapes (appels d'outils) qui ont mené à la réponse
 }
 
 type conversation struct {
@@ -66,8 +69,9 @@ type conversation struct {
 	deleted bool               // supprimée : plus aucun tour ne doit y écrire
 	cancel  context.CancelFunc // arrête la réponse en cours
 	review  reviewState
-	started int64 // début de la réponse en cours (epoch ms), pour que le chrono survive à un rechargement
-	used    int   // tokens du contexte à la dernière réponse (0 : inconnu), non conservé sur disque
+	steps   []Step // étapes du tour en cours
+	started int64  // début de la réponse en cours (epoch ms), pour que le chrono survive à un rechargement
+	used    int    // tokens du contexte à la dernière réponse (0 : inconnu), non conservé sur disque
 }
 
 var convs = struct {
@@ -95,7 +99,13 @@ func (c *conversation) render() string {
 		if it.Model != "" {
 			b.WriteString(" · modèle " + strings.ReplaceAll(it.Model, "\n", " "))
 		}
-		b.WriteString("\n" + escapeHeads(strings.TrimSpace(it.Text)) + "\n")
+		b.WriteString("\n")
+		for _, st := range it.Steps {
+			if j, err := json.Marshal(st); err == nil {
+				b.WriteString(stepPrefix + string(j) + "\n")
+			}
+		}
+		b.WriteString(escapeHeads(strings.TrimSpace(it.Text)) + "\n")
 		if len(it.Files) > 0 {
 			b.WriteString("\n" + filesPrefix + strings.Join(it.Files, filesSep) + "_\n")
 		}
@@ -117,6 +127,13 @@ func parse(id, s string) *conversation {
 		if n := len(body); n > 0 && strings.HasPrefix(body[n-1], filesPrefix) {
 			cur.Files = strings.Split(strings.TrimSuffix(strings.TrimPrefix(body[n-1], filesPrefix), "_"), filesSep)
 			body = body[:n-1]
+		}
+		for len(body) > 0 && strings.HasPrefix(body[0], stepPrefix) {
+			var st Step
+			if json.Unmarshal([]byte(strings.TrimPrefix(body[0], stepPrefix)), &st) == nil {
+				cur.Steps = append(cur.Steps, st)
+			}
+			body = body[1:]
 		}
 		cur.Text = strings.TrimSpace(unescapeHeads(strings.Join(body, "\n")))
 		c.log = append(c.log, *cur)
@@ -331,6 +348,7 @@ type Info struct {
 	Busy  bool   `json:"busy"`
 	Used  int    `json:"used,omitempty"`  // tokens du contexte à la dernière réponse
 	Since int64  `json:"since,omitempty"` // réponse en cours : son début (epoch ms)
+	Steps []Step `json:"steps,omitempty"` // réponse en cours : ses étapes jusqu'ici
 }
 
 // List : les conversations, la plus récemment active d'abord.
@@ -372,7 +390,7 @@ func Thread(id string) (info Info, log []Item, ok bool) {
 	defer c.mu.Unlock()
 	in := Info{ID: c.id, Title: c.title, Busy: c.busy, Used: c.used}
 	if c.busy {
-		in.Since = c.started
+		in.Since, in.Steps = c.started, append([]Step(nil), c.steps...)
 	}
 	return in, append([]Item(nil), c.log...), true
 }

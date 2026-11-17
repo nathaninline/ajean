@@ -210,6 +210,20 @@ body.resizing{cursor:col-resize;user-select:none;-webkit-user-select:none}
 .body th,.body td{border:1px solid var(--border);padding:4px 8px;text-align:left}
 
 /* Ligne d'activité : la marque d'AJEAN qui pulse + un libellé parcouru d'un reflet. */
+/* Étapes d'une réponse (appels d'outils) : la liste grandit pendant le travail,
+   puis reste repliée au-dessus de la réponse. */
+.steps-live{align-self:stretch;margin:0;padding:0;list-style:none}
+.steps-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px}
+.steps-list li{display:flex;align-items:baseline;gap:9px;font-size:12.5px;line-height:1.45;color:var(--dim)}
+.steps-list li::before{content:"";flex:none;width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.55;transform:translateY(-2px)}
+.steps-live .steps-list li:last-child{color:var(--text)}
+.steps-live .steps-list li{animation:fadein .25s ease both}
+details.steps{margin-bottom:10px}
+details.steps summary{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:var(--t1);font-size:11.5px;color:var(--dim);cursor:pointer;list-style:none;user-select:none}
+details.steps summary::-webkit-details-marker{display:none}
+details.steps summary::after{content:"";width:6px;height:6px;border:solid currentColor;border-width:0 1.5px 1.5px 0;transform:rotate(45deg) translateY(-2px);opacity:.7}
+details.steps[open] summary::after{transform:rotate(-135deg) translateY(-1px)}
+details.steps .steps-list{margin:10px 0 2px 4px}
 .genstatus{align-self:flex-start;display:flex;align-items:center;gap:8px;min-height:20px;font-size:13px;color:var(--dim);animation:fadein .3s ease both}
 .msig{display:flex;align-items:center;gap:7px;margin-top:12px;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
 .msig .jlogo{width:17px;height:17px;color:var(--dim)}
@@ -1198,6 +1212,7 @@ const I18N={
     en:'In tokens, as counted by the model on the last reply. When the conversation grows too long, the oldest messages are summarized.',
     vi:'Tính bằng token, theo số đếm của mô hình ở câu trả lời gần nhất. Khi cuộc trò chuyện quá dài, các tin nhắn cũ nhất sẽ được tóm tắt.'},
   'ctx.used':{fr:'Contexte : {0} tokens',en:'Context: {0} tokens',vi:'Ngữ cảnh: {0} token'},
+  'steps.n':{fr:'{0} étapes',en:'{0} steps',vi:'{0} bước'},'steps.one':{fr:'1 étape',en:'1 step',vi:'1 bước'},
   'copy':{fr:'Copier',en:'Copy',vi:'Sao chép'},'copied':{fr:'Copié',en:'Copied',vi:'Đã sao chép'},
   'mic.listening':{fr:'Écoute…',en:'Listening…',vi:'Đang nghe…'},'mic.transcribing':{fr:'Transcription…',en:'Transcribing…',vi:'Đang chép lời…'},
   'mic.denied':{fr:"Le micro n'est pas autorisé pour cette page.",en:"The microphone isn't allowed for this page.",vi:'Trang này chưa được phép dùng micrô.'},
@@ -2162,7 +2177,8 @@ function addMsg(m){
     lastUserTs=0;
     const sig=took||m.model?'<div class="msig"><svg class="jlogo logo" viewBox="0 0 12 12"><use href="#mark"/></svg>'+
       [took,m.model].filter(Boolean).map(x=>'<span>'+esc(x)+'</span>').join('<span class="sep">·</span>')+'</div>':'';
-    el=add('msg assistant'+(m.kind==='failed'?' failed':''),(m.kind==='task'?'<div class="task-tag">'+ICON.clock+esc(t('chat.task'))+'</div>':'')+'<div class="body">'+md(m.text)+'</div>'+sig);
+    const steps=(m.steps||[]).length?'<details class="steps"><summary>'+esc(m.steps.length===1?t('steps.one'):t('steps.n',m.steps.length))+'</summary>'+stepsHTML(m.steps)+'</details>':'';
+    el=add('msg assistant'+(m.kind==='failed'?' failed':''),(m.kind==='task'?'<div class="task-tag">'+ICON.clock+esc(t('chat.task'))+'</div>':'')+steps+'<div class="body">'+md(m.text)+'</div>'+sig);
   }
   // Pied montré au survol : l'heure, puis le bouton copier juste à côté.
   if(m.ts)el.dataset.time=fmtTime(m.ts);
@@ -2242,7 +2258,20 @@ function fmtElapsed(ms){
   const s=Math.max(0,Math.floor(ms/1000));
   return s<60?s+' s':Math.floor(s/60)+' min '+String(s%60).padStart(2,'0')+' s';
 }
+const stepsHTML=list=>'<ol class="steps-list">'+list.map(st=>'<li>'+esc(toolLabel(st))+'</li>').join('')+'</ol>';
+let liveSteps=null;
+// Une étape de plus dans la liste du tour en cours (créée à la première).
+function addLiveStep(st){
+  if(!liveSteps){
+    liveSteps=document.createElement('div');liveSteps.className='steps-live';
+    liveSteps.innerHTML='<ol class="steps-list"></ol>';
+    chat.insertBefore(liveSteps,activity&&activity.parentNode===chat?activity:live&&live.parentNode===chat?live:null);
+  }
+  const li=document.createElement('li');li.textContent=toolLabel(st);
+  liveSteps.firstChild.appendChild(li);
+}
 function clearLive(){
+  if(liveSteps){liveSteps.remove();liveSteps=null}
   const d=rv.done;revealReset();
   if(d&&live){live.remove();live=null;d()}   // un message terminé attendait la fin de son apparition
   if(live)live.remove();
@@ -2468,10 +2497,10 @@ function applyMeta(s){
 function drawState(s){
   applyMeta(s);
   S.conv=s.conv||'';store.set('ajean-conv',S.conv);unseen.delete(S.conv);
-  chat.innerHTML='';lastDay=null;live=activity=null;liveText='';clearInterval(actTimer);actStart=actTimer=0;
+  chat.innerHTML='';lastDay=null;live=activity=liveSteps=null;liveText='';clearInterval(actTimer);actStart=actTimer=0;
   (s.log||[]).forEach((m,i)=>{const el=addMsg(m);if(el)el.dataset.i=i});
   chat.querySelectorAll('.msg.user').forEach(e=>e.style.animation='none');   // pas d'effet d'arrivée sur l'historique
-  setBusy(!!s.busy);if(s.busy){if(s.since)actStart=s.since;setActivity('')}
+  setBusy(!!s.busy);if(s.busy){if(s.since)actStart=s.since;setActivity('');for(const st of s.steps||[])addLiveStep(st)}
   renderCtx(s.used,s.max);
   syncEmpty();renderConvs();toBottom();
 }
@@ -2521,7 +2550,7 @@ function onEvent(ev){
       if(!live){live=add('msg assistant','<div class="body"></div>');setActivity(t('chat.writing'))}
       liveText+=ev.text;revealFeed();
       break;
-    case 'tool':setActivity(toolLabel(ev));break;
+    case 'tool':addLiveStep(ev);setActivity(toolLabel(ev));break;
     case 'usage':renderCtx(ev.used,ev.max,ev.out);break;
     case 'phase':{
       // « tool:nom:phrase » : l'appel d'outil qui s'écrit. La phrase du modèle dès
@@ -2535,8 +2564,8 @@ function onEvent(ev){
       // La fin du texte s'écrit encore : le message définitif remplace le direct
       // une fois le dernier mot apparu, pour qu'il ne saute pas d'un coup.
       setBusy(false);
-      if(live&&ev.text&&(rv.raf||rv.shown<liveText.length)){rv.done=()=>{clearLive();addMsg({role:'assistant',text:ev.text,ts:ev.ts,kind:ev.kind,model:ev.model})};revealFeed();break}
-      clearLive();addMsg({role:'assistant',text:ev.text,ts:ev.ts,kind:ev.kind,model:ev.model});break;
+      if(live&&ev.text&&(rv.raf||rv.shown<liveText.length)){rv.done=()=>{clearLive();addMsg({role:'assistant',text:ev.text,ts:ev.ts,kind:ev.kind,model:ev.model,steps:ev.steps})};revealFeed();break}
+      clearLive();addMsg({role:'assistant',text:ev.text,ts:ev.ts,kind:ev.kind,model:ev.model,steps:ev.steps});break;
     case 'stopped':clearLive();setBusy(false);add('daysep',esc(t('chat.stopped')));break;
     case 'error':clearLive();setBusy(false);addMsg({role:'error',text:ev.error||t('chat.error')});break;
   }
