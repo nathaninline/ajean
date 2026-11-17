@@ -188,6 +188,11 @@ body.resizing{cursor:col-resize;user-select:none;-webkit-user-select:none}
 @keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
 /* Étiquette du compte rendu d'une tâche (l'assistant parle de lui-même, à l'heure dite). */
+/* Lien vers un fichier du workspace : une pastille qui le télécharge. */
+.filelink{display:inline-flex;align-items:center;gap:7px;max-width:100%;padding:6px 12px 6px 10px;border-radius:10px;background:var(--t1);color:var(--text);text-decoration:none;font-size:13.5px;vertical-align:middle}
+.filelink:hover{background:var(--t2)}
+.filelink svg{flex:none;width:15px;height:15px;color:var(--dim)}
+.filelink span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .task-tag{display:inline-flex;align-items:center;gap:6px;margin-bottom:8px;padding:3px 11px 3px 9px;border-radius:999px;background:var(--t2);
   color:var(--dim);font-size:11.5px;font-weight:500;line-height:1.5}
 
@@ -1971,6 +1976,12 @@ function md(src){
     .replace(/`([^`\n]+)`/g,(m,c)=>keep('<code>'+c+'</code>'))
     .replace(/\[([^\]\n]+)\]\(app:([a-z0-9-]+)\)/g,(m,label,id)=>keep('<button class="btn sm" data-app="'+id+'">'+appGlyph(id)+label+'</button>'))
     .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,(m,label,url)=>link(url,label))
+    // Un fichier du workspace, [nom](file:chemin) ou un chemin relatif sans schéma :
+    // un bouton qui le télécharge (le texte est déjà échappé, &amp; redevient &).
+    .replace(/\[([^\]\n]+)\]\((?:file:([^)\n]+)|([^\s():#?]+\.[A-Za-z0-9]{1,8}))\)/g,(m,label,named,bare)=>{
+      const p=(named||bare).trim().replace(/&amp;/g,'&').replace(/^\.?\//,'');
+      return keep('<a class="filelink" href="/api/files/get?dl=1&amp;path='+encodeURIComponent(p)+'" download>'+ICON.file+'<span>'+label+'</span></a>');
+    })
     .replace(/https?:\/\/[^\s<\u0001]+/g,m=>{
       const url=m.replace(/(?:&quot;|&#39;|&gt;|&lt;|[.,;:!?)\]»*_])+$/,'');
       return link(url,url)+m.slice(url.length);
