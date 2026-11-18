@@ -55,6 +55,7 @@ import (
 	"ajean/internal/embedder"
 	"ajean/internal/home"
 	"ajean/internal/memory"
+	"ajean/internal/sandbox"
 	"ajean/internal/scripts"
 	"ajean/internal/secrets"
 	"ajean/internal/server"
@@ -92,6 +93,7 @@ func run() error {
 			return fmt.Errorf("commande inconnue : %s (commandes : password, import, secret, backup, restore, version)", os.Args[1])
 		}
 	}
+	sandbox.WatchParent()
 	for _, dir := range []string{home.Memory(), home.Tools(), home.Apps()} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return err

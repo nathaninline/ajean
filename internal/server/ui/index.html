@@ -1149,6 +1149,13 @@ const I18N={
   'm.cpu':{fr:'Processeur',en:'CPU',vi:'CPU'},'m.ram':{fr:'Mémoire vive',en:'RAM',vi:'RAM'},'m.swap':{fr:"Mémoire d'échange",en:'Swap',vi:'Bộ nhớ hoán đổi'},
   'm.cores':{fr:'{0} cœurs · charge {1}',en:'{0} cores · load {1}',vi:'{0} lõi · tải {1}'},'m.up':{fr:'allumée depuis {0}',en:'up for {0}',vi:'đã chạy {0}'},
   'm.vram':{fr:'VRAM',en:'VRAM',vi:'VRAM'},'m.gpu':{fr:'{0} % · {1} °C · {2} W',en:'{0}% · {1} °C · {2} W',vi:'{0}% · {1} °C · {2} W'},
+  'sbx.test':{fr:'Tester',en:'Test',vi:'Thử'},
+  'sbx.starting':{fr:'Préparation de l\'environnement de test.',en:'Preparing the test environment.',vi:'Đang chuẩn bị môi trường thử.'},
+  'sbx.banner':{fr:'Mode test. Environnement vierge : outils, navigateur, applications et tâches sont bloqués.',en:'Test mode. Blank environment: tools, browser, apps and tasks are blocked.',vi:'Chế độ thử. Môi trường trống: công cụ, trình duyệt, ứng dụng và tác vụ bị chặn.'},
+  'sbx.end':{fr:'Terminer le test',en:'End the test',vi:'Kết thúc thử'},
+  'sbx.end_q':{fr:'Terminer le test ?',en:'End the test?',vi:'Kết thúc thử?'},
+  'sbx.end_msg':{fr:'Tout ce qu\'il contient sera effacé.',en:'Everything in it will be erased.',vi:'Mọi nội dung sẽ bị xóa.'},
+  'sbx.ended':{fr:'Test terminé. Cette fenêtre peut être fermée.',en:'Test ended. This window can be closed.',vi:'Đã kết thúc. Có thể đóng cửa sổ này.'},
   'svc.new':{fr:'Nouveau service',en:'New service',vi:'Dịch vụ mới'},'svc.edit':{fr:'Modifier',en:'Edit',vi:'Sửa'},
   'svc.logs_hide':{fr:'Masquer le journal',en:'Hide log',vi:'Ẩn nhật ký'},'svc.logs_empty':{fr:'Journal vide.',en:'Empty log.',vi:'Nhật ký trống.'},
   'svc.pick':{fr:'Reprendre un service existant',en:'Take over an existing service',vi:'Dùng một dịch vụ có sẵn'},'svc.pick_none':{fr:'Aucun : en créer un',en:'None: create one',vi:'Không: tạo mới'},
@@ -3214,6 +3221,33 @@ $('svc-del').onclick=async()=>{
   catch(e){setStatus('svc-status',e.message,'err')}
 };
 
+// ----- Mode test d'un modèle -----------------------------------------------------
+// Une instance vierge d'AJEAN, branchée sur ce modèle, dans une autre fenêtre.
+async function testPreset(p){
+  const win=window.open('about:blank','_blank');
+  toast(t('sbx.starting'));
+  try{
+    await api('/api/sandbox/start',{preset:p.id});
+    if(win)win.location='/sandbox/';else location.href='/sandbox/';
+  }catch(e){if(win)win.close();toast(e.message)}
+}
+// Le bandeau de l'instance de test : rappelle où l'on est, et permet d'en sortir.
+// Il attend que la langue soit connue : ses textes en dépendent.
+const sbxWait=location.pathname.startsWith('/sandbox/')&&setInterval(()=>{
+  if(!LANG)return;
+  clearInterval(sbxWait);
+  const bar=document.createElement('div');
+  bar.style.cssText='position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;align-items:center;gap:12px;width:max-content;max-width:calc(100vw - 16px);box-sizing:border-box;padding:6px 8px 6px 12px;font-size:12px;color:var(--text);background:var(--card);border:1px solid var(--border);border-radius:8px';
+  const txt=document.createElement('span');txt.textContent=t('sbx.banner');
+  const end=document.createElement('button');end.className='btn sm';end.textContent=t('sbx.end');
+  end.onclick=async()=>{
+    if(!await ask({title:t('sbx.end_q'),msg:t('sbx.end_msg'),ok:t('sbx.end'),danger:true}))return;
+    await fetch('/sandbox/stop',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).catch(()=>{});
+    document.body.textContent=t('sbx.ended');window.close();
+  };
+  bar.append(txt,end);document.body.appendChild(bar);
+},100);
+
 // ===== Écran Fichiers ========================================================
 // Le WORKSPACE seulement : le serveur refuse tout chemin qui en sortirait.
 let files={path:'',entries:[]};
@@ -3586,7 +3620,7 @@ function renderSettings(){
   $('presets-list').innerHTML=listOf(cfg.presets.map((p,i)=>item(
     '<div class="k">'+esc(p.name)+(p.id===cfg.active?'<span class="badge">'+t('preset.active')+'</span>':'')+'</div>'+
     '<div class="meta">'+esc(t('preset.meta',provName(p.provider),p.model,effortLabel(p.effort).toLowerCase()))+'</div>',
-    (p.id===cfg.active?'':'<button class="btn sm" data-a="cuse" data-i="'+i+'">'+t('preset.use')+'</button>')+btn('cedit',i,'edit',t('edit'))+btn('cdel',i,'trash',t('delete'),true))),
+    (p.id===cfg.active?'':'<button class="btn sm" data-a="cuse" data-i="'+i+'">'+t('preset.use')+'</button>')+(location.pathname.startsWith('/sandbox/')?'':btn('ctest',i,'play',t('sbx.test')))+btn('cedit',i,'edit',t('edit'))+btn('cdel',i,'trash',t('delete'),true))),
     t('presets.empty'));
   $('prov-list').innerHTML=listOf(cfg.providers.map((p,i)=>item(
     '<div class="k">'+esc(p.name)+(p.has_key?'<span class="badge">'+t('provider.key_saved')+'</span>':'')+'</div><div class="meta">'+esc(p.api_url)+'</div>',
@@ -3755,6 +3789,7 @@ async function setAct(path,body,confirm){
 const SET_ACTIONS={
   cnew(){openPreset(null)},
   cedit(i){openPreset(cfg.presets[i])},
+  ctest(i){testPreset(cfg.presets[i])},
   cuse(i){setAct('/api/presets/select',{id:cfg.presets[i].id})},
   cdel(i){const p=cfg.presets[i];setAct('/api/presets/delete',{id:p.id},{title:t('preset.delete_q',p.name),msg:t('preset.delete_msg')})},
   fnew(){openProvider(null)},
@@ -3892,15 +3927,83 @@ $('pr-save').onclick=e=>formAct(e.currentTarget,'pr-status',t('saving'),async()=
   hideModal('preset-modal');await reloadAll();
 });
 
-// ===== Démarrage =============================================================
-// La dernière conversation ouverte sur cet appareil est rouverte ; au premier
+// ===== Adresses ==============================================================
+// Chaque écran et chaque conversation a son adresse : un rafraîchissement ramène
+// au même endroit, et les boutons Précédent et Suivant du navigateur fonctionnent.
+const ROUTE_BASE=location.pathname.startsWith('/sandbox/')?'/sandbox':'';
+const ROUTE_SCREENS={settings:'set-modal',memory:'mem-modal',tasks:'tasks-modal',files:'files-modal',apps:'apps-modal',machine:'machine-modal'};
+const ROUTE_TABS={settings:['setup','presets','providers','voice','general'],memory:['profile','fiches','lessons','rules','journal','tools']};
+let routeLive=false;   // faux au démarrage et pendant un retour en arrière : l'adresse ne bouge pas
+function routeNow(){
+  for(const name in ROUTE_SCREENS)if(modalOpen(ROUTE_SCREENS[name])){
+    const tab=name==='settings'?setTab:name==='memory'?memTab:'';
+    return '/'+name+(tab?'/'+tab:'');
+  }
+  return S.conv?'/c/'+encodeURIComponent(S.conv):'/';
+}
+function routeRead(){
+  const [name,arg]=location.pathname.slice(ROUTE_BASE.length).split('/').filter(Boolean);
+  if(name==='c'&&arg)return {conv:decodeURIComponent(arg)};
+  if(!ROUTE_SCREENS[name])return {};
+  return {screen:name,tab:(ROUTE_TABS[name]||[]).includes(arg)?arg:''};
+}
+function routeOpen(r){
+  switch(r.screen){
+    case 'settings':return openSettings(r.tab||undefined);
+    case 'memory':if(r.tab)memTab=r.tab;return openMemory();
+    case 'tasks':return openTasks();
+    case 'files':return openFiles();
+    case 'apps':return openApps();
+    case 'machine':return openMachine();
+  }
+}
+let routeQueued=false;
+function routeSync(){
+  if(routeQueued)return;
+  routeQueued=true;
+  // Attendre la fin de l'action : changer d'écran ferme l'un puis ouvre l'autre.
+  queueMicrotask(()=>{
+    routeQueued=false;
+    if(!routeLive)return;
+    const next=ROUTE_BASE+routeNow();
+    if(next===location.pathname)return;
+    const sameScreen=next.split('/')[ROUTE_BASE?2:1]===location.pathname.split('/')[ROUTE_BASE?2:1]&&!next.includes('/c/');
+    history[sameScreen?'replaceState':'pushState'](null,'',next);
+  });
+}
+{
+  const mark=markScreen,draw=drawState;
+  markScreen=function(){mark();routeSync()};
+  drawState=function(s){draw(s);routeSync()};
+}
+for(const id of ['set-tabs','mem-tabs','new-conv'])$(id).addEventListener('click',()=>setTimeout(routeSync));
+addEventListener('popstate',async()=>{
+  const r=routeRead();
+  routeLive=false;
+  try{
+    if(r.screen)await routeOpen(r);
+    else{
+      closeScreens();
+      if(r.conv&&r.conv!==S.conv)await loadState(r.conv);
+    }
+  }catch(e){toast(e.message)}
+  routeLive=true;
+});
+
+// ===== Démarrage =============================================================// La dernière conversation ouverte sur cet appareil est rouverte ; au premier
 // lancement (aucune API configurée), les réglages s'ouvrent d'eux-mêmes, sur
 // « Brancher une API » tant qu'aucun fournisseur n'existe.
 setLang(store.get('ajean-lang')||'');   // la langue du dernier passage, en attendant celle du serveur
 syncSend();
-loadState(store.get('ajean-conv')||'')
-  .then(()=>{connect();loadApps();if(!S.configured)openSettings();else input.focus()})
-  .catch(e=>{offline=true;renderStatus();add('msg assistant errmsg',esc(e.message))})
+const firstRoute=routeRead();
+loadState(firstRoute.conv||store.get('ajean-conv')||'')
+  .catch(e=>{if(firstRoute.conv)return loadState(store.get('ajean-conv')||'');throw e})   // conversation supprimée depuis
+  .then(()=>{
+    connect();loadApps();
+    if(!S.configured)openSettings();else if(firstRoute.screen)routeOpen(firstRoute);else input.focus();
+    routeLive=true;
+    history.replaceState(null,'',ROUTE_BASE+routeNow());
+  })  .catch(e=>{offline=true;renderStatus();add('msg assistant errmsg',esc(e.message))})
   .finally(()=>hideBoot());
 </script>
 </body>

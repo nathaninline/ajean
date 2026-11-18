@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"ajean/internal/agent"
+	"ajean/internal/sandbox"
 )
 
 //go:embed ui
@@ -40,12 +41,22 @@ func New() http.Handler {
 		panic(err) // le dossier est embarqué à la compilation : ne peut pas manquer
 	}
 	mux := http.NewServeMux()
-	mux.Handle("GET /", page(http.FileServerFS(ui)))
+	mux.Handle("GET /", page(screens(http.FileServerFS(ui))))
 
-	api := func(pattern string, h http.HandlerFunc) { mux.HandleFunc(pattern, guard(h)) }
+	// Une instance de test n'a que les routes de la conversation et de ses données.
+	exists := func(pattern string) bool { return !sandbox.Active() || sandbox.RouteAllowed(pattern) }
+	api := func(pattern string, h http.HandlerFunc) {
+		if exists(pattern) {
+			mux.HandleFunc(pattern, guard(h))
+		}
+	}
 	// La porte : ces routes répondent avant toute connexion (sauf le changement
 	// de mot de passe, qui vérifie lui-même). Elles gardent le contrôle d'origine.
-	door := func(pattern string, h http.HandlerFunc) { mux.HandleFunc(pattern, sameSite(h)) }
+	door := func(pattern string, h http.HandlerFunc) {
+		if exists(pattern) {
+			mux.HandleFunc(pattern, sameSite(h))
+		}
+	}
 	door("GET /api/auth", handleAuth)
 	door("POST /api/auth/login", handleLogin)
 	door("POST /api/auth/logout", handleLogout)
@@ -116,6 +127,13 @@ func New() http.Handler {
 	api("POST /api/services/save", handleServiceSave)
 	api("POST /api/services/remove", handleServiceRemove)
 
+	api("POST /api/sandbox/start", handleSandboxStart)
+	if !sandbox.Active() {
+		mux.HandleFunc("POST /sandbox/stop", guard(handleSandboxStop))
+		mux.HandleFunc("GET /sandbox/", guard(handleSandboxProxy))
+		mux.HandleFunc("POST /sandbox/", guard(handleSandboxProxy))
+	}
+
 	api("GET /api/apps", handleApps)
 	api("GET /api/apps/page", handleAppPage)
 	api("POST /api/apps/delete", handleAppDelete)
@@ -162,6 +180,20 @@ func page(h http.Handler) http.Handler {
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Content-Security-Policy", pagePolicy)
 		h.ServeHTTP(w, r)
+	})
+}
+
+// screens sert la page à l'adresse d'un écran ou d'une conversation (/settings,
+// /c/<id>…) : c'est elle qui ouvre ensuite le bon endroit.
+func screens(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		first, _, _ := strings.Cut(strings.TrimPrefix(r.URL.Path, "/"), "/")
+		switch first {
+		case "c", "settings", "memory", "tasks", "files", "apps", "machine":
+			r = r.Clone(r.Context())
+			r.URL.Path = "/"
+		}
+		next.ServeHTTP(w, r)
 	})
 }
 

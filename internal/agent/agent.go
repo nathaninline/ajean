@@ -27,6 +27,7 @@ import (
 	"ajean/internal/config"
 	"ajean/internal/llm"
 	"ajean/internal/memory"
+	"ajean/internal/sandbox"
 	"ajean/internal/scripts"
 	"ajean/internal/secrets"
 	"ajean/internal/tasks"
@@ -78,6 +79,9 @@ func (ts toolset) run(ctx context.Context, c call, conv string, turn int64, unat
 	d, ok := ts.byName[c.name]
 	if !ok {
 		return tool.Err("outil inconnu ou indisponible ici : %s", c.name)
+	}
+	if sandbox.Active() && sandbox.Refused(c.name) {
+		return tool.Err("mode test : action non exécutée, l'outil %s est bloqué dans cet environnement", c.name)
 	}
 	if secretInMemoryWrite(c) {
 		return tool.Err("refusé : ce texte contient un mot de passe ou une clé. Retire-le ; un secret se range dans le coffre (commande ajean secret set NOM) et un outil le lit avec secrets.get")
