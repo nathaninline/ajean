@@ -160,6 +160,16 @@ body.resizing{cursor:col-resize;user-select:none;-webkit-user-select:none}
 #chat>*{flex:none}
 
 /* Séparateur de jour : une pastille discrète. */
+#approval{position:fixed;z-index:90;left:50%;bottom:24px;transform:translateX(-50%);width:min(620px,calc(100vw - 32px));max-height:70vh;display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:14px;background:var(--bg);box-shadow:0 8px 40px rgba(0,0,0,.35);border:1px solid var(--t1)}
+#approval[hidden]{display:none}
+#approval b{font-size:14px;font-weight:600}
+#approval pre{margin:0;padding:10px;overflow:auto;border-radius:10px;background:var(--t1);font-size:12px;white-space:pre-wrap;word-break:break-word}
+#approval main{display:flex;flex-direction:column;gap:12px;overflow:auto;min-height:0}
+#approval article{display:flex;flex-direction:column;gap:6px}
+#approval pre{flex:none;max-height:none}
+#approval div{display:flex;justify-content:flex-end;gap:8px}
+#approval button{padding:7px 14px;border:none;border-radius:9px;background:var(--t1);color:var(--text);font-size:13px;cursor:pointer}
+#approval button.yes{background:var(--text);color:var(--bg)}
 .daysep{align-self:center;padding:4px 12px;border-radius:999px;background:var(--t1);font-size:11.5px;font-weight:500;letter-spacing:.02em;line-height:16px;color:var(--dim)}
 .msg{overflow-wrap:anywhere;word-break:break-word}
 /* Question : pastille arrondie à droite. Réponse : du texte, sans cadre ni fond. */
@@ -211,31 +221,44 @@ body.resizing{cursor:col-resize;user-select:none;-webkit-user-select:none}
 .body blockquote{margin:.4em 0;padding-left:10px;border-left:3px solid var(--border);color:var(--dim)}
 .body a{color:var(--text);text-decoration:underline;text-underline-offset:2px}
 .body hr{border:none;border-top:1px solid var(--border);margin:.6em 0}
-.body table{display:block;max-width:100%;overflow-x:auto;border-collapse:collapse;margin:.5em 0;font-size:.93em}
-.body th,.body td{border:1px solid var(--border);padding:4px 8px;text-align:left}
+.body table{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;border-collapse:collapse;margin:.6em 0;font-size:.93em;overflow-wrap:normal;word-break:normal}
+.body th,.body td{border:1px solid var(--border);padding:5px 10px;text-align:left;vertical-align:top;overflow-wrap:normal;word-break:normal}
+.body th{font-weight:600;background:var(--t1)}
+.body .nw{white-space:nowrap}
+.body .tl{display:block;width:max-content;max-width:min(56vw,16em);overflow-wrap:break-word}
 
 /* Ligne d'activité : la marque d'AJEAN qui pulse + un libellé parcouru d'un reflet. */
 /* Étapes d'une réponse (appels d'outils) : la liste grandit pendant le travail,
    puis reste repliée au-dessus de la réponse. */
 .steps-live{align-self:stretch;margin:0;padding:0;list-style:none}
+.steps-live .steps-list{margin:0;padding-bottom:0}
+.steps-live+.genstatus{margin-top:-12px}
 .steps-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px}
 .steps-list li{display:flex;align-items:baseline;gap:9px;font-size:12.5px;line-height:1.45;color:var(--dim)}
 .steps-list li::before{content:"";flex:none;width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.55;transform:translateY(-2px)}
 .steps-live .steps-list li:last-child{color:var(--text)}
-.steps-live .steps-list li{animation:fadein .25s ease both}
+.steps-live .steps-list li{overflow:hidden;transition:color .3s ease;animation:stepin .32s cubic-bezier(.2,.7,.2,1) both}
+@keyframes stepin{from{opacity:0;max-height:0;transform:translateY(5px)}to{opacity:1;max-height:5em;transform:none}}
 details.steps{margin-bottom:10px}
 details.steps summary{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:var(--t1);font-size:11.5px;color:var(--dim);cursor:pointer;list-style:none;user-select:none}
 details.steps summary::-webkit-details-marker{display:none}
 details.steps summary::after{content:"";width:6px;height:6px;border:solid currentColor;border-width:0 1.5px 1.5px 0;transform:rotate(45deg) translateY(-2px);opacity:.7}
 details.steps[open] summary::after{transform:rotate(-135deg) translateY(-1px)}
 details.steps .steps-list{margin:10px 0 2px 4px}
-.genstatus{align-self:flex-start;display:flex;align-items:center;gap:8px;min-height:20px;font-size:13px;color:var(--dim);animation:fadein .3s ease both}
+.genstatus{align-self:flex-start;max-width:100%;min-width:0;display:flex;align-items:center;gap:8px;min-height:20px;font-size:13px;color:var(--dim);animation:fadein .3s ease both}
 .msig{display:flex;align-items:center;gap:7px;margin-top:12px;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
 .msig .jlogo{width:17px;height:17px;color:var(--dim)}
 .msig .sep{opacity:.6}
 .jlogo{width:20px;height:20px;color:var(--text)}
-.gtime{font-variant-numeric:tabular-nums;color:var(--dim)}
-.gtxt{background:linear-gradient(90deg,var(--dim) 0%,var(--dim) 30%,var(--text) 50%,var(--dim) 70%,var(--dim) 100%) no-repeat;
+.genstatus>svg{flex:none;animation:jpulse 1.5s ease-in-out infinite}
+@keyframes jpulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.86)}}
+#boot{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--text);transition:opacity .3s ease}
+#boot.out{opacity:0;pointer-events:none;transition-duration:.44s}
+#boot svg{width:min(44vw,190px);height:auto;overflow:visible}
+#boot .bj{transform-box:view-box;transform-origin:11px 2.5px;animation:jpulse 1.5s ease-in-out infinite}
+.gtxt.swap{opacity:0;transform:translateY(3px)}
+.gtime{flex:none;white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--dim)}
+.gtxt{transition:opacity .16s ease,transform .16s ease;flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:linear-gradient(90deg,var(--dim) 0%,var(--dim) 30%,var(--text) 50%,var(--dim) 70%,var(--dim) 100%) no-repeat;
   background-size:300% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
   animation:labelshimmer 2s linear infinite}
 @keyframes labelshimmer{0%{background-position:100% 0}70%,100%{background-position:0% 0}}
@@ -710,6 +733,7 @@ select.ctl{appearance:none;-webkit-appearance:none;padding-right:34px;text-overf
 </style>
 </head>
 <body>
+<div id="boot" aria-hidden="true"><svg class="logo" viewBox="0 0 22 5"><g class="bj"><rect x="6" y="0" width="1" height="4" style="transform:matrix(.834,0,0,.417,5.996,1.249)"/><rect x="5" y="4" width="1" height="1" style="transform:matrix(.834,0,0,.834,5.996,-.419)"/></g></svg></div>
 
 <!-- Aucun texte n'est écrit dans cette page : chaque libellé vient du dictionnaire (section « Langue » du
      script), posé par data-i18n (contenu), data-i18n-title, data-i18n-aria (aria-label) et data-i18n-ph (placeholder).
@@ -1197,6 +1221,9 @@ const I18N={
   'chat.empty':{fr:'On commence par quoi ?',en:'Where should we start?',vi:'Mình bắt đầu từ đâu nhỉ?'},
   'chat.empty_setup':{fr:'Pour commencer, branchez une API dans les réglages.',en:'To get started, connect an API in Settings.',vi:'Để bắt đầu, hãy kết nối một API trong phần Cài đặt.'},
   'chat.thinking':{fr:'AJEAN réfléchit',en:'AJEAN is thinking',vi:'AJEAN đang suy nghĩ'},'chat.writing':{fr:'AJEAN écrit',en:'AJEAN is writing',vi:'AJEAN đang viết'},
+  'review.title':{fr:'Modifications à valider',en:'Changes to approve',vi:'Thay đổi cần duyệt'},'review.yes':{fr:'Tout valider',en:'Approve all',vi:'Duyệt tất cả'},'review.no':{fr:'Tout refuser',en:'Refuse all',vi:'Từ chối tất cả'},
+  'review.tool.new':{fr:'Nouvel outil : {0}',en:'New tool: {0}',vi:'Công cụ mới: {0}'},'review.tool.changed':{fr:'Outil modifié : {0}',en:'Changed tool: {0}',vi:'Công cụ đã sửa: {0}'},'review.tool.deleted':{fr:'Outil supprimé : {0}',en:'Deleted tool: {0}',vi:'Công cụ đã xóa: {0}'},
+  'review.task.new':{fr:'Nouvelle tâche : {0}',en:'New task: {0}',vi:'Tác vụ mới: {0}'},'review.task.changed':{fr:'Tâche modifiée : {0}',en:'Changed task: {0}',vi:'Tác vụ đã sửa: {0}'},'review.task.deleted':{fr:'Tâche supprimée : {0}',en:'Deleted task: {0}',vi:'Tác vụ đã xóa: {0}'},
   'chat.stopped':{fr:'Réponse interrompue',en:'Reply stopped',vi:'Đã dừng trả lời'},'chat.error':{fr:'Une erreur est survenue.',en:'Something went wrong.',vi:'Đã xảy ra lỗi.'},
   'chat.task':{fr:'Tâche',en:'Task',vi:'Tác vụ'},
   'chat.uploading':{fr:'Les fichiers finissent de se charger…',en:'Your files are still uploading…',vi:'Các tệp vẫn đang được tải lên…'},
@@ -1271,7 +1298,7 @@ const I18N={
   'tool.ws_write':{fr:"Écriture d'un fichier",en:'Writing a file',vi:'Đang ghi tệp'},'tool.ws_move':{fr:"Déplacement d'un fichier",en:'Moving a file',vi:'Đang di chuyển tệp'},
   'tool.ws_delete':{fr:"Suppression d'un fichier",en:'Deleting a file',vi:'Đang xóa tệp'},
   'act.tools.run':{fr:"Lancement de l'outil",en:'Running my tool',vi:'Đang chạy công cụ'},'act.tools.create':{fr:"Création de l'outil",en:'Building the tool',vi:'Đang tạo công cụ'},
-  'act.tools.update':{fr:"Correction de l'outil",en:'Fixing the tool',vi:'Đang sửa công cụ'},'act.tools.delete':{fr:"Suppression de l'outil",en:'Deleting the tool',vi:'Đang xóa công cụ'},
+  'act.tools.update':{fr:"Mise à jour de l'outil",en:'Updating the tool',vi:'Đang cập nhật công cụ'},'act.tools.delete':{fr:"Suppression de l'outil",en:'Deleting the tool',vi:'Đang xóa công cụ'},
   'act.tools.read':{fr:"Lecture de l'outil",en:'Rereading the tool',vi:'Đang đọc lại công cụ'},'act.tools.list':{fr:'Consultation des outils',en:'Checking my tools',vi:'Đang xem các công cụ'},
   'act.tools.any':{fr:'Utilisation des outils',en:'Using my tools',vi:'Đang dùng công cụ'},
   'act.browser.open':{fr:'Ouverture',en:'Opening',vi:'Đang mở'},'act.browser.click':{fr:'Clic',en:'Clicking',vi:'Đang nhấp'},'act.browser.type':{fr:'Saisie de texte',en:'Typing',vi:'Đang nhập văn bản'},
@@ -1949,13 +1976,43 @@ $('login-form').onsubmit=async e=>{
   }catch(err){setStatus('login-status',t('api.down'),'err')}
   b.disabled=false;
 };
+// L'écran d'arrivée : le J pulse pendant le chargement, puis s'affine et se met à
+// sa place pendant que les autres lettres naissent pixel par pixel autour de lui.
+const BOOT_T0=Date.now(),BOOT_MIN_MS=450;
+const BOOT_WORD=[[0,['.XX.','X..X','XXXX','X..X','X..X']],[8,['XXXX','X...','XXX.','X...','XXXX']],[13,['.XX.','X..X','XXXX','X..X','X..X']],[18,['X..X','XX.X','X.XX','X..X','X..X']]];
+function revealBoot(box){
+  const svg=box.querySelector('svg'),j=box.querySelector('.bj'),NS='http://www.w3.org/2000/svg';
+  const soft='cubic-bezier(.22,1,.36,1)',cs=getComputedStyle(j),from={opacity:cs.opacity,transform:cs.transform==='none'?'matrix(1,0,0,1,0,0)':cs.transform};
+  j.style.animation='none';
+  j.animate([from,{opacity:1,transform:'matrix(1,0,0,1,0,0)'}],{duration:260,easing:'ease-out',fill:'forwards'});
+  j.querySelectorAll('rect').forEach(r=>r.animate([{transform:getComputedStyle(r).transform},{transform:'matrix(1,0,0,1,0,0)'}],{duration:620,easing:soft,fill:'forwards'}));
+  let last=0;
+  for(const [x0,rows] of BOOT_WORD)rows.forEach((row,y)=>[...row].forEach((c,i)=>{
+    if(c!=='X')return;
+    const x=x0+i,r=document.createElementNS(NS,'rect');
+    r.setAttribute('x',x);r.setAttribute('y',y);r.setAttribute('width',1);r.setAttribute('height',1);r.setAttribute('class','bp');
+    r.style.transformOrigin=(x+.5)+'px '+(y+.5)+'px';r.style.opacity=0;svg.appendChild(r);
+    const delay=170+Math.abs(x-6)*30+y*14;last=Math.max(last,delay);
+    r.animate([{opacity:0,transform:'scale(.15)'},{opacity:1,transform:'scale(1.18)',offset:.68},{opacity:1,transform:'scale(1)'}],{duration:430,delay,easing:'ease-out',fill:'forwards'});
+  }));
+  return last+430;
+}
+function hideBoot(fast){
+  const b=$('boot');if(!b||b.dataset.out)return;b.dataset.out='1';
+  const leave=()=>{b.classList.add('out');setTimeout(()=>b.remove(),460)};
+  if(fast===true||matchMedia('(prefers-reduced-motion:reduce)').matches)return leave();
+  setTimeout(()=>{
+    const total=revealBoot(b);
+    setTimeout(()=>{b.querySelector('svg').animate([{transform:'scale(1)'},{transform:'scale(1.045)'}],{duration:440,easing:'ease-in',fill:'forwards'});leave()},total+300);
+  },Math.max(0,BOOT_T0+BOOT_MIN_MS-Date.now()));
+}
 async function api(path,body){
   const opt={headers:{}};
   if(body instanceof FormData){opt.method='POST';opt.body=body}
   else if(body!==undefined){opt.method='POST';opt.headers['Content-Type']='application/json';opt.body=JSON.stringify(body)}
   let r;
   try{r=await fetch(path,opt)}catch(e){throw new Error(t('api.down'))}
-  if(r.status===401){await login();return api(path,body)}
+  if(r.status===401){hideBoot(true);await login();return api(path,body)}
   let j={};try{j=await r.json()}catch(e){}
   if(!r.ok)throw new Error(j.error||t('api.error',r.status));
   return j;
@@ -2011,8 +2068,13 @@ function md(src){
     }
     if(table.length){
       const cells=l=>l.trim().replace(/^\||\|$/g,'').split('|').map(c=>inline(c.trim()));
-      const row=(l,tag)=>'<tr>'+cells(l).map(c=>'<'+tag+'>'+c+'</'+tag+'>').join('')+'</tr>';
       const sep=table.length>1&&/^[\s|:-]+$/.test(table[1]);
+      // Un texte court reste sur une ligne, seul un texte long revient à la ligne :
+      // le tableau défile plutôt que de s'écraser.
+      const plain=l=>l.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim().replace(/[*_`]/g,''));
+      const rows=table.slice(sep?2:0).map(plain),col=i=>rows.map(r=>r[i]||'').filter(Boolean);
+      const isLong=i=>col(i).some(c=>c.length>22);
+      const row=(l,tag)=>'<tr>'+cells(l).map((c,i)=>isLong(i)?'<'+tag+'><span class="tl">'+c+'</span></'+tag+'>':'<'+tag+' class="nw">'+c+'</'+tag+'>').join('')+'</tr>';
       html+='<table>'+(sep?'<thead>'+row(table[0],'th')+'</thead>':'')+'<tbody>'+table.slice(sep?2:0).map(l=>row(l,'td')).join('')+'</tbody></table>';
       table=[];
     }
@@ -2252,17 +2314,46 @@ chat.addEventListener('click',e=>{
 });
 // Ligne d'activité : « AJEAN réfléchit… », puis le libellé de l'outil en cours.
 function setActivity(label){
-  if(!activity){activity=document.createElement('div');activity.className='genstatus';chat.appendChild(activity)}
-  if(!actStart){actStart=Date.now();actTimer=setInterval(tickActivity,1000)}
-  activity.innerHTML='<svg class="jlogo logo" viewBox="0 0 12 12"><use href="#mark"/></svg><span class="gtxt">'+esc(label||t('chat.thinking'))+'…</span><span class="gtime"></span>';
+  const text=(label||t('chat.thinking'))+'…';
+  if(!activity){
+    clearTimeout(actSwap);actSwap=0;
+    activity=document.createElement('div');activity.className='genstatus';
+    activity.innerHTML='<svg class="jlogo logo" viewBox="0 0 12 12"><use href="#mark"/></svg><span class="gtxt"></span><span class="gtime"></span>';
+    activity.querySelector('.gtxt').textContent=text;
+    actShown=actNext=text;actShownAt=Date.now();
+    chat.appendChild(activity);
+  }
+  if(!actStart)actStart=Date.now();
+  if(!actTimer)actTimer=setInterval(tickActivity,1000);   // aussi quand la page reprend une réponse déjà commencée
+  actNext=text;
+  swapActivity();
   tickActivity();
   syncEmpty();
+}
+// Le libellé change en fondu, et reste lisible un minimum de temps : des outils
+// qui s'enchaînent vite ne font pas clignoter la ligne.
+const ACT_MIN_MS=900,ACT_FADE_MS=160;
+let actShown='',actNext='',actShownAt=0,actSwap=0;
+function swapActivity(){
+  if(actSwap||actNext===actShown)return;
+  actSwap=setTimeout(()=>{
+    const el=activity&&activity.querySelector('.gtxt');
+    if(!el||actNext===actShown){actSwap=0;return}
+    el.classList.add('swap');
+    actSwap=setTimeout(()=>{
+      actSwap=0;
+      if(!activity||!el.isConnected)return;
+      el.textContent=actShown=actNext;actShownAt=Date.now();
+      el.classList.remove('swap');
+      swapActivity();
+    },ACT_FADE_MS);
+  },Math.max(0,actShownAt+ACT_MIN_MS-Date.now()));
 }
 // Temps écoulé depuis le début de la réponse, à côté du libellé.
 let actStart=0,actTimer=0;
 function tickActivity(){
   const el=activity&&activity.querySelector('.gtime');if(!el)return;
-  el.textContent=fmtElapsed(Date.now()-actStart);
+  el.textContent=fmtElapsed(Math.max(0,Date.now()-actStart));
 }
 let lastUserTs=0;
 function fmtElapsed(ms){
@@ -2276,7 +2367,7 @@ function addLiveStep(st){
   if(!liveSteps){
     liveSteps=document.createElement('div');liveSteps.className='steps-live';
     liveSteps.innerHTML='<ol class="steps-list"></ol>';
-    chat.insertBefore(liveSteps,activity&&activity.parentNode===chat?activity:live&&live.parentNode===chat?live:null);
+    chat.insertBefore(liveSteps,live&&live.parentNode===chat?live:activity&&activity.parentNode===chat?activity:null); // toujours : étapes, réponse, activité
   }
   const li=document.createElement('li');li.textContent=toolLabel(st);
   liveSteps.firstChild.appendChild(li);
@@ -2308,8 +2399,8 @@ function setBusy(b){
 // dépendre de la cible : enregistrer une app déjà connue, c'est la mettre à jour.
 const ACTION_LABELS={
   tools:[[/^(run|call|exec|use|lance)/,'run',true],[/^(create|make|new|write|save|build|fabrique|cr[ée]e)/,'create',true],
-    [/^(update|edit|patch|fix|modifi|corrige)/,'update',true],[/^(delete|remove|supprime)/,'delete',true],
-    [/^(read|show|get|view|lis)/,'read',true],[/^(list|liste)/,'list'],[/^/,'any']],
+    [/^(update|edit|patch|fix|modifi|corrige|restore)/,'update',true],[/^(delete|remove|supprime)/,'delete',true],
+    [/^(read|show|get|view|load)/,'read',true],[/^(list|liste|history)/,'list'],[/^/,'any']],
   browser:[[/^(open|goto|go|navigate|visit|load|ouvr)/,'open',true],[/^(click|clic)/,'click'],[/^(type|fill|input|write|saisi)/,'type'],
     [/^(read|text|extract|content|get|lis)/,'read'],[/^(screenshot|capture|look)/,'look'],[/^(scroll|d[ée]file)/,'scroll'],
     [/^(search|cherche)/,'search',true],[/^(back|retour)/,'back'],[/^(close|ferme)/,'close'],[/^/,'any']],
@@ -2492,6 +2583,7 @@ grip.onkeydown=e=>{
 let stateSeq=0;
 const fetchState=id=>api('/api/state'+(id?'?conv='+encodeURIComponent(id):''));
 function applyMeta(s){
+  showReview(s.review);
   S.last=s;   // les réglages reçus, réutilisés pour dessiner un brouillon
   setLang(s.language||'');
   S.configured=s.configured;S.presets=s.presets||[];S.transcribe=!!s.transcribe;S.convs=s.convs||[];
@@ -2533,8 +2625,22 @@ async function refresh(){
 // Les messages n'entrent dans le fil QUE par ici (jamais à l'envoi) : une seule
 // source, pas de doublon. Un événement d'une autre conversation ne touche que la
 // barre latérale.
+let reviewID='';
+function showReview(r){
+  let box=$('approval');
+  if(!box){box=document.createElement('section');box.id='approval';box.setAttribute('role','alertdialog');document.body.appendChild(box)}
+  if(!r||!r.id){reviewID='';box.hidden=true;return}
+  if(reviewID===r.id)return;
+  reviewID=r.id;box.hidden=false;
+  const items=r.items.map(i=>'<article><b>'+esc(t('review.'+i.type+'.'+i.change,i.name))+'</b><pre>'+esc(i.detail)+'</pre></article>').join('');
+  box.innerHTML='<b>'+esc(t('review.title'))+'</b><main>'+items+'</main><div><button type="button" class="no">'+esc(t('review.no'))+'</button><button type="button" class="yes">'+esc(t('review.yes'))+'</button></div>';
+  const answer=ok=>{showReview(null);api('/api/review',{id:r.id,ok}).catch(()=>{}).finally(()=>refresh().catch(()=>{}))};
+  box.querySelector('.no').onclick=()=>answer(false);
+  box.querySelector('.yes').onclick=()=>answer(true);
+}
 function onEvent(ev){
   switch(ev.type){
+    case 'review':refresh().catch(()=>{});return;
     case 'convs':refresh().catch(()=>{});return;
     case 'memory':if(modalOpen('mem-modal'))loadMemory();return;
     case 'sleep':sleeping=ev.state==='start';renderStatus();if(modalOpen('mem-modal'))loadMemory();return;
@@ -2558,6 +2664,7 @@ function onEvent(ev){
     case 'user':addMsg({role:'user',text:ev.text,ts:ev.ts,files:ev.files});break;
     case 'start':clearLive();setBusy(true);setActivity('');break;
     case 'delta':
+      if(!live&&!String(ev.text).trim())break;   // fin de message sans texte : pas de bulle vide entre les étapes et l'activité
       if(!live){live=add('msg assistant','<div class="body"></div>');setActivity(t('chat.writing'))}
       liveText+=ev.text;revealFeed();
       break;
@@ -2567,7 +2674,8 @@ function onEvent(ev){
       // « tool:nom:phrase » : l'appel d'outil qui s'écrit. La phrase du modèle dès
       // qu'elle commence, sinon le nom de l'outil ; jamais « préparation » seule.
       const [ph,name,...rest]=String(ev.text).split(':'),desc=rest.join(':').trim();
-      if(ph==='tool'&&name){setActivity(desc||toolLabel({name}));break}
+      // L'outil « tools » a son propre champ description : c'est la notice de l'outil, pas une phrase d'activité.
+      if(ph==='tool'&&name){if(name==='tools'){if(!activity)setActivity('');break}setActivity(desc||toolLabel({name}));break}
       if(I18N['phase.'+ev.text])setActivity(t('phase.'+ev.text));
       break;
     }
@@ -3792,7 +3900,8 @@ setLang(store.get('ajean-lang')||'');   // la langue du dernier passage, en atte
 syncSend();
 loadState(store.get('ajean-conv')||'')
   .then(()=>{connect();loadApps();if(!S.configured)openSettings();else input.focus()})
-  .catch(e=>{offline=true;renderStatus();add('msg assistant errmsg',esc(e.message))});
+  .catch(e=>{offline=true;renderStatus();add('msg assistant errmsg',esc(e.message))})
+  .finally(()=>hideBoot());
 </script>
 </body>
 </html>

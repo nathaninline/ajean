@@ -18,7 +18,7 @@ func handleTaskSave(w http.ResponseWriter, r *http.Request) {
 	if !body(w, r, &in) {
 		return
 	}
-	t, err := tasks.Save(in)
+	t, err := tasks.SaveByUser(in)
 	if err != nil {
 		fail(w, http.StatusBadRequest, err)
 		return
@@ -29,7 +29,7 @@ func handleTaskSave(w http.ResponseWriter, r *http.Request) {
 func handleTaskDelete(w http.ResponseWriter, r *http.Request) {
 	var q struct{ ID string }
 	if body(w, r, &q) {
-		done(w, tasks.Delete(q.ID), http.StatusNotFound)
+		done(w, tasks.DeleteByUser(q.ID), http.StatusNotFound)
 	}
 }
 

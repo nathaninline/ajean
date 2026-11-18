@@ -113,6 +113,7 @@ Environment variables, all optional:
 | `AJEAN_BROWSER` | browser the assistant drives (full path) | detected |
 | `AJEAN_BROWSER_HEADLESS` | drive it without a window | |
 | `AJEAN_TOOLS_LAN` | allow its tools and browser to reach the local network | |
+| `AJEAN_BACKUP_DIR`, `AJEAN_BACKUP_KEY` | daily encrypted backup to this folder, with this passphrase | |
 
 **Search by meaning.** With it, log search and automatic recall find a memory even when worded differently. Without it, search is by words. Two ways to turn it on in the settings:
 

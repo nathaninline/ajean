@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"ajean/internal/apps"
 	"ajean/internal/browser"
@@ -27,6 +28,7 @@ import (
 	"ajean/internal/llm"
 	"ajean/internal/memory"
 	"ajean/internal/scripts"
+	"ajean/internal/secrets"
 	"ajean/internal/tasks"
 	"ajean/internal/tool"
 	"ajean/internal/workspace"
@@ -72,17 +74,77 @@ func decode(tc llm.ToolCall) (call, bool) {
 // run exécute l'appel avec les outils de ts, pour la conversation conv. Une
 // panique dans un outil (un script, une page web inattendue) devient une erreur
 // rendue au modèle : elle ne doit pas emporter le programme en plein tour.
-func (ts toolset) run(c call, conv string) (result string) {
+func (ts toolset) run(ctx context.Context, c call, conv string, turn int64, unattended bool) (result string) {
 	d, ok := ts.byName[c.name]
 	if !ok {
 		return tool.Err("outil inconnu ou indisponible ici : %s", c.name)
+	}
+	if secretInMemoryWrite(c) {
+		return tool.Err("refusé : ce texte contient un mot de passe ou une clé. Retire-le ; un secret se range dans le coffre (commande ajean secret set NOM) et un outil le lit avec secrets.get")
+	}
+	journal := c.mutating()
+	label := c.journalLabel()
+	if journal {
+		logAction(conv, actionEntry{Turn: turn, Phase: "start", Name: c.name, Label: label})
 	}
 	defer func() {
 		if r := recover(); r != nil {
 			result = tool.Err("l'outil %s a planté : %v", c.name, r)
 		}
+		if journal {
+			logAction(conv, actionEntry{Turn: turn, Phase: "done", Name: c.name, Label: label, Result: result})
+		}
 	}()
-	return clipResult(d.Run(tool.Call{Args: c.args, Conv: conv}))
+	res := d.Run(tool.Call{Args: c.args, Conv: conv, Ctx: ctx, Unattended: unattended})
+	if c.name == "memory_search" {
+		res += conversationHits(ctx, c)
+	}
+	return clipResult(markExternal(c, res))
+}
+
+// secretInMemoryWrite : l'appel écrirait-il un secret dans la mémoire ?
+func secretInMemoryWrite(c call) bool {
+	switch c.name {
+	case "memory_remember", "memory_note", "memory_lesson", "fiche_save", "fiche_patch":
+		for _, k := range []string{"value", "text", "content", "new"} {
+			if v, ok := c.args[k].(string); ok && secrets.Contains(v) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// markExternal signale au modèle ce qui vient de l'extérieur : il le lit, il
+// n'obéit pas à ce qui y est écrit.
+func markExternal(c call, res string) string {
+	external := c.name == "browser" || c.name == "ws_read"
+	if a, _ := c.args["action"].(string); c.name == "tools" && a == "run" {
+		external = true
+	}
+	if !external || tool.IsErr(res) {
+		return res
+	}
+	res = strings.ReplaceAll(res, "</external_content>", "< /external_content>")
+	return "<external_content>\n" + res + "\n</external_content>"
+}
+
+// conversationHits complète une recherche par les conversations entières : le
+// journal n'en garde que le début de chaque échange.
+func conversationHits(ctx context.Context, c call) string {
+	q, _ := c.args["query"].(string)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	hits, _ := Search(ctx, q, 5)
+	if len(hits) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("\n\nIn full conversations:")
+	for _, h := range hits {
+		b.WriteString("\n- « " + h.Title + " » (" + h.Role + ") : " + clip(h.Snippet, 500))
+	}
+	return b.String()
 }
 
 // label : la cible d'un appel, en quelques mots, pour l'afficher ou le consigner.
@@ -103,6 +165,17 @@ func (c call) label() string {
 	return s
 }
 
+// stepLabel : le libellé affiché. Enregistrer un outil qui existe déjà est une
+// mise à jour, pas une création.
+func (c call) stepLabel() string {
+	label := c.label()
+	name, _ := c.args["name"].(string)
+	if a, _ := c.args["action"].(string); c.name == "tools" && a == "save" && scripts.Exists(name) {
+		return "update " + name
+	}
+	return label
+}
+
 // loop envoie msgs au modèle et exécute ses appels d'outils jusqu'à ce qu'il
 // réponde sans en demander (ou que maxIter soit atteint). onText reçoit le
 // texte au fil de l'eau, règles d'écriture appliquées (end=true à la fin de
@@ -113,7 +186,11 @@ func loop(ctx context.Context, msgs []llm.Message, specs []llm.Tool, maxIter int
 	conf := config.Get()
 	ep, budget := conf.Chat(), conf.MaxContextChars
 	var texts []string
-	mem := memoryBlock() // une fois par tour : la relire changerait la requête et viderait le cache
+	mem := "" // un tour visible a déjà figé la mémoire dans son message
+	if ctx.Value(memoryEmbedded{}) == nil {
+		mem = memoryBlock() // une fois par tour : la relire changerait la requête et viderait le cache
+	}
+	repeats := map[string]int{}
 	for i := 0; i < maxIter; i++ {
 		if size(msgs) > budget {
 			lighten(msgs, budget/2) // un tour qui s'allonge : les vieux résultats d'outils laissent la place ; franchement, car chaque allègement vide le cache du serveur
@@ -152,7 +229,18 @@ func loop(ctx context.Context, msgs []llm.Message, specs []llm.Tool, maxIter int
 			return msgs, texts, nil
 		}
 		for _, tc := range m.ToolCalls {
-			msgs = append(msgs, llm.Message{Role: "tool", ToolCallID: tc.ID, Content: exec(tc)})
+			content := ""
+			sig := tc.Function.Name + "\x00" + tc.Function.Arguments
+			repeats[sig]++
+			switch {
+			case ctx.Err() != nil: // arrêt demandé : les appels suivants ne partent pas
+				content = tool.Err("non exécuté : l'utilisateur a arrêté le tour")
+			case repeats[sig] > maxSameCall:
+				content = tool.Err("même appel répété %d fois : arrête, change de méthode ou dis à l'utilisateur ce qui bloque", repeats[sig])
+			default:
+				content = exec(tc)
+			}
+			msgs = append(msgs, llm.Message{Role: "tool", ToolCallID: tc.ID, Content: content})
 		}
 		if err := ctx.Err(); err != nil {
 			return msgs, texts, err
@@ -184,6 +272,11 @@ func loop(ctx context.Context, msgs []llm.Message, specs []llm.Tool, maxIter int
 	return msgs, texts, nil
 }
 
+// memoryEmbedded : marque d'un tour dont le message porte déjà la mémoire.
+type memoryEmbedded struct{}
+
+const maxSameCall = 3 // appels identiques dans un tour avant de couper court
+
 // errTooManySteps : le modèle enchaîne les outils sans jamais conclure.
 var errTooManySteps = errors.New("trop d'étapes sans réponse finale : la tâche a été arrêtée")
 
@@ -198,7 +291,7 @@ func silent(ctx context.Context, msgs []llm.Message, maxIter int) (writes []stri
 		if c.name == "fiche_read" { // une relecture de ménage ne compte pas comme un usage
 			return tool.Result(memory.ReadFicheQuietly(tool.Call{Args: c.args}.Str("name")))
 		}
-		res := memoryTools.run(c, "")
+		res := memoryTools.run(ctx, c, "", 0, true)
 		if tool.IsOK(res) {
 			writes = append(writes, strings.TrimSpace(c.name+" "+c.label()))
 		}

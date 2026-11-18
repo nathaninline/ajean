@@ -71,6 +71,8 @@ func RunNow(id string) error {
 		return errors.New("cette tâche est déjà en cours d'exécution")
 	case slices.Contains(forced, id):
 		return errors.New("cette tâche attend déjà son tour")
+	case !validLocked(*f.find(id)):
+		return errors.New("cette tâche attend votre validation")
 	}
 	forced = append(forced, id)
 	select {
@@ -165,13 +167,14 @@ func claim(now time.Time) (t *Task, due time.Time, err error) {
 	for len(forced) > 0 {
 		id := forced[0]
 		forced = forced[1:]
-		if t = f.find(id); t != nil {
+		if t = f.find(id); t != nil && validLocked(*t) {
 			return t, time.Time{}, nil
 		}
+		t = nil
 	}
 	for i := range f.Tasks {
 		c := &f.Tasks[i]
-		if c.Enabled && !c.Next.IsZero() && !c.Next.After(now) && (t == nil || c.Next.Before(t.Next)) {
+		if c.Enabled && !c.Next.IsZero() && !c.Next.After(now) && (t == nil || c.Next.Before(t.Next)) && validLocked(*c) {
 			t = c
 		}
 	}

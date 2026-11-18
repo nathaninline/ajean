@@ -49,6 +49,7 @@ func handleState(w http.ResponseWriter, r *http.Request) {
 	state["convs"], state["conv"], state["title"] = agent.List(), info.ID, info.Title
 	state["busy"], state["log"], state["since"], state["steps"] = info.Busy, log, info.Since, info.Steps
 	state["used"], state["max"] = info.Used, agent.ContextWindow()
+	state["review"] = agent.PendingReview()
 	reply(w, state)
 }
 
@@ -104,6 +105,18 @@ func handleStop(w http.ResponseWriter, r *http.Request) {
 	if body(w, r, &q) {
 		agent.Stop(q.Conv)
 		ok(w)
+	}
+}
+
+// handleReview : la réponse de l'utilisateur à la validation de fin de réponse.
+func handleReview(w http.ResponseWriter, r *http.Request) {
+	var q struct {
+		ID string
+		OK bool
+	}
+	if body(w, r, &q) {
+		err := agent.AnswerReview(q.ID, q.OK)
+		done(w, err, http.StatusConflict)
 	}
 }
 

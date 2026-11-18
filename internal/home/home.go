@@ -57,6 +57,9 @@ func WriteFile(path string, data []byte) error {
 		return err
 	}
 	_, err = tmp.Write(data)
+	if err == nil {
+		err = tmp.Sync() // le contenu est sur le disque avant le renommage
+	}
 	if cerr := tmp.Close(); err == nil {
 		err = cerr
 	}

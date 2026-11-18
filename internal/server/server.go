@@ -62,6 +62,7 @@ func New() http.Handler {
 	api("POST /api/upload", handleUpload)
 	api("POST /api/send", handleSend)
 	api("POST /api/stop", handleStop)
+	api("POST /api/review", handleReview)
 
 	api("GET /api/config", handleConfigGet)
 	api("POST /api/config", handleConfigSave)

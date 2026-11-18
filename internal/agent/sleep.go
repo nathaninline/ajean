@@ -20,6 +20,7 @@ import (
 	"ajean/internal/config"
 	"ajean/internal/llm"
 	"ajean/internal/memory"
+	"ajean/internal/secrets"
 )
 
 const (
@@ -89,6 +90,13 @@ func sleepDue(now time.Time) bool {
 	return !last.IsZero() && now.Sub(last) >= sleepCatchUpAfter && idle >= sleepCatchUpIdle
 }
 
+// WaitSleep attend qu'un sommeil interrompu ait fini de se refermer.
+func WaitSleep(limit time.Duration) {
+	for end := time.Now().Add(limit); sleeping.Load() && time.Now().Before(end); {
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
 // CanSleep : un sommeil peut-il partir maintenant ? (nil si oui)
 func CanSleep() error {
 	switch {
@@ -121,7 +129,7 @@ func Sleep(ctx context.Context) error {
 
 	ctx, cancel := context.WithTimeout(ctx, sleepTimeout)
 	defer cancel()
-	msgs := []llm.Message{{Role: "user", Content: sleepPrompt + "\n\n" + memory.Dump(sleepDumpChars)}}
+	msgs := []llm.Message{{Role: "user", Content: sleepPrompt + "\n\n" + secrets.Redact(memory.Dump(sleepDumpChars))}}
 	writes, last, err := silent(ctx, msgs, sleepMaxIterations)
 
 	status, summary := "ok", strings.TrimSpace(last)

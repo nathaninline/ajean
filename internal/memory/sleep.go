@@ -12,6 +12,7 @@ import (
 
 	"ajean/internal/config"
 	"ajean/internal/home"
+	"ajean/internal/secrets"
 )
 
 // Le sommeil : la consolidation nocturne de la mémoire. Un autre paquet mène
@@ -127,7 +128,7 @@ func saveCopy(snap snapshot, meta sleepMeta) (string, error) {
 	lastCopyMS = max(time.Now().UnixMilli(), lastCopyMS+1)
 	id := strings.Replace(time.UnixMilli(lastCopyMS).Format(sleepIDLayout), ".", "-", 1)
 	for rel, s := range snap {
-		if err := home.WriteFile(filepath.Join(sleepDir(id), "before", filepath.FromSlash(rel)), []byte(s)); err != nil {
+		if err := home.WriteFile(filepath.Join(sleepDir(id), "before", filepath.FromSlash(rel)), []byte(secrets.Redact(s))); err != nil {
 			return "", err
 		}
 	}

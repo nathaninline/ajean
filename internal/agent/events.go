@@ -8,7 +8,7 @@ import (
 // event : ce qui est diffusé aux interfaces ouvertes (ordinateur, téléphone).
 // Les champs vides sont omis.
 type event struct {
-	Type  string   `json:"type"`            // user, start, delta, tool, done, stopped, error, convs, memory, sleep, tasks, apps, embed
+	Type  string   `json:"type"`            // user, start, delta, tool, done, stopped, error, convs, memory, sleep, tasks, apps, embed, review
 	Conv  string   `json:"conv,omitempty"`  // conversation concernée
 	Text  string   `json:"text,omitempty"`  // message ou morceau de réponse
 	TS    int64    `json:"ts,omitempty"`    // epoch ms

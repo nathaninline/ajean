@@ -12,6 +12,7 @@
 //	AJEAN_BROWSER             navigateur que l'assistant pilote (chemin complet)
 //	AJEAN_BROWSER_HEADLESS    le piloter sans fenêtre
 //	AJEAN_TOOLS_LAN           autoriser ses outils et son navigateur à joindre le réseau local
+//	AJEAN_BACKUP_DIR, AJEAN_BACKUP_KEY   sauvegarde chiffrée quotidienne vers ce dossier, avec cette phrase
 //
 // Commandes :
 //
@@ -19,6 +20,9 @@
 //	ajean password            définit ou remplace le mot de passe de l'interface
 //	ajean password --remove   le retire (l'interface redevient réservée à la machine)
 //	ajean import <dossier>    reprend la mémoire et les fichiers de l'ancien AJEAN (0.x)
+//	ajean secret set|list|delete [nom]   gère le coffre chiffré des mots de passe
+//	ajean backup <dossier>    écrit une sauvegarde chiffrée
+//	ajean restore <fichier> <dossier>    déchiffre une sauvegarde dans un dossier vide
 //
 // L'accès à l'interface : sans mot de passe, seule la machine elle-même l'ouvre.
 // Avec un mot de passe, tout le monde se connecte. Pour l'ouvrir au réseau
@@ -37,6 +41,7 @@ import (
 	"os/signal"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	"golang.org/x/term"
@@ -44,11 +49,14 @@ import (
 	"ajean/internal/agent"
 	"ajean/internal/apps"
 	"ajean/internal/auth"
+	"ajean/internal/backup"
 	"ajean/internal/browser"
 	"ajean/internal/config"
 	"ajean/internal/embedder"
 	"ajean/internal/home"
 	"ajean/internal/memory"
+	"ajean/internal/scripts"
+	"ajean/internal/secrets"
 	"ajean/internal/server"
 	"ajean/internal/tasks"
 	"ajean/internal/workspace"
@@ -71,11 +79,17 @@ func run() error {
 			return passwordCommand(os.Args[2:])
 		case "import":
 			return importCommand(os.Args[2:])
+		case "secret":
+			return secretCommand(os.Args[2:])
+		case "backup":
+			return backupCommand(os.Args[2:])
+		case "restore":
+			return restoreCommand(os.Args[2:])
 		case "version", "--version", "-v":
 			fmt.Println("AJEAN", version)
 			return nil
 		default:
-			return fmt.Errorf("commande inconnue : %s (commandes : password, import, version)", os.Args[1])
+			return fmt.Errorf("commande inconnue : %s (commandes : password, import, secret, backup, restore, version)", os.Args[1])
 		}
 	}
 	for _, dir := range []string{home.Memory(), home.Tools(), home.Apps()} {
@@ -89,9 +103,19 @@ func run() error {
 	if err := config.Load(); err != nil {
 		return err
 	}
+	if err := scripts.Init(); err != nil {
+		return err
+	}
+	if err := tasks.Init(); err != nil {
+		return err
+	}
+	memory.RecoverSleep()
+	if err := memory.PurgeSecretCopies(); err != nil {
+		fmt.Fprintln(os.Stderr, "AJEAN : copies de mémoire non nettoyées :", err)
+	}
 	agent.Load()
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	defer browser.Shutdown()
 	defer embedder.Shutdown()
@@ -102,6 +126,7 @@ func run() error {
 	embedder.Changed = func() { agent.EmbedChanged(); memory.WakeIndexer() }
 	go tasks.Start(ctx, tasks.Hooks{Run: agent.RunTask, Deliver: agent.DeliverTask, Changed: agent.TasksChanged})
 	go agent.RunSleepSchedule(ctx)
+	go backup.Schedule(ctx)
 	memory.StartIndexer(ctx)
 	agent.StartSearchIndex(ctx)
 
@@ -145,7 +170,12 @@ func run() error {
 	srv := &http.Server{Handler: server.New(), ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: 64 << 10}
 	go func() {
 		<-ctx.Done()
-		_ = srv.Close()
+		// Les flux d'événements ne finissent jamais d'eux-mêmes : délai court, puis fermeture.
+		sctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		if srv.Shutdown(sctx) != nil {
+			_ = srv.Close()
+		}
 	}()
 	if cert != "" {
 		err = srv.ServeTLS(ln, cert, key)
@@ -155,6 +185,71 @@ func run() error {
 	if !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
+	agent.WaitSleep(15 * time.Second) // le garde-fou d'un sommeil interrompu doit passer
+	return nil
+}
+
+// secretCommand gère le coffre. La valeur se tape au clavier : elle ne passe ni
+// par la ligne de commande ni par le modèle.
+func secretCommand(args []string) error {
+	usage := errors.New("usage : ajean secret set <nom> | list | delete <nom>")
+	if len(args) == 0 {
+		return usage
+	}
+	switch {
+	case args[0] == "list" && len(args) == 1:
+		names, err := secrets.Names()
+		if err != nil {
+			return err
+		}
+		fmt.Println(strings.Join(names, "\n"))
+		return nil
+	case args[0] == "set" && len(args) == 2:
+		v, err := readPassword("Valeur de « " + args[1] + " » : ")
+		if err != nil {
+			return err
+		}
+		return secrets.Set(args[1], v)
+	case args[0] == "delete" && len(args) == 2:
+		return secrets.Delete(args[1])
+	}
+	return usage
+}
+
+func backupPass() (string, error) {
+	if p := os.Getenv("AJEAN_BACKUP_KEY"); p != "" {
+		return p, nil
+	}
+	return readPassword("Phrase de sauvegarde : ")
+}
+
+func backupCommand(args []string) error {
+	if len(args) != 1 {
+		return errors.New("usage : ajean backup <dossier>")
+	}
+	pass, err := backupPass()
+	if err != nil {
+		return err
+	}
+	path, err := backup.Create(args[0], pass)
+	if err == nil {
+		fmt.Println("Sauvegarde écrite :", path)
+	}
+	return err
+}
+
+func restoreCommand(args []string) error {
+	if len(args) != 2 {
+		return errors.New("usage : ajean restore <fichier> <dossier vide>")
+	}
+	pass, err := backupPass()
+	if err != nil {
+		return err
+	}
+	if err := backup.Restore(args[0], args[1], pass); err != nil {
+		return err
+	}
+	fmt.Println("Sauvegarde restaurée dans :", args[1])
 	return nil
 }
 

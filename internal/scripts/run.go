@@ -10,12 +10,15 @@ import (
 
 	"github.com/dop251/goja"
 
+	"ajean/internal/secrets"
 	"ajean/internal/workspace"
 )
 
 const (
 	maxOutput = 20000 // caractères renvoyés au modèle
 	maxDepth  = 2000  // appels imbriqués : une récursion sans fin s'arrête avant de remplir la mémoire
+
+	shellLimit = 10 * time.Minute // un outil qui lance des commandes peut travailler plus longtemps
 )
 
 // timeout : durée maximale d'une exécution. Une variable, pour que les tests
@@ -26,40 +29,53 @@ var timeout = 30 * time.Second
 // texte rendu réunit ce que le script a écrit avec console.log et ce que
 // run(args) a renvoyé ; en cas d'erreur, il garde ce qui a été écrit avant.
 func run(s Script, args map[string]any) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	return runCtx(context.Background(), s, args)
+}
+
+// runCtx : run, interrompu avec le contexte parent.
+func runCtx(parent context.Context, s Script, args map[string]any) (string, error) {
+	limit := timeout
+	if strings.Contains(s.Code, "sh.run") {
+		limit = max(timeout, shellLimit)
+	}
+	ctx, cancel := context.WithTimeout(parent, limit)
 	defer cancel()
 	vm := goja.New()
 	vm.SetMaxCallStackSize(maxDepth)
 	// Le contexte coupe les requêtes web en cours ; l'interruption, elle,
-	// arrête le code JavaScript lui-même (une boucle sans fin).
-	watchdog := time.AfterFunc(timeout, func() { vm.Interrupt("temps dépassé") })
-	defer watchdog.Stop()
+	// arrête le code JavaScript lui-même (une boucle sans fin, un arrêt demandé).
+	stop := context.AfterFunc(ctx, func() { vm.Interrupt("temps dépassé ou arrêt demandé") })
+	defer stop()
 
 	var logs strings.Builder
-	if err := provide(ctx, vm, &logs, args); err != nil {
+	return runIn(ctx, vm, s, args, &logs)
+}
+
+func runIn(ctx context.Context, vm *goja.Runtime, s Script, args map[string]any, logs *strings.Builder) (string, error) {
+	if err := provide(ctx, vm, logs, args); err != nil {
 		return "", err
 	}
 	if _, err := vm.RunScript(s.Name+".js", s.Code); err != nil {
-		return output(&logs, nil), explain(err)
+		return output(logs, nil), explain(err)
 	}
 	// Par une expression plutôt que par l'objet global : « const run = … » ne
 	// crée pas de propriété globale.
 	entry, err := vm.RunString("typeof run === 'function' ? run : undefined")
 	if err != nil {
-		return output(&logs, nil), explain(err)
+		return output(logs, nil), explain(err)
 	}
 	fn, ok := goja.AssertFunction(entry)
 	if !ok {
-		return output(&logs, nil), errors.New("le script ne définit pas function run(args)")
+		return output(logs, nil), errors.New("le script ne définit pas function run(args)")
 	}
 	if args == nil {
 		args = map[string]any{}
 	}
 	res, err := fn(goja.Undefined(), vm.ToValue(args))
 	if err != nil {
-		return output(&logs, nil), explain(err)
+		return output(logs, nil), explain(err)
 	}
-	return output(&logs, res), nil
+	return output(logs, res), nil
 }
 
 // provide installe dans l'interpréteur tout ce qu'un script a le droit
@@ -129,6 +145,15 @@ func provide(ctx context.Context, vm *goja.Runtime, logs *strings.Builder, args 
 				body, _ := o["body"].(string)
 				headers, _ := o["headers"].(map[string]any)
 				return reply(fetch(ctx, method, url, body, headers))
+			},
+		},
+		"secrets": {
+			"get": func(c goja.FunctionCall) goja.Value {
+				v, err := secrets.Get(text(c.Argument(0)))
+				if err != nil {
+					panic(vm.NewGoError(err))
+				}
+				return vm.ToValue(v)
 			},
 		},
 	}

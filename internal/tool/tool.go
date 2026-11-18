@@ -5,6 +5,7 @@
 package tool
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -16,6 +17,17 @@ import (
 type Call struct {
 	Args map[string]any
 	Conv string // conversation d'où vient l'appel ("" pour un travail de fond)
+	Ctx  context.Context
+	// Unattended : personne ne regarde (tâche planifiée).
+	Unattended bool
+}
+
+// Context : le contexte de l'appel, annulé quand l'utilisateur arrête le tour.
+func (c Call) Context() context.Context {
+	if c.Ctx != nil {
+		return c.Ctx
+	}
+	return context.Background()
 }
 
 // Def : un outil.

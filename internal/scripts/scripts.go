@@ -173,6 +173,9 @@ func save(s Script) (string, error) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
+	if err := keepVersion(name); err != nil {
+		return "", err
+	}
 	return name, home.WriteFile(file(name), []byte(header+string(head)+" */\n"+code+"\n"))
 }
 
@@ -199,6 +202,9 @@ func Run(name string, args map[string]any) (string, error) {
 	s, err := load(name)
 	if err != nil {
 		return "", err
+	}
+	if !Validated(s.Name) {
+		return "", fmt.Errorf("l'outil « %s » attend la validation de l'utilisateur", s.Name)
 	}
 	return run(s, args)
 }

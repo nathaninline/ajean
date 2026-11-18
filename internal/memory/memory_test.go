@@ -90,7 +90,7 @@ func mustErr(t *testing.T, result, want string) {
 }
 
 func TestToolNames(t *testing.T) {
-	want := "memory_search memory_remember memory_forget memory_note memory_lesson memory_rule fiche_save fiche_read fiche_patch fiche_merge"
+	want := "memory_search memory_remember memory_forget memory_note memory_lesson memory_rule fiche_save fiche_read fiche_patch fiche_restore fiche_merge"
 	var got []string
 	for _, d := range Tools() {
 		got = append(got, d.Name)

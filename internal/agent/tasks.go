@@ -43,15 +43,17 @@ func RunTask(ctx context.Context, t tasks.Task) (string, error) {
 	if !config.Get().Chat().Ready() {
 		return "", llm.ErrNotConfigured
 	}
+	turn := time.Now().UnixMilli()
 	exec := func(tc llm.ToolCall) string {
 		c, ok := decode(tc)
 		if !ok {
 			return tool.Err("arguments illisibles (JSON invalide)")
 		}
-		return allTools.run(c, t.Conv)
+		return allTools.run(ctx, c, t.Conv, turn, true)
 	}
 	msgs := []llm.Message{{Role: "user", Content: taskPrompt(t, time.Now())}}
 	_, texts, err := loop(ctx, msgs, allTools.specs, maxTaskIterations, nil, exec)
+	emit(event{Type: "review"}) // une tâche a pu créer ou modifier quelque chose
 	if err != nil {
 		return "", err
 	}

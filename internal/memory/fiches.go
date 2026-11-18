@@ -99,7 +99,9 @@ func writeFicheLocked(f Fiche) error {
 	// Le cache reconnaît un fichier à sa date et à sa taille : deux écritures de
 	// même longueur dans le même tic d'horloge lui échapperaient.
 	delete(ficheCache[filepath.Dir(path)], f.Name)
-	return home.WriteFile(path, []byte(renderFiche(f)))
+	next := []byte(renderFiche(f))
+	keepFicheVersionLocked(path, f.Name, next)
+	return home.WriteFile(path, next)
 }
 
 // loadFicheLocked lit une fiche (ok=false si elle n'existe pas).

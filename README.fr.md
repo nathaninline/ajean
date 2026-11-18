@@ -113,6 +113,7 @@ Variables d'environnement, toutes facultatives :
 | `AJEAN_BROWSER` | navigateur que l'assistant pilote (chemin complet) | détecté |
 | `AJEAN_BROWSER_HEADLESS` | le piloter sans fenêtre | |
 | `AJEAN_TOOLS_LAN` | autoriser ses outils et son navigateur à joindre le réseau local | |
+| `AJEAN_BACKUP_DIR`, `AJEAN_BACKUP_KEY` | sauvegarde chiffrée quotidienne vers ce dossier, avec cette phrase | |
 
 **Recherche par le sens.** Avec elle, la recherche dans le journal et le rappel automatique retrouvent un souvenir même formulé autrement. Sans elle, la recherche se fait par mots. Deux façons de l'activer dans les réglages :
 

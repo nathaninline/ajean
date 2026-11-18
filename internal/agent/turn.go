@@ -89,6 +89,17 @@ func (c *conversation) turn(text string, files []string) {
 
 	msgs, lead, recent := c.open(text, files, now, cancel)
 	user := userMessage(ctx, text, files, now, recent)
+	if note := interruptedNote(c.id); note != "" {
+		user.Content = note + "\n\n" + user.Content
+	}
+	if note := takeReviewNote(); note != "" {
+		user.Content = note + "\n\n" + user.Content
+	}
+	turnID := now.UnixMilli()
+	logAction(c.id, actionEntry{Turn: turnID, Phase: "begin"})
+	defer logAction(c.id, actionEntry{Turn: turnID, Phase: "end"})
+	user.Content = embedMemory(msgs, user.Content, memoryBlock())
+	ctx = context.WithValue(ctx, memoryEmbedded{}, true)
 	base := len(msgs)
 	msgs = append(msgs, user)
 
@@ -97,7 +108,7 @@ func (c *conversation) turn(text string, files []string) {
 	exec := func(tc llm.ToolCall) string {
 		cl, ok := decode(tc)
 		desc := takeToolDesc(described, &cl)
-		st := Step{Name: cl.name, Label: cl.label(), Desc: desc}
+		st := Step{Name: cl.name, Label: cl.stepLabel(), Desc: desc}
 		c.mu.Lock()
 		c.steps = append(c.steps, st)
 		c.mu.Unlock()
@@ -106,7 +117,7 @@ func (c *conversation) turn(text string, files []string) {
 			return tool.Err("arguments illisibles (JSON invalide)")
 		}
 		calls++
-		res := allTools.run(cl, c.id)
+		res := allTools.run(ctx, cl, c.id, turnID, false)
 		if _, isMemory := memoryTools.byName[cl.name]; isMemory && tool.IsOK(res) {
 			saved = true
 		}
@@ -140,7 +151,8 @@ func (c *conversation) turn(text string, files []string) {
 	done := time.Now()
 	lastActivity.Store(done.UnixMilli())
 	if err != nil {
-		c.closeFailed(msgs[base], answer, err, stopped, done)
+		c.closeFailed(msgs[base], answer, err, stopped, done, describeActions(readActions(c.id), turnID))
+		emit(event{Type: "review"})
 		if stopped {
 			emit(event{Type: "stopped", Conv: c.id})
 		} else {
@@ -153,6 +165,7 @@ func (c *conversation) turn(text string, files []string) {
 	c.noteTurn(text, calls, saved)
 	WakeSearchIndex()
 	emit(event{Type: "done", Conv: c.id, Text: answer, TS: done.UnixMilli(), Model: modelName(), Steps: c.lastSteps()})
+	emit(event{Type: "review"}) // tout est fini : les changements se valident en une fois
 }
 
 // modelName : le nom de la configuration active (sinon le modèle), affiché sous
@@ -245,7 +258,7 @@ func (c *conversation) closeDone(out []llm.Message, lead, base int, answer strin
 // closeFailed enregistre un tour interrompu ou en erreur. Le message de
 // l'utilisateur et ce qui reste de la réponse entrent quand même dans le
 // contexte : sinon, à « réessaie », le modèle ne saurait pas de quoi on parle.
-func (c *conversation) closeFailed(user llm.Message, partial string, err error, stopped bool, at time.Time) {
+func (c *conversation) closeFailed(user llm.Message, partial string, err error, stopped bool, at time.Time, actions string) {
 	note := partial
 	switch {
 	case note != "" && !stopped:
@@ -259,7 +272,11 @@ func (c *conversation) closeFailed(user llm.Message, partial string, err error, 
 	user.Images = nil
 	c.mu.Lock()
 	c.cancel, c.busy = nil, false
-	c.msgs = append(c.msgs, user, llm.Message{Role: "assistant", Content: note})
+	forModel := note
+	if actions != "" {
+		forModel += "\n\n" + actions
+	}
+	c.msgs = append(c.msgs, user, llm.Message{Role: "assistant", Content: forModel})
 	c.log = append(c.log, Item{Role: "assistant", Text: note, TS: at.UnixMilli(), Kind: kindFailed, Model: modelName(), Steps: c.steps})
 	c.steps = nil
 	dropped := c.trimLocked()

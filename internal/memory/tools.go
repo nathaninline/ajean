@@ -103,6 +103,15 @@ func Tools() []tool.Def {
 			},
 		},
 		{
+			Name:        "fiche_restore",
+			Description: "Undo a bad rewrite of a fiche: without version, lists its kept versions; with version, puts that one back.",
+			Params: tool.Params(map[string]any{
+				"name":    tool.String("Fiche name"),
+				"version": tool.String("Version to put back"),
+			}, "name"),
+			Run: func(c tool.Call) string { return tool.Result(restoreFiche(ficheArg(c), c.Str("version"))) },
+		},
+		{
 			Name:        "fiche_merge",
 			Description: "Merge a whole fiche into another one covering the same task: its full text becomes a new section of the reference fiche, then it is archived. Nothing is lost.",
 			Params: tool.Params(map[string]any{
