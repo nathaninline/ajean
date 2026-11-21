@@ -183,7 +183,7 @@ A preset does not have to run on this machine:
 
 The **Engine** section installs and updates llama.cpp, chosen per preset:
 
-- **AJEAN engine**: a llama.cpp version tested with this AJEAN release, installed automatically; used by a preset without `BIN` (`ajean engine` for status and repair);
+- **stable** (llama.cpp stable): a llama.cpp version tested for this AJEAN release, installed automatically; used by a preset without `BIN` (`ajean engine` for status and repair);
 - **pre-built**: the official llama.cpp binaries, ready in minutes;
 - **compiled**: built for this machine (CUDA with the right compute capability for each GPU, ROCm, Metal, Vulkan or CPU);
 - **custom**: any fork, from a Git URL, for models that need a special engine.
@@ -273,7 +273,7 @@ Remote access (ajean.link)
 llama.cpp engine
   llamacpp install [--backend=vulkan|cuda|hip|cpu]
   llamacpp update | status | uninstall <compiled|prebuilt|custom <name>>
-  engine [install|repair]         AJEAN engine (pinned llama.cpp)
+  engine [install|repair]         stable llama.cpp (pinned version)
 
 Security and backup
   password [--remove|status]    interface password

@@ -1,13 +1,13 @@
-# Le moteur AJEAN (llama.cpp épinglé)
+# Le moteur Stable (llama.cpp épinglé)
 
 AJEAN sait faire tourner plusieurs moteurs. La 0.21 en ajoute un, le **moteur
-AJEAN** : le `llama-server` officiel de llama.cpp, à **une version précise**,
+Stable** (llama.cpp stable) : le `llama-server` officiel de llama.cpp, à **une version précise**,
 choisie et testée par le mainteneur pour chaque version d'AJEAN (comme Ollama
 gère le sien). Il s'ajoute aux autres, il ne les remplace pas.
 
 | Moteur | D'où il vient | Qui le met à jour |
 |---|---|---|
-| **Moteur AJEAN** | `backends/engine/<tag>/`, tag de `LLAMA_CPP_VERSION` | AJEAN, à chaque version |
+| **Stable** (llama.cpp stable) | `backends/engine/<tag>/`, tag de `LLAMA_CPP_VERSION` | AJEAN, à chaque version |
 | llama.cpp compilé | `ajean llamacpp install` (`backends/llama.cpp`) | l'utilisateur |
 | llama.cpp précompilé | dernière release amont (`backends/llama.cpp-prebuilt`) | l'utilisateur |
 | forks personnalisés | `backends/<nom>` | l'utilisateur |
@@ -27,8 +27,8 @@ chargement, la vidéo, les embeddings et la liste des cartes graphiques.
 | `BIN` | Moteur lancé |
 |---|---|
 | un chemin hors de `backends/engine/` (compilé, précompilé, fork, chemin au choix) | ce binaire, comme en 0.18 ; le précompilé suit sa release courante |
-| un chemin dans `backends/engine/<tag>/` | le moteur AJEAN de la version **courante**, même si le chemin est celui d'un ancien tag |
-| vide | le moteur AJEAN, installé par le service s'il manque |
+| un chemin dans `backends/engine/<tag>/` | le moteur Stable de la version **courante**, même si le chemin est celui d'un ancien tag |
+| vide | le moteur Stable, installé par le service s'il manque |
 
 Les presets `ENGINE=exl3`, `ENGINE=moe`, `CLOUD=modal`, API et Service ne lisent
 pas `BIN` : ils ont leur propre lancement.
@@ -93,23 +93,23 @@ ajean engine repair --variant=vulkan   # ou cuda, rocm, cpu ; auto pour revenir
 
 ### 4. Erreurs lisibles
 
-Quand un preset qui tourne sur le moteur AJEAN s'arrête, AJEAN cherche dans le
+Quand un preset qui tourne sur le moteur Stable s'arrête, AJEAN cherche dans le
 journal les lignes d'erreur connues (`error loading model`, `cudaMalloc failed`,
 `out of memory`, `unknown argument`…) et les remonte à l'interface
 (`engine_status.go`). Les autres moteurs gardent les messages de la 0.18.
 
 ### 5. Pour le développement
 
-`AJEAN_ENGINE_BIN=/chemin/vers/llama-server` remplace le moteur AJEAN. C'est le
+`AJEAN_ENGINE_BIN=/chemin/vers/llama-server` remplace le moteur Stable. C'est le
 moyen d'essayer une version candidate de llama.cpp avant de l'épingler.
 
 ## Venir d'une autre version
 
-- **0.18** : rien ne change. Les presets gardent leur `BIN`, le moteur AJEAN
+- **0.18** : rien ne change. Les presets gardent leur `BIN`, le moteur Stable
   n'est pas installé tant qu'on ne le demande pas.
 - **0.19** (`migrate_019.go`) : les services deviennent des presets Service ou
   API ; les presets de la 0.18 repartent tels quels.
-- **0.20** (`migrate_020.go`) : les presets Local restent sur le moteur AJEAN.
+- **0.20** (`migrate_020.go`) : les presets Local restent sur le moteur Stable.
   Une ligne `BIN` héritée de la 0.18, que la 0.20 ignorait, est mise en
   commentaire dans le preset. Le moteur déjà installé est réutilisé si le tag
   est le même. Le mode agent et l'accès internet restent actifs.
@@ -167,15 +167,15 @@ changements à relire.
 
 ## Dans l'interface
 
-- **Section Moteur** (panneau latéral, `#/engine`) : la carte « Moteur AJEAN (llama.cpp bNNNNN) »
+- **Section Moteur** (panneau latéral, `#/engine`) : la carte « llama.cpp stable (bNNNNN) »
   s'affiche en tête, avant les trois moteurs de la 0.18. Un clic l'installe ; « Réparer » le
   retélécharge ; quand plusieurs variantes existent pour la machine (CUDA, Vulkan…), une liste
   permet d'en imposer une. Le suivi passe par le journal d'installation habituel.
-- **Éditeur de preset, Moteur** : « Moteur AJEAN » est choisi quand le preset n'a pas de ligne
+- **Éditeur de preset, Moteur** : une liste « Moteur utilisé ». « Stable » est choisi quand le preset n'a pas de ligne
   `BIN` (ou qu'elle pointe dans `backends/engine/`). Le choisir retire la ligne `BIN` ; les
   presets 0.18 qui désignent un précompilé, un compilé ou un fork s'affichent comme avant.
 - **Éditeur de preset, Exécution > Service** : une commande (`SERVICE_CMD`) lancée par AJEAN dans
   son service, qui expose une API compatible OpenAI. L'adresse et la clé se déduisent de la
   commande ; quitter Service retire `SERVICE_CMD`, `SERVICE_WORKDIR` et `SERVICE_ENV`.
-- **Configuration** : la ligne Moteur affiche « Moteur AJEAN (llama.cpp bNNNNN) » quand la
+- **Configuration** : la ligne Moteur affiche « llama.cpp stable (bNNNNN) » quand la
   configuration active tourne dessus.

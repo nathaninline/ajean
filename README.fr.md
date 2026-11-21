@@ -183,7 +183,7 @@ Un preset ne tourne pas forcément sur cette machine :
 
 La section **Moteur** installe et met à jour llama.cpp, choisi par preset :
 
-- **moteur AJEAN** : une version de llama.cpp testée avec cette version d'AJEAN, installée toute seule ; c'est celui d'un preset sans `BIN` (`ajean engine` pour l'état et la réparation) ;
+- **stable** (llama.cpp stable) : une version de llama.cpp stable et testée pour cette version d'AJEAN, installée toute seule ; c'est celui d'un preset sans `BIN` (`ajean engine` pour l'état et la réparation) ;
 - **précompilé** : les binaires officiels de llama.cpp, prêts en quelques minutes ;
 - **compilé** : construit pour cette machine (CUDA avec la bonne architecture pour chaque GPU, ROCm, Metal, Vulkan ou CPU) ;
 - **personnalisé** : n'importe quel fork, depuis une URL Git, pour les modèles qui exigent un moteur particulier.
@@ -273,7 +273,7 @@ Accès distant (ajean.link)
 Moteur llama.cpp
   llamacpp install [--backend=vulkan|cuda|hip|cpu]
   llamacpp update | status | uninstall <compiled|prebuilt|custom <nom>>
-  engine [install|repair]         moteur AJEAN (llama.cpp épinglé)
+  engine [install|repair]         llama.cpp stable (version épinglée)
 
 Sécurité et sauvegarde
   password [--remove|status]    mot de passe de l'interface
