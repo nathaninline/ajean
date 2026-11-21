@@ -587,10 +587,14 @@
       <strong data-i18n="bench.title">Benchmark</strong>
       <button class="modal-x" onclick="closeBenchModal()" aria-label="Fermer" data-i18n="bench.close_aria" data-i18n-attr="aria-label">×</button>
     </div>
-    <div id="bench-body" class="modal-body" style="display:flex;flex-direction:column;gap:12px"></div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:12px">
+      <div class="fld"><label class="fld-l" data-i18n="bench.prompt">Tokens lus (prefill)</label><div class="seg" id="bench-seg-prompt"></div></div>
+      <div class="fld"><label class="fld-l" data-i18n="bench.output">Tokens générés (decode)</label><div class="seg" id="bench-seg-output"></div></div>
+      <div id="bench-body" style="display:flex;flex-direction:column;gap:12px"></div>
+    </div>
     <div class="modal-foot" style="justify-content:flex-end">
       <button class="pe-btn" onclick="closeBenchModal()" data-i18n="bench.close">fermer</button>
-      <button id="bench-rerun" class="pe-btn primary" onclick="runBenchUI()" data-i18n="bench.rerun">relancer</button>
+      <button id="bench-rerun" class="pe-btn primary" onclick="runBenchUI()" data-i18n="bench.rerun">lancer</button>
     </div>
   </div>
 </div>
@@ -643,7 +647,7 @@
     <div class="modal-foot">
       <div class="foot-l">
         <!-- Bench : seulement pour le modèle qui tourne (moeRenderQuants) -->
-        <button id="moe-bench" class="pe-icon" onclick="runBenchUI()" hidden title="Benchmark" aria-label="Benchmark" data-i18n="bench.title" data-i18n-attr="title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 13.5l3.6-3.6"/><path d="M4.6 19a9 9 0 1 1 14.8 0"/><circle cx="12" cy="13.5" r="1.3" fill="currentColor" stroke="none"/></svg></button>
+        <button id="moe-bench" class="pe-icon" onclick="openBenchModal()" hidden title="Benchmark" aria-label="Benchmark" data-i18n="bench.title" data-i18n-attr="title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 13.5l3.6-3.6"/><path d="M4.6 19a9 9 0 1 1 14.8 0"/><circle cx="12" cy="13.5" r="1.3" fill="currentColor" stroke="none"/></svg></button>
       </div>
       <div class="foot-r">
         <button onclick="closeMoe()" data-i18n="moe.close">fermer</button>
@@ -1697,7 +1701,7 @@
         <button id="m-del" class="pe-del" onclick="delItem()" title="supprimer" aria-label="supprimer" data-i18n="preset.delete_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
         <!-- Bench : mesure le modèle CHARGÉ, n'a donc de sens que pour le preset
              actif. openItem l'affiche seulement dans ce cas (voir 07-models.js). -->
-        <button id="btn-bench" class="pe-icon" onclick="runBenchUI()" style="display:none" title="Benchmark" aria-label="Benchmark" data-i18n="bench.title" data-i18n-attr="title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 13.5l3.6-3.6"/><path d="M4.6 19a9 9 0 1 1 14.8 0"/><circle cx="12" cy="13.5" r="1.3" fill="currentColor" stroke="none"/></svg></button>
+        <button id="btn-bench" class="pe-icon" onclick="openBenchModal()" style="display:none" title="Benchmark" aria-label="Benchmark" data-i18n="bench.title" data-i18n-attr="title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 13.5l3.6-3.6"/><path d="M4.6 19a9 9 0 1 1 14.8 0"/><circle cx="12" cy="13.5" r="1.3" fill="currentColor" stroke="none"/></svg></button>
       </div>
       <div class="foot-r">
         <button class="pe-btn" onclick="closeModal()" data-i18n="preset.cancel">annuler</button>

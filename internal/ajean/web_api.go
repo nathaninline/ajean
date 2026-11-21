@@ -1521,6 +1521,11 @@ func handleBench(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true, "result": res})
 }
 
+// handleBenchProgress : avancement du test en cours (prefill, tokens générés).
+func handleBenchProgress(w http.ResponseWriter, r *http.Request) {
+	sendJSON(w, 200, benchProgressGet())
+}
+
 // handleBenchLast returns the most recent persisted benchmark, or {ok:false}
 // when none has been run yet.
 func handleBenchLast(w http.ResponseWriter, r *http.Request) {

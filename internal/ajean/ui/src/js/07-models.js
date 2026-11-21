@@ -1,21 +1,55 @@
-function openBenchModal(){ showModal('bench-modal'); }
+// Benchmark du modèle actif : tailles du test au choix (tokens lus et générés),
+// avancement en direct, résultat en tokens par seconde.
+// Tailles du test au choix : mémorisées dans le navigateur.
+const BENCH_PROMPTS = [2000, 10000, 25000, 50000, 100000], BENCH_OUTPUTS = [100, 300, 1000, 3000];
+let benchCfg = { prompt: 2000, output: 300 };
+try{ benchCfg = { ...benchCfg, ...JSON.parse(localStorage.getItem('ajean-bench') || '{}') }; }catch(e){}
+const benchK = n => n >= 1000 ? (n / 1000).toFixed(n % 1000 ? 1 : 0) + 'k' : String(n);
+function benchSeg(id, key, list){
+  const el = document.getElementById(id);
+  el.innerHTML = list.map(v => '<label><input type="radio" name="'+id+'" value="'+v+'"><span>'+benchK(v)+'</span></label>').join('');
+  el.querySelectorAll('input').forEach(i => {
+    i.checked = +i.value === benchCfg[key];
+    i.onchange = () => { benchCfg[key] = +i.value; try{ localStorage.setItem('ajean-bench', JSON.stringify(benchCfg)); }catch(e){} };
+  });
+}
+// Ouvre la fenêtre sur les réglages ; le test part avec « lancer ».
+function openBenchModal(){
+  benchSeg('bench-seg-prompt', 'prompt', BENCH_PROMPTS);
+  benchSeg('bench-seg-output', 'output', BENCH_OUTPUTS);
+  const body = document.getElementById('bench-body');
+  if(body) body.innerHTML = '<div class="muted" style="text-align:center">'+t('bench.pick')+'</div>';
+  showModal('bench-modal');
+}
 function closeBenchModal(){ hideModal('bench-modal'); }
 async function runBenchUI(){
-  const btn = document.getElementById('btn-bench');
   const rerun = document.getElementById('bench-rerun');
   const body = document.getElementById('bench-body');
-  openBenchModal();
-  // btn est désormais une ICÔNE : on ne touche PAS à son contenu (ça effacerait le
-  // SVG). On le désactive seulement ; l'état « en cours » est montré par le modal.
-  if(btn) btn.disabled = true;
   if(rerun) rerun.disabled = true;
   body.innerHTML =
     '<div style="text-align:center;padding:20px 0">' +
     '<div class="spinner" style="margin:0 auto"></div>' +
-    '<div class="muted" style="margin-top:8px">'+t('models.bench.desc')+'</div>' +
+    '<div class="muted" style="margin-top:8px">'+t('models.bench.desc').replace('{p}', benchK(benchCfg.prompt)).replace('{n}', benchK(benchCfg.output))+'</div>' +
     '</div>';
+  // Avancement : « Prefill 42 % » puis « Génération 120 / 300 ».
+  const info = body.querySelector('.muted');
+  const t0 = Date.now();
+  let polling = true;
+  (async () => {
+    while(polling){
+      await new Promise(res => setTimeout(res, 1000));
+      if(!polling) break;
+      let p; try{ p = await jget('/api/bench/progress'); }catch(e){ continue; }
+      if(!polling || !p || !p.running) continue;
+      const s = Math.round((Date.now() - t0) / 1000) + ' s';
+      if(p.generated > 0) info.textContent = tf('bench.gen', 'Génération') + ' ' + p.generated + ' / ' + p.output + ' · ' + s;
+      else if(p.prefill_done > 0 && p.prompt > 0) info.textContent = 'Prefill ' + Math.min(100, Math.round(100 * p.prefill_done / p.prompt)) + ' % · ' + s;
+      else info.textContent = 'Prefill… · ' + s;
+    }
+  })();
   try{
-    const r = await jget('/api/bench');
+    const r = await jget('/api/bench?prompt=' + benchCfg.prompt + '&n=' + benchCfg.output);
+    polling = false;
     if(!r.ok){
       body.innerHTML = '<div style="color:var(--err);text-align:center">'+t('models.bench.error')+r.error+'</div>';
       return;
@@ -38,7 +72,7 @@ async function runBenchUI(){
       '</div>' +
       '<div class="muted" style="text-align:center;font-size:11px">'+t('models.bench.total')+' '+x.elapsed_sec.toFixed(2)+'s</div>';
   } finally {
-    if(btn) btn.disabled = false;   // icône : pas de textContent (voir plus haut)
+    polling = false;
     if(rerun) rerun.disabled = false;
     loadPresets();
   }

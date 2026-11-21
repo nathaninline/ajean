@@ -310,6 +310,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/stop", svcHandler("stop"))
 	api("/api/restart", svcHandler("restart"))
 	api("/api/bench", handleBench)
+	api("/api/bench/progress", handleBenchProgress) // avancement du test en cours (prefill, tokens générés)
 	api("/api/bench/last", handleBenchLast)
 	api("/api/chat", handleChat)                               // flux d'ABONNEMENT (SSE) : rejoue + suit le fil
 	api("/api/chat/send", handleChatSend)                      // envoie un message (lance la génération détachée)
