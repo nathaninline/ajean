@@ -70,6 +70,8 @@ func Main() {
 		mustExit(cmdChat(args))
 	case "export":
 		mustExit(cmdExport(args))
+	case "window-icon": // banc d'essai de l'icône de fenêtre (Windows)
+		mustExit(cmdWindowIcon(args))
 	case "cu-probe": // banc d'essai des outils du navigateur, sans modèle
 		mustExit(cmdCUProbe(args))
 	case "jean-sleep-test": // banc d'essai du sommeil, sur une copie de la mémoire

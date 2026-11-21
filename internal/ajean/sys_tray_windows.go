@@ -32,7 +32,10 @@ func runTray(url string) {
 			for {
 				select {
 				case <-mOpen.ClickedCh:
-					_ = openAppWindow(url)
+					// Fenêtre déjà ouverte : on la ramène, on n'en ouvre pas une seconde.
+					if !focusAppWindow() {
+						_ = openAppWindow(url)
+					}
 				case <-mQuit.ClickedCh:
 					systray.Quit()
 					return
