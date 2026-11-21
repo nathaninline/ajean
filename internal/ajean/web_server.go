@@ -32,6 +32,7 @@ func cmdWeb(args []string) error {
 		}
 		port = n
 	}
+	migrateOlderVersions() // installation passée par la 0.19 ou la 0.20 : presets, unités, réglages
 	mux := newWebMux()
 	// Moteur épinglé d'AJEAN : installé en tâche de fond si la configuration
 	// active tourne dessus ou si aucun moteur n'est en place (engineWanted).

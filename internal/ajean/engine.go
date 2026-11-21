@@ -113,6 +113,10 @@ type engineInfo struct {
 	LibDirs     []string `json:"lib_dirs,omitempty"`     // dossiers des bibliothèques GPU livrées (relatifs)
 	ExtraSHA256 string   `json:"extra_sha256,omitempty"` // archive des bibliothèques GPU (cudart)
 	InstalledAt string   `json:"installed_at"`
+	// By : la version d'AJEAN qui a installé ce moteur. Absent d'un moteur
+	// installé par la 0.20 : c'est à ce signe que migrate_020.go reconnaît une
+	// installation venue d'elle.
+	By string `json:"ajean,omitempty"`
 
 	dir string
 }

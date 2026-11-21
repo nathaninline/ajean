@@ -220,6 +220,10 @@ func containsAny(args []string, needles ...string) bool {
 // llama-server invocation, and exec it (replacing this process so systemd
 // supervises llama-server directly).
 func cmdServe(args []string) error {
+	// Avant de lire la config : une installation passée par la 0.19 ou la 0.20 la
+	// fait repartir d'un preset (migrate_019.go, migrate_020.go). Sans effet sur
+	// une installation 0.18.
+	migrateOlderVersions()
 	cfg := ReadConfig()
 	// GPU Cloud : même port, même API, mais le modèle tourne chez Modal.
 	if isCloudConfig(cfg) {

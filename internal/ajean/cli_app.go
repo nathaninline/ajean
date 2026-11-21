@@ -73,6 +73,7 @@ func cmdApp(args []string) error {
 	// conversation.json) donnent deux fils divergents entre le local et
 	// app.ajean.link — le bug qu'on a vécu avec le worker détaché.
 	appOwnsLink = true
+	migrateOlderVersions() // installation passée par la 0.19 ou la 0.20 (migrate_019.go, migrate_020.go)
 	appWebMux = newWebMux()
 	engineAutoInstall() // moteur épinglé, seulement là où il sert (engineWanted)
 	go func() { _ = http.Serve(ln, appWebMux) }()

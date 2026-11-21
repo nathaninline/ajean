@@ -54,7 +54,9 @@ func fakeEngineDir(t *testing.T, tag string) string {
 	if err := os.WriteFile(bin, []byte("moteur "+tag), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	marker := `{"tag":"` + tag + `","variant":"cpu","label":"CPU","asset":"x.zip","bin":"` + engineExeName() + `","installed_at":"2026-01-01T00:00:00Z"}`
+	// "ajean" : signé par la 0.21. Un marqueur sans ce champ est celui d'un
+	// moteur installé par la 0.20 (voir fakeEngine020, migrate_020_test.go).
+	marker := `{"tag":"` + tag + `","variant":"cpu","label":"CPU","asset":"x.zip","bin":"` + engineExeName() + `","installed_at":"2026-01-01T00:00:00Z","ajean":"test"}`
 	if err := os.WriteFile(filepath.Join(dir, engineMarker), []byte(marker), 0o644); err != nil {
 		t.Fatal(err)
 	}

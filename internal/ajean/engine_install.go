@@ -338,7 +338,7 @@ func engineInstallVariant(ctx context.Context, tag string, v engineVariant, dl s
 	if err := extractArchive(arc, stage); err != nil {
 		return nil, fmt.Errorf("extraction de %s : %w", v.Main.Name, err)
 	}
-	info := &engineInfo{Tag: tag, Variant: v.ID, Label: v.Label, Asset: v.Main.Name, InstalledAt: nowStamp(), dir: stage}
+	info := &engineInfo{Tag: tag, Variant: v.ID, Label: v.Label, Asset: v.Main.Name, InstalledAt: nowStamp(), By: Version, dir: stage}
 	if v.Extra != nil {
 		rt := filepath.Join(stage, "runtime")
 		if old := engineReusableRuntime(v.Extra.SHA256); reuse && old != "" {
