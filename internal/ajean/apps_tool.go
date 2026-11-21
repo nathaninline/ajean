@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -22,21 +23,22 @@ func appTool() Tool {
 		Type: "function",
 		Function: ToolFunction{
 			Name: "app",
-			Description: "Small html/css/js apps the user opens in Applications; no network, data comes from scripts you write for them. " +
+			Description: "Small html/css/js apps the user opens in Applications; no network, data from your scripts. " +
 				"Call action=guide before your first create.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"action": map[string]any{"type": "string", "enum": []string{"guide", "list", "read", "create", "update", "check", "export", "script_write", "script_edit", "script_read", "script_delete", "script_test"}},
+					"action": map[string]any{"type": "string", "enum": []string{"guide", "list", "read", "create", "update", "check", "export", "script_write", "script_edit", "script_read", "script_delete", "script_test", "data_get", "data_set"}},
 					"id":     sp(), "name": sp(), "description": sp(),
 					"icon": sp(),
 					"html": sp(), "css": sp(), "js": sp(), "note": sp(), "part": sp(),
 					"edits": map[string]any{"type": "array", "items": map[string]any{"type": "object", "properties": map[string]any{
 						"part": sp(), "old": sp(), "new": sp()}}},
-					"script":  map[string]any{"type": "string", "description": "e.g. data.py"},
+					"script": sp(), "key": sp(),
 					"content": sp(), "from_dir": map[string]any{"type": "boolean"},
 					"scripts": map[string]any{"type": "array", "description": "[{name, content, input}]"},
-					"input":   map[string]any{"description": "JSON for script_test"},
+					"input":   map[string]any{"description": "JSON: script_test input, data_set value"},
+					"steps":   map[string]any{"type": "array"},
 				},
 				"required": []string{"action"},
 			},
@@ -114,7 +116,7 @@ func appGuide() string {
 An app = 3 parts (html, css, js) + optional scripts. It opens full screen inside AJEAN, in a sandboxed frame with NO network, NO cookies, NO localStorage, NO popups. Everything goes through the bridge window.ajean (promises).
 
 ## Parts
-- html: the BODY content only. Forbidden: <script>, <meta>, <base>, <iframe>, on…= attributes (onclick…). Inline style="" is ignored: put styles in css.
+- html: the BODY content only. Forbidden: <script>, <meta>, <base>, <iframe>, on…= attributes (onclick…). Put styles in css; style="" and el.style are allowed for dynamic values.
 - css: your styles. A small kit is already loaded (system font, light/dark follows AJEAN's theme, CSS vars --bg --fg --muted --line --accent --card, classes .btn .btn.primary .card .row .muted, inputs/tables styled). Keep it monochrome and sober, no borders everywhere.
 - js: plain modern JS (no import, no external library, no CDN). Wire events with addEventListener. Handle <form> submit in JS (e.preventDefault()).
 - UI text in the user's language, short and serious. Must work on a phone (fluid layout, inputs 16px, touch targets 44px).
@@ -152,10 +154,11 @@ Pass them in create/update as scripts:[{name, content, input}] (or script_write 
 ## Workflow (the harness does the testing: keep your calls few)
 1. ONE create call with name, description, icon (ONE emoji), html, css, js AND scripts. The harness writes the scripts, runs them, checks the JS syntax and the ids used by the js, then opens the app in a headless browser with the real scripts. It reports script results, JS errors, bridge calls, visible text and phone overflow.
 2. If the report shows a problem, fix it with update (edits = exact excerpt → replacement, or whole parts, plus a note): the same checks run again. When the report is clean, stop and tell the user the app is ready (a card with an Open button appears in the chat).
-3. Do NOT build test pages, mock bridges, servers or browser sessions yourself, and do NOT read back the app you just wrote. check (id) re-runs the render and adds a screenshot when you need to see it.
+3. Do NOT build test pages, mock bridges, servers or browser sessions yourself, and do NOT read back the app you just wrote. check (id) re-runs the render and adds a screenshot when you need to see it. To test it like a user, add steps (click, type+text, select+value, key, wait): they run in order, then you get the report and the screenshot of the result.
 4. Later changes: update with edits. Scripts: script_edit (script, edits [{old, new}]) instead of rewriting them. If the user reports an error, read the part concerned (part=js…) and fix it.
 5. Deliver first, refine after. Aim for a first version the user can try within a few calls, then improve from what THEY report. Prefer a simple feature that always works over a clever one that must be tuned: e.g. for a document scanner, let the user drag the 4 corners on the photo (with a rough automatic guess at most) instead of perfecting automatic edge detection. Never build test datasets, benchmarks or long tuning loops on your own: if something is hard, ship the simple version and say what could come next.
-6. Big apps (js over ~20 KB) or JS you want to test with node: export (id) copies the app to a work folder; edit the files there with file, test, then update with id, from_dir=true and a note. The harness takes the files, re-runs changed scripts and re-checks the app. Do not paste a whole big part again in update.`
+6. Big apps (js over ~20 KB) or JS you want to test with node: export (id) copies the app to a work folder; edit the files there with file, test, then update with id, from_dir=true and a note. The harness takes the files, re-runs changed scripts and re-checks the app. Do not paste a whole big part again in update.
+7. The app's saved data (what ajean.storage holds: agenda entries, lists…) is yours to read and fill: data_get (id, optional key) shows it, data_set (id, key, input = the JSON value, null deletes the key) writes it. To add or fix entries, read the key, change the value and write it back. Never change the code or add a seed just to put data in, and never look for the data on disk.`
 }
 
 // toolApp exécute l'outil `app`.
@@ -412,8 +415,12 @@ func toolApp(ctx context.Context, args map[string]any) string {
 	case "script_test":
 		r := runAppScript(ctx, id, strings.TrimSpace(str(args["script"])), args["input"], appScriptTO)
 		return appScriptReport(r)
+	case "data_get":
+		return appDataGet(id, strings.TrimSpace(str(args["key"])))
+	case "data_set":
+		return appDataSet(id, strings.TrimSpace(str(args["key"])), args)
 	}
-	return "[erreur] action inconnue : " + act + " (guide, list, read, create, update, check, export, script_write, script_edit, script_read, script_delete, script_test)"
+	return "[erreur] action inconnue : " + act + " (guide, list, read, create, update, check, export, script_write, script_edit, script_read, script_delete, script_test, data_get, data_set)"
 }
 
 // appScriptReport : résultat d'un script, court et lisible pour l'IA.
@@ -513,4 +520,71 @@ func appDeliverNudge(id string) string {
 		return ""
 	}
 	return fmt.Sprintf("\n\n⚠ %d versions de cette app en moins d'une heure. Arrête ici : si l'app fonctionne, présente-la à l'utilisateur et demande-lui de l'essayer. Améliore ensuite d'après ce qu'il constate, pas avant.", len(keep))
+}
+
+// appDataMax borne ce que data_get renvoie d'un coup au modèle.
+const appDataMax = 12000
+
+// appDataGet lit les données enregistrées de l'app (ajean.storage) : une clé,
+// ou toutes si elles tiennent, sinon la liste des clés et leur taille.
+func appDataGet(id, key string) string {
+	if _, err := readAppMeta(id); err != nil {
+		return "[erreur] " + err.Error()
+	}
+	m, _ := readAppStorage(id)
+	if key != "" {
+		v, ok := m[key]
+		if !ok {
+			return "[ok] clé « " + key + " » absente"
+		}
+		return "[ok] " + key + " = " + clipRunes(string(v), appDataMax)
+	}
+	if len(m) == 0 {
+		return "[ok] aucune donnée enregistrée pour cette app"
+	}
+	all, _ := json.Marshal(m)
+	if len(all) <= appDataMax {
+		return "[ok] " + string(all)
+	}
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	b.WriteString("[ok] données trop grandes pour tout lire ; clés (taille) :\n")
+	for _, k := range keys {
+		fmt.Fprintf(&b, "- %s (%d o)\n", k, len(m[k]))
+	}
+	b.WriteString("Lis une clé avec data_get + key.")
+	return b.String()
+}
+
+// appDataSet écrit une clé (input = la valeur JSON) ; input null = suppression.
+func appDataSet(id, key string, args map[string]any) string {
+	v, has := args["input"]
+	if !has {
+		return "[erreur] data_set : la valeur va dans input (null pour supprimer la clé)"
+	}
+	if v == nil {
+		had, err := appStorageOp(id, "delete", key, nil, "")
+		if err != nil {
+			return "[erreur] " + err.Error()
+		}
+		if had == true {
+			return "[ok] clé « " + key + " » supprimée"
+		}
+		return "[ok] clé « " + key + " » déjà absente"
+	}
+	// Valeur passée en texte JSON (« {"events":[…]} ») : on la prend telle quelle.
+	var raw json.RawMessage
+	if sv, ok := v.(string); ok && strings.ContainsAny(strings.TrimSpace(sv + " ")[:1], "{[") && json.Valid([]byte(sv)) {
+		raw = json.RawMessage(sv)
+	} else {
+		raw, _ = json.Marshal(v)
+	}
+	if _, err := appStorageOp(id, "set", key, raw, ""); err != nil {
+		return "[erreur] " + err.Error()
+	}
+	return fmt.Sprintf("[ok] clé « %s » enregistrée (%d o). L'app la lit à sa prochaine ouverture ; déjà ouverte, il faut la rouvrir.", key, len(raw))
 }
