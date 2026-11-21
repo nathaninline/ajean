@@ -2004,6 +2004,14 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				messages = append(messages, Message{Role: "user", Content: nudge})
 				continue
 			}
+			// Relances épuisées : plutôt que de rendre la main sans un mot, une
+			// dernière demande SANS outils (voir finalAnswerNote).
+			if wantFinalAnswer(ctx, len(tools), disableTools) {
+				disableTools = true
+				cb(StreamEvent{DropReasoning: true})
+				messages = append(messages, Message{Role: "user", Content: finalAnswerNote})
+				continue
+			}
 			cb(StreamEvent{Content: "_(le modèle n'a pas produit de réponse — finish: " + finishReason + ")_"})
 		}
 		return extra, nil
