@@ -1,6 +1,8 @@
-# AJEAN
+<p align="center"><img src="docs/banner.svg" alt="AJEAN" width="100%"></p>
 
-**English** · [Français](README.fr.md)
+<p align="center"><strong>English</strong> · <a href="README.fr.md">Français</a></p>
+
+# AJEAN
 
 ![AJEAN web interface](docs/ui.png)
 
