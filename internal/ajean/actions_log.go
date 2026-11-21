@@ -79,7 +79,19 @@ var (
 	redactLabelled = regexp.MustCompile("(?i)\\b(password|passwd|passphrase|pwd|mot de passe|mdp|api[ _-]?key|cl[ée] api|access[ _-]?token|auth[ _-]?token|token|secret)\\b([^\\n:=]{0,24}[:=]\\s*[`\"']?)([^\\s`\"',;)]{4,})")
 	redactBearer   = regexp.MustCompile(`(?i)\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}`)
 	redactPiped    = regexp.MustCompile(`(?i)\becho\s+(['"]?)([^\s'"|]{3,})(['"]?)\s*\|\s*sudo\s+-S`)
-	redactTokens   = regexp.MustCompile(`\b(sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{20,}|ajean-web-[a-f0-9]{16,}|jl_[A-Za-z0-9_-]{16,})\b`)
+	redactTokens   = regexp.MustCompile(`\b(sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{20,}|hf_[A-Za-z0-9]{20,}|ajean-web-[a-f0-9]{16,}|jl_[A-Za-z0-9_-]{16,})\b`)
+	// Affectations « à la shell » : OPENAI_API_KEY=…, DB_PASSWORD=…, GITHUB_TOKEN=…,
+	// AWS_SECRET_ACCESS_KEY=… — redactLabelled les ratait, son \b ne voyant pas de
+	// frontière après un « _ ». redactEnvNot écarte les noms qui parlent d'un
+	// secret sans en être un (max_tokens, TOKEN_FILE, password_length…).
+	redactEnv    = regexp.MustCompile(`(?i)\b([A-Z0-9_]*(?:PASSWORD|PASSWD|PASSPHRASE|PWD|SECRET|TOKEN|API_?KEY|ACCESS_?KEY|PRIVATE_?KEY|CREDENTIALS?)[A-Z0-9_]*)(\s*[:=]\s*["']?)([^\s"',;)]{4,})`)
+	redactEnvNot = regexp.MustCompile(`(?i)(count|limit|max|len|size|timeout|ttl|type|file|path|dir|url|endpoint|enabled|expir)`)
+	// Mots de passe passés en argument : curl -u nom:secret, mysql -psecret,
+	// sshpass -p secret.
+	redactCurlUser = regexp.MustCompile(`(\s(?:-u|--user)[ =]["']?[^\s:"']+:)([^\s"']+)`)
+	redactDashP    = regexp.MustCompile(`(\b(?i:mysql|mysqldump|mysqladmin|mariadb|mariadb-dump|sshpass)\b[^\n|;&]*?\s-p ?)([^\s-]\S*)`)
+	// Une clé privée collée telle quelle (le bloc peut être coupé avant sa fin).
+	redactPEM = regexp.MustCompile(`-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z0-9 ]*PRIVATE KEY-----|$)`)
 )
 
 // redactPlaceholder : une valeur qui désigne un secret sans le contenir
@@ -99,6 +111,16 @@ func redactPlaceholder(v string) bool {
 // redactSecrets remplace ce qui ressemble à un secret (mot de passe annoncé,
 // jeton de forme connue, mot de passe passé à sudo par un tube).
 func redactSecrets(s string) string {
+	s = redactPEM.ReplaceAllString(s, secretMaskedText)
+	s = redactEnv.ReplaceAllStringFunc(s, func(m string) string {
+		p := redactEnv.FindStringSubmatch(m)
+		if redactEnvNot.MatchString(p[1]) || redactPlaceholder(p[3]) {
+			return m
+		}
+		return p[1] + p[2] + secretMaskedText
+	})
+	s = redactCurlUser.ReplaceAllString(s, "${1}"+secretMaskedText)
+	s = redactDashP.ReplaceAllString(s, "${1}"+secretMaskedText)
 	s = redactLabelled.ReplaceAllStringFunc(s, func(m string) string {
 		p := redactLabelled.FindStringSubmatch(m)
 		if redactPlaceholder(p[3]) {
@@ -120,8 +142,11 @@ func actionLog(scope string, e actionEntry) {
 		return
 	}
 	e.TS = time.Now().UnixMilli()
-	e.Label = redactSecrets(clipRunes(strings.TrimSpace(e.Label), actionLabelMax))
-	e.Result = redactSecrets(clipRunes(strings.TrimSpace(e.Result), actionResultMax))
+	// Masquer AVANT de couper : un jeton tranché par la coupe ne ressemblerait plus
+	// à un jeton et resterait, en partie, en clair. (Première coupe large, pour ne
+	// pas passer des résultats de plusieurs Ko dans les expressions.)
+	e.Label = clipRunes(redactSecrets(clipRunes(strings.TrimSpace(e.Label), 4*actionLabelMax)), actionLabelMax)
+	e.Result = clipRunes(redactSecrets(clipRunes(strings.TrimSpace(e.Result), 4*actionResultMax)), actionResultMax)
 	raw, err := json.Marshal(e)
 	if err != nil {
 		return
