@@ -67,7 +67,15 @@ var (
 	pVerQueryValueW          = verDLL.NewProc("VerQueryValueW")
 )
 
+// messageBox pose une question ou donne une information à l'utilisateur. Elle
+// passe par la boîte de dialogue MODERNE de Windows (taskDialog), nette à toutes
+// les échelles d'écran ; l'ancienne MessageBox, floue et datée sur un écran à
+// 150 ou 200 %, ne sert plus que de repli. Le premier paragraphe du texte devient
+// le titre de la boîte, le reste son contenu.
 func messageBox(text, title string, flags uintptr) int {
+	if r, ok := taskDialog(text, title, flags); ok {
+		return r
+	}
 	t, _ := syscall.UTF16PtrFromString(text)
 	c, _ := syscall.UTF16PtrFromString(title)
 	r, _, _ := pMessageBoxW.Call(0, uintptr(unsafe.Pointer(t)), uintptr(unsafe.Pointer(c)), flags|mbTopmost)
@@ -117,13 +125,13 @@ func appFirstRun() bool {
 		// Échec le plus courant : pas les droits sur %ProgramData%. AJEAN reste
 		// parfaitement utilisable depuis son emplacement actuel, le dossier de
 		// données étant ailleurs — on démarre donc au lieu d'abandonner.
-		messageBox("Installation impossible :\n\n"+err.Error()+"\n\nAJEAN va démarrer depuis l'emplacement actuel.", "AJEAN", mbIconInfo)
+		messageBox("Installation impossible\n\n"+err.Error()+"\n\nAJEAN va démarrer depuis l'emplacement actuel.", "AJEAN", mbIconInfo)
 		return false
 	}
 	_, _ = addToUserPath(filepath.Dir(target))
 	shortcuts := ensureShortcuts(target)
 
-	messageBox("AJEAN est installé.\n\n"+target+"\n\n"+shortcuts+
+	messageBox("AJEAN est installé\n\n"+target+"\n\n"+shortcuts+
 		"\n\nL'application va démarrer. Vous pouvez supprimer le fichier téléchargé.",
 		"AJEAN", mbIconInfo)
 
@@ -175,6 +183,13 @@ func hashFile(p string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
+// allowForeground : le processus qui vient d'être cliqué a le droit de passer au
+// premier plan ; celui qu'il lance en arrière-plan ne l'a pas, et Windows se
+// contente alors de faire clignoter sa fenêtre dans la barre des tâches. On le
+// lui transmet avant de le lancer, pour que la fenêtre d'AJEAN s'affiche pour de
+// bon après une installation ou une mise à jour.
+func allowForeground() { u32s.NewProc("AllowSetForegroundWindow").Call(^uintptr(0)) } // ASFW_ANY
+
 // launch démarre la copie installée et demande à l'appelant de rendre la main.
 // Renvoie false si le lancement échoue, auquel cas l'exécutable courant prend le
 // relais : mieux vaut démarrer depuis le mauvais dossier que pas du tout.
@@ -188,6 +203,7 @@ func launch(target string) bool {
 	// une console à l'enfant et on verrait une fenêtre noire apparaître. Comme
 	// « app » est passé explicitement, l'absence de console ne gêne pas la
 	// détection du mode application.
+	allowForeground()
 	cmd := hideCmd(exec.Command(target, "app"))
 	cmd.Dir = filepath.Dir(target)
 	return cmd.Start() == nil
@@ -224,12 +240,9 @@ func runAsInstaller(target string) bool {
 		// serait une régression silencieuse, et démarrer sans rien dire laisserait
 		// croire qu'on utilise la version qu'on vient de télécharger.
 		if messageBox(
-			"Une version plus récente d'AJEAN est déjà installée sur cet ordinateur.\n\n"+
-				"    installée : "+installed+"\n"+
-				"    ce fichier : "+Version+"\n\n"+
-				"Rien ne sera remplacé.\n\n"+
-				"Voulez-vous démarrer AJEAN (version "+installed+") ?\n"+
-				"Répondre Non ferme simplement cette fenêtre.",
+			"Démarrer AJEAN "+installed+" ?\n\n"+
+				"Une version plus récente que ce fichier ("+Version+") est déjà installée sur cet ordinateur. Rien ne sera remplacé.\n\n"+
+				"Non ferme simplement cette fenêtre.",
 			"AJEAN", mbYesNo|mbIconQuestion) != idYes {
 			return true // rien à faire, on quitte sans démarrer
 		}
@@ -241,19 +254,22 @@ func runAsInstaller(target string) bool {
 		// sans redémarrer ne changerait RIEN à ce que l'utilisateur a sous les
 		// yeux : l'onglet qui s'ouvrirait serait servi par l'ancienne version. On
 		// pose donc la seule question qui compte.
-		if messageBox(
-			"AJEAN est déjà en cours d'exécution.\n\n"+
-				"    version en cours : "+verLabel(installed)+"\n"+
-				"    ce fichier : "+Version+" (plus récente)\n\n"+
-				"Fermer AJEAN et le redémarrer pour appliquer la mise à jour ?\n\n"+
-				"Répondre Non ouvre AJEAN dans sa version actuelle, sans rien mettre à jour.",
-			"Mise à jour d'AJEAN", mbYesNo|mbIconQuestion) != idYes {
+		question := "Mettre à jour AJEAN en version " + Version + " ?\n\n" +
+			"AJEAN est en cours d'exécution (version " + verLabel(installed) + "). Il sera fermé, mis à jour, puis relancé.\n\n" +
+			"Non garde la version actuelle."
+		if installed == Version {
+			// Même numéro, fichier différent (préversion republiée, build de test).
+			question = "Remplacer AJEAN " + Version + " par ce fichier ?\n\n" +
+				"AJEAN est en cours d'exécution, dans une autre copie de la version " + Version + ". Il sera fermé, remplacé, puis relancé.\n\n" +
+				"Non garde la copie actuelle."
+		}
+		if messageBox(question, "Mise à jour d'AJEAN", mbYesNo|mbIconQuestion) != idYes {
 			ensureShortcuts(target)
 			return launch(target) // l'instance en cours reprend la main (port occupé)
 		}
 		stopProcesses(running)
 		if err := replaceInstalled(target); err != nil {
-			messageBox("La mise à jour a échoué :\n\n"+err.Error()+"\n\nAJEAN va redémarrer dans sa version actuelle.",
+			messageBox("La mise à jour a échoué\n\n"+err.Error()+"\n\nAJEAN va redémarrer dans sa version actuelle.",
 				"AJEAN", mbIconInfo)
 		}
 		ensureShortcuts(target)

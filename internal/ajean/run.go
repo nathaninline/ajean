@@ -70,6 +70,8 @@ func Main() {
 		mustExit(cmdChat(args))
 	case "export":
 		mustExit(cmdExport(args))
+	case "dialog-test": // banc d'essai de la boîte de dialogue de mise à jour (Windows)
+		mustExit(cmdDialogTest(args))
 	case "window-icon": // banc d'essai de l'icône de fenêtre (Windows)
 		mustExit(cmdWindowIcon(args))
 	case "cu-probe": // banc d'essai des outils du navigateur, sans modèle
