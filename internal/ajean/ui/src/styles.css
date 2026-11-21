@@ -2818,7 +2818,8 @@ button.th-head:hover{background:var(--t1)}
   text-align:left;justify-content:flex-start;box-shadow:none;transition:color .15s ease}
 .slist>.switchrow.sw-action:hover{background:transparent;color:var(--text)}
 .slist>.rowbody.mcp-body{padding:8px 10px}
-.slist>.switchrow+.rowbody.mcp-body{border-top:1px solid var(--border)}
+/* la ligne au-dessus porte déjà son trait du bas : pas de second trait */
+.slist>.switchrow+.rowbody.mcp-body{border-top:0}
 
 /* Ligne « libellé + valeur » (adresses, clé API) : valeur en texte, pas de
    champ encadré ; copie et liens discrets à droite. */
