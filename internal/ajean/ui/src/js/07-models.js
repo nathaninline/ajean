@@ -1048,7 +1048,10 @@ function populateSettings(){
                            : t('models.settings.reasoning_sub_unset');
   }
   chk('s-kvunified', eaHasFlag('--kv-unified'));
-  chk('s-flash', eaHasFlag('--flash-attn') && !/^off$/i.test(eaGetValued('--flash-attn')));
+  // Trois états : off, on (argument présent, y compris sans valeur comme sur un
+  // ancien moteur), sinon auto.
+  { const has = eaHasFlag('--flash-attn'), fa = has ? eaGetValued('--flash-attn').toLowerCase() : '';
+    set('s-flash', fa === 'off' ? 'off' : (has && fa !== 'auto' ? 'on' : '')); }
   set('s-loadmode', eaLoadMode());
   syncLoadModeSub(eaLoadMode());
   chk('s-mmproj-cpu', eaHasFlag('--no-mmproj-offload'));

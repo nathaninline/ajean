@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -300,8 +301,6 @@ func cmdServe(args []string) error {
 		"-m", model,
 		"-ngl", get("NGL", "999"),
 		"-c", get("CTX", "32768"),
-		"-t", get("THREADS", "0"),
-		"-tb", get("THREADS_BATCH", "0"),
 		"-b", get("BATCH", "2048"),
 		"-ub", get("UBATCH", "512"),
 		// Une seule séquence par défaut : au-delà, llama-server DIVISE le contexte
@@ -312,6 +311,15 @@ func cmdServe(args []string) error {
 		"-np", get("NP", "1"),
 		"--host", get("HOST", "0.0.0.0"),
 		"--port", get("PORT", "8080"),
+	}
+	// Threads : on ne les passe que si le preset en fixe. « 0 » passé tel quel
+	// fait prendre à llama-server TOUS les cœurs logiques, alors que sans
+	// l'argument il choisit lui-même (les cœurs performants sur un processeur
+	// hybride), ce qui est plus rapide. Comme Ollama : sans réglage, le moteur décide.
+	for _, kf := range [][2]string{{"THREADS", "-t"}, {"THREADS_BATCH", "-tb"}} {
+		if n, err := strconv.Atoi(strings.TrimSpace(cfg[kf[0]])); err == nil && n > 0 {
+			llmArgs = append(llmArgs, kf[1], strconv.Itoa(n))
+		}
 	}
 	if ktv != "" {
 		llmArgs = append(llmArgs, "-ctk", ktv)

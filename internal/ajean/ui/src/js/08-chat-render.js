@@ -550,6 +550,16 @@ function renderToolMsg(el, tu){
     machines_use: {ico:'monitor', lbl:t('chat.tool.machines_use_lbl'),   head:t('chat.tool.machines_use_head')},
     tracker:    {ico:'trend',     lbl:t('chat.tool.tracker_lbl'),        head:t('chat.tool.tracker_head')},
     app:        {ico:'app',       lbl:appToolActLabel(tu.label), head:'app'},
+    jean_read:     {ico:'db', lbl:t('chat.tool.jean_read_lbl'), head:t('chat.tool.jeanmem_head')},
+    jean_search:   {ico:'db', lbl:t('chat.tool.jean_search_lbl'), head:t('chat.tool.jeanmem_head')},
+    jean_save:     {ico:'db', lbl:t('chat.tool.jean_save_lbl'), head:t('chat.tool.jeanmem_head')},
+    jean_patch:    {ico:'db', lbl:t('chat.tool.jean_patch_lbl'), head:t('chat.tool.jeanmem_head')},
+    jean_merge:    {ico:'db', lbl:t('chat.tool.jean_merge_lbl'), head:t('chat.tool.jeanmem_head')},
+    jean_lesson:   {ico:'db', lbl:t('chat.tool.jean_lesson_lbl'), head:t('chat.tool.jeanmem_head')},
+    jean_remember: {ico:'db', lbl:t('chat.tool.jean_remember_lbl'), head:t('chat.tool.jeanmem_head')},
+    jean_forget:   {ico:'db', lbl:t('chat.tool.jean_forget_lbl'), head:t('chat.tool.jeanmem_head')},
+    jean_note:     {ico:'db', lbl:t('chat.tool.jean_note_lbl'), head:t('chat.tool.jeanmem_head')},
+    jean_rule:     {ico:'db', lbl:t('chat.tool.jean_rule_lbl'), head:t('chat.tool.jeanmem_head')},
   };
   // Outils MCP (nom mcp__<serveur>__<outil>) : en-tête = nom du serveur, libellé lisible,
   // pas le fallback générique. On extrait serveur et outil du nom namespacé.

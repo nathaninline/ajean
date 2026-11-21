@@ -51,7 +51,7 @@ func taskCreateTool() Tool {
 				"properties": map[string]any{
 					"name":   map[string]any{"type": "string"},
 					"prompt": map[string]any{"type": "string", "description": "AI task: self-contained instruction to run each time (omit if using script)"},
-					"script": map[string]any{"type": "string", "description": "Script task: name of a script file you put in the scripts folder, run each time with no AI involved"},
+					"script": map[string]any{"type": "string", "description": "Script task (no AI): a file in the scripts folder. Jean: its non-empty stdout is posted to the user"},
 					// Le format du schedule est le seul point que le modèle ne peut pas
 					// deviner : il vit ici, dans le paramètre, pas dans la phrase de l'outil.
 					"schedule":   map[string]any{"type": "string", "description": "Repeating: \"@every 2h\" (interval), \"@every 1d@09:00\" (daily time), or a 5-field cron \"min hour dom mon dow\". Omit for a one-time task (use in_minutes or at)"},

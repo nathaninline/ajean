@@ -298,6 +298,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .rowlist>.preset{overflow:hidden}
 .rowlist>.preset.active::before,.rowlist>.preset.pending::before{content:"";position:absolute;
   left:0;top:0;bottom:0;width:3px;background:var(--text)}
+/* Preset choisi mais moteur arrêté : repéré par un trait estompé, sans le fond ni
+   le gras du preset qui tourne. */
+.rowlist>.preset.chosen{position:relative}
+.rowlist>.preset.chosen::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--dim);opacity:.45}
 /* La liste est REDESSINÉE à chaque rafraîchissement : une transition ne jouerait
    pas (l'élément vient de naître), d'où des @keyframes d'entrée. Le liseré entre
    en glissant depuis la gauche, le voile et la puce arrivent en fondu.
@@ -2005,8 +2009,11 @@ button,input,select,textarea{font-family:inherit;font-feature-settings:inherit}
 .mm-t{display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0}
 /* Projets : seule la liste défile (fondu en bas), ⋮ par ligne */
 #proj-menu{min-width:220px;overflow:hidden;padding:6px}
-#proj-menu .pm-list{flex:1 1 auto;min-height:0;overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain;
-  -webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 14px),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 14px),transparent)}
+#proj-menu .pm-list{flex:1 1 auto;min-height:0;overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain}
+/* Fondu du bas : seulement quand la liste DÉFILE (classe posée par pmFade). Posé
+   en permanence, il effaçait le bas de la ligne sélectionnée dès qu'il n'y avait
+   qu'un ou deux projets. */
+#proj-menu .pm-list.fade{-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 14px),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 14px),transparent)}
 #proj-menu .pm-list::-webkit-scrollbar{width:0;height:0}
 .pm-row{position:relative;display:flex;align-items:center}
 .pm-row+.pm-row{margin-top:1px}
@@ -2946,6 +2953,19 @@ body.voice-ready.jean-mode:not(.jean-history) .jst-voice{display:flex}
   padding:6px 14px;border-radius:999px;background:var(--row-bg);color:var(--dim);font-size:13px;pointer-events:none;cursor:pointer;opacity:0;transition:opacity .25s,transform .25s}
 .jst-voice-st.in{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 body:not(.jean-mode) .jst-voice-st,body.jean-history .jst-voice-st{display:none}
+/* Mémoire de Jean rangée en arrière-plan (25-jean-memory-activity.js). */
+#jean-mem-pill{position:absolute;top:18px;left:50%;z-index:8;display:flex;align-items:center;gap:7px;max-width:min(560px,80%);
+  padding:6px 13px;border-radius:999px;background:var(--row-bg);color:var(--dim);font-size:12px;cursor:pointer;
+  opacity:0;pointer-events:none;transform:translate(-50%,-6px);transition:opacity .25s ease,transform .25s var(--ease)}
+#jean-mem-pill.show{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
+#jean-mem-pill svg{flex:none}
+#jean-mem-pill .jmp-txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#jean-mem-pill.working .jmp-txt{background:linear-gradient(90deg,var(--dim) 0%,var(--dim) 30%,var(--text) 50%,var(--dim) 70%,var(--dim) 100%);
+  background-size:300% 100%;background-repeat:no-repeat;-webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:transparent;animation:labelshimmer 2s linear infinite}
+@media (prefers-reduced-motion:reduce){#jean-mem-pill.working .jmp-txt{animation:none}}
+/* Durée de travail dans le bouton Arrêter de la scène de Jean. */
+.jst-cap-stop .cs-t{font-variant-numeric:tabular-nums}
 body.jean-voice #jean-stage .jst-input{display:none}
 
 
@@ -3091,7 +3111,7 @@ audio.jf-media{width:min(520px,100%);margin-top:18vh}
 /* Dictée vocale : pastille ronde à droite du sélecteur de mode. */
 #mic-btn{flex:none;width:26px;height:26px;min-height:26px;padding:0;margin:0 0 0 -6px;display:flex;align-items:center;justify-content:center;
   border:none;border-radius:999px;background:var(--t2);color:var(--dim);transition:color .16s ease,background .16s ease}
-#mic-btn:hover{color:var(--text)}
+#mic-btn:hover,.jst-mic:hover{color:var(--text)}
 .mic-btn svg{display:block}
 .mic-btn.rec{background:var(--text);color:var(--bg);animation:mic-pulse 1.2s ease-in-out infinite}
 .mic-btn.busy{color:var(--text);opacity:.6;pointer-events:none}
@@ -3107,10 +3127,11 @@ audio.jf-media{width:min(520px,100%);margin-top:18vh}
 .mic-btn.wave{gap:6px;animation:none}
 /* Élargissement animé comme la bulle du sélecteur de mode (largeur bornée qui
    glisse) ; la largeur fixe sur #id l'emportait sur la classe .wave. */
-#mic-btn{width:auto;overflow:hidden;white-space:nowrap;
+#mic-btn,.jst-mic{width:auto;overflow:hidden;white-space:nowrap;
   transition:max-width .32s var(--ease),padding .32s var(--ease),background .16s ease,color .16s ease}
 #mic-btn{min-width:26px;max-width:26px}
-#mic-btn.wave{max-width:190px;padding:0 10px}
+.jst-mic{min-width:36px;max-width:36px}
+#mic-btn.wave,.jst-mic.wave{max-width:190px;padding:0 10px}
 .mic-btn.wave .mic-rec{animation:mic-fade .24s ease .08s both}
 @keyframes mic-fade{from{opacity:0}to{opacity:1}}
 .mic-btn.wave>svg:not(.mic-stop){display:none}
@@ -3118,6 +3139,9 @@ audio.jf-media{width:min(520px,100%);margin-top:18vh}
 .mic-rec canvas{display:block}
 .mic-rec .mic-time{font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .sw-txtin{gap:6px}
+/* Micro du plein écran du mode Jean, avant la flèche d'envoi. */
+.jst-mic{flex:none;align-self:flex-end;margin:0 0 9px;padding:0;height:36px;min-height:36px;border:none;border-radius:999px;
+  background:var(--t2);color:var(--dim);cursor:pointer;display:flex;align-items:center;justify-content:center}
 /* Pendant l'enregistrement, le micro devient un carré « stop ». */
 .mic-btn>.mic-stop{display:none}
 .mic-btn.rec>svg:not(.mic-stop){display:none}

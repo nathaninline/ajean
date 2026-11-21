@@ -3,6 +3,8 @@
 package ajean
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -22,6 +24,24 @@ import (
 // le coffre s'est reverrouillé — il relance alors le déverrouillage automatique
 // sans qu'on ait à rafraîchir la page. Voir loadStatus côté UI.
 var procBoot = time.Now().UnixMilli()
+
+// uiBuildID : empreinte de l'interface embarquée dans ce binaire. Deux builds
+// peuvent porter le même numéro de version (préversion republiée, build de
+// test) : la page compare cette empreinte, pas seulement la version, pour savoir
+// qu'elle doit se recharger après un remplacement d'AJEAN.
+var (
+	uiBuildOnce sync.Once
+	uiBuildVal  string
+)
+
+func uiBuildID() string {
+	uiBuildOnce.Do(func() {
+		b, _ := uiFS.ReadFile("ui/index.html")
+		sum := sha256.Sum256(b)
+		uiBuildVal = hex.EncodeToString(sum[:6])
+	})
+	return uiBuildVal
+}
 
 func handlePing(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"ok": true, "service": "ajean", "version": Version})
@@ -90,6 +110,8 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 		"preset":      activePresetID(),   // id du preset actif : un autre appareil a pu basculer, l'UI se resynchronise sans reload (voir loadStatus)
 		"external":    external,           // preset actif = API OpenAI-compatible distante (pas de moteur local)
 		"cloud_phase": cloudPhaseActive(), // GPU Cloud : deploying|sleeping|downloading|loading|ready|error ("" hors cloud)
+		"ui":          uiBuildID(),        // empreinte de l'interface servie : si elle change, la page ouverte est périmée et se recharge
+		"jean_mem":    jeanActivityGet(),  // mémoire de Jean rangée en arrière-plan (jean_activity.go)
 		// Anciens drapeaux --mlock/--no-mmap présents alors que le moteur attend
 		// --load-mode (llama.cpp récent) : l'UI propose un bouton de mise à jour.
 		// Le serveur démarre quand même (traduits au lancement) — c'est un nettoyage.
@@ -682,7 +704,16 @@ func handlePresetDelete(w http.ResponseWriter, r *http.Request) {
 	deletePresetSysPrompt(req.ID) // nettoie le prompt système associé
 	modelDeleted, modelErr := "", ""
 	if req.DeleteModel && model != "" {
-		if err := deleteModelFile(model); err != nil {
+		// Le moteur vient peut-être d'être arrêté (preset actif) : Windows garde le
+		// fichier verrouillé un instant après la fin du processus, on réessaie.
+		var err error
+		for i := 0; i < 8; i++ {
+			if err = deleteModelFile(model); err == nil {
+				break
+			}
+			time.Sleep(400 * time.Millisecond)
+		}
+		if err != nil {
 			modelErr = err.Error()
 		} else {
 			modelDeleted = model

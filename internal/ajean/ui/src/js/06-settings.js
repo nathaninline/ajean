@@ -60,7 +60,9 @@ async function loadPresets(){
   p.forEach((x,i)=>{
     const row=document.createElement('div');
     const pend = !x.active && pendingPreset===i+1;
-    row.className='preset'+(x.active?' active':'')+(pend?' pending':'')+(moved?' sel-anim':'');
+    // « actif » = ce preset TOURNE. Moteur arrêté, le preset choisi reste repéré
+    // (classe « chosen », discrète) : c'est lui qui démarrera, mais il ne tourne pas.
+    row.className='preset'+(x.active?(ENGINE_ON===false?' chosen':' active'):'')+(pend?' pending':'')+(moved?' sel-anim':'');
     // Réordonnable à la souris (SortableJS, init plus bas). data-id sert à relire
     // l'ordre après un déplacement.
     row.dataset.id = x.id;

@@ -473,7 +473,18 @@ func SavePreset(id, name, content string) (string, error) {
 	return id, nil
 }
 
-// DeletePreset removes a preset by id; refuses if it is the active config.
+// presetStopEngine arrête le moteur du preset qu'on supprime. Variable : les
+// tests la remplacent pour ne toucher à aucun service.
+var presetStopEngine = func() {
+	if serviceIsActive() {
+		_ = serviceAction("stop")
+	}
+}
+
+// DeletePreset supprime un preset par son id. Le preset ACTIF se supprime aussi :
+// on arrête d'abord son moteur et on vide la configuration qu'il avait posée
+// (seuls les réglages de l'appareil et de la machine restent). Le refuser
+// obligeait à créer un second preset rien que pour pouvoir supprimer le premier.
 func DeletePreset(id string) error {
 	p, err := safePresetPath(id)
 	if err != nil {
@@ -483,8 +494,22 @@ func DeletePreset(id string) error {
 	if err != nil {
 		return fmt.Errorf("introuvable")
 	}
-	if presetFingerprint(target) == configFingerprint(ReadConfig()) {
-		return fmt.Errorf("preset actif, switche d'abord")
+	cur := ReadConfig()
+	if presetFingerprint(target) == configFingerprint(cur) || getStr(bkState, "active_preset") == id {
+		presetStopEngine()
+		// Restent les réglages de l'appareil, et ceux de la MACHINE qu'un nouveau
+		// preset reprend (newPresetSeedKeys : BIN, HOST, PORT). Sans BIN, le preset
+		// créé ensuite n'aurait plus de moteur (voir externalPresetWithMachine).
+		keep := map[string]string{}
+		for _, k := range append(append([]string{}, preservedKeys...), newPresetSeedKeys...) {
+			if v, ok := cur[k]; ok {
+				keep[k] = v
+			}
+		}
+		if err := WriteConfig(keep); err != nil {
+			return err
+		}
+		_ = putStr(bkState, "active_preset", "")
 	}
 	if err := os.Remove(p); err != nil {
 		return err

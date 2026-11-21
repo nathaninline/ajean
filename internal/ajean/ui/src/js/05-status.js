@@ -1,6 +1,36 @@
 // Étape du GPU Cloud du preset actif (voir cloudPhase côté serveur), "" sinon.
 let CLOUD_PHASE = '';
 let LAST_BOOT=null; // empreinte de démarrage du serveur vue au dernier poll
+let SEEN_VERSION=null; // version du serveur qui a servi cette page
+let SEEN_UI=null;      // empreinte de l'interface qui a servi cette page
+// ENGINE_ON : le moteur (ou l'API du preset) est-il en service ? null tant que
+// /api/status n'a pas répondu. La liste des presets s'en sert pour ne pas montrer
+// comme « actif » un preset dont le moteur est arrêté.
+let ENGINE_ON=null;
+// Recharge la page pour charger l'interface de la nouvelle version. Si un message
+// est en cours de saisie, on ne le fait pas perdre : le bandeau du bas propose le
+// rechargement, et il se fera au prochain passage sans texte dans le champ.
+function reloadForNewVersion(v){
+  const ta=document.getElementById('input');
+  if(ta && ta.value.trim()){
+    const box=document.getElementById('app-update');
+    if(box){
+      box.innerHTML='<span class="au-dot"></span><span>'+t('update.reload_prefix')+' <b>v'+escHtml(v)+'</b> '+t('update.reload_suffix')+'</span>';
+      box.hidden=false; box.onclick=(e)=>{ e.stopPropagation(); location.reload(); };
+    }
+    return;
+  }
+  location.reload();
+}
+// Après une mise à jour lancée d'ici : attend que le serveur relancé réponde dans
+// sa nouvelle version, puis recharge la page. Sans réponse en 2 minutes, on rend
+// la main au sondage habituel (qui rechargera dès que la version change).
+async function waitNewVersionThenReload(v){
+  for(let i=0;i<120;i++){
+    await new Promise(r=>setTimeout(r,1000));
+    try{ const s=await jget('/api/status'); if(s && s.version===v){ location.reload(); return; } }catch(_){}
+  }
+}
 let LAST_PRESET=null; // id du preset actif vu au dernier poll (détecte une bascule faite ailleurs)
 async function loadStatus(){
   if(document.hidden) return; // onglet en arrière-plan : on met le sondage en pause (palier 1)
@@ -25,6 +55,15 @@ async function loadStatus(){
     }
     LAST_BOOT=s.boot;
   }
+  const engineOn=!!s.active;
+  if(engineOn!==ENGINE_ON){
+    const first=ENGINE_ON===null;
+    ENGINE_ON=engineOn;
+    // Démarrage ou arrêt du moteur : la liste des presets change d'aspect.
+    if((!first || !engineOn) && typeof loadPresets==='function') loadPresets();
+  }
+  // Mémoire de Jean rangée en arrière-plan : pastille du mode Jean (25-jean-memory-activity.js).
+  if(typeof jeanMemActivity==='function') jeanMemActivity(s.jean_mem);
   const el=document.getElementById('status-svc');
   // Trois états : service coupé (err) · service actif mais modèle pas encore
   // chargé (loading, llama-server renvoie 503) · modèle prêt (ok).
@@ -58,6 +97,20 @@ async function loadStatus(){
   STATUS_SEEN = true;
   if(typeof syncSendBtn==='function') syncSendBtn();
   if(s.ctx){ CTX_MAX=s.ctx; updateCtxMeter(); }
+  // Le serveur n'est plus à la version qui a servi cette page (mise à jour
+  // d'AJEAN, puis redémarrage) : l'interface affichée est l'ANCIENNE, et ses
+  // appels ne correspondent plus au nouveau serveur. On recharge la page pour
+  // prendre la nouvelle interface — sauf pendant une saisie, où l'on prévient.
+  if(s.version){
+    if(SEEN_VERSION && s.version!==SEEN_VERSION){ reloadForNewVersion(s.version); return; }
+    SEEN_VERSION=s.version;
+  }
+  // Même numéro de version mais interface différente (AJEAN remplacé par un autre
+  // build) : l'empreinte de l'interface servie le révèle.
+  if(s.ui){
+    if(SEEN_UI && s.ui!==SEEN_UI){ reloadForNewVersion(s.version||''); return; }
+    SEEN_UI=s.ui;
+  }
   if(s.version){
     document.getElementById('ver').textContent='v'+s.version;
   }
@@ -138,10 +191,23 @@ async function checkAppUpdate(){
   if(!box) return;
   let r;
   try{ r=await jget('/api/update'); }catch(e){ return; } // hors-ligne / GitHub injoignable
+  if(_updBusy) return; // une mise à jour est en cours : le bandeau montre sa progression
   if(!r || r.error || !r.available || !r.latest){ box.hidden=true; return; }
   box.innerHTML='<span class="au-dot"></span><span>'+t('update.banner_prefix')+' <b>v'+escHtml(r.latest)+'</b> '+t('update.banner_suffix')+'</span>';
   box.hidden=false;
 }
+// La vérification ne se faisait qu'au chargement de la page : une fenêtre AJEAN
+// laissée ouverte plusieurs jours ne voyait jamais passer une nouvelle version.
+// On revérifie toutes les trois heures, et au retour sur la fenêtre après une
+// longue absence (le serveur garde la réponse de GitHub 30 minutes).
+let _updCheckedAt=Date.now();
+function recheckUpdates(){
+  if(document.hidden || Date.now()-_updCheckedAt < 3*60*60*1000) return;
+  _updCheckedAt=Date.now();
+  checkServerFreshness(); checkAppUpdate();
+}
+setInterval(recheckUpdates, 10*60*1000);
+document.addEventListener('visibilitychange', recheckUpdates);
 
 // Clic sur le bandeau de MAJ (bas du menu) : on lance l'installation, après
 // confirmation (elle redémarre le service). La progression s'affiche dans le
@@ -232,7 +298,7 @@ async function applyUpdate(boxId){
       if(msg) msg.innerHTML='✓ '+t('status.installed_prefix')+' <b>v'+escHtml(r.version)+'</b>.<br>'+(r.restart||'');
       // Redémarrage auto du service côté serveur : le flux va se couper puis
       // reconnecter tout seul (connectStream boucle). On rafraîchit l'état après.
-      if(r.restarting){ toast(t('status.update_applied_toast')); setTimeout(loadAll, 6000); }
+      if(r.restarting){ toast(t('status.update_applied_toast')); waitNewVersionThenReload(r.version); }
     }
     else if(msg){ msg.textContent=t('status.failed_prefix')+' '+(r.error||t('status.unknown')); }
   }catch(e){ if(msg) msg.textContent=t('status.update_error'); }
