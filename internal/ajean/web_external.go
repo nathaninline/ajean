@@ -6,13 +6,15 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
 )
 
 // web_external.go — endpoints /api/preset/external/* : lire, enregistrer et
-// tester un preset « externe » (API OpenAI-compatible distante). L'UI les pilote
+// tester un preset « externe » (API OpenAI-compatible distante, ou preset
+// Service : une commande lancée sur cette machine, backend_service.go). L'UI les pilote
 // depuis la modale ouverte par le bouton wifi, à gauche du « + » des presets.
 
 // handlePresetExternal renvoie les champs d'un preset externe pour préremplir la
@@ -44,6 +46,11 @@ func handlePresetExternal(w http.ResponseWriter, r *http.Request) {
 		"ctx":    strings.TrimSpace(cfg["CTX"]),
 		"vision": strings.TrimSpace(cfg[extKeyVision]) == "1",
 		"hasKey": strings.TrimSpace(cfg[extKeyToken]) != "",
+		// Preset Service : la commande lancée par AJEAN (vide = simple API).
+		"service": serviceCmdOf(cfg) != "",
+		"cmd":     strings.TrimSpace(cfg[svcKeyCmd]),
+		"workdir": strings.TrimSpace(cfg[svcKeyWorkdir]),
+		"env":     strings.TrimSpace(cfg[svcKeyEnv]),
 	})
 }
 
@@ -60,7 +67,16 @@ type externalSaveReq struct {
 	Vision     bool   `json:"vision"`     // le modèle distant accepte les images
 	KeyTouched bool   `json:"keyTouched"` // l'utilisateur a modifié le champ clé
 	Effort     string `json:"effort"`     // niveau de réflexion (test de connexion)
+	// Preset Service : une commande lancée par AJEAN, qui expose l'API sur cette
+	// machine. URL vide = déduite du port de la commande ; clé vide = celle de son
+	// --api-key ; modèle vide = le premier annoncé par l'API.
+	Service bool   `json:"service"`
+	Cmd     string `json:"cmd"`
+	Workdir string `json:"workdir"`
+	Env     string `json:"env"`
 }
+
+var reCmdNewline = regexp.MustCompile(`[ \t]*\r?\n[ \t]*`)
 
 func handlePresetExternalSave(w http.ResponseWriter, r *http.Request) {
 	var req externalSaveReq
@@ -75,11 +91,31 @@ func handlePresetExternalSave(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "nom requis"})
 		return
 	}
+	req.Cmd = strings.TrimSpace(reCmdNewline.ReplaceAllString(req.Cmd, " ")) // collée sur plusieurs lignes : une seule
+	if req.Service {
+		if req.Cmd == "" {
+			sendJSON(w, 400, map[string]any{"ok": false, "error": "commande requise"})
+			return
+		}
+		if _, err := parseServiceEnv(req.Env); err != nil {
+			sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		if req.URL == "" {
+			req.URL = serviceURLFromCommand(req.Cmd)
+		}
+		if req.URL == "" {
+			sendJSON(w, 400, map[string]any{"ok": false, "error": "adresse de l'API requise : la commande n'indique pas de port (--port)"})
+			return
+		}
+	} else {
+		req.Cmd = ""
+	}
 	if req.URL == "" {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "URL requise"})
 		return
 	}
-	if req.Model == "" {
+	if req.Model == "" && !req.Service {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "modèle requis"})
 		return
 	}
@@ -95,6 +131,17 @@ func handlePresetExternalSave(w http.ResponseWriter, r *http.Request) {
 	// Réglages de MACHINE repris dans le preset : sans eux, la bascule vers ce
 	// preset effaçait BIN de la config vive (voir externalMachineKeys).
 	content = externalPresetWithMachine(content, externalMachineKeys(req.ID))
+	if req.Service {
+		m := parseEnv(content)
+		m[svcKeyCmd] = req.Cmd
+		if v := strings.TrimSpace(req.Workdir); v != "" {
+			m[svcKeyWorkdir] = v
+		}
+		if v := strings.TrimSpace(req.Env); v != "" {
+			m[svcKeyEnv] = v
+		}
+		content = formatEnv(m)
+	}
 	// EXTERNAL_SERVICE n'a pas de champ dans la modale : une édition le conserve.
 	if req.ID != "" {
 		if old, err := ReadPreset(req.ID); err == nil {
@@ -108,7 +155,7 @@ func handlePresetExternalSave(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	sendJSON(w, 200, map[string]any{"ok": true, "id": newID, "name": req.Name})
+	sendJSON(w, 200, map[string]any{"ok": true, "id": newID, "name": req.Name, "url": req.URL})
 }
 
 // handlePresetExternalTest tente un appel de complétion minimal vers l'endpoint
@@ -120,17 +167,30 @@ func handlePresetExternalTest(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	url := completionsURL(req.URL)
-	model := strings.TrimSpace(req.Model)
-	if url == "" || model == "" {
-		sendJSON(w, 200, map[string]any{"ok": false, "error": "URL et modèle requis"})
-		return
-	}
 	key := strings.TrimSpace(req.Key)
 	if key == "" && req.ID != "" && !req.KeyTouched {
 		if content, err := ReadPreset(req.ID); err == nil {
 			key = strings.TrimSpace(parseEnv(content)[extKeyToken])
 		}
+	}
+	// Preset Service : adresse et clé déduites de la commande, modèle = le premier
+	// annoncé par l'API quand il n'est pas nommé.
+	if req.Service {
+		if strings.TrimSpace(req.URL) == "" {
+			req.URL = serviceURLFromCommand(req.Cmd)
+		}
+		if key == "" {
+			key = serviceKeyFromCommand(req.Cmd)
+		}
+	}
+	url := completionsURL(req.URL)
+	model := strings.TrimSpace(req.Model)
+	if model == "" && req.Service && url != "" {
+		model = serviceFirstModel(map[string]string{extKeyFlag: "1", extKeyURL: req.URL, extKeyToken: key})
+	}
+	if url == "" || model == "" {
+		sendJSON(w, 200, map[string]any{"ok": false, "error": "URL et modèle requis"})
+		return
 	}
 	payload := map[string]any{
 		"model":      model,
@@ -229,6 +289,15 @@ func handlePresetExternalModels(w http.ResponseWriter, r *http.Request) {
 	if key == "" && req.ID != "" && !req.KeyTouched {
 		if content, err := ReadPreset(req.ID); err == nil {
 			key = strings.TrimSpace(parseEnv(content)[extKeyToken])
+		}
+	}
+	// Preset Service déjà lancé : adresse et clé déduites de sa commande.
+	if req.Service {
+		if strings.TrimSpace(req.URL) == "" {
+			req.URL = serviceURLFromCommand(req.Cmd)
+		}
+		if key == "" {
+			key = serviceKeyFromCommand(req.Cmd)
 		}
 	}
 	models, err := externalModels(r.Context(), req.URL, key)

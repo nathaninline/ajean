@@ -35,6 +35,17 @@ func preflightEngine() error {
 	if usesRemoteEndpoint(cfg) {
 		return nil
 	}
+	// Preset Service : on vérifie que le programme de la commande existe et que
+	// l'adresse de son API est connue.
+	if cmd := serviceCmdOf(cfg); cmd != "" {
+		if _, _, err := serviceProgram(cmd); err != nil {
+			return err
+		}
+		if extBaseURL(cfg) == "" {
+			return fmt.Errorf("adresse de l'API du service inconnue : la commande n'indique pas de port (--port), renseigne l'adresse dans le preset")
+		}
+		return nil
+	}
 	// Moteur MoE : ni BIN ni MODEL, il lance son propre serveur (serveMoe).
 	if isMoeConfig(cfg) {
 		_, _, err := moePreflight(cfg)

@@ -2060,6 +2060,9 @@ func healthCheck() bool {
 	cfg := ReadConfig()
 	if isCloudConfig(cfg) {
 		return cloudReady(cfg)
+	} else if serviceCmdOf(cfg) != "" {
+		// Preset Service : une API sur cette machine, prête quand elle répond.
+		return serviceCmdReady(cfg)
 	} else if isExternalConfig(cfg) {
 		return true
 	}

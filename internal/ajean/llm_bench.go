@@ -50,7 +50,13 @@ Le cuisinier ferme les yeux pour goûter la sauce. Trop salée. Il ajoute une po
 func runBench(nPrompt, nPredict int) (*benchResult, error) {
 	// Moteur tiers lancé par ajean (EXTERNAL_SERVICE, ex. moteur MoE) : il ne renvoie
 	// pas les `timings` de llama.cpp, on mesure en streaming (voir runBenchStream).
-	if cfg := ReadConfig(); externalServiceOf(cfg) != "" {
+	if cfg := ReadConfig(); serviceCmdOf(cfg) != "" {
+		// Preset Service : un serveur quelconque, mesuré en streaming lui aussi.
+		if !serviceCmdReady(cfg) {
+			return nil, fmt.Errorf("le service charge encore le modèle")
+		}
+		return runBenchStream(nPrompt, nPredict)
+	} else if externalServiceOf(cfg) != "" {
 		if ok, why := externalServiceReady(cfg); !ok {
 			if why == "" {
 				why = "le moteur charge encore le modèle"
@@ -211,6 +217,10 @@ func benchMatchesPreset(sb savedBench, cfg map[string]string) bool {
 func benchModelKey(cfg map[string]string) string {
 	if externalServiceOf(cfg) != "" {
 		return "ext:" + strings.TrimSpace(cfg[extKeyModel])
+	}
+	// Preset Service : son modèle déclaré et sa commande.
+	if serviceCmdOf(cfg) != "" {
+		return "svc:" + strings.TrimSpace(cfg[extKeyModel]) + "|" + strings.TrimSpace(cfg[svcKeyCmd])
 	}
 	// moteur MoE intégré : sa config d'installation désigne le modèle
 	if isMoeConfig(cfg) {

@@ -15,7 +15,8 @@ import (
 // it makes sense, and prints a follow-up status check after start/restart.
 func serviceAction(action string) error {
 	// API Externe : aucun moteur local (arrêt). GPU Cloud : relais local vers le GPU.
-	action = cloudServiceAction(action)
+	// Preset Service : sa commande tourne dans le service moteur (backend_service.go).
+	action = presetServiceAction(action)
 	svc := serviceName()
 	needsRoot := action == "start" || action == "stop" || action == "restart" || action == "enable" || action == "disable"
 	args := []string{}

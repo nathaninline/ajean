@@ -28,7 +28,7 @@ type chatEndpoint struct {
 	URL      string // URL complète des complétions
 	Model    string // nom de modèle envoyé dans le payload
 	Key      string // Bearer ("" = aucun)
-	External bool   // true = API distante (pas le llama-server local)
+	External bool   // true = API OpenAI-compatible (distante, ou Service lancé sur cette machine)
 	Cloud    bool   // true = GPU cloud Modal (attente du réveil sur 503)
 }
 
@@ -78,10 +78,16 @@ func resolveChatEndpoint() chatEndpoint {
 		return cloudEndpoint(cfg)
 	}
 	if isExternalConfig(cfg) {
+		// Preset Service : adresse et clé déduites de sa commande quand le preset
+		// n'en donne pas, modèle = le premier annoncé par son API.
+		model := strings.TrimSpace(cfg[extKeyModel])
+		if model == "" && serviceCmdOf(cfg) != "" {
+			model = serviceFirstModel(cfg)
+		}
 		return chatEndpoint{
-			URL:      completionsURL(cfg[extKeyURL]),
-			Model:    strings.TrimSpace(cfg[extKeyModel]),
-			Key:      strings.TrimSpace(cfg[extKeyToken]),
+			URL:      completionsURL(extBaseURL(cfg)),
+			Model:    model,
+			Key:      extAPIKey(cfg),
 			External: true,
 		}
 	}

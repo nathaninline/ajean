@@ -55,8 +55,12 @@ func isCloudConfig(cfg map[string]string) bool {
 
 // usesRemoteEndpoint : pas de llama-server local pour cette config (API externe
 // ou GPU cloud). C'est ce que les chemins « moteur local » doivent tester.
+//
+// Un preset Service système (EXTERNAL=1 + SERVICE_CMD, backend_service.go) est
+// externe pour le chat mais il a bien un processus local à lancer : ce n'est
+// pas un endpoint distant.
 func usesRemoteEndpoint(cfg map[string]string) bool {
-	return isExternalConfig(cfg) || isCloudConfig(cfg)
+	return (isExternalConfig(cfg) && serviceCmdOf(cfg) == "") || isCloudConfig(cfg)
 }
 
 // État du déploiement, partagé avec /api/status.

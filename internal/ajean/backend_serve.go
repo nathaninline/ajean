@@ -228,6 +228,10 @@ func cmdServe(args []string) error {
 	// API externe : aucun moteur local. On sort SANS erreur, sinon systemd
 	// (Restart=on-failure) relance en boucle — et chaque relance arrêterait le
 	// moteur tiers du preset (EXTERNAL_SERVICE), déclaré en conflit avec nous.
+	// Preset Service : la commande du preset tourne à la place de llama-server.
+	if cmd := serviceCmdOf(cfg); cmd != "" {
+		return serveServiceCmd(cfg, cmd)
+	}
 	if isExternalConfig(cfg) {
 		fmt.Println("[info] preset externe actif : pas de moteur local à lancer")
 		return nil

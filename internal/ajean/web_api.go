@@ -104,14 +104,15 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 		"port":        LLMPort(),
 		"ctx":         ctx,
 		"version":     Version,
-		"warn":        appWarning(),       // ex. App Translocation macOS — vide si tout va bien
-		"load_error":  loadErr,            // modèle qui ne charge pas (incompat moteur…) — vide sinon
-		"boot":        procBoot,           // empreinte de démarrage du process (détecte un redémarrage côté UI)
-		"preset":      activePresetID(),   // id du preset actif : un autre appareil a pu basculer, l'UI se resynchronise sans reload (voir loadStatus)
-		"external":    external,           // preset actif = API OpenAI-compatible distante (pas de moteur local)
-		"cloud_phase": cloudPhaseActive(), // GPU Cloud : deploying|sleeping|downloading|loading|ready|error ("" hors cloud)
-		"ui":          uiBuildID(),        // empreinte de l'interface servie : si elle change, la page ouverte est périmée et se recharge
-		"jean_mem":    jeanActivityGet(),  // mémoire de Jean rangée en arrière-plan (jean_activity.go)
+		"warn":        appWarning(),                     // ex. App Translocation macOS — vide si tout va bien
+		"load_error":  loadErr,                          // modèle qui ne charge pas (incompat moteur…) — vide sinon
+		"boot":        procBoot,                         // empreinte de démarrage du process (détecte un redémarrage côté UI)
+		"preset":      activePresetID(),                 // id du preset actif : un autre appareil a pu basculer, l'UI se resynchronise sans reload (voir loadStatus)
+		"external":    external,                         // preset actif = API OpenAI-compatible distante (pas de moteur local)
+		"cloud_phase": cloudPhaseActive(),               // GPU Cloud : deploying|sleeping|downloading|loading|ready|error ("" hors cloud)
+		"service":     serviceCmdOf(ReadConfig()) != "", // preset actif = Service (commande lancée par AJEAN dans le service moteur)
+		"ui":          uiBuildID(),                      // empreinte de l'interface servie : si elle change, la page ouverte est périmée et se recharge
+		"jean_mem":    jeanActivityGet(),                // mémoire de Jean rangée en arrière-plan (jean_activity.go)
 		// Anciens drapeaux --mlock/--no-mmap présents alors que le moteur attend
 		// --load-mode (llama.cpp récent) : l'UI propose un bouton de mise à jour.
 		// Le serveur démarre quand même (traduits au lancement) — c'est un nettoyage.
@@ -582,6 +583,9 @@ func handlePresets(w http.ResponseWriter, r *http.Request) {
 				}
 				if strings.TrimSpace(cfg[extKeyVision]) == "1" {
 					item["vision"] = true
+				}
+				if serviceCmdOf(cfg) != "" {
+					item["service"] = true // preset Service : une commande lancée sur cette machine
 				}
 			} else if cfg := parseEnv(content); isMoeConfig(cfg) {
 				// moteur MoE : réglages dans sa propre fenêtre, pas l'éditeur llama.cpp
@@ -1518,8 +1522,9 @@ func handleSwitch(w http.ResponseWriter, r *http.Request) {
 		cloudDeployOpt(true) // bascule explicite : retente même après un échec
 	}
 	// API Externe : aucun moteur local, on l'arrête. (Le GPU Cloud, lui, passe par
-	// le redémarrage normal : le service moteur y lance le relais local.)
-	if isExternalConfig(ReadConfig()) {
+	// le redémarrage normal : le service moteur y lance le relais local. Un preset
+	// Service aussi : le service moteur lance sa commande.)
+	if cfg := ReadConfig(); isExternalConfig(cfg) && serviceCmdOf(cfg) == "" {
 		go func() {
 			if serviceIsActive() {
 				if err := serviceAction("stop"); err != nil {
