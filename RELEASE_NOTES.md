@@ -70,4 +70,4 @@ ajean restore <fichier> <dossier>
 ajean update
 ```
 
-Testé par les tests automatiques sous Windows, et à l'écran pour la dictée, le bench, la recherche Hugging Face, les adresses par écran, le mot de passe et les boîtes de dialogue Windows, contre de faux moteurs et de faux fournisseurs. N'ont pas été rejoués sur de vraies machines : le téléchargement du moteur AJEAN et ses variantes (CUDA, ROCm, Vulkan, Metal), un vrai preset Service, la reprise d'une vraie installation 0.19 ou 0.20, Linux et macOS.
+Testé par les tests automatiques sous Windows, et à l'écran pour la dictée, le bench, la recherche Hugging Face, les adresses par écran, le mot de passe et les boîtes de dialogue Windows, contre de faux moteurs et de faux fournisseurs. Le moteur AJEAN a été installé pour de vrai sur Windows 11 (variante Vulkan : téléchargement, empreinte, sonde), sans y charger de modèle. N'ont pas été rejoués sur de vraies machines : les variantes CUDA, ROCm et Metal, un vrai preset Service, la reprise d'une vraie installation 0.19 ou 0.20, Linux et macOS.
