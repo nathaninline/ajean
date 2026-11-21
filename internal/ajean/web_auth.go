@@ -177,6 +177,14 @@ func requireWebAuth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if webSessionValid(pw, sessionToken(r)) {
+			// Le cookie part tout seul avec la requête : il faut donc s'assurer que
+			// c'est bien NOTRE page qui l'envoie (voir sessionRequestFromUI). Le
+			// chemin Bearer, au-dessus, n'est pas concerné : un navigateur n'envoie
+			// jamais ce jeton de lui-même.
+			if !sessionRequestFromUI(r) {
+				sendJSON(w, http.StatusForbidden, map[string]any{"error": "requête refusée : elle ne vient pas de l'interface d'AJEAN"})
+				return
+			}
 			next(w, r)
 			return
 		}
@@ -270,6 +278,45 @@ func crossSiteReject(r *http.Request, keyed bool) string {
 		return "hôte « " + r.Host + " » non autorisé sans protection — définis un mot de passe (ajean password) ou une clé de pilotage (ajean set-web-key) pour accéder à l'interface par ce nom"
 	}
 	return ""
+}
+
+// sessionRequestFromUI : une requête authentifiée par le COOKIE de session
+// vient-elle de la page d'AJEAN elle-même ?
+//
+// SameSite=Strict n'arrête que les autres SITES. Or un « site » ignore le port
+// et le sous-domaine : une page servie par un autre programme de la même
+// machine (http://192.168.1.10:3000) ou par un sous-domaine frère est du même
+// site, et le navigateur joint le cookie à ce qu'elle déclenche. crossSiteReject
+// laissait passer ce cas pour un GET sans Origin — une simple balise
+// <img src="…:8090/api/restart"> — alors que plusieurs routes agissent en GET.
+//
+// Règle, pour ce chemin seulement :
+//   - Sec-Fetch-Site présent (navigateur récent, page en HTTPS ou sur
+//     localhost) : « same-origin », ou « none » (adresse tapée par
+//     l'utilisateur). « same-site » est refusé.
+//   - absent (page en HTTP sur le réseau local : le navigateur ne l'envoie pas) :
+//     il faut la marque que jfetch pose sur chaque appel (X-Ajean-Request — une
+//     autre origine ne peut pas la poser sans pré-vérification CORS, que
+//     personne ici n'accorde), ou un Origin / Referer de CET hôte, port compris.
+func sessionRequestFromUI(r *http.Request) bool {
+	switch strings.ToLower(strings.TrimSpace(r.Header.Get("Sec-Fetch-Site"))) {
+	case "same-origin", "none":
+		return true
+	case "":
+	default:
+		return false
+	}
+	if r.Header.Get("X-Ajean-Request") != "" {
+		return true
+	}
+	for _, name := range []string{"Origin", "Referer"} {
+		if v := r.Header.Get(name); v != "" && v != "null" {
+			if u, err := url.Parse(v); err == nil && u.Host != "" && strings.EqualFold(u.Host, r.Host) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // localHostName : l'hôte désigne-t-il la machine ou le réseau local (et non un

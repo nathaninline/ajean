@@ -140,7 +140,14 @@ func reviewSnapshot() map[string]reviewTaskDef {
 // toujours. Allumée : seulement si elle fait exactement ce qui a été validé.
 // Un état de validation illisible ne laisse RIEN partir.
 func reviewTaskValid(t Task) bool {
-	if !reviewOn() {
+	// Lecture qui REMONTE l'erreur : reviewOn() (getBool) prendrait une base
+	// illisible pour « validation éteinte » et laisserait partir une tâche en
+	// attente. Dans le doute, elle ne part pas.
+	raw, err := getBytesErr(bkState, stReviewOn)
+	if err != nil {
+		return false
+	}
+	if string(raw) != "1" {
 		return true
 	}
 	m, ok := reviewLoad()

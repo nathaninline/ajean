@@ -37,6 +37,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -192,9 +193,14 @@ func pwReadState() (pwState, error) {
 // webPasswordConfigured : un mot de passe protège-t-il l'interface ?
 func webPasswordConfigured() bool { st, err := pwStateErr(); return err == nil && st.configured() }
 
+// pwDerivations compte les dérivations lancées (les tests s'en servent pour
+// vérifier que le frein borne bien le nombre d'essais RÉELLEMENT vérifiés).
+var pwDerivations atomic.Int64
+
 func pwDerive(pw string, salt []byte, kp kekParams) []byte {
 	pwHashing <- struct{}{}
 	defer func() { <-pwHashing }()
+	pwDerivations.Add(1)
 	return deriveKEK(pw, salt, kp.T, kp.M, kp.P)
 }
 
@@ -269,16 +275,18 @@ func removeWebPassword() error {
 // ---- frein contre les essais à la chaîne -------------------------------------
 
 type pwAttempts struct {
-	fails int
-	last  time.Time
-	until time.Time
+	fails    int
+	inflight int // essais en cours de vérification (dérivation lancée, verdict pas encore rendu)
+	last     time.Time
+	until    time.Time
 }
 
 var pwTries = struct {
 	sync.Mutex
-	byAddr      map[string]*pwAttempts
-	globalFails []time.Time
-	globalUntil time.Time
+	byAddr         map[string]*pwAttempts
+	globalFails    []time.Time
+	globalInflight int
+	globalUntil    time.Time
 }{byAddr: map[string]*pwAttempts{}}
 
 // pwBucket : ce qui compte comme « une adresse ». En IPv6, un abonné dispose
@@ -307,13 +315,13 @@ func pwLockedLocked(b string) time.Duration {
 	return wait
 }
 
-func pwFailedLocked(b string) {
-	t := pwNow()
+// pwEntryLocked rend l'ardoise d'un seau, créée au besoin (mémoire bornée).
+func pwEntryLocked(b string, t time.Time) *pwAttempts {
 	a := pwTries.byAddr[b]
 	if a == nil {
 		if len(pwTries.byAddr) >= pwMaxTracked {
 			for k, v := range pwTries.byAddr {
-				if t.Sub(v.last) > pwMaxWait {
+				if v.inflight == 0 && t.Sub(v.last) > pwMaxWait {
 					delete(pwTries.byAddr, k)
 				}
 			}
@@ -324,6 +332,64 @@ func pwFailedLocked(b string) {
 		a = &pwAttempts{}
 		pwTries.byAddr[b] = a
 	}
+	return a
+}
+
+// pwReserveLocked compte un essai AVANT sa vérification. Le verdict d'un essai
+// n'arrive qu'après la dérivation (lente, exprès) : sans cette réservation, des
+// requêtes simultanées passaient toutes le contrôle d'attente avant que le
+// premier échec soit compté — 40 envois d'un coup donnaient 31 essais vérifiés
+// au lieu de 5. Une adresse n'a donc en vol que les essais qu'il lui reste
+// (un seul une fois les essais libres épuisés), et l'ensemble des adresses
+// jamais plus que ce que le frein commun tolère encore. false = refusé.
+func pwReserveLocked(b string) bool {
+	t := pwNow()
+	recent := 0
+	for _, f := range pwTries.globalFails {
+		if t.Sub(f) < pwGlobalWindow {
+			recent++
+		}
+	}
+	if recent+pwTries.globalInflight >= pwGlobalTries {
+		return false
+	}
+	a := pwEntryLocked(b, t)
+	fails := a.fails
+	if t.Sub(a.last) > pwMaxWait {
+		fails = 0
+	}
+	if a.inflight >= max(1, pwFreeTries-fails) {
+		return false
+	}
+	a.inflight++
+	pwTries.globalInflight++
+	return true
+}
+
+// pwReleaseLocked rend la réservation d'un essai dont le verdict est connu. Un
+// succès efface l'ardoise de l'adresse.
+func pwReleaseLocked(b string, ok bool) {
+	if pwTries.globalInflight > 0 {
+		pwTries.globalInflight--
+	}
+	a := pwTries.byAddr[b]
+	if a == nil {
+		return
+	}
+	if a.inflight > 0 {
+		a.inflight--
+	}
+	if ok {
+		a.fails, a.until = 0, time.Time{}
+		if a.inflight == 0 {
+			delete(pwTries.byAddr, b)
+		}
+	}
+}
+
+func pwFailedLocked(b string) {
+	t := pwNow()
+	a := pwEntryLocked(b, t)
 	if t.Sub(a.last) > pwMaxWait { // l'ardoise s'efface après une heure de calme
 		a.fails = 0
 	}
@@ -355,7 +421,7 @@ func pwFailedLocked(b string) {
 func pwResetTries() {
 	pwTries.Lock()
 	pwTries.byAddr = map[string]*pwAttempts{}
-	pwTries.globalFails, pwTries.globalUntil = nil, time.Time{}
+	pwTries.globalFails, pwTries.globalUntil, pwTries.globalInflight = nil, time.Time{}, 0
 	pwTries.Unlock()
 }
 
@@ -371,19 +437,24 @@ func verifyWebPassword(pw, ip string) error {
 		return errors.New("aucun mot de passe n'est défini")
 	}
 	b := pwBucket(ip)
+	// Contrôle de l'attente ET réservation de l'essai sous le même verrou : c'est
+	// ce qui empêche une rafale simultanée de passer avant le premier verdict.
 	pwTries.Lock()
 	wait := pwLockedLocked(b)
+	if wait == 0 && !pwReserveLocked(b) {
+		wait = time.Second // d'autres essais de cette adresse sont en cours : qu'elle attende leur verdict
+	}
 	pwTries.Unlock()
 	if wait > 0 {
 		return &pwLockedError{Wait: wait}
 	}
-	if pwMatches(st.Password, pw) {
-		pwTries.Lock()
-		delete(pwTries.byAddr, b)
+	ok := pwMatches(st.Password, pw)
+	pwTries.Lock()
+	pwReleaseLocked(b, ok)
+	if ok {
 		pwTries.Unlock()
 		return nil
 	}
-	pwTries.Lock()
 	pwFailedLocked(b)
 	wait = pwLockedLocked(b)
 	pwTries.Unlock()
@@ -677,7 +748,9 @@ func webAccessOf(r *http.Request) (webAccess, pwState, error) {
 		a.Allowed = true
 	case hash != "" && checkBearer(r, hash):
 		a.Allowed = true
-	case webSessionValid(st, sessionToken(r)):
+	case webSessionValid(st, sessionToken(r)) && sessionRequestFromUI(r):
+		// Le cookie seul ne suffit pas : la requête doit venir de notre page
+		// (web_auth.go, sessionRequestFromUI).
 		a.Allowed, a.Session = true, true
 	}
 	return a, st, nil
@@ -919,19 +992,41 @@ const stWebHost = "web_host"
 // l'interface, on refuse de le faire à découvert. Le défaut, lui, ne change pas.
 func webListenHost() (string, error) {
 	h := strings.TrimSpace(os.Getenv("AJEAN_HOST"))
-	src := "AJEAN_HOST"
-	if h == "" {
-		h, src = strings.TrimSpace(getStr(bkState, stWebHost)), "ajean ui listen"
+	if h != "" {
+		// Demandée à l'instant, dans l'environnement : celui qui lance voit l'erreur.
+		ip, err := parseListenHost(h)
+		if err != nil {
+			return "", fmt.Errorf("AJEAN_HOST : %w", err)
+		}
+		if !ip.IsLoopback() && !webKeyConfigured() && !webPasswordConfigured() {
+			return "", fmt.Errorf("AJEAN_HOST=%s ouvre l'interface au réseau : définis d'abord un mot de passe (« ajean password ») ou une clé de pilotage (« ajean set-web-key »)", h)
+		}
+		return ip.String(), nil
 	}
+	// Réglage ENREGISTRÉ (« ajean ui listen »), lu par un service que personne ne
+	// regarde démarrer. Deux prudences :
+	//   - lecture ratée : on ne sait pas si l'utilisateur avait fermé l'accès
+	//     réseau. Retomber sur 0.0.0.0 le rouvrirait ; on écoute sur cette machine.
+	//   - adresse du réseau mais plus aucune protection (mot de passe retiré depuis
+	//     l'interface) : refuser de démarrer couperait l'interface ET le tunnel
+	//     ajean.link. On écoute sur cette machine, et on le dit.
+	raw, err := getBytesErr(bkState, stWebHost)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s adresse d'écoute illisible (%v) : l'interface n'écoute que sur cette machine (127.0.0.1)\n", yellow("[!]"), err)
+		return "127.0.0.1", nil
+	}
+	h = strings.TrimSpace(string(raw))
 	if h == "" {
 		return "0.0.0.0", nil
 	}
 	ip, err := parseListenHost(h)
 	if err != nil {
-		return "", fmt.Errorf("%s : %w", src, err)
+		fmt.Fprintf(os.Stderr, "%s adresse d'écoute enregistrée invalide (%v) : l'interface n'écoute que sur cette machine (127.0.0.1) — corrige avec « ajean ui listen »\n", yellow("[!]"), err)
+		return "127.0.0.1", nil
 	}
 	if !ip.IsLoopback() && !webKeyConfigured() && !webPasswordConfigured() {
-		return "", fmt.Errorf("%s=%s ouvre l'interface au réseau : définis d'abord un mot de passe (« ajean password ») ou une clé de pilotage (« ajean set-web-key »)", src, h)
+		fmt.Fprintf(os.Stderr, "%s écoute demandée sur %s (« ajean ui listen ») mais plus rien ne protège l'interface : elle n'écoute que sur cette machine (127.0.0.1). Redéfinis un mot de passe (« ajean password ») pour rouvrir l'accès réseau.\n", yellow("[!]"), ip)
+		return "127.0.0.1", nil
 	}
 	return ip.String(), nil
 }

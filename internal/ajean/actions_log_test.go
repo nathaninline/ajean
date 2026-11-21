@@ -87,6 +87,50 @@ func TestActionLogRedactsSecrets(t *testing.T) {
 	}
 }
 
+// Formes courantes en ligne de commande, que le premier masquage ratait.
+func TestRedactShellSecrets(t *testing.T) {
+	for in, leak := range map[string]string{
+		"export OPENAI_API_KEY=sk-proj-abc123":                          "sk-proj-abc123",
+		"DB_PASSWORD=Tr0ub4dor ./migrate":                               "Tr0ub4dor",
+		"GITHUB_TOKEN=abcdef123456 gh pr list":                          "abcdef123456",
+		"AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMIK7MDENGbPxRfiCY aws s3 ls":  "wJalrXUtnFEMIK7MDENGbPxRfiCY",
+		"HF_TOKEN=hf_abcdefghijklmnopqrstuvwxyz012345 python dl.py":     "hf_abcdefghijklmnopqrstuvwxyz012345",
+		"huggingface-cli login --token hf_abcdefghijklmnopqrstuvwxyz01": "hf_abcdefghijklmnopqrstuvwxyz01",
+		"curl -u alice:s3cr3tpass https://api.exemple.test":             "s3cr3tpass",
+		"curl --user alice:s3cr3tpass https://api.exemple.test":         "s3cr3tpass",
+		"mysql -h db -u root -pS3cretPw base":                           "S3cretPw",
+		"sshpass -p S3cretPw ssh hote":                                  "S3cretPw",
+		"cat <<EOF\n-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAA\nAAAAB3NzaC1yc2E\n-----END OPENSSH PRIVATE KEY-----\nEOF": "b3BlbnNzaC1rZXktdjEAAAAA",
+		"-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA (bloc coupé avant sa fin":                                                        "MIIEowIBAAKCAQEA",
+	} {
+		got := redactSecrets(in)
+		if strings.Contains(got, leak) {
+			t.Errorf("non masqué : %q → %q", in, got)
+		}
+		if !strings.Contains(got, secretMaskedText) {
+			t.Errorf("aucun masque posé : %q → %q", in, got)
+		}
+	}
+	// Le reste de la commande reste lisible.
+	if got := redactSecrets("curl -u alice:s3cr3tpass https://api.exemple.test"); !strings.Contains(got, "alice") || !strings.Contains(got, "https://api.exemple.test") {
+		t.Errorf("trop masqué : %q", got)
+	}
+	// Ce qui parle d'un secret sans en être un n'est pas touché.
+	for _, s := range []string{"max_tokens=4096", "TOKEN_FILE=/run/secrets/tok", "password_length=16", "mysql -P 3306 -u root base", "mysql -p -u root", "API_KEY=$OPENAI_API_KEY"} {
+		if got := redactSecrets(s); got != s {
+			t.Errorf("%q masqué à tort : %q", s, got)
+		}
+	}
+	// Un jeton que la coupe du journal aurait tranché est masqué en entier.
+	testHome(t)
+	long := strings.Repeat("x", actionLabelMax-12) + " sk-live-AAAABBBBCCCCDDDDEEEEFFFFGGGG"
+	turn := newActionTurn(context.Background(), Caps{Agent: true})
+	turn.start("bash", long)
+	if raw, _ := os.ReadFile(actionsFile("chat")); strings.Contains(string(raw), "sk-live") {
+		t.Error("jeton tranché par la coupe resté en partie en clair")
+	}
+}
+
 // Tour coupé net : le suivant apprend ce qui avait été fait, une seule fois.
 func TestActionsInterruptedNote(t *testing.T) {
 	testHome(t)

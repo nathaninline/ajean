@@ -1,7 +1,10 @@
 // Clé de pilotage : envoyée en Authorization: Bearer sur chaque appel /api/*.
 // Sur un 401 on la (re)demande et on rejoue la requête. Stockée en localStorage.
 let TOKEN = localStorage.getItem('ajean.key') || '';
-function authHeaders(h){ h = Object.assign({}, h||{}); if(TOKEN) h['Authorization']='Bearer '+TOKEN; return h; }
+// X-Ajean-Request : la marque de NOTRE page. Avec une session par cookie (mot de
+// passe), le serveur refuse ce qui ne la porte pas ni ne prouve autrement venir
+// d'ici — une page d'un autre port de la machine ne peut pas poser cet en-tête.
+function authHeaders(h){ h = Object.assign({}, h||{}); if(TOKEN) h['Authorization']='Bearer '+TOKEN; h['X-Ajean-Request']='1'; return h; }
 // Base d'URL : "" en local (page à "/"), "/u/<id>" servie via le relais ajean.link.
 // Garde les chemins absolus (/api/…) corrects derrière le tunnel.
 const API_BASE = location.pathname.replace(/\/(index\.html)?$/, '');

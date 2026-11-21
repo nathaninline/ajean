@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -40,7 +41,138 @@ func pwReq(method, path, body string) *http.Request {
 	r := httptest.NewRequest(method, path, strings.NewReader(body))
 	r.Host = "192.168.1.10:8090"
 	r.RemoteAddr = "192.168.1.50:51000"
+	r.Header.Set("X-Ajean-Request", "1") // la marque que jfetch pose sur chaque appel de la page
 	return r
+}
+
+// Le frein tient aussi face à une rafale SIMULTANÉE : l'essai est compté avant
+// la dérivation, pas après. (Avant : 40 envois d'un coup, 31 essais vérifiés.)
+func TestRateLimitHoldsUnderConcurrency(t *testing.T) {
+	pwTestSetup(t)
+	// Dérivation assez lente pour que la rafale soit réellement simultanée.
+	pwKDF = kekParams{T: 1, M: 8 * 1024, P: 1}
+	if err := setWebPassword(testPw); err != nil {
+		t.Fatal(err)
+	}
+	burst := func(n int, ip func(i int) string) int64 {
+		before := pwDerivations.Load()
+		var wg sync.WaitGroup
+		start := make(chan struct{})
+		for i := 0; i < n; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				<-start
+				_ = verifyWebPassword("faux-mot-de-passe", ip(i))
+			}(i)
+		}
+		close(start)
+		wg.Wait()
+		return pwDerivations.Load() - before
+	}
+	// Une seule adresse : pas plus d'essais vérifiés que d'essais libres.
+	if got := burst(40, func(int) string { return "192.168.1.50" }); got > pwFreeTries {
+		t.Fatalf("%d essais vérifiés pour une adresse, %d au plus attendus", got, pwFreeTries)
+	}
+	if _, ok := verifyWebPassword(testPw, "192.168.1.50").(*pwLockedError); !ok {
+		t.Fatal("après la rafale, l'adresse doit être en attente")
+	}
+	// Frein commun : beaucoup d'adresses d'un coup, pas plus que ce qu'il tolère.
+	pwResetTries()
+	if got := burst(3*pwGlobalTries, func(i int) string { return "10.1." + itoa(i/250) + "." + itoa(1+i%250) }); got > pwGlobalTries {
+		t.Fatalf("%d essais vérifiés toutes adresses confondues, %d au plus attendus", got, pwGlobalTries)
+	}
+	// Les réservations sont toutes rendues, et un succès n'est pas gêné ensuite.
+	pwTries.Lock()
+	inflight := pwTries.globalInflight
+	pwTries.Unlock()
+	if inflight != 0 {
+		t.Fatalf("%d réservation(s) jamais rendue(s)", inflight)
+	}
+	pwResetTries()
+	if err := verifyWebPassword(testPw, "192.168.1.60"); err != nil {
+		t.Fatalf("bon mot de passe après remise à zéro : %v", err)
+	}
+	pwTries.Lock()
+	left := len(pwTries.byAddr)
+	pwTries.Unlock()
+	if left != 0 {
+		t.Fatal("un succès doit effacer l'ardoise de l'adresse")
+	}
+}
+
+// Le cookie de session ne vaut que pour NOTRE page : une page d'un autre port de
+// la machine (même « site » pour le navigateur) ne peut pas s'en servir, même par
+// un simple GET d'image. Le chemin Bearer, lui, ne change pas.
+func TestSessionCookieNeedsOurPage(t *testing.T) {
+	pwTestSetup(t)
+	if err := storeWebKey("cle-de-pilotage"); err != nil {
+		t.Fatal(err)
+	}
+	if err := setWebPassword(testPw); err != nil {
+		t.Fatal(err)
+	}
+	c := pwCookie(t, pwLogin(t, testPw, ""))
+	call := func(h map[string]string, withCookie bool) int {
+		r := httptest.NewRequest("GET", "/api/restart", nil)
+		r.Host = "192.168.1.10:8090"
+		r.RemoteAddr = "192.168.1.50:51000"
+		for k, v := range h {
+			r.Header.Set(k, v)
+		}
+		if withCookie {
+			r.AddCookie(c)
+		}
+		rr := httptest.NewRecorder()
+		pwProtected()(rr, r)
+		return rr.Code
+	}
+	for _, tc := range []struct {
+		why  string
+		h    map[string]string
+		want int
+	}{
+		{"<img> d'une page d'un autre port, sans aucun en-tête", nil, 403},
+		{"même site mais autre origine", map[string]string{"Sec-Fetch-Site": "same-site"}, 403},
+		{"même site, avec la marque (impossible depuis un navigateur, refusé quand même)", map[string]string{"Sec-Fetch-Site": "same-site", "X-Ajean-Request": "1"}, 403},
+		{"Referer d'un autre port", map[string]string{"Referer": "http://192.168.1.10:3000/page"}, 403},
+		{"Referer d'un sous-domaine frère", map[string]string{"Referer": "http://autre.192.168.1.10:8090/"}, 403},
+		{"Referer illisible", map[string]string{"Referer": "::pas une adresse"}, 403},
+		{"notre page (HTTPS ou localhost)", map[string]string{"Sec-Fetch-Site": "same-origin"}, 200},
+		{"adresse tapée par l'utilisateur", map[string]string{"Sec-Fetch-Site": "none"}, 200},
+		{"notre page en HTTP sur le réseau : marque de jfetch", map[string]string{"X-Ajean-Request": "1"}, 200},
+		{"notre page en HTTP sur le réseau : Referer du même hôte", map[string]string{"Referer": "http://192.168.1.10:8090/"}, 200},
+		{"notre page : Origin du même hôte", map[string]string{"Origin": "http://192.168.1.10:8090"}, 200},
+	} {
+		if got := call(tc.h, true); got != tc.want {
+			t.Errorf("%s : %d, attendu %d", tc.why, got, tc.want)
+		}
+	}
+	// Chemin Bearer : inchangé, aucune preuve d'origine demandée.
+	r := httptest.NewRequest("GET", "/api/restart", nil)
+	r.Host, r.RemoteAddr = "192.168.1.10:8090", "192.168.1.50:51000"
+	r.Header.Set("Authorization", "Bearer cle-de-pilotage")
+	rr := httptest.NewRecorder()
+	pwProtected()(rr, r)
+	if rr.Code != 200 {
+		t.Fatalf("le Bearer ne doit dépendre d'aucun en-tête d'origine : %d", rr.Code)
+	}
+	// Sans cookie ni Bearer : toujours 401 (et non 403), la page sait qu'elle doit se connecter.
+	if got := call(map[string]string{"X-Ajean-Request": "1"}, false); got != 401 {
+		t.Fatalf("sans session : %d", got)
+	}
+	// Les routes de la porte suivent la même règle : fermer les autres sessions
+	// depuis une page voisine est refusé.
+	r = httptest.NewRequest("GET", "/api/auth", nil)
+	r.Host, r.RemoteAddr = "192.168.1.10:8090", "192.168.1.50:51000"
+	r.AddCookie(c)
+	rr = httptest.NewRecorder()
+	handleAuthState(rr, r)
+	var out map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &out)
+	if out["session"] != false || out["allowed"] != false {
+		t.Fatalf("une requête sans preuve d'origine ne doit pas compter comme entrée : %v", out)
+	}
 }
 
 func pwLogin(t *testing.T, pw, remote string) *httptest.ResponseRecorder {
@@ -649,6 +781,54 @@ func TestWebListenHost(t *testing.T) {
 	}
 	if webLocalURLHost("0.0.0.0") != "localhost" || webLocalURLHost("192.168.1.10") != "192.168.1.10" || webLocalURLHost("::1") != "localhost" {
 		t.Fatal("nom d'hôte de l'adresse locale")
+	}
+}
+
+// Réglage enregistré : mot de passe retiré ensuite, ou base illisible — le
+// service démarre quand même, sur cette machine seulement (jamais sur 0.0.0.0,
+// et sans s'arrêter : l'interface et le tunnel doivent rester joignables).
+func TestWebListenHostFallsBackToLoopback(t *testing.T) {
+	pwTestSetup(t)
+	t.Setenv("AJEAN_HOST", "")
+	if err := setWebPassword(testPw); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdUIListen([]string{"192.168.1.10"}); err != nil {
+		t.Fatal(err)
+	}
+	if h, err := webListenHost(); err != nil || h != "192.168.1.10" {
+		t.Fatalf("protégé : %q %v", h, err)
+	}
+	// Mot de passe retiré depuis l'interface : plus de protection.
+	if err := removeWebPassword(); err != nil {
+		t.Fatal(err)
+	}
+	if h, err := webListenHost(); err != nil || h != "127.0.0.1" {
+		t.Fatalf("sans protection, le service doit démarrer sur 127.0.0.1 : %q %v", h, err)
+	}
+	// Adresse enregistrée invalide : idem.
+	if err := putStr(bkState, stWebHost, "pas-une-adresse"); err != nil {
+		t.Fatal(err)
+	}
+	if h, err := webListenHost(); err != nil || h != "127.0.0.1" {
+		t.Fatalf("adresse enregistrée invalide : %q %v", h, err)
+	}
+	// Base illisible : on ne sait pas si l'accès réseau avait été fermé. Surtout
+	// pas 0.0.0.0.
+	home := testHome(t)
+	if err := putStr(bkState, stWebHost, "127.0.0.1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(home+"/ajean.db", []byte("ceci n'est pas une base"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if h, err := webListenHost(); err != nil || h != "127.0.0.1" {
+		t.Fatalf("base illisible : %q %v", h, err)
+	}
+	// Demandé explicitement dans l'environnement, sans protection : toujours un refus.
+	t.Setenv("AJEAN_HOST", "0.0.0.0")
+	if _, err := webListenHost(); err == nil {
+		t.Fatal("AJEAN_HOST=0.0.0.0 sans protection devait rester refusé")
 	}
 }
 
