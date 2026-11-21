@@ -2411,8 +2411,8 @@ body.resizing{cursor:col-resize;user-select:none;-webkit-user-select:none}
     <div class="slist">
     <div class="lc-modes">
       <div class="lc-mode" id="lc-mode-ajean" onclick="enginePick()">
-        <div class="lc-mode-t"><span id="lc-ajean-title" data-i18n="engine.mode_ajean_title">Moteur AJEAN</span></div>
-        <div class="lc-mode-d" data-i18n="engine.mode_ajean_desc">llama.cpp testé avec cette version d'AJEAN, installé tout seul</div>
+        <div class="lc-mode-t"><span id="lc-ajean-title" data-i18n="engine.mode_ajean_title">llama.cpp stable</span></div>
+        <div class="lc-mode-d" data-i18n="engine.mode_ajean_desc">llama.cpp stable et testé pour AJEAN, installé tout seul</div>
         <div class="lc-mode-state" id="lc-ajean-state"></div>
       </div>
       <div class="lc-mode" id="lc-mode-fast" onclick="lcPick('fast')">
@@ -3316,7 +3316,7 @@ body.resizing{cursor:col-resize;user-select:none;-webkit-user-select:none}
           </div>
         </div>
         <div class="pe-seg" id="m-be-radios" hidden>
-          <label><input type="radio" name="m-be" value="ajean" onchange="onBackendMode('ajean')"><span data-i18n="preset.engine_ajean">Moteur AJEAN</span></label>
+          <label><input type="radio" name="m-be" value="ajean" onchange="onBackendMode('ajean')"><span data-i18n="preset.engine_ajean">Stable</span></label>
           <label><input type="radio" name="m-be" value="fast" onchange="onBackendMode('fast')"><span data-i18n="preset.engine_fast">Précompilé</span><span class="be-note" id="be-fast-note"></span></label>
           <label><input type="radio" name="m-be" value="opt" onchange="onBackendMode('opt')"><span data-i18n="preset.engine_opt">Compilé</span><span class="be-note" id="be-opt-note"></span></label>
           <label><input type="radio" name="m-be" value="custom" onchange="onBackendMode('custom')"><span data-i18n="preset.engine_custom">Personnalisé</span></label>
@@ -4125,18 +4125,18 @@ fr: {
   "link.backup_restore": "Restaurer…",
   "engine.title": "Moteur",
   "engine.mode_fast_title": "llama.cpp précompilé",
-  "engine.mode_ajean_title": "Moteur AJEAN",
-  "engine.mode_ajean_desc": "llama.cpp testé avec cette version d'AJEAN, installé tout seul",
+  "engine.mode_ajean_title": "llama.cpp stable",
+  "engine.mode_ajean_desc": "llama.cpp stable et testé pour AJEAN, installé tout seul",
   "engine.ajean_in_use": "utilisé",
   "engine.ajean_repair": "Réparer",
-  "engine.ajean_repair_body": "Retélécharger le moteur AJEAN ? Le modèle en cours sera relancé.",
+  "engine.ajean_repair_body": "Retélécharger le llama.cpp stable ? Le modèle en cours sera relancé.",
   "engine.ajean_variant_auto": "variante automatique",
-  "engine.ajean_confirm_body": "Télécharger le moteur AJEAN (llama.cpp testé avec cette version d'AJEAN) ? AJEAN choisit la variante adaptée à cette machine.",
-  "engine.chip_install": "Installation du moteur AJEAN",
-  "engine.chip_repair": "Réparation du moteur AJEAN",
-  "preset.engine_ajean": "Moteur AJEAN",
+  "engine.ajean_confirm_body": "Télécharger le llama.cpp stable, testé pour cette version d'AJEAN ? AJEAN choisit la variante adaptée à cette machine.",
+  "engine.chip_install": "Installation du llama.cpp stable",
+  "engine.chip_repair": "Réparation du llama.cpp stable",
+  "preset.engine_ajean": "Stable",
   "preset.engine_label": "Moteur utilisé",
-  "preset.engine_ajean_selected": "Moteur AJEAN sélectionné",
+  "preset.engine_ajean_selected": "Moteur stable sélectionné",
   "engine.mode_recommended": "conseillé",
   "engine.mode_fast_desc": "binaire officiel téléchargé tel quel, prêt en ~2 min",
   "engine.mode_opt_title": "llama.cpp compilé",
@@ -4777,7 +4777,7 @@ fr: {
   "status.cmdline_copy": "copier",
   "status.cmdline_copied": "commande llama-server copiée",
   "status.engine_prebuilt": "llama.cpp précompilé",
-  "status.engine_ajean": "Moteur AJEAN",
+  "status.engine_ajean": "llama.cpp stable",
   "status.engine_moe": "AJEAN MoE",
   "status.engine_compiled": "llama.cpp compilé",
   "status.engine_custom_prefix": "llama.cpp personnalisé :",
@@ -5826,18 +5826,18 @@ en: {
   "link.backup_restore": "Restore…",
   "engine.title": "Engine",
   "engine.mode_fast_title": "llama.cpp prebuilt",
-  "engine.mode_ajean_title": "AJEAN engine",
-  "engine.mode_ajean_desc": "llama.cpp tested with this AJEAN version, installed automatically",
+  "engine.mode_ajean_title": "llama.cpp stable",
+  "engine.mode_ajean_desc": "stable llama.cpp, tested for AJEAN, installed automatically",
   "engine.ajean_in_use": "in use",
   "engine.ajean_repair": "Repair",
-  "engine.ajean_repair_body": "Download the AJEAN engine again? The running model will be restarted.",
+  "engine.ajean_repair_body": "Download the stable llama.cpp again? The running model will be restarted.",
   "engine.ajean_variant_auto": "automatic variant",
-  "engine.ajean_confirm_body": "Download the AJEAN engine (llama.cpp tested with this AJEAN version)? AJEAN picks the right variant for this machine.",
-  "engine.chip_install": "Installing the AJEAN engine",
-  "engine.chip_repair": "Repairing the AJEAN engine",
-  "preset.engine_ajean": "AJEAN engine",
+  "engine.ajean_confirm_body": "Download the stable llama.cpp, tested for this AJEAN version? AJEAN picks the right variant for this machine.",
+  "engine.chip_install": "Installing the stable llama.cpp",
+  "engine.chip_repair": "Repairing the stable llama.cpp",
+  "preset.engine_ajean": "Stable",
   "preset.engine_label": "Engine used",
-  "preset.engine_ajean_selected": "AJEAN engine selected",
+  "preset.engine_ajean_selected": "Stable engine selected",
   "engine.mode_recommended": "recommended",
   "engine.mode_fast_desc": "official binary downloaded as-is, ready in ~2 min",
   "engine.mode_opt_title": "llama.cpp compiled",
@@ -6478,7 +6478,7 @@ en: {
   "status.cmdline_copy": "copy",
   "status.cmdline_copied": "llama-server command copied",
   "status.engine_prebuilt": "llama.cpp prebuilt",
-  "status.engine_ajean": "AJEAN engine",
+  "status.engine_ajean": "llama.cpp stable",
   "status.engine_moe": "AJEAN MoE",
   "status.engine_compiled": "llama.cpp compiled",
   "status.engine_custom_prefix": "llama.cpp custom:",
@@ -8269,7 +8269,7 @@ async function loadCfg(){
   const eng=(c.EXTERNAL!=='1') ? await jget('/api/engine').catch(()=>null) : null;
   if(c.BIN || (eng && eng.in_use)){
     let v;
-    if(eng && eng.in_use) v=t('status.engine_ajean')+(eng.version ? ' (llama.cpp '+eng.version+')' : '');
+    if(eng && eng.in_use) v=t('status.engine_ajean')+(eng.version ? ' ('+eng.version+')' : '');
     else if(lc && lc.prebuilt && lc.prebuilt.in_use) v=t('status.engine_prebuilt');
     else if(lc && lc.in_use) v=t('status.engine_compiled');
     else v=t('status.engine_custom_prefix')+' '+c.BIN;
@@ -11851,7 +11851,7 @@ async function loadEngine(){
   const state = document.getElementById('lc-ajean-state');
   const title = document.getElementById('lc-ajean-title');
   if(!card || !state) return;
-  if(title) title.textContent = t('engine.mode_ajean_title') + (e.version ? ' (llama.cpp ' + e.version + ')' : '');
+  if(title) title.textContent = t('engine.mode_ajean_title') + (e.version ? ' (' + e.version + ')' : '');
   card.classList.toggle('installed', !!e.installed);
   const esc = s => String(s == null ? '' : s).replace(/[<>&"]/g, '');
   let h = '';

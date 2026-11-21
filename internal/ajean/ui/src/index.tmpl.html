@@ -288,8 +288,8 @@
          alors que compiler donne du CUDA natif. -->
     <div class="lc-modes">
       <div class="lc-mode" id="lc-mode-ajean" onclick="enginePick()">
-        <div class="lc-mode-t"><span id="lc-ajean-title" data-i18n="engine.mode_ajean_title">Moteur AJEAN</span></div>
-        <div class="lc-mode-d" data-i18n="engine.mode_ajean_desc">llama.cpp testé avec cette version d'AJEAN, installé tout seul</div>
+        <div class="lc-mode-t"><span id="lc-ajean-title" data-i18n="engine.mode_ajean_title">llama.cpp stable</span></div>
+        <div class="lc-mode-d" data-i18n="engine.mode_ajean_desc">llama.cpp stable et testé pour AJEAN, installé tout seul</div>
         <div class="lc-mode-state" id="lc-ajean-state"></div>
       </div>
       <div class="lc-mode" id="lc-mode-fast" onclick="lcPick('fast')">
@@ -1352,7 +1352,7 @@
           </div>
         </div>
         <div class="pe-seg" id="m-be-radios" hidden>
-          <label><input type="radio" name="m-be" value="ajean" onchange="onBackendMode('ajean')"><span data-i18n="preset.engine_ajean">Moteur AJEAN</span></label>
+          <label><input type="radio" name="m-be" value="ajean" onchange="onBackendMode('ajean')"><span data-i18n="preset.engine_ajean">Stable</span></label>
           <label><input type="radio" name="m-be" value="fast" onchange="onBackendMode('fast')"><span data-i18n="preset.engine_fast">Précompilé</span><span class="be-note" id="be-fast-note"></span></label>
           <label><input type="radio" name="m-be" value="opt" onchange="onBackendMode('opt')"><span data-i18n="preset.engine_opt">Compilé</span><span class="be-note" id="be-opt-note"></span></label>
           <label><input type="radio" name="m-be" value="custom" onchange="onBackendMode('custom')"><span data-i18n="preset.engine_custom">Personnalisé</span></label>

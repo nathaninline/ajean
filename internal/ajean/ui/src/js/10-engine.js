@@ -11,7 +11,7 @@ async function loadEngine(){
   const state = document.getElementById('lc-ajean-state');
   const title = document.getElementById('lc-ajean-title');
   if(!card || !state) return;
-  if(title) title.textContent = t('engine.mode_ajean_title') + (e.version ? ' (llama.cpp ' + e.version + ')' : '');
+  if(title) title.textContent = t('engine.mode_ajean_title') + (e.version ? ' (' + e.version + ')' : '');
   card.classList.toggle('installed', !!e.installed);
   const esc = s => String(s == null ? '' : s).replace(/[<>&"]/g, '');
   let h = '';

@@ -612,7 +612,7 @@ async function loadCfg(){
     // Moteur : précompilé / compilé / personnalisé (avec le chemin). Le title garde
     // toujours le chemin complet, quel que soit le libellé.
     let v;
-    if(eng && eng.in_use) v=t('status.engine_ajean')+(eng.version ? ' (llama.cpp '+eng.version+')' : '');
+    if(eng && eng.in_use) v=t('status.engine_ajean')+(eng.version ? ' ('+eng.version+')' : '');
     else if(lc && lc.prebuilt && lc.prebuilt.in_use) v=t('status.engine_prebuilt');
     else if(lc && lc.in_use) v=t('status.engine_compiled');
     else v=t('status.engine_custom_prefix')+' '+c.BIN;
