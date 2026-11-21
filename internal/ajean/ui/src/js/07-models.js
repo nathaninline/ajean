@@ -1530,6 +1530,7 @@ function resetDlUI(){
   stopDlPoll(); dlName='';
   e.prog.style.display='none'; e.bar.style.display='none';
   e.cancel.style.display='none'; e.pause.style.display='none'; e.btn.disabled=false;
+  clearTimeout(hfTimer); hfHide(); document.getElementById('m-hf-url').value='';
 }
 // Remplit le sélecteur de destination avec les dossiers de modèles connus.
 // L'espace libre est dans le libellé de l'option : c'est l'info utile au moment
@@ -1552,6 +1553,75 @@ async function populateDlDirs(){
     sel.append(o);
   }
   if(prev && dlDirList.some(x => samePath(x.path, prev))) sel.value = prev;
+}
+// --- Recherche Hugging Face --------------------------------------------------
+// Le champ de téléchargement sert à deux choses : un lien (https://…) est
+// téléchargé tel quel ; tout autre texte cherche des dépôts GGUF sur Hugging
+// Face. On choisit un dépôt, puis une quantification : AJEAN la télécharge avec
+// le téléchargeur habituel, sans quitter l'éditeur.
+let hfTimer = null, hfSeq = 0;
+const hfIsLink = v => /^https?:\/\//i.test(v) || /^hf\.co\//i.test(v) || /^huggingface\.co\//i.test(v);
+function hfBox(){ return document.getElementById('m-hf-results'); }
+function hfHide(){ hfSeq++; const b = hfBox(); b.style.display = 'none'; b.innerHTML = ''; }
+function hfNote(msg, err){ const b = hfBox(); b.style.display = ''; b.innerHTML = '<div class="hf-note"'+(err?' style="color:var(--err)"':'')+'>'+escHtml(msg)+'</div>'; }
+function hfOnInput(){
+  const v = document.getElementById('m-hf-url').value.trim();
+  clearTimeout(hfTimer);
+  if(v.length < 2 || hfIsLink(v)){ hfHide(); return; }
+  hfTimer = setTimeout(()=>hfSearch(v), 400); // on attend la fin de la frappe
+}
+// Bouton ↓ ou touche Entrée : télécharger un lien, sinon chercher.
+function hfGo(){
+  const v = document.getElementById('m-hf-url').value.trim();
+  clearTimeout(hfTimer);
+  if(!v || hfIsLink(v)){ hfHide(); startDownload(); return; }
+  hfSearch(v);
+}
+const hfCount = n => n >= 1e6 ? (n/1e6).toFixed(1).replace('.0','')+' M' : n >= 1e3 ? Math.round(n/1e3)+' k' : String(n||0);
+async function hfSearch(q){
+  const seq = ++hfSeq;
+  hfNote(t('hf.searching'));
+  let r; try{ r = await jget('/api/hf/search?q='+encodeURIComponent(q)); }catch(_){ r = {ok:false}; }
+  if(seq !== hfSeq) return; // une recherche plus récente est partie entre-temps
+  if(!r.ok){ hfNote(r.error || t('hf.error'), true); return; }
+  if(!(r.repos||[]).length){ hfNote(t('hf.none')); return; }
+  const b = hfBox(); b.style.display = ''; b.innerHTML = '';
+  for(const m of r.repos){
+    const row = document.createElement('button'); row.type = 'button'; row.className = 'hf-row';
+    row.innerHTML = '<span class="hf-name"></span><span class="hf-meta"></span>';
+    row.firstChild.textContent = m.id;
+    row.lastChild.textContent = '↓ '+hfCount(m.downloads);
+    row.lastChild.title = t('hf.downloads_title');
+    row.onclick = ()=>hfOpenRepo(m.id, q);
+    b.append(row);
+  }
+}
+// Les quantifications d'un dépôt, de la plus légère à la plus lourde.
+async function hfOpenRepo(repo, q){
+  const seq = ++hfSeq;
+  hfNote(t('hf.loading_files'));
+  let r; try{ r = await jget('/api/hf/files?repo='+encodeURIComponent(repo)); }catch(_){ r = {ok:false}; }
+  if(seq !== hfSeq) return;
+  const b = hfBox(); b.style.display = ''; b.innerHTML = '';
+  const back = document.createElement('button'); back.type = 'button'; back.className = 'hf-row hf-back';
+  back.innerHTML = '<span class="hf-name"></span>';
+  back.firstChild.textContent = '← '+repo;
+  back.onclick = ()=>hfSearch(q);
+  b.append(back);
+  if(!r.ok || !(r.files||[]).length){
+    const n = document.createElement('div'); n.className = 'hf-note';
+    if(!r.ok) n.style.color = 'var(--err)';
+    n.textContent = r.ok ? t('hf.no_files') : (r.error || t('hf.error'));
+    b.append(n); return;
+  }
+  for(const f of r.files){
+    const row = document.createElement('button'); row.type = 'button'; row.className = 'hf-row';
+    row.innerHTML = '<span class="hf-name"></span><span class="hf-meta"></span>';
+    row.firstChild.textContent = f.name;
+    row.lastChild.textContent = (f.mmproj ? t('hf.vision_tag')+' · ' : '') + fmtSize(f.size) + (f.parts ? ' · '+f.parts+' '+t('hf.parts') : '');
+    row.onclick = ()=>{ document.getElementById('m-hf-url').value = f.url; hfHide(); startDownload(); };
+    b.append(row);
+  }
 }
 async function startDownload(){
   const url = document.getElementById('m-hf-url').value.trim();

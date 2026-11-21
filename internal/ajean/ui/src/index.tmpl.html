@@ -1476,11 +1476,15 @@
               <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-mmproj-cpu" onchange="eaToggleFlag('--no-mmproj-offload', this.checked)"><span class="pe-sl"></span></label></span>
             </div>
             <div class="pe-row stack">
-              <span class="pe-row-l"><span data-i18n="preset.download_model_label">Télécharger un modèle</span> <span class="pe-sub" data-i18n="preset.download_model_sub">lien direct vers un .gguf</span></span>
+              <span class="pe-row-l"><span data-i18n="preset.download_model_label">Télécharger un modèle</span> <span class="pe-sub" data-i18n="preset.download_model_sub">recherche sur Hugging Face, ou lien direct vers un .gguf</span></span>
+              <!-- Un seul champ : un lien lance le téléchargement, tout autre texte
+                   cherche sur Hugging Face (dépôts GGUF, puis leurs quantifications).
+                   Voir hfOnInput / hfSearch dans 07-models.js. -->
               <div class="pe-inpbtn">
-                <input id="m-hf-url" class="pe-inp" placeholder="https://…/model.gguf">
-                <button id="m-hf-btn" onclick="startDownload()" title="Télécharger" data-i18n="preset.download_button_title" data-i18n-attr="title">↓</button>
+                <input id="m-hf-url" class="pe-inp" spellcheck="false" autocomplete="off" placeholder="qwen, gemma, mistral… ou https://…/model.gguf" data-i18n="hf.placeholder" data-i18n-attr="placeholder" oninput="hfOnInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();hfGo()}">
+                <button id="m-hf-btn" onclick="hfGo()" title="Télécharger" data-i18n="preset.download_button_title" data-i18n-attr="title">↓</button>
               </div>
+              <div id="m-hf-results" class="hf-list" style="display:none"></div>
               <div id="m-hf-bar" class="pe-bar" style="display:none"><i></i></div>
               <div id="m-hf-progress" class="pe-note" style="display:none"></div>
               <button id="m-hf-pause" class="pe-link" onclick="togglePauseDownload()" style="display:none" data-i18n="preset.download_pause">Mettre en pause</button>

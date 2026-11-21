@@ -1020,6 +1020,19 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-bar.indet>i{width:35%;animation:pe-bar-slide 1.2s ease-in-out infinite;transition:none}
 .pe-bar.done>i{width:100%}
 @keyframes pe-bar-slide{0%{margin-left:-35%}100%{margin-left:100%}}
+/* Résultats de la recherche Hugging Face, sous le champ de téléchargement :
+   une liste de lignes cliquables (dépôts, puis quantifications d'un dépôt). */
+.hf-list{display:flex;flex-direction:column;max-height:260px;overflow:hidden auto;border:1px solid var(--border);border-radius:10px;margin-top:2px;background:transparent}
+/* Les lignes sont des boutons : on annule le fond et l'arrondi des boutons du
+   thème, et la liste rogne ses enfants, sinon on voit un rectangle à angles
+   droits dans un cadre arrondi. */
+#m-hf-results .hf-row{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;flex:none;margin:0;padding:8px 10px;background:transparent;border:0;border-radius:0;box-shadow:none;font:inherit;font-size:12px;color:var(--text);text-align:left;cursor:pointer}
+#m-hf-results .hf-row:not(:last-child){border-bottom:1px solid var(--border)}
+#m-hf-results .hf-row:hover{background:var(--accent-bg)}
+.hf-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hf-meta{flex-shrink:0;color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
+.hf-back .hf-name{color:var(--dim)}
+.hf-note{padding:8px 10px;font-size:12px;color:var(--dim)}
 /* Action discrète en texte (annuler un téléchargement…). */
 .pe-link{align-self:flex-start;border:none;background:none;padding:0;font:inherit;font-size:11px;color:var(--dim);text-decoration:underline;cursor:pointer}
 .pe-link:hover{color:var(--text)}
