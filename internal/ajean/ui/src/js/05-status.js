@@ -304,6 +304,9 @@ let REASON_EFFORT = null; // null = pas encore chargé
 // raccourci est donc toujours là. Son gabarit connaît low, medium et xhigh (son
 // défaut) ; « high » y vaut xhigh.
 let REASON_MOE = false;
+// Preset actif = API externe : « désactivée » en plus, traduite vers le paramètre
+// du fournisseur (llm_reasoning.go).
+let REASON_EXT = false;
 function reasonLevel(){
   const e=(REASON_EFFORT||'').trim();
   return REASON_MOE ? ((!e || e==='high') ? 'xhigh' : e) : e;
@@ -320,7 +323,7 @@ function updateReasonBtn(eff, moe){
   btn.style.display='flex';
   // Jauge de signal : on allume autant de barres que le niveau (low=1 … xhigh=4),
   // les autres restent estompées. On lit le mode d'un coup d'œil, sans cliquer.
-  const n={low:1, medium:2, high:3, xhigh:4}[e] || 0;
+  const n={off:0, low:1, medium:2, high:3, xhigh:4}[e] || 0;
   btn.querySelectorAll('.rb').forEach(p=>{ p.style.opacity = (Number(p.dataset.l)<=n) ? '1' : '.28'; });
   btn.title = t('status.reason_level_prefix')+' '+e+' '+t('status.reason_level_suffix');
 }
@@ -329,7 +332,9 @@ function toggleReasonMenu(ev){
   const menu=document.getElementById('reason-menu'), cur=reasonLevel();
   menu.querySelectorAll('button').forEach(b=>{
     b.classList.toggle('on', b.dataset.eff===cur); // niveau courant
-    b.style.display = (REASON_MOE && b.dataset.eff==='high') ? 'none' : '';
+    // API externe : « désactivée » en plus, pas de xhigh (sauf s'il est en place).
+    const e=b.dataset.eff;
+    b.style.display = ((REASON_MOE && e==='high') || (e==='off' && !REASON_EXT) || (e==='xhigh' && REASON_EXT && cur!=='xhigh')) ? 'none' : '';
   });
   toggleMenu(menu, document.getElementById('reason-btn'), {side:'above', align:'right'});
 }
@@ -458,6 +463,7 @@ async function loadCfg(){
   const [c, lc] = await Promise.all([jget('/api/config'), jget('/api/llamacpp').catch(()=>null)]);
   const row=(k,v,title)=>'<div class="kv"><span>'+k+'</span><span title="'+String(title!=null?title:v).replace(/"/g,'&quot;')+'">'+String(v)+'</span></div>';
   const rows=[];
+  REASON_EXT = c.EXTERNAL==='1' && !/^modal$/i.test(c.CLOUD||'');
   // Preset externe (API distante) : pas de moteur/modèle local à montrer. On
   // affiche à la place les infos du preset — type, modèle, URL, clé masquée.
   // GPU cloud (Modal) : le moteur tourne là-bas, on montre ce qui y est envoyé.
@@ -489,7 +495,8 @@ async function loadCfg(){
       rows.push(row(t('external.key_label'), mask, ''));
     }
     swapContent(document.getElementById('cfg'), rows.join(''));
-    updateReasonBtn('', false);
+    // Le raccourci du composeur suit le niveau du preset API, comme en local.
+    updateReasonBtn(c.REASONING_EFFORT || '', false);
     return;
   }
   // Moteur optimisé (Qwen3.8 Flash Next) : la config réelle de lancement,

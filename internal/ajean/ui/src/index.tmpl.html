@@ -541,6 +541,7 @@
   <button data-mode="base" onclick="pickMode('base')"><svg class="mm-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg><span class="mm-t"><span data-i18n="chat.mode_base">Modèle de base</span><span class="rm-h" data-i18n="chat.mode_base_hint">sans agent ni outils</span></span></button>
 </div>
 <div id="reason-menu" class="menu" style="display:none">
+  <button data-eff="off" onclick="pickReason('off')" data-i18n="reason.off">désactivée</button>
   <button data-eff="low" onclick="pickReason('low')">low <span class="rm-h" data-i18n="reason.hint_fast">rapide</span></button>
   <button data-eff="medium" onclick="pickReason('medium')">medium</button>
   <button data-eff="high" onclick="pickReason('high')">high</button>
@@ -1159,15 +1160,33 @@
         <div id="m-ext-body" class="pe-list" style="display:none;margin-top:8px">
           <div class="pe-row stack">
             <span class="pe-row-l"><span data-i18n="external.url_label">URL de l'API</span> <span class="pe-sub" data-i18n="external.url_hint">(base OpenAI, ex: https://api.openai.com/v1)</span></span>
-            <input id="s-ext-url" class="pe-inp" spellcheck="false" placeholder="https://api.openai.com/v1" oninput="cfgWriteKey('EXTERNAL_URL', this.value)">
-          </div>
-          <div class="pe-row stack">
-            <span class="pe-row-l"><span data-i18n="external.model_label">Modèle</span> <span class="pe-sub" data-i18n="external.model_hint">(identifiant exact, ex: gpt-4o-mini)</span></span>
-            <input id="s-ext-model" class="pe-inp" spellcheck="false" placeholder="gpt-4o-mini" oninput="cfgWriteKey('EXTERNAL_MODEL', this.value)">
+            <input id="s-ext-url" class="pe-inp" spellcheck="false" placeholder="https://api.openai.com/v1" oninput="cfgWriteKey('EXTERNAL_URL', this.value);extModelsSchedule()">
           </div>
           <div class="pe-row stack">
             <span class="pe-row-l"><span data-i18n="external.key_label">Clé API</span> <span class="pe-sub" data-i18n="external.key_hint">(optionnelle pour un serveur local)</span></span>
-            <input id="s-ext-key" class="pe-inp" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" oninput="cfgWriteKey('EXTERNAL_KEY', this.value)">
+            <input id="s-ext-key" class="pe-inp" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" oninput="cfgWriteKey('EXTERNAL_KEY', this.value);extModelsSchedule()">
+          </div>
+          <!-- Modèle : la liste annoncée par le fournisseur (GET <base>/models) dès que
+               l'URL et la clé le permettent ; sinon, ou via « autre identifiant », la
+               saisie libre. Voir extModelsLoad dans 07-models.js. -->
+          <div class="pe-row stack">
+            <span class="pe-row-l"><span data-i18n="external.model_label">Modèle</span> <span class="pe-sub" id="s-ext-model-hint"></span></span>
+            <span class="pe-selc wide" id="s-ext-model-selc" style="display:none"><select id="s-ext-model-sel" onchange="extModelPick(this.value)"></select></span>
+            <input id="s-ext-model" class="pe-inp" spellcheck="false" placeholder="gpt-4o-mini" oninput="cfgWriteKey('EXTERNAL_MODEL', this.value)">
+          </div>
+          <!-- Niveau de réflexion : traduit vers le paramètre du fournisseur
+               (llm_reasoning.go). « défaut » n'envoie rien. Refusé par le
+               fournisseur : la requête repart sans lui, et c'est dit sous la réponse
+               et par « tester la connexion ». -->
+          <div class="pe-row">
+            <span class="pe-row-l"><span data-i18n="external.effort_label">Réflexion</span><span class="pe-sub" data-i18n="external.effort_sub">ignorée si le fournisseur ne la règle pas</span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="s-ext-effort" onchange="cfgWriteKey('REASONING_EFFORT', this.value)">
+              <option value="" data-i18n="external.effort_default">défaut du fournisseur</option>
+              <option value="off" data-i18n="external.effort_off">désactivée</option>
+              <option value="low" data-i18n="external.effort_low">faible</option>
+              <option value="medium" data-i18n="external.effort_medium">moyenne</option>
+              <option value="high" data-i18n="external.effort_high">élevée</option>
+            </select></span></span>
           </div>
           <div class="pe-row">
             <span class="pe-row-l" data-i18n="preset.ctx_label">Contexte</span>

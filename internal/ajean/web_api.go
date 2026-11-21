@@ -316,7 +316,8 @@ func handleConfigEnv(w http.ResponseWriter, r *http.Request) {
 // posé), et on n'ajoute rien ici — écrire --jinja imposerait un redémarrage, tout
 // l'intérêt du raccourci étant justement de l'éviter.
 //
-// Effort accepté : "" (défaut du modèle), low, medium, high, xhigh. Une valeur
+// Effort accepté : "" (défaut du modèle), off (preset API), low, medium, high,
+// xhigh. Une valeur
 // inconnue est refusée pour ne pas glisser n'importe quoi dans chat_template_kwargs.
 func handleReasoning(w http.ResponseWriter, r *http.Request) {
 	var req struct {
@@ -328,7 +329,7 @@ func handleReasoning(w http.ResponseWriter, r *http.Request) {
 	}
 	eff := strings.TrimSpace(req.Effort)
 	switch eff {
-	case "", "low", "medium", "high", "xhigh":
+	case "", "off", "low", "medium", "high", "xhigh":
 	default:
 		sendJSON(w, 400, map[string]any{"ok": false, "error": "effort inconnu"})
 		return

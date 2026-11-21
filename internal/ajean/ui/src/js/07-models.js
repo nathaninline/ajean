@@ -1058,18 +1058,103 @@ function syncRunMode(){
     document.getElementById('s-ext-ctx').value = cfgReadKey('CTX');
     document.getElementById('s-ext-vision').checked = cfgReadKey('EXTERNAL_VISION') === '1';
     document.getElementById('s-ext-status').textContent = '';
+    {
+      // Niveau hors liste (xhigh, écrit par le raccourci du composeur) : on le garde.
+      const sel = document.getElementById('s-ext-effort'), eff = cfgReadKey('REASONING_EFFORT');
+      sel.querySelectorAll('option[data-extra]').forEach(o => o.remove());
+      if(eff && ![...sel.options].some(o => o.value === eff)){
+        const o = document.createElement('option'); o.value = eff; o.textContent = eff; o.dataset.extra = '1'; sel.appendChild(o);
+      }
+      sel.value = eff;
+    }
+    extModelManual = false;
+    extModelsLoad();
   }
+}
+// --- Modèles annoncés par le fournisseur (preset API) ------------------------
+// Dès que l'URL (et la clé) sont saisies, on demande au serveur la liste
+// <base>/models : le champ Modèle devient une liste. Sans liste (fournisseur qui
+// n'en publie pas, clé refusée), la saisie libre reste.
+let extModels = null;        // liste obtenue pour extModelsFor, ou null
+let extModelsFor = null;     // « url\nclé » de la dernière demande aboutie
+let extModelsErr = '';
+let extModelsTimer = 0, extModelsSeq = 0;
+let extModelManual = false;  // « autre identifiant » choisi : champ libre affiché
+function extModelsSchedule(){ clearTimeout(extModelsTimer); extModelsTimer = setTimeout(extModelsLoad, 700); }
+async function extModelsLoad(){
+  clearTimeout(extModelsTimer);
+  const url = cfgReadKey('EXTERNAL_URL');
+  const key = cfgReadKey('EXTERNAL_KEY');
+  const sig = url + '\n' + key;
+  if(!url){ extModelsSeq++; extModels = null; extModelsFor = null; extModelsErr = ''; extModelsRender(); return; }
+  if(sig === extModelsFor){ extModelsRender(); return; }
+  const seq = ++extModelsSeq;
+  extModelsRender(true);
+  let list = null, err = '';
+  try{
+    const r = await jpost('/api/preset/external/models', {id: editingKey || '', url, key, keyTouched: true});
+    if(r.ok) list = r.models || []; else err = r.error || '';
+  }catch(e){}
+  if(seq !== extModelsSeq) return;
+  extModels = list && list.length ? list : null;
+  extModelsErr = err;
+  extModelsFor = sig;
+  extModelsRender();
+}
+function extModelsRender(loading){
+  const selc = document.getElementById('s-ext-model-selc');
+  const sel = document.getElementById('s-ext-model-sel');
+  const inp = document.getElementById('s-ext-model');
+  const hint = document.getElementById('s-ext-model-hint');
+  if(!selc) return;
+  const cur = cfgReadKey('EXTERNAL_MODEL');
+  if(loading || !extModels){
+    selc.style.display = 'none';
+    inp.style.display = '';
+    hint.title = '';
+    if(loading) hint.textContent = t('external.models_searching');
+    else if(extModelsFor !== null){ hint.textContent = t('external.models_unavailable'); hint.title = extModelsErr; }
+    else hint.textContent = t('external.model_hint');
+    return;
+  }
+  const opt = (v, label) => { const o = document.createElement('option'); o.value = v; o.textContent = label; return o; };
+  sel.textContent = '';
+  // Sans modèle : l'API attend un choix.
+  if(!cur) sel.appendChild(opt('', t('external.model_choose')));
+  if(cur && !extModels.includes(cur)) sel.appendChild(opt(cur, cur));
+  extModels.forEach(m => sel.appendChild(opt(m, m)));
+  sel.appendChild(opt('\u0000other', t('external.model_other')));
+  sel.value = extModelManual ? '\u0000other' : cur;
+  selc.style.display = '';
+  inp.style.display = extModelManual ? '' : 'none';
+  hint.title = '';
+  hint.textContent = t('external.models_count').replace('{n}', extModels.length);
+}
+function extModelPick(v){
+  const inp = document.getElementById('s-ext-model');
+  if(v === '\u0000other'){
+    extModelManual = true;
+    extModelsRender();
+    inp.focus();
+    return;
+  }
+  extModelManual = false;
+  cfgWriteKey('EXTERNAL_MODEL', v);
+  inp.value = v;
+  extModelsRender();
 }
 // Test d'un preset API externe : une complétion d'un jeton vers l'API saisie.
 async function testExternalPreset(){
   const st = document.getElementById('s-ext-status');
   const b = {id: editingKey || '', url: cfgReadKey('EXTERNAL_URL'), model: cfgReadKey('EXTERNAL_MODEL'),
-             key: cfgReadKey('EXTERNAL_KEY'), keyTouched: true};
+             key: cfgReadKey('EXTERNAL_KEY'), keyTouched: true, effort: cfgReadKey('REASONING_EFFORT')};
   if(!b.url || !b.model){ st.textContent = t('external.url_model_required'); return; }
   st.textContent = t('external.testing');
   try{
     const r = await jpost('/api/preset/external/test', b);
-    st.textContent = r.ok ? '✓ '+t('external.test_ok') : '⚠ '+(r.error || t('external.test_failed'));
+    st.title = '';
+    if(r.ok && r.reasoningIgnored){ st.textContent = '⚠ '+t('external.test_ok_reason_ignored'); st.title = r.reasoningError || ''; }
+    else st.textContent = r.ok ? '✓ '+t('external.test_ok') : '⚠ '+(r.error || t('external.test_failed'));
   }catch(e){ st.textContent = '⚠ '+t('external.test_failed'); }
 }
 // Comptes Modal = profils de la CLI sur la machine AJEAN. Vide = profil actif.

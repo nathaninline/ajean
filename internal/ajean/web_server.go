@@ -233,6 +233,8 @@ func newWebMux() *http.ServeMux {
 	api("/api/preset", handlePreset)
 	api("/api/preset/save", handlePresetSave)
 	api("/api/preset/delete", handlePresetDelete)
+	// Modèles annoncés par l'API saisie dans l'éditeur de preset API.
+	api("/api/preset/external/models", handlePresetExternalModels)
 	api("/api/preset/external", handlePresetExternal)          // lire un preset externe (préremplissage modale)
 	api("/api/preset/external/save", handlePresetExternalSave) // créer/éditer un preset externe
 	api("/api/preset/external/test", handlePresetExternalTest) // tester la connexion à l'API distante

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 )
@@ -58,6 +59,7 @@ type externalSaveReq struct {
 	Ctx        string `json:"ctx"`        // taille de contexte (clé CTX), optionnelle
 	Vision     bool   `json:"vision"`     // le modèle distant accepte les images
 	KeyTouched bool   `json:"keyTouched"` // l'utilisateur a modifié le champ clé
+	Effort     string `json:"effort"`     // niveau de réflexion (test de connexion)
 }
 
 func handlePresetExternalSave(w http.ResponseWriter, r *http.Request) {
@@ -136,26 +138,31 @@ func handlePresetExternalTest(w http.ResponseWriter, r *http.Request) {
 		"max_tokens": 1,
 		"stream":     false,
 	}
-	body, _ := json.Marshal(payload)
-	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+	// Le niveau de réflexion du preset part avec le test : c'est le moyen de
+	// savoir, avant de discuter, si ce fournisseur l'accepte.
+	withReasoning := false
+	for k, v := range reasoningParams(req.URL, req.Effort) {
+		payload[k] = v
+		withReasoning = true
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	hreq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
-	if err != nil {
-		sendJSON(w, 200, map[string]any{"ok": false, "error": err.Error()})
-		return
-	}
-	hreq.Header.Set("Content-Type", "application/json")
-	if key != "" {
-		hreq.Header.Set("Authorization", "Bearer "+key)
-	}
-	resp, err := http.DefaultClient.Do(hreq)
-	if err != nil {
-		sendJSON(w, 200, map[string]any{"ok": false, "error": "injoignable : " + err.Error()})
-		return
-	}
-	defer resp.Body.Close()
-	rb, _ := io.ReadAll(io.LimitReader(resp.Body, 2000))
-	if resp.StatusCode != http.StatusOK {
+	post := func() (int, string, error) {
+		body, _ := json.Marshal(payload)
+		hreq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+		if err != nil {
+			return 0, "", err
+		}
+		hreq.Header.Set("Content-Type", "application/json")
+		if key != "" {
+			hreq.Header.Set("Authorization", "Bearer "+key)
+		}
+		resp, err := http.DefaultClient.Do(hreq)
+		if err != nil {
+			return 0, "", extModelsError("injoignable : " + err.Error())
+		}
+		defer resp.Body.Close()
+		rb, _ := io.ReadAll(io.LimitReader(resp.Body, 2000))
 		msg := strings.TrimSpace(string(rb))
 		if m := extractAPIError(rb); m != "" {
 			msg = m
@@ -163,7 +170,30 @@ func handlePresetExternalTest(w http.ResponseWriter, r *http.Request) {
 		if msg == "" {
 			msg = resp.Status
 		}
-		sendJSON(w, 200, map[string]any{"ok": false, "status": resp.StatusCode, "error": msg})
+		return resp.StatusCode, msg, nil
+	}
+	code, msg, err := post()
+	reasoningIgnored := false
+	if err == nil && withReasoning && reasoningRefusal(code) {
+		// Refus : la même requête sans le niveau de réflexion dit si c'est lui
+		// que le fournisseur n'accepte pas.
+		refusal := msg
+		stripReasoning(payload)
+		if code, msg, err = post(); err == nil && code == http.StatusOK {
+			reasoningIgnored = true
+			msg = refusal
+		}
+	}
+	if err != nil {
+		sendJSON(w, 200, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if code != http.StatusOK {
+		sendJSON(w, 200, map[string]any{"ok": false, "status": code, "error": msg})
+		return
+	}
+	if reasoningIgnored {
+		sendJSON(w, 200, map[string]any{"ok": true, "reasoningIgnored": true, "reasoningError": msg})
 		return
 	}
 	sendJSON(w, 200, map[string]any{"ok": true})
@@ -182,4 +212,92 @@ func extractAPIError(b []byte) string {
 		return strings.TrimSpace(e.Error.Message)
 	}
 	return ""
+}
+
+// handlePresetExternalModels : les modèles que l'API saisie annonce (GET
+// <base>/models), pour que l'éditeur de preset propose une liste plutôt qu'un
+// identifiant à recopier. Liste vide ou erreur : l'éditeur garde la saisie libre.
+func handlePresetExternalModels(w http.ResponseWriter, r *http.Request) {
+	var req externalSaveReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	// Édition sans toucher au champ clé : la clé enregistrée sert, comme pour le
+	// test de connexion (la modale ne la reçoit jamais en clair).
+	key := strings.TrimSpace(req.Key)
+	if key == "" && req.ID != "" && !req.KeyTouched {
+		if content, err := ReadPreset(req.ID); err == nil {
+			key = strings.TrimSpace(parseEnv(content)[extKeyToken])
+		}
+	}
+	models, err := externalModels(r.Context(), req.URL, key)
+	if err != nil {
+		sendJSON(w, 200, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "models": models})
+}
+
+type extModelsError string
+
+func (e extModelsError) Error() string { return string(e) }
+
+// externalModels interroge <base>/models et renvoie les identifiants, triés et
+// sans doublon. Accepte la forme OpenAI ({"data":[{"id":…}]}), un tableau nu,
+// et la forme {"models":[{"id"|"name":…}]} de quelques serveurs.
+func externalModels(ctx context.Context, base, key string) ([]string, error) {
+	api := strings.TrimSuffix(completionsURL(base), "/chat/completions")
+	if api == "" {
+		return nil, extModelsError("URL requise")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 12*time.Second)
+	defer cancel()
+	hreq, err := http.NewRequestWithContext(ctx, "GET", api+"/models", nil)
+	if err != nil {
+		return nil, err
+	}
+	if key = strings.TrimSpace(key); key != "" {
+		hreq.Header.Set("Authorization", "Bearer "+key)
+	}
+	resp, err := http.DefaultClient.Do(hreq)
+	if err != nil {
+		return nil, extModelsError("injoignable : " + err.Error())
+	}
+	defer resp.Body.Close()
+	rb, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+	if resp.StatusCode != http.StatusOK {
+		if m := extractAPIError(rb); m != "" {
+			return nil, extModelsError(m)
+		}
+		return nil, extModelsError(resp.Status)
+	}
+	type entry struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	var obj struct {
+		Data   []entry `json:"data"`
+		Models []entry `json:"models"`
+	}
+	var entries []entry
+	if json.Unmarshal(rb, &obj) == nil {
+		entries = append(obj.Data, obj.Models...)
+	} else if json.Unmarshal(rb, &entries) != nil {
+		return nil, extModelsError("réponse illisible")
+	}
+	seen := map[string]bool{}
+	out := []string{}
+	for _, e := range entries {
+		id := strings.TrimSpace(e.ID)
+		if id == "" {
+			id = strings.TrimSpace(e.Name)
+		}
+		if id != "" && !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	sort.Strings(out)
+	return out, nil
 }
