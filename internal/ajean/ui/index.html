@@ -803,6 +803,22 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .task-dot-run{animation:taskpulse 1.1s ease-in-out infinite}
 @keyframes taskpulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
 .task-run-badge{font-size:10px;font-weight:600;color:var(--accent);letter-spacing:.02em}
+.task-pending-badge{font-size:10px;font-weight:600;color:var(--err);letter-spacing:.02em}
+.review-box{margin-bottom:8px}
+.review-head{font-size:13px;font-weight:600;color:var(--text)}
+.review-sub{font-size:12px;line-height:1.5;margin:2px 0 8px}
+.review-items{display:flex;flex-direction:column;gap:4px;max-height:320px;overflow:auto}
+.review-item{border-radius:6px;background:var(--t1);padding:6px 10px;font-size:12px}
+.review-item summary{cursor:pointer;list-style:none;display:flex;gap:8px;align-items:baseline}
+.review-item summary::-webkit-details-marker{display:none}
+.review-kind{flex:none;font-size:10px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;color:var(--dim)}
+.review-kind.new{color:var(--add)}
+.review-kind.deleted{color:var(--del)}
+.review-name{color:var(--text);word-break:break-word}
+.review-detail{margin:6px 0 2px;white-space:pre-wrap;word-break:break-word;font-family:var(--mono);font-size:11px;line-height:1.5;color:var(--dim)}
+.review-actions{display:flex;gap:8px;margin-top:10px}
+.review-actions button{margin:0}
+.action-when{flex:none;font-size:10px;color:var(--dim);white-space:nowrap}
 .task-stop-btn{flex:none;margin:0;padding:3px 10px;font-size:11px;border-radius:6px;background:var(--danger-bg);border:1px solid var(--err);color:var(--err)}
 .task-stop-btn:hover{background:var(--danger-bg);border-color:var(--err);color:var(--err);opacity:.85}
 .sess-count{font-size:12px;color:var(--dim);background:var(--row-bg-on);padding:1px 8px;border-radius:20px}
@@ -2234,6 +2250,17 @@ body.jean-voice #mic-btn{display:none}
   </details>
   <details id="tasks-details"><summary><span class="stitle" data-i18n="tasks.title">Tasks</span><span id="tasks-badge" class="sbadge"></span></summary>
     <div id="tasks-agent-warn" class="muted" style="display:none;font-size:12px;line-height:1.5;margin:8px 2px" data-i18n="tasks.agent_warn" data-i18n-html>Le <b>mode agent</b> est désactivé : les tâches s'exécuteront mais l'IA n'aura <b>aucun outil</b> pour agir (envoyer un mail, lire des fichiers…). Active le mode agent ci-dessus.</div>
+    <div id="review-box" class="slist review-box" style="display:none">
+      <div class="rowbody">
+        <div class="review-head" data-i18n="review.heading">L'IA propose des changements</div>
+        <div class="muted review-sub" data-i18n="review.sub">Rien de ceci ne partira seul tant que vous ne l'avez pas validé.</div>
+        <div id="review-items" class="review-items"></div>
+        <div class="review-actions">
+          <button type="button" class="btn-primary" onclick="answerReview(true)" data-i18n="review.accept">Tout valider</button>
+          <button type="button" class="btn" onclick="answerReview(false)" data-i18n="review.reject">Tout refuser</button>
+        </div>
+      </div>
+    </div>
     <div class="slist">
       <label class="switchrow"><span class="switch"><input type="checkbox" id="tasks-pause-toggle" onchange="toggleTasksPause()"><span class="slider"></span></span> <span data-i18n="tasks.pause_toggle">suspendre toutes les tâches</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="tasks.pause_help" data-i18n-html>Interrupteur maître : coche pour que plus aucune tâche ne se déclenche. Les tâches gardent leur réglage et repartent quand tu décoches.</span></span></label>
       <div class="rowbody list-body"><div id="tasks-list" class="mcp-list"></div></div>
@@ -2288,6 +2315,27 @@ body.jean-voice #mic-btn{display:none}
       <label class="switchrow"><span class="switch"><input type="checkbox" id="lan-toggle" onchange="toggleLAN()"><span class="slider"></span></span> <span data-i18n="api.lan_toggle">joignable depuis le réseau local</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="api.lan_help" data-i18n-html>Éteint, le moteur n'écoute que sur <b>cette machine</b> : l'adresse ci-dessus ne répond qu'ici. Allumez-le pour brancher un logiciel depuis un autre ordinateur du réseau (sous Windows, la règle de pare-feu est posée en même temps). <b>Redémarre le moteur.</b></span></span></label>
       <div id="lan-warn" class="rowbody" style="display:none"></div>
       <label class="switchrow"><span class="switch"><input type="checkbox" id="oai-public-toggle" onchange="toggleOAIPublic()"><span class="slider"></span></span> <span data-i18n="api.public_toggle">exposer en public (ajean.link)</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="api.public_help" data-i18n-html>Rend votre IA joignable depuis <b>n'importe où</b> via <code>https://&lt;machine&gt;.oai.ajean.link/v1</code> (pour brancher un SaaS). Le trafic est chiffré <b>de bout en bout</b> jusqu'à ce serveur — le relais ajean.link ne voit rien. Nécessite l'accès distant actif.</span></span></label>
+    </div>
+  </details>
+  <details id="sec-details"><summary><span class="stitle" data-i18n="security.title">Sécurité</span><span id="sec-badge" class="sbadge"></span></summary>
+    <div class="subhead"><span data-i18n="security.password_subhead">Mot de passe de l'interface</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="security.password_help" data-i18n-html>Avec un mot de passe, l'interface demande de <b>se connecter</b> depuis tout appareil du réseau. Il n'est pas gardé (seule sa dérivation l'est), la session tient dans un cookie que la page ne peut pas lire, et les essais ratés sont freinés. L'accès par <b>ajean.link</b> et la clé de pilotage (scripts) continuent de marcher. Oublié ? <code>ajean password</code> sur la machine.</span></span></div>
+    <div class="slist">
+      <div id="sec-pw-state" class="rowbody muted" style="margin:0"></div>
+      <button type="button" id="sec-pw-set" class="switchrow sw-action" onclick="secSetPassword()"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span id="sec-pw-set-lbl" data-i18n="security.password_set">Définir un mot de passe</span></button>
+      <button type="button" id="sec-pw-others" class="switchrow sw-action" onclick="secLogout(true)" style="display:none"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M3 3l18 18"/></svg><span data-i18n="security.logout_others">Fermer les autres sessions</span></button>
+      <button type="button" id="sec-pw-logout" class="switchrow sw-action" onclick="secLogout(false)" style="display:none"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg><span data-i18n="security.logout">Se déconnecter</span></button>
+      <button type="button" id="sec-pw-remove" class="switchrow sw-action danger" onclick="secRemovePassword()" style="display:none"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg><span data-i18n="security.password_remove">Retirer le mot de passe</span></button>
+    </div>
+    <div class="subhead"><span data-i18n="security.vault_subhead">Coffre des clés d'API</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="security.vault_help" data-i18n-html>Les clés de vos <b>presets externes</b> (OpenAI, OpenRouter…) et les jetons de vos <b>serveurs MCP</b> quittent les fichiers de presets et la base : ils sont chiffrés à part, et seule une référence reste à leur place. Un preset partagé ou une réponse de l'interface ne les contient plus. La clé du coffre est un fichier de cette machine (<code>.secrets_key</code>) : gardez-le avec vos sauvegardes. Éteindre remet tout en clair, comme avant.</span></span></div>
+    <div class="slist">
+      <label class="switchrow"><span class="switch"><input type="checkbox" id="sec-vault-toggle" onchange="toggleSecretsVault()"><span class="slider"></span></span> <span class="sw-txt"><span data-i18n="security.vault_toggle">ranger les clés d'API dans le coffre chiffré</span><span id="sec-vault-status" class="sw-sub"></span></span></label>
+    </div>
+    <div class="subhead"><span data-i18n="security.ai_subhead">Ce que fait l'IA</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="security.ai_help" data-i18n-html><b>Validation</b> : une tâche planifiée que l'IA crée ou modifie (et le script qu'elle lance) ne part pas seule avant votre accord, demandé une fois à la fin de sa réponse dans <b>Tâches</b>. Ce que vous réglez vous-même est validé d'office.<br><b>Journal</b> : chaque outil qui agit (commande, fichier, tâche…) est noté avant et après, y compris pendant les tâches de fond. Les secrets reconnus sont masqués ; mémoire chiffrée, le journal l'est aussi.</span></span></div>
+    <div class="slist">
+      <label class="switchrow"><span class="switch"><input type="checkbox" id="sec-review-toggle" onchange="toggleReview()"><span class="slider"></span></span> <span data-i18n="security.review_toggle">valider ce que l'IA planifie</span></label>
+      <label class="switchrow"><span class="switch"><input type="checkbox" id="sec-actions-toggle" onchange="toggleActionsLog()"><span class="slider"></span></span> <span data-i18n="security.actions_toggle">tenir le journal des actions</span></label>
+      <button type="button" class="switchrow sw-action" onclick="showActionsLog()"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg><span data-i18n="security.actions_show">Voir les dernières actions</span></button>
+      <div id="sec-actions-list" class="rowbody review-items" style="display:none"></div>
     </div>
   </details>
   <details id="remote-details"><summary><span class="stitle" data-i18n="link.title">AJEAN LINK</span><span id="remote-badge" class="sbadge"></span></summary>
@@ -3952,6 +4000,71 @@ fr: {
   "api.model_label": "Modèle",
   "api.access_subhead": "Accès",
   "api.key_menu_title": "gérer la clé",
+  "security.title": "Sécurité",
+  "security.password_subhead": "Mot de passe de l'interface",
+  "security.password_help": "Avec un mot de passe, l'interface demande de <b>se connecter</b> depuis tout appareil du réseau. Il n'est pas gardé (seule sa dérivation l'est), la session tient dans un cookie que la page ne peut pas lire, et les essais ratés sont freinés. L'accès par <b>ajean.link</b> et la clé de pilotage (scripts) continuent de marcher. Oublié ? <code>ajean password</code> sur la machine.",
+  "security.password_set": "Définir un mot de passe",
+  "security.password_change": "Changer le mot de passe",
+  "security.password_remove": "Retirer le mot de passe",
+  "security.logout": "Se déconnecter",
+  "security.logout_others": "Fermer les autres sessions",
+  "security.password_on": "Mot de passe défini",
+  "security.sessions_singular": "session ouverte",
+  "security.sessions_plural": "sessions ouvertes",
+  "security.sessions_closed": "session(s) fermée(s)",
+  "security.key_also": "clé de pilotage aussi acceptée",
+  "security.key_only": "Protégée par la clé de pilotage seule (pas de mot de passe).",
+  "security.open_warning": "Aucune protection : toute personne qui peut joindre cette machine sur le réseau ouvre l'interface.",
+  "security.http_warning": "Liaison en clair (HTTP) : sur un réseau qui n'est pas le vôtre, passez par ajean.link ou un proxy HTTPS.",
+  "security.first_from_machine": "Le premier mot de passe se définit depuis la machine elle-même (ou « ajean password » dans un terminal).",
+  "security.badge_password": "mot de passe",
+  "security.badge_key": "clé",
+  "security.badge_open": "ouverte",
+  "security.new_prompt_prefix": "Nouveau mot de passe (",
+  "security.new_prompt_suffix": " caractères au moins) :",
+  "security.confirm_prompt": "Encore une fois, pour vérifier :",
+  "security.current_prompt": "Mot de passe actuel :",
+  "security.too_short_prefix": "Trop court : ",
+  "security.too_short_suffix": " caractères au moins.",
+  "security.mismatch": "Les deux saisies diffèrent.",
+  "security.password_saved": "mot de passe enregistré",
+  "security.password_removed": "mot de passe retiré",
+  "security.remove_confirm_msg": "Retirer le mot de passe ? Toutes les sessions seront fermées et l'interface ne demandera plus de se connecter.",
+  "security.vault_subhead": "Coffre des clés d'API",
+  "security.vault_help": "Les clés de vos <b>presets externes</b> (OpenAI, OpenRouter…) et les jetons de vos <b>serveurs MCP</b> quittent les fichiers de presets et la base : ils sont chiffrés à part, et seule une référence reste à leur place. Un preset partagé ou une réponse de l'interface ne les contient plus. La clé du coffre est un fichier de cette machine (<code>.secrets_key</code>) : gardez-le avec vos sauvegardes. Éteindre remet tout en clair, comme avant.",
+  "security.vault_toggle": "ranger les clés d'API dans le coffre chiffré",
+  "security.vault_count_singular": "clé au coffre",
+  "security.vault_count_plural": "clés au coffre",
+  "security.vault_plain": "encore en clair",
+  "security.vault_key_missing": "Clé du coffre introuvable : restaurez le fichier .secrets_key.",
+  "security.vault_off_confirm": "Remettre les clés d'API en clair dans les presets et les réglages, comme avant le coffre ?",
+  "security.vault_off_ok": "Remettre en clair",
+  "security.vault_moved_in": "clé(s) rangée(s) dans le coffre",
+  "security.vault_moved_out": "clé(s) remise(s) en clair",
+  "security.ai_subhead": "Ce que fait l'IA",
+  "security.ai_help": "<b>Validation</b> : une tâche planifiée que l'IA crée ou modifie (et le script qu'elle lance) ne part pas seule avant votre accord, demandé une fois à la fin de sa réponse dans <b>Tâches</b>. Ce que vous réglez vous-même est validé d'office.<br><b>Journal</b> : chaque outil qui agit (commande, fichier, tâche…) est noté avant et après, y compris pendant les tâches de fond. Les secrets reconnus sont masqués ; mémoire chiffrée, le journal l'est aussi.",
+  "security.review_toggle": "valider ce que l'IA planifie",
+  "security.actions_toggle": "tenir le journal des actions",
+  "security.actions_show": "Voir les dernières actions",
+  "security.actions_empty": "Aucune action notée pour l'instant.",
+  "security.actions_locked": "Mémoire verrouillée : le journal chiffré n'est pas lisible.",
+  "security.actions_no_result": "(pas de résultat noté : coupé ou en cours)",
+  "security.actions_scope_chat": "conversation",
+  "security.actions_scope_jean": "mode Jean",
+  "review.heading": "L'IA propose des changements",
+  "review.sub": "Rien de ceci ne partira seul tant que vous ne l'avez pas validé.",
+  "review.accept": "Tout valider",
+  "review.reject": "Tout refuser",
+  "review.kind_new": "nouvelle",
+  "review.kind_changed": "modifiée",
+  "review.kind_deleted": "supprimée",
+  "review.pending_badge": "à valider",
+  "review.toast": "l'IA a planifié quelque chose : à valider dans Tâches",
+  "review.enabled": "validation activée",
+  "review.disabled": "validation désactivée",
+  "review.accepted": "validé",
+  "review.rejected": "refusé : tout est revenu comme avant",
+  "review.reject_confirm": "Refuser ces changements ? Les tâches et leurs scripts reviennent à ce que vous aviez validé.",
   "link.title": "AJEAN LINK",
   "link.remote_subhead": "Accès distant",
   "link.remote_help": "Accédez à ce serveur AJEAN depuis <b>n'importe où</b>, sans ouvrir de port, à travers le relais <b>ajean.link</b>. Le trafic est chiffré de <b>bout en bout</b> : le relais ne voit rien. Abonnement 4,80 €/mois.",
@@ -4539,6 +4652,14 @@ fr: {
   "api.key_required_msg": "Clé de pilotage AJEAN requise :",
   "api.auth_title": "Authentification",
   "api.key_placeholder": "clé…",
+  "auth.login_title": "Connexion",
+  "auth.login_msg": "Mot de passe d'AJEAN :",
+  "auth.login_ok": "Se connecter",
+  "auth.password_placeholder": "mot de passe…",
+  "auth.login_wrong": "Mot de passe incorrect. Réessayez :",
+  "auth.login_wait_prefix": "Trop d'essais : nouvel essai possible dans ",
+  "auth.login_wait_suffix": " s.",
+  "auth.login_unreachable": "Serveur injoignable. Réessayez :",
   "status.stopped": "arrêté",
   "status.ready": "prêt",
   "status.cloud_checking": "vérification…",
@@ -5559,6 +5680,71 @@ en: {
   "api.model_label": "Model",
   "api.access_subhead": "Access",
   "api.key_menu_title": "manage the key",
+  "security.title": "Security",
+  "security.password_subhead": "Interface password",
+  "security.password_help": "With a password, the interface asks you to <b>sign in</b> from any device on the network. It is not kept (only its derivation is), the session lives in a cookie the page cannot read, and failed attempts are throttled. Access through <b>ajean.link</b> and the control key (scripts) keep working. Forgotten? Run <code>ajean password</code> on the machine.",
+  "security.password_set": "Set a password",
+  "security.password_change": "Change the password",
+  "security.password_remove": "Remove the password",
+  "security.logout": "Sign out",
+  "security.logout_others": "Close the other sessions",
+  "security.password_on": "Password set",
+  "security.sessions_singular": "open session",
+  "security.sessions_plural": "open sessions",
+  "security.sessions_closed": "session(s) closed",
+  "security.key_also": "control key also accepted",
+  "security.key_only": "Protected by the control key only (no password).",
+  "security.open_warning": "No protection: anyone who can reach this machine on the network can open the interface.",
+  "security.http_warning": "Unencrypted link (HTTP): on a network that is not yours, go through ajean.link or an HTTPS proxy.",
+  "security.first_from_machine": "The first password is set from the machine itself (or with “ajean password” in a terminal).",
+  "security.badge_password": "password",
+  "security.badge_key": "key",
+  "security.badge_open": "open",
+  "security.new_prompt_prefix": "New password (at least ",
+  "security.new_prompt_suffix": " characters):",
+  "security.confirm_prompt": "Once more, to check:",
+  "security.current_prompt": "Current password:",
+  "security.too_short_prefix": "Too short: at least ",
+  "security.too_short_suffix": " characters.",
+  "security.mismatch": "The two entries differ.",
+  "security.password_saved": "password saved",
+  "security.password_removed": "password removed",
+  "security.remove_confirm_msg": "Remove the password? Every session will be closed and the interface will no longer ask you to sign in.",
+  "security.vault_subhead": "API key vault",
+  "security.vault_help": "The keys of your <b>external presets</b> (OpenAI, OpenRouter…) and the tokens of your <b>MCP servers</b> leave the preset files and the database: they are encrypted separately, and only a reference stays in their place. A shared preset or a response from the interface no longer contains them. The vault key is a file on this machine (<code>.secrets_key</code>): keep it with your backups. Turning this off puts everything back in clear, as before.",
+  "security.vault_toggle": "store API keys in the encrypted vault",
+  "security.vault_count_singular": "key in the vault",
+  "security.vault_count_plural": "keys in the vault",
+  "security.vault_plain": "still in clear",
+  "security.vault_key_missing": "Vault key not found: restore the .secrets_key file.",
+  "security.vault_off_confirm": "Put the API keys back in clear in the presets and settings, as before the vault?",
+  "security.vault_off_ok": "Put back in clear",
+  "security.vault_moved_in": "key(s) stored in the vault",
+  "security.vault_moved_out": "key(s) put back in clear",
+  "security.ai_subhead": "What the AI does",
+  "security.ai_help": "<b>Review</b>: a scheduled task the AI creates or changes (and the script it runs) does not start on its own before you approve it, asked once at the end of its answer under <b>Tasks</b>. What you set up yourself is approved automatically.<br><b>Log</b>: every tool that acts (command, file, task…) is recorded before and after, including during background tasks. Recognized secrets are masked; when memory is encrypted, so is the log.",
+  "security.review_toggle": "review what the AI schedules",
+  "security.actions_toggle": "keep the action log",
+  "security.actions_show": "Show the latest actions",
+  "security.actions_empty": "No action recorded yet.",
+  "security.actions_locked": "Memory locked: the encrypted log cannot be read.",
+  "security.actions_no_result": "(no result recorded: cut off or still running)",
+  "security.actions_scope_chat": "chat",
+  "security.actions_scope_jean": "Jean mode",
+  "review.heading": "The AI proposes changes",
+  "review.sub": "None of this will run on its own until you approve it.",
+  "review.accept": "Approve all",
+  "review.reject": "Reject all",
+  "review.kind_new": "new",
+  "review.kind_changed": "changed",
+  "review.kind_deleted": "deleted",
+  "review.pending_badge": "to review",
+  "review.toast": "the AI scheduled something: review it under Tasks",
+  "review.enabled": "review turned on",
+  "review.disabled": "review turned off",
+  "review.accepted": "approved",
+  "review.rejected": "rejected: everything is back as before",
+  "review.reject_confirm": "Reject these changes? The tasks and their scripts go back to what you had approved.",
   "link.title": "AJEAN LINK",
   "link.remote_subhead": "Remote access",
   "link.remote_help": "Access this AJEAN server from <b>anywhere</b>, with no port forwarding, through the <b>ajean.link</b> relay. Traffic is encrypted <b>end-to-end</b>: the relay sees nothing. Subscription €4.80/month.",
@@ -6146,6 +6332,14 @@ en: {
   "api.key_required_msg": "AJEAN control key required:",
   "api.auth_title": "Authentication",
   "api.key_placeholder": "key…",
+  "auth.login_title": "Sign in",
+  "auth.login_msg": "AJEAN password:",
+  "auth.login_ok": "Sign in",
+  "auth.password_placeholder": "password…",
+  "auth.login_wrong": "Wrong password. Try again:",
+  "auth.login_wait_prefix": "Too many attempts: you can try again in ",
+  "auth.login_wait_suffix": " s.",
+  "auth.login_unreachable": "Server unreachable. Try again:",
   "status.stopped": "stopped",
   "status.ready": "ready",
   "status.cloud_checking": "checking…",
@@ -7158,6 +7352,8 @@ function _openAsk(kind, message, opts){
   document.getElementById('ask-title').textContent = opts.title || (kind==='alert'?t('uikit.info_title'):kind==='prompt'?t('uikit.prompt_title'):t('uikit.confirm_title'));
   document.getElementById('ask-msg').textContent = message||'';
   const inp=document.getElementById('ask-input'), ta=document.getElementById('ask-textarea');
+  inp.type = (kind==='prompt' && opts.password) ? 'password' : 'text';
+  inp.autocomplete = (kind==='prompt' && opts.password) ? (opts.newPassword ? 'new-password' : 'current-password') : 'off';
   _askMultiline = kind==='prompt' && !!opts.multiline;
   if(kind==='prompt'){
     const el = _askMultiline ? ta : inp, other = _askMultiline ? inp : ta;
@@ -7488,10 +7684,34 @@ async function jfetch(u, opts){
   }
   finally{ if(timer) clearTimeout(timer); }
   if(r.status === 401){
-    const k = await askKeyOnce();
+    let login = false;
+    try{ const j = await r.clone().json(); login = !!(j && j.login); }catch(_){}
+    const k = login ? await askLoginOnce() : await askKeyOnce();
     if(k){ opts.headers = authHeaders(opts.headers); r = await fetch(u, opts); }
   }
   return r;
+}
+let _loginAsk = null;
+function askLoginOnce(){
+  if(!_loginAsk){
+    _loginAsk = (async()=>{
+      let msg = t('auth.login_msg');
+      for(;;){
+        const pw = await askPrompt(msg, {title:t('auth.login_title'), placeholder:t('auth.password_placeholder'), okText:t('auth.login_ok'), password:true});
+        if(!pw) return false;
+        let r;
+        try{ r = await fetch(API_BASE+'/api/auth/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password:pw})}); }
+        catch(e){ msg = t('auth.login_unreachable'); continue; }
+        if(r.ok) return true;
+        let j = {}; try{ j = await r.json(); }catch(_){}
+        if(r.status === 429) msg = t('auth.login_wait_prefix') + (j.wait||60) + t('auth.login_wait_suffix');
+        else if(r.status === 401) msg = t('auth.login_wrong');
+        else if(r.status === 409) return false; 
+        else msg = j.error || ('HTTP ' + r.status);
+      }
+    })().then(v => { _loginAsk = null; return v; }, e => { _loginAsk = null; throw e; });
+  }
+  return _loginAsk;
 }
 let _keyAsk = null;
 function askKeyOnce(){
@@ -8497,7 +8717,7 @@ async function setLinkBrowser(v){
   toast(t('settings.link_browser_saved'));
 }
 async function loadAll(){
-  await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadComputer(),loadMCP(),loadApiKey(),loadNetwork(),loadPrefs(),loadOpen(),loadLlamacpp(),loadMoe(),loadExl3(),loadSTT(),loadRemote(),loadTasks()]);
+  await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadComputer(),loadMCP(),loadApiKey(),loadSecurity(),loadNetwork(),loadPrefs(),loadOpen(),loadLlamacpp(),loadMoe(),loadExl3(),loadSTT(),loadRemote(),loadTasks()]);
   releaseHeights(); 
 }
 async function act(a){
@@ -11107,7 +11327,9 @@ function handleDelta(d){
     if(MODE==='jean' && !REPLAYING) JeanAvatar&&JeanAvatar.done();
     removeTyping(); finalizeTurn(d.elapsed_ms||0, d.preset);
     for(const el of T.turnCollapsibles){ if(el){ el.classList.remove('working'); finalizeReasonLabel(el); } } 
-    collapseAll(T.turnCollapsibles); setBusy(false); return; }
+    collapseAll(T.turnCollapsibles); setBusy(false);
+    if(!REPLAYING && typeof REVIEW_ON !== 'undefined' && REVIEW_ON) setTimeout(loadReview, 400);
+    return; }
   if(d.error){ hideCuShot(); smoothSnap(); flushRender(); elapsedStop(); removeTyping(); setActive(null); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
   if(d.jean_task){ showJeanTask(d.jean_task); return; }
   if(d.jean_post){ removeTyping(); renderBody(addMsg('assistant',''), d.jean_post); if(!REPLAYING) JeanAvatar&&JeanAvatar.done(); return; }
@@ -13157,6 +13379,7 @@ function renderTasks(r){
   TASK_JEAN_SCRIPTS = (r && r.jean_scripts) || [];
   TASK_PROJECTS = (r && r.projects) || [];
   TASK_RUNNING = (r && r.running_id) || '';
+  const pendingIds = new Set((r && r.pending) || []);
   ensureTasksPoll();
   const pc = document.getElementById('tasks-pause-toggle');
   if(pc) pc.checked = paused;
@@ -13197,6 +13420,10 @@ function renderTasks(r){
       const rn = document.createElement('span'); rn.className = 'task-run-badge';
       rn.textContent = t('tasks.running_badge'); meta.appendChild(rn);
     } else {
+      if(pendingIds.has(tk.id)){
+        const pd = document.createElement('span'); pd.className = 'task-pending-badge';
+        pd.textContent = t('review.pending_badge'); pd.title = t('review.sub'); meta.appendChild(pd);
+      }
       const fr = document.createElement('span'); fr.className = 'mcp-tag';
       fr.textContent = scheduleLabel(tk.schedule); meta.appendChild(fr);
       if(tk.kind === 'script'){
@@ -16489,4 +16716,184 @@ const ROUTE_SECTIONS = {device:'device.title', config:'config.title', models:'pr
   if(document.readyState === 'complete') setTimeout(start, 0);
   else addEventListener('load', ()=>setTimeout(start, 0));
 })();
-</script></body></html>
+let SEC_AUTH = null;
+async function loadSecurity(){
+  const box = document.getElementById('sec-details'); if(!box) return;
+  let a; try{ a = await jget('/api/auth'); }catch(e){ return; }
+  SEC_AUTH = a;
+  const show = (id, on) => { const el = document.getElementById(id); if(el) el.style.display = on ? '' : 'none'; };
+  const st = document.getElementById('sec-pw-state');
+  let msg;
+  if(a.password){
+    msg = t('security.password_on');
+    if(typeof a.sessions === 'number') msg += ' · ' + a.sessions + ' ' + t(a.sessions > 1 ? 'security.sessions_plural' : 'security.sessions_singular');
+    if(a.key) msg += ' · ' + t('security.key_also');
+    if(!a.https && !a.remote && !/^(localhost|127\.|\[::1\])/.test(location.host)) msg += '\n' + t('security.http_warning');
+  } else if(a.key){
+    msg = t('security.key_only');
+  } else {
+    msg = t('security.open_warning');
+  }
+  if(!a.password && !a.can_set) msg += '\n' + t('security.first_from_machine');
+  st.textContent = msg; st.style.whiteSpace = 'pre-line';
+  document.getElementById('sec-pw-set-lbl').textContent = t(a.password ? 'security.password_change' : 'security.password_set');
+  show('sec-pw-set', a.password || a.can_set);
+  show('sec-pw-remove', a.password);
+  show('sec-pw-logout', a.password && a.session);
+  show('sec-pw-others', a.password && a.session && a.sessions > 1);
+  setBadge('sec-badge', a.password ? true : (a.key ? true : 'warn'), a.password ? t('security.badge_password') : (a.key ? t('security.badge_key') : t('security.badge_open')));
+  if(a.allowed){ loadSecretsVault(); loadReview(); loadActionsLogState(); }
+}
+function secError(r, j){
+  if(r.status === 429) return t('auth.login_wait_prefix') + ((j && j.wait) || 60) + t('auth.login_wait_suffix');
+  return (j && j.error) || ('HTTP ' + r.status);
+}
+async function secPost(path, body){
+  const r = await jfetch(path, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body||{})});
+  let j = {}; try{ j = await r.json(); }catch(_){}
+  return {r, j};
+}
+async function secAskNewPassword(){
+  const min = (SEC_AUTH && SEC_AUTH.min) || 10;
+  for(;;){
+    const pw = await askPrompt(t('security.new_prompt_prefix') + min + t('security.new_prompt_suffix'), {title:t('security.password_subhead'), placeholder:t('auth.password_placeholder'), password:true, newPassword:true});
+    if(!pw) return null;
+    if([...pw].length < min){ await askAlert(t('security.too_short_prefix') + min + t('security.too_short_suffix')); continue; }
+    const again = await askPrompt(t('security.confirm_prompt'), {title:t('security.password_subhead'), placeholder:t('auth.password_placeholder'), password:true, newPassword:true});
+    if(again === null) return null;
+    if(again !== pw){ await askAlert(t('security.mismatch')); continue; }
+    return pw;
+  }
+}
+async function secSetPassword(){
+  const a = SEC_AUTH || {};
+  let current = '';
+  if(a.password){
+    current = await askPrompt(t('security.current_prompt'), {title:t('security.password_change'), placeholder:t('auth.password_placeholder'), password:true});
+    if(!current) return;
+  }
+  const pw = await secAskNewPassword();
+  if(!pw) return;
+  let res; try{ res = await secPost('/api/auth/password', {current, password:pw}); }catch(e){ await askAlert(t('common.failed_prefix') + e); return; }
+  if(!res.r.ok){ await askAlert(secError(res.r, res.j), {title:t('settings.refused_title')}); return; }
+  toast(t('security.password_saved'));
+  loadSecurity();
+}
+async function secRemovePassword(){
+  if(!await askConfirm(t('security.remove_confirm_msg'), {title:t('security.password_remove'), okText:t('security.password_remove'), danger:true})) return;
+  const current = await askPrompt(t('security.current_prompt'), {title:t('security.password_remove'), placeholder:t('auth.password_placeholder'), password:true});
+  if(!current) return;
+  let res; try{ res = await secPost('/api/auth/password', {current, remove:true}); }catch(e){ await askAlert(t('common.failed_prefix') + e); return; }
+  if(!res.r.ok){ await askAlert(secError(res.r, res.j), {title:t('settings.refused_title')}); return; }
+  toast(t('security.password_removed'));
+  loadSecurity();
+}
+async function secLogout(others){
+  let res; try{ res = await secPost('/api/auth/logout', {others:!!others}); }catch(e){ await askAlert(t('common.failed_prefix') + e); return; }
+  if(!res.r.ok){ await askAlert(secError(res.r, res.j)); return; }
+  if(others){ toast((res.j.closed||0) + ' ' + t('security.sessions_closed')); loadSecurity(); return; }
+  location.reload();
+}
+function renderSecretsVault(s){
+  const tog = document.getElementById('sec-vault-toggle'); if(!tog || !s) return;
+  tog.checked = !!s.on;
+  const st = document.getElementById('sec-vault-status');
+  let msg = '';
+  if(s.count) msg = s.count + ' ' + t(s.count > 1 ? 'security.vault_count_plural' : 'security.vault_count_singular');
+  if(s.plain) msg += (msg ? ' · ' : '') + s.plain + ' ' + t('security.vault_plain');
+  if(s.key_ok === false) msg += (msg ? '\n' : '') + t('security.vault_key_missing');
+  st.textContent = msg; st.style.whiteSpace = 'pre-line';
+}
+async function loadSecretsVault(){
+  try{ renderSecretsVault(await jget('/api/secrets')); }catch(e){}
+}
+async function toggleSecretsVault(){
+  const tog = document.getElementById('sec-vault-toggle');
+  const on = tog.checked;
+  if(!on && !await askConfirm(t('security.vault_off_confirm'), {title:t('security.vault_subhead'), okText:t('security.vault_off_ok')})){ tog.checked = true; return; }
+  let r; try{ r = await jpost('/api/secrets', {on}); }catch(e){ tog.checked = !on; await askAlert(t('common.failed_prefix') + e); return; }
+  renderSecretsVault(r);
+  const skipped = (r.report && r.report.skipped) || [];
+  if(!r.ok || skipped.length){
+    await askAlert((r.error ? r.error + '\n\n' : '') + skipped.join('\n'), {title:t('security.vault_subhead')});
+    return;
+  }
+  toast((r.report ? r.report.moved : 0) + ' ' + t(on ? 'security.vault_moved_in' : 'security.vault_moved_out'));
+}
+let REVIEW_ON = false, REVIEW = null;
+function reviewItemEl(kindCls, kindText, name, detail, when){
+  const d = document.createElement('details'); d.className = 'review-item';
+  const s = document.createElement('summary');
+  const k = document.createElement('span'); k.className = 'review-kind ' + kindCls; k.textContent = kindText;
+  const n = document.createElement('span'); n.className = 'review-name'; n.textContent = name;
+  s.appendChild(k); s.appendChild(n);
+  if(when){ const w = document.createElement('span'); w.className = 'action-when'; w.textContent = when; s.appendChild(w); }
+  const p = document.createElement('div'); p.className = 'review-detail'; p.textContent = detail || '';
+  d.appendChild(s); d.appendChild(p);
+  return d;
+}
+function renderReview(r){
+  REVIEW_ON = !!(r && r.on);
+  const prev = REVIEW ? REVIEW.id : '';
+  REVIEW = (r && r.review) || null;
+  const tog = document.getElementById('sec-review-toggle'); if(tog) tog.checked = REVIEW_ON;
+  const box = document.getElementById('review-box'); if(!box) return;
+  if(!REVIEW || !REVIEW.items || !REVIEW.items.length){ box.style.display = 'none'; return; }
+  const list = document.getElementById('review-items'); list.textContent = '';
+  REVIEW.items.forEach(it => {
+    const el = reviewItemEl(it.change, t('review.kind_' + it.change), it.name, it.detail);
+    if(REVIEW.items.length === 1) el.open = true;
+    list.appendChild(el);
+  });
+  box.style.display = '';
+  if(REVIEW.id !== prev){
+    const sec = document.getElementById('tasks-details'); if(sec) sec.open = true;
+    toast(t('review.toast'));
+  }
+}
+async function loadReview(){
+  try{ renderReview(await jget('/api/review')); }catch(e){}
+}
+async function toggleReview(){
+  const tog = document.getElementById('sec-review-toggle'); const on = tog.checked;
+  let r; try{ r = await jpost('/api/review', {on}); }catch(e){ tog.checked = !on; await askAlert(t('common.failed_prefix') + e); return; }
+  if(!r.ok){ tog.checked = !on; await askAlert(t('common.failed_prefix') + (r.error||t('common.unknown'))); return; }
+  renderReview(r);
+  toast(t(on ? 'review.enabled' : 'review.disabled'));
+  if(typeof loadTasks === 'function') loadTasks();
+}
+async function answerReview(accept){
+  if(!REVIEW) return;
+  if(!accept && !await askConfirm(t('review.reject_confirm'), {title:t('review.reject'), okText:t('review.reject'), danger:true})) return;
+  let r; try{ r = await jpost('/api/review', {id:REVIEW.id, accept}); }catch(e){ await askAlert(t('common.failed_prefix') + e); return; }
+  if(!r.ok){ renderReview(r); await askAlert(r.error || t('common.unknown'), {title:t('settings.refused_title')}); return; }
+  renderReview(r);
+  toast(t(accept ? 'review.accepted' : 'review.rejected'));
+  if(typeof loadTasks === 'function') loadTasks();
+}
+async function loadActionsLogState(){
+  try{ const r = await jget('/api/actions?limit=1'); const tog = document.getElementById('sec-actions-toggle'); if(tog) tog.checked = !!r.on; }catch(e){}
+}
+async function toggleActionsLog(){
+  const tog = document.getElementById('sec-actions-toggle'); const on = tog.checked;
+  try{ const r = await jpost('/api/actions', {on}); tog.checked = !!r.on; }catch(e){ tog.checked = !on; }
+}
+async function showActionsLog(){
+  const box = document.getElementById('sec-actions-list'); if(!box) return;
+  if(box.style.display !== 'none'){ box.style.display = 'none'; return; }
+  let r; try{ r = await jget('/api/actions?limit=40'); }catch(e){ return; }
+  box.textContent = '';
+  const acts = (r && r.actions) || [];
+  if(!acts.length){
+    const p = document.createElement('div'); p.className = 'muted'; p.style.fontSize = '12px';
+    p.textContent = t(r && r.locked ? 'security.actions_locked' : 'security.actions_empty');
+    box.appendChild(p);
+  }
+  acts.forEach(a => {
+    const who = a.task ? a.task : t('security.actions_scope_' + (a.scope === 'jean' ? 'jean' : 'chat'));
+    const res = a.done ? (a.result || '') : t('security.actions_no_result');
+    const d = new Date(a.ts);
+    box.appendChild(reviewItemEl('', a.name, a.label || who, who + '\n' + res, isNaN(d) ? '' : d.toLocaleString()));
+  });
+  box.style.display = '';
+}</script></body></html>
