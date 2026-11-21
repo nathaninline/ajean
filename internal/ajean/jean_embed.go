@@ -101,7 +101,8 @@ var jeanEmbedEngine jeanEmbedProc
 var jeanEmbedTestPort int
 
 // jeanEmbedBin : un llama-server récent sait servir EmbeddingGemma. On prend le
-// plus récent des précompilés, sinon celui de la config.
+// plus récent des précompilés, sinon celui de la config, sinon le moteur
+// épinglé d'AJEAN s'il est installé.
 func jeanEmbedBin() string {
 	exe := "llama-server"
 	if runtime.GOOS == "windows" {
@@ -119,10 +120,10 @@ func jeanEmbedBin() string {
 			return filepath.Join(prebuiltDir(), dirs[len(dirs)-1], exe)
 		}
 	}
-	if b := strings.TrimSpace(ReadConfig()["BIN"]); b != "" && strings.Contains(filepath.Base(b), "llama-server") && isFile(b) {
+	if b, _ := resolveBin(ReadConfig()); b != "" && strings.Contains(filepath.Base(b), "llama-server") && isFile(b) {
 		return b
 	}
-	return ""
+	return engineBin()
 }
 
 func availRAMMB() int {

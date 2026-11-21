@@ -7663,7 +7663,7 @@ document.addEventListener('scroll', (e)=>{
 }, true);
 addEventListener('resize', ()=>closeMenu(true, true));
 let TOKEN = localStorage.getItem('ajean.key') || '';
-function authHeaders(h){ h = Object.assign({}, h||{}); if(TOKEN) h['Authorization']='Bearer '+TOKEN; return h; }
+function authHeaders(h){ h = Object.assign({}, h||{}); if(TOKEN) h['Authorization']='Bearer '+TOKEN; h['X-Ajean-Request']='1'; return h; }
 const API_BASE = location.pathname.replace(/\/(index\.html)?$/, '');
 const API_TIMEOUT_MS = 30000;
 async function jfetch(u, opts){

@@ -52,7 +52,8 @@ func launchdLogPath() string { return filepath.Join(AjeanHome(), serviceName()+"
 // (re)active le service ET le rend persistant au boot ; `unload -w` le désactive.
 func serviceAction(action string) error {
 	// API Externe : aucun moteur local (arrêt). GPU Cloud : relais local vers le GPU.
-	action = cloudServiceAction(action)
+	// Preset Service : sa commande tourne dans le service moteur (backend_service.go).
+	action = presetServiceAction(action)
 	svc := serviceName()
 	plist := launchdPlistPath(svc)
 	// Pas de LaunchDaemon installé — cas normal d'un Mac de bureau, où AJEAN tourne

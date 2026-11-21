@@ -480,6 +480,9 @@ func llamacppUninstall(args []string) error {
 		if err != nil {
 			return err
 		}
+		if engineReservedDir(d) {
+			return fmt.Errorf("« %s » est le dossier du moteur AJEAN, pas un backend personnalisé (voir %s)", name, bold("ajean engine"))
+		}
 		dir = d
 		label = "backend personnalisé « " + name + " »"
 		if bin := llamaServerBin(dir); bin != "" {
@@ -562,6 +565,9 @@ func installCustomBackend(url, name, ref string, phase func(string)) (string, er
 	dir, err := backendDir(name)
 	if err != nil {
 		return "", err
+	}
+	if engineReservedDir(dir) {
+		return "", fmt.Errorf("le nom « %s » est réservé au moteur AJEAN : donne un autre nom à ce backend", sanitizeBackendName(name))
 	}
 
 	phase("vérification des outils (git, cmake, compilateur)…")

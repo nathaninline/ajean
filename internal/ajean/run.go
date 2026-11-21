@@ -112,6 +112,8 @@ func Main() {
 		mustExit(cmdTest(args))
 	case "bench":
 		mustExit(cmdBench(args))
+	case "engine":
+		mustExit(cmdEngine(args))
 	case "llamacpp":
 		mustExit(cmdLlamacpp(args))
 	case "exl3":
@@ -192,6 +194,13 @@ Accès distant (ajean.link) :
   link code                     code d'appairage (10 min, usage unique) pour le portail
   link newid                    change l'identifiant de la machine (si l'ancien a fuité)
   link status | logout          état du jeton / l'oublier
+
+Moteur AJEAN (un llama.cpp à une version précise, testée avec cette version
+d'AJEAN ; utilisé par les presets sans ligne BIN) :
+  engine                        version livrée, variante installée (CUDA/ROCm/Vulkan/Metal/CPU)
+  engine install                l'installer (sinon : au premier démarrage d'un preset qui l'utilise)
+  engine repair                 le retélécharger
+    --variant=vulkan|cuda|rocm|cpu|auto  imposer une variante sur cette machine
 
 Backend llama.cpp :
   llamacpp install              clone + compile llama.cpp (CUDA/ROCm/Vulkan/Metal/CPU), pointe BIN dessus

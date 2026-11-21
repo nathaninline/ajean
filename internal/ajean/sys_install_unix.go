@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -26,6 +27,11 @@ func cmdInstall(args []string) error {
 	if os.Geteuid() != 0 {
 		return fmt.Errorf("ajean install doit être exécuté en root (sudo ajean install)")
 	}
+	// Installation passée par la 0.19 : on a ici les droits pour arrêter les
+	// unités de ses modèles et retirer ce qu'elle a posé hors du dossier de
+	// données. Sans effet ailleurs (pas de services.json).
+	retire019Units()
+	purge019Root()
 	targetUser := os.Getenv("SUDO_USER")
 	if targetUser == "" {
 		targetUser = "root"
@@ -184,4 +190,42 @@ func chown(path string, u *user.User) {
 		}
 		return nil
 	})
+}
+
+// purge019Root retire, en administrateur sous Linux, ce que la 0.19 avait posé
+// en dehors d'AJEAN_HOME : les unités des modèles (ajean-svc-*), le gardien RAM
+// (ajean-guard) et l'assistant root avec sa règle sudoers. Rien de tout cela ne
+// sert après la 0.19, et l'assistant root garde des droits devenus inutiles.
+// services.json reste en place.
+//
+// Seulement sur une installation passée par la 0.19 (services.json présent) :
+// une installation 0.18 peut avoir ses propres unités « ajean-… » pour un preset
+// externe (EXTERNAL_SERVICE), on n'y touche pas.
+func purge019Root() {
+	if runtime.GOOS != "linux" || os.Geteuid() != 0 || read019Services() == nil {
+		return
+	}
+	const dir = "/etc/systemd/system"
+	units, _ := filepath.Glob(filepath.Join(dir, "ajean-svc-*.service"))
+	if _, err := os.Stat(filepath.Join(dir, "ajean-guard.service")); err == nil {
+		units = append(units, filepath.Join(dir, "ajean-guard.service"))
+	}
+	removed := 0
+	for _, u := range units {
+		name := filepath.Base(u)
+		_ = exec.Command("systemctl", "disable", "--now", name).Run()
+		if os.Remove(u) == nil {
+			removed++
+			fmt.Printf("  %s %s retiré (0.19)\n", green("✓"), name)
+		}
+	}
+	for _, p := range []string{"/usr/local/sbin/ajean-svc", "/etc/sudoers.d/ajean-svc"} {
+		if os.Remove(p) == nil {
+			fmt.Printf("  %s %s retiré (0.19)\n", green("✓"), p)
+		}
+	}
+	_ = os.RemoveAll("/etc/ajean-svc")
+	if removed > 0 {
+		_ = exec.Command("systemctl", "daemon-reload").Run()
+	}
 }

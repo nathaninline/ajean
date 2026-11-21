@@ -261,7 +261,7 @@ func applySamplingFrom(payload map[string]any, cfg map[string]string) {
 			// llama.cpp ; les API qui valident le schéma (OpenAI, Mistral, Groq…) le
 			// rejetaient et les autres l'ignoraient (issue #178). À la place, le
 			// champ propre au fournisseur (llm_reasoning.go).
-			for k, v := range reasoningParams(cfg[extKeyURL], eff) {
+			for k, v := range reasoningParams(extBaseURL(cfg), eff) {
 				payload[k] = v
 			}
 		} else {

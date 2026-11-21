@@ -112,8 +112,12 @@ func totalRAMGB() float64 {
 // leurs libllama/libggml*.dylib À CÔTÉ de l'exécutable — sans cette variable,
 // llama-server meurt instantanément sur « Library not loaded », donc sans le
 // moindre message dans l'UI.
+//
+// Le moteur épinglé (engine.go) livre ses propres bibliothèques CUDA dans un
+// sous-dossier : elles passent juste après le dossier du binaire, avant celles
+// d'un toolkit de la machine.
 func setLibraryPath(dir string) {
-	envVar, joined := libraryPathValue(dir)
+	envVar, joined := libraryPathValue(dir, engineLibDirsFor(dir))
 	_ = os.Setenv(envVar, joined)
 	if runtime.GOOS == "darwin" {
 		// Filet de sécurité : DYLD_FALLBACK_LIBRARY_PATH est consulté en dernier
@@ -125,10 +129,17 @@ func setLibraryPath(dir string) {
 // libraryPathValue calcule (nom de variable, valeur) sans toucher à
 // l'environnement du process : utilisé pour lancer un llama-server ÉPHÉMÈRE
 // (ex. `--list-devices` depuis l'UI) sans polluer — ni faire grossir à chaque
-// appel — le LD_LIBRARY_PATH du serveur web lui-même.
-func libraryPathValue(dir string) (string, string) {
-	parts := []string{dir}
+// appel — le LD_LIBRARY_PATH du serveur web lui-même. extra = dossiers de
+// bibliothèques livrés avec le moteur (vide pour les moteurs compilé, précompilé
+// et forks, dont le chemin reste celui de la 0.18).
+func libraryPathValue(dir string, extra []string) (string, string) {
+	parts := append([]string{dir}, extra...)
 	parts = append(parts, cudaLibDirs()...)
+	// La variante ROCm du moteur épinglé s'appuie sur le ROCm du système, souvent
+	// absent du cache du linker.
+	if engineOwns(dir) && isDir("/opt/rocm/lib") {
+		parts = append(parts, "/opt/rocm/lib")
+	}
 	envVar := "LD_LIBRARY_PATH"
 	if runtime.GOOS == "darwin" {
 		envVar = "DYLD_LIBRARY_PATH"
@@ -142,7 +153,13 @@ func libraryPathValue(dir string) (string, string) {
 // libraryPathEnv renvoie un environnement complet (os.Environ + la variable de
 // recherche de bibliothèques) pour une commande ponctuelle.
 func libraryPathEnv(dir string) []string {
-	k, v := libraryPathValue(dir)
+	return libraryPathEnvWith(dir, engineLibDirsFor(dir))
+}
+
+// libraryPathEnvWith : variante qui reçoit les dossiers de bibliothèques, pour
+// sonder un moteur épinglé pas encore mis en place (voir engineProbe).
+func libraryPathEnvWith(dir string, extra []string) []string {
+	k, v := libraryPathValue(dir, extra)
 	return append(os.Environ(), k+"="+v)
 }
 

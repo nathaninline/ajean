@@ -213,14 +213,11 @@ var videoInputSupported = func() bool {
 	if isExternalConfig(cfg) || isCloudConfig(cfg) || strings.TrimSpace(cfg["MMPROJ"]) == "" {
 		return false
 	}
-	bin := strings.TrimSpace(cfg["BIN"])
-	if bin == "" {
+	// Le moteur du preset (resolveBin) ; "" = moteur épinglé pas encore installé.
+	bin, pinned := resolveBin(cfg)
+	if bin == "" || (pinned && !usesLlamaServer(cfg)) {
 		return false
 	}
-	if !filepath.IsAbs(bin) {
-		bin = filepath.Join(AjeanHome(), bin)
-	}
-	bin = prebuiltResolveBin(bin)
 	key := bin
 	if st, err := os.Stat(bin); err == nil {
 		key += "\x00" + st.ModTime().String()

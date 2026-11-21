@@ -303,6 +303,12 @@ func chatModelName() string {
 		if m := cfg["EXTERNAL_MODEL"]; m != "" {
 			return m
 		}
+		// Preset Service sans modèle nommé : le premier annoncé par son API.
+		if serviceCmdOf(cfg) != "" {
+			if m := serviceFirstModel(cfg); m != "default" {
+				return m
+			}
+		}
 	}
 	if id := activePresetID(); id != "" {
 		if list, err := ListPresets(); err == nil {
@@ -732,7 +738,9 @@ func (s *chatSession) modelCommand(arg string) {
 		if err = applyPresetFile(list[n-1].Path); err != nil {
 			return
 		}
-		if isExternalConfig(ReadConfig()) {
+		// API : rien à lancer. Un preset Service, lui, passe par le redémarrage :
+		// le service moteur lance sa commande.
+		if cfg := ReadConfig(); isExternalConfig(cfg) && serviceCmdOf(cfg) == "" {
 			if serviceIsActive() {
 				err = serviceAction("stop")
 			}
@@ -751,7 +759,7 @@ func (s *chatSession) modelCommand(arg string) {
 	s.ctxUsed = 0
 	// API externe : rien à attendre. GPU cloud : on attend le déploiement
 	// (healthCheck suit cloudReady), comme un modèle local qui charge.
-	if isExternalConfig(ReadConfig()) || s.waitReady("Chargement de "+list[n-1].Name) {
+	if cfg := ReadConfig(); (isExternalConfig(cfg) && serviceCmdOf(cfg) == "") || s.waitReady("Chargement de "+list[n-1].Name) {
 		ui.note("modèle actif : " + chatModelName())
 	}
 }

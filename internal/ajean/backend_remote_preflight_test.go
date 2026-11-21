@@ -28,13 +28,19 @@ func TestPreflightAcceptsRemotePresets(t *testing.T) {
 
 // 2) Garde-fou inverse : le pré-vol doit continuer de refuser un preset LOCAL
 // incomplet. C'est sa raison d'être (moteur qui démarre, meurt, et que systemd
-// relance en boucle — cf. le commentaire de preflightEngine).
+// relance en boucle — cf. le commentaire de preflightEngine). Depuis la 0.21 un
+// preset sans BIN tourne sur le moteur AJEAN (engine_resolve.go) : ce qui reste
+// refusé, c'est un moteur de la 0.18 désigné par BIN et absent, ou un modèle
+// introuvable.
 func TestPreflightStillGuardsLocalPresets(t *testing.T) {
 	testHome(t)
+	setConfig(t, "BIN=/opt/llama/absent/llama-server\nMODEL=Qwen3.gguf\n")
+	if err := preflightEngine(); err == nil || !strings.Contains(err.Error(), "moteur introuvable") {
+		t.Fatalf("un preset local dont le moteur manque doit rester refusé, obtenu %v", err)
+	}
 	setConfig(t, "MODEL=Qwen3.gguf\n")
-	err := preflightEngine()
-	if err == nil || !strings.Contains(err.Error(), "BIN non défini") {
-		t.Fatalf("un preset local sans BIN doit rester refusé, obtenu %v", err)
+	if err := preflightEngine(); err == nil || strings.Contains(err.Error(), "BIN") || !strings.Contains(err.Error(), "Qwen3.gguf") {
+		t.Fatalf("un preset local sans BIN passe au moteur AJEAN et bute sur son modèle absent, obtenu %v", err)
 	}
 }
 
@@ -48,12 +54,18 @@ func TestServeExitsCleanlyForExternalPreset(t *testing.T) {
 	}
 }
 
-// 4) Garde-fou inverse du précédent : le moteur local exige toujours BIN.
-func TestServeStillNeedsBinForLocalPreset(t *testing.T) {
+// 4) Garde-fou inverse du précédent : un preset local incomplet échoue toujours.
+// Sans BIN il tourne sur le moteur AJEAN (0.21) ; son modèle absent l'arrête
+// AVANT toute installation du moteur.
+func TestServeStillFailsForIncompleteLocalPreset(t *testing.T) {
 	testHome(t)
+	failIfEngineDownloads(t)
 	setConfig(t, "MODEL=Qwen3.gguf\n")
-	if err := cmdServe(nil); err == nil || !strings.Contains(err.Error(), "BIN non défini") {
-		t.Fatalf("un preset local sans BIN doit toujours échouer, obtenu %v", err)
+	if err := cmdServe(nil); err == nil || !strings.Contains(err.Error(), "Qwen3.gguf") {
+		t.Fatalf("un preset local sans modèle présent doit toujours échouer, obtenu %v", err)
+	}
+	if engineInstalled() != nil {
+		t.Error("le moteur AJEAN a été installé pour un preset qui ne peut pas démarrer")
 	}
 }
 

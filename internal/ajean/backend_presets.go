@@ -345,8 +345,9 @@ func SwitchToPreset(target string) error {
 	fmt.Printf("%s configuration <- %s\n", green("[ok]"), filepath.Base(target))
 	fmt.Println(dim("[info] redémarrage du service..."))
 	cfg := ReadConfig()
-	if !isExternalConfig(cfg) {
-		// vers un moteur local : on arrête d'abord le moteur tiers précédent
+	if !isExternalConfig(cfg) || serviceCmdOf(cfg) != "" {
+		// vers un moteur local (ou un preset Service, dont la commande tourne dans
+		// le service moteur) : on arrête d'abord le moteur tiers précédent
 		if err := syncExternalService(cfg); err != nil {
 			return err
 		}

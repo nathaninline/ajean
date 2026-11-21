@@ -160,9 +160,13 @@ func cloudServiceAction(action string) string {
 	}
 	cfg := ReadConfig()
 	if isCloudConfig(cfg) {
-		cloudDeploy()
+		cloudDeployFn()
 	} else if isExternalConfig(cfg) {
 		return "stop"
 	}
 	return action
 }
+
+// cloudDeployFn : le déploiement lancé par cloudServiceAction. Variable pour les
+// tests (aucun vrai déploiement Modal).
+var cloudDeployFn = cloudDeploy

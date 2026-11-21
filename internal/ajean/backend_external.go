@@ -28,7 +28,7 @@ type chatEndpoint struct {
 	URL      string // URL complète des complétions
 	Model    string // nom de modèle envoyé dans le payload
 	Key      string // Bearer ("" = aucun)
-	External bool   // true = API distante (pas le llama-server local)
+	External bool   // true = API OpenAI-compatible (distante, ou Service lancé sur cette machine)
 	Cloud    bool   // true = GPU cloud Modal (attente du réveil sur 503)
 	// KeyErr : la clé du preset est une référence au coffre (secrets_vault.go) qui
 	// n'a pas pu être lue. Key est alors vide — jamais la référence elle-même.
@@ -81,13 +81,20 @@ func resolveChatEndpoint() chatEndpoint {
 		return cloudEndpoint(cfg)
 	}
 	if isExternalConfig(cfg) {
-		// La clé peut être une référence au coffre (« vault:… ») : on la résout ici,
-		// seul endroit par où elle part vers l'API. En clair, elle passe telle quelle.
-		key, kerr := secretResolve(strings.TrimSpace(cfg[extKeyToken]))
+		// Preset Service : adresse et clé déduites de sa commande quand le preset
+		// n'en donne pas, modèle = le premier annoncé par son API.
+		model := strings.TrimSpace(cfg[extKeyModel])
+		if model == "" && serviceCmdOf(cfg) != "" {
+			model = serviceFirstModel(cfg)
+		}
+		// La clé peut être une référence au coffre (« vault:… ») : elle se résout
+		// dans extAPIKey, seul endroit par où elle part vers l'API. KeyErr dit
+		// qu'elle n'a pas pu être lue ; Key est alors vide, jamais la référence.
+		_, kerr := secretResolve(strings.TrimSpace(cfg[extKeyToken]))
 		return chatEndpoint{
-			URL:      completionsURL(cfg[extKeyURL]),
-			Model:    strings.TrimSpace(cfg[extKeyModel]),
-			Key:      key,
+			URL:      completionsURL(extBaseURL(cfg)),
+			Model:    model,
+			Key:      extAPIKey(cfg),
 			External: true,
 			KeyErr:   kerr,
 		}

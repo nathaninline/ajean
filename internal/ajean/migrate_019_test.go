@@ -1,0 +1,209 @@
+package ajean
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestMigrateFrom019(t *testing.T) {
+	home := testHome(t)
+	var retired []string
+	old := retire019Unit
+	retire019Unit = func(id string) error { retired = append(retired, id); return nil }
+	defer func() { retire019Unit = old }()
+
+	// Jamais passé par la 0.19 : rien ne bouge.
+	migrateFrom019()
+	if getStr(bkState, migrated019Key) != "" {
+		t.Fatal("migration marquée sans services.json")
+	}
+
+	// Un preset 0.18 (resté sur le disque), et trois services 0.19 : celui issu
+	// de ce preset, un modèle local créé en 0.19 (celui du chat), une API.
+	oldID, err := SavePreset("", "Qwen local", "MODEL=qwen.gguf\nCTX=8192\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	services := `[
+	 {"id":"qwen-local","name":"Qwen local","command":"llama-server -m qwen.gguf --port 8080","url":"http://127.0.0.1:8080/v1","preset":"` + oldID + `"},
+	 {"id":"vllm","name":"vLLM","command":"vllm serve mon/modele\n --port 8000","workdir":"/opt/vllm","env":{"HF_HOME":"/data/hf cache"},"url":"http://127.0.0.1:8000/v1","model":"mon/modele","context":65536,"vision":true,"chat_params":{"TEMP":"0.6","REASONING_EFFORT":"high","bad key":"x"}},
+	 {"id":"groq","name":"Groq","url":"https://api.groq.com/openai/v1","api_key":"gsk_test","model":"llama-3"}
+	]`
+	if err := os.WriteFile(filepath.Join(home, "services.json"), []byte(services), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteConfig(map[string]string{"AJEAN_SERVICE": "vllm", "PORT": "8080"}); err != nil {
+		t.Fatal(err)
+	}
+
+	migrateFrom019()
+
+	ps, err := ListPresets()
+	if err != nil {
+		t.Fatal(err)
+	}
+	byName := map[string]Preset{}
+	for _, p := range ps {
+		byName[p.Name] = p
+	}
+	if len(ps) != 3 {
+		t.Fatalf("%d presets après reprise, attendu 3 : %v", len(ps), byName)
+	}
+	read := func(name string) map[string]string {
+		p, ok := byName[name]
+		if !ok {
+			t.Fatalf("preset %q absent", name)
+		}
+		c, err := ReadPreset(p.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return parseEnv(c)
+	}
+	v := read("vLLM")
+	for k, want := range map[string]string{
+		"EXTERNAL": "1", "SERVICE_CMD": "vllm serve mon/modele --port 8000", "SERVICE_WORKDIR": "/opt/vllm",
+		"SERVICE_ENV": `HF_HOME="/data/hf cache"`, "EXTERNAL_URL": "http://127.0.0.1:8000/v1", "EXTERNAL_MODEL": "mon/modele",
+		"CTX": "65536", "EXTERNAL_VISION": "1", "TEMP": "0.6", "REASONING_EFFORT": "high",
+	} {
+		if v[k] != want {
+			t.Errorf("vLLM %s = %q, attendu %q", k, v[k], want)
+		}
+	}
+	if env, err := parseServiceEnv(v["SERVICE_ENV"]); err != nil || len(env) != 1 || env[0] != "HF_HOME=/data/hf cache" {
+		t.Errorf("SERVICE_ENV relu = %v (%v)", env, err)
+	}
+	g := read("Groq")
+	if g["EXTERNAL"] != "1" || g["SERVICE_CMD"] != "" || g["EXTERNAL_KEY"] != "gsk_test" || g["EXTERNAL_MODEL"] != "llama-3" {
+		t.Errorf("Groq = %v", g)
+	}
+	// Le preset 0.18 n'est ni dupliqué ni modifié.
+	if c, _ := ReadPreset(oldID); !strings.Contains(c, "MODEL=qwen.gguf") {
+		t.Errorf("preset 0.18 modifié : %q", c)
+	}
+	// Unités des deux services locaux arrêtées ; l'API n'en a pas.
+	if strings.Join(retired, ",") != "qwen-local,vllm" {
+		t.Errorf("unités arrêtées = %v", retired)
+	}
+	// Le chat utilisait vLLM : c'est le preset actif, et la config le reflète.
+	if got := getStr(bkState, "active_preset"); got != byName["vLLM"].ID {
+		t.Errorf("preset actif = %q, attendu %q", got, byName["vLLM"].ID)
+	}
+	if cfg := ReadConfig(); cfg["SERVICE_CMD"] == "" || cfg["AJEAN_SERVICE"] != "" {
+		t.Errorf("config active = %v", cfg)
+	}
+
+	// Seconde fois : rien de plus.
+	migrateFrom019()
+	if ps2, _ := ListPresets(); len(ps2) != 3 {
+		t.Errorf("reprise rejouée : %d presets", len(ps2))
+	}
+}
+
+// Un preset 0.18 qui lançait son moteur par une unité retirée par la 0.19
+// devient un preset Service avec la commande du service 0.19.
+func TestMigrateFrom019Revives018Unit(t *testing.T) {
+	home := testHome(t)
+	oldR, oldU := retire019Unit, unitExists019
+	retire019Unit = func(string) error { return nil }
+	unitExists019 = func(string) bool { return false }
+	defer func() { retire019Unit, unitExists019 = oldR, oldU }()
+
+	id, err := SavePreset("", "Moteur", "EXTERNAL=1\nEXTERNAL_URL=http://127.0.0.1:8080/v1\nEXTERNAL_SERVICE=ajean-moteur\nREASONING=off\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = putStr(bkState, stateExtService, "ajean-moteur")
+	services := `[{"id":"moteur","name":"Moteur","command":"/opt/moteur serve --port 8080","env":{"CUDA_VISIBLE_DEVICES":"1"},"url":"http://127.0.0.1:8080/v1","preset":"` + id + `"}]`
+	if err := os.WriteFile(filepath.Join(home, "services.json"), []byte(services), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteConfig(map[string]string{"AJEAN_SERVICE": "moteur"}); err != nil {
+		t.Fatal(err)
+	}
+	migrateFrom019()
+	c, err := ReadPreset(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := parseEnv(c)
+	if v["EXTERNAL_SERVICE"] != "" || v["SERVICE_CMD"] != "/opt/moteur serve --port 8080" || v["SERVICE_ENV"] != "CUDA_VISIBLE_DEVICES=1" || v["REASONING"] != "off" {
+		t.Errorf("preset repris = %v", v)
+	}
+	if ReadConfig()["SERVICE_CMD"] == "" {
+		t.Error("config active sans SERVICE_CMD")
+	}
+	if s := getStr(bkState, stateExtService); s != "" {
+		t.Errorf("ext_service = %q, attendu vide", s)
+	}
+	if !strings.Contains(c, "EXTERNAL_URL=") {
+		t.Error("réglages d'origine perdus")
+	}
+}
+
+// Les presets de la 0.18 que la 0.19 avait laissés de côté (ExLlama, MoE, GPU
+// cloud, Local avec son BIN) redeviennent utilisables TELS QUELS : la reprise ne
+// les réécrit pas, et celui qui était actif avant la 0.19 le redevient.
+func TestMigrateFrom019GardeLesPresets018(t *testing.T) {
+	home := testHome(t)
+	failIfEngineDownloads(t)
+	oldR := retire019Unit
+	retire019Unit = func(string) error { return nil }
+	defer func() { retire019Unit = oldR }()
+	compiled := fakeCompiledEngine(t)
+
+	bodies := map[string]string{
+		"ExLlama": "ENGINE=exl3\nEXL3_MODEL=mon-modele\nCTX=16384\n",
+		"MoE":     "ENGINE=moe\nMOE_CONFIG=/srv/moe/config.json\n",
+		"Cloud":   "CLOUD=modal\nCLOUD_MODEL=https://huggingface.co/a/b/resolve/main/m.gguf\n",
+		"Local":   "BIN=\"" + compiled + "\"\nMODEL=qwen.gguf\nCTX=8192\n",
+	}
+	ids, files := map[string]string{}, map[string]string{}
+	for name, body := range bodies {
+		id, err := SavePreset("", name, body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids[name] = id
+		files[name], _ = ReadPreset(id)
+	}
+	// Avant la 0.19, le preset ExLlama était l'actif. La 0.19 a ensuite fait
+	// tourner le chat sur un service à elle (une API), sans toucher aux presets.
+	_ = putStr(bkState, "active_preset", ids["ExLlama"])
+	services := `[{"id":"groq","name":"Groq","url":"https://api.groq.com/openai/v1","api_key":"gsk_test","model":"llama-3"}]`
+	if err := os.WriteFile(filepath.Join(home, "services.json"), []byte(services), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteConfig(map[string]string{"PORT": "8080"}); err != nil {
+		t.Fatal(err)
+	}
+
+	migrateOlderVersions()
+
+	for name, want := range files {
+		if got, _ := ReadPreset(ids[name]); got != want {
+			t.Errorf("preset %s réécrit par la reprise :\n%s", name, got)
+		}
+	}
+	if ps, _ := ListPresets(); len(ps) != 5 {
+		t.Errorf("%d presets après reprise, attendu les 4 de la 0.18 + l'API de la 0.19", len(ps))
+	}
+	// Le preset ExLlama est de nouveau l'actif, confié à son moteur.
+	cfg := ReadConfig()
+	if !isExl3Config(cfg) || cfg["EXL3_MODEL"] != "mon-modele" || usesLlamaServer(cfg) {
+		t.Errorf("configuration active après reprise : %v", cfg)
+	}
+	if err := preflightEngine(); err == nil || !strings.Contains(err.Error(), "ExLlama") || strings.Contains(err.Error(), "retiré") {
+		t.Errorf("pré-vol du preset ExLlama repris : %v", err)
+	}
+	// Le preset Local garde son moteur de la 0.18.
+	local := parseEnv(files["Local"])
+	if bin, pinned := resolveBin(local); pinned || bin != compiled {
+		t.Errorf("preset Local repris : moteur %s (épinglé=%v)", bin, pinned)
+	}
+	if engineWanted() || engineInstalled() != nil {
+		t.Error("le moteur épinglé serait installé alors qu'un moteur de la 0.18 est en place")
+	}
+}
