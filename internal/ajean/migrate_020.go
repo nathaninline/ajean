@@ -156,4 +156,5 @@ func migrateFrom020() {
 func migrateOlderVersions() {
 	migrateFrom019()
 	migrateFrom020()
+	migrateSwitchDefaults() // internet et navigateur : activés sur une installation neuve
 }

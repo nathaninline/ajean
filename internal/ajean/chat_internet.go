@@ -28,7 +28,7 @@ import (
 // aucun réglage.
 func internetEnabled() bool { return getBool(bkState, "internet") }
 
-func setInternetEnabled(on bool) error { return putBool(bkState, "internet", on) }
+func setInternetEnabled(on bool) error { return putSwitch("internet", on) }
 
 // ─── URL & normalisation ────────────────────────────────────────────────────
 

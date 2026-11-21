@@ -26,7 +26,7 @@ import (
 
 func computerUseEnabled() bool { return getBool(bkState, "computer") }
 
-func setComputerUseEnabled(on bool) error { return putBool(bkState, "computer", on) }
+func setComputerUseEnabled(on bool) error { return putSwitch("computer", on) }
 
 // cuMaxOutput borne ce qu'un appel d'outil computer use injecte dans le contexte
 // (aligné sur le web et le shell : 8000).

@@ -3200,3 +3200,9 @@ body.resizing{cursor:col-resize;user-select:none;-webkit-user-select:none}
   html:not([data-hide-side="1"]) .side{width:clamp(240px,var(--side-w,380px),max(240px,45vw))}
 }
 #m-be-radios,#be-avail-note{display:none!important}
+/* Lignes-boutons d'une carte (« Ajouter une tâche »…) : la règle générale des
+   boutons de la barre (.side button, 7 px) leur donnait des coins à elles, visibles
+   au survol. Angles droits, et les coins de la carte sur la première et la dernière. */
+.slist>button.switchrow{border-radius:0!important}
+.slist>button.switchrow:first-child{border-top-left-radius:inherit!important;border-top-right-radius:inherit!important}
+.slist>button.switchrow:last-child{border-bottom-left-radius:inherit!important;border-bottom-right-radius:inherit!important}
