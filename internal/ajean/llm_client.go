@@ -981,6 +981,11 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 	// fois par tour ; une bascule de preset en plein tour est rare et se rejoue au
 	// message suivant.
 	ep := resolveChatEndpoint()
+	// Clé du preset rangée dans le coffre mais illisible : on le dit, plutôt que
+	// d'appeler l'API sans clé et de laisser croire à une clé refusée.
+	if ep.KeyErr != nil {
+		return nil, fmt.Errorf("clé d'API du preset illisible (coffre des clés) : %w", ep.KeyErr)
+	}
 	// Some backends (vanilla llama.cpp builds) don't populate `reasoning_content`
 	// in streaming mode: the model's <think> block (opened by the chat template)
 	// arrives inline in `content`, terminated by a literal </think>. When

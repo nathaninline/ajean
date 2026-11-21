@@ -30,6 +30,7 @@ async function loadSecurity(){
   show('sec-pw-logout', a.password && a.session);
   show('sec-pw-others', a.password && a.session && a.sessions > 1);
   setBadge('sec-badge', a.password ? true : (a.key ? true : 'warn'), a.password ? t('security.badge_password') : (a.key ? t('security.badge_key') : t('security.badge_open')));
+  if(a.allowed) loadSecretsVault();
 }
 // Réponse d'une route /api/auth/* : message lisible pour un refus.
 function secError(r, j){
@@ -83,4 +84,34 @@ async function secLogout(others){
   if(others){ toast((res.j.closed||0) + ' ' + t('security.sessions_closed')); loadSecurity(); return; }
   // Session fermée : on recharge, la page redemandera le mot de passe.
   location.reload();
+}
+
+// --- Coffre des clés d'API (secrets_vault.go) ----------------------------------
+// L'interface ne voit jamais une valeur : seulement combien de clés sont au
+// coffre, combien dorment encore en clair, et si la clé du coffre est lisible.
+function renderSecretsVault(s){
+  const tog = document.getElementById('sec-vault-toggle'); if(!tog || !s) return;
+  tog.checked = !!s.on;
+  const st = document.getElementById('sec-vault-status');
+  let msg = '';
+  if(s.count) msg = s.count + ' ' + t(s.count > 1 ? 'security.vault_count_plural' : 'security.vault_count_singular');
+  if(s.plain) msg += (msg ? ' · ' : '') + s.plain + ' ' + t('security.vault_plain');
+  if(s.key_ok === false) msg += (msg ? '\n' : '') + t('security.vault_key_missing');
+  st.textContent = msg; st.style.whiteSpace = 'pre-line';
+}
+async function loadSecretsVault(){
+  try{ renderSecretsVault(await jget('/api/secrets')); }catch(e){}
+}
+async function toggleSecretsVault(){
+  const tog = document.getElementById('sec-vault-toggle');
+  const on = tog.checked;
+  if(!on && !await askConfirm(t('security.vault_off_confirm'), {title:t('security.vault_subhead'), okText:t('security.vault_off_ok')})){ tog.checked = true; return; }
+  let r; try{ r = await jpost('/api/secrets', {on}); }catch(e){ tog.checked = !on; await askAlert(t('common.failed_prefix') + e); return; }
+  renderSecretsVault(r);
+  const skipped = (r.report && r.report.skipped) || [];
+  if(!r.ok || skipped.length){
+    await askAlert((r.error ? r.error + '\n\n' : '') + skipped.join('\n'), {title:t('security.vault_subhead')});
+    return;
+  }
+  toast((r.report ? r.report.moved : 0) + ' ' + t(on ? 'security.vault_moved_in' : 'security.vault_moved_out'));
 }

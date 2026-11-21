@@ -438,6 +438,18 @@ func SavePreset(id, name, content string) (string, error) {
 		return "", fmt.Errorf("nom requis")
 	}
 	content = withDisplayName(content, name)
+	// Coffre des clés activé : la clé d'API d'un preset externe n'est pas écrite
+	// dans le fichier, seule sa référence l'est (secrets_vault.go). Coffre
+	// indisponible : le preset est enregistré comme avant, clé en clair — on ne
+	// bloque pas l'utilisateur, « ajean secrets status » le signale.
+	if secretsOn() {
+		sealed, err := sealPresetContent(content, "preset "+name, nil)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[coffre] preset « %s » : clé laissée en clair (%v)\n", name, err)
+		}
+		content = sealed
+		defer secretsPrune() // la clé remplacée, si elle n'est plus référencée
+	}
 	if id == "" {
 		newID, err := uniquePresetID(name)
 		if err != nil {
@@ -490,6 +502,10 @@ func DeletePreset(id string) error {
 		return err
 	}
 	deletePresetBench(id)
+	// Sa clé d'API quitte le coffre si plus aucun preset ne la désigne.
+	if isSecretRef(strings.TrimSpace(parseEnv(string(target))[extKeyToken])) {
+		secretsPrune()
+	}
 	return nil
 }
 

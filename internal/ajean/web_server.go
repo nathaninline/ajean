@@ -262,6 +262,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/agent/compact", handleCompactToggle)
 	api("/api/agent/prewarm", handlePrewarmToggle)
 	api("/api/apikey", handleAPIKey)
+	api("/api/secrets", handleSecrets) // coffre des clés d'API tierces : état (sans valeur), activation
 	api("/api/oai/public", handleOAIPublic)
 	api("/api/link/status", handleLinkStatus)         // état de l'accès distant (ajean.link)
 	api("/api/link/connect", handleLinkConnect)       // clé de liaison remise par connect.html → ajean link

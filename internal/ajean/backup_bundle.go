@@ -87,6 +87,22 @@ func buildBundleTar() ([]byte, error) {
 	if _, err := tw.Write(cfg); err != nil {
 		return nil, err
 	}
+	// Coffre des clés (secrets_vault.go) : les presets ci-dessus n'en portent que
+	// les RÉFÉRENCES. Sans les valeurs, une restauration sur une autre machine
+	// perdrait les clés d'API. Elles voyagent donc ici — dans ce tar dont le corps
+	// est chiffré, exactement comme les clés en clair des presets avant le coffre.
+	sec, err := secretsExport()
+	if err != nil {
+		return nil, err
+	}
+	if len(sec) > 0 {
+		if err := tw.WriteHeader(&tar.Header{Name: "secrets.json", Mode: 0o600, Size: int64(len(sec))}); err != nil {
+			return nil, err
+		}
+		if _, err := tw.Write(sec); err != nil {
+			return nil, err
+		}
+	}
 
 	if err := tw.Close(); err != nil {
 		return nil, err
@@ -186,6 +202,13 @@ func restoreBundleTar(tarData []byte) error {
 		switch {
 		case name == "config.json":
 			cfgJSON = b
+		case name == "secrets.json":
+			// Les clés d'API du coffre, rangées dans le coffre de CETTE machine sous
+			// leurs identifiants d'origine. Un échec arrête tout : des presets
+			// restaurés sans leurs clés seraient inutilisables sans qu'on le voie.
+			if err := secretsImport(b); err != nil {
+				return fmt.Errorf("coffre des clés : %w", err)
+			}
 		case strings.HasPrefix(name, "memory/"):
 			// Chemin relatif SOUS memory/ (memory/<slug>/page.md). Les sauvegardes
 			// d'avant les projets stockaient les pages à plat (memory/page.md) : on

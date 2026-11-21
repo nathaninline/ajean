@@ -130,6 +130,13 @@ func handlePresetExternalTest(w http.ResponseWriter, r *http.Request) {
 			key = strings.TrimSpace(parseEnv(content)[extKeyToken])
 		}
 	}
+	// Clé rangée dans le coffre : la référence se résout ici, pour l'essai.
+	if k, err := secretResolve(key); err != nil {
+		sendJSON(w, 200, map[string]any{"ok": false, "error": "clé illisible dans le coffre : " + err.Error()})
+		return
+	} else {
+		key = k
+	}
 	payload := map[string]any{
 		"model":      model,
 		"messages":   []map[string]any{{"role": "user", "content": "ping"}},

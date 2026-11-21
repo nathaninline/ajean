@@ -30,6 +30,9 @@ type chatEndpoint struct {
 	Key      string // Bearer ("" = aucun)
 	External bool   // true = API distante (pas le llama-server local)
 	Cloud    bool   // true = GPU cloud Modal (attente du réveil sur 503)
+	// KeyErr : la clé du preset est une référence au coffre (secrets_vault.go) qui
+	// n'a pas pu être lue. Key est alors vide — jamais la référence elle-même.
+	KeyErr error
 }
 
 // isExternalConfig indique si une configuration décrit un endpoint externe.
@@ -78,11 +81,15 @@ func resolveChatEndpoint() chatEndpoint {
 		return cloudEndpoint(cfg)
 	}
 	if isExternalConfig(cfg) {
+		// La clé peut être une référence au coffre (« vault:… ») : on la résout ici,
+		// seul endroit par où elle part vers l'API. En clair, elle passe telle quelle.
+		key, kerr := secretResolve(strings.TrimSpace(cfg[extKeyToken]))
 		return chatEndpoint{
 			URL:      completionsURL(cfg[extKeyURL]),
 			Model:    strings.TrimSpace(cfg[extKeyModel]),
-			Key:      strings.TrimSpace(cfg[extKeyToken]),
+			Key:      key,
 			External: true,
+			KeyErr:   kerr,
 		}
 	}
 	return chatEndpoint{
