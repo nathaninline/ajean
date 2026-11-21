@@ -166,8 +166,22 @@ func modelLoadError() string {
 			}
 		}
 	}
-	if loaded || reason == "" {
+	if loaded {
 		return ""
+	}
+	// Moteur épinglé d'AJEAN : la ligne d'erreur du moteur lui-même (mémoire
+	// insuffisante, argument inconnu, bibliothèque manquante, moteur impossible à
+	// installer…), montrée telle quelle plutôt qu'un « chargement… » sans fin. Les
+	// autres moteurs gardent les messages de la 0.18.
+	detail := ""
+	if usesPinnedEngine(ReadConfig()) {
+		detail = engineErrorFromLog(strings.Join(lines[start:], "\n"))
+	}
+	if reason == "" {
+		if detail == "" {
+			return ""
+		}
+		return "Le moteur s'est arrêté : " + detail
 	}
 	// Message PRÉCIS selon la cause : n'affirmer l'incompatibilité que quand le
 	// journal la montre vraiment (quant/architecture). Un échec générique de
@@ -183,6 +197,9 @@ func modelLoadError() string {
 		return "Modèle incompatible avec le moteur : " + reason +
 			". Choisis un autre backend (édite le modèle → Moteur)."
 	default:
+		if detail != "" {
+			return "Le modèle n'a pas pu être chargé : " + detail
+		}
 		return "Le modèle n'a pas pu être chargé (" + reason +
 			"). Ouvre le journal du moteur pour le détail."
 	}
@@ -203,7 +220,13 @@ func handleServiceLog(w http.ResponseWriter, r *http.Request) {
 	if isMoeConfig(ReadConfig()) {
 		log = moeNeutral(log) // les lignes du moteur MoE ne nomment pas l'amont
 	}
-	sendJSON(w, 200, map[string]any{"log": log})
+	out := map[string]any{"log": log}
+	// Moteur épinglé : les lignes d'erreur relevées dans ce journal, pour que l'UI
+	// affiche la cause sans obliger à lire les 80 lignes (engine_status.go).
+	if usesPinnedEngine(ReadConfig()) {
+		out["error"] = engineErrorFromLog(log)
+	}
+	sendJSON(w, 200, out)
 }
 
 // vramGPUs échantillonne les GPU (VRAM utilisée/totale, util, température). Extrait
@@ -366,9 +389,18 @@ func handleReasoning(w http.ResponseWriter, r *http.Request) {
 
 // handleBackends scans AJEAN_HOME/backends/<name>/ for a llama-server binary,
 // trying common build subpaths (build/bin, build-sm120/bin, bin, .).
-// Returns [{name, path}].
+// Returns [{name, path}]. Le moteur épinglé d'AJEAN, s'il est installé, ouvre la
+// liste ({pinned:true}) : c'est un moteur de plus, choisissable comme les autres.
 func handleBackends(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, 200, listBackendBins())
+	out := []map[string]any{}
+	if e := engineInstalled(); e != nil {
+		out = append(out, map[string]any{
+			"name":   "Moteur AJEAN (llama.cpp " + e.Tag + ")",
+			"path":   e.binPath(),
+			"pinned": true,
+		})
+	}
+	sendJSON(w, 200, append(out, listBackendBins()...))
 }
 
 // listBackendBins scanne AJEAN_HOME/backends/<name>/ pour un binaire llama-server
@@ -445,6 +477,10 @@ func handleLlamacppUninstallCustom(w http.ResponseWriter, r *http.Request) {
 	dir, err := backendDir(name)
 	if err != nil {
 		sendJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if engineReservedDir(dir) {
+		sendJSON(w, 400, map[string]any{"ok": false, "error": "ce dossier est celui du moteur AJEAN : il se gère depuis sa carte"})
 		return
 	}
 	if !isDir(dir) {

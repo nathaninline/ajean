@@ -74,6 +74,7 @@ func cmdApp(args []string) error {
 	// app.ajean.link — le bug qu'on a vécu avec le worker détaché.
 	appOwnsLink = true
 	appWebMux = newWebMux()
+	engineAutoInstall() // moteur épinglé, seulement là où il sert (engineWanted)
 	go func() { _ = http.Serve(ln, appWebMux) }()
 
 	go func() {

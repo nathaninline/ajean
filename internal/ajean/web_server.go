@@ -33,6 +33,9 @@ func cmdWeb(args []string) error {
 		port = n
 	}
 	mux := newWebMux()
+	// Moteur épinglé d'AJEAN : installé en tâche de fond si la configuration
+	// active tourne dessus ou si aucun moteur n'est en place (engineWanted).
+	engineAutoInstall()
 	addr := fmt.Sprintf("0.0.0.0:%d", port)
 
 	ln, err := net.Listen("tcp", addr)
@@ -235,6 +238,9 @@ func newWebMux() *http.ServeMux {
 	api("/api/llamacpp/prebuilt", handleLlamacppPrebuilt)                // job : binaires officiels précompilés
 	api("/api/llamacpp/prebuilt/check", handleLlamacppPrebuiltCheck)     // dernière release officielle vs installée
 	api("/api/llamacpp/use", handleLlamacppUse)                          // bascule BIN entre versions déjà installées
+	api("/api/engine", handleEngine)                                     // moteur épinglé d'AJEAN : version livrée, variante installée, usage
+	api("/api/engine/install", handleEngineInstall)                      // job : l'installe s'il manque (suivi par /api/llamacpp/job)
+	api("/api/engine/repair", handleEngineRepair)                        // job : le retélécharge ({variant} impose une variante)
 	api("/api/moe", handleMoe)                                           // moteur MoE : machine, catalogue figé, recommandation, modèles installés
 	api("/api/moe/install", handleMoeInstall)                            // job : paquet figé + installeur du moteur + preset (suivi par /api/llamacpp/job)
 	api("/api/moe/settings", handleMoeSettings)

@@ -45,16 +45,15 @@ func preflightEngine() error {
 		_, _, err := exl3Preflight(cfg)
 		return err
 	}
-	bin := strings.TrimSpace(cfg["BIN"])
-	if bin == "" {
-		return fmt.Errorf("BIN non défini — installe un moteur : %s (ou renseigne BIN avec %s)",
-			bold("ajean llamacpp install"), bold("ajean edit"))
-	}
-	if !filepath.IsAbs(bin) {
-		bin = filepath.Join(AjeanHome(), bin)
-	}
-	if _, err := os.Stat(prebuiltResolveBin(bin)); err != nil {
-		return fmt.Errorf("moteur introuvable : %s — relance %s", bin, bold("ajean llamacpp install"))
+	// Le moteur (resolveBin, engine_resolve.go). Un moteur de la 0.18 désigné par
+	// BIN doit exister. Le moteur épinglé (BIN vide ou dans backends/engine/)
+	// n'est pas vérifié ici : le service l'installe lui-même s'il manque
+	// (engineEnsure, backend_serve.go).
+	if bin, pinned := resolveBin(cfg); !pinned {
+		if _, err := os.Stat(bin); err != nil {
+			return fmt.Errorf("moteur introuvable : %s — relance %s, ou retire la ligne BIN (%s) pour utiliser le moteur AJEAN",
+				bin, bold("ajean llamacpp install"), bold("ajean edit"))
+		}
 	}
 	model := strings.TrimSpace(cfg["MODEL"])
 	if model == "" {
@@ -83,7 +82,7 @@ func preflightEngine() error {
 // donc les clés utiles avec leur rôle, les valeurs déjà définies telles quelles,
 // les autres commentées.
 var configTemplate = []struct{ key, help string }{
-	{"BIN", "chemin de llama-server (posé par « ajean llamacpp install »)"},
+	{"BIN", "chemin de llama-server (posé par « ajean llamacpp install ») ; vide = le moteur AJEAN (« ajean engine »)"},
 	{"MODEL", "nom de fichier .gguf ou chemin complet"},
 	{"HOST", "adresse d'écoute du moteur (défaut 0.0.0.0)"},
 	{"PORT", "port du moteur (défaut 8080)"},

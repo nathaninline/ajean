@@ -109,8 +109,19 @@ func totalRAMGB() float64 {
 // against cublas64_*/cublasLt64_*.dll which live there, not next to the binary —
 // without it the server dies with 0xC0000135 (DLL not found) unless the launching
 // shell happened to have CUDA on PATH.
+//
+// Le moteur épinglé (engine.go) livre ses propres bibliothèques CUDA dans un
+// sous-dossier : elles passent AVANT celles du toolkit de la machine, qu'il n'a
+// donc pas besoin de trouver (seul le pilote de la carte est requis).
 func setLibraryPath(dir string) {
-	parts := []string{dir}
+	_ = os.Setenv("PATH", libraryPathValue(dir, engineLibDirsFor(dir)))
+}
+
+// libraryPathValue : la valeur de PATH pour lancer le binaire rangé dans dir.
+// extra = dossiers de bibliothèques livrés avec le moteur (vide pour les
+// moteurs compilé, précompilé et forks, dont le chemin reste celui de la 0.18).
+func libraryPathValue(dir string, extra []string) string {
+	parts := append([]string{dir}, extra...)
 	if nvcc := findNvcc(); nvcc != "" {
 		binDir := filepath.Dir(nvcc) // …\CUDA\vX.Y\bin
 		parts = append(parts, binDir)
@@ -124,24 +135,19 @@ func setLibraryPath(dir string) {
 	if existing := os.Getenv("PATH"); existing != "" {
 		parts = append(parts, existing)
 	}
-	_ = os.Setenv("PATH", strings.Join(parts, string(os.PathListSeparator)))
+	return strings.Join(parts, string(os.PathListSeparator))
 }
 
 // libraryPathEnv : même chose pour une commande ponctuelle (ex. --list-devices
 // depuis l'UI), sans modifier le PATH du process web.
 func libraryPathEnv(dir string) []string {
-	parts := []string{dir}
-	if nvcc := findNvcc(); nvcc != "" {
-		binDir := filepath.Dir(nvcc)
-		parts = append(parts, binDir)
-		if x64 := filepath.Join(binDir, "x64"); isDir(x64) {
-			parts = append(parts, x64)
-		}
-	}
-	if existing := os.Getenv("PATH"); existing != "" {
-		parts = append(parts, existing)
-	}
-	return append(os.Environ(), "PATH="+strings.Join(parts, string(os.PathListSeparator)))
+	return libraryPathEnvWith(dir, engineLibDirsFor(dir))
+}
+
+// libraryPathEnvWith : variante qui reçoit les dossiers de bibliothèques, pour
+// sonder un moteur épinglé pas encore mis en place (voir engineProbe).
+func libraryPathEnvWith(dir string, extra []string) []string {
+	return append(os.Environ(), "PATH="+libraryPathValue(dir, extra))
 }
 
 // execServer runs llama-server as a child process and waits for it. Windows has

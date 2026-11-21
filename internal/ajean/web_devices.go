@@ -72,6 +72,17 @@ func devCacheGet(bin string) ([]map[string]any, bool) {
 	return e.devices, true
 }
 
+// devCacheReset oublie les énumérations en mémoire : après une réinstallation
+// du moteur épinglé, la variante (donc les cartes vues) a pu changer.
+func devCacheReset() {
+	devCacheMu.Lock()
+	devCache = map[string]devCacheEntry{}
+	devCacheMu.Unlock()
+	listDevMu.Lock()
+	listDevBin, listDevOut = "", nil
+	listDevMu.Unlock()
+}
+
 func devCachePut(bin string, devs []map[string]any) {
 	devCacheMu.Lock()
 	devCache[bin] = devCacheEntry{devices: devs, at: time.Now()}
@@ -177,17 +188,23 @@ func hasZeroMemory(devs []map[string]any) bool {
 
 // handleBackendDevices renvoie les devices vus par le moteur passé en `bin`
 // (celui du preset en cours d'édition). Sans `bin`, on prend celui de la config
-// active.
+// active. {pinned:true} désigne le moteur épinglé d'AJEAN, quel que soit le
+// moteur de la config active (preset sans ligne BIN en cours d'édition).
 func handleBackendDevices(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Bin string `json:"bin"`
+		Bin    string `json:"bin"`
+		Pinned bool   `json:"pinned"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
-	bin := strings.TrimSpace(req.Bin)
-	if bin == "" {
-		bin = ReadConfig()["BIN"]
+	var bin string
+	switch raw := strings.TrimSpace(req.Bin); {
+	case req.Pinned:
+		bin = engineBin()
+	case raw != "":
+		bin, _ = resolveBin(map[string]string{"BIN": raw})
+	default:
+		bin = activeBin()
 	}
-	bin = prebuiltResolveBin(bin)
 	if bin == "" || !isFile(bin) {
 		sendJSON(w, 200, map[string]any{"ok": false, "error": "moteur introuvable — choisissez d'abord un moteur"})
 		return
@@ -303,7 +320,7 @@ func listDevicesCached(bin string) []map[string]any {
 }
 
 func vulkanVramGPUs() []map[string]any {
-	bin := prebuiltResolveBin(ReadConfig()["BIN"])
+	bin := activeBin()
 	if bin == "" || !isFile(bin) {
 		return nil
 	}

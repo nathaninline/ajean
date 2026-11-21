@@ -59,7 +59,8 @@ func binHelp(bin string) (string, bool) {
 	return out.String(), true
 }
 
-// backendUsesLoadMode dit si le BIN donné attend la NOUVELLE syntaxe
+// backendUsesLoadMode dit si le binaire donné (déjà résolu par resolveBin, ""
+// = moteur épinglé pas encore installé) attend la NOUVELLE syntaxe
 // « --load-mode » (et a donc potentiellement retiré --mlock / --no-mmap).
 // Résultat mémoïsé par chemin+mtime du binaire : handleStatus est sondé souvent,
 // on ne relance pas « --help » à chaque fois (un seul spawn par binaire).
@@ -237,10 +238,6 @@ func cmdServe(args []string) error {
 	if isExl3Config(cfg) {
 		return serveExl3(cfg)
 	}
-	bin := cfg["BIN"]
-	if bin == "" {
-		return fmt.Errorf("BIN non défini — lance « ajean edit »")
-	}
 	model := cfg["MODEL"]
 	if model == "" {
 		return fmt.Errorf("MODEL non défini — lance « ajean edit »")
@@ -266,13 +263,16 @@ func cmdServe(args []string) error {
 		return fmt.Errorf("modèle incomplet : il manque %s dans %s — ce modèle tient en %d fichiers, télécharge-les tous",
 			strings.Join(missing, ", "), filepath.Dir(model), len(shardFamily(filepath.Base(model))))
 	}
-	if !filepath.IsAbs(bin) {
-		bin = filepath.Join(AjeanHome(), bin)
+	// Le moteur de ce preset (resolveBin, engine_resolve.go). BIN vers un moteur de
+	// la 0.18 (compilé, précompilé, fork) : ce binaire, le précompilé suivant sa
+	// release courante. BIN vide ou dans backends/engine/ : le moteur épinglé par
+	// cette version d'AJEAN, installé ici s'il manque (preset venu de la 0.20,
+	// installation neuve, mise à jour qui change la version épinglée), avant de
+	// charger le modèle.
+	bin, err := serveBin(cfg)
+	if err != nil {
+		return err
 	}
-	// Le moteur précompilé s'installe dans un dossier versionné : un preset écrit
-	// avant une mise à jour pointe sur une release qui n'existe plus. On le fait
-	// suivre au moteur courant plutôt que d'échouer en 127.
-	bin = prebuiltResolveBin(bin)
 
 	// Make sure llama-server can find its bundled shared libraries (the .so/.dll
 	// neighbours of the binary). This is platform-specific: LD_LIBRARY_PATH on
@@ -504,7 +504,12 @@ func waitPortFree(host, port string, wait time.Duration) error {
 var fastKVPrebuilt = map[string]bool{"f16|f16": true, "q8_0|q8_0": true, "q4_0|q4_0": true, "bf16|bf16": true}
 
 func warnKVPrebuilt(bin, k, v string) {
-	if _, cudaVer := prebuiltVersion(); !prebuiltOwns(bin) || cudaVer == "" || cudaVer[0] < '0' || cudaVer[0] > '9' {
+	// Même build officiel, même limite : le moteur épinglé en variante CUDA.
+	pinnedCuda := false
+	if e := engineInstalled(); e != nil && engineOwns(bin) {
+		pinnedCuda = e.Variant == "cuda"
+	}
+	if _, cudaVer := prebuiltVersion(); !pinnedCuda && (!prebuiltOwns(bin) || cudaVer == "" || cudaVer[0] < '0' || cudaVer[0] > '9') {
 		return
 	}
 	if k == "" {
