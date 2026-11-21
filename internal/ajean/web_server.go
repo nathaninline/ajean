@@ -320,6 +320,9 @@ func newWebMux() *http.ServeMux {
 	api("/api/voice/settings", handleVoiceSettings)            // réglages voix (GET / POST)
 	api("/api/voice/design", handleVoiceDesign)                // crée une voix à partir d'une description
 	api("/api/voice/delete", handleVoiceDelete)                // retire une voix de la bibliothèque
+	api("/api/stt", handleSTT)                                 // dictée vocale : audio -> texte (API Whisper compatible OpenAI, dictation.go)
+	api("/api/stt/settings", handleSTTSettings)                // réglages de la dictée (GET / POST)
+	api("/api/stt/models", handleSTTModels)                    // modèles de transcription proposés par l'API
 	api("/api/chat/upload", handleChatUpload)                  // dépose un fichier dans le workspace agent (joint au message suivant)
 	api("/api/chat/file", handleChatFile)                      // télécharge un fichier produit par l'agent (dossier de travail only)
 	api("/api/chat/stop", handleChatStop)                      // interrompt la génération en cours

@@ -330,6 +330,20 @@
          donc n'est PAS gatée — mais elle vit dans la MÊME carte, collée aux deux autres.
          Le gate est par ligne et non sur un wrapper car les séparateurs/rembourrages
          exigent que les .switchrow soient enfants DIRECTS de .slist. -->
+    <!-- Dictée vocale (dictation.go, 24-dictation.js) : le micro du composeur,
+         relayé vers une API de transcription compatible OpenAI. Sans rapport avec
+         la voix de Jean ci-dessous (serveur audio.cpp). -->
+    <div id="stt-block">
+      <div class="subhead"><span data-i18n="stt.title">Dictée vocale</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="stt.help" data-i18n-html>Le bouton <b>micro</b> du composeur enregistre la voix et l'envoie à une API de transcription compatible OpenAI (<code>/audio/transcriptions</code>). Par défaut : <b>Whisper chez Groq</b>, clé à créer sur console.groq.com. Un serveur Whisper local fonctionne aussi. Sans clé, la dictée intégrée au navigateur est utilisée.</span></span></div>
+      <div class="slist">
+        <label class="switchrow"><span data-i18n="stt.provider_label">Fournisseur</span><span class="sw-txtin"><select id="stt-provider" onchange="sttProviderPick()"></select></span></label>
+        <label class="switchrow" id="stt-url-row"><span data-i18n="stt.url_label">Adresse de l'API</span><span class="sw-txtin"><input id="stt-url" type="text" spellcheck="false" placeholder="https://…/v1" onchange="sttLoadModels()"></span></label>
+        <label class="switchrow"><span data-i18n="stt.key_label">Clé API</span><span class="sw-txtin"><input id="stt-key" type="password" autocomplete="off" spellcheck="false" placeholder="gsk_…" onchange="sttLoadModels()"></span></label>
+        <label class="switchrow"><span data-i18n="stt.model_label">Modèle</span><span class="sw-txtin"><select id="stt-model-sel" style="display:none" onchange="sttModelPick()"></select><input id="stt-model" type="text" spellcheck="false" placeholder="whisper-large-v3-turbo"></span></label>
+        <label class="switchrow"><span data-i18n="stt.lang_label">Langue</span><span class="sw-txtin"><input id="stt-lang" type="text" spellcheck="false" placeholder="auto (fr, en…)"></span></label>
+        <button type="button" class="switchrow sw-action" onclick="saveSTT()"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span data-i18n="stt.save_button">Enregistrer</span></button>
+      </div>
+    </div>
     <!-- Voix de Jean (voice.go, 25-voice-settings.js) : conversation à voix haute du
          mode Jean, via un serveur audio.cpp. Réglages rangés côté serveur. -->
     <div id="voice-block">
@@ -487,6 +501,12 @@
           <svg class="pill-chev" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
         </button>
       </div>
+      <!-- Dictée vocale : à droite du sélecteur de mode. Un clic lance
+           l'enregistrement, un second l'arrête ; le texte transcrit (API Whisper
+           réglée dans Paramètres > Dictée vocale) s'insère dans le champ. Distincte
+           de la conversation à voix haute de Jean (24-jean-voice.js), qui a son
+           propre micro sur sa scène : ce bouton s'efface tant qu'elle est ouverte. -->
+      <button id="mic-btn" class="mic-btn" onpointerdown="dictWarm()" onclick="toggleDictation(this)" title="Dicter un message" aria-label="Dicter un message" data-i18n="stt.mic_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg></button>
       <!-- Pied de carte, à droite : le décompte de contexte, compacter, puis le
            trombone — tous à la même échelle, c'est une seule ligne d'outils. -->
       <span style="display:flex;align-items:center;gap:8px;margin-left:auto;min-width:0">
