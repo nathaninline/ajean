@@ -2,6 +2,7 @@ package ajean
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -258,6 +259,35 @@ func TestSecretsDisableRefusesWhenUnreadable(t *testing.T) {
 	}
 	if ep := resolveChatEndpoint(); ep.KeyErr == nil || ep.Key != "" {
 		t.Fatalf("clé illisible : attendu une erreur et aucune clé, obtenu %q %v", ep.Key, ep.KeyErr)
+	}
+}
+
+// Clé du preset illisible : le tour s'arrête sur une erreur visible dans le fil,
+// sans appeler l'API distante.
+func TestRunChatReportsUnreadableKey(t *testing.T) {
+	secretsTestHome(t)
+	p := writePresetFile(t, "fournisseur", presetExt)
+	if _, err := secretsEnable(); err != nil {
+		t.Fatal(err)
+	}
+	if err := applyPresetFile(p); err != nil {
+		t.Fatal(err)
+	}
+	os.Remove(secretsKeyPath())
+	os.Remove(secretsKeyBakPath())
+	secretCacheBust()
+	var shown error
+	_, err := runChat(context.Background(), []Message{{Role: "user", Content: "bonjour"}}, 0.7, Caps{}, func(ev StreamEvent) bool {
+		if ev.Err != nil {
+			shown = ev.Err
+		}
+		return true
+	}, nil)
+	if err == nil || shown == nil || !strings.Contains(shown.Error(), "coffre") {
+		t.Fatalf("erreur attendue dans le fil : %v / %v", err, shown)
+	}
+	if strings.Contains(shown.Error(), testAPIKey) {
+		t.Fatal("le message d'erreur ne doit pas contenir la clé")
 	}
 }
 

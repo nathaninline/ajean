@@ -112,6 +112,20 @@
          MCP, shell…). D'où l'avertissement quand le mode agent est off : sans
          lui, aucune tâche ne peut agir. -->
     <div id="tasks-agent-warn" class="muted" style="display:none;font-size:12px;line-height:1.5;margin:8px 2px" data-i18n="tasks.agent_warn" data-i18n-html>Le <b>mode agent</b> est désactivé : les tâches s'exécuteront mais l'IA n'aura <b>aucun outil</b> pour agir (envoyer un mail, lire des fichiers…). Active le mode agent ci-dessus.</div>
+    <!-- Validation (review.go) : ce que l'IA a créé, modifié ou supprimé parmi les
+         tâches attend ici l'accord de l'utilisateur, donné une fois pour toute la
+         réponse. Masqué tant qu'il n'y a rien à valider (ou validation éteinte). -->
+    <div id="review-box" class="slist review-box" style="display:none">
+      <div class="rowbody">
+        <div class="review-head" data-i18n="review.heading">L'IA propose des changements</div>
+        <div class="muted review-sub" data-i18n="review.sub">Rien de ceci ne partira seul tant que vous ne l'avez pas validé.</div>
+        <div id="review-items" class="review-items"></div>
+        <div class="review-actions">
+          <button type="button" class="btn-primary" onclick="answerReview(true)" data-i18n="review.accept">Tout valider</button>
+          <button type="button" class="btn" onclick="answerReview(false)" data-i18n="review.reject">Tout refuser</button>
+        </div>
+      </div>
+    </div>
     <!-- UNE carte : l'interrupteur maître, la liste des tâches, puis l'ajout. -->
     <div class="slist">
       <label class="switchrow"><span class="switch"><input type="checkbox" id="tasks-pause-toggle" onchange="toggleTasksPause()"><span class="slider"></span></span> <span data-i18n="tasks.pause_toggle">suspendre toutes les tâches</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="tasks.pause_help" data-i18n-html>Interrupteur maître : coche pour que plus aucune tâche ne se déclenche. Les tâches gardent leur réglage et repartent quand tu décoches.</span></span></label>
@@ -190,6 +204,13 @@
     <div class="subhead"><span data-i18n="security.vault_subhead">Coffre des clés d'API</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="security.vault_help" data-i18n-html>Les clés de vos <b>presets externes</b> (OpenAI, OpenRouter…) et les jetons de vos <b>serveurs MCP</b> quittent les fichiers de presets et la base : ils sont chiffrés à part, et seule une référence reste à leur place. Un preset partagé ou une réponse de l'interface ne les contient plus. La clé du coffre est un fichier de cette machine (<code>.secrets_key</code>) : gardez-le avec vos sauvegardes. Éteindre remet tout en clair, comme avant.</span></span></div>
     <div class="slist">
       <label class="switchrow"><span class="switch"><input type="checkbox" id="sec-vault-toggle" onchange="toggleSecretsVault()"><span class="slider"></span></span> <span class="sw-txt"><span data-i18n="security.vault_toggle">ranger les clés d'API dans le coffre chiffré</span><span id="sec-vault-status" class="sw-sub"></span></span></label>
+    </div>
+    <div class="subhead"><span data-i18n="security.ai_subhead">Ce que fait l'IA</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="security.ai_help" data-i18n-html><b>Validation</b> : une tâche planifiée que l'IA crée ou modifie (et le script qu'elle lance) ne part pas seule avant votre accord, demandé une fois à la fin de sa réponse dans <b>Tâches</b>. Ce que vous réglez vous-même est validé d'office.<br><b>Journal</b> : chaque outil qui agit (commande, fichier, tâche…) est noté avant et après, y compris pendant les tâches de fond. Les secrets reconnus sont masqués ; mémoire chiffrée, le journal l'est aussi.</span></span></div>
+    <div class="slist">
+      <label class="switchrow"><span class="switch"><input type="checkbox" id="sec-review-toggle" onchange="toggleReview()"><span class="slider"></span></span> <span data-i18n="security.review_toggle">valider ce que l'IA planifie</span></label>
+      <label class="switchrow"><span class="switch"><input type="checkbox" id="sec-actions-toggle" onchange="toggleActionsLog()"><span class="slider"></span></span> <span data-i18n="security.actions_toggle">tenir le journal des actions</span></label>
+      <button type="button" class="switchrow sw-action" onclick="showActionsLog()"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg><span data-i18n="security.actions_show">Voir les dernières actions</span></button>
+      <div id="sec-actions-list" class="rowbody review-items" style="display:none"></div>
     </div>
   </details>
   <details id="remote-details"><summary><span class="stitle" data-i18n="link.title">AJEAN LINK</span><span id="remote-badge" class="sbadge"></span></summary>

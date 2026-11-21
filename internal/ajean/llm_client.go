@@ -965,6 +965,11 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 	if caps.Jean {
 		ctx = withJeanSpace(ctx)
 	}
+	// Journal des actions (actions_log.go) : chaque outil qui agit est noté avant
+	// et après. Le tour est clos en sortant ; un tour sans clôture est un tour
+	// coupé (crash, redémarrage), dont le modèle sera prévenu au suivant.
+	aturn := newActionTurn(ctx, caps)
+	defer aturn.end()
 	var extra []Message
 	// Outils SÉPARÉS : regroupés par domaine (0.18.2, tools_grouped.go), le modèle
 	// se trompait nettement plus souvent de paramètre ou d'action (~6 % d'appels
@@ -984,7 +989,9 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 	// Clé du preset rangée dans le coffre mais illisible : on le dit, plutôt que
 	// d'appeler l'API sans clé et de laisser croire à une clé refusée.
 	if ep.KeyErr != nil {
-		return nil, fmt.Errorf("clé d'API du preset illisible (coffre des clés) : %w", ep.KeyErr)
+		err := fmt.Errorf("clé d'API du preset illisible (coffre des clés) : %w", ep.KeyErr)
+		cb(StreamEvent{Err: err}) // c'est par là que l'erreur atteint le fil
+		return nil, err
 	}
 	// Some backends (vanilla llama.cpp builds) don't populate `reasoning_content`
 	// in streaming mode: the model's <think> block (opened by the chat template)
@@ -1718,6 +1725,12 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 				if caps.Jean && args != nil && strings.HasPrefix(tc.Function.Name, "task_") {
 					args["_jean"] = true
 				}
+				// Journal des actions : noté AVANT d'agir (une coupure pendant l'outil
+				// laisse la trace qu'il avait commencé), complété après.
+				journaled := actionMutating(tc.Function.Name, args)
+				if journaled {
+					aturn.start(tc.Function.Name, label)
+				}
 				switch tc.Function.Name {
 				case "mem_search":
 					lim := 0
@@ -1895,6 +1908,9 @@ func runChat(ctx context.Context, messages []Message, temperature float64, caps 
 					}
 				}
 				result = capToolResult(result)
+				if journaled {
+					aturn.done(tc.Function.Name, label, result)
+				}
 				if caps.Jean && tc.Function.Name == "bash" && !isJeanReflecting(ctx) {
 					cmd, _ := args["command"].(string)
 					result = jeanNoteBashResult(jeanFailed, cmd, result)

@@ -30,7 +30,7 @@ async function loadSecurity(){
   show('sec-pw-logout', a.password && a.session);
   show('sec-pw-others', a.password && a.session && a.sessions > 1);
   setBadge('sec-badge', a.password ? true : (a.key ? true : 'warn'), a.password ? t('security.badge_password') : (a.key ? t('security.badge_key') : t('security.badge_open')));
-  if(a.allowed) loadSecretsVault();
+  if(a.allowed){ loadSecretsVault(); loadReview(); loadActionsLogState(); }
 }
 // Réponse d'une route /api/auth/* : message lisible pour un refus.
 function secError(r, j){
@@ -114,4 +114,89 @@ async function toggleSecretsVault(){
     return;
   }
   toast((r.report ? r.report.moved : 0) + ' ' + t(on ? 'security.vault_moved_in' : 'security.vault_moved_out'));
+}
+// --- Validation de ce que l'IA planifie (review.go) ----------------------------
+// Éteinte par défaut. Allumée, ce que le modèle a créé, modifié ou supprimé parmi
+// les tâches (et le contenu des scripts qu'elles lancent) s'affiche en tête de la
+// section Tâches à la FIN de sa réponse, et ne part pas seul avant l'accord.
+let REVIEW_ON = false, REVIEW = null;
+function reviewItemEl(kindCls, kindText, name, detail, when){
+  const d = document.createElement('details'); d.className = 'review-item';
+  const s = document.createElement('summary');
+  const k = document.createElement('span'); k.className = 'review-kind ' + kindCls; k.textContent = kindText;
+  const n = document.createElement('span'); n.className = 'review-name'; n.textContent = name;
+  s.appendChild(k); s.appendChild(n);
+  if(when){ const w = document.createElement('span'); w.className = 'action-when'; w.textContent = when; s.appendChild(w); }
+  const p = document.createElement('div'); p.className = 'review-detail'; p.textContent = detail || '';
+  d.appendChild(s); d.appendChild(p);
+  return d;
+}
+function renderReview(r){
+  REVIEW_ON = !!(r && r.on);
+  const prev = REVIEW ? REVIEW.id : '';
+  REVIEW = (r && r.review) || null;
+  const tog = document.getElementById('sec-review-toggle'); if(tog) tog.checked = REVIEW_ON;
+  const box = document.getElementById('review-box'); if(!box) return;
+  if(!REVIEW || !REVIEW.items || !REVIEW.items.length){ box.style.display = 'none'; return; }
+  const list = document.getElementById('review-items'); list.textContent = '';
+  REVIEW.items.forEach(it => {
+    const el = reviewItemEl(it.change, t('review.kind_' + it.change), it.name, it.detail);
+    if(REVIEW.items.length === 1) el.open = true;
+    list.appendChild(el);
+  });
+  box.style.display = '';
+  // Une liste NOUVELLE : on la met sous les yeux (section Tâches ouverte + rappel).
+  if(REVIEW.id !== prev){
+    const sec = document.getElementById('tasks-details'); if(sec) sec.open = true;
+    toast(t('review.toast'));
+  }
+}
+async function loadReview(){
+  try{ renderReview(await jget('/api/review')); }catch(e){}
+}
+async function toggleReview(){
+  const tog = document.getElementById('sec-review-toggle'); const on = tog.checked;
+  let r; try{ r = await jpost('/api/review', {on}); }catch(e){ tog.checked = !on; await askAlert(t('common.failed_prefix') + e); return; }
+  if(!r.ok){ tog.checked = !on; await askAlert(t('common.failed_prefix') + (r.error||t('common.unknown'))); return; }
+  renderReview(r);
+  toast(t(on ? 'review.enabled' : 'review.disabled'));
+  if(typeof loadTasks === 'function') loadTasks();
+}
+async function answerReview(accept){
+  if(!REVIEW) return;
+  if(!accept && !await askConfirm(t('review.reject_confirm'), {title:t('review.reject'), okText:t('review.reject'), danger:true})) return;
+  let r; try{ r = await jpost('/api/review', {id:REVIEW.id, accept}); }catch(e){ await askAlert(t('common.failed_prefix') + e); return; }
+  // Liste changée entre-temps : on montre la nouvelle, sans rien appliquer.
+  if(!r.ok){ renderReview(r); await askAlert(r.error || t('common.unknown'), {title:t('settings.refused_title')}); return; }
+  renderReview(r);
+  toast(t(accept ? 'review.accepted' : 'review.rejected'));
+  if(typeof loadTasks === 'function') loadTasks();
+}
+
+// --- Journal des actions (actions_log.go) ---------------------------------------
+async function loadActionsLogState(){
+  try{ const r = await jget('/api/actions?limit=1'); const tog = document.getElementById('sec-actions-toggle'); if(tog) tog.checked = !!r.on; }catch(e){}
+}
+async function toggleActionsLog(){
+  const tog = document.getElementById('sec-actions-toggle'); const on = tog.checked;
+  try{ const r = await jpost('/api/actions', {on}); tog.checked = !!r.on; }catch(e){ tog.checked = !on; }
+}
+async function showActionsLog(){
+  const box = document.getElementById('sec-actions-list'); if(!box) return;
+  if(box.style.display !== 'none'){ box.style.display = 'none'; return; }
+  let r; try{ r = await jget('/api/actions?limit=40'); }catch(e){ return; }
+  box.textContent = '';
+  const acts = (r && r.actions) || [];
+  if(!acts.length){
+    const p = document.createElement('div'); p.className = 'muted'; p.style.fontSize = '12px';
+    p.textContent = t(r && r.locked ? 'security.actions_locked' : 'security.actions_empty');
+    box.appendChild(p);
+  }
+  acts.forEach(a => {
+    const who = a.task ? a.task : t('security.actions_scope_' + (a.scope === 'jean' ? 'jean' : 'chat'));
+    const res = a.done ? (a.result || '') : t('security.actions_no_result');
+    const d = new Date(a.ts);
+    box.appendChild(reviewItemEl('', a.name, a.label || who, who + '\n' + res, isNaN(d) ? '' : d.toLocaleString()));
+  });
+  box.style.display = '';
 }

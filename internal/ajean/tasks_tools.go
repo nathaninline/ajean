@@ -275,7 +275,7 @@ func toolTaskCreate(args map[string]any) string {
 	if t.NextRun > 0 && enabled {
 		when = ", prochaine exécution " + time.UnixMilli(t.NextRun).In(loc(tz)).Format("2006-01-02 15:04") + " (" + tzLabel(tz) + ")"
 	}
-	return fmt.Sprintf("[ok] tâche '%s' créée (id %s)%s", name, t.ID, when)
+	return fmt.Sprintf("[ok] tâche '%s' créée (id %s)%s", name, t.ID, when) + reviewToolNote()
 }
 
 // toolTaskUpdate modifie une tâche existante (partiel).
@@ -311,7 +311,7 @@ func toolTaskUpdate(args map[string]any) string {
 	if err := saveTask(t); err != nil {
 		return "[erreur] " + err.Error()
 	}
-	return fmt.Sprintf("[ok] tâche '%s' (id %s) mise à jour", t.Name, t.ID)
+	return fmt.Sprintf("[ok] tâche '%s' (id %s) mise à jour", t.Name, t.ID) + reviewToolNote()
 }
 
 // toolTaskDelete supprime une tâche.

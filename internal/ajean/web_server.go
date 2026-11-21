@@ -387,6 +387,8 @@ func newWebMux() *http.ServeMux {
 	api("/api/tasks/pause", handleTasksPause)
 	api("/api/tasks/run", handleTaskRun)
 	api("/api/tasks/stop", handleTaskStop)
+	api("/api/review", handleReview)   // validation de ce que l'IA planifie : liste à valider, accord / refus, activation
+	api("/api/actions", handleActions) // journal des actions de l'IA (lecture seule + interrupteur)
 	// Pré-chauffe le préfixe dès que le moteur répond, sans attendre le premier
 	// sondage du navigateur (ui/link peut tourner sans page ouverte).
 	// • déjà lancé (redémarrage de l'UI seule) : tout de suite ;

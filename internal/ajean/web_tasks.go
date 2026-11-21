@@ -60,8 +60,18 @@ func handleTasks(w http.ResponseWriter, r *http.Request) {
 	for _, p := range listProjects() {
 		projects = append(projects, map[string]any{"slug": p.Slug, "name": p.Name})
 	}
+	// Validation activée (review.go) : les tâches qui attendent l'accord de
+	// l'utilisateur, pour que la liste les signale. Vide quand elle est éteinte.
+	pending := []string{}
+	for _, it := range reviewChanges() {
+		if it.Change != "deleted" {
+			pending = append(pending, it.ID)
+		}
+	}
 	sendJSON(w, 200, map[string]any{
 		"ok":           true,
+		"review_on":    reviewOn(),
+		"pending":      pending,
 		"tasks":        tasks,
 		"paused":       tasksPaused(),
 		"agent":        agentEnabled(),
@@ -125,6 +135,9 @@ func handleTaskSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validation (review.go) : ce que l'utilisateur règle ici est validé d'office,
+	// sauf si une modification du modèle attendait déjà sur cette tâche.
+	wasPending := req.ID != "" && reviewTaskPending(req.ID)
 	var t Task
 	if req.ID != "" {
 		if cur, ok := getTask(req.ID); ok {
@@ -151,6 +164,7 @@ func handleTaskSave(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
+	reviewUserSaved(t.ID, wasPending)
 	sendJSON(w, 200, map[string]any{"ok": true, "id": t.ID})
 }
 
@@ -168,6 +182,7 @@ func handleTaskDelete(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
+	reviewUserDeleted(req.ID) // supprimée par l'utilisateur : rien à valider
 	sendJSON(w, 200, map[string]any{"ok": true})
 }
 
@@ -184,6 +199,7 @@ func handleTaskToggle(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 404, map[string]any{"ok": false, "error": "tâche introuvable"})
 		return
 	}
+	wasPending := reviewTaskPending(t.ID)
 	t.Enabled = req.On
 	if req.On {
 		t.NextRun = computeNextRun(t.Schedule, t.TZ, time.Now())
@@ -192,6 +208,7 @@ func handleTaskToggle(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
+	reviewUserSaved(t.ID, wasPending) // activée par l'utilisateur lui-même : validée d'office
 	sendJSON(w, 200, map[string]any{"ok": true})
 }
 
@@ -226,6 +243,12 @@ func handleTaskRun(w http.ResponseWriter, r *http.Request) {
 	t, ok := getTask(req.ID)
 	if !ok {
 		sendJSON(w, 404, map[string]any{"ok": false, "error": "tâche introuvable"})
+		return
+	}
+	// Validation activée : on ne lance pas, même à la main, une tâche ou un script
+	// que le modèle a modifié et que l'utilisateur n'a pas encore lu.
+	if !reviewTaskValid(t) {
+		sendJSON(w, 409, map[string]any{"ok": false, "error": "cette tâche attend ta validation (elle a été créée ou modifiée par l'IA) : valide-la d'abord"})
 		return
 	}
 	// Une tâche script ne touche pas au modèle : on peut la lancer même si le

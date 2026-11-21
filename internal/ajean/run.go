@@ -62,6 +62,10 @@ func Main() {
 		mustExit(cmdPassword(args))
 	case "secrets":
 		mustExit(cmdSecrets(args))
+	case "review":
+		mustExit(cmdReview(args))
+	case "actions":
+		mustExit(cmdActions(args))
 	case "vram":
 		mustExit(showVram())
 	case "gpu":
@@ -170,6 +174,10 @@ Interaction:
   memory [off|ondemand|always|search|status]  mode mémoire de l'IA
   internet [on|off|status]
                                 accès web de l'IA (moteur intégré)
+  review [on|off|status|accept|reject]
+                                validation : les tâches que l'IA crée ou modifie (et leurs
+                                scripts) attendent votre accord avant de partir seules
+  actions [N|on|off|status]     journal de ce que l'IA a fait (N dernières actions)
 
 Accès distant (ajean.link) :
   link <token>                  enregistre le jeton et ouvre le tunnel
