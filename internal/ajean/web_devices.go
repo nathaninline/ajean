@@ -384,6 +384,28 @@ func applyWindowsDedicatedUsage(gpus []map[string]any) {
 		g["util"] = adapters[ai].UtilPct
 		ai++
 	}
+	assignIntegratedUsage(gpus, adapters[min(ai, len(adapters)):])
+}
+
+// assignIntegratedUsage donne aux cartes intégrées la mémoire PARTAGÉE (plus la
+// dédiée, quelques centaines de Mio réservés par le BIOS) et l'utilisation des
+// adaptateurs restants, le plus chargé d'abord.
+func assignIntegratedUsage(gpus []map[string]any, rest []windowsAdapterStat) {
+	sort.SliceStable(rest, func(i, j int) bool { return rest[i].SharedMiB > rest[j].SharedMiB })
+	ri := 0
+	for _, g := range gpus {
+		name, _ := g["name"].(string)
+		if !integratedGPUName(name) || ri >= len(rest) {
+			continue
+		}
+		used := rest[ri].SharedMiB + rest[ri].DedicatedMiB
+		if total, _ := g["total"].(int); total > 0 && used > total {
+			used = total
+		}
+		g["used"] = used
+		g["util"] = rest[ri].UtilPct
+		ri++
+	}
 }
 
 // integratedGPUName : le nom désigne-t-il un GPU intégré au processeur ? Intel
@@ -413,6 +435,7 @@ func integratedGPUName(name string) bool {
 // — les deux mesures viennent du même appel PowerShell pour rester appariées.
 type windowsAdapterStat struct {
 	DedicatedMiB int
+	SharedMiB    int // mémoire système utilisée par la carte (tout, pour une puce intégrée)
 	UtilPct      int
 }
 
@@ -425,13 +448,13 @@ type windowsAdapterStat struct {
 // fausserait l'appariement.
 func windowsAdapterStats() []windowsAdapterStat {
 	const script = `$mem = Get-CimInstance Win32_PerfFormattedData_GPUPerformanceCounters_GPUAdapterMemory -ErrorAction Stop | ` +
-		`Where-Object { $_.TotalCommitted -gt 5MB } | Select-Object Name, DedicatedUsage; ` +
+		`Where-Object { $_.TotalCommitted -gt 5MB } | Select-Object Name, DedicatedUsage, SharedUsage; ` +
 		`$eng = Get-CimInstance Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine -ErrorAction SilentlyContinue; ` +
 		`$r = @(foreach ($m in $mem) { ` +
 		`  $u = 0; ` +
 		`  if ($eng) { $hit = $eng | Where-Object { $_.Name -like "*$($m.Name)*" }; if ($hit) { $mx = ($hit | Measure-Object -Property UtilizationPercentage -Maximum).Maximum; if ($mx -gt $u) { $u = $mx } } }; ` +
 		`  if ($u -gt 100) { $u = 100 }; ` +
-		`  [PSCustomObject]@{dedicated=$m.DedicatedUsage; util=[int]$u} ` +
+		`  [PSCustomObject]@{dedicated=$m.DedicatedUsage; shared=$m.SharedUsage; util=[int]$u} ` +
 		`}); ` +
 		`[PSCustomObject]@{items=$r} | ConvertTo-Json -Compress -Depth 3`
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
@@ -443,6 +466,7 @@ func windowsAdapterStats() []windowsAdapterStat {
 	var parsed struct {
 		Items []struct {
 			Dedicated int64 `json:"dedicated"`
+			Shared    int64 `json:"shared"`
 			Util      int   `json:"util"`
 		} `json:"items"`
 	}
@@ -451,7 +475,7 @@ func windowsAdapterStats() []windowsAdapterStat {
 	}
 	stats := make([]windowsAdapterStat, 0, len(parsed.Items))
 	for _, it := range parsed.Items {
-		stats = append(stats, windowsAdapterStat{DedicatedMiB: int(it.Dedicated / (1024 * 1024)), UtilPct: it.Util})
+		stats = append(stats, windowsAdapterStat{DedicatedMiB: int(it.Dedicated / (1024 * 1024)), SharedMiB: int(it.Shared / (1024 * 1024)), UtilPct: it.Util})
 	}
 	return stats
 }

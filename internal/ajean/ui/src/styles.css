@@ -298,6 +298,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .rowlist>.preset{overflow:hidden}
 .rowlist>.preset.active::before,.rowlist>.preset.pending::before{content:"";position:absolute;
   left:0;top:0;bottom:0;width:3px;background:var(--text)}
+/* Preset choisi mais moteur arrêté : repéré par un trait estompé, sans le fond ni
+   le gras du preset qui tourne. */
+.rowlist>.preset.chosen{position:relative}
+.rowlist>.preset.chosen::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--dim);opacity:.45}
 /* La liste est REDESSINÉE à chaque rafraîchissement : une transition ne jouerait
    pas (l'élément vient de naître), d'où des @keyframes d'entrée. Le liseré entre
    en glissant depuis la gauche, le voile et la puce arrivent en fondu.
@@ -1020,6 +1024,19 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-bar.indet>i{width:35%;animation:pe-bar-slide 1.2s ease-in-out infinite;transition:none}
 .pe-bar.done>i{width:100%}
 @keyframes pe-bar-slide{0%{margin-left:-35%}100%{margin-left:100%}}
+/* Résultats de la recherche Hugging Face, sous le champ de téléchargement :
+   une liste de lignes cliquables (dépôts, puis quantifications d'un dépôt). */
+.hf-list{display:flex;flex-direction:column;max-height:260px;overflow:hidden auto;border:1px solid var(--border);border-radius:10px;margin-top:2px;background:transparent}
+/* Les lignes sont des boutons : on annule le fond et l'arrondi des boutons du
+   thème, et la liste rogne ses enfants, sinon on voit un rectangle à angles
+   droits dans un cadre arrondi. */
+#m-hf-results .hf-row{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;flex:none;margin:0;padding:8px 10px;background:transparent;border:0;border-radius:0;box-shadow:none;font:inherit;font-size:12px;color:var(--text);text-align:left;cursor:pointer}
+#m-hf-results .hf-row:not(:last-child){border-bottom:1px solid var(--border)}
+#m-hf-results .hf-row:hover{background:var(--accent-bg)}
+.hf-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hf-meta{flex-shrink:0;color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
+.hf-back .hf-name{color:var(--dim)}
+.hf-note{padding:8px 10px;font-size:12px;color:var(--dim)}
 /* Action discrète en texte (annuler un téléchargement…). */
 .pe-link{align-self:flex-start;border:none;background:none;padding:0;font:inherit;font-size:11px;color:var(--dim);text-decoration:underline;cursor:pointer}
 .pe-link:hover{color:var(--text)}
@@ -1992,8 +2009,11 @@ button,input,select,textarea{font-family:inherit;font-feature-settings:inherit}
 .mm-t{display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0}
 /* Projets : seule la liste défile (fondu en bas), ⋮ par ligne */
 #proj-menu{min-width:220px;overflow:hidden;padding:6px}
-#proj-menu .pm-list{flex:1 1 auto;min-height:0;overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain;
-  -webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 14px),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 14px),transparent)}
+#proj-menu .pm-list{flex:1 1 auto;min-height:0;overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain}
+/* Fondu du bas : seulement quand la liste DÉFILE (classe posée par pmFade). Posé
+   en permanence, il effaçait le bas de la ligne sélectionnée dès qu'il n'y avait
+   qu'un ou deux projets. */
+#proj-menu .pm-list.fade{-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 14px),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 14px),transparent)}
 #proj-menu .pm-list::-webkit-scrollbar{width:0;height:0}
 .pm-row{position:relative;display:flex;align-items:center}
 .pm-row+.pm-row{margin-top:1px}
@@ -2933,6 +2953,19 @@ body.voice-ready.jean-mode:not(.jean-history) .jst-voice{display:flex}
   padding:6px 14px;border-radius:999px;background:var(--row-bg);color:var(--dim);font-size:13px;pointer-events:none;cursor:pointer;opacity:0;transition:opacity .25s,transform .25s}
 .jst-voice-st.in{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 body:not(.jean-mode) .jst-voice-st,body.jean-history .jst-voice-st{display:none}
+/* Mémoire de Jean rangée en arrière-plan (25-jean-memory-activity.js). */
+#jean-mem-pill{position:absolute;top:18px;left:50%;z-index:8;display:flex;align-items:center;gap:7px;max-width:min(560px,80%);
+  padding:6px 13px;border-radius:999px;background:var(--row-bg);color:var(--dim);font-size:12px;cursor:pointer;
+  opacity:0;pointer-events:none;transform:translate(-50%,-6px);transition:opacity .25s ease,transform .25s var(--ease)}
+#jean-mem-pill.show{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
+#jean-mem-pill svg{flex:none}
+#jean-mem-pill .jmp-txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#jean-mem-pill.working .jmp-txt{background:linear-gradient(90deg,var(--dim) 0%,var(--dim) 30%,var(--text) 50%,var(--dim) 70%,var(--dim) 100%);
+  background-size:300% 100%;background-repeat:no-repeat;-webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:transparent;animation:labelshimmer 2s linear infinite}
+@media (prefers-reduced-motion:reduce){#jean-mem-pill.working .jmp-txt{animation:none}}
+/* Durée de travail dans le bouton Arrêter de la scène de Jean. */
+.jst-cap-stop .cs-t{font-variant-numeric:tabular-nums}
 body.jean-voice #jean-stage .jst-input{display:none}
 
 
@@ -3074,6 +3107,48 @@ audio.jf-media{width:min(520px,100%);margin-top:18vh}
   #jf-sel>span{padding:0 6px}
   #jf-sel>button:not(.jf-ic){padding:7px 8px;font-size:12px}
 }
+
+/* Dictée vocale : pastille ronde à droite du sélecteur de mode. */
+#mic-btn{flex:none;width:26px;height:26px;min-height:26px;padding:0;margin:0 0 0 -6px;display:flex;align-items:center;justify-content:center;
+  border:none;border-radius:999px;background:var(--t2);color:var(--dim);transition:color .16s ease,background .16s ease}
+#mic-btn:hover,.jst-mic:hover{color:var(--text)}
+.mic-btn svg{display:block}
+.mic-btn.rec{background:var(--text);color:var(--bg);animation:mic-pulse 1.2s ease-in-out infinite}
+.mic-btn.busy{color:var(--text);opacity:.6;pointer-events:none}
+@keyframes mic-pulse{50%{box-shadow:0 0 0 4px color-mix(in srgb,var(--text) 22%,transparent)}}
+@media (prefers-reduced-motion:reduce){.mic-btn.rec{animation:none}}
+:root:not([data-theme="dark"]) #mic-btn:not(.rec){background:color-mix(in srgb,var(--text) 6%,transparent)}
+/* Champ texte dans une ligne de réglage (Dictée vocale). */
+.sw-txtin{order:2;margin-left:auto;display:flex;min-width:0;flex:0 1 220px}
+.side .sw-txtin :is(input,select){width:100%;height:26px;margin:0;padding:0 8px;border:none;border-radius:8px;background:var(--t2);color:var(--text);font-size:12px}
+.side .sw-txtin :is(input,select):focus{box-shadow:0 0 0 2px var(--t3);outline:none}
+/* Enregistrement via l'API : le micro s'élargit en onde + compteur. */
+.mic-rec{display:none;align-items:center;gap:6px}
+.mic-btn.wave{gap:6px;animation:none}
+/* Élargissement animé comme la bulle du sélecteur de mode (largeur bornée qui
+   glisse) ; la largeur fixe sur #id l'emportait sur la classe .wave. */
+#mic-btn,.jst-mic{width:auto;overflow:hidden;white-space:nowrap;
+  transition:max-width .32s var(--ease),padding .32s var(--ease),background .16s ease,color .16s ease}
+#mic-btn{min-width:26px;max-width:26px}
+.jst-mic{min-width:36px;max-width:36px}
+#mic-btn.wave,.jst-mic.wave{max-width:190px;padding:0 10px}
+.mic-btn.wave .mic-rec{animation:mic-fade .24s ease .08s both}
+@keyframes mic-fade{from{opacity:0}to{opacity:1}}
+.mic-btn.wave>svg:not(.mic-stop){display:none}
+.mic-btn.wave .mic-rec{display:inline-flex}
+.mic-rec canvas{display:block}
+.mic-rec .mic-time{font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sw-txtin{gap:6px}
+/* Micro du plein écran du mode Jean, avant la flèche d'envoi. */
+.jst-mic{flex:none;align-self:flex-end;margin:0 0 9px;padding:0;height:36px;min-height:36px;border:none;border-radius:999px;
+  background:var(--t2);color:var(--dim);cursor:pointer;display:flex;align-items:center;justify-content:center}
+/* Pendant l'enregistrement, le micro devient un carré « stop ». */
+.mic-btn>.mic-stop{display:none}
+.mic-btn.rec>svg:not(.mic-stop){display:none}
+.mic-btn.rec>.mic-stop{display:block;flex:none}
+/* La conversation à voix haute de Jean a son propre micro (.jst-voice) : la dictée
+   s'efface tant qu'elle est ouverte, pour que les deux ne se marchent pas dessus. */
+body.jean-voice #mic-btn{display:none}
 
 /* Réglages voix : liste des voix + bouton écouter, à droite de la ligne. */
 .voice-pick{margin-left:auto;order:2;display:flex;align-items:center;gap:6px;max-width:62%}

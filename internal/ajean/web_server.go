@@ -218,6 +218,8 @@ func newWebMux() *http.ServeMux {
 	api("/api/models/download/status", handleModelDownloadStatus)
 	api("/api/models/download/cancel", handleModelDownloadCancel)
 	api("/api/models/download/pause", handleModelDownloadPause)
+	api("/api/hf/search", handleHFSearch) // recherche de dépôts GGUF sur Hugging Face
+	api("/api/hf/files", handleHFFiles)   // fichiers .gguf d'un dépôt (quantifications, tailles)
 	api("/api/backends", handleBackends)
 	api("/api/backends/custom", handleBackendsCustom)                    // backends custom uniquement (hors ⚡/🔧)
 	api("/api/backends/devices", handleBackendDevices)                   // GPU vus par CE moteur (noms/ordre propres au backend)
@@ -245,6 +247,8 @@ func newWebMux() *http.ServeMux {
 	api("/api/preset", handlePreset)
 	api("/api/preset/save", handlePresetSave)
 	api("/api/preset/delete", handlePresetDelete)
+	// Modèles annoncés par l'API saisie dans l'éditeur de preset API.
+	api("/api/preset/external/models", handlePresetExternalModels)
 	api("/api/preset/external", handlePresetExternal)          // lire un preset externe (préremplissage modale)
 	api("/api/preset/external/save", handlePresetExternalSave) // créer/éditer un preset externe
 	api("/api/preset/external/test", handlePresetExternalTest) // tester la connexion à l'API distante
@@ -320,6 +324,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/stop", svcHandler("stop"))
 	api("/api/restart", svcHandler("restart"))
 	api("/api/bench", handleBench)
+	api("/api/bench/progress", handleBenchProgress) // avancement du test en cours (prefill, tokens générés)
 	api("/api/bench/last", handleBenchLast)
 	api("/api/chat", handleChat)                               // flux d'ABONNEMENT (SSE) : rejoue + suit le fil
 	api("/api/chat/send", handleChatSend)                      // envoie un message (lance la génération détachée)
@@ -329,6 +334,9 @@ func newWebMux() *http.ServeMux {
 	api("/api/voice/settings", handleVoiceSettings)            // réglages voix (GET / POST)
 	api("/api/voice/design", handleVoiceDesign)                // crée une voix à partir d'une description
 	api("/api/voice/delete", handleVoiceDelete)                // retire une voix de la bibliothèque
+	api("/api/stt", handleSTT)                                 // dictée vocale : audio -> texte (API Whisper compatible OpenAI, dictation.go)
+	api("/api/stt/settings", handleSTTSettings)                // réglages de la dictée (GET / POST)
+	api("/api/stt/models", handleSTTModels)                    // modèles de transcription proposés par l'API
 	api("/api/chat/upload", handleChatUpload)                  // dépose un fichier dans le workspace agent (joint au message suivant)
 	api("/api/chat/file", handleChatFile)                      // télécharge un fichier produit par l'agent (dossier de travail only)
 	api("/api/chat/stop", handleChatStop)                      // interrompt la génération en cours

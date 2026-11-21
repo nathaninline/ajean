@@ -1,21 +1,55 @@
-function openBenchModal(){ showModal('bench-modal'); }
+// Benchmark du modèle actif : tailles du test au choix (tokens lus et générés),
+// avancement en direct, résultat en tokens par seconde.
+// Tailles du test au choix : mémorisées dans le navigateur.
+const BENCH_PROMPTS = [2000, 10000, 25000, 50000, 100000], BENCH_OUTPUTS = [100, 300, 1000, 3000];
+let benchCfg = { prompt: 2000, output: 300 };
+try{ benchCfg = { ...benchCfg, ...JSON.parse(localStorage.getItem('ajean-bench') || '{}') }; }catch(e){}
+const benchK = n => n >= 1000 ? (n / 1000).toFixed(n % 1000 ? 1 : 0) + 'k' : String(n);
+function benchSeg(id, key, list){
+  const el = document.getElementById(id);
+  el.innerHTML = list.map(v => '<label><input type="radio" name="'+id+'" value="'+v+'"><span>'+benchK(v)+'</span></label>').join('');
+  el.querySelectorAll('input').forEach(i => {
+    i.checked = +i.value === benchCfg[key];
+    i.onchange = () => { benchCfg[key] = +i.value; try{ localStorage.setItem('ajean-bench', JSON.stringify(benchCfg)); }catch(e){} };
+  });
+}
+// Ouvre la fenêtre sur les réglages ; le test part avec « lancer ».
+function openBenchModal(){
+  benchSeg('bench-seg-prompt', 'prompt', BENCH_PROMPTS);
+  benchSeg('bench-seg-output', 'output', BENCH_OUTPUTS);
+  const body = document.getElementById('bench-body');
+  if(body) body.innerHTML = '<div class="muted" style="text-align:center">'+t('bench.pick')+'</div>';
+  showModal('bench-modal');
+}
 function closeBenchModal(){ hideModal('bench-modal'); }
 async function runBenchUI(){
-  const btn = document.getElementById('btn-bench');
   const rerun = document.getElementById('bench-rerun');
   const body = document.getElementById('bench-body');
-  openBenchModal();
-  // btn est désormais une ICÔNE : on ne touche PAS à son contenu (ça effacerait le
-  // SVG). On le désactive seulement ; l'état « en cours » est montré par le modal.
-  if(btn) btn.disabled = true;
   if(rerun) rerun.disabled = true;
   body.innerHTML =
     '<div style="text-align:center;padding:20px 0">' +
     '<div class="spinner" style="margin:0 auto"></div>' +
-    '<div class="muted" style="margin-top:8px">'+t('models.bench.desc')+'</div>' +
+    '<div class="muted" style="margin-top:8px">'+t('models.bench.desc').replace('{p}', benchK(benchCfg.prompt)).replace('{n}', benchK(benchCfg.output))+'</div>' +
     '</div>';
+  // Avancement : « Prefill 42 % » puis « Génération 120 / 300 ».
+  const info = body.querySelector('.muted');
+  const t0 = Date.now();
+  let polling = true;
+  (async () => {
+    while(polling){
+      await new Promise(res => setTimeout(res, 1000));
+      if(!polling) break;
+      let p; try{ p = await jget('/api/bench/progress'); }catch(e){ continue; }
+      if(!polling || !p || !p.running) continue;
+      const s = Math.round((Date.now() - t0) / 1000) + ' s';
+      if(p.generated > 0) info.textContent = tf('bench.gen', 'Génération') + ' ' + p.generated + ' / ' + p.output + ' · ' + s;
+      else if(p.prefill_done > 0 && p.prompt > 0) info.textContent = 'Prefill ' + Math.min(100, Math.round(100 * p.prefill_done / p.prompt)) + ' % · ' + s;
+      else info.textContent = 'Prefill… · ' + s;
+    }
+  })();
   try{
-    const r = await jget('/api/bench');
+    const r = await jget('/api/bench?prompt=' + benchCfg.prompt + '&n=' + benchCfg.output);
+    polling = false;
     if(!r.ok){
       body.innerHTML = '<div style="color:var(--err);text-align:center">'+t('models.bench.error')+r.error+'</div>';
       return;
@@ -38,7 +72,7 @@ async function runBenchUI(){
       '</div>' +
       '<div class="muted" style="text-align:center;font-size:11px">'+t('models.bench.total')+' '+x.elapsed_sec.toFixed(2)+'s</div>';
   } finally {
-    if(btn) btn.disabled = false;   // icône : pas de textContent (voir plus haut)
+    polling = false;
     if(rerun) rerun.disabled = false;
     loadPresets();
   }
@@ -1014,7 +1048,10 @@ function populateSettings(){
                            : t('models.settings.reasoning_sub_unset');
   }
   chk('s-kvunified', eaHasFlag('--kv-unified'));
-  chk('s-flash', eaHasFlag('--flash-attn') && !/^off$/i.test(eaGetValued('--flash-attn')));
+  // Trois états : off, on (argument présent, y compris sans valeur comme sur un
+  // ancien moteur), sinon auto.
+  { const has = eaHasFlag('--flash-attn'), fa = has ? eaGetValued('--flash-attn').toLowerCase() : '';
+    set('s-flash', fa === 'off' ? 'off' : (has && fa !== 'auto' ? 'on' : '')); }
   set('s-loadmode', eaLoadMode());
   syncLoadModeSub(eaLoadMode());
   chk('s-mmproj-cpu', eaHasFlag('--no-mmproj-offload'));
@@ -1058,18 +1095,103 @@ function syncRunMode(){
     document.getElementById('s-ext-ctx').value = cfgReadKey('CTX');
     document.getElementById('s-ext-vision').checked = cfgReadKey('EXTERNAL_VISION') === '1';
     document.getElementById('s-ext-status').textContent = '';
+    {
+      // Niveau hors liste (xhigh, écrit par le raccourci du composeur) : on le garde.
+      const sel = document.getElementById('s-ext-effort'), eff = cfgReadKey('REASONING_EFFORT');
+      sel.querySelectorAll('option[data-extra]').forEach(o => o.remove());
+      if(eff && ![...sel.options].some(o => o.value === eff)){
+        const o = document.createElement('option'); o.value = eff; o.textContent = eff; o.dataset.extra = '1'; sel.appendChild(o);
+      }
+      sel.value = eff;
+    }
+    extModelManual = false;
+    extModelsLoad();
   }
+}
+// --- Modèles annoncés par le fournisseur (preset API) ------------------------
+// Dès que l'URL (et la clé) sont saisies, on demande au serveur la liste
+// <base>/models : le champ Modèle devient une liste. Sans liste (fournisseur qui
+// n'en publie pas, clé refusée), la saisie libre reste.
+let extModels = null;        // liste obtenue pour extModelsFor, ou null
+let extModelsFor = null;     // « url\nclé » de la dernière demande aboutie
+let extModelsErr = '';
+let extModelsTimer = 0, extModelsSeq = 0;
+let extModelManual = false;  // « autre identifiant » choisi : champ libre affiché
+function extModelsSchedule(){ clearTimeout(extModelsTimer); extModelsTimer = setTimeout(extModelsLoad, 700); }
+async function extModelsLoad(){
+  clearTimeout(extModelsTimer);
+  const url = cfgReadKey('EXTERNAL_URL');
+  const key = cfgReadKey('EXTERNAL_KEY');
+  const sig = url + '\n' + key;
+  if(!url){ extModelsSeq++; extModels = null; extModelsFor = null; extModelsErr = ''; extModelsRender(); return; }
+  if(sig === extModelsFor){ extModelsRender(); return; }
+  const seq = ++extModelsSeq;
+  extModelsRender(true);
+  let list = null, err = '';
+  try{
+    const r = await jpost('/api/preset/external/models', {id: editingKey || '', url, key, keyTouched: true});
+    if(r.ok) list = r.models || []; else err = r.error || '';
+  }catch(e){}
+  if(seq !== extModelsSeq) return;
+  extModels = list && list.length ? list : null;
+  extModelsErr = err;
+  extModelsFor = sig;
+  extModelsRender();
+}
+function extModelsRender(loading){
+  const selc = document.getElementById('s-ext-model-selc');
+  const sel = document.getElementById('s-ext-model-sel');
+  const inp = document.getElementById('s-ext-model');
+  const hint = document.getElementById('s-ext-model-hint');
+  if(!selc) return;
+  const cur = cfgReadKey('EXTERNAL_MODEL');
+  if(loading || !extModels){
+    selc.style.display = 'none';
+    inp.style.display = '';
+    hint.title = '';
+    if(loading) hint.textContent = t('external.models_searching');
+    else if(extModelsFor !== null){ hint.textContent = t('external.models_unavailable'); hint.title = extModelsErr; }
+    else hint.textContent = t('external.model_hint');
+    return;
+  }
+  const opt = (v, label) => { const o = document.createElement('option'); o.value = v; o.textContent = label; return o; };
+  sel.textContent = '';
+  // Sans modèle : l'API attend un choix.
+  if(!cur) sel.appendChild(opt('', t('external.model_choose')));
+  if(cur && !extModels.includes(cur)) sel.appendChild(opt(cur, cur));
+  extModels.forEach(m => sel.appendChild(opt(m, m)));
+  sel.appendChild(opt('\u0000other', t('external.model_other')));
+  sel.value = extModelManual ? '\u0000other' : cur;
+  selc.style.display = '';
+  inp.style.display = extModelManual ? '' : 'none';
+  hint.title = '';
+  hint.textContent = t('external.models_count').replace('{n}', extModels.length);
+}
+function extModelPick(v){
+  const inp = document.getElementById('s-ext-model');
+  if(v === '\u0000other'){
+    extModelManual = true;
+    extModelsRender();
+    inp.focus();
+    return;
+  }
+  extModelManual = false;
+  cfgWriteKey('EXTERNAL_MODEL', v);
+  inp.value = v;
+  extModelsRender();
 }
 // Test d'un preset API externe : une complétion d'un jeton vers l'API saisie.
 async function testExternalPreset(){
   const st = document.getElementById('s-ext-status');
   const b = {id: editingKey || '', url: cfgReadKey('EXTERNAL_URL'), model: cfgReadKey('EXTERNAL_MODEL'),
-             key: cfgReadKey('EXTERNAL_KEY'), keyTouched: true};
+             key: cfgReadKey('EXTERNAL_KEY'), keyTouched: true, effort: cfgReadKey('REASONING_EFFORT')};
   if(!b.url || !b.model){ st.textContent = t('external.url_model_required'); return; }
   st.textContent = t('external.testing');
   try{
     const r = await jpost('/api/preset/external/test', b);
-    st.textContent = r.ok ? '✓ '+t('external.test_ok') : '⚠ '+(r.error || t('external.test_failed'));
+    st.title = '';
+    if(r.ok && r.reasoningIgnored){ st.textContent = '⚠ '+t('external.test_ok_reason_ignored'); st.title = r.reasoningError || ''; }
+    else st.textContent = r.ok ? '✓ '+t('external.test_ok') : '⚠ '+(r.error || t('external.test_failed'));
   }catch(e){ st.textContent = '⚠ '+t('external.test_failed'); }
 }
 // Comptes Modal = profils de la CLI sur la machine AJEAN. Vide = profil actif.
@@ -1411,6 +1533,7 @@ function resetDlUI(){
   stopDlPoll(); dlName='';
   e.prog.style.display='none'; e.bar.style.display='none';
   e.cancel.style.display='none'; e.pause.style.display='none'; e.btn.disabled=false;
+  clearTimeout(hfTimer); hfHide(); document.getElementById('m-hf-url').value='';
 }
 // Remplit le sélecteur de destination avec les dossiers de modèles connus.
 // L'espace libre est dans le libellé de l'option : c'est l'info utile au moment
@@ -1433,6 +1556,75 @@ async function populateDlDirs(){
     sel.append(o);
   }
   if(prev && dlDirList.some(x => samePath(x.path, prev))) sel.value = prev;
+}
+// --- Recherche Hugging Face --------------------------------------------------
+// Le champ de téléchargement sert à deux choses : un lien (https://…) est
+// téléchargé tel quel ; tout autre texte cherche des dépôts GGUF sur Hugging
+// Face. On choisit un dépôt, puis une quantification : AJEAN la télécharge avec
+// le téléchargeur habituel, sans quitter l'éditeur.
+let hfTimer = null, hfSeq = 0;
+const hfIsLink = v => /^https?:\/\//i.test(v) || /^hf\.co\//i.test(v) || /^huggingface\.co\//i.test(v);
+function hfBox(){ return document.getElementById('m-hf-results'); }
+function hfHide(){ hfSeq++; const b = hfBox(); b.style.display = 'none'; b.innerHTML = ''; }
+function hfNote(msg, err){ const b = hfBox(); b.style.display = ''; b.innerHTML = '<div class="hf-note"'+(err?' style="color:var(--err)"':'')+'>'+escHtml(msg)+'</div>'; }
+function hfOnInput(){
+  const v = document.getElementById('m-hf-url').value.trim();
+  clearTimeout(hfTimer);
+  if(v.length < 2 || hfIsLink(v)){ hfHide(); return; }
+  hfTimer = setTimeout(()=>hfSearch(v), 400); // on attend la fin de la frappe
+}
+// Bouton ↓ ou touche Entrée : télécharger un lien, sinon chercher.
+function hfGo(){
+  const v = document.getElementById('m-hf-url').value.trim();
+  clearTimeout(hfTimer);
+  if(!v || hfIsLink(v)){ hfHide(); startDownload(); return; }
+  hfSearch(v);
+}
+const hfCount = n => n >= 1e6 ? (n/1e6).toFixed(1).replace('.0','')+' M' : n >= 1e3 ? Math.round(n/1e3)+' k' : String(n||0);
+async function hfSearch(q){
+  const seq = ++hfSeq;
+  hfNote(t('hf.searching'));
+  let r; try{ r = await jget('/api/hf/search?q='+encodeURIComponent(q)); }catch(_){ r = {ok:false}; }
+  if(seq !== hfSeq) return; // une recherche plus récente est partie entre-temps
+  if(!r.ok){ hfNote(r.error || t('hf.error'), true); return; }
+  if(!(r.repos||[]).length){ hfNote(t('hf.none')); return; }
+  const b = hfBox(); b.style.display = ''; b.innerHTML = '';
+  for(const m of r.repos){
+    const row = document.createElement('button'); row.type = 'button'; row.className = 'hf-row';
+    row.innerHTML = '<span class="hf-name"></span><span class="hf-meta"></span>';
+    row.firstChild.textContent = m.id;
+    row.lastChild.textContent = '↓ '+hfCount(m.downloads);
+    row.lastChild.title = t('hf.downloads_title');
+    row.onclick = ()=>hfOpenRepo(m.id, q);
+    b.append(row);
+  }
+}
+// Les quantifications d'un dépôt, de la plus légère à la plus lourde.
+async function hfOpenRepo(repo, q){
+  const seq = ++hfSeq;
+  hfNote(t('hf.loading_files'));
+  let r; try{ r = await jget('/api/hf/files?repo='+encodeURIComponent(repo)); }catch(_){ r = {ok:false}; }
+  if(seq !== hfSeq) return;
+  const b = hfBox(); b.style.display = ''; b.innerHTML = '';
+  const back = document.createElement('button'); back.type = 'button'; back.className = 'hf-row hf-back';
+  back.innerHTML = '<span class="hf-name"></span>';
+  back.firstChild.textContent = '← '+repo;
+  back.onclick = ()=>hfSearch(q);
+  b.append(back);
+  if(!r.ok || !(r.files||[]).length){
+    const n = document.createElement('div'); n.className = 'hf-note';
+    if(!r.ok) n.style.color = 'var(--err)';
+    n.textContent = r.ok ? t('hf.no_files') : (r.error || t('hf.error'));
+    b.append(n); return;
+  }
+  for(const f of r.files){
+    const row = document.createElement('button'); row.type = 'button'; row.className = 'hf-row';
+    row.innerHTML = '<span class="hf-name"></span><span class="hf-meta"></span>';
+    row.firstChild.textContent = f.name;
+    row.lastChild.textContent = (f.mmproj ? t('hf.vision_tag')+' · ' : '') + fmtSize(f.size) + (f.parts ? ' · '+f.parts+' '+t('hf.parts') : '');
+    row.onclick = ()=>{ document.getElementById('m-hf-url').value = f.url; hfHide(); startDownload(); };
+    b.append(row);
+  }
 }
 async function startDownload(){
   const url = document.getElementById('m-hf-url').value.trim();

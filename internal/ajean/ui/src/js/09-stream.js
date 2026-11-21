@@ -337,7 +337,8 @@ function finalizeTurn(elapsedMs, preset){
   // rechargement), avec repli sur le preset courant pour les vieux journaux sans l'info.
   const pr=(preset!==undefined && preset!==null) ? preset : activePresetName();
   if(!(elapsedMs>0) && !(tok>0) && !(pr && !viewOn('hide-preset'))){ removeGenEl(); scrollMaybe(true); return; }
-  const items=genItems(elapsedMs/1000, tok, rate, pr, '');
+  // Niveau de réflexion du preset refusé par le fournisseur : dit ici, une fois par tour.
+  const items=genItems(elapsedMs/1000, tok, rate, pr, st.reasoning_ignored ? t('chat.reason_ignored') : '');
   if(!(elapsedMs>0)) items.shift();
   const g=ensureGenEl();
   // Tour fini : on vide le mot d'activité (« Retient ça… »). La ligne reste dans le

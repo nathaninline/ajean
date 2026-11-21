@@ -94,6 +94,15 @@ func runScriptTask(t Task) {
 		return
 	}
 
+	// Script écrit avec write/edit (0644) au lieu de script_write : la tâche le
+	// lance directement, il doit être exécutable (sinon « permission refusée » à
+	// chaque passage, sans que personne ne le voie).
+	if runtime.GOOS != "windows" {
+		if fi, err := os.Stat(full); err == nil && fi.Mode()&0o111 == 0 {
+			_ = os.Chmod(full, fi.Mode()|0o755)
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), scriptTaskTimeout)
 	defer cancel()
 	if t.Jean {
@@ -115,6 +124,11 @@ func runScriptTask(t Task) {
 		recordTaskEnd(t.ID, start, "", context.Canceled)
 	case strings.HasPrefix(out, "exit: 0"):
 		recordTaskEnd(t.ID, start, out, nil)
+		// Tâche de Jean : ce que le script écrit est pour l'utilisateur (une
+		// veille qui a trouvé quelque chose). Sortie vide = rien à dire.
+		if msg := scriptStdout(out); t.Jean && msg != "" {
+			go conv.JeanPost(msg)
+		}
 	default:
 		// Sortie non nulle, timeout ou erreur de lancement : échec, avec la sortie
 		// complète comme message d'erreur.
@@ -134,4 +148,21 @@ func scriptRunCommand(path string) string {
 		return `powershell -NoProfile -ExecutionPolicy Bypass -File ` + q
 	}
 	return q
+}
+
+// scriptStdout extrait la sortie standard du compte rendu de runShell
+// (exit: N, puis les sections stdout et stderr).
+func scriptStdout(out string) string {
+	i := strings.Index(out, "stdout:\n")
+	if i < 0 {
+		return ""
+	}
+	s := out[i+len("stdout:\n"):]
+	if j := strings.Index(s, "\n\nstderr:\n"); j >= 0 {
+		s = s[:j]
+	}
+	if j := strings.Index(s, "\n\n(un process lancé en arrière-plan"); j >= 0 {
+		s = s[:j]
+	}
+	return strings.TrimSpace(s)
 }
