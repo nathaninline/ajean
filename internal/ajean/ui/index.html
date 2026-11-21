@@ -6,7 +6,14 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="AJEAN">
 <title>AJEAN</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect width='12' height='12' rx='2' ry='2' fill='%23000'/><rect x='6' y='3' width='2' height='2' fill='%23fff'/><rect x='6' y='5' width='2' height='2' fill='%23fff'/><rect x='4' y='7' width='2' height='2' fill='%23fff'/></svg>">
+<link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png">
+<link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
+<link rel="icon" type="image/png" sizes="64x64" href="/icon-64.png">
+<link rel="icon" type="image/png" sizes="96x96" href="/icon-96.png">
+<link rel="icon" type="image/png" sizes="128x128" href="/icon-128.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="icon" type="image/png" sizes="256x256" href="/icon-256.png">
+<link rel="icon" type="image/svg+xml" sizes="16x16" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect width='12' height='12' rx='2' ry='2' fill='%23000'/><rect x='6' y='3' width='2' height='2' fill='%23fff'/><rect x='6' y='5' width='2' height='2' fill='%23fff'/><rect x='4' y='7' width='2' height='2' fill='%23fff'/></svg>">
 <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAABBUlEQVR42u3SAQkAAAwCQfuX3lI4GNxF0E8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIArU2NbcYhDHOIQhzgQB+JAHIgDcSAOxIE4xCEOcYhDHIgDcSAOxIE4EAfiQBziEIc4xCEOcYgDcSAOxIE4EAfiQBziEIc4xCEOcYgDcSAOxIE4EAfiQByIQxziEIc4xIE4EAfiQByIA3EgDsQhDnGIQxziEIc4EAfiQByIAxciDsSBOBAH4kAc4hCHOMQhDnGIA3EgDsSBOBAH4kAc4hCHOMQhDnGIA3EgDsSBOBAH4kAciEMc4hCHOMQBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADfLBHMhi4TnG6EAAAAAElFTkSuQmCC">
 <link rel="manifest" href="manifest.webmanifest">
 <script>try{var pwa=(window.navigator.standalone===true)||(window.matchMedia&&window.matchMedia('(display-mode:standalone)').matches)||(window.matchMedia&&window.matchMedia('(display-mode:fullscreen)').matches);document.documentElement.setAttribute('data-pwa',pwa?'1':'0');}catch(e){document.documentElement.setAttribute('data-pwa','0');}</script>
@@ -184,6 +191,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .rowlist>.preset{overflow:hidden}
 .rowlist>.preset.active::before,.rowlist>.preset.pending::before{content:"";position:absolute;
   left:0;top:0;bottom:0;width:3px;background:var(--text)}
+.rowlist>.preset.chosen{position:relative}
+.rowlist>.preset.chosen::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--dim);opacity:.45}
 @keyframes bar-in{from{transform:translateX(-100%)}to{transform:translateX(0)}}
 @keyframes row-in{from{background:transparent}}
 @keyframes dot-in{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:scale(1)}}
@@ -613,6 +622,14 @@ textarea.sctl{min-height:76px;resize:vertical;line-height:1.5}
 .pe-bar.indet>i{width:35%;animation:pe-bar-slide 1.2s ease-in-out infinite;transition:none}
 .pe-bar.done>i{width:100%}
 @keyframes pe-bar-slide{0%{margin-left:-35%}100%{margin-left:100%}}
+.hf-list{display:flex;flex-direction:column;max-height:260px;overflow:hidden auto;border:1px solid var(--border);border-radius:10px;margin-top:2px;background:transparent}
+#m-hf-results .hf-row{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;flex:none;margin:0;padding:8px 10px;background:transparent;border:0;border-radius:0;box-shadow:none;font:inherit;font-size:12px;color:var(--text);text-align:left;cursor:pointer}
+#m-hf-results .hf-row:not(:last-child){border-bottom:1px solid var(--border)}
+#m-hf-results .hf-row:hover{background:var(--accent-bg)}
+.hf-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hf-meta{flex-shrink:0;color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
+.hf-back .hf-name{color:var(--dim)}
+.hf-note{padding:8px 10px;font-size:12px;color:var(--dim)}
 .pe-link{align-self:flex-start;border:none;background:none;padding:0;font:inherit;font-size:11px;color:var(--dim);text-decoration:underline;cursor:pointer}
 .pe-link:hover{color:var(--text)}
 .pe-link:disabled{opacity:.5;cursor:default;text-decoration:none}
@@ -1235,8 +1252,8 @@ button,input,select,textarea{font-family:inherit;font-feature-settings:inherit}
 #mode-menu button.on .mm-ic{background:var(--t3)}
 .mm-t{display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0}
 #proj-menu{min-width:220px;overflow:hidden;padding:6px}
-#proj-menu .pm-list{flex:1 1 auto;min-height:0;overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain;
-  -webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 14px),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 14px),transparent)}
+#proj-menu .pm-list{flex:1 1 auto;min-height:0;overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain}
+#proj-menu .pm-list.fade{-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 14px),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 14px),transparent)}
 #proj-menu .pm-list::-webkit-scrollbar{width:0;height:0}
 .pm-row{position:relative;display:flex;align-items:center}
 .pm-row+.pm-row{margin-top:1px}
@@ -1978,6 +1995,17 @@ body.voice-ready.jean-mode:not(.jean-history) .jst-voice{display:flex}
   padding:6px 14px;border-radius:999px;background:var(--row-bg);color:var(--dim);font-size:13px;pointer-events:none;cursor:pointer;opacity:0;transition:opacity .25s,transform .25s}
 .jst-voice-st.in{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 body:not(.jean-mode) .jst-voice-st,body.jean-history .jst-voice-st{display:none}
+#jean-mem-pill{position:absolute;top:18px;left:50%;z-index:8;display:flex;align-items:center;gap:7px;max-width:min(560px,80%);
+  padding:6px 13px;border-radius:999px;background:var(--row-bg);color:var(--dim);font-size:12px;cursor:pointer;
+  opacity:0;pointer-events:none;transform:translate(-50%,-6px);transition:opacity .25s ease,transform .25s var(--ease)}
+#jean-mem-pill.show{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
+#jean-mem-pill svg{flex:none}
+#jean-mem-pill .jmp-txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#jean-mem-pill.working .jmp-txt{background:linear-gradient(90deg,var(--dim) 0%,var(--dim) 30%,var(--text) 50%,var(--dim) 70%,var(--dim) 100%);
+  background-size:300% 100%;background-repeat:no-repeat;-webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:transparent;animation:labelshimmer 2s linear infinite}
+@media (prefers-reduced-motion:reduce){#jean-mem-pill.working .jmp-txt{animation:none}}
+.jst-cap-stop .cs-t{font-variant-numeric:tabular-nums}
 body.jean-voice #jean-stage .jst-input{display:none}
 .jf-card{max-width:1040px;height:min(820px,88vh);overflow:hidden}
 .jf-card.dropping .jf-body{box-shadow:inset 0 0 0 2px var(--t3);border-radius:0 0 12px 12px}
@@ -2110,6 +2138,38 @@ audio.jf-media{width:min(520px,100%);margin-top:18vh}
   #jf-sel>span{padding:0 6px}
   #jf-sel>button:not(.jf-ic){padding:7px 8px;font-size:12px}
 }
+#mic-btn{flex:none;width:26px;height:26px;min-height:26px;padding:0;margin:0 0 0 -6px;display:flex;align-items:center;justify-content:center;
+  border:none;border-radius:999px;background:var(--t2);color:var(--dim);transition:color .16s ease,background .16s ease}
+#mic-btn:hover,.jst-mic:hover{color:var(--text)}
+.mic-btn svg{display:block}
+.mic-btn.rec{background:var(--text);color:var(--bg);animation:mic-pulse 1.2s ease-in-out infinite}
+.mic-btn.busy{color:var(--text);opacity:.6;pointer-events:none}
+@keyframes mic-pulse{50%{box-shadow:0 0 0 4px color-mix(in srgb,var(--text) 22%,transparent)}}
+@media (prefers-reduced-motion:reduce){.mic-btn.rec{animation:none}}
+:root:not([data-theme="dark"]) #mic-btn:not(.rec){background:color-mix(in srgb,var(--text) 6%,transparent)}
+.sw-txtin{order:2;margin-left:auto;display:flex;min-width:0;flex:0 1 220px}
+.side .sw-txtin :is(input,select){width:100%;height:26px;margin:0;padding:0 8px;border:none;border-radius:8px;background:var(--t2);color:var(--text);font-size:12px}
+.side .sw-txtin :is(input,select):focus{box-shadow:0 0 0 2px var(--t3);outline:none}
+.mic-rec{display:none;align-items:center;gap:6px}
+.mic-btn.wave{gap:6px;animation:none}
+#mic-btn,.jst-mic{width:auto;overflow:hidden;white-space:nowrap;
+  transition:max-width .32s var(--ease),padding .32s var(--ease),background .16s ease,color .16s ease}
+#mic-btn{min-width:26px;max-width:26px}
+.jst-mic{min-width:36px;max-width:36px}
+#mic-btn.wave,.jst-mic.wave{max-width:190px;padding:0 10px}
+.mic-btn.wave .mic-rec{animation:mic-fade .24s ease .08s both}
+@keyframes mic-fade{from{opacity:0}to{opacity:1}}
+.mic-btn.wave>svg:not(.mic-stop){display:none}
+.mic-btn.wave .mic-rec{display:inline-flex}
+.mic-rec canvas{display:block}
+.mic-rec .mic-time{font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sw-txtin{gap:6px}
+.jst-mic{flex:none;align-self:flex-end;margin:0 0 9px;padding:0;height:36px;min-height:36px;border:none;border-radius:999px;
+  background:var(--t2);color:var(--dim);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.mic-btn>.mic-stop{display:none}
+.mic-btn.rec>svg:not(.mic-stop){display:none}
+.mic-btn.rec>.mic-stop{display:block;flex:none}
+body.jean-voice #mic-btn{display:none}
 .voice-pick{margin-left:auto;order:2;display:flex;align-items:center;gap:6px;max-width:62%}
 .voice-pick .sctl{width:auto;min-width:0}
 .voice-play{flex:none;width:30px;height:30px;border:none;border-radius:50%;background:var(--t1);color:var(--text);
@@ -2197,6 +2257,7 @@ audio.jf-media{width:min(520px,100%);margin-top:18vh}
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-side" onchange="toggleView('hide-side')"><span class="slider"></span></span> <span data-i18n="appearance.hide_side">barre latérale escamotable</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="appearance.hide_side_help" data-i18n-html>La barre latérale devient un tiroir <b>même sur ordinateur</b> : elle reste fermée et s'ouvre avec le bouton ☰. Toute la largeur pour la conversation.</span></span></label>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-enter-newline" onchange="toggleView('enter-newline')"><span class="slider"></span></span> <span data-i18n="appearance.enter_newline">Entrée = retour à la ligne</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="appearance.enter_newline_help" data-i18n-html>Par défaut, <b>Entrée</b> envoie le message et <b>Maj+Entrée</b> fait un retour à la ligne. Activez ceci pour inverser : Entrée va à la ligne, et <b>Maj+Entrée</b> (ou Ctrl+Entrée) envoie.</span></span></label>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-preset" onchange="toggleView('hide-preset')"><span class="slider"></span></span> <span data-i18n="appearance.hide_preset">masquer le nom du preset</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="appearance.hide_preset_help" data-i18n-html>Retire le nom du preset de la ligne d'état sous chaque réponse (durée, tokens, vitesse). Les autres informations restent affichées.</span></span></label>
+    <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-term" onchange="toggleView('hide-term')"><span class="slider"></span></span> <span data-i18n="appearance.hide_term">masquer le terminal en plein écran</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="appearance.hide_term_help" data-i18n-html>En plein écran du mode Jean, les commandes lancées par l'IA ne s'affichent plus dans la fenêtre <b>terminal</b>. La recherche web et le navigateur restent visibles.</span></span></label>
     </div>
   </details>
   <details><summary><span class="stitle" data-i18n="api.title">API</span></summary>
@@ -2348,6 +2409,17 @@ audio.jf-media{width:min(520px,100%);margin-top:18vh}
         <button type="button" class="switchrow sw-action" onclick="openMcp('')"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="mcp.add_button">Ajouter un serveur</span></button>
       </div>
     </div>
+    <div id="stt-block">
+      <div class="subhead"><span data-i18n="stt.title">Dictée vocale</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="stt.help" data-i18n-html>Le bouton <b>micro</b> du composeur enregistre la voix et l'envoie à une API de transcription compatible OpenAI (<code>/audio/transcriptions</code>). Par défaut : <b>Whisper chez Groq</b>, clé à créer sur console.groq.com. Un serveur Whisper local fonctionne aussi. Sans clé, la dictée intégrée au navigateur est utilisée.</span></span></div>
+      <div class="slist">
+        <label class="switchrow"><span data-i18n="stt.provider_label">Fournisseur</span><span class="sw-txtin"><select id="stt-provider" onchange="sttProviderPick()"></select></span></label>
+        <label class="switchrow" id="stt-url-row"><span data-i18n="stt.url_label">Adresse de l'API</span><span class="sw-txtin"><input id="stt-url" type="text" spellcheck="false" placeholder="https://…/v1" onchange="sttLoadModels()"></span></label>
+        <label class="switchrow"><span data-i18n="stt.key_label">Clé API</span><span class="sw-txtin"><input id="stt-key" type="password" autocomplete="off" spellcheck="false" placeholder="gsk_…" onchange="sttLoadModels()"></span></label>
+        <label class="switchrow"><span data-i18n="stt.model_label">Modèle</span><span class="sw-txtin"><select id="stt-model-sel" style="display:none" onchange="sttModelPick()"></select><input id="stt-model" type="text" spellcheck="false" placeholder="whisper-large-v3-turbo"></span></label>
+        <label class="switchrow"><span data-i18n="stt.lang_label">Langue</span><span class="sw-txtin"><input id="stt-lang" type="text" spellcheck="false" placeholder="auto (fr, en…)"></span></label>
+        <button type="button" class="switchrow sw-action" onclick="saveSTT()"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span data-i18n="stt.save_button">Enregistrer</span></button>
+      </div>
+    </div>
     <div id="voice-block">
       <div class="subhead"><span data-i18n="voice.title">Voix de Jean</span><span id="voice-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="voice.help" data-i18n-html>Conversation à voix haute en mode Jean : bouton micro sur sa scène. La transcription et la voix passent par un <b>serveur audio.cpp</b> (Qwen3-ASR et VoxCPM2). Les voix sont enregistrées dans AJEAN.</span></span></div>
       <div class="slist">
@@ -2452,6 +2524,7 @@ audio.jf-media{width:min(520px,100%);margin-top:18vh}
           <svg class="pill-chev" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
         </button>
       </div>
+      <button id="mic-btn" class="mic-btn" onpointerdown="dictWarm()" onclick="toggleDictation(this)" title="Dicter un message" aria-label="Dicter un message" data-i18n="stt.mic_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg></button>
       <span style="display:flex;align-items:center;gap:8px;margin-left:auto;min-width:0">
         <span id="status-preset" class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0"></span>
         <span class="ctx-sep muted" aria-hidden="true">·</span>
@@ -2484,6 +2557,7 @@ audio.jf-media{width:min(520px,100%);margin-top:18vh}
   <button data-mode="base" onclick="pickMode('base')"><svg class="mm-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg><span class="mm-t"><span data-i18n="chat.mode_base">Modèle de base</span><span class="rm-h" data-i18n="chat.mode_base_hint">sans agent ni outils</span></span></button>
 </div>
 <div id="reason-menu" class="menu" style="display:none">
+  <button data-eff="off" onclick="pickReason('off')" data-i18n="reason.off">désactivée</button>
   <button data-eff="low" onclick="pickReason('low')">low <span class="rm-h" data-i18n="reason.hint_fast">rapide</span></button>
   <button data-eff="medium" onclick="pickReason('medium')">medium</button>
   <button data-eff="high" onclick="pickReason('high')">high</button>
@@ -2524,10 +2598,14 @@ audio.jf-media{width:min(520px,100%);margin-top:18vh}
       <strong data-i18n="bench.title">Benchmark</strong>
       <button class="modal-x" onclick="closeBenchModal()" aria-label="Fermer" data-i18n="bench.close_aria" data-i18n-attr="aria-label">×</button>
     </div>
-    <div id="bench-body" class="modal-body" style="display:flex;flex-direction:column;gap:12px"></div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:12px">
+      <div class="fld"><label class="fld-l" data-i18n="bench.prompt">Tokens lus (prefill)</label><div class="seg" id="bench-seg-prompt"></div></div>
+      <div class="fld"><label class="fld-l" data-i18n="bench.output">Tokens générés (decode)</label><div class="seg" id="bench-seg-output"></div></div>
+      <div id="bench-body" style="display:flex;flex-direction:column;gap:12px"></div>
+    </div>
     <div class="modal-foot" style="justify-content:flex-end">
       <button class="pe-btn" onclick="closeBenchModal()" data-i18n="bench.close">fermer</button>
-      <button id="bench-rerun" class="pe-btn primary" onclick="runBenchUI()" data-i18n="bench.rerun">relancer</button>
+      <button id="bench-rerun" class="pe-btn primary" onclick="runBenchUI()" data-i18n="bench.rerun">lancer</button>
     </div>
   </div>
 </div>
@@ -2574,7 +2652,7 @@ audio.jf-media{width:min(520px,100%);margin-top:18vh}
     </div>
     <div class="modal-foot">
       <div class="foot-l">
-        <button id="moe-bench" class="pe-icon" onclick="runBenchUI()" hidden title="Benchmark" aria-label="Benchmark" data-i18n="bench.title" data-i18n-attr="title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 13.5l3.6-3.6"/><path d="M4.6 19a9 9 0 1 1 14.8 0"/><circle cx="12" cy="13.5" r="1.3" fill="currentColor" stroke="none"/></svg></button>
+        <button id="moe-bench" class="pe-icon" onclick="openBenchModal()" hidden title="Benchmark" aria-label="Benchmark" data-i18n="bench.title" data-i18n-attr="title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 13.5l3.6-3.6"/><path d="M4.6 19a9 9 0 1 1 14.8 0"/><circle cx="12" cy="13.5" r="1.3" fill="currentColor" stroke="none"/></svg></button>
       </div>
       <div class="foot-r">
         <button onclick="closeMoe()" data-i18n="moe.close">fermer</button>
@@ -3063,15 +3141,26 @@ audio.jf-media{width:min(520px,100%);margin-top:18vh}
         <div id="m-ext-body" class="pe-list" style="display:none;margin-top:8px">
           <div class="pe-row stack">
             <span class="pe-row-l"><span data-i18n="external.url_label">URL de l'API</span> <span class="pe-sub" data-i18n="external.url_hint">(base OpenAI, ex: https://api.openai.com/v1)</span></span>
-            <input id="s-ext-url" class="pe-inp" spellcheck="false" placeholder="https://api.openai.com/v1" oninput="cfgWriteKey('EXTERNAL_URL', this.value)">
-          </div>
-          <div class="pe-row stack">
-            <span class="pe-row-l"><span data-i18n="external.model_label">Modèle</span> <span class="pe-sub" data-i18n="external.model_hint">(identifiant exact, ex: gpt-4o-mini)</span></span>
-            <input id="s-ext-model" class="pe-inp" spellcheck="false" placeholder="gpt-4o-mini" oninput="cfgWriteKey('EXTERNAL_MODEL', this.value)">
+            <input id="s-ext-url" class="pe-inp" spellcheck="false" placeholder="https://api.openai.com/v1" oninput="cfgWriteKey('EXTERNAL_URL', this.value);extModelsSchedule()">
           </div>
           <div class="pe-row stack">
             <span class="pe-row-l"><span data-i18n="external.key_label">Clé API</span> <span class="pe-sub" data-i18n="external.key_hint">(optionnelle pour un serveur local)</span></span>
-            <input id="s-ext-key" class="pe-inp" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" oninput="cfgWriteKey('EXTERNAL_KEY', this.value)">
+            <input id="s-ext-key" class="pe-inp" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" oninput="cfgWriteKey('EXTERNAL_KEY', this.value);extModelsSchedule()">
+          </div>
+          <div class="pe-row stack">
+            <span class="pe-row-l"><span data-i18n="external.model_label">Modèle</span> <span class="pe-sub" id="s-ext-model-hint"></span></span>
+            <span class="pe-selc wide" id="s-ext-model-selc" style="display:none"><select id="s-ext-model-sel" onchange="extModelPick(this.value)"></select></span>
+            <input id="s-ext-model" class="pe-inp" spellcheck="false" placeholder="gpt-4o-mini" oninput="cfgWriteKey('EXTERNAL_MODEL', this.value)">
+          </div>
+          <div class="pe-row">
+            <span class="pe-row-l"><span data-i18n="external.effort_label">Réflexion</span><span class="pe-sub" data-i18n="external.effort_sub">ignorée si le fournisseur ne la règle pas</span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="s-ext-effort" onchange="cfgWriteKey('REASONING_EFFORT', this.value)">
+              <option value="" data-i18n="external.effort_default">défaut du fournisseur</option>
+              <option value="off" data-i18n="external.effort_off">désactivée</option>
+              <option value="low" data-i18n="external.effort_low">faible</option>
+              <option value="medium" data-i18n="external.effort_medium">moyenne</option>
+              <option value="high" data-i18n="external.effort_high">élevée</option>
+            </select></span></span>
           </div>
           <div class="pe-row">
             <span class="pe-row-l" data-i18n="preset.ctx_label">Contexte</span>
@@ -3321,11 +3410,12 @@ audio.jf-media{width:min(520px,100%);margin-top:18vh}
               <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-mmproj-cpu" onchange="eaToggleFlag('--no-mmproj-offload', this.checked)"><span class="pe-sl"></span></label></span>
             </div>
             <div class="pe-row stack">
-              <span class="pe-row-l"><span data-i18n="preset.download_model_label">Télécharger un modèle</span> <span class="pe-sub" data-i18n="preset.download_model_sub">lien direct vers un .gguf</span></span>
+              <span class="pe-row-l"><span data-i18n="preset.download_model_label">Télécharger un modèle</span> <span class="pe-sub" data-i18n="preset.download_model_sub">recherche sur Hugging Face, ou lien direct vers un .gguf</span></span>
               <div class="pe-inpbtn">
-                <input id="m-hf-url" class="pe-inp" placeholder="https://…/model.gguf">
-                <button id="m-hf-btn" onclick="startDownload()" title="Télécharger" data-i18n="preset.download_button_title" data-i18n-attr="title">↓</button>
+                <input id="m-hf-url" class="pe-inp" spellcheck="false" autocomplete="off" placeholder="qwen, gemma, mistral… ou https://…/model.gguf" data-i18n="hf.placeholder" data-i18n-attr="placeholder" oninput="hfOnInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();hfGo()}">
+                <button id="m-hf-btn" onclick="hfGo()" title="Télécharger" data-i18n="preset.download_button_title" data-i18n-attr="title">↓</button>
               </div>
+              <div id="m-hf-results" class="hf-list" style="display:none"></div>
               <div id="m-hf-bar" class="pe-bar" style="display:none"><i></i></div>
               <div id="m-hf-progress" class="pe-note" style="display:none"></div>
               <button id="m-hf-pause" class="pe-link" onclick="togglePauseDownload()" style="display:none" data-i18n="preset.download_pause">Mettre en pause</button>
@@ -3450,7 +3540,11 @@ audio.jf-media{width:min(520px,100%);margin-top:18vh}
           </div>
           <div class="pe-row">
             <span class="pe-row-l"><span data-i18n="preset.flash_label">Flash attention</span><span class="pe-sub" data-i18n="preset.flash_sub">plus rapide, moins de VRAM</span></span>
-            <span class="pe-row-c"><label class="pe-switch"><input type="checkbox" id="s-flash" onchange="eaSetValued('--flash-attn', this.checked?'on':'')"><span class="pe-sl"></span></label></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="s-flash" onchange="eaSetValued('--flash-attn', this.value)">
+              <option value="">auto</option>
+              <option value="on">on</option>
+              <option value="off">off</option>
+            </select></span></span>
           </div>
           <div class="pe-row">
             <span class="pe-row-l"><span data-i18n="preset.kvunified_label">Cache KV unifié</span><span class="pe-sub" data-i18n="preset.kvunified_sub">un seul cache partagé</span></span>
@@ -3531,7 +3625,7 @@ audio.jf-media{width:min(520px,100%);margin-top:18vh}
     <div class="pe-foot">
       <div class="foot-l">
         <button id="m-del" class="pe-del" onclick="delItem()" title="supprimer" aria-label="supprimer" data-i18n="preset.delete_title" data-i18n-attr="title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
-        <button id="btn-bench" class="pe-icon" onclick="runBenchUI()" style="display:none" title="Benchmark" aria-label="Benchmark" data-i18n="bench.title" data-i18n-attr="title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 13.5l3.6-3.6"/><path d="M4.6 19a9 9 0 1 1 14.8 0"/><circle cx="12" cy="13.5" r="1.3" fill="currentColor" stroke="none"/></svg></button>
+        <button id="btn-bench" class="pe-icon" onclick="openBenchModal()" style="display:none" title="Benchmark" aria-label="Benchmark" data-i18n="bench.title" data-i18n-attr="title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 13.5l3.6-3.6"/><path d="M4.6 19a9 9 0 1 1 14.8 0"/><circle cx="12" cy="13.5" r="1.3" fill="currentColor" stroke="none"/></svg></button>
       </div>
       <div class="foot-r">
         <button class="pe-btn" onclick="closeModal()" data-i18n="preset.cancel">annuler</button>
@@ -3543,6 +3637,14 @@ audio.jf-media{width:min(520px,100%);margin-top:18vh}
 <script src="marked.min.js"></script>
 <script>
 marked.setOptions({ gfm: true, breaks: false });
+const MD_RAW_OK = /^<\/?(br|sub|sup|kbd)\s*\/?>$/i;
+const mdEscRaw = (s)=>s.replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+marked.use({ renderer: { html(html, block){
+  const raw = typeof html === 'string' ? html : ((html && (html.raw || html.text)) || '');
+  if(MD_RAW_OK.test(raw.trim())) return raw;
+  const esc = mdEscRaw(raw);
+  return block || /\n/.test(raw.trim()) ? '<p>'+esc.trim().replace(/\n/g, '<br>')+'</p>\n' : esc;
+} } });
 function fixMd(s){
   if(!s) return '';
   s = s.replace(/([^\n])(\s*)(```+|~~~+)(?=\w*\s*\n)/g, '$1\n$3');
@@ -3664,6 +3766,17 @@ var I18N = {
 fr: {
   "chat.tool.tracker_lbl": "Tracker",
   "chat.tool.tracker_head": "tracker",
+  "chat.tool.jean_read_lbl": "Lit une fiche",
+  "chat.tool.jean_search_lbl": "Cherche dans la mémoire",
+  "chat.tool.jean_save_lbl": "Enregistre une fiche",
+  "chat.tool.jean_patch_lbl": "Met à jour une fiche",
+  "chat.tool.jean_merge_lbl": "Fusionne des fiches",
+  "chat.tool.jean_lesson_lbl": "Note une leçon",
+  "chat.tool.jean_remember_lbl": "Met à jour le profil",
+  "chat.tool.jean_forget_lbl": "Oublie un souvenir",
+  "chat.tool.jean_note_lbl": "Complète le journal",
+  "chat.tool.jean_rule_lbl": "Règle de réponse",
+  "chat.tool.jeanmem_head": "mémoire de Jean",
   "projects.trackers": "Trackers",
   "projects.memory": "Mémoire",
   "projects.projects": "Projets",
@@ -3745,6 +3858,8 @@ fr: {
   "appearance.enter_newline_help": "Par défaut, <b>Entrée</b> envoie le message et <b>Maj+Entrée</b> fait un retour à la ligne. Activez ceci pour inverser : Entrée va à la ligne, et <b>Maj+Entrée</b> (ou Ctrl+Entrée) envoie.",
   "appearance.hide_preset": "masquer le nom du preset",
   "appearance.hide_preset_help": "Retire le nom du preset de la ligne d'état sous chaque réponse (durée, tokens, vitesse). Les autres informations restent affichées.",
+  "appearance.hide_term": "masquer le terminal en plein écran",
+  "appearance.hide_term_help": "En plein écran du mode Jean, les commandes lancées par l'IA ne s'affichent plus dans la fenêtre <b>terminal</b>. La recherche web et le navigateur restent visibles.",
   "sidebar.status_svc_title": "voir le journal du moteur",
   "sidebar.svc_log_title": "Journal du moteur",
   "sidebar.svc_log_copy_title": "copier le journal",
@@ -3961,6 +4076,28 @@ fr: {
   "jean.embed_indexing": " · {n} / {t} souvenirs indexés",
   "jean.embed_ready": " · {t} souvenirs indexés",
   "jean.files_title": "Fichiers de Jean",
+  "stt.title": "Dictée vocale",
+  "stt.help": "Le bouton <b>micro</b> du composeur enregistre la voix et l'envoie à une API de transcription compatible OpenAI (<code>/audio/transcriptions</code>). Par défaut : <b>Whisper chez Groq</b>, clé à créer sur console.groq.com. Un serveur Whisper local fonctionne aussi. Sans clé, la dictée intégrée au navigateur est utilisée.",
+  "stt.url_label": "Adresse de l'API",
+  "stt.key_label": "Clé API",
+  "stt.model_label": "Modèle",
+  "stt.lang_label": "Langue",
+  "stt.key_saved": "clé enregistrée (vide = inchangée)",
+  "stt.saved": "Dictée vocale enregistrée",
+  "stt.mic_title": "Dicter un message",
+  "stt.stop_title": "Arrêter et transcrire",
+  "stt.no_mic": "Le micro n'est pas disponible ici (une page en HTTPS ou localhost est nécessaire).",
+  "stt.denied": "Accès au micro refusé.",
+  "stt.provider_label": "Fournisseur",
+  "stt.models_audio": "Transcription",
+  "stt.models_other": "Autres modèles",
+  "stt.model_custom": "Autre (saisir le nom)",
+  "stt.custom": "Autre (adresse à saisir)",
+  "stt.save_button": "Enregistrer",
+  "stt.key_none": "facultative",
+  "stt.url_missing": "Adresse de l'API manquante",
+  "stt.no_browser": "Ce navigateur ne sait pas dicter. Réglez une API de transcription dans Paramètres > Dictée vocale.",
+  "stt.browser_error": "Dictée interrompue : ",
   "voice.title": "Voix de Jean",
   "voice.help": "Conversation à voix haute en mode Jean : bouton micro sur sa scène. La transcription et la voix passent par un <b>serveur audio.cpp</b> (Qwen3-ASR et VoxCPM2). Les voix sont enregistrées dans AJEAN.",
   "voice.toggle": "conversation vocale",
@@ -4081,6 +4218,8 @@ fr: {
   "jean.act_look": "Regarde l'image…",
   "jean.act_machine": "S'en occupe sur la machine…",
   "jean.act_work": "Travaille…",
+  "jeanmem.running": "Mise à jour de la mémoire…",
+  "jeanmem.done": "Mémoire mise à jour",
   "chat.mode_fast": "Rapide",
   "chat.mode_fast_hint": "bash, write, edit",
   "chat.mode_base": "Modèle de base",
@@ -4113,10 +4252,16 @@ fr: {
   "chat.send_hint": "Entrée pour envoyer · Maj+Entrée = nouvelle ligne",
   "reason.hint_fast": "rapide",
   "reason.hint_max": "max",
+  "reason.off": "désactivée",
+  "chat.reason_ignored": "réflexion non réglable chez ce fournisseur",
   "bench.title": "Benchmark",
   "bench.close_aria": "Fermer",
   "bench.close": "fermer",
-  "bench.rerun": "relancer",
+  "bench.rerun": "lancer",
+  "bench.prompt": "Tokens lus (prefill)",
+  "bench.output": "Tokens générés (decode)",
+  "bench.pick": "Choisir les tailles puis lancer.",
+  "bench.gen": "Génération",
   "modal.cancel": "Annuler",
   "modal.confirm": "Confirmer",
   "backends.title": "Backends personnalisés",
@@ -4274,8 +4419,17 @@ fr: {
   "preset.mmproj_cpu_label": "Projecteur vision sur le CPU",
   "preset.mmproj_cpu_sub": "libère de la VRAM",
   "preset.download_model_label": "Télécharger un modèle",
-  "preset.download_model_sub": "lien direct vers un .gguf",
+  "preset.download_model_sub": "recherche sur Hugging Face, ou lien direct vers un .gguf",
   "preset.download_button_title": "Télécharger",
+  "hf.placeholder": "qwen, gemma, mistral… ou https://…/model.gguf",
+  "hf.searching": "recherche sur Hugging Face…",
+  "hf.loading_files": "lecture du dépôt…",
+  "hf.none": "Aucun modèle GGUF trouvé.",
+  "hf.no_files": "Ce dépôt ne contient aucun fichier .gguf.",
+  "hf.error": "Hugging Face est injoignable.",
+  "hf.downloads_title": "téléchargements sur Hugging Face",
+  "hf.vision_tag": "vision",
+  "hf.parts": "fichiers",
   "preset.download_cancel": "Annuler le téléchargement",
   "preset.download_pause": "Mettre en pause",
   "preset.download_resume": "Reprendre",
@@ -4407,6 +4561,8 @@ fr: {
   "status.stale_recommend": "est disponible. Il est recommandé de le mettre à jour pour profiter de toutes les fonctionnalités et éviter d'éventuels bugs de compatibilité.",
   "status.update_btn": "Mettre à jour",
   "update.banner_prefix": "Nouvelle version",
+  "update.reload_prefix": "AJEAN",
+  "update.reload_suffix": "est installé — cliquer pour recharger l'interface",
   "update.banner_suffix": "disponible",
   "loadflags.notice": "La nouvelle version de llama.cpp a changé les options mémoire : --mlock / --no-mmap sont remplacés par --load-mode. D'anciens flags ont été détectés dans ta configuration.",
   "loadflags.btn": "Mettre à jour les flags",
@@ -4486,6 +4642,18 @@ fr: {
   "external.url_hint": "(base OpenAI, ex: https://api.openai.com/v1)",
   "external.model_label": "Modèle",
   "external.model_hint": "(identifiant exact, ex: gpt-4o-mini)",
+  "external.models_searching": "recherche des modèles…",
+  "external.models_count": "{n} proposés par le fournisseur",
+  "external.models_unavailable": "liste indisponible : saisir l'identifiant exact",
+  "external.model_choose": "choisir un modèle",
+  "external.model_other": "autre identifiant…",
+  "external.effort_label": "Réflexion",
+  "external.effort_sub": "ignorée si le fournisseur ne la règle pas",
+  "external.effort_default": "défaut du fournisseur",
+  "external.effort_off": "désactivée",
+  "external.effort_low": "faible",
+  "external.effort_medium": "moyenne",
+  "external.effort_high": "élevée",
   "external.ctx_label": "Contexte",
   "external.ctx_hint": "(taille en tokens, ex: 32768 — laisser vide pour 32768)",
   "external.vision_label": "le modèle accepte les images",
@@ -4498,6 +4666,7 @@ fr: {
   "external.delete": "supprimer",
   "external.testing": "test en cours…",
   "external.test_ok": "connexion réussie",
+  "external.test_ok_reason_ignored": "connexion réussie, mais ce fournisseur refuse le réglage Réflexion : il sera ignoré",
   "external.test_failed": "échec de la connexion",
   "external.saving": "enregistrement…",
   "external.saved": "API Externe enregistrée",
@@ -5113,7 +5282,7 @@ fr: {
   "chat.no_file_uploaded": "aucun fichier n'a pu être déposé",
   "chat.error": "erreur",
   "chat.send_failed_retry": "échec de l'envoi — réessaie",
-  "models.bench.desc": "prompt 2000 tok + 300 decode<br>~10 secondes…",
+  "models.bench.desc": "prompt {p} tok + {n} decode…",
   "models.bench.error": "erreur: ",
   "models.bench.total": "total",
   "chat.prefill_cap": "Prefill",
@@ -5204,6 +5373,17 @@ fr: {
 en: {
   "chat.tool.tracker_lbl": "Tracker",
   "chat.tool.tracker_head": "tracker",
+  "chat.tool.jean_read_lbl": "Reads a fiche",
+  "chat.tool.jean_search_lbl": "Searches memory",
+  "chat.tool.jean_save_lbl": "Saves a fiche",
+  "chat.tool.jean_patch_lbl": "Updates a fiche",
+  "chat.tool.jean_merge_lbl": "Merges fiches",
+  "chat.tool.jean_lesson_lbl": "Writes a lesson",
+  "chat.tool.jean_remember_lbl": "Updates the profile",
+  "chat.tool.jean_forget_lbl": "Forgets an item",
+  "chat.tool.jean_note_lbl": "Adds to the journal",
+  "chat.tool.jean_rule_lbl": "Answer rule",
+  "chat.tool.jeanmem_head": "Jean's memory",
   "projects.trackers": "Trackers",
   "projects.memory": "Memory",
   "projects.projects": "Projects",
@@ -5285,6 +5465,8 @@ en: {
   "appearance.enter_newline_help": "By default, <b>Enter</b> sends the message and <b>Shift+Enter</b> makes a new line. Turn this on to swap them: Enter makes a new line, and <b>Shift+Enter</b> (or Ctrl+Enter) sends.",
   "appearance.hide_preset": "hide the preset name",
   "appearance.hide_preset_help": "Removes the preset name from the status line under each reply (duration, tokens, speed). The other details stay visible.",
+  "appearance.hide_term": "hide the terminal in full screen",
+  "appearance.hide_term_help": "In Jean mode full screen, commands run by the AI no longer show in the <b>terminal</b> window. Web search and the browser stay visible.",
   "sidebar.status_svc_title": "view engine log",
   "sidebar.svc_log_title": "Engine log",
   "sidebar.svc_log_copy_title": "copy log",
@@ -5501,6 +5683,28 @@ en: {
   "jean.embed_indexing": " · {n} / {t} memories indexed",
   "jean.embed_ready": " · {t} memories indexed",
   "jean.files_title": "Jean's files",
+  "stt.title": "Voice dictation",
+  "stt.help": "The <b>microphone</b> button in the composer records your voice and sends it to an OpenAI-compatible transcription API (<code>/audio/transcriptions</code>). Default: <b>Whisper on Groq</b>, key from console.groq.com. A local Whisper server also works. Without a key, the browser's built-in dictation is used.",
+  "stt.url_label": "API address",
+  "stt.key_label": "API key",
+  "stt.model_label": "Model",
+  "stt.lang_label": "Language",
+  "stt.key_saved": "key saved (empty = unchanged)",
+  "stt.saved": "Voice dictation saved",
+  "stt.mic_title": "Dictate a message",
+  "stt.stop_title": "Stop and transcribe",
+  "stt.no_mic": "The microphone is not available here (HTTPS or localhost is required).",
+  "stt.denied": "Microphone access denied.",
+  "stt.provider_label": "Provider",
+  "stt.models_audio": "Transcription",
+  "stt.models_other": "Other models",
+  "stt.model_custom": "Other (type the name)",
+  "stt.custom": "Other (enter address)",
+  "stt.save_button": "Save",
+  "stt.key_none": "optional",
+  "stt.url_missing": "API address missing",
+  "stt.no_browser": "This browser cannot dictate. Set a transcription API in Settings > Voice dictation.",
+  "stt.browser_error": "Dictation stopped: ",
   "voice.title": "Jean's voice",
   "voice.help": "Spoken conversation in Jean mode: microphone button on the stage. Transcription and speech go through an <b>audio.cpp server</b> (Qwen3-ASR and VoxCPM2). Voices are stored in AJEAN.",
   "voice.toggle": "voice conversation",
@@ -5621,6 +5825,8 @@ en: {
   "jean.act_look": "Looking at the image…",
   "jean.act_machine": "Handling it on the machine…",
   "jean.act_work": "Working…",
+  "jeanmem.running": "Updating memory…",
+  "jeanmem.done": "Memory updated",
   "chat.mode_fast": "Fast",
   "chat.mode_fast_hint": "bash, write, edit",
   "chat.mode_base": "Base model",
@@ -5653,10 +5859,16 @@ en: {
   "chat.send_hint": "Enter to send · Shift+Enter = new line",
   "reason.hint_fast": "fast",
   "reason.hint_max": "max",
+  "reason.off": "off",
+  "chat.reason_ignored": "reasoning can't be set with this provider",
   "bench.title": "Benchmark",
   "bench.close_aria": "Close",
   "bench.close": "close",
-  "bench.rerun": "rerun",
+  "bench.rerun": "run",
+  "bench.prompt": "Tokens read (prefill)",
+  "bench.output": "Tokens generated (decode)",
+  "bench.pick": "Pick the sizes, then run.",
+  "bench.gen": "Generating",
   "modal.cancel": "Cancel",
   "modal.confirm": "Confirm",
   "backends.title": "Custom backends",
@@ -5814,8 +6026,17 @@ en: {
   "preset.mmproj_cpu_label": "Vision projector on CPU",
   "preset.mmproj_cpu_sub": "frees VRAM",
   "preset.download_model_label": "Download a model",
-  "preset.download_model_sub": "direct link to a .gguf",
+  "preset.download_model_sub": "search Hugging Face, or direct link to a .gguf",
   "preset.download_button_title": "Download",
+  "hf.placeholder": "qwen, gemma, mistral… or https://…/model.gguf",
+  "hf.searching": "searching Hugging Face…",
+  "hf.loading_files": "reading the repository…",
+  "hf.none": "No GGUF model found.",
+  "hf.no_files": "This repository has no .gguf file.",
+  "hf.error": "Hugging Face is unreachable.",
+  "hf.downloads_title": "downloads on Hugging Face",
+  "hf.vision_tag": "vision",
+  "hf.parts": "files",
   "preset.download_cancel": "Cancel the download",
   "preset.download_pause": "Pause",
   "preset.download_resume": "Resume",
@@ -5947,6 +6168,8 @@ en: {
   "status.stale_recommend": "is available. It's recommended to update to get all the features and avoid possible compatibility issues.",
   "status.update_btn": "Update",
   "update.banner_prefix": "New version",
+  "update.reload_prefix": "AJEAN",
+  "update.reload_suffix": "is installed — click to reload the interface",
   "update.banner_suffix": "available",
   "loadflags.notice": "The new llama.cpp version changed the memory options: --mlock / --no-mmap are replaced by --load-mode. Old flags were detected in your configuration.",
   "loadflags.btn": "Update the flags",
@@ -6026,6 +6249,18 @@ en: {
   "external.url_hint": "(OpenAI base, e.g. https://api.openai.com/v1)",
   "external.model_label": "Model",
   "external.model_hint": "(exact id, e.g. gpt-4o-mini)",
+  "external.models_searching": "looking up models…",
+  "external.models_count": "{n} offered by the provider",
+  "external.models_unavailable": "list unavailable: type the exact id",
+  "external.model_choose": "pick a model",
+  "external.model_other": "another id…",
+  "external.effort_label": "Reasoning",
+  "external.effort_sub": "ignored if the provider can't set it",
+  "external.effort_default": "provider default",
+  "external.effort_off": "off",
+  "external.effort_low": "low",
+  "external.effort_medium": "medium",
+  "external.effort_high": "high",
   "external.ctx_label": "Context",
   "external.ctx_hint": "(size in tokens, e.g. 32768 — leave empty for 32768)",
   "external.vision_label": "the model accepts images",
@@ -6038,6 +6273,7 @@ en: {
   "external.delete": "delete",
   "external.testing": "testing…",
   "external.test_ok": "connection successful",
+  "external.test_ok_reason_ignored": "connection successful, but this provider rejects the Reasoning setting: it will be ignored",
   "external.test_failed": "connection failed",
   "external.saving": "saving…",
   "external.saved": "external API saved",
@@ -6653,7 +6889,7 @@ en: {
   "chat.no_file_uploaded": "no file could be uploaded",
   "chat.error": "error",
   "chat.send_failed_retry": "send failed — try again",
-  "models.bench.desc": "2000 tok prompt + 300 decode<br>~10 seconds…",
+  "models.bench.desc": "{p} tok prompt + {n} decode…",
   "models.bench.error": "error: ",
   "models.bench.total": "total",
   "chat.prefill_cap": "Prefill",
@@ -6798,6 +7034,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	}
 	applyI18n();
 });
+function tf(key, fr){ const v = t(key); return v === key ? fr : v; }
 function applyTheme(id){
   const dark = id==='dark' || (typeof id==='string' && id.endsWith('-dark'));
   document.documentElement.setAttribute('data-theme', dark?'dark':'light');
@@ -6819,6 +7056,7 @@ const VIEW_OPTS=[
   {id:'hide-side',      label:'barre latérale escamotable'},
   {id:'enter-newline',  label:'Entrée = retour à la ligne'},
   {id:'hide-preset',    label:'masquer le nom du preset'},
+  {id:'hide-term',      label:'masquer le terminal du plein écran'},
 ];
 function viewOn(id){ return document.documentElement.getAttribute('data-'+id)==='1'; }
 function applyView(id, on){
@@ -7271,6 +7509,27 @@ async function jget(u){ const r=await jfetch(u); return r.json(); }
 async function jpost(u,b){ const r=await jfetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})}); return r.json(); }
 let CLOUD_PHASE = '';
 let LAST_BOOT=null; 
+let SEEN_VERSION=null; 
+let SEEN_UI=null;      
+let ENGINE_ON=null;
+function reloadForNewVersion(v){
+  const ta=document.getElementById('input');
+  if(ta && ta.value.trim()){
+    const box=document.getElementById('app-update');
+    if(box){
+      box.innerHTML='<span class="au-dot"></span><span>'+t('update.reload_prefix')+' <b>v'+escHtml(v)+'</b> '+t('update.reload_suffix')+'</span>';
+      box.hidden=false; box.onclick=(e)=>{ e.stopPropagation(); location.reload(); };
+    }
+    return;
+  }
+  location.reload();
+}
+async function waitNewVersionThenReload(v){
+  for(let i=0;i<120;i++){
+    await new Promise(r=>setTimeout(r,1000));
+    try{ const s=await jget('/api/status'); if(s && s.version===v){ location.reload(); return; } }catch(_){}
+  }
+}
 let LAST_PRESET=null; 
 async function loadStatus(){
   if(document.hidden) return; 
@@ -7288,6 +7547,13 @@ async function loadStatus(){
     }
     LAST_BOOT=s.boot;
   }
+  const engineOn=!!s.active;
+  if(engineOn!==ENGINE_ON){
+    const first=ENGINE_ON===null;
+    ENGINE_ON=engineOn;
+    if((!first || !engineOn) && typeof loadPresets==='function') loadPresets();
+  }
+  if(typeof jeanMemActivity==='function') jeanMemActivity(s.jean_mem);
   const el=document.getElementById('status-svc');
   let cls='err', txt=t('status.stopped');
   if(s.active && s.health){ cls='ok'; txt=t('status.ready'); }
@@ -7306,6 +7572,14 @@ async function loadStatus(){
   STATUS_SEEN = true;
   if(typeof syncSendBtn==='function') syncSendBtn();
   if(s.ctx){ CTX_MAX=s.ctx; updateCtxMeter(); }
+  if(s.version){
+    if(SEEN_VERSION && s.version!==SEEN_VERSION){ reloadForNewVersion(s.version); return; }
+    SEEN_VERSION=s.version;
+  }
+  if(s.ui){
+    if(SEEN_UI && s.ui!==SEEN_UI){ reloadForNewVersion(s.version||''); return; }
+    SEEN_UI=s.ui;
+  }
   if(s.version){
     document.getElementById('ver').textContent='v'+s.version;
   }
@@ -7361,10 +7635,19 @@ async function checkAppUpdate(){
   if(!box) return;
   let r;
   try{ r=await jget('/api/update'); }catch(e){ return; } 
+  if(_updBusy) return; 
   if(!r || r.error || !r.available || !r.latest){ box.hidden=true; return; }
   box.innerHTML='<span class="au-dot"></span><span>'+t('update.banner_prefix')+' <b>v'+escHtml(r.latest)+'</b> '+t('update.banner_suffix')+'</span>';
   box.hidden=false;
 }
+let _updCheckedAt=Date.now();
+function recheckUpdates(){
+  if(document.hidden || Date.now()-_updCheckedAt < 3*60*60*1000) return;
+  _updCheckedAt=Date.now();
+  checkServerFreshness(); checkAppUpdate();
+}
+setInterval(recheckUpdates, 10*60*1000);
+document.addEventListener('visibilitychange', recheckUpdates);
 async function onAppUpdateClick(){
   if(!await askConfirm(t('status.update_confirm'), {title:t('status.update_btn'), okText:t('status.update_btn')})) return;
   applyUpdate('app-update');
@@ -7431,7 +7714,7 @@ async function applyUpdate(boxId){
     finally{ clearTimeout(tmr); }
     if(r.ok){
       if(msg) msg.innerHTML='✓ '+t('status.installed_prefix')+' <b>v'+escHtml(r.version)+'</b>.<br>'+(r.restart||'');
-      if(r.restarting){ toast(t('status.update_applied_toast')); setTimeout(loadAll, 6000); }
+      if(r.restarting){ toast(t('status.update_applied_toast')); waitNewVersionThenReload(r.version); }
     }
     else if(msg){ msg.textContent=t('status.failed_prefix')+' '+(r.error||t('status.unknown')); }
   }catch(e){ if(msg) msg.textContent=t('status.update_error'); }
@@ -7474,6 +7757,7 @@ function fmtCtxTokens(n){
 }
 let REASON_EFFORT = null; 
 let REASON_MOE = false;
+let REASON_EXT = false;
 function reasonLevel(){
   const e=(REASON_EFFORT||'').trim();
   return REASON_MOE ? ((!e || e==='high') ? 'xhigh' : e) : e;
@@ -7486,7 +7770,7 @@ function updateReasonBtn(eff, moe){
   const e=reasonLevel();
   if(!e){ btn.style.display='none'; return; }
   btn.style.display='flex';
-  const n={low:1, medium:2, high:3, xhigh:4}[e] || 0;
+  const n={off:0, low:1, medium:2, high:3, xhigh:4}[e] || 0;
   btn.querySelectorAll('.rb').forEach(p=>{ p.style.opacity = (Number(p.dataset.l)<=n) ? '1' : '.28'; });
   btn.title = t('status.reason_level_prefix')+' '+e+' '+t('status.reason_level_suffix');
 }
@@ -7495,7 +7779,8 @@ function toggleReasonMenu(ev){
   const menu=document.getElementById('reason-menu'), cur=reasonLevel();
   menu.querySelectorAll('button').forEach(b=>{
     b.classList.toggle('on', b.dataset.eff===cur); 
-    b.style.display = (REASON_MOE && b.dataset.eff==='high') ? 'none' : '';
+    const e=b.dataset.eff;
+    b.style.display = ((REASON_MOE && e==='high') || (e==='off' && !REASON_EXT) || (e==='xhigh' && REASON_EXT && cur!=='xhigh')) ? 'none' : '';
   });
   toggleMenu(menu, document.getElementById('reason-btn'), {side:'above', align:'right'});
 }
@@ -7596,6 +7881,7 @@ async function loadCfg(){
   const [c, lc] = await Promise.all([jget('/api/config'), jget('/api/llamacpp').catch(()=>null)]);
   const row=(k,v,title)=>'<div class="kv"><span>'+k+'</span><span title="'+String(title!=null?title:v).replace(/"/g,'&quot;')+'">'+String(v)+'</span></div>';
   const rows=[];
+  REASON_EXT = c.EXTERNAL==='1' && !/^modal$/i.test(c.CLOUD||'');
   if(/^modal$/i.test(c.CLOUD||'')){
     rows.push(row(t('status.cfg_engine'), 'GPU Cloud (Modal)'));
     rows.push(row('GPU', c.CLOUD_GPU||'A10G'));
@@ -7624,7 +7910,7 @@ async function loadCfg(){
       rows.push(row(t('external.key_label'), mask, ''));
     }
     swapContent(document.getElementById('cfg'), rows.join(''));
-    updateReasonBtn('', false);
+    updateReasonBtn(c.REASONING_EFFORT || '', false);
     return;
   }
   if(c.ENGINE==='moe'){
@@ -7722,7 +8008,7 @@ async function loadPresets(){
   p.forEach((x,i)=>{
     const row=document.createElement('div');
     const pend = !x.active && pendingPreset===i+1;
-    row.className='preset'+(x.active?' active':'')+(pend?' pending':'')+(moved?' sel-anim':'');
+    row.className='preset'+(x.active?(ENGINE_ON===false?' chosen':' active'):'')+(pend?' pending':'')+(moved?' sel-anim':'');
     row.dataset.id = x.id;
     row.onclick=()=>{ if(presetJustDragged) return; switchTo(i+1, x.name, x.id); };
     const info=document.createElement('div'); info.className='preset-info';
@@ -8211,7 +8497,7 @@ async function setLinkBrowser(v){
   toast(t('settings.link_browser_saved'));
 }
 async function loadAll(){
-  await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadComputer(),loadMCP(),loadApiKey(),loadNetwork(),loadPrefs(),loadOpen(),loadLlamacpp(),loadMoe(),loadExl3(),loadRemote(),loadTasks()]);
+  await Promise.allSettled([loadStatus(),loadTelemetry(),loadCfg(),loadPresets(),loadAgent(),loadInternet(),loadComputer(),loadMCP(),loadApiKey(),loadNetwork(),loadPrefs(),loadOpen(),loadLlamacpp(),loadMoe(),loadExl3(),loadSTT(),loadRemote(),loadTasks()]);
   releaseHeights(); 
 }
 async function act(a){
@@ -8226,22 +8512,53 @@ async function act(a){
   }
   setTimeout(loadAll,1500);
 }
-function openBenchModal(){ showModal('bench-modal'); }
+const BENCH_PROMPTS = [2000, 10000, 25000, 50000, 100000], BENCH_OUTPUTS = [100, 300, 1000, 3000];
+let benchCfg = { prompt: 2000, output: 300 };
+try{ benchCfg = { ...benchCfg, ...JSON.parse(localStorage.getItem('ajean-bench') || '{}') }; }catch(e){}
+const benchK = n => n >= 1000 ? (n / 1000).toFixed(n % 1000 ? 1 : 0) + 'k' : String(n);
+function benchSeg(id, key, list){
+  const el = document.getElementById(id);
+  el.innerHTML = list.map(v => '<label><input type="radio" name="'+id+'" value="'+v+'"><span>'+benchK(v)+'</span></label>').join('');
+  el.querySelectorAll('input').forEach(i => {
+    i.checked = +i.value === benchCfg[key];
+    i.onchange = () => { benchCfg[key] = +i.value; try{ localStorage.setItem('ajean-bench', JSON.stringify(benchCfg)); }catch(e){} };
+  });
+}
+function openBenchModal(){
+  benchSeg('bench-seg-prompt', 'prompt', BENCH_PROMPTS);
+  benchSeg('bench-seg-output', 'output', BENCH_OUTPUTS);
+  const body = document.getElementById('bench-body');
+  if(body) body.innerHTML = '<div class="muted" style="text-align:center">'+t('bench.pick')+'</div>';
+  showModal('bench-modal');
+}
 function closeBenchModal(){ hideModal('bench-modal'); }
 async function runBenchUI(){
-  const btn = document.getElementById('btn-bench');
   const rerun = document.getElementById('bench-rerun');
   const body = document.getElementById('bench-body');
-  openBenchModal();
-  if(btn) btn.disabled = true;
   if(rerun) rerun.disabled = true;
   body.innerHTML =
     '<div style="text-align:center;padding:20px 0">' +
     '<div class="spinner" style="margin:0 auto"></div>' +
-    '<div class="muted" style="margin-top:8px">'+t('models.bench.desc')+'</div>' +
+    '<div class="muted" style="margin-top:8px">'+t('models.bench.desc').replace('{p}', benchK(benchCfg.prompt)).replace('{n}', benchK(benchCfg.output))+'</div>' +
     '</div>';
+  const info = body.querySelector('.muted');
+  const t0 = Date.now();
+  let polling = true;
+  (async () => {
+    while(polling){
+      await new Promise(res => setTimeout(res, 1000));
+      if(!polling) break;
+      let p; try{ p = await jget('/api/bench/progress'); }catch(e){ continue; }
+      if(!polling || !p || !p.running) continue;
+      const s = Math.round((Date.now() - t0) / 1000) + ' s';
+      if(p.generated > 0) info.textContent = tf('bench.gen', 'Génération') + ' ' + p.generated + ' / ' + p.output + ' · ' + s;
+      else if(p.prefill_done > 0 && p.prompt > 0) info.textContent = 'Prefill ' + Math.min(100, Math.round(100 * p.prefill_done / p.prompt)) + ' % · ' + s;
+      else info.textContent = 'Prefill… · ' + s;
+    }
+  })();
   try{
-    const r = await jget('/api/bench');
+    const r = await jget('/api/bench?prompt=' + benchCfg.prompt + '&n=' + benchCfg.output);
+    polling = false;
     if(!r.ok){
       body.innerHTML = '<div style="color:var(--err);text-align:center">'+t('models.bench.error')+r.error+'</div>';
       return;
@@ -8264,7 +8581,7 @@ async function runBenchUI(){
       '</div>' +
       '<div class="muted" style="text-align:center;font-size:11px">'+t('models.bench.total')+' '+x.elapsed_sec.toFixed(2)+'s</div>';
   } finally {
-    if(btn) btn.disabled = false;   
+    polling = false;
     if(rerun) rerun.disabled = false;
     loadPresets();
   }
@@ -8983,7 +9300,8 @@ function populateSettings(){
                            : t('models.settings.reasoning_sub_unset');
   }
   chk('s-kvunified', eaHasFlag('--kv-unified'));
-  chk('s-flash', eaHasFlag('--flash-attn') && !/^off$/i.test(eaGetValued('--flash-attn')));
+  { const has = eaHasFlag('--flash-attn'), fa = has ? eaGetValued('--flash-attn').toLowerCase() : '';
+    set('s-flash', fa === 'off' ? 'off' : (has && fa !== 'auto' ? 'on' : '')); }
   set('s-loadmode', eaLoadMode());
   syncLoadModeSub(eaLoadMode());
   chk('s-mmproj-cpu', eaHasFlag('--no-mmproj-offload'));
@@ -9023,17 +9341,96 @@ function syncRunMode(){
     document.getElementById('s-ext-ctx').value = cfgReadKey('CTX');
     document.getElementById('s-ext-vision').checked = cfgReadKey('EXTERNAL_VISION') === '1';
     document.getElementById('s-ext-status').textContent = '';
+    {
+      const sel = document.getElementById('s-ext-effort'), eff = cfgReadKey('REASONING_EFFORT');
+      sel.querySelectorAll('option[data-extra]').forEach(o => o.remove());
+      if(eff && ![...sel.options].some(o => o.value === eff)){
+        const o = document.createElement('option'); o.value = eff; o.textContent = eff; o.dataset.extra = '1'; sel.appendChild(o);
+      }
+      sel.value = eff;
+    }
+    extModelManual = false;
+    extModelsLoad();
   }
+}
+let extModels = null;        
+let extModelsFor = null;     
+let extModelsErr = '';
+let extModelsTimer = 0, extModelsSeq = 0;
+let extModelManual = false;  
+function extModelsSchedule(){ clearTimeout(extModelsTimer); extModelsTimer = setTimeout(extModelsLoad, 700); }
+async function extModelsLoad(){
+  clearTimeout(extModelsTimer);
+  const url = cfgReadKey('EXTERNAL_URL');
+  const key = cfgReadKey('EXTERNAL_KEY');
+  const sig = url + '\n' + key;
+  if(!url){ extModelsSeq++; extModels = null; extModelsFor = null; extModelsErr = ''; extModelsRender(); return; }
+  if(sig === extModelsFor){ extModelsRender(); return; }
+  const seq = ++extModelsSeq;
+  extModelsRender(true);
+  let list = null, err = '';
+  try{
+    const r = await jpost('/api/preset/external/models', {id: editingKey || '', url, key, keyTouched: true});
+    if(r.ok) list = r.models || []; else err = r.error || '';
+  }catch(e){}
+  if(seq !== extModelsSeq) return;
+  extModels = list && list.length ? list : null;
+  extModelsErr = err;
+  extModelsFor = sig;
+  extModelsRender();
+}
+function extModelsRender(loading){
+  const selc = document.getElementById('s-ext-model-selc');
+  const sel = document.getElementById('s-ext-model-sel');
+  const inp = document.getElementById('s-ext-model');
+  const hint = document.getElementById('s-ext-model-hint');
+  if(!selc) return;
+  const cur = cfgReadKey('EXTERNAL_MODEL');
+  if(loading || !extModels){
+    selc.style.display = 'none';
+    inp.style.display = '';
+    hint.title = '';
+    if(loading) hint.textContent = t('external.models_searching');
+    else if(extModelsFor !== null){ hint.textContent = t('external.models_unavailable'); hint.title = extModelsErr; }
+    else hint.textContent = t('external.model_hint');
+    return;
+  }
+  const opt = (v, label) => { const o = document.createElement('option'); o.value = v; o.textContent = label; return o; };
+  sel.textContent = '';
+  if(!cur) sel.appendChild(opt('', t('external.model_choose')));
+  if(cur && !extModels.includes(cur)) sel.appendChild(opt(cur, cur));
+  extModels.forEach(m => sel.appendChild(opt(m, m)));
+  sel.appendChild(opt('\u0000other', t('external.model_other')));
+  sel.value = extModelManual ? '\u0000other' : cur;
+  selc.style.display = '';
+  inp.style.display = extModelManual ? '' : 'none';
+  hint.title = '';
+  hint.textContent = t('external.models_count').replace('{n}', extModels.length);
+}
+function extModelPick(v){
+  const inp = document.getElementById('s-ext-model');
+  if(v === '\u0000other'){
+    extModelManual = true;
+    extModelsRender();
+    inp.focus();
+    return;
+  }
+  extModelManual = false;
+  cfgWriteKey('EXTERNAL_MODEL', v);
+  inp.value = v;
+  extModelsRender();
 }
 async function testExternalPreset(){
   const st = document.getElementById('s-ext-status');
   const b = {id: editingKey || '', url: cfgReadKey('EXTERNAL_URL'), model: cfgReadKey('EXTERNAL_MODEL'),
-             key: cfgReadKey('EXTERNAL_KEY'), keyTouched: true};
+             key: cfgReadKey('EXTERNAL_KEY'), keyTouched: true, effort: cfgReadKey('REASONING_EFFORT')};
   if(!b.url || !b.model){ st.textContent = t('external.url_model_required'); return; }
   st.textContent = t('external.testing');
   try{
     const r = await jpost('/api/preset/external/test', b);
-    st.textContent = r.ok ? '✓ '+t('external.test_ok') : '⚠ '+(r.error || t('external.test_failed'));
+    st.title = '';
+    if(r.ok && r.reasoningIgnored){ st.textContent = '⚠ '+t('external.test_ok_reason_ignored'); st.title = r.reasoningError || ''; }
+    else st.textContent = r.ok ? '✓ '+t('external.test_ok') : '⚠ '+(r.error || t('external.test_failed'));
   }catch(e){ st.textContent = '⚠ '+t('external.test_failed'); }
 }
 function setCloudState(state){ document.getElementById('m-cloud-body').dataset.state = state; }
@@ -9312,6 +9709,7 @@ function resetDlUI(){
   stopDlPoll(); dlName='';
   e.prog.style.display='none'; e.bar.style.display='none';
   e.cancel.style.display='none'; e.pause.style.display='none'; e.btn.disabled=false;
+  clearTimeout(hfTimer); hfHide(); document.getElementById('m-hf-url').value='';
 }
 let dlDirList = [];
 async function populateDlDirs(){
@@ -9329,6 +9727,68 @@ async function populateDlDirs(){
     sel.append(o);
   }
   if(prev && dlDirList.some(x => samePath(x.path, prev))) sel.value = prev;
+}
+let hfTimer = null, hfSeq = 0;
+const hfIsLink = v => /^https?:\/\//i.test(v) || /^hf\.co\//i.test(v) || /^huggingface\.co\//i.test(v);
+function hfBox(){ return document.getElementById('m-hf-results'); }
+function hfHide(){ hfSeq++; const b = hfBox(); b.style.display = 'none'; b.innerHTML = ''; }
+function hfNote(msg, err){ const b = hfBox(); b.style.display = ''; b.innerHTML = '<div class="hf-note"'+(err?' style="color:var(--err)"':'')+'>'+escHtml(msg)+'</div>'; }
+function hfOnInput(){
+  const v = document.getElementById('m-hf-url').value.trim();
+  clearTimeout(hfTimer);
+  if(v.length < 2 || hfIsLink(v)){ hfHide(); return; }
+  hfTimer = setTimeout(()=>hfSearch(v), 400); 
+}
+function hfGo(){
+  const v = document.getElementById('m-hf-url').value.trim();
+  clearTimeout(hfTimer);
+  if(!v || hfIsLink(v)){ hfHide(); startDownload(); return; }
+  hfSearch(v);
+}
+const hfCount = n => n >= 1e6 ? (n/1e6).toFixed(1).replace('.0','')+' M' : n >= 1e3 ? Math.round(n/1e3)+' k' : String(n||0);
+async function hfSearch(q){
+  const seq = ++hfSeq;
+  hfNote(t('hf.searching'));
+  let r; try{ r = await jget('/api/hf/search?q='+encodeURIComponent(q)); }catch(_){ r = {ok:false}; }
+  if(seq !== hfSeq) return; 
+  if(!r.ok){ hfNote(r.error || t('hf.error'), true); return; }
+  if(!(r.repos||[]).length){ hfNote(t('hf.none')); return; }
+  const b = hfBox(); b.style.display = ''; b.innerHTML = '';
+  for(const m of r.repos){
+    const row = document.createElement('button'); row.type = 'button'; row.className = 'hf-row';
+    row.innerHTML = '<span class="hf-name"></span><span class="hf-meta"></span>';
+    row.firstChild.textContent = m.id;
+    row.lastChild.textContent = '↓ '+hfCount(m.downloads);
+    row.lastChild.title = t('hf.downloads_title');
+    row.onclick = ()=>hfOpenRepo(m.id, q);
+    b.append(row);
+  }
+}
+async function hfOpenRepo(repo, q){
+  const seq = ++hfSeq;
+  hfNote(t('hf.loading_files'));
+  let r; try{ r = await jget('/api/hf/files?repo='+encodeURIComponent(repo)); }catch(_){ r = {ok:false}; }
+  if(seq !== hfSeq) return;
+  const b = hfBox(); b.style.display = ''; b.innerHTML = '';
+  const back = document.createElement('button'); back.type = 'button'; back.className = 'hf-row hf-back';
+  back.innerHTML = '<span class="hf-name"></span>';
+  back.firstChild.textContent = '← '+repo;
+  back.onclick = ()=>hfSearch(q);
+  b.append(back);
+  if(!r.ok || !(r.files||[]).length){
+    const n = document.createElement('div'); n.className = 'hf-note';
+    if(!r.ok) n.style.color = 'var(--err)';
+    n.textContent = r.ok ? t('hf.no_files') : (r.error || t('hf.error'));
+    b.append(n); return;
+  }
+  for(const f of r.files){
+    const row = document.createElement('button'); row.type = 'button'; row.className = 'hf-row';
+    row.innerHTML = '<span class="hf-name"></span><span class="hf-meta"></span>';
+    row.firstChild.textContent = f.name;
+    row.lastChild.textContent = (f.mmproj ? t('hf.vision_tag')+' · ' : '') + fmtSize(f.size) + (f.parts ? ' · '+f.parts+' '+t('hf.parts') : '');
+    row.onclick = ()=>{ document.getElementById('m-hf-url').value = f.url; hfHide(); startDownload(); };
+    b.append(row);
+  }
 }
 async function startDownload(){
   const url = document.getElementById('m-hf-url').value.trim();
@@ -9819,6 +10279,16 @@ function renderToolMsg(el, tu){
     machines_use: {ico:'monitor', lbl:t('chat.tool.machines_use_lbl'),   head:t('chat.tool.machines_use_head')},
     tracker:    {ico:'trend',     lbl:t('chat.tool.tracker_lbl'),        head:t('chat.tool.tracker_head')},
     app:        {ico:'app',       lbl:appToolActLabel(tu.label), head:'app'},
+    jean_read:     {ico:'db', lbl:t('chat.tool.jean_read_lbl'), head:t('chat.tool.jeanmem_head')},
+    jean_search:   {ico:'db', lbl:t('chat.tool.jean_search_lbl'), head:t('chat.tool.jeanmem_head')},
+    jean_save:     {ico:'db', lbl:t('chat.tool.jean_save_lbl'), head:t('chat.tool.jeanmem_head')},
+    jean_patch:    {ico:'db', lbl:t('chat.tool.jean_patch_lbl'), head:t('chat.tool.jeanmem_head')},
+    jean_merge:    {ico:'db', lbl:t('chat.tool.jean_merge_lbl'), head:t('chat.tool.jeanmem_head')},
+    jean_lesson:   {ico:'db', lbl:t('chat.tool.jean_lesson_lbl'), head:t('chat.tool.jeanmem_head')},
+    jean_remember: {ico:'db', lbl:t('chat.tool.jean_remember_lbl'), head:t('chat.tool.jeanmem_head')},
+    jean_forget:   {ico:'db', lbl:t('chat.tool.jean_forget_lbl'), head:t('chat.tool.jeanmem_head')},
+    jean_note:     {ico:'db', lbl:t('chat.tool.jean_note_lbl'), head:t('chat.tool.jeanmem_head')},
+    jean_rule:     {ico:'db', lbl:t('chat.tool.jean_rule_lbl'), head:t('chat.tool.jeanmem_head')},
   };
   let meta = META[tu.name];
   if(!meta && tu.name && tu.name.indexOf('mcp__')===0){
@@ -10472,7 +10942,7 @@ function finalizeTurn(elapsedMs, preset){
   genStatusOn(false);
   const pr=(preset!==undefined && preset!==null) ? preset : activePresetName();
   if(!(elapsedMs>0) && !(tok>0) && !(pr && !viewOn('hide-preset'))){ removeGenEl(); scrollMaybe(true); return; }
-  const items=genItems(elapsedMs/1000, tok, rate, pr, '');
+  const items=genItems(elapsedMs/1000, tok, rate, pr, st.reasoning_ignored ? t('chat.reason_ignored') : '');
   if(!(elapsedMs>0)) items.shift();
   const g=ensureGenEl();
   const act=g.querySelector('.jact'); if(act){ act.textContent=''; act.classList.remove('jact-in'); }
@@ -13299,6 +13769,7 @@ async function toggleProjMenu(ev){
   const menu=document.getElementById('proj-menu'), b=document.getElementById('project-btn');
   renderProjMenu();
   if(!toggleMenu(menu, b, PM_OPTS)) return;
+  pmFade();
   let s=null, r=null;
   try{ [s, r] = await Promise.all([ jget('/api/chat/state').catch(()=>null), jget('/api/projects').catch(()=>null) ]); }catch(_){}
   LIVE_GENERATING = !!(s && s.generating);
@@ -13307,7 +13778,13 @@ async function toggleProjMenu(ev){
 }
 function refreshProjMenu(){
   const b=document.getElementById('project-btn');
-  if(menuOpenFor(b)){ renderProjMenu(); placeMenu(document.getElementById('proj-menu'), b, PM_OPTS); }
+  if(menuOpenFor(b)){ renderProjMenu(); placeMenu(document.getElementById('proj-menu'), b, PM_OPTS); pmFade(); }
+}
+function pmFade(){
+  requestAnimationFrame(()=>{
+    const list=document.querySelector('#proj-menu .pm-list');
+    if(list) list.classList.toggle('fade', list.scrollHeight > list.clientHeight + 1);
+  });
 }
 async function pickProjFromMenu(slug){
   closeMenu();
@@ -13959,12 +14436,21 @@ var JeanAvatar = (()=>{
   const srchSeen=new WeakSet();
   let term, termView, termKey='', termTyped=0, termTimer=0, termSig='', avatarLooking=false, termRuns=[], termCmd='';
   const termSeen=new WeakSet(); 
-  let stage, scene, bubble, bubbleBody, caption, capPast, capText, capStop, inputBox, ta, sendBtn, histBtn, filesBtn;
+  let stage, scene, bubble, bubbleBody, caption, capPast, capText, capStop, inputBox, ta, sendBtn, micBtn, histBtn, filesBtn;
   let screen, screenView, screenUrl, screenSrc='';
   let jeanWasOn=false;
   let inputOpen=false, syncTimer=0, lastHTML='', userScrolled=false;
   const $=(tag, cls, parent)=>{ const n=document.createElement(tag); if(cls) n.className=cls; if(parent) parent.appendChild(n); return n; };
   const inStage=()=>document.body.classList.contains('jean-mode') && !document.body.classList.contains('jean-history');
+  let workStart=0;
+  function paintWorkTime(){
+    if(!capStop) return;
+    const el=capStop.querySelector('.cs-t'); if(!el) return;
+    if(!workStart || capStop.hidden){ el.textContent=''; return; }
+    if(ELAPSED && ELAPSED.start && ELAPSED.start<workStart) workStart=ELAPSED.start;
+    const s=Math.max(0, Math.floor((Date.now()-workStart)/1000));
+    el.textContent=' · '+(s<60 ? s+' s' : Math.floor(s/60)+' min '+String(s%60).padStart(2,'0')+' s');
+  }
   function build(){
     const main=document.querySelector('.main'); if(!main) return false;
     stage=$('div','', main); stage.id='jean-stage';
@@ -14000,19 +14486,26 @@ var JeanAvatar = (()=>{
     capPast=$('div','jst-cap-past', caption);
     capText=$('div','jst-cap-text', caption);
     capStop=$('button','jst-cap-stop', caption); capStop.type='button'; capStop.hidden=true; capStop.onclick=()=>stopGen();
+    capStop.innerHTML='<span class="cs-l"></span><span class="cs-t"></span>';
+    setInterval(paintWorkTime, 1000);
     inputBox=$('div','jst-input', scene);
     ta=$('textarea','', inputBox); ta.rows=1;
     ta.setAttribute('autocomplete','off'); ta.setAttribute('name','jean-message');
     ta.setAttribute('enterkeyhint','send'); ta.setAttribute('aria-label','message');
+    micBtn=$('button','jst-mic mic-btn', inputBox); micBtn.type='button';
+    micBtn.innerHTML='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>';
+    micBtn.onmousedown=e=>e.preventDefault(); 
+    micBtn.onpointerdown=()=>{ if(typeof dictWarm==='function') dictWarm(); };
+    micBtn.onclick=()=>{ if(typeof toggleDictation==='function') toggleDictation(micBtn, ta); };
     sendBtn=$('button','jst-send', inputBox); sendBtn.type='button';
     sendBtn.innerHTML='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
     sendBtn.onclick=submit;
     scene.addEventListener('click', e=>{
-      if(sendBtn.contains(e.target) || bubble.contains(e.target) || screen.contains(e.target) || capStop.contains(e.target)) return;
+      if(sendBtn.contains(e.target) || micBtn.contains(e.target) || bubble.contains(e.target) || screen.contains(e.target) || capStop.contains(e.target)) return;
       if(document.activeElement===ta) return;
       openInput();
     });
-    ta.addEventListener('blur', ()=>setTimeout(()=>{ if(document.activeElement!==ta && !ta.value.trim() && inputOpen && !inputBox.classList.contains('gulp')) closeInput(); }, 200));
+    ta.addEventListener('blur', ()=>setTimeout(()=>{ if(document.activeElement!==ta && !micBtn.classList.contains('rec') && !micBtn.classList.contains('busy') && !ta.value.trim() && inputOpen && !inputBox.classList.contains('gulp')) closeInput(); }, 200));
     ta.addEventListener('input', ()=>{ grow(); JeanAvatar&&JeanAvatar.listen(); });
     ta.addEventListener('keydown', e=>{
       if(e.key==='Escape'){ e.preventDefault(); closeInput(); return; }
@@ -14027,8 +14520,9 @@ var JeanAvatar = (()=>{
   function applyTexts(){
     ta.placeholder=t('jean.stage_placeholder');
     sendBtn.title=t('chat.send_button_title');
+    micBtn.title=micBtn.ariaLabel=t('stt.mic_title');
     filesBtn.title=filesBtn.ariaLabel=t('jean.files_title');
-    capStop.textContent=t('jean.stage_stop');
+    capStop.querySelector('.cs-l').textContent=t('jean.stage_stop');
     const hist=document.body.classList.contains('jean-history');
     histBtn.title=hist ? t('jean.stage_back') : t('jean.stage_history');
     histBtn.innerHTML = hist
@@ -14114,6 +14608,9 @@ var JeanAvatar = (()=>{
     }
     stage.classList.toggle('busy', working || loading);
     capStop.hidden=!working;
+    if(working && !workStart) workStart=(ELAPSED && ELAPSED.start) || Date.now();
+    if(!working) workStart=0;
+    paintWorkTime();
   }
   function syncScreen(chat, answer){
     const cards=chat ? chat.querySelectorAll(':scope > .cu-shot') : [];
@@ -14144,7 +14641,7 @@ var JeanAvatar = (()=>{
     syncSearch(lastPanel && lastPanel.dataset.tool==='web_search' ? lastPanel : null, answer);
     if(lastPanel && lastPanel!==last){ stage.classList.remove('terminal'); return; }
     const answerAfter=!!(last && answer && (last.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING));
-    const on=!!last && !answerAfter && !stage.classList.contains('browsing') && busy && !!(ELAPSED || RUNNING_TASK);
+    const on=!!last && !answerAfter && !stage.classList.contains('browsing') && busy && !!(ELAPSED || RUNNING_TASK) && !viewOn('hide-term');
     stage.classList.toggle('terminal', on);
     if(!on){ return; }
     const cur=runs[runs.length-1]._tu;
@@ -14430,7 +14927,12 @@ const APP_BRIDGE_JS = `(function(){
   function report(kind, msg, line){ send({v:1, err:{kind:kind, message:String(msg||'').slice(0,300), line:line||0}}); }
   window.addEventListener('error', function(e){ report(e.error&&e.error.name||'Error', e.message, e.lineno); });
   window.addEventListener('unhandledrejection', function(e){ var r=e.reason; report(r&&r.name||'Error', r&&r.message||r, 0); });
-  document.addEventListener('securitypolicyviolation', function(e){ report('Sandbox', 'bloqué par le bac à sable : '+e.violatedDirective+' '+(e.blockedURI||''), e.lineNumber); });
+  // Certains navigateurs (Safari) posent des styles internes sur les contrôles
+  // natifs (select, input…) : ce n'est pas une faute de l'app, on ne le signale pas.
+  document.addEventListener('securitypolicyviolation', function(e){
+    var t=e.target, tag=t&&t.tagName||'';
+    if(/^style-src/.test(e.violatedDirective) && /^(SELECT|OPTION|INPUT|TEXTAREA|BUTTON|VIDEO|AUDIO|DETAILS|PROGRESS|METER)$/.test(tag)) return;
+    report('Sandbox', 'bloqué par le bac à sable : '+e.violatedDirective+' '+(e.blockedURI||''), e.lineNumber); });
   function toBytes(d){
     if(d instanceof Blob) return d.arrayBuffer();
     if(d instanceof ArrayBuffer) return Promise.resolve(d);
@@ -14475,7 +14977,7 @@ async function openApp(id, version){
   document.getElementById('app-err').hidden = true;
   const nonce = appNonce();
   const meta = JSON.stringify({id: a.id, name: a.name, version: n}).replace(/</g,'\\u003c');
-  const csp = "default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'nonce-"+nonce+"'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'none'";
+  const csp = "default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'nonce-"+nonce+"'; style-src-attr 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'none'";
   const dark = document.documentElement.getAttribute('data-theme') === 'dark';
   const doc = '<!doctype html><html data-theme="'+(dark?'dark':'light')+'"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="'+csp+'">'
     + '<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -14634,9 +15136,9 @@ function appAskFix(){
 }
 const APP_ACT = {
   fr: {guide:'Lecture du guide des apps', list:'Liste des apps', read:"Lecture de l'app", create:"Création de l'app", update:"Modification de l'app",
-       script_write:'Écriture du script', script_read:'Lecture du script', script_delete:'Suppression du script', script_test:'Test du script', '':'App'},
+       script_write:'Écriture du script', script_read:'Lecture du script', script_delete:'Suppression du script', script_test:'Test du script', check:"Test de l'app", export:"Export de l'app", data_get:"Lecture des données de l'app", data_set:"Mise à jour des données de l'app", '':'App'},
   en: {guide:'Reading the apps guide', list:'Listing apps', read:'Reading the app', create:'Creating the app', update:'Updating the app',
-       script_write:'Writing script', script_read:'Reading script', script_delete:'Deleting script', script_test:'Testing script', '':'App'},
+       script_write:'Writing script', script_read:'Reading script', script_delete:'Deleting script', script_test:'Testing script', check:'Testing the app', export:'Exporting the app', data_get:'Reading the app data', data_set:'Updating the app data', '':'App'},
 };
 function appToolActLabel(label){
   const s = String(label||'').trim(), i = s.indexOf(' ');
@@ -15230,6 +15732,272 @@ document.addEventListener('keydown', e=>{
     case 'f': if(e.ctrlKey||e.metaKey){ e.preventDefault(); jfEl('jf-filter').focus(); } break;
   }
 });
+let dictRec = null, dictChunks = [], dictStream = null;
+let dictSTT = { api: false, lang: '' }, dictSpeech = null;
+const DICT_MAX_S = 120;
+let dictBtnEl = null, dictTarget = null;
+let dictSrc = null, dictAudio = null, dictRaf = 0, dictTimer = 0, dictT0 = 0;
+const STT_PROVIDERS = [
+  { id: 'groq', name: 'Groq', url: 'https://api.groq.com/openai/v1', model: 'whisper-large-v3-turbo', key: 'gsk_…' },
+  { id: 'openai', name: 'OpenAI', url: 'https://api.openai.com/v1', model: 'gpt-4o-mini-transcribe', key: 'sk-…' },
+  { id: 'mistral', name: 'Mistral (Voxtral)', url: 'https://api.mistral.ai/v1', model: 'voxtral-mini-latest', key: '' },
+  { id: 'fireworks', name: 'Fireworks', url: 'https://audio-prod.api.fireworks.ai/v1', model: 'whisper-v3', key: 'fw_…' },
+  { id: 'local', name: 'Whisper local', url: 'http://127.0.0.1:8000/v1', model: 'whisper-1', key: '' },
+  { id: 'custom', name: '', url: '', model: '', key: '' },
+];
+let sttHasKey = false;
+function sttProvider(){
+  const id = (document.getElementById('stt-provider') || {}).value || 'groq';
+  return STT_PROVIDERS.find(p => p.id === id) || STT_PROVIDERS[0];
+}
+function sttProviderPick(fromLoad){
+  const p = sttProvider();
+  const url = document.getElementById('stt-url'), model = document.getElementById('stt-model');
+  document.getElementById('stt-url-row').style.display = p.id === 'custom' ? '' : 'none';
+  if(p.id !== 'custom') url.value = p.url;
+  if(!fromLoad){ model.value = p.model; if(p.id === 'custom') url.focus(); else sttLoadModels(); }
+  model.placeholder = p.model || 'whisper-1';
+  const k = document.getElementById('stt-key');
+  k.placeholder = sttHasKey ? tf('stt.key_saved', 'clé enregistrée (vide = inchangée)') : (p.key || tf('stt.key_none', 'facultative'));
+}
+async function loadSTT(){
+  try{
+    const r = await jget('/api/stt/settings');
+    const sel = document.getElementById('stt-provider');
+    if(sel && !sel.options.length){
+      sel.innerHTML = STT_PROVIDERS.map(p => '<option value="'+p.id+'">'+escHtml(p.name || tf('stt.custom', 'Autre (adresse à saisir)'))+'</option>').join('');
+    }
+    const known = STT_PROVIDERS.find(p => p.url && p.url === r.url);
+    sel.value = known ? known.id : 'custom';
+    document.getElementById('stt-url').value = r.url || '';
+    document.getElementById('stt-model').value = r.model || '';
+    document.getElementById('stt-lang').value = r.lang || '';
+    document.getElementById('stt-key').value = '';
+    sttHasKey = !!r.has_key;
+    sttProviderPick(true);
+    dictSTT = { api: !!r.has_key || r.url !== r.default_url, lang: r.lang || '' };
+    if(dictSTT.api) sttLoadModels();
+  }catch(e){}
+}
+let sttModelsSeq = 0;
+async function sttLoadModels(){
+  const seq = ++sttModelsSeq;
+  const sel = document.getElementById('stt-model-sel'), inp = document.getElementById('stt-model');
+  const p = sttProvider();
+  const url = p.id === 'custom' ? document.getElementById('stt-url').value.trim() : p.url;
+  const key = (document.getElementById('stt-key').value || '').trim();
+  let r = null;
+  if(url) r = await jpost('/api/stt/models', {url, key}).catch(() => null);
+  if(seq !== sttModelsSeq) return;
+  const list = r && !r.error ? [...(r.audio || []), ...(r.other || [])] : [];
+  if(!list.length){ sel.style.display = 'none'; inp.style.display = ''; return; }
+  const cur = inp.value.trim();
+  const opt = (v, txt) => '<option value="'+escHtml(v)+'">'+escHtml(txt || v)+'</option>';
+  let html = '';
+  if(r.audio && r.audio.length) html += '<optgroup label="'+escHtml(tf('stt.models_audio', 'Transcription'))+'">'+r.audio.map(v => opt(v)).join('')+'</optgroup>';
+  if(r.other && r.other.length) html += '<optgroup label="'+escHtml(tf('stt.models_other', 'Autres modèles'))+'">'+r.other.map(v => opt(v)).join('')+'</optgroup>';
+  html += opt('__custom', tf('stt.model_custom', 'Autre (saisir le nom)'));
+  sel.innerHTML = html;
+  if(cur && !list.includes(cur)){ sel.value = '__custom'; inp.style.display = ''; }
+  else { sel.value = cur || list[0]; inp.value = sel.value; inp.style.display = 'none'; }
+  sel.style.display = '';
+}
+function sttModelPick(){
+  const sel = document.getElementById('stt-model-sel'), inp = document.getElementById('stt-model');
+  if(sel.value === '__custom'){ inp.style.display = ''; inp.value = ''; inp.focus(); }
+  else { inp.style.display = 'none'; inp.value = sel.value; }
+}
+async function saveSTT(){
+  const g = id => ((document.getElementById(id) || {}).value || '').trim();
+  const p = sttProvider();
+  const url = p.id === 'custom' ? g('stt-url') : p.url;
+  if(!url){ toast(tf('stt.url_missing', "Adresse de l'API manquante")); return; }
+  const r = await jpost('/api/stt/settings', { url, key: g('stt-key'), model: g('stt-model') || p.model, lang: g('stt-lang') }).catch(e => ({ok:false, error:String(e)}));
+  if(!r.ok){ toast(r.error || t('chat.error')); return; }
+  toast(tf('stt.saved', 'Dictée vocale enregistrée'));
+  loadSTT();
+}
+function dictBtn(state){
+  const b = dictBtnEl || document.getElementById('mic-btn');
+  if(!b) return;
+  if(!b.querySelector(':scope>.mic-stop')) b.insertAdjacentHTML('afterbegin', '<svg class="mic-stop" viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="3"/></svg>');
+  b.classList.toggle('rec', state === 'rec');
+  b.classList.toggle('busy', state === 'busy');
+  b.title = state === 'rec' ? tf('stt.stop_title', 'Arrêter et transcrire') : tf('stt.mic_title', 'Dicter un message');
+}
+function dictInsert(text){
+  text = (text || '').trim();
+  if(!text) return;
+  const ta = dictTarget || document.getElementById('input');
+  const a = ta.selectionStart ?? ta.value.length, z = ta.selectionEnd ?? ta.value.length;
+  const before = ta.value.slice(0, a), after = ta.value.slice(z);
+  const ins = (before && !/\s$/.test(before) ? ' ' : '') + text + (after && !/^\s/.test(after) ? ' ' : '');
+  ta.value = before + ins + after;
+  const pos = (before + ins).length;
+  ta.focus(); ta.setSelectionRange(pos, pos);
+  ta.dispatchEvent(new Event('input', {bubbles: true}));
+}
+function dictBrowser(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){
+    askAlert(tf('stt.no_browser', "Ce navigateur ne sait pas dicter. Réglez une API de transcription dans Paramètres > Dictée vocale."));
+    return;
+  }
+  const lang = dictSTT.lang || navigator.language || (currentLang() === 'fr' ? 'fr-FR' : 'en-US');
+  const rec = new SR();
+  rec.lang = lang.length === 2 ? lang + '-' + lang.toUpperCase() : lang;
+  rec.continuous = true;
+  rec.interimResults = false;
+  rec.onresult = e => {
+    for(let i = e.resultIndex; i < e.results.length; i++) if(e.results[i].isFinal) dictInsert(e.results[i][0].transcript);
+  };
+  rec.onerror = e => {
+    if(e.error === 'not-allowed' || e.error === 'service-not-allowed') askAlert(tf('stt.denied', "Accès au micro refusé."));
+    else if(e.error !== 'no-speech' && e.error !== 'aborted') toast(tf('stt.browser_error', 'Dictée interrompue : ') + e.error);
+  };
+  rec.onend = () => { dictSpeech = null; dictBtn(''); };
+  try{ rec.start(); }catch(e){ askAlert(String(e)); return; }
+  dictSpeech = rec;
+  dictBtn('rec');
+}
+const DICT_KEEP_MS = 30000;
+let dictStreamP = null, dictReleaseT = 0;
+function dictGetStream(){
+  if(dictStream && dictStream.getAudioTracks().some(t => t.readyState === 'live')) return Promise.resolve(dictStream);
+  if(!dictStreamP){
+    dictStreamP = navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}})
+      .then(st => { dictStream = st; dictStreamP = null; return st; }, e => { dictStreamP = null; throw e; });
+  }
+  return dictStreamP;
+}
+function dictWarm(){
+  if(!dictSTT.api || !navigator.mediaDevices || dictSpeech || (dictRec && dictRec.state === 'recording') || dictVoiceOn()) return;
+  dictGetStream().then(() => dictRelease()).catch(() => {});
+}
+function dictRelease(){
+  clearTimeout(dictReleaseT);
+  dictReleaseT = setTimeout(() => {
+    if(dictRec && dictRec.state === 'recording') return;
+    if(dictStream){ dictStream.getTracks().forEach(t => t.stop()); dictStream = null; }
+  }, DICT_KEEP_MS);
+}
+const dictVoiceOn = () => document.body.classList.contains('jean-voice');
+let dictDrop = false;
+function dictCancel(){
+  if(dictSpeech){ try{ dictSpeech.abort(); }catch(e){} }
+  if(dictRec && dictRec.state === 'recording'){ dictDrop = true; dictRec.stop(); }
+}
+function dictWatchVoice(){
+  new MutationObserver(() => { if(dictVoiceOn()) dictCancel(); }).observe(document.body, {attributes: true, attributeFilter: ['class']});
+}
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', dictWatchVoice); else dictWatchVoice();
+async function toggleDictation(btn, target){
+  if(!dictSpeech && !(dictRec && dictRec.state === 'recording')){
+    dictBtnEl = btn || document.getElementById('mic-btn');
+    dictTarget = target || document.getElementById('input');
+  }
+  if(dictSpeech){ dictSpeech.stop(); return; }
+  if(dictRec && dictRec.state === 'recording'){ dictRec.stop(); return; }
+  if(dictVoiceOn()) return;
+  if(!dictSTT.api){ dictBrowser(); return; }
+  if(!navigator.mediaDevices || !window.MediaRecorder){
+    askAlert(tf('stt.no_mic', "Le micro n'est pas disponible ici (il faut une page en HTTPS ou localhost)."));
+    return;
+  }
+  dictBtn('rec'); 
+  try{
+    dictStream = await dictGetStream();
+  }catch(e){
+    dictBtn('');
+    askAlert(tf('stt.denied', "Accès au micro refusé."));
+    return;
+  }
+  clearTimeout(dictReleaseT);
+  const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'].find(m => MediaRecorder.isTypeSupported(m)) || '';
+  dictChunks = [];
+  dictRec = new MediaRecorder(dictStream, mime ? {mimeType: mime} : undefined);
+  dictRec.ondataavailable = e => { if(e.data && e.data.size) dictChunks.push(e.data); };
+  dictRec.onstop = () => dictSend(dictRec.mimeType || mime);
+  dictRec.start();
+  dictBtn('rec');
+  dictWaveStart(dictStream);
+}
+function dictFmt(s){ return Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0'); }
+function dictWaveStart(stream){
+  const b = dictBtnEl;
+  if(!b) return;
+  let w = b.querySelector('.mic-rec');
+  if(!w){
+    w = document.createElement('span'); w.className = 'mic-rec';
+    w.innerHTML = '<canvas width="72" height="18"></canvas><span class="mic-time"></span>';
+    b.appendChild(w);
+  }
+  b.classList.add('wave');
+  const cv = w.querySelector('canvas'), tm = w.querySelector('.mic-time'), g = cv.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = 72 * dpr; cv.height = 18 * dpr; cv.style.width = '72px'; cv.style.height = '18px';
+  dictT0 = Date.now();
+  const tick = () => {
+    const s = (Date.now() - dictT0) / 1000;
+    tm.textContent = dictFmt(s) + ' / ' + dictFmt(DICT_MAX_S);
+    if(s >= DICT_MAX_S && dictRec && dictRec.state === 'recording') dictRec.stop();
+  };
+  tick(); dictTimer = setInterval(tick, 250);
+  let an = null;
+  try{
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!dictAudio) dictAudio = new AC();
+    if(dictAudio.state === 'suspended') dictAudio.resume();
+    an = dictAudio.createAnalyser(); an.fftSize = 512;
+    an.minDecibels = -68; an.maxDecibels = -20; an.smoothingTimeConstant = 0.7;
+    dictSrc = dictAudio.createMediaStreamSource(stream); dictSrc.connect(an);
+  }catch(e){}
+  const N = 20, bars = new Array(N).fill(0);
+  const fdata = an ? new Uint8Array(an.frequencyBinCount) : null;
+  const col = getComputedStyle(b).color;
+  const draw = () => {
+    dictRaf = requestAnimationFrame(draw);
+    if(an) an.getByteFrequencyData(fdata);
+    const W = cv.width, H = cv.height, bw = W / N;
+    g.clearRect(0, 0, W, H); g.fillStyle = col;
+    for(let i = 0; i < N; i++){
+      const k = Math.abs(i - (N - 1) / 2) / ((N - 1) / 2);
+      let raw = 0;
+      if(fdata){ const lo = 3 + Math.round(k * 22); for(let j = lo; j < lo + 3; j++) raw += fdata[j]; raw /= 3 * 255; }
+      const v = Math.min(1, Math.max(0, (raw - 0.25) / 0.6)) * (1 - 0.45 * k);
+      bars[i] += (v - bars[i]) * 0.35; 
+      const h = Math.max(2 * dpr, bars[i] * H);
+      const w = Math.max(1.5 * dpr, bw * 0.34);
+      g.fillRect(i * bw + (bw - w) / 2, (H - h) / 2, w, h);
+    }
+  };
+  draw();
+}
+function dictWaveStop(){
+  cancelAnimationFrame(dictRaf); dictRaf = 0;
+  clearInterval(dictTimer); dictTimer = 0;
+  if(dictSrc){ try{ dictSrc.disconnect(); }catch(e){} dictSrc = null; }
+  if(dictBtnEl) dictBtnEl.classList.remove('wave');
+}
+async function dictSend(mime){
+  dictWaveStop();
+  if(dictStream){ dictStream.getTracks().forEach(t => t.stop()); dictStream = null; }
+  if(dictDrop){ dictDrop = false; dictChunks = []; dictBtn(''); return; }
+  const blob = new Blob(dictChunks, {type: mime || 'audio/webm'});
+  dictChunks = [];
+  if(blob.size < 1000){ dictBtn(''); return; }
+  dictBtn('busy');
+  try{
+    const b64 = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1] || ''); fr.onerror = rej; fr.readAsDataURL(blob); });
+    const r = await jpost('/api/stt', {audio: b64, mime: blob.type});
+    if(r.error){ askAlert(r.error); return; }
+    dictInsert(r.text);
+  }catch(e){
+    askAlert(String(e));
+  }finally{
+    dictBtn('');
+  }
+}
 (()=>{
   let enabled=false, on=false, btn=null, pill=null, sens=2, silenceMs=800;
   let ctx=null, stream=null, srcNode=null, proc=null;
@@ -15476,6 +16244,44 @@ document.addEventListener('keydown', e=>{
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
+let jeanMemSeen = null, jeanMemHideT = 0, jeanMemDone = false;
+function jeanMemPill(){
+  let p = document.getElementById('jean-mem-pill');
+  if(!p){
+    const main = document.querySelector('.main'); if(!main) return null;
+    p = document.createElement('div'); p.id = 'jean-mem-pill'; p.setAttribute('role', 'status');
+    p.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg><span class="jmp-txt"></span>';
+    p.onclick = () => { if(typeof openJeanMem === 'function') openJeanMem(); };
+    main.appendChild(p);
+  }
+  return p;
+}
+function jeanMemActivity(a){
+  if(typeof MODE === 'undefined' || MODE !== 'jean' || !a) { const p = document.getElementById('jean-mem-pill'); if(p) p.classList.remove('show'); return; }
+  const p = jeanMemPill(); if(!p) return;
+  const txt = p.querySelector('.jmp-txt');
+  if(a.running){
+    clearTimeout(jeanMemHideT);
+    const n = (a.changes || []).length;
+    txt.textContent = tf('jeanmem.running', 'Mise à jour de la mémoire…') + (n ? ' (' + n + ')' : '');
+    p.title = (a.changes || []).join('\n');
+    p.classList.add('show', 'working');
+    return;
+  }
+  p.classList.remove('working');
+  if(jeanMemSeen === null){ jeanMemSeen = a.last || 0; p.classList.remove('show'); return; }
+  if(a.last && a.last > jeanMemSeen && (a.changes || []).length){
+    jeanMemSeen = a.last;
+    txt.textContent = tf('jeanmem.done', 'Mémoire mise à jour') + ' : ' + a.changes.slice(0, 3).join(' · ') + (a.changes.length > 3 ? ' · +' + (a.changes.length - 3) : '');
+    p.title = a.changes.join('\n');
+    p.classList.add('show');
+    jeanMemDone = true;
+    clearTimeout(jeanMemHideT);
+    jeanMemHideT = setTimeout(() => { jeanMemDone = false; p.classList.remove('show'); }, 8000);
+  } else if(!jeanMemDone){
+    p.classList.remove('show');
+  }
+}
 let VOICE_SET=null;
 const _voicePlayer=new Audio();
 function _voicePlay(b64){
@@ -15558,4 +16364,129 @@ async function voiceDelete(){
   }catch(e){ toast(t('voice.error').replace('{msg}', e.message)); }
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', loadVoiceSettings); else loadVoiceSettings();
+const ROUTE_MODALS = {files:'jean-files-modal', memory:'jean-mem-modal', trackers:'tracker-modal'};
+const ROUTE_SECTIONS = {device:'device.title', config:'config.title', models:'presets.title', tasks:'tasks.title',
+  appearance:'appearance.title', api:'api.title', link:'link.title', engine:'engine.title', settings:'settings.section_title'};
+(function(){
+  const OPEN = {files:()=>openJeanFiles(), memory:()=>openJeanMem(), trackers:()=>openTrackerHub('')};
+  const CLOSE = {files:()=>closeJeanFiles(), memory:()=>closeJeanMem(), trackers:()=>closeTrackerModal()};
+  let section = '';      
+  let applying = 0;      
+  let started = false;   
+  let chain = Promise.resolve();
+  let clicked = null, clickedAt = 0;   
+  const el = (id)=>document.getElementById(id);
+  const shown = (id)=>{ const m = el(id); return !!m && m.classList.contains('show'); };
+  const appRun = ()=>(typeof APP_RUN !== 'undefined' && APP_RUN) ? APP_RUN : null;
+  const sideView = ()=>typeof SIDE_VIEW !== 'undefined' ? SIDE_VIEW : 'main';
+  function sectionEl(name){
+    const key = ROUTE_SECTIONS[name];
+    const title = key && document.querySelector('#side-main > details > summary .stitle[data-i18n="'+key+'"]');
+    return title ? title.closest('details') : null;
+  }
+  function sectionName(d){
+    const title = d.querySelector(':scope > summary .stitle');
+    const key = title && title.getAttribute('data-i18n');
+    for(const n in ROUTE_SECTIONS) if(ROUTE_SECTIONS[n] === key) return n;
+    return '';
+  }
+  function routeNow(){
+    for(const n in ROUTE_MODALS) if(shown(ROUTE_MODALS[n])) return '/'+n;
+    const run = appRun();
+    if(run) return '/apps/'+encodeURIComponent(run.id);
+    if(sideView() === 'hist') return '/history';
+    if(sideView() === 'apps') return '/apps';
+    const d = section && sectionEl(section);
+    if(d && d.open) return '/'+section;
+    return '/';
+  }
+  function routeRead(){
+    const h = location.hash || '';
+    if(h.charAt(1) !== '/') return null;
+    const parts = h.slice(2).split('/').filter(Boolean);
+    let arg = parts[1] || '';
+    try{ arg = decodeURIComponent(arg); }catch(_){}
+    return {name: parts[0] || '', arg};
+  }
+  let queued = false;
+  function routeSync(){
+    if(queued) return;
+    queued = true;
+    setTimeout(()=>{
+      queued = false;
+      if(!started || applying) return;
+      const next = '#'+routeNow();
+      if(next === location.hash) return;
+      if(next === '#/' && !routeRead()) return;   
+      try{ history.pushState(null, '', next); }catch(_){}
+    }, 0);
+  }
+  let drawerByRoute = false;
+  const drawerOpen = ()=>document.body.classList.contains('drawer-open');
+  function showSide(){
+    const s = el('side');
+    if(s && s.getBoundingClientRect().right <= 1 && !drawerOpen()){ toggleSide(); drawerByRoute = true; }
+  }
+  function hideSide(){
+    if(drawerByRoute && drawerOpen()) toggleSide();
+    drawerByRoute = false;
+  }
+  async function routeApply(r){
+    const name = r ? r.name : '', arg = r ? r.arg : '';
+    applying++;
+    try{
+      for(const n in ROUTE_MODALS) if(n !== name && shown(ROUTE_MODALS[n])) CLOSE[n]();
+      if(appRun() && !(name === 'apps' && arg)) closeAppRun();
+      if(ROUTE_MODALS[name]){
+        if(!shown(ROUTE_MODALS[name])) OPEN[name]();
+      } else if(name === 'history'){
+        showSide();
+        if(sideView() !== 'hist'){ showSideView('hist'); loadHistory(); }
+      } else if(name === 'apps'){
+        showSide();
+        if(sideView() !== 'apps') await openAppsView();
+        if(arg && !(appRun() && appRun().id === arg)) await openApp(arg);
+      } else {
+        if(sideView() !== 'main') showSideView('main');
+        const d = sectionEl(name), old = section && section !== name ? sectionEl(section) : null;
+        if(old) old.open = false;
+        section = d ? name : '';
+        if(d){ showSide(); d.open = true; d.scrollIntoView({block:'nearest'}); }
+        else hideSide();
+      }
+    }catch(_){   }
+    applying--;
+    const real = '#'+routeNow();
+    if(real !== location.hash && (routeRead() || real !== '#/')){
+      try{ history.replaceState(null, '', real); }catch(_){}
+    }
+  }
+  function start(){
+    const mo = new MutationObserver(routeSync);
+    for(const n in ROUTE_MODALS){ const m = el(ROUTE_MODALS[n]); if(m) mo.observe(m, {attributes:true, attributeFilter:['class']}); }
+    for(const id of ['side-main', 'side-hist', 'side-apps', 'app-run']){ const v = el(id); if(v) mo.observe(v, {attributes:true, attributeFilter:['hidden']}); }
+    document.addEventListener('click', (e)=>{
+      const sum = e.target.closest && e.target.closest('#side-main > details > summary');
+      if(sum){ clicked = sum.parentElement; clickedAt = Date.now(); }
+    }, true);
+    document.addEventListener('toggle', (e)=>{
+      const d = e.target;
+      if(!d || d.parentElement !== el('side-main')) return;
+      const n = sectionName(d);
+      if(!n) return;
+      if(d.open){
+        if(d === clicked && Date.now() - clickedAt < 1500){ section = n; routeSync(); }
+      } else if(section === n){ section = ''; routeSync(); }
+    }, true);
+    addEventListener('popstate', ()=>{
+      if(!routeRead() && (location.hash || /#$/.test(location.href))) return;
+      chain = chain.then(()=>routeApply(routeRead()));
+    });
+    const first = routeRead();
+    if(first && first.name) chain = chain.then(()=>routeApply(first));
+    chain = chain.then(()=>{ started = true; });
+  }
+  if(document.readyState === 'complete') setTimeout(start, 0);
+  else addEventListener('load', ()=>setTimeout(start, 0));
+})();
 </script></body></html>
