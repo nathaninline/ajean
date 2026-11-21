@@ -784,6 +784,54 @@ func TestWebListenHost(t *testing.T) {
 	}
 }
 
+// Réglage enregistré : mot de passe retiré ensuite, ou base illisible — le
+// service démarre quand même, sur cette machine seulement (jamais sur 0.0.0.0,
+// et sans s'arrêter : l'interface et le tunnel doivent rester joignables).
+func TestWebListenHostFallsBackToLoopback(t *testing.T) {
+	pwTestSetup(t)
+	t.Setenv("AJEAN_HOST", "")
+	if err := setWebPassword(testPw); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdUIListen([]string{"192.168.1.10"}); err != nil {
+		t.Fatal(err)
+	}
+	if h, err := webListenHost(); err != nil || h != "192.168.1.10" {
+		t.Fatalf("protégé : %q %v", h, err)
+	}
+	// Mot de passe retiré depuis l'interface : plus de protection.
+	if err := removeWebPassword(); err != nil {
+		t.Fatal(err)
+	}
+	if h, err := webListenHost(); err != nil || h != "127.0.0.1" {
+		t.Fatalf("sans protection, le service doit démarrer sur 127.0.0.1 : %q %v", h, err)
+	}
+	// Adresse enregistrée invalide : idem.
+	if err := putStr(bkState, stWebHost, "pas-une-adresse"); err != nil {
+		t.Fatal(err)
+	}
+	if h, err := webListenHost(); err != nil || h != "127.0.0.1" {
+		t.Fatalf("adresse enregistrée invalide : %q %v", h, err)
+	}
+	// Base illisible : on ne sait pas si l'accès réseau avait été fermé. Surtout
+	// pas 0.0.0.0.
+	home := testHome(t)
+	if err := putStr(bkState, stWebHost, "127.0.0.1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(home+"/ajean.db", []byte("ceci n'est pas une base"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if h, err := webListenHost(); err != nil || h != "127.0.0.1" {
+		t.Fatalf("base illisible : %q %v", h, err)
+	}
+	// Demandé explicitement dans l'environnement, sans protection : toujours un refus.
+	t.Setenv("AJEAN_HOST", "0.0.0.0")
+	if _, err := webListenHost(); err == nil {
+		t.Fatal("AJEAN_HOST=0.0.0.0 sans protection devait rester refusé")
+	}
+}
+
 func TestLoginClientIPAndBucket(t *testing.T) {
 	r := pwReq("POST", "/api/auth/login", "")
 	r.Header.Set("X-Forwarded-For", "1.2.3.4")

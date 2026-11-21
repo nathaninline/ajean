@@ -325,6 +325,25 @@ func TestReviewUnreadableStateBlocks(t *testing.T) {
 	}
 }
 
+// Base illisible : on ne sait pas si la validation est activée. Une tâche ne
+// part pas (avant : l'interrupteur illisible passait pour « éteint »).
+func TestReviewUnreadableDBBlocks(t *testing.T) {
+	reviewTestHome(t)
+	tk := Task{ID: "t1", Name: "T", Prompt: "p", Schedule: "@every 2h", Enabled: true}
+	if err := saveTask(tk); err != nil {
+		t.Fatal(err)
+	}
+	if !reviewTaskValid(tk) {
+		t.Fatal("validation éteinte et base lisible : la tâche part")
+	}
+	if err := os.WriteFile(filepath.Join(AjeanHome(), "ajean.db"), []byte("ceci n'est pas une base"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if reviewTaskValid(tk) {
+		t.Fatal("base illisible : une tâche ne doit pas être tenue pour validée")
+	}
+}
+
 func TestHandleReview(t *testing.T) {
 	reviewTestHome(t)
 	call := func(method, body string) (int, map[string]any) {

@@ -992,19 +992,41 @@ const stWebHost = "web_host"
 // l'interface, on refuse de le faire à découvert. Le défaut, lui, ne change pas.
 func webListenHost() (string, error) {
 	h := strings.TrimSpace(os.Getenv("AJEAN_HOST"))
-	src := "AJEAN_HOST"
-	if h == "" {
-		h, src = strings.TrimSpace(getStr(bkState, stWebHost)), "ajean ui listen"
+	if h != "" {
+		// Demandée à l'instant, dans l'environnement : celui qui lance voit l'erreur.
+		ip, err := parseListenHost(h)
+		if err != nil {
+			return "", fmt.Errorf("AJEAN_HOST : %w", err)
+		}
+		if !ip.IsLoopback() && !webKeyConfigured() && !webPasswordConfigured() {
+			return "", fmt.Errorf("AJEAN_HOST=%s ouvre l'interface au réseau : définis d'abord un mot de passe (« ajean password ») ou une clé de pilotage (« ajean set-web-key »)", h)
+		}
+		return ip.String(), nil
 	}
+	// Réglage ENREGISTRÉ (« ajean ui listen »), lu par un service que personne ne
+	// regarde démarrer. Deux prudences :
+	//   - lecture ratée : on ne sait pas si l'utilisateur avait fermé l'accès
+	//     réseau. Retomber sur 0.0.0.0 le rouvrirait ; on écoute sur cette machine.
+	//   - adresse du réseau mais plus aucune protection (mot de passe retiré depuis
+	//     l'interface) : refuser de démarrer couperait l'interface ET le tunnel
+	//     ajean.link. On écoute sur cette machine, et on le dit.
+	raw, err := getBytesErr(bkState, stWebHost)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s adresse d'écoute illisible (%v) : l'interface n'écoute que sur cette machine (127.0.0.1)\n", yellow("[!]"), err)
+		return "127.0.0.1", nil
+	}
+	h = strings.TrimSpace(string(raw))
 	if h == "" {
 		return "0.0.0.0", nil
 	}
 	ip, err := parseListenHost(h)
 	if err != nil {
-		return "", fmt.Errorf("%s : %w", src, err)
+		fmt.Fprintf(os.Stderr, "%s adresse d'écoute enregistrée invalide (%v) : l'interface n'écoute que sur cette machine (127.0.0.1) — corrige avec « ajean ui listen »\n", yellow("[!]"), err)
+		return "127.0.0.1", nil
 	}
 	if !ip.IsLoopback() && !webKeyConfigured() && !webPasswordConfigured() {
-		return "", fmt.Errorf("%s=%s ouvre l'interface au réseau : définis d'abord un mot de passe (« ajean password ») ou une clé de pilotage (« ajean set-web-key »)", src, h)
+		fmt.Fprintf(os.Stderr, "%s écoute demandée sur %s (« ajean ui listen ») mais plus rien ne protège l'interface : elle n'écoute que sur cette machine (127.0.0.1). Redéfinis un mot de passe (« ajean password ») pour rouvrir l'accès réseau.\n", yellow("[!]"), ip)
+		return "127.0.0.1", nil
 	}
 	return ip.String(), nil
 }
