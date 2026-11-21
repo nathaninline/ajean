@@ -30,7 +30,9 @@ function cselOpen(sel){
   CSEL = {sel, items, idx};
 }
 
-function cselPick(sel, o){
+// kbd : choix fait au clavier. Seul ce cas rend le focus à la liste : sur iPhone,
+// le focus d'un <select> ouvre le sélecteur natif, qui revenait après chaque choix.
+function cselPick(sel, o, kbd){
   closeMenu();
   if(o.disabled) return;
   if(!o.selected){
@@ -38,7 +40,7 @@ function cselPick(sel, o){
     sel.dispatchEvent(new Event('input', {bubbles:true}));
     sel.dispatchEvent(new Event('change', {bubbles:true}));
   }
-  try{ sel.focus({preventScroll:true}); }catch(_){}
+  if(kbd){ try{ sel.focus({preventScroll:true}); }catch(_){} }
 }
 
 const cselOk = (s)=> s && s.tagName === 'SELECT' && !s.multiple && !s.disabled && !(s.size > 1) && s.offsetParent !== null;
@@ -62,7 +64,7 @@ document.addEventListener('keydown', (e)=>{
     };
     if(e.key === 'ArrowDown'){ e.preventDefault(); move(1); }
     else if(e.key === 'ArrowUp'){ e.preventDefault(); move(-1); }
-    else if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); if(i >= 0) cselPick(CSEL.sel, items[i].o); }
+    else if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); if(i >= 0) cselPick(CSEL.sel, items[i].o, true); }
     else if(e.key === 'Tab') closeMenu();
     return;
   }
