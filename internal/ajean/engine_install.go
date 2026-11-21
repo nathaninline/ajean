@@ -304,6 +304,9 @@ func engineInstall(force bool, logf, phasef func(string)) (*engineInfo, error) {
 		if ctx.Err() != nil {
 			return nil, errors.New("installation du moteur annulée")
 		}
+		if errors.Is(err, errEnginePlace) {
+			return nil, fmt.Errorf("variante %s : %w", v.Label, err)
+		}
 		reasons = append(reasons, v.Label+" : "+err.Error())
 		if i < len(cands)-1 {
 			logf("✗ " + v.Label + " écartée (" + err.Error() + ") : essai de " + cands[i+1].Label)
@@ -385,11 +388,16 @@ func engineInstallVariant(ctx context.Context, tag string, v engineVariant, dl s
 		return nil, err
 	}
 	final := engineDir(tag)
-	if err := os.RemoveAll(final); err != nil {
-		return nil, fmt.Errorf("le moteur en place ne peut pas être remplacé (encore en cours d'exécution ?) : %w", err)
+	// Mise en place : sous Windows, l'antivirus analyse encore les DLL tout juste
+	// extraites et refuse un instant le renommage (« Access is denied ») ; on
+	// réessaie quelques secondes (issue #199). Un échec ici ne dit rien de la
+	// variante, qui vient de passer la sonde : errEnginePlace arrête l'installation
+	// au lieu de se replier en silence sur une variante moins bonne.
+	if err := retryFS(func() error { return os.RemoveAll(final) }); err != nil {
+		return nil, fmt.Errorf("%w : le moteur en place ne peut pas être remplacé (encore en cours d'exécution ?) : %v", errEnginePlace, err)
 	}
-	if err := os.Rename(stage, final); err != nil {
-		return nil, fmt.Errorf("mise en place du moteur : %w", err)
+	if err := retryFS(func() error { return os.Rename(stage, final) }); err != nil {
+		return nil, fmt.Errorf("%w : %v", errEnginePlace, err)
 	}
 	info.dir = final
 	return info, nil
@@ -526,4 +534,21 @@ func engineStatusCLI() error {
 // verrouille). Un service qui tourne sur un moteur de la 0.18 n'est pas touché.
 func enginePinnedRunning() bool {
 	return engineInstalled() != nil && usesPinnedEngine(ReadConfig()) && serviceIsActive()
+}
+
+// errEnginePlace : la variante fonctionne, mais ses fichiers n'ont pas pu être
+// mis en place. Ce n'est pas une raison d'essayer la variante suivante.
+var errEnginePlace = errors.New("mise en place du moteur impossible")
+
+// retryFS réessaie une opération de fichiers pendant ~10 s : un antivirus ou
+// l'indexation tient parfois un fichier tout juste écrit.
+func retryFS(op func() error) error {
+	var err error
+	for i := 0; i < 20; i++ {
+		if err = op(); err == nil {
+			return nil
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	return err
 }

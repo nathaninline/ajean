@@ -459,3 +459,19 @@ func TestEngineCmdlineIsStale(t *testing.T) {
 		}
 	}
 }
+
+// Issue #199 : un refus passager (antivirus) au renommage ne doit pas faire
+// écarter la variante.
+func TestRetryFSTransient(t *testing.T) {
+	n := 0
+	err := retryFS(func() error {
+		n++
+		if n < 3 {
+			return errors.New("Access is denied")
+		}
+		return nil
+	})
+	if err != nil || n != 3 {
+		t.Fatalf("retryFS : err=%v après %d essais", err, n)
+	}
+}

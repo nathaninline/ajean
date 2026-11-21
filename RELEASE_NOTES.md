@@ -1,68 +1,38 @@
-La 0.21 repart de la 0.18.17 et n'en retire rien : compilation de llama.cpp, binaires précompilés, forks, ExLlama, AJEAN MoE, GPU Cloud, voix et scène de Jean, interrupteur du mode agent et les quatre modes sont tous là. Elle y ajoute ce que les 0.19 et 0.20 avaient apporté de bien, et plusieurs idées de la 1.0.
+La 0.21.1 termine ce que la 0.21.0 avait laissé en ligne de commande, corrige deux problèmes signalés (benchmark coupé, CUDA écarté sous Windows) et simplifie l'interface.
 
-## Repris de la 0.20
+## Moteur et presets dans l'interface
 
-- **Dictée vocale.** Un bouton micro à droite du sélecteur de mode enregistre la voix (2 minutes au maximum, avec une onde et un compteur) et insère le texte dans le champ. La transcription passe par une API Whisper compatible OpenAI (Groq par défaut), réglable dans Paramètres > Dictée vocale ; sans clé, la dictée intégrée au navigateur est utilisée. Elle s'ajoute à la conversation à voix haute du mode Jean, qui ne change pas.
-- **Bench réglable.** Le bouton bench ouvre une fenêtre où l'on choisit le nombre de tokens lus (2k, 10k, 25k, 50k, 100k) et générés (100, 300, 1k, 3k). L'avancement s'affiche pendant la mesure et le dernier choix est retenu.
-- **Recherche Hugging Face.** Le champ « Télécharger un modèle » cherche les dépôts GGUF : on choisit un dépôt, puis une quantification avec sa taille. Un lien direct fonctionne toujours.
-- **Presets API : la liste des modèles du fournisseur et le réglage Réflexion.** Le champ Modèle propose les modèles que l'API annonce. La réflexion se règle (défaut du fournisseur, désactivée, faible, moyenne, élevée) et AJEAN la traduit vers le paramètre du fournisseur reconnu à son adresse. Si le fournisseur la refuse, la requête repart sans elle et c'est indiqué sous la réponse.
-- **Apps : l'IA les gère mieux.** Elle peut tester une app comme un utilisateur (cliquer, saisir, choisir une option, appuyer sur une touche, puis voir le rendu) et lire ou modifier directement ses données.
-- **Windows.** Relancer AJEAN ramène la fenêtre existante au lieu d'en ouvrir une seconde. Les questions d'installation et de mise à jour passent par la boîte de dialogue actuelle de Windows, nette à toutes les échelles. L'icône est lissée, avec les tailles de la barre des tâches à 125, 150 et 250 %.
-- **Moteur AJEAN.** Une version précise de llama.cpp (**b12257**), testée avec cette version d'AJEAN, téléchargée avec vérification de son empreinte, avec ses bibliothèques CUDA. C'est un moteur de plus, à côté du précompilé, du compilé et des forks. Un preset sans `BIN` l'utilise ; un preset qui a déjà son moteur le garde. Il n'est pas téléchargé sur une machine qui a déjà un moteur en service.
-- **Presets Service.** Une commande de votre choix (vLLM, un autre llama-server, TabbyAPI, un script) qui expose une API OpenAI sur la machine : AJEAN la lance dans son service moteur et utilise son API. L'adresse est déduite du `--port` de la commande et la clé de son `--api-key`.
+- **llama.cpp stable.** Le moteur épinglé de la 0.21 (llama.cpp **b12257**, testé pour cette version d'AJEAN) a sa carte dans la section Moteur : installer, réparer, imposer une variante (CUDA, Vulkan…) quand la machine en propose plusieurs. La variante installée y reste affichée.
+- **Choix du moteur d'un preset en liste.** « Moteur utilisé » propose Stable, Précompilé, Compilé, Personnalisé et, sur carte NVIDIA, ExLlama, avec une ligne d'explication. Un moteur absent affiche toujours l'avertissement et le bouton d'installation.
+- **Presets Service depuis l'éditeur.** Exécution > Service : une commande (vLLM, un autre llama-server, TabbyAPI…) lancée par AJEAN, dont l'adresse et la clé se déduisent de `--port` et `--api-key`. Les presets Service ont leur étiquette dans la liste.
+- **API externe : l'échantillonnage qui a du sens.** Température, top_p et pénalité de présence restent réglables et sont envoyés ; top_k, min_p et la pénalité de répétition, propres à llama.cpp, ne partent plus vers une API distante (OpenAI les refusait). Les presets locaux et Service gardent tout.
+- **Liste des modèles d'une API** : elle se charge aussi quand le coffre des clés est activé.
 
-## Repris de la 0.19
+## Corrections signalées
 
-- **Mode Jean.** Une pastille indique quand Jean range ou révise sa mémoire, les outils de mémoire ont des libellés lisibles dans le fil, et la durée de travail s'affiche dans le bouton Arrêter. Une option d'apparence masque les commandes du terminal en plein écran.
-- **Tâches planifiées avec script.** Le script est rendu exécutable avant d'être lancé, et ce qu'il affiche est publié dans la conversation.
+- **Benchmark coupé sur les grosses mesures** (#203). L'interface abandonnait au bout de 30 secondes, le serveur au bout de 5 ou 10 minutes : une mesure de 100k jetons lus ou 3k générés dispose maintenant de 30 minutes.
+- **Windows : CUDA écarté sur un refus passager, repli silencieux sur Vulkan** (#199). Quand l'antivirus analyse encore les fichiers tout juste extraits, la mise en place du moteur est réessayée quelques secondes. Si elle échoue quand même, l'installation s'arrête avec le message au lieu de passer à une variante moins bonne.
 
-## Idées reprises de la 1.0
+## Interface
 
-- **Mot de passe de l'interface.** `ajean password` (ou la section Sécurité) pose un mot de passe : on se connecte une fois par appareil, la session dure 30 jours d'inactivité. Les essais sont freinés (5 libres, puis une attente qui double). La clé de pilotage continue de fonctionner comme avant. `ajean ui listen` et `AJEAN_HOST` choisissent l'adresse d'écoute ; par défaut elle ne change pas.
-- **Coffre chiffré des clés d'API.** `ajean secrets on` remplace, dans les presets et les serveurs MCP, chaque clé par une référence vers un coffre chiffré (AES-256). `ajean secrets off` remet les fichiers à l'identique. Éteint par défaut.
-- **Validation des tâches.** `ajean review on` : une tâche que l'IA crée, modifie ou supprime attend votre accord, donné une fois en fin de réponse, script compris. Éteint par défaut. C'est un garde-fou contre les surprises, pas une barrière : une IA qui dispose d'un shell peut la lever.
-- **Journal des actions.** Chaque outil qui agit est noté avant et après, secrets reconnus masqués (`ajean actions`). Après un tour coupé net, le tour suivant sait ce qui avait été fait. Tenu par défaut ; `ajean actions off` le coupe.
-- **Sauvegarde locale chiffrée.** `ajean backup <dossier>` écrit une archive chiffrée par une phrase (base, mémoire, presets, scripts, apps, voix, journal) ; `ajean restore <fichier> <dossier>` la relit dans un dossier vide. `AJEAN_BACKUP_DIR` en fait une par jour.
-- **Une adresse par écran.** Chaque écran a son adresse (`#/models`, `#/settings`, `#/apps/<id>`…) : les boutons Précédent et Suivant fonctionnent, un rechargement rouvre le même écran.
-- **Une réponse finale.** Quand le modèle se tait après ses outils, une dernière demande part sans outils pour dire ce qui a été fait et ce qui bloque.
+- **Le mode Jean ressemble aux autres modes** : le personnage, la scène plein écran et la conversation à voix haute sont retirés. La dictée vocale du champ de saisie reste.
+- **Accès internet et contrôle du navigateur** passent dans Paramètres > Général, activés par défaut sur une installation neuve. Une installation existante garde son réglage.
+- **Interrupteur « applications »** (Paramètres > Général) : coupé, l'écran Applications disparaît et l'IA ne crée plus d'apps ; celles qui existent restent sur le disque.
+- **Barre latérale ajustable** : glisser son bord droit, double-clic pour revenir à la largeur d'origine.
+- **Bulles d'aide « ? »** redessinées, placées sans sortir de l'écran.
+- **iPhone** : choisir dans une liste ne rouvre plus le sélecteur d'iOS.
+- Détails : onglets de la mémoire de Jean qui grossissaient au survol, coins et séparateurs doublés dans les cartes de réglages.
 
-## Corrections
+## Sécurité et sauvegarde (suite de la 0.21.0)
 
-- **Le preset actif peut être supprimé.** AJEAN arrête le moteur, supprime le preset et garde les réglages de l'appareil.
-- **Téléchargement d'un modèle portant le même nom qu'un autre.** AJEAN compare les tailles et range l'autre modèle sous un nom qui le distingue au lieu de le refuser.
-- **Windows, puce graphique intégrée : la jauge de mémoire restait presque vide** pendant qu'un modèle tournait dessus. Elle compte maintenant la mémoire partagée.
-- **Texte qui passait soudain en titre ou en gras.** Une balise HTML écrite par le modèle hors bloc de code est affichée telle quelle.
-- **Vitesse affichée avec une API distante.** Le débit est calculé sur la durée totale de la requête.
-- **Threads.** Ils ne sont plus imposés quand le preset n'en fixe pas : llama.cpp choisit lui-même. Flash attention propose les trois états du moteur (auto, on, off).
-- **Un preset n'est marqué actif que si son moteur tourne.**
-- **Mises à jour.** Le bandeau « nouvelle version disponible » est vérifié toutes les trois heures, et l'interface se recharge seule après une mise à jour.
+- La sauvegarde locale emporte les images et vidéos des conversations, et ne fige plus l'interface pendant qu'elle écrit une grosse base.
+- Coffre des clés : une entrée abîmée n'empêche plus la sauvegarde ajean.link ; après `sudo ajean secrets on`, la clé reste lisible par le service.
+- Validation des tâches : un script apparu après la validation est retiré au refus, au lieu de revenir sans fin.
 
 ## Après la mise à jour
 
-- **Depuis la 0.18.17 : rien à faire.** Presets, moteurs, clés et appareils appairés sont repris tels quels.
-- **Depuis la 0.20 :** les presets Local utilisent le moteur AJEAN déjà installé ; les presets Service restent valides ; les presets ExLlama, MoE et GPU Cloud, grisés en 0.20, redémarrent. Une ligne `BIN` restée dans un preset et qui ne pointe pas sur le moteur AJEAN est mise en commentaire. Le mode agent et l'accès internet sont activés s'ils n'étaient pas réglés.
-- **Depuis la 0.19 :** les services créés en 0.19 deviennent des presets (Service pour une commande, API pour une adresse). Sous Linux, lancez une fois `sudo ajean install` pour retirer les unités de la 0.19.
-- **Retour à une version antérieure :** si le coffre des clés est activé, lancez `ajean secrets off` avant.
-- **Derrière un proxy inverse :** posez le mot de passe par `ajean password`, pas depuis l'interface.
-- Pas de passage depuis la 1.0 : son format de données est différent.
-
-## Limites connues de cette version
-
-- **Le moteur AJEAN et les presets Service ne se règlent pas encore depuis l'interface.** `ajean engine` installe et répare le moteur ; un preset Service s'écrit dans son fichier (`EXTERNAL=1`, `SERVICE_CMD=…`).
-- La sauvegarde locale n'emporte pas encore les images et vidéos des conversations, et fige l'interface pendant l'écriture d'une grosse base.
-
-## Commandes
-
-```
-ajean engine [install|repair --variant=cuda|rocm|vulkan|cpu|auto]
-ajean password [--remove|status]
-ajean ui listen [adresse|all]
-ajean secrets [status|on|off]
-ajean review [status|on|off|accept|reject]
-ajean actions [N|on|off|status]
-ajean backup <dossier>
-ajean restore <fichier> <dossier>
-```
+- **Depuis la 0.21.0, la 0.20 ou la 0.18.17 : rien à faire.** Presets, moteurs, clés et réglages sont repris tels quels.
+- La 1.0 n'est plus développée : AJEAN continue sur cette lignée.
 
 ## Mise à jour
 
@@ -70,4 +40,4 @@ ajean restore <fichier> <dossier>
 ajean update
 ```
 
-Testé par les tests automatiques sous Windows, et à l'écran pour la dictée, le bench, la recherche Hugging Face, les adresses par écran, le mot de passe et les boîtes de dialogue Windows, contre de faux moteurs et de faux fournisseurs. Le moteur AJEAN a été installé pour de vrai sur Windows 11 (variante Vulkan : téléchargement, empreinte, sonde), sans y charger de modèle. N'ont pas été rejoués sur de vraies machines : les variantes CUDA, ROCm et Metal, un vrai preset Service, la reprise d'une vraie installation 0.19 ou 0.20, Linux et macOS.
+Testé par les tests automatiques sous Windows et à l'écran (moteur, éditeur de preset Local / API / Service, réglages, mode Jean, barre latérale). Le correctif iPhone n'a été vérifié que dans un navigateur de bureau.

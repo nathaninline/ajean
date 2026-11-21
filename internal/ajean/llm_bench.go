@@ -102,7 +102,7 @@ func runBench(nPrompt, nPredict int) (*benchResult, error) {
 	req, _ := http.NewRequest("POST", url, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	authHeader(req)
-	client := &http.Client{Timeout: 5 * time.Minute}
+	client := &http.Client{Timeout: benchTimeout}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -356,7 +356,7 @@ func runBenchStream(nPrompt, nPredict int) (*benchResult, error) {
 	stopSlots := benchWatchSlots(ep.URL, ep.Key, false)
 	defer stopSlots()
 	t0 := time.Now()
-	resp, err := (&http.Client{Timeout: 10 * time.Minute}).Do(req)
+	resp, err := (&http.Client{Timeout: benchTimeout}).Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -564,3 +564,7 @@ func benchWatchSlots(chatURL, key string, decoded bool) func() {
 	}()
 	return func() { close(done) }
 }
+
+// benchTimeout : une mesure de 100k jetons lus ou 3k générés dépasse largement
+// quelques minutes sur une petite carte (issue #203).
+const benchTimeout = 30 * time.Minute

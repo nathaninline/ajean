@@ -48,7 +48,10 @@ async function runBenchUI(){
     }
   })();
   try{
-    const r = await jget('/api/bench?prompt=' + benchCfg.prompt + '&n=' + benchCfg.output);
+    // Délai à part (issue #203) : 30 s, celui des appels d'API ordinaires, coupait
+    // les grosses mesures (100k jetons lus, 3k générés).
+    const ac = new AbortController(); const abortT = setTimeout(()=>ac.abort(), 30*60*1000);
+    let r; try{ r = await (await jfetch('/api/bench?prompt=' + benchCfg.prompt + '&n=' + benchCfg.output, {signal: ac.signal})).json(); } finally { clearTimeout(abortT); }
     polling = false;
     if(!r.ok){
       body.innerHTML = '<div style="color:var(--err);text-align:center">'+t('models.bench.error')+r.error+'</div>';

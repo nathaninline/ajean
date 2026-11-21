@@ -3,12 +3,10 @@ package ajean
 // switch_defaults.go — accès internet et contrôle du navigateur, activés par
 // défaut depuis la 0.21.1.
 //
-// Avant, « éteint » s'écrivait en effaçant la clé : une clé absente ne disait
-// donc pas si l'utilisateur l'avait coupée ou jamais touchée. Désormais l'état
-// est écrit dans les deux sens ("1" / "0"), et migrateSwitchDefaults fixe une
-// clé absente au premier démarrage : allumée sur une installation neuve, éteinte
-// (c'est-à-dire telle qu'elle était) sur une installation existante. Une mise à
-// jour ne change donc rien à ce que l'utilisateur avait réglé.
+// Une installation EXISTANTE n'est pas touchée : rien n'y est écrit (une mise à
+// jour ne change rien, cf. TestMigration018RienNeChange). Sur une installation
+// NEUVE, les deux interrupteurs sont allumés une seule fois ; le repère
+// switchDefaultsDone empêche de les rallumer si l'utilisateur les coupe ensuite.
 
 import "os"
 
@@ -34,11 +32,16 @@ func installIsNew() bool {
 	return true
 }
 
+const switchDefaultsDone = "switch_defaults_done"
+
 func migrateSwitchDefaults() {
-	fresh := installIsNew()
+	if getStr(bkState, switchDefaultsDone) != "" || !installIsNew() {
+		return
+	}
 	for _, k := range defaultOnSwitches {
 		if getStr(bkState, k) == "" {
-			_ = putSwitch(k, fresh)
+			_ = putSwitch(k, true)
 		}
 	}
+	_ = putStr(bkState, switchDefaultsDone, "1")
 }
