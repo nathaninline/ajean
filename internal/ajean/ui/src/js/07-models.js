@@ -558,6 +558,7 @@ async function populateBackend(){
   hideBackendWarn();
   toggleBackendCustom(mode);
   if(mode === 'custom') document.getElementById('m-backend-path').value = cur;
+  beSelSync();
   syncEngineView();
   // Attendu (et non lancé dans le vide) : la liste des GPU change la hauteur du
   // bloc « moteur ». Sans ce await, elle arrivait APRÈS la levée du voile de
@@ -1800,3 +1801,29 @@ async function attachDownload(){
 }
 // Smart autoscroll: follow the bottom while the user hasn't manually scrolled
 // up. Re-stick when they scroll back near bottom themselves.
+// --- Liste « Moteur » de l'éditeur de preset ---------------------------------
+// Elle remplace à l'écran les cinq boutons du moteur, restés dans la page mais
+// masqués : beSelPick coche le bouton choisi (son onchange fait tout le travail,
+// avertissement « non installé » compris), puis beSelSync relit l'état réel.
+const BE_DESC={ajean:'engine.mode_ajean_desc', fast:'engine.mode_fast_desc', opt:'engine.mode_opt_desc', custom:'engine.mode_custom_desc', exl3:'exl3.mode_desc'};
+function beSelSync(){
+  const sel=document.getElementById('m-be-sel'); if(!sel) return;
+  const cur=document.querySelector('input[name=m-be]:checked');
+  sel.textContent='';
+  document.querySelectorAll('input[name=m-be]').forEach(r=>{
+    const lab=r.closest('label');
+    if(lab && lab.hidden && r!==cur) return;
+    const o=document.createElement('option'); o.value=r.value;
+    o.textContent=(lab && lab.querySelector('[data-i18n]') || {}).textContent || r.value;
+    sel.appendChild(o);
+  });
+  if(cur) sel.value=cur.value;
+  const sub=document.getElementById('be-sel-sub');
+  if(sub) sub.textContent=cur && BE_DESC[cur.value] ? t(BE_DESC[cur.value]) : '';
+  if(typeof fitSelects==='function') requestAnimationFrame(fitSelects);
+}
+function beSelPick(v){
+  const r=document.querySelector('input[name=m-be][value="'+v+'"]');
+  if(r){ r.checked=true; r.dispatchEvent(new Event('change')); }
+  setTimeout(beSelSync, 0);
+}

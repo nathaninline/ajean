@@ -298,6 +298,14 @@ func handlePresetExternalModels(w http.ResponseWriter, r *http.Request) {
 			key = strings.TrimSpace(parseEnv(content)[extKeyToken])
 		}
 	}
+	// Clé rangée dans le coffre : sans ça, la référence partait telle quelle au
+	// fournisseur, qui la refusait, et la liste ne se chargeait jamais.
+	if k, err := secretResolve(key); err != nil {
+		sendJSON(w, 200, map[string]any{"ok": false, "error": "clé illisible dans le coffre : " + err.Error()})
+		return
+	} else {
+		key = k
+	}
 	// Preset Service déjà lancé : adresse et clé déduites de sa commande.
 	if req.Service {
 		if strings.TrimSpace(req.URL) == "" {

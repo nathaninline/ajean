@@ -57,3 +57,25 @@ let SIDE_THUMB_QUIET_UNTIL = 0;
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
+// Largeur de la barre latérale : poignée #side-grip (comme la 1.0). Les événements
+// du pointeur sont capturés par la poignée pendant le glissement ; double-clic =
+// largeur d'origine ; au clavier, flèches gauche et droite.
+(()=>{
+  const KEY='ajean-side-w';
+  const setW=(w,save)=>{
+    w=Math.round(Math.max(240,Math.min(w,innerWidth*.45)));
+    document.documentElement.style.setProperty('--side-w',w+'px');
+    if(save!==false){ try{ localStorage.setItem(KEY,String(w)); }catch(_){} }
+  };
+  try{ const w=+localStorage.getItem(KEY); if(w) setW(w,false); }catch(_){}
+  const init=()=>{
+    const grip=document.getElementById('side-grip'), side=document.getElementById('side');
+    if(!grip||!side) return;
+    grip.onpointerdown=e=>{ if(e.button) return; e.preventDefault(); grip.setPointerCapture(e.pointerId); grip.classList.add('drag'); document.body.classList.add('resizing'); };
+    grip.onpointermove=e=>{ if(grip.classList.contains('drag')) setW(e.clientX-side.getBoundingClientRect().left); };
+    grip.onpointerup=grip.onpointercancel=()=>{ grip.classList.remove('drag'); document.body.classList.remove('resizing'); };
+    grip.ondblclick=()=>{ document.documentElement.style.removeProperty('--side-w'); try{ localStorage.removeItem(KEY); }catch(_){} };
+    grip.onkeydown=e=>{ const d=e.key==='ArrowLeft'?-16:e.key==='ArrowRight'?16:0; if(d){ e.preventDefault(); setW(side.offsetWidth+d); } };
+  };
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
+})();

@@ -19,6 +19,7 @@ async function loadExl3(check){
   }
   const be = document.getElementById('m-be-exl3');
   if(be) be.hidden = !visible && !(typeof cfgReadKey === 'function' && cfgReadKey('ENGINE') === 'exl3');
+  if(typeof beSelSync === 'function') beSelSync();
   const st = document.getElementById('lc-exl3-state');
   if(st){
     if(!env.supported) st.textContent = env.reason || '';

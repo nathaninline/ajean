@@ -1649,8 +1649,6 @@ body.jean-mode .genstatus .jact.jact-in{animation:jactin .3s cubic-bezier(.2,.7,
 .jav-line{fill:none;stroke:var(--bg);stroke-width:2.4;stroke-linecap:round}
 .jav-frame{fill:none;stroke:var(--bg);stroke-width:2.2;stroke-linecap:round}
 .jav-stache{fill:var(--bg)}
-body.jean-mode #ce-logo{display:none}
-body.jean-mode #ce-title{margin-top:150px}
 @media (prefers-reduced-motion:reduce){#jean-avatar.jav-hero,#jean-avatar.jav-inline{animation:none}}
 #jean-stage{display:none;position:absolute;inset:0;z-index:6;background:var(--bg);flex-direction:column;
   transition:opacity .45s ease,visibility 0s linear 0s}
@@ -1806,7 +1804,6 @@ body.jean-mode .jst-hist{display:flex}
 @media (max-width:720px){.jst-char{width:116px;height:116px;--orbit:74px}.jst-bubble-body{font-size:14.5px;padding:16px 18px}}
 #jean-stage.kb{position:fixed;inset:auto 0 auto 0;top:var(--vv-top,0);height:var(--vv-h,100%);z-index:30}
 #jean-stage.kb::after{content:"";position:absolute;left:0;right:0;top:100%;height:100vh;background:var(--bg)}
-body.jean-mode:not(.jean-history) #chat,body.jean-mode:not(.jean-history) #composer{visibility:hidden}
 #jean-stage.kb .jst-scene{justify-content:flex-end;padding:12px 12px 10px}
 #jean-stage.kb .jst-char{width:72px;height:72px;--orbit:46px}
 #jean-stage.kb.has-answer .jst-bubble,#jean-stage.kb .jst-bubble-body{max-height:calc(var(--vv-h,60vh) - 210px)}
@@ -1965,7 +1962,7 @@ button.th-head:hover{background:var(--t1)}
 .pair-val .sw-ic:hover{background:var(--t2);color:var(--text)}
 .msg.tool.has-desc .label .txt{white-space:normal;text-transform:none;letter-spacing:normal}
 .jm-tabs{margin:0 0 16px}
-.jm-tabs>label{padding:7px 2px;font-size:12px}
+.jm-tabs>label,.jm-tabs>label:is(:hover,:has(input:checked)){padding:7px 2px;font-size:12px}
 .jm-pane{display:none}
 .jm-pane.on{display:block;animation:jmpane .25s ease both}
 @keyframes jmpane{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
@@ -2195,6 +2192,28 @@ body.jean-voice #mic-btn{display:none}
   display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
 .voice-play:disabled{opacity:.4}
 #voice-url{min-width:0;flex:1 1 auto;max-width:62%}
+body.no-apps #apps-toggle{display:none!important}
+#modal.run-external:not(.run-service) :is(#m-samp-topk,#m-samp-minp,#m-samp-rep,#m-samp-effort){display:none}
+.help{position:relative;width:16px;height:16px;margin-left:6px;border:none;border-radius:50%;background:var(--t2);font-size:10.5px;font-weight:600;line-height:1;letter-spacing:0;color:var(--dim);cursor:pointer;vertical-align:1px;transition:background .15s ease,color .15s ease}
+.help::after{content:"";position:absolute;inset:-9px}
+.help:hover,.help.open{border:none;background:var(--t3);color:var(--text)}
+.help>.tip,.help:hover>.tip,.help.open>.tip,.help:focus-visible>.tip{display:none!important}
+#help-tip{position:fixed;z-index:1000;top:0;left:0;width:max-content;max-width:min(300px,calc(100vw - 16px));padding:10px 13px;border-radius:12px;background:var(--menu);color:var(--text);box-shadow:var(--pop-shadow);
+  font-family:var(--font);font-size:12.5px;font-weight:400;line-height:1.5;text-align:left;text-transform:none;letter-spacing:normal;overflow-wrap:anywhere;
+  opacity:0;visibility:hidden;pointer-events:none;transform:translateY(4px);transition:opacity .16s ease,transform .2s var(--ease,ease),visibility .16s}
+#help-tip.show{opacity:1;visibility:visible;pointer-events:auto;transform:none}
+#help-tip code{font-family:var(--mono);font-size:.92em;padding:1px 5px;border-radius:5px;background:var(--t2)}
+#side-grip{position:relative;flex:none;width:0;z-index:6;display:none}
+#side-grip::before{content:"";position:absolute;top:0;bottom:0;left:-4px;width:8px;cursor:col-resize;touch-action:none}
+#side-grip::after{content:"";position:absolute;top:0;bottom:0;left:-1px;width:2px;border-radius:2px;background:transparent;transition:background .15s ease;pointer-events:none}
+#side-grip:is(:hover,:focus-visible,.drag)::after{background:color-mix(in srgb,var(--text) 28%,transparent)}
+#side-grip:focus-visible{outline:none}
+body.resizing{cursor:col-resize;user-select:none;-webkit-user-select:none}
+@media (min-width:721px){
+  html:not([data-hide-side="1"]) #side-grip{display:block}
+  html:not([data-hide-side="1"]) .side{width:clamp(240px,var(--side-w,380px),max(240px,45vw))}
+}
+#m-be-radios,#be-avail-note{display:none!important}
 </style></head><body>
 <button id="menubtn" onclick="toggleSide()" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
 <button id="lc-chip" onclick="lcChipOpen()" hidden></button>
@@ -2287,7 +2306,6 @@ body.jean-voice #mic-btn{display:none}
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-side" onchange="toggleView('hide-side')"><span class="slider"></span></span> <span data-i18n="appearance.hide_side">barre latérale escamotable</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="appearance.hide_side_help" data-i18n-html>La barre latérale devient un tiroir <b>même sur ordinateur</b> : elle reste fermée et s'ouvre avec le bouton ☰. Toute la largeur pour la conversation.</span></span></label>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-enter-newline" onchange="toggleView('enter-newline')"><span class="slider"></span></span> <span data-i18n="appearance.enter_newline">Entrée = retour à la ligne</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="appearance.enter_newline_help" data-i18n-html>Par défaut, <b>Entrée</b> envoie le message et <b>Maj+Entrée</b> fait un retour à la ligne. Activez ceci pour inverser : Entrée va à la ligne, et <b>Maj+Entrée</b> (ou Ctrl+Entrée) envoie.</span></span></label>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-preset" onchange="toggleView('hide-preset')"><span class="slider"></span></span> <span data-i18n="appearance.hide_preset">masquer le nom du preset</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="appearance.hide_preset_help" data-i18n-html>Retire le nom du preset de la ligne d'état sous chaque réponse (durée, tokens, vitesse). Les autres informations restent affichées.</span></span></label>
-    <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-term" onchange="toggleView('hide-term')"><span class="slider"></span></span> <span data-i18n="appearance.hide_term">masquer le terminal en plein écran</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="appearance.hide_term_help" data-i18n-html>En plein écran du mode Jean, les commandes lancées par l'IA ne s'affichent plus dans la fenêtre <b>terminal</b>. La recherche web et le navigateur restent visibles.</span></span></label>
     </div>
   </details>
   <details><summary><span class="stitle" data-i18n="api.title">API</span></summary>
@@ -2476,23 +2494,12 @@ body.jean-voice #mic-btn{display:none}
         <button type="button" class="switchrow sw-action" onclick="saveSTT()"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span data-i18n="stt.save_button">Enregistrer</span></button>
       </div>
     </div>
-    <div id="voice-block">
-      <div class="subhead"><span data-i18n="voice.title">Voix de Jean</span><span id="voice-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="voice.help" data-i18n-html>Conversation à voix haute en mode Jean : bouton micro sur sa scène. La transcription et la voix passent par un <b>serveur audio.cpp</b> (Qwen3-ASR et VoxCPM2). Les voix sont enregistrées dans AJEAN.</span></span></div>
-      <div class="slist">
-        <label class="switchrow"><span class="switch"><input type="checkbox" id="voice-toggle" onchange="voiceSave({on:this.checked})"><span class="slider"></span></span> <span data-i18n="voice.toggle">conversation vocale</span></label>
-        <label class="switchrow"><span data-i18n="voice.server">serveur audio</span><input id="voice-url" class="sctl" type="text" spellcheck="false" autocomplete="off" placeholder="http://127.0.0.1:8095" onchange="voiceSave({url:this.value})"></label>
-        <div class="switchrow"><span data-i18n="voice.voice">voix</span><span class="voice-pick"><select id="voice-name" class="sctl" onchange="voiceSave({voice:this.value})"></select><button type="button" class="voice-play" onclick="voiceTest()" data-i18n="voice.test" data-i18n-attr="title" title="Écouter"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg></button></span></div>
-        <label class="switchrow"><span data-i18n="voice.sens">sensibilité du micro</span><select id="voice-sens" class="sctl" onchange="voiceSave({sens:+this.value})"><option value="1" data-i18n="voice.sens_low">faible</option><option value="2" data-i18n="voice.sens_mid">normale</option><option value="3" data-i18n="voice.sens_high">élevée</option></select></label>
-        <label class="switchrow"><span data-i18n="voice.silence">pause avant envoi</span><select id="voice-silence" class="sctl" onchange="voiceSave({silence_ms:+this.value})"><option value="500">0,5 s</option><option value="800">0,8 s</option><option value="1200">1,2 s</option><option value="1800">1,8 s</option><option value="2500">2,5 s</option></select></label>
-        <button type="button" class="switchrow sw-action" onclick="voiceCreate()"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="voice.create">Créer une voix</span></button>
-        <button type="button" class="switchrow sw-action" id="voice-del" onclick="voiceDelete()"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span data-i18n="voice.delete">Supprimer la voix choisie</span></button>
-      </div>
-    </div>
     <div class="subhead" data-i18n="settings.general_subhead">Général</div>
     <div class="slist">
         <label class="switchrow agent-gated"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> <span data-i18n="agent.compact_toggle">compactage automatique du contexte</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="agent.compact_help" data-i18n-html>activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
         <div class="switchrow agent-gated compact-max-row"><span data-i18n="agent.compact_max">compacter au plus tard à</span><select id="compact-max" class="sctl" onchange="setCompactMax()"><option value="0" data-i18n="agent.compact_max_auto">75 % du contexte</option><option value="16384">16K</option><option value="24576">24K</option><option value="32768">32K</option><option value="49152">48K</option><option value="65536">64K</option><option value="98304">96K</option><option value="131072">128K</option></select><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="agent.compact_max_help">Par défaut, le contexte est compacté à 75 % de la fenêtre du modèle. Avec une très grande fenêtre, ce seuil n'est presque jamais atteint et les longues conversations deviennent lentes. Un plafond compacte plus tôt, quelle que soit la fenêtre.</span></span></div>
         <label class="switchrow"><span class="switch"><input type="checkbox" id="prewarm-toggle" onchange="togglePrewarm()"><span class="slider"></span></span> <span data-i18n="agent.prewarm_toggle">pré-chauffage du prompt</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="agent.prewarm_help">Activé par défaut. Quand une nouvelle conversation est ouverte, le moteur lit à l'avance les consignes et les outils. Le premier message obtient sa réponse en quelques dixièmes de seconde au lieu de plusieurs secondes. Le moteur travaille quelques secondes en arrière-plan à chaque nouvelle conversation.</span></span></label>
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="apps-on-toggle" onchange="toggleAppsEnabled()"><span class="slider"></span></span> <span data-i18n="settings.apps_toggle">applications</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="settings.apps_help">L'écran Applications et l'outil qui permet à l'IA d'en créer. Coupé, les apps déjà faites restent sur le disque et reviennent quand on rallume.</span></span></label>
         <label class="switchrow"><span class="switch"><input type="checkbox" id="push-toggle" onchange="togglePush()"><span class="slider"></span></span> <span data-i18n="agent.push_toggle">me prévenir quand la réponse est prête</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="agent.push_help" data-i18n-html>Le serveur t'envoie une <b>notification</b> à la fin de chaque réponse, même l'app fermée ou le téléphone verrouillé. Sur iPhone : <b>ajoute d'abord AJEAN à l'écran d'accueil</b> puis active depuis l'app installée. À régler sur chaque appareil.</span></span></label>
         <label class="switchrow"><span class="switch"><input type="checkbox" id="mem-enc-toggle" onchange="toggleMemEncrypt()"><span class="slider"></span></span> <span data-i18n="agent.encrypt_toggle">activer le chiffrement</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="agent.encrypt_help" data-i18n-html>Chiffre ta <b>mémoire</b> ET tes <b>conversations</b> au repos (AES-256), protégées par ta <b>clé d'accès</b> : si tu as accès à l'interface, c'est déjà déverrouillé ; sinon on te demande ta clé d'accès. Une <b>clé de récupération</b> t'est donnée à l'activation (garde-la). Rien n'est perdu : snapshots automatiques avant chaque bascule.</span></span></label>
         <label class="switchrow"><span data-i18n="settings.link_browser_label">liens externes dans</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="settings.link_browser_help" data-i18n-html>Les liens cliqués dans AJEAN s'ouvrent dans ce navigateur. La fenêtre AJEAN elle-même ne change pas : seuls les liens cliqués changent de navigateur. « Navigateur par défaut » suit le réglage de ta machine et couvre aussi les navigateurs absents de cette liste.</span></span>
@@ -2545,6 +2552,7 @@ body.jean-voice #mic-btn{display:none}
   <div id="app-update" class="app-update" hidden onclick="onAppUpdateClick()"></div>
 </div>
 <div id="side-thumb" aria-hidden="true"></div>
+<div id="side-grip" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Largeur de la barre latérale" data-i18n="side.resize" data-i18n-attr="aria-label"></div>
 <div class="main" style="position:relative">
   <div id="chat"></div>
   <div id="app-run" class="app-run" hidden>
@@ -3308,7 +3316,13 @@ body.jean-voice #mic-btn{display:none}
       </div>
       <div id="m-engine-row" class="pe-group" style="display:none">
         <div class="pe-gh" data-i18n="preset.engine_heading">Moteur</div>
-        <div class="pe-seg">
+        <div class="pe-list">
+          <div class="pe-row">
+            <span class="pe-row-l"><span data-i18n="preset.engine_label">Moteur utilisé</span><span class="pe-sub" id="be-sel-sub"></span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="m-be-sel" onchange="beSelPick(this.value)"></select></span></span>
+          </div>
+        </div>
+        <div class="pe-seg" id="m-be-radios" hidden>
           <label><input type="radio" name="m-be" value="ajean" onchange="onBackendMode('ajean')"><span data-i18n="preset.engine_ajean">Moteur AJEAN</span></label>
           <label><input type="radio" name="m-be" value="fast" onchange="onBackendMode('fast')"><span data-i18n="preset.engine_fast">Précompilé</span><span class="be-note" id="be-fast-note"></span></label>
           <label><input type="radio" name="m-be" value="opt" onchange="onBackendMode('opt')"><span data-i18n="preset.engine_opt">Compilé</span><span class="be-note" id="be-opt-note"></span></label>
@@ -3630,11 +3644,11 @@ body.jean-voice #mic-btn{display:none}
             <span class="pe-row-l"><span data-i18n="preset.topp_label">top_p</span><span class="pe-sub" data-i18n="preset.topp_sub">noyau de probabilité</span></span>
             <span class="pe-row-c"><input id="s-topp" class="pe-val" type="number" min="0" max="1" step="0.01" placeholder="—" oninput="cfgWriteKey('TOP_P', this.value)"></span>
           </div>
-          <div class="pe-row">
+          <div class="pe-row" id="m-samp-topk">
             <span class="pe-row-l"><span data-i18n="preset.topk_label">top_k</span><span class="pe-sub" data-i18n="preset.topk_sub">0 = désactivé</span></span>
             <span class="pe-row-c"><input id="s-topk" class="pe-val" type="number" min="0" step="1" placeholder="—" oninput="cfgWriteKey('TOP_K', this.value)"></span>
           </div>
-          <div class="pe-row">
+          <div class="pe-row" id="m-samp-minp">
             <span class="pe-row-l"><span data-i18n="preset.minp_label">min_p</span><span class="pe-sub" data-i18n="preset.minp_sub">seuil de probabilité</span></span>
             <span class="pe-row-c"><input id="s-minp" class="pe-val" type="number" min="0" max="1" step="0.01" placeholder="—" oninput="cfgWriteKey('MIN_P', this.value)"></span>
           </div>
@@ -3642,11 +3656,11 @@ body.jean-voice #mic-btn{display:none}
             <span class="pe-row-l"><span data-i18n="preset.presence_label">Pénalité de présence</span><span class="pe-sub" data-i18n="preset.presence_sub">favorise les mots nouveaux</span></span>
             <span class="pe-row-c"><input id="s-presp" class="pe-val" type="number" min="0" max="2" step="0.1" placeholder="—" oninput="cfgWriteKey('PRESENCE_PENALTY', this.value)"></span>
           </div>
-          <div class="pe-row">
+          <div class="pe-row" id="m-samp-rep">
             <span class="pe-row-l"><span data-i18n="preset.repeat_label">Pénalité de répétition</span><span class="pe-sub" data-i18n="preset.repeat_sub">1 = neutre</span></span>
             <span class="pe-row-c"><input id="s-reppen" class="pe-val" type="number" min="0" step="0.05" placeholder="—" oninput="cfgWriteKey('REPEAT_PENALTY', this.value)"></span>
           </div>
-          <div class="pe-row">
+          <div class="pe-row" id="m-samp-effort">
             <span class="pe-row-l"><span data-i18n="preset.effort_label">Effort de réflexion</span><span class="pe-sub" data-i18n="preset.effort_sub">active --jinja</span></span>
             <span class="pe-row-c"><span class="pe-selc"><select id="s-effort" onchange="onEffort(this.value)">
               <option value="" data-i18n="preset.effort_opt_default">défaut du modèle</option>
@@ -3942,6 +3956,9 @@ fr: {
   "agent.compact_max_auto": "75 % du contexte",
   "agent.compact_max_help": "Par défaut, le contexte est compacté à 75 % de la fenêtre du modèle. Avec une très grande fenêtre, ce seuil n'est presque jamais atteint et les longues conversations deviennent lentes. Un plafond compacte plus tôt, quelle que soit la fenêtre.",
   "agent.push_toggle": "me prévenir quand la réponse est prête",
+  "settings.apps_toggle": "applications",
+  "side.resize": "Largeur de la barre latérale",
+  "settings.apps_help": "L'écran Applications et l'outil qui permet à l'IA d'en créer. Coupé, les apps déjà faites restent sur le disque et reviennent quand on rallume.",
   "agent.prewarm_toggle": "pré-chauffage du prompt",
   "agent.prewarm_help": "Activé par défaut. Quand une nouvelle conversation est ouverte, le moteur lit à l'avance les consignes et les outils. Le premier message obtient sa réponse en quelques dixièmes de seconde au lieu de plusieurs secondes. Le moteur travaille quelques secondes en arrière-plan à chaque nouvelle conversation.",
   "agent.push_help": "Le serveur t'envoie une <b>notification</b> à la fin de chaque réponse, même l'app fermée ou le téléphone verrouillé. Sur iPhone : <b>ajoute d'abord AJEAN à l'écran d'accueil</b> puis active depuis l'app installée. À régler sur chaque appareil.",
@@ -4125,6 +4142,7 @@ fr: {
   "engine.chip_install": "Installation du moteur AJEAN",
   "engine.chip_repair": "Réparation du moteur AJEAN",
   "preset.engine_ajean": "Moteur AJEAN",
+  "preset.engine_label": "Moteur utilisé",
   "preset.engine_ajean_selected": "Moteur AJEAN sélectionné",
   "engine.mode_recommended": "conseillé",
   "engine.mode_fast_desc": "binaire officiel téléchargé tel quel, prêt en ~2 min",
@@ -5639,6 +5657,9 @@ en: {
   "agent.compact_max_auto": "75% of the context",
   "agent.compact_max_help": "By default, the context is compacted at 75% of the model's window. With a very large window this threshold is almost never reached and long conversations get slow. A cap compacts earlier, whatever the window.",
   "agent.push_toggle": "notify me when the response is ready",
+  "settings.apps_toggle": "applications",
+  "side.resize": "Sidebar width",
+  "settings.apps_help": "The Applications screen and the tool that lets the AI build them. When off, existing apps stay on disk and come back when you turn it on again.",
   "agent.prewarm_toggle": "prompt prewarming",
   "agent.prewarm_help": "On by default. When a new conversation is opened, the engine reads the instructions and tools in advance. The first message gets its answer in a few tenths of a second instead of several seconds. The engine works for a few seconds in the background for each new conversation.",
   "agent.push_help": "The server sends you a <b>notification</b> at the end of each response, even with the app closed or the phone locked. On iPhone: <b>first add AJEAN to the home screen</b>, then enable it from the installed app. Must be set up on each device.",
@@ -5822,6 +5843,7 @@ en: {
   "engine.chip_install": "Installing the AJEAN engine",
   "engine.chip_repair": "Repairing the AJEAN engine",
   "preset.engine_ajean": "AJEAN engine",
+  "preset.engine_label": "Engine used",
   "preset.engine_ajean_selected": "AJEAN engine selected",
   "engine.mode_recommended": "recommended",
   "engine.mode_fast_desc": "official binary downloaded as-is, ready in ~2 min",
@@ -7298,7 +7320,6 @@ const VIEW_OPTS=[
   {id:'hide-side',      label:'barre latérale escamotable'},
   {id:'enter-newline',  label:'Entrée = retour à la ligne'},
   {id:'hide-preset',    label:'masquer le nom du preset'},
-  {id:'hide-term',      label:'masquer le terminal du plein écran'},
 ];
 function viewOn(id){ return document.documentElement.getAttribute('data-'+id)==='1'; }
 function applyView(id, on){
@@ -7543,6 +7564,25 @@ let SIDE_THUMB_QUIET_UNTIL = 0;
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
+(()=>{
+  const KEY='ajean-side-w';
+  const setW=(w,save)=>{
+    w=Math.round(Math.max(240,Math.min(w,innerWidth*.45)));
+    document.documentElement.style.setProperty('--side-w',w+'px');
+    if(save!==false){ try{ localStorage.setItem(KEY,String(w)); }catch(_){} }
+  };
+  try{ const w=+localStorage.getItem(KEY); if(w) setW(w,false); }catch(_){}
+  const init=()=>{
+    const grip=document.getElementById('side-grip'), side=document.getElementById('side');
+    if(!grip||!side) return;
+    grip.onpointerdown=e=>{ if(e.button) return; e.preventDefault(); grip.setPointerCapture(e.pointerId); grip.classList.add('drag'); document.body.classList.add('resizing'); };
+    grip.onpointermove=e=>{ if(grip.classList.contains('drag')) setW(e.clientX-side.getBoundingClientRect().left); };
+    grip.onpointerup=grip.onpointercancel=()=>{ grip.classList.remove('drag'); document.body.classList.remove('resizing'); };
+    grip.ondblclick=()=>{ document.documentElement.style.removeProperty('--side-w'); try{ localStorage.removeItem(KEY); }catch(_){} };
+    grip.onkeydown=e=>{ const d=e.key==='ArrowLeft'?-16:e.key==='ArrowRight'?16:0; if(d){ e.preventDefault(); setW(side.offsetWidth+d); } };
+  };
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
+})();
 (function(){
   const IN = 150, OUT = 190;
   const EASE = 'cubic-bezier(.4,0,.2,1)';
@@ -7682,28 +7722,43 @@ document.addEventListener('pointerdown', (e)=>{
   while(MENU && !MENU.el.contains(e.target) && !MENU.anchor.contains(e.target)) closeMenu();
 }, true);
 document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && MENU){ e.stopPropagation(); closeMenu(); } }, true);
-function closeHelps(except){
-  document.querySelectorAll('.help.open').forEach(h=>{ if(h !== except) h.classList.remove('open'); });
+let HTIP=null; 
+function helpTipEl(){
+  let el=document.getElementById('help-tip');
+  if(!el){ el=document.createElement('div'); el.id='help-tip'; el.setAttribute('role','tooltip'); document.body.appendChild(el); }
+  return el;
 }
-document.addEventListener('click', (e)=>{
-  const h = e.target.closest && e.target.closest('.help');
-  if(!h){ closeHelps(null); return; }
-  if(e.target.closest('.tip') && h.classList.contains('open')){
-    setTimeout(()=>h.classList.add('open'), 0);
-    return;
-  }
-  closeHelps(h);
-  setTimeout(()=>{   
-    const open = h.classList.contains('open');
-    h.classList.toggle('shut', !open);
-    if(!open) h.blur();
-  }, 0);
+function closeHelps(){
+  if(!HTIP) return;
+  HTIP.anchor.classList.remove('open'); HTIP=null;
+  helpTipEl().classList.remove('show');
+}
+function openHelp(anchor, pinned){
+  if(HTIP && HTIP.anchor===anchor){ HTIP.pinned=HTIP.pinned||pinned; return; }
+  closeHelps();
+  const src=anchor.querySelector('.tip'); if(!src) return;
+  const el=helpTipEl(), r=anchor.getBoundingClientRect(), gap=6;
+  const card=anchor.closest('.modal-card,.side'), box=card ? card.getBoundingClientRect() : {left:0,right:innerWidth};
+  el.innerHTML=src.innerHTML;
+  const left=r.left+r.width/2-el.offsetWidth/2, below=innerHeight-r.bottom-gap-8;
+  el.style.left=Math.max(8, box.left+8, Math.min(left, innerWidth-8-el.offsetWidth, box.right-8-el.offsetWidth))+'px';
+  el.style.top=(below<el.offsetHeight && r.top>below ? r.top-gap-el.offsetHeight : r.bottom+gap)+'px';
+  anchor.classList.add('open'); el.classList.add('show');
+  HTIP={anchor, pinned};
+}
+const HOVER=window.matchMedia && matchMedia('(hover:hover)').matches;
+document.addEventListener('mouseover', e=>{ if(!HOVER) return; const h=e.target.closest && e.target.closest('.help'); if(h) openHelp(h, false); });
+document.addEventListener('mouseout', e=>{ if(HTIP && !HTIP.pinned && e.target===HTIP.anchor && !HTIP.anchor.contains(e.relatedTarget)) closeHelps(); });
+document.addEventListener('focusin', e=>{ if(e.target.matches && e.target.matches('.help:focus-visible')) openHelp(e.target, false); });
+document.addEventListener('focusout', e=>{ if(HTIP && e.target===HTIP.anchor && !HTIP.pinned) closeHelps(); });
+document.addEventListener('click', e=>{
+  const h=e.target.closest && e.target.closest('.help');
+  if(h){ e.preventDefault(); (HTIP && HTIP.anchor===h && HTIP.pinned) ? closeHelps() : openHelp(h, true); return; }
+  if(HTIP && !helpTipEl().contains(e.target)) closeHelps();
 }, true);
-document.addEventListener('mouseout', (e)=>{
-  const h = e.target.closest && e.target.closest('.help.shut');
-  if(h && !h.contains(e.relatedTarget)) h.classList.remove('shut');
-}, true);
-document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && document.querySelector('.help.open')) closeHelps(null); }, true);
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && HTIP){ e.stopPropagation(); closeHelps(); } }, true);
+document.addEventListener('scroll', e=>{ if(HTIP && e.target.contains && e.target.contains(HTIP.anchor)) closeHelps(); }, true);
+addEventListener('resize', ()=>closeHelps());
 document.addEventListener('scroll', (e)=>{
   if(!MENU || MENU.o.keepOnScroll || MENU.el.contains(e.target)) return;
   const t = e.target;
@@ -8382,6 +8437,7 @@ async function loadAgent(){
   AGENT_ON = !!on;
   document.getElementById('compact-toggle').checked = (s.compact !== false);
   const pw=document.getElementById('prewarm-toggle'); if(pw) pw.checked = (s.prewarm !== false);
+  loadAppsEnabled();
   const cm = document.getElementById('compact-max');
   if(cm){
     const v = String(s.compact_max || 0);
@@ -8567,6 +8623,21 @@ async function enableAgent(){
   await jpost('/api/agent/toggle',{on:true});
   await loadAgent();
   return true;
+}
+async function loadAppsEnabled(){
+  let r=null; try{ r=await jget('/api/apps-enabled'); }catch(_){ return; }
+  applyAppsEnabled(!r || r.on !== false);
+}
+function applyAppsEnabled(on){
+  document.body.classList.toggle('no-apps', !on);
+  const cb=document.getElementById('apps-on-toggle'); if(cb) cb.checked=on;
+  if(!on && location.hash.startsWith('#/apps')) location.hash='';
+}
+async function toggleAppsEnabled(){
+  const cb=document.getElementById('apps-on-toggle');
+  let r=null; try{ r=await jpost('/api/apps-enabled',{on:cb.checked}); }catch(_){}
+  if(!r || r.ok===false){ cb.checked=!cb.checked; toast((r&&r.error)||'erreur'); return; }
+  applyAppsEnabled(r.on);
 }
 async function togglePrewarm(){
   const cb=document.getElementById('prewarm-toggle');
@@ -8787,6 +8858,7 @@ async function act(a){
   }
   setTimeout(loadAll,1500);
 }
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadAppsEnabled); else loadAppsEnabled();
 const BENCH_PROMPTS = [2000, 10000, 25000, 50000, 100000], BENCH_OUTPUTS = [100, 300, 1000, 3000];
 let benchCfg = { prompt: 2000, output: 300 };
 try{ benchCfg = { ...benchCfg, ...JSON.parse(localStorage.getItem('ajean-bench') || '{}') }; }catch(e){}
@@ -9214,6 +9286,7 @@ async function populateBackend(){
   hideBackendWarn();
   toggleBackendCustom(mode);
   if(mode === 'custom') document.getElementById('m-backend-path').value = cur;
+  beSelSync();
   syncEngineView();
   await loadGpuDevices();
 }
@@ -10214,6 +10287,28 @@ async function attachDownload(){
   const st = (list||[]).find(d=>!d.finished);
   if(st) watchDownload(st.filename);
 }
+const BE_DESC={ajean:'engine.mode_ajean_desc', fast:'engine.mode_fast_desc', opt:'engine.mode_opt_desc', custom:'engine.mode_custom_desc', exl3:'exl3.mode_desc'};
+function beSelSync(){
+  const sel=document.getElementById('m-be-sel'); if(!sel) return;
+  const cur=document.querySelector('input[name=m-be]:checked');
+  sel.textContent='';
+  document.querySelectorAll('input[name=m-be]').forEach(r=>{
+    const lab=r.closest('label');
+    if(lab && lab.hidden && r!==cur) return;
+    const o=document.createElement('option'); o.value=r.value;
+    o.textContent=(lab && lab.querySelector('[data-i18n]') || {}).textContent || r.value;
+    sel.appendChild(o);
+  });
+  if(cur) sel.value=cur.value;
+  const sub=document.getElementById('be-sel-sub');
+  if(sub) sub.textContent=cur && BE_DESC[cur.value] ? t(BE_DESC[cur.value]) : '';
+  if(typeof fitSelects==='function') requestAnimationFrame(fitSelects);
+}
+function beSelPick(v){
+  const r=document.querySelector('input[name=m-be][value="'+v+'"]');
+  if(r){ r.checked=true; r.dispatchEvent(new Event('change')); }
+  setTimeout(beSelSync, 0);
+}
 let stickyBottom = true;
 let CHAT_TARGET=null;
 const chatEl = () => CHAT_TARGET || document.getElementById('chat');
@@ -11056,6 +11151,7 @@ function autoGrow(ta){
   ta.style.height=Math.min(ta.scrollHeight, max)+'px';
   ta.style.overflowY = ta.scrollHeight>max ? 'auto' : 'hidden';
 }
+var JeanAvatar = null;
 let lastSeq=0, streamAbort=null;
 const HIST_TAIL=20;
 let OLDER=null; 
@@ -12272,6 +12368,7 @@ async function loadExl3(check){
   }
   const be = document.getElementById('m-be-exl3');
   if(be) be.hidden = !visible && !(typeof cfgReadKey === 'function' && cfgReadKey('ENGINE') === 'exl3');
+  if(typeof beSelSync === 'function') beSelSync();
   const st = document.getElementById('lc-exl3-state');
   if(st){
     if(!env.supported) st.textContent = env.reason || '';
@@ -14592,571 +14689,6 @@ async function deleteTrackerPoint(e){
   if(TRACKER_EDIT && TRACKER_EDIT.id===e.id) trackerClearForm();
   renderTrackerEvents();
 }
-var JeanAvatar = (()=>{
-  const SVG_NS='http://www.w3.org/2000/svg';
-  const reduced=matchMedia('(prefers-reduced-motion: reduce)');
-  let root=null, wrap=null, P=null, raf=0, last=0, t=0;
-  let host=null;                                      
-  let state='idle', stateUntil=0, lastActivity=performance.now();
-  let blinkAt=0, blinkT=1, hopT=1, pulse=0, pointer=null, browsing=false, loadingNow=false, sleepingNow=false;
-  const spring=(k,d)=>({x:0,v:0,target:0,k,d});
-  const S={ lookX:spring(90,13), lookY:spring(90,13), squash:spring(220,12),
-    open:spring(170,16), happy:spring(120,14), tilt:spring(70,11) };
-  S.open.x=S.open.target=1;
-  const step=(s,dt)=>{ s.v+=(s.k*(s.target-s.x)-s.d*s.v)*dt; s.x+=s.v*dt; };
-  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-  const el=(name, attrs, parent)=>{ const n=document.createElementNS(SVG_NS,name); for(const k in attrs) n.setAttribute(k, attrs[k]); if(parent) parent.appendChild(n); return n; };
-  function build(){
-    wrap=document.createElement('span'); wrap.id='jean-avatar'; wrap.setAttribute('aria-hidden','true');
-    const svg=el('svg',{viewBox:'0 0 100 100',class:'jav-svg'});
-    const body=el('g',{},svg);
-    el('circle',{cx:50,cy:50,r:44,class:'jav-body'},body);
-    const face=el('g',{},body);                       
-    const eyes=[35,65].map(cx=>({cx,
-      open:el('ellipse',{cx,cy:44,rx:3.4,ry:4.6,class:'jav-eye'},face),
-      happy:el('path',{d:'',class:'jav-line'},face)}));
-    el('circle',{cx:35,cy:44,r:11.5,class:'jav-frame'},face);
-    el('circle',{cx:65,cy:44,r:11.5,class:'jav-frame'},face);
-    el('path',{d:'M46.5 43 Q50 40.5 53.5 43',class:'jav-frame'},face);
-    const stache=el('path',{class:'jav-stache',d:'M50 64 C45 60 37 60 32 66 C37 64.5 44 66 50 67.5 C56 66 63 64.5 68 66 C63 60 55 60 50 64 Z'},face);
-    wrap.appendChild(svg);
-    wrap.addEventListener('click', ()=>{ hopT=0; S.squash.v-=6; wake(); });
-    P={body, face, eyes, stache};
-  }
-  function wake(){ lastActivity=performance.now(); if(state==='sleep'){ hopT=0.35; setState('idle'); } }
-  function setState(s, ms){
-    if(s===state && !ms) return;
-    state=s; stateUntil=ms ? performance.now()+ms : 0;
-    if(s!=='sleep') lastActivity=performance.now();
-  }
-  function speak(n){ pulse=Math.min(1, pulse+0.12*(n||1)); if(state!=='talk') setState('talk'); }
-  function targets(now){
-    let lx=0, ly=0, open=1, happy=0, tilt=0;
-    const st = sleepingNow ? 'sleep' : loadingNow ? 'loading' : browsing && state!=='happy' && state!=='sleep' ? 'browse' : state;
-    switch(st){
-      case 'loading': lx=Math.cos(now/520)*0.85; ly=Math.sin(now/520)*0.85; open=0.9; break;
-      case 'browse': lx=0.55*Math.sin(now/650); ly=-0.85+0.12*Math.sin(now/1300); open=0.95; tilt=-0.05; break;
-      case 'listen': ly=0.9; break;
-      case 'think': lx=0.65+0.15*Math.sin(now/900); ly=-0.9; open=0.85; tilt=-0.12; break;
-      case 'search': lx=Math.sin(now/260); ly=0.2; open=0.9; break;
-      case 'web': lx=Math.sin(now/340)*0.9; ly=-0.1+0.25*Math.sin(now/700); break;
-      case 'work': lx=0.35*Math.sin(now/1300); ly=0.6; open=0.8; tilt=0.06; break;
-      case 'talk': lx=0.15*Math.sin(now/1700); ly=0.1; break;
-      case 'happy': happy=1; tilt=0.08*Math.sin(now/180); break;
-      case 'sleep': open=0; ly=0.3; tilt=0.15; break;
-      default: 
-        if(pointer && now-pointer.t<6000){ const a=wrap.getBoundingClientRect();
-          lx=clamp((pointer.x-(a.left+a.width/2))/420,-1,1); ly=clamp((pointer.y-(a.top+a.height/2))/420,-1,1); }
-        else { lx=0.5*Math.sin(now/2600); ly=0.25*Math.sin(now/3700); }
-    }
-    S.lookX.target=lx; S.lookY.target=ly; S.open.target=open; S.happy.target=happy; S.tilt.target=tilt;
-  }
-  function frame(now){
-    raf=0;
-    if(!visible()) return;
-    const dt=Math.min(0.05, (now-(last||now))/1000); last=now; t+=dt;
-    if(stateUntil && now>stateUntil){ stateUntil=0; setState('idle'); }
-    if(state==='idle' && now-lastActivity>90000) setState('sleep');
-    pulse*=Math.pow(0.03, dt);
-    if(state==='talk' && pulse<0.03 && now-lastActivity>1200) setState('idle');
-    targets(now);
-    for(const k in S) step(S[k], dt);
-    if(now>blinkAt){ blinkT=0; blinkAt=now+2200+Math.random()*3800; if(Math.random()<0.18) blinkAt=now+260; }
-    blinkT=Math.min(1, blinkT+dt*7); hopT=Math.min(1, hopT+dt*2.2);
-    paint();
-    raf=requestAnimationFrame(frame);
-  }
-  function paint(){
-    const still=reduced.matches;
-    const bob=still ? 0 : Math.sin(t*2.1)*2.2;
-    const hop=Math.sin(Math.PI*hopT)*(1-hopT)*16;
-    const breath=still ? 0 : Math.sin(t*2.1+0.6)*0.012;
-    const s=1+breath+pulse*0.05, sq=S.squash.x*0.06;
-    const tilt=S.tilt.x*10 + (still ? 0 : S.lookX.v*0.3);
-    P.body.setAttribute('transform', `translate(0 ${(-bob-hop).toFixed(2)}) translate(50 94) rotate(${tilt.toFixed(2)}) scale(${(s+sq).toFixed(4)} ${(s-sq).toFixed(4)}) translate(-50 -94)`);
-    const blink=1-Math.sin(Math.PI*Math.min(1,blinkT));
-    const happy=clamp(S.happy.x,0,1), open=clamp(S.open.x*blink*(1-happy),0,1);
-    P.face.setAttribute('transform', `translate(${(S.lookX.x*3).toFixed(2)} ${(S.lookY.x*2).toFixed(2)})`);
-    const dx=S.lookX.x*4.5, dy=S.lookY.x*4;
-    P.eyes.forEach(e=>{
-      const cx=e.cx+dx, cy=44+dy;
-      e.open.setAttribute('cx', cx.toFixed(2)); e.open.setAttribute('cy', cy.toFixed(2));
-      e.open.setAttribute('ry', Math.max(0.01, 4.6*open).toFixed(2));
-      e.open.setAttribute('opacity', open>0.15 ? 1 : 0);
-      const arc=happy*3.2;
-      e.happy.setAttribute('d', `M${(cx-4).toFixed(2)} ${(cy+arc*0.4).toFixed(2)} Q${cx.toFixed(2)} ${(cy-arc).toFixed(2)} ${(cx+4).toFixed(2)} ${(cy+arc*0.4).toFixed(2)}`);
-      e.happy.setAttribute('opacity', open>0.15 ? 0 : 1);
-    });
-    const talk=pulse*Math.sin(t*28)*0.5+pulse*0.4;
-    P.stache.setAttribute('transform', `translate(50 64) translate(0 ${(-happy*1.6).toFixed(2)}) scale(${(1+happy*0.08).toFixed(3)} ${(1+talk*0.35-happy*0.1).toFixed(3)}) translate(-50 -64)`);
-  }
-  let line=null;  
-  let stage=null; 
-  function place(){
-    if(!wrap) return;
-    const fromMode=wrap.className, from=fromMode ? wrap.getBoundingClientRect() : null;
-    placeNow();
-    const toMode=wrap.className;
-    if(from && from.width && fromMode!==toMode && ((fromMode==='jav-stage' && toMode==='jav-inline') || (fromMode==='jav-inline' && toMode==='jav-stage'))) glide(from);
-  }
-  function glide(from){
-    const to=wrap.getBoundingClientRect(); if(!to.width) return;
-    if(glide.g){ const r=glide.g.getBoundingClientRect(); if(r.width) from=r; glide.g.remove(); }
-    const big=from.width>=to.width ? from : to;
-    const at=r=>`translate(${(r.left-big.left).toFixed(1)}px, ${(r.top-big.top).toFixed(1)}px) scale(${(r.width/big.width).toFixed(4)})`;
-    const ghost=glide.g=wrap.cloneNode(true);
-    ghost.removeAttribute('id'); ghost.className='jav-ghost';
-    ghost.style.visibility='';
-    Object.assign(ghost.style, {left:big.left+'px', top:big.top+'px', width:big.width+'px', height:big.height+'px', transition:'none', transform:at(from)});
-    document.body.appendChild(ghost);
-    wrap.style.visibility='hidden';
-    void ghost.offsetWidth;
-    ghost.style.transition=''; ghost.style.transform=at(to);
-    clearTimeout(glide.t);
-    glide.t=setTimeout(()=>{ ghost.remove(); glide.g=null; wrap.style.visibility=''; S.squash.v+=4; }, 760);
-  }
-  function placeNow(){
-    if(wrap.className==='jav-hero') wrap.style.transform=''; 
-    const jean=document.body.classList.contains('jean-mode');
-    if(jean && stage && !document.body.classList.contains('jean-history')){
-      if(line){ line.classList.remove('jav-host'); line=null; }
-      if(wrap.parentNode!==stage) stage.appendChild(wrap);
-      wrap.className='jav-stage';
-      start(); return;
-    }
-    const chat=document.getElementById('chat');
-    const empty=document.getElementById('chat-empty');
-    let target=null;
-    if(jean){
-      if(host && host.isConnected) target=host;
-      else if(chat){ const all=chat.querySelectorAll(':scope > .genstatus'); target=all.length ? all[all.length-1] : null; }
-    }
-    if(line && line!==target) line.classList.remove('jav-host');
-    line=target;
-    if(target){
-      target.classList.add('jav-host');
-      if(wrap.parentNode!==target) target.insertBefore(wrap, target.firstChild);
-      wrap.className='jav-inline';
-    } else if(jean && empty && empty.classList.contains('show')){
-      if(wrap.parentNode!==root) root.appendChild(wrap);
-      wrap.className='jav-hero';
-      const comp=document.getElementById('composer'), ch=comp ? comp.offsetHeight : 120;
-      const size=Math.min(120, root.clientWidth*0.3);
-      wrap.style.setProperty('--jav-size', size+'px');
-      wrap.style.transform=`translate(${(root.clientWidth/2-size/2).toFixed(1)}px, ${((root.clientHeight-ch)/2-30-size/2).toFixed(1)}px)`;
-    } else {
-      if(wrap.parentNode!==root) root.appendChild(wrap);
-      wrap.className=''; wrap.style.transform='';
-    }
-    start();
-  }
-  function lastLine(chat){ const all=chat.querySelectorAll(':scope > .genstatus'); return all.length ? all[all.length-1] : null; }
-  function visible(){ return !document.hidden && !!wrap.className; }
-  function start(){ if(!raf && visible()){ last=0; raf=requestAnimationFrame(frame); } }
-  function init(){
-    root=document.querySelector('.main'); if(!root) return;
-    build(); root.appendChild(wrap);
-    place();
-    addEventListener('resize', place);
-    const empty=document.getElementById('chat-empty');
-    if(empty) new MutationObserver(place).observe(empty, {attributes:true, attributeFilter:['class']});
-    const chat=document.getElementById('chat');
-    if(chat) new MutationObserver(()=>{ if(!REPLAYING && !host && (!line || !line.isConnected || line!==lastLine(chat))) place(); }).observe(chat, {childList:true});
-    new MutationObserver(place).observe(document.body, {attributes:true, attributeFilter:['class']});
-    document.addEventListener('visibilitychange', start);
-    addEventListener('pointermove', e=>{ pointer={x:e.clientX, y:e.clientY, t:performance.now()}; if(state==='sleep' && performance.now()-lastActivity>1500) wake(); }, {passive:true});
-    const input=document.getElementById('input');
-    if(input){
-      const listen=()=>{ wake(); if(!busy && (state==='idle'||state==='listen')) setState('listen', 2500); };
-      input.addEventListener('input', listen); input.addEventListener('focus', listen);
-    }
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
-  return {
-    act(k){
-      if(!k) return;
-      wake();
-      const map={'jean.act_think':'think','jean.act_read':'think','jean.act_search':'search','jean.act_remember':'search','jean.act_forget':'search',
-        'jean.act_web':'web','jean.act_browse':'web','jean.act_look':'web','jean.act_machine':'work','jean.act_task':'work','jean.act_work':'work'};
-      setState(map[k]||'think');
-    },
-    speak,
-    done(){ setState('happy', 1600); },
-    loading(on){ loadingNow=!!on; },
-    sleeping(on){ if(sleepingNow && !on){ hopT=0.3; setState('happy', 1600); } sleepingNow=!!on; },
-    browsing(on){ if(on && !browsing) wake(); browsing=!!on; },
-    mount(el){ stage=el; place(); },
-    listen(){ wake(); if(state==='idle'||state==='listen'||state==='happy') setState('listen', 3000); },
-    gulp(){ wake(); S.squash.v+=9; setTimeout(()=>{ S.squash.v-=7; hopT=0.25; }, 140); },
-    attach(l){ if(host===l) return; host=l; place(); },
-    detach(){ host=null; place(); },
-  };
-})();
-(()=>{
-  let srch, srchQ, srchList, srchSig='';
-  const srchSeen=new WeakSet();
-  let term, termView, termKey='', termTyped=0, termTimer=0, termSig='', avatarLooking=false, termRuns=[], termCmd='';
-  const termSeen=new WeakSet(); 
-  let stage, scene, bubble, bubbleBody, caption, capPast, capText, capStop, inputBox, ta, sendBtn, micBtn, histBtn, filesBtn;
-  let screen, screenView, screenUrl, screenSrc='';
-  let jeanWasOn=false;
-  let inputOpen=false, syncTimer=0, lastHTML='', userScrolled=false;
-  const $=(tag, cls, parent)=>{ const n=document.createElement(tag); if(cls) n.className=cls; if(parent) parent.appendChild(n); return n; };
-  const inStage=()=>document.body.classList.contains('jean-mode') && !document.body.classList.contains('jean-history');
-  let workStart=0;
-  function paintWorkTime(){
-    if(!capStop) return;
-    const el=capStop.querySelector('.cs-t'); if(!el) return;
-    if(!workStart || capStop.hidden){ el.textContent=''; return; }
-    if(ELAPSED && ELAPSED.start && ELAPSED.start<workStart) workStart=ELAPSED.start;
-    const s=Math.max(0, Math.floor((Date.now()-workStart)/1000));
-    el.textContent=' · '+(s<60 ? s+' s' : Math.floor(s/60)+' min '+String(s%60).padStart(2,'0')+' s');
-  }
-  function build(){
-    const main=document.querySelector('.main'); if(!main) return false;
-    stage=$('div','', main); stage.id='jean-stage';
-    histBtn=$('button','jst-hist', main); histBtn.type='button';
-    histBtn.onclick=toggleHistory;
-    filesBtn=$('button','jst-files', main); filesBtn.type='button';
-    filesBtn.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
-    filesBtn.onclick=()=>{ if(typeof openJeanFiles==='function') openJeanFiles(); };
-    scene=$('div','jst-scene', stage);
-    bubble=$('div','jst-bubble', scene);
-    bubbleBody=$('div','jst-bubble-body body', bubble);
-    bubbleBody.addEventListener('scroll', ()=>{ userScrolled = bubbleBody.scrollHeight-bubbleBody.scrollTop-bubbleBody.clientHeight > 30; }, {passive:true});
-    screen=$('div','jst-screen', scene);
-    screenUrl=$('div','jst-screen-url', screen);
-    screenView=$('div','jst-screen-view', screen);
-    term=$('div','jst-term', scene);
-    const tbar=$('div','jst-term-bar', term);
-    for(let i=0;i<3;i++) $('span','', tbar);
-    $('div','jst-term-title', tbar).textContent='terminal';
-    termView=$('pre','jst-term-view', term);
-    srch=$('div','jst-srch', scene);
-    const sbar=$('div','jst-srch-bar', srch);
-    sbar.innerHTML='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
-    srchQ=$('span','jst-srch-q', sbar);
-    srchList=$('div','jst-srch-list', srch);
-    const charWrap=$('div','jst-char', scene);
-    const orbit=$('div','jst-orbit', charWrap);
-    for(let i=0;i<3;i++) $('span','', orbit).style.setProperty('--i', i);
-    const charHost=$('div','jst-char-host', charWrap);
-    const zzz=$('div','jst-zzz', charWrap); zzz.setAttribute('aria-hidden','true');
-    for(let i=0;i<3;i++){ const z=$('span','', zzz); z.textContent='z'; z.style.setProperty('--i', i); }
-    caption=$('div','jst-caption', scene);
-    capPast=$('div','jst-cap-past', caption);
-    capText=$('div','jst-cap-text', caption);
-    capStop=$('button','jst-cap-stop', caption); capStop.type='button'; capStop.hidden=true; capStop.onclick=()=>stopGen();
-    capStop.innerHTML='<span class="cs-l"></span><span class="cs-t"></span>';
-    setInterval(paintWorkTime, 1000);
-    inputBox=$('div','jst-input', scene);
-    ta=$('textarea','', inputBox); ta.rows=1;
-    ta.setAttribute('autocomplete','off'); ta.setAttribute('name','jean-message');
-    ta.setAttribute('enterkeyhint','send'); ta.setAttribute('aria-label','message');
-    micBtn=$('button','jst-mic mic-btn', inputBox); micBtn.type='button';
-    micBtn.innerHTML='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>';
-    micBtn.onmousedown=e=>e.preventDefault(); 
-    micBtn.onpointerdown=()=>{ if(typeof dictWarm==='function') dictWarm(); };
-    micBtn.onclick=()=>{ if(typeof toggleDictation==='function') toggleDictation(micBtn, ta); };
-    sendBtn=$('button','jst-send', inputBox); sendBtn.type='button';
-    sendBtn.innerHTML='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
-    sendBtn.onclick=submit;
-    scene.addEventListener('click', e=>{
-      if(sendBtn.contains(e.target) || micBtn.contains(e.target) || bubble.contains(e.target) || screen.contains(e.target) || capStop.contains(e.target)) return;
-      if(document.activeElement===ta) return;
-      openInput();
-    });
-    ta.addEventListener('blur', ()=>setTimeout(()=>{ if(document.activeElement!==ta && !micBtn.classList.contains('rec') && !micBtn.classList.contains('busy') && !ta.value.trim() && inputOpen && !inputBox.classList.contains('gulp')) closeInput(); }, 200));
-    ta.addEventListener('input', ()=>{ grow(); JeanAvatar&&JeanAvatar.listen(); });
-    ta.addEventListener('keydown', e=>{
-      if(e.key==='Escape'){ e.preventDefault(); closeInput(); return; }
-      if(e.key!=='Enter' || e.isComposing) return;
-      const withMod=e.shiftKey||e.ctrlKey||e.metaKey;
-      if(viewOn('enter-newline') ? withMod : !e.shiftKey){ e.preventDefault(); submit(); }
-    });
-    JeanAvatar&&JeanAvatar.mount(charHost);
-    applyTexts();
-    return true;
-  }
-  function applyTexts(){
-    ta.placeholder=t('jean.stage_placeholder');
-    sendBtn.title=t('chat.send_button_title');
-    micBtn.title=micBtn.ariaLabel=t('stt.mic_title');
-    filesBtn.title=filesBtn.ariaLabel=t('jean.files_title');
-    capStop.querySelector('.cs-l').textContent=t('jean.stage_stop');
-    const hist=document.body.classList.contains('jean-history');
-    histBtn.title=hist ? t('jean.stage_back') : t('jean.stage_history');
-    histBtn.innerHTML = hist
-      ? '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="9.5" cy="11" r="1" fill="currentColor"/><circle cx="14.5" cy="11" r="1" fill="currentColor"/></svg>'
-      : '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
-  }
-  function grow(){ ta.style.height='auto'; ta.style.height=Math.min(ta.scrollHeight, 160)+'px'; }
-  function openInput(){
-    if(!inStage()) return;
-    if(inputOpen){ ta.focus(); return; }
-    inputOpen=true; stage.classList.add('typing');
-    inputBox.classList.remove('gulp'); inputBox.style.transform='';
-    JeanAvatar&&JeanAvatar.listen();
-    ta.focus({preventScroll:true});
-    requestAnimationFrame(grow);
-  }
-  function closeInput(){ inputOpen=false; stage.classList.remove('typing'); ta.blur(); fitViewport(); }
-  function submit(){
-    const text=ta.value.trim(); if(!text) return;
-    const input=document.getElementById('input');
-    input.value=text; ta.value=''; grow();
-    const from=inputBox.getBoundingClientRect(), to=stage.querySelector('.jst-char-host').getBoundingClientRect();
-    const dx=(to.left+to.width/2)-(from.left+from.width/2), dy=(to.top+to.height/2)-(from.top+from.height/2);
-    inputBox.style.setProperty('--gx', dx+'px'); inputBox.style.setProperty('--gy', dy+'px');
-    inputBox.classList.add('gulp');
-    setTimeout(()=>{ JeanAvatar&&JeanAvatar.gulp(); }, 260);
-    setTimeout(()=>{ inputOpen=false; stage.classList.remove('typing'); inputBox.classList.remove('gulp'); ta.blur(); }, 420);
-    send();
-  }
-  function sync(){
-    syncTimer=0;
-    if(!stage) return;
-    const settled=!REPLAYING && !READING;
-    const chat=document.getElementById('chat');
-    const msgs=chat ? chat.querySelectorAll(':scope > .msg.user, :scope > .msg.assistant:not(.typing)') : [];
-    const lastMsg=msgs[msgs.length-1];
-    const answer=lastMsg && lastMsg.classList.contains('assistant') ? lastMsg : null;
-    const html=settled ? (answer ? (answer.querySelector('.body')||answer).innerHTML : '') : lastHTML;
-    if(html!==lastHTML){
-      const fresh=!lastHTML;
-      const keep=new Map();
-      for(const im of bubbleBody.querySelectorAll('img[src]')) if(im.complete && im.naturalWidth) keep.set(im.getAttribute('src'), im);
-      lastHTML=html; bubbleBody.innerHTML=html;
-      const now=performance.now();
-      for(const w of bubbleBody.querySelectorAll('span.wi[data-t]')) w.style.animationDelay=Math.round(+w.dataset.t-now)+'ms';
-      adoptImages(keep);
-      if(fresh){ userScrolled=false; bubbleBody.scrollTop=0; }
-      else if(!userScrolled) bubbleBody.scrollTop=bubbleBody.scrollHeight;
-    }
-    stage.classList.toggle('has-answer', !!html.trim());
-    if(settled) syncScreen(chat, answer);
-    if(settled) syncTerm(chat, answer);
-    const looking=stage.classList.contains('browsing') || stage.classList.contains('terminal') || stage.classList.contains('searching');
-    if(looking!==avatarLooking){ avatarLooking=looking; JeanAvatar&&JeanAvatar.browsing(looking); }
-    const act=chat && [...chat.querySelectorAll(':scope > .genstatus .jact')].pop();
-    const modelLoading=STATUS_SEEN && !MODEL_READY;
-    const loading=modelLoading || !settled;
-    const sent=PENDS.length>0;
-    const working=settled && !loading && (busy && !!(ELAPSED || RUNNING_TASK) || sent);
-    const hint=settled && !loading && !working && !html;
-    const asleep=(JEAN_SLEEPING || Date.now()<JEAN_SLEEP_HOLD) && !working && !loading && !inputOpen;
-    stage.classList.toggle('sleeping', asleep);
-    JeanAvatar&&JeanAvatar.sleeping&&JeanAvatar.sleeping(asleep);
-    if(Date.now()<JEAN_SLEEP_HOLD) setTimeout(schedule, 1000);
-    const txt=loading ? t(modelLoading ? 'jean.stage_loading' : 'chat.loading_conversation') : working ? ((act && act.textContent) || (sent ? t('jean.act_read') : '')) : asleep ? t('jean.sleep_caption') : (hint ? t('jean.stage_hint') : '');
-    stage.classList.toggle('loading', loading);
-    stage.classList.toggle('idle-hint', hint);
-    JeanAvatar&&JeanAvatar.loading(loading);
-    let past='';
-    if(working && chat){
-      const steps=[...chat.querySelectorAll(':scope > .msg.user, :scope > .msg.tool.has-desc:not(.working)')];
-      const last=steps[steps.length-1];
-      if(last && !last.classList.contains('user')){ const l=last.querySelector('.label .txt')||last.querySelector('.label'); past=l ? l.textContent : ''; }
-      if(past===txt) past='';
-    }
-    if(capPast.textContent!==past){
-      capPast.textContent=past;
-      capPast.classList.remove('in'); void capPast.offsetWidth; if(past) capPast.classList.add('in');
-    }
-    if(capText.textContent!==txt){
-      capText.textContent=txt;
-      capText.classList.remove('in'); void capText.offsetWidth; if(txt) capText.classList.add('in');
-    }
-    stage.classList.toggle('busy', working || loading);
-    capStop.hidden=!working;
-    if(working && !workStart) workStart=(ELAPSED && ELAPSED.start) || Date.now();
-    if(!working) workStart=0;
-    paintWorkTime();
-  }
-  function syncScreen(chat, answer){
-    const cards=chat ? chat.querySelectorAll(':scope > .cu-shot') : [];
-    const card=cards[cards.length-1];
-    const frames=card ? card.querySelectorAll('img.cu-frame') : [];
-    const frame=frames[frames.length-1];
-    const answerAfter=!!(card && answer && (card.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING));
-    const on=!!(card && frame) && !answerAfter;
-    stage.classList.toggle('browsing', on);
-    if(!on){ screenSrc=''; return; }
-    const url=(card.querySelector('.cu-shot-t')||{}).textContent||'';
-    if(screenUrl.textContent!==url) screenUrl.textContent=url;
-    if(frame.src===screenSrc) return;
-    screenSrc=frame.src;
-    const img=new Image(); img.alt=''; img.src=frame.src;
-    screenView.appendChild(img);
-    setTimeout(()=>img.classList.add('in'), 20);
-    setTimeout(()=>{ let x=img.previousElementSibling; while(x){ const p=x.previousElementSibling; x.remove(); x=p; } }, 480);
-  }
-  function syncTerm(chat, answer){
-    const all=chat ? [...chat.querySelectorAll(':scope > .msg.user, :scope > .msg.tool')] : [];
-    let from=0; for(let i=all.length-1;i>=0;i--){ if(all[i].classList.contains('user')){ from=i+1; break; } }
-    const tools=all.slice(from);
-    const runs=tools.filter(el=>el.dataset.tool==='bash' && el._tu).slice(-4);
-    const last=runs[runs.length-1];
-    const panels=tools.filter(el=>(el.dataset.tool==='bash' || el.dataset.tool==='web_search') && el._tu);
-    const lastPanel=panels[panels.length-1];
-    syncSearch(lastPanel && lastPanel.dataset.tool==='web_search' ? lastPanel : null, answer);
-    if(lastPanel && lastPanel!==last){ stage.classList.remove('terminal'); return; }
-    const answerAfter=!!(last && answer && (last.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING));
-    const on=!!last && !answerAfter && !stage.classList.contains('browsing') && busy && !!(ELAPSED || RUNNING_TASK) && !viewOn('hide-term');
-    stage.classList.toggle('terminal', on);
-    if(!on){ return; }
-    const cur=runs[runs.length-1]._tu;
-    const cmd=String(cur.label||'');
-    const key=runs.length+'|'+cmd;
-    if(key!==termKey){
-      const prev=termKey.slice(termKey.indexOf('|')+1);
-      const grows=termKey.split('|')[0]===String(runs.length) && cmd.startsWith(prev);
-      termKey=key;
-      if(!grows) termTyped=cur.done ? cmd.length : 0;
-    }
-    termRuns=runs; termCmd=cmd;
-    paintTerm(runs, cmd);
-    if(termTyped<cmd.length && !termTimer){
-      termTimer=setInterval(()=>{
-        const step=Math.max(1, Math.ceil(termCmd.length/45)); 
-        termTyped=Math.min(termCmd.length, termTyped+step);
-        paintTerm(termRuns, termCmd);
-        if(termTyped>=termCmd.length){ clearInterval(termTimer); termTimer=0; }
-      }, 33);
-    }
-  }
-  function syncSearch(el, answer){
-    const answerAfter=!!(el && answer && (el.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING));
-    const on=!!el && !answerAfter && !stage.classList.contains('browsing') && busy && !!(ELAPSED || RUNNING_TASK);
-    stage.classList.toggle('searching', on);
-    if(!on) return;
-    const tu=el._tu, q=String(tu.label||'');
-    const sig=q+'|'+(tu.done?1:0)+'|'+(tu.result||'').length;
-    if(sig===srchSig) return;
-    srchSig=sig;
-    if(srchQ.textContent!==q) srchQ.textContent=q;
-    const fresh=tu.done && !srchSeen.has(el); if(tu.done) srchSeen.add(el);
-    const frag=document.createDocumentFragment();
-    if(!tu.done){
-      for(let i=0;i<3;i++){ const sk=$('div','jst-srch-sk', frag); $('i','',sk); $('i','',sk); $('i','',sk); }
-    } else {
-      const items=parseSearch(tu.result);
-      if(!items.length){ const n=$('div','jst-srch-none', frag); n.textContent=t('jean.stage_no_results'); }
-      items.slice(0,6).forEach((it,i)=>{
-        const row=$('div','jst-srch-item'+(fresh?' in':''), frag); row.style.setProperty('--i', i);
-        const src=$('div','jst-srch-src', row);
-        const ic=$('span','jst-srch-ic', src); ic.textContent=(it.host[0]||'?').toUpperCase();
-        $('span','', src).textContent=it.host;
-        $('div','jst-srch-t', row).textContent=it.title;
-        if(it.snip) $('div','jst-srch-s', row).textContent=it.snip;
-      });
-    }
-    srchList.replaceChildren(frag);
-    srchList.scrollTop=0;
-  }
-  function parseSearch(txt){
-    const out=[]; const lines=String(txt||'').split('\n');
-    for(let i=0;i<lines.length;i++){
-      const m=lines[i].match(/^\d+\.\s+(.+)$/); if(!m) continue;
-      const url=(lines[i+1]||'').trim(), snip=(lines[i+2]||'').trim();
-      let host=''; try{ host=new URL(url).hostname.replace(/^www\./,''); }catch(_){ continue; }
-      out.push({title:m[1].trim(), host, snip: /^\d+\.\s/.test(snip) ? '' : snip});
-    }
-    return out;
-  }
-  function tail(s, n){ const l=String(s||'').replace(/\s+$/,'').split('\n'); return l.slice(-n).join('\n'); }
-  function paintTerm(runs, cmd){
-    const sig=termTyped+'|'+runs.map(el=>{ const tu=el._tu; return (tu.label||'').length+':'+(tu.done?1:0)+':'+(tu.result||'').length; }).join(',');
-    if(sig===termSig) return;
-    termSig=sig;
-    const frag=document.createDocumentFragment();
-    runs.forEach((el,i)=>{
-      const tu=el._tu, isLast=i===runs.length-1;
-      const line=document.createElement('div'); line.className='jt-cmd';
-      const ps=document.createElement('span'); ps.className='jt-ps'; ps.textContent='$ ';
-      line.appendChild(ps);
-      line.appendChild(document.createTextNode(isLast ? cmd.slice(0, termTyped) : String(tu.label||'')));
-      const typing=isLast && termTyped<cmd.length;
-      const waiting=isLast && !typing && !tu.done;
-      if(typing || waiting){ const c=document.createElement('span'); c.className='jt-caret'; line.appendChild(c); }
-      frag.appendChild(line);
-      if(tu.done && !(isLast && typing) && tu.result){
-        const fresh=!termSeen.has(el); termSeen.add(el);
-        const out=document.createElement('div'); out.className='jt-out'+(fresh?' in':'');
-        out.textContent=tail(tu.result, isLast ? 40 : 6);
-        frag.appendChild(out);
-      }
-    });
-    termView.replaceChildren(frag);
-    termView.scrollTop=termView.scrollHeight;
-  }
-  function adoptImages(keep){
-    for(const img of [...bubbleBody.querySelectorAll('img')]){
-      const src=img.getAttribute('src');
-      if(!src){ const ph=document.createElement('span'); ph.className='jimg-ph'; img.replaceWith(ph); continue; }
-      const old=keep.get(src);
-      if(old){ keep.delete(src); img.replaceWith(old); continue; }
-      img.classList.add('chat-img','jimg');
-      img.onclick=e=>{ e.stopPropagation(); if(img.naturalWidth && typeof openLightbox==='function') openLightbox(img); };
-      img.addEventListener('error', ()=>{ img.style.display='none'; }, {once:true});
-      if(img.complete && img.naturalWidth) img.classList.add('jimg-in');
-      else img.addEventListener('load', ()=>img.classList.add('jimg-in'), {once:true});
-    }
-  }
-  const schedule=()=>{ if(!syncTimer) syncTimer=setTimeout(sync, 90); };
-  function toggleHistory(){
-    const on=!document.body.classList.contains('jean-history');
-    if(on){ closeInput(); const c=document.getElementById('chat'); if(c){ stickyBottom=true; c.scrollTop=c.scrollHeight; } }
-    document.body.classList.toggle('jean-history', on);
-    try{ localStorage.setItem('ajean-jean-view', on ? 'chat' : 'stage'); }catch(_){}
-    applyTexts();
-  }
-  const prefersChat=()=>{ try{ return localStorage.getItem('ajean-jean-view')==='chat'; }catch(_){ return false; } };
-  function fitViewport(){
-    const vv=window.visualViewport; if(!vv || !stage) return;
-    const kb=window.innerHeight - vv.height > 120 && inStage() && inputOpen;
-    stage.classList.toggle('kb', kb);
-    if(kb){
-      stage.style.setProperty('--vv-top', vv.offsetTop+'px');
-      stage.style.setProperty('--vv-h', vv.height+'px');
-      if(window.scrollY) window.scrollTo(0, 0);
-    }
-  }
-  function init(){
-    if(!build()) return;
-    if(window.visualViewport){
-      visualViewport.addEventListener('resize', fitViewport);
-      visualViewport.addEventListener('scroll', fitViewport);
-    }
-    ta.addEventListener('focus', ()=>setTimeout(fitViewport, 50));
-    ta.addEventListener('blur', ()=>setTimeout(fitViewport, 50));
-    const chat=document.getElementById('chat');
-    if(chat) new MutationObserver(schedule).observe(chat, {childList:true, subtree:true, characterData:true});
-    new MutationObserver(()=>{
-      const b=document.body.classList;
-      if(!b.contains('jean-mode')){ if(b.contains('jean-history')) b.remove('jean-history'); if(inputOpen) closeInput(); }
-      else if(!b.contains('jean-history') && prefersChat() && !jeanWasOn){ jeanWasOn=true; b.add('jean-history'); return; }
-      jeanWasOn=b.contains('jean-mode');
-      if(inStage() && document.activeElement && document.activeElement.id==='input') document.activeElement.blur();
-      applyTexts(); schedule();
-    })
-      .observe(document.body, {attributes:true, attributeFilter:['class']});
-    if(document.body.classList.contains('jean-mode')){ jeanWasOn=true; if(prefersChat()) document.body.classList.add('jean-history'); }
-    document.addEventListener('keydown', e=>{
-      if(!inStage() || inputOpen || e.ctrlKey || e.metaKey || e.altKey || e.key.length!==1) return;
-      const a=document.activeElement;
-      const shown=el=>!!el && el.getClientRects().length>0;
-      if(a && a.id!=='input' && (a.tagName==='INPUT' || a.tagName==='TEXTAREA' || a.isContentEditable) && shown(a)) return;
-      if([...document.querySelectorAll('.modal-ov.show,.ask-overlay.show')].some(shown)) return;
-      if(a && a!==document.body && !shown(a)) a.blur();
-      openInput();
-    });
-    setInterval(()=>{ if(inStage()) sync(); }, 500); 
-    if(inStage() && document.activeElement && document.activeElement.id==='input') document.activeElement.blur();
-    sync();
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
-})();
 const APPS_TXT = {
   fr: {
     title:'Applications', empty:'Aucune app pour l\'instant. Demandez à l\'IA : « Crée-moi une app qui… »',
@@ -16359,252 +15891,6 @@ async function dictSend(mime){
     dictBtn('');
   }
 }
-(()=>{
-  let enabled=false, on=false, btn=null, pill=null, sens=2, silenceMs=800;
-  let ctx=null, stream=null, srcNode=null, proc=null;
-  let state='off';
-  let floor=0.006, pre=[], frames=[], loudMs=0, speechMs=0, silMs=0, recMs=0, lastNudge=0;
-  let turn=null, queue=[], playing=false, gen=0, tickTimer=0, deafUntil=0;
-  const player=new Audio(); player.playsInline=true; player.preload='auto';
-  const SILENT='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
-  const MIC='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
-  function build(){
-    const main=document.querySelector('.main'); if(!main) return;
-    btn=document.createElement('button'); btn.type='button'; btn.className='jst-voice'; btn.innerHTML=MIC;
-    btn.onclick=()=>on ? stop() : start();
-    main.appendChild(btn);
-    pill=document.createElement('div'); pill.className='jst-voice-st';
-    pill.onclick=interrupt;
-    main.appendChild(pill);
-    document.addEventListener('pointerdown', e=>{
-      if(!on || !document.body.classList.contains('jean-mode') || (btn && btn.contains(e.target))) return;
-      if(interrupt()){ e.preventDefault(); e.stopPropagation(); }
-    }, true);
-    texts();
-  }
-  function texts(){ if(btn) btn.title=btn.ariaLabel=t(on ? 'jean.voice_off' : 'jean.voice_on'); }
-  function setState(s){
-    state=s;
-    document.body.classList.toggle('jean-voice', on);
-    if(btn){ btn.classList.toggle('on', on); btn.dataset.st=on ? s : ''; }
-    const msg={listen:'jean.voice_listen', rec:'jean.voice_rec', stt:'jean.voice_stt', speak:'jean.voice_speak'}[s];
-    if(pill){ pill.textContent=on && msg ? t(msg) : ''; pill.classList.toggle('in', !!(on && msg)); }
-  }
-  async function start(){
-    if(on) return;
-    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(_){ toast(t('jean.voice_unsupported')); return; }
-    ctx.resume().catch(()=>{});
-    player.src=SILENT; player.play().catch(()=>{});
-    try{
-      stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}});
-    }catch(e){ try{ ctx.close(); }catch(_){} ctx=null; toast(t('jean.voice_mic_denied')); return; }
-    srcNode=ctx.createMediaStreamSource(stream);
-    proc=ctx.createScriptProcessor(2048, 1, 1);
-    proc.onaudioprocess=onAudio;
-    srcNode.connect(proc); proc.connect(ctx.destination); 
-    on=true; pre=[]; frames=[]; loudMs=0; floor=0.006;
-    texts(); setState('listen');
-    tickTimer=setInterval(tick, 200);
-  }
-  function stop(){
-    if(!on) return;
-    on=false; stopSpeech();
-    clearInterval(tickTimer); tickTimer=0;
-    try{ proc&&proc.disconnect(); srcNode&&srcNode.disconnect(); }catch(_){}
-    if(stream) stream.getTracks().forEach(tr=>tr.stop());
-    try{ ctx&&ctx.close(); }catch(_){}
-    ctx=stream=srcNode=proc=null; turn=null;
-    texts(); setState('off');
-  }
-  const sumMs=a=>a.reduce((n,f)=>n+f.length, 0)/(ctx ? ctx.sampleRate : 48000)*1000;
-  function onAudio(e){
-    if(!on) return;
-    const x=e.inputBuffer.getChannelData(0);
-    const f=new Float32Array(x);
-    let s=0; for(let i=0;i<f.length;i++) s+=f[i]*f[i];
-    const rms=Math.sqrt(s/f.length), ms=f.length/ctx.sampleRate*1000;
-    if(state==='speak' || playing || Date.now()<deafUntil){ pre=[]; loudMs=0; return; }
-    const thr=sens===1 ? Math.max(floor*4, 0.022) : sens===3 ? Math.max(floor*2.2, 0.009) : Math.max(floor*3, 0.014);
-    const loud=rms>thr;
-    if(state==='listen' || state==='wait'){
-      if(!loud && state==='listen') floor=Math.min(0.03, Math.max(0.002, floor*0.97+rms*0.03));
-      pre.push(f); while(pre.length>1 && sumMs(pre)>450) pre.shift();
-      if(loud){ loudMs+=ms; if(loudMs>=140) beginRec(); }
-      else loudMs=Math.max(0, loudMs-ms/2);
-    } else if(state==='rec'){
-      frames.push(f); recMs+=ms;
-      if(loud){ speechMs+=ms; silMs=0; } else silMs+=ms;
-      if(Date.now()-lastNudge>400 && loud){ lastNudge=Date.now(); window.JeanAvatar&&JeanAvatar.listen(); }
-      if(silMs>=silenceMs || recMs>60000) endRec();
-    }
-  }
-  function beginRec(){
-    frames=pre; pre=[]; recMs=sumMs(frames); speechMs=loudMs; silMs=0; loudMs=0;
-    setState('rec');
-  }
-  async function endRec(){
-    const fr=frames; frames=[];
-    if(speechMs<350){ setState(turn ? 'wait' : 'listen'); return; }
-    setState('stt');
-    const wav=encodeWav(fr, ctx.sampleRate);
-    let text='';
-    try{
-      const r=await jfetch('/api/voice/stt', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({wav})});
-      const j=await r.json(); if(!r.ok) throw new Error(j.error||'');
-      text=(j.text||'').trim();
-    }catch(e){ toast(t('jean.voice_stt_error')); }
-    if(!on) return;
-    if(!text || !/[\p{L}\d]/u.test(text)){ setState(turn ? 'wait' : 'listen'); return; }
-    say(text);
-  }
-  function encodeWav(fr, rate){
-    const n=fr.reduce((a,f)=>a+f.length, 0), all=new Float32Array(n);
-    let o=0; for(const f of fr){ all.set(f, o); o+=f.length; }
-    const ratio=rate/16000, len=Math.floor(n/ratio), pcm=new Int16Array(len);
-    for(let i=0;i<len;i++){
-      const a=Math.floor(i*ratio), b=Math.min(n, Math.floor((i+1)*ratio));
-      let s=0; for(let j=a;j<b;j++) s+=all[j];
-      const v=Math.max(-1, Math.min(1, s/Math.max(1, b-a)));
-      pcm[i]=v<0 ? v*0x8000 : v*0x7fff;
-    }
-    const buf=new ArrayBuffer(44+pcm.length*2), dv=new DataView(buf);
-    const w=(p, s)=>{ for(let i=0;i<s.length;i++) dv.setUint8(p+i, s.charCodeAt(i)); };
-    w(0,'RIFF'); dv.setUint32(4, 36+pcm.length*2, true); w(8,'WAVE'); w(12,'fmt ');
-    dv.setUint32(16,16,true); dv.setUint16(20,1,true); dv.setUint16(22,1,true);
-    dv.setUint32(24,16000,true); dv.setUint32(28,32000,true); dv.setUint16(32,2,true); dv.setUint16(34,16,true);
-    w(36,'data'); dv.setUint32(40, pcm.length*2, true);
-    new Int16Array(buf, 44).set(pcm);
-    const bytes=new Uint8Array(buf); let bin='';
-    for(let i=0;i<bytes.length;i+=0x8000) bin+=String.fromCharCode.apply(null, bytes.subarray(i, i+0x8000));
-    return btoa(bin);
-  }
-  function say(text){
-    const input=document.getElementById('input'); if(!input) return;
-    input.value=text;
-    window.VOICE_SEND=true;
-    stopSpeech();
-    turn={spoken:0, at:Date.now()};
-    send();
-    setState('wait');
-  }
-  function segments(){
-    const chat=document.getElementById('chat'); if(!chat) return [];
-    const all=[...chat.querySelectorAll(':scope > .msg.user, :scope > .msg.assistant:not(.typing), :scope > .msg.tool')];
-    let i=all.length-1; while(i>=0 && !all[i].classList.contains('user')) i--;
-    const out=[];
-    for(const el of all.slice(i+1)){
-      if(el.classList.contains('tool')){
-        const tu=el._tu;
-        if(tu && tu.desc && !tu.typing) out.push({tool:true, text:String(tu.desc).trim()});
-        continue;
-      }
-      const b=(el.querySelector('.body')||el).cloneNode(true);
-      b.querySelectorAll('pre,table,img,.katex,details,.jimg-ph,button').forEach(n=>n.remove());
-      b.querySelectorAll('p,li,h1,h2,h3,h4,h5,h6,br,blockquote').forEach(n=>n.append('\n'));
-      out.push({tool:false, text:b.textContent||''});
-    }
-    return out;
-  }
-  function sentencesOf(full){
-    const flat=full.replace(/\s+/g, ' ').trim();
-    const done=[]; const re=/[^.!?…]+?(?:[.!?…]+["»”)]*)(?=\s|$)/g; let m, end=0;
-    while((m=re.exec(flat))){ done.push(m[0].trim()); end=re.lastIndex; }
-    return {done, rest:flat.slice(end).trim()};
-  }
-  function tick(){
-    if(!on || !turn) return;
-    const done=!busy && !(typeof PENDS!=="undefined" && PENDS.length) && Date.now()-turn.at>1500;
-    const segs=segments();
-    const ready=[];
-    segs.forEach((sg, k)=>{
-      if(sg.tool){ if(sg.text) ready.push({tool:true, text:sg.text}); return; }
-      const sp=sentencesOf(sg.text), last=k===segs.length-1;
-      const parts=last && !done ? sp.done.slice(0, -1) : sp.done.concat(sp.rest ? [sp.rest] : []);
-      for(const x of parts) ready.push({tool:false, text:x});
-    });
-    if(ready.length>turn.spoken){
-      let text='';
-      for(const it of ready.slice(turn.spoken)){
-        if(it.tool){ if(text){ enqueue(text); text=''; } enqueue(it.text, true); }
-        else text+=(text ? ' ' : '')+it.text;
-      }
-      if(text) enqueue(text);
-      turn.spoken=ready.length;
-    }
-    if(done && turn.spoken>=ready.length && !queue.length && !playing){
-      turn=null; if(state==='wait' || state==='speak') setState('listen');
-    }
-  }
-  function enqueue(txt, tool){
-    let clean=txt.replace(/https?:\/\/\S+/g, '').replace(/[*_#`>|~\[\]]/g, '').replace(/\s+/g, ' ').trim();
-    if(!/[\p{L}\d]/u.test(clean)) return;
-    if(tool){
-      if(!/[.!?…]$/.test(clean)) clean+='.';
-      queue=queue.filter(it=>!it.tool || it.cur);
-      queue.push({text:clean, p:null, tool:true});
-      pump(); return;
-    }
-    const last=queue[queue.length-1];
-    if(last && !last.p && !last.tool && (last.text+' '+clean).length<220) last.text+=' '+clean;
-    else queue.push({text:clean, p:null});
-    pump();
-  }
-  async function fetchTts(text, g){
-    try{
-      const r=await jfetch('/api/voice/tts', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text})});
-      const j=await r.json(); if(!r.ok || !j.wav || g!==gen) return null;
-      const bin=atob(j.wav), u8=new Uint8Array(bin.length);
-      for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
-      return URL.createObjectURL(new Blob([u8], {type:'audio/wav'}));
-    }catch(_){ return null; }
-  }
-  async function pump(){
-    const g=gen;
-    for(const it of queue.slice(0, 2)) if(!it.p) it.p=fetchTts(it.text, g);
-    if(playing || !queue.length) return;
-    playing=true;
-    const item=queue[0]; item.cur=true;
-    const url=await item.p;
-    if(g!==gen) return;
-    queue=queue.filter(x=>x!==item);
-    if(url){
-      setState('speak');
-      await new Promise(res=>{ player.onended=res; player.onerror=res; player.src=url; player.play().catch(res); });
-      URL.revokeObjectURL(url);
-      deafUntil=Date.now()+700;
-    }
-    if(g!==gen) return;
-    playing=false;
-    if(queue.length) pump();
-    else if(state==='speak') setState(turn ? 'wait' : 'listen');
-  }
-  function interrupt(){
-    if(!on || !(state==='speak' || playing)) return false;
-    stopSpeech(); turn=null; if(busy) stopGen();
-    deafUntil=Date.now()+300; setState('listen');
-    return true;
-  }
-  function stopSpeech(){
-    gen++; queue=[]; playing=false; deafUntil=Date.now()+700;
-    try{ player.pause(); player.removeAttribute('src'); player.load(); }catch(_){}
-  }
-  async function refresh(){
-    try{
-      const r=await jfetch('/api/voice/status'); const j=await r.json();
-      enabled=!!j.enabled; sens=j.sens||2; silenceMs=j.silence_ms||800;
-    }catch(_){ enabled=false; }
-    document.body.classList.toggle('voice-ready', enabled);
-    if(!enabled && on) stop();
-  }
-  async function init(){
-    build();
-    await refresh();
-    window.addEventListener('voice-settings', refresh);
-    new MutationObserver(()=>{ if(on && !document.body.classList.contains('jean-mode')) stop(); texts(); })
-      .observe(document.body, {attributes:true, attributeFilter:['class']});
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
-})();
 let jeanMemSeen = null, jeanMemHideT = 0, jeanMemDone = false;
 function jeanMemPill(){
   let p = document.getElementById('jean-mem-pill');
@@ -16643,88 +15929,6 @@ function jeanMemActivity(a){
     p.classList.remove('show');
   }
 }
-let VOICE_SET=null;
-const _voicePlayer=new Audio();
-function _voicePlay(b64){
-  try{
-    const bin=atob(b64), u8=new Uint8Array(bin.length);
-    for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
-    const url=URL.createObjectURL(new Blob([u8], {type:'audio/wav'}));
-    _voicePlayer.onended=()=>URL.revokeObjectURL(url);
-    _voicePlayer.src=url; _voicePlayer.play().catch(()=>{});
-  }catch(_){}
-}
-function _voiceFill(s){
-  VOICE_SET=s;
-  const $=id=>document.getElementById(id);
-  if(!$('voice-block')) return;
-  $('voice-toggle').checked=!!s.on;
-  const url=$('voice-url');
-  if(document.activeElement!==url) url.value=s.url||'';
-  url.placeholder=s.url_default||'http://127.0.0.1:8095';
-  const sel=$('voice-name');
-  const names=(s.voices||[]).slice();
-  if(s.voice && !names.includes(s.voice)) names.unshift(s.voice);
-  sel.replaceChildren(...names.map(n=>{ const o=document.createElement('option'); o.value=o.textContent=n; return o; }));
-  if(!names.length){ const o=document.createElement('option'); o.value=''; o.textContent=t('voice.none'); sel.appendChild(o); }
-  sel.value=s.voice||'';
-  $('voice-sens').value=String(s.sens||2);
-  const sil=$('voice-silence');
-  if(![...sil.options].some(o=>o.value===String(s.silence_ms))){ const o=document.createElement('option'); o.value=String(s.silence_ms); o.textContent=(s.silence_ms/1000).toLocaleString()+' s'; sil.appendChild(o); }
-  sil.value=String(s.silence_ms||800);
-  $('voice-del').disabled=!(s.voices||[]).includes(s.voice);
-  const configured=!!(s.url||s.url_default);
-  setBadge('voice-badge', !configured || !s.on ? false : s.reachable ? true : 'warn',
-    !configured || !s.on ? t('voice.badge_off') : s.reachable ? t('voice.badge_ok') : t('voice.badge_down'));
-}
-async function loadVoiceSettings(){
-  try{ const r=await jfetch('/api/voice/settings'); if(r.ok) _voiceFill(await r.json()); }catch(_){}
-}
-async function voiceSave(patch){
-  try{
-    const r=await jfetch('/api/voice/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(patch)});
-    const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status);
-    _voiceFill(j);
-    window.dispatchEvent(new Event('voice-settings'));
-  }catch(e){ toast(t('voice.error').replace('{msg}', e.message)); loadVoiceSettings(); }
-}
-async function voiceTest(){
-  const btn=document.querySelector('#voice-block .voice-play'); if(btn) btn.disabled=true;
-  try{
-    const voice=document.getElementById('voice-name').value;
-    const r=await jfetch('/api/voice/tts', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text:t('voice.test_text'), voice})});
-    const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status);
-    _voicePlay(j.wav);
-  }catch(e){ toast(t('voice.error').replace('{msg}', e.message)); }
-  finally{ if(btn) btn.disabled=false; }
-}
-async function voiceCreate(){
-  const desc=await askPrompt(t('voice.create_desc'), {title:t('voice.create_title'), placeholder:t('voice.create_desc_ph')});
-  if(!desc || !desc.trim()) return;
-  const raw=await askPrompt(t('voice.create_name'), {title:t('voice.create_title'), placeholder:t('voice.create_name_ph')});
-  if(!raw || !raw.trim()) return;
-  const name=raw.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,32);
-  toast(t('voice.creating'));
-  try{
-    const r=await jfetch('/api/voice/design', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, description:desc.trim()})});
-    const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status);
-    _voicePlay(j.wav);
-    toast(t('voice.created').replace('{name}', j.name));
-    await voiceSave({voice:j.name});
-  }catch(e){ toast(t('voice.error').replace('{msg}', e.message)); }
-}
-async function voiceDelete(){
-  const name=document.getElementById('voice-name').value;
-  if(!name || !(VOICE_SET && (VOICE_SET.voices||[]).includes(name))) return;
-  if(!await askConfirm(t('voice.delete_confirm').replace('{name}', name))) return;
-  try{
-    const r=await jfetch('/api/voice/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})});
-    const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status);
-    const left=j.voices||[];
-    await voiceSave({voice: left[0]||''});
-  }catch(e){ toast(t('voice.error').replace('{msg}', e.message)); }
-}
-if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', loadVoiceSettings); else loadVoiceSettings();
 const ROUTE_MODALS = {files:'jean-files-modal', memory:'jean-mem-modal', trackers:'tracker-modal'};
 const ROUTE_SECTIONS = {device:'device.title', config:'config.title', models:'presets.title', tasks:'tasks.title',
   appearance:'appearance.title', api:'api.title', link:'link.title', engine:'engine.title', settings:'settings.section_title'};
@@ -16803,6 +16007,8 @@ const ROUTE_SECTIONS = {device:'device.title', config:'config.title', models:'pr
       } else if(name === 'history'){
         showSide();
         if(sideView() !== 'hist'){ showSideView('hist'); loadHistory(); }
+      } else if(name === 'apps' && document.body.classList.contains('no-apps')){
+        if(sideView() !== 'main') showSideView('main');
       } else if(name === 'apps'){
         showSide();
         if(sideView() !== 'apps') await openAppsView();

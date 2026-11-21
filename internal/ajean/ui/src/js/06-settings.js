@@ -207,6 +207,7 @@ async function loadAgent(){
   AGENT_ON = !!on;
   document.getElementById('compact-toggle').checked = (s.compact !== false);
   const pw=document.getElementById('prewarm-toggle'); if(pw) pw.checked = (s.prewarm !== false);
+  loadAppsEnabled();
   const cm = document.getElementById('compact-max');
   if(cm){
     const v = String(s.compact_max || 0);
@@ -449,6 +450,22 @@ async function enableAgent(){
   return true;
 }
 // Pré-chauffage du prompt : réglage du serveur, commun à tous les appareils.
+// Interrupteur des Apps : body.no-apps masque l'écran Applications.
+async function loadAppsEnabled(){
+  let r=null; try{ r=await jget('/api/apps-enabled'); }catch(_){ return; }
+  applyAppsEnabled(!r || r.on !== false);
+}
+function applyAppsEnabled(on){
+  document.body.classList.toggle('no-apps', !on);
+  const cb=document.getElementById('apps-on-toggle'); if(cb) cb.checked=on;
+  if(!on && location.hash.startsWith('#/apps')) location.hash='';
+}
+async function toggleAppsEnabled(){
+  const cb=document.getElementById('apps-on-toggle');
+  let r=null; try{ r=await jpost('/api/apps-enabled',{on:cb.checked}); }catch(_){}
+  if(!r || r.ok===false){ cb.checked=!cb.checked; toast((r&&r.error)||'erreur'); return; }
+  applyAppsEnabled(r.on);
+}
 async function togglePrewarm(){
   const cb=document.getElementById('prewarm-toggle');
   const r=await jpost('/api/agent/prewarm',{on:cb.checked});
@@ -734,3 +751,5 @@ async function act(a){
   }
   setTimeout(loadAll,1500);
 }
+// Au démarrage : masquer l'écran Applications s'il est coupé.
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadAppsEnabled); else loadAppsEnabled();

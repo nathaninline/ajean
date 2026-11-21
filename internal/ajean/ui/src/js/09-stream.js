@@ -1,3 +1,5 @@
+// Personnage de Jean retiré : JeanAvatar reste vide, ses appels sont sans effet.
+var JeanAvatar = null;
 // ===== Conversation SERVEUR (source de vérité, partagée entre appareils) =====
 // L'historique et la génération vivent sur le serveur ajean. Le client ouvre un
 // flux d'ABONNEMENT permanent (SSE) qui rejoue le journal depuis lastSeq puis

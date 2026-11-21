@@ -60,3 +60,27 @@ func TestApplySamplingExternalEffort(t *testing.T) {
 		t.Fatalf("llama.cpp local : %v", local)
 	}
 }
+
+// API distante : seulement les champs de l'API OpenAI ; un preset Service
+// (moteur local lancé par AJEAN) garde tout.
+func TestApplySamplingExternalStrict(t *testing.T) {
+	cfg := map[string]string{"EXTERNAL": "1", "TEMP": "0.7", "TOP_P": "0.9", "TOP_K": "40", "MIN_P": "0.05", "PRESENCE_PENALTY": "0.5", "REPEAT_PENALTY": "1.1"}
+	p := map[string]any{}
+	applySamplingFrom(p, cfg)
+	for _, k := range []string{"temperature", "top_p", "presence_penalty"} {
+		if _, ok := p[k]; !ok {
+			t.Fatalf("%s manque : %v", k, p)
+		}
+	}
+	for _, k := range []string{"top_k", "min_p", "repeat_penalty"} {
+		if _, ok := p[k]; ok {
+			t.Fatalf("%s ne doit pas partir vers une API distante : %v", k, p)
+		}
+	}
+	cfg["SERVICE_CMD"] = "vllm serve x --port 8000"
+	p = map[string]any{}
+	applySamplingFrom(p, cfg)
+	if _, ok := p["top_k"]; !ok {
+		t.Fatalf("preset Service : top_k doit partir : %v", p)
+	}
+}

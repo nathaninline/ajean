@@ -216,13 +216,14 @@ func splitArgs(s string) []string {
 var samplingKeys = []struct {
 	cfg, field string
 	integer    bool
+	localOnly  bool // propre à llama.cpp : refusé par les API strictes (OpenAI…)
 }{
-	{"TEMP", "temperature", false},
-	{"TOP_P", "top_p", false},
-	{"TOP_K", "top_k", true},
-	{"MIN_P", "min_p", false},
-	{"PRESENCE_PENALTY", "presence_penalty", false},
-	{"REPEAT_PENALTY", "repeat_penalty", false},
+	{"TEMP", "temperature", false, false},
+	{"TOP_P", "top_p", false, false},
+	{"TOP_K", "top_k", true, true},
+	{"MIN_P", "min_p", false, true},
+	{"PRESENCE_PENALTY", "presence_penalty", false, false},
+	{"REPEAT_PENALTY", "repeat_penalty", false, true},
 }
 
 // applySampling superpose les paramètres d'échantillonnage du preset au corps
@@ -240,7 +241,13 @@ func applySampling(payload map[string]any) { applySamplingFrom(payload, ReadConf
 
 // applySamplingFrom est la partie pure d'applySampling : testable sans base.
 func applySamplingFrom(payload map[string]any, cfg map[string]string) {
+	// API distante (hors preset Service, qui lance un moteur local) : seulement
+	// les champs de l'API OpenAI.
+	strict := isExternalConfig(cfg) && strings.TrimSpace(cfg["SERVICE_CMD"]) == ""
 	for _, s := range samplingKeys {
+		if strict && s.localOnly {
+			continue
+		}
 		v := strings.TrimSpace(cfg[s.cfg])
 		if v == "" {
 			continue

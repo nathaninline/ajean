@@ -287,6 +287,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/agent/toggle", handleAgentToggle)
 	api("/api/agent/compact", handleCompactToggle)
 	api("/api/agent/prewarm", handlePrewarmToggle)
+	api("/api/apps-enabled", handleAppsToggle) // interrupteur des Apps (Paramètres > Général)
 	api("/api/apikey", handleAPIKey)
 	api("/api/secrets", handleSecrets) // coffre des clés d'API tierces : état (sans valeur), activation
 	api("/api/oai/public", handleOAIPublic)

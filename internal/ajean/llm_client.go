@@ -470,7 +470,9 @@ func EnabledTools(caps Caps) []Tool {
 		tools = append(tools, taskListTool(), taskCreateTool(), taskUpdateTool(), taskDeleteTool())
 		// Apps : l'IA crée de petites applications (et leurs scripts) que
 		// l'utilisateur ouvre dans l'écran Applications. Voir apps.go.
-		tools = append(tools, appTool())
+		if appsEnabled() {
+			tools = append(tools, appTool())
+		}
 		// Mémoire longue de la conversation : rappeler un bloc archivé au compactage
 		// (recall) ou le retrouver par mots-clés (recall_search). Réservé au mode
 		// agent — le compactage n'injecte les ids rappelables que là (voir

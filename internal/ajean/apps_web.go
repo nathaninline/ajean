@@ -258,3 +258,28 @@ func handleAppAI(w http.ResponseWriter, r *http.Request, id string, body map[str
 	}
 	sendJSON(w, http.StatusOK, map[string]any{"text": strings.TrimSpace(out.String()), "truncated": truncated})
 }
+
+// Interrupteur des Apps (Paramètres > Général). Activées par défaut : une
+// installation existante ne perd rien. Coupées, l'IA n'a plus l'outil `app` et
+// l'interface masque l'écran Applications ; les apps déjà faites restent sur le
+// disque et reviennent quand on rallume.
+const stAppsOff = "apps_off"
+
+func appsEnabled() bool { return !getBool(bkState, stAppsOff) }
+
+func handleAppsToggle(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		var req struct {
+			On *bool `json:"on"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.On == nil {
+			sendJSON(w, 400, map[string]any{"ok": false, "error": "requête illisible"})
+			return
+		}
+		if err := putBool(bkState, stAppsOff, !*req.On); err != nil {
+			sendJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+	}
+	sendJSON(w, 200, map[string]any{"ok": true, "on": appsEnabled()})
+}

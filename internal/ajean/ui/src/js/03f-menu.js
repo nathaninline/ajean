@@ -93,33 +93,49 @@ document.addEventListener('pointerdown', (e)=>{
 document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && MENU){ e.stopPropagation(); closeMenu(); } }, true);
 
 // ----- Bulles d'aide (« ? ») ------------------------------------------------
-// Chaque pastille bascule « open » dans son onclick (qui arrête la propagation),
-// d'où l'écoute en capture. Un 2e clic referme pour de bon (.shut masque aussi le
-// survol jusqu'à ce que la souris s'en aille), ouvrir une bulle ferme les autres,
-// un clic ailleurs ou Échap ferme tout.
-function closeHelps(except){
-  document.querySelectorAll('.help.open').forEach(h=>{ if(h !== except) h.classList.remove('open'); });
+// Comme la 1.0 : UNE bulle pour toute la page (#help-tip), posée au-dessus des
+// fenêtres. Elle s'ouvre au survol (vraie souris) et au focus clavier ; un clic ou
+// un toucher l'épingle jusqu'au clic suivant, à un clic ailleurs ou à Échap. Elle
+// se pose sous la pastille, au-dessus si la place manque, sans sortir de l'écran
+// ni de la fenêtre qui la contient. Le texte vient du .tip caché de la pastille.
+let HTIP=null; // {anchor, pinned}
+function helpTipEl(){
+  let el=document.getElementById('help-tip');
+  if(!el){ el=document.createElement('div'); el.id='help-tip'; el.setAttribute('role','tooltip'); document.body.appendChild(el); }
+  return el;
 }
-document.addEventListener('click', (e)=>{
-  const h = e.target.closest && e.target.closest('.help');
-  if(!h){ closeHelps(null); return; }
-  if(e.target.closest('.tip') && h.classList.contains('open')){
-    // clic DANS la bulle (lecture, lien) : elle reste ouverte malgré le onclick
-    setTimeout(()=>h.classList.add('open'), 0);
-    return;
-  }
-  closeHelps(h);
-  setTimeout(()=>{   // après le onclick de la pastille
-    const open = h.classList.contains('open');
-    h.classList.toggle('shut', !open);
-    if(!open) h.blur();
-  }, 0);
+function closeHelps(){
+  if(!HTIP) return;
+  HTIP.anchor.classList.remove('open'); HTIP=null;
+  helpTipEl().classList.remove('show');
+}
+function openHelp(anchor, pinned){
+  if(HTIP && HTIP.anchor===anchor){ HTIP.pinned=HTIP.pinned||pinned; return; }
+  closeHelps();
+  const src=anchor.querySelector('.tip'); if(!src) return;
+  const el=helpTipEl(), r=anchor.getBoundingClientRect(), gap=6;
+  const card=anchor.closest('.modal-card,.side'), box=card ? card.getBoundingClientRect() : {left:0,right:innerWidth};
+  el.innerHTML=src.innerHTML;
+  const left=r.left+r.width/2-el.offsetWidth/2, below=innerHeight-r.bottom-gap-8;
+  el.style.left=Math.max(8, box.left+8, Math.min(left, innerWidth-8-el.offsetWidth, box.right-8-el.offsetWidth))+'px';
+  el.style.top=(below<el.offsetHeight && r.top>below ? r.top-gap-el.offsetHeight : r.bottom+gap)+'px';
+  anchor.classList.add('open'); el.classList.add('show');
+  HTIP={anchor, pinned};
+}
+const HOVER=window.matchMedia && matchMedia('(hover:hover)').matches;
+document.addEventListener('mouseover', e=>{ if(!HOVER) return; const h=e.target.closest && e.target.closest('.help'); if(h) openHelp(h, false); });
+document.addEventListener('mouseout', e=>{ if(HTIP && !HTIP.pinned && e.target===HTIP.anchor && !HTIP.anchor.contains(e.relatedTarget)) closeHelps(); });
+document.addEventListener('focusin', e=>{ if(e.target.matches && e.target.matches('.help:focus-visible')) openHelp(e.target, false); });
+document.addEventListener('focusout', e=>{ if(HTIP && e.target===HTIP.anchor && !HTIP.pinned) closeHelps(); });
+// En capture : les pastilles ont un onclick qui arrête la propagation.
+document.addEventListener('click', e=>{
+  const h=e.target.closest && e.target.closest('.help');
+  if(h){ e.preventDefault(); (HTIP && HTIP.anchor===h && HTIP.pinned) ? closeHelps() : openHelp(h, true); return; }
+  if(HTIP && !helpTipEl().contains(e.target)) closeHelps();
 }, true);
-document.addEventListener('mouseout', (e)=>{
-  const h = e.target.closest && e.target.closest('.help.shut');
-  if(h && !h.contains(e.relatedTarget)) h.classList.remove('shut');
-}, true);
-document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && document.querySelector('.help.open')) closeHelps(null); }, true);
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && HTIP){ e.stopPropagation(); closeHelps(); } }, true);
+document.addEventListener('scroll', e=>{ if(HTIP && e.target.contains && e.target.contains(HTIP.anchor)) closeHelps(); }, true);
+addEventListener('resize', ()=>closeHelps());
 // Seul un défilement qui DÉPLACE l'ancre ferme le menu (page entière ou conteneur
 // de l'ancre). Le fil du chat défile tout seul pendant la génération : avant,
 // n'importe quel défilement refermait les menus ouverts ailleurs (issue #113).

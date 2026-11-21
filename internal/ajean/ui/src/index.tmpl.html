@@ -159,7 +159,6 @@
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-side" onchange="toggleView('hide-side')"><span class="slider"></span></span> <span data-i18n="appearance.hide_side">barre latérale escamotable</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="appearance.hide_side_help" data-i18n-html>La barre latérale devient un tiroir <b>même sur ordinateur</b> : elle reste fermée et s'ouvre avec le bouton ☰. Toute la largeur pour la conversation.</span></span></label>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-enter-newline" onchange="toggleView('enter-newline')"><span class="slider"></span></span> <span data-i18n="appearance.enter_newline">Entrée = retour à la ligne</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="appearance.enter_newline_help" data-i18n-html>Par défaut, <b>Entrée</b> envoie le message et <b>Maj+Entrée</b> fait un retour à la ligne. Activez ceci pour inverser : Entrée va à la ligne, et <b>Maj+Entrée</b> (ou Ctrl+Entrée) envoie.</span></span></label>
     <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-preset" onchange="toggleView('hide-preset')"><span class="slider"></span></span> <span data-i18n="appearance.hide_preset">masquer le nom du preset</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="appearance.hide_preset_help" data-i18n-html>Retire le nom du preset de la ligne d'état sous chaque réponse (durée, tokens, vitesse). Les autres informations restent affichées.</span></span></label>
-    <label class="switchrow"><span class="switch"><input type="checkbox" id="view-hide-term" onchange="toggleView('hide-term')"><span class="slider"></span></span> <span data-i18n="appearance.hide_term">masquer le terminal en plein écran</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="appearance.hide_term_help" data-i18n-html>En plein écran du mode Jean, les commandes lancées par l'IA ne s'affichent plus dans la fenêtre <b>terminal</b>. La recherche web et le navigateur restent visibles.</span></span></label>
     </div>
   </details>
   <details><summary><span class="stitle" data-i18n="api.title">API</span></summary>
@@ -398,25 +397,12 @@
         <button type="button" class="switchrow sw-action" onclick="saveSTT()"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span data-i18n="stt.save_button">Enregistrer</span></button>
       </div>
     </div>
-    <!-- Voix de Jean (voice.go, 25-voice-settings.js) : conversation à voix haute du
-         mode Jean, via un serveur audio.cpp. Réglages rangés côté serveur. -->
-    <div id="voice-block">
-      <div class="subhead"><span data-i18n="voice.title">Voix de Jean</span><span id="voice-badge" class="sbadge"></span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="voice.help" data-i18n-html>Conversation à voix haute en mode Jean : bouton micro sur sa scène. La transcription et la voix passent par un <b>serveur audio.cpp</b> (Qwen3-ASR et VoxCPM2). Les voix sont enregistrées dans AJEAN.</span></span></div>
-      <div class="slist">
-        <label class="switchrow"><span class="switch"><input type="checkbox" id="voice-toggle" onchange="voiceSave({on:this.checked})"><span class="slider"></span></span> <span data-i18n="voice.toggle">conversation vocale</span></label>
-        <label class="switchrow"><span data-i18n="voice.server">serveur audio</span><input id="voice-url" class="sctl" type="text" spellcheck="false" autocomplete="off" placeholder="http://127.0.0.1:8095" onchange="voiceSave({url:this.value})"></label>
-        <div class="switchrow"><span data-i18n="voice.voice">voix</span><span class="voice-pick"><select id="voice-name" class="sctl" onchange="voiceSave({voice:this.value})"></select><button type="button" class="voice-play" onclick="voiceTest()" data-i18n="voice.test" data-i18n-attr="title" title="Écouter"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg></button></span></div>
-        <label class="switchrow"><span data-i18n="voice.sens">sensibilité du micro</span><select id="voice-sens" class="sctl" onchange="voiceSave({sens:+this.value})"><option value="1" data-i18n="voice.sens_low">faible</option><option value="2" data-i18n="voice.sens_mid">normale</option><option value="3" data-i18n="voice.sens_high">élevée</option></select></label>
-        <label class="switchrow"><span data-i18n="voice.silence">pause avant envoi</span><select id="voice-silence" class="sctl" onchange="voiceSave({silence_ms:+this.value})"><option value="500">0,5 s</option><option value="800">0,8 s</option><option value="1200">1,2 s</option><option value="1800">1,8 s</option><option value="2500">2,5 s</option></select></label>
-        <button type="button" class="switchrow sw-action" onclick="voiceCreate()"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="voice.create">Créer une voix</span></button>
-        <button type="button" class="switchrow sw-action" id="voice-del" onclick="voiceDelete()"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span data-i18n="voice.delete">Supprimer la voix choisie</span></button>
-      </div>
-    </div>
     <div class="subhead" data-i18n="settings.general_subhead">Général</div>
     <div class="slist">
         <label class="switchrow agent-gated"><span class="switch"><input type="checkbox" id="compact-toggle" onchange="toggleCompact()"><span class="slider"></span></span> <span data-i18n="agent.compact_toggle">compactage automatique du contexte</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="agent.compact_help" data-i18n-html>activé par défaut : quand la conversation approche de la limite de contexte, les vieux tours sont résumés automatiquement (façon Hermes) au lieu de t'imposer un « vider ». Discussions quasi illimitées sans perdre le fil.</span></span></label>
         <div class="switchrow agent-gated compact-max-row"><span data-i18n="agent.compact_max">compacter au plus tard à</span><select id="compact-max" class="sctl" onchange="setCompactMax()"><option value="0" data-i18n="agent.compact_max_auto">75 % du contexte</option><option value="16384">16K</option><option value="24576">24K</option><option value="32768">32K</option><option value="49152">48K</option><option value="65536">64K</option><option value="98304">96K</option><option value="131072">128K</option></select><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="agent.compact_max_help">Par défaut, le contexte est compacté à 75 % de la fenêtre du modèle. Avec une très grande fenêtre, ce seuil n'est presque jamais atteint et les longues conversations deviennent lentes. Un plafond compacte plus tôt, quelle que soit la fenêtre.</span></span></div>
         <label class="switchrow"><span class="switch"><input type="checkbox" id="prewarm-toggle" onchange="togglePrewarm()"><span class="slider"></span></span> <span data-i18n="agent.prewarm_toggle">pré-chauffage du prompt</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="agent.prewarm_help">Activé par défaut. Quand une nouvelle conversation est ouverte, le moteur lit à l'avance les consignes et les outils. Le premier message obtient sa réponse en quelques dixièmes de seconde au lieu de plusieurs secondes. Le moteur travaille quelques secondes en arrière-plan à chaque nouvelle conversation.</span></span></label>
+        <label class="switchrow"><span class="switch"><input type="checkbox" id="apps-on-toggle" onchange="toggleAppsEnabled()"><span class="slider"></span></span> <span data-i18n="settings.apps_toggle">applications</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="settings.apps_help">L'écran Applications et l'outil qui permet à l'IA d'en créer. Coupé, les apps déjà faites restent sur le disque et reviennent quand on rallume.</span></span></label>
         <label class="switchrow"><span class="switch"><input type="checkbox" id="push-toggle" onchange="togglePush()"><span class="slider"></span></span> <span data-i18n="agent.push_toggle">me prévenir quand la réponse est prête</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="agent.push_help" data-i18n-html>Le serveur t'envoie une <b>notification</b> à la fin de chaque réponse, même l'app fermée ou le téléphone verrouillé. Sur iPhone : <b>ajoute d'abord AJEAN à l'écran d'accueil</b> puis active depuis l'app installée. À régler sur chaque appareil.</span></span></label>
         <!-- Chiffrement (off par défaut) : UN seul interrupteur. Chiffre la mémoire
              ET les conversations. Ton mot de passe ouvre le coffre, ton navigateur
@@ -497,6 +483,7 @@
   <div id="app-update" class="app-update" hidden onclick="onAppUpdateClick()"></div>
 </div>
 <div id="side-thumb" aria-hidden="true"></div>
+<div id="side-grip" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Largeur de la barre latérale" data-i18n="side.resize" data-i18n-attr="aria-label"></div>
 <div class="main" style="position:relative">
   <div id="chat"></div>
   <!-- App ouverte (22-apps.js) : couvre la conversation et la zone de saisie,
@@ -1365,7 +1352,16 @@
       <!-- Moteur (backend llama-server) : tout en haut du modal, juste après le nom. -->
       <div id="m-engine-row" class="pe-group" style="display:none">
         <div class="pe-gh" data-i18n="preset.engine_heading">Moteur</div>
-        <div class="pe-seg">
+        <!-- Une liste plutôt que cinq boutons serrés. Les boutons radio restent
+             (masqués) : toute la logique du choix passe encore par eux, la liste ne
+             fait que les piloter (beSelPick / beSelSync dans 07-models.js). -->
+        <div class="pe-list">
+          <div class="pe-row">
+            <span class="pe-row-l"><span data-i18n="preset.engine_label">Moteur utilisé</span><span class="pe-sub" id="be-sel-sub"></span></span>
+            <span class="pe-row-c"><span class="pe-selc"><select id="m-be-sel" onchange="beSelPick(this.value)"></select></span></span>
+          </div>
+        </div>
+        <div class="pe-seg" id="m-be-radios" hidden>
           <label><input type="radio" name="m-be" value="ajean" onchange="onBackendMode('ajean')"><span data-i18n="preset.engine_ajean">Moteur AJEAN</span></label>
           <label><input type="radio" name="m-be" value="fast" onchange="onBackendMode('fast')"><span data-i18n="preset.engine_fast">Précompilé</span><span class="be-note" id="be-fast-note"></span></label>
           <label><input type="radio" name="m-be" value="opt" onchange="onBackendMode('opt')"><span data-i18n="preset.engine_opt">Compilé</span><span class="be-note" id="be-opt-note"></span></label>
@@ -1725,11 +1721,11 @@
             <span class="pe-row-l"><span data-i18n="preset.topp_label">top_p</span><span class="pe-sub" data-i18n="preset.topp_sub">noyau de probabilité</span></span>
             <span class="pe-row-c"><input id="s-topp" class="pe-val" type="number" min="0" max="1" step="0.01" placeholder="—" oninput="cfgWriteKey('TOP_P', this.value)"></span>
           </div>
-          <div class="pe-row">
+          <div class="pe-row" id="m-samp-topk">
             <span class="pe-row-l"><span data-i18n="preset.topk_label">top_k</span><span class="pe-sub" data-i18n="preset.topk_sub">0 = désactivé</span></span>
             <span class="pe-row-c"><input id="s-topk" class="pe-val" type="number" min="0" step="1" placeholder="—" oninput="cfgWriteKey('TOP_K', this.value)"></span>
           </div>
-          <div class="pe-row">
+          <div class="pe-row" id="m-samp-minp">
             <span class="pe-row-l"><span data-i18n="preset.minp_label">min_p</span><span class="pe-sub" data-i18n="preset.minp_sub">seuil de probabilité</span></span>
             <span class="pe-row-c"><input id="s-minp" class="pe-val" type="number" min="0" max="1" step="0.01" placeholder="—" oninput="cfgWriteKey('MIN_P', this.value)"></span>
           </div>
@@ -1737,11 +1733,11 @@
             <span class="pe-row-l"><span data-i18n="preset.presence_label">Pénalité de présence</span><span class="pe-sub" data-i18n="preset.presence_sub">favorise les mots nouveaux</span></span>
             <span class="pe-row-c"><input id="s-presp" class="pe-val" type="number" min="0" max="2" step="0.1" placeholder="—" oninput="cfgWriteKey('PRESENCE_PENALTY', this.value)"></span>
           </div>
-          <div class="pe-row">
+          <div class="pe-row" id="m-samp-rep">
             <span class="pe-row-l"><span data-i18n="preset.repeat_label">Pénalité de répétition</span><span class="pe-sub" data-i18n="preset.repeat_sub">1 = neutre</span></span>
             <span class="pe-row-c"><input id="s-reppen" class="pe-val" type="number" min="0" step="0.05" placeholder="—" oninput="cfgWriteKey('REPEAT_PENALTY', this.value)"></span>
           </div>
-          <div class="pe-row">
+          <div class="pe-row" id="m-samp-effort">
             <span class="pe-row-l"><span data-i18n="preset.effort_label">Effort de réflexion</span><span class="pe-sub" data-i18n="preset.effort_sub">active --jinja</span></span>
             <span class="pe-row-c"><span class="pe-selc"><select id="s-effort" onchange="onEffort(this.value)">
               <option value="" data-i18n="preset.effort_opt_default">défaut du modèle</option>

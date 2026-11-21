@@ -118,6 +118,8 @@ const ROUTE_SECTIONS = {device:'device.title', config:'config.title', models:'pr
       } else if(name === 'history'){
         showSide();
         if(sideView() !== 'hist'){ showSideView('hist'); loadHistory(); }
+      } else if(name === 'apps' && document.body.classList.contains('no-apps')){
+        if(sideView() !== 'main') showSideView('main');
       } else if(name === 'apps'){
         showSide();
         if(sideView() !== 'apps') await openAppsView();
