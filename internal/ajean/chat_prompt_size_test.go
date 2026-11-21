@@ -43,6 +43,9 @@ import (
 const promptCharBudget = 12000 // ~3000 tokens, tout allumé (agent+web+mémoire+suivi+apps), outils séparés (regroupés en 0.18.2 puis abandonnés : plus d'appels mal formés)
 
 func TestSystemPromptStaysLean(t *testing.T) {
+	// Dossier de données vide : sans lui le test lisait l'installation réelle de
+	// la machine (serveurs MCP, réglages), et son budget dépendait du poste.
+	testHome(t)
 	caps := Caps{Agent: true, Internet: true, Mem: MemAlways}
 	sp := baseSystemPrompt(caps)
 	tb, err := json.Marshal(EnabledTools(caps))
