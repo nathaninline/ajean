@@ -149,6 +149,9 @@ func newWebMux() *http.ServeMux {
 	// Boucle de sauvegarde automatique vers ajean.link (no-op tant que non activée
 	// / non liée / non armée depuis le démarrage).
 	StartBackupScheduler()
+	// Sauvegarde LOCALE quotidienne (backup_local.go) : rien tant que
+	// AJEAN_BACKUP_DIR et AJEAN_BACKUP_KEY ne sont pas définis.
+	StartLocalBackupScheduler()
 	// Allègement sans perte des anciennes conversations (tâche de fond, une fois).
 	startSlimArchives()
 	// Index plein-texte des conversations archivées (#98), rattrapage en fond.
