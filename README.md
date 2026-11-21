@@ -174,12 +174,14 @@ A preset does not have to run on this machine:
 |---|---|
 | **This machine** | llama.cpp on your GPUs (choose which ones per preset) |
 | **External API** | any OpenAI-compatible endpoint |
+| **Service** | a command of your choice (vLLM, another llama-server…) started by AJEAN in its engine service; address and key taken from `--port` and `--api-key` |
 | **GPU Cloud** | a GPU rented on [Modal](https://modal.com) (T4 to B200), deployed by AJEAN, billed by use, asleep when idle |
 
 ### Engine
 
-The **Engine** section installs and updates llama.cpp in three flavors, chosen per preset:
+The **Engine** section installs and updates llama.cpp, chosen per preset:
 
+- **AJEAN engine**: a llama.cpp version tested with this AJEAN release, installed automatically; used by a preset without `BIN` (`ajean engine` for status and repair);
 - **pre-built**: the official llama.cpp binaries, ready in minutes;
 - **compiled**: built for this machine (CUDA with the right compute capability for each GPU, ROCm, Metal, Vulkan or CPU);
 - **custom**: any fork, from a Git URL, for models that need a special engine.
@@ -269,6 +271,17 @@ Remote access (ajean.link)
 llama.cpp engine
   llamacpp install [--backend=vulkan|cuda|hip|cpu]
   llamacpp update | status | uninstall <compiled|prebuilt|custom <name>>
+  engine [install|repair]         AJEAN engine (pinned llama.cpp)
+
+Security and backup
+  password [--remove|status]    interface password
+  ui listen [address|all]       interface listen address
+  secrets [on|off|status]       encrypted API key vault
+  review [on|off|status|accept|reject]
+                                review of tasks created by the AI
+  actions [N|on|off|status]     action log
+  backup <folder>               encrypted local backup
+  restore <file> <folder>       read it back into an empty folder
 
 Installation
   install | uninstall | update [--check] | where | version
@@ -307,6 +320,8 @@ Installation
 | `AJEAN_CHROME` | browser used for browser control | auto-detected |
 | `AJEAN_DL_CONNS` | parallel connections for model downloads (max 16) | `8` |
 | `HF_TOKEN` | Hugging Face token for private models | none |
+| `AJEAN_HOST` | interface listen address | all |
+| `AJEAN_BACKUP_DIR` / `AJEAN_BACKUP_KEY` | one encrypted local backup per day (7 kept) | none |
 | `EDITOR` | editor for `ajean edit` | `nano` / `notepad` |
 
 ### Control API

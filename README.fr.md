@@ -174,12 +174,14 @@ Un preset ne tourne pas forcément sur cette machine :
 |---|---|
 | **Cette machine** | llama.cpp sur vos GPU (au choix, par preset) |
 | **API externe** | n'importe quel point d'accès compatible OpenAI |
+| **Service** | une commande de votre choix (vLLM, un autre llama-server…) lancée par AJEAN dans son service moteur ; adresse et clé déduites de `--port` et `--api-key` |
 | **GPU Cloud** | un GPU loué sur [Modal](https://modal.com) (du T4 au B200), déployé par AJEAN, facturé à l'usage, mis en veille quand il ne sert pas |
 
 ### Moteur
 
-La section **Moteur** installe et met à jour llama.cpp en trois variantes, choisies par preset :
+La section **Moteur** installe et met à jour llama.cpp, choisi par preset :
 
+- **moteur AJEAN** : une version de llama.cpp testée avec cette version d'AJEAN, installée toute seule ; c'est celui d'un preset sans `BIN` (`ajean engine` pour l'état et la réparation) ;
 - **précompilé** : les binaires officiels de llama.cpp, prêts en quelques minutes ;
 - **compilé** : construit pour cette machine (CUDA avec la bonne architecture pour chaque GPU, ROCm, Metal, Vulkan ou CPU) ;
 - **personnalisé** : n'importe quel fork, depuis une URL Git, pour les modèles qui exigent un moteur particulier.
@@ -269,6 +271,17 @@ Accès distant (ajean.link)
 Moteur llama.cpp
   llamacpp install [--backend=vulkan|cuda|hip|cpu]
   llamacpp update | status | uninstall <compiled|prebuilt|custom <nom>>
+  engine [install|repair]         moteur AJEAN (llama.cpp épinglé)
+
+Sécurité et sauvegarde
+  password [--remove|status]    mot de passe de l'interface
+  ui listen [adresse|all]       adresse d'écoute de l'interface
+  secrets [on|off|status]       coffre chiffré des clés d'API
+  review [on|off|status|accept|reject]
+                                validation des tâches créées par l'IA
+  actions [N|on|off|status]     journal des actions
+  backup <dossier>              sauvegarde locale chiffrée
+  restore <fichier> <dossier>   la relire dans un dossier vide
 
 Installation
   install | uninstall | update [--check] | where | version
@@ -307,6 +320,8 @@ Installation
 | `AJEAN_CHROME` | navigateur utilisé pour le pilotage | détecté |
 | `AJEAN_DL_CONNS` | connexions parallèles pour télécharger un modèle (16 au plus) | `8` |
 | `HF_TOKEN` | jeton Hugging Face pour les modèles privés | aucun |
+| `AJEAN_HOST` | adresse d'écoute de l'interface | toutes |
+| `AJEAN_BACKUP_DIR` / `AJEAN_BACKUP_KEY` | une sauvegarde locale chiffrée par jour (7 gardées) | aucune |
 | `EDITOR` | éditeur pour `ajean edit` | `nano` / `notepad` |
 
 ### API de pilotage
