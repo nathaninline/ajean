@@ -104,8 +104,18 @@ func readSecretsKeyFile(path string) ([]byte, error) {
 	return k, nil
 }
 
+// secretsPruneGrace : âge minimal (s) d'une entrée avant qu'on l'élague (elle
+// peut appartenir à un preset en cours d'écriture). Mis à 0 par les tests.
+var secretsPruneGrace int64 = 60
+
 func writeSecretsKeyFile(path string, k []byte) error {
-	return memWriteFileVerified(path, []byte(base64.StdEncoding.EncodeToString(k)+"\n"), 0o600)
+	if err := memWriteFileVerified(path, []byte(base64.StdEncoding.EncodeToString(k)+"\n"), 0o600); err != nil {
+		return err
+	}
+	// Après « sudo ajean secrets on », la clé appartiendrait à root et le service
+	// ne pourrait plus la lire : on la donne au propriétaire d'AJEAN_HOME.
+	chownLikeHome(path)
+	return nil
 }
 
 // secretsKey renvoie la clé du coffre. Deux copies, chacune suffisante : celle
@@ -503,6 +513,10 @@ func secretsPrune() int {
 	}
 	n := 0
 	for _, s := range list {
+		// Une entrée toute neuve peut appartenir à un preset en cours d'écriture.
+		if secretsPruneGrace > 0 && time.Now().Unix()-s.At < secretsPruneGrace {
+			continue
+		}
 		if _, ok := used[s.ID]; !ok {
 			if secretDelete(s.ID) == nil {
 				n++
@@ -789,9 +803,14 @@ func secretsExport() ([]byte, error) {
 	for _, s := range list {
 		v, err := secretResolve(secretRefPrefix + s.ID)
 		if err != nil {
-			return nil, fmt.Errorf("coffre des clés : %w", err)
+			// Un secret abîmé ne doit pas faire échouer toute la sauvegarde.
+			fmt.Fprintf(os.Stderr, "sauvegarde : secret %s ignoré : %v\n", s.ID, err)
+			continue
 		}
 		out[s.ID] = item{Label: s.Label, Value: v}
+	}
+	if len(out) == 0 {
+		return nil, nil
 	}
 	return json.Marshal(out)
 }

@@ -203,7 +203,7 @@
        (validation), et la trace de ce qu'elle a fait (journal). Tout est éteint
        par défaut : rien ne change tant qu'on n'y touche pas. -->
   <details id="sec-details"><summary><span class="stitle" data-i18n="security.title">Sécurité</span><span id="sec-badge" class="sbadge"></span></summary>
-    <div class="subhead"><span data-i18n="security.password_subhead">Mot de passe de l'interface</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="security.password_help" data-i18n-html>Avec un mot de passe, l'interface demande de <b>se connecter</b> depuis tout appareil du réseau. Il n'est pas gardé (seule sa dérivation l'est), la session tient dans un cookie que la page ne peut pas lire, et les essais ratés sont freinés. L'accès par <b>ajean.link</b> et la clé de pilotage (scripts) continuent de marcher. Oublié ? <code>ajean password</code> sur la machine.</span></span></div>
+    <div class="subhead"><span data-i18n="security.password_subhead">Mot de passe de l'interface</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="security.password_help" data-i18n-html>Avec un mot de passe, l'interface demande de <b>se connecter</b> depuis tout appareil du réseau. Il n'est pas gardé (seule sa dérivation l'est), la session tient dans un cookie que la page ne peut pas lire, et les essais ratés sont freinés. L'accès par <b>ajean.link</b> et la clé de pilotage (scripts) continuent de marcher. Derrière un relais ou un proxy inverse, posez-le par <code>ajean password</code> sur la machine. Oublié ? <code>ajean password</code> sur la machine.</span></span></div>
     <div class="slist">
       <div id="sec-pw-state" class="rowbody muted" style="margin:0"></div>
       <button type="button" id="sec-pw-set" class="switchrow sw-action" onclick="secSetPassword()"><svg class="sw-ai" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span id="sec-pw-set-lbl" data-i18n="security.password_set">Définir un mot de passe</span></button>
@@ -215,7 +215,7 @@
     <div class="slist">
       <label class="switchrow"><span class="switch"><input type="checkbox" id="sec-vault-toggle" onchange="toggleSecretsVault()"><span class="slider"></span></span> <span class="sw-txt"><span data-i18n="security.vault_toggle">ranger les clés d'API dans le coffre chiffré</span><span id="sec-vault-status" class="sw-sub"></span></span></label>
     </div>
-    <div class="subhead"><span data-i18n="security.ai_subhead">Ce que fait l'IA</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="security.ai_help" data-i18n-html><b>Validation</b> : une tâche planifiée que l'IA crée ou modifie (et le script qu'elle lance) ne part pas seule avant votre accord, demandé une fois à la fin de sa réponse dans <b>Tâches</b>. Ce que vous réglez vous-même est validé d'office.<br><b>Journal</b> : chaque outil qui agit (commande, fichier, tâche…) est noté avant et après, y compris pendant les tâches de fond. Les secrets reconnus sont masqués ; mémoire chiffrée, le journal l'est aussi.</span></span></div>
+    <div class="subhead"><span data-i18n="security.ai_subhead">Ce que fait l'IA</span><span class="help" tabindex="0" onclick="event.preventDefault();event.stopPropagation();this.classList.toggle('open')">?<span class="tip" data-i18n="security.ai_help" data-i18n-html><b>Validation</b> : une tâche planifiée que l'IA crée ou modifie (et le script qu'elle lance) ne part pas seule avant votre accord, demandé une fois à la fin de sa réponse dans <b>Tâches</b>. Ce que vous réglez vous-même est validé d'office. C'est un garde-fou contre les surprises, pas une barrière : une IA qui a un shell peut la lever.<br><b>Journal</b> : chaque outil qui agit (commande, fichier, tâche…) est noté avant et après, y compris pendant les tâches de fond. Les secrets reconnus sont masqués ; mémoire chiffrée, le journal l'est aussi.</span></span></div>
     <div class="slist">
       <label class="switchrow"><span class="switch"><input type="checkbox" id="sec-review-toggle" onchange="toggleReview()"><span class="slider"></span></span> <span data-i18n="security.review_toggle">valider ce que l'IA planifie</span></label>
       <label class="switchrow"><span class="switch"><input type="checkbox" id="sec-actions-toggle" onchange="toggleActionsLog()"><span class="slider"></span></span> <span data-i18n="security.actions_toggle">tenir le journal des actions</span></label>
@@ -288,6 +288,11 @@
          donne que du Vulkan — llama.cpp ne publie aucun binaire CUDA Linux —
          alors que compiler donne du CUDA natif. -->
     <div class="lc-modes">
+      <div class="lc-mode" id="lc-mode-ajean" onclick="enginePick()">
+        <div class="lc-mode-t"><span id="lc-ajean-title" data-i18n="engine.mode_ajean_title">Moteur AJEAN</span></div>
+        <div class="lc-mode-d" data-i18n="engine.mode_ajean_desc">llama.cpp testé avec cette version d'AJEAN, installé tout seul</div>
+        <div class="lc-mode-state" id="lc-ajean-state"></div>
+      </div>
       <div class="lc-mode" id="lc-mode-fast" onclick="lcPick('fast')">
         <div class="lc-mode-t"><span data-i18n="engine.mode_fast_title">llama.cpp précompilé</span> <span class="lc-reco" id="lc-reco-fast" hidden data-i18n="engine.mode_recommended">conseillé</span></div>
         <div class="lc-mode-d" id="lc-desc-fast" data-i18n="engine.mode_fast_desc">binaire officiel téléchargé tel quel, prêt en ~2 min</div>
@@ -1226,16 +1231,21 @@
         <div class="pe-seg">
           <label><input type="radio" name="m-run" value="local" onchange="onRunMode('local')"><span data-i18n="preset.run_local">Cette machine</span></label>
           <label><input type="radio" name="m-run" value="external" onchange="onRunMode('external')"><span data-i18n="preset.run_external">API Externe</span></label>
+          <label><input type="radio" name="m-run" value="service" onchange="onRunMode('service')"><span data-i18n="preset.run_service">Service</span></label>
           <label><input type="radio" name="m-run" value="modal" onchange="onRunMode('modal')"><span data-i18n="preset.run_modal">GPU Cloud</span></label>
         </div>
         <!-- API externe : tout modèle compatible OpenAI Chat Completions (OpenAI,
              Claude, Groq, OpenRouter, un autre serveur…). Pas de moteur local. -->
         <div id="m-ext-body" class="pe-list" style="display:none;margin-top:8px">
-          <div class="pe-row stack">
+          <div class="pe-row stack" id="m-svc-row">
+            <span class="pe-row-l"><span data-i18n="preset.service_cmd_label">Commande</span> <span class="pe-sub" data-i18n="preset.service_cmd_hint">(lancée par AJEAN dans son service, ex: vllm serve …)</span></span>
+            <textarea id="s-svc-cmd" class="pe-inp" rows="1" spellcheck="false" placeholder="vllm serve Qwen/Qwen3-8B --port 8000" oninput="onServiceCmd(this.value)"></textarea>
+          </div>
+          <div class="pe-row stack" id="m-ext-url-row">
             <span class="pe-row-l"><span data-i18n="external.url_label">URL de l'API</span> <span class="pe-sub" data-i18n="external.url_hint">(base OpenAI, ex: https://api.openai.com/v1)</span></span>
             <input id="s-ext-url" class="pe-inp" spellcheck="false" placeholder="https://api.openai.com/v1" oninput="cfgWriteKey('EXTERNAL_URL', this.value);extModelsSchedule()">
           </div>
-          <div class="pe-row stack">
+          <div class="pe-row stack" id="m-ext-key-row">
             <span class="pe-row-l"><span data-i18n="external.key_label">Clé API</span> <span class="pe-sub" data-i18n="external.key_hint">(optionnelle pour un serveur local)</span></span>
             <input id="s-ext-key" class="pe-inp" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" oninput="cfgWriteKey('EXTERNAL_KEY', this.value);extModelsSchedule()">
           </div>
@@ -1356,6 +1366,7 @@
       <div id="m-engine-row" class="pe-group" style="display:none">
         <div class="pe-gh" data-i18n="preset.engine_heading">Moteur</div>
         <div class="pe-seg">
+          <label><input type="radio" name="m-be" value="ajean" onchange="onBackendMode('ajean')"><span data-i18n="preset.engine_ajean">Moteur AJEAN</span></label>
           <label><input type="radio" name="m-be" value="fast" onchange="onBackendMode('fast')"><span data-i18n="preset.engine_fast">Précompilé</span><span class="be-note" id="be-fast-note"></span></label>
           <label><input type="radio" name="m-be" value="opt" onchange="onBackendMode('opt')"><span data-i18n="preset.engine_opt">Compilé</span><span class="be-note" id="be-opt-note"></span></label>
           <label><input type="radio" name="m-be" value="custom" onchange="onBackendMode('custom')"><span data-i18n="preset.engine_custom">Personnalisé</span></label>

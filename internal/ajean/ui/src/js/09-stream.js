@@ -629,7 +629,7 @@ function handleDelta(d){
     collapseAll(T.turnCollapsibles); setBusy(false);
     // Validation activée : la réponse est finie, ce que l'IA a planifié se valide
     // maintenant (26-security.js). Laissé au serveur le temps de rendre la main.
-    if(!REPLAYING && typeof REVIEW_ON !== 'undefined' && REVIEW_ON) setTimeout(loadReview, 400);
+    if(!REPLAYING && typeof REVIEW_ON !== 'undefined' && REVIEW_ON) setTimeout(()=>loadReview(10), 400);
     return; }
   if(d.error){ hideCuShot(); smoothSnap(); flushRender(); elapsedStop(); removeTyping(); setActive(null); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
   if(d.jean_task){ showJeanTask(d.jean_task); return; }

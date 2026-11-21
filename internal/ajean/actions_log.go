@@ -137,10 +137,9 @@ func redactSecrets(s string) string {
 
 // actionLog ajoute une ligne. Ne renvoie rien : le journal ne doit jamais faire
 // échouer l'action qu'il note.
+// L'interrupteur est lu par l'appelant (newActionTurn, actionsInterruptedNote) :
+// le relire ici ouvrait la base à chaque ligne du journal.
 func actionLog(scope string, e actionEntry) {
-	if !actionsEnabled() {
-		return
-	}
 	e.TS = time.Now().UnixMilli()
 	// Masquer AVANT de couper : un jeton tranché par la coupe ne ressemblerait plus
 	// à un jeton et resterait, en partie, en clair. (Première coupe large, pour ne
@@ -251,6 +250,10 @@ func newActionTurn(ctx context.Context, caps Caps) *actionTurn {
 		t.scope, t.task, t.title = a.scope, a.task, a.title
 	}
 	if isJeanReflecting(ctx) || isJeanSleepCtx(ctx) {
+		t.on = false
+	}
+	// Interrupteur lu une fois par tour, pas à chaque appel d'outil.
+	if t.on && !actionsEnabled() {
 		t.on = false
 	}
 	return t

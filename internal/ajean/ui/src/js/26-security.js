@@ -151,8 +151,12 @@ function renderReview(r){
     toast(t('review.toast'));
   }
 }
-async function loadReview(){
-  try{ renderReview(await jget('/api/review')); }catch(e){}
+// retries : après un tour, le serveur peut être encore occupé (busy) ; on
+// relit toutes les 1,5 s, au plus « retries » fois.
+async function loadReview(retries){
+  let r = null;
+  try{ r = await jget('/api/review'); renderReview(r); }catch(e){}
+  if(r && r.busy && retries > 0) setTimeout(()=>loadReview(retries - 1), 1500);
 }
 async function toggleReview(){
   const tog = document.getElementById('sec-review-toggle'); const on = tog.checked;

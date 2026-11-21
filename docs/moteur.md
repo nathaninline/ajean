@@ -164,3 +164,18 @@ changements à relire.
 | `engine_status.go` | erreurs du journal du moteur |
 | `web_engine.go` | API `/api/engine`, `/api/engine/install`, `/api/engine/repair` |
 | `migrate_019.go`, `migrate_020.go` | reprise des installations 0.19 et 0.20 |
+
+## Dans l'interface
+
+- **Section Moteur** (panneau latéral, `#/engine`) : la carte « Moteur AJEAN (llama.cpp bNNNNN) »
+  s'affiche en tête, avant les trois moteurs de la 0.18. Un clic l'installe ; « Réparer » le
+  retélécharge ; quand plusieurs variantes existent pour la machine (CUDA, Vulkan…), une liste
+  permet d'en imposer une. Le suivi passe par le journal d'installation habituel.
+- **Éditeur de preset, Moteur** : « Moteur AJEAN » est choisi quand le preset n'a pas de ligne
+  `BIN` (ou qu'elle pointe dans `backends/engine/`). Le choisir retire la ligne `BIN` ; les
+  presets 0.18 qui désignent un précompilé, un compilé ou un fork s'affichent comme avant.
+- **Éditeur de preset, Exécution > Service** : une commande (`SERVICE_CMD`) lancée par AJEAN dans
+  son service, qui expose une API compatible OpenAI. L'adresse et la clé se déduisent de la
+  commande ; quitter Service retire `SERVICE_CMD`, `SERVICE_WORKDIR` et `SERVICE_ENV`.
+- **Configuration** : la ligne Moteur affiche « Moteur AJEAN (llama.cpp bNNNNN) » quand la
+  configuration active tourne dessus.

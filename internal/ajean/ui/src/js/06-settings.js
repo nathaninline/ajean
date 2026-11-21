@@ -81,6 +81,11 @@ async function loadPresets(){
     // Second row: quant tag + bench perf, so the title row stays full-width.
     const meta=document.createElement('div'); meta.className='preset-meta';
     // Preset externe : le modèle distant à la place des tags quant/ctx.
+    if(x.service){
+      const sv=document.createElement('span'); sv.className='ctag';
+      sv.title=t('settings.presets.service_title'); sv.textContent=t('preset.run_service');
+      meta.appendChild(sv);
+    }
     if(x.external){
       if(x.model){
         const mt=document.createElement('span'); mt.className='ctag';

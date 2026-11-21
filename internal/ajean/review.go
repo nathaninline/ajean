@@ -16,6 +16,9 @@ package ajean
 //
 // Éteinte (le défaut), rien ne change : les tâches partent comme en 0.18.
 //
+// C'est un garde-fou contre les surprises, pas une barrière : une IA qui a un
+// shell peut lever la validation elle-même.
+//
 // État (bucket état) : "review_on", "review_tasks" = {id → ce qui a été validé}.
 // À l'activation, les tâches déjà présentes sont reprises telles quelles : elles
 // tournaient avant, elles ne doivent pas s'arrêter.
@@ -391,6 +394,7 @@ func reviewRejectLocked() error {
 	}
 	now := time.Now()
 	seen := map[string]bool{}
+	revalidate := map[string]bool{}
 	for _, t := range listTasks() {
 		seen[t.ID] = true
 		old, known := m[t.ID]
@@ -417,6 +421,19 @@ func reviewRejectLocked() error {
 					return fmt.Errorf("script « %s » non remis : %w", old.Script, err)
 				}
 			}
+		} else if old.Kind == "script" && old.ScriptSum == "" && cur.ScriptSum != "" {
+			// Validée alors que son script n'existait pas encore : le script créé
+			// depuis est mis de côté et retiré, sinon la même liste revenait sans fin.
+			if full, err := scriptsPathIn(scriptsDirFor(old.Jean), old.Script); err == nil {
+				reviewKeepRejected(full)
+				if err := os.Remove(full); err != nil && !os.IsNotExist(err) {
+					return fmt.Errorf("script « %s » non retiré : %w", old.Script, err)
+				}
+			}
+		} else if old.Kind == "script" && old.ScriptSum != cur.ScriptSum && old.ScriptText == "" {
+			// Script validé trop gros pour avoir été gardé : impossible de le
+			// remettre. La tâche est suspendue et revalidée suspendue.
+			revalidate[t.ID] = true
 		}
 		if t.Schedule != old.Schedule || t.TZ != old.TZ {
 			t.NextRun = computeNextRun(old.Schedule, old.TZ, now)
@@ -427,7 +444,18 @@ func reviewRejectLocked() error {
 		if t.Enabled && !old.Enabled {
 			t.Enabled = false
 		}
+		if revalidate[t.ID] {
+			t.Enabled = false
+		}
 		if err := saveTask(t); err != nil {
+			return err
+		}
+		if revalidate[t.ID] {
+			m[t.ID] = reviewDefOf(t)
+		}
+	}
+	if len(revalidate) > 0 {
+		if err := reviewStore(m); err != nil {
 			return err
 		}
 	}

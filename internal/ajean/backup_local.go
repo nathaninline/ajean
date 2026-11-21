@@ -16,6 +16,8 @@ package ajean
 // scripts, les apps, les voix, le coffre de la mémoire et la clé du coffre des
 // clés d'API. N'y sont pas : les modèles, les moteurs, le dossier de travail
 // jetable et les snapshots — gros, et qui se retrouvent autrement.
+// .e2e_key n'y est pas non plus (la sauvegarde ajean.link ne l'emporte pas) : elle
+// se retrouve en reliant de nouveau l'appareil.
 //
 //	ajean backup <dossier>             écrit ajean-AAAAMMJJ-HHMMSS.ajbk
 //	ajean restore <fichier> <dossier>  la déchiffre dans un dossier VIDE
@@ -67,7 +69,7 @@ var localBackupKDF = kekParams{T: argonTime, M: argonMemory, P: argonThreads}
 // localBackupDirs / localBackupFiles : ce qui part dans l'archive, relatif à
 // AJEAN_HOME. La base est traitée à part (copie cohérente).
 var (
-	localBackupDirs  = []string{"memory", "presets", "scripts", "jean-scripts", "apps", "voices", "actions", "approved"}
+	localBackupDirs  = []string{"memory", "presets", "scripts", "jean-scripts", "apps", "voices", "actions", "approved", "chatimg", "chatvid"}
 	localBackupFiles = []string{".keyvault", ".keyvault.bak", ".secrets_key", ".secrets_key.bak"}
 )
 
@@ -187,18 +189,24 @@ func localBackupSkip(rel string) bool {
 // writeLocalBackupTar écrit le contenu d'AJEAN_HOME dans tw.
 func writeLocalBackupTar(tw *tar.Writer) error {
 	root := AjeanHome()
-	// La base : une copie COHÉRENTE, prise dans une transaction de lecture (un
-	// simple recopiage du fichier pourrait tomber en pleine écriture).
-	err := withDB(func(d *bolt.DB) error {
-		return d.View(func(tx *bolt.Tx) error {
-			if err := tw.WriteHeader(&tar.Header{Name: "ajean.db", Mode: 0o600, Size: tx.Size(), ModTime: time.Now()}); err != nil {
-				return err
-			}
-			_, err := tx.WriteTo(tw)
-			return err
-		})
+	// La base : une copie COHÉRENTE, prise dans une transaction de lecture, vers
+	// un fichier temporaire d'AJEAN_HOME (pas la destination, qui peut être un
+	// dossier synchronisé). La transaction est relâchée AVANT la compression et le
+	// chiffrement : sinon toute l'API restait figée le temps de l'archive.
+	tmp, err := os.CreateTemp(root, ".tmp-backup-db-*")
+	if err != nil {
+		return fmt.Errorf("copie de la base : %w", err)
+	}
+	tmpPath := tmp.Name()
+	tmp.Close()
+	defer os.Remove(tmpPath)
+	err = withDB(func(d *bolt.DB) error {
+		return d.View(func(tx *bolt.Tx) error { return tx.CopyFile(tmpPath, 0o600) })
 	})
 	if err != nil {
+		return fmt.Errorf("copie de la base : %w", err)
+	}
+	if err := addDBFile(tw, tmpPath); err != nil {
 		return fmt.Errorf("copie de la base : %w", err)
 	}
 	addFile := func(path, rel string, info fs.FileInfo) error {
@@ -554,4 +562,22 @@ func cmdRestore(args []string) error {
 	fmt.Printf("%s %d fichier(s) restauré(s) dans %s\n", green("[ok]"), n, args[1])
 	fmt.Println(dim("       pour s'en servir : AJEAN_HOME=" + args[1] + " (ou recopier son contenu dans le dossier de données, service arrêté)"))
 	return nil
+}
+
+// addDBFile archive la copie de la base sous le nom ajean.db.
+func addDBFile(tw *tar.Writer, path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if err := tw.WriteHeader(&tar.Header{Name: "ajean.db", Mode: 0o600, Size: info.Size(), ModTime: time.Now()}); err != nil {
+		return err
+	}
+	_, err = io.CopyN(tw, f, info.Size())
+	return err
 }

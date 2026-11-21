@@ -1943,6 +1943,9 @@ button:hover{border-color:var(--dim);color:var(--text)}
 #modal.eng-exl3 #m-backend-custom,#modal.eng-exl3 #be-avail-note{display:none!important}
 #modal.run-cloud #m-exl3-row,#modal.run-cloud #m-exl3-set,#modal.run-cloud #m-exl3-gpu,
 #modal.run-external #m-exl3-row,#modal.run-external #m-exl3-set,#modal.run-external #m-exl3-gpu{display:none!important}
+#modal:not(.run-service) #m-svc-row{display:none}
+#modal.run-service #m-ext-url-row,#modal.run-service #m-ext-key-row{display:none}
+#s-svc-cmd{resize:none;overflow:hidden;min-height:34px;font-family:var(--mono,monospace);font-size:12px}
 #m-exl3-row .pe-row[hidden],#m-exl3-set .pe-row[hidden],#m-exl3-gpu .pe-row[hidden]{display:none}
 #s-exl3-gpus .pe-row-c{gap:10px}
 /* Section GPU Cloud selon l'état (voir #m-cloud-body[data-state]). */

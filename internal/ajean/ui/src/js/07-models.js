@@ -226,6 +226,7 @@ async function openItem(kind, key){
     // Ces deux-là LISENT le contenu : elles doivent passer après son arrivée.
     document.getElementById('m-quant').value = currentQuantInTextarea();
     populateSettings();
+    runServicePicked = false;
     syncRunMode();
     attachDownload();                      // téléchargement encore en cours côté serveur ?
     await Promise.all([loadExl3(), populateModelPicker(), populateMmproj(), populateSpecDraft(), populateDlDirs()]);
@@ -478,7 +479,7 @@ function underDir(p, dir){
   const n = x => String(x||'').replace(/\\/g,'/').replace(/\/+$/,'').toLowerCase();
   return !!p && !!dir && n(p).startsWith(n(dir)+'/');
 }
-let beFastPath = '', beOptPath = '', beFastDir = '';
+let beFastPath = '', beOptPath = '', beFastDir = '', beAjeanDir = '';
 // Mode moteur RÉELLEMENT sélectionné (celui écrit dans BIN). Sert à revenir dessus
 // quand l'utilisateur clique un moteur non installé : on n'écrit pas un BIN vers un
 // binaire absent, on montre l'avertissement et on remet le curseur où il était.
@@ -542,8 +543,12 @@ async function populateBackend(){
     ? (t('models.backend.drop_hint_prefix')+lc.backends_dir+t('models.backend.drop_hint_suffix')) : '';
   // Sélectionne l'option correspondant au BIN actuel du preset.
   const cur = currentBinInTextarea();
+  let eng = {}; try{ eng = await jget('/api/engine'); }catch(_){}
+  beAjeanDir = eng.dir || '';
   let mode = 'custom';
   if(cfgReadKey('ENGINE') === 'exl3') mode = 'exl3';
+  // BIN vide ou sous backends/engine/ : moteur AJEAN (voir resolveBin côté Go).
+  else if(!cur || underDir(cur, beAjeanDir)) mode = 'ajean';
   else if(sameBinPath(cur, beFastPath) || underDir(cur, beFastDir)) mode = 'fast';
   else if(sameBinPath(cur, beOptPath)) mode = 'opt';
   const radio = document.querySelector('input[name=m-be][value='+mode+']');
@@ -584,7 +589,11 @@ function onBackendMode(mode){
   }
   // retour vers llama.cpp : le preset ne désigne plus ExLlama
   if(cfgReadKey('ENGINE') === 'exl3'){ cfgWriteKey('ENGINE', ''); syncEngineView(); }
-  if(mode === 'fast'){
+  if(mode === 'ajean'){
+    // Pas de BIN="" : la ligne absente veut dire « moteur AJEAN ».
+    cfgWriteKey('BIN', ''); beCurrentMode = 'ajean'; toast(t('preset.engine_ajean_selected'));
+    loadGpuDevices();
+  } else if(mode === 'fast'){
     setBinInTextarea(beFastPath); beCurrentMode = 'fast'; toast(t('models.backend.engine_precompiled'));
     loadGpuDevices();
   } else if(mode === 'opt'){
@@ -638,14 +647,16 @@ async function prefetchGpuDevices(bin){
 
 async function loadGpuDevices(){
   const group = document.getElementById('m-gpu-group');
-  const bin = currentBinInTextarea();
-  if(!bin){ group.hidden = true; gpuDevices = []; return; }
+  const realBin = currentBinInTextarea();
+  // BIN vide = moteur AJEAN épinglé : clé de cache à part, et {pinned:true}.
+  const pinned = !realBin || underDir(realBin, beAjeanDir);
+  const bin = pinned ? '\u0000ajean' : realBin;
   if(gpuCache[bin]){ gpuDevices = gpuCache[bin]; renderGpu(); return; }
   let r = {};
-  try{ r = await jpost('/api/backends/devices', {bin}); }catch(_){ r = {ok:false}; }
+  try{ r = await jpost('/api/backends/devices', pinned ? {pinned:true} : {bin}); }catch(_){ r = {ok:false}; }
   // Le moteur a pu changer pendant l'appel (clic rapide) : on ne peint que si la
   // réponse concerne toujours le moteur affiché.
-  if(currentBinInTextarea() !== bin) return;
+  if(currentBinInTextarea() !== realBin) return;
   gpuDevices = (r.ok && r.devices) ? r.devices : [];
   if(r.ok) gpuCache[bin] = gpuDevices;
   renderGpu();
@@ -1062,18 +1073,35 @@ function populateSettings(){
 const CLOUD_PROVIDERS = ['modal'];
 function runMode(){
   if(CLOUD_PROVIDERS.includes(cfgReadKey('CLOUD').toLowerCase())) return 'modal';
-  if(cfgReadKey('EXTERNAL') === '1') return 'external';
+  if(cfgReadKey('EXTERNAL') === '1') return (cfgReadKey('SERVICE_CMD') || runServicePicked) ? 'service' : 'external';
   return 'local';
 }
+// Service vient d'être choisi, commande encore vide : sans ce drapeau, runMode()
+// retomberait sur « API externe » avant la première frappe.
+let runServicePicked = false;
+function onServiceCmd(v){
+  cfgWriteKey('SERVICE_CMD', String(v).replace(/\r?\n/g, ' ').trim());
+  const ta = document.getElementById('s-svc-cmd');
+  if(ta){ ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+  extModelsSchedule();
+}
 function syncRunMode(){
-  const mode = runMode();
+  let mode = runMode();
   document.querySelectorAll('input[name="m-run"]').forEach(r=>{ r.checked = r.value === mode; });
   document.getElementById('m-cloud-body').style.display = mode === 'modal' ? '' : 'none';
+  const svc = mode === 'service';
+  if(svc) mode = 'external'; // même bloc que l'API externe, URL et clé masquées
   document.getElementById('m-ext-body').style.display = mode === 'external' ? '' : 'none';
   const md = document.getElementById('modal');
   requestAnimationFrame(fitSelects);
   md.classList.toggle('run-cloud', mode === 'modal');
   md.classList.toggle('run-external', mode === 'external');
+  md.classList.toggle('run-service', svc);
+  if(svc){
+    const ta = document.getElementById('s-svc-cmd');
+    ta.value = cfgReadKey('SERVICE_CMD');
+    requestAnimationFrame(()=>{ ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; });
+  }
   // Le bench mesure le moteur local : sans objet pour un preset distant, sauf un
   // moteur tiers lancé par ajean (EXTERNAL_SERVICE, ex. moteur MoE), mesuré en streaming.
   const bench = document.getElementById('btn-bench');
@@ -1122,14 +1150,15 @@ async function extModelsLoad(){
   clearTimeout(extModelsTimer);
   const url = cfgReadKey('EXTERNAL_URL');
   const key = cfgReadKey('EXTERNAL_KEY');
-  const sig = url + '\n' + key;
-  if(!url){ extModelsSeq++; extModels = null; extModelsFor = null; extModelsErr = ''; extModelsRender(); return; }
+  const svc = runMode() === 'service', cmd = cfgReadKey('SERVICE_CMD');
+  const sig = url + '\n' + key + (svc ? '\n' + cmd : '');
+  if(!url && !(svc && cmd)){ extModelsSeq++; extModels = null; extModelsFor = null; extModelsErr = ''; extModelsRender(); return; }
   if(sig === extModelsFor){ extModelsRender(); return; }
   const seq = ++extModelsSeq;
   extModelsRender(true);
   let list = null, err = '';
   try{
-    const r = await jpost('/api/preset/external/models', {id: editingKey || '', url, key, keyTouched: true});
+    const r = await jpost('/api/preset/external/models', Object.assign({id: editingKey || '', url, key, keyTouched: true}, svc ? {service:true, cmd} : {}));
     if(r.ok) list = r.models || []; else err = r.error || '';
   }catch(e){}
   if(seq !== extModelsSeq) return;
@@ -1185,7 +1214,11 @@ async function testExternalPreset(){
   const st = document.getElementById('s-ext-status');
   const b = {id: editingKey || '', url: cfgReadKey('EXTERNAL_URL'), model: cfgReadKey('EXTERNAL_MODEL'),
              key: cfgReadKey('EXTERNAL_KEY'), keyTouched: true, effort: cfgReadKey('REASONING_EFFORT')};
-  if(!b.url || !b.model){ st.textContent = t('external.url_model_required'); return; }
+  if(runMode() === 'service'){
+    b.service = true; b.cmd = cfgReadKey('SERVICE_CMD');
+    b.workdir = cfgReadKey('SERVICE_WORKDIR'); b.env = cfgReadKey('SERVICE_ENV');
+    if(!b.cmd){ st.textContent = t('preset.service_cmd_required'); return; }
+  } else if(!b.url || !b.model){ st.textContent = t('external.url_model_required'); return; }
   st.textContent = t('external.testing');
   try{
     const r = await jpost('/api/preset/external/test', b);
@@ -1263,7 +1296,11 @@ function onCloudProfile(){
 function onCloudProvider(p){ cfgWriteKey('CLOUD', p); syncRunMode(); }
 function onRunMode(mode){
   cfgWriteKey('CLOUD', mode === 'modal' ? 'modal' : '');
-  cfgWriteKey('EXTERNAL', mode === 'external' ? '1' : '');
+  cfgWriteKey('EXTERNAL', (mode === 'external' || mode === 'service') ? '1' : '');
+  runServicePicked = mode === 'service';
+  if(mode !== 'service'){
+    cfgWriteKey('SERVICE_CMD', ''); cfgWriteKey('SERVICE_WORKDIR', ''); cfgWriteKey('SERVICE_ENV', '');
+  }
   if(mode === 'modal' && !cfgReadKey('CLOUD_GPU')) cfgWriteKey('CLOUD_GPU', 'A10G');
   syncRunMode();
 }

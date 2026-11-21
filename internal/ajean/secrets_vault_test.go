@@ -16,6 +16,9 @@ func secretsTestHome(t *testing.T) string {
 	home := testHome(t)
 	secretCacheBust()
 	t.Cleanup(secretCacheBust)
+	old := secretsPruneGrace
+	secretsPruneGrace = 0
+	t.Cleanup(func() { secretsPruneGrace = old })
 	if err := os.MkdirAll(presetsDir(), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -401,6 +404,11 @@ func TestBundleCarriesSecrets(t *testing.T) {
 	if _, err := secretsEnable(); err != nil {
 		t.Fatal(err)
 	}
+	// Une entrée abîmée ne doit pas faire échouer toute la sauvegarde.
+	if err := putBytes(bkSecrets, "abime", []byte(`{"label":"x","box":"pas-du-base64"}`)); err != nil {
+		t.Fatal(err)
+	}
+	secretCacheBust()
 	tarData, err := buildBundleTar()
 	if err != nil {
 		t.Fatal(err)

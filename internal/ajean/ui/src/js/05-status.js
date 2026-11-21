@@ -606,11 +606,14 @@ async function loadCfg(){
     updateReasonBtn(c.REASONING_EFFORT || '', false);
     return;
   }
-  if(c.BIN){
+  // BIN absent ou sous backends/engine/ : moteur AJEAN épinglé.
+  const eng=(c.EXTERNAL!=='1') ? await jget('/api/engine').catch(()=>null) : null;
+  if(c.BIN || (eng && eng.in_use)){
     // Moteur : précompilé / compilé / personnalisé (avec le chemin). Le title garde
     // toujours le chemin complet, quel que soit le libellé.
     let v;
-    if(lc && lc.prebuilt && lc.prebuilt.in_use) v=t('status.engine_prebuilt');
+    if(eng && eng.in_use) v=t('status.engine_ajean')+(eng.version ? ' (llama.cpp '+eng.version+')' : '');
+    else if(lc && lc.prebuilt && lc.prebuilt.in_use) v=t('status.engine_prebuilt');
     else if(lc && lc.in_use) v=t('status.engine_compiled');
     else v=t('status.engine_custom_prefix')+' '+c.BIN;
     // Commande exacte du dernier lancement (#108) : petite icône de copie
@@ -618,7 +621,7 @@ async function loadCfg(){
     const cl=await jget('/api/engine/cmdline').catch(()=>null);
     ENGINE_CMDLINE=(cl&&cl.cmdline)||'';
     const cp=ENGINE_CMDLINE ? '<button class="cfg-copy" onclick="copyText(ENGINE_CMDLINE, t(\'status.cmdline_copied\'))" title="'+escHtml(t('status.cmdline_copy')+' : '+ENGINE_CMDLINE)+'"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>' : '';
-    rows.push(row(t('status.cfg_engine')+cp, v, c.BIN));
+    rows.push(row(t('status.cfg_engine')+cp, v, c.BIN || (eng && eng.bin) || ''));
   }
   // Nombre de couches du modèle (#43) : NGL au-delà de ngl_max ne change rien,
   // en dessous on libère de la VRAM pour le contexte et le cache KV.

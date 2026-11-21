@@ -19,6 +19,7 @@ async function loadLlamacpp(){
   lcRenderMode('fast', fastInstalled);
   lcRenderMode('opt', optInstalled);
   lcRenderCustomCard();
+  if(typeof loadEngine === 'function') loadEngine();
 
   // Job en cours (page rechargée pendant une install) → on raccroche l'affichage.
   if(s.job && s.job.exists && s.job.running && !lcPoll){
@@ -49,7 +50,7 @@ async function loadLlamacpp(){
 let lcSeenEnd = false, lcEndShown = false;
 function lcChipLabel(action){
   return {install:t('llamacpp.chip_install'), update:t('llamacpp.chip_update'),
-          prebuilt:t('llamacpp.chip_prebuilt'), custom:t('llamacpp.chip_custom'), moe:t('moe.chip'),
+          prebuilt:t('llamacpp.chip_prebuilt'), engine:t('engine.chip_install'), 'engine-repair':t('engine.chip_repair'), custom:t('llamacpp.chip_custom'), moe:t('moe.chip'),
           exl3:t('exl3.chip_install'), 'exl3-update':t('exl3.chip_update'), 'exl3-model':t('exl3.chip_model')}[action] || t('llamacpp.chip_default');
 }
 function lcChipSync(j){

@@ -169,6 +169,7 @@ Interface (ajean-ui) :
   set-web-key [clé]             protéger l'API de pilotage; vide = générer, "" = retirer
   password [--remove|status]    mot de passe de l'interface (saisi au clavier) : connexion par
                                 session, essais freinés ; s'ajoute à la clé de pilotage
+                                (derrière un relais ou un proxy inverse : le poser par cette commande)
   ui listen [adresse|all]       adresse d'écoute de l'interface (127.0.0.1 = cette machine seule)
   secrets [status|on|off]       coffre chiffré des clés d'API tierces (presets externes, MCP) ;
                                 off les remet en clair à leur place
