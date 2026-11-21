@@ -52,27 +52,47 @@ func brandIconImage(n int, bg, fg color.RGBA) *image.RGBA {
 		}
 		return false
 	}
+	// Chaque pixel est la moyenne de ss×ss échantillons : les coins arrondis et
+	// les bords du « j » sont lissés au lieu d'être en escalier. Sans ça, toute
+	// taille qui n'est pas un multiple de 12 (20, 32, 40 px : celles de la barre
+	// des tâches Windows) donnait des blocs inégaux, puis une icône floue une
+	// fois mise à l'échelle par le système.
+	const ss = 4
 	img := image.NewRGBA(image.Rect(0, 0, n, n))
 	scale := float64(n) / 12
 	for y := 0; y < n; y++ {
 		for x := 0; x < n; x++ {
-			gx := (float64(x) + 0.5) / scale
-			gy := (float64(y) + 0.5) / scale
-			if outside(gx, gy) {
-				img.Set(x, y, brandClear)
-				continue
-			}
-			c := bg
-			for _, rc := range glyphRects {
-				if gx >= rc[0] && gx < rc[0]+rc[2] && gy >= rc[1] && gy < rc[1]+rc[3] {
-					c = fg
+			var r, g, b, a float64 // couleurs prémultipliées par l'alpha
+			for sy := 0; sy < ss; sy++ {
+				for sx := 0; sx < ss; sx++ {
+					gx := (float64(x) + (float64(sx)+0.5)/ss) / scale
+					gy := (float64(y) + (float64(sy)+0.5)/ss) / scale
+					if outside(gx, gy) {
+						continue
+					}
+					c := bg
+					for _, rc := range glyphRects {
+						if gx >= rc[0] && gx < rc[0]+rc[2] && gy >= rc[1] && gy < rc[1]+rc[3] {
+							c = fg
+						}
+					}
+					ca := float64(c.A) / 255
+					r += float64(c.R) * ca
+					g += float64(c.G) * ca
+					b += float64(c.B) * ca
+					a += ca
 				}
 			}
-			img.Set(x, y, c)
+			const total = ss * ss
+			// image.RGBA attend des couleurs prémultipliées.
+			img.SetRGBA(x, y, color.RGBA{uint8(r/total + 0.5), uint8(g/total + 0.5), uint8(b/total + 0.5), uint8(a*255/total + 0.5)})
 		}
 	}
 	return img
 }
+
+// brandIconSizes : tailles servies par /icon-<n>.png (favicons et manifeste).
+var brandIconSizes = map[int]bool{16: true, 32: true, 48: true, 64: true, 96: true, 128: true, 192: true, 256: true, 512: true}
 
 func encodePNG(img *image.RGBA) []byte {
 	var buf bytes.Buffer

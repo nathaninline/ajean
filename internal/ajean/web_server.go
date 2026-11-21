@@ -175,6 +175,18 @@ func newWebMux() *http.ServeMux {
 		w.Header().Set("Service-Worker-Allowed", "/")
 		w.Write(b)
 	})
+	// Icône de marque en PNG, à la taille demandée (/icon-48.png…). La fenêtre
+	// d'application (Edge/Chrome --app) prend son icône de barre des tâches dans
+	// le favicon : un favicon SVG y était rendu en 16 px puis agrandi, donc flou.
+	// Des PNG nets à chaque taille règlent ça, et servent aussi au manifeste PWA.
+	for size := range brandIconSizes {
+		png := BrandIconPNG(size) // rendu une fois, au démarrage
+		mux.HandleFunc("/icon-"+strconv.Itoa(size)+".png", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "image/png")
+			w.Header().Set("Cache-Control", "public, max-age=86400")
+			_, _ = w.Write(png)
+		})
+	}
 	mux.HandleFunc("/manifest.webmanifest", func(w http.ResponseWriter, r *http.Request) {
 		b, _ := uiFS.ReadFile("ui/manifest.webmanifest")
 		w.Header().Set("Content-Type", "application/manifest+json")
