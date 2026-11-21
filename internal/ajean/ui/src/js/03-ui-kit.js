@@ -73,6 +73,10 @@ function _openAsk(kind, message, opts){
   document.getElementById('ask-title').textContent = opts.title || (kind==='alert'?t('uikit.info_title'):kind==='prompt'?t('uikit.prompt_title'):t('uikit.confirm_title'));
   document.getElementById('ask-msg').textContent = message||'';
   const inp=document.getElementById('ask-input'), ta=document.getElementById('ask-textarea');
+  // opts.password : saisie masquée (mot de passe de l'interface, phrase de
+  // sauvegarde). Remis à « text » à chaque ouverture : le champ est partagé.
+  inp.type = (kind==='prompt' && opts.password) ? 'password' : 'text';
+  inp.autocomplete = (kind==='prompt' && opts.password) ? (opts.newPassword ? 'new-password' : 'current-password') : 'off';
   _askMultiline = kind==='prompt' && !!opts.multiline;
   if(kind==='prompt'){
     const el = _askMultiline ? ta : inp, other = _askMultiline ? inp : ta;

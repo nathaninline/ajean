@@ -32,8 +32,15 @@ func cmdWeb(args []string) error {
 		}
 		port = n
 	}
+	// Adresse d'écoute : toutes les interfaces par défaut, comme toujours ;
+	// AJEAN_HOST / « ajean ui listen » la restreint (web_password.go). Résolue
+	// AVANT le mux : un refus ne doit rien avoir démarré.
+	host, err := webListenHost()
+	if err != nil {
+		return err
+	}
 	mux := newWebMux()
-	addr := fmt.Sprintf("0.0.0.0:%d", port)
+	addr := net.JoinHostPort(host, strconv.Itoa(port))
 
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -47,10 +54,16 @@ func cmdWeb(args []string) error {
 		}
 	}
 	fmt.Printf("[ajean web] http://%s  (Ctrl-C pour arrêter)\n", addr)
-	if !webKeyConfigured() {
-		fmt.Printf("%s API de pilotage NON protégée (aucune clé). Avant de l'exposer sur internet :\n", yellow("[!]"))
-		fmt.Printf("       %s\n", bold("ajean set-web-key"))
-	} else {
+	keyed, pwd := webKeyConfigured(), webPasswordConfigured()
+	switch {
+	case !keyed && !pwd:
+		fmt.Printf("%s API de pilotage NON protégée (ni mot de passe, ni clé). Avant de l'exposer sur internet :\n", yellow("[!]"))
+		fmt.Printf("       %s   (mot de passe de l'interface)   ou   %s   (clé Bearer pour les scripts)\n", bold("ajean password"), bold("ajean set-web-key"))
+	case keyed && pwd:
+		fmt.Printf("%s API protégée par mot de passe (interface) et par clé (Authorization: Bearer …)\n", green("[ok]"))
+	case pwd:
+		fmt.Printf("%s API protégée par mot de passe\n", green("[ok]"))
+	default:
 		fmt.Printf("%s API protégée par clé (Authorization: Bearer …)\n", green("[ok]"))
 	}
 
@@ -181,7 +194,11 @@ func newWebMux() *http.ServeMux {
 		w.Header().Set("Cache-Control", "public, max-age=3600")
 		w.Write(b)
 	})
-	// api enregistre une route /api/* protégée par la clé de pilotage (web_auth.go).
+	// La porte elle-même (état, connexion, déconnexion, mot de passe) : ces routes
+	// décident seules, on ne peut pas exiger d'être entré pour entrer.
+	registerAuthRoutes(mux)
+	// api enregistre une route /api/* protégée par la clé de pilotage ou le mot de
+	// passe (web_auth.go, web_password.go).
 	api := func(path string, h http.HandlerFunc) { mux.HandleFunc(path, requireWebAuth(h)) }
 	api("/api/ping", handlePing)
 	registerAppRoutes(api) // apps créées par l'IA (apps_web.go)

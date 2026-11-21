@@ -137,6 +137,10 @@ func isE2EAuthed(r *http.Request) bool {
 // requireWebAuth wraps an HTTP handler, rejecting requests that don't present
 // the configured Bearer token. When no key is configured the handler is left
 // open (pratique en local) — cmdWeb avertit alors bruyamment au démarrage.
+//
+// Depuis la 0.21, un MOT DE PASSE peut aussi protéger l'API (web_password.go) :
+// une session ouverte par ce mot de passe (cookie HttpOnly) vaut alors le Bearer.
+// Sans mot de passe défini, le comportement est exactement celui d'avant.
 func requireWebAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Requête arrivée par le tunnel ajean.link : déjà authentifiée par l'identité
@@ -152,20 +156,35 @@ func requireWebAuth(next http.HandlerFunc) http.HandlerFunc {
 				map[string]any{"error": "configuration illisible — réessaie dans un instant"})
 			return
 		}
-		if msg := crossSiteReject(r, hash != ""); msg != "" {
+		pw, err := pwStateErr()
+		if err != nil {
+			// Idem pour le mot de passe : dans le doute, on ferme.
+			sendJSON(w, http.StatusServiceUnavailable,
+				map[string]any{"error": "configuration illisible — réessaie dans un instant"})
+			return
+		}
+		protected := hash != "" || pw.configured()
+		if msg := crossSiteReject(r, protected); msg != "" {
 			sendJSON(w, http.StatusForbidden, map[string]any{"error": msg})
 			return
 		}
-		if hash == "" {
+		if !protected {
 			next(w, r)
 			return
 		}
-		if !checkBearer(r, hash) {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="ajean"`)
-			sendJSON(w, http.StatusUnauthorized, map[string]any{"error": "non autorisé"})
+		if hash != "" && checkBearer(r, hash) {
+			next(w, r)
 			return
 		}
-		next(w, r)
+		if webSessionValid(pw, sessionToken(r)) {
+			next(w, r)
+			return
+		}
+		// realm="ajean" : c'est à cette signature qu'une autre instance reconnaît un
+		// AJEAN protégé (ajeanAnswersOn). « login » dit à la page de demander le mot
+		// de passe plutôt que la clé de pilotage.
+		w.Header().Set("WWW-Authenticate", `Bearer realm="ajean"`)
+		sendJSON(w, http.StatusUnauthorized, map[string]any{"error": "non autorisé", "login": pw.configured()})
 	}
 }
 
@@ -248,7 +267,7 @@ func crossSiteReject(r *http.Request, keyed bool) string {
 		return "origine non autorisée"
 	}
 	if !keyed && !localHostName(r.Host) {
-		return "hôte « " + r.Host + " » non autorisé sans clé de pilotage — définis-en une (ajean set-web-key) pour accéder à l'interface par ce nom"
+		return "hôte « " + r.Host + " » non autorisé sans protection — définis un mot de passe (ajean password) ou une clé de pilotage (ajean set-web-key) pour accéder à l'interface par ce nom"
 	}
 	return ""
 }

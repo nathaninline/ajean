@@ -58,6 +58,8 @@ func Main() {
 		mustExit(cmdSetAPIKey(args))
 	case "set-web-key":
 		mustExit(cmdSetWebKey(args))
+	case "password":
+		mustExit(cmdPassword(args))
 	case "vram":
 		mustExit(showVram())
 	case "gpu":
@@ -149,6 +151,9 @@ Interface (ajean-ui) :
   web [PORT]                    sert l'interface au premier plan (défaut :8090) —
                                 ouvre aussi le tunnel si un jeton est enregistré
   set-web-key [clé]             protéger l'API de pilotage; vide = générer, "" = retirer
+  password [--remove|status]    mot de passe de l'interface (saisi au clavier) : connexion par
+                                session, essais freinés ; s'ajoute à la clé de pilotage
+  ui listen [adresse|all]       adresse d'écoute de l'interface (127.0.0.1 = cette machine seule)
 
 Interaction:
   chat [system-prompt]          chat terminal streamé
@@ -189,6 +194,8 @@ Installation:
 
 Env:
   AJEAN_HOME   racine des données (défaut : /etc/ajean, %%ProgramData%%\ajean sous Windows)
+  AJEAN_HOST   adresse d'écoute de l'interface (défaut : 0.0.0.0) ; une adresse du réseau
+               demandée ici exige un mot de passe ou une clé de pilotage
   EDITOR       éditeur pour 'ajean edit' (défaut : nano, notepad sous Windows)
 `, Version)
 }

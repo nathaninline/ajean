@@ -30,10 +30,39 @@ async function jfetch(u, opts){
   }
   finally{ if(timer) clearTimeout(timer); }
   if(r.status === 401){
-    const k = await askKeyOnce();
+    // Le serveur dit quoi demander : « login » = un mot de passe protège
+    // l'interface (session par cookie), sinon c'est la clé de pilotage.
+    let login = false;
+    try{ const j = await r.clone().json(); login = !!(j && j.login); }catch(_){}
+    const k = login ? await askLoginOnce() : await askKeyOnce();
     if(k){ opts.headers = authHeaders(opts.headers); r = await fetch(u, opts); }
   }
   return r;
+}
+// askLoginOnce : UNE seule demande de mot de passe à la fois (même raison que
+// askKeyOnce). Le mot de passe part au serveur, qui répond par un cookie de
+// session HttpOnly : rien n'est gardé côté page, ni mot de passe ni jeton.
+let _loginAsk = null;
+function askLoginOnce(){
+  if(!_loginAsk){
+    _loginAsk = (async()=>{
+      let msg = t('auth.login_msg');
+      for(;;){
+        const pw = await askPrompt(msg, {title:t('auth.login_title'), placeholder:t('auth.password_placeholder'), okText:t('auth.login_ok'), password:true});
+        if(!pw) return false;
+        let r;
+        try{ r = await fetch(API_BASE+'/api/auth/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password:pw})}); }
+        catch(e){ msg = t('auth.login_unreachable'); continue; }
+        if(r.ok) return true;
+        let j = {}; try{ j = await r.json(); }catch(_){}
+        if(r.status === 429) msg = t('auth.login_wait_prefix') + (j.wait||60) + t('auth.login_wait_suffix');
+        else if(r.status === 401) msg = t('auth.login_wrong');
+        else if(r.status === 409) return false; // mot de passe retiré entre-temps : on rejoue sans
+        else msg = j.error || ('HTTP ' + r.status);
+      }
+    })().then(v => { _loginAsk = null; return v; }, e => { _loginAsk = null; throw e; });
+  }
+  return _loginAsk;
 }
 // askKeyOnce : UNE seule demande de clé à la fois, partagée par tous les appels.
 //
