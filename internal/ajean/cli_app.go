@@ -16,6 +16,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -36,7 +37,17 @@ func cmdApp(args []string) error {
 		return nil
 	}
 
-	addr := fmt.Sprintf("0.0.0.0:%d", appPort)
+	// Toutes les interfaces par défaut ; AJEAN_HOST / « ajean ui listen » restreint
+	// (web_password.go). L'adresse ouverte dans la fenêtre suit.
+	host, err := webListenHost()
+	if err != nil {
+		notifyUser("AJEAN ne peut pas démarrer", err.Error())
+		return err
+	}
+	if h := webLocalURLHost(host); h != "localhost" {
+		url = fmt.Sprintf("http://%s:%d", h, appPort)
+	}
+	addr := net.JoinHostPort(host, strconv.Itoa(appPort))
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		// Le port est pris — mais par QUI ? On le demande au lieu de le

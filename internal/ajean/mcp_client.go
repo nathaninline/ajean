@@ -108,6 +108,14 @@ func (h headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 func mcpConnect(ctx context.Context, name string, cfg MCPServerConfig) (*mcpsdk.ClientSession, error) {
 	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "ajean", Version: Version}, nil)
 
+	// Jetons rangés dans le coffre des clés : les références se résolvent ici, au
+	// moment de se connecter. Une référence illisible fait échouer la connexion —
+	// on ne lance pas le serveur avec « vault:… » en guise de jeton.
+	cfg, err := resolveMCPSecrets(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("serveur MCP '%s' : jeton illisible dans le coffre des clés (%w)", name, err)
+	}
+
 	var transport mcpsdk.Transport
 	switch cfg.Transport() {
 	case "stdio":

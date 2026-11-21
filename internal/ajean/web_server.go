@@ -32,8 +32,15 @@ func cmdWeb(args []string) error {
 		}
 		port = n
 	}
+	// Adresse d'écoute : toutes les interfaces par défaut, comme toujours ;
+	// AJEAN_HOST / « ajean ui listen » la restreint (web_password.go). Résolue
+	// AVANT le mux : un refus ne doit rien avoir démarré.
+	host, err := webListenHost()
+	if err != nil {
+		return err
+	}
 	mux := newWebMux()
-	addr := fmt.Sprintf("0.0.0.0:%d", port)
+	addr := net.JoinHostPort(host, strconv.Itoa(port))
 
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -47,10 +54,16 @@ func cmdWeb(args []string) error {
 		}
 	}
 	fmt.Printf("[ajean web] http://%s  (Ctrl-C pour arrêter)\n", addr)
-	if !webKeyConfigured() {
-		fmt.Printf("%s API de pilotage NON protégée (aucune clé). Avant de l'exposer sur internet :\n", yellow("[!]"))
-		fmt.Printf("       %s\n", bold("ajean set-web-key"))
-	} else {
+	keyed, pwd := webKeyConfigured(), webPasswordConfigured()
+	switch {
+	case !keyed && !pwd:
+		fmt.Printf("%s API de pilotage NON protégée (ni mot de passe, ni clé). Avant de l'exposer sur internet :\n", yellow("[!]"))
+		fmt.Printf("       %s   (mot de passe de l'interface)   ou   %s   (clé Bearer pour les scripts)\n", bold("ajean password"), bold("ajean set-web-key"))
+	case keyed && pwd:
+		fmt.Printf("%s API protégée par mot de passe (interface) et par clé (Authorization: Bearer …)\n", green("[ok]"))
+	case pwd:
+		fmt.Printf("%s API protégée par mot de passe\n", green("[ok]"))
+	default:
 		fmt.Printf("%s API protégée par clé (Authorization: Bearer …)\n", green("[ok]"))
 	}
 
@@ -136,6 +149,9 @@ func newWebMux() *http.ServeMux {
 	// Boucle de sauvegarde automatique vers ajean.link (no-op tant que non activée
 	// / non liée / non armée depuis le démarrage).
 	StartBackupScheduler()
+	// Sauvegarde LOCALE quotidienne (backup_local.go) : rien tant que
+	// AJEAN_BACKUP_DIR et AJEAN_BACKUP_KEY ne sont pas définis.
+	StartLocalBackupScheduler()
 	// Allègement sans perte des anciennes conversations (tâche de fond, une fois).
 	startSlimArchives()
 	// Index plein-texte des conversations archivées (#98), rattrapage en fond.
@@ -193,7 +209,11 @@ func newWebMux() *http.ServeMux {
 		w.Header().Set("Cache-Control", "public, max-age=3600")
 		w.Write(b)
 	})
-	// api enregistre une route /api/* protégée par la clé de pilotage (web_auth.go).
+	// La porte elle-même (état, connexion, déconnexion, mot de passe) : ces routes
+	// décident seules, on ne peut pas exiger d'être entré pour entrer.
+	registerAuthRoutes(mux)
+	// api enregistre une route /api/* protégée par la clé de pilotage ou le mot de
+	// passe (web_auth.go, web_password.go).
 	api := func(path string, h http.HandlerFunc) { mux.HandleFunc(path, requireWebAuth(h)) }
 	api("/api/ping", handlePing)
 	registerAppRoutes(api) // apps créées par l'IA (apps_web.go)
@@ -261,6 +281,7 @@ func newWebMux() *http.ServeMux {
 	api("/api/agent/compact", handleCompactToggle)
 	api("/api/agent/prewarm", handlePrewarmToggle)
 	api("/api/apikey", handleAPIKey)
+	api("/api/secrets", handleSecrets) // coffre des clés d'API tierces : état (sans valeur), activation
 	api("/api/oai/public", handleOAIPublic)
 	api("/api/link/status", handleLinkStatus)         // état de l'accès distant (ajean.link)
 	api("/api/link/connect", handleLinkConnect)       // clé de liaison remise par connect.html → ajean link
@@ -389,6 +410,8 @@ func newWebMux() *http.ServeMux {
 	api("/api/tasks/pause", handleTasksPause)
 	api("/api/tasks/run", handleTaskRun)
 	api("/api/tasks/stop", handleTaskStop)
+	api("/api/review", handleReview)   // validation de ce que l'IA planifie : liste à valider, accord / refus, activation
+	api("/api/actions", handleActions) // journal des actions de l'IA (lecture seule + interrupteur)
 	// Pré-chauffe le préfixe dès que le moteur répond, sans attendre le premier
 	// sondage du navigateur (ui/link peut tourner sans page ouverte).
 	// • déjà lancé (redémarrage de l'UI seule) : tout de suite ;

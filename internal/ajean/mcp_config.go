@@ -3,6 +3,7 @@ package ajean
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -149,6 +150,18 @@ func SetMCPServer(name string, cfg MCPServerConfig) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
+	// Coffre des clés activé : les jetons (en-têtes d'authentification, variables
+	// à nom de secret) n'entrent pas en clair dans la base, seule leur référence.
+	// Coffre indisponible : enregistré comme avant, en clair.
+	sealedAny := false
+	if secretsOn() {
+		sealed, n, err := sealMCPConfig(name, cfg, nil)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[coffre] serveur MCP « %s » : jetons laissés en clair (%v)\n", name, err)
+		} else {
+			cfg, sealedAny = sealed, n > 0
+		}
+	}
 	mcpConfigMu.Lock()
 	servers, err := loadMCPConfigLocked()
 	if err != nil {
@@ -160,6 +173,9 @@ func SetMCPServer(name string, cfg MCPServerConfig) error {
 	mcpConfigMu.Unlock()
 	if err != nil {
 		return err
+	}
+	if sealedAny || secretsOn() {
+		secretsPrune() // les jetons remplacés, s'ils ne sont plus référencés
 	}
 	mcpInvalidate(name)
 	return nil
@@ -183,6 +199,7 @@ func DeleteMCPServer(name string) error {
 	if err != nil {
 		return err
 	}
+	secretsPrune() // ses jetons quittent le coffre s'ils ne servent plus ailleurs
 	mcpInvalidate(name)
 	return nil
 }

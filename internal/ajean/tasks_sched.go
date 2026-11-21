@@ -82,6 +82,13 @@ func tickTasks(now time.Time) {
 			continue
 		}
 		if t.NextRun <= nowMs {
+			// Validation activée (review.go) : une tâche que le modèle a créée ou
+			// modifiée ne part pas avant l'accord de l'utilisateur. On passe à la
+			// suivante — elle ne doit pas bloquer les autres — et elle partira au
+			// premier tick après sa validation. Validation éteinte : toujours vrai.
+			if !reviewTaskValid(t) {
+				continue
+			}
 			runTask(t) // met à jour LastRun/NextRun/… et persiste
 			return
 		}

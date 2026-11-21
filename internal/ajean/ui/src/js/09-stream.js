@@ -626,7 +626,11 @@ function handleDelta(d){
     // dernier enfant du fil (donc sous le message).
     removeTyping(); finalizeTurn(d.elapsed_ms||0, d.preset);
     for(const el of T.turnCollapsibles){ if(el){ el.classList.remove('working'); finalizeReasonLabel(el); } } // fin de tour : plus rien n'est actif (avant collapseAll qui vide la liste)
-    collapseAll(T.turnCollapsibles); setBusy(false); return; }
+    collapseAll(T.turnCollapsibles); setBusy(false);
+    // Validation activée : la réponse est finie, ce que l'IA a planifié se valide
+    // maintenant (26-security.js). Laissé au serveur le temps de rendre la main.
+    if(!REPLAYING && typeof REVIEW_ON !== 'undefined' && REVIEW_ON) setTimeout(loadReview, 400);
+    return; }
   if(d.error){ hideCuShot(); smoothSnap(); flushRender(); elapsedStop(); removeTyping(); setActive(null); T.contentEl=null; T.reasonEl=null; const eb=addMsg('assistant',''); eb.classList.add('errmsg'); renderBody(eb, d.error); return; }
   if(d.jean_task){ showJeanTask(d.jean_task); return; }
   // Message que Jean envoie de lui-même (tâche, rappel) : une bulle de réponse

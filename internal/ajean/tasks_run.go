@@ -70,6 +70,11 @@ func (c *Conversation) RunAutonomous(ctx context.Context, taskID, taskName, prom
 	if note := taskContextNote(taskName, lastReport); note != "" {
 		prompt = note + "\n\n" + prompt
 	}
+	// Journal des actions : ce que la tâche fait y est noté sous son nom (son
+	// historique ne garde que le compte-rendu final). Si son passage précédent a
+	// été coupé net, elle apprend ce qu'il avait déjà fait.
+	prompt = actionsInterruptedNote("tasks", taskID) + prompt
+	ctx = withActionScope(ctx, "tasks", taskID, taskName)
 	msgs := []Message{{Role: "user", Content: prompt}}
 	final := msgs
 	if sys := readSysPrompt(); sys != "" {

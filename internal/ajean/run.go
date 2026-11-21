@@ -58,6 +58,18 @@ func Main() {
 		mustExit(cmdSetAPIKey(args))
 	case "set-web-key":
 		mustExit(cmdSetWebKey(args))
+	case "password":
+		mustExit(cmdPassword(args))
+	case "secrets":
+		mustExit(cmdSecrets(args))
+	case "review":
+		mustExit(cmdReview(args))
+	case "actions":
+		mustExit(cmdActions(args))
+	case "backup":
+		mustExit(cmdBackup(args))
+	case "restore":
+		mustExit(cmdRestore(args))
 	case "vram":
 		mustExit(showVram())
 	case "gpu":
@@ -153,6 +165,11 @@ Interface (ajean-ui) :
   web [PORT]                    sert l'interface au premier plan (défaut :8090) —
                                 ouvre aussi le tunnel si un jeton est enregistré
   set-web-key [clé]             protéger l'API de pilotage; vide = générer, "" = retirer
+  password [--remove|status]    mot de passe de l'interface (saisi au clavier) : connexion par
+                                session, essais freinés ; s'ajoute à la clé de pilotage
+  ui listen [adresse|all]       adresse d'écoute de l'interface (127.0.0.1 = cette machine seule)
+  secrets [status|on|off]       coffre chiffré des clés d'API tierces (presets externes, MCP) ;
+                                off les remet en clair à leur place
 
 Interaction:
   chat [system-prompt]          chat terminal streamé
@@ -165,6 +182,10 @@ Interaction:
   memory [off|ondemand|always|search|status]  mode mémoire de l'IA
   internet [on|off|status]
                                 accès web de l'IA (moteur intégré)
+  review [on|off|status|accept|reject]
+                                validation : les tâches que l'IA crée ou modifie (et leurs
+                                scripts) attendent votre accord avant de partir seules
+  actions [N|on|off|status]     journal de ce que l'IA a fait (N dernières actions)
 
 Accès distant (ajean.link) :
   link <token>                  enregistre le jeton et ouvre le tunnel
@@ -187,12 +208,20 @@ Moteur ExLlama (modèles EXL3, NVIDIA) :
 
 Installation:
   where                         affiche l'emplacement du binaire, de la base et des dossiers
+  backup <dossier>              sauvegarde locale chiffrée par une phrase (base, mémoire, presets,
+                                scripts, apps, voix ; sans les modèles ni les moteurs)
+  restore <fichier> <dossier>   déchiffre une sauvegarde locale dans un dossier vide
   install | uninstall           installer / désinstaller
   update [--check]              mettre à jour depuis les releases GitHub
   serve                         entrypoint du service : exec llama-server (usage interne)
 
 Env:
   AJEAN_HOME   racine des données (défaut : /etc/ajean, %%ProgramData%%\ajean sous Windows)
+  AJEAN_HOST   adresse d'écoute de l'interface (défaut : 0.0.0.0) ; une adresse du réseau
+               demandée ici exige un mot de passe ou une clé de pilotage
+  AJEAN_BACKUP_DIR, AJEAN_BACKUP_KEY
+               sauvegarde locale chiffrée quotidienne vers ce dossier, avec cette phrase
+               (les 7 dernières sont gardées)
   EDITOR       éditeur pour 'ajean edit' (défaut : nano, notepad sous Windows)
 `, Version)
 }

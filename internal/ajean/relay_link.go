@@ -185,8 +185,10 @@ func cmdUI(args []string) error {
 			fmt.Printf("  accès distant : jeton enregistré — le tunnel s'ouvre avec le service\n")
 		}
 		return nil
+	case "listen":
+		return cmdUIListen(args[1:])
 	default:
-		return fmt.Errorf("usage: ajean ui [start|stop|restart|status]")
+		return fmt.Errorf("usage: ajean ui [start|stop|restart|status|listen [adresse|all]]")
 	}
 }
 

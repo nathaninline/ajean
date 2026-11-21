@@ -623,6 +623,17 @@ func (c *Conversation) StartTurn(text string, files []attachInfo, caps Caps, tem
 	if caps.Voice {
 		prompt += voiceTurnNote
 	}
+	// Deux notes rares, en tête du message, pour le modèle seul (la bulle affichée
+	// reste le texte de l'utilisateur) : ce qu'un tour coupé net avait déjà fait
+	// (actions_log.go), et le refus d'une validation (review.go).
+	actScope := "chat"
+	if caps.Jean {
+		actScope = "jean"
+	}
+	if caps.Agent || caps.Jean {
+		prompt = actionsInterruptedNote(actScope, c.ID) + reviewTakeNote() + prompt
+	}
+	ctx = withActionScope(ctx, actScope, c.ID, "")
 	c.Messages = append(c.Messages, Message{Role: "user", Content: userMessageContent(files, prompt)})
 	epoch := c.epoch
 	c.mu.Unlock()

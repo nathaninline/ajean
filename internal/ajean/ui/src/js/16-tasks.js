@@ -39,6 +39,7 @@ function renderTasks(r){
   TASK_JEAN_SCRIPTS = (r && r.jean_scripts) || [];
   TASK_PROJECTS = (r && r.projects) || [];
   TASK_RUNNING = (r && r.running_id) || '';
+  const pendingIds = new Set((r && r.pending) || []);
   ensureTasksPoll();
   const pc = document.getElementById('tasks-pause-toggle');
   if(pc) pc.checked = paused;
@@ -86,6 +87,12 @@ function renderTasks(r){
       const rn = document.createElement('span'); rn.className = 'task-run-badge';
       rn.textContent = t('tasks.running_badge'); meta.appendChild(rn);
     } else {
+      // Validation activée : cette tâche, créée ou modifiée par l'IA, ne partira
+      // pas avant l'accord de l'utilisateur (voir le bloc au-dessus de la liste).
+      if(pendingIds.has(tk.id)){
+        const pd = document.createElement('span'); pd.className = 'task-pending-badge';
+        pd.textContent = t('review.pending_badge'); pd.title = t('review.sub'); meta.appendChild(pd);
+      }
       const fr = document.createElement('span'); fr.className = 'mcp-tag';
       fr.textContent = scheduleLabel(tk.schedule); meta.appendChild(fr);
       if(tk.kind === 'script'){
